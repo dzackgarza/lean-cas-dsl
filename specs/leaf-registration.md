@@ -52,7 +52,8 @@ diagram's name with its explicit arguments in their forms, e.g.
 `{"ctor": "cone" | "cocone", "args": [apex, leg₁, …]}`. The kernel decodes it against the
 data fields of the standard cone constructor of the shape:
 - the apex is a named object or a literal of the category;
-- each leg is a graph literal;
+- each leg uses the declared map interface at its complete endpoints, including a finite
+  graph or an owned callable when that interface admits one;
 - formal commutation proofs remain with the independent mathematical construction.
 
 A missing leg or a leg that is not a map at the declared endpoints makes the answer
@@ -151,8 +152,10 @@ operation id and `args` is the encoded input.
 
 A statement's semantic reading elaborates it from the catalogue alone
 ([architecture.md](architecture.md), "Acceptance"), into a Lean term built from catalogue
-operations and literal denotations. The realized reading evaluates that same term; there is no
-second traversal of the statement. It evaluates bottom-up:
+operations and literal denotations. The realized reading executes that same selected meaning;
+it does not reinterpret the statement. It evaluates the dependencies required by the selected
+realization, preserving lazy demand and admitted direct computations of composites:
+
 1. **Literals.** A subterm `denote t` of a registered literal form is the value `t` of that form,
    encoded by the kernel. The extent of a finite-subset literal is the literal itself.
 2. **Transport.** Before a registration is selected, the receiver of a method or property is sent
@@ -167,16 +170,71 @@ second traversal of the statement. It evaluates bottom-up:
    - two admitted registrations for the same operation and form: a gap, reported as ambiguous;
    - a backend that cannot start: unavailable;
    - a rejected answer: malformed.
-4. **Composites.** The decoded value is the input of the next operation along the resolved route.
-   Universal constructions come back as their complete data (apex and legs, kernel and inclusion)
-   in the result form, and a decode missing a defining arrow is malformed (CC-DECODE).
+4. **Composites.** A sequential realization passes each actual decoded result to its next
+   operation. An admitted direct realization may compute the complete selected composite without
+   primitive dispatches. Neither changes the formal route or the comparisons required by the
+   selected use. Universal constructions retain their complete data (apex and legs, kernel and
+   inclusion) in the result form; a decode missing a defining arrow is malformed (CC-DECODE).
+
+## Selected results, retention and replay
+
+A formal action fixes the mathematical request. Its execution supplies particular
+computational data, including the actual selected construction, defining maps and ownership
+needed by later operations. Reusing that result retains those data; a second execution is not
+an interchangeable lookup merely because the formal expressions are equal.
+
+Retaining a result, evaluating a definition afresh and explicitly replaying a computation are
+distinct. Replaying an arbitrary registered computation need not reproduce its earlier packet,
+choice or session handle. If an operation explicitly asks for noncanonical data, fresh runs may
+choose different permitted points of its declared fibre; this does not turn an already fixed
+single-valued question into a choice problem. A downstream map or coordinate cannot silently
+move to a different chosen result. A lost owned result is unavailable unless the applicable
+reconstruction or transport preserves the required complete data. An explicitly fresh replay
+has fresh outputs and preserves their dependency associations.
+
+Only redundant lookup storage, or recomputation justified by the applicable declared
+comparison and realization conditions, is disposable memoization. An owned selected result is
+not made disposable by calling its storage a cache. Use the existing #69 retained-construction
+and session/replay obligations to distinguish these cases; agreement between cached and
+uncached runs alone is not correctness evidence. See [CC-MEMO](computational-core.md)
+and [#69](https://github.com/dzackgarza/lean-cas-dsl/issues/69).
 
 ## Comparison
 
-`assert X = L` holds when the decoded value of `X` equals the literal `L` in the form's type, by
-decidable equality on `T` computed by the kernel. `assert P` compares a decoded three-valued
-decision with the expected one. No proof about a leaf's value is formed, and nothing a leaf
-returned is used as evidence of anything except its own answer.
+An assertion compares the meanings fixed by its admitted mathematical reading. For
+`assert X = L`, a decoded answer `a : T` is compared with the expected literal through the
+form's declared denotation `d`; the observation concerns `d(a) = d(L)`, with the complete
+selected parameters and structures. It does not concern equality of wire encodings or
+occurrence identifiers.
+
+The kernel may use decidable equality in `T` as this semantic comparison only when accepted
+upstream mathematics supplies the applicable equivalence with the selected relation. For a
+Boolean comparison `c` of a relation `R`, the required justification is
+`c a b = true ↔ R (d a) (d b)` at the complete selected parameters; this also justifies its
+false outcome. A denotation `T → C` and `DecidableEq T` alone do not establish this. A quotient,
+a justified canonicalization, or an accepted evaluator and its theorems may supply the required comparison; the kernel consumes that bridge generically. For example,
+[finite-subset literals](https://github.com/dzackgarza/lean-categories/blob/8782c22ba613a022a84a1e910b6489cc2503e29a/LeanCategories/Catalogue/Semantics/Foundation/FiniteSubsetLiterals.lean#L22-L35)
+use `Finset`, and
+[`literal_inj` and `decidableEqLiteral`](https://github.com/dzackgarza/lean-categories/blob/8782c22ba613a022a84a1e910b6489cc2503e29a/LeanCategories/Catalogue/Semantics/Foundation/FiniteSubsetLiterals.lean#L77-L85)
+justify the comparison independently of list order or repetition on the wire.
+
+These theorems establish the meaning of the formal comparison; they do not prove that a leaf
+computed the requested value. A registered computation of the declared comparison remains an
+untrusted answer judged by the permanent independent suite. A leaf neither supplies the
+relation nor certifies its own comparison. In particular, a theorem about a form is not a
+leaf certificate or a new correctness-evidence channel.
+
+If the required comparison has no executable realization, report `NoImplementation` without
+changing the question. Lack of a comparison does not make the objects invalid or their
+representations unequal. Keep unavailable execution, malformed data and internal/resource
+failure distinct. Reference identity, equality of presentations, equality of denotations and
+isomorphism are different notions; never substitute isomorphism for an admitted `=` or
+presume arbitrary morphism equality decidable.
+
+For a proposition, the computational report is true, false or undecided. Decision assertions
+compare that report with their independently specified expected outcome; undecided means
+failure to decide, not a third mathematical truth value. A successful computation or a
+comparison result supplies no proof about the leaf's answer.
 
 ## What Lean discharges
 

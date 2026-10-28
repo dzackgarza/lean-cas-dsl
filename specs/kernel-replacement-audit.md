@@ -2,6 +2,14 @@
 
 **Current scope (2026-10-29).** The table below is its dated source snapshot, not a current absence inventory. CC-HIGHER and #82 now own the higher-coherence scope; #66/#69/#24 consume and assess the complete declared data. Current ordinary [CellAction](https://github.com/dzackgarza/lean-cas-dsl/blob/60771b7c3fba512ad19c0974a009cd8435133165/CasCatalogue/CellAction.lean#L11-L149) includes selected isomorphisms/inverse direction and constructor comparison components. That is not evidence of a general higher-dimensional coherent-diagram consumer. Reassess each required construction against its actual mathematical source and consumer; retain precise missing higher declarations/realizations rather than silently closing the higher-cell rows with two-dimensional machinery.
 
+**Law and retention qualification (2026-10-29).** The historical status labels and totals
+below remain the September snapshot. Absence of opaque runtime law queries does not establish
+formal laws or higher coherence; those require accepted upstream proof/coherence data under
+CC-LAWS/CC-HIGHER. The `memoApply` reference likewise does not establish purity of arbitrary
+opaque executions or make selected results, defining maps and owners disposable. Current
+CC-MEMO separates required retention, optional lookup and fresh execution/replay. The relevant
+evidence cells are qualified below without asserting a new implementation or acceptance result.
+
 Step 1 of "Current direction" in [computational-core-plan.md](computational-core-plan.md). For each
 `sage-categories` milestone-A kernel node, the capability obligations of its owning contract, and
 what in the Lean system replaces each. Read-only audit at lean-cas-dsl `71d6123`, lean-categories
@@ -84,7 +92,7 @@ By node:
 | Distinct structures on one carrier stay distinct | TODO "Functorial inheritance" | EXISTS | ring ports ambiguity (`ResolveProbes`, `PropsProbes`) |
 | Morphism images through selected functors | TODO `core-selected-transport` | PARTIAL | only via `Arr(F)`/`Core(F)` constructMap |
 | Results returned to the source category are lifted | functor.md "Induced functors" | PARTIAL | `Lift.lean:MonoLift` (monomorphisms only) |
-| Retained images computed once | TODO `core-selected-transport` | EXISTS | `Memo.lean:memoApply` |
+| Retained images computed once | TODO `core-selected-transport` | EXISTS | `Memo.lean:memoApply` for its specified function; this does not establish purity of opaque computations or retention of actual selected maps and owners under current CC-MEMO |
 | Point functor `* → C`, generated inclusions | "Point categories and point functors" | GAP | element categories are ad hoc atoms (`Leaves/Elements.lean`) |
 | Categorical level shift (`ObjectType`/`ElementType` surfaces) | "The categorical level shift" | GAP | — |
 | Strict/full/essential images owned by the codomain | "Strict, full, and essential images" | GAP | — |
@@ -195,7 +203,7 @@ Deleted mechanism (no counterpart): C3 linearization and MRO caches; dynamic rol
 | `Algebras(R,C)` = Monoids(V_R); presentation equivalence; restriction | algebras.md "Structure functor", "Owned operations" | PARTIAL (Mathlib) | `Monoidal/Internal/Module`; not registered |
 | Preserved-colimit transport of retained universal data | TODO row | PARTIAL (Mathlib) | no repo construction |
 | Geometry consumers (section rings, stalk mediation) through generic constructions | TODO row | GAP | — |
-| Constructors claim their laws (D26) | AGENTS.md | EXISTS | proof fields at construction (CC-LAWS) |
+| Constructors claim their laws (D26) | AGENTS.md | EXISTS | proof fields at construction were reported; current coverage requires the accepted upstream laws/coherent data for the particular construction, not a test promise (CC-LAWS/CC-HIGHER) |
 
 Deleted mechanism: C3 chains and declaration-order precedence; once-only initializers; dynamic role classes; DEBUG diamond logging; `subcategory_class` invalidation; retention-identity canonicalization and private cone dictionaries; `EquifierCategory.__call__` law admission; Python `MonoidalStructures`/`Actions` runtime classes; per-class initializer threading for semiring legs.
 
@@ -241,7 +249,7 @@ Caveat from the audit: Mathlib declaration names in PARTIAL (Mathlib) rows were 
 | obligation | sage-categories locator | Lean status | Lean locator / missing capability |
 |---|---|---|---|
 | Inheritance and placement hidden from leaf authors | TODO `kernel-cat-complete` | EXISTS | registry routes; `ImmediateProbes`, `ClosureProbes` |
-| Constructions claim their laws (D26) | AGENTS.md; CC-LAWS | EXISTS | no registration evaluates a law |
+| Constructions claim their laws (D26) | AGENTS.md; CC-LAWS | EXISTS | no opaque runtime law query was reported; that establishes neither formal laws nor their coverage, which require accepted upstream proof/coherence data (CC-LAWS/CC-HIGHER) |
 | Exact-positive `ask()` refines the same object | TODO `kernel-cat-complete` | PARTIAL | `Decision`/`Decider`; no re-typing into the refinement |
 | `Representations(F)` with unenumerated supplied Hom data | same | GAP | — |
 | Co-Yoneda and weighted-limit maps | same | GAP | — |
