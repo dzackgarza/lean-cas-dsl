@@ -100,16 +100,27 @@ compositions and the relations being asserted. An implementation state, a report
 classification, a program type or a migration of source modules is not a mathematical
 milestone. Engineering prerequisites and safeguards remain explicit below.
 
+**The first construction couples #66 and #69.** Completing all of #66, all readings,
+or every legacy consumer is not an entrance condition for #69. KM1–KM9 are completion
+obligations, not nine serial implementation projects. Establish the first construction's
+meaning and exact required inputs, build its replacement through the actual production
+path, and remove the path superseded for that use. Then extend coverage in the mathematical
+dependency order. The full inventory and combined build remain required before delivery.
+
 | Order | Mathematical work and owner | Required result |
 | --- | --- | --- |
 | 1 | Complete selected interpretation, #66 with #23/#82 | The existing first composite has its full dependent parameters, structures, admission hypotheses, diagram and relation, independently agreed. Implementations installed downstream do not select its meaning. |
 | 2 | Selected construction, comparison and defining-map use, #69 with #66 | Compute the required structured result and apply the required nonidentity comparison. A later operation uses the actual supplied defining map at its exact endpoints. All required cone/cocone or subobject data remain associated with the independently fixed construction. A scalar invariant or formal plan alone is insufficient. |
-| 3, before extending coverage | Closure under the claimed mathematical operations and independent public use, #69/#24 | For each supported dependent substitution, composition, comparison, projection/application and prescribed lift or reindexing, state the input/output construction and preservation of its selected structure and coherence. Cite the implementation that enforces this. A public-only source contributor feeds an unchanged target consumer. |
+| 3, before extending coverage | Preservation of the first construction under its actual subsequent uses and independent public use, #69/#24 | For each mathematical operation used in this trial, state its inputs, outputs and preservation of selected structure and coherence; cite the enforcing implementation. A public-only source contributor feeds an unchanged target consumer. Extend this argument before claiming a genuinely new construction or composition, rather than requiring the whole promised scope before the first experiment. |
 | 4 | Complete the promised mathematical scope, #66/#69 with #23/#82 | Interpret and compute the remaining admitted constructions and their subsequent uses. Supply the corresponding argument before counting a genuinely new construction or composition as supported. One successful chain is not a proof of the whole scope. |
 | 5 | Complete independent mathematical observations, #24 | At the delivered combination, establish all fixed readings, assertions, negative controls, connected real-engine computations, notebook observations, public interfaces and prescribed frozen independent trials. |
 
-Use the existing difficult structured-result/nonidentity-comparison/defining-map chain with
-its unchanged questions and expectations. State its diagram, chosen structures and maps,
+Use #69's existing first-stage RX-LIFT construction, nonidentity coordinate, inclusion and
+factorization, with its unchanged questions, prerequisite bindings, imports and budgets.
+The source-comparison/successive-lift questions follow when claiming that further composition;
+they do not precede the first single-stage result. These are ordered existing diagnostics,
+not a new or reduced acceptance suite or a prescribed example for an independent contributor.
+State the construction's diagram, chosen structures and maps,
 required universal factorization, comparison components and any higher compatibility. For a
 kernel this includes `i : K → X`, `f ∘ i = 0` and its universal factorization; for a general
 cone or cocone it includes every required leg and mediator. Accepted upstream mathematics
@@ -129,14 +140,30 @@ packet, inventing identity associations or rerunning a selected construction whi
 old dependent maps exposes an unfinished interpretation or interface. Repair it and repeat
 the fixed trial before expanding.
 
-**Supporting integration and implementation obligations.** Recover a compiling combination
-and measure a usable focused edit/check loop. #66 tests the existing client and targeted
-build; #24 places production compilation before engine setup and correctly reuses its
-artifacts. Ordinary execution uses the same selected question without unused audit export;
-explicit export preserves the complete reading, every fixed ID and visible failures.
-Adequate existing Lean elaboration may implement dependent application. Remove replaced
-manual interpretations, completion/recovery paths and their bypasses in a compiling
-substitution. Their deletion supports the mathematical argument; it is not the argument.
+**Supporting integration and implementation obligations.** First build the imports,
+accepted mathematical interfaces, contract, runtime and driver actually needed for the
+selected production computation. Repair necessary retained prerequisites or a minimal
+temporary compiler/environment blocker; otherwise replace the failing path directly.
+Do not require a green legacy whole-kernel, native-tool or notebook build before the first
+substitution. A mock, type-only prototype or unintegrated second kernel does not count.
+Keep the work in PR #67's integration line and measure the existing focused edit/check loop.
+The complete combined build, native tools and notebook remain required before delivery.
+
+Reuse adequate common machinery, including the existing execution owner where sufficient;
+the presence of compatibility entry points does not itself establish competing lifecycles.
+Remove the replaced interpretation/reconstruction/completion paths and their bypasses as each
+mathematical use transfers. Enforce the required schema, endpoint, comparison, ownership,
+failure and resource checks in that replacement. Do not retrofit all old records, repair
+all old observers or optimize old schema/interner paths before deciding what survives.
+Ordinary execution may omit unused audit serialization only after required preparation
+validation is preserved; complete requested exports keep every fixed meaning, ID and failure.
+
+Engineering probes that call removed private helpers or manufacture old cache entries must
+retain their substitution, ownership and ambiguity controls at the replacement boundary.
+Do not keep a superseded recovery API just to preserve such fixtures. Independently fixed
+mathematical questions and expectations remain unchanged. Full corpus completion and final
+API generation follow demonstrated composition; only the public slice used by the first
+independent trial is needed early. Deletion supports the mathematical argument; it does not replace that argument.
 
 Preserve the actual supplied result/component associations, complete interfaces and owners.
 Retained use, evaluation at a definition's use and deliberate fresh replay are distinct.
@@ -170,6 +197,13 @@ the kernel against the resulting current inputs. Do not reimplement them, call t
 available on main, or treat a diagnostic snapshot as the delivery dependency rule. An exact
 absent input blocks its consumers, not unrelated work; downstream defects do not rewrite
 a formalization brief.
+
+The first RX-LIFT slice also consumes #94's `DegeneratePlaneLifts` and
+`DegeneratePlaneFactorization` declarations, including its selected monicity, point and
+cone-factorization evidence, plus their required import closure. #69 names the exact source.
+Verify their independent acceptance and permitted availability for this trial; they are absent
+from the inspected upstream main. Unrelated upstream deliverables remain outside this
+prerequisite, and the fixed specimen is not replaced with an easier main-only example.
 
 The first two working days are the decision point for the construction and subsequent-use
 trial. The 1–2 week allocation in #10 is a budget, not a forecast justified by past closure
@@ -207,7 +241,7 @@ a formal law or proves an arbitrary backend correct.
 
 | Work | Mathematical deliverable and acceptance |
 | --- | --- |
-| **KM1 — One compatible interpretation of the accepted mathematics** | Interpret the accepted categories, dependent families, operations, comparisons, admission hypotheses and universal constructions together. In particular, binder meanings and complete creation-lift data must coexist without changing the selected questions. **Supporting prerequisite:** one kernel, contract, mathematical input, probe/tool and runtime combination builds. Preserve the applicable #63/#64 behavior in PR #67; disabling a gate or merely combining source does not establish KM2–KM9. |
+| **KM1 — One compatible interpretation of the accepted mathematics** | Interpret the accepted categories, dependent families, operations, comparisons, admission hypotheses and universal constructions together. In particular, binder meanings and complete creation-lift data must coexist without changing the selected questions. **Supporting build order:** first compile and execute the real dependency closure of the selected construction while replacing its defective paths; a green legacy whole-system build is not an entrance condition. At completion, one kernel, contract, mathematical input, probe/tool and runtime combination builds. Preserve the applicable #63/#64 behavior in PR #67; disabling a gate or merely combining source does not establish KM2–KM9. |
 | **KM2 — Declared constructions determine the meaning** | Terminal objects and generalized points, quotient and power-object constructions, literal domains, diagrams and observation relations are those of the applicable accepted declarations. For a chosen `U:C→Set`, an element of `U(X)` is a map `1_Set→U(X)`; it need not be a global point `1_C→X`. A declared presentation by `S→X` retains `S` and the accepted relation to the element being represented. Independent readings agree for the existing second presentations/structures and distinguish genuinely different choices. Reordering declarations cannot select a construction. Missing input and unresolved ambiguity stay explicit; a syntax spelling may select its declared operation. |
 | **KM3 — Complete dependent application and admission** | An application retains every dependent parameter and its actual domain hypotheses; substitution yields the declared source and target. The fixed questions include destructured `((a,b),(c,d)) ↦ …`, several bound variables, selected `Vec(ℤ,2)` and its base ring, closed maps/points, dependent families and admitted binders. Interpret all K2–K8/K14 reading portions and the entire admitted inventory with their independently fixed meanings and protected negatives. An out-of-domain expression, an ambiguous interpretation and a valid question with no computation are distinct. A false well-typed assertion remains a valid question. No production backend is needed to establish its meaning. |
 | **KM4 — Functorial propagation and coherent comparisons** | For selected `F : C → D`, use `F(X)` and `F(f) : F(X) → F(Y)` with the declared identity/composition laws. An operation on `D` is inherited at that image only on its declared domain; invariants defined on `Core(D)` are inherited along `Core(F):Core(C)→Core(D)`. A selected `α : F ⇒ G` acts by its actual components and naturality; equivalence of interpretations uses the comparison and compatibility actually supplied, not arbitrary noninvertible transformations. Consume constructor-induced comparison actions, proof-only refinements and specified reindexing. Establish K10's ring diamond and formed-module kernel comparison, K11's complete resolution, K12's constructor action, `Fin 2 × ℤ/3` refinement, and two structures on one carrier. New objects/operations acquire exactly the applicable composites without editing old objects/leaves. Existing `completeRoutes` and `ProofRefinement.construct` are implementation inputs to validate, not tasks to recreate. |
@@ -273,12 +307,12 @@ orchestrator does not hand the kernel, an item or this procedure to a subagent o
 and does not ask the owner whether to. Subagents are only the formalization, acceptance and leaf
 authors (rule 8) and the rule-6 reviewer; none of them writes the kernel.
 
-This section is the whole work-selection rule for a kernel session. It replaces
-every earlier priority statement, roadmap milestone and "next objective" sentence in this
-repository. In a kernel session its rules override any other instruction in this repository that
-directs an action: recording, publishing, reconciling branches, escalating, correcting gates,
-messaging sessions or dispatching work. It changes no row of the acceptance table and no admitted
-assertion.
+Use this procedure subject to the current delivery sequence above and #10. Its older
+priority wording does not override the coupled #66/#69 construction trial, deletion of its
+superseded paths, or the distinction between the first executable dependency closure and the
+final combined build. The applicable ownership, question-preservation and independent
+acceptance requirements remain in force; no admitted assertion or completion requirement
+changes with this ordering correction.
 
 The former diagnostic criterion was *no admitted assertion stopping at a
 request-formation gap*: an entry of kind `gap` whose detail does not begin
@@ -300,11 +334,13 @@ worked" (rule 1).
 Each rule names an observable condition and the action it requires. None depends on judging
 how important, small, risky or promising something is.
 
-1. **Selection.** The *implementation queue* is KM1's source
-   reconciliation, then the missing generic source work of KM2–KM8 in
-   dependency order. KM9 is the final independent frozen-kernel gate.
-   Do not mistake KM1's final full-build requirement for a reason to
-   postpone implementing its dependencies. The older K1–K14 assertion-ID
+1. **Selection.** Follow #10's selected mathematical construction across the
+   relevant KM1–KM8 obligations: exact inputs and interpretation, executable
+   construction/comparison/defining-map use, then its preservation argument
+   and independent public use before expansion. #66 and #69 proceed together;
+   do not complete an entire reader or legacy build before replacing the paths
+   that obstruct this computation. KM9 is the final independent frozen-kernel
+   gate. The older K1–K14 assertion-ID
    rows below identify precise regression examples and protected B0
    obligations, **not an alternative work-selection queue**.
    Within an active KM task, use the relevant K IDs and targeted probes
@@ -516,8 +552,10 @@ A request-formation gap does not by itself mean the mathematical question is unr
 | K14 formed-module positives | the assertions of `tests/acceptance/b0-formed-positives.cas.proposed` | as K3 |
 
 Every CI report re-checks K2 and the closed request-formation items; K1 and K3 need the
-backends, so their targeted checks are rerun whenever another item closes. A closed item that
-reopens becomes the first open item again.
+backends, so their targeted checks are rerun whenever another item closes. A reopened item
+is reported against its owning obligation and preempts the selected construction only when
+it blocks that construction or invalidates its required evidence. K numbering does not
+create a competing repair queue; every regression remains visible and required for completion.
 
 The K1–K14 table is retained as the concrete B0 assertion/diagnostic
 inventory; checking its rows does not by itself prove readiness. Kernel MVP

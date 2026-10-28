@@ -19,6 +19,11 @@ Reconcile and independently assess the existing source through its own authority
 claiming latest-main integration. This is an actual input dependency, not a request to
 reinvent the mathematics or a new permanent pin policy; unrelated work can continue.
 
+The first RX-LIFT slice itself also uses #94's `DegeneratePlaneLifts` and
+`DegeneratePlaneFactorization` declarations and their import closure, identified in #69.
+Verify those exact inputs through the existing independent authority and input policy;
+this does not require every unrelated deliverable in the pending upstream PRs.
+
 The latest candidate-workflow result inspected,
 [run 40652257963](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40652257963) at
 `60829a1f7db040f6a8ae394777c0a10bc00d3946`, failed the combined consumer build.
@@ -28,20 +33,25 @@ the [check instructions](specs/computational-core-plan.md#running-checks) descri
 
 ## Next work — 2026-10-29
 
-1. Interpret the existing difficult composite with its full parameters, selected structures,
-   domain hypotheses, diagram and independently fixed relation (#66).
-2. Compute its structured construction and required nonidentity comparison, then use the
-   supplied defining morphism in the next mathematical question (#69).
-3. Before extending coverage, establish preservation under the claimed substitutions,
-   compositions, comparisons and prescribed lifts/reindexing. Include a public-only source
-   contributor whose result the unchanged target consumer can use (#69/#24).
-4. Complete those obligations across all promised V1 constructions, then establish #24's
-   unchanged full independent observations and frozen extension trials.
+1. Fix the existing first-stage RX-LIFT construction's complete meaning and exact accepted
+   inputs (#66 with #23/#82). Keep its independently fixed question, prerequisite bindings,
+   imports and budgets; this does not require all 153/134 readings before replacement.
+2. Work #66/#69 together: build the actual production dependencies, compute the construction
+   and required nonidentity comparison, and use its supplied inclusion/factor in the next
+   mathematical question. Reuse adequate machinery and remove the paths superseded for that use.
+3. Before extending coverage, establish preservation for the operations actually used and
+   public-only unchanged-consumer use (#69/#24). Exercise the successive-lift/source-comparison
+   controls when extending to that composition; one first result is not proof of all mechanisms.
+4. Complete the remaining readings, constructions and observations through the surviving
+   implementation, then establish the full combined build, public API, notebook and #24's
+   unchanged independent acceptance and frozen extension trials.
 
-Reconcile the actual inputs, recover a compiling combination and measure a focused edit/check
-loop as supporting prerequisites. Remove the replaced recovery/completion paths. Preserve
-actual supplied maps, endpoints, owners, lazy/fused execution and distinct failure meanings.
-An implementation state or a number of migrated consumers is not the mathematical result.
+Repair only the retained dependencies or minimal temporary blockers needed to run the first
+production computation. Do not restore all legacy consumers, optimize the old interner or
+retrofit every old result record before the replacement. Preserve required validation and
+hostile controls at its boundary; adapt engineering fixtures that call removed private helpers.
+Actual supplied maps, endpoints, owners, lazy/fused execution and distinct failure meanings
+remain required. Full acceptance is a delivery condition, not a prerequisite to refactoring.
 
 Stop expansion if the next operation still needs missing construction data, invented
 identity associations or another context/ownership recovery path. The first two working

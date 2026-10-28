@@ -86,8 +86,11 @@ request-gap count, or a new leaf registration as milestone completion.
 interpret and compute the existing structured construction with its selected nonidentity
 comparison and subsequent defining-map use; establish preservation under the claimed
 mathematical operations and public-only unchanged-consumer use before extending coverage;
-finish #24's full independent acceptance. Reconciliation of existing inputs and compilation
-of PR #67 are supporting prerequisites. #23/#82 review the actual construction requirements alongside implementation.
+finish #24's full independent acceptance. #66 and #69 work together on the existing first
+RX-LIFT construction; build its actual dependencies and replace/remove its defective paths
+before completing the remaining corpus. Do not first repair the whole legacy implementation.
+The full combined build and acceptance remain delivery requirements. #23/#82 review the
+exact construction requirements alongside implementation; unrelated upstream work does not block it.
 Research issues #71–#81 are consolidated historical guidance, not parallel work queues.
 
 The candidate's diagnostic manifest still selects pending mathematical work from
