@@ -157,6 +157,13 @@ sending downstream implementation details to formalization or acceptance authors
 mandate. Before using that description, identify the undecided choice and why
 the existing instruction does not settle it.
 
+**Owner ruling (2026-10-29): the owner decides what affects the end-user
+experience; agents decide architecture.** Internal representations, module
+structure, value encodings, the reader's implementation, deletion lists and line
+caps are agent decisions. Make them from the evidence and the requirements, and
+do not escalate them. Escalate a choice only when it changes what a user writes,
+sees, or can compute, and state it in those terms.
+
 A refused administrative operation is instead an execution dependency. Report
 the exact operation and permission required, without presenting new policy
 alternatives or asking for authorization already given.
