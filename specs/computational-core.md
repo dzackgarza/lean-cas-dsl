@@ -63,7 +63,9 @@ lowest generating level (#53 §5), and a structural functor \(F:\mathcal C\to\ma
 \boxed{x.m \;\leadsto_{\text{elaboration}}\; m\bigl(F_n(\cdots F_1(x)\cdots)\bigr)}
 \]
 
-Every arrow computes actual data. `L.cardinality()` for a lattice elaborates to
+A successful realization supplies the data of each required action, or an adequate fused
+realization of the selected composite. Mathematical availability is independent of whether
+those computations are installed (CC-ACTION, §7). `L.cardinality()` for a lattice elaborates to
 
 \[
 L\;\mapsto\;U_{\mathrm{form}}(L)\;\mapsto\;U_{\mathrm{mod}}(L)\;\mapsto\;U_{\mathrm{set}}(L)\;\mapsto\;\operatorname{card}(\cdot).
@@ -106,8 +108,8 @@ third disappears, and the last two become a hard, typed boundary.
 
 What is retained from `sage-categories` is its *requirements*: explicit object and
 morphism actions, retained defining maps, comparison cells instead of priorities,
-properties outside leaf control, and the rule that a constructor claims its laws while
-only tests compute them.
+properties outside leaf control, and the separation between formally established laws
+and empirical checking of untrusted computations (CC-LAWS).
 
 ---
 
@@ -201,6 +203,16 @@ pullback of [Remark 7.4](https://github.com/dzackgarza/lean-categories/blob/8782
 A missing required higher declaration or realization remains an explicit, owned gap; it is
 not discharged by a lower-dimensional library or an engine's claim.
 
+Chosen adjunctions are a concrete instance. Retain the selected unit, counit and the
+coherence required by the specified category or space of adjunction structures. Even for
+ordinary rational vector spaces, `Id ⊣ Id` admits unit `a · id` and counit `a⁻¹ · id`
+for each nonzero rational `a`: the triangle identities hold, but the strict unit/counit
+data differ. An appropriate uniqueness or contractibility theorem does not license literal
+substitution of those data without its specified comparison. Distinguish the category of
+adjunctions, the fibre over a fixed ordered pair of functors, and the space of right adjoints
+to one left adjoint ([FOUNDATIONS adjunction addendum](https://github.com/dzackgarza/lean-categories/blob/8782c22ba613a022a84a1e910b6489cc2503e29a/FOUNDATIONS.md#L8411-L8527));
+the ordinary Mathlib structure is a supported fragment, not a general higher replacement.
+
 **Acceptance and ownership.** #82 states the construction-specific higher scope; #66
 (KM2/KM3/KM8) preserves its complete selected question; #69 (KM4–KM7) consumes the declared
 actions and construction data; #24 (KM9) independently checks the promised mechanisms.
@@ -287,10 +299,11 @@ Modules [R]` evaluates to its fibre over \(R\); restriction along
 edge; and `cardinality` of a \(\mathbb Z/4\)-module and of the same group viewed as a
 \(\mathbb Z\)-module agree because both factor through the one \(U\) on the total category.
 
-### CC-ACTION — A functor is its two actions
+### CC-ACTION — A functor has declared actions and their required laws
 
-A functor of the catalogue is its object action and its morphism action, both mathematics in
-`lean-categories`, never an enum tag. The `lean-cas-dsl` enum
+A functor of the catalogue has object and morphism actions with the laws and coherent data
+required by its mathematical ambient, all declared in `lean-categories`, never an enum tag.
+The `lean-cas-dsl` enum
 
 ```lean
 inductive ObjMap | cyclicToFiniteSet
@@ -410,14 +423,43 @@ monic irreducible quadratic is \(x^2+x+1\), so \(\mathbb F_4\) has a single one 
 isomorphism of the catalogue between them transports elements, and its absence is reported as
 absence.
 
-### CC-MEMO — Memoization of explicit functor applications only
+### CC-MEMO — Retain selected results; memoize only under justified reuse semantics
 
-A runtime may retain \((X,F)\mapsto F(X)\) and \((f,F)\mapsto F(f)\) keyed by the explicit
-application. This is optimization only: dropping the cache changes no result. It never
-answers "which pieces of \(\mathcal D\)'s state were grafted onto which instance along which
-path", because no grafting exists.
+A formal application \(F(X)\) or \(F(f)\) does not establish purity or determinism of an
+opaque computation intended to realize it. Distinguish the actual selected result from a
+lookup that makes that result easier to find, and from a fresh execution of the same request.
 
-**Acceptance.** Every public operation returns the same value with the cache disabled.
+Retained construction data includes its actual supplied apex, defining maps, chosen
+presentation, selected comparisons, input/result association and required owner/session.
+These are not disposable while subsequent mathematics refers to that result. A lookup may
+be discarded only while the required data and associations remain available through their
+authoritative owner; an expression key is not a replacement for them. This preserves
+explicit applications without reviving target-state grafting.
+
+A fixed operation and selected input keep their declared mathematical answer and relation
+of comparison. They cannot be reinterpreted as an arbitrary choice because a backend varies.
+Where the operation itself permits a choice in a specified fibre, distinct fresh executions
+may select different allowed data; once one result is selected, subsequent use keeps that
+choice and its maps. Where the operation fixes that choice, a different answer is a potential
+wrong answer, not another meaning of the request.
+
+Memoization of a specified pure computation may be an optimization with the same result in
+the declared comparison relation. There is no blanket guarantee that cached and fresh opaque
+executions return identical data. Each answer remains subject to the independent fixed
+expectation; agreement between two executions is not evidence of correctness by itself.
+
+Loss of a retained result or its required session is reported through the existing lifetime
+and failure behavior. An explicit replay is a new execution occurrence. It cannot silently
+replace the selected data or attach its newly chosen basis/apex to old defining maps. Any
+reuse across a newly produced presentation requires the declared comparison and the actual
+transport it requires, or is unavailable.
+
+**Acceptance.** Existing cache/session/replay controls distinguish retained use, fresh
+execution and replay. Disabling disposable lookup preserves actual selected data and its
+owner/map associations. A pure computation's cached and uncached answers satisfy its
+specified comparison; fresh opaque answers are judged separately against the same admitted
+mathematical expectation, including any choice relation it actually specifies. No equality
+of packets or agreement between executions substitutes for that expectation.
 
 ### CC-RESOLVE — Composite resolution with provenance and ambiguity
 
@@ -584,18 +626,28 @@ has more.*
 modules regenerates the closure, and the new category inherits `cardinality`, `rank` and `kernel`
 with no further declaration and no leaf change.
 
-### CC-LAWS — A construction claims its laws; computing them is a test
+### CC-LAWS — Formal constructions carry their laws; realizations are tested
 
-No constructor computes associativity, units, naturality, pentagon, triangle or any other
-coherence law in order to admit a value. Computing them is how a test checks a
-construction. A slow coherence computation is a slow test, not an unfinished construction.
-This is `sage-categories`' D26, restated by its owner repeatedly because it was violated
-repeatedly (constructors calling `ask` on their defining equations; `certified_*` bypasses;
-per-call comparison wrappers). In Lean the law is either a proof field of the structure or
-a stated obligation of a test; it is never an admission-time runtime check.
+Every mathematical structure admitted from `lean-categories` carries the formal laws and
+coherent data required by its accepted definition: identity and composition preservation,
+naturality, triangle or pentagon identities, and the higher compatibility required by the
+particular construction. Required proof fields or coherence data cannot be replaced by a
+promise to test examples. Missing formal mathematics remains an explicit upstream gap.
 
-**Acceptance.** No registration command or elaborator step evaluates a law at runtime to
-decide whether to accept a declaration.
+The kernel consumes those accepted declarations and preserves their selected data. Ordinary
+Lean elaboration and proof checking remain required. It does not ask an opaque backend to
+evaluate defining equations in order to establish or admit the formal mathematical structure.
+
+A realization's answers remain untrusted computations. Their agreement with the specified
+mathematics is judged by permanent independent acceptance; those observations neither create
+formal laws nor prove arbitrary subsequent answers. The historical D26 prohibition on
+repeated runtime admission checks is retained in this computational sense, not as an
+exemption from the formal laws.
+
+**Acceptance.** Identify the accepted upstream laws/coherent data for each claimed
+construction. No leaf response or finite test substitutes for them, and semantic registration
+does not depend on opaque engine law queries. Ordinary Lean proof checking is not such a
+query. This adds no result certificate or trust status.
 
 ---
 
@@ -663,22 +715,30 @@ no Lean at all.
 
 ---
 
-## 7. The executable-versus-typed tension
+## 7. Mathematical meaning and available realizations
 
-A semantic object must be both *typed* (a point of a registered category, with Mathlib
-meaning) and *executable* (its structural images computable). The resolution:
+A semantic object is a point of its registered category, with the meaning supplied by the
+accepted upstream mathematics. Its existence, category membership and available mathematical
+operations do not depend on installed computations.
 
-- the semantics is `CategoryExpr`/`FunctorExpr` with Mathlib denotations, in `lean-categories`;
-- each operation has declared presentation forms for its input and result, and what each form
-  denotes. That is mathematics, in `lean-categories`;
-- a leaf implements an operation from an input form to its result form, as an opaque
-  computation. The kernel composes realized steps along the resolved route and decodes the
-  answer into the declared result form;
-- nothing proves that a realized answer is right. The permanent acceptance suite compares it
-  with values known from formal proof, citation or an independent oracle.
+- The semantics is `CategoryExpr`/`FunctorExpr` with accepted mathematical denotations in
+  `lean-categories`.
+- Each selected operation has declared input and result presentation interfaces and their
+  denotations. Those interfaces do not narrow its mathematical domain to installed capabilities.
+- A realization may compute that action on some admitted presentations. The kernel preserves
+  its selected parameters, endpoints and required comparison data while executing it. An
+  absent or unavailable realization is a computational gap, not an absent mathematical object.
+- A successful computation supplies the data required by the selected result interface,
+  including actual defining maps and retained construction data where required. Reusing an
+  already adequate datum may satisfy this requirement; a fresh allocation or a nontrivial
+  computation is not itself a mathematical requirement.
+- A decoded, well-formed answer is not thereby proved correct. The permanent acceptance suite
+  compares it with independently fixed expectations from proof, citation or an independent
+  oracle, using the declared mathematical comparison.
 
 This keeps #53 §6.1's goal (elaboration emits an ordinary Lean term for the meaning) while
-execution runs through untrusted leaves.
+execution runs through untrusted leaves. A question's meaning survives absent implementations;
+its required computation remains an open obligation rather than a weakened question.
 
 ---
 
@@ -687,11 +747,13 @@ execution runs through untrusted leaves.
 Each is a requirement discovered by failure there; ignore them and the Lean system will
 rediscover them.
 
-1. **A functor that computes nothing is not a functor.** In `sage-categories`, leaves wrote
-   identity-shaped actions to satisfy a declaration (`POL-LEAF-070`). A realization of a
-   functor's action must compute target data.
-2. **An accessor is not a functor.** `POL-LEAF-078`: a method returning the underlying
-   object is a second, unverified spelling of the structure functor.
+1. **A realization must implement the selected action.** An identity-shaped placeholder is
+   defective when the selected action requires different target data (`POL-LEAF-070`).
+   Identity actions and justified reuse of supplied target data remain legitimate.
+2. **An accessor does not establish a functor.** A forgetful functor may implement its object
+   action by reading retained underlying data. Its object action, morphism action and required
+   laws must nevertheless be declared upstream; an accessor cannot introduce a second semantic
+   meaning or substitute for those declarations (`POL-LEAF-078`).
 3. **One fact, one spelling.** `POL-LEAF-079`: two declarations of one fact drift.
 4. **A retained projection must not be rewritten** (`POL-LEAF-071`); universal data is
    retained, not recomputed.
@@ -702,11 +764,15 @@ rediscover them.
 7. **A finite engine must not narrow a shared constructor's domain**
    (`computational-generality.md`): an engine that enumerates is one realization; the
    semantic construction keeps its infinite and nonenumerable domain.
-8. **Construction claims laws** (CC-LAWS, D26).
+8. **Formal constructions carry their laws; realizations are tested** (CC-LAWS, D26).
 9. **Undecided is not false** (CC-DECIDE).
-10. **A point is not an object of the category.** The level shift (an object of
-    \(\mathcal C\) versus a point of an object of a structured category) caused repeated
-    defects; `Elements(U)` is the typed source for element methods (#53 §3).
+10. **Distinguish an object from an element of its underlying data.** A point of a category
+    \(\mathcal C\) is an object \(X\in\mathcal C\) (FOUNDATIONS Definition 1.4). For an
+    ordinary underlying-set functor \(U:\mathcal C\to\mathbf{Set}\), an element
+    \(x\in U(X)\) gives the object \((X,x)\) of `Elements(U)`, the declared source for
+    element methods (#53 §3). A generalized point \(S\to X\) is a morphism with that
+    specified domain. Preserve the selected \(U\), object and parameters rather than
+    conflating these levels; not every category has such an underlying-set functor.
 11. **Sage's `Modules(R)` is \((R,R)\)-bimodules**, and Sage's `C.Algebras(R)` is free
     linearization, not internal algebra objects (#54 §2, §4). Backend category names are
     observations, never semantic sources.
@@ -719,7 +785,9 @@ rediscover them.
 
 ## 9. Open questions (do not reopen the governing decisions)
 
-1. Is the memo table (CC-MEMO) per notebook session or per elaboration?
+1. Which existing session or operation boundary owns required retained results, and which
+   lookups are disposable under CC-MEMO? Their lifetimes must preserve selected data and
+   dependent maps; a cache label does not settle that distinction.
 2. How does `FunctorExpr` represent a fibration's reindexing \(\varphi^{*}\) and fibre
    inclusions \(\iota_R\): as constructors derived from a registered fibration entry, or as
    `atomic` functors whose registration must cite that fibration? Either way the

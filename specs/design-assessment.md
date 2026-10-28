@@ -6,6 +6,14 @@ Step 1 of "Current direction" in [computational-core-plan.md](computational-core
 [kernel-replacement-audit.md](kernel-replacement-audit.md) for what `sage-categories` learned the
 system must supply.
 
+**Current interpretation (2026-10-29).** This is the dated source assessment above, not a
+current completion report. Absence of opaque runtime law queries establishes an execution
+admission discipline only; formal laws and coherence require accepted upstream declarations
+under CC-LAWS/CC-HIGHER. Similarly, the historical `memoApply` observation is not evidence
+that arbitrary opaque executions are pure or that selected results, defining maps and
+owners are disposable (CC-MEMO). The evidence cells below are qualified accordingly; no
+new build or acceptance result is asserted.
+
 ## The shape of the gap
 
 `lean-cas-dsl` is currently two systems joined at one seam.
@@ -45,7 +53,7 @@ against those operations' declared types. Most of `CasDsl` as it stands is the t
 | CC-IMMEDIATE (leaf declares only immediate images) | shortcut functors and below-level methods rejected by definitional equality (`ImmediateProbes`) | the rule is enforced on registry rows, but CasDsl's typing rules, route table and `encode` let the DSL layer attach categories and executors directly to presentations, bypassing it | — |
 | CC-SEP (semantic object / presentation form / fact / implementation) | the semantic object as a point of a registered category | `Realizer`/`Denotation` supplied by a leaf, `Decision` with a leaf's evidence, `Trust` statuses on leaf answers: each lets a leaf decide meaning or standing; CasDsl types values by presentation pattern (`TypingRule`): a presentation decides a category, the counterexample the spec names | presentation forms declared upstream with what they denote; implementations as opaque computations between them |
 | CC-CARRIER | `U` is a registered functor; presentations stay distinct | isomorphisms between presentations are asserted by leaves (`handleIso`) | comparisons between presentations as mathematics of the catalogue |
-| CC-MEMO | `Memo.lean:memoApply` | — | not used by the resolver or the notebook |
+| CC-MEMO | `Memo.lean:memoApply` for its specified input function | no purity or replay guarantee for arbitrary opaque computations follows | not used by the resolver or notebook in this snapshot; retained selected data and owner/map associations require their own lifecycle under current CC-MEMO |
 | CC-RESOLVE (composite resolution, provenance, ambiguity) | all routes enumerated; ambiguity is an error listing routes; provenance retained | — | — |
 | CC-COHERE (coherence is data) | comparisons validated as isomorphisms between exact composites | the resolver takes the *first* route of an identified class and never applies the comparison to data; `comparisonBetween?` takes the first matching comparison | executable comparison components; comparisons derived from constructions |
 | CC-PROP (properties live in Lean) | classifiers, `PropertyEntry` | deciders registered against classifiers carry a leaf's evidence | property computations registered against classifiers as opaque computations; refinement of an object only on a proof in `lean-categories` or by the kernel; `assume`; classifier intersection and containment |
@@ -56,7 +64,7 @@ against those operations' declared types. Most of `CasDsl` as it stands is the t
 | CC-ROUTE (capabilities against semantic operations) | fused implementations keyed by `method ∘ route`; `Route.realizes` | `Std.lean` still keys ~60 routes by method *name* and presentation pattern | all execution keyed by registered semantic operations |
 | CC-LIFT | `MonoLift`, `returnsToSource`, `missingLift` | — | lifts other than monomorphisms (cartesian lifts, adjunction-induced, limit preservation) |
 | CC-CLOSURE | `RegistryState.closure`, `#methods` | the notebook's method surface is the union of the registry and `Std.lean`'s declarations | notebook completion and docs from the closure only |
-| CC-LAWS | no registration evaluates a law | — | — |
+| CC-LAWS | no opaque runtime law query reported in the historical registration path | that observation alone does not establish formal laws | accepted upstream proof/coherence data for each claimed structure is a separate obligation; coverage was not established by this row |
 | Gate | — | `just build` does not compile the `CasCatalogue/*Probes.lean` acceptance files | probes in the gate |
 
 ## Leaf contract (§5)

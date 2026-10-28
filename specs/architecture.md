@@ -145,7 +145,12 @@ a required comparison α:F⇒G is applied through its specified component, direc
 parameters. A universal construction retains its actual apex, defining morphisms and
 mediators through subsequent use. The full higher boundary and compatibilities follow
 CC-HIGHER and #82; a collection of pairwise cells is not automatically a coherent diagram.
-Formal meaning belongs to the accepted mathematical declarations.
+Formal meaning and its laws belong to the accepted mathematical declarations. A formal
+object or action remains available without an installed realization; neither a successful
+execution nor a finite test supplies a missing formal law or higher coherence. Legitimate
+identity actions and accessors may reuse already adequate data. The category, its object,
+an element of a selected underlying-set functor and a generalized point retain their
+distinct declared types (CC-ACTION, CC-LAWS and computational-core §7–§8).
 
 The owner requested the [verbatim evaluator assessment](reuse/kernel-evaluation-machine-assessment.md).
 It remains an implementation proposal subordinate to this mathematical requirement.
@@ -158,7 +163,10 @@ Test Lean's existing scoped declarations for prepared computations, while preser
 mathematical definition's use context and the actual result's lifetime. Definitions evaluated
 at their use cannot all become eager captured results. A normalized expression is not an
 execution occurrence. Reuse of a produced result, fresh evaluation and deliberate replay
-retain their established meanings.
+retain their established meanings. Required selected data, defining maps and ownership are
+not a disposable lookup cache. Cache removal cannot silently turn retained use into a fresh
+choice. Replay creates a new occurrence and cannot attach new data to the previous result's
+maps without the required declared comparison and actual transport (CC-MEMO).
 
 The public interface must provide authoritative access to the actual supplied apex and maps,
 whether portable or owned by their supplying realization. Preserve every admitted reply
@@ -171,6 +179,12 @@ comparison unconditionally. An adequate direct realization of a whole composite 
 valid even when primitive implementations are absent. Mathematical equality does not imply
 identical effects or correct answers of arbitrary computations, and unexecuted intermediate
 steps acquire no fabricated results.
+
+An observation answers the mathematical relation fixed by its reading. Equality of decoded
+presentations may implement that relation only with its accepted justification on denotations;
+a form label and decidable data equality alone do not supply it. Reference identity, semantic
+equality and isomorphism remain distinct. This is formal comparison semantics, not a proof of
+an arbitrary leaf answer (leaf-registration.md, Comparison).
 
 Mathematical forms retain selected presentations, actual basis changes, quotient/inclusion
 maps and universal-construction data where required. Refinement preserves the selected
