@@ -1,0 +1,131 @@
+{
+  "schemaVersion": "1.2.0",
+  "packages": [
+    {
+      "name": "cas_leaf_contracts",
+      "dir": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/cas_leaf_contracts",
+      "type": "path",
+      "inherited": false,
+      "scope": "",
+      "configFile": "lakefile.lean",
+      "manifestFile": "lake-manifest.json"
+    },
+    {
+      "name": "lean_categories",
+      "dir": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/lean_categories",
+      "type": "path",
+      "inherited": false,
+      "scope": "",
+      "configFile": "lakefile.toml",
+      "manifestFile": "lake-manifest.json"
+    },
+    {
+      "name": "mathlib",
+      "dir": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/mathlib",
+      "type": "path",
+      "inherited": false,
+      "scope": "",
+      "configFile": "lakefile.lean",
+      "manifestFile": "lake-manifest.json"
+    },
+    {
+      "name": "\u00abnbdsl-worker\u00bb",
+      "dir": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/\u00abnbdsl-worker\u00bb/worker",
+      "type": "path",
+      "inherited": false,
+      "scope": "",
+      "configFile": "lakefile.lean",
+      "manifestFile": "lake-manifest.json"
+    },
+    {
+      "name": "BrauerGroup",
+      "dir": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/BrauerGroup",
+      "type": "path",
+      "inherited": true,
+      "scope": "",
+      "configFile": "lakefile.toml",
+      "manifestFile": "lake-manifest.json"
+    },
+    {
+      "name": "plausible",
+      "dir": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/plausible",
+      "type": "path",
+      "inherited": true,
+      "scope": "leanprover-community",
+      "configFile": "lakefile.toml",
+      "manifestFile": "lake-manifest.json"
+    },
+    {
+      "name": "LeanSearchClient",
+      "dir": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/LeanSearchClient",
+      "type": "path",
+      "inherited": true,
+      "scope": "leanprover-community",
+      "configFile": "lakefile.toml",
+      "manifestFile": "lake-manifest.json"
+    },
+    {
+      "name": "importGraph",
+      "dir": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/importGraph",
+      "type": "path",
+      "inherited": true,
+      "scope": "leanprover-community",
+      "configFile": "lakefile.toml",
+      "manifestFile": "lake-manifest.json"
+    },
+    {
+      "name": "proofwidgets",
+      "dir": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/proofwidgets",
+      "type": "path",
+      "inherited": true,
+      "scope": "leanprover-community",
+      "configFile": "lakefile.lean",
+      "manifestFile": "lake-manifest.json"
+    },
+    {
+      "name": "aesop",
+      "dir": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/aesop",
+      "type": "path",
+      "inherited": true,
+      "scope": "leanprover-community",
+      "configFile": "lakefile.toml",
+      "manifestFile": "lake-manifest.json"
+    },
+    {
+      "name": "Qq",
+      "dir": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/Qq",
+      "type": "path",
+      "inherited": true,
+      "scope": "leanprover-community",
+      "configFile": "lakefile.toml",
+      "manifestFile": "lake-manifest.json"
+    },
+    {
+      "name": "batteries",
+      "dir": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/batteries",
+      "type": "path",
+      "inherited": true,
+      "scope": "leanprover-community",
+      "configFile": "lakefile.toml",
+      "manifestFile": "lake-manifest.json"
+    },
+    {
+      "name": "checkdecls",
+      "dir": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/checkdecls",
+      "type": "path",
+      "inherited": true,
+      "scope": "",
+      "configFile": "lakefile.lean",
+      "manifestFile": "lake-manifest.json"
+    },
+    {
+      "name": "Cli",
+      "dir": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/Cli",
+      "type": "path",
+      "inherited": true,
+      "scope": "leanprover",
+      "configFile": "lakefile.toml",
+      "manifestFile": "lake-manifest.json"
+    }
+  ]
+}

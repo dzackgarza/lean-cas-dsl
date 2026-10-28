@@ -1,0 +1,72 @@
+{
+  "repository": "dzackgarza/lean-cas-dsl",
+  "branch": "work/kernel-v1-20261023",
+  "parent": "3a4b84e18d644662ee75238716c4861097b2f9dc",
+  "base_tree": "3fb84a541f97faf3fa970fa874c902e17d43d415",
+  "tree": "7631c8218e33056e4ca20430d8d03839e0457b15",
+  "files": [
+    {
+      "path": "CasAcceptance/Kernel/EvidenceViewEngineering.lean",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "51e21a422ef83881e2f951b5aa2ebff1492a5815",
+      "characters": 8772,
+      "bytes": 8891,
+      "sha256": "5c1b96d212540e5cba2fd46cda333336686decd2148bec2ebc2d342ab606d37a"
+    },
+    {
+      "path": "CasCatalogue/EvidencePresentation.lean",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c746f2957e6e21445d0567370bde36be14bffdcd",
+      "characters": 10883,
+      "bytes": 11010,
+      "sha256": "ea1f8a4b718987bf3046e4b908509c405afe07f636664f76ca1996c903f75454"
+    },
+    {
+      "path": "CasCatalogue/Language.lean",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4ecdca581ece12f719e03de55a10dfe42bf1085a",
+      "characters": 569992,
+      "bytes": 578870,
+      "sha256": "58d7f1f4e9363e3f0d9dc32be30f482ae954a33ed89a65bf9939b547130f9fc3"
+    },
+    {
+      "path": "CasCatalogue/ProofRefinement.lean",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e0cb12e636f77d1cdcbfca31067c1ac4ec8dd675",
+      "characters": 5437,
+      "bytes": 5530,
+      "sha256": "1822f4ba4395db521acc0e6af8c517f565bc26718dd0eadfd9a9e5ecfcc0c5e6"
+    },
+    {
+      "path": "HANDOFF.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1c40f01ea796dc608b8e13e15946cf6341c0deff",
+      "characters": 128279,
+      "bytes": 128301,
+      "sha256": "bbc1006ef8d8fc6f323db67cf5112d7d73b8c35733600b5fca5da4055f0a621a"
+    },
+    {
+      "path": "scripts/ci_operation_owner_control.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9c6e398fe3300656040fd7b60906a0c1f229d1d0",
+      "characters": 65427,
+      "bytes": 65427,
+      "sha256": "9f953543c77153f20cb70437cdf649a57a2468eaf7e04ad9924205bc0952fe9e"
+    },
+    {
+      "path": "specs/reuse/cc-dsl-language.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2164eed754a16a57c080cf25208f10b309ba4447",
+      "characters": 78622,
+      "bytes": 78652,
+      "sha256": "38f90a940efaa2b2da36bed9201613701c6e9073be62bb9754b80721f0d26371"
+    }
+  ]
+}

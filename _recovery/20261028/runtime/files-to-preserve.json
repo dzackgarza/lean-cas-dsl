@@ -1,0 +1,305 @@
+{
+  "purpose": "Text recovery publication set; excludes reproducible dependencies and binaries",
+  "files": [
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/RECOVERY.md",
+      "relativePath": "RECOVERY.md",
+      "bytes": 2452,
+      "sha256": "c61b8bfc97585ae625329fdee58d9dcb759027283cc8536819441de37bfc6a4f"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/archive-content-scan.json",
+      "relativePath": "archive-content-scan.json",
+      "bytes": 45926,
+      "sha256": "acef00213714ac62f20c76fcce8c8dff6cfe3f98c945353a594a774a3fefad93"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/artifact_consistency.py",
+      "relativePath": "artifact_consistency.py",
+      "bytes": 5429,
+      "sha256": "b72577d67c6acbef0b8f9b434224826cd5d246756afca67f29a97fd0957dff93"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/artifact_hash.lean",
+      "relativePath": "artifact_hash.lean",
+      "bytes": 452,
+      "sha256": "6cc8eba430d8b8bfca228ebc1e4421fd74e3f575b1554c606990e897c36222e7"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/bootstrap_dependencies.py",
+      "relativePath": "bootstrap_dependencies.py",
+      "bytes": 3323,
+      "sha256": "b2632fbc91260ab3b78a8e0312a11a84ecc8863f4ecf2658edaa97696c462144"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/bootstrap_toolchain.py",
+      "relativePath": "bootstrap_toolchain.py",
+      "bytes": 3012,
+      "sha256": "3edc6456d37b4951852271a1edd9195f7a9c27c991da9a96d27eef2645a52539"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/cache_dependencies.py",
+      "relativePath": "cache_dependencies.py",
+      "bytes": 5372,
+      "sha256": "40ea5a6fb5e34a5eec21f494ae58ead34368b4e1f46ed817086eb8cbe72c3478"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/evidence/cache-inputs.json",
+      "relativePath": "evidence/cache-inputs.json",
+      "bytes": 78157,
+      "sha256": "e34ad8eb2b5644fadd0cf5cc8165342622380a28c142c81906fbb0a70c8c5d08"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/evidence/dependency-bootstrap.json",
+      "relativePath": "evidence/dependency-bootstrap.json",
+      "bytes": 8253,
+      "sha256": "a21b4db9d3156f33b47304cce5e1b95eae99a0a3405f12eb3c71d07ca4d90b37"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/evidence/dependency-cache-1793173411451833008.json",
+      "relativePath": "evidence/dependency-cache-1793173411451833008.json",
+      "bytes": 21723,
+      "sha256": "6fd01c7b1be7256faed215a6380a697825b2fe692455410d5e25ba7acefdd99e"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/evidence/dependency-cache-1793173411451833008.log",
+      "relativePath": "evidence/dependency-cache-1793173411451833008.log",
+      "bytes": 8794,
+      "sha256": "21d3a6175e7975d222afb9899e2522ef299f54d1102ce78953a22ee03f3d5e2e"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/evidence/fetch-BrauerGroup.log",
+      "relativePath": "evidence/fetch-BrauerGroup.log",
+      "bytes": 860,
+      "sha256": "d3544b18d49cceaf65ad53e272024c01e6ff0463ba4fcda4fb2d5346315c729f"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/evidence/fetch-Cli.log",
+      "relativePath": "evidence/fetch-Cli.log",
+      "bytes": 868,
+      "sha256": "f8ed141704b74ffac44da19b600b08a95f9ee530be95417af8664d77e1f0b71e"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/evidence/fetch-LeanSearchClient.log",
+      "relativePath": "evidence/fetch-LeanSearchClient.log",
+      "bytes": 898,
+      "sha256": "ec54a76de6b155cd8ad16136e72e2825ff6e8262e03cda2b9f28a69588baf7f8"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/evidence/fetch-Qq.log",
+      "relativePath": "evidence/fetch-Qq.log",
+      "bytes": 875,
+      "sha256": "349201971d2ebcec868716d08f38c524ce6d3e727950c8c2c2eac083299191b0"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/evidence/fetch-aesop.log",
+      "relativePath": "evidence/fetch-aesop.log",
+      "bytes": 877,
+      "sha256": "e70457e61a651192868b49132c1105d8e2ee2a5615c66a63a491b61c004accb0"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/evidence/fetch-batteries.log",
+      "relativePath": "evidence/fetch-batteries.log",
+      "bytes": 886,
+      "sha256": "17f5e027115d0a77214b2596a04d59a3c3961c29ac7860324342d8ca041dcca5"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/evidence/fetch-cas_leaf_contracts.log",
+      "relativePath": "evidence/fetch-cas_leaf_contracts.log",
+      "bytes": 922,
+      "sha256": "9323aaae3196ec2fa7d4e921b319be788cab3a4c5289d73bd02d8500b44dc150"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/evidence/fetch-checkdecls.log",
+      "relativePath": "evidence/fetch-checkdecls.log",
+      "bytes": 868,
+      "sha256": "99e5e4e930cd25f12a34f3cf6476d9c0d12f275b151fe7d5504322e74b4556b1"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/evidence/fetch-importGraph.log",
+      "relativePath": "evidence/fetch-importGraph.log",
+      "bytes": 890,
+      "sha256": "d9fe059b69c77b2417d3ada249dd01d2854fe5de4eeedea6c8d6a8b14b064df7"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/evidence/fetch-lean_categories.log",
+      "relativePath": "evidence/fetch-lean_categories.log",
+      "bytes": 905,
+      "sha256": "c17421e35752e9d7c169e1ee110310bb88db042f5f5fbf1202ead7adb1adfde8"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/evidence/fetch-mathlib.log",
+      "relativePath": "evidence/fetch-mathlib.log",
+      "bytes": 884,
+      "sha256": "bfc3c340f8e856c0685b83e97ae26c94f36f68f1e1757d8b3400542d9f0a1240"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/evidence/fetch-plausible.log",
+      "relativePath": "evidence/fetch-plausible.log",
+      "bytes": 884,
+      "sha256": "c6ee03f2e01273dc7eda26e454eed215d3ab5b48343aa9b18f87147320e96472"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/evidence/fetch-proofwidgets.log",
+      "relativePath": "evidence/fetch-proofwidgets.log",
+      "bytes": 892,
+      "sha256": "2db635cd7609fc6a013766f9619ff8977a85c72d82f7be43a05b8275d3370883"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/evidence/fetch-\u00abnbdsl-worker\u00bb.log",
+      "relativePath": "evidence/fetch-\u00abnbdsl-worker\u00bb.log",
+      "bytes": 912,
+      "sha256": "31f5a2f9293d0d1deb4142de912530a79a129349936d5a188b35702bec59f8b6"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/evidence/lean-4.33.0-release.json",
+      "relativePath": "evidence/lean-4.33.0-release.json",
+      "bytes": 18794,
+      "sha256": "7986cdca015b7c10b7382f4fd514cc8991436e2ae2ffbf0fede6435cc91a75d3"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/evidence/toolchain-bootstrap.json",
+      "relativePath": "evidence/toolchain-bootstrap.json",
+      "bytes": 1245,
+      "sha256": "3f04dd712ae3dccc2f9dfafa34ca2f36ccd1009a8fc2c7c08bc345dc5d8face5"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/evidence/toolchain-download.log",
+      "relativePath": "evidence/toolchain-download.log",
+      "bytes": 1424,
+      "sha256": "b8219b0313b5d4e409bba4425dce990ad558cc0dfdfd846b19042b6a6d46e5b5"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/evidence/toolchain-extraction.log",
+      "relativePath": "evidence/toolchain-extraction.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/final-recovery-summary.json",
+      "relativePath": "final-recovery-summary.json",
+      "bytes": 7130,
+      "sha256": "179ab7fd745ccd6fa79b5f4dc30be757f22c6d45e5404a22729c3beb0dc117bd"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-input-recovery.json",
+      "relativePath": "fixed-input-recovery.json",
+      "bytes": 6290,
+      "sha256": "7be691ca7f62452cf1c60edfa59581339c6eaba92e9dfe35a67b8654cb321e51"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/continuation-20261025-local-restoration/runtime-verification/frozen-inputs/inventory.json",
+      "relativePath": "fixed-inputs/continuation-20261025-local-restoration/runtime-verification/frozen-inputs/inventory.json",
+      "bytes": 10715,
+      "sha256": "50d5c313fd5b2ecb6c108d8711d3605dbe9888312f4486d0e0121a5b5995c0d3"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/continuation-20261025-local-restoration/runtime-verification/frozen-inputs/manifest-f9.json",
+      "relativePath": "fixed-inputs/continuation-20261025-local-restoration/runtime-verification/frozen-inputs/manifest-f9.json",
+      "bytes": 18713,
+      "sha256": "de6b39d8f09687114e10eebc60068a10a7912b6fef19d45fc1ea8e8967e384a0"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/continuation-20261025-local-restoration/runtime-verification/frozen-inputs/manifest-general-public-callables-fa0856d.json",
+      "relativePath": "fixed-inputs/continuation-20261025-local-restoration/runtime-verification/frozen-inputs/manifest-general-public-callables-fa0856d.json",
+      "bytes": 21630,
+      "sha256": "e41489c204ccf903d0334c477584b0af0abd30cb85fe6b752f23e4851ca39757"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/continuation-20261025-local-restoration/runtime-verification/frozen-inputs/manifest-inheritance-public-callables-fa0856d.json",
+      "relativePath": "fixed-inputs/continuation-20261025-local-restoration/runtime-verification/frozen-inputs/manifest-inheritance-public-callables-fa0856d.json",
+      "bytes": 24752,
+      "sha256": "0111ed91a81c8804313b7d56abeb95628b034d10e4d739baacf167458171554c"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/continuation-20261025-local-restoration/runtime-verification/frozen-inputs/positive-clarified-inputs.json",
+      "relativePath": "fixed-inputs/continuation-20261025-local-restoration/runtime-verification/frozen-inputs/positive-clarified-inputs.json",
+      "bytes": 9569,
+      "sha256": "2c9565a53c99c176ba7da6c9bfa947c13d51ccbd9389c46945532babcbbbbe37"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/continuation-20261025-local-restoration/runtime-verification/frozen-inputs/positive-original-inputs.json",
+      "relativePath": "fixed-inputs/continuation-20261025-local-restoration/runtime-verification/frozen-inputs/positive-original-inputs.json",
+      "bytes": 9524,
+      "sha256": "ca1ec55efbc05291271e100855c9dd0b2fcc4a190342767f0819656dfa6a97f2"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/kernel-mvp-rx10-parameter-recovery-20261024/next-public-endpoints-run-plan.json",
+      "relativePath": "fixed-inputs/kernel-mvp-rx10-parameter-recovery-20261024/next-public-endpoints-run-plan.json",
+      "bytes": 2396,
+      "sha256": "a47a7bf009051b260b75324d668d3d366e6edce75b3df758409640da00bb3a85"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/kernel-mvp-rx10-parameter-recovery-20261024/run-current-closure.py",
+      "relativePath": "fixed-inputs/kernel-mvp-rx10-parameter-recovery-20261024/run-current-closure.py",
+      "bytes": 8203,
+      "sha256": "87792220165969421231f0aa5a14b06955280f15e24fe2417b02d1ceadb83cb1"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/native-and-derivations-v41/kernel-verification-20261026/rx10/run_current_rx10.py",
+      "relativePath": "fixed-inputs/native-and-derivations-v41/kernel-verification-20261026/rx10/run_current_rx10.py",
+      "bytes": 10484,
+      "sha256": "fa3a8d793ef7ec44b52360791b30069ebe02189d335506eb5717315ff1319224"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/post-restore-closed-20261025/kernel-verification-20261025/FrozenQuestionReadingsReconstructed20261025.lean",
+      "relativePath": "fixed-inputs/post-restore-closed-20261025/kernel-verification-20261025/FrozenQuestionReadingsReconstructed20261025.lean",
+      "bytes": 1579,
+      "sha256": "5b3abfcc69d335e3043b9460ef023928a01a9c0bb506ee9c738b7d60d5f63be7"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/post-restore-closed-20261025/kernel-verification-20261025/KernelFixedBindingReconstructed20261025.lean",
+      "relativePath": "fixed-inputs/post-restore-closed-20261025/kernel-verification-20261025/KernelFixedBindingReconstructed20261025.lean",
+      "bytes": 5595,
+      "sha256": "145b053daa5e3e517afb4caa340900d7e0edc094f966c0a8ee8b51268fbd0383"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/post-restore-closed-20261025/kernel-verification-20261025/permanent-fixed-inputs.json",
+      "relativePath": "fixed-inputs/post-restore-closed-20261025/kernel-verification-20261025/permanent-fixed-inputs.json",
+      "bytes": 4593,
+      "sha256": "cb59d474007ea94ddce740205c2c4e2a3dc877d532bd9727f0b95e09eb115bb1"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/restored-runtime-and-reader-v40/kernel-verification-20261026/KernelFixedBindingReconstructed20261025.lean",
+      "relativePath": "fixed-inputs/restored-runtime-and-reader-v40/kernel-verification-20261026/KernelFixedBindingReconstructed20261025.lean",
+      "bytes": 5604,
+      "sha256": "e65ac12e9cfa177f42bf710de26fbe95f3aaa3ed653191b4f6fcbcdc7d0c2444"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/focused_build.py",
+      "relativePath": "focused_build.py",
+      "bytes": 3792,
+      "sha256": "1041d316152d926f2b000a485708d860a1c7a0bb962ad839cad1b731992bf2df"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/packages.json",
+      "relativePath": "packages.json",
+      "bytes": 4226,
+      "sha256": "422f31dbfc5924f2c0c62f219bd49108305e0870afa1bb44f6a7d83a8dbbb7cd"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/protocol_focused_build.py",
+      "relativePath": "protocol_focused_build.py",
+      "bytes": 1783,
+      "sha256": "51cdf509b74cadc86d6e50488184ba1af37227b0a690b6cdeeb0bc21f3578e80"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/runtime_state.py",
+      "relativePath": "runtime_state.py",
+      "bytes": 3372,
+      "sha256": "a35e19f7a4a3ab198f30c04f7d63fc1ed72bc2ef300bf332525379b25df5abf5"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/surviving-artifact-inventory.json",
+      "relativePath": "surviving-artifact-inventory.json",
+      "bytes": 11178,
+      "sha256": "bcb80fb3973740e893ee6f5fedbd354958709bfc60e78bca0dbe9a03237315ed"
+    },
+    {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/surviving-git-inventory.json",
+      "relativePath": "surviving-git-inventory.json",
+      "bytes": 2378,
+      "sha256": "c945c1c5585df2ea7e7efd7f41f20478f4123cd6cb02f365939af81ed638a6ee"
+    }
+  ]
+}

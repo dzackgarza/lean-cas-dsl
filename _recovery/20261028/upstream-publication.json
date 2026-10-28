@@ -1,0 +1,87 @@
+{
+  "repository": "dzackgarza/lean-categories",
+  "branch": "work/ordered-products-20261028",
+  "parent": "3bd4d3d9695f288749c860368174462c4d689b7c",
+  "base_tree": "3e5daf28ce91a2b700db32b6f10753a5724eb86c",
+  "tree": "83ba841d2e67dc9b6546a8d45c5de5ad7a3526fe",
+  "files": [
+    {
+      "path": "COMPLAINTS.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "db30e780bb813a1bae6923639da73ab6700cc9ad",
+      "characters": 209028,
+      "bytes": 210038,
+      "sha256": "16f82a6bb936652aa1c9a021609e8f71ed1a905b517465c36be477e21c8fd177"
+    },
+    {
+      "path": "FOUNDATIONS.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f705a69fbcaf7c575687c622f2fefa46670c5137",
+      "characters": 387771,
+      "bytes": 388466,
+      "sha256": "b827ac63ce504290389fdad610f559a4faa930153d05551c76b1b939dce12098"
+    },
+    {
+      "path": "LeanCategories/Catalogue.lean",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ca80e7621c497563f6d6f4948ccf1ec007f995b6",
+      "characters": 7700,
+      "bytes": 7700,
+      "sha256": "ab55419225acc78e09e4c5ee177e75a4920a8fd8fd03124cf53188fd719a7b27"
+    },
+    {
+      "path": "LeanCategories/Catalogue/Registry/ComponentsProbes.lean",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c551572afce6beef425fd412a251ae6a0893ec89",
+      "characters": 4212,
+      "bytes": 4235,
+      "sha256": "a16b6aa1e1f8719b31020e581c1cdd997ee1519dcb92e2d25e8623f4fa1d39c0"
+    },
+    {
+      "path": "LeanCategories/Catalogue/Registry/Entry.lean",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c0b120ebe6c58aeb543c52364395774373745ed5",
+      "characters": 27948,
+      "bytes": 28315,
+      "sha256": "b3897617c487f6580dc7ea7182525e492a752460e0c8b1f3cb22b243599b3caf"
+    },
+    {
+      "path": "LeanCategories/Catalogue/Registry/Semantic.lean",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e2a880ed1ea0fdfc37c01defcb9e1348f588ef99",
+      "characters": 168078,
+      "bytes": 169979,
+      "sha256": "500bad04e03a5058a9ad8450c0315efb5f1f613f4a9a6a79ae23827121dbd0a2"
+    },
+    {
+      "path": "LeanCategories/Catalogue/Semantics.lean",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2bc922c1820086b3ea707e0d8fe0d65464383058",
+      "characters": 5700,
+      "bytes": 5700,
+      "sha256": "ff277e0e41487fd6ce8152b7667db161553bf15005ec35bbdad72c4c33d35d00"
+    },
+    {
+      "path": "LeanCategories/Catalogue/Semantics/Foundation/OrderedProducts.lean",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "848cecec6a790cd284c448e4cc4e3c753841890e",
+      "characters": 12905,
+      "bytes": 13126,
+      "sha256": "af1d5f5796172dba14e516326fc5d03099aaf7b8df7e8c9c9a748d424cfc588a"
+    }
+  ],
+  "published": true,
+  "commit": "206045848e028950bd01470aea1871af058c4843",
+  "verifiedRemoteTree": "83ba841d2e67dc9b6546a8d45c5de5ad7a3526fe",
+  "verifiedFetch": true,
+  "workingTreeClean": true,
+  "recordedAt": "2026-10-28T07:49:03.695215+00:00"
+}

@@ -1,0 +1,41 @@
+{
+  "state": "prepared; awaiting explicit coherent-build-ready signal",
+  "runName": "public-endpoints-staged-numeral-integrated-20261024",
+  "compiledProducer": null,
+  "preparedSourceCommit": "331463ce7c1c09e4fb050b2d1169e25778b81406",
+  "fixedDriver": {
+    "path": "CasAcceptance/Kernel/FixedQuestionExecutionControls.lean",
+    "sha256": "409f8e6275d5eeeadb4166b7fa4e4869937cdfe56b31c39e22f0657d37232f59"
+  },
+  "fixedInput": {
+    "path": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx10-fixed-execution-question.cas",
+    "gitSha256": "e8d92db593bd59b641fca0038d0d5d145cf8beb86369d51d4092d4eca4d17a85",
+    "diskSha256": "e8d92db593bd59b641fca0038d0d5d145cf8beb86369d51d4092d4eca4d17a85"
+  },
+  "protocolFixtures": {
+    "CasAcceptance/Strata/probe_complete_callable.py": "d1f9d6b92982665b52b97cca24742943c8d623a5d66415711b543da50177b3c5",
+    "CasAcceptance/Strata/probe_lift_protocol.py": "d8054a56c6cce52e736c08107f139bb81e16ae318727a4be85e7bc35f70ca4e4",
+    "CasAcceptance/Strata/probe_owned_callable.py": "3880d3671a0d1ec57ab2ac207cc8360044937d3852b27122e199dc45a4435e36",
+    "CasAcceptance/Strata/probe_registration.py": "0aeda739cd3d42506f9dad319a4aa02640ca7465229573660d98bb864fe722cb",
+    "CasAcceptance/Strata/probe_reply_conditions.py": "b467b53bb28d409e45736aae5cd6934a49f747834b218017d089426013bdd0eb"
+  },
+  "manifest": {
+    "path": "/tmp/kernel-mvp-frozen-trials-20261024/manifest-general-public-endpoints-d33.json",
+    "sha256": "918cb559cf1558223b7108291cc0e4fc18ef42a57488132dfc4c18c74b498ff1",
+    "registrations": 142,
+    "unchangedFromPrior": true
+  },
+  "publishedPublicLeafCommit": "d33bec4433f39582824f6b2846c4f4ec4b9f7e13",
+  "runner": {
+    "path": "/tmp/kernel-mvp-rx10-parameter-recovery-20261024/run.py",
+    "sha256": "40141293d8ed5b7b4717a8949eea3c4badb39eca56c8801af3781378162e38be"
+  },
+  "plannedCommand": [
+    "python3",
+    "/tmp/kernel-mvp-rx10-parameter-recovery-20261024/run.py",
+    "COMPILED_PRODUCER_FROM_ROOT",
+    "public-endpoints-staged-numeral-integrated-20261024",
+    "/tmp/kernel-mvp-frozen-trials-20261024/manifest-general-public-endpoints-d33.json"
+  ],
+  "note": "Runtime artifacts, selected dependency commits and engine hashes are recorded at actual execution, not inferred from current source HEAD. The actual driver and protocol fixtures are frozen again from that exact producer."
+}

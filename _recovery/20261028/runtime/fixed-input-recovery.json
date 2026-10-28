@@ -1,0 +1,101 @@
+{
+  "time": 1793173097.0302536,
+  "sourceArchive": "/workspace/scratch/b497505d8df8/evidence/kernel-mvp-verification-evidence-20261024.zip",
+  "sourceArchiveSha256": "cb4b501dbe4bed8f7a10d86946892a69a8e585af0bb92b4e12b0db0a2b7d5d06",
+  "purpose": "Exact recovered fixed inputs and historical invocation tooling, not current candidate execution evidence",
+  "files": [
+    {
+      "member": "kernel-mvp-rx10-parameter-recovery-20261024/run-current-closure.py",
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/kernel-mvp-rx10-parameter-recovery-20261024/run-current-closure.py",
+      "sha256": "87792220165969421231f0aa5a14b06955280f15e24fe2417b02d1ceadb83cb1",
+      "bytes": 8203,
+      "manifestMatches": true
+    },
+    {
+      "member": "kernel-mvp-rx10-parameter-recovery-20261024/next-public-endpoints-run-plan.json",
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/kernel-mvp-rx10-parameter-recovery-20261024/next-public-endpoints-run-plan.json",
+      "sha256": "a47a7bf009051b260b75324d668d3d366e6edce75b3df758409640da00bb3a85",
+      "bytes": 2396,
+      "manifestMatches": true
+    },
+    {
+      "member": "post-restore-closed-20261025/kernel-verification-20261025/permanent-fixed-inputs.json",
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/post-restore-closed-20261025/kernel-verification-20261025/permanent-fixed-inputs.json",
+      "sha256": "cb59d474007ea94ddce740205c2c4e2a3dc877d532bd9727f0b95e09eb115bb1",
+      "bytes": 4593,
+      "manifestMatches": true
+    },
+    {
+      "member": "post-restore-closed-20261025/kernel-verification-20261025/KernelFixedBindingReconstructed20261025.lean",
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/post-restore-closed-20261025/kernel-verification-20261025/KernelFixedBindingReconstructed20261025.lean",
+      "sha256": "145b053daa5e3e517afb4caa340900d7e0edc094f966c0a8ee8b51268fbd0383",
+      "bytes": 5595,
+      "manifestMatches": true
+    },
+    {
+      "member": "post-restore-closed-20261025/kernel-verification-20261025/FrozenQuestionReadingsReconstructed20261025.lean",
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/post-restore-closed-20261025/kernel-verification-20261025/FrozenQuestionReadingsReconstructed20261025.lean",
+      "sha256": "5b3abfcc69d335e3043b9460ef023928a01a9c0bb506ee9c738b7d60d5f63be7",
+      "bytes": 1579,
+      "manifestMatches": true
+    },
+    {
+      "member": "restored-runtime-and-reader-v40/kernel-verification-20261026/KernelFixedBindingReconstructed20261025.lean",
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/restored-runtime-and-reader-v40/kernel-verification-20261026/KernelFixedBindingReconstructed20261025.lean",
+      "sha256": "e65ac12e9cfa177f42bf710de26fbe95f3aaa3ed653191b4f6fcbcdc7d0c2444",
+      "bytes": 5604,
+      "manifestMatches": true
+    },
+    {
+      "member": "native-and-derivations-v41/kernel-verification-20261026/rx10/run_current_rx10.py",
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/native-and-derivations-v41/kernel-verification-20261026/rx10/run_current_rx10.py",
+      "sha256": "fa3a8d793ef7ec44b52360791b30069ebe02189d335506eb5717315ff1319224",
+      "bytes": 10484,
+      "manifestMatches": true
+    },
+    {
+      "member": "continuation-20261025-local-restoration/runtime-verification/frozen-inputs/inventory.json",
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/continuation-20261025-local-restoration/runtime-verification/frozen-inputs/inventory.json",
+      "sha256": "50d5c313fd5b2ecb6c108d8711d3605dbe9888312f4486d0e0121a5b5995c0d3",
+      "bytes": 10715,
+      "manifestMatches": true
+    },
+    {
+      "member": "continuation-20261025-local-restoration/runtime-verification/frozen-inputs/manifest-f9.json",
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/continuation-20261025-local-restoration/runtime-verification/frozen-inputs/manifest-f9.json",
+      "sha256": "de6b39d8f09687114e10eebc60068a10a7912b6fef19d45fc1ea8e8967e384a0",
+      "bytes": 18713,
+      "manifestMatches": true
+    },
+    {
+      "member": "continuation-20261025-local-restoration/runtime-verification/frozen-inputs/manifest-general-public-callables-fa0856d.json",
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/continuation-20261025-local-restoration/runtime-verification/frozen-inputs/manifest-general-public-callables-fa0856d.json",
+      "sha256": "e41489c204ccf903d0334c477584b0af0abd30cb85fe6b752f23e4851ca39757",
+      "bytes": 21630,
+      "manifestMatches": true
+    },
+    {
+      "member": "continuation-20261025-local-restoration/runtime-verification/frozen-inputs/manifest-inheritance-public-callables-fa0856d.json",
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/continuation-20261025-local-restoration/runtime-verification/frozen-inputs/manifest-inheritance-public-callables-fa0856d.json",
+      "sha256": "0111ed91a81c8804313b7d56abeb95628b034d10e4d739baacf167458171554c",
+      "bytes": 24752,
+      "manifestMatches": true
+    },
+    {
+      "member": "continuation-20261025-local-restoration/runtime-verification/frozen-inputs/positive-original-inputs.json",
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/continuation-20261025-local-restoration/runtime-verification/frozen-inputs/positive-original-inputs.json",
+      "sha256": "ca1ec55efbc05291271e100855c9dd0b2fcc4a190342767f0819656dfa6a97f2",
+      "bytes": 9524,
+      "manifestMatches": true
+    },
+    {
+      "member": "continuation-20261025-local-restoration/runtime-verification/frozen-inputs/positive-clarified-inputs.json",
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/fixed-inputs/continuation-20261025-local-restoration/runtime-verification/frozen-inputs/positive-clarified-inputs.json",
+      "sha256": "2c9565a53c99c176ba7da6c9bfa947c13d51ccbd9389c46945532babcbbbbe37",
+      "bytes": 9569,
+      "manifestMatches": true
+    }
+  ],
+  "modifiedSourceArchive": false,
+  "executed": false
+}

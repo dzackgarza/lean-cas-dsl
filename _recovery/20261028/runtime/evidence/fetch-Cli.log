@@ -1,0 +1,16 @@
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+Initialized empty Git repository in /workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/Cli/.git/
+From https://github.com/leanprover/lean4-cli
+ * branch            6130a47896ce867c6a4a55373441e59e565bad0f -> FETCH_HEAD
+HEAD is now at 6130a47 chore: bump toolchain to v4.33.0 (#94)

@@ -1,0 +1,16 @@
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+Initialized empty Git repository in /workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/proofwidgets/.git/
+From https://github.com/leanprover-community/ProofWidgets4
+ * branch            4be2e3d5087eeb272cf5a8853b8f9dd025ef5957 -> FETCH_HEAD
+HEAD is now at 4be2e3d chore: bump toolchain to v4.33.0 (#188)

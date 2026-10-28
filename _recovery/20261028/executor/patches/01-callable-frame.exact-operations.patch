@@ -1,0 +1,91 @@
+*** Begin Patch
+*** Update File: CasCatalogue/Realize.lean
+@@
+   /-- The existing point-data interface selects this representation conversion.
+   Its original typed point, rather than returned bytes, determines the role. -/
+   | pointCallable (context : CategoryContext) (source target : Expr) (point : Wire)
++  /-- A public callable frame is a pure view of this exact whole-map producer.
++  Its complete endpoint receipts, rather than a returned constructor tag,
++  determine when the frame has the original map's completed computational data. -/
++  | callableFrame (context : CategoryContext) (source target original : Wire)
+   /-- A transparent inventory view changes only the complete endpoint frames.
+@@
+-  | .inventoryMap a s t x, .inventoryMap b u v y =>
++  | .callableFrame a s t x, .callableFrame b u v y
++  | .inventoryMap a s t x, .inventoryMap b u v y =>
+@@
+-/-- Reframe only transparent callable envelopes, at their producer-selected
++/-- Expand only a producer-selected public callable frame. Both endpoints must
++be the exact occurrences retained by its original whole map. The frame changes
++representation without selecting a map, replacing an endpoint, or observing it. -/
++def callableFrameTemplate (context : CategoryContext) (source target original : Wire) :
++    TermElabM ActionDataTemplate := do
++  let some (selectedSource, selectedTarget) ← retainedCallableEndpoints? original context
++    | throwStratum .unavailable "the public callable frame lost its original complete endpoints"
++  unless sameCompleteWireContext source selectedSource &&
++      sameCompleteWireContext target selectedTarget do
++    throwStratum .unavailable "the public callable frame changed an original endpoint occurrence"
++  CategoryContext.checkMorphism context original.value source.value target.value
++  return .ctor "typedMap" #[.wire .object source, .wire .object target, .wire .map original]
++
++/-- Reframe only transparent callable envelopes, at their producer-selected
+@@
+-  | .inventoryMap context source target original =>
++  | .callableFrame context source target original =>
++      let checked := fun role input => do
++        let actual ← observe role input
++        unless ← withoutModifyingState (withTransparency .all <|
++            isDefEq (← inferType actual.value) (← inferType input.value) <&&>
++              isDefEq actual.value input.value) do
++          throwError "the public callable frame changed a complete original field"
++        discard <| framingContext input.categoryContext actual.categoryContext
++        pure actual
++      let source ← checked .object source
++      let target ← checked .object target
++      let actual ← checked .map original
++      let template ← callableFrameTemplate context source target actual
++      renderActionDataWith (fun _ wire => pure wire) template
++  | .inventoryMap context source target original =>
+@@
+-  | .inventoryMap _ source target original => #[original, source, target]
++  | .callableFrame _ source target original
++  | .inventoryMap _ source target original => #[original, source, target]
+@@
+   | .pointCallable context source target point =>
+       return .pointCallable context source target (← observe .map point)
++  | .callableFrame context source target original =>
++      return .callableFrame context (← observe .object source) (← observe .object target)
++        (← observe .map original)
+   | .inventoryMap context source target original =>
+@@
+-  let template : ActionDataTemplate := .ctor "typedMap"
+-    #[.wire .object source, .wire .object target, .wire .map presented]
++  let template := ActionDataTemplate.callableFrame context source target presented
+@@
+-  | .inventoryMap context source target original =>
++  | .callableFrame context source target original =>
++      templateValidationScope (← callableFrameTemplate context source target original)
++        operands mapView
++  | .inventoryMap context source target original =>
+@@
+-  | .inventoryMap selected actualSource actualTarget original =>
++  | .callableFrame selected actualSource actualTarget original =>
++      discard <| framingContext (some context) (some selected)
++      checkCapturedArgumentEndpoints context
++        (← callableFrameTemplate selected actualSource actualTarget original) source target
++  | .inventoryMap selected actualSource actualTarget original =>
+@@
+-  if let .inventoryMap _ _ _ original := actionTemplateExecution template then
++  let completedFrame := match actionTemplateExecution template with
++    | .callableFrame _ _ _ original | .inventoryMap _ _ _ original => original.completedData
++    | _ => false
++  if completedFrame then
+     if let .map _ := assembly.result then
+-      if original.completedData then
+-        result := { result with payload := (← scopedPayload wire.value data), callableObserved := true }
++      result := { result with payload := (← scopedPayload wire.value data), callableObserved := true }
+@@
+-  | .inventoryMap _ source target original =>
++  | .callableFrame _ source target original
++  | .inventoryMap _ source target original =>
+*** End Patch

@@ -1,0 +1,76 @@
+{
+  "time": 1793172908.468187,
+  "readOnlySource": "/workspace/scratch/b497505d8df8",
+  "repos": [
+    {
+      "path": "/workspace/scratch/b497505d8df8",
+      "head": {
+        "exit": 128,
+        "out": "",
+        "err": "fatal: not a git repository (or any of the parent directories): .git"
+      },
+      "refs": {
+        "exit": 128,
+        "out": "",
+        "err": "fatal: not a git repository (or any of the parent directories): .git"
+      },
+      "requestedObjects": {
+        "aabdf4b6e61e31d9d7f2651ffdae7e85f95270f5": {
+          "exit": 128,
+          "out": "",
+          "err": "fatal: not a git repository (or any of the parent directories): .git"
+        },
+        "160b47e4afce2132bb6da535f7a7b53acd70b8fa": {
+          "exit": 128,
+          "out": "",
+          "err": "fatal: not a git repository (or any of the parent directories): .git"
+        },
+        "50fa5a01fa288fdcd4fef008d1829cadb7cdd96c": {
+          "exit": 128,
+          "out": "",
+          "err": "fatal: not a git repository (or any of the parent directories): .git"
+        },
+        "1147199d23c8ab80948318643e9dc5f5845bbdb9": {
+          "exit": 128,
+          "out": "",
+          "err": "fatal: not a git repository (or any of the parent directories): .git"
+        }
+      }
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/lean-cas-dsl",
+      "head": {
+        "exit": 0,
+        "out": "22d6eafd9bd71db5d62b6df4c593a21dcb075cca",
+        "err": ""
+      },
+      "refs": {
+        "exit": 0,
+        "out": "22d6eafd9bd71db5d62b6df4c593a21dcb075cca refs/heads/work/kernel-v1-20261023",
+        "err": ""
+      },
+      "requestedObjects": {
+        "aabdf4b6e61e31d9d7f2651ffdae7e85f95270f5": {
+          "exit": 128,
+          "out": "",
+          "err": "fatal: git cat-file: could not get object info"
+        },
+        "160b47e4afce2132bb6da535f7a7b53acd70b8fa": {
+          "exit": 128,
+          "out": "",
+          "err": "fatal: git cat-file: could not get object info"
+        },
+        "50fa5a01fa288fdcd4fef008d1829cadb7cdd96c": {
+          "exit": 128,
+          "out": "",
+          "err": "fatal: git cat-file: could not get object info"
+        },
+        "1147199d23c8ab80948318643e9dc5f5845bbdb9": {
+          "exit": 128,
+          "out": "",
+          "err": "fatal: git cat-file: could not get object info"
+        }
+      }
+    }
+  ]
+}

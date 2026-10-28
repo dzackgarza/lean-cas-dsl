@@ -1,0 +1,23 @@
+{
+  "status": "Transcription of retained historical tool results; original artifacts lost; no recovery build performed",
+  "receipt": "focused-build-1793143294392299960",
+  "exit": 0,
+  "elapsedSeconds": 404.47,
+  "changedDuringBuild": [],
+  "scope": [
+    "CasCatalogue.ComputationalData",
+    "CasCatalogue.Realize",
+    "CasAcceptance.Kernel.OriginalViewLifecycleEngineering",
+    "CasAcceptance.Kernel.CompletedObservationOwnershipEngineering",
+    "CasAcceptance.Kernel.EndpointComparisonOccurrenceProbes",
+    "CasAcceptance.Kernel.PositionedInterfaceScopeProbes"
+  ],
+  "contractCommit": "34bb8abbdbb49699015f63840cf86ed67f438003",
+  "leanCategoriesCommit": "3bd4d3d9695f288749c860368174462c4d689b7c",
+  "mathlibCommit": "db584cd6d46c92f209a44c0f1c829460d327499d",
+  "ownedCallableFixtureSha256": "3880d3671a0d1ec57ab2ac207cc8360044937d3852b27122e199dc45a4435e36",
+  "contractPythonCasPortSha256": "917acdccb6c099c018d9d0dd843c83c20a41de314aa3c4eab301a541790c1318",
+  "preFrameRealizeSha256": "f97910e8204ee0c77cceff858554f9826403b01039c7650b3f4ee648da1cb253",
+  "historicalTraceSha256": "03d646731ebc786b19721cbc1f6b84b290b7d84e42bba3ed23e6f1d5959ff646",
+  "completedOwnershipEngineeringSha256": "3b5c03580ff0c6555bb98857cf66d1c064d9a4ec140c0cd2d5f57eb04ce92543"
+}

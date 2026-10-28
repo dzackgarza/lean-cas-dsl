@@ -1,0 +1,312 @@
+*** Begin Patch
+*** Update File: /workspace/scratch/4e9256f8ceed/lean-cas-dsl-kernel/CasCatalogue/Realize.lean
+@@
+ public import CasCatalogue.StructuredResult
+ public import CasCatalogue.ConstructionData
+ public import CasCatalogue.FunctorActionData
+ public import CasCatalogue.DeclaredApplication
++public import CasCatalogue.DeclaredProduct
+ public import CasCatalogue.RoutedResultPlan
+ public import CasCatalogue.LiftedSubobjectData
+ public import CasCatalogue.LiftStageExecution
+ public import CasCatalogue.CellAction
+@@
+       let some (otherDomain, right) := Language.homEnds? (← inferType second)
+         | return .error "the second mediator leg is not a categorical map"
+       unless ← withTransparency .all <| isDefEq domain otherDomain do
+         return .error "the mediator legs have different generalized-point domains"
+-      let diagramSyntax ← (Language.standardDiagram "product"
+-        #[.object left category none none none, .object right category none none none]).run {}
+-      let diagram ← elabTermAndSynthesize diagramSyntax none
+-      let presentation ← Semantic.limit false "product" diagram category.id.raw (some trace)
+-      let fan ← mkAppM ``CategoryTheory.Limits.BinaryFan.mk #[first, second]
+-      let universal ← mkAppM ``CategoryTheory.Limits.LimitCone.isLimit #[presentation]
++      let context ← CategoryContext.ofNamed category left
++      CategoryContext.checkMorphism context first domain left
++      CategoryContext.checkMorphism context second domain right
++      let selected ← DeclaredProduct.selectBinary context left right
+       return .ok (← StructuredResult.checkReconstruction
+-        (← mkAppM ``CategoryTheory.Limits.IsLimit.lift #[universal, fan]))
++        (← DeclaredProduct.mediator context selected first second))
+   | "element", #[_, _] =>
+       let .ok point ← decodeElementData trace category json
+         | return .error "the element point does not decode at its selected structure"
+       let domain ← closedElementDomain state
+@@
+     let complete ← operationPresentationOperandClosure retained wire
+     inherited := inherited ++ complete.extract 1 complete.size
+   retainServiceOperands h (wires ++ inherited)
+ 
+-/-- Select the already accepted product interface once for both endpoint diagrams.
+-A created or differently represented product needs its supplied comparison. -/
+-def operationProductRow : TermElabM LimitEntry := do
+-  let state ← registryState
+-  let resolution ← match state.resolveLimitDetailed CategoryId.sets "product" false with
+-    | .ok selected => pure selected
+-    | .error (.ambiguous category shape colimit candidates) =>
+-        Semantic.limitResolutionFailure (.ambiguous category shape colimit candidates)
+-    | .error error => throwStratum .noImplementation m!"{error.message}"
+-  if resolution.lift.isSome then
+-    throwStratum .noImplementation
+-      "the selected product projection requires its complete creation comparison"
+-  let some row := state.limits.find? (·.id == resolution.limit)
+-    | throwError "the selected product projection interface disappeared"
+-  unless row.category == CategoryId.sets && !row.colimit do
+-    throwError "the published product projection has a different complete category"
+-  return row
+-
+-/-- Instantiate the supplied cone at the complete ordered factors. Its apex,
+-diagram and category are checked before either comparisons or encodings use it. -/
+-def operationProductCone (context : CategoryContext) (row : LimitEntry)
+-    (first second : Expr) : TermElabM (Expr × Expr) := do
+-  CategoryContext.checkObject context first
+-  CategoryContext.checkObject context second
+-  let diagram ← mkAppOptM ``CategoryTheory.Limits.pair #[
+-    some (← CategoryContext.carrier context), some (← CategoryContext.dictionary context),
+-    some first, some second]
+-  let some constructor ← Semantic.diagramConstructor row
+-    | throwError "the published product has no complete diagram declaration"
+-  unless diagram.getAppFn.constName? == some constructor do
+-    throwError "the product action changed its registered diagram declaration"
+-  let presentation ← StructuredResult.checkReconstruction
+-    (← Semantic.limitPresentation row diagram)
+-  let cone ← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[presentation]
+-  let apex ← mkAppM ``CategoryTheory.Limits.Cone.pt #[cone]
+-  let expected ← mkAppM ``Prod #[first, second]
+-  CategoryContext.checkObject context apex
+-  unless ← withoutModifyingState (withTransparency .all <| isDefEq apex expected) do
+-    throwStratum .noImplementation "the declared projection requires its actual product-apex comparison"
+-  return (diagram, presentation)
++/-- Adapt the complete registered coordinate family of the already declared
++product. Its actual ordered maps and universal witness determine this interface;
++a separately selected categorical product cannot replace those coordinates. -/
++def operationProductCone (context : CategoryContext) (first second : Expr) :
++    TermElabM (Expr × Expr) := do
++  let selected ← DeclaredProduct.selectBinary context first second
++  DeclaredProduct.binaryPresentation context selected
+ 
+ /-- The component comparisons induce the unique comparison of the selected
+ product cones through their supplied universal properties. -/
+ def operationProductIso (context : CategoryContext) (first second : Expr) :
+     TermElabM Expr := do
+   let (firstSource, firstTarget) ← operationComparisonEnds context first
+   let (secondSource, secondTarget) ← operationComparisonEnds context second
+-  let row ← operationProductRow
+-  let (sourceDiagram, sourcePresentation) ← operationProductCone context row firstSource secondSource
+-  let (targetDiagram, targetPresentation) ← operationProductCone context row firstTarget secondTarget
++  let (sourceDiagram, sourcePresentation) ← operationProductCone context firstSource secondSource
++  let (targetDiagram, targetPresentation) ← operationProductCone context firstTarget secondTarget
+   let diagramComparison ← mkAppOptM ``CategoryTheory.Limits.mapPairIso #[
+     some (← CategoryContext.carrier context), some (← CategoryContext.dictionary context),
+     some sourceDiagram, some targetDiagram, some first, some second]
+   let sourceLimit ← mkAppM ``CategoryTheory.Limits.LimitCone.isLimit #[sourcePresentation]
+@@
+   secondData : DataOwnership.Data
+   firstTemplate : ActionDataTemplate
+   secondTemplate : ActionDataTemplate
+ 
++/-- A legacy defining-leg descriptor is available only for a unique accepted
++cone that retains the independently selected complete ordered coordinates.
++This chooses a public encoding, never the mathematical product or its mediator. -/
++private def operationProductLegRow? (context : CategoryContext)
++    (selected : DeclaredProduct.Selection) (diagram presentation : Expr) :
++    TermElabM (Option LimitEntry) := do
++  let closed : Expr → TermElabM Bool := fun value => do
++    let value ← instantiateMVars value
++    let type ← instantiateMVars (← inferType value)
++    pure (ConstrainedPoint.closed value && ConstrainedPoint.closed type)
++  for value in #[context.bundle, diagram, presentation, selected.endpoint] ++
++      selected.coordinates ++ selected.factors do
++    unless ← closed value do return none
++  discard <| StructuredResult.checkReconstruction context.bundle
++  let diagram ← StructuredResult.checkReconstruction diagram
++  let selectedCone ← StructuredResult.checkReconstruction
++    (← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[presentation])
++  let indices ← #[``CategoryTheory.Limits.WalkingPair.left,
++      ``CategoryTheory.Limits.WalkingPair.right].mapM fun name =>
++    mkAppM ``CategoryTheory.Discrete.mk #[mkConst name]
++  unless indices.size == selected.coordinates.size &&
++      indices.size == selected.factors.size do
++    throwError "the checked coordinate descriptor lost its ordered binary fields"
++  let state ← registryState
++  let mut matchingRows : Array LimitEntry := #[]
++  for row in state.limits do
++    if row.colimit then continue
++    let matchesRow ← withoutModifyingState do
++      try
++        let some category := state.categories.find? (·.id == row.category)
++          | throwError "the accepted defining-leg descriptor lost its registered category"
++        let declaration ← instantiateFresh row.declaration
++        let declaredType ← whnfR (← inferType declaration)
++        unless declaredType.isAppOf ``CategoryTheory.Limits.LimitCone do
++          throwError "the accepted defining-leg descriptor has no full limit-cone type"
++        let declaredDiagram := declaredType.appArg!
++        unless ← withTransparency .all <|
++            isDefEq (← inferType declaredDiagram) (← inferType diagram) do return false
++        -- This optional descriptor must publish the actual diagram syntax used
++        -- below. An equal cone with another constructor still uses component fields.
++        let some constructor ← Semantic.diagramConstructor row | return false
++        unless diagram.getAppFn.constName? == some constructor do return false
++        let candidate ← Semantic.limitPresentation row diagram
++        unless ← closed candidate do return false
++        let candidate ← StructuredResult.checkReconstruction candidate
++        let cone ← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[candidate]
++        let coneType ← whnfR (← inferType cone)
++        unless coneType.isAppOf ``CategoryTheory.Limits.Cone do
++          throwError "the accepted defining-leg descriptor lost its full cone"
++        let candidateDiagram := coneType.appArg!
++        let diagramType ← whnfR (← inferType candidateDiagram)
++        unless diagramType.isAppOfArity ``CategoryTheory.Functor 4 do
++          throwError "the accepted defining-leg descriptor lost its full diagram category"
++        let arguments := diagramType.getAppArgs
++        let bundle ← instantiateMVars (← mkAppOptM ``CategoryTheory.Cat.of
++          #[some arguments[2]!, some arguments[3]!])
++        unless ← closed bundle do return false
++        let candidateContext ← CategoryContext.presented
++          { expression := category.expression, bundle }
++        let .ok compatible ← CategoryContext.compatible context candidateContext
++          | return false
++        unless compatible do return false
++        unless ← withTransparency .all <|
++            isDefEq (← inferType candidateDiagram) (← inferType diagram) <&&>
++              isDefEq candidateDiagram diagram <&&>
++              isDefEq (← inferType cone) (← inferType selectedCone) <&&>
++              isDefEq cone selectedCone do return false
++        let apex ← mkAppM ``CategoryTheory.Limits.Cone.pt #[cone]
++        unless ← withTransparency .all <| isDefEq apex selected.endpoint do return false
++        let maps ← mkAppM ``CategoryTheory.Limits.Cone.π #[cone]
++        for ((index, expected), target) in
++            (indices.zip selected.coordinates).zip selected.factors do
++          let actual ← mkAppM ``CategoryTheory.NatTrans.app #[maps, index]
++          unless ← closed actual do return false
++          CategoryContext.checkMorphism context actual selected.endpoint target
++          unless ← withTransparency .all <|
++              isDefEq (← inferType actual) (← inferType expected) <&&>
++                isDefEq actual expected do return false
++        return true
++      catch error =>
++        if Exception.interpretationKind error == .invalid then pure false else throw error
++    if matchesRow then matchingRows := matchingRows.push row
++  return match matchingRows with
++    | #[row] => some row
++    | _ => none
++
+-/-- The existing registered product cone supplies both projections and their
+-exact diagram indices. Forward and backward uses call this on different fixed
+-endpoint pairs, never reuse one side's descriptor for the other. -/
++/-- The declared coordinate interface supplies both exact projections. Public
++component fields retain the original ordered declaration arguments, even when
++two factors have equal formal values or equal computational packets. A unique
++complete matching cone may supply its equivalent existing leg descriptor. -/
+ def operationProductLegs (context : CategoryContext) (first second : Expr)
+     (firstData secondData : DataOwnership.Data)
+     (components : Option (Wire × Wire) := none) : TermElabM OperationProductLegs := do
+-  let row ← operationProductRow
+-  let (diagram, presentation) ← operationProductCone context row first second
+-  let some constructor := diagram.getAppFn.constName?
+-    | throwError "the selected product diagram lost its registered declaration"
+-  let diagramData ← scopedNode (Codec.label constructor) #[firstData, secondData]
+-  let diagramTemplate : ActionDataTemplate ← match components with
+-    | none => pure (.literal diagramData)
++  let selected ← DeclaredProduct.selectBinary context first second
++  let (diagram, presentation) ← DeclaredProduct.binaryPresentation context selected
++  let factorTemplates : Array ActionDataTemplate ← match components with
++    | none => pure #[.literal firstData, .literal secondData]
+     | some (left, right) => do
+       for (wire, value, data) in #[(left, first, firstData), (right, second, secondData)] do
+         discard <| framingContext (some context) wire.categoryContext
+         unless wire.fragment == data && (← withoutModifyingState (withTransparency .all <|
+             isDefEq (← inferType wire.value) (← inferType value) <&&>
+               isDefEq wire.value value)) do
+-          throwError "the product leg changed its complete selected factor occurrence"
+-      pure (.ctor (Codec.label constructor) #[.wire .object left, .wire .object right])
+-  let cone ← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[presentation]
++          throwError "the product coordinate changed its complete selected factor occurrence"
++      pure #[.wire .object left, .wire .object right]
++  let legacy ← match ← operationProductLegRow? context selected diagram presentation with
++    | none => pure none
++    | some row => do
++        let some constructor := diagram.getAppFn.constName?
++          | throwError "the checked binary diagram lost its public declaration"
++        pure (some (row, ActionDataTemplate.ctor (Codec.label constructor) factorTemplates))
++  let parameters : Array ActionDataTemplate ← if legacy.isSome then pure #[] else do
++    unless selected.parameters.size == selected.parameterInputs.size do
++      throwError "the declared product lost its original parameter occurrence roles"
++    let mut parameters : Array ActionDataTemplate := #[]
++    for (parameter, input) in selected.parameters.zip selected.parameterInputs do
++      if ← isProof parameter then continue
++      let template ← match input with
++        | some index =>
++            match factorTemplates[index]? with
++            | some template => pure template
++            | none => throwError "the declared coordinate parameter selects an absent factor"
++        | none => do
++            let .ok encoded ← Codec.encode parameter
++              | throwStratum .noImplementation
++                  "the declared coordinate parameter has no complete public literal encoding"
++            pure (.literal { json := encoded })
++      parameters := parameters.push template
++    pure parameters
+   let expected ← mkAppM ``Prod #[first, second]
+-  let maps ← mkAppM ``CategoryTheory.Limits.Cone.π #[cone]
+-  let mut values := #[]
+-  let mut data := #[]
++  let mut data : Array DataOwnership.Data := #[]
+   let mut templates : Array ActionDataTemplate := #[]
+-  for name in #[``CategoryTheory.Limits.WalkingPair.left, ``CategoryTheory.Limits.WalkingPair.right] do
+-    let index ← mkAppM ``CategoryTheory.Discrete.mk #[mkConst name]
+-    let value ← mkAppM ``CategoryTheory.NatTrans.app #[maps, index]
+-    let target := if values.isEmpty then first else second
++  for index in [:selected.coordinates.size] do
++    let value := selected.coordinates[index]!
++    let target := if index == 0 then first else second
+     CategoryContext.checkMorphism context value expected target
+-    let .ok encoded ← Codec.encode index
+-      | throwError "the registered product index has no complete public codec"
+-    values := values.push value
+-    data := data.push (← scopedNode "limitLeg"
+-      #[{ json := toJson row.id.raw }, diagramData, { json := encoded }])
+-    templates := templates.push (.ctor "limitLeg" #[
+-      .literal { json := toJson row.id.raw }, diagramTemplate, .literal { json := encoded }])
++    let template : ActionDataTemplate ← match legacy with
++      | some (row, diagramTemplate) => do
++          let name := if index == 0 then ``CategoryTheory.Limits.WalkingPair.left
++            else ``CategoryTheory.Limits.WalkingPair.right
++          let legIndex ← mkAppM ``CategoryTheory.Discrete.mk #[mkConst name]
++          let .ok encoded ← Codec.encode legIndex
++            | throwError "the checked defining-leg index has no complete public codec"
++          pure (.ctor "limitLeg" #[
++            .literal { json := toJson row.id.raw }, diagramTemplate,
++            .literal { json := encoded }])
++      | none => do
++          let .ok encoded ← Codec.encode selected.indices[index]!
++            | throwError "the declared coordinate index has no complete public codec"
++          pure (.ctor "objectField" #[
++            .literal { json := toJson selected.entry.id.raw },
++            .literal { json := toJson "component" },
++            .array (parameters.push (.literal { json := encoded }))])
++    let (packet, _) ← renderCapturedActionData template
++    data := data.push packet
++    templates := templates.push template
++  let #[firstCoordinate, secondCoordinate] := selected.coordinates
++    | throwError "the declared product lost its two original ordered coordinates"
++  let #[firstData, secondData] := data
++    | throwError "the declared product lost its two complete coordinate packets"
+   let #[firstTemplate, secondTemplate] := templates
+-    | throwError "the registered product lost its two ordered leg templates"
++    | throwError "the declared product lost its two original coordinate templates"
+   return {
+     presentation
+-    first := values[0]!
+-    second := values[1]!
+-    firstData := data[0]!
+-    secondData := data[1]!
+-    firstTemplate, secondTemplate }
++    first := firstCoordinate
++    second := secondCoordinate
++    firstData, secondData, firstTemplate, secondTemplate }
+ 
+ structure OperationComponentPresentation where
+   comparison : Expr
+   actual : Expr
+*** End Patch

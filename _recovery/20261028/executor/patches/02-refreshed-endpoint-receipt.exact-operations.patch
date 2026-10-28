@@ -1,0 +1,29 @@
+*** Begin Patch
+*** Update File: CasCatalogue/Realize.lean
+@@
+   discard <| framingContext (some recipe.target) actual.categoryContext
+   let result ← forwardRetainedValue actual wire.value
++  let endpointPresentation ← if recipe.morphism then pure result.endpointPresentation else do
++    match wire.endpointPresentation, result.endpointPresentation with
++    | none, current => pure current
++    | some selected, some current =>
++        -- The action preserves its independently selected full comparison,
++        -- while the current producer owns the newly returned actual packet.
++        -- Keeping the pending receipt here would substitute its old recipe
++        -- endpoint for this completed occurrence at the next map boundary.
++        unless ← withoutModifyingState (withTransparency .all <|
++            isDefEq (← inferType selected.comparison) (← inferType current.comparison) <&&>
++              isDefEq selected.comparison current.comparison) do
++          throwStratum .unavailable "the observed action changed its selected complete endpoint comparison"
++        let (forward, backward) ← endpointPresentationMaps result recipe.target current
++        discard <| retainEndpointPresentationMaps result recipe.target current.comparison
++          forward backward
++        pure (some current)
++    | some _, none =>
++        throwStratum .unavailable "the observed action lost its selected endpoint comparison receipt"
+   let result := { result with
+-    actionRecipe := none,
+-    endpointPresentation := if recipe.morphism then result.endpointPresentation
+-      else wire.endpointPresentation <|> result.endpointPresentation }
++    actionRecipe := none, endpointPresentation }
+*** End Patch

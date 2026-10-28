@@ -1,0 +1,137 @@
+*** Begin Patch
+*** Update File: /workspace/scratch/4e9256f8ceed/lean-cas-dsl-kernel/HANDOFF.md
+@@
+ 
+ Work primarily in the Pro cloud container. The rack connector's home-directory access is available for necessary supporting material. It is not authorization to move the entire build and execution workload to the user's server. Save and push coherent source changes throughout the work. Verify published source by fetching it back and comparing the complete tree. Preserve evidence separately from source so a container restart does not destroy the only copy.
+ 
+-## Current continuation state — 2026-10-27
++## Current continuation state — 2026-10-28
++
++### Recovered evidence presentation checkpoint
++
++A workspace replacement removed the unpublished local checkpoints through
++`aabdf4b`, their bundles, and the latest compiled artifacts. The published
++`3a4b84e18d644662ee75238716c4861097b2f9dc` branch is the recovered base.
++Do not identify this tree with the lost checkpoint or reuse its reported build
++verdict as evidence for this source. The older archived fixed questions remain
++unchanged and have been recovered against their member hashes.
++
++The final ordered-evidence source patch and engineering control were recovered
++byte for byte: SHA-256 `79e4d99ccae5bb6a9123d4e8889afeb9c6f8339db699cee2d8b4f7bf11ad598b`
++and `86a496c383838334e4849a69f19779a5ac6afc38135b0583345a576f632c3956`.
++Their preceding `EvidencePresentation` source also matches the recorded
++`3dd5a6c9449237728a11ed2fdd04d136cc21f5c64b823811a82eaf7588a8cd3b`
++preimage. Every recovered patch hunk matched its selected source exactly once.
++Earlier unpublished supplier/provenance and runtime changes are not all restored;
++recover and reconcile those mechanisms before claiming an integrated result.
++
++Evidence providers now receive the complete original target first. Ordinary
++rejection can expose a checked stored-field view and then a checked type-visibility
++view, using the same provider and the same enclosing heartbeat budget. A
++malformed, open or wrong-target result stops immediately. Attempts restore caller
++metavariables and messages; a checked successful auxiliary declaration remains
++available only after its returned term also checks at the original target in the
++restored caller context. Lean's existing axiom analysis refuses fresh auxiliary
++proof holes and unprovided assumptions. The kernel supplies no mathematical
++procedure, declaration-specific selector, or alternate question.
++
++The isolated prototype and three original provider obligations had passed before
++the replacement. Those logs did not survive and are not current verification.
++The production reader/failure controls and all execution gates must run again on
++this recovered source. Native tools, connected real-engine workflows and frozen
++extension trials remain outstanding. Source recovery and publication establish
++neither kernel-MVP readiness nor mathematical acceptance.
++
++### Earlier published continuation state — 2026-10-27
+ 
+ ### Producer identity and reusable presentation integration — 2026-10-27
+ 
+@@
+ 
+ | Source area | Existing change to retain |
+ | --- | --- |
+-| Admission presentation | Preserve forwarding through the same structure projection using Lean's structure name and field index. Expose actual fields supplied through different structures. Keep original complete obligations and one registered evidence invocation. |
++| Admission presentation | Preserve forwarding through the same structure projection using Lean's structure name and field index. Expose actual fields supplied through different structures. Keep one original complete obligation and provider; use checked equivalent presentations only after ordinary rejection, without resetting its budget. |
+ | Generic proof refinement | Expose closed non-proposition type inputs before existing class/Decidable acquisition. Retain the original source/result and final kernel check. The public helper visibility repair is already present. |
+ | Prescribed-lift action execution | Use the existing realized action encoder. Retain cached computational parameter data and merge dependency owners before field dispatch. |
+ | Member applicability | Check the full dependent application before constructing competing results; preserve real ambiguity and existing budgets. |
+*** Update File: /workspace/scratch/4e9256f8ceed/lean-cas-dsl-kernel/specs/reuse/cc-dsl-language.md
+@@
+ Registered admission evidence receives a definitionally equal presentation of its original
+ complete target. Closed chosen class dictionaries may use another same-class presentation
+ only after kernel conversion checks equality of the entire supplied dictionary. Predicate
+-heads and chosen data remain fixed; the same registered evidence procedure runs once. Its
+-closed result is checked at the original target, including Type-valued admission witnesses.
+-Different structures on one carrier cannot pass the full dictionary equality check.
++heads and chosen data remain fixed. The same registered evidence procedure first receives
++the original target, then distinct checked equivalent presentations after ordinary rejection
++only. Every attempt shares the existing heartbeat allowance. A malformed or incomplete result
++cannot trigger another view. Its closed result is checked at the original target, including
++Type-valued admission witnesses. Different structures on one carrier cannot pass the full
++dictionary equality check.
+ 
+ The reconstructed constrained-point reader inspects the constructor of the independently
+ fixed target record through Lean's structure metadata. It accepts exactly one fixed data
+@@
+ unresolved comparison parameters. No universe default is supplied to the original
+ fixture. This failure is not evidence of a comparison defect at a complete module
+ category, and the group control establishes only local action reuse and fallback.
++
++## Original evidence targets and isolated equivalent views — 2026-10-28
++
++### Queries
++
++The author searched the formalization corpus for `withoutModifyingState` and
++`evidencePresentation`; both queries were blocked by the corpus API's
++`Operation not permitted` error. Local searches and reads covered Lean's
++`MonadBacktrack.withoutModifyingState`, `Term.SavedState`, `Meta.SavedState`,
++`Core.SavedState`, `Tactic.run`, `Lean.collectAxioms`, and the existing
++`Language.runProcedure` and `EvidencePresentation` consumers.
++
++### Owner
++
++Registered evidence procedures and their mathematical targets remain owned by
++`lean-categories`. Lean owns rollback, kernel checking, auxiliary declarations,
++and transitive axiom analysis. Existing stored-field and closed-type
++presentations supply definitionally equal views; no new mathematical procedure
++or registry declaration is introduced here.
++
++### New code
++
++The consumer distinguishes ordinary rejection from malformed logged output and
++tries original, stored-field, and type-visibility targets lazily with the same
++provider and budget. Each returned term must inhabit the complete original target.
++Caller metavariables and ordinary messages are restored between attempts; only a
++successful, rechecked environment is retained. Newly returned constants must
++exist in the checked environment and cannot hide `sorryAx` or add an assumption
++absent at the original question. `EvidenceViewEngineering` exercises ordering,
++state and budget continuity, malformed-output refusal, auxiliary persistence,
++failed-auxiliary isolation, and hidden-hole/new-assumption refusal.
++
++The exact final source/control patches and their evidence-presentation preimage
++were recovered after a workspace replacement. Earlier prototype passes do not
++substitute for compiling and running the original production controls against
++the recovered source. Protected questions, expected answers and budgets are unchanged.
+*** Update File: /workspace/scratch/4e9256f8ceed/lean-cas-dsl-kernel/scripts/ci_operation_owner_control.py
+@@
+         'before': None,
+         'after': '4cef385c924dc50f0bf951d211ce242e884a2abf17deec49322468eae21f1995',
+         'scope': 'Shared four-field dependency fold over retained operands; actual and prospective lift consumers supply their existing image and field callbacks without changing legacy packet order'},
++    'CasCatalogue/EvidencePresentation.lean': {
++        'before': 'adabad6c26d8fa6ed82feca70c10e32c20353662a5eddefc7e27de089bbec39a',
++        'after': 'ea1f8a4b718987bf3046e4b908509c405afe07f636664f76ca1996c903f75454',
++        'scope': 'Original producer markers are transparent to evidence; stored fields and closed type visibility remain separate checked equivalent presentations'},
++    'CasCatalogue/ProofRefinement.lean': {
++        'before': '7cb2193811cbea259af2828693843289261e08d73e2dacf4fa33ca61f040d93a',
++        'after': '1822f4ba4395db521acc0e6af8c517f565bc26718dd0eadfd9a9e5ecfcc0c5e6',
++        'scope': 'Existing class and Decidable acquisition explicitly retains its former checked type-visibility presentation without changing refinement mathematics'},
+     'CasCatalogue/Language.lean': {
+         'before': '585a2e71efec55c1164726f528a5d1f3cb3bd23052a74f48e080a3c0164769a1',
+-        'after': 'e57ea6c512e44925d2cc30c395607a76b75f94fd7e434b0bd4a51fa7396e779f',
+-        'scope': 'Complete source contexts and dependent typed selection for object/map parameters, numeral owners, registered tuple construction and exact oriented limit choices; no new mathematical objects or operations'},
++        'after': '58d7f1f4e9363e3f0d9dc32be30f482ae954a33ed89a65bf9939b547130f9fc3',
++        'scope': 'Complete source contexts and dependent typed selection; same-provider evidence uses original and checked equivalent targets with shared budgets, isolated caller proof state, and checked auxiliary results; no new mathematical objects or operations'},
+     'CasCatalogue/StructuredResult.lean': {
+         'before': 'fb3b8495e4423d857b9626b2ade65b713e58de02a3e90d9ce23536a344f061e6',
+         'after': '7b1af5f9ca8f0b8a482026b06659331ae34ece98613a76b11cd7591a0e7d0103',
+*** End Patch

@@ -1,0 +1,8 @@
+{
+  "kind": "exact historical source recovery",
+  "preDiagnosticExpectedSha256": "2b6a4857928f115d8e4c1528644b14839789a30796f5b0ac68526b11d80cda85",
+  "preDiagnosticActualSha256": "2b6a4857928f115d8e4c1528644b14839789a30796f5b0ac68526b11d80cda85",
+  "finalSha256": "eabe087f5b5355ac9177f67097d744a7e65dc10204a3e1dc73862ad0761b3b7b",
+  "derivation": "Pre-diagnostic source matches recorded hash exactly; final file applies the exact retained diagnostic-only tool patch. No later modifications are known in this agent context.",
+  "historicalVerification": "Full file passed focused-build-1793143294392299960 with original-view/completed-ownership/endpoint-comparison/positioned-scope batch; original build artifacts lost after executor reset. Recovery has not been Lean-checked."
+}

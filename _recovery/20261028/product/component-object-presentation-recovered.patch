@@ -1,0 +1,165 @@
+*** Begin Patch
+*** Update File: /workspace/scratch/4e9256f8ceed/lean-cas-dsl-kernel/CasCatalogue/ObjectPresentation.lean
+@@
+ public import CasCatalogue.Semantic
++public import CasCatalogue.DirectConstruction
+@@
+ def applyParameters (declaration : Name) (parameters : Array Expr) : TermElabM Expr := do
+   elabTermAndSynthesize
+     (← `($(mkCIdent declaration) $(← parameters.mapM exprToSyntax)*)) none
++
++/-- Apply exactly the original object telescope. Binder visibility neither omits
++an argument nor inserts a trailing implicit component index. -/
++def applyObjectArguments (family : Expr) (arguments : Array Expr) : TermElabM Expr := do
++  let mut type ← inferType family
++  for argument in arguments do
++    let .forallE _ domain body _ ← whnf type
++      | throwError "the accepted object field takes fewer parameters than its owner"
++    unless ← withTransparency .all <| isDefEq domain (← inferType argument) do
++      throwError "the accepted object field changed a complete owner parameter type"
++    type := body.instantiate1 argument
++  return ← instantiateMVars (mkAppN family arguments)
++
++/-- The component wire signature is the owner's public telescope followed by one
++mandatory index. The accepted projection supplies the body and exact dependent
++codomain; its own binder annotations do not define another public interface. -/
++def componentInterface (object arity projection : Expr) : TermElabM Expr :=
++  forallTelescopeReducing (← inferType object) fun parameters _ => do
++    let arity ← applyObjectArguments arity parameters
++    unless ← withTransparency .all <| isDefEq (← inferType arity) (mkConst ``Nat) do
++      throwError "the accepted component arity is not a natural number"
++    let family ← applyObjectArguments projection parameters
++    let .forallE _ indexType _ _ ← whnf (← inferType family)
++      | throwError "the accepted component projection lost its mandatory index"
++    unless ← withTransparency .all <| isDefEq indexType (← mkAppM ``Fin #[arity]) do
++      throwError "the accepted component projection changed its exact finite index type"
++    withLocalDeclD `index indexType fun index => do
++      let value := mkApp family index
++      instantiateMVars (← mkLambdaFVars (parameters.push index) value)
++
++def componentFamily (entry : ObjectEntry) : TermElabM Expr := do
++  let some components := entry.components
++    | throwError "the registered object has no component field"
++  componentInterface (← mkConstWithFreshMVarLevels entry.declaration)
++    (← mkConstWithFreshMVarLevels components.arity)
++    (← mkConstWithFreshMVarLevels components.projection)
++
++/-- Only schema-owned fields adapt binder visibility. Ordinary named declarations
++and the older public selectors keep their existing signature convention. -/
++def fieldFamily? (entry : ObjectEntry) (selector : String) : TermElabM (Option Expr) := do
++  if selector == "component" then return some (← componentFamily entry)
++  return none
++
++private def explicitApplication (family : Expr) (parameters : Array Expr) :
++    TermElabM DirectConstruction.Application := do
++  let (arguments, infos, _) ← forallMetaTelescopeReducing (← inferType family)
++  let explicit := (arguments.zip infos).filterMap fun (argument, info) =>
++    if info.isExplicit then some argument else none
++  unless explicit.size == parameters.size do
++    throwStratum .invalid "the component field omitted or added owner parameters or its index"
++  for (argument, supplied) in explicit.zip parameters do
++    unless ← withTransparency .all <|
++        isDefEq (← inferType argument) (← inferType supplied) <&&>
++          isDefEq argument supplied do
++      throwStratum .invalid "the component field changed a complete typed parameter"
++  return { value := mkAppN family arguments, arguments, explicit }
++
++/-- Read both accepted component declarations at every original object argument,
++including implicit and proof arguments. Scoped local data are valid here. -/
++def componentsAtArguments (entry : ObjectEntry) (arguments : Array Expr) :
++    TermElabM (Expr × Expr) := do
++  let some components := entry.components
++    | throwError "the registered object has no component field"
++  let arity ← applyObjectArguments (← mkConstWithFreshMVarLevels components.arity) arguments
++  let family ← applyObjectArguments (← mkConstWithFreshMVarLevels components.projection) arguments
++  for value in #[arity, family] do
++    let type ← instantiateMVars (← inferType value)
++    if value.hasMVar || value.hasLevelMVar || value.hasLooseBVars ||
++        type.hasMVar || type.hasLevelMVar || type.hasLooseBVars then
++      throwStratum .invalid "the component family requires complete original object parameters"
++    unless ← isTypeCorrect value do
++      throwError "the accepted component family is outside its complete signature"
++  return (arity, family)
++
++/-- Recover the owner's whole original application before reading its fields.
++Public explicit parameters alone cannot replace hidden selected structure. -/
++def componentsAt (entry : ObjectEntry) (parameters : Array Expr) (actual : Expr) :
++    TermElabM (Expr × Expr) := do
++  let application ← explicitApplication (← mkConstWithFreshMVarLevels entry.declaration) parameters
++  let mut original := (Trace.unanchor actual.consumeMData).headBeta
++  while original.isAppOfArity ``id 2 || original.isAppOfArity ``Trace.operationResult 3 do
++    original := (Trace.unanchor original.appArg!.consumeMData).headBeta
++  if original.getAppFn.isConstOf entry.declaration then
++    unless original.getAppArgs.size == application.arguments.size do
++      throwStratum .invalid "the selected component owner lost its complete object telescope"
++    for (argument, supplied) in application.arguments.zip original.getAppArgs do
++      unless ← withTransparency .all <|
++          isDefEq (← inferType argument) (← inferType supplied) <&&>
++            isDefEq argument supplied do
++        throwStratum .invalid "the selected component owner changed an original object argument"
++  unless ← withTransparency .all <|
++      isDefEq (← inferType application.value) (← inferType actual) <&&>
++        isDefEq application.value actual do
++    throwStratum .invalid "the component family belongs to a different complete selected object"
++  if original.getAppFn.isConstOf entry.declaration then
++    -- Validation may unify a fresh placeholder with a definitionally equal term.
++    -- The original occurrence still supplies every argument of the actual map.
++    return ← componentsAtArguments entry original.getAppArgs
++  let application ← DirectConstruction.close application
++  componentsAtArguments entry application.arguments
++
++/-- Extract public component parameters from the object telescope, with the
++selected index always last even when the projection declared it implicitly. -/
++def componentParameters (entry : ObjectEntry) (value : Expr) : TermElabM (Array Expr) := do
++  let some components := entry.components
++    | throwError "the registered object has no component field"
++  let mut application := (Trace.unanchor (← instantiateMVars value).consumeMData).headBeta
++  while application.isAppOfArity ``id 2 || application.isAppOfArity ``Trace.operationResult 3 do
++    application := (Trace.unanchor application.appArg!.consumeMData).headBeta
++  let infos ← forallTelescopeReducing (← getConstInfo entry.declaration).type fun fields _ =>
++    fields.mapM (·.fvarId!.getBinderInfo)
++  unless application.getAppFn.isConstOf components.projection &&
++      application.getAppArgs.size == infos.size + 1 do
++    throwStratum .invalid "the component field lost its complete original owner and index"
++  let arguments := application.getAppArgs
++  for term in #[value, application] ++ arguments do
++    let term ← instantiateMVars term
++    let type ← instantiateMVars (← inferType term)
++    if term.hasMVar || term.hasLevelMVar || term.hasLooseBVars ||
++        type.hasMVar || type.hasLevelMVar || type.hasLooseBVars then
++      throwStratum .invalid "the component field requires all original typed arguments"
++    unless ← isTypeCorrect term do
++      throwError "the accepted component field is outside its complete declared type"
++  unless ← withTransparency .all <|
++      isDefEq (← inferType application) (← inferType value) <&&> isDefEq application value do
++    throwStratum .invalid "the component field changed its original full application"
++  let parameters := ((arguments.extract 0 infos.size).zip infos).filterMap fun (argument, info) =>
++    if info.isExplicit then some argument else none
++  return parameters.push arguments[infos.size]!
++
++private def componentApplication (entry : ObjectEntry) (parameters : Array Expr)
++    (original? : Option Expr) : TermElabM Expr := do
++  if let some original := original? then
++    let selected ← componentParameters entry original
++    unless selected.size == parameters.size do
++      throwStratum .invalid "the retained component changed its public parameter count"
++    for (left, right) in selected.zip parameters do
++      unless ← withTransparency .all <|
++          isDefEq (← inferType left) (← inferType right) <&&> isDefEq left right do
++        throwStratum .invalid "the retained component changed an owner parameter or its index"
++    -- Keep the original application, including every implicit object argument.
++    return original
++  let application ← explicitApplication (← componentFamily entry) parameters
++  return (← DirectConstruction.close application).value.headBeta
+@@
+ def field (entry : ObjectEntry) (selector : String) (parameters : Array Expr)
+-    (trace? : Option Trace := none) : TermElabM Expr := do
++    (trace? : Option Trace := none) (original? : Option Expr := none) : TermElabM Expr := do
+   let some declaration := fieldDeclaration entry selector
+     | throwError "the registered object has no {selector} field"
+-  let application ← applyParameters declaration parameters
++  let application ← if selector == "component" then
++      componentApplication entry parameters original?
++    else applyParameters declaration parameters
+   let value ← instantiateMVars (← fieldValue selector application)
+*** End Patch

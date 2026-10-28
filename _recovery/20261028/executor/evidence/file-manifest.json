@@ -1,0 +1,110 @@
+{
+  "status": "Paused recovery draft; no live edits or Lean execution",
+  "files": [
+    {
+      "path": "RECOVERY.md",
+      "bytes": 8999,
+      "sha256": "943a62c76fe724696d3ea3a130f7eb9b0bd30fd48881b5b2d36620df434cecca"
+    },
+    {
+      "path": "base/CasCatalogue/ComputationalData.lean",
+      "bytes": 281294,
+      "sha256": "6eef76ad80969428447e6e0cae4cd421edff10c64652d36de8adf271bc9b20dc"
+    },
+    {
+      "path": "base/CasCatalogue/Realize.lean",
+      "bytes": 1245971,
+      "sha256": "17551055b02f219a97137b48d7ff07604d45a67ae2312da3d887abf3867f9bfa"
+    },
+    {
+      "path": "base/CasCatalogue/Trace.lean",
+      "bytes": 35974,
+      "sha256": "544c4a440c3e99a426b90332ded7264cb9e9513544989a62796dc252fc36ff04"
+    },
+    {
+      "path": "candidate/CasAcceptance/Kernel/OriginalViewLifecycleEngineering.lean",
+      "bytes": 11534,
+      "sha256": "eabe087f5b5355ac9177f67097d744a7e65dc10204a3e1dc73862ad0761b3b7b"
+    },
+    {
+      "path": "candidate/CasCatalogue/ComputationalData.lean",
+      "bytes": 281294,
+      "sha256": "6eef76ad80969428447e6e0cae4cd421edff10c64652d36de8adf271bc9b20dc"
+    },
+    {
+      "path": "candidate/CasCatalogue/Realize.lean",
+      "bytes": 1249922,
+      "sha256": "2bf05b5b61337d8e3daac86a9b4c08abaaea26cc98158b4addb909cdedaa77c6"
+    },
+    {
+      "path": "candidate/CasCatalogue/Trace.lean",
+      "bytes": 35974,
+      "sha256": "544c4a440c3e99a426b90332ded7264cb9e9513544989a62796dc252fc36ff04"
+    },
+    {
+      "path": "evidence/historical-validation.json",
+      "bytes": 1273,
+      "sha256": "817033564c778088dda472d9f6871f40d2d7dd7a148b0f3640edbf34df3d5cec"
+    },
+    {
+      "path": "evidence/original-view-source.json",
+      "bytes": 781,
+      "sha256": "cb13e0765f3809bd9438a63a16e8010891163bad21720ac638eb0f00b85610a0"
+    },
+    {
+      "path": "exact/EndpointProjectionData.fragment.lean",
+      "bytes": 358,
+      "sha256": "c28c1b1d86692ad85e07500e1b70dc6d0c93c117ec380cfd92ec38535538c070"
+    },
+    {
+      "path": "exact/OriginalViewLifecycleEngineering.lean",
+      "bytes": 11534,
+      "sha256": "eabe087f5b5355ac9177f67097d744a7e65dc10204a3e1dc73862ad0761b3b7b"
+    },
+    {
+      "path": "exact/OriginalViewLifecycleEngineering.pre_diagnostic.lean",
+      "bytes": 11217,
+      "sha256": "2b6a4857928f115d8e4c1528644b14839789a30796f5b0ac68526b11d80cda85"
+    },
+    {
+      "path": "exact/captureDataFieldValue.fragment.lean",
+      "bytes": 938,
+      "sha256": "4522dc1bdda22d123674c36fd497c6a682cffa94dbc63d646dc831f3d1a49827"
+    },
+    {
+      "path": "exact/empty-value-projection-completion.fragment.lean",
+      "bytes": 496,
+      "sha256": "058ce7466f055e0692419753a4a7c9f39e9375854d7b45b3d3de434c05f99afb"
+    },
+    {
+      "path": "exact/endpointValidationScope.fragment.lean",
+      "bytes": 2798,
+      "sha256": "9244e70ee3633cd094bbf81ded10f95dd4c3088bfced4bdc43aeaaec64ed4835"
+    },
+    {
+      "path": "exact/interfaceEndpointDataWithOrigin.fragment.lean",
+      "bytes": 3931,
+      "sha256": "4ef3b639352fc3466aeb057b04b296317a4933361752008427305661a75cbe10"
+    },
+    {
+      "path": "exact/realizeFreshWith.original-view-branches.fragment.lean",
+      "bytes": 2388,
+      "sha256": "cd39b1bff41bd2925037bf4ab1d0ca5ca149877c6a8db39ef7f7efd319923b9c"
+    },
+    {
+      "path": "patches/01-callable-frame.exact-operations.patch",
+      "bytes": 5100,
+      "sha256": "883a49e4199ee54be050229aee53efae2102227491ae6b70bc5d5ada37f5e68c"
+    },
+    {
+      "path": "patches/02-refreshed-endpoint-receipt.exact-operations.patch",
+      "bytes": 1724,
+      "sha256": "fec5199d846d03b5f7f6e4d23df2645e66612b8980118e229c4afaf757387316"
+    },
+    {
+      "path": "patches/known-authored-slices.git.patch",
+      "bytes": 21957,
+      "sha256": "78d7692d5a59966bf46bc9da4b4ad071179f0ff4208b8c83fd430fabbdc132ce"
+    }
+  ]
+}

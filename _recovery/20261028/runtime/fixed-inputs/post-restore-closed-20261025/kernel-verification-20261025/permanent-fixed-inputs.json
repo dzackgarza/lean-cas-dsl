@@ -1,0 +1,70 @@
+{
+  "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/algebras_schemes.cas": {
+    "sha256": "4dd63094c93c9edf45e830ae87ee94335e4bb25dc02196bdb9b3fa9cef9ef906",
+    "selectedPath": "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/algebras_schemes.cas"
+  },
+  "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/calculus.cas": {
+    "sha256": "5db1192f08f6c16461d933d62a4dc338a6a1de939a43d2005e677b76b9d6a157",
+    "selectedPath": "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/calculus.cas"
+  },
+  "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/composed.cas": {
+    "sha256": "2bcf37c5bacbfc34b2c8ffe55e0dc849048a4acc144cb38a11c565b5abc1c752",
+    "selectedPath": "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/composed.cas"
+  },
+  "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/differentials.cas": {
+    "sha256": "4609fa755ded88c69995479f0ca66d08d1f49a111229cb47c48af736415353fe",
+    "selectedPath": "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/differentials.cas"
+  },
+  "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/ellipses.cas": {
+    "sha256": "d97723ef15e4dce80578865b59b67092c3c604a63b21e281a5d0d862a0f6de1e",
+    "selectedPath": "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/ellipses.cas"
+  },
+  "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/factorization.cas": {
+    "sha256": "66caf1f57f2f7d8c803d29646afe0ddc2cf1218dcb6b8cc208320ce0dc966ab9",
+    "selectedPath": "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/factorization.cas"
+  },
+  "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/finite_sets.cas": {
+    "sha256": "63512549dbaa47f3b0f54c512123e5e88559746d8074ea4f164cbb3bfa14bf33",
+    "selectedPath": "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/finite_sets.cas"
+  },
+  "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/fractions.cas": {
+    "sha256": "2da11266a376b8f53358056f066f263b687c73bda9fea644b91b3058740f1851",
+    "selectedPath": "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/fractions.cas"
+  },
+  "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/functions.cas": {
+    "sha256": "70a89a40e70798e3dc9b0ab18bb1eef6cd6c4d695f4c5aeda1e9d460e5e0067e",
+    "selectedPath": "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/functions.cas"
+  },
+  "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/inverses.cas": {
+    "sha256": "29ff6c9e55285554b5c981f906e6a3ce131229bd81afae575ab8d6d41f96d738",
+    "selectedPath": "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/inverses.cas"
+  },
+  "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/lattices.cas": {
+    "sha256": "dee714bef7bf691b8fb06269a585a6c3739659c2ee0d264408f7055e3530de5b",
+    "selectedPath": "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/lattices.cas"
+  },
+  "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/linear_algebra.cas": {
+    "sha256": "90e04dbc4bcde8d201448ee5e2c2a974eaddfa1d828554cf559f350bba30e927",
+    "selectedPath": "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/linear_algebra.cas"
+  },
+  "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/numbers.cas": {
+    "sha256": "5e16c37a6c31b2efa087db8dabce5c52e2a55652d377714949169da54a9e9160",
+    "selectedPath": "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/numbers.cas"
+  },
+  "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/polynomials.cas": {
+    "sha256": "cce15e7eafb2b607711e6afbfaa8722ed489dd2c79a763cce389f8f00fbe81ea",
+    "selectedPath": "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/polynomials.cas"
+  },
+  "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/series.cas": {
+    "sha256": "ded04efe61726b92b870fd1dad854d210bcb816a498522b92199fd268d696b14",
+    "selectedPath": "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/series.cas"
+  },
+  "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/sets.cas": {
+    "sha256": "19e1734e16c3f6195cd039b701245306a66d20bf43048757514328d1b47fab01",
+    "selectedPath": "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/sets.cas"
+  },
+  "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/several_variables.cas": {
+    "sha256": "8792b2378b9fd40e7bdc64a37a35ebf11a98a6eed2a423eb5652ded64045618d",
+    "selectedPath": "/workspace/scratch/08e8d69f9eb1/lean-cas-dsl/tests/acceptance/several_variables.cas"
+  }
+}

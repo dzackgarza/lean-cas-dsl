@@ -1,0 +1,424 @@
+{
+  "time": 1793172908.508224,
+  "readOnlySource": "/workspace/scratch/b497505d8df8",
+  "artifactCounts": {
+    "server": 1,
+    "ir": 1,
+    "private": 1,
+    "lake": 2
+  },
+  "artifactBytes": {
+    "server": 96,
+    "ir": 1632,
+    "private": 1600,
+    "lake": 197
+  },
+  "artifactSamples": [
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/restored/native-and-derivations-v41/contract-derivations-verification-20261026/development-export/Export.olean.server",
+      "bytes": 96
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/restored/native-and-derivations-v41/contract-derivations-verification-20261026/development-export/Export.ir",
+      "bytes": 1632
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/restored/native-and-derivations-v41/contract-derivations-verification-20261026/development-export/Export.olean.private",
+      "bytes": 1600
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/restored/kernel-mvp-integrated-repairs-20261026-v30/notebook-runtime/bin/lake",
+      "bytes": 101
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/restored/continuation-20261025-local-restoration/notebook-runtime/bin/lake",
+      "bytes": 96
+    }
+  ],
+  "archives": [
+    {
+      "path": "/workspace/scratch/b497505d8df8/kernel-mvp-verification-evidence-20261027.zip",
+      "bytes": 24507907,
+      "mtime": 1793121494.3742352,
+      "members": 1016,
+      "uncompressedBytes": 115624632,
+      "latestNames": [],
+      "latestZipTimestamp": [
+        2026,
+        10,
+        28,
+        2,
+        18,
+        8
+      ]
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/kernel-mvp-verification-evidence-20261024.zip",
+      "bytes": 79250338,
+      "mtime": 1793096407.8683488,
+      "members": 3485,
+      "uncompressedBytes": 553162151,
+      "latestNames": [],
+      "latestZipTimestamp": [
+        2026,
+        10,
+        26,
+        22,
+        56,
+        28
+      ]
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/ci/kernel-v1-candidate-e35b01c-evidence.zip",
+      "bytes": 61701,
+      "mtime": 1793116606.1173146,
+      "members": 37,
+      "uncompressedBytes": 468200,
+      "latestNames": [],
+      "latestZipTimestamp": [
+        2026,
+        10,
+        27,
+        15,
+        54,
+        40
+      ]
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/ci/kernel-v1-candidate-53028b-evidence.zip",
+      "bytes": 54946,
+      "mtime": 1793119681.8694358,
+      "members": 37,
+      "uncompressedBytes": 370421,
+      "latestNames": [],
+      "latestZipTimestamp": [
+        2026,
+        10,
+        27,
+        16,
+        38,
+        8
+      ]
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/ci/kernel-v1-candidate-9dbdd4b-evidence.zip",
+      "bytes": 54673,
+      "mtime": 1793110640.910041,
+      "members": 37,
+      "uncompressedBytes": 345230,
+      "latestNames": [],
+      "latestZipTimestamp": [
+        2026,
+        10,
+        27,
+        14,
+        13,
+        26
+      ]
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/ci/kernel-v1-candidate-0d9a4fd-evidence.zip",
+      "bytes": 61369,
+      "mtime": 1793115576.489733,
+      "members": 37,
+      "uncompressedBytes": 464584,
+      "latestNames": [],
+      "latestZipTimestamp": [
+        2026,
+        10,
+        27,
+        15,
+        37,
+        38
+      ]
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/ci/kernel-v1-candidate-de03ac0-evidence.zip",
+      "bytes": 54446,
+      "mtime": 1793115054.2236767,
+      "members": 37,
+      "uncompressedBytes": 343699,
+      "latestNames": [],
+      "latestZipTimestamp": [
+        2026,
+        10,
+        27,
+        15,
+        24,
+        48
+      ]
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/ci/kernel-v1-candidate-22d6eaf-evidence.zip",
+      "bytes": 54757,
+      "mtime": 1793124064.095904,
+      "members": 37,
+      "uncompressedBytes": 345502,
+      "latestNames": [],
+      "latestZipTimestamp": [
+        2026,
+        10,
+        27,
+        17,
+        55,
+        28
+      ]
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/ci/kernel-v1-candidate-5933af3-evidence.zip",
+      "bytes": 54541,
+      "mtime": 1793114166.5037367,
+      "members": 37,
+      "uncompressedBytes": 344515,
+      "latestNames": [],
+      "latestZipTimestamp": [
+        2026,
+        10,
+        27,
+        14,
+        45,
+        44
+      ]
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/ci/kernel-v1-candidate-112dc2-evidence.zip",
+      "bytes": 60562,
+      "mtime": 1793108783.8179493,
+      "members": 37,
+      "uncompressedBytes": 453365,
+      "latestNames": [],
+      "latestZipTimestamp": [
+        2026,
+        10,
+        27,
+        13,
+        40,
+        20
+      ]
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/ci/kernel-v1-candidate-f65f3e9-evidence.zip",
+      "bytes": 64104,
+      "mtime": 1793099876.9758532,
+      "members": 37,
+      "uncompressedBytes": 567162,
+      "latestNames": [],
+      "latestZipTimestamp": [
+        2026,
+        10,
+        27,
+        11,
+        9,
+        46
+      ]
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/ci/kernel-v1-candidate-db082f-evidence.zip",
+      "bytes": 58429,
+      "mtime": 1793121203.3261786,
+      "members": 37,
+      "uncompressedBytes": 423776,
+      "latestNames": [],
+      "latestZipTimestamp": [
+        2026,
+        10,
+        27,
+        17,
+        2,
+        32
+      ]
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/ci/kernel-v1-candidate-b314639-evidence.zip",
+      "bytes": 58856,
+      "mtime": 1793121754.4682117,
+      "members": 37,
+      "uncompressedBytes": 382709,
+      "latestNames": [],
+      "latestZipTimestamp": [
+        2026,
+        10,
+        27,
+        17,
+        19,
+        16
+      ]
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/ci/kernel-candidate-09d5299-evidence.zip",
+      "bytes": 58312,
+      "mtime": 1793096761.330001,
+      "members": 37,
+      "uncompressedBytes": 450615,
+      "latestNames": [],
+      "latestZipTimestamp": [
+        2026,
+        10,
+        26,
+        20,
+        17,
+        22
+      ]
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/ci/kernel-v1-candidate-fce463-evidence.zip",
+      "bytes": 58918,
+      "mtime": 1793124270.283387,
+      "members": 37,
+      "uncompressedBytes": 383331,
+      "latestNames": [],
+      "latestZipTimestamp": [
+        2026,
+        10,
+        27,
+        17,
+        40,
+        34
+      ]
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/ci/kernel-v1-candidate-918c32b-evidence.zip",
+      "bytes": 60423,
+      "mtime": 1793118537.6660368,
+      "members": 37,
+      "uncompressedBytes": 477714,
+      "latestNames": [],
+      "latestZipTimestamp": [
+        2026,
+        10,
+        27,
+        16,
+        25,
+        40
+      ]
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/ci/kernel-v1-candidate-69e2193-evidence.zip",
+      "bytes": 60997,
+      "mtime": 1793117335.2003875,
+      "members": 37,
+      "uncompressedBytes": 488489,
+      "latestNames": [],
+      "latestZipTimestamp": [
+        2026,
+        10,
+        27,
+        15,
+        58,
+        34
+      ]
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/restored/closed-integration-review-v43/evidence-archive/v43-source-checkpoints/primitive-actions-frozen-3176e43.tar.gz",
+      "bytes": 243283,
+      "mtime": 1793096763.1655765
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/restored/admission-boundary-closed-20261025/kernel-fixed-execution-prep-20261025/fixed-execution-preparation-20261025.zip",
+      "bytes": 13640,
+      "mtime": 1793096762.2214723,
+      "members": 7,
+      "uncompressedBytes": 63016,
+      "latestNames": [],
+      "latestZipTimestamp": [
+        2026,
+        10,
+        25,
+        10,
+        7,
+        48
+      ]
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/restored/closed-reader-and-boundaries-v44/evidence-archive/v44-source-checkpoints/primitive-actions-frozen-e855951.tar.gz",
+      "bytes": 251160,
+      "mtime": 1793096763.2205756
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/restored/kernel-mvp-integrated-repairs-20261026-v30/binding-repair-engineering-v6-20261025.zip",
+      "bytes": 2770361,
+      "mtime": 1793096762.4374979,
+      "members": 216,
+      "uncompressedBytes": 41808300,
+      "latestNames": [],
+      "latestZipTimestamp": [
+        2026,
+        10,
+        25,
+        14,
+        55,
+        26
+      ]
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/restored/integrated-consumers-closed-20261025/kernel-notebook-prep-20261025/existing-notebook-preparation-20261025.zip",
+      "bytes": 13112,
+      "mtime": 1793096762.2255905,
+      "members": 11,
+      "uncompressedBytes": 28568,
+      "latestNames": [],
+      "latestZipTimestamp": [
+        2026,
+        10,
+        25,
+        10,
+        23,
+        52
+      ]
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/restored/kernel-mvp-source-and-interpretation-20261025-v29/ci-prep/691f94f-records/artifact.zip",
+      "bytes": 138496,
+      "mtime": 1793096762.2848806,
+      "members": 41,
+      "uncompressedBytes": 1313850,
+      "latestNames": [],
+      "latestZipTimestamp": [
+        2026,
+        10,
+        25,
+        13,
+        20,
+        0
+      ]
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/restored/post-restore-closed-20261025/kernel-public-api-20261025/public-api-published-producer-preparation-20261025.zip",
+      "bytes": 12777,
+      "mtime": 1793096762.2118814,
+      "members": 4,
+      "uncompressedBytes": 33892,
+      "latestNames": [],
+      "latestZipTimestamp": [
+        2026,
+        10,
+        25,
+        9,
+        54,
+        6
+      ]
+    },
+    {
+      "path": "/workspace/scratch/b497505d8df8/evidence/restored/post-restore-closed-20261025/kernel-runtime-20261025/runtime-restoration-records-20261025.zip",
+      "bytes": 13375,
+      "mtime": 1793096762.2116861,
+      "members": 12,
+      "uncompressedBytes": 53327,
+      "latestNames": [],
+      "latestZipTimestamp": [
+        2026,
+        10,
+        25,
+        9,
+        39,
+        54
+      ]
+    }
+  ],
+  "matchingNames": [
+    "/workspace/scratch/b497505d8df8/evidence/restored/restored-runtime-and-reader-v40/service-verification-20261026/scoped-consumers-63793dd-provenance.json",
+    "/workspace/scratch/b497505d8df8/evidence/restored/restored-runtime-and-reader-v40/service-verification-20261026/scoped-consumers-63793dd.log",
+    "/workspace/scratch/b497505d8df8/evidence/restored/restored-runtime-and-reader-v40/service-verification-20261026/scoped-63793dd-service-cases.jsonl",
+    "/workspace/scratch/b497505d8df8/evidence/restored/closed-reader-and-boundaries-v44/evidence-archive/v44-source-checkpoints/created-apex-integrated-75adee3de1d3.patch"
+  ]
+}

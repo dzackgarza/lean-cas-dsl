@@ -1,0 +1,68 @@
+{
+  "source_checkout": "/workspace/scratch/4e9256f8ceed/recovery-20261028/upstream",
+  "base": "3bd4d3d9695f288749c860368174462c4d689b7c",
+  "suggested_title": "Expose ordered set products and exact component-limit witnesses (recovered source)",
+  "files": {
+    "LeanCategories/Catalogue.lean": {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/upstream/LeanCategories/Catalogue.lean",
+      "sha256": "ab55419225acc78e09e4c5ee177e75a4920a8fd8fd03124cf53188fd719a7b27",
+      "original_sha256": "ab55419225acc78e09e4c5ee177e75a4920a8fd8fd03124cf53188fd719a7b27",
+      "exact_match": true,
+      "recovery": "exact original source"
+    },
+    "LeanCategories/Catalogue/Registry/Entry.lean": {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/upstream/LeanCategories/Catalogue/Registry/Entry.lean",
+      "sha256": "b3897617c487f6580dc7ea7182525e492a752460e0c8b1f3cb22b243599b3caf",
+      "original_sha256": "b3897617c487f6580dc7ea7182525e492a752460e0c8b1f3cb22b243599b3caf",
+      "exact_match": true,
+      "recovery": "exact original source"
+    },
+    "LeanCategories/Catalogue/Registry/Semantic.lean": {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/upstream/LeanCategories/Catalogue/Registry/Semantic.lean",
+      "sha256": "500bad04e03a5058a9ad8450c0315efb5f1f613f4a9a6a79ae23827121dbd0a2",
+      "original_sha256": "500bad04e03a5058a9ad8450c0315efb5f1f613f4a9a6a79ae23827121dbd0a2",
+      "exact_match": true,
+      "recovery": "exact original source"
+    },
+    "LeanCategories/Catalogue/Semantics/Foundation/OrderedProducts.lean": {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/upstream/LeanCategories/Catalogue/Semantics/Foundation/OrderedProducts.lean",
+      "sha256": "af1d5f5796172dba14e516326fc5d03099aaf7b8df7e8c9c9a748d424cfc588a",
+      "original_sha256": "af1d5f5796172dba14e516326fc5d03099aaf7b8df7e8c9c9a748d424cfc588a",
+      "exact_match": true,
+      "recovery": "exact original source"
+    },
+    "LeanCategories/Catalogue/Registry/ComponentsProbes.lean": {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/upstream/LeanCategories/Catalogue/Registry/ComponentsProbes.lean",
+      "sha256": "a16b6aa1e1f8719b31020e581c1cdd997ee1519dcb92e2d25e8623f4fa1d39c0",
+      "original_sha256": "a16b6aa1e1f8719b31020e581c1cdd997ee1519dcb92e2d25e8623f4fa1d39c0",
+      "exact_match": true,
+      "recovery": "exact original source"
+    },
+    "LeanCategories/Catalogue/Semantics.lean": {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/upstream/LeanCategories/Catalogue/Semantics.lean",
+      "sha256": "ff277e0e41487fd6ce8152b7667db161553bf15005ec35bbdad72c4c33d35d00",
+      "original_sha256": "ff277e0e41487fd6ce8152b7667db161553bf15005ec35bbdad72c4c33d35d00",
+      "exact_match": true,
+      "recovery": "exact original source"
+    },
+    "COMPLAINTS.md": {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/upstream/COMPLAINTS.md",
+      "sha256": "16f82a6bb936652aa1c9a021609e8f71ed1a905b517465c36be477e21c8fd177",
+      "original_sha256": "eae16182b73f5e30305ac6365fecaf9c49e08abb5792fb34349e394a0ac93232",
+      "exact_match": false,
+      "recovery": "prose reconstructed from retained handoff; incomplete original text"
+    },
+    "FOUNDATIONS.md": {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/upstream/FOUNDATIONS.md",
+      "sha256": "b827ac63ce504290389fdad610f559a4faa930153d05551c76b1b939dce12098",
+      "original_sha256": "fde824f52796fa29f502f0e35f59b18ef74626fc153060c4d1ac415ab01b4adc",
+      "exact_match": false,
+      "recovery": "prose reconstructed from retained handoff; incomplete original text"
+    }
+  },
+  "lean_run_after_reset": false,
+  "git_diff_check_exit_code": 0,
+  "historical_verification": "Retained handoff records success for the 90-module affected Catalogue closure before workspace loss. The underlying receipt and build artifacts were not recovered. No new build or acceptance claim.",
+  "historical_receipt_sha256": "34c22a2325ca55bb56c5a66a9cefeece781b1122e5ea8ed31829591865b334e2",
+  "status": "saved; paused for root publication"
+}

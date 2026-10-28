@@ -1,0 +1,23 @@
+{
+  "purpose": "Restore official pinned compiler only; no kernel or guarded verification",
+  "sourceMetadata": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/evidence/lean-4.33.0-release.json",
+  "sourceMetadataSha256": "7986cdca015b7c10b7382f4fd514cc8991436e2ae2ffbf0fede6435cc91a75d3",
+  "asset": {
+    "name": "lean-4.33.0-linux.tar.zst",
+    "id": 508371049,
+    "size": 574882764,
+    "digest": "sha256:4b3fb03c29a1e0a253fb1d11f9bae3725f19a0dc6fc09b3ea16d2c9df3349e2c",
+    "browser_download_url": "https://github.com/leanprover/lean4/releases/download/v4.33.0/lean-4.33.0-linux.tar.zst"
+  },
+  "started": 1793173322.2806327,
+  "status": "completed",
+  "archive": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/archives/lean-4.33.0-linux.tar.zst",
+  "actualBytes": 574882764,
+  "actualSha256": "4b3fb03c29a1e0a253fb1d11f9bae3725f19a0dc6fc09b3ea16d2c9df3349e2c",
+  "toolchain": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/toolchains/lean-4.33.0-linux",
+  "versions": {
+    "lean": "Lean (version 4.33.0, x86_64-unknown-linux-gnu, commit d8b18978322de05a8f3dba51ef03cf5461676c17, Release)",
+    "lake": "Lake version 5.0.0-src+d8b1897 (Lean version 4.33.0)"
+  },
+  "elapsedSeconds": 24.03065061569214
+}

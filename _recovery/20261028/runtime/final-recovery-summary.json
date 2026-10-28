@@ -1,0 +1,161 @@
+{
+  "status": "Paused at explicit user request: push all work and pause",
+  "recordedUtc": "2026-10-28T07:48:08.421258+00:00",
+  "scope": "Recovery and reproducible dependency bootstrap only; no guarded verification or kernel build",
+  "activeRuntimeProcesses": [],
+  "sourceStatusAtPause": {
+    "kernel": {
+      "path": "/workspace/scratch/4e9256f8ceed/lean-cas-dsl-kernel",
+      "commit": "60829a1f7db040f6a8ae394777c0a10bc00d3946",
+      "tree": "7631c8218e33056e4ca20430d8d03839e0457b15",
+      "workingTree": ""
+    },
+    "cas_leaf_contracts": {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/cas_leaf_contracts",
+      "commit": "34bb8abbdbb49699015f63840cf86ed67f438003",
+      "tree": "0499f1f30816a14b4f14aa9c03185457234f437b",
+      "workingTree": ""
+    },
+    "lean_categories": {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/lean_categories",
+      "commit": "3bd4d3d9695f288749c860368174462c4d689b7c",
+      "tree": "3e5daf28ce91a2b700db32b6f10753a5724eb86c",
+      "workingTree": ""
+    },
+    "mathlib": {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/mathlib",
+      "commit": "db584cd6d46c92f209a44c0f1c829460d327499d",
+      "tree": "797420f01ffbca473c4cd972670394965e55208a",
+      "workingTree": ""
+    },
+    "\u00abnbdsl-worker\u00bb": {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/\u00abnbdsl-worker\u00bb/worker",
+      "commit": "4c6c2a77abcc717513a65ca35723ed428647e1bd",
+      "tree": "de523b4fe2b87a14834b2d4fddaab2f18e3a9180",
+      "workingTree": ""
+    },
+    "BrauerGroup": {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/BrauerGroup",
+      "commit": "54a54e35abf4c69fdef952100df57a8ec2bc1ea9",
+      "tree": "f6b233a23fef8b7d8d1f12f55555b063229b4c6b",
+      "workingTree": ""
+    },
+    "plausible": {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/plausible",
+      "commit": "b7eb3304aeae834b12dda98993a37f6a41f6f0bb",
+      "tree": "52fb5a4067538333f08d2c2c2ee9db16351a3508",
+      "workingTree": ""
+    },
+    "LeanSearchClient": {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/LeanSearchClient",
+      "commit": "5f4d51b81cbd3f6b32b156bfad9056621a040404",
+      "tree": "6df26d76c14ef44d6b84a19df906d9116cfe3a50",
+      "workingTree": ""
+    },
+    "importGraph": {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/importGraph",
+      "commit": "16f02aa7642864af59f1ff0e384a015994db9118",
+      "tree": "0330ba38791d120e992fd635f4198dd4f845f8d1",
+      "workingTree": ""
+    },
+    "proofwidgets": {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/proofwidgets",
+      "commit": "4be2e3d5087eeb272cf5a8853b8f9dd025ef5957",
+      "tree": "6848bab13b5769926e47be1c768b9c3cad3e0d41",
+      "workingTree": ""
+    },
+    "aesop": {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/aesop",
+      "commit": "3448c0bcc5ce01b2d1546e483ec3620e32df3d0e",
+      "tree": "b2a7fa8f458d93951096c5c16da08fbfab393c85",
+      "workingTree": ""
+    },
+    "Qq": {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/Qq",
+      "commit": "92c15be17b7caf78c2ad767ec40f89052d908d81",
+      "tree": "1e857c2d945d9f5757b39cd2a2be1ed1ea94c82c",
+      "workingTree": ""
+    },
+    "batteries": {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/batteries",
+      "commit": "4488d40d070b9700d4d5a6aa342f0d40c31b2a2d",
+      "tree": "5a1de86f7997958aaffec998882c29006b688d1e",
+      "workingTree": ""
+    },
+    "checkdecls": {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/checkdecls",
+      "commit": "3d425859e73fcfbef85b9638c2a91708ef4a22d4",
+      "tree": "303d5478ac0bb80be426a5a4a753ee70b07e7c47",
+      "workingTree": ""
+    },
+    "Cli": {
+      "path": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/dependencies/Cli",
+      "commit": "6130a47896ce867c6a4a55373441e59e565bad0f",
+      "tree": "34330f4c97f983d6b2dcb6d1de73941d76f0d336",
+      "workingTree": ""
+    }
+  },
+  "toolchain": {
+    "purpose": "Restore official pinned compiler only; no kernel or guarded verification",
+    "sourceMetadata": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/evidence/lean-4.33.0-release.json",
+    "sourceMetadataSha256": "7986cdca015b7c10b7382f4fd514cc8991436e2ae2ffbf0fede6435cc91a75d3",
+    "asset": {
+      "name": "lean-4.33.0-linux.tar.zst",
+      "id": 508371049,
+      "size": 574882764,
+      "digest": "sha256:4b3fb03c29a1e0a253fb1d11f9bae3725f19a0dc6fc09b3ea16d2c9df3349e2c",
+      "browser_download_url": "https://github.com/leanprover/lean4/releases/download/v4.33.0/lean-4.33.0-linux.tar.zst"
+    },
+    "started": 1793173322.2806327,
+    "status": "completed",
+    "archive": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/archives/lean-4.33.0-linux.tar.zst",
+    "actualBytes": 574882764,
+    "actualSha256": "4b3fb03c29a1e0a253fb1d11f9bae3725f19a0dc6fc09b3ea16d2c9df3349e2c",
+    "toolchain": "/workspace/scratch/4e9256f8ceed/recovery-20261028/runtime/toolchains/lean-4.33.0-linux",
+    "versions": {
+      "lean": "Lean (version 4.33.0, x86_64-unknown-linux-gnu, commit d8b18978322de05a8f3dba51ef03cf5461676c17, Release)",
+      "lake": "Lake version 5.0.0-src+d8b1897 (Lean version 4.33.0)"
+    },
+    "elapsedSeconds": 24.03065061569214
+  },
+  "dependencyBootstrapReceipt": "evidence/dependency-bootstrap.json",
+  "dependencyCacheReceipt": "evidence/dependency-cache-1793173411451833008.json",
+  "dependencyCacheOutcome": {
+    "status": "completed",
+    "cacheExit": 0,
+    "elapsedSeconds": 28.349265813827515,
+    "sourceSelectionChanged": false
+  },
+  "fixedInputRecoveryReceipt": "fixed-input-recovery.json",
+  "fixedInputCount": 13,
+  "recoveredCompiledKernelArtifacts": 0,
+  "lostRecentCheckpointsNotRecoveredHere": [
+    "aabdf4b6e61e31d9d7f2651ffdae7e85f95270f5",
+    "160b47e4afce2132bb6da535f7a7b53acd70b8fa",
+    "50fa5a01fa288fdcd4fef008d1829cadb7cdd96c",
+    "1147199d23c8ab80948318643e9dc5f5845bbdb9"
+  ],
+  "externalRunnerDrafts": {
+    "files": [
+      "artifact_hash.lean",
+      "runtime_state.py",
+      "artifact_consistency.py",
+      "focused_build.py",
+      "protocol_focused_build.py"
+    ],
+    "status": "Reconstructed from retained specifications; not executed or syntax-validated after recovery",
+    "missingPrerequisites": [
+      "lake.sh has not yet been recreated",
+      "run_lean_diagnostic.py has not yet been recreated",
+      "No integrated source tuple selected or compiled"
+    ]
+  },
+  "historicalResults": "Recovered archive verdicts and conversation-attested recent verdicts are historical only; no new kernel correctness or acceptance verdict is claimed.",
+  "publicationExclusions": [
+    "dependencies/",
+    "toolchains/",
+    "mathlib-cache/",
+    "archives/",
+    "cache-extraction-originals-*/"
+  ]
+}

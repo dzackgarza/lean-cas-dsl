@@ -1,0 +1,89 @@
+{
+  "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas": {
+    "sha256": "a5568912e5869e36c60d9450f3bb3c97e0f43e869f820b1da225d16db940746a",
+    "selectedPath": "/workspace/scratch/735f437b0adf/runtime-verification/frozen-inputs/positive-original/rx-lift-prescribed-stages.cas",
+    "originalPath": "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+    "originalSha256": "a5568912e5869e36c60d9450f3bb3c97e0f43e869f820b1da225d16db940746a"
+  },
+  "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-source-comparison.cas": {
+    "sha256": "8b677f75efb6143bbcdc1c182ea151b50fc57182e30cd6eb3edbf951d651c4ca",
+    "selectedPath": "/workspace/scratch/735f437b0adf/runtime-verification/frozen-inputs/positive-original/rx-lift-source-comparison.cas",
+    "originalPath": "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-source-comparison.cas",
+    "originalSha256": "8b677f75efb6143bbcdc1c182ea151b50fc57182e30cd6eb3edbf951d651c4ca"
+  },
+  "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx01-selected-orders.cas": {
+    "sha256": "ad6bad0cf74c7c034cc7b9feee9ce1a7a6ad897a157147238417180eee0bc9ea",
+    "selectedPath": "/workspace/scratch/735f437b0adf/runtime-verification/frozen-inputs/positive-original/rx01-selected-orders.cas",
+    "originalPath": "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx01-selected-orders.cas",
+    "originalSha256": "ad6bad0cf74c7c034cc7b9feee9ce1a7a6ad897a157147238417180eee0bc9ea"
+  },
+  "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx02-complete-core-action.cas": {
+    "sha256": "89ea7a08af111782af8e8465629698040c0ee0780caecf3ab400d5f0651aee8e",
+    "selectedPath": "/workspace/scratch/735f437b0adf/runtime-verification/frozen-inputs/positive-original/rx02-complete-core-action.cas",
+    "originalPath": "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx02-complete-core-action.cas",
+    "originalSha256": "89ea7a08af111782af8e8465629698040c0ee0780caecf3ab400d5f0651aee8e"
+  },
+  "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx02-two-subsets.cas": {
+    "sha256": "754bd0daf448bb763a91a34ebc41108605e72c4767a79d29b4dee18e1dfb3b95",
+    "selectedPath": "/workspace/scratch/735f437b0adf/runtime-verification/frozen-inputs/positive-original/rx02-two-subsets.cas",
+    "originalPath": "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx02-two-subsets.cas",
+    "originalSha256": "754bd0daf448bb763a91a34ebc41108605e72c4767a79d29b4dee18e1dfb3b95"
+  },
+  "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx03-complete-automorphism-arrows.cas": {
+    "sha256": "f5549f8865f5da0836c9811dd4dd28d21d19ae9b637c677eab99b2f45ddd2a7a",
+    "selectedPath": "/workspace/scratch/735f437b0adf/runtime-verification/frozen-inputs/positive-original/rx03-complete-automorphism-arrows.cas",
+    "originalPath": "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx03-complete-automorphism-arrows.cas",
+    "originalSha256": "f5549f8865f5da0836c9811dd4dd28d21d19ae9b637c677eab99b2f45ddd2a7a"
+  },
+  "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx03-cyclic-automorphisms.cas": {
+    "sha256": "cad952f8cf3c453e50bd5a616980ca1af0f26d9e3253a02d3b91918e32bf3c59",
+    "selectedPath": "/workspace/scratch/735f437b0adf/runtime-verification/frozen-inputs/positive-original/rx03-cyclic-automorphisms.cas",
+    "originalPath": "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx03-cyclic-automorphisms.cas",
+    "originalSha256": "cad952f8cf3c453e50bd5a616980ca1af0f26d9e3253a02d3b91918e32bf3c59"
+  },
+  "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx04-square-bound.cas": {
+    "sha256": "c1afe50098651ec298ccf47c2851918dcbdc72817653ed860f384e88b06d7c7a",
+    "selectedPath": "/workspace/scratch/735f437b0adf/runtime-verification/frozen-inputs/positive-original/rx04-square-bound.cas",
+    "originalPath": "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx04-square-bound.cas",
+    "originalSha256": "c1afe50098651ec298ccf47c2851918dcbdc72817653ed860f384e88b06d7c7a"
+  },
+  "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx05-carrier-diamond.cas": {
+    "sha256": "7fbdbc11d8c7888ff2c55223cd8e1dba4aca1e0175b956fba51b4dc40261fc73",
+    "selectedPath": "/workspace/scratch/735f437b0adf/runtime-verification/frozen-inputs/positive-original/rx05-carrier-diamond.cas",
+    "originalPath": "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx05-carrier-diamond.cas",
+    "originalSha256": "7fbdbc11d8c7888ff2c55223cd8e1dba4aca1e0175b956fba51b4dc40261fc73"
+  },
+  "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx06-reindexing.cas": {
+    "sha256": "81d7092d91cc0f07c6a1349651e8b58704d1f445032817361a23237e5fef1f4d",
+    "selectedPath": "/workspace/scratch/735f437b0adf/runtime-verification/frozen-inputs/positive-original/rx06-reindexing.cas",
+    "originalPath": "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx06-reindexing.cas",
+    "originalSha256": "81d7092d91cc0f07c6a1349651e8b58704d1f445032817361a23237e5fef1f4d"
+  },
+  "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx07-f9-transport.cas": {
+    "sha256": "615a8baa593041a6ec2805b5bc34834ca663c40a67c9915a0b0f4ba85879b631",
+    "selectedPath": "/workspace/scratch/735f437b0adf/runtime-verification/frozen-inputs/positive-original/rx07-f9-transport.cas",
+    "originalPath": "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx07-f9-transport.cas",
+    "originalSha256": "615a8baa593041a6ec2805b5bc34834ca663c40a67c9915a0b0f4ba85879b631"
+  },
+  "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx08-ordinary-kernel.cas": {
+    "sha256": "5bcb0bf768bd231dc93dd81fd4344fd12666145163f1df6327ed6731000ce118",
+    "selectedPath": "/workspace/scratch/735f437b0adf/runtime-verification/frozen-inputs/positive-original/rx08-ordinary-kernel.cas",
+    "originalPath": "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx08-ordinary-kernel.cas",
+    "originalSha256": "5bcb0bf768bd231dc93dd81fd4344fd12666145163f1df6327ed6731000ce118",
+    "assessment": "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/clarifications/rx08-module-kernel-name-assessment.md",
+    "assessmentSha256": "d0a28f64774e564763096c3f95b765cd6ff011407f513af8edaf07120e863699",
+    "status": "independent additive proposal; original ambiguity control retained"
+  },
+  "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx09-successor-series.cas": {
+    "sha256": "3ec5f7cf7dca51f3e9e8fdbc0e35cfe279ce73938a220168135521f2c52be090",
+    "selectedPath": "/workspace/scratch/735f437b0adf/runtime-verification/frozen-inputs/positive-original/rx09-successor-series.cas",
+    "originalPath": "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx09-successor-series.cas",
+    "originalSha256": "3ec5f7cf7dca51f3e9e8fdbc0e35cfe279ce73938a220168135521f2c52be090"
+  },
+  "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx10-fixed-execution-question.cas": {
+    "sha256": "e8d92db593bd59b641fca0038d0d5d145cf8beb86369d51d4092d4eca4d17a85",
+    "selectedPath": "/workspace/scratch/735f437b0adf/runtime-verification/frozen-inputs/positive-original/rx10-fixed-execution-question.cas",
+    "originalPath": "/workspace/scratch/735f437b0adf/lean-cas-dsl/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx10-fixed-execution-question.cas",
+    "originalSha256": "e8d92db593bd59b641fca0038d0d5d145cf8beb86369d51d4092d4eca4d17a85"
+  }
+}
