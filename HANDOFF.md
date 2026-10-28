@@ -1,48 +1,8 @@
-# B0: handoff
+# Kernel V1: current handoff
 
-The task is the B0 proof of concept, against the unchanged requirements in [INTENT.md](INTENT.md),
-[architecture.md](specs/architecture.md) and the
-[B0 acceptance table](specs/computational-core-plan.md#acceptance-table). The orchestrator's own session is the kernel session
-and works only by the
-[kernel construction procedure](specs/computational-core-plan.md#kernel-construction-procedure-owner-instruction-2026-10-21)
-and rewrites this file at its end in the form below (rule 11).
+Continue implementation through [PR #67](https://github.com/dzackgarza/lean-cas-dsl/pull/67) on `work/kernel-v1-20261023`. The [integration branch's current handoff](https://github.com/dzackgarza/lean-cas-dsl/blob/work/kernel-v1-20261023/HANDOFF.md) owns its source state, remaining defects and recorded execution results. [Issue #10](https://github.com/dzackgarza/lean-cas-dsl/issues/10) and the [current delivery sequence](specs/computational-core-plan.md#current-delivery-sequence-2026-10-28) own the work order: #66 reading/export and focused feedback; #69 retained computational data; #24 integration and independent acceptance; #23's bounded consumer review runs alongside them.
 
-## Branch
+The latest executable candidate inspected in this planning review is `60829a1f7db040f6a8ae394777c0a10bc00d3946`; [run 40652257963](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40652257963) failed the combined consumer build. Later documentation commits do not supply a new build or mathematical acceptance result. The [#73/#74 source review](https://github.com/dzackgarza/lean-cas-dsl/issues/74#issuecomment-6468597360) refines the existing feedback work without introducing a new framework or changing the fixed acceptance scope.
 
-`b0/poc-independent-role-integration` at `7591253efc8ad03b3c1de67ced505cd521b2d8e9`. Its kernel
-source is `4bc36b61e15ac2bd0abab2a48317d1423ee1b0fe`; the two later commits are documentation.
-**Not pushed**: the branch exists only in `/home/dzack/gitclones/lean-cas-dsl/.git`. No worktree
-of it is registered; create one with procedure rule 10.
+The [historical B0 handoff](https://github.com/dzackgarza/lean-cas-dsl/blob/e15540381dedb93b17ce3d534170beb2d375f62d/HANDOFF.md) is preserved at its original revision. Its local-only branch, K queue, owner-action command and earlier work-selection instructions are **not the current continuation instructions**. Do not recreate or push that historical branch merely because the archived record names it; preserve any existing user work. Main's old implementation is not made equivalent to the integration candidate by this pointer.
 
-Latest CI report: none for this kernel source. CI publishes the whole-suite report as the
-`acceptance-report` artifact of the Gates workflow on every push to the branch; no full run
-happens locally (procedure, "Running checks").
-
-## Work list state
-
-| Item | State |
-| --- | --- |
-| K1 required computations | open (all fifteen held with dispatches at `5410e70`; not yet observed at this kernel source) |
-| K2 invalid inverse readings | open |
-| K3 required positives | open |
-| K4 membership and containment judgments | open |
-| K5 closed elements as request data | open |
-| K6 operands not formed by a catalogue operation | open |
-| K7 maps without an observation decoder | open |
-| K8 remaining request-formation gaps | open |
-| K9 unavailable requests | open |
-| K10 comparison used in execution | open |
-| K11 route enumeration bound | open |
-| K12 constructor-induced comparison cells | blocked: lean-categories constructor action on comparison cells |
-| K13 registration gaps (leaf dispatch) | open |
-| K14 formed-module positives | open |
-
-## Noticed, not worked
-
-- `/home/dzack/gitclones/lean-cas-dsl` has the owner's uncommitted `CasCatalogue/Language.lean`
-  edit (a zero-family prefilter in `toElement`). Leave it untouched (rule 10).
-
-## Owner actions
-
-- Push the construction branch so it exists outside this machine:
-  `git -C /home/dzack/gitclones/lean-cas-dsl push origin b0/poc-independent-role-integration`.
