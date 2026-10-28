@@ -84,12 +84,31 @@ def formalParameterPresentation (p : Expr) : MetaM Expr := do
     throwError "the public callable field presentation changed the complete formal target"
   return presented
 
+/-- Expose the head of an already closed computational type for instance
+search. Complete categorical actions can leave the original carrier behind an
+ordinary type alias rather than a stored projection. No proposition or supplied
+data value is unfolded, and no category or dictionary is selected here. -/
+def closedTypePresentation (target : Expr) : MetaM Expr := do
+  let presented ← Meta.transform target (post := fun term => do
+    if term.hasMVar || term.hasLevelMVar || term.hasFVar || term.hasLooseBVars then
+      return .continue
+    unless (← isType term) && !(← isProp term) do return .continue
+    let presented ← withTransparency .default <| whnf term
+    if presented == term then return .continue
+    return .visit presented) (skipConstInApp := true)
+  unless !presented.hasMVar && !presented.hasLevelMVar && (← isTypeCorrect presented) &&
+      (← withTransparency .all <| isDefEq presented target) do
+    throwError "the type-visibility presentation changed the complete target"
+  return presented
+
 /-- Present actual stored fields of supplied closed registered objects. Forwarding through the
 same structure projection retains the original selected parameter context; fields supplied through
 another structure expose their stored descriptions. Named and primitive projections use Lean's
 constructor metadata. Ordinary class instances are used only when their complete types and data
-are definitionally equal to the supplied dictionaries. No mathematical or proof-procedure case is
-selected, and the complete original target is checked after presentation. -/
+are definitionally equal to the supplied dictionaries. The mathematical type returned by a field
+keeps its named head; `closedTypePresentation` is a separate checked view for instance visibility.
+No mathematical or proof-procedure case is selected, and the complete original target is checked
+after presentation. -/
 def evidencePresentation (state : RegistryState) (p : Expr) : MetaM Expr := do
   let objectTypes ← IO.mkRef ({} : Std.HashMap Expr Bool)
   let isObject (object : Expr) : MetaM Bool := do
@@ -135,7 +154,13 @@ def evidencePresentation (state : RegistryState) (p : Expr) : MetaM Expr := do
     if ← isType value then
       if ← isSameForwardedProjection struct index value then return none
     return value
-  let presented ← Meta.transform p (post := fun e => do
+  let presented ← Meta.transform p (pre := fun e => do
+    -- Proof procedures inspect the mathematical goal. Producer addresses and
+    -- their retained execution fields cannot supply unrelated mathematical
+    -- subterms or obstruct the accepted declaration's own evidence procedure.
+    let selected := Trace.unanchor e
+    if selected == e then return .continue
+    return .visit selected) (post := fun e => do
     if e.hasMVar || e.hasLevelMVar || e.hasFVar || e.hasLooseBVars then return .continue
     if let some value ← categoricalTypeProjection? e then return .visit value
     if let .proj struct index object := e then

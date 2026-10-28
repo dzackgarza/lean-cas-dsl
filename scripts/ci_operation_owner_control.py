@@ -67,10 +67,18 @@ REVIEWED_DEPENDENCY_SOURCES = {
         'before': None,
         'after': '4cef385c924dc50f0bf951d211ce242e884a2abf17deec49322468eae21f1995',
         'scope': 'Shared four-field dependency fold over retained operands; actual and prospective lift consumers supply their existing image and field callbacks without changing legacy packet order'},
+    'CasCatalogue/EvidencePresentation.lean': {
+        'before': 'adabad6c26d8fa6ed82feca70c10e32c20353662a5eddefc7e27de089bbec39a',
+        'after': 'ea1f8a4b718987bf3046e4b908509c405afe07f636664f76ca1996c903f75454',
+        'scope': 'Original producer markers are transparent to evidence; stored fields and closed type visibility remain separate checked equivalent presentations'},
+    'CasCatalogue/ProofRefinement.lean': {
+        'before': '7cb2193811cbea259af2828693843289261e08d73e2dacf4fa33ca61f040d93a',
+        'after': '1822f4ba4395db521acc0e6af8c517f565bc26718dd0eadfd9a9e5ecfcc0c5e6',
+        'scope': 'Existing class and Decidable acquisition explicitly retains its former checked type-visibility presentation without changing refinement mathematics'},
     'CasCatalogue/Language.lean': {
         'before': '585a2e71efec55c1164726f528a5d1f3cb3bd23052a74f48e080a3c0164769a1',
-        'after': 'e57ea6c512e44925d2cc30c395607a76b75f94fd7e434b0bd4a51fa7396e779f',
-        'scope': 'Complete source contexts and dependent typed selection for object/map parameters, numeral owners, registered tuple construction and exact oriented limit choices; no new mathematical objects or operations'},
+        'after': '58d7f1f4e9363e3f0d9dc32be30f482ae954a33ed89a65bf9939b547130f9fc3',
+        'scope': 'Complete source contexts and dependent typed selection; same-provider evidence uses original and checked equivalent targets with shared budgets, isolated caller proof state, and checked auxiliary results; no new mathematical objects or operations'},
     'CasCatalogue/StructuredResult.lean': {
         'before': 'fb3b8495e4423d857b9626b2ade65b713e58de02a3e90d9ce23536a344f061e6',
         'after': '7b1af5f9ca8f0b8a482026b06659331ae34ece98613a76b11cd7591a0e7d0103',
@@ -745,6 +753,7 @@ def self_test():
                 'CasCatalogue/SimpleServiceRequest.lean', 'CasCatalogue/StructuredServiceRequest.lean',
                 'CasCatalogue/UniversalServiceRequest.lean', 'CasCatalogue/StructuredResult.lean',
                 'CasCatalogue/DeclaredApplication.lean', 'CasCatalogue/RoutedResultPlan.lean',
+                'CasCatalogue/EvidencePresentation.lean', 'CasCatalogue/ProofRefinement.lean',
                 'CasCatalogue/Language.lean', 'CasCatalogue/LiftStageExecution.lean',
                 'CasCatalogue/ComputationDerivation.lean', 'CasCatalogue/LiftedSubobjectData.lean', 'CasCatalogue/QuestionIdentity.lean', 'CasCatalogue/SelectedLift.lean', 'CasCatalogue/Semantic.lean', 'CasCatalogue/Trace.lean'})
             before = hashlib.sha256(b'baseline').hexdigest()

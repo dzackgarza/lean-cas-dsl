@@ -71,7 +71,8 @@ def construct (state : RegistryState) (classifier : ClassifierId)
     let obligation ← instantiateMVars (← inferType arg)
     unless ← isProp obligation do
       throwStratum .invalid m!"the classifier requires additional chosen data: {obligation}"
-    let presented ← Language.evidencePresentation state obligation
+    let presented ← Language.closedTypePresentation
+      (← Language.evidencePresentation state obligation)
     let presented ← proofInputPresentation presented
     let proof? ← match ← isClass? presented with
       | some _ => synthInstance? presented

@@ -17,7 +17,44 @@ Source conversation: [Finish Kernel MVP Work](https://chatgpt.com/c/6adc8d51-f27
 
 Work primarily in the Pro cloud container. The rack connector's home-directory access is available for necessary supporting material. It is not authorization to move the entire build and execution workload to the user's server. Save and push coherent source changes throughout the work. Verify published source by fetching it back and comparing the complete tree. Preserve evidence separately from source so a container restart does not destroy the only copy.
 
-## Current continuation state — 2026-10-27
+## Current continuation state — 2026-10-28
+
+### Recovered evidence presentation checkpoint
+
+A workspace replacement removed the unpublished local checkpoints through
+`aabdf4b`, their bundles, and the latest compiled artifacts. The published
+`3a4b84e18d644662ee75238716c4861097b2f9dc` branch is the recovered base.
+Do not identify this tree with the lost checkpoint or reuse its reported build
+verdict as evidence for this source. The older archived fixed questions remain
+unchanged and have been recovered against their member hashes.
+
+The final ordered-evidence source patch and engineering control were recovered
+byte for byte: SHA-256 `79e4d99ccae5bb6a9123d4e8889afeb9c6f8339db699cee2d8b4f7bf11ad598b`
+and `86a496c383838334e4849a69f19779a5ac6afc38135b0583345a576f632c3956`.
+Their preceding `EvidencePresentation` source also matches the recorded
+`3dd5a6c9449237728a11ed2fdd04d136cc21f5c64b823811a82eaf7588a8cd3b`
+preimage. Every recovered patch hunk matched its selected source exactly once.
+Earlier unpublished supplier/provenance and runtime changes are not all restored;
+recover and reconcile those mechanisms before claiming an integrated result.
+
+Evidence providers now receive the complete original target first. Ordinary
+rejection can expose a checked stored-field view and then a checked type-visibility
+view, using the same provider and the same enclosing heartbeat budget. A
+malformed, open or wrong-target result stops immediately. Attempts restore caller
+metavariables and messages; a checked successful auxiliary declaration remains
+available only after its returned term also checks at the original target in the
+restored caller context. Lean's existing axiom analysis refuses fresh auxiliary
+proof holes and unprovided assumptions. The kernel supplies no mathematical
+procedure, declaration-specific selector, or alternate question.
+
+The isolated prototype and three original provider obligations had passed before
+the replacement. Those logs did not survive and are not current verification.
+The production reader/failure controls and all execution gates must run again on
+this recovered source. Native tools, connected real-engine workflows and frozen
+extension trials remain outstanding. Source recovery and publication establish
+neither kernel-MVP readiness nor mathematical acceptance.
+
+### Earlier published continuation state — 2026-10-27
 
 ### Producer identity and reusable presentation integration — 2026-10-27
 
@@ -1476,7 +1513,7 @@ Recent source that must survive integration:
 
 | Source area | Existing change to retain |
 | --- | --- |
-| Admission presentation | Preserve forwarding through the same structure projection using Lean's structure name and field index. Expose actual fields supplied through different structures. Keep original complete obligations and one registered evidence invocation. |
+| Admission presentation | Preserve forwarding through the same structure projection using Lean's structure name and field index. Expose actual fields supplied through different structures. Keep one original complete obligation and provider; use checked equivalent presentations only after ordinary rejection, without resetting its budget. |
 | Generic proof refinement | Expose closed non-proposition type inputs before existing class/Decidable acquisition. Retain the original source/result and final kernel check. The public helper visibility repair is already present. |
 | Prescribed-lift action execution | Use the existing realized action encoder. Retain cached computational parameter data and merge dependency owners before field dispatch. |
 | Member applicability | Check the full dependent application before constructing competing results; preserve real ambiguity and existing budgets. |

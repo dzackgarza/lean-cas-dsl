@@ -295,9 +295,12 @@ signatures remain ambiguous, including signatures returning different categories
 Registered admission evidence receives a definitionally equal presentation of its original
 complete target. Closed chosen class dictionaries may use another same-class presentation
 only after kernel conversion checks equality of the entire supplied dictionary. Predicate
-heads and chosen data remain fixed; the same registered evidence procedure runs once. Its
-closed result is checked at the original target, including Type-valued admission witnesses.
-Different structures on one carrier cannot pass the full dictionary equality check.
+heads and chosen data remain fixed. The same registered evidence procedure first receives
+the original target, then distinct checked equivalent presentations after ordinary rejection
+only. Every attempt shares the existing heartbeat allowance. A malformed or incomplete result
+cannot trigger another view. Its closed result is checked at the original target, including
+Type-valued admission witnesses. Different structures on one carrier cannot pass the full
+dictionary equality check.
 
 The reconstructed constrained-point reader inspects the constructor of the independently
 fixed target record through Lean's structure metadata. It accepts exactly one fixed data
@@ -1151,3 +1154,39 @@ comparison. The original closed module and a separately supplied open
 unresolved comparison parameters. No universe default is supplied to the original
 fixture. This failure is not evidence of a comparison defect at a complete module
 category, and the group control establishes only local action reuse and fallback.
+
+## Original evidence targets and isolated equivalent views — 2026-10-28
+
+### Queries
+
+The author searched the formalization corpus for `withoutModifyingState` and
+`evidencePresentation`; both queries were blocked by the corpus API's
+`Operation not permitted` error. Local searches and reads covered Lean's
+`MonadBacktrack.withoutModifyingState`, `Term.SavedState`, `Meta.SavedState`,
+`Core.SavedState`, `Tactic.run`, `Lean.collectAxioms`, and the existing
+`Language.runProcedure` and `EvidencePresentation` consumers.
+
+### Owner
+
+Registered evidence procedures and their mathematical targets remain owned by
+`lean-categories`. Lean owns rollback, kernel checking, auxiliary declarations,
+and transitive axiom analysis. Existing stored-field and closed-type
+presentations supply definitionally equal views; no new mathematical procedure
+or registry declaration is introduced here.
+
+### New code
+
+The consumer distinguishes ordinary rejection from malformed logged output and
+tries original, stored-field, and type-visibility targets lazily with the same
+provider and budget. Each returned term must inhabit the complete original target.
+Caller metavariables and ordinary messages are restored between attempts; only a
+successful, rechecked environment is retained. Newly returned constants must
+exist in the checked environment and cannot hide `sorryAx` or add an assumption
+absent at the original question. `EvidenceViewEngineering` exercises ordering,
+state and budget continuity, malformed-output refusal, auxiliary persistence,
+failed-auxiliary isolation, and hidden-hole/new-assumption refusal.
+
+The exact final source/control patches and their evidence-presentation preimage
+were recovered after a workspace replacement. Earlier prototype passes do not
+substitute for compiling and running the original production controls against
+the recovered source. Protected questions, expected answers and budgets are unchanged.
