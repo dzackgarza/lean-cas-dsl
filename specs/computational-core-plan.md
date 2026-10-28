@@ -141,6 +141,34 @@ failed, so earlier pass counts are preservation evidence, not current acceptance
    it adds no algorithm rewrite or new V1 inventory. This comparison uses the existing
    first-two-working-day allocation, not a separate infrastructure phase. #24's acceptance
    and #71's certificate status remain unchanged.
+
+   Preserve failure meaning at the same boundary, following the [source-checked #75 review](https://github.com/dzackgarza/lean-cas-dsl/issues/75#issuecomment-6469145591):
+   #66 distinguishes justified speculative mismatch from failure of the selected reading
+   or a broken retained application, including direct candidate pruning; #69 distinguishes
+   unsupported schema inspection from exhaustion through validation/completion. Only
+   genuine mismatch is discardable, and kernel exhaustion cannot become a malformed
+   leaf reply. Retain speculative rollback and successful prepared schemas; a new tag
+   alone or a construct-count reduction does not close either obligation.
+
+   **Before broad migration, establish the small boundary's preservation argument.**
+   Connect preparation, completion, alias/projection, transport, application/services
+   and failure/session/replay to the actual types, checked constructors and transition
+   code. Each permitted transition preserves the checked relationships among selected
+   interfaces, producer/output associations, endpoints and comparison direction, actual
+   defining data and ownership, transforming interfaces/references only as that transition
+   declares, or returns the proper failure. Consumers cannot bypass those transitions or write
+   completion separately. The difficult chain supplements this finite case argument.
+   A family reusing the same transitions reuses it; a genuinely new transition extends
+   it before that family's cutover. This is the existing mechanism obligation, not a
+   separate universal formalization project.
+
+   **Exercise public-only use in this first chain.** Publish the successfully built
+   contract/API slice it needs. A separately assigned public-only source author uses
+   the published target constructors to feed the unchanged target consumer, receiving
+   only authorized public/specimen/runtime material. A private helper, undocumented
+   convention or accommodating target edit fails this boundary trial: repair and repeat
+   before expansion. Reuse existing unfinished source/target isolation work where adequate.
+   Full API coverage and final independent extension acceptance remain later #24 work.
 3. **Extend only a demonstrated implementation.** Reuse adequate resolver, service-request,
    lift and schema machinery. A selected-application comparison with Lean elaboration
    is justified when it removes a reproduced reader obstruction and deletes manual
@@ -150,7 +178,12 @@ failed, so earlier pass counts are preservation evidence, not current acceptance
    expanding consumer edits.
 4. **Run the full fixed delivery and extension conditions.** Complete all required
    readings, public forms, connected real-engine workflows and notebook execution,
-   then the frozen independent trials and mechanism-specific arguments in #24.
+   then the frozen independent trials and confirmation of the mechanism arguments
+   begun in the initial trial (#24). Report unchanged RX regression recovery separately
+   from contributor-selected extension evidence; record when specimens were chosen
+   and exposed. Complete any outstanding prescribed post-freeze contributor-choice
+   trials. A bounded fresh separating specimen may supplement an existing mechanism,
+   but neither replaces RX nor creates a new mandatory inventory after every repair.
    If a frozen trial needs an accommodating core or contract change, invalidate the
    affected trial result and apply the existing repair-and-repeat rule.
 
