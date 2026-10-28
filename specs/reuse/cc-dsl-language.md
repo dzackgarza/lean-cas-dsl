@@ -1,5 +1,32 @@
 # Reuse record: `cc-dsl-language`
 
+## Selected V1 Lean reuse and import placement (2026-10-28)
+
+**Decision:** keep the existing catalogue-controlled DSL and delegate ordinary dependent
+term application to Lean's public elaboration APIs. Do not replace mathematical selection
+with Lean overload/typeclass search, build another parser or copy Lean's application engine.
+This is the implementation direction for #66; the fixed controls validate it rather than
+initiate another reader-architecture comparison. It adds no Lake dependency or toolchain move.
+
+| Responsibility | Selected source | Placement and required boundary |
+| --- | --- | --- |
+| Syntax and catalogue selection | Existing `Language` syntax, `Parser.runParserCategory`, `Scope`, `Semantic` and `CategoryContext` | Keep the admitted surface and catalogue-owned declaration/route choices in `CasCatalogue/Language.lean`. An already selected declaration is passed to Lean as an `Expr`; do not ask name/overload resolution to choose it again. |
+| Dependent application | [`Lean.Elab.App`, `Term.elabAppArgs`](https://github.com/leanprover/lean4/blob/v4.33.0/src/Lean/Elab/App.lean#L1338-L1353), with the existing `forallMetaTelescopeReducing` parameter acquisition | Import/use `Lean.Elab.App` in the reader's generic application adapter. Supply the selected declaration and complete chosen arguments/dictionaries. Its `expectedType?` propagates information but does **not** check the result type; retain final complete type, context, parameter and closed-term checks. No permissive fallback to another mathematical candidate. |
+| Ordinary local terms and binders | [`Lean.Elab.Binders`, `Term.elabBinders`](https://github.com/leanprover/lean4/blob/v4.33.0/src/Lean/Elab/Binders.lean#L242-L263), `elabTermEnsuringType`, and existing `withLocalDeclD`/`mkLambdaFVars` | Use these inside the reader adapter for actual local term formation. Keep `binderReading` and the catalogue's generalized-stage projections where they define the mathematical binder; an ordinary lambda is not a replacement for that semantics. Preserve the actual use context of definitions. |
+| Scoped local declarations | [`Lean.LocalContext`](https://github.com/leanprover/lean4/blob/v4.33.0/src/Lean/LocalContext.lean), `Lean.Meta.withLetDecl` and `mkLetFVars` | Use Lean's scoped context/closure operations during preparation. A transient `FVarId` is not a persistent computation identity, and a DSL definition is not executed when declared. Persistent outputs belong to #69's selected execution owner. |
+| Complete question comparison and explicit export | Existing `QuestionIdentity.equivalent`, `encodeInContext`, `TermTable` and its closed/contextual `Std.HashMap` caches | Retain the complete typed comparison and existing contextual interning. Separate ordinary execution from unused serialization; do not replace identity by assertion text, `Expr.hash` or unrestricted definitional equality. The October 19 cache repair is the existing optimization source, not a reason to write a new exporter. |
+| Preparation validation | Existing closed-term, selected-parameter and producer-reference checks | Enforce them before dispatch even when export is not requested. Reuse their implementation where retained and carry the invariants to the selected owner where the old trace helper disappears. |
+
+Use the unchanged dependent-reader specimen and selected-structure/admission controls while
+replacing duplicate application plumbing. That specimen remains separate from RX-LIFT;
+their shared implementation is not permission to compose or rewrite their fixed questions.
+Compile the actual adapter and affected consumers, then measure the original matrix and
+RX-LIFT requirements. No successful build, speedup or mathematical acceptance is asserted
+by this source decision. The implementation and its validation remain work to complete.
+
+The dated records below retain source history. This selected route owns the current
+implementation order; a historical source-level claim is not a new runtime verdict.
+
 ## Complete inclusion paths and selected power structures (2026-10-25)
 
 Corpus searches `monomorphism composition` and `CategoryTheory CategoryStruct comp`, followed by

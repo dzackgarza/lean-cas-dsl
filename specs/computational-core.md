@@ -167,10 +167,13 @@ The existing work record identifies the inspected source/revision, the specific 
 it supplies, and whether it is imported, ported/adapted or rejected, with compatibility and
 boundary reasons. An unavailable index or unsuccessful query is not evidence that no
 implementation exists. A software reference does not determine mathematical meaning, the
-trust boundary or acceptance. Current program/lifecycle work applies this in the existing
-`cc-realize-2cat` record and #69's first-chain implementation, informed by the archived
-#79/#80 reviews; no new index service, per-type gate or bulk retrospective
-rewrite is a prerequisite.
+trust boundary or acceptance. Current program/lifecycle work has already selected the
+sources in `cc-realize-2cat`: the existing selected-plan owner, a bounded adaptation of
+PolyFun's suspension/return transitions, CAP's supplied-construction discipline, and no new
+external evaluator dependency. `cc-dsl-language` selects the existing Lean APIs for #66.
+Implement those decisions and establish actual compatibility; the archived #79/#80 surveys
+do not assign another source-selection task. No new index service, per-type gate or bulk
+retrospective rewrite is a prerequisite.
 
 Only the **glue** between found results, and the **residue** that no indexed source
 supplies, is written by hand. The searches, their hits, and the reason each hit does or

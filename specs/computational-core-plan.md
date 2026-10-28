@@ -174,10 +174,24 @@ no public morphism action. Formal functoriality does not prove arbitrary leaf co
 pure, repeatable or correct, and does not require every primitive to be dispatched.
 
 The [verbatim evaluator assessment](reuse/kernel-evaluation-machine-assessment.md) remains
-unchanged as an implementation candidate. #69 owns a concrete compatible import,
-port/adaptation or reasoned rejection and actual build for the relevant existing machinery.
-Software alternatives do not select mathematical meaning. No new framework phase,
-whole-kernel deletion manifest, line quota, linter package or governance service is adopted.
+unchanged as provenance. The implementation choice is now explicit in
+[cc-realize-2cat](reuse/cc-realize-2cat.md): adapt PolyFun's caller/handler suspension and return
+transitions into the existing selected-plan/`InvocationExecution` owner; retain the named
+construction plans, completion validators, lift fold and dispatcher; remove the migrated
+path's recursive orchestration and expression/packet recovery. Use encapsulated checked
+records and opaque operand/output references. No external evaluator package or second
+program store is added to the kernel. #69 implements and validates this route, rather than
+choosing it again. No new framework phase, deletion manifest or governance service is adopted.
+
+The other source choices are also fixed. [cc-dsl-language](reuse/cc-dsl-language.md) names
+Lean's public application/binder APIs and the existing contextual exporter for #66.
+[cc-forms-general](reuse/cc-forms-general.md) and [cc-adjunctions](reuse/cc-adjunctions.md)
+name the existing upstream mathematical inputs, with no V1 Hex/foundation migration.
+#24 reuses the independently authored `extensions-20261024` leaf package for rational lifts
+and factors through current public helpers; it does not rewrite those algorithms.
+[cc-backends](reuse/cc-backends.md) fixes existing process-hosted GAP and notebook transport
+reuse. Exact source revisions are inspection provenance; own-organization delivery still
+consumes latest main. Compatibility and mathematical outcomes remain to be demonstrated.
 
 #66 preserves candidate mismatch versus selected-reading/internal failure and speculative
 rollback; #69 preserves supported/unsupported/exhausted schema inspection through completion.
@@ -216,6 +230,13 @@ stages not reached. The latest candidate run inspected,
 failed before downstream acceptance; later documentation commits give no fresh runtime verdict.
 Line counts, governance percentages and monotonic holds do not replace acceptance.
 
+The contract integration work is also concrete: #24 records existing lift/map helpers on
+contract source `34bb8abb` that are absent from inspected contract main `3382e4e0`, and the
+independent leaf adapter must consume the public actual-image metadata. Reconcile and publish
+that existing contract work through its owner; adapt the public leaf boundary without
+rewriting rational algorithms or restoring recipe recovery. Complete that conformance before
+freezing the unchanged-target trial. Source selection does not establish runtime compatibility.
+
 ### Issue disposition and later work
 
 | Tracker | Continuing responsibility |
@@ -223,12 +244,13 @@ Line counts, governance percentages and monotonic holds do not replace acceptanc
 | #10, #66, #69, #24 | Current V1 work order, interpretation, execution and full independent acceptance. |
 | #23 / #82, supported by #20/#21 | Existing consumer questions and exact construction-specific mathematical inputs, reviewed before readiness; no new inventory system. |
 | #19 → #20 → (#21 and #23) → #22 | Full B0 computational coverage and exhaustive Sage parity after V1; bounded requirement discovery already runs now. |
-| #3, #8, #13, #34, #68 | Later GAP bridge choice, logging, research-use evaluation, wider Sage installation portability and research entry point. Existing V1 runtime and advertised-capability defects stay in #24/#66/#69. |
+| #3, #8, #13, #34, #68 | Later unit-group delivery through the selected process-hosted GAP bridge, logging, the next genuine research-use harvest, wider Sage installation portability and the selected public research entry point. Existing V1 runtime and advertised-capability defects stay in #24/#66/#69. |
 | #71–#81 | Historical findings, corrections and resolved/superseded proposals. Closure consolidates tracking; it does not claim their transferred runtime work has passed. |
 
 Certificate-primary evidence remains unadopted and would first require an INTENT change.
-The conditional Hex/CAP reuse choices in #10 resolve current supported obligations; broad
-foundation or backend migrations are not additional V1 gates. The fixed inventories and
+The selected existing forms and realizations in #10 resolve the reuse direction;
+Hex/foundation migration and a new backend fleet are not V1 tasks. A required missing
+finite-diagram leaf uses the named adapter source under #23, not a new kernel case. The fixed inventories and
 the single exit condition below are unchanged.
 
 #### Mathematical work and acceptance — KM1–KM9

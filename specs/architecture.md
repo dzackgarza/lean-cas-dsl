@@ -215,13 +215,17 @@ force every structural cycle to be identity.
 
 ### Supporting implementation obligations
 
-The [verbatim evaluator assessment](reuse/kernel-evaluation-machine-assessment.md) and the
-[later source assessment](https://github.com/dzackgarza/lean-cas-dsl/issues/79#issuecomment-6476550921)
-offer candidates for implementing these obligations: existing Lean elaboration, a common
-checked interpretation and references to actual supplied components. They are not prescribed
-mathematical representations. #69 records a compatible reuse, port/adaptation or rejection
-with an actual build. A state machine or reducer may organize implementation; it is not the
-construction or its acceptance criterion.
+The [verbatim evaluator assessment](reuse/kernel-evaluation-machine-assessment.md) remains
+unchanged as provenance. The selected V1 implementation is recorded in
+[cc-realize-2cat](reuse/cc-realize-2cat.md): the existing checked selected-plan owner, with
+PolyFun's specified suspension/return algorithm adapted into its driver and CAP's
+supplied-construction discipline for later factors. Encapsulated checked records and opaque
+operand/output references retain complete interfaces. The kernel does not import a new
+FreeM/PolyFun package or add a second program store. #66 uses the public Lean application
+and binder APIs identified in [cc-dsl-language](reuse/cc-dsl-language.md), after mathematical
+selection. These source choices are made; #69/#66 implement and validate them. Their
+state transitions organize execution but do not define the mathematical construction or
+replace its acceptance criteria.
 
 Keep the actual produced result, selected components, complete endpoints and owners
 associated through subsequent use. A normalized expression is not an execution occurrence.

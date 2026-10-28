@@ -59,6 +59,35 @@ CC-HIGHER/#82 and the existing interpretation, computation and independent-valid
 work. Identify them for each claimed construction. This does not require unrelated
 higher-categorical formalization before an ordinary selected adjunction can be used.
 
+## Current dependency and placement decision (2026-10-28 UTC)
+
+The ordinary implementation uses the existing Mathlib and lean-categories dependency
+chain. It does not add another adjunction or higher-category foundation to complete
+V1. The specific sources and their owners are:
+
+| Required construction | Reuse and placement |
+| --- | --- |
+| Chosen ordinary adjunction and transposition | `Mathlib.CategoryTheory.Adjunction.Basic`: `CategoryTheory.Adjunction`, its selected `unit`, `counit` and `homEquiv`. Mathematical declarations and their laws remain in lean-categories/Mathlib. |
+| Constant-diagram/sections adjunction | Import `LeanCategories.Foundation.SectionsAdjunction` in the upstream mathematical catalogue; reuse `LeanCategories.Foundation.constSectionsHomEquiv` and `constSectionsAdj`. [The existing source](https://github.com/dzackgarza/lean-categories/blob/3bd4d3d9695f288749c860368174462c4d689b7c/LeanCategories/Foundation/SectionsAdjunction.lean) already constructs this adjunction from Mathlib. Do not replace its selected right adjoint `sectionsFunctor` by the chosen-limit functor merely because `constLimAdj` is also available. |
+| Registered adjunction | Consume `AdjunctionEntry` from [`LeanCategories.Catalogue.Registry.Entry`](https://github.com/dzackgarza/lean-categories/blob/3bd4d3d9695f288749c860368174462c4d689b7c/LeanCategories/Catalogue/Registry/Entry.lean), retaining the declaration, actual functor parameters and selected adjunction data through the required subsequent use. Its ordinary signature is not a higher-coherence certificate. |
+
+These are upstream imports and mathematical declarations. The kernel consumes the
+accepted catalogue through its existing public interface; it does not copy these
+definitions into CatDSL or `CasContract`. A leaf may compute the declared unit or
+counit components; it cannot choose a different formal adjunction or establish its
+laws. A computational realization supplies the data and actions required by the
+registered public contract. Source coordinates identify the
+inspected input, not a claim of independent acceptance or delivery on every current
+`main`; the existing release and final-integration requirements still apply.
+
+The decision also rules out a new Hex, infinity-cosmos, homotopy-core, UniMath or 1Lab
+dependency as an ordinary-adjunction prerequisite. This is not a claim that Mathlib
+settles the full higher scope. For a promised construction needing more than these
+ordinary declarations, #82 identifies the exact additional mathematical type,
+boundary, comparison and coherence at its upstream owner. It does not leave the
+kernel implementer a choice of replacement foundations or require unrelated higher
+formalization before the ordinary construction can run.
+
 ## Historical implementation decision (2026-09-29)
 
 The following records the inspected implementation and reuse rationale at that date;

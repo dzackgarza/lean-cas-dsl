@@ -36,6 +36,27 @@ Superseded #63/#64 branches remain preserved, with obligations in #66/#69/#24 an
 in #67. Research #71–#81 are consolidated references; #70 remains the separate trusted-input
 retrieval repair. None of those tracking dispositions completes a mathematical or runtime gate.
 
+## Selected implementation sources
+
+The implementation route is fixed in [cc-realize-2cat](specs/reuse/cc-realize-2cat.md):
+adapt PolyFun's specified suspension/return transitions into the existing checked
+selected-plan/`InvocationExecution` owner, keep its plan builders, validators, lift fold and
+dispatcher, and remove the migrated path's recursive/recovery/completion alternatives.
+Use [Lean's named public application/binder APIs](specs/reuse/cc-dsl-language.md) for #66;
+ordinary execution skips unused audit export while retaining preparation checks.
+#24 reuses the independently authored `diagnostics/extensions-20261024` package's rational
+lift/factor implementation through the current contract. Do not replace it with the simpler
+finite-graph backend or rewrite its algorithms. The exact upstream declarations still need
+their independent acceptance and permitted availability; source choice does not supply those.
+No new external evaluator or Hex foundation dependency is required to finish this assignment.
+
+The contract integration work is also concrete: #24 records existing lift/map helpers on
+contract source `34bb8abb` that are absent from inspected contract main `3382e4e0`, and the
+independent leaf adapter must consume the public actual-image metadata. Reconcile and publish
+that existing contract work through its owner; adapt the public leaf boundary without
+rewriting rational algorithms or restoring recipe recovery. Complete that conformance before
+freezing the unchanged-target trial. Source selection does not establish runtime compatibility.
+
 ## 1. The task
 
 Finish the usable V1 kernel of `dzackgarza/lean-cas-dsl`, including the mathematical interfaces and computational contracts it needs. Deliver a working computer algebra system whose supported extension mechanisms let a new leaf author implement registered operations through the public contract. Ordinary leaf work must not require repeated repairs to generic kernel infrastructure.

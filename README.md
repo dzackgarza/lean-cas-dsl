@@ -93,6 +93,12 @@ The full combined build and acceptance remain delivery requirements. #23/#82 rev
 exact construction requirements alongside implementation; unrelated upstream work does not block it.
 Research issues #71–#81 are consolidated historical guidance, not parallel work queues.
 
+The implementation sources are selected: [Lean application/binder reuse](specs/reuse/cc-dsl-language.md),
+[the retained-plan owner and bounded PolyFun transition adaptation](specs/reuse/cc-realize-2cat.md),
+and [the existing mathematical forms](specs/reuse/cc-forms-general.md).
+#24 integrates the already-authored rational lift/factor leaf package through the public
+contract. These are implementation tasks, not another import-versus-rewrite decision phase.
+
 The candidate's diagnostic manifest still selects pending mathematical work from
 [lean-categories #93/#94](https://github.com/dzackgarza/lean-categories/pull/93).
 The [handoff](HANDOFF.md) distinguishes that source from current main and records the
