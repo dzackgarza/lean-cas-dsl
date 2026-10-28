@@ -93,12 +93,19 @@ for these unchanged KM1–KM9 obligations; #66 owns readings and question preser
 The source baseline inspected for this reassessment is `60829a1f`; its candidate build
 failed, so earlier pass counts are preservation evidence, not current acceptance.
 
-1. **Recover one compiling candidate and distinguish failure stages.** Use the existing
-   per-ID reports for complete mathematical reading, executable-request preparation,
-   registration, actual dispatch/outcome and reuse. The October 20 report's 101
-   non-registration gaps are not 101 unreadable mathematical questions; its independent
-   interpretation review already found 148 of 153 readable assertions. Keep every fixed
-   ID and report stages not reached.
+1. **Check predictable consumer requirements and recover one compiling candidate.**
+   The early slices of #20/#21/#23 run now, in parallel with integration: #23 maps
+   source-linked mathematical questions, hypotheses, selected parameters, complete
+   returned maps/data and their next use to current declarations and public contracts.
+   Finite equalizers/coequalizers, tensor factorization, discriminant projection and
+   base change are concrete starting specimens. This tests existing KM scope; it does
+   not adopt every domain algorithm as a new V1 gate. Exhaustive Sage enumeration and
+   broad adapter parity remain later. Missing generic machinery in an advertised
+   mechanism belongs to #66/#69 before readiness, not to a future leaf workaround.
+   Use existing per-ID reports for complete mathematical reading, request preparation,
+   registration, dispatch/outcome and reuse. The October 20 report's 101 non-registration
+   gaps are not 101 unreadable questions; its independent review found 148 of 153
+   readable assertions. Keep every fixed ID and report stages not reached.
 2. **Remove demonstrated coupling at existing boundaries.** At the inspected candidate,
    ordinary `#cas` constructs a complete audit export that `Realize.run` discards. Separate preparation,
    execution and explicit export over the same retained typed question; keep producer
