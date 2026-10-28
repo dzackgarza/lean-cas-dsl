@@ -10,19 +10,16 @@ This plan is tracked in the repository deliberately: `.agents/plans/` resolves o
 local checkout, and this work must be readable wherever the repository is.
 
 
-> **Controlling process (2026-09-30).** [`specs/owner/convergence-process.md`](owner/convergence-process.md)
-> is the owner's text, verbatim, and it governs this plan. Feature expansion is frozen: no new
-> mathematical coverage, production leaves, notebook features or passing examples, except a
-> specimen that distinguishes two architectural designs. Every node below is subordinate to
-> steps 1–7 of that file. A node that expands coverage is suspended. The nodes `core-*` and
-> `lc-*` from the external review are specimens under step 4: a failure identifies a missing
-> generic rule, and is never repaired by forwarding, a domain-specific kernel case, a weakened
-> assertion, or an exemption. Step 7 requires independent acceptance. The legacy custodian seal
-> (`e3cf7a8`, boundary `0ba53dab`) and `proposal/sealed-kernel-pin-mismatch` are historical
-> construction inputs, not an accepted B0 tuple or a veto on their authorized replacement.
-> `custodian/` remains construction material under the mandate (architecture.md, "Operating
-> phase: B0 construction"). The orchestrator may implement its replacement, but cannot accept
-> or install its own authoritative judge.
+> **Governing owner directions.** [The 2026-09-30 convergence process](owner/convergence-process.md)
+> supplies the bounded extension and independent-acceptance requirements. The 2026-10-01 B0
+> directive and the [2026-10-23 V1 assignment](https://github.com/dzackgarza/lean-cas-dsl/blob/work/kernel-v1-20261023/HANDOFF.md#1-the-task) specify the usable
+> product and positive capabilities to deliver. Read the earlier coverage freeze under those
+> later assignments: unrelated expansion remains deferred; required computations, execution
+> surfaces and independent extension trials remain implementation work.
+> The legacy custodian seal (`e3cf7a8`, boundary `0ba53dab`) and
+> `proposal/sealed-kernel-pin-mismatch` are historical construction inputs, not an accepted B0
+> tuple or a veto on authorized replacement. Construction authority does not authorize
+> changing mathematical requirements or accepting or installing one's own authoritative judge.
 
 ## B0: the extensible computational baseline (owner directive, 2026-10-01)
 
@@ -78,15 +75,57 @@ these mechanisms is not promised for free. Conversely, the kernel cannot declare
 itself ready by shrinking the accepted mechanisms or by refusing their legitimate
 instances.
 
-**Source of implementation work.** The substantive integrated source is on
-[`b0/kernel`](https://github.com/dzackgarza/lean-cas-dsl/tree/b0/kernel),
-distinct from `main`, incorporating #65 and parts of #63/#64.
-[The kernel handoff](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/HANDOFF.md),
-[the checkpoint's exact residue](https://github.com/dzackgarza/lean-cas-dsl/blob/checkpoint/lean-cas-inflight-20261022/TODO.md),
-[the compositional audit](https://github.com/dzackgarza/lean-cas-dsl/blob/main/custodian/FINDINGS.md),
-and the *source itself* determine the work. Old findings are not automatically
-bugs in newer source. The tasks below distinguish missing code from already
-implemented code whose integration and generality still require proof.
+**Source of implementation work (updated 2026-10-28).** The integrated candidate is
+[`work/kernel-v1-20261023`](https://github.com/dzackgarza/lean-cas-dsl/tree/work/kernel-v1-20261023)
+in [PR #67](https://github.com/dzackgarza/lean-cas-dsl/pull/67), derived from `b0/kernel`
+and incorporating the applicable #63/#64/#65 behavior.
+[The current handoff](https://github.com/dzackgarza/lean-cas-dsl/blob/work/kernel-v1-20261023/HANDOFF.md)
+and the actual combined source determine current defects. Links to `b0/kernel`,
+the October 22 checkpoint and earlier audits below identify historical observations;
+they are not a current backlog without reproduction. The tasks distinguish missing
+code from existing implementations whose integration and generality still require proof.
+
+#### Current delivery sequence (2026-10-28)
+
+[Issue #10](https://github.com/dzackgarza/lean-cas-dsl/issues/10) is the current work order
+for these unchanged KM1–KM9 obligations; #66 owns readings and question preservation,
+#69 owns executable data and reuse, and #24 owns integrated independent acceptance.
+The source baseline inspected for this reassessment is `60829a1f`; its candidate build
+failed, so earlier pass counts are preservation evidence, not current acceptance.
+
+1. **Recover one compiling candidate and distinguish failure stages.** Use the existing
+   per-ID reports for complete mathematical reading, executable-request preparation,
+   registration, actual dispatch/outcome and reuse. The October 20 report's 101
+   non-registration gaps are not 101 unreadable mathematical questions; its independent
+   interpretation review already found 148 of 153 readable assertions. Keep every fixed
+   ID and report stages not reached.
+2. **Remove demonstrated coupling at existing boundaries.** At the inspected candidate,
+   ordinary `#cas` constructs a complete audit export that `Realize.run` discards. Separate preparation,
+   execution and explicit export over the same retained typed question; keep producer
+   checks in preparation and full exports in acceptance (#66). In parallel, establish
+   one required structured-result/nonidentity-transport chain that consumes the actual
+   retained data and defining map through the checked #69 boundary. Remove that chain's
+   old bypass; a new wrapper around the old path is not closure.
+3. **Extend only a demonstrated implementation.** Reuse adequate resolver, service-request,
+   lift and schema machinery. A selected-application comparison with Lean elaboration
+   is justified when it removes a reproduced reader obstruction and deletes manual
+   plumbing; the language already uses Lean's parser and elaboration monad. If the
+   initial chain still needs expression-based result recovery, unnecessary reexecution of a retained producer
+   or a second context/identity mechanism, revise that boundary before
+   expanding consumer edits.
+4. **Run the full fixed delivery and extension conditions.** Complete all required
+   readings, public forms, connected real-engine workflows and notebook execution,
+   then the frozen independent trials and mechanism-specific arguments in #24.
+   If a frozen trial needs an accommodating core or contract change, invalidate the
+   affected trial result and apply the existing repair-and-repeat rule.
+
+The first two working days in #10 test viability; the 1–2 week allocation is a budget,
+not a delivery forecast supported by past completion rates. Intermediate outcomes
+guide work without replacing the single exit condition. Kernel line count, a file's
+share of code, governance-commit percentages and monotonic hold counts are not
+acceptance criteria. Genuine regressions and newly exposed wrong answers stay visible.
+Existing compiler, type, packet and regression checks remain useful development
+feedback; independent acceptance retains its separate authority.
 
 #### Concrete kernel implementation work — exhaustive within the declared B0 scope
 
