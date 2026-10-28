@@ -185,13 +185,14 @@ def planIn (expected : Expr) (sourceExpression : CategoryExpr)
     let saved := receivers[index]!
     let .constructMap _ inner := row.edge
       | return .error "the prescribed lift lost its selected inner action"
-    let retained ← match application? with
-      | none =>
+    let retained : MethodLiftApplication ← match application? with
+      | none => do
           let action ← Semantic.asFunctor (← Semantic.edgeFunctor state inner)
-          return (← Semantic.liftSubobjectApplication state row saved formalResult
+          pure (← Semantic.liftSubobjectApplication state row saved formalResult
             (action? := some action)).2
-      | some application =>
-          let retained := application.lifts[index]!
+      | some application => do
+          let some retained := application.lifts[index]?
+            | throwError "the method lift plan lost its retained component position"
           unless ← withoutModifyingState (withTransparency .all <|
               isDefEq retained.receiver saved <&&> isDefEq retained.input formalResult) do
             throwError "the method lift plan changed its retained reverse-stage inputs"
@@ -447,7 +448,7 @@ def sourceInterfaces (prepared : Plan) (steps : Array Json) (source : Json)
         (``CategoryTheory.Arrow.right, 1)] do
       let formal ← mkAppM projection #[component.receiver]
       sourceObjects := sourceObjects.push (endpoints[index]!, formal)
-    let transported := match images.sourceImage? with
+    let transported : Except String Json := match images.sourceImage? with
       | some image => .ok image
       | none => mapArrowData step[1]! current
     let .ok transported := transported
@@ -490,8 +491,7 @@ def checkRetainedPlan (expected : Expr) (sourceExpression : CategoryExpr)
     throwError "the retained lift plan changed its selected result expression"
   unless prepared.components.map (·.lift) == prescribed do
     throwError "the retained lift plan changed its prescribed stage inventory"
-  for index in [:prepared.components.size] do
-    let component := prepared.components[index]!
+  for (component, index) in prepared.components.zipIdx do
     unless component.routeIndex == index && component.selection.entry.id == component.lift &&
         component.ports.size == component.selection.ports.size do
       throwError "the retained lift plan changed a selected stage or port position"
@@ -575,7 +575,7 @@ def decodeIn (expected : Expr) (sourceExpression : CategoryExpr)
       if index + 1 < steps.size then
         let .ok following := fields "liftStep" 5 steps[index + 1]!
           | return .error "the next component has incomplete source provenance"
-        let image := match images.sourceImage? with
+        let image : Except String Json := match images.sourceImage? with
           | some image => .ok image
           | none => mapArrowData step[1]! step[2]!
         let .ok image := image

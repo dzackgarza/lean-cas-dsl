@@ -535,10 +535,15 @@ def Trace.record (trace? : Option Trace) (value : Expr) (node : Node) : IO Unit 
   | some trace =>
       let conflict ← trace.modifyGet fun entries =>
         match entries[value]? with
-        | some previous => (previous != node, entries)
-        | none => (false, entries.insert value node)
-      if conflict then
-        throw <| IO.userError "distinct selected producers share one executable trace key"
+        | some previous => (if previous != node then some previous else none, entries)
+        | none => (none, entries.insert value node)
+      if let some previous := conflict then
+        let key := match Trace.producerAnchor? value with
+          | some anchor => s!"producer {anchor.occurrence}"
+          | none => s!"term headed by {(value.getAppFn.constName?.map Name.toString).getD "<nonconstant>"}"
+        throw <| IO.userError s!"distinct selected producers share one executable trace key \
+          ({key}); retained: {previous.producerDescription.1.take 1000}; \
+          attempted: {node.producerDescription.1.take 1000}"
   | none => pure ()
 
 /-- Record a producer before another equal mathematical value can occupy its key.

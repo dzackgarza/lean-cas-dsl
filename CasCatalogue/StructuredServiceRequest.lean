@@ -93,7 +93,9 @@ def prepareCallable (decoder : Decoder) (operation : Operation) (input : Form)
     (context : CategoryContext) (descriptor : Json) (parameters : Array Json)
     (dependencies : Array Operand) (wrapper : Option Backend.TypedMap)
     (descriptorOwnership : DataOwnership.Table := #[])
-    (parameterOwnership : DataOwnership.Table := #[]) :
+    (parameterOwnership : DataOwnership.Table := #[])
+    (descriptorInputPaths : Array (DataOwnership.Path × Operand) := #[])
+    (parameterInputPaths : Array (DataOwnership.Path × Operand) := #[]) :
     TermElabM Prepared := do
   let domain ← decoder.argument (← CategoryContext.carrier context) request.domain
   checkContext context domain
@@ -104,15 +106,17 @@ def prepareCallable (decoder : Decoder) (operation : Operation) (input : Form)
   checkContext context argument
   CategoryContext.checkMorphism context argument.value domain.value source
   let mut dependencies := dependencies ++ #[domain, sourceData, targetData, argument]
-  let (arrow, arrowOwnership) ← match wrapper with
-    | none => pure (descriptor, descriptorOwnership)
+  let (arrow, arrowOwnership, arrowInputPaths) ← match wrapper with
+    | none => pure (descriptor, descriptorOwnership, descriptorInputPaths)
     | some wrapped => do
         let first ← repeated decoder sourceData wrapped.source
         let second ← repeated decoder targetData wrapped.target
         dependencies := dependencies ++ #[first, second]
         pure (Backend.TypedMap.encode {
           source := sourceData.data, target := targetData.data, callable := descriptor },
-          argsOwnership #[first.ownership, second.ownership, descriptorOwnership])
+          argsOwnership #[first.ownership, second.ownership, descriptorOwnership],
+          #[(#[.field "args", .index 0], first), (#[.field "args", .index 1], second)] ++
+            prefixInputPaths #[.field "args", .index 2] descriptorInputPaths)
   let result ← composite context domain.value source target argument.value formal
   let actual : Backend.PointInvocation := {
     operation := operation.id, parameters, arrow, domain := domain.data
@@ -121,6 +125,10 @@ def prepareCallable (decoder : Decoder) (operation : Operation) (input : Form)
     domain.ownership, sourceData.ownership, targetData.ownership, argument.ownership]
   return {
     requestValue := result, request := actual.encode, requestOwnership, result
+    inputPaths := prefixInputPaths #[.field "args", .index 1] parameterInputPaths ++
+      prefixInputPaths #[.field "args", .index 2] arrowInputPaths ++
+      #[(#[.field "args", .index 3], domain), (#[.field "args", .index 4], sourceData),
+        (#[.field "args", .index 5], targetData), (#[.field "args", .index 6], argument)]
     resultForm := ← resultForm context input
     dependencies, resultContext := some context, callableResult := true
     callableInterface := some (.endpoints domain.value targetData.value
@@ -181,15 +189,22 @@ def prepareCell (decoder : Decoder) (entry : CellEntry)
     #[#[], operandArrayOwnership declaration.operands, receiver.ownership, #[]]
   let descriptorOwnership := if constructors.isEmpty then componentOwnership else
     argsOwnership #[#[], componentOwnership]
+  let componentInputPaths := prefixInputPaths #[.field "args", .index 1]
+      (operandArrayInputPaths declaration.operands) ++
+    #[(#[.field "args", .index 2], receiver)]
+  let descriptorInputPaths := if constructors.isEmpty then componentInputPaths else
+    prefixInputPaths #[.field "args", .index 1] componentInputPaths
   let parameterOwnership := arrayOwnership
     #[operandArrayOwnership repeatedParameters, repeatedReceiver.ownership, #[]]
+  let parameterInputPaths := prefixInputPaths #[.index 0]
+      (operandArrayInputPaths repeatedParameters) ++ #[(#[.index 1], repeatedReceiver)]
   let formal ← CellAction.component action receiver.value
   let (source, target) ← CellAction.objects action receiver.value
   let context : CategoryContext := { expression := action.target, bundle := action.targetBundle }
   prepareCallable decoder operation input request formal source target context actualDescriptor
     #[Json.arr parameters, receiver.data, toJson component.inverse]
     (declaration.operands ++ repeatedParameters ++ #[receiver, repeatedReceiver]) wrapper
-    descriptorOwnership parameterOwnership
+    descriptorOwnership parameterOwnership descriptorInputPaths parameterInputPaths
 
 def prepareCartesian (decoder : Decoder) (entry : FunctorEntry)
     (input : Form) (template : Json) : TermElabM Prepared := do
@@ -238,12 +253,17 @@ def prepareCartesian (decoder : Decoder) (entry : FunctorEntry)
     reindex := entry.id.raw, parameters, receiver := receiver.data }
   let descriptorOwnership := argsOwnership
     #[#[], operandArrayOwnership declaration.operands, receiver.ownership]
+  let descriptorInputPaths := prefixInputPaths #[.field "args", .index 1]
+      (operandArrayInputPaths declaration.operands) ++
+    #[(#[.field "args", .index 2], receiver)]
   let parameterOwnership := arrayOwnership
     #[operandArrayOwnership repeatedParameters, repeatedReceiver.ownership]
+  let parameterInputPaths := prefixInputPaths #[.index 0]
+      (operandArrayInputPaths repeatedParameters) ++ #[(#[.index 1], repeatedReceiver)]
   prepareCallable decoder operation input request formal source target plan.total actualDescriptor
     #[Json.arr parameters, receiver.data]
     (declaration.operands ++ repeatedParameters ++ #[receiver, repeatedReceiver]) wrapper
-    descriptorOwnership parameterOwnership
+    descriptorOwnership parameterOwnership descriptorInputPaths parameterInputPaths
 
 partial def pointData (json : Json) : Bool :=
   match ComputationalData.envelope json with
@@ -328,6 +348,10 @@ def preparePresentation (decoder : Decoder) (entry : PresentationComparisonEntry
     else resultForm actionContext input
   return {
     requestValue := result, request := actual.encode, requestOwnership, result
+    inputPaths := prefixInputPaths #[.field "args", .index 0]
+      (operandArrayInputPaths declaration.operands) ++
+      #[(#[.field "args", .index 2], sourceData), (#[.field "args", .index 3], targetData),
+        (#[.field "args", .index 4], argument)]
     resultForm := form
     dependencies := declaration.operands ++ #[sourceData, targetData, argument, domainData, argumentTarget]
     resultContext := some actionContext, callableResult := !closedPoint

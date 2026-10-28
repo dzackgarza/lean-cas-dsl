@@ -38,6 +38,89 @@ retrieval repair. None of those tracking dispositions completes a mathematical o
 
 ## Selected implementation sources
 
+### Active implementation checkpoint — 2026-10-28
+
+The resumed work implements the coupled #66/#69 path before expanding the
+acceptance inventory. `DirectConstruction` now uses Lean 4.33's public
+`Term.elabAppArgs` with the complete explicit telescope and checks the resulting
+head, arguments, selected receiver, and result. Direct lift, projection, and
+factor reading retain the producer reference returned by `Trace.recordProduced`;
+named parameters no longer replace the existing producer with an unanchored term.
+
+Local diagnostic builds have passed `CasCatalogue.DirectConstruction`,
+`CasCatalogue.Language`, `CasContract`, and the complete
+`CasAcceptance.Kernel.SelectedLiftInputContextProbes`, including the new exact
+producer/parent checks. The contract protocol engineering suite passes nine
+tests, covering actual image fields and the new exact request-position
+`inputRef` grammar. These are reader/protocol results, not computational
+acceptance of RX-LIFT.
+
+The execution implementation under validation retains one fixed input telescope
+and resumes it through the existing invocation owner. Its direct construction,
+field, and factor paths no longer complete through the expression result cache.
+Prospective object projection keeps the authenticated parent field table;
+parameter returns check their original intrinsic role and category context.
+Deferred calls need exact public input positions because equal packet recovery
+would otherwise remain reachable through their parent request. Those positions
+use the existing service operand handles, with no new semantic registry.
+
+The pre-runtime combined `CasCatalogue.Realize` build passed, together with the unchanged
+first RX-LIFT import closure. Necessary Lean 4.33 syntax and module-visibility
+repairs preserve mathematical statements and the 200000 heartbeat budget.
+`ServiceInputReferenceProbes` passes exact paths, distinct equal-packet suppliers,
+local result scope, and retained nested endpoints; `ServiceCycleProbes` passes
+exact recursive request detection without depending on administrative handle
+allocation. The public contract's existing `AxiomAudit.lean` also passes.
+
+The first complete diagnostic of the ten original first-stage RX-LIFT questions
+ran with every preceding binding, the full import scope, the actual extension
+leaf manifest, and the original budget. It dispatched no backend calls: nine
+questions fail preparation with `distinct selected producers share one executable
+trace key`, and `first_full_pairing` fails to retain the selected rational-ring
+object. Those are reader defects under repair, not passed mathematical answers.
+No issue or V1 gate is complete on the strength of the builds. Full audit export
+remains available separately from checked preparation and ordinary execution.
+
+The causal reader repairs remove two aliases that overwrote an actual staged
+composition and retain a structural-view inspection's recorder through validation,
+merging its exact records only after success. `Language` and `Trace` compile with
+these repairs. The first inverse question now completes the semantic reader and
+producer validation at 6524 ms under the unchanged budget; full inferred-type
+closure and the interrupted pairing diagnostic still require a completed run.
+`evaluatePrepared` now validates the original producer records before discharge
+or dispatch. Action-cache reuse keeps each operand's existing request handles,
+and object/map action results retain those handles for a later action. These
+boundary repairs and their new engineering controls are under combined verification.
+
+The independently prepared mathematical reconciliation is published in
+[lean-categories #100](https://github.com/dzackgarza/lean-categories/pull/100),
+commit `381d98fe53147ee72a6a19df55709fc58acd62d3`. Its fetched complete tree
+`6b719f4bccaf0e68680256d3eef7bbbabb58b585` matches the author's source and retains
+both main `8782c22ba613a022a84a1e910b6489cc2503e29a` and #94
+`3bd4d3d9695f288749c860368174462c4d689b7c` as ordered parents. Focused mathematical
+builds and the shared 974-file no-sorry scan passed; full-repository vacuity
+closure and protected acceptance remain separately recorded in that PR.
+
+The exact-input public contract is published in
+[lean-cas-dsl-leaf-contracts #8](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/pull/8),
+commit `a662ff599509557e369ceba5b85c6fbb70c9a49c`. Its fetched complete tree
+`81c04e6759a5da6799020078aa8af446eacf4a11` matches the reviewed local source.
+
+The independent leaf adapter is published in
+[lean-cas-dsl-leaves #7](https://github.com/dzackgarza/lean-cas-dsl-leaves/pull/7).
+Its fetched commit `1fc1ee8b438aa6f1c78f21e99359c0408f8233e7` has complete tree
+`5a587e50d9972bd5562b7c37b39ef22d4c63c797`, matching the reviewed local source.
+It consumes actual public lift images and preserves their native endpoints; its
+protocol conformance checks do not establish mathematical acceptance. The PR
+also preserves the preceding independent leaf candidate work that is absent
+from leaf main.
+
+Noticed, not worked: the existing audit revision label reads the committed Lake
+manifest and can be stale under a diagnostic dependency overlay. Ordinary
+preparation no longer reads that label; a provenance redesign is not a new
+prerequisite for this construction. Report the actual diagnostic source tuple
+separately until normal latest-main delivery is established.
+
 The implementation route is fixed in [cc-realize-2cat](specs/reuse/cc-realize-2cat.md):
 adapt PolyFun's specified suspension/return transitions into the existing checked
 selected-plan/`InvocationExecution` owner, keep its plan builders, validators, lift fold and

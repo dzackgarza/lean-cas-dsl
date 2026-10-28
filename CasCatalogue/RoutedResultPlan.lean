@@ -324,6 +324,8 @@ private partial def retainedOrigin? : Origin →
         if selected == input then some projection else none
       return (input, .record codec projections)
 
+private instance : Inhabited ProjectionParameterSource := ⟨.literal Json.null⟩
+
 private partial def Origin.parameterSource : Origin → ProjectionParameterSource
   | .retained input projection => .retained input projection
   | .returned actionIndex path => .intermediate actionIndex (.input path)
@@ -958,8 +960,9 @@ private def declaredProjection (parent : Expr) (source target : CategoryContext)
           | 1 => pure "target"
           | _ => throwError "the selected Arrow field is not an object projection"
         StructuredProjection.projectionFunctorOfBundle source.bundle label
-    | .ordered => throwStratum .noImplementation
-        "the scalar record codec does not declare a categorical projection functor"
+    | .ordered =>
+        throwStratum .noImplementation
+          "the scalar record codec does not declare a categorical projection functor"
   let (domain, codomain) ← functorCategoryBundles projection
   unless ← withTransparency .all <|
       isDefEq domain source.bundle <&&> isDefEq codomain target.bundle do
@@ -987,11 +990,13 @@ private partial def projectionEdge (state : RegistryState) (ref : EdgeRef) :
   | .functor id =>
       let some row := state.functor? id
         | throwError "a projection comparison names an absent registered functor"
-      return { source := row.source, target := row.target, expression := row.expression, ref }
+      return {
+        source := row.source, target := row.target, expression := row.expression, ref }
   | .classifierForget id =>
       let some row := state.classifier? id
         | throwError "a projection comparison names an absent registered classifier"
-      return { source := .classifierTotal id, target := row.host,
+      return {
+        source := .classifierTotal id, target := row.host
         expression := .classifierForget id row.host, ref }
   | .constructMap constructor inner =>
       let some row := state.constructor? constructor
@@ -999,8 +1004,9 @@ private partial def projectionEdge (state : RegistryState) (ref : EdgeRef) :
       unless row.functorialAction.isSome do
         throwError "a projection comparison constructor has no accepted functor action"
       let edge ← projectionEdge state inner
-      return { source := .construct constructor #[.category edge.source],
-        target := .construct constructor #[.category edge.target],
+      return {
+        source := .construct constructor #[.category edge.source]
+        target := .construct constructor #[.category edge.target]
         expression := .constructMap constructor edge.expression, ref }
 
 private def projectionRoute (state : RegistryState) (source target : CategoryExpr)
@@ -1022,7 +1028,7 @@ as inheritance edges. Constructor contexts act on those same complete routes. -/
 private partial def projectionRoutes (state : RegistryState) (source target : CategoryExpr) :
     TermElabM (Array Route) := do
   let mut routes ← match state.completeRoutes source target with
-    | .ok routes => pure routes
+    | .ok foundRoutes => pure foundRoutes
     | .error error => throwResolutionError state error
   for row in state.functors do
     let terminal : StructuralEdge := {
@@ -1032,7 +1038,7 @@ private partial def projectionRoutes (state : RegistryState) (source target : Ca
       source := row.source, target := row.target, steps := #[terminal] }
     unless row.target.syntacticEq target do continue
     let prefixes ← match state.completeRoutes source row.source with
-      | .ok routes => pure routes
+      | .ok foundRoutes => pure foundRoutes
       | .error error => throwResolutionError state error
     for initial in prefixes do
       routes := appendProjectionRoute routes {
@@ -1046,10 +1052,10 @@ private partial def projectionRoutes (state : RegistryState) (source target : Ca
     let right ← projectionRoute state cell.source cell.target cell.right
     routes := appendProjectionRoute (appendProjectionRoute routes left) right
     let prefixes ← match state.completeRoutes source cell.source with
-      | .ok routes => pure routes
+      | .ok foundRoutes => pure foundRoutes
       | .error error => throwResolutionError state error
     let suffixes ← match state.completeRoutes cell.target target with
-      | .ok routes => pure routes
+      | .ok foundRoutes => pure foundRoutes
       | .error error => throwResolutionError state error
     for initial in prefixes do
       for final in suffixes do
@@ -1087,7 +1093,8 @@ private structure ProjectionCandidate where
   canonical : Bool
 
 private instance : Inhabited ProjectionCandidate :=
-  ⟨{ route := { source := .atom default, target := .atom default, steps := #[] },
+  ⟨{
+    route := { source := .atom default, target := .atom default, steps := #[] }
     application := default, applications := #[], canonical := false }⟩
 
 private structure ProjectionComparison where
@@ -1220,7 +1227,7 @@ private def selectProjectionActionAt (inputs : Array SymbolicInput)
   let mut candidates : Array ProjectionCandidate := #[]
   for route in routes do
     let saved ← Term.saveState
-    let candidate : Option ProjectionCandidate ← do
+    let selectCandidate : TermElabM (Option ProjectionCandidate) := do
       if route.refs.isEmpty then
         unless route.source.syntacticEq source.expression &&
             route.target.syntacticEq target.expression do return none
@@ -1240,6 +1247,7 @@ private def selectProjectionActionAt (inputs : Array SymbolicInput)
         unless ← withTransparency .all <| isDefEq action projection do
           throwError "the complete projection anchor changed during its formal selection"
       return some { route, application := action, applications, canonical }
+    let candidate ← selectCandidate
     match candidate with
     | some candidate => candidates := candidates.push candidate
     | none => saved.restore true
@@ -1681,7 +1689,8 @@ private def compileFieldAction (inputs : Array SymbolicInput) (state : RegistryS
         return .unavailable (.missing
           "the intermediate map field requires its accepted complete action alignment")
       CategoryContext.checkMorphism context slot.formal sourceField.formal targetField.formal
-      return .action { steps, input, inputType, inputRole, source,
+      return .action {
+        steps, input, inputType, inputRole, source
         kind := .map sourceSlot targetSlot }
   | _, _ => return .unavailable (.missing
       "the intermediate field action has a different independently declared public role")
@@ -2061,7 +2070,7 @@ def select (method : MethodEntry) (F receiver : Expr)
     capturedParameters := capturedParameters ++ stage.parameters
     stages := stages.push stage.toIntermediateStage
     completed := some stage
-  let some completed := completed
+  let some finalStage := completed
     | throwError "the composed schema omitted its selected method action"
   unless ← withTransparency .all <|
       isDefEq (← inferType current) (← inferType result) <&&> isDefEq current result do
@@ -2069,8 +2078,8 @@ def select (method : MethodEntry) (F receiver : Expr)
   return {
     method := method.id, application, prefixActions, receiver, argument, formal := result,
     sourceContext, resultContext, parameters := capturedParameters,
-    slots := completed.slots, output := completed.output,
-    projectionActions := completed.projectionActions, stages }
+    slots := finalStage.slots, output := finalStage.output,
+    projectionActions := finalStage.projectionActions, stages }
 
 def Plan.inputFormal (plan : Plan) (input : Input) : TermElabM Expr := do
   match input with

@@ -54,6 +54,8 @@ structure SelectedAction where
   /-- Relative to the complete action descriptor and its invocation parameter array. -/
   descriptorOwnership : DataOwnership.Table := #[]
   parameterOwnership : DataOwnership.Table := #[]
+  descriptorInputPaths : Array (DataOwnership.Path × Operand) := #[]
+  parameterInputPaths : Array (DataOwnership.Path × Operand) := #[]
 
 /-- The descriptor names an existing complete action, including its literal
 nested constructor applications. Only typed operands instantiate declarations. -/
@@ -71,7 +73,10 @@ partial def action (decoder : Decoder) (descriptor : Json) : TermElabM SelectedA
       descriptor := node tag parameters, parameters
       dependencies := selected.operands, declarations := #[selected.application]
       descriptorOwnership := DataOwnership.prefix #[.field "args"] parameterOwnership
-      parameterOwnership }
+      parameterOwnership
+      descriptorInputPaths := prefixInputPaths #[.field "args"]
+        (operandArrayInputPaths selected.operands)
+      parameterInputPaths := operandArrayInputPaths selected.operands }
   if let some entry := state.constructions.find? (·.id.raw == tag) then
     let selected ← decoder.declaration entry.declaration arguments
     let parameters := selected.operands.map (·.data)
@@ -82,7 +87,10 @@ partial def action (decoder : Decoder) (descriptor : Json) : TermElabM SelectedA
       descriptor := node tag parameters, parameters
       dependencies := selected.operands, declarations := #[selected.application]
       descriptorOwnership := DataOwnership.prefix #[.field "args"] parameterOwnership
-      parameterOwnership }
+      parameterOwnership
+      descriptorInputPaths := prefixInputPaths #[.field "args"]
+        (operandArrayInputPaths selected.operands)
+      parameterInputPaths := operandArrayInputPaths selected.operands }
   if tag == "classifierForget" then
     let #[id, parameters] := arguments
       | throwStratum .malformed "the classifier action lost its ordered parameters"
@@ -103,11 +111,15 @@ partial def action (decoder : Decoder) (descriptor : Json) : TermElabM SelectedA
     let parameters := selected.operands.map (·.data)
     let descriptor := node tag #[toJson id, Json.arr parameters]
     let descriptorOwnership := argsOwnership #[#[], operandArrayOwnership selected.operands]
+    let descriptorInputPaths := prefixInputPaths #[.field "args", .index 1]
+      (operandArrayInputPaths selected.operands)
     return {
       value, source := some (.classifierTotal entry.id), target := entry.host
       descriptor, parameters := #[descriptor]
       dependencies := selected.operands, declarations := #[selected.application]
-      descriptorOwnership, parameterOwnership := arrayOwnership #[descriptorOwnership] }
+      descriptorOwnership, parameterOwnership := arrayOwnership #[descriptorOwnership]
+      descriptorInputPaths
+      parameterInputPaths := prefixInputPaths #[.index 0] descriptorInputPaths }
   if tag == "constructorMap" then
     let #[id, inner] := arguments
       | throwStratum .malformed "the constructor action lost its complete inner action"
@@ -120,6 +132,8 @@ partial def action (decoder : Decoder) (descriptor : Json) : TermElabM SelectedA
     let inner ← action decoder inner
     let descriptor := node tag #[toJson id, inner.descriptor]
     let descriptorOwnership := argsOwnership #[#[], inner.descriptorOwnership]
+    let descriptorInputPaths := prefixInputPaths #[.field "args", .index 1]
+      inner.descriptorInputPaths
     let some source := inner.source
       | throwStratum .malformed "the nested action has no published structural source schema"
     return {
@@ -128,7 +142,9 @@ partial def action (decoder : Decoder) (descriptor : Json) : TermElabM SelectedA
       target := .construct entry.id #[.category inner.target]
       descriptor, parameters := #[descriptor]
       dependencies := inner.dependencies, declarations := inner.declarations
-      descriptorOwnership, parameterOwnership := arrayOwnership #[descriptorOwnership] }
+      descriptorOwnership, parameterOwnership := arrayOwnership #[descriptorOwnership]
+      descriptorInputPaths
+      parameterInputPaths := prefixInputPaths #[.index 0] descriptorInputPaths }
   throwStratum .malformed "the service action does not name a published functor projection"
 
 def closeAction (selected : SelectedAction) : TermElabM SelectedAction := do
@@ -178,6 +194,9 @@ def objectAction (decoder : Decoder) (operation : Operation) (input : Form)
   let parameterOwnership := match operation with
     | .edgeAction .. => arrayOwnership #[selected.descriptorOwnership]
     | _ => selected.parameterOwnership
+  let parameterInputPaths := match operation with
+    | .edgeAction .. => prefixInputPaths #[.index 0] selected.descriptorInputPaths
+    | _ => selected.parameterInputPaths
   let request := Backend.ConstructionInvocation.encode {
     construction := operation.id, parameters, receiver := original.data }
   let requestOwnership := DataOwnership.prefix #[.field "args"] parameterOwnership ++
@@ -185,6 +204,8 @@ def objectAction (decoder : Decoder) (operation : Operation) (input : Form)
   let dependencies := selected.dependencies.push original
   return {
     requestValue := original.value, request, requestOwnership, result := formal
+    inputPaths := prefixInputPaths #[.field "args"] parameterInputPaths ++
+      #[(#[.field "receiver"], original)]
     familyApplication := selected.declarations[0]?.map (·.value)
     resultForm := formFor (← registryState) target input
     dependencies, resultContext := some target, objectResult := true
@@ -235,6 +256,9 @@ def mapAction (decoder : Decoder) (operation : Operation) (input : Form)
   let parameterOwnership := match operation with
     | .edgeAction .. => arrayOwnership #[selected.descriptorOwnership]
     | _ => selected.parameterOwnership
+  let parameterInputPaths := match operation with
+    | .edgeAction .. => prefixInputPaths #[.index 0] selected.descriptorInputPaths
+    | _ => selected.parameterInputPaths
   let arrow := node "map" #[selected.descriptor, original.data]
   let arrowOwnership := argsOwnership #[selected.descriptorOwnership, original.ownership]
   let request := Backend.PointInvocation.encode {
@@ -251,6 +275,14 @@ def mapAction (decoder : Decoder) (operation : Operation) (input : Form)
     argument.ownership == argsOwnership #[imageSourceData.ownership, imageSourceData.ownership]
   return {
     requestValue := formal, request, requestOwnership, result := formal
+    inputPaths := prefixInputPaths #[.field "args", .index 1] parameterInputPaths ++
+      prefixInputPaths #[.field "args", .index 2, .field "args", .index 0]
+        selected.descriptorInputPaths ++
+      #[(#[.field "args", .index 2, .field "args", .index 1], original),
+        (#[.field "args", .index 3], domain),
+        (#[.field "args", .index 4], imageSourceData),
+        (#[.field "args", .index 5], imageTargetData),
+        (#[.field "args", .index 6], argument)]
     familyApplication := selected.declarations[0]?.map (·.value)
     resultForm := formFor (← registryState) target input true
     dependencies, resultContext := some target, callableResult := true
@@ -306,6 +338,11 @@ def callable (decoder : Decoder) (operation : Operation) (input : Form)
   let dependencies := application.operands ++ #[sourceData, targetData, arrow, domain, argument]
   return {
     requestValue := formal, request, requestOwnership, result := formal
+    inputPaths := prefixInputPaths #[.field "args", .index 1]
+      (operandArrayInputPaths application.operands) ++
+      #[(#[.field "args", .index 2], arrow), (#[.field "args", .index 3], domain),
+        (#[.field "args", .index 4], sourceData), (#[.field "args", .index 5], targetData),
+        (#[.field "args", .index 6], argument)]
     familyApplication := some formalArrow
     resultForm := formFor state context input true
     dependencies, resultContext := some context, callableResult := true
@@ -351,8 +388,8 @@ def methodRequest (decoder : Decoder) (entry : MethodEntry) (input : Form)
       let source ← if index == resolution.route.refs.size then
           Semantic.methodOwnerBundle state resolution.method source
         else pure source
-      if let some previous := previous then
-        unless ← withTransparency .all <| isDefEq previous source do
+      if let some preceding := previous then
+        unless ← withTransparency .all <| isDefEq preceding source do
           throwStratum .malformed "the method request changes a complete selected category boundary"
       if index == 0 then
         unless ← withTransparency .all <|
@@ -398,13 +435,24 @@ def methodRequest (decoder : Decoder) (entry : MethodEntry) (input : Form)
         (arrayOwnership (selected.map (·.descriptorOwnership))) ++
       DataOwnership.prefix #[.field "receiver"] original.ownership
     else original.ownership
+  let inputPaths := if full then
+      (selected.mapIdx fun index action =>
+        prefixInputPaths #[.field "args", .index index] action.descriptorInputPaths).flatten ++
+      #[(#[.field "receiver"], original)]
+    else #[(#[], original)]
   return {
-    requestValue := original.value, request, requestOwnership, result,
+    requestValue := original.value, request, requestOwnership, inputPaths, result,
     familyApplication := some application.application,
     resultForm := formFor state context input,
     dependencies, resultContext := some context, objectResult := true, trace := some trace,
-    method := some { id := entry.id, route, lifts, receiver := original,
-      comparisons, application, parameters },
+    method := some {
+      id := entry.id
+      route := route
+      lifts := lifts
+      receiver := original
+      comparisons := comparisons
+      application := application
+      parameters := parameters },
     complete := completePort result dependencies }
 
 /-- Service methods use the shared selected-application lifecycle. Property
@@ -424,6 +472,7 @@ def semanticRequest (decoder : Decoder) (operation : Operation) (input : Form)
     return {
       requestValue := original.value, request := original.data, result,
       requestOwnership := original.ownership,
+      inputPaths := #[(#[], original)],
       resultForm := input, dependencies := #[original],
       trace := some trace, decisionResult := true,
       complete := fun answer => do

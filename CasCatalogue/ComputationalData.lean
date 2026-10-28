@@ -772,7 +772,8 @@ with the same bytes cannot select its meaning. Reserved references still need
 an exact binding in the independently supplied private reference context. The
 reserved spelling alone supplies neither a type nor an actual result. -/
 def interfaceScopeGlobalLookup (scope : Option InterfaceScope) (data : Json) : Bool :=
-  scope.isNone || ((Backend.resultRefIndex? data).toOption.bind id).isSome
+  scope.isNone || ((Backend.resultRefIndex? data).toOption.bind id).isSome ||
+    ((Backend.inputRefPath? data).toOption.bind id).isSome
 
 /-- A construction interface comes from the registered presentation and its
 retained diagram. Its computational fields never determine a universal witness. -/
@@ -987,7 +988,7 @@ private structure DataEndpointHole where
   fragment : Option DataOwnership.Data := none
 
 private structure DataEndpointBinding where
-  variable : Expr
+  parameter : Expr
   json : Json
   fragment : Option DataOwnership.Data := none
   value : Option Expr := none
@@ -999,7 +1000,7 @@ structure DataEndpointReader where
     TermElabM (Except String (Option Expr))
   expand : Expr → Expr := id
 
-private def readDataEndpoint? (reader : Option DataEndpointReader)
+def readDataEndpoint? (reader : Option DataEndpointReader)
     (fixed expected : Expr) (data : Json) (scope : Option InterfaceScope) :
     TermElabM (Except String (Option Expr)) :=
   match reader with
@@ -1020,7 +1021,8 @@ partial def actualDescriptorArgument (objects : InterfaceObjects)
   if ← isProp expected then return .error "a proof is not computational data"
   if let some read := positioned then
     if (data.getObjValAs? String "ctor").toOption == some "opaqueData" ||
-        ((Backend.resultRefIndex? data).toOption.bind id).isSome then
+        ((Backend.resultRefIndex? data).toOption.bind id).isSome ||
+        ((Backend.inputRefPath? data).toOption.bind id).isSome then
       return ← read path expected data
   let literalSchema ← pointSchema expected
   if (← plainType expected) || literalSchema.any actualScalarParameterSlots then
@@ -2013,7 +2015,8 @@ def validateCallableAtWith
   let originalScope := scope
   let scope := if dataEndpoints.isSome then InterfaceScope.withoutRoot? scope
     else InterfaceScope.actual? scope
-  if dataEndpoints.isSome && ((Backend.resultRefIndex? data).toOption.bind id).isSome then
+  if dataEndpoints.isSome && (((Backend.resultRefIndex? data).toOption.bind id).isSome ||
+      ((Backend.inputRefPath? data).toOption.bind id).isSome) then
     let some binding := fixed
       | return .error "a private callable reference requires its exact positioned result role"
     return ← validatePort binding.formal binding.expectedType data objects false originalScope
@@ -2718,15 +2721,15 @@ partial def interfaceDeclaration (objects : InterfaceObjects)
   unless ← withTransparency .all <| isDefEq result expected do
     return .error "the symbolic declaration has incompatible complete endpoints"
   if let some read := dataEndpoints then
-    let mut position := 0
+    let mut checkedPosition := 0
     for (field, info) in fields.zip infos do
       let type ← instantiateMVars (← inferType field)
       if !info.isExplicit || (← isProp type) then continue
-      let some datum := data[position]?
+      let some datum := data[checkedPosition]?
         | return .error "the symbolic declaration omitted its positioned parameter"
       if let .error message ← read.argument (← instantiateMVars field) type datum
-          (InterfaceScope.index? scope position) then return .error message
-      position := position + 1
+          (InterfaceScope.index? scope checkedPosition) then return .error message
+      checkedPosition := checkedPosition + 1
   return .ok (← instantiateMVars (mkAppN constant fields))
 
 /-- Point slots follow the actual public object representation. An extent keeps
@@ -3884,15 +3887,15 @@ private partial def withDataEndpointHoles (holes : Array DataEndpointHole)
     let type ← instantiateMVars (← inferType field)
     if type.hasMVar || type.hasLevelMVar then
       return .error "an actual endpoint parameter has no complete declared data type"
-    withLocalDeclD `dataParameter type fun variable => do
-      field.mvarId!.assign variable
+    withLocalDeclD `dataParameter type fun parameter => do
+      field.mvarId!.assign parameter
       withDataEndpointHoles holes (position + 1) (bindings.push {
-        variable, json := hole.json, fragment := hole.fragment }) next
+        parameter, json := hole.json, fragment := hole.fragment }) next
   else
     -- A declaration can itself repeat a parameter role. Its already chosen
     -- private variable owns every such occurrence; packet equality alone never
     -- creates this relation between independent result roles.
-    if let some binding := bindings.find? (fun binding => binding.variable == field) then
+    if let some binding := bindings.find? (fun binding => binding.parameter == field) then
       unless binding.json == hole.json && binding.fragment == hole.fragment do
         return .error "one declared data parameter changed its exact occurrence or suppliers"
     withDataEndpointHoles holes (position + 1) bindings next
@@ -3918,7 +3921,8 @@ private partial def withDataEndpointPosition (objects : InterfaceObjects)
         unless fragment.json == datum do
           return .error "an actual endpoint parameter changed its positioned data"
         pure (some fragment)
-    if ((Backend.resultRefIndex? datum).toOption.bind id).isSome then
+    if ((Backend.resultRefIndex? datum).toOption.bind id).isSome ||
+        ((Backend.inputRefPath? datum).toOption.bind id).isSome then
       let retained := objects.filter (·.1 == datum)
       if retained.isEmpty then
         return .error "an actual endpoint parameter has an unauthenticated private reference"
@@ -3939,9 +3943,9 @@ private partial def withDataEndpointPosition (objects : InterfaceObjects)
     let actual ← instantiateMVars actual
     if actual.hasMVar || actual.hasLevelMVar then
       return .error "the actual endpoint descriptor left an unresolved data parameter"
-    withLetDecl `dataEndpoint type actual fun variable =>
-      next variable (bindings.push {
-        variable, json := slot.json, fragment := slot.fragment, value := some actual })
+    withLetDecl `dataEndpoint type actual fun parameter =>
+      next parameter (bindings.push {
+        parameter, json := slot.json, fragment := slot.fragment, value := some actual })
 
 /-- A fixed private variable is a declaration-selected data occurrence. No
 lookup by an equal closed term or equal packet chooses an endpoint role. -/
@@ -3950,7 +3954,7 @@ private partial def readDataEndpointArgument (objects : InterfaceObjects)
     (scope : Option InterfaceScope) : TermElabM (Except String (Option Expr)) := do
   let fixed ← instantiateMVars fixed
   unless fixed.isFVar do return .ok none
-  let some binding := bindings.find? (fun binding => binding.variable == fixed)
+  let some binding := bindings.find? (fun binding => binding.parameter == fixed)
     | return .ok none
   unless ← withTransparency .all <| isDefEq (← inferType fixed) expected do
     return .error "the selected data endpoint parameter changed its complete type"
@@ -3987,7 +3991,7 @@ private partial def expandDataEndpointLets (bindings : Array DataEndpointBinding
     match binding.value with
     | none => expression
     | some value => expression.replace fun term =>
-        if term == binding.variable then some value else none) expression
+        if term == binding.parameter then some value else none) expression
 
 /-- Allocate the physical endpoint context inside one isolated validation.
 The fixed full Hom supplies its original category dictionary. Descriptor reads
@@ -4096,7 +4100,7 @@ private partial def validateDataEndpointPositions (formal : Expr)
 requested objects. The caller supplies independently selected endpoint roles and
 already validated object occurrences. This checks their exact suppliers and the
 map's data interface; it returns neither a decoded answer nor an isomorphism. -/
-partial def validateEndpointSlots (formalMap : Expr) (source target : DataEndpointSlot)
+@[no_expose] partial def validateEndpointSlots (formalMap : Expr) (source target : DataEndpointSlot)
     (data : DataOwnership.Data) (objects : InterfaceObjects := #[])
     (scope : Option InterfaceScope := none) : TermElabM (Except String Unit) :=
     withoutModifyingState do

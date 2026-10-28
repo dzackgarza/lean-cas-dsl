@@ -177,6 +177,138 @@ unchanged inventories afterwards. A renamed observer, another store or a scalar 
 without the defining maps fails the existing trial. No compilation, compatibility or
 mathematical acceptance is claimed by this planning record.
 
+### Implemented source and preservation argument (2026-10-28)
+
+This section records the working source adaptation and its source-level invariant
+argument. Focused compilation and the unchanged first RX-LIFT computation remain
+separate evidence gates; this review records no runtime pass, mathematical
+acceptance, or completion of the full V1 inventory.
+
+The adaptation is in [`Realize.lean`](../../CasCatalogue/Realize.lean). Its import
+list remains unchanged: the implementation reuses `LiftStageExecution`,
+`LiftedSubobjectData` (and its `SelectedLift` input), `StructuredResult`,
+`RoutedResultPlan`, `CellAction`, `DataOwnership`, the three existing service
+preparers, `ComputationDerivation`, and `CasContract.Port`. It adds no PolyFun,
+cslib, or other package import. The PolyFun transition attribution remains beside
+`demandCapturedInvocation`; the local invariant below is not an imported theorem.
+
+| Implemented responsibility | Existing owner and adaptation |
+| --- | --- |
+| Direct lift, ordinary lift field, and later factor preparation | `captureDirectLiftInvocation`, `captureLiftField`, and `captureLiftFactor` extend `CapturedInvocationInterface` with `directLift`, `liftField`, and `liftFactor`. Complete plans, parents, ordered operand Wires, roles, and expected types are retained before execution. |
+| Entry, suspension, and return | `InvocationFrame` is a local stack frame over `Harness.invocations`. `capturedInvocationFrame` authenticates the original input and unique occurrence. `demandCapturedInvocation` fills the next fixed operand slot and enters a staged child when required. |
+| Resumption and completion | `resumeCapturedInvocation` consumes the returned operand vector. Direct lifts reuse `LiftStageExecution.fold`; fields use their parent's retained stage; factors use the supplied construction and maps. `completeCapturedInvocation` performs the sole canonical invocation-result write, shared with the older protocols. |
+| Exact nested service inputs | `Wire.serviceInputPaths`, `ServiceRequest.Prepared.inputPaths`, and public `inputRef` bind declared request positions to the existing retained operands. Preparers assign positions after normalization. `resultRef` remains the separate local completed-result reference. |
+
+The positioned-input helpers reuse `DataOwnership.Path`, `Data.project`,
+`renderCapturedActionData`, and `retainServiceOperands`. Corpus searches for
+`JSON path occurrence binding` and `ActionDataTemplate DataOwnership InterfaceScope`
+provided an unrelated manifest match and no matching owner, respectively. There
+is no second semantic or execution store. `some #[]` explicitly disables legacy
+packet recovery even when a request has no retained inputs. A whole supplied
+factor map remains at its exact request position with its original envelope and
+ownership; decoding its public interface does not reconstruct its packet.
+
+#### Compositional invariant
+
+The source argument is induction over the driver's entry/return transitions,
+with the existing four-field fold supplying the inner induction for a lift.
+
+1. **Fixed selection at entry.** A frame names one canonical invocation record.
+   The incoming Wire must match that record's original complete typed input;
+   the stored interface supplies the executable plan. Neither copied metadata
+   nor a returned packet chooses a different producer or mathematical request.
+2. **Ordered dependency prefix.** `returned` is a prefix of the selected operand
+   vector. Only its next ordinal can enter a child. A return is checked against
+   that operand's fixed formal value, expected type, declared role, full category
+   context, and live suppliers before the prefix grows. The suspended parent
+   retains its next ordinal while the child runs; equal terms or bytes never
+   select the receiving parent slot.
+3. **Field and factor association.** Resumption requires the complete operand
+   vector. The shared lift fold passes each actual preceding output into the
+   next fixed field request; the backward comparison retains the forward
+   comparison's actual endpoints. Field projection checks the parent's selected
+   plans and output ordinal. A factor receives that parent's retained stage,
+   all four outputs, actual inclusion/comparisons, and its original base and cone.
+4. **Single completion.** The result must preserve the canonical formal result
+   and full output interface, and every supplier must remain live. Completion
+   rechecks the original table entry and refuses a second result installation.
+   Dependency cycles and failed requests exit without filling a parent slot with
+   default data. The caller receives the checked result of that exact occurrence.
+5. **Inert prospective inspection.** `prospectiveDirectLift` uses the same input
+   assembler and field fold in the private inspection harness. Its future slots
+   remain recipes, and inspection cannot install live invocation completions.
+   Original endpoint roles and typed field positions are therefore shared by
+   admission and execution without treating a future slot as received data.
+
+These checks preserve selected types, contexts, positions, and computational
+provenance. They do not prove that a returned map obeys its defining equation,
+that comparisons are inverse, or that a factor satisfies a universal property.
+A well-framed wrong answer still requires the unchanged mathematical comparison
+and factor observations. A typed framing proof establishes this preservation
+property only; it is not a proof of the leaf computation.
+
+#### Mathematical inputs of the first fixed slice
+
+The diagnostic consumes the independently authored mathematical declarations at
+[`3bd4d3d9695f288749c860368174462c4d689b7c`](https://github.com/dzackgarza/lean-categories/tree/3bd4d3d9695f288749c860368174462c4d689b7c).
+This identifies the source actually loaded; it does not assert independent
+acceptance or latest-main delivery. The relevant source owners are
+[`MonoLift`](https://github.com/dzackgarza/lean-categories/blob/3bd4d3d9695f288749c860368174462c4d689b7c/LeanCategories/Catalogue/Lift.lean),
+[`DegeneratePlaneLifts`](https://github.com/dzackgarza/lean-categories/blob/3bd4d3d9695f288749c860368174462c4d689b7c/LeanCategories/Catalogue/Semantics/Modules/Bilinear/Valued/DegeneratePlaneLifts.lean),
+and [`DegeneratePlaneFactorization`](https://github.com/dzackgarza/lean-categories/blob/3bd4d3d9695f288749c860368174462c4d689b7c/LeanCategories/Catalogue/Semantics/Modules/Bilinear/Valued/DegeneratePlaneFactorization.lean).
+
+Write `C = BilinModuleCat ℚ ℚ`, `D = ModuleCat ℚ`, and `U = forget ℚ ℚ`.
+The selected source is the formed plane `source`; the selected base object is
+the scalar module and its inclusion is `kernelInclusion`. The latter's module
+kernel property is `kernel_universal` in `D`. The construction in `C` uses
+`Kernels.forgetMonoLift ℚ ℚ`, a specified cartesian lift of that monomorphism.
+It does not acquire a kernel universal property in `C` from the module result.
+
+| Selected mathematical data or law | Association retained by the implementation |
+| --- | --- |
+| Complete scalar/value modules, source, inclusion and `kernelInclusion_mono` | `SelectedLift.select` checks the full evidence signature and functor, fixes the actual source and inclusion, checks monicity on the formal side, and closes the complete application. `SelectedLift.context` obtains both category bundles from that selected functor. `DirectConstruction` retains the explicit telescope; a carrier alone cannot supply these parameters. |
+| `A = L.obj X i`, `j = L.hom X i`, `α = L.computation.forward X i`, `β = L.computation.backward X i` | The four selected ports stay in that declaration order. `LiftStageExecution.fold` uses the actual object output as the defining map's source, and the actual forward comparison's endpoints in reverse order for the backward comparison. Each field request carries its exact preceding output occurrences. |
+| `U.map j = α ≫ i`, from `MonoLift.computation_fac` and `first_factorization` | The original inclusion, actual source image, actual lifted object and selected comparison remain distinct inputs. `directLiftInputs`, the field fold, and retained stage handles keep their positions and category dictionaries; no equality of data packets supplies the equation. |
+| `α ≫ β = 𝟙 (U.obj A)` and `β ≫ α = 𝟙 K`, from the two computation inverse laws and the corresponding `first_inverse_*` theorems | Forward and backward observations retain their full, different domains and codomains. The selected `α` is not replaced by an identity map: `alpha_value` records its actual scaled coordinate. The unchanged whole-map assertions still judge returned computations. |
+| The actual formed pairing, from `source_pairing` and `first_pairing` | The object result retains its full formed-module context and subsequent operation input. Preserving the carrier or one point would not preserve this field or discharge its existing full-pairing assertion. |
+| Supplied `f : Y ⟶ X`, `g : U.obj Y ⟶ K`, and `U.map f = g ≫ i`, specialized by `cone_base_factorization` | `SelectedLift.factor` obtains the original `Y` from the complete cone and checks the compatibility proof. `captureLiftFactor` retains the existing construction, base map and cone as ordered operands. `completeRetainedLiftFactor` consumes those returned operands and the same parent's four actual fields. |
+| `h ≫ j = f` and `U.map h ≫ α = g`, from `MonoLift.factor_hom` and `factor_map`, specialized by `formedMediator_factorization` and `formedMediator_comparison` | The returned factor's complete endpoints and its supplied construction are preserved for later composition/application. The applicable comparison square is exactly the supplied cartesian factor equation. No unprovided global natural isomorphism is inferred from a single comparison component. |
+| Uniqueness, from `MonoLift.factor_unique` and `formedMediator_unique` | This remains a formal property of the selected construction. The computational factor port returns a map, not a proof, and the acceptance suite retains its independent factor observations. |
+
+The object and map actions belong to the selected `Functor`; its identity and
+composition laws belong to the formal input. The kernel keeps that same action,
+the full source/target dictionaries and the declared map order through
+`CategoryContext`, `SelectedLift`, retained callable endpoints and the positioned
+service preparers. The common invocation driver adds no semantic action or
+coherence law. Reusing a selected returned result is distinct from executing an
+equal mathematical expression again, and equality of its representation is
+distinct from equality of its denotation. The cache and producer controls test
+that association, while the permanent mathematical assertions test the answers.
+
+Successive lifts additionally require the original second-stage continuation
+and the existing `MonoLift.factor_comp`/`computation_comp_*` laws with its changed
+cone source. That later computation, other variance, and any additional higher
+data are not established by the single-stage source argument or its build.
+
+#### Remaining scope and evidence
+
+The staged producer nodes bypass `Harness.results` through
+`preparedLiftReference?`; this does not remove that cache from unmigrated readers
+and observers. Universal constructions still schedule through
+`observeStructuredInvocationWith`. Callable, structured-projection,
+record-projection, routed, and prescribed protocols share canonical completion
+but retain their existing dependency observers. The explicit `composed` lift
+adapter still gathers recorded segments through `composedLiftExecution` and
+`retainedLiftExecution`. `cacheLiftFields` remains on the prescribed path, and
+`legacyLiftRecovery`/`executePrescribedLift` remain compatibility entry points.
+None is counted as a completed scheduling migration by this direct lift change.
+
+The first unchanged RX-LIFT computation, its comparisons and later factor use,
+focused hostile controls, preservation review, and independent public-only trial
+must be recorded with their actual results. Complete #24 inventories and the
+remaining #66/#69 requirements still govern wider coverage. Source inspection,
+private prospective data, and a successful build alone do not satisfy these gates.
+
 <details>
 <summary>Dated implementation notes preserved from the candidate branch</summary>
 

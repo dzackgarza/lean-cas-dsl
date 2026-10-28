@@ -146,6 +146,83 @@ class ContractProtocol(unittest.TestCase):
             with self.subTest(parameters=parameters, operands=operands), self.assertRaises(ValueError):
                 port.operation_expression(node("operationExpression", "op.probe", parameters, operands))
 
+    def test_input_references_keep_request_positions_separate_from_results(self):
+        first = port.input_ref(["args", 4, 0])
+        second = port.input_ref(["sourceImage"])
+        self.assertEqual(port.input_ref_path(first), ["args", 4, 0])
+        self.assertIsNone(port.result_ref_index(first))
+        self.assertIsNone(port.input_ref_path(port.result_ref(0)))
+        call = port.deferred_call("fun.probe", "fun.probe#input", node("pair", first, second))
+        program = port.deferred_data([call], node("pair", port.result_ref(0), second))
+        self.assertEqual(port.deferred_computation(program), (program["args"][0], program["args"][1]))
+        # An original input does not consume a result index or permit a forward call.
+        with self.assertRaises(ValueError):
+            port.deferred_data([port.deferred_call("fun.probe", "fun.probe#input",
+                node("pair", first, port.result_ref(0)))], second)
+        malformed = [node("inputRef"), node("inputRef", "args"),
+            node("inputRef", ["args"], []), node("inputRef", ["args", -1]),
+            node("inputRef", [True]), node("inputRef", [1.5]),
+            node("inputRef", [None]), {**first, "owner": "copied"}]
+        for value in malformed:
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                port.deferred_data([], node("pair", second, value))
+
+    def test_lift_fields_retain_actual_images_and_ordered_parameters(self):
+        source = node("opaqueData", "selected-source")
+        source_image = node("opaqueData", "actual-source-image")
+        apex = node("opaqueData", "actual-lift-apex")
+        comparison_image = node("opaqueData", "actual-comparison-image")
+        base_object = node("opaqueData", "actual-base-apex")
+        base = node("subobject", base_object, source_image, node("opaqueData", "base-inclusion"))
+        outputs = [apex, port.map_data(apex, source, node("opaqueData", "inclusion")),
+                   port.map_data(comparison_image, base_object, node("opaqueData", "forward")),
+                   port.map_data(base_object, comparison_image, node("opaqueData", "backward"))]
+        parameters = [node("obj.probe", 7), node("opaqueData", "selected-parameter")]
+        for index, field in enumerate(("obj", "hom", "forward", "backward")):
+            packet = node("monoLiftInput", "lift.probe", node("fun.probe"), source, base, outputs[:index])
+            packet.update(parameters=parameters, sourceImage=source_image)
+            if index == 3:
+                packet["comparisonImage"] = comparison_image
+            decoded = port.lift_input(packet, "lift.probe#" + field)
+            self.assertIs(decoded[3], source)
+            self.assertEqual(decoded[5], outputs[:index])
+            self.assertIs(port.lift_parameters(packet), parameters)
+            self.assertEqual(port.lift_images(packet),
+                             (source_image, comparison_image if index == 3 else None))
+            with self.assertRaises(ValueError):
+                port.lift_input(packet, "lift.other#" + field)
+        factor = node("liftFactorInput", "lift.probe", node("fun.probe"), source, base, outputs,
+                      port.map_data(source_image, base_object, node("opaqueData", "base-map")),
+                      port.map_data(source, source, node("opaqueData", "cone")))
+        factor.update(parameters=parameters, sourceImage=source_image, comparisonImage=comparison_image)
+        self.assertEqual(port.lift_factor_input(factor, "lift.probe#factor"), tuple(factor["args"]))
+        self.assertEqual(port.lift_images(factor), (source_image, comparison_image))
+        for field in ("sourceImage", "comparisonImage"):
+            malformed = {key: value for key, value in factor.items() if key != field}
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                port.lift_factor_input(malformed, "lift.probe#factor")
+        for field in ("sourceImage", "comparisonImage"):
+            with self.subTest(null=field), self.assertRaises(ValueError):
+                port.lift_factor_input({**factor, field: None}, "lift.probe#factor")
+
+    def test_lift_images_reject_incomplete_or_premature_contexts(self):
+        original = node("arrow", node("source"), node("target"), node("map"))
+        base = node("subobject", node("base"), node("image"), node("inclusion"))
+        image = node("arrow", node("source-image"), node("target-image"), node("map-image"))
+        request = node("liftInput", "lift.probe", node("fun.probe"), original, base, [])
+        request["sourceImage"] = image
+        self.assertEqual(port.lift_images(request), (image, None))
+        # Legacy framing remains admitted only when the image slots are absent.
+        legacy = {key: value for key, value in request.items() if key != "sourceImage"}
+        self.assertEqual(port.lift_images(legacy), (None, None))
+        for malformed in ({**request, "sourceImage": node("object")},
+                          {**request, "comparisonImage": node("too-early")},
+                          {**legacy, "comparisonImage": node("unassociated")},
+                          {**request, "args": request["args"][:-1]},
+                          {**request, "args": request["args"][:-1] + [[0, 1, 2, 3]]}):
+            with self.subTest(malformed=malformed), self.assertRaises(ValueError):
+                port.lift_images(malformed)
+
 
 if __name__ == "__main__":
     unittest.main()

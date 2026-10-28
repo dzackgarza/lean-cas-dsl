@@ -39,13 +39,24 @@ def mapPacket (decoder : Decoder) (operand : Operand) :
   let (packet, source, target) ← mapFragment decoder operand
   return (packet.json, source, target)
 
+/-- The same framing branch as `mapFragment` fixes each retained input path.
+An existing complete map stays whole; a new frame retains its actual callable
+and both original endpoint operands at their declared fields. -/
+def mapInputPaths (operand source target : Operand) : Array (DataOwnership.Path × Operand) :=
+  let endpoints := #[(#[DataOwnership.Step.field "args", .index 0], source),
+    (#[.field "args", .index 1], target)]
+  match Backend.TypedMap.decode operand.data with
+  | .ok _ => #[(#[], operand)] ++ endpoints
+  | .error _ => endpoints.push (#[.field "args", .index 2], operand)
+
 /-- Materialize the already selected universal interface from exact typed operands.
 The public decoder and private captured invocation supply the same ordered input
 roles to this factory. No operand is decoded or recovered from equal JSON here. -/
 def materializedLimit (row : LimitEntry) (diagram presentation : Expr)
     (plan : StructuredResult.DataPlan) (dependencies : Array Operand)
     (roles : Array (DataOwnership.Data × Option DataOwnership.Data ×
-      Option DataOwnership.Data)) : TermElabM Prepared := do
+      Option DataOwnership.Data))
+    (inputPaths : Array (DataOwnership.Path × Operand) := #[]) : TermElabM Prepared := do
   let state ← registryState
   let some constructor ← Semantic.diagramConstructor row
     | throwStratum .noImplementation "the registered universal construction has no public diagram telescope"
@@ -91,7 +102,7 @@ def materializedLimit (row : LimitEntry) (diagram presentation : Expr)
     scopedInputs.map fun (actual, formal) => (actual.json, formal)
   let constructionInputOwnership := scopedInputs.map (·.1.ownership)
   return {
-    requestValue := diagram, request, requestOwnership, result := apex
+    requestValue := diagram, request, requestOwnership, inputPaths, result := apex
     resultForm := .limitApex row, dependencies
     resultContext := some context, objectResult := true
     constructionInputs := some (apex, constructionInputs)
@@ -133,14 +144,18 @@ def limit (decoder : Decoder) (row : LimitEntry) (_input : Form)
   let mut dependencies := selected.operands
   let mut roles : Array (DataOwnership.Data × Option DataOwnership.Data ×
     Option DataOwnership.Data) := #[]
-  for operand in selected.operands do
+  let mut inputPaths := #[]
+  for (operand, index) in selected.operands.zipIdx do
     if (Language.homEnds? (← inferType operand.value)).isSome then
       let (packet, source, target) ← mapFragment decoder operand
       dependencies := dependencies ++ #[source, target]
       roles := roles.push (packet, some source.fragment, some target.fragment)
+      inputPaths := inputPaths ++ prefixInputPaths #[.field "args", .index index]
+        (mapInputPaths operand source target)
     else
       roles := roles.push (operand.fragment, none, none)
-  materializedLimit row diagram presentation plan dependencies roles
+      inputPaths := inputPaths.push (#[.field "args", .index index], operand)
+  materializedLimit row diagram presentation plan dependencies roles inputPaths
 
 /-- The formal lift and all actual operands stay separate. Public field outputs
 are checked against their selected roles and retain their original handles. -/
@@ -158,6 +173,7 @@ structure Selection where
   comparisonImage? : Option Operand := none
   actionOwnership : DataOwnership.Table := #[]
   parameterOwnership : DataOwnership.Table := #[]
+  inputPaths : Array (DataOwnership.Path × Operand) := #[]
 
 /-- Metadata occurrences keep the suppliers of their exact typed operands. -/
 def Selection.imageOwnership (selected : Selection) : DataOwnership.Table :=
@@ -243,7 +259,14 @@ def selection (decoder : Decoder) (entry : LiftEntry) (parameters : Array Json)
     original, source, base, baseObject, outputs := actual, dependencies,
     sourceImage?, comparisonImage?
     actionOwnership := selected.descriptorOwnership
-    parameterOwnership := operandArrayOwnership declared.operands }
+    parameterOwnership := operandArrayOwnership declared.operands
+    inputPaths := prefixInputPaths #[.field "parameters"]
+        (operandArrayInputPaths declared.operands) ++
+      prefixInputPaths #[.field "args", .index 1] selected.descriptorInputPaths ++
+      #[(#[.field "args", .index 2], original), (#[.field "args", .index 3], base)] ++
+      prefixInputPaths #[.field "args", .index 4] (operandArrayInputPaths actual) ++
+      sourceImage?.toArray.map (fun operand => (#[.field "sourceImage"], operand)) ++
+      comparisonImage?.toArray.map (fun operand => (#[.field "comparisonImage"], operand)) }
 
 /-- Parse only fixed framing before resolving data slots. A whole typed source,
 base or preceding output can itself be a scoped reference. -/
@@ -296,6 +319,7 @@ def liftField (decoder : Decoder) (entry : LiftEntry) (field : LiftField)
   let context ← SelectedLift.context selected.plan (index >= 2)
   return {
     requestValue := formal, request := invocation.encode, requestOwnership, result := formal
+    inputPaths := selected.inputPaths
     resultForm := formFor (← registryState) context input (index != 0)
     dependencies := selected.dependencies, resultContext := some context
     objectResult := index == 0, callableResult := index != 0
@@ -343,20 +367,25 @@ def liftFactor (decoder : Decoder) (entry : LiftEntry) (input : Form)
     parameters := selected.parameters, baseMap := baseMapData, cone := coneMapData
     sourceImage? := selected.sourceImage?.map (·.data)
     comparisonImage? := selected.comparisonImage?.map (·.data) }
-  -- `TypedMap.encode` retains exactly the three fields under `args`; any other
-  -- envelope fields are not part of the re-encoded occurrence.
-  let mapOwnership := fun data : DataOwnership.Data =>
-    DataOwnership.prefix #[.field "args"] (DataOwnership.project #[.field "args"] data.ownership)
+  -- Both complete maps were already checked at their original typed roles.
+  -- Keep their actual envelopes and suppliers instead of stripping optional
+  -- fields and then attaching the original whole-map occurrence to new bytes.
+  let request := invocation.encode.setObjVal! "args" (Json.arr #[
+    toJson invocation.lift, invocation.action, invocation.source, invocation.base,
+    Json.arr invocation.outputs, baseData.json, coneData.json])
   let requestOwnership := selected.imageOwnership ++
     DataOwnership.prefix #[.field "parameters"] selected.parameterOwnership ++
     argsOwnership #[#[], selected.actionOwnership, selected.source.ownership,
       selected.base.ownership, operandArrayOwnership selected.outputs,
-      mapOwnership baseData, mapOwnership coneData]
-  let .ok _ := Backend.LiftFactorInput.decode invocation.encode entry.factorAddress
+      baseData.ownership, coneData.ownership]
+  let .ok _ := Backend.LiftFactorInput.decode request entry.factorAddress
     | throwStratum .malformed "the resolved service factor lost its complete public framing"
   let context ← SelectedLift.context selected.plan
   return {
-    requestValue := formal, request := invocation.encode, requestOwnership, result := formal
+    requestValue := formal, request, requestOwnership, result := formal
+    inputPaths := selected.inputPaths ++
+      prefixInputPaths #[.field "args", .index 5] (mapInputPaths baseMap baseDomain baseTarget) ++
+      prefixInputPaths #[.field "args", .index 6] (mapInputPaths cone domain coneTarget)
     resultForm := formFor (← registryState) context input true
     dependencies := selected.dependencies ++ #[cone, domain, coneTarget, baseMap, baseDomain, baseTarget]
     resultContext := some context, callableResult := true

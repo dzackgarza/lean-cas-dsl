@@ -701,6 +701,9 @@ structure Ctx where
   /-- Where the semantic reading records the operations that form its values
   (`CasCatalogue.Trace`), for the realized reading to evaluate the same term. -/
   trace : Option Trace := none
+  /-- Original producer records remain readable in a speculative trial. Only
+  `trace` receives new records; this input is never a speculative write target. -/
+  sourceTrace : Option Trace := none
   /-- Closed readings shared only within one fixed question scope and trace. -/
   closedTerms : Option (IO.Ref (Std.HashMap String Value)) := none
   /-- Complete object readings shared within one claim or a nested endpoint read.
@@ -710,6 +713,18 @@ structure Ctx where
 
 /-- The language's evaluation monad: elaboration in a reading. -/
 abbrev M := ReaderT Ctx TermElabM
+
+/-- Read the exact original producer records together with any current local
+records. A nested trial may inspect this snapshot without publishing new nodes. -/
+def readingTrace? : M (Option Trace) := do
+  let context ← read
+  match context.trace, context.sourceTrace with
+  | none, source | source, none => return source
+  | some current, some source =>
+    let combined ← IO.mkRef (← source.get)
+    for (value, node) in (← current.get).toArray do
+      Trace.record (some combined) value node
+    return some combined
 
 /-- Optional reader profiling; ordinary interpretation executes the action directly. -/
 def profileReader {α : Type} (name : String) (action : M α) : M α := do
@@ -985,7 +1000,8 @@ def declaredCarrierRoute (state : RegistryState) (entry : ObjectEntry) :
 /-- Isolate speculative unification and suppress speculative trace records. -/
 def parameterTrial {α : Type} (action : M α) : M α := do
   let context ← read
-  liftM (withoutModifyingState (action.run { context with trace := none }))
+  let sourceTrace ← readingTrace?
+  liftM (withoutModifyingState (action.run { context with trace := none, sourceTrace }))
 
 /-- Only declared inapplicability discards a trial; ambiguity and interpreter failures survive. -/
 def parameterCompatible (action : M Bool) : M Bool := do
@@ -1403,7 +1419,7 @@ partial def typedParameter (expected : Expr) (value : Value) : M Expr := do
     -- formal factor laws. Retain only checked proposition-valued instances, and
     -- close their local declarations before checking the original full target.
     let mut facts : Array (Expr × Expr) := #[]
-    if let some trace := (← read).trace then
+    if let some trace ← readingTrace? then
       for (_, node) in (← trace.get).toArray do
         if let .selectedLift _ _ _ inclusion monic := node then
           let condition ← mkAppM ``CategoryTheory.Mono #[inclusion]
@@ -1735,8 +1751,10 @@ def includes (state : RegistryState) (sub super : ObjectId) : Bool := Id.run do
 The same family head compares every ordered parameter. Unresolved parameters may be constrained
 from either endpoint while a whole inclusion path is prepared. -/
 partial def bindInclusionEndpoint (expected actual : Expr) : TermElabM Unit := do
-  let expected ← instantiateMVars expected
-  let actual ← instantiateMVars actual
+  -- Producer occurrences address computations, not mathematical family parameters.
+  -- Inspect their original applications without replacing either selected endpoint.
+  let expected := Trace.unanchor (← instantiateMVars expected)
+  let actual := Trace.unanchor (← instantiateMVars actual)
   if expected == actual then return
   let expectedType ← instantiateMVars (← inferType expected)
   let actualType ← instantiateMVars (← inferType actual)
@@ -3133,7 +3151,7 @@ partial def directConstruction (scope : Scope) (entry : ConstructionEntry)
 /-- A core map is admitted only from an actual accepted isomorphism, retaining both
 directions. A plain map is never upgraded merely because its endpoint carriers agree. -/
 partial def constructionCoreMap (morphism source target : Expr) : M (Expr × Expr × Expr) := do
-  let some trace := (← read).trace
+  let some trace ← readingTrace?
     | throwStratum .invalid "a core map requires retained accepted comparison data"
   let some node ← trace.node? morphism
     | throwStratum .invalid "the core map has no selected accepted isomorphism"
@@ -3250,19 +3268,19 @@ partial def selectedPresentation (scope : Scope) (name : String) (parameters : A
   return .morphism arrow source target category (some (sourceValue, targetValue))
 
 partial def retainedLiftPlans (receiver : Expr) : M (Array SelectedLift.Plan) := do
-  let some trace := (← read).trace | throwStratum .invalid "the lift has no retained selection"
+  let some trace ← readingTrace? | throwStratum .invalid "the lift has no retained selection"
   return (← SelectedLift.recorded trace receiver).plans
 
 partial def selectedLiftComposite (scope : Scope) (selected : Syntax) : M Value := do
   let receiverValue ← eval scope selected
   let receiver ← semanticObject receiverValue
-  let some trace := (← read).trace | throwStratum .invalid "the lift has no retained selection"
+  let some trace ← readingTrace? | throwStratum .invalid "the lift has no retained selection"
   let recorded ← SelectedLift.recorded trace receiver true
   let some first := recorded.plans[0]?
     | throwStratum .invalid "the composed lift has no selected stage"
   let context ← SelectedLift.context first
   let object ← SelectedLift.port recorded.plans 0
-  let result ← Trace.recordProduced (some trace) object (.liftProjection receiver "composed")
+  let result ← Trace.recordProduced (← read).trace object (.liftProjection receiver "composed")
   objectInContext result context #[receiverValue]
 
 partial def selectedLift (scope : Scope) (name : String) (parameters : Array Syntax)
@@ -3293,7 +3311,7 @@ partial def selectedLiftField (receiver : Value) (name : String) : M (Option Val
   let object ← match receiver with
     | .object object .. | .derivedObject object .. => pure object
     | _ => return none
-  let some trace := (← read).trace | return none
+  let some trace ← readingTrace? | return none
   let selected := match ← trace.node? object with
     | some (.selectedLift ..) | some (.methodWithLifts ..) |
         some (.liftProjection _ "obj") | some (.liftProjection _ "composed") => true
@@ -3604,7 +3622,9 @@ partial def structuredParameterView (original : Value) (actual : Expr)
       Trace.alias (← read).trace handle actual
       return .object actual category origin selected
         (some (#[original], chosen, #[], #[], #[]))
-  let recorder ← Trace.new
+  let recorder : Trace ← match ← readingTrace? with
+    | some original => IO.mkRef (← original.get)
+    | none => Trace.new
   let expected ← inferType actual
   let recorded ← withReader (fun context => { context with trace := some recorder }) do
     typedParameter expected original
@@ -3612,64 +3632,72 @@ partial def structuredParameterView (original : Value) (actual : Expr)
     throwStratum .invalid m!"a structural view differs from its accepted parameter"
   let some node ← recorder.node? recorded
     | throwStratum .invalid m!"a converted structure has no retained registered source"
-  let state ← registryState
-  let (sourceContext, receiver, route, alternatives, fullApplications) ← match node with
-    | .object id parameters => do
-        let some entry := state.objects.find? (·.id == id)
-          | throwStratum .invalid m!"a direct structural source object is not registered"
-        unless entry.category == category.id do
-          throwStratum .invalid m!"a direct structural source has the wrong category"
-        let receiver ← Semantic.object entry
-          (← parameters.mapM fun parameter => do pure (← quoteExpr parameter)) none
-        unless !receiver.hasMVar && (← isTypeCorrect receiver) &&
-            (← isDefEq (← inferType receiver) expected) && (← isDefEq receiver actual) do
-          throwStratum .invalid m!"the registered direct source is not the complete parameter"
-        pure (← CategoryContext.ofNamed category receiver, receiver, #[], #[], #[])
-    | .retainedRoute sourceCategory _ route applications receiver => do
-        let some source := state.categories.find? (·.id == sourceCategory)
-          | throwStratum .invalid "the retained route source category is absent"
-        pure (← CategoryContext.ofNamed source receiver, receiver, route, #[], applications)
-    | .contextualRoute source target route applications receiver false => do
-        unless target.expression.syntacticEq category.expression do
-          throwStratum .invalid "the structural view has a different selected target category"
-        CategoryContext.checkObject source receiver
-        CategoryContext.checkObject target actual
-        pure (source, receiver, route, #[], applications)
-    | .parameterEquivalence _ representative alternatives => do
-        unless ← isDefEq representative actual do
-          throwStratum .invalid m!"the complete equivalent parameter differs from the view"
-        let some presentation := alternatives[0]?
-          | throwStratum .invalid m!"an equivalent parameter has no source presentations"
-        let some source := state.categories.find? (·.id == presentation.sourceCategory)
-          | throwStratum .invalid "the equivalent parameter source category is absent"
-        pure (← CategoryContext.ofNamed source presentation.object,
-          presentation.object, presentation.route, alternatives, presentation.applications)
-    | _ => throwStratum .invalid m!"a converted parameter is not a registered structural view"
-  let candidates ← (sourceParameterValues original).filterM fun candidate =>
-    parameterCompatible do
-      let context ← objectContext candidate
-      let handle ← semanticObject candidate
-      unless context.expression.syntacticEq sourceContext.expression do return false
-      withTransparency .all <| isDefEq context.bundle sourceContext.bundle <&&>
-        isDefEq (← inferType handle) (← inferType receiver) <&&> isDefEq handle receiver
-  let source ← match candidates[0]? with
-    | some source => pure (retainObjectContext source candidates)
-    | none => do
-        let some sourceCategory := CategoryContext.named? state sourceContext.expression
-          | throwStratum .invalid "the complete structural source value was not retained"
-        recognize state receiver sourceCategory
-  unless route.size == fullApplications.size do
-    throwStratum .invalid m!"a structural view lost its exact ordered edge applications"
-  let applications := route.zip (fullApplications.map Expr.getAppArgs)
-  let (image, _) ← retainedActions state receiver route applications
-  unless ← isDefEq image actual <&&> isDefEq (← inferType image) expected do
-    throwStratum .invalid m!"the structural source route does not give the complete parameter"
-  let value ← try recognize state actual category catch error =>
-    if (CasCatalogue.Exception.interpretationKind error) == .invalid then
-      pure (Value.object actual category none none none)
-    else throw error
-  let .object handle target origin selected _ := value | unreachable!
-  return .object handle target origin selected (some (#[original], source, route, alternatives, applications))
+  -- The converted source is selected in this recorder. Every later endpoint
+  -- inspection sees those same records before the successful view is committed.
+  let result ← withReader (fun context => { context with trace := some recorder }) do
+    let state ← registryState
+    let (sourceContext, receiver, route, alternatives, fullApplications) ← match node with
+      | .object id parameters => do
+          let some entry := state.objects.find? (·.id == id)
+            | throwStratum .invalid m!"a direct structural source object is not registered"
+          unless entry.category == category.id do
+            throwStratum .invalid m!"a direct structural source has the wrong category"
+          let receiver ← Semantic.object entry
+            (← parameters.mapM fun parameter => do pure (← quoteExpr parameter)) none
+          unless !receiver.hasMVar && (← isTypeCorrect receiver) &&
+              (← isDefEq (← inferType receiver) expected) && (← isDefEq receiver actual) do
+            throwStratum .invalid m!"the registered direct source is not the complete parameter"
+          pure (← CategoryContext.ofNamed category receiver, receiver, #[], #[], #[])
+      | .retainedRoute sourceCategory _ route applications receiver => do
+          let some source := state.categories.find? (·.id == sourceCategory)
+            | throwStratum .invalid "the retained route source category is absent"
+          pure (← CategoryContext.ofNamed source receiver, receiver, route, #[], applications)
+      | .contextualRoute source target route applications receiver false => do
+          unless target.expression.syntacticEq category.expression do
+            throwStratum .invalid "the structural view has a different selected target category"
+          CategoryContext.checkObject source receiver
+          CategoryContext.checkObject target actual
+          pure (source, receiver, route, #[], applications)
+      | .parameterEquivalence _ representative alternatives => do
+          unless ← isDefEq representative actual do
+            throwStratum .invalid m!"the complete equivalent parameter differs from the view"
+          let some presentation := alternatives[0]?
+            | throwStratum .invalid m!"an equivalent parameter has no source presentations"
+          let some source := state.categories.find? (·.id == presentation.sourceCategory)
+            | throwStratum .invalid "the equivalent parameter source category is absent"
+          pure (← CategoryContext.ofNamed source presentation.object,
+            presentation.object, presentation.route, alternatives, presentation.applications)
+      | _ => throwStratum .invalid m!"a converted parameter is not a registered structural view"
+    let candidates ← (sourceParameterValues original).filterM fun candidate =>
+      parameterCompatible do
+        let context ← objectContext candidate
+        let handle ← semanticObject candidate
+        unless context.expression.syntacticEq sourceContext.expression do return false
+        withTransparency .all <| isDefEq context.bundle sourceContext.bundle <&&>
+          isDefEq (← inferType handle) (← inferType receiver) <&&> isDefEq handle receiver
+    let source ← match candidates[0]? with
+      | some source => pure (retainObjectContext source candidates)
+      | none => do
+          let some sourceCategory := CategoryContext.named? state sourceContext.expression
+            | throwStratum .invalid "the complete structural source value was not retained"
+          recognize state receiver sourceCategory
+    unless route.size == fullApplications.size do
+      throwStratum .invalid m!"a structural view lost its exact ordered edge applications"
+    let applications := route.zip (fullApplications.map Expr.getAppArgs)
+    let (image, _) ← retainedActions state receiver route applications
+    unless ← isDefEq image actual <&&> isDefEq (← inferType image) expected do
+      throwStratum .invalid m!"the structural source route does not give the complete parameter"
+    let value ← try recognize state actual category catch error =>
+      if (CasCatalogue.Exception.interpretationKind error) == .invalid then
+        pure (Value.object actual category none none none)
+      else throw error
+    let .object handle target origin selected _ := value | unreachable!
+    return .object handle target origin selected (some (#[original], source, route, alternatives, applications))
+  -- A failed conversion publishes nothing; success retains the exact original
+  -- producer records, including newly selected structural sources.
+  for (value, node) in (← recorder.get).toArray do
+    Trace.record (← read).trace value node
+  return result
 
 partial def registeredObject (state : RegistryState) (entry : ObjectEntry)
     (args : Array Value) : M Value := do
@@ -4272,6 +4300,28 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
     (known : Array Value := #[]) (fixedParameters : Array Expr := #[])
     (expandParameters : Bool := true) :
     M Value := do
+  let x ← instantiateMVars x
+  if let some trace ← readingTrace? then
+    if let some node@(.object id parameters) ← trace.node? x then
+      Trace.checkProducerRecord x node
+      let some entry := state.objects.find? (·.id == id)
+        | throwError "the selected named object has no accepted catalogue row"
+      unless entry.category == category.id do
+        throwStratum .invalid "the selected named object has a different complete category"
+      -- An exact supplied value may carry a richer view than its producer record.
+      -- Keep that context before reading only the producer's declared parameters.
+      let supplied := if expandParameters then
+        collectSourceParameterValues known.toList #[] else known
+      let originals := supplied.filter fun value => match value with
+        | .object handle selectedCategory .. =>
+            handle == x && selectedCategory.id == category.id
+        | _ => false
+      if let some original := originals[0]? then
+        unless originals.all (·.sameSelection original) do
+          throwSemanticAmbiguity m!"the original named object has distinct retained selections"
+        return retainObjectContext original originals
+      return ← recognizeObjectApplication state entry category parameters known fixedParameters
+        (some x)
   if !x.hasMVar then
     let mut matchedValues : Array Value := #[]
     let mut supplied := known
@@ -4426,7 +4476,8 @@ The row identity is carried through construction; declaration aliases do not
 trigger a second name/head lookup or replace that independent selection. -/
 partial def recognizeObjectApplication (state : RegistryState) (entry : ObjectEntry)
     (category : NamedCategoryEntry) (params : Array Expr)
-    (known : Array Value := #[]) (fixedParameters : Array Expr := #[]) : M Value := do
+    (known : Array Value := #[]) (fixedParameters : Array Expr := #[])
+    (original? : Option Expr := none) : M Value := do
   unless entry.category == category.id do
     throwStratum .invalid "the selected object application changed its registered category"
   -- Its parameters: numerals, or sets (`𝒫(ℤ[x])`), recognized in turn.
@@ -4525,6 +4576,11 @@ partial def recognizeObjectApplication (state : RegistryState) (entry : ObjectEn
         | [] => pure (.object p parameterCategory none none none)
         | _ => throwSemanticAmbiguity m!"several retained constructors give this result parameter: \
             {String.intercalate ", " (constructed.toList.map (·.1.name))}"
+  if let some original := original? then
+    discard <| CategoryContext.ofNamed category original
+    unless !original.hasMVar && !original.hasLevelMVar && (← isTypeCorrect original) do
+      throwStratum .invalid "the retained named object has an incomplete dependent type"
+    return .object original category (some (entry, values)) none none
   registeredObject state entry values
 
 /-- The named set supplied by the exact registered refinement of a structured object.
@@ -5424,7 +5480,8 @@ partial def applyFamilyWithOwners (declaration : Name) (category : NamedCategory
           let result ← Trace.recordOperation (← read).trace result
             (.operationApply entry.id actualParameters #[] target (← semanticObject chosen))
           return .element result targetValue
-        else Trace.alias (← read).trace operation result
+        -- Staging already records S → 1 → X. The original callable cannot
+        -- replace that composite's producer or its actual generalized domain.
         return .element result targetValue
       if let some comparison ← operationPointComparison source then
         let composite ← mkAppM ``CategoryTheory.CategoryStruct.comp #[comparison, operation]
@@ -5443,7 +5500,7 @@ partial def applyFamilyWithOwners (declaration : Name) (category : NamedCategory
           let result ← Trace.recordOperation (← read).trace result
             (.operationPoint entry.id actualParameters comparison operation target (← semanticObject chosen))
           return .element result targetValue
-        else Trace.alias (← read).trace composite result
+        -- A further stage retains its own terminal/composite record.
         return .element result targetValue
     let sourceValue ← declaredEndpointObject source category endpointWitnesses (← args.mapM instantiateMVars)
     return .morphism operation source target category (some (sourceValue, targetValue))

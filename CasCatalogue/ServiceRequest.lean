@@ -61,6 +61,14 @@ def argsOwnership (tables : Array DataOwnership.Table) : DataOwnership.Table :=
 def operandArrayOwnership (operands : Array Operand) : DataOwnership.Table :=
   arrayOwnership (operands.map (·.ownership))
 
+/-- Place selected typed operands at the same declared paths as their packets. -/
+def prefixInputPaths (path : DataOwnership.Path)
+    (inputs : Array (DataOwnership.Path × Operand)) : Array (DataOwnership.Path × Operand) :=
+  inputs.map fun (child, operand) => (path ++ child, operand)
+
+def operandArrayInputPaths (operands : Array Operand) : Array (DataOwnership.Path × Operand) :=
+  operands.mapIdx fun index operand => (#[.index index], operand)
+
 /-- The published dependent telescope with its explicit computational operands.
 The caller closes remaining formal obligations after the full receiver is bound. -/
 structure Declaration where
@@ -147,6 +155,9 @@ structure Prepared where
   dependencies : Array Operand
   /-- Suppliers at the exact positions of the assembled public `request`. -/
   requestOwnership : DataOwnership.Table := #[]
+  /-- Actual typed operands at their positions in the normalized public request.
+  These positions are supplied by its builder, never recovered from equal data. -/
+  inputPaths : Array (DataOwnership.Path × Operand) := #[]
   resultContext : Option CategoryContext := none
   objectResult : Bool := false
   callableResult : Bool := false
