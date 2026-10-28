@@ -125,30 +125,48 @@ failed, so earlier pass counts are preservation evidence, not current acceptance
    supplies a bounded implementation comparison for this same #69 chain:
    > A consumer refers to a particular computation and its declared outputs. It does not reconstruct that computation from a mathematical expression or carry its own partially updated copy of the producer’s state.
    
-   The [follow-up source review](https://github.com/dzackgarza/lean-cas-dsl/issues/72#issuecomment-6468267640) qualifies the comparison: first extend the existing
-   construction data plan to retain executable field/endpoint checks, bind the actual
-   returned apex and legs, and use the retained defining map later. Reuse the existing
-   occurrence store and evaluator if they suffice. Delete the chain's recovery of already
-   fixed schemas/endpoints and its competing result-state bypasses. A new reducer is
-   warranted only where it additionally removes demonstrated scheduling/completion
-   duplication; wrapping the old observer is not that improvement. Compile known
-   relationships once, instantiate declared dependent representation slots as data
-   arrives, and prepare genuinely new service requests at their own boundary.
-   Preserve nonidentity transport, distinct producers, lazy demand, adequate fused
-   realization, failure distinctions, ownership and fresh-evaluation/replay behavior.
+   The [source-checked #76 disposition](https://github.com/dzackgarza/lean-cas-dsl/issues/76#issuecomment-6470193379) changes the first
+   representation experiment: test owned references to the actual apex and defining
+   maps before extending packet-validation machinery. This replaces the earlier
+   preference to extend `StructuredResult.DataPlan` first, within the same allocation.
+   Reuse existing opaque forms and occurrence/service storage where adequate; no current
+   module is guaranteed to survive. Fix complete selected interfaces, producer/output
+   and endpoint associations, field roles and ownership once, and consume those checked
+   references. Opaque payloads need no graph/body inspection. If a required field needs
+   a public protocol extension, specify and publish it in the trial's built contract
+   slice; do not silently reinterpret the current grammar. Preserve portable declared
+   forms and literal decoding where needed.
+   Name the executor of each required action: an admitted operation, public target
+   constructor/bridge, or generic kernel orchestration over checked references. An
+   owner token supplies no new operation; generic composition/transport must not be
+   moved into every leaf. The public-only unchanged-target trial below tests this.
+   Remove the trial's old payload/interface reconstruction, equal-packet recovery and
+   competing completion writes in the compiling substitution. A handle facade calling
+   the same reflective recovery fails the experiment. Record work eliminated and
+   transferred, actual dispatches and measured preparation/execution costs.
+   Reuse the evaluator when adequate. A new reducer is warranted only where it also
+   removes demonstrated scheduling/completion duplication. Preparation remains staged;
+   new service requests are prepared at their own boundary. Preserve nonidentity
+   transport, distinct producers, lazy demand, adequate fused realization, failure
+   distinctions, ownership and fresh-evaluation/replay behavior.
    The [wire/recipe source review](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6469367722) sharpens the same chain: reuse the
    authoritative protocol framing and retain its typed view; fixed recipe constructors
    enforce child roles/arity, while open applications retain validated registry references
    and their checked signatures. Scoped operand access retrieves actual retained data,
    interface and ownership, never a payload regenerated from the formal expression.
    Delete duplicate framing interpretation and the chain's equal-packet recovery path.
-   Preserve the published wire and its malformed checks; ordinary JSON deriving, a
-   global tag enumeration or a zero-string/tag-read quota is not a prerequisite.
+   Preserve published framing and malformed checks except for an explicitly specified,
+   meaning-preserving extension needed by the trial. Ordinary JSON deriving, a global
+   tag enumeration or a zero-string/tag-read quota is not a prerequisite.
    #23's existing consumer forecast distinguishes mathematical expressibility, source-side
    lift/closure, executable presentation/maps and admission evidence for subsequent use;
    it adds no algorithm rewrite or new V1 inventory. This comparison uses the existing
    first-two-working-day allocation, not a separate infrastructure phase. #24's acceptance
-   and #71's certificate status remain unchanged.
+   and #71's certificate status remain unchanged. The #76 whole-kernel deletion manifest,
+   line caps and deletion-by-module probe rules are not adopted. Handles do not remove
+   formal dependent selection, coherence, admission/lifts or question preservation.
+   Delete superseded paths through compiling replacements and preserve their behavior
+   controls; fewer lines or flat positive holds alone do not establish that result.
 
    Preserve failure meaning at the same boundary, following the [source-checked #75 review](https://github.com/dzackgarza/lean-cas-dsl/issues/75#issuecomment-6469145591):
    #66 distinguishes justified speculative mismatch from failure of the selected reading
