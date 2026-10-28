@@ -117,18 +117,22 @@ failed, so earlier pass counts are preservation evidence, not current acceptance
    supplies a bounded implementation comparison for this same #69 chain:
    > A consumer refers to a particular computation and its declared outputs. It does not reconstruct that computation from a mathematical expression or carry its own partially updated copy of the producer’s state.
    
-   Reuse the existing selected plans, occurrence identity and validators to compare an
-   explicit computation machine with the current recursive evaluator. It must retain
-   the complete construction and defining maps, then project and use a declared map
-   through the same producer occurrence and selected endpoints. Replace the chain's
-   competing orchestration and completion/result writes; an instruction that merely
-   invokes the unchanged observer does not satisfy the removal test. Preserve lazy
-   demand, adequate fused realization, failure distinctions, ownership and existing
-   fresh-evaluation/replay behavior. The mathematical-data examples feed #23's existing
-   consumer forecast through their upstream owners; they add no algorithm rewrite or
-   new V1 inventory. This comparison uses the existing first-two-working-day allocation,
-   not a separate infrastructure phase; continue with the representation that closes
-   the obligation. #24's acceptance and #71's certificate status remain unchanged.
+   The [follow-up source review](https://github.com/dzackgarza/lean-cas-dsl/issues/72#issuecomment-6468267640) qualifies the comparison: first extend the existing
+   construction data plan to retain executable field/endpoint checks, bind the actual
+   returned apex and legs, and use the retained defining map later. Reuse the existing
+   occurrence store and evaluator if they suffice. Delete the chain's recovery of already
+   fixed schemas/endpoints and its competing result-state bypasses. A new reducer is
+   warranted only where it additionally removes demonstrated scheduling/completion
+   duplication; wrapping the old observer is not that improvement. Compile known
+   relationships once, instantiate declared dependent representation slots as data
+   arrives, and prepare genuinely new service requests at their own boundary.
+   Preserve nonidentity transport, distinct producers, lazy demand, adequate fused
+   realization, failure distinctions, ownership and fresh-evaluation/replay behavior.
+   #23's existing consumer forecast distinguishes mathematical expressibility, source-side
+   lift/closure, executable presentation/maps and admission evidence for subsequent use;
+   it adds no algorithm rewrite or new V1 inventory. This comparison uses the existing
+   first-two-working-day allocation, not a separate infrastructure phase. #24's acceptance
+   and #71's certificate status remain unchanged.
 3. **Extend only a demonstrated implementation.** Reuse adequate resolver, service-request,
    lift and schema machinery. A selected-application comparison with Lean elaboration
    is justified when it removes a reproduced reader obstruction and deletes manual
