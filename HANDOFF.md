@@ -58,6 +58,27 @@ identity associations or another context/ownership recovery path. The first two 
 days test the construction and its later use; the 1–2 weeks are an allocation, not a delivery
 forecast established by the stalled history.
 
+## Selected implementation sources
+
+The implementation route is fixed in [cc-realize-2cat](specs/reuse/cc-realize-2cat.md):
+adapt PolyFun's specified suspension/return transitions into the existing checked
+selected-plan/`InvocationExecution` owner, keep its plan builders, validators, lift fold and
+dispatcher, and remove the migrated path's recursive/recovery/completion alternatives.
+Use [Lean's named public application/binder APIs](specs/reuse/cc-dsl-language.md) for #66;
+ordinary execution skips unused audit export while retaining preparation checks.
+#24 reuses the independently authored `diagnostics/extensions-20261024` package's rational
+lift/factor implementation through the current contract. Do not replace it with the simpler
+finite-graph backend or rewrite its algorithms. The exact upstream declarations still need
+their independent acceptance and permitted availability; source choice does not supply those.
+No new external evaluator or Hex foundation dependency is required to finish this assignment.
+
+The contract integration work is also concrete: #24 records existing lift/map helpers on
+contract source `34bb8abb` that are absent from inspected contract main `3382e4e0`, and the
+independent leaf adapter must consume the public actual-image metadata. Reconcile and publish
+that existing contract work through its owner; adapt the public leaf boundary without
+rewriting rational algorithms or restoring recipe recovery. Complete that conformance before
+freezing the unchanged-target trial. Source selection does not establish runtime compatibility.
+
 ## Preserved history and retired tracking
 
 The [integration handoff](https://github.com/dzackgarza/lean-cas-dsl/blob/work/kernel-v1-20261023/HANDOFF.md)
