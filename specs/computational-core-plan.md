@@ -81,7 +81,8 @@ instances.
 **Source of implementation work (updated 2026-10-28).** The integrated candidate is
 [`work/kernel-v1-20261023`](https://github.com/dzackgarza/lean-cas-dsl/tree/work/kernel-v1-20261023)
 in [PR #67](https://github.com/dzackgarza/lean-cas-dsl/pull/67), derived from `b0/kernel`
-and incorporating the applicable #63/#64/#65 behavior.
+with the applicable #63/#64 binder and complete-lift behavior to preserve and verify
+within that combined implementation.
 [The current handoff](https://github.com/dzackgarza/lean-cas-dsl/blob/work/kernel-v1-20261023/HANDOFF.md)
 and the actual combined source determine current defects. Links to `b0/kernel`,
 the October 22 checkpoint and earlier audits below identify historical observations;
@@ -90,154 +91,90 @@ code from existing implementations whose integration and generality still requir
 
 #### Current delivery sequence (2026-10-28)
 
-[Issue #10](https://github.com/dzackgarza/lean-cas-dsl/issues/10) is the current work order
-for these unchanged KM1–KM9 obligations; #66 owns readings and question preservation,
-#69 owns executable data and reuse, and #24 owns integrated independent acceptance.
-The source baseline inspected for this reassessment is `60829a1f`; its candidate build
-failed, so earlier pass counts are preservation evidence, not current acceptance.
+**Reconciled 2026-10-28 UTC.** [Issue #10](https://github.com/dzackgarza/lean-cas-dsl/issues/10)
+is the single current work order for unchanged KM1–KM9. #66 owns mathematical
+reading/question preservation; #69 owns retained computational results and their use;
+#24 owns the full integrated acceptance inventory. #23 and #82 supply the bounded
+construction/input review alongside implementation. The research records #71–#81 are
+resolved or superseded guidance, with unfinished adopted work transferred to these owners.
+They are not parallel implementation queues.
 
-1. **Check predictable consumer requirements and recover one compiling candidate.**
-   Establish a usable focused edit/check loop within this initial allocation, following
-   the [source-checked #73/#74 disposition](https://github.com/dzackgarza/lean-cas-dsl/issues/74#issuecomment-6468597360). #66 tries the installed Lean 4.33
-   server through an existing client, with targeted module builds and refreshed downstream
-   specimens when imports change; the notebook worker does not hot-reload imported source.
-   Measure cold/warm costs and memory rather than assume the proposed seconds. #24 separates
-   production-module compilation before engine setup and caches the actual artifact paths
-   after their producing build, preserving the later integrated checks and source identity.
-   The [new #74 host report](https://github.com/dzackgarza/lean-cas-dsl/issues/74#issuecomment-6471650146) says package sources/build artifacts disappeared;
-   inspect the actual host state before measuring, restore required sources and available
-   artifacts under the existing dependency rule, and rebuild missing dependencies. The
-   report is not a measured recovery; `lake exe cache get` alone is insufficient if sources
-   are absent. No new host, commit hook, REPL, dependency policy or module-size quota is required.
-   The early slices of #20/#21/#23 run now, in parallel with integration: #23 maps
-   source-linked mathematical questions, hypotheses, selected parameters, complete
-   returned maps/data and their next use to current declarations and public contracts.
-   Finite equalizers/coequalizers, tensor factorization, discriminant projection and
-   base change are concrete starting specimens. This tests existing KM scope; it does
-   not adopt every domain algorithm as a new V1 gate. Exhaustive Sage enumeration and
-   broad adapter parity remain later. Missing generic machinery in an advertised
-   mechanism belongs to #66/#69 before readiness, not to a future leaf workaround.
-   Use existing per-ID reports for complete mathematical reading, request preparation,
-   registration, dispatch/outcome and reuse. The October 20 report's 101 non-registration
-   gaps are not 101 unreadable questions; its independent review found 148 of 153
-   readable assertions. Keep every fixed ID and report stages not reached.
-2. **Remove demonstrated coupling at existing boundaries.** At the inspected candidate,
-   ordinary `#cas` constructs a complete audit export that `Realize.run` discards. Separate preparation,
-   execution and explicit export over the same retained typed question; keep producer
-   checks in preparation and full exports in acceptance (#66). Preserve the specified
-   structural typed question comparison; neither an expression hash nor unrestricted
-   definitional equality replaces it. Use Lean's application/binder machinery for the already
-   selected declarations in #66's dependent-reader chain, preserving catalogue selection,
-   user syntax and use-context dependencies, and delete the replaced manual path.
-   In parallel, establish
-   one required structured-result/nonidentity-transport chain that consumes the actual
-   retained data and defining map through the checked #69 boundary. Remove that chain's
-   old bypass; a new wrapper around the old path is not closure.
-   The [verbatim evaluator and mathematical-data assessment](reuse/kernel-evaluation-machine-assessment.md)
-   supplies a bounded implementation comparison for this same #69 chain:
-   > A consumer refers to a particular computation and its declared outputs. It does not reconstruct that computation from a mathematical expression or carry its own partially updated copy of the producer’s state.
-   
-   The first trial realizes the selected categorical construction and its required
-   nonidentity comparison, retaining the actual apex, defining morphisms and later use.
-   Preserve the complete context, parameters, endpoints and chosen structure under
-   substitution, projection, composition and application. Higher boundary/compatibility
-   data is retained wherever that construction requires it (CC-HIGHER/#82); pairwise
-   cells and an ordinary quotient do not supply the coherent extension.
-   This chain also distinguishes required retained selections from optional lookup
-   caching. Reuse consumes the same supplied components; fresh evaluation and replay cannot
-   substitute another choice while keeping old dependent maps or ownership (CC-MEMO).
-   Identify the accepted formal laws/coherent data independently of the executed checks.
-   Mathematical observations use the declared relation on denotations, with the actual
-   formal justification for any reduction to presentation equality (leaf-registration.md,
-   Comparison). A missing generic comparison input is named under #66/#69; a kernel-written
-   equality or changed question cannot fill it. These obligations belong to this same
-   first trial, not a new library, suite inventory or preliminary project.
-   Use the [implementation assessment](https://github.com/dzackgarza/lean-cas-dsl/issues/79#issuecomment-6476550921) for the common
-   interpretation and scoped-reference candidate. Its representation is subordinate to
-   the mathematical obligation. Preserve use-context bindings, actual result lifetime,
-   lazy demand and deliberate fresh evaluation; a normalized term is not an occurrence.
-   Required transport uses the selected component/direction or an adequate fused action.
-   Keep direct realizations of whole composites without demanding absent primitives.
-   A later morphism consumes the actual supplied construction through its declared public
-   operation or bridge, whether data is portable or owned. Preserve all admitted reply
-   alternatives; a reference alone provides no operation.
-   Remove the chain's old recursive interpretation, equal-expression/packet recovery and
-   competing completion paths in the compiling substitution. An unchanged observer hidden
-   behind a new instruction fails this test. Establish the existing preservation argument
-   and public-only source/unchanged-target trial before expanding the migration.
-   K11 retains checked reachable closure and complete implicit simple-route discovery;
-   no unproved universal cycle/measure registry condition is an upstream blocker.
-   The [wire/recipe source review](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6469367722) sharpens the same chain: reuse the
-   authoritative protocol framing and retain its typed view; fixed recipe constructors
-   enforce child roles/arity, while open applications retain validated registry references
-   and their checked signatures. Scoped operand access retrieves actual retained data,
-   interface and ownership, never a payload regenerated from the formal expression.
-   Delete duplicate framing interpretation and the chain's equal-packet recovery path.
-   Preserve published framing and malformed checks except for an explicitly specified,
-   meaning-preserving extension needed by the trial. Ordinary JSON deriving, a global
-   tag enumeration or a zero-string/tag-read quota is not a prerequisite.
-   #23's existing consumer forecast distinguishes mathematical expressibility, source-side
-   lift/closure, executable presentation/maps and admission evidence for subsequent use;
-   it adds no algorithm rewrite or new V1 inventory. This comparison uses the existing
-   first-two-working-day allocation, not a separate infrastructure phase. #24's acceptance
-   and #71's certificate status remain unchanged. The #76 whole-kernel deletion manifest,
-   line caps, #77's linter ratchet and deletion-by-module probe rules are not adopted. Handles do not remove
-   formal dependent selection, coherence, admission/lifts or question preservation.
-   Delete superseded paths through compiling replacements and preserve their behavior
-   controls; fewer lines or flat positive holds alone do not establish that result.
+**Actual input dependency.** The source audit inspected kernel `4c33b574`, whose manifest
+selects `lean-categories` `3bd4d3d9` and contract `34bb8abb`. Upstream mathematical main
+was `8782c22b`; the selected source was 30 commits ahead and 65 behind. Existing
+[upstream PR #93](https://github.com/dzackgarza/lean-categories/pull/93) contains interfaces
+and targets main; [#94](https://github.com/dzackgarza/lean-categories/pull/94) contains
+independent specimens and targets #93's branch. Candidate `CellAction.assemble` consumes
+constructor-comparison fields absent from that main's `ConstructorEntry`. The formalized
+power-series object's publication is also present in the pending work. Reconcile and
+independently assess these existing inputs through their own authority, then verify the
+kernel against the resulting current inputs. Do not reimplement them, call them already
+available on main, or treat a diagnostic branch snapshot as the delivery dependency rule.
+An exact absent input blocks its consumers, not unrelated work; downstream defects do not
+rewrite a formalization brief.
 
-   Preserve failure meaning at the same boundary, following the [source-checked #75 review](https://github.com/dzackgarza/lean-cas-dsl/issues/75#issuecomment-6469145591):
-   #66 distinguishes justified speculative mismatch from failure of the selected reading
-   or a broken retained application, including direct candidate pruning; #69 distinguishes
-   unsupported schema inspection from exhaustion through validation/completion. Only
-   genuine mismatch is discardable, and kernel exhaustion cannot become a malformed
-   leaf reply. Retain speculative rollback and successful prepared schemas; a new tag
-   alone or a construct-count reduction does not close either obligation.
+| Order | Work and owner | Required observation |
+| --- | --- | --- |
+| 1 | Recover one compiling combination, PR #67 / #24 | Record exact source and inputs; distinguish the committed-tuple diagnostic from latest-main delivery. Establish a focused compiler/specimen loop (#66) and put production compilation before engine setup with correct artifact reuse (#24). |
+| Alongside 1–2 | Bounded consumer review, #23 with #20/#21/#82 | Cite accepted inputs for the first chain and advertised mechanisms: hypotheses, selected parameters/comparisons, complete returned data/maps and next use. Name exact gaps. Exhaustive Sage inventory and all higher-category formalization are not prerequisites. |
+| 2 | Coupled first trial, #66 / #69 | Execute the same prepared question without unused audit export; preserve selected dependent application and use-context semantics; execute the difficult structured-result/nonidentity-comparison/defining-map chain with actual retained outputs. Delete the replaced paths. |
+| 3, before broad migration | Preservation and public-only use, #69 / #24 | Cite the small transition API's enforcing types/checked constructors and preservation argument. Publish its built API slice; a separately assigned public-only source author feeds an unchanged target consumer. |
+| 4 | Complete supported families, #66 / #69 | Reuse the demonstrated boundary and remove its bypasses; extend the argument before introducing a genuinely new transition. |
+| 5 | Full integrated delivery and frozen trials, #24 | Complete all fixed readings, execution/failure controls, workflows, notebook, API, mechanism arguments and prescribed independent extensions on the delivered combination. |
 
-   **Before broad migration, establish the small boundary's preservation argument.**
-   Connect preparation, completion, alias/projection, transport, application/services
-   and failure/session/replay to the actual types, checked constructors and transition
-   code. Each permitted transition preserves the checked relationships among selected
-   interfaces, producer/output associations, endpoints and comparison direction, actual
-   defining data and ownership, transforming interfaces/references only as that transition
-   declares, or returns the proper failure. Consumers cannot bypass those transitions or write
-   completion separately. The difficult chain supplements this finite case argument.
-   A family reusing the same transitions reuses it; a genuinely new transition extends
-   it before that family's cutover. This is the existing mechanism obligation, not a
-   separate universal formalization project.
+The first chain retains the actual selected apex, defining maps, producer/output association,
+complete interfaces, endpoint and comparison direction, ownership and required higher
+compatibility. It distinguishes retained selections from optional lookup caching; fresh
+evaluation and replay cannot put a new choice under old dependent maps or owners. Its
+observations use the admitted relation on denotations, with the accepted justification for
+any reduction to presentation equality. Formal laws are supplied independently of execution
+tests. Preserve lazy demand, adequate fused realizations and all admitted portable/owned
+reply alternatives. A reference alone supplies no public morphism operation.
 
-   **Exercise public-only use in this first chain.** Publish the successfully built
-   contract/API slice it needs. A separately assigned public-only source author uses
-   the published target constructors to feed the unchanged target consumer, receiving
-   only authorized public/specimen/runtime material. A private helper, undocumented
-   convention or accommodating target edit fails this boundary trial: repair and repeat
-   before expansion. Reuse existing unfinished source/target isolation work where adequate.
-   Full API coverage and final independent extension acceptance remain later #24 work.
-3. **Extend only a demonstrated implementation.** Reuse adequate resolver, service-request,
-   lift and schema machinery. A selected-application comparison with Lean elaboration
-   is justified when it removes a reproduced reader obstruction and deletes manual
-   plumbing; the language already uses Lean's parser and elaboration monad. If the
-   initial chain still needs expression-based result recovery, unnecessary reexecution of a retained producer
-   or a second context/identity mechanism, revise that boundary before
-   expanding consumer edits.
-4. **Run the full fixed delivery and extension conditions.** Complete all required
-   readings, public forms, connected real-engine workflows and notebook execution,
-   then the frozen independent trials and confirmation of the mechanism arguments
-   begun in the initial trial (#24). Report unchanged RX regression recovery separately
-   from contributor-selected extension evidence; record when specimens were chosen
-   and exposed. Complete any outstanding prescribed post-freeze contributor-choice
-   trials. A bounded fresh separating specimen may supplement an existing mechanism,
-   but neither replaces RX nor creates a new mandatory inventory after every repair.
-   If a frozen trial needs an accommodating core or contract change, invalidate the
-   affected trial result and apply the existing repair-and-repeat rule.
+**Stop broad migration if the chain still needs unanchored expression/packet recovery,
+unnecessary reexecution of retained producers or another context/ownership repair path.**
+Revise that boundary and repeat the trial. A wrapper around the old observer, a scalar pass
+or a type declaration does not establish the replacement. Both the source-grounded
+preservation argument and public-only unchanged-consumer result precede expansion.
 
-The first two working days in #10 test viability; the 1–2 week allocation is a budget,
-not a delivery forecast supported by past completion rates. Intermediate outcomes
-guide work without replacing the single exit condition. Kernel line count, a file's
-share of code, governance-commit percentages and monotonic hold counts are not
-acceptance criteria. Genuine regressions and newly exposed wrong answers stay visible.
-Existing compiler, type, packet and regression checks remain useful development
-feedback; independent acceptance retains its separate authority.
+The [verbatim evaluator assessment](reuse/kernel-evaluation-machine-assessment.md) remains
+unchanged and supplies an implementation candidate for this same trial. #69 also owns
+#80's concrete import, compatible port/adaptation or rejection decision for relevant
+program/handler and retained-construction machinery, with an actual compatible build and
+responsibility/boundary rationale in the existing reuse record. Software alternatives do
+not select mathematical meaning. No new framework phase, whole-kernel deletion manifest,
+line quota, linter package or governance service is adopted.
+
+#66 preserves candidate mismatch versus selected-reading/internal failure and speculative
+rollback; #69 preserves supported/unsupported/exhausted schema inspection through completion.
+Relevant panic/default paths cannot convert internal failure into apparent success. Required
+checks survive execution/export separation; absent export is not an unreadable question.
+Use existing compiler, type, packet and regression controls at the replaced boundary.
+
+The first two working days are the decision point for this trial. The 1–2 week allocation in
+#10 is a budget, not a delivery forecast justified by past completion rates. Use the existing
+per-ID evidence for build, meaning, request preparation, registration/bridge availability,
+dispatch/outcome and retained reuse/extension. The October 20 report's 101 runtime preparation
+gaps were not 101 unreadable questions; its independent review found 148/153 readings.
+Preserve every fixed ID and report stages not reached. The latest candidate run inspected,
+[40652257963 at `60829a1f`](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40652257963),
+failed before downstream acceptance; later documentation commits give no fresh runtime verdict.
+Line counts, governance percentages and monotonic holds do not replace acceptance.
+
+### Issue disposition and later work
+
+| Tracker | Continuing responsibility |
+| --- | --- |
+| #10, #66, #69, #24 | Current V1 work order, interpretation, execution and full independent acceptance. |
+| #23 / #82, supported by #20/#21 | Existing consumer questions and exact construction-specific mathematical inputs, reviewed before readiness; no new inventory system. |
+| #19 → #20 → (#21 and #23) → #22 | Full B0 computational coverage and exhaustive Sage parity after V1; bounded requirement discovery already runs now. |
+| #3, #8, #13, #34, #68 | Later GAP bridge choice, logging, research-use evaluation, wider Sage installation portability and research entry point. Existing V1 runtime and advertised-capability defects stay in #24/#66/#69. |
+| #71–#81 | Historical findings, corrections and resolved/superseded proposals. Closure consolidates tracking; it does not claim their transferred runtime work has passed. |
+
+Certificate-primary evidence remains unadopted and would first require an INTENT change.
+The conditional Hex/CAP reuse choices in #10 resolve current supported obligations; broad
+foundation or backend migrations are not additional V1 gates. The fixed inventories and
+the single exit condition below are unchanged.
 
 #### Concrete kernel implementation work — exhaustive within the declared B0 scope
 
@@ -480,16 +417,26 @@ how important, small, risky or promising something is.
 
 #### Running checks
 
-Local checks give feedback on one edit in minutes. The whole suite runs only in CI.
+Use focused checks for edits and the configured integration workflow for full reports.
+The host timings and local-memory restrictions below are dated observations, not universal
+latency promises or permission to replace the current source with an old checkpoint.
 
-- **CI: the burndown queue.** Every push to the construction branch runs the Gates workflow's
-  "Acceptance" job, which runs the whole suite and publishes its report as the
-  `acceptance-report` artifact (`head.json`). That report is the triage queue: it confirms closed
-  items, reopens failed ones (rule 7), and supplies the entries a targeted check is compared
-  against. Nothing waits for it and nothing polls it; read the latest one when choosing or
-  closing an item (`gh run download <run id> -n acceptance-report`). CI runs the suite with Lean
-  discharge and without the Sage and GAP backends, so a computation it needs is `unavailable`
-  there; required execution (K1, K3) is observed locally. A refused push is rule 3.
+- **Gates and candidate CI are distinct.** [`gates.yml`](../.github/workflows/gates.yml)
+  triggers on non-Markdown pushes to `main`/`b0/**` and explicit dispatch. Its acceptance job
+  runs base/head reports and publishes `acceptance-report` when the files were actually
+  produced. **Workflow source matters:** main at `1d5b06c` has no Sage/GAP installation
+  step; the candidate branch's Gates definition adds engine setup but retains those branch
+  filters. Do not credit main's job with that unintegrated setup or assume either definition
+  runs on every integration-branch push.
+  The [candidate workflow](https://github.com/dzackgarza/lean-cas-dsl/blob/work/kernel-v1-20261023/.github/workflows/kernel-v1-candidate.yml)
+  runs on `work/kernel-v1-20261023` with its committed manifest, configures real engines,
+  and publishes `kernel-v1-candidate-<sha>-<attempt>` engineering records. That diagnostic
+  tuple is not evidence of compatibility with the latest-main delivery inputs.
+  Inspect the actual report and stages reached: failed compilation can prevent export,
+  workflows and notebook execution, and missing reports are not inherited passes or zero
+  gaps. Documentation-only commits supply no fresh computational verdict. Use the latest
+  applicable completed evidence when selecting/closing work; an unrelated source-check or
+  custodian result is not a Lean build or acceptance result. A refused push is rule 3.
 - **Measured cost of one check (2026-10-21, this machine).** Harness startup maps 3.9 GB of
   imports: 30 s with a warm page cache, about 110 s cold, and any build evicts that cache. Each
   assertion then costs 10 to 30 s of CPU, more when it dispatches to a backend. Kernel C is
@@ -529,8 +476,11 @@ Local checks give feedback on one edit in minutes. The whole suite runs only in 
 
 #### Work list
 
-Kernel items, in order. "Kind" is the entry's kind in a computation-only report unless the row
-says otherwise. A request-formation gap is defined above.
+**Historical K1–K14 diagnostic and full-B0 inventory.** The current KM delivery order is
+#10 and the current sequence above; this table is not a second queue. Preserve every required
+behavior, but reproduce dated defects before treating their old details as current. "Kind"
+is the entry's kind in the named computation-only report unless the row says otherwise.
+A request-formation gap does not by itself mean the mathematical question is unreadable.
 
 | Item | IDs (from the `5410e70` report) | Closes when |
 | --- | --- | --- |
@@ -582,6 +532,13 @@ source integration is distinct from advancing the independently accepted evaluat
 release. Publication uses the authorized repository operations; this text neither verifies nor
 changes hosting protections. The mathematical release remains explicitly pinned and independently
 assessed.
+
+**Tracking disposition (2026-10-28 UTC):** #63 and #64 are superseded source references, with
+their branches preserved at `87dc4ef8011d17fd0c5c410fc8430fdb91a598d5` and
+`c3a9613181d5844c1af14de4ebd015bca4bb6452`. #67 is the sole integration vehicle.
+Binder and interpretation controls continue in #66/#24; complete lift, defining-map,
+diagram-transport and failure controls continue in #69/#24. Tracking closure is not merge,
+implementation completion or acceptance. The older comparison below explains what to retain.
 
 Outside a kernel session (which follows the kernel construction procedure), reconcile outstanding branches by their existing obligations, not as a merge queue (comparison at
 #65 `cbe4f174`, #63 `f805933`, #64 `5fd3f924`):

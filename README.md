@@ -72,11 +72,24 @@ diagnostic specimen leaves run before this gate. Broad leaf implementation
 starts after it. The gate does not eliminate the complete real-backend
 execution and independently accepted assertions required for full B0.
 
-As of 2026-10-23, this gate has **not** been established; the
+As of the 2026-10-28 UTC documentation reconciliation, this gate has **not** been established; the
 [construction handoff](HANDOFF.md) and the
 [plan's evidence section](specs/computational-core-plan.md#kernel-mvp-proved-readiness-for-substantial-leaf-development)
 record the unresolved work. Do not treat a compiling kernel, a falling
 request-gap count, or a new leaf registration as milestone completion.
+
+### Where to continue
+
+[Issue #10](https://github.com/dzackgarza/lean-cas-dsl/issues/10) gives the current order:
+reconcile existing inputs and compile PR #67; run the #66/#69 first complete chain;
+establish preservation and public-only use before expanding; finish #24's full independent
+acceptance. #23/#82 review the actual construction requirements alongside implementation.
+Research issues #71–#81 are consolidated historical guidance, not parallel work queues.
+
+The candidate's diagnostic manifest still selects pending mathematical work from
+[lean-categories #93/#94](https://github.com/dzackgarza/lean-categories/pull/93).
+The [handoff](HANDOFF.md) distinguishes that source from current main and records the
+integration dependency. Source existence on a branch is not latest-main delivery or acceptance.
 
 ## Layout
 

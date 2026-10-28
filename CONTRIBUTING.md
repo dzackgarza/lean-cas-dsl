@@ -268,5 +268,11 @@ Run what the change touches:
   completion, which is judged against the fixed B0 requirements at one revision tuple.
 - **Reviewer controller:** `python3 custodian/review/test_review.py` on a scratch copy (its usage
   line).
+- **Workflow provenance:** the [plan's Running checks section](specs/computational-core-plan.md#running-checks)
+  distinguishes Gates on `main`/`b0/**` from the committed-tuple V1 candidate workflow.
+  Main's inspected Gates file has no Sage/GAP setup; the candidate branch adds it to its
+  Gates definition, while the V1 candidate workflow installs its declared engines. Inspect
+  the actual workflow revision and stage/report; failed compilation can prevent execution/export,
+  and a diagnostic tuple does not establish latest-main compatibility.
 - **Documentation only:** inspect the focused diff and its stated invariants; no Lean build.
   CI skips the Lean jobs for documentation-only changes.

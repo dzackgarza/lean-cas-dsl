@@ -160,7 +160,8 @@ it supplies, and whether it is imported, ported/adapted or rejected, with compat
 boundary reasons. An unavailable index or unsuccessful query is not evidence that no
 implementation exists. A software reference does not determine mathematical meaning, the
 trust boundary or acceptance. Current program/lifecycle work applies this in the existing
-`cc-realize-2cat` record and #79 trial; no new index service, per-type gate or bulk retrospective
+`cc-realize-2cat` record and #69's first-chain implementation, informed by the archived
+#79/#80 reviews; no new index service, per-type gate or bulk retrospective
 rewrite is a prerequisite.
 
 Only the **glue** between found results, and the **residue** that no indexed source
@@ -773,9 +774,17 @@ rediscover them.
     element methods (#53 §3). A generalized point \(S\to X\) is a morphism with that
     specified domain. Preserve the selected \(U\), object and parameters rather than
     conflating these levels; not every category has such an underlying-set functor.
-11. **Sage's `Modules(R)` is \((R,R)\)-bimodules**, and Sage's `C.Algebras(R)` is free
-    linearization, not internal algebra objects (#54 §2, §4). Backend category names are
-    observations, never semantic sources.
+11. **Backend category names do not determine module or algebra semantics.**
+    [Sage 10.9's `Modules` source](https://github.com/sagemath/sage/blob/10.9/src/sage/categories/modules.py#L33-L109)
+    documents the ordinary symmetric-module setting and warns that its meaning outside that
+    context is unsettled. A `Bimodules(R,R)` supercategory entry is not an identification
+    with all bimodules. Record each operation's actual domain, selected left/right actions,
+    morphisms and symmetry assumptions, then match the independently accepted mathematics
+    (#20/#22/#23). Over ℚ, the two unital rational actions are forced to agree, so the QQ
+    fixture preserves parameters but does not distinguish rational bimodules from vector
+    spaces. Use an actually nonsymmetric example for that distinction. Likewise classify
+    `C.Algebras(R)` by its actual linearization/construction, not by silently identifying
+    the name with internal algebra objects. Backend observations supply no semantic authority.
 12. **Leaves pull generic mathematics in the wrong direction.** In the research repository a
     generic predicate-subgroup module imported from `orthogonal_quotients`. Under this
     architecture that import is ill-typed: the generic subgroup construction is owned above

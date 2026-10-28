@@ -1,5 +1,31 @@
 # V1 kernel MVP: authoritative integration handoff
 
+## Current work order and input status — 2026-10-28 UTC
+
+Follow [#10](https://github.com/dzackgarza/lean-cas-dsl/issues/10) and the
+[current delivery sequence](specs/computational-core-plan.md#current-delivery-sequence-2026-10-28):
+reconcile the actual inputs and compile; run the coupled #66/#69 retained-data chain;
+establish its preservation argument and public-only unchanged-consumer use before broad
+migration; finish #24's unchanged independent acceptance. #23/#82 review the actual
+construction requirements and exact mathematical inputs alongside implementation.
+
+The source audit inspected `4c33b574` with mathematical input `3bd4d3d9` and contract
+`34bb8abb`. That mathematical source comes from pending
+[lean-categories #93](https://github.com/dzackgarza/lean-categories/pull/93) and
+[#94](https://github.com/dzackgarza/lean-categories/pull/94); main was `8782c22b`.
+Candidate `CellAction` consumes constructor-comparison fields absent from that main.
+Reconcile and independently assess the existing inputs through their own authority;
+do not reinvent them or call a committed-manifest diagnostic latest-main delivery.
+This blocks affected consumers, not all work.
+
+The latest candidate-workflow result inspected is
+[40652257963 at `60829a1f`](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40652257963),
+which failed before downstream acceptance. Documentation changes supply no new runtime verdict.
+The dated continuation/build paragraphs below retain their original evidence scope.
+Superseded #63/#64 branches remain preserved, with obligations in #66/#69/#24 and integration
+in #67. Research #71–#81 are consolidated references; #70 remains the separate trusted-input
+retrieval repair. None of those tracking dispositions completes a mathematical or runtime gate.
+
 ## 1. The task
 
 Finish the usable V1 kernel of `dzackgarza/lean-cas-dsl`, including the mathematical interfaces and computational contracts it needs. Deliver a working computer algebra system whose supported extension mechanisms let a new leaf author implement registered operations through the public contract. Ordinary leaf work must not require repeated repairs to generic kernel infrastructure.
