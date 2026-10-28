@@ -829,6 +829,27 @@ A proposed kernel-consumer correction would discover a finite reachable enclosur
 check closure under actual public `edgesFrom`, and pass its vertex count to the existing
 simple-route enumerator. Current Arrow/Core lifting and non-growing explicit endpoint
 spines permit such an enclosure in the inspected tuple; future releases require actual
-closure checking. No correction, extension trial, or proof of cyclic-walk equivalence
-was implemented. See `HANDOFF.md` for remaining validation and the distinct missing
-constructor-cell action.
+closure checking. No correction or extension trial was implemented. See `HANDOFF.md`
+for remaining validation and the distinct missing constructor-cell action.
+
+**Resolution (2026-10-29).** Cyclic-walk equivalence is not a theorem the kernel owes. It is
+two invariants of the registry, checked where structural edges and cells are admitted
+([lean-cas-dsl#79](https://github.com/dzackgarza/lean-cas-dsl/issues/79#issuecomment-6475626921)):
+
+1. every cycle of registered structural edges has a registered cell identifying its composite
+   with the identity. CC-COHERE forces this: a loop `L` on `C` with no such cell makes `e`,
+   `e ∘ L`, `e ∘ L ∘ L`, … pairwise unidentified candidates for every edge `e` out of `C`, so
+   every method reachable from `C` is ambiguous forever;
+2. every registered structural edge is non-increasing on a well-founded measure of category
+   expressions, which is the "non-growing explicit endpoint spines" observation above stated as
+   a condition on admission.
+
+Under 1, every walk is identified with the simple path obtained by deleting its loops, so the
+simple-path enumerator is complete. Under 2, the reachable set is finite, so `routes` is
+structural recursion and the `fuel` parameter, the closure limit and `unclosedRoutes` are
+deleted. Left adjoints are explicit operations (CC-TRANSPORT), not inheritance edges, so
+adjunctions create no cycles; the cycles that occur are involutions and equivalences
+(`op ∘ op`, double dual) with registered cells. The prior art is the Rocq coercion graph
+("at most one path between two classes"; a circular path "not convertible with the identity
+function" is "reported as ambiguous"), with "convertible" replaced by "identified by a
+registered invertible 2-cell" and oldest-wins replaced by an ambiguity error.
