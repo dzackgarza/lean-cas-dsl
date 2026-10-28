@@ -103,6 +103,14 @@ authoritative judge: the author cannot approve its own replacement. The evaluato
 accepted mathematics and acceptance inputs used to judge a candidate remain
 independently accepted revisions outside that candidate's control.
 
+The [owner's issue-language instruction](https://github.com/dzackgarza/lean-cas-dsl/issues/82#issuecomment-6476540209)
+also applies to the operative work order and acceptance, not just its introduction.
+State the selected mathematical constructions, morphisms, relations, universal data and
+required coherent compositions that will be interpreted and computed. Keep necessary
+build, execution, failure, launch and source-inventory checks as supporting engineering
+obligations. A software-state ladder, renamed runtime object or mathematical preamble
+does not replace the construction-specific work and acceptance.
+
 Run the checks relevant to the actual change. A changed reviewer decision path
 needs reviewer tests. A changed kernel mechanism needs its relevant kernel tests.
 A descriptive text correction does not acquire a full mathematical build merely

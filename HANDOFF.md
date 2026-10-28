@@ -2,8 +2,8 @@
 
 Continue through [PR #67](https://github.com/dzackgarza/lean-cas-dsl/pull/67) on
 `work/kernel-v1-20261023`. [Issue #10](https://github.com/dzackgarza/lean-cas-dsl/issues/10)
-and the [current delivery sequence](specs/computational-core-plan.md#current-delivery-sequence-2026-10-28)
-own the work order. #66 owns reading/export; #69 owns retained result execution and reuse;
+and the [current delivery sequence](specs/computational-core-plan.md#current-delivery-sequence-2026-10-29)
+own the work order. #66 owns complete mathematical interpretation; #69 owns computation and subsequent mathematical use;
 #24 owns integration and independent acceptance. #23/#82 review construction requirements
 and exact mathematical inputs alongside that work.
 
@@ -26,18 +26,27 @@ Later documentation commits do not supply a fresh build or mathematical acceptan
 Gates and the candidate workflow have different branch filters and evidence artifacts;
 the [check instructions](specs/computational-core-plan.md#running-checks) describe them.
 
-## Next work
+## Next work — 2026-10-29
 
-1. Reconcile inputs and recover the compiling combination with a measured focused edit/check loop.
-2. Run the coupled #66/#69 trial: the same prepared question, complete selected dependent
-   interpretation, and actual retained structured-result/nonidentity-comparison/defining-map reuse.
-3. Before broad migration, establish transition preservation and public-only source use feeding
-   an unchanged target consumer. Delete the replaced execution/recovery path.
-4. Complete supported families and all unchanged #24 delivery/frozen-acceptance conditions.
+1. Interpret the existing difficult composite with its full parameters, selected structures,
+   domain hypotheses, diagram and independently fixed relation (#66).
+2. Compute its structured construction and required nonidentity comparison, then use the
+   supplied defining morphism in the next mathematical question (#69).
+3. Before extending coverage, establish preservation under the claimed substitutions,
+   compositions, comparisons and prescribed lifts/reindexing. Include a public-only source
+   contributor whose result the unchanged target consumer can use (#69/#24).
+4. Complete those obligations across all promised V1 constructions, then establish #24's
+   unchanged full independent observations and frozen extension trials.
 
-Stop expansion if the chain still needs another context/identity recovery mechanism.
-The first two working days test this replacement; the 1–2 weeks are an allocation, not
-a delivery forecast established by the stalled history.
+Reconcile the actual inputs, recover a compiling combination and measure a focused edit/check
+loop as supporting prerequisites. Remove the replaced recovery/completion paths. Preserve
+actual supplied maps, endpoints, owners, lazy/fused execution and distinct failure meanings.
+An implementation state or a number of migrated consumers is not the mathematical result.
+
+Stop expansion if the next operation still needs missing construction data, invented
+identity associations or another context/ownership recovery path. The first two working
+days test the construction and its later use; the 1–2 weeks are an allocation, not a delivery
+forecast established by the stalled history.
 
 ## Preserved history and retired tracking
 

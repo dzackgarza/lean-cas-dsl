@@ -22,7 +22,7 @@ local checkout, and this work must be readable wherever the repository is.
 > changing mathematical requirements or accepting or installing one's own authoritative judge.
 
 
-The mathematical scope includes **CC-HIGHER/#82**: retain the full coherent data required by each promised construction, with no universal dimension-two ceiling. Its interpretation belongs to the existing KM2–KM8 obligations and independent KM9 validation; missing required higher data remains named and open. The 2026-10-29 issue reconciliation changes neither the fixed mathematical questions nor the acceptance inventory.
+The mathematical scope includes **CC-HIGHER/#82**: retain the full coherent data required by each promised construction, with no universal dimension-two ceiling. Its interpretation belongs to the existing KM2–KM8 obligations and independent KM9 validation; missing required higher data remains named and open. The 2026-10-29 operative rewrite makes these mathematical obligations the current work order; it changes neither the fixed mathematical questions nor the acceptance inventory.
 
 ## B0: the extensible computational baseline (owner directive, 2026-10-01)
 
@@ -89,74 +89,95 @@ the October 22 checkpoint and earlier audits below identify historical observati
 they are not a current backlog without reproduction. The tasks distinguish missing
 code from existing implementations whose integration and generality still require proof.
 
-#### Current delivery sequence (2026-10-28)
+<a id="current-delivery-sequence-2026-10-28"></a>
 
-**Reconciled 2026-10-28 UTC.** [Issue #10](https://github.com/dzackgarza/lean-cas-dsl/issues/10)
-is the single current work order for unchanged KM1–KM9. #66 owns mathematical
-reading/question preservation; #69 owns retained computational results and their use;
-#24 owns the full integrated acceptance inventory. #23 and #82 supply the bounded
-construction/input review alongside implementation. The research records #71–#81 are
-resolved or superseded guidance, with unfinished adopted work transferred to these owners.
-They are not parallel implementation queues.
+#### Current delivery sequence (2026-10-29)
 
-**Actual input dependency.** The source audit inspected kernel `4c33b574`, whose manifest
-selects `lean-categories` `3bd4d3d9` and contract `34bb8abb`. Upstream mathematical main
-was `8782c22b`; the selected source was 30 commits ahead and 65 behind. Existing
-[upstream PR #93](https://github.com/dzackgarza/lean-categories/pull/93) contains interfaces
-and targets main; [#94](https://github.com/dzackgarza/lean-categories/pull/94) contains
-independent specimens and targets #93's branch. Candidate `CellAction.assemble` consumes
-constructor-comparison fields absent from that main's `ConstructorEntry`. The formalized
-power-series object's publication is also present in the pending work. Reconcile and
-independently assess these existing inputs through their own authority, then verify the
-kernel against the resulting current inputs. Do not reimplement them, call them already
-available on main, or treat a diagnostic branch snapshot as the delivery dependency rule.
-An exact absent input blocks its consumers, not unrelated work; downstream defects do not
-rewrite a formalization brief.
+[#10](https://github.com/dzackgarza/lean-cas-dsl/issues/10) orders the unchanged KM1–KM9
+obligations below. In accordance with the [owner's instruction on #82](https://github.com/dzackgarza/lean-cas-dsl/issues/82#issuecomment-6476540209),
+the operative work and acceptance are the selected mathematical constructions, their
+compositions and the relations being asserted. An implementation state, a reporting
+classification, a program type or a migration of source modules is not a mathematical
+milestone. Engineering prerequisites and safeguards remain explicit below.
 
-| Order | Work and owner | Required observation |
+| Order | Mathematical work and owner | Required result |
 | --- | --- | --- |
-| 1 | Recover one compiling combination, PR #67 / #24 | Record exact source and inputs; distinguish the committed-tuple diagnostic from latest-main delivery. Establish a focused compiler/specimen loop (#66) and put production compilation before engine setup with correct artifact reuse (#24). |
-| Alongside 1–2 | Bounded consumer review, #23 with #20/#21/#82 | Cite accepted inputs for the first chain and advertised mechanisms: hypotheses, selected parameters/comparisons, complete returned data/maps and next use. Name exact gaps. Exhaustive Sage inventory and all higher-category formalization are not prerequisites. |
-| 2 | Coupled first trial, #66 / #69 | Execute the same prepared question without unused audit export; preserve selected dependent application and use-context semantics; execute the difficult structured-result/nonidentity-comparison/defining-map chain with actual retained outputs. Delete the replaced paths. |
-| 3, before broad migration | Preservation and public-only use, #69 / #24 | Cite the small transition API's enforcing types/checked constructors and preservation argument. Publish its built API slice; a separately assigned public-only source author feeds an unchanged target consumer. |
-| 4 | Complete supported families, #66 / #69 | Reuse the demonstrated boundary and remove its bypasses; extend the argument before introducing a genuinely new transition. |
-| 5 | Full integrated delivery and frozen trials, #24 | Complete all fixed readings, execution/failure controls, workflows, notebook, API, mechanism arguments and prescribed independent extensions on the delivered combination. |
+| 1 | Complete selected interpretation, #66 with #23/#82 | The existing first composite has its full dependent parameters, structures, admission hypotheses, diagram and relation, independently agreed. Implementations installed downstream do not select its meaning. |
+| 2 | Selected construction, comparison and defining-map use, #69 with #66 | Compute the required structured result and apply the required nonidentity comparison. A later operation uses the actual supplied defining map at its exact endpoints. All required cone/cocone or subobject data remain associated with the independently fixed construction. A scalar invariant or formal plan alone is insufficient. |
+| 3, before extending coverage | Closure under the claimed mathematical operations and independent public use, #69/#24 | For each supported dependent substitution, composition, comparison, projection/application and prescribed lift or reindexing, state the input/output construction and preservation of its selected structure and coherence. Cite the implementation that enforces this. A public-only source contributor feeds an unchanged target consumer. |
+| 4 | Complete the promised mathematical scope, #66/#69 with #23/#82 | Interpret and compute the remaining admitted constructions and their subsequent uses. Supply the corresponding argument before counting a genuinely new construction or composition as supported. One successful chain is not a proof of the whole scope. |
+| 5 | Complete independent mathematical observations, #24 | At the delivered combination, establish all fixed readings, assertions, negative controls, connected real-engine computations, notebook observations, public interfaces and prescribed frozen independent trials. |
 
-The first chain retains the actual selected apex, defining maps, producer/output association,
-complete interfaces, endpoint and comparison direction, ownership and required higher
-compatibility. It distinguishes retained selections from optional lookup caching; fresh
-evaluation and replay cannot put a new choice under old dependent maps or owners. Its
-observations use the admitted relation on denotations, with the accepted justification for
-any reduction to presentation equality. Formal laws are supplied independently of execution
-tests. Preserve lazy demand, adequate fused realizations and all admitted portable/owned
-reply alternatives. A reference alone supplies no public morphism operation.
+Use the existing difficult structured-result/nonidentity-comparison/defining-map chain with
+its unchanged questions and expectations. State its diagram, chosen structures and maps,
+required universal factorization, comparison components and any higher compatibility. For a
+kernel this includes `i : K → X`, `f ∘ i = 0` and its universal factorization; for a general
+cone or cocone it includes every required leg and mediator. Accepted upstream mathematics
+supplies the formal laws. The computed candidate is untrusted data judged against that
+meaning; decoding does not prove universality or identify the answer with the formal result.
 
-**Stop broad migration if the chain still needs unanchored expression/packet recovery,
-unnecessary reexecution of retained producers or another context/ownership repair path.**
-Revise that boundary and repeat the trial. A wrapper around the old observer, a scalar pass
-or a type declaration does not establish the replacement. Both the source-grounded
-preservation argument and public-only unchanged-consumer result precede expansion.
+For an ordinary selected comparison `α : F ⇒ G`, retain its components and naturality
+`G(f) ∘ α_X = α_Y ∘ F(f)`. Use an inverse only when supplied. A higher construction retains
+its actual higher comparison and compatibility, rather than replacing it by strict equality.
+A return to a structured source category needs the declared lift; an operation inherited at
+its forgetful image does not supply that lift. The first public-only trial must exercise
+the construction and its later map use, not just produce a well-formed packet.
+
+**Stop expansion if the next mathematical operation cannot use the complete supplied
+construction and its declared maps/comparisons.** Recovering missing context from a term or
+packet, inventing identity associations or rerunning a selected construction while keeping its
+old dependent maps exposes an unfinished interpretation or interface. Repair it and repeat
+the fixed trial before expanding.
+
+**Supporting integration and implementation obligations.** Recover a compiling combination
+and measure a usable focused edit/check loop. #66 tests the existing client and targeted
+build; #24 places production compilation before engine setup and correctly reuses its
+artifacts. Ordinary execution uses the same selected question without unused audit export;
+explicit export preserves the complete reading, every fixed ID and visible failures.
+Adequate existing Lean elaboration may implement dependent application. Remove replaced
+manual interpretations, completion/recovery paths and their bypasses in a compiling
+substitution. Their deletion supports the mathematical argument; it is not the argument.
+
+Preserve the actual supplied result/component associations, complete interfaces and owners.
+Retained use, evaluation at a definition's use and deliberate fresh replay are distinct.
+Required selected data is not disposable lookup storage. A new choice requires its own
+dependent maps, or the accepted comparison and actual transport. Keep lazy demand, adequate
+fused realizations and all admitted portable/owned alternatives. A reference alone provides
+no public morphism action. Formal functoriality does not prove arbitrary leaf computations
+pure, repeatable or correct, and does not require every primitive to be dispatched.
 
 The [verbatim evaluator assessment](reuse/kernel-evaluation-machine-assessment.md) remains
-unchanged and supplies an implementation candidate for this same trial. #69 also owns
-#80's concrete import, compatible port/adaptation or rejection decision for relevant
-program/handler and retained-construction machinery, with an actual compatible build and
-responsibility/boundary rationale in the existing reuse record. Software alternatives do
-not select mathematical meaning. No new framework phase, whole-kernel deletion manifest,
-line quota, linter package or governance service is adopted.
+unchanged as an implementation candidate. #69 owns a concrete compatible import,
+port/adaptation or reasoned rejection and actual build for the relevant existing machinery.
+Software alternatives do not select mathematical meaning. No new framework phase,
+whole-kernel deletion manifest, line quota, linter package or governance service is adopted.
 
 #66 preserves candidate mismatch versus selected-reading/internal failure and speculative
 rollback; #69 preserves supported/unsupported/exhausted schema inspection through completion.
 Relevant panic/default paths cannot convert internal failure into apparent success. Required
 checks survive execution/export separation; absent export is not an unreadable question.
-Use existing compiler, type, packet and regression controls at the replaced boundary.
 
-The first two working days are the decision point for this trial. The 1–2 week allocation in
-#10 is a budget, not a delivery forecast justified by past completion rates. Use the existing
-per-ID evidence for build, meaning, request preparation, registration/bridge availability,
-dispatch/outcome and retained reuse/extension. The October 20 report's 101 runtime preparation
-gaps were not 101 unreadable questions; its independent review found 148/153 readings.
-Preserve every fixed ID and report stages not reached. The latest candidate run inspected,
+**Actual mathematical input dependency.** The source audit inspected kernel `4c33b574`,
+whose manifest selects `lean-categories` `3bd4d3d9` and contract `34bb8abb`. Upstream
+mathematical main was `8782c22b`; the selected source was 30 commits ahead and 65 behind.
+Existing [upstream PR #93](https://github.com/dzackgarza/lean-categories/pull/93) contains
+interfaces and targets main; [#94](https://github.com/dzackgarza/lean-categories/pull/94)
+contains independent specimens and targets #93's branch. Candidate `CellAction.assemble`
+consumes constructor-comparison fields absent from that main's `ConstructorEntry`.
+The formalized power-series object's publication is also in the pending work. Reconcile
+and independently assess these existing inputs through their own authority, then verify
+the kernel against the resulting current inputs. Do not reimplement them, call them already
+available on main, or treat a diagnostic snapshot as the delivery dependency rule. An exact
+absent input blocks its consumers, not unrelated work; downstream defects do not rewrite
+a formalization brief.
+
+The first two working days are the decision point for the construction and subsequent-use
+trial. The 1–2 week allocation in #10 is a budget, not a forecast justified by past closure
+rates. Existing per-ID reports distinguish build, meaning, preparation, availability,
+execution and subsequent use; those are diagnostics, not a ladder defining mathematical
+completion. The October 20 report's 101 runtime preparation gaps were not 101 unreadable
+questions; its independent review found 148/153 readings. Preserve every fixed ID and report
+stages not reached. The latest candidate run inspected,
 [40652257963 at `60829a1f`](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40652257963),
 failed before downstream acceptance; later documentation commits give no fresh runtime verdict.
 Line counts, governance percentages and monotonic holds do not replace acceptance.
@@ -176,51 +197,58 @@ The conditional Hex/CAP reuse choices in #10 resolve current supported obligatio
 foundation or backend migrations are not additional V1 gates. The fixed inventories and
 the single exit condition below are unchanged.
 
-#### Concrete kernel implementation work — exhaustive within the declared B0 scope
+#### Mathematical work and acceptance — KM1–KM9
 
-| Work | Exact owner, necessary change, and concrete completion test |
+These are the operative obligations. The mathematical statements below determine what the
+implementation must interpret and compute. Ordinary equations describe the ordinary
+fragment; CC-HIGHER supplies the required coherent analogues for a promised higher
+construction. Neither a well-formed representation nor a finite execution test supplies
+a formal law or proves an arbitrary backend correct.
+
+| Work | Mathematical deliverable and acceptance |
 | --- | --- |
-| **KM1 — Consolidate one implementation** | Incorporate the applicable #63 generic-binder behavior and #64 creation-lift behavior into the #65-derived `b0/kernel` implementation without resurrecting incompatible old decoder APIs. Preserve #63's zero/multiple row readings, selected structures, actual admission-domain evidence and notation separators; preserve #64's full diagram transport and returned defining maps. Reconcile the current kernel/probes with the actual latest `lean-categories` and `CasContract` interfaces, and correct the failing `CasGates.KernelPurity`/`LiftProbes` integration at its owner rather than turning off a gate. All kernel, contract, probes and tools must build at the same source versions. This assembles the candidate; its *full* acceptance comes after KM2–KM8, not before their implementation. |
-| **KM2 — Remove mathematical decisions from the generic interpreter** | In [`Language.lean`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/Language.lean), `oneObject` and `graphOf` select `Fin(1)` / `obj.sets.fin`, `evalAnalysis` explicitly selects `obj.rings.integers_mod`, `powerSetOf` picks the first power-object row, `setLiteral` defaults to a named `ℤ`, and `standardDiagram` chooses particular Mathlib constructors on a shape-name fallback. In [`Realize.lean`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/Realize.lean), `closedElementDomain` hard-codes `obj.sets.fin` and `observeEquality` hard-codes `mor.sets.equality`. Replace each *generic semantic decision* with the applicable unique registered terminal/global-point, quotient, power-object, equality/observation, and diagram declaration/action; a syntax spelling can still select its *declared* operation. If the registry does not expose a genuinely necessary mathematical structure, that is an independent upstream interface input, never a substitute local constant. Check a second presentation and a second relevant structure, reordered registry entries, missing/competing rows, and absence of unexpected methods. No first-match semantics. |
-| **KM3 — Finish one dependent elaboration/admission path for the accepted language** | Repair the actual [`Language.typedParameter` / `applyFamily` / `toElement`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/Language.lean) formation cases, not each assertion separately: destructured map parameters `((a,b),(c,d)) ↦ …`, selected `Vec(ℤ,2)` over the correct `ModuleCat` ring parameter, closed map/point operands, genuinely dependent target/source selection, and the generic binder reader when its upstream domain exists. `withFreeVariables` currently rejects more than one free variable; the declared multi-variable/tuple map syntax must form the correct context without inventing a unary surrogate. Preserve a distinction between false/out-of-domain (invalid), ambiguous readings, and a valid unimplemented request. The K2–K8 and K14 *reader/request portions*, all protected negatives, and the entire admitted assertion inventory must elaborate with their complete intended meanings. No production leaf implementation is required to form those requests. |
-| **KM4 — Complete functorial closure, comparisons, and refinement *as consumers*** | [`Resolve.completeRoutes`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/Resolve.lean) already computes a checked reachable enclosure; [`ProofRefinement.construct`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/ProofRefinement.lean) already constructs proof-only classifier refinements. **Do not reimplement these.** Show that `closure`, `Semantic.method/property`, `Language` and `Realize` compose their actual actions on new objects *and morphisms* and on newly admitted generic operations, preserving selected parameters, proof-driven refinements and reindexing. In particular, K10's route comparison must remain operative in the execution path, not become a mere diagnostic label; K11's route enumeration must be complete; and K12 must consume the independently formalized constructor-induced action on comparison cells (not a new ad hoc rule for `kernel`). Test the ring comparison diamond, formed-module `ker` route with its nonidentity comparison, the refinement of `Fin 2 × ℤ/3`, two structures on one set, and extension in both directions without editing existing objects/leaves. |
-| **KM5 — Make ordinary computational point/morphism transport general** | [`Realize.elementExpression`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/Realize.lean#L1980-L2012) explicitly refuses nonidentity element transport when its expression is not definitionally the receiver; [`Realize.morphismTransport`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/Realize.lean#L2586-L2602) requires a target graph-literal form even when the source is a perfectly valid registered symbolic/opaque callable. Close the general `map`/`compose`/`apply`/`presentationApply` route for *actual data* at its exact declared endpoints and original generalized-point domain, preserving session ownership and comparisons. Use the registered target form and structural action rather than demanding an enumerable graph or silently renaming endpoints. A nonidentity `𝔽₉` presentation translation and a sequence of two registered computations where the second consumes the first result must execute; disagreement/missing comparison, wrong endpoints, or an incompatible opaque session must fail correctly. |
-| **KM6 — Make structured results computationally closed under subsequent operations** | [`Realize.executePrescribedLift`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/Realize.lean#L1861-L1916) already executes the four prescribed lift fields, and [`LiftedSubobjectData`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/LiftedSubobjectData.lean) validates their packet; retain this work. But [`decodeLiftedAt`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/Realize.lean#L1717-L1741) unconditionally refuses a lifted child needed by later decoding, and `Realize`'s creation-lift diagram comparison implements only `"pullback"`. Implement *data-level* projection and reuse of lifted apex, inclusion, object/map actions and reverse-route components, **without** converting untrusted maps into authoritative Lean mathematical objects/proofs. Use the full independently fixed universal cone, comparison, diagram and lift fields generically, not a new case for each limit shape. Check a computed formed-module kernel followed by its inclusion and an inherited invariant, a nontrivial finite-set pullback through a creation lift, a second registered shape/route, and missing/incorrect component fields. Do not count a formal cone, bare apex, copied downstairs packet, `universal := none` or an unexecuted plan as the computed result. |
-| **KM7 — Finish and prove sufficient the public computational forms** | Audit [`CasContract/Port.lean`](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/blob/main/CasContract/Port.lean) jointly with [`Admission.lean`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/Admission.lean), [`Codec.lean`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/Codec.lean), [`ComputationalData.lean`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/ComputationalData.lean) and `Realize`. Discharge **each** case in the [leaf author's dated `DEFECTS.md`](https://github.com/dzackgarza/lean-cas-dsl-leaves/blob/main/DEFECTS.md): nonintegral/irrational points, bottom-valued degrees, Kähler differentials, matrices, possibly infinite spans and subsets, binder map/request encoding, symbolic product apex/projections and closed points in composition/mediators. Some frames (for example `objectProduct` as a *callable source descriptor*) are **already published**; do not count their existence as full coverage of an unrelated returned product apex, or redo them as if absent. For every case, either identify the existing complete authoritative form and demonstrate both kernel encode/decode and hostile checks, **or implement exactly the missing generic form and its validator**. Bind the form to the published type, input and output; preserve dependencies/sessions; no leaf invents a wire convention, denominator encoding or proof. The contract must be sufficient to implement every supported B0 family using a conforming backend without reading kernel code. |
-| **KM8 — Finish permanent questions, failure meaning and obstructing runtimes** | [`Realize.interpret/evaluate`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/Realize.lean) already separate semantic reading from execution; [`QuestionIdentity.lean`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/QuestionIdentity.lean) already serializes a typed term graph. Finish the proof-irrelevant semantic identity and independently assessed migration for **every** admitted assertion, including historically unreadable inverses: preserve exact relations, domains, parameters, selected objects, routes and proposition types, but do not mistake Lean revision labels or incidental proof terms for changed mathematics. An execution uses the same immutable question, not a recovered answer. Check each failure stage for invalid, ambiguous, no registration, malformed, unavailable, wrong and internal; no error is relabeled to make a positive pass. Repair the concrete `integration.normalized` heartbeat/slow evaluation and any still-reproducing question-encoding obstruction to the required run; do not start an unrelated optimization programme or raise resource limits to hide a defect. |
-| **KM9 — Prove readiness with the kernel and contract *frozen*** | After KM1–KM8, freeze their integrated candidate and complete the already prescribed [ten independent extension trials](#exit-trials), with independent contributors choosing their examples from the public interfaces. Establish the compositional argument *per supported mechanism*, not solely a handful of green fixtures. Verify new objects inherit old applicable operations, new generic operations reach old objects, fresh group-valued constructions, classifiers/refinements, competing structural routes, reindexing, nonidentity presentation changes, binders/admission, complete structured results/lifts and leaf replacement (missing/wrong/malformed/unavailable). The leaf author sees the published protocol only. **Zero changes to the frozen kernel, contract, old objects or old leaves** are permitted to pass; any required patch fails this gate, the generic mechanism is repaired, and affected independent trials are repeated. |
+| **KM1 — One compatible interpretation of the accepted mathematics** | Interpret the accepted categories, dependent families, operations, comparisons, admission hypotheses and universal constructions together. In particular, binder meanings and complete creation-lift data must coexist without changing the selected questions. **Supporting prerequisite:** one kernel, contract, mathematical input, probe/tool and runtime combination builds. Preserve the applicable #63/#64 behavior in PR #67; disabling a gate or merely combining source does not establish KM2–KM9. |
+| **KM2 — Declared constructions determine the meaning** | Terminal objects and generalized points, quotient and power-object constructions, literal domains, diagrams and observation relations are those of the applicable accepted declarations. For a chosen `U:C→Set`, an element of `U(X)` is a map `1_Set→U(X)`; it need not be a global point `1_C→X`. A declared presentation by `S→X` retains `S` and the accepted relation to the element being represented. Independent readings agree for the existing second presentations/structures and distinguish genuinely different choices. Reordering declarations cannot select a construction. Missing input and unresolved ambiguity stay explicit; a syntax spelling may select its declared operation. |
+| **KM3 — Complete dependent application and admission** | An application retains every dependent parameter and its actual domain hypotheses; substitution yields the declared source and target. The fixed questions include destructured `((a,b),(c,d)) ↦ …`, several bound variables, selected `Vec(ℤ,2)` and its base ring, closed maps/points, dependent families and admitted binders. Interpret all K2–K8/K14 reading portions and the entire admitted inventory with their independently fixed meanings and protected negatives. An out-of-domain expression, an ambiguous interpretation and a valid question with no computation are distinct. A false well-typed assertion remains a valid question. No production backend is needed to establish its meaning. |
+| **KM4 — Functorial propagation and coherent comparisons** | For selected `F : C → D`, use `F(X)` and `F(f) : F(X) → F(Y)` with the declared identity/composition laws. An operation on `D` is inherited at that image only on its declared domain; invariants defined on `Core(D)` are inherited along `Core(F):Core(C)→Core(D)`. A selected `α : F ⇒ G` acts by its actual components and naturality; equivalence of interpretations uses the comparison and compatibility actually supplied, not arbitrary noninvertible transformations. Consume constructor-induced comparison actions, proof-only refinements and specified reindexing. Establish K10's ring diamond and formed-module kernel comparison, K11's complete resolution, K12's constructor action, `Fin 2 × ℤ/3` refinement, and two structures on one carrier. New objects/operations acquire exactly the applicable composites without editing old objects/leaves. Existing `completeRoutes` and `ProofRefinement.construct` are implementation inputs to validate, not tasks to recreate. |
+| **KM5 — Morphisms, generalized points and change of presentation** | Composition and application use the selected arrows with their full endpoints. If `x : S → X`, its functorial image is `F(x) : F(S) → F(X)`; comparison of views `α_X : F(X) → G(X)` acts on `y : S → F(X)` by `α_X ∘ y` with domain `S`. No domain is replaced by a singleton or chosen by carrier equality. The fixed nonidentity `𝔽₉` translation and successive computations use the actual supplied maps and points. Accepted symbolic/opaque arrows are not required to admit finite graph enumerations. **Supporting checks:** exact computational endpoints, ownership/session compatibility and missing/wrong comparisons remain validated. |
+| **KM6 — Complete universal data and subsequent constructions** | For `D : J → C`, the requested construction includes its chosen cone/cocone, all required legs and universal factorization. For a kernel in its accepted pointed/module context, retain the selected `i : K → X`, `f ∘ i = 0` and factorization; a class of isomorphic subobjects does not alone select its representative map. A result returned through `U : C → D` requires the prescribed lift/creation data and comparison, not automatic inheritance from `U`. Compute and subsequently use the declared lift of the module kernel with restricted form and inclusion (without inferring a categorical kernel in a category of form-preserving maps), the finite-set creation-lift pullback, a second registered shape/route and successive lifts. A lifted cone is universal upstairs only under the accepted creation/lifting hypothesis; otherwise retain exactly the structured construction and universal property actually supplied. Actual supplied computational data remains distinct from the accepted formal construction and its proof. Missing/wrong components are detected; a bare apex, copied downstairs result or unevaluated formal plan is insufficient. Existing prescribed-lift computations remain inputs to this work. |
+| **KM7 — Adequate presentations of the promised mathematics** | Every advertised V1 operation has presentations of its complete dependent inputs and outputs, with accepted denotations and the maps needed for later mathematical use. Discharge each dated public-contract complaint: nonintegral/irrational points, bottom-valued degrees, Kähler differentials, matrices, possibly infinite spans/subsets, binder-defined maps, product apices/projections and points used in composition/mediators. An existing callable source form does not automatically present a returned product. For each case, identify the adequate existing form or exact missing generic form and demonstrate the fixed mathematical use. A public-only contributor can compute the operation without inventing a meaning, proof or representation convention. **Supporting checks:** complete encoding/decoding, hostile replies, dependencies and owners. |
+| **KM8 — The same mathematical question and observation** | Every permanent assertion retains its independently assessed relation/proposition, operands, domains, parameters, selected structures, morphisms and required comparisons. Proof terms and revision labels alone do not change that meaning. For a form `d : T → C` and relation `R`, a kernel comparison of decoded presentations `c` needs accepted justification `c(a,b)=true ↔ R(d(a),d(b))` at the complete parameters; `DecidableEq T` alone is insufficient. A declared opaque computational comparison answers that same fixed relation and is judged by independent acceptance, without supplying its proof. Preserve all admitted questions, including newly readable inverses, through independently assessed interpretation changes. **Supporting checks:** execute the same question with or without requested audit export; preserve every failure meaning and fix measured runtime obstructions to the required computations without hiding them by changed questions or budgets. |
+| **KM9 — Independent extension within the promised mathematical scope** | After KM1–KM8, complete the prescribed frozen independent trials for new objects/old operations, new operations/old objects, group-valued constructions, refinements, competing comparisons, reindexing, nonidentity presentation change, dependent application/admission/binders, complete structured results/lifts and leaf replacement. Each extension is interpreted and computed with its full mathematical data, required higher compatibility and declared subsequent uses. Give the compositional argument for each claimed mechanism; finite examples supplement it. Contributors use published interfaces, and the fixed kernel, contract, old objects and old leaves receive zero accommodating changes. A required repair means failure, refreezing and affected reruns, not exemption. |
 
-#### What is already implemented, and what is not kernel-MVP work
+#### Supporting source locations and historical engineering checks
 
-On `b0/kernel` the checked reachable-route bound (`completeRoutes`), proof-only
-classifier construction (`ProofRefinement.construct`), ordered lift-component
-dispatch (`executePrescribedLift`) and per-assertion trace machinery are
-**existing implementations to consume and validate**, not new tasks to
-reimplement. The fifteen existing K1 mandatory computations have targeted
-registered holds on an earlier head; they are not a reason to restart leaf work
-or infer that the whole kernel has passed. Open [#66](https://github.com/dzackgarza/lean-cas-dsl/issues/66)
-is a performance obligation **only to the extent its obstruction still
-reproduces on the selected candidate**.
+The [prior source-specific KM table](https://github.com/dzackgarza/lean-cas-dsl/blob/479d9bceb318a8966c95b3d1f9c19e68b9e03534/specs/computational-core-plan.md#concrete-kernel-implementation-work--exhaustive-within-the-declared-b0-scope)
+is preserved at its inspected revision. Its `b0/kernel` locations and reported defects are
+implementation leads to reproduce on the current candidate, not a second work order.
+The mathematical cases and supporting build, source-removal, codec, performance and failure
+obligations are retained in KM1–KM9, #66/#69/#24 and the acceptance table below. The selected
+source determines which legacy path actually remains; historical locations do not require
+reimplementing already adequate machinery.
 
-The truly upstream prerequisites are independently authored/assessed
-mathematics, **not kernel edits**: in particular, the currently unregistered
-`powerSeriesTAdic R` object required by the power-series binder (the
-mathematical declaration exists in
-[`lean-categories/Series.lean`](https://github.com/dzackgarza/lean-categories/blob/main/LeanCategories/Catalogue/Semantics/Algebra/Series.lean),
-but the registry's object rows do not include it), and the
-constructor-induced comparison-cell action missing for K12. Such an
-input blocks only its consumer; the kernel must not supply an
-implementation-shaped upstream proof or an alternate meaning.
+#### Existing source and mathematical input dependencies
 
-**Explicitly *not* in the kernel work list:** K13's bulk registration
-programme, broad Sage/GAP method parity, production leaf backends,
-`SPEC.md` surface expansion beyond existing B0 declarations, rebuilding
-the Jupyter/notebook frontend, adding new named mathematical examples,
-and arbitrary unrelated throughput/CI/administrative projects.
-K3/K14's *request-formation machinery* is KM3, but their full backend
-execution and owner admission belong to later B0 acceptance, as do all
-other previously required real computations. No mathematical positive or
-protected negative is discarded or rewritten.
+The checked reachable-route implementation (`completeRoutes`), proof-only classifier
+construction (`ProofRefinement.construct`), prescribed lift-field computation
+(`executePrescribedLift`) and per-assertion trace machinery already exist in earlier
+integration source. Consume and validate them at the actual candidate; do not recreate them
+merely because their consumers remain incomplete. Earlier K1 holds do not establish current
+integrated acceptance. #66 owns the complete selected interpretation and its preservation,
+with execution/export and measured performance repairs supporting that mathematical work.
+
+The power-series object and constructor-induced comparison-cell interfaces have existing
+upstream work in PRs #93/#94, as distinguished in the current dependency section. They are
+not absent mathematics to reinvent, and presence on the selected branch does not establish
+their independent acceptance or availability on latest main. Exact missing input blocks its
+dependent construction only.
+
+**Outside this V1 work:** K13's bulk registration programme, exhaustive Sage/GAP method
+parity, broad production backend expansion, new mathematical surface beyond the existing
+assignment, rebuilding the notebook frontend and unrelated administrative/optimization work.
+K3/K14's complete readings belong to KM3; their remaining owner admission and full backend
+coverage remain in the stronger full-B0 obligation. Required V1 real-engine workflows,
+notebook execution, fixed positives and protected negatives are unchanged.
 
 #### Single exit condition
 
@@ -553,31 +581,38 @@ an older pin defines a second target. Preservation of source does not accept tha
 
 ### Acceptance table
 
-Each row reuses existing identifiers. "Positive" and "negative" are the observations that close it;
-"argument" is the compositional justification needed where examples are insufficient. A row closes
-only when its full acceptance holds at the integration tuple.
+These are the mathematical observations and compositional arguments for the existing row
+identifiers. They remain subject to the full fixed inventory and independent evidence model.
+The current KM1–KM9 table specifies their operative work; historical stage letters do not
+create a second queue. Necessary engineering observations are listed separately.
 
-| Row | Capability and contract | Owner, prerequisites | Positive / negative observations | Argument |
-| --- | --- | --- | --- | --- |
-| `b0-integration` (stage A) | One buildable candidate tuple; the registry reader is the kernel's (`CasCatalogue.Registry`, `RegistryEntry := SemanticEntry`), the contract holds registration, port and failure only (contract `ee14cce`); compilation is separate from acceptance execution | kernel; #59 | the kernel, gates, probes and tools compile at the tuple; the acceptance run reports per-assertion outcomes even when assertions fail / the contract mirrors no row kind; no semantic write path downstream (`SemanticProjectionProbes`) | — |
-| `cc-failure-strata` (policy 3) | One outcome model with the seven outcomes of policy 3, through `TestSuite`, `Realize`, the harness and the probes | kernel | an interpreter exception or timeout is an internal error, never `invalid`; each outcome produced by a probe / no `catch` turns a runtime failure into a semantic verdict (`TestSuite.runFile` today records runtime exceptions as `invalid`) | the outcome type is total over the pipeline's stages |
-| `b0-typed-application` (stage B; CC-CALC, CC-SEP) | Arguments are checked against the declared dependent signature with parameters and obligations retained; unresolved metavariables are never admitted data | kernel | every admitted assertion's operands elaborate at the declared types / an argument outside the declared type is `invalid` when read | the application rule is the generic one (`applyFamily`), stated once |
-| `b0-selected-structure` (stage B; CC-CARRIER, CC-SEP) | Objects sharing a carrier with different chosen data stay distinct; identity is never recovered by which transparent alias unifies first | kernel; upstream objects | two forms on one module, and `Maps`/`Vec` on one carrier, resolve to distinct objects / a carrier match alone never selects an object | recognition by declaration identity and parameters, not by reducible unfolding |
-| `core-admission-realized` (stage B; LC-18) | The upstream admission map and its declared obligations are applied as stated; never reshaped to fit a kernel tactic | kernel; upstream evidence | `(3 in ℚˣ)⁻¹ = 1/3`, `2 ∈ ℤˣ` refused (as delivered) / a statement whose evidence is absent is `invalid`, never a kernel-written proof | — |
-| `b0-domain-preservation` (stage B; LC-14) | The admitted domain and the actual maps are retained, never replaced by an incidental internal representation (a stage's presentation, a carrier type) | kernel | an admitted map is stated at the admission's domain / no evidence goal mentions the kernel's plumbing | — |
-| `b0-binders` (stage B; #46, [binders.md](binders.md)) | Binding notation read through admitted binder rows, by one generic path; no notation-specific kernel case | kernel; upstream binder schema and rows after the independent assessment below | `calculus.limit_sinc`, `calculus.limit_infinity`, `calculus.integral_square`, `calculus.integral_sine`, `series.*`, `composed.root_sum`, `composed.root_product` valid / `Language.lean` contains no binder case for a particular operation | one reading rule for every binder row |
-| `cc-resolve`, `cc-closure` (stage C; CC-TRANSPORT, CC-RESOLVE, CC-CLOSURE) | Operation propagation over actual registered structure: the selected functor and its action, parameters and base objects | kernel | lattices get `cardinality` and `rank` (`rank(A₂) = 2`) through their formal structure / no lattice-specific row or forwarding exists | availability is closure under composition of registered structural functors |
-| `cc-cohere`, `cc-cohere-exec` (stage C; CC-COHERE) | Competing routes stay distinct; unresolved ambiguity is reported; an admitted comparison is used explicitly | kernel | ring `cardinality` resolves only through `cmp.rings.carrier` / without it, ambiguity naming both routes; installation order never decides | identification only by registered invertible cells |
-| `cc-fib` (stage C; CC-FIB) | Parameter and base transport along the registered fibration, with the prescribed reindexing | kernel; upstream fibrations | restriction along `ℤ → ℤ/4` resolves as reindexing / parameters are never copied because endpoints share names | reindexing is the fibration's cartesian structure |
-| `cc-realize` transport (stage C; CC-CARRIER) | Nonidentity presentation change transports along the accepted comparison | kernel | `𝔽₃[x]/(x²+1)` and `𝔽₃[y]/(y²+y+2)` stay distinct and `x ↦ y + 2` transports / equality never decided true, backend `==` never consulted | — |
-| `cc-lift`, `core-return-lifts`, `lc-lift-subobject` (stage C/D; CC-LIFT, CC-UNIV) | A construction returns the complete structured result with its defining maps and prescribed lift | kernel; upstream `lc-lift-subobject` | `ker` of a formed-module map is an object of `Bil` with the restricted form / never the bare module; a missing lift computation is a named gap | lifts compose along a route |
-| `cc-refine`, `cc-props` (stage C; CC-PROP, CC-DECIDE) | A refined object keeps its defining data and obtains the justified interface; a computed property never re-types an object | kernel | `Fin 2 × ℤ/3` re-typed into finite sets on a proof; `ℤ/3` abelian, `S₃` not / a leaf's answer never places an object | re-typing only on a proof (`P.FullSubcategory`) |
-| `lc-units-structure`, `cc-universal` (stage C; CC-UNIV) | Group-valued constructions (`Aut`, subgroups, stabilizers, units) expose group and subgroup interfaces by construction | upstream, then kernel | `⁻¹` on `Mˣ` through `Grp`; a second group-valued construction gets `⁻¹` with no row; `A₃ ↪ S₃` has cardinality 3 with its inclusion / no bespoke method inventory | interfaces follow from the construction's category |
-| `cc-realize-2cat`, `cc-realize`, `cc-adapter`, `cc-backends` (stage D; CC-ACTION, CC-ADAPTER, CC-DECODE, CC-ROUTE) | Execution of a fixed semantic request: composite requests, diagrams and arrows over the port, decoded against the fixed result form; realization selection after the semantic judgment | kernel, contract; specimen leaves | the required computational assertions below execute / a result missing a defining map is `malformed`; a fused computation never selects a different composite | the semantic reader imports no leaf state (gate A) |
-| `cc-observations` (stage D) | A computed value compared with a literal using the admitted relation on denotations; reduction to data equality needs its accepted upstream justification | kernel; existing formal comparison/evaluation or an exact missing upstream input | `\|(ℤ/4)^3\| = 64` against `64` / presentation inequality cannot by itself decide semantic inequality; no leaf-facing observation or proof | the chosen comparison answers the fixed proposition, without assuming all form denotations injective |
-| `gov-meaning-permanence` (gate B) | The admitted semantic question of each assertion is retained and compared under a candidate | kernel (mechanism); acceptance author (initial interpretations) | an unchanged assertion whose elaborated question changes fails; a genuine transition needs independent acceptance / no comparison by text, booleans or provability alone | — |
-| `b0-authority` (completion requirement) | The kernel worker does not write upstream semantics or protected acceptance; independent controls protect authoritative acceptance and judging rules | orchestrator (implementation); repository administration (configuration writes) | see "Authority configuration" below; established for B0 acceptance, not a prerequisite of construction | — |
-| `b0-trials` (stage E) | The exit trials below, each succeeding with the kernel and old leaves frozen | independent contributors | see "Exit trials" | per mechanism, the argument of its row above |
+| Existing row | Mathematical obligation | Required observations and argument |
+| --- | --- | --- |
+| `b0-typed-application` (CC-CALC, CC-SEP) | Apply the declared dependent operation to its complete parameters and arguments, retaining its domain hypotheses and resulting source/target. | All admitted operands have their independently intended types; an out-of-domain argument is not admitted. Substitution respects the dependent signature. Unresolved metavariables are not completed mathematical data. |
+| `b0-selected-structure` (CC-CARRIER, CC-SEP) | Retain the selected structured object, rather than only its underlying carrier. | The existing two forms on one module and `Maps`/`Vec` on one carrier keep their distinct structures. Carrier equality or the first transparent alias that unifies does not select one. |
+| `core-admission-realized` (LC-18) | Use the accepted admission domain, map and evidence for the actual question. | The fixed `(3 in ℚˣ)⁻¹ = 1/3` is admitted; `2 ∈ ℤˣ` fails its required unit condition. Failure to obtain evidence alone is not a proof that a mathematical condition is false. The kernel neither invents the domain nor reshapes the obligation to fit its tactic. |
+| `b0-domain-preservation` (LC-14) | Preserve the admission's actual domain and maps through composition and later application. | The resulting morphism is at the selected mathematical domain; an incidental carrier or execution presentation does not replace it. |
+| `b0-binders` (#46, [binders.md](binders.md)) | Interpret a binder as its declared dependent mathematical operation, retaining its variables, domains and parameters. | Preserve the complete fixed readings of `calculus.limit_sinc`, `calculus.limit_infinity`, `calculus.integral_square`, `calculus.integral_sine`, `series.*`, `composed.root_sum` and `composed.root_product`. One interpretation of the accepted binder interface covers its instances; an operation-specific syntax case does not establish it. |
+| `cc-resolve`, `cc-closure` (CC-TRANSPORT, CC-RESOLVE, CC-CLOSURE) | Inherit an operation at the selected functorial image on its actual domain. Invariants defined on cores use the induced core action; arrow constructions use the induced arrow action. | The fixed lattice cardinality and `rank(A₂)=2` are obtained through the declared structural functors and the actual invariant domains, with no duplicate lattice operation. A structured return still needs its declared lift. K11's completeness argument and selected parameters remain required. |
+| `cc-cohere`, `cc-cohere-exec` (CC-COHERE) | Use the actual comparison components and their required naturality/higher compatibility. A directed comparison does not automatically identify two interpretations. | The fixed ring cardinality diamond uses `cmp.rings.carrier` at the selected object; without the required comparison its competing interpretations remain ambiguous. Its selected nonidentity action and later use are computed where required. Order and backend availability do not select mathematical meaning. |
+| `cc-fib` (CC-FIB) | Change parameters through the specified transport, with base, variance, selected lifts and coherence. | Along `u:ℤ→ℤ/4`, restriction sends a selected `ℤ/4`-module to `u* N` over `ℤ`. Extension is the distinct covariant construction and requires its own declared data. The mathematical argument is the supplied cartesian/cocartesian or other accepted transport structure, not matching parameter names. |
+| `cc-realize` transport (CC-CARRIER) | Apply the accepted nonidentity comparison between selected presentations. | In the fixed `𝔽₃[x]/(x²+1)` and `𝔽₃[y]/(y²+y+2)` example, compute the specified `x↦y+2` translation and its later use. Distinct presentations are retained; neither that distinction nor field isomorphism decides an unspecified equality assertion. The admitted relation and chosen comparison govern. |
+| `cc-lift`, `core-return-lifts`, `lc-lift-subobject` (CC-LIFT, CC-UNIV) | Return the complete construction through its declared lift, with source diagram, defining morphisms and comparison. | The fixed module kernel lifts to its declared formed-module construction with restricted form and actual inclusion, rather than only the bare module. This alone is not a categorical-kernel claim among form-preserving maps. A lifted cone is universal upstairs only under its accepted creation/lifting hypothesis. The existing successive-lift and second-shape observations use the actual supplied maps; missing lift computation remains a gap. |
+| `cc-refine`, `cc-props` (CC-PROP, CC-DECIDE) | Form the accepted proof-only refinement while preserving the selected object and its defining structure. | `Fin 2 × ℤ/3` obtains its finite-set structure through accepted evidence; the fixed abelian/nonabelian questions about `ℤ/3` and `S₃` retain their meanings. A computed Boolean alone does not place an object in a refinement. |
+| `lc-units-structure`, `cc-universal` (CC-UNIV) | Group-valued constructions have the group structure and any defining inclusion/action supplied by their accepted mathematics. | Inversion on `Mˣ` and the second existing group-valued construction follow from that interface, without a new operation declaration. The fixed `A₃↪S₃` observation includes cardinality 3 and its actual inclusion. A chosen subobject representative and its map are not replaced by its quotient class alone. |
+| `cc-realize-2cat`, `cc-realize`, `cc-adapter`, `cc-backends` (CC-ACTION, CC-ADAPTER, CC-DECODE, CC-ROUTE) | Compute the independently fixed operation/composite and its complete diagram or arrow data. | Every required computational assertion executes at its selected meaning. Later operations use the supplied data and defining maps. A fused realization may compute the whole composite without each primitive registration, but cannot change that composite or its required comparisons. Formal laws remain independent of leaf answers. The historical node name does not impose a dimension-two ceiling. |
+| `cc-observations` | Answer the admitted mathematical relation on denotations. | Preserve `\|(ℤ/4)^3\|=64` and the fixed comparisons. A kernel reduction to equality of decoded presentations requires its accepted upstream justification; presentation inequality alone does not imply semantic inequality. A registered opaque computation of the declared relation remains untrusted and independently judged. No form is presumed injective merely because its data equality is decidable. |
+| `gov-meaning-permanence` | Preserve each independently admitted proposition/relation with its full parameters, selected structures and comparisons. | A changed reading is independently assessed against the unchanged assertion and sources. Text equality, equal Boolean answers or provability alone do not establish the same question. Incidental proof terms and revision labels do not by themselves change the mathematics. |
+| `b0-trials` | Extend the promised constructions and operations with their full mathematical data and subsequent uses. | Complete the existing independent exit trials and construction-specific compositional arguments. Frozen kernel, contract, old objects and old leaves receive zero accommodating changes; a defect requires repair, refreeze and affected reruns. |
+
+Supporting engineering and authority obligations:
+
+| Existing row/check | Required observation |
+| --- | --- |
+| `b0-integration` (#59) | One compatible kernel, contract, mathematical input, probes, tools and runtime builds. The reader consumes the upstream semantic registry; the contract mirrors no semantic row kind and supplies registration/port/failure only. Compilation and mathematical acceptance remain distinct. A completed acceptance run reports every fixed assertion even when some fail. The old contract `ee14cce` is historical provenance, not the current dependency prescription. |
+| `cc-failure-strata` | Preserve invalid/out-of-domain, ambiguity, absent realization, unavailable/crashed computation, malformed output, well-formed wrong answer and internal/resource failure through the pipeline. An exception or timeout never proves semantic invalidity. Check the actual current consumers; the previously reported `TestSuite.runFile` catch-and-relabel defect is a historical source lead, not an assumed current result. |
+| Application/binder/codec checks | Generic interpretation retains full dependent arguments and actual hypotheses; no unresolved data is admitted. Published forms support encoding, decoding, hostile replies, exact endpoints and later use. Missing defining data is malformed; wrong mathematics in a well-formed answer is judged independently. |
+| `b0-authority` | Preserve the established author/input boundaries and independently protected acceptance transitions. The existing authority section governs; this is not a mathematical object or a new prerequisite for unrelated construction. |
 
 ### Recorded construction observations (2026-10-02)
 
@@ -868,6 +903,21 @@ capabilities. Both conditions are already part of the owner's convergence specif
   leaf is a registration like any other: nothing it states is believed, and its answers are judged
   by the suite. A defect a probe exposes is repaired in the core node that owns it.
 
+## Historical design directions and source-node records
+
+The following dated directions and node observations are preserved as history and source
+provenance. The current work order and mathematical acceptance are #10, KM1–KM9 and the
+acceptance table above, read with the current CC requirements. The old node names remain
+cross-references; their dated source descriptions and stronger or superseded formulations
+are not additional implementation queues or current mathematical claims. In particular,
+the current distinctions between families and transport, directed and invertible comparisons,
+chosen representatives and subobject classes, and formal constructions and untrusted
+computational data govern those historical descriptions. No fixed accepted question or
+required observation is retired by preserving its old record here.
+
+<details>
+<summary>Historical directions, DAG and node deliveries</summary>
+
 ## Current direction (2026-09-29, owner correction)
 
 **Goal.** `lean-cas-dsl` is rewritten to *be* the system specified in
@@ -1140,3 +1190,5 @@ the rows that cite them, never an additional global stage barrier.
 - A second semantic registry in `lean-cas-dsl` (spec §7, #53 §7).
 - Certificates, trust levels, checkers or any other standing for a leaf or a backend: nothing from
   a leaf is trusted ([architecture.md](architecture.md), "The evidence model").
+
+</details>

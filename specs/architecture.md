@@ -22,13 +22,17 @@ The revisions actually consumed are recorded with execution results.
 | Silo | Owns | Owns nothing of |
 | --- | --- | --- |
 | `lean-categories` | All mathematics: categories and higher categories, n-morphisms and their composition, structural and forgetful functors, classifiers and their pullbacks, category-valued constructors and typed parameter families, selected structures and fibres, operations (every user-facing method is a formal operation, section, functor, classifier query or composite), predicates, coherences and comparison cells, domains and codomains. Auditable as mathematics alone: proofs, citations, no `sorry`, no project axioms. | Backends, what is computable, how anything is executed. |
-| `lean-cas-dsl` kernel (`CasCatalogue`) | Deterministic interpretation of the pinned `lean-categories` release: what an expression denotes, which operations apply, how they propagate along structural functors, the exact composite a call denotes, typed inputs and outputs, ambiguity, placement and refinement, and the separation of semantic availability from computability. The leaf API (the declared type of each registered operation's computation: operation id, input form, result form), the port protocol, and the registry of leaf computations against those types, published separately as the leaf contract (`CasContract`, repository `lean-cas-dsl-leaf-contracts`), which depends on `lean-categories` only. | Any mathematics. It derives `Lat → R-Mod → Set → Card`; it never states "lattices have cardinality". |
+| `lean-cas-dsl` kernel (`CasCatalogue`) | Deterministic interpretation of the pinned `lean-categories` release: what an expression denotes, which operations apply, how they propagate along structural functors, the exact composite a call denotes, typed inputs and outputs, ambiguity, placement and refinement, and the separation of semantic availability from computability. The leaf API (the declared type of each registered operation's computation: operation id, input form, result form), the port protocol, and the registry of leaf computations against those types, published separately as the leaf contract (`CasContract`, repository `lean-cas-dsl-leaf-contracts`), which depends on `lean-categories` only. | Any mathematics. It derives the declared structural composite and the induced core action for invariants such as cardinality; it never adds a separate lattice-cardinality declaration. |
 | Leaves (in `lean-cas-dsl-leaves`, and leaves hosted elsewhere), depending on the leaf contract and `lean-categories` only | Opaque computations only: a registration (operation id, input form, implementation) against a registered operation's declared type, plus the program behind it, in any language, arbitrarily bad internally. A leaf is meant to be glue over a mature engine, hand-rolling no algorithm and carrying no kernel machinery ([`lean-cas-dsl-leaves` AGENTS.md](https://github.com/dzackgarza/lean-cas-dsl-leaves/blob/e2f8537/AGENTS.md), "A leaf is glue over existing backends"); that guidance earns no trust. A leaf ships no mathematics and no Lean, and nothing it says is believed. | What exists, what category anything is in, which operations it has, what an operation means or returns, what a value denotes, which values are the same, which structural functors exist, what is inherited, what acceptance asserts, whether its own answers are correct. |
 | `lean-cas-dsl` acceptance (`CasAcceptance`) | The whole body of correctness evidence: permanent black-box assertions phrased in the mathematical language, blind to leaves, and the derived report of implementation gaps. The sole judgment of how correct an implementation is. | Leaf internals, a leaf's claims about itself, backend representations, algorithms. |
 | `research` | Research experiments and notebooks, formalization requests upstream, and possibly realization leaves. | Any ontology, parity denominator or semantic registry. |
 
 A leaf's direct Sage routine for the cardinality of a finite module is not "module cardinality":
-it is a fused realization of the composite `R-Mod → Set --card--> Card`.
+it is a fused realization of the selected object-level cardinality operation. Its accepted
+functorial form is `Core(R-Mod) → Core(Set) → Disc(Card)`, using the induced core of the
+forgetful functor and the registered
+[cardinality functor](https://github.com/dzackgarza/lean-categories/blob/8782c22ba613a022a84a1e910b6489cc2503e29a/LeanCategories/Catalogue/Semantics/Foundation/Cardinality.lean#L18-L26).
+It does not give a functor `Set → Disc(Card)` on arbitrary functions.
 
 ## The one-way workflow
 
@@ -97,7 +101,7 @@ non-documentation changes; `lean-categories`' totality gate runs in its own buil
 | `lean-categories` → `lean-cas-dsl` | Pinned, proof-carrying categories, functors, classifiers, typed constructors and families, operations, coherences, stable identities | Derive syntax metadata, semantic closure and method availability | Re-declare ownership, add semantic edges, weaken types |
 | kernel → realization layer | The exact operation or normalized composite, its typed domain and codomain, its declared input forms | Select an implementation | Infer mathematics from implementation availability |
 | leaf → runtime | A registration against an operation's declared type, and the answers its implementation returns | Run it, and read each answer into the declared result form or reject it as malformed | Believe anything the leaf says (a denotation, proof, identification, evidence, status or self-test); add categories, methods, classifiers, placements or aliases |
-| runtime → language | A value of the expected semantic result type, or a computational failure | Present the result, or `NoImplementation` | Expose a backend object as a semantic value |
+| runtime → language | Computational data in the declared result form for the independently fixed operation, or a computational failure | Present or subsequently use that data at its declared interface; report the actual failure | Promote a backend answer to an authoritative semantic identification or proof |
 | semantics → acceptance | Mathematical operations and formal types | Write permanent black-box assertions | Read leaf internals to decide expected behaviour |
 | acceptance → leaves | Pass or fail, and missing-implementation observations | Motivate implementation work | Change an assertion to accommodate a leaf |
 | `research` → `lean-categories` | A mathematical requirement, its source, a desired construction | Motivate formalization | Supply an informal local substitute consumed as semantics |
@@ -108,77 +112,110 @@ Constructor applications and family parameters are typed mathematical data, neve
 
 ## Categorical realization and complete construction data (2026-10-29)
 
-The work order is mathematical. A selected functor F:C→D determines inherited use on F(x);
-a required comparison α:F⇒G is applied through its specified component, direction and
-parameters. A universal construction retains its actual apex, defining morphisms and
-mediators through subsequent use. The full higher boundary and compatibilities follow
-CC-HIGHER and #82; a collection of pairwise cells is not automatically a coherent diagram.
-Formal meaning and its laws belong to the accepted mathematical declarations. A formal
-object or action remains available without an installed realization; neither a successful
-execution nor a finite test supplies a missing formal law or higher coherence. Legitimate
-identity actions and accessors may reuse already adequate data. The category, its object,
-an element of a selected underlying-set functor and a generalized point retain their
-distinct declared types (CC-ACTION, CC-LAWS and computational-core §7–§8).
+### Mathematical obligation
 
-The owner requested the [verbatim evaluator assessment](reuse/kernel-evaluation-machine-assessment.md).
-It remains an implementation proposal subordinate to this mathematical requirement.
-The [later source assessment](https://github.com/dzackgarza/lean-cas-dsl/issues/79#issuecomment-6476550921) identifies concrete candidates:
-a common checked interpretation of selected requests, explicit references to actual produced
-components, and one authority for completion and reuse. These do not define new mathematical
-objects or replace the categorical obligations.
+Interpretation fixes the category, selected object or diagram, full dependent parameters,
+operation and relation being asked. If `F : C → D` is the selected structural functor, an
+operation on `D` is used at `F(X)` or `F(f) : F(X) → F(Y)` on its declared domain. An
+iso-invariant operation on `Core(D)` uses `Core(F)`; it is not an operation on all morphisms
+of `D`. A return to `C` requires the declared lift or other accepted return construction.
+A forgetful functor alone supplies neither that lift nor preservation of arbitrary limits.
 
-Test Lean's existing scoped declarations for prepared computations, while preserving the
-mathematical definition's use context and the actual result's lifetime. Definitions evaluated
-at their use cannot all become eager captured results. A normalized expression is not an
-execution occurrence. Reuse of a produced result, fresh evaluation and deliberate replay
-retain their established meanings. Required selected data, defining maps and ownership are
-not a disposable lookup cache. Cache removal cannot silently turn retained use into a fresh
-choice. Replay creates a new occurrence and cannot attach new data to the previous result's
-maps without the required declared comparison and actual transport (CC-MEMO).
+A comparison `α : F ⇒ G` is used through its selected components with their actual direction
+and parameters. In the ordinary fragment its naturality is
+`G(f) ∘ α_X = α_Y ∘ F(f)`. A noninvertible comparison is a directed map, not an identification
+of the two interpretations. Use an inverse or equivalence only when supplied. The required
+higher boundary and compatibility follow CC-HIGHER/#82; pairwise comparisons do not supply
+a coherent higher diagram, and ordinary equations do not force a weak construction to be strict.
 
-The public interface must provide authoritative access to the actual supplied apex and maps,
-whether portable or owned by their supplying realization. Preserve every admitted reply
-alternative, its actual endpoint/owner associations, and the public operation or bridge used
-by subsequent morphisms. A private reference alone supplies no morphism action. An unchanged
-target consumer must accept the independently authored source through the published contract.
+A selected universal construction for `D : J → C` includes its apex, defining cone/cocone
+and universal factorization. Subsequent questions may use any required leg or mediator.
+For a kernel in its accepted pointed/module context this includes `i : K → X`,
+`f ∘ i = 0` and the universal factorization. A module kernel with a restricted form has
+the meaning of its declared structured lift; that description alone does not make it a
+categorical kernel in a category of form-preserving maps. A subobject's equivalence class
+does not specify the representative monomorphism needed for a selected subsequent use.
 
-Required comparison transport remains explicit; retaining provenance does not dispatch every
-comparison unconditionally. An adequate direct realization of a whole composite remains
-valid even when primitive implementations are absent. Mathematical equality does not imply
-identical effects or correct answers of arbitrary computations, and unexecuted intermediate
-steps acquire no fabricated results.
+Mathematical forms retain the selected presentation, basis changes, quotient/inclusion
+maps and universal data required by the question. A family is legitimate data; parameter
+transport additionally needs the actual specified pseudofunctor, fibration or other
+transport construction, with its base, variance, selected lifts and coherence. Refinement
+uses its accepted proof and preserves the selected structure. The category, an object, an
+element `x ∈ U(X)` for a chosen underlying-set functor `U`, and a generalized point
+`S → X` remain distinct. Functorial action on the latter has domain `F(S)`; composing a
+comparison with a point `S → F(X)` keeps domain `S`. No terminal or carrier identification
+is invented to erase that distinction.
 
-An observation answers the mathematical relation fixed by its reading. Equality of decoded
-presentations may implement that relation only with its accepted justification on denotations;
-a form label and decidable data equality alone do not supply it. Reference identity, semantic
-equality and isomorphism remain distinct. This is formal comparison semantics, not a proof of
-an arbitrary leaf answer (leaf-registration.md, Comparison).
+Formal meaning and all of these laws belong to accepted mathematical declarations.
+They do not depend on installed computations. A decoded answer is proposed computational
+data for the independently fixed operation; it is not a proof of a universal property or
+an authoritative identification with the formal result. The independent suite judges its
+answers. A finite execution test cannot supply missing functor laws or higher coherence.
 
-Mathematical forms retain selected presentations, actual basis changes, quotient/inclusion
-maps and universal-construction data where required. Refinement preserves the selected
-structure and justifies added structure or a transported view. These laws remain upstream.
+### Operative work and acceptance
 
-Within #69's existing first construction/comparison/defining-map chain, remove the competing
-recursive interpretation, expression/packet recovery and completion paths in a compiling
-substitution. Wrapping the unchanged observer does not establish the replacement. Preserve
-the complete interface under preparation, composition, projection, application, comparison,
-failure and reuse; connect that finite argument to the actual constructors and transitions
-before broad migration. Pure state updates may be separated from elaboration/validation and
-backend effects; this is implementation structure, not a new semantic theory.
+The first #66/#69 trial uses the existing selected structured construction, its required
+nonidentity comparison and a later operation involving its supplied defining morphism.
+State the diagram, maps, selected comparisons and required compatibility explicitly.
+For each supported substitution, composition, comparison, defining-map use and prescribed
+lift/reindexing, give the construction-specific preservation argument and identify its
+actual interpretation and consumption. This precedes extending coverage to the remaining
+promised constructions. One successful chain does not establish general compositional closure.
 
-The same initial chain includes public-only independent use of the built contract with an
-unchanged target consumer. Preserve lazy/fused evaluation, actual defining-map use, required
-fields, failure distinctions and session/replay behavior. Measure removed or transferred work
-and actual costs. Source counts and categorical vocabulary are not evidence of completion.
+That same first trial includes a separately assigned source contributor using the built
+published interface, feeding an unchanged target consumer. The consumer must be able to
+perform the declared mathematical operation on the supplied result and maps without
+private conventions or accommodating edits. An internal reference, a correct scalar
+invariant or a well-formed packet alone does not establish this requirement.
 
-Route completeness is the precise K11 obligation. A quotient does not retain executable
-comparison witnesses, and a non-increasing well-founded measure alone does not prove a finite
-reachable enclosure. CC-COHERE permits distinct structures and ambiguity; it does not force
-every structural cycle to be identity.
+An observation answers the mathematical relation fixed by its reading. Equality of
+presentations may implement that relation only with the accepted justification on
+denotations; a form label and decidable data equality alone do not supply it. Reference
+identity, equality of presentations, equality of denotations and isomorphism are distinct.
+The justification gives the meaning of the comparison, not proof of an arbitrary leaf answer
+([leaf-registration.md, Comparison](leaf-registration.md#comparison)).
 
-#24's complete independent acceptance and the evidence model remain unchanged. #71's proposed
-certificate-primary model is unadopted. #77's linter package, a protected deletion manifest,
-line caps and a global quotient/computad implementation are not prerequisites.
+K11 additionally requires completeness of the declared resolution. An arbitrary quotient
+does not retain the selected comparison maps needed by computation, and a merely
+non-increasing well-founded measure does not establish a finite reachable enclosure.
+CC-COHERE allows distinct selected structures and unresolved ambiguity; it does not
+force every structural cycle to be identity.
+
+### Supporting implementation obligations
+
+The [verbatim evaluator assessment](reuse/kernel-evaluation-machine-assessment.md) and the
+[later source assessment](https://github.com/dzackgarza/lean-cas-dsl/issues/79#issuecomment-6476550921)
+offer candidates for implementing these obligations: existing Lean elaboration, a common
+checked interpretation and references to actual supplied components. They are not prescribed
+mathematical representations. #69 records a compatible reuse, port/adaptation or rejection
+with an actual build. A state machine or reducer may organize implementation; it is not the
+construction or its acceptance criterion.
+
+Keep the actual produced result, selected components, complete endpoints and owners
+associated through subsequent use. A normalized expression is not an execution occurrence.
+Use of a retained result, evaluation of a definition at its use and deliberate fresh replay
+remain distinct. Required selected data and its dependent maps are not disposable lookup
+storage. A new choice requires new dependent data or the accepted comparison and actual
+transport. A lost owned result is unavailable unless justified reconstruction preserves the
+required data (CC-MEMO).
+
+The public interface supports the admitted portable and owned alternatives and the
+published operations or bridges required for their later use. Preserve lazy demand and
+adequate direct realizations of a whole selected composite; mathematical functoriality
+does not demand every primitive dispatch, identical effects or repeatability of arbitrary
+backends. Unexecuted intermediates acquire no fabricated results.
+
+Remove the replaced recursive interpretations and expression/packet recovery or completion
+bypasses in a compiling substitution. Cite the actual checks enforcing the mathematical
+associations and preserve failure distinctions, session/replay controls and dependent
+application context. A wrapper around an unchanged observer is insufficient. Pure updates,
+elaboration/validation and backend effects may be separated as an implementation choice.
+Measure the focused build/execution costs and removed or transferred work. Source counts,
+software state names and categorical vocabulary do not establish completion.
+
+#24's full independent acceptance and the evidence model remain unchanged. #71's proposed
+certificate-primary model is unadopted. No global quotient/computad, linter package, protected
+deletion manifest, line cap or new governance system is a prerequisite.
 
 ## Invariants
 
@@ -187,19 +224,25 @@ line caps and a global quotient/computad implementation are not prerequisites.
   acquires semantic standing.
 * **Operations are mathematics.** Every public method denotes a formal operation, section,
   functor, classifier query or composite. A backend function of the same name confers nothing.
-* **Propagation is deterministic.** Availability follows formal structural composition. Every
-  route is enumerated. None is an error, and several are an ambiguity. No MRO, BFS order,
-  shortest path, dotted-name parsing, backend class ancestry or "closest method" selects one.
-* **Implementations are semantically neutral.** Adding, removing or changing a realization changes
-  only `NoImplementation ↔ executable`, never the semantic surface.
+* **Propagation follows the selected mathematics.** Availability follows formal structural
+  composition at the complete parameters and hypotheses. K11's resolution-completeness
+  obligation accounts for the admissible alternatives; unresolved distinct interpretations
+  remain ambiguous. Required accepted comparisons may reconcile alternatives with their
+  actual strength and direction. No MRO, BFS order, shortest path, dotted-name parsing,
+  backend class ancestry or "closest method" selects the meaning.
+* **Implementations are semantically neutral.** Adding, removing or changing a realization
+  changes computational availability or outcomes, never the selected mathematical meaning,
+  domain or available formal operations.
 * **Semantic growth is monotone.** A new generic operation or structural fact upstream reaches
   every object it applies to, including those of existing leaves, with no leaf edit.
 * **No forwarding.** If `MyVerySpecialLattice.cardinality` has to be written, something upstream
   is wrong.
 * **Typed identity includes parameters.** `LeftModules(R)`, `LeftModules(S)`, `Bimodules(R,S)`,
   refined hosts and operation ports are distinct unless the mathematics identifies them.
-* **Ambiguity is data, not precedence.** Identifying two routes needs a coherence. Declaration
-  order, priority and convenience prove nothing.
+* **Comparisons do not come from precedence.** Comparing or identifying selected composites
+  requires the declared map, equivalence or equality and its required coherent data.
+  A noninvertible transformation alone is not an identification. Declaration order,
+  priority and convenience supply none of these.
 * **Backend applicability is not mathematical domain.** A backend's restriction restricts its
   realization, never the operation's domain.
 * **Failure is stratified.** These are distinct outcomes and are never collapsed:
