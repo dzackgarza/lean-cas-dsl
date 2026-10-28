@@ -1,12 +1,14 @@
 # V1 kernel MVP: authoritative integration handoff
 
-## Current work order and input status — 2026-10-28 UTC
+## Current work order and input status — 2026-10-29
 
 Follow [#10](https://github.com/dzackgarza/lean-cas-dsl/issues/10) and the
-[current delivery sequence](specs/computational-core-plan.md#current-delivery-sequence-2026-10-28):
-reconcile the actual inputs and compile; run the coupled #66/#69 retained-data chain;
-establish its preservation argument and public-only unchanged-consumer use before broad
-migration; finish #24's unchanged independent acceptance. #23/#82 review the actual
+[current delivery sequence](specs/computational-core-plan.md#current-delivery-sequence-2026-10-29):
+interpret the existing structured construction with its full selected data; compute its
+required nonidentity comparison and subsequent defining-map use; establish preservation under
+the claimed mathematical operations and public-only unchanged-consumer use before extending
+coverage; finish #24's unchanged independent acceptance. Input reconciliation and compilation
+are supporting prerequisites. #23/#82 review the actual
 construction requirements and exact mathematical inputs alongside implementation.
 
 The source audit inspected `4c33b574` with mathematical input `3bd4d3d9` and contract
@@ -1467,56 +1469,95 @@ All rows must be discharged at a coherent final source combination. Earlier obse
 
 ## 3. Next work, in order
 
-### A. Integrate current source and verify the final build
+The mathematical work and acceptance are #10 and the operative KM1–KM9 table. The dated
+source and execution records above are evidence to reproduce, not a competing plan.
 
-The binding, complete-object, product, composition and whole-function source
-repairs are integrated at `09d52994`. Its actual first CI failure and the compiler
-extraction are recorded above. Preserve newer branch work when publishing, then
-fetch back and compare the complete tree. Build all affected consumers,
-the unchanged stable aggregates and protected controls, and all four native tools
-plus the notebook worker/surface at one exact source combination. Use the explicit
-selected contract path for the purity gate; an absent historical fallback path is
-an environment failure, not permission to weaken the gate. Keep build sources
-unchanged while a provenance-recorded run is active.
+### A. Complete interpretation of the existing mathematical questions
 
-### B. Run the unchanged bindings and complete interpretation exports
+State the first required composite with its diagram, selected parameters/structures,
+domain hypotheses, relation and required comparisons. Preserve complete dependent readings
+for the permanent and fixed extension questions, including newly readable statements.
+Independent assessment compares actual mathematical meanings, not printed expressions or
+matching scalar answers.
 
-Use the fixed inputs and reconstructed drivers described below. Read their reports, not just their process exit status. A diagnostic may exit successfully after writing failed bindings.
+The original RX08 `projection.ker()` remains an ambiguity control. Its independently
+assessed positive clarification selects `kernel()` without changing the mathematical
+questions or authorizing interpretation migration. The module kernel and its prescribed
+restriction-of-form lift keep their actual declared meanings; do not infer a categorical
+kernel among form-preserving maps from the restriction formula alone.
 
-The `da6af543` binding failures are historical diagnostics, superseded by the
-source-specific repairs and reviews above. Select new repairs from actual current
-results, not those obsolete first-failure lists. After the coherent build, run
-the exact original RX-LIFT factor samples, with all 32 preceding bindings, complete
-six-module scope and unchanged 200000-heartbeat limit, before public API export.
-Retain full question strings and stage-specific outcomes. Then rerun all fixed
-bindings and assertions; neither raising budgets nor changing questions closes
-an interpretation or execution defect.
+### B. Compute the construction, comparison and subsequent defining-map use
 
-Export complete typed readings for the fixed extension inputs and the permanent corpus. Separate original RX08 spelling from its independently assessed positive clarification. The original `projection.ker()` remains an ambiguity control. The additive positive selects `kernel()` under the published clarification, with the same mathematical questions. It does not authorize changing the original source or approving an interpretation migration.
+Use the existing difficult structured-result/nonidentity-comparison chain. Supply the full
+computational candidate for the independently fixed cone/cocone or subobject, including all
+required defining maps. Apply the selected comparison at its actual endpoints and use the
+supplied map in the next question. Formal universal laws remain upstream; a decoded answer
+is untrusted data, not a theorem or replacement formal construction.
 
-Obtain independent interpretation assessment for every completed reading, including newly readable statements. Check the full typed terms, selected structures, parameters, maps, relations, and comparison components. Equal printed expressions or equal scalar answers do not establish equal questions.
+Before extending coverage, give the construction-specific argument for dependent
+substitution, composition, comparisons, defining-map use and prescribed lift/reindexing,
+with the required higher compatibility. Identify the actual implementation that preserves
+these associations. A public-only source contributor must be able to compute through the
+built interface and feed an unchanged target consumer in this first trial.
 
-### C. Execute the fixed extension questions and failure controls
+### C. Complete the fixed mathematical observations
 
-Run RX10 early after the repaired consumers build. It reaches the actual public callable/session path and has exposed remaining integration defects. Use the independently repaired leaf at `fa0856d`, with unchanged registrations and fixed expected outcomes. Verify all execution conditions and subsequent callable use. Then run the complete fixed positive extension inventory, RX05 environment/order controls, RX09 exact admission rejection, and the structured/lift observations.
+Run the complete positive extension inventory, the permanent observations, RX05
+environment/order controls, RX09 exact admission rejection and the structured/lift
+questions. RX10 runs early because its actual public callable/session use has exposed
+remaining defects. Preserve its independently specified conditions, subsequent callable
+use and the independently repaired specimen's provenance (historical `fa0856d`); every
+fresh run records its actual inputs.
 
-Repair a missing public encoding in the kernel/contract. Repair an implementation that fails an already complete public encoding in the leaf, with independent public-only authorship where required. Keep a well-formed wrong result distinct from a malformed packet. Never turn an answer into a proof or replace returned computational data with a canonical formal plan.
+Complete at least four connected real-engine workflows across three mathematical areas,
+including the original 17 assertions, full defining-map use and nonidentity comparison.
+Execute the actual notebook surface. Pullback cardinality alone does not establish complete
+universal data or subsequent map use.
 
-### D. Complete the public API and useful user session
+### D. Supporting integration and public-interface checks
 
-Generate the contract API from the final published, built source combination. The existing preparatory exporter requires an explicit published kernel SHA and a successful matching build record. Inspect and update stale runtime paths before use; do not reuse the old API's provenance for new output.
+Build the actual affected consumers, stable aggregates/protected controls, four native
+tools and notebook worker/surface at one recorded source combination. Historical
+`09d52994`/`da6af543` failures are source leads, not the current verdict. Preserve newer
+work, verify published source and keep inputs unchanged during a run. Use the selected
+contract path for the purity check; missing historical paths are environment failures,
+not permission to weaken the check.
 
-Audit each dated leaf-contract complaint against current encoding, decoding, validation, and actual consumers. Demonstrate existing adequate forms instead of reimplementing them. Publish worked request/reply and malformed-reply examples for the advertised forms.
+Read complete reports rather than only process exit status. Run the original RX-LIFT
+factor samples with all 32 preceding bindings, all six modules and the unchanged 200000
+heartbeat limit before treating the whole diagnostic as passed. Preserve full question
+strings and distinct failure outcomes; changed budgets or questions do not close a defect.
+The built public slice needed by the first trial is published early; the final API is
+regenerated from the final published built sources with exact provenance.
 
-Rebuild the actual executables and run the existing connected demonstration and notebook surface with real engines. Cover the structured defining-map and universal-data obligations through the fixed extension tests as well; pullback cardinality alone does not establish complete result reuse.
+Audit every dated contract complaint against the current complete form and its actual
+mathematical use. Demonstrate an already adequate encoding rather than recreate it.
+Publish worked request/reply and malformed-reply examples. Missing public encoding is
+kernel/contract work; failure of a complete encoding belongs to its implementation under
+the established author boundary. Wrong mathematics and malformed data remain distinct.
+Remove superseded interpretation/recovery/completion paths while preserving ownership,
+replay, lazy demand and adequate fused computations.
 
-### E. Freeze, finish independent trials, and deliver
+### E. Freeze, complete independent extensions, and deliver
 
-Freeze the kernel, contract, public API, mathematical inputs, and selected computational registrations. Complete the independent extension requirements and the compositional correctness argument for each supported generic mechanism. Preserve the one-way information boundary when assigning independent authors/reviewers.
+Freeze kernel, contract, public API, accepted mathematics and computational registrations.
+Complete the prescribed independent extensions and the compositional argument for each
+promised mechanism, including its required coherent data and subsequent mathematical use.
+The assigned contributors use only their permitted public inputs. Zero accommodating
+changes are allowed to the frozen kernel, contract, old objects or old leaves.
 
-Any needed generic repair invalidates the affected frozen-trial result. Repair its owner, publish a new candidate, and rerun affected trials with the fixed questions and expectations preserved. Complete final integrated checks on the delivered source combination. Publish the source, usable examples, contract, and evidence. The final report should give exact revisions and actual outcomes, with any remaining functionality outside V1 clearly identified.
+A required generic repair fails the affected trial: repair, publish/refreeze and repeat
+the affected trials with fixed questions/expectations. Deliver source, usable examples,
+built public interface, exact revisions and actual independent outcomes. All of #24's
+fixed scope remains required; no documentation or isolated source check completes it.
 
 ## 4. Source combination and owning repositories
+
+**Historical checkpoint provenance.** The table and source-preservation notes below
+describe the earlier checkpoint explicitly named in their rows, not the currently selected
+dependency tuple. The current header and each new run's actual manifest/build record govern
+current-input claims. Preserve the relevant source work, but do not reuse these historical
+revisions or their outcomes as a present build or acceptance verdict.
 
 All repositories below are under `https://github.com/dzackgarza/`.
 
@@ -1550,21 +1591,27 @@ Recent source that must survive integration:
 
 ## 5. Full mechanism scope
 
-The implementation queue is KM1–KM9 in `specs/computational-core-plan.md`. K1–K14 are regression assertions, not a replacement implementation queue.
+The operative work and acceptance are the mathematical KM1–KM9 table in
+[the plan](specs/computational-core-plan.md#mathematical-work-and-acceptance--km1km9).
+K1–K14 retain their fixed diagnostic/full-B0 inventories; they do not replace that work.
 
-| Mechanism | Required behavior to finish or verify |
+| Obligation | Mathematical result |
 | --- | --- |
-| KM1: compatible implementation | One coherent kernel, contract, mathematical API, tools, probes, and runtime. Preserve generic binder behavior and full creation-lift/defining-map behavior. |
-| KM2: mathematical choices | Resolve terminal/global-point, quotient, power-object, literal-domain, equality/observation, and diagram constructions through applicable unique registry data. Verify second presentations/structures, reordered rows, missing rows, and competing rows. |
-| KM3: dependent reading | Generic typed parameters, family application, elements, multi-variable/destructured maps, selected vectors and base rings, closed operands, binding operators, and actual admission evidence. |
-| KM4: closure and comparisons | Consume `Resolve.completeRoutes` and `ProofRefinement.construct`. Preserve complete functor actions, constructor-induced comparison actions, refinements, selected structures, and reindexing through execution. |
-| KM5: point/map transport | Support nonidentity transport, symbolic/opaque callables, exact generalized-point domains, endpoint checks, and ownership. Demonstrate successive operations on actual returned data. |
-| KM6: structured reuse | Complete computational projections, defining maps, universal data, creation comparisons beyond a special shape, and successive prescribed lifts. A formal apex or copied downstairs plan is insufficient. |
-| KM7: public forms | Resolve every relevant contract complaint: rational/irrational points, bottom-valued degree, differentials, matrices, infinite subsets/spans, binder callables, product apices/projections, and points in composition/mediators. |
-| KM8: question permanence | Preserve typed semantic identity independently of implementation, incidental proof terms, and mathematical revision labels. Keep every failure stage distinct. Repair measured runtime obstructions to required operations. |
-| KM9: independent extension | Finish frozen extension trials and mechanism-specific compositional arguments. New ordinary extensions must not require edits to frozen kernel/contract or existing mathematical objects/leaves. |
+| KM1 | One compatible interpretation of the complete accepted categories, dependent operations, comparisons and universal constructions. |
+| KM2 | Declared terminal/generalized-point, quotient, power-object, literal-domain, diagram and observation constructions determine meaning. Selected structures remain distinct and genuine ambiguity remains visible. |
+| KM3 | Full dependent application, substitution and admission, including selected bases, tuple/multiple-variable binders and closed maps/points. |
+| KM4 | Functorial object/morphism actions, comparison components and their required coherence, refinements and specified reindexing. Operations on cores and arrows keep their actual domains. |
+| KM5 | Morphism composition/application and generalized points at their exact domains; nonidentity change of presentation and subsequent use of supplied data. |
+| KM6 | Complete chosen cone/cocone/subobject data and defining maps, with the actual prescribed lift/creation hypothesis and subsequent constructions. |
+| KM7 | Adequate presentations and public mathematical operations for every advertised request/result, including the dated contract complaints. |
+| KM8 | The same independently fixed mathematical proposition/relation through computation, and justified comparison on denotations. |
+| KM9 | Independent extensions across all promised mechanisms and construction-specific compositional arguments, under the existing frozen conditions. |
 
-The already formalized power-series object's registration and constructor-induced comparison-cell actions belong to `lean-categories`. Their independent mathematical interfaces are consumed by the kernel. Preserve `completeRoutes`, `ProofRefinement.construct`, and `executePrescribedLift`; complete their consumers rather than replacing them.
+The actual constructor-comparison and power-series inputs are distinguished from latest
+main in the current dependency section. Existing `completeRoutes`,
+`ProofRefinement.construct` and prescribed-lift computations remain source to consume and
+validate, not automatic acceptance of their consumers. Build, source-removal, endpoint,
+codec, failure, performance and runtime-owner checks support these mathematical obligations.
 
 ## 6. Independent questions and observers
 

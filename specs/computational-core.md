@@ -56,8 +56,12 @@ The upper layers protect the user from the bottom one.
 
 ## 2. The central semantic claim: `x.f` is `f(F(x))`
 
-For a receiver \(x\in\mathcal C\), a method \(m:\mathcal D\to\mathcal E\) owned at its
-lowest generating level (#53 §5), and a structural functor \(F:\mathcal C\to\mathcal D\),
+For a receiver \(x\in\mathcal C\), a selected structural functor
+\(F:\mathcal C\to\mathcal D\), and an operation \(m\) whose declared domain contains
+\(F(x)\), method application uses that selected image. When \(m\) is a construction
+functor \(\mathcal D\to\mathcal E\), this is the composite below; an invariant instead
+has its declared core as domain, and an operation on arrows, elements or dependent data
+uses that actual domain with its hypotheses (#53 §5; CC-CLOSURE).
 
 \[
 \boxed{x.m \;\leadsto_{\text{elaboration}}\; m\bigl(F_n(\cdots F_1(x)\cdots)\bigr)}
@@ -97,7 +101,7 @@ third disappears, and the last two become a hard, typed boundary.
 | Initializer threading along the implementation DAG | `resolution.md` | unnecessary |
 | Target-state grafting (`F.on_object` feeds \(\mathcal D\)'s initializer on the source value) | `functor.md` "Functor actions are concrete constructors", D13 | explicit \(F(X)\) term (CC-TRANSPORT) |
 | Runtime placement / refinement after construction | `property-refinement.md` | semantic typing by the catalogue's theorems (CC-PROP) |
-| Construction provenance recovery (`_object_inputs`, `_objects_by_datum`) | `resolution.md` "Construction retention" | the typed term already *is* the construction |
+| Construction provenance recovery (`_object_inputs`, `_objects_by_datum`) | `resolution.md` "Construction retention" | the formal construction specifies its meaning; its selected computational realization retains the actual apex, defining maps and dependent data (CC-UNIV, CC-MEMO) |
 | Selected structure-functor inheritance | `functor.md` | elaborator composes `FunctorExpr` (CC-RESOLVE) |
 | `FunctorImageCache` | kernel | explicit-application memo table (CC-MEMO) |
 | Property subcategories and their inclusions | `cat_kernel` | typed classifier/refinement expressions (#54, CC-PROP) |
@@ -123,16 +127,20 @@ closes only when every cited requirement's acceptance holds.
 No registry notion, data structure or resolver concept may stand in for mathematics that
 the literature already names. Before a mechanism is built, its mathematical denotation is
 stated with a source (a definition in FOUNDATIONS with a citation, or a Mathlib
-declaration). Engineering vocabulary — "parameterized family", "profile", "parent edge",
-"method host", "capability" — may name an *encoding*, and every such encoding states what
-it denotes. Where no precise denotation can be stated, the mechanism is not built.
+declaration). An indexed family is legitimate mathematical data; its additional transport
+and coherence must be stated when claimed (CC-FIB). Vocabulary such as "profile", "parent
+edge", "method host" or "capability" may name an *encoding*, and every such encoding states
+what it denotes. Where no precise denotation can be stated, the mechanism is not built.
 
 This applies with full force to the first work: CC-FIB is the first instance, and the
 existing registry's `CategoryFamilyEntry` is its first audit target.
 
-**Acceptance.** Each registry entry kind, and each `CategoryExpr`/`FunctorExpr`
-constructor, has a docstring naming its mathematical denotation and a FOUNDATIONS anchor or
-Mathlib declaration; the plan's first node (CC-P0) audits the existing kinds against this.
+**Acceptance.** Each semantic entry kind and constructor identifies its accepted
+mathematical construction, actual domain, parameters, defining maps and required laws
+or coherence, with a FOUNDATIONS anchor or library declaration. The encoding preserves
+those data and the claimed operations on them; a docstring alone does not establish
+that correspondence. The existing denotation audit records the declarations, the
+consumer obligations and any precise missing input.
 
 ### CC-REUSE — Every obligation is first discharged by search; only glue and residue are written
 
@@ -223,82 +231,89 @@ boundary/extension, or its precise missing input. Existing ordinary construction
 valid in their justified fragment. This does not demand unrelated completion of all higher
 category theory, or change the fixed V1 questions to fit an implementation.
 
-### CC-CALC — A typed semantic calculus, not a name graph
+### CC-CALC — The semantic calculus denotes the declared mathematical constructions
 
-The registry holds terms the resolver can compose:
+The catalogue supplies categories, functors with their object and morphism actions and
+laws, natural transformations and the comparison/coherence data required by CC-HIGHER.
+An indexed category with claimed change of base supplies its variance and transport
+(CC-FIB). Composition uses the actual common category and selected parameters.
 
-- categories, and **fibrations** where a category varies with an object of another
-  category (CC-FIB). There is no primitive "category parameterized by a ring";
-- functors with **checked object and morphism actions** (not enum tags);
-- composition of functors, and identities;
-- natural transformations and comparison isomorphisms (`NatTransExpr`);
-- categories of elements, slices and coslices, arrow categories, cores, discrete
-  categories, diagram categories, subobject categories (#54 §1);
-- products, pullbacks, kernels, cokernels, images and the other generic constructions the
-  surface uses;
-- property subcategories (classifier refinements);
-- construction-owned maps (a kernel's inclusion, a quotient's projection).
+The required constructions include categories of elements, slices and coslices, arrow
+categories, cores, discrete and diagram categories, subobjects, property subcategories,
+and the products, pullbacks, kernels, cokernels and images used by the surface. Each has
+its actual domain and hypotheses. Distinguish a subobject class from its chosen
+monomorphism representative (CC-UNIV), and a construction from the defining maps and
+universal property it carries. An ordinary categorical presentation is used within its
+justified fragment; it does not impose a ceiling on CC-HIGHER.
 
-The existing typed syntax — `CategoryExpr`, `FunctorExpr` with middle-category-checked
-`comp`, `NatTransExpr` (`CasCatalogue/Syntax.lean`) and `FunctorEntry`
-(`CasCatalogue/Registry/Entry.lean`) — is the seed. `CategoryExpr` does not yet have the
-`constructor` case #54 requires; that is CC-CALC's first gap.
+`CategoryExpr`, `FunctorExpr`, `NatTransExpr` and the catalogue entries encode these
+declarations. The earlier missing-`constructor` observation was a historical implementation
+gap, not a current source claim or the mathematical definition of completion.
 
-**Acceptance.** `Elements(U)`, `Arr(C)`, `Core(C)`, `Slice(C, X)` and `Sub(C, X)` are
-`CategoryExpr` values built by one generic constructor case, evaluate to the Mathlib
-categories they name, and compose with registered functors under the typed `comp`.
+**Acceptance.** For the claimed instances of `Elements(U)`, `Arr(C)`, `Core(C)`, `Slice(C,X)`
+and `Sub(C,X)`, identify the accepted construction and check that the supplied objects,
+morphisms, endpoints and defining maps have that meaning. Composition with a declared
+functor must preserve them. The constructor encoding and its denotation implement that
+obligation generically; adding an enum case or an isolated example alone does not discharge
+it. No construction is restricted to a smaller domain merely because one realization or
+ordinary library uses that fragment.
 
-### CC-FIB — Varying categories are fibrations, never parameterized families
+### CC-FIB — Indexed categories retain their specified variance and transport
 
-"Parameterized category family" is an engineering encoding, not mathematics, and it is not
-admitted as a semantic notion. \(R\text{-}\mathbf{Mod}\) is not "a category parameterized by
-a ring". It is the fibre over \(R\) of an actual fibration, stated with its variance, exactly
-as FOUNDATIONS Definition 13.2 already does:
+The assignment \(R\mapsto R\text{-}\mathbf{Mod}\) is a mathematical indexed family.
+An assignment of fibres alone does not specify transport between them. When change of
+base is claimed, retain the corresponding functor or pseudofunctor, its variance and its
+coherence; equivalently use the specified cartesian or cocartesian fibration. In the
+ordinary module example:
 
-- the pseudofunctor \(\mathbf{Ring}^{\mathrm{op}}\to\mathfrak{Cat}\), \(R\mapsto R\text{-}\mathbf{Mod}\),
-  \(\varphi\mapsto\varphi^{*}\) (restriction of scalars), whose Grothendieck construction
-  \(p:\int_{R}R\text{-}\mathbf{Mod}\to\mathbf{Ring}\) is a **cartesian** fibration: objects
-  \((R,M)\), morphisms \((\varphi,f):(R,M)\to(S,N)\) with \(\varphi:R\to S\) and
-  \(f:M\to\varphi^{*}N\) \(R\)-linear;
-- or the covariant pseudofunctor \(\varphi\mapsto S\otimes_R-\) (extension of scalars),
-  whose Grothendieck construction is a **cocartesian** fibration over \(\mathbf{Ring}\);
-  since \(\varphi_!\dashv\varphi^{*}\), the module fibration is a bifibration, but a use must
-  still say which transport it means [@Lur18c, §§5.1.4, 5.6.1, Def. 5.6.2.4];
-- or, where it is the better statement, module objects over a monoid in a monoidal
-  category, \(\operatorname{LMod}_A(\mathcal V)\), fibred over \(\operatorname{Alg}(\mathcal V)\);
-- bimodules are the analogous fibration over \(\mathbf{Ring}\times\mathbf{Ring}\)
-  (FOUNDATIONS §86), not a two-parameter family.
+- restriction of scalars gives \(\mathbf{Ring}^{\mathrm{op}}\to\mathbf{Cat}\), with
+  \(\varphi^*:S\text{-}\mathbf{Mod}\to R\text{-}\mathbf{Mod}\) for \(\varphi:R\to S\).
+  Its total category has objects \((R,M)\) and morphisms \((\varphi,f)\) with
+  \(f:M\to\varphi^*N\) \(R\)-linear; its projection to rings is cartesian;
+- extension of scalars gives the covariant pseudofunctor
+  \(\varphi_!=S\otimes_R-\), with its composition comparisons, and a cocartesian
+  projection. The adjunction \(\varphi_!\dashv\varphi^*\) identifies the two descriptions
+  of semilinear maps and supplies the usual module bifibration. A particular use still
+  selects restriction or extension and its actual data;
+- left module objects \(\operatorname{LMod}_A(\mathcal V)\) and bimodule families require
+  their stated monoidal/base hypotheses and the variance of the claimed transport.
+  A notation with one or two parameters supplies none of those choices by itself.
 
-Consequences for the calculus:
+The precise source for these variances and fibres is
+[FOUNDATIONS §§83–84](https://github.com/dzackgarza/lean-categories/blob/8782c22ba613a022a84a1e910b6489cc2503e29a/FOUNDATIONS.md#L5983-L6140), with the bimodule analogue in
+[§86](https://github.com/dzackgarza/lean-categories/blob/8782c22ba613a022a84a1e910b6489cc2503e29a/FOUNDATIONS.md#L6221-L6328). In particular, restriction is cartesian and extension is
+cocartesian; the reversed “respectively” in Definition 13.2 is not the convention used here.
 
-- "the category of \(R\)-modules" is the fibre \(p^{-1}(R)\), with its fibre inclusion
-  \(\iota_R:R\text{-}\mathbf{Mod}\to\int_R R\text{-}\mathbf{Mod}\);
-- "change of rings" is transport along a cartesian (or cocartesian) lift, i.e. the
-  reindexing functor \(\varphi^{*}\) the fibration supplies, not a new edge between two
-  applications of a family;
-- a forgetful functor is defined on the **total** category where it is uniform in the
-  base: \(U:\int_R R\text{-}\mathbf{Mod}\to\mathbf{Set}\), \((R,M)\mapsto M\); "the
-  underlying set of an \(R\)-module" is \(U\circ\iota_R\);
-- a structured category over modules is a fibration only when the mathematics transports
-  its structure: bilinear forms are a cocartesian fibration over the total module
-  category (FOUNDATIONS §15.5–15.6); lattices are **not** closed under base change, so
-  they are a classifier refinement of the bilinear-module category, and closure of a
-  condition under a particular base change is a theorem, not registry structure
-  ([audit §4](registry-denotation-audit.md#4-mathematical-determinations-owner-rulings-2026-09-28)).
+For the selected module projection \(p\), the fibre over \(R\) is
+\(R\text{-}\mathbf{Mod}\), with inclusion \(\iota_R\) into the total category. Reindexing
+along \(\varphi\) is its declared transport, not an inferred relationship between two
+family applications. The underlying-set functor on the total category forgets to the
+actual module carrier; its restriction is \(U\circ\iota_R\).
 
-The registry's existing `CategoryFamilyEntry` / `CategoryExpr.familyApp` machinery
-(`CasCatalogue/Registry/Entry.lean`, `CasCatalogue/Syntax.lean`) and #54 §2's "typed
-parameterized families" are admissible **only** as an encoding of this data: each
-family entry must name the fibration (or pseudofunctor with its variance) it denotes, and
-`familyApp F args` must denote the fibre over the object `args`. An entry that cannot name
-its fibration is not a semantic declaration.
+Different projections of a structured object have different fibres and variances. For
+fixed commutative \(R\) and value module \(W\), a form on \(N\) pulls back along a
+carrier map \(f:M\to N\) by \(b\mapsto b\circ(f\otimes f)\). Change of values along
+\(u:W\to W'\) is instead postcomposition \(b\mapsto u\circ b\). The cocartesian tower
+in [FOUNDATIONS Example 31.2c](https://github.com/dzackgarza/lean-categories/blob/8782c22ba613a022a84a1e910b6489cc2503e29a/FOUNDATIONS.md#L2722-L2739) projects a form to its **value** module
+\((R,W)\); it is not the carrier-forgetting functor to \((R,M)\). Its base change uses
+the hypotheses and coherence of [§15](https://github.com/dzackgarza/lean-categories/blob/8782c22ba613a022a84a1e910b6489cc2503e29a/FOUNDATIONS.md#L1209-L1323). A lattice classifier or other
+property refinement does not automatically inherit transport: closure under the
+particular base change and its effect on the structure must be established upstream.
 
-**Acceptance.** \(p:\int_R R\text{-}\mathbf{Mod}\to\mathbf{Ring}\) is registered as a cartesian
-fibration whose cartesian lifts are Mathlib's `ModuleCat.restrictScalars`; `familyApp
-Modules [R]` evaluates to its fibre over \(R\); restriction along
-\(\mathbb Z\to\mathbb Z/4\) is resolved as the fibration's reindexing, not as a registered
-edge; and `cardinality` of a \(\mathbb Z/4\)-module and of the same group viewed as a
-\(\mathbb Z\)-module agree because both factor through the one \(U\) on the total category.
+`CategoryFamilyEntry` and `CategoryExpr.familyApp` encode the declared indexed
+construction. Where transport is claimed, the declaration names its fibration or
+pseudofunctor and `familyApp` denotes the specified fibre. No change-of-base operation
+may be manufactured from parameter syntax alone.
+
+**Acceptance.** For \(\varphi:\mathbb Z\to\mathbb Z/4\) and a declared
+\(\mathbb Z/4\)-module \(N\), restriction has the actual \(\mathbb Z\)-action
+\(n\cdot x=\varphi(n)x\), with the same underlying set and additive group. The selected
+reindexing and forgetful composites therefore give the same declared cardinality
+invariant. Their realizations are checked against that independently fixed expectation.
+Extension of scalars, a change of value module and a restriction of the form along a
+carrier map remain distinct operations with their own parameters and comparisons.
+The implementation must consume these declarations rather than choose a variance from
+registry order or reuse an unrelated projection.
 
 ### CC-ACTION — A functor has declared actions and their required laws
 
@@ -328,57 +343,65 @@ defined*, never *search categories until a method name appears*. A resolution re
 (F,\;F(X),\;m:\mathcal D\to\mathcal E)
 \]
 
-with \(F\) a composite `FunctorExpr`, and execution receives \(F(X)\).
+with \(F\) the selected structural composite. The displayed functor notation applies
+when \(m\) has that domain; invariants and operations on arrows or dependent data use
+their actual domains (CC-CLOSURE). Execution consumes the realized image and required
+maps associated with this selection, not merely another object with the same expression.
 
-`lean-cas-dsl`'s `Resolution.concreteReceiver` is the correct seed: it already hands the
-executor the transported image. It must grow from one hop to an arbitrary typed composite.
-
-**Acceptance.** `L.cardinality()` on a formed module elaborates to
-`card (U_set (U_mod (U_form L)))` (in the repository's arrow-order convention), and the
-elaborated `Expr` contains the composite, not a string-keyed dynamic call (#53 §13).
+**Acceptance.** For a lattice \(L\), `L.cardinality()` has the declared cardinality
+invariant of its actual underlying set. The complete selected chain through formed
+modules and modules is retained, and each realized action supplies the input consumed by
+the next one, or an adequate fused realization supplies the same specified composite.
+No parameter projection may silently replace that chain. Elaboration and retained-data
+checks establish the association; the permanent assertion judges the computed answer.
+This is the content implemented by a composite expression and its realization (#53 §13).
 
 ### CC-UNIFORM — Inclusions are functors like any other
 
-There is no separate "parent inheritance" and "functor inheritance". A subcategory
-inclusion, a classifier forgetful functor, a property restriction, a projection from a
-Grothendieck construction, a forgetful functor: all are `FunctorExpr` values in the same
-graph, admitted by the same structural-admissibility rule (#53 §8).
+Subcategory inclusions, classifier forgetful functors, fibre inclusions, projections
+from Grothendieck constructions and other forgetful functors are all functors of the
+declared calculus. Their meanings do not depend on separate "parent" and "functor"
+dispatch mechanisms. Which of them supports an inherited application is the catalogue's
+structural-admissibility decision (#53 §8), not a consequence of being a functor alone.
 
-*Which functors are edges* (derivation, recorded 2026-09-28 when `cc-resolve` exposed it): an
-edge sends an object to an object it *is* — a forgetful functor, an inclusion, a fibre inclusion
-\(\iota_R\). A fibration's projection to its base or value parameters (\(\int\operatorname{Mod}\to
-\mathbf{Ring}\); \(\operatorname{Bil}\to\int\operatorname{Mod}\) by values) reads a parameter of the
-object and is not an edge: with it as an edge, a module inherited its ring's cardinality and every
-formed module's `cardinality` became ambiguous. Such a projection is reached as an explicit method
-(`base_ring`), never by inheritance. Construction functors (base change, change of values,
-reindexing along \(\varphi\)) are not edges either: they need data the receiver does not carry.
+*Admissible structural functors* (the distinction recorded 2026-09-28): the catalogue
+selects underlying-structure functors, subcategory inclusions and fibre inclusions for
+inherited application. Being a functor alone does not make every operation on its target
+an operation on the receiver. The projection \(\int\operatorname{Mod}\to\mathbf{Ring}\)
+reads the scalar ring; the value projection \(\operatorname{Bil}\to\int\operatorname{Mod}\)
+reads the value module. They are explicit parameter operations, not the structural
+forgetful functors that supply a module's or formed module's carrier cardinality.
+Base change, change of values and reindexing similarly use their specified additional
+map and parameters. Their explicit application must not be inferred from target
+reachability or used to choose a hidden structure.
 
 **Acceptance.** Removing the special case "parents first, transport only on failure"
 (`lean-cas-dsl` `Resolve.lean`, "NEVER A PREEMPTION") changes no resolution in the
 existing test corpus except those that the old rule resolved by priority; each such case is
 listed and either receives a declared comparison or becomes a reported ambiguity.
 
-### CC-IMMEDIATE — A formalization declares only its immediate structural images
+### CC-IMMEDIATE — A formalization declares its immediate structural functors
 
-A new category is formalized in `lean-categories`, and its formalization states what its
-immediate underlying objects *are*, and nothing further:
+A new category is formalized in `lean-categories` with its actual objects, morphisms,
+parameters and immediate underlying-structure functors. For example a declared lattice
+category has a functor to the corresponding formed modules, with the actual underlying
+module, form and morphism action. Where both categories have a selected base projection,
+the functor has the required comparison over that base. A projection alone does not
+assert that lattices form a fibration or are closed under arbitrary base change (CC-FIB).
 
-```text
-category Lattices            -- total category, fibred over its base (CC-FIB)
-structure functor  underlyingFormedModule : Lattices ⟶ FormedModules
-  object action:   L ↦ the actual formed module underlying L
-  morphism action: f ↦ the actual formed-module morphism underlying f
-  (a functor over the common base: it commutes with the two projections)
-```
+Composites to modules and underlying sets are derived from these declarations. Operations
+on those images are available on their actual domains; returning a structured kernel,
+subobject or quotient requires the further declared hypotheses and lifting data of
+CC-LIFT and CC-CLOSURE. A useful name is not itself a new mathematical owner, and no leaf
+declares any of this mathematics.
 
-It does not declare `Lattices → Sets`, `Lattices.cardinality`, `Lattices.kernel` or
-`Lattices.subgroup` because those are useful. They are derived by composition. No leaf declares
-any of it.
-
-**Acceptance.** Registering a functor whose target is reachable from its source through
-already-registered structural functors, with no new mathematical content, is rejected
-with a diagnostic naming the existing composite. Registering a method on a category below
-the method's lowest generating level is rejected (#53 §5).
+**Acceptance.** For a newly admitted category, the derived structural composite and its
+actions agree with the declared immediate functors, retaining the selected parameters
+and comparisons. A redundant primitive declaration of the *same intended structural
+functor*, with no new mathematical content, is rejected with its existing composite.
+Reachability of a target alone does not prove two functors are the same: distinct
+structures remain distinct and competing interpretations are ambiguous under CC-COHERE.
+An operation remains owned at its declared generating level (#53 §5).
 
 ### CC-SEP — Semantic object, presentation form, fact, implementation are four things
 
@@ -417,12 +440,16 @@ carrier.
   between them is additional mathematics, formalized in `lean-categories`: never a silent
   identification by backend identity, and never an isomorphism a leaf asserts.
 
-**Acceptance.** Two realizations of a finite field from different defining polynomials (e.g.
-\(\mathbb F_9=\mathbb F_3[x]/(x^2+1)=\mathbb F_3[y]/(y^2+y+2)\); over \(\mathbb F_2\) the only
-monic irreducible quadratic is \(x^2+x+1\), so \(\mathbb F_4\) has a single one — corrected
-2026-09-28) yield distinct semantic objects; `ask (K₁ = K₂)` is not decided `true`; a registered
-isomorphism of the catalogue between them transports elements, and its absence is reported as
-absence.
+**Acceptance.** The two defining presentations
+\(K_1=\mathbb F_3[x]/(x^2+1)\) and
+\(K_2=\mathbb F_3[y]/(y^2+y+2)\) are retained as distinct presentations of a field
+isomorphic to \(\mathbb F_9\). A comparison uses its declared mathematical relation;
+isomorphism of fields does not by itself identify chosen carrier elements or
+presentations. Conversely, differing presentation data is not a proof that their fields
+are nonisomorphic. A selected admitted isomorphism transports actual elements, and a
+missing required comparison is reported as missing rather than replaced by a backend
+identity or a guessed answer. The existing historical correction remains: over
+\(\mathbb F_2\), \(x^2+x+1\) is the only monic irreducible quadratic.
 
 ### CC-MEMO — Retain selected results; memoize only under justified reuse semantics
 
@@ -466,9 +493,11 @@ of packets or agreement between executions substitutes for that expectation.
 
 Resolution of `receiver.method(args)` follows #53 §8 steps 1–10. In addition:
 
-- the result retains the full structural path and its normalized composite;
-- two composites to the same method source are identified only by a registered comparison
-  (CC-COHERE); otherwise the call is **ambiguous** and elaboration fails with both routes;
+- the result retains the full selected structural composite and its comparison data;
+  normalization may not discard a selected structure, comparison or required higher cell;
+- two competing composites to the same method source are reconciled only by the declared
+  comparison with the strength and direction the operation requires (CC-COHERE); otherwise
+  the call is **ambiguous** and elaboration reports both;
 - no shortest-path rule, declaration order, typeclass priority or "first found" rule
   selects a route. (`lean-cas-dsl`'s `parentClosure` keeps "a shortest [chain]" and
   "diamonds collapse to a single entry"; both are excluded.)
@@ -480,23 +509,34 @@ Resolution of `receiver.method(args)` follows #53 §8 steps 1–10. In addition:
 \(\mathbf{Ring}\to\mathbf{Mon}_\times\) remain distinct for `is_commutative` and are
 identified at \(\mathbf{Set}\) for `cardinality` by a registered comparison (#53 §9, §12).
 
-### CC-COHERE — Coherence is data, never priority
+### CC-COHERE — Selected comparisons act on data; declaration order supplies no coherence
 
-If \(F,G:\mathcal C\to\mathcal D\) represent the same intended structure, a specified
-\(\alpha:F\Rightarrow G\) (or equality, or isomorphism, as appropriate) is registered. If
-they represent different structures, they stay distinct. The resolver rejects an ambiguous
-structural projection at elaboration instead of letting order choose.
+For declared \(F,G:\mathcal C\to\mathcal D\), a natural transformation
+\(\alpha:F\Rightarrow G\) supplies components \(\alpha_x:F(x)\to G(x)\) and
+naturality. It gives a directed comparison, not in general an identification or an
+inverse. Reversible transport requires the stated natural isomorphism or equivalence;
+equality and higher comparisons retain their own declared meaning and compatibility
+(CC-HIGHER). Distinct intended structures remain distinct. No route-order rule provides
+any of these data.
 
-`sage-categories` reached the same requirement (`resolution.md` "Diamond diagnostics and
-coherence"): it forms the competing composites and consumes a retained executable
-invertible natural transformation between them, and "differing representations are
-related by the supplied natural isomorphism rather than silently identified". Its
-remaining fallback — "declaration order selects the preferred initialization path" — is
-the one part not copied.
+For example, an ordinary generalized point \(p:S\to F(x)\) transports to
+\(\alpha_x\circ p:S\to G(x)\). For \(f:x\to y\), naturality is the formal law
+\(G(f)\circ\alpha_x=\alpha_y\circ F(f)\). The accepted declaration owns that law;
+a realization must compute the selected component and use the actual resulting data.
+Recording the comparison's name does not perform its action, and observing a few
+commuting squares does not establish the formal naturality theorem.
 
-**Acceptance.** A test registers two structural paths without a comparison and observes an
-ambiguity error naming both; adding the comparison makes the call resolve and the result
-carries the comparison in its provenance.
+The historical `sage-categories` requirement for retained executable invertible
+comparisons is preserved; its declaration-order fallback is excluded.
+
+**Acceptance.** Competing structural interpretations without the needed comparison are
+reported as ambiguous. With a selected comparison, a nonidentity component acts in the
+declared direction on actual supplied data, with the specified source and target; its
+result is then consumed through the unchanged public interface. Check that next
+mathematical observation against the independent fixed expectation. A reverse use
+requires an admitted inverse, and a distinct selected comparison may not be replaced by
+the first registered one. Source/constructor checks establish preservation of the
+selected data and required coherence, rather than treating a provenance label as success.
 
 ### CC-PROP — Properties live in Lean; backends only compute them
 
@@ -528,23 +568,46 @@ homomorphisms").
 **Acceptance.** The decision result type distinguishes the three outcomes; an acceptance
 assertion with pointwise-equal but differently constructed morphisms is never answered `false`.
 
-### CC-UNIV — Generic constructions are owned above the backends, with complete data
+### CC-UNIV — A construction retains its chosen objects, defining maps and universal data
 
-Subgroups are values of \(\operatorname{Sub}_{\mathbf{Grp}}(G)\) (or `MonoOver G`). A
-backend subgroup — GAP subgroup object, generator list, membership predicate, matrix-group
-wrapper, finite quotient preimage — is a *realization* of that semantic object. Its public
-API is the semantic subgroup API; every subgroup has inclusion, underlying set,
-intersection, inverse image and action restriction because the construction provides them.
+The mathematics distinguishes a subobject class from a chosen representative
+\(i:H\hookrightarrow G\). In the ordinary setting `MonoOver G` retains that
+monomorphism, whereas `Subobject G` is its quotient by isomorphisms; extracting a
+representative requires a choice. They are related constructions, not interchangeable
+records ([Mathlib `MonoOver`](https://github.com/leanprover-community/mathlib4/blob/v4.33.0/Mathlib/CategoryTheory/Subobject/MonoOver.lean#L17-L31),
+[`Subobject`](https://github.com/leanprover-community/mathlib4/blob/v4.33.0/Mathlib/CategoryTheory/Subobject/Basic.lean#L17-L41)). A subgroup realization keeps the
+selected representative and its actual inclusion whenever subsequent mathematics uses
+them. Passing to a subobject class cannot justify silently replacing its chosen apex.
 
-A construction returns its complete universal data: a kernel is \((K,\,i:K\hookrightarrow G)\);
-a limit is apex, legs and mediator; a quotient is \((Q,\,q:G\twoheadrightarrow Q)\) with its
-universal factorization. A realization that supplies the apex but not the defining map is
-invalid.
+For \(f:X\to Y\) in an ordinary category with the required zero morphisms and kernel,
+the selected construction includes \(i:K\to X\), \(f\circ i=0\), and the universal
+factorization of every \(k:W\to X\) with \(f\circ k=0\)
+([Mathlib `kernel.ι`, `kernel.lift`](https://github.com/leanprover-community/mathlib4/blob/v4.33.0/Mathlib/CategoryTheory/Limits/Shapes/Kernels.lean#L13-L21)).
+For a diagram \(D:J\to\mathcal C\), a chosen limit retains its apex \(L\), cone
+\(\pi_j:L\to D(j)\) with naturality, and the universal mediating construction;
+the diagram need not be finite ([Mathlib `Cone`](https://github.com/leanprover-community/mathlib4/blob/v4.33.0/Mathlib/CategoryTheory/Limits/Cones.lean#L106-L120)).
+Quotients likewise retain their selected projection and factorization on the declared
+domain, including the required congruence or normality hypotheses. The corresponding
+higher universal properties keep the comparison and coherence required by CC-HIGHER.
 
-**Acceptance.** Given a hostile backend class realizing a subgroup
-\(H\le O(L)\), its answer is decoded into the semantic subgroup; the user's
-`H` supports every generic subgroup operation with no forwarding wrappers; `H.inclusion`
-is the semantic inclusion, and a decode that omits the inclusion fails.
+These formal constructions and their laws belong to `lean-categories`. Their result
+presentation interfaces specify the actual computational apex, defining maps,
+parameters and dependent data to retain, together with the declared operations that use
+the universal property. A leaf answer is an untrusted candidate for that realization;
+decoding it does not prove the universal property or establish an identification with
+the specified formal result. Missing computational defining data is a malformed answer,
+not an invalid mathematical question. A missing realization of a required mediator or
+next operation is a computational gap, not permission to weaken the construction.
+
+**Acceptance.** For the independently specified subgroup construction
+\(H\le O(L)\), consume the actual supplied inclusion in a subsequent subgroup action,
+inverse image, restriction or other already-declared operation, through the public
+subgroup interface. Compare that mathematical observation with the fixed expectation.
+The source leaf's private class must not determine the subgroup's meaning or require
+target-consumer wrappers. Reject a response missing the required inclusion; detect an
+incorrect but well-formed inclusion through the independent assertion. Preserve the
+selected apex/map association throughout the use. No leaf response is installed as a
+semantic subgroup, proof of monicity or proof of its advertised universal property.
 
 ### CC-ADAPTER — A leaf is a registration, not a module of mathematics
 
@@ -565,25 +628,32 @@ cannot claim that a group-specific operation belongs to all groups.
 **Acceptance.** The registration type has exactly the three fields above, and replacing every
 installed leaf changes no meaning, type or available operation of the language.
 
-### CC-DECODE — Reconstruct across the boundary; never trust backend object shape
+### CC-DECODE — Decode the declared presentation without importing backend semantics
 
-A backend result crosses back as
+The selected mathematical operation fixes its result presentation interface and the
+comparison by which its answer will be judged. A backend response supplies an operation
+identifier and encoded data in that interface. The decoder checks the declared form and
+its required components; it does not infer the result's meaning from a backend class or
+promote a well-formed packet into a proof of the operation's answer.
 
-```text
-BackendResult { operation_id, encoded_result }
-```
+For the declared kernel construction, the computational result must retain a candidate
+apex and its defining inclusion with the actual endpoints and selected parameters
+(CC-UNIV). A missing inclusion or incorrectly shaped field is a malformed computational
+response. A correctly shaped but mathematically wrong inclusion remains a possible
+wrong answer, judged by acceptance; decoding cannot assert monicity or the kernel
+universal property on the leaf's authority. The same distinction applies to all
+structured results and to maps supplied for later universal factorizations.
 
-and the kernel decodes it into the operation's **expected semantic result type**, or rejects it as malformed. For
-\(\ker:\operatorname{Arr}(\mathbf{Grp})\to\operatorname{Mono}(\mathbf{Grp})\subseteq\operatorname{Arr}(\mathbf{Grp})\),
-\(f\mapsto(\ker f\hookrightarrow\operatorname{dom}f)\), the backend cannot answer
-"here is my `KernelSubgroup` class"; it supplies enough data to reconstruct
-\((K,\,i:K\hookrightarrow G)\). If the inclusion is missing, the result is invalid.
+The bridge omits backend ontology while retaining the construction data that the
+declared result interface and subsequent operations require.
 
-The bridge is deliberately lossy with respect to backend ontology.
-
-**Acceptance.** A decoder test feeds a result missing a defining arrow and observes
-rejection; a well-formed result round-trips to a value equal to the Lean-native result on a
-small corpus (#53 §14 E).
+**Acceptance.** The missing-defining-map control is rejected as malformed without
+changing the admitted question. On the fixed small corpus, use each well-formed answer
+in the declared mathematical comparison or subsequent map operation and check it
+against the independently specified Lean-native result or other accepted expectation
+(#53 §14 E). The comparison relation is explicit; packet equality and successful
+decoding do not establish agreement. The wrong-but-well-formed control must fail its
+mathematical assertion rather than be counted as malformed or as invalid mathematics.
 
 ### CC-ROUTE — Capabilities register against semantic operations, never backend methods
 
@@ -596,36 +666,74 @@ serve several operations through adapters; duplicate or misplaced backend APIs a
 **Acceptance.** Two backends realizing the same composite are two realizations of one
 semantic operation; the method audit reports one owner.
 
-### CC-LIFT — Result lifting is explicit mathematical structure
+### CC-LIFT — Returning to a structured category requires its declared lifting construction
 
-`lean-cas-dsl`'s "NO RESULT LIFTING" ceiling is removed, but not by coercion. An inherited
-\(m:\mathcal D\to\mathcal E\) returns \(m(F(x))\in\mathcal E\) (cardinality). An operation
-that must return to the source side — a lift along an isofibration, a preserved limit,
-transport along an equivalence, an adjunction, a subobject of the *original* structured
-object — requires that functor, section, lift or universal property as registered data,
-and the operation's source and codomain say so.
+For a selected structural functor \(U:\mathcal C\to\mathcal D\), applying an operation
+to \(U(x)\) initially gives its result in that operation's actual codomain. A required
+result in \(\mathcal C\) needs the declared additional structure, maps, compatibility
+and hypotheses that construct it there. Preservation of a limit compares the image of
+an already existing source limit; it does not alone construct a source object over
+every target limit. Creation of a limit or an explicit lift supplies a stronger,
+different obligation.
 
-`sage-categories/specs/functor.md` states the same separation: reading an operation on
-\(F(x)\) and constructing something back in \(\mathcal C\) are distinct obligations.
+Use the particular mathematics: restriction of structure along a specified inclusion,
+a cartesian or cocartesian lift over a specified base map, an equivalence and its
+selected transport, a chosen adjunction, or the declared universal construction.
+An isofibration lifts the relevant isomorphisms; it is not by that fact a supply of
+cartesian lifts over arbitrary morphisms. Each use retains the comparison and coherence
+its construction requires, instead of inferring a return path from common carrier
+types or a reachable category name.
 
-**Acceptance.** A kernel of a formed-module morphism returns a formed submodule (via the
-registered restriction of the form along the inclusion), not a bare module; with that
-restriction unregistered, the call reports the missing lift rather than returning the
-module kernel.
+**Acceptance.** For the declared formed-module kernel question, retain the actual
+module inclusion \(i:K\to M\) and restrict the selected form by
+\(b_K(x,y)=b_M(i(x),i(y))\). The returned formed object and its inclusion have the
+declared meaning on that question's domain. The restricted-form construction alone
+does not prove that it is a categorical kernel in every category of form-preserving
+maps: that stronger claim needs its actual zero morphisms and universal property.
+Preserve the fixed question's meaning and identify its accepted declaration or the
+precise missing input, rather than silently changing it. Any additional classifier
+(for example nondegeneracy) requires its own closure hypothesis and cannot be inferred
+from the bare restriction. The next operation uses this very \(K,i,b_K\), and its
+realization is judged by the fixed independent expectation. If the required formal
+lifting declaration is absent, record that precise upstream input gap; if its
+realization is absent, report the computational gap. Neither returns a bare module as
+though it satisfied the unchanged structured question.
 
-### CC-CLOSURE — The user-visible method surface is generated
+### CC-CLOSURE — Available operations follow from their actual domains and selected structure
 
-For \(X:\mathcal C\), the available operations are exactly those whose source is reachable
-from \(\mathcal C\) by admissible structural composites, with the necessary coherence and
-hypotheses (#53 §8 "Static closure"). `#methods X`, documentation, completion and dot
-notation derive from that one closure.
+For \(X\in\mathcal C\), inherited application is derived through the catalogue's
+admissible structural functors, with their selected parameters, comparisons and
+hypotheses. Its mathematical domain is not merely a target category name:
 
-Guarantee: *every subgroup has everything expected of subgroups; a specialized subgroup
-has more.*
+- a set-valued invariant \(I:\mathcal D^{\simeq}\to S\) restricts along the functor
+  on cores induced by \(F:\mathcal C\to\mathcal D\), on the stated classifier or
+  domain of \(I\). Cardinality and rank are invariants on their natural domains, not
+  generally functors from all morphisms of \(\mathcal D\) to a discrete set
+  ([FOUNDATIONS Definition 46.2](https://github.com/dzackgarza/lean-categories/blob/8782c22ba613a022a84a1e910b6489cc2503e29a/FOUNDATIONS.md#L3607-L3620));
+- an operation on arrows consumes an actual arrow \(f:X\to Y\) through the induced
+  arrow functor, with the hypotheses its construction needs. An underlying module
+  functor alone does not make a kernel of every map into a structured kernel in
+  \(\mathcal C\); returning there requires CC-LIFT;
+- an operation on elements or dependent data consumes the selected underlying functor,
+  elements, parameters and hypotheses of its declared source. Its result and subsequent
+  applications keep those selections.
 
-**Acceptance.** Formalizing, in `lean-categories`, a new category with one structural functor to
-modules regenerates the closure, and the new category inherits `cardinality`, `rank` and `kernel`
-with no further declaration and no leaf change.
+`#methods X`, documentation, completion and dot notation derive from that same
+mathematical closure (#53 §8). Every subgroup receives the applicable generic subgroup
+operations; specialization can supply additional structure and operations without
+redeclaring the generic ones. Mathematical availability is independent of whether
+their required realizations are installed.
+
+**Acceptance.** Introduce the fixed independently authored category and its immediate
+structural functor to the declared module category. Derive its underlying-set
+cardinality invariant, and rank where its actual rank-domain hypotheses hold, through
+the corresponding functors on cores. For a declared morphism, compute its underlying
+module kernel; return the structured kernel only with the separately admitted lift
+and its defining maps. The pre-existing target consumers remain unchanged, and the
+fixed questions judge their realized answers. A missing lift, hypothesis or realization
+is recorded at its proper boundary rather than manufacturing availability from
+reachability. No receiver-specific mathematical wrapper or leaf declaration supplies
+the inherited meaning.
 
 ### CC-LAWS — Formal constructions carry their laws; realizations are tested
 
@@ -802,8 +910,9 @@ rediscover them.
    `atomic` functors whose registration must cite that fibration? Either way the
    fibration, not the pair of `familyApp` endpoints, is the owner.
 3. #53 §16's ten questions remain open and are inherited unchanged.
-4. CC-CLOSURE says a new category formalized with one structural functor into modules inherits
-   `kernel`, while CC-LIFT says a kernel returning to the source side needs a lift in the
-   catalogue. Both hold only if the category's formalization states that its property is closed
-   under subobjects. Open: whether a classifier states "closed under subobjects" once and the
-   lift is derived from it.
+4. For a particular property subcategory, does an accepted closure-under-subobjects theorem
+   supply the structured-kernel lift and its comparison with the underlying kernel? For a
+   category carrying additional chosen data, what further construction supplies that data on
+   the kernel? CC-CLOSURE inherits the underlying operation only on its actual domain;
+   CC-LIFT requires the actual structured return. A closure theorem for a property alone
+   is not a general reconstruction of arbitrary extra structure.

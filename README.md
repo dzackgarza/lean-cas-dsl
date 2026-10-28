@@ -2,8 +2,8 @@
 
 A computer algebra language over Lean 4, where every object, operation and structural route is
 mathematics formalized in [`lean-categories`](https://github.com/dzackgarza/lean-categories),
-and every computation is done by an ordinary backend (Sage, GAP, or anything else) registered
-against a catalogue operation, whose answers are decoded and compared, never believed
+and computations can run through ordinary backends (Sage, GAP, or others) registered
+against catalogue operations. Their answers are decoded and compared, never believed
 ([`specs/leaf-registration.md`](specs/leaf-registration.md)). It runs as a Jupyter kernel through
 [lean-jupyter-kernel](https://github.com/dzackgarza/lean-jupyter-kernel).
 
@@ -18,8 +18,10 @@ against a catalogue operation, whose answers are decoded and compared, never bel
 --   meth.cardinality = fun.sets.cardinality on the core
 ```
 
-`cardinality` is declared once, as a functor on sets, in `lean-categories`. Everything that
-reaches sets along a structural functor receives it, and nothing else is written. The assertion
+`cardinality` is declared once as `Core(Set) → Disc(Card)` in `lean-categories`.
+A selected structural functor to sets induces the core action through which an object
+receives this invariant; no second cardinality declaration is needed. Arbitrary set maps
+do not induce arrows between unequal cardinals in the discrete target. The assertion
 above is permanent and names no leaf: whatever computation is installed for cardinality is run,
 and its answer either meets the assertion or does not.
 
@@ -72,7 +74,7 @@ diagnostic specimen leaves run before this gate. Broad leaf implementation
 starts after it. The gate does not eliminate the complete real-backend
 execution and independently accepted assertions required for full B0.
 
-As of the 2026-10-28 UTC documentation reconciliation, this gate has **not** been established; the
+As of the 2026-10-29 documentation reconciliation, this gate has **not** been established; the
 [construction handoff](HANDOFF.md) and the
 [plan's evidence section](specs/computational-core-plan.md#kernel-mvp-proved-readiness-for-substantial-leaf-development)
 record the unresolved work. Do not treat a compiling kernel, a falling
@@ -81,9 +83,11 @@ request-gap count, or a new leaf registration as milestone completion.
 ### Where to continue
 
 [Issue #10](https://github.com/dzackgarza/lean-cas-dsl/issues/10) gives the current order:
-reconcile existing inputs and compile PR #67; run the #66/#69 first complete chain;
-establish preservation and public-only use before expanding; finish #24's full independent
-acceptance. #23/#82 review the actual construction requirements alongside implementation.
+interpret and compute the existing structured construction with its selected nonidentity
+comparison and subsequent defining-map use; establish preservation under the claimed
+mathematical operations and public-only unchanged-consumer use before extending coverage;
+finish #24's full independent acceptance. Reconciliation of existing inputs and compilation
+of PR #67 are supporting prerequisites. #23/#82 review the actual construction requirements alongside implementation.
 Research issues #71–#81 are consolidated historical guidance, not parallel work queues.
 
 The candidate's diagnostic manifest still selects pending mathematical work from

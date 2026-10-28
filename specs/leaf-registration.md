@@ -48,13 +48,20 @@ rejected as malformed. Formal construction proofs remain independent of both.
 **Diagrams and universal answers.** The input form of a limit or colimit is the diagrams of its
 category, and its form id is the category's id (`cat.sets`). A diagram is sent as the standard
 diagram's name with its explicit arguments in their forms, e.g.
-`{"ctor": "cospan", "args": [f, g]}`. The answer is the complete universal datum,
+`{"ctor": "cospan", "args": [f, g]}`. The answer proposes the complete computational data for that universal construction,
 `{"ctor": "cone" | "cocone", "args": [apex, leg₁, …]}`. The kernel decodes it against the
 data fields of the standard cone constructor of the shape:
 - the apex is a named object or a literal of the category;
 - each leg uses the declared map interface at its complete endpoints, including a finite
   graph or an owned callable when that interface admits one;
 - formal commutation proofs remain with the independent mathematical construction.
+
+The apex-and-legs wire example illustrates the ordinary fragment. If a promised
+construction requires higher cells or coherences as computational data, its declared
+form/interface must retain those components and their boundaries for subsequent use;
+they cannot simply be erased as proof fields. The formal coherence laws still belong
+to accepted mathematics. Missing required higher data is an explicit gap under CC-HIGHER,
+not permission to claim that an ordinary cone represents the stronger construction.
 
 A missing leg or a leg that is not a map at the declared endpoints makes the answer
 malformed (CC-DECODE). Commutation of the returned data is a correctness question for
@@ -67,7 +74,7 @@ requested construction, the formal functor and input independently fix its meani
 structure. The answer retains all computational fields without becoming a proved identification
 with that construction. Optional `presentation` maps retain their declared directions and full
 endpoints as computational data. Inverse equations and inclusion squares are correctness
-questions for acceptance, not prerequisites for promoting the answer to a formal subobject.
+questions for acceptance; decoding never promotes the answer to an authoritative formal subobject.
 Prescribed formal lifts determine the semantic construction; computational lifting preserves
 the returned inclusion and complete representation. A well-formed wrong structured answer,
 like a well-typed wrong numeral, reaches acceptance as a wrong answer.
@@ -457,12 +464,36 @@ These go, in the code and in every document that describes them:
 
 ## Acceptance of the replacement
 
+### Mathematical observations
+
+- Every fixed assertion has its independently selected operation, relation, full parameters,
+  structures and morphisms, unchanged by adding, removing or replacing leaves.
+- A computed structured answer supplies the complete data requested by that construction.
+  Its required defining maps are used in the existing subsequent questions at their full
+  endpoints and through the selected comparisons/lifts. A matching apex cardinality alone
+  does not establish correctness of a cone, subobject or its defining morphism.
+- The observation uses the admitted relation on denotations and its accepted comparison
+  semantics. Equality of wire data, presentation identity or an unspecified isomorphism
+  cannot replace that relation.
+- The independent fixed questions judge well-formed computational answers, including
+  deliberately wrong answers such as cardinality always `7`. A wrong value may affect
+  subsequent computations using it, but never changes their mathematical meaning, domain
+  or available operations.
+- The existing `.cas` suite remains complete. What no registration computes stays an
+  explicit computational gap. A statement Lean proves holds with no leaf installed;
+  a well-typed comparison Lean refutes retains its specified wrong outcome. Where the fixed requirements demand registered execution, proof discharge
+  alone does not complete the observation.
+
+### Supporting boundary and execution checks
+
 - A leaf package contains no `.lean` file, and nothing in `lean-cas-dsl` imports one.
-- The contract's registration type has exactly the three fields above.
-- A deliberately wrong leaf answer, for example cardinality always `7`, turns the affected
-  assertions `wrong` and changes nothing else: no meaning, no type, no available operation, and no
-  other assertion's outcome.
-- A leaf answer that is not a value of the result form is `malformed`.
-- A statement Lean decides holds with no leaf installed.
-- The existing `.cas` suite runs through the new reading. What no registration computes is
-  reported as a gap, never hidden.
+- A registration has exactly the three published fields above; no leaf supplies semantic
+  declarations, proof, denotation or self-certification.
+- Encoding/decoding checks the declared form and complete dependent interfaces. Missing
+  fields or incompatible endpoints are malformed; a well-formed mathematical error is
+  judged wrong, not promoted to a proof or hidden as malformed.
+- Actual supplied maps and ownership survive subsequent computation. Missing registrations,
+  unavailability, malformed output and internal/resource failures remain distinct.
+- The existing public-only contributor trial uses the published contract and an unchanged
+  target consumer. Its mathematical observations and the fixed frozen trials remain #24's
+  responsibility.
