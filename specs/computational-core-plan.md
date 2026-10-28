@@ -136,6 +136,14 @@ failed, so earlier pass counts are preservation evidence, not current acceptance
    arrives, and prepare genuinely new service requests at their own boundary.
    Preserve nonidentity transport, distinct producers, lazy demand, adequate fused
    realization, failure distinctions, ownership and fresh-evaluation/replay behavior.
+   The [wire/recipe source review](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6469367722) sharpens the same chain: reuse the
+   authoritative protocol framing and retain its typed view; fixed recipe constructors
+   enforce child roles/arity, while open applications retain validated registry references
+   and their checked signatures. Scoped operand access retrieves actual retained data,
+   interface and ownership, never a payload regenerated from the formal expression.
+   Delete duplicate framing interpretation and the chain's equal-packet recovery path.
+   Preserve the published wire and its malformed checks; ordinary JSON deriving, a
+   global tag enumeration or a zero-string/tag-read quota is not a prerequisite.
    #23's existing consumer forecast distinguishes mathematical expressibility, source-side
    lift/closure, executable presentation/maps and admission evidence for subsequent use;
    it adds no algorithm rewrite or new V1 inventory. This comparison uses the existing
