@@ -113,6 +113,22 @@ failed, so earlier pass counts are preservation evidence, not current acceptance
    one required structured-result/nonidentity-transport chain that consumes the actual
    retained data and defining map through the checked #69 boundary. Remove that chain's
    old bypass; a new wrapper around the old path is not closure.
+   The [verbatim evaluator and mathematical-data assessment](reuse/kernel-evaluation-machine-assessment.md)
+   supplies a bounded implementation comparison for this same #69 chain:
+   > A consumer refers to a particular computation and its declared outputs. It does not reconstruct that computation from a mathematical expression or carry its own partially updated copy of the producer’s state.
+   
+   Reuse the existing selected plans, occurrence identity and validators to compare an
+   explicit computation machine with the current recursive evaluator. It must retain
+   the complete construction and defining maps, then project and use a declared map
+   through the same producer occurrence and selected endpoints. Replace the chain's
+   competing orchestration and completion/result writes; an instruction that merely
+   invokes the unchanged observer does not satisfy the removal test. Preserve lazy
+   demand, adequate fused realization, failure distinctions, ownership and existing
+   fresh-evaluation/replay behavior. The mathematical-data examples feed #23's existing
+   consumer forecast through their upstream owners; they add no algorithm rewrite or
+   new V1 inventory. This comparison uses the existing first-two-working-day allocation,
+   not a separate infrastructure phase; continue with the representation that closes
+   the obligation. #24's acceptance and #71's certificate status remain unchanged.
 3. **Extend only a demonstrated implementation.** Reuse adequate resolver, service-request,
    lift and schema machinery. A selected-application comparison with Lean elaboration
    is justified when it removes a reproduced reader obstruction and deletes manual

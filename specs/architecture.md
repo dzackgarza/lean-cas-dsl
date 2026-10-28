@@ -106,6 +106,20 @@ non-documentation changes; `lean-categories`' totality gate runs in its own buil
 Constructor applications and family parameters are typed mathematical data, never strings such as
 `"Modules(QQ)"`. Otherwise a backend's spelling can leak into semantic identity.
 
+## Evaluator and mathematical data: bounded implementation trial (2026-10-28)
+
+The owner requested integration of the [verbatim evaluator and mathematical-data assessment](reuse/kernel-evaluation-machine-assessment.md). Its implementation comparison belongs to the existing #69 first-complete-chain trial under #10.
+
+> A consumer refers to a particular computation and its declared outputs. It does not reconstruct that computation from a mathematical expression or carry its own partially updated copy of the producer’s state.
+
+Use the existing selected applications, complete category contexts, `CapturedInvocation`, `StructuredResult.DataPlan`, `RoutedResultPlan`, registered comparisons and validators. Evaluate an explicit computation machine with one authoritative result location per occurrence and declared field references as a replacement for that chain's recursive orchestration, competing completion updates and post-preparation expression recovery. The machine adds no mathematical authority or second semantic calculus. A new instruction that calls the old observer unchanged does not establish the proposed simplification.
+
+Keep administrative transitions separate from effectful Lean elaboration/validation and backend IO. Demand the dependencies required by the selected realization; preserve lazy demand and adequate fused realization of a fixed composite, including when its primitive implementations are absent. Do not fabricate intermediate execution receipts.
+
+Mathematical forms retain the defining data needed for subsequent use: selected presentations, actual basis changes, quotient/inclusion maps, and universal-construction data. Refinement preserves the original selected structure and explicitly justifies any added structure or transported view. These meanings and laws remain with the mathematical declarations; the kernel executes their registered interfaces. The historical basis-change example does not add an LLL implementation or a new V1 domain requirement.
+
+The unchanged #24 conditions judge the completed mathematical computations and independent extensibility. A returned witness is not automatically correctness evidence; #71's certificate-primary-evidence proposal remains unadopted. This record creates no new framework milestone, coordination component or acceptance gate.
+
 ## Invariants
 
 * **Single semantic authority.** One ontology, in `lean-categories`. No shadow graph,
