@@ -144,6 +144,23 @@ libraries such as the ∞-cosmos project and `sinhp`'s fibred categories, UniMat
 agda-categories, the Isabelle AFP, and the rest of the index). A Lean hit is imported or
 ported with provenance; a non-Lean hit is a reference implementation to follow.
 
+Searches follow the kind of obligation. Mathematical definitions and proofs retain the
+formalization-corpus search and the existing rules for semantic ownership. Runtime
+representations, interpreters, codecs, caches, engine interfaces and related implementation
+work also search relevant software libraries and reference implementations. Use package
+indexes such as Reservoir for discovery and inspect actual source; relevant CAS designs
+include CAP/homalg, Catlab/GATlab, Sage categories, Aldor/FriCAS and MitM/MMT, with prover-side
+CAS interfaces where the boundary is the obligation. This is a source-appropriate search,
+not a requirement to query every named project for every change.
+
+The existing work record identifies the inspected source/revision, the specific responsibility
+it supplies, and whether it is imported, ported/adapted or rejected, with compatibility and
+boundary reasons. An unavailable index or unsuccessful query is not evidence that no
+implementation exists. A software reference does not determine mathematical meaning, the
+trust boundary or acceptance. Current program/lifecycle work applies this in the existing
+`cc-realize-2cat` record and #79 trial; no new index service, per-type gate or bulk retrospective
+rewrite is a prerequisite.
+
 Only the **glue** between found results, and the **residue** that no indexed source
 supplies, is written by hand. The searches, their hits, and the reason each hit does or
 does not discharge the obligation are recorded with the work (in the commit and in the
@@ -154,6 +171,44 @@ programme creates, including those that arise in the middle of a proof.
 
 **Acceptance.** Every commit that adds a definition or a nontrivial proof under this
 programme cites its search record; a reviewer can rerun the queries.
+
+### CC-HIGHER — Retain the coherence required by the construction
+
+The mathematical ambient is the model-independent higher-categorical setting of
+[FOUNDATIONS §§1–2](https://github.com/dzackgarza/lean-categories/blob/8782c22ba613a022a84a1e910b6489cc2503e29a/FOUNDATIONS.md#L57-L86), consistent with
+[the inherited higher-invertibility requirement](https://github.com/dzackgarza/sage-categories/blob/37ec1642fe19f24fb00f402fe45350341ebf6920/DECISIONS.md#L96-L102).
+Ordinary categories, functors and natural transformations form a supported fragment;
+they do not impose a dimension-two ceiling.
+
+For every construction claimed as supported, identify its full diagram, comparison-cell
+boundaries and higher compatibilities required for composition, substitution, transport
+and its universal property. Retain that coherent extension in every dimension the
+construction needs. Invertibility supplies inverses to existing cells; it does not provide
+missing comparisons, identify arbitrary parallel cells or establish all higher coherence
+from pairwise comparisons. A boundary and its coherent extension are different mathematical
+data ([FOUNDATIONS §§9–10](https://github.com/dzackgarza/lean-categories/blob/8782c22ba613a022a84a1e910b6489cc2503e29a/FOUNDATIONS.md#L622-L684)).
+
+Use the identities, compositions, whiskerings and compatibility supplied by the accepted
+mathematical presentation. A formal generator, its mathematical interpretation and a
+computation of its components remain distinct obligations. Mathematical declarations and
+their validity belong upstream; an external computation cannot create a comparison or
+supply trusted evidence of its laws.
+
+A strict or truncated presentation may realize the intended construction only with the
+appropriate adequacy/comparison argument. In particular, a strict categorical pullback can
+exist without an isofibration hypothesis, while using it for the invariant homotopy
+pullback of [Remark 7.4](https://github.com/dzackgarza/lean-categories/blob/8782c22ba613a022a84a1e910b6489cc2503e29a/FOUNDATIONS.md#L502-L504) needs the required comparison theorem.
+A missing required higher declaration or realization remains an explicit, owned gap; it is
+not discharged by a lower-dimensional library or an engine's claim.
+
+**Acceptance and ownership.** #82 states the construction-specific higher scope; #66
+(KM2/KM3/KM8) preserves its complete selected question; #69 (KM4–KM7) consumes the declared
+actions and construction data; #24 (KM9) independently checks the promised mechanisms.
+#23 identifies the required higher/coherent constructions in consumer mathematics.
+For each claimed construction, identify its accepted source, actual consumer and full
+boundary/extension, or its precise missing input. Existing ordinary constructions remain
+valid in their justified fragment. This does not demand unrelated completion of all higher
+category theory, or change the fixed V1 questions to fit an implementation.
 
 ### CC-CALC — A typed semantic calculus, not a name graph
 

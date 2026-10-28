@@ -7,7 +7,7 @@ This file says where each kind of contribution goes.
 
 | You need | It goes to |
 | --- | --- |
-| A category, functor, classifier, operation (method), predicate, coherence, constructor or family that is not yet formal | `lean-categories`, through its independently assigned mathematical requirement and sources. A kernel worker records the missing accepted input, never authors or commissions the upstream repair. Consume the independently accepted release at an explicit compatible pin; never coin it downstream. |
+| A category, functor, classifier, operation (method), predicate, coherence, constructor or family that is not yet formal | `lean-categories`, through its independently assigned mathematical requirement and sources. A kernel worker records the missing accepted input, never authors or commissions the upstream repair. Consume the upstream mathematics under the current dependency rule; never coin it downstream. |
 | A computation of a registered operation on one of its declared input forms | A leaf, in `lean-cas-dsl-leaves` or another package written against the leaf contract |
 | A proposition the language should always make true | `tests/acceptance/*.cas`, as a permanent test |
 | Resolution, calls, the language or surface syntax | The kernel (`CasCatalogue/`) or the notebook (`CasDsl/`), under a plan node in `specs/computational-core-plan.md` |
@@ -15,8 +15,9 @@ This file says where each kind of contribution goes.
 
 The semantic registry is `lean-categories`' (`LeanCategories.Catalogue`, rows under
 `LeanCategories/Catalogue/Semantics/`). `normalized_registry` refuses every module outside
-`lean-categories`; this repository reads the registry at its explicitly pinned, independently
-accepted mathematical release. Upstream `main` is not automatically that release.
+`lean-categories`. Own-organization dependencies follow the architecture's latest-`main`
+rule; record the exact revisions actually loaded for a build or execution. This source-selection
+rule does not transfer mathematical authority to the kernel or a leaf.
 
 ## Mathematics is never inverted into implementation
 

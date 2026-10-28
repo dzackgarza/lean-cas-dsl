@@ -138,29 +138,65 @@ obligations. Reuse their ownership, retention and dependency lessons through the
 existing Lean declarations; do not add another semantic graph or transplant the
 older projects' leaf import restrictions.
 
-## Evaluator and mathematical data: bounded implementation trial (2026-10-28)
+## Categorical realization and complete construction data (2026-10-29)
 
-The owner requested integration of the [verbatim evaluator and mathematical-data assessment](reuse/kernel-evaluation-machine-assessment.md). Its implementation comparison belongs to the existing #69 first-complete-chain trial under #10.
+The work order is mathematical. A selected functor F:C→D determines inherited use on F(x);
+a required comparison α:F⇒G is applied through its specified component, direction and
+parameters. A universal construction retains its actual apex, defining morphisms and
+mediators through subsequent use. The full higher boundary and compatibilities follow
+CC-HIGHER and #82; a collection of pairwise cells is not automatically a coherent diagram.
+Formal meaning belongs to the accepted mathematical declarations.
 
-> A consumer refers to a particular computation and its declared outputs. It does not reconstruct that computation from a mathematical expression or carry its own partially updated copy of the producer’s state.
+The owner requested the [verbatim evaluator assessment](reuse/kernel-evaluation-machine-assessment.md).
+It remains an implementation proposal subordinate to this mathematical requirement.
+The [later source assessment](https://github.com/dzackgarza/lean-cas-dsl/issues/79#issuecomment-6476550921) identifies concrete candidates:
+a common checked interpretation of selected requests, explicit references to actual produced
+components, and one authority for completion and reuse. These do not define new mathematical
+objects or replace the categorical obligations.
 
-The [source-checked #76 disposition](https://github.com/dzackgarza/lean-cas-dsl/issues/76#issuecomment-6470193379) changes the first representation experiment: test owned references to the actual apex and defining maps before extending the packet-validation plan. This replaces the earlier preference to extend `StructuredResult.DataPlan` first. Reuse adequate occurrence/service storage and evaluation, without guaranteeing preservation of any current module. The boundary retains complete selected interfaces, actual producer/output and endpoint associations, declared field roles and live ownership. A private payload need not become an inspected JSON graph; later consumers use the checked reference instead of recovering these relationships from its representation.
+Test Lean's existing scoped declarations for prepared computations, while preserving the
+mathematical definition's use context and the actual result's lifetime. Definitions evaluated
+at their use cannot all become eager captured results. A normalized expression is not an
+execution occurrence. Reuse of a produced result, fresh evaluation and deliberate replay
+retain their established meanings.
 
-Use existing opaque forms where adequate. A required public protocol extension must be explicitly specified and published in the trial's successfully built contract slice; preserve declared portable forms and literal decoding where needed. An owner token does not provide an arbitrary application or projection service. Name the executor for each selected action: an admitted operation, public target constructor/bridge, or generic kernel orchestration over checked references. A handle facade that invokes the unchanged reflective packet recovery, or moves generic interpretation into each leaf, has not established the simplification. Remove the trial's old recovery and competing completion paths in a compiling substitution; record work eliminated and transferred and measure actual costs. A new reducer is warranted only if it also removes demonstrated scheduling/completion duplication.
+The public interface must provide authoritative access to the actual supplied apex and maps,
+whether portable or owned by their supplying realization. Preserve every admitted reply
+alternative, its actual endpoint/owner associations, and the public operation or bridge used
+by subsequent morphisms. A private reference alone supplies no morphism action. An unchanged
+target consumer must accept the independently authored source through the published contract.
 
-Preparation is staged: fix known relationships once, instantiate declared dependent representation slots when data arrives, and prepare genuinely new public service requests at their own boundary. Runtime data does not select a new mathematical operation, admit itself into a domain, or replace an earlier occurrence. This is a consolidation hypothesis with named deletions, not a proven replacement architecture or a prohibition on all runtime elaboration. Formal composability does not supply an absent executable presentation comparison, bridge or universal-factor algorithm.
+Required comparison transport remains explicit; retaining provenance does not dispatch every
+comparison unconditionally. An adequate direct realization of a whole composite remains
+valid even when primitive implementations are absent. Mathematical equality does not imply
+identical effects or correct answers of arbitrary computations, and unexecuted intermediate
+steps acquire no fabricated results.
 
-Keep administrative transitions separate from effectful Lean elaboration/validation and backend IO. Demand the dependencies required by the selected realization; preserve lazy demand and adequate fused realization of a fixed composite, including when its primitive implementations are absent. Do not fabricate intermediate execution receipts.
+Mathematical forms retain selected presentations, actual basis changes, quotient/inclusion
+maps and universal-construction data where required. Refinement preserves the selected
+structure and justifies added structure or a transported view. These laws remain upstream.
 
-Mathematical forms retain the defining data needed for subsequent use: selected presentations, actual basis changes, quotient/inclusion maps, and universal-construction data. Refinement preserves the original selected structure and explicitly justifies any added structure or transported view. These meanings and laws remain with the mathematical declarations; the kernel executes their registered interfaces. The historical basis-change example does not add an LLL implementation or a new V1 domain requirement.
+Within #69's existing first construction/comparison/defining-map chain, remove the competing
+recursive interpretation, expression/packet recovery and completion paths in a compiling
+substitution. Wrapping the unchanged observer does not establish the replacement. Preserve
+the complete interface under preparation, composition, projection, application, comparison,
+failure and reuse; connect that finite argument to the actual constructors and transitions
+before broad migration. Pure state updates may be separated from elaboration/validation and
+backend effects; this is implementation structure, not a new semantic theory.
 
-Before broad consumer migration, connect the small boundary's preservation argument to its actual types, checked constructors and transition functions. Preparation, completion, alias/projection, transport, application/services and failure/session/replay preserve the checked relationships among selected interfaces, producer/output associations, endpoints, comparison direction, actual defining data and ownership, transforming interfaces/references only as the selected transition declares, or report the proper failure. The executed chain supplements this finite case argument; a new transition extends it before that family migrates. Publish the successfully built public API slice and include a separately assigned public-only source author feeding the unchanged target consumer in this initial trial. This brings existing obligations forward without requiring full API delivery first.
+The same initial chain includes public-only independent use of the built contract with an
+unchanged target consumer. Preserve lazy/fused evaluation, actual defining-map use, required
+fields, failure distinctions and session/replay behavior. Measure removed or transferred work
+and actual costs. Source counts and categorical vocabulary are not evidence of completion.
 
-The [source-checked #75 review](https://github.com/dzackgarza/lean-cas-dsl/issues/75#issuecomment-6469145591) identifies failure distinctions that this boundary must also preserve. Speculative mismatch may be discarded only while the declared selection rules permit it; selected invalidity, a broken retained application and resource exhaustion are not alternate readings. Completed unsupported-schema inspection and exhausted inspection are distinct, including at completion: a kernel resource failure cannot be charged as a malformed leaf reply. Retain successful schema preparation and speculative rollback; source construct densities do not establish these properties.
+Route completeness is the precise K11 obligation. A quotient does not retain executable
+comparison witnesses, and a non-increasing well-founded measure alone does not prove a finite
+reachable enclosure. CC-COHERE permits distinct structures and ambiguity; it does not force
+every structural cycle to be identity.
 
-The evidence firewall withholds mathematical authority from leaf answers; it does not erase required fields, interface checks, literal decoding or malformed/wrong/unavailable distinctions. Handles may remove private-payload inspection, not these obligations. The #76 whole-kernel deletion manifest, line caps and module-targeted probe bans are not adopted. Formal dependent selection, coherence, admission/lift choice and preservation of the question still need implementations; their current files may be replaced. Delete redundant paths with their compiling replacement and preserve the corresponding behavior controls.
-
-The unchanged #24 conditions judge the completed mathematical computations and independent extensibility. A returned witness is not automatically correctness evidence; #71's certificate-primary-evidence proposal remains unadopted. This record creates no new framework milestone, coordination component or acceptance gate.
+#24's complete independent acceptance and the evidence model remain unchanged. #71's proposed
+certificate-primary model is unadopted. #77's linter package, a protected deletion manifest,
+line caps and a global quotient/computad implementation are not prerequisites.
 
 ## Invariants
 

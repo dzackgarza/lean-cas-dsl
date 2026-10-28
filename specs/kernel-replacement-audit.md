@@ -1,5 +1,7 @@
 # Kernel replacement audit (`cc-kernel-audit`, 2026-09-29)
 
+**Current scope (2026-10-29).** The table below is its dated source snapshot, not a current absence inventory. CC-HIGHER and #82 now own the higher-coherence scope; #66/#69/#24 consume and assess the complete declared data. Current ordinary [CellAction](https://github.com/dzackgarza/lean-cas-dsl/blob/60771b7c3fba512ad19c0974a009cd8435133165/CasCatalogue/CellAction.lean#L11-L149) includes selected isomorphisms/inverse direction and constructor comparison components. That is not evidence of a general higher-dimensional coherent-diagram consumer. Reassess each required construction against its actual mathematical source and consumer; retain precise missing higher declarations/realizations rather than silently closing the higher-cell rows with two-dimensional machinery.
+
 Step 1 of "Current direction" in [computational-core-plan.md](computational-core-plan.md). For each
 `sage-categories` milestone-A kernel node, the capability obligations of its owning contract, and
 what in the Lean system replaces each. Read-only audit at lean-cas-dsl `71d6123`, lean-categories

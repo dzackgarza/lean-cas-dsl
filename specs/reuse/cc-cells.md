@@ -25,8 +25,11 @@ Direct check: `Mathlib/CategoryTheory/CatCommSq.lean` (`CatCommSq T L R B`: an i
   compute.
 - The list functor and its cells: Mathlib `ofTypeMonad List` (unit, join); reversal from
   `List.map_reverse`, `List.reverse_reverse` (lean-categories `Foundation/ListFunctor.lean`).
-- infinity-cosmos: not needed for 1-categories of handles; revisit if a node needs the homotopy
-  2-category of an ∞-cosmos.
+- The 2026-09-29 dependency decision concerns the then-implemented ordinary categorical
+  fragment only. It does not bound the programme at dimension two. CC-HIGHER/#82 requires
+  the complete higher boundary and compatibility data of each promised construction; assess
+  higher-category libraries against that actual requirement, without assuming pairwise cells
+  or a homotopy 2-category automatically preserve it.
 
 ## New code, and why no dependency supplies it
 The registry row `cell` (a registered `NatTrans` or `Iso` between registered functor expressions),

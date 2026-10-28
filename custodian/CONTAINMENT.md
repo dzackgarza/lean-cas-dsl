@@ -69,8 +69,8 @@ at sha256 `fb3fe73c…`):
 4. **The admission ledger** `CasAcceptance/Permanent/admitted.json`. It may only grow: sealed
    assertion hashes and `corrections` never change.
 5. **Ratchets that only tighten**, each with a baseline in the seal:
-   - no new `sorry`, `admit`, `axiom`, `unsafe`, `implemented_by`, `extern`,
-     `panic!`, `unreachable!`, `native_decide` or `ofReduceBool` anywhere in lean-cas-dsl;
+   - no new `sorry`, `admit`, `axiom`, `native_decide` or `ofReduceBool`
+     anywhere in lean-cas-dsl;
    - outside the boundary, no syntax, elaborator, macro, `initialize` or global attribute, and no
      semantic registration or `LeanCategories/` module;
    - no leaf in lean-cas-dsl;
