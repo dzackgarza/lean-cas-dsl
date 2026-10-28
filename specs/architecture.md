@@ -349,26 +349,30 @@ package boundary. A rule in prose alone does not count.
 
 ## The orchestrator is inside the threat model
 
-The purpose of these repositories is to show that agents are forced into the intended model by
-tight contracts, so that the model scales and stays maintainable. Producing usable mathematics is
-not the purpose. The orchestrator is an agent like any other. It drifts, ignores policy, and
-builds exemptions into the gates it writes. A restriction that the restricted party can rewrite,
-exempt itself from, or satisfy with a label it writes about itself contains nothing.
+The purpose of these repositories is to deliver a usable, extensible, backend-blind computer
+algebra system. Typed contracts, generic interpretation and independent acceptance protect
+mathematical meaning and allow ordinary extensions without repeated repairs to the kernel or
+existing leaves. These requirements govern how the system is built and extended; they do not
+suspend its required computations. The orchestrator can make mistakes in implementation,
+interpretation and the controls it writes. Its authorship or self-assessment cannot establish
+independent acceptance.
 
 **The failure being designed against** (`research` `00e2a44`: 402 surface-test commits against
 about sixteen lines of architecture). A locally convenient repair acquires semantic authority. It
 creates new interactions, and later agents must repair those. Each repair becomes the premise of
 the next: a placement changed to obtain an interface, absent data reconstructed, a forwarding
 layer added, tests adjusted to the result. More policy then produces new forms of literal
-compliance. Executable coverage and green CI measure that process; they do not measure progress
-against it.
+compliance. Executable coverage and green CI establish behavior for the observed cases; they do
+not by themselves establish closure under the supported extension mechanisms.
 
-**The unit of progress** is a class of harmful interventions that an agent can no longer express
-through its interface. Missing mathematics is compatible with success at this stage. A large
-passing demonstration built through exceptions is not. A leaf returning a wrong cardinal is an
-allowed computational failure. A leaf that makes an object lose its group operations, or that
-obliges descendants to forward a future method, is a failure of containment. The two never
-carry comparable weight in a review.
+**Progress** consists of completed generic capabilities against the fixed requirements, together
+with evidence that the supported extension mechanisms compose and preserve mathematical meaning.
+Required computational workflows and structural constraints are separate obligations: passing
+examples do not establish general extension closure, and rejecting prohibited cases does not
+establish the required positive capabilities. A missing computation remains an explicit gap; it
+cannot satisfy a required workflow's acceptance. Algorithms outside the fixed required workflows
+may remain unavailable. A wrong cardinality is a computational failure; a leaf changing an object's
+mathematical interface violates the semantic boundary. Each is assessed against its own requirement.
 
 **Two boundaries**, assessed separately:
 1. *Extension.* With the mathematics and the kernel fixed, no leaf change reaches beyond
@@ -386,9 +390,13 @@ interfaces that do not expose the mechanisms of global semantics. The target is 
 list of prohibited spellings and exception detectors. Changes to the substrate remain possible;
 their author cannot also accept them.
 
-Historical holes first recorded on 2026-09-30. Source fixes do not establish deployed containment;
-each remains an implementation dependency until the actual authoritative path is independently
-verified. Required mechanisms below do not assert that current hosting controls supply them:
+The following observations and proposed remedies were first recorded on 2026-09-30, with later
+corrections noted in individual rows. They describe historical implementation states; the table
+is not a checklist of current prerequisites. Interpret the proposed mechanisms under the
+subsequent construction mandate and owner rulings, including the 2026-10-10 distinction between
+permitted conduct and technical capability, and the 2026-10-23 V1 assignment. A historical mechanism
+is not a governing requirement merely because it appears here. Current defects remain subject to
+the fixed requirements and independent acceptance:
 
 | Hole | Why it contains nothing | Mechanism needed (owner's authority) |
 | --- | --- | --- |
@@ -413,7 +421,10 @@ an independent judgment bound to exact content and an authoritative transition t
 cannot perform or bypass. A signature or hash is insufficient when its author also controls the
 accepted reference or the evaluator that verifies it.
 
-Until these close, an orchestrator claim about its own gates or deliverables is not evidence.
+Source inspection, builds, probes and execution results provide evidence within their demonstrated
+scope; they do not by themselves constitute independent acceptance. Authorized construction
+proceeds under the current mandate. Final acceptance depends on the fixed requirements and the
+delivered candidate, not on closing every remedy proposed in this historical table.
 
 ## B0 policies
 
