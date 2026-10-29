@@ -2378,7 +2378,9 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
       | none => Trace.new
     let closedTerms ← IO.mkRef ({} : Std.HashMap String Value)
     return ← withReader (fun context =>
-      { context with trace := some trace, sourceTrace := none,
+      { context with
+        trace := some trace
+        sourceTrace := none
         closedTerms := some closedTerms })
       (eval scope stx category? ambient?)
   -- Printed source does not include quotation scopes. Distinct exact file bindings
@@ -8992,7 +8994,9 @@ partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value :=
       let argumentContext ← readCarrier originalSource
       let candidate ← try
         pure (some (← withReader (fun context =>
-          { context with trace := some temporary, sourceTrace := none,
+          { context with
+            trace := some temporary
+            sourceTrace := none
             closedTerms := temporaryCache })
           (eval scope argumentSyntax none (some argumentContext))))
       catch error =>
