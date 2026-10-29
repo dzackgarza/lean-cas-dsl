@@ -7,60 +7,78 @@ own the work order. #66 owns complete mathematical interpretation; #69 owns comp
 #24 owns integration and independent acceptance. #23/#82 review construction requirements
 and exact mathematical inputs alongside that work.
 
-## Issue #83: measured feedback and build recovery — 2026-10-30
+## Issue #83: measured feedback and build recovery — 2026-10-30 (Asia/Taipei)
 
-The owner made #83 the immediate priority. Its source is published through PR #67:
-`3beca435342d296fcdb462cd427b4220a850237b` preserves the exact recovered implementation
-checkpoint, and `b956a874ef58c8ee069c391d5108fc236407b537` fixes the observed GitHub workflow
-context error. The corrected workflow passes actionlint 1.7.12 and its candidate run
-[40931285588](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40931285588) has reached
-production compilation before engine setup. Inspect its final result; no cache-save or
-integration pass is inferred from a running step.
+The measured implementation is published through [PR #67](https://github.com/dzackgarza/lean-cas-dsl/pull/67).
+`3beca435342d296fcdb462cd427b4220a850237b` preserves the recovered diagnostic implementation;
+`b956a874ef58c8ee069c391d5108fc236407b537` fixes the observed workflow context error;
+`1a4085edd4b622b02c2b7e40a43f5532f9fc58c7`, tree
+`48cb6fad7614a569d73645ee2c3661452243cc47`, contains the measured Realize extraction.
+The subsequent source fixes executable permission at the shared Lake-wrapper generator and
+adds the two previously unlisted framing/occurrence controls to the candidate workflow.
+The generated wrapper's command bytes are unchanged; direct `env lean --version` and the
+original runtime invocation pass. Python syntax and actionlint 1.7.12 pass.
 
-The implementation includes the standard project Lean MCP configuration, one current
-check sequence, the original-prefix RX-LIFT driver, production-before-engines CI ordering,
-standard artifact restore/save, and failure-only producer/action/endpoint context. The
-original guard, failure stratum, mathematical inputs, assertions and 200000 shared runtime
-budget remain unchanged.
+| Completed observation | Result and scope |
+|---|---|
+| Actual diagnostic edit, persistent LSP | Completed, error-free warm feedback in 57.430 s; original hover/references 0.238/0.056 s. |
+| Fresh monolithic Realize artifact | 463.365 s; peak child RSS 6645140 KiB. |
+| Fresh extracted Realize artifact | 36.034 s; peak child RSS 2627144 KiB; the support artifact's bytes and mtime are unchanged. This is the measured benefit for edits confined to the evaluator. |
+| Recovered persistent LSP | Completed error-free cold diagnostics in 46.108 s including client connection; hover/reference calls 0.060/0.066 s. Reopening a closed file took 36.589 s; this is not a warm edit. |
+| File-worker release | Realize worker 87607 exited; MCP 82028 and watchdog 82066 remained. Summed RSS fell from 4454680 to 2551096 KiB. Shared pages are counted more than once in that sum. No new OOM kill occurred during the following artifact build. |
+| Relocated artifact restore | Standard PAX/zstd extraction took 7.829 s. Ordinary Lake validation of all eight driver imports completed in 10.509 s; all 57485 files retain identical bytes, permissions and nanosecond mtimes. No trace edits, timestamp edits or dependency refresh. |
+| Original first question, restored candidate | Command 31.144 s; preparation 5990 ms and execution 10183 ms. Same `NoImplementation` gap; no mathematical acceptance. |
 
-Completed local measurements on the preserved source tuple:
+The extraction preserves every original declaration body, all 23 public imports, and all
+734 named declaration headers. Its source reconstruction matches original Realize SHA-256
+`62566cbe653224633dbe501471a9b89158d7456e4d9a1c9789f8ff4244ca713e` exactly.
+The three private helpers remain private with their callers. The purity gate adds
+`import all CasCatalogue.Realize.RuntimeSupport`, retaining private-body inspection; its
+rules are unchanged. Support changes still require the support compilation: the completed
+recovery build took 399.698 s after reusing the already compiled dependencies.
 
-- The original production diagnostic edit received completed error-free persistent-LSP
-  diagnostics in 57.430 seconds; hover/references took 0.238/0.056 seconds.
-- The first artifact attempt ended with code 137. Its recovered resource snapshot and the
-  cgroup OOM count exposed overlap between the large file worker and compiler.
-- The isolated fresh `CasCatalogue.Realize:olean` build passed 3802 jobs in 463.365 seconds,
-  with peak child RSS 6645140 KiB and no additional OOM kill.
-- The unchanged first RX-LIFT question then completed in 24.711 seconds. It preserved all
-  22 preceding bindings and the original budget. Preparation took 5704 ms and execution
-  8500 ms. Its result remains `NoImplementation`: prospective admission of `op.rings.neg`
-  compares endpoint producers 6 and 16 whose JSON, selected action, intrinsic assembly and
-  payload differ. This identifies the original failure; it does not satisfy the assertion.
+The paired first-question reports preserve the complete question, line 36, all 22 preceding
+bindings, the six normal/meta semantic imports, one shared harness, 104 trace nodes and the
+original 200000 budget. Full 4950-character failure details, rejected registrations and every
+dispatch request/ownership field match. The reports differ only in four absolute paths,
+eight timing/heartbeat values and one fresh opaque session token, whose sole occurrence and
+owner were checked explicitly. Total heartbeat work changes by 1636 raw ticks. The original
+24.711 s command versus the new 31.144 s command does not establish a runtime speedup.
+The common gap is prospective admission of `op.rings.neg`: endpoint producers 6 and 16 differ
+in JSON, selected action, intrinsic assembly and payload. No assertion or guard was weakened.
+The independent leaf remains `11201337b491b9a354cd3385984f8a494fc83a88`; native imports verified
+Python 3.12.14, Sage/PassageMath 10.8.13 and GAP 4.16.1 against the unchanged engine lock.
 
-The following extraction preserves every original declaration body: the stable records,
-port/harness, validation/preparation routines and callback evaluator move into
-`CasCatalogue.Realize.RuntimeSupport`; the existing recursive evaluator and diagnostics
-remain in `Realize`. All 23 public imports and 734 named declaration headers are retained.
-The three private helpers remain private with their callers. The purity gate imports the
-new module with `import all` so its private bodies remain visible to the existing rules.
-The artifact observer includes both modules. The source reconstruction exactly matches
-pre-extraction Realize SHA-256 `62566cbe653224633dbe501471a9b89158d7456e4d9a1c9789f8ff4244ca713e`.
-The support module compiled in 427.852 seconds; the extracted evaluator received completed,
-error-free cold LSP diagnostics in 51.332 seconds. The smaller evaluator's fresh artifact,
-protected negatives, paired runtime and restore/reuse measurement remain pending.
+`ArrowFramingReuseProbes` and `IntrinsicOccurrenceProbes` pass by fresh local elaboration on
+the restored source. The latter's first invocation omitted the public protocol helper
+environment; its unchanged source passes with the same environment used by the runtime.
+`ReducedParameterActionProbes` and `QuestionComparisonProbes` pass in the exact-source
+[candidate CI run 40939669884](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40939669884).
+That run restored the prior production cache, retained ConstrainedPoint/Language artifacts
+unchanged, rebuilt the changed modules, and saved the new cache before engine setup.
+Its later consumer build has exactly the same 119 full multiline errors across 48 failed
+targets as the pre-extraction run. No new error was introduced. KernelPurity and native
+linking were not reached; neither is claimed to pass.
 
-The prior chat's scratch checkout was automatically cleaned during verification. Published
-source, the extraction patch and the new measurement records survived in the active workspace;
-the compiled state did not. Work resumed from the published branch without rewriting accepted
-questions or reconstructing source by inference. Preserve the resulting cache and records before
-another workspace transition. The active checkout is under the current conversation workspace;
-the published branch is the source of record.
+The 1020461115-byte compiled archive is saved as three ordered parts named
+`issue83-production-artifacts.tar.zst.part001` through `.part003`. Downloading their exact
+saved versions and concatenating them reproduces the original byte for byte, SHA-256
+`dd41efb17a04ea203414de156affbe8a9db38abb5c7e6ff349963dad9f6bffd3`.
+The verification bundle `issue83-verification.tar.gz` contains commands, source identities,
+raw completed/failed measurements, source-preservation and runtime comparisons, and cache
+inventories. Restore caches only beside the recorded source/toolchain tuple and let Lake
+validate them. These records establish actual recovery, not a live persistent checkout.
 
-The explicit Core2 continuation attempt returned `WORKSTREAM_PAUSED`: only the owner may
-resume that implementation workstream. The refusal expressly permits independent repository
-tooling repair, which is the current #83 work. The durable-workstation demonstration requires
-the owner to resume the existing `lean-cas-dsl` workstream. No #83 or mathematical-acceptance
-closure is claimed while its required evidence remains unfinished.
+**Remaining #83 requirement: a connected persistent working environment.** The current
+execution checkout is still conversation scratch. Published source and verified saved caches
+survive it; the live working checkout, installed environment and diagnostic session have not
+been demonstrated on the existing workstation or another persistent remote workspace.
+The existing Core2 `lean-cas-dsl` continuation returns `WORKSTREAM_PAUSED`, which permits
+independent tooling repair but reserves resumption of that implementation workstream to the
+owner. Core2 is not a unique requirement of #83. Access to an authorized persistent workspace
+is the unresolved execution dependency; do not close #83 or substitute recoverability for it.
+The interrupted build had no completed result. Its replacement ran in an owned detached host
+session, survived its launcher and completed; no independent terminal or worker was touched.
 
 ## Source and actual input status — 2026-10-29 UTC
 

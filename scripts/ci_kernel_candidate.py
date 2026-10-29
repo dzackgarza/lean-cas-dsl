@@ -92,6 +92,16 @@ def production_artifacts(root):
     return result
 
 
+def write_lake_wrapper(root, runtime):
+    """Provide the selected Lake command for both direct and bash callers."""
+    wrapper = runtime / 'lake.sh'
+    wrapper.write_text('#!/usr/bin/env bash\nset -euo pipefail\ncd -- ' +
+                       shlex.quote(str(root)) + '\nexec lake --packages=' +
+                       shlex.quote(str(runtime / 'packages.json')) + ' "$@"\n')
+    wrapper.chmod(0o755)
+    return wrapper
+
+
 def prepare(root, runtime, baseline):
     evidence = runtime / 'evidence'
     evidence.mkdir(parents=True)
@@ -147,10 +157,7 @@ def prepare(root, runtime, baseline):
     if any(item['workingTree'] for item in initial.values()):
         raise SystemExit('A selected dependency is not clean')
     write(evidence / 'source-tuple-before.json', initial)
-    wrapper = runtime / 'lake.sh'
-    wrapper.write_text('#!/usr/bin/env bash\nset -euo pipefail\ncd -- ' +
-                       shlex.quote(str(root)) + '\nexec lake --packages=' +
-                       shlex.quote(str(runtime / 'packages.json')) + ' "$@"\n')
+    wrapper = write_lake_wrapper(root, runtime)
     write(evidence / 'configuration.json', {
         'manifest': record(manifest_path), 'toolchain': record(root / 'lean-toolchain'),
         'overrides': record(runtime / 'packages.json'), 'helper': record(__file__),

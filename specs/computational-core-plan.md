@@ -578,6 +578,41 @@ LSP/compiler memory as the cause; summed RSS includes shared pages and does not 
 exact simultaneous memory peak. Measure release and the next build before claiming this sequence
 prevents the failure or improves elapsed time.
 
+**Completed #83 measurements (2026-10-30 Asia/Taipei; raw times in UTC).** The extraction published at `1a4085e`
+preserves every original declaration body and registry import. A fresh evaluator artifact
+now takes 36.034 seconds, with peak child RSS 2627144 KiB and the support artifact unchanged;
+the original monolithic artifact took 463.365 seconds. This measures that artifact step,
+not an end-to-end or statistical speedup; support edits still need their own compilation.
+The recovered server gives completed cold feedback in 46.108 seconds including client connection;
+hover/reference calls take 0.060/0.066 seconds. Closing Realize through the configured FileItems request was verified
+to remove its worker while retaining the MCP and watchdog. Summed RSS changed from 4454680
+to 2551096 KiB; that sum includes shared pages. The subsequent build had no new OOM kill.
+
+The original first runtime on restored artifacts takes 31.144 seconds (5990 ms preparation,
+10183 ms execution), retaining its original context and its identical NoImplementation gap.
+The before/after pair does not show a runtime speedup. The four focused framing, occurrence,
+action and failure-tag controls pass across fresh local elaboration and exact-source CI.
+Use the same selected public protocol/engine environment for those controls as for the runtime.
+The generated `lake.sh` has executable mode 0755 because the maintained runtime driver calls
+`CAS_LAKE` directly; invoking it only through bash would not check that contract.
+
+Actual restoration was tested beside independent checkouts at different real filesystem
+paths. PAX/zstd preserves the whole `.lake/build` directories, including traces and private,
+server and IR artifacts. All 57485 restored files remain byte-, mode- and nanosecond-mtime
+identical after ordinary Lake validation of the original driver's eight imports (10.509 s).
+The saved three-part archive was downloaded and compared byte for byte to the original.
+No source symlink, trace rewrite, timestamp adjustment or dependency refresh manufactures
+this reuse. See `HANDOFF.md` for the source tuple, archive identity and remaining workspace
+requirement. Durable cache recovery does not itself establish a connected persistent working
+checkout. A named Core2 workstream is not an additional requirement of #83.
+
+Keep long jobs in the existing runner's supported detached sessions and record their identity,
+log and completion status. Verify that they outlive the invoking command. The per-command
+sandbox here did not preserve a detached child when its namespace exited; the subsequently
+authorized, owned host-session build did. An interrupted record without an exit status is
+unfinished. Do not control an independently owned terminal or substitute process installation
+for evidence of persistence.
+
 1. **Inspect the actual declarations.** Use declaration search, hover, references and source
    from the selected worktree and its actual dependencies before changing an application or
    interface. Run the existing Lean language server through `lean-lsp-mcp` against that

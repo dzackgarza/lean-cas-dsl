@@ -129,6 +129,8 @@ jobs:
               CasCatalogue.SelectedContextOrderProbes CasCatalogue.QuestionProbes \
               CasCatalogue.FunctorActionDataProbes \
               CasAcceptance.Kernel.ReducedParameterActionProbes \
+              CasAcceptance.Kernel.ArrowFramingReuseProbes \
+              CasAcceptance.Kernel.IntrinsicOccurrenceProbes \
               CasAcceptance.Kernel.ActionCarrierInterfaceProbes \
               CasAcceptance.Kernel.PortableExtentDataProbes \
               CasAcceptance.Kernel.WholeFamilyParameterDataProbes \
