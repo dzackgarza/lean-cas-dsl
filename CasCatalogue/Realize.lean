@@ -11081,8 +11081,16 @@ def observeRetainedMorphismFrameWith (reader : CallablePreparationReader)
     (frame.comparisons.bind (·.1))
   let targetComparison ← prepareEndpointComparisonWith reader context frame.target true
     (frame.comparisons.bind (·.2))
-  let semanticSource := (sourceComparison.map (·.semantic)).getD frame.source
-  let semanticTarget := (targetComparison.map (·.semantic)).getD frame.target
+  -- Without a selected comparison, this frame still owns the original object
+  -- occurrence and its pending action. Read that exact occurrence just as the
+  -- raw callable reads its retained endpoints; equality selects neither input.
+  -- A selected comparison continues to own both of its checked endpoint views.
+  let source ← if sourceComparison.isSome then pure frame.source
+    else reader.readData .object frame.source
+  let target ← if targetComparison.isSome then pure frame.target
+    else reader.readData .object frame.target
+  let semanticSource := (sourceComparison.map (·.semantic)).getD source
+  let semanticTarget := (targetComparison.map (·.semantic)).getD target
   unless sameCompleteWireContext endpoints.1
       (← forwardRetainedValue semanticSource endpoints.1.value) &&
       sameCompleteWireContext endpoints.2
@@ -11099,7 +11107,7 @@ def observeRetainedMorphismFrameWith (reader : CallablePreparationReader)
     (.retained (.wire .map observed)) #[] #[] (.retained, .retained)
   let input ← retainCallableEndpoints input semanticSource semanticTarget context
   let comparisons := some (sourceComparison.map (·.comparisonMap), targetComparison.map (·.comparisonMap))
-  let prepared ← prepareMorphismFrameWith retainedReader context input frame.source frame.target comparisons
+  let prepared ← prepareMorphismFrameWith retainedReader context input source target comparisons
   return { prepared with
     dependencies := #[wire, frame.input, observed] ++ prepared.dependencies ++
       sourceComparison.toArray.flatMap (fun selected => #[selected.original, selected.comparisonMap]) ++
@@ -13114,6 +13122,7 @@ partial def prospectiveWireWith (reader : ProspectiveReader) (role : ActionDataR
         observe := fun context input => do
           let projected ← prospectiveWireWith reader .map input
           capturePointCallableWith reader.endpoints projected context
+        observeData := prospectiveWireWith reader
         objects := do return (← reader.state.get).objects }
       let projected ← observeRetainedMorphismFrameWith callableReader wire frame
       pure projected.wire
@@ -16330,7 +16339,8 @@ partial def frameObservedMorphism (h : Harness) (trace : Trace) (input source ta
   let reader : CallablePreparationReader := {
     observe := fun context wire => do
       let actual ← realizeArrowObservation { h with demandObjectActions := true } trace wire
-      capturePointCallable h trace actual context }
+      capturePointCallable h trace actual context
+    observeData := observeActionDataWire { h with demandObjectActions := true } trace }
   let prepared ← match input.morphismFraming with
     | some frame => do
       unless sameCompleteWireContext frame.source source && sameCompleteWireContext frame.target target do
@@ -19011,7 +19021,8 @@ partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire)
     let reader : CallablePreparationReader := {
       observe := fun context input => do
         let actual ← realizeArrowObservation h trace input registeredOnly
-        capturePointCallable h trace actual context }
+        capturePointCallable h trace actual context
+      observeData := observeActionDataWire { h with demandObjectActions := true } trace }
     let prepared ← observeRetainedMorphismFrameWith reader wire framing
     let result := prepared.wire
     return { result with

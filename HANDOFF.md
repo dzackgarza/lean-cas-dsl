@@ -94,7 +94,60 @@ claimed to pass. The dated records below retain their historical scope. Main's d
 `f34ce0de` higher-coherence clarification is integrated without adding a serial prerequisite to
 the ordinary first RX-LIFT or claiming that it establishes general higher coverage.
 
-### Latest integrated execution — 2026-10-29 13:18 UTC
+### Latest integrated execution — 2026-10-29
+
+Published kernel `bd1f0debfbd1e51802708e410f9109b060506dc6`, tree
+`53710136bffef3bd5a55c0e5b2d8cfb2d4a7fb1a`, exactly matches local author `8fa4d873`.
+Its focused production build passes 3802 jobs (Language 101 seconds, Realize 453 seconds).
+The unchanged ten-question runtime against independent leaf `940add07` completed with
+both source trees clean. All original text, IDs, lines, binding counts, imports, shared
+harness, rejected registration and 200000 shared preparation/evaluation budgets match the
+previous run. There are still **zero passing first-stage assertions**. The first four
+questions pass the previous intrinsic-endpoint guard, receive multiplication data and stop
+at the retained frame's complete semantic-endpoint guard. The nonidentity coordinate still
+has an unavailable negation implementation. Full pairing, whole factorization and factor
+comparison exhaust evaluation; both factor samples exhaust preparation. Nine requests are
+sent and eight return data. No computational or mathematical acceptance follows.
+
+The unchanged factor-sample profile still exhausts preparation at 200000383 raw ticks in
+19.607 seconds. The bounded local category-row reuse reduces the target-category filter's
+exclusive cost from 1.65 seconds to 663 milliseconds. Its slow calls visible above the
+25-millisecond threshold fall from 38 to 11; those are not total calls or exact cache hits.
+Complete-parameter category trials still cost 1.39 seconds. These incomplete, fixed-budget
+runs establish a local cost reduction, not a completed-request speedup. A proposed additional
+shape exclusion is not integrated: fresh dictionary synthesis makes the naive version
+unsound, and the conservative rigid-local alternative has no demonstrated net benefit.
+
+Existing `PublicFamilyContractProbes`, `ArrowFramingReuseProbes` and
+`SourceParameterBindingProbes` pass (3803 jobs each). `IntrinsicOccurrenceProbes` also passes
+after a syntax-only nested-record layout correction; it retains the original pending-action
+demand and changed-cache negatives. `InventoryPresentationReuseProbes` now parses after
+renaming its reserved-word helper, but fails its typed endpoint-receipt check. The other
+visible failures remain: `ObjectPresentationProbes` rejects named-presentation data and an
+unresolved complete action, `WholeFunctionFramingProbes` rejects restaging without its actual
+nonidentity endpoint action, and `ReaderFamilyParameterProbes` detects a conflicting producer
+key. No assertion or permanent acceptance input is changed to accommodate these outcomes.
+
+A bounded no-dispatch diagnostic prepares the original first question with all 22 bindings
+and the original 200000 budget, then separately inspects every recorded terminal-map node.
+All three original occurrences show the same stale-frame path in both map-first and
+object-first private scopes. Neither endpoint has a selected comparison; the old source
+guard differs only in packet, action recipe, intrinsic assembly and payload, while the target
+guard holds. Independently observing each frame's original typed object endpoint exactly
+matches the raw callable's observed full endpoint context in all twelve checks. The current
+production frame observer rejects all six reads. There are zero dispatches or connections;
+this engineering scan does not identify a unique runtime occurrence or evaluate an assertion.
+
+The next correction observes a frame's original unpresented endpoint through its existing
+typed `.object` reader and reframes at that observed occurrence. When a selected comparison
+exists, its own checked semantic/actual endpoints, directions, packet and suppliers remain
+authoritative. The exact complete-context guard is unchanged. Prospective and live readers
+now supply the object observer, with explicit live demand matching intrinsic map observation.
+The original whole frame, raw child and observed child remain dependencies. No cache search,
+packet equality, newly selected comparison or identity transport supplies an endpoint.
+Production compilation and the unchanged first-stage runtime must assess this correction.
+
+### Preceding integrated execution — 2026-10-29 13:18 UTC
 
 At published kernel `e03ad05e8b01f03e65a18e525cb6d98dd875062b`, tree
 `9f328679228b280eb29577c4d005d1a96dc1814e` (identical to local source `0c04e934`), the
@@ -2281,6 +2334,11 @@ Deliver the working system and its runnable examples, not another assessment or 
 
 ## Noticed, not worked
 
+- Current focused controls retain visible failures in named-presentation data/action capture,
+  inventory endpoint receipts, whole-function nonidentity restaging and reader producer-key
+  collisions, as recorded above. Their failures are not accepted or hidden by passing family,
+  source-binding and intrinsic-occurrence controls; repair them when the required construction
+  or its preservation depends on those paths.
 - `operationProductRow` still rejects creation-lift resolutions, and
   `operationProductCone` requires the selected apex to be definitionally the
   operation's literal `Prod` domain. The supplied direct Sets cone satisfies

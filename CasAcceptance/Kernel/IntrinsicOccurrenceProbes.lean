@@ -103,9 +103,13 @@ run_elab do
   let root : System.FilePath := (← IO.getEnv "CAS_OWNERSHIP_PROTOCOL_DIR").getD
     ("CasAcceptance" / "Strata" : System.FilePath).toString
   let manifest : Manifest := {
-    backends := #[{ name := "intrinsic-identity-probe", command := "python3"
+    backends := #[{
+      name := "intrinsic-identity-probe"
+      command := "python3"
       args := #["probe_functor_execution.py", "action", entry.id.raw] }]
-    registrations := #[{ operation := entry.id.raw, input := entry.inputAddress
+    registrations := #[{
+      operation := entry.id.raw
+      input := entry.inputAddress
       backend := "intrinsic-identity-probe" }] }
   let calls ← IO.mkRef #[]
   let h ← Harness.ofManifest root manifest

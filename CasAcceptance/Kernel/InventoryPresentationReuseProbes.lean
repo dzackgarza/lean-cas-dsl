@@ -15,7 +15,7 @@ open CasCatalogue CasCatalogue.Realize
 namespace CasCatalogue.InventoryPresentationReuseProbes
 meta section
 
-private def opaque (label : String) (owner : DataOwnership.Owner) : DataOwnership.Data :=
+private def opaquePacket (label : String) (owner : DataOwnership.Owner) : DataOwnership.Data :=
   let json := Json.mkObj [("ctor", toJson "opaqueData"), ("args", Json.arr #[toJson label])]
   { json, ownership := DataOwnership.capture json owner }
 
@@ -43,8 +43,8 @@ run_elab do
       form := .canonicalMorphism sets, payload := (← scopedPayload formal data),
       categoryContext := some context, callableObserved := true, morphismFramed := true }
     retainCallableEndpoints wire source target context
-  let forwardBody := opaque "original forward body" ("inventory-forward", 71)
-  let backwardBody := opaque "original backward body" ("inventory-backward", 72)
+  let forwardBody := opaquePacket "original forward body" ("inventory-forward", 71)
+  let backwardBody := opaquePacket "original backward body" ("inventory-backward", 72)
   let forward ← makeMap (← mkAppM ``CategoryTheory.Iso.hom #[comparison])
     semanticWire actualWire forwardBody
   let backward ← makeMap (← mkAppM ``CategoryTheory.Iso.inv #[comparison])
@@ -95,7 +95,7 @@ run_elab do
   let identity ← identityAtContext context semantic
   let raw : Wire := {
     form := .canonicalMorphism sets,
-    payload := (← scopedPayload identity (opaque "original logical map" ("inventory-map", 73))),
+    payload := (← scopedPayload identity (opaquePacket "original logical map" ("inventory-map", 73))),
     categoryContext := some context }
   let framed ← presentMorphism raw enriched enriched (some context)
     (some (some newBackward, some newForward))
@@ -110,7 +110,7 @@ run_elab do
   let pendingView ← captureInventoryMapEndpoints context pending semanticWire represented
   unless !pendingView.completedData do
     throwError "capturing an inventory frame claimed the pending comparison had executed"
-  let newBody := opaque "later nested callable body" ("inventory-forward", 71)
+  let newBody := opaquePacket "later nested callable body" ("inventory-forward", 71)
   let nested ← scopedNode "typedMap" #[semanticWire.fragment, actualWire.fragment, newBody]
   let returned ← makeMap forward.value semanticWire actualWire nested
   let observations ← IO.mkRef (0 : Nat)
@@ -144,8 +144,8 @@ run_elab do
     throwError "reusing a completed inventory frame replaced or re-observed its original child"
 
   -- Equal token bytes from another supplier are not an inventory relation.
-  let descriptor := opaque "same descriptor bytes" ("inventory-owner-a", 81)
-  let other := opaque "same descriptor bytes" ("inventory-owner-b", 82)
+  let descriptor := opaquePacket "same descriptor bytes" ("inventory-owner-a", 81)
+  let other := opaquePacket "same descriptor bytes" ("inventory-owner-b", 82)
   let changed ← scopedNode "finiteData" #[other, { json := Json.arr #[] }]
   let rejected ← try
     checkInventoryEndpointData descriptor changed

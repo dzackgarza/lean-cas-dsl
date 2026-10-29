@@ -603,3 +603,32 @@ complete endpoints at this initial producer boundary. Its intrinsic assembly sub
 both the parameter slots and those exact endpoint actions; no changed cache or equal packet supplies
 a replacement. The original complete Hom check, object endpoint demand and outer exact occurrence
 guard remain. Power fields acquire no new operation address or mathematical implementation.
+
+At published `bd1f0deb`, that producer correction compiles in the 3802-job production build.
+The unchanged ten-question runtime with independent public-only leaf `940add07` still has no
+passing assertion. Its first four evaluations advance past the intrinsic-endpoint guard and
+stop at retained-frame observation. Existing public-family, arrow-framing and source-parameter
+controls pass; intrinsic-occurrence controls pass after syntax-only fixture correction.
+Named-presentation, inventory-receipt, whole-function restaging and reader producer-key failures
+remain visible; none of their assertions is weakened.
+
+The next boundary is established independently of a leaf reply. Preparing the original first
+question and scanning all three recorded terminal fields, in both private read orders, shows
+that the raw field observes its own original source object action while its outer frame keeps
+the old pending source. The selected comparison is absent on both endpoints. Independently
+reading the frame's original `.object` occurrence produces exactly the raw callable's complete
+observed endpoint, including its producer/payload state, in every case. The scan dispatches
+nothing and does not evaluate or replace the original assertion.
+
+`observeRetainedMorphismFrameWith` now reads only an endpoint without a selected comparison
+through `CallablePreparationReader.readData .object`. That reader checks the original complete
+formal value/type and category context. The existing full-context guard then compares it with
+the raw callable's independently retained endpoint. Reframing uses that observed endpoint;
+merely replacing the guard's expected value would leave the new frame stale. A selected
+comparison continues to supply its checked semantic and actual endpoints, with the existing
+direction, full-Hom, original-packet and supplier checks unchanged. Original frame and callable
+dependencies remain alongside the observed endpoint and child. Prospective inspection uses its
+existing private object reader; live observation uses its original typed object action with
+the same explicit-demand policy as intrinsic map observation. No equal-value/packet lookup or
+new identity association selects the endpoint. The production build, original runtime and
+relevant preserved controls must still establish executable behavior on this source.
