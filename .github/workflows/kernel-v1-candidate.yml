@@ -18,14 +18,19 @@ jobs:
     timeout-minutes: 180
     env:
       LEAN_NUM_THREADS: '1'
-      MATHLIB_CACHE_DIR: ${{ runner.temp }}/kernel-v1-candidate/mathlib-cache
-      CAS_LEAF_CONTRACT_PATH: ${{ runner.temp }}/kernel-v1-candidate/dependencies/cas_leaf_contracts
-      PYTHONPATH: ${{ runner.temp }}/kernel-v1-candidate/dependencies/cas_leaf_contracts/python
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Select runtime paths on the assigned runner
+        run: |
+          runtime="$RUNNER_TEMP/kernel-v1-candidate"
+          {
+            echo "MATHLIB_CACHE_DIR=$runtime/mathlib-cache"
+            echo "CAS_LEAF_CONTRACT_PATH=$runtime/dependencies/cas_leaf_contracts"
+            echo "PYTHONPATH=$runtime/dependencies/cas_leaf_contracts/python"
+          } >> "$GITHUB_ENV"
       - name: Restore the exact committed dependency manifest
         run: |
           python3 scripts/ci_kernel_candidate.py prepare \
