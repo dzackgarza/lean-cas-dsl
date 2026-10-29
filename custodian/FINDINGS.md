@@ -922,9 +922,8 @@ A proposed kernel-consumer correction would discover a finite reachable enclosur
 check closure under actual public `edgesFrom`, and pass its vertex count to the existing
 simple-route enumerator. Current Arrow/Core lifting and non-growing explicit endpoint
 spines permit such an enclosure in the inspected tuple; future releases require actual
-closure checking. No correction, extension trial, or proof of cyclic-walk equivalence
-was implemented. See `HANDOFF.md` for remaining validation and the distinct missing
-constructor-cell action.
+closure checking. No correction or extension trial was implemented. See `HANDOFF.md`
+for remaining validation and the distinct missing constructor-cell action.
 
 **Correction to the proposed resolution (2026-10-29).** The two registration
 invariants proposed in [#79](https://github.com/dzackgarza/lean-cas-dsl/issues/79#issuecomment-6475626921)

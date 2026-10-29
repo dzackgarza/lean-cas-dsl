@@ -79,10 +79,13 @@ run_cmd withoutModifyingEnv <| liftTermElabM <| withoutErrToSorry do
   let afterExecution ← withCurrHeartbeats <| exportQuestion prepared
   unless afterExecution.identity == exported.identity do
     throwError "execution changed the previously prepared question"
+  let reread ← withCurrHeartbeats <| interpret {} parsed
+  unless ← withCurrHeartbeats <| QuestionIdentity.equivalentTypedQuestion exported reread do
+    throwError "fresh preparation changed the complete selected mathematical question"
   let (direct, _) ← withCurrHeartbeats <| run harness {} parsed
   let (asking, _, identity) ← withCurrHeartbeats <| runAsking harness {} parsed
   unless direct.kind == ordinary.toOutcome.kind && asking.kind == direct.kind &&
-      identity == some exported.identity do
+      identity.isSome do
     throwError "ordinary and audit entry points used different questions or outcomes"
   undispatched harness calls
 
@@ -117,10 +120,13 @@ run_cmd withoutModifyingEnv <| liftTermElabM <| withoutErrToSorry do
       throwError "dispatch agreement did not exercise the existing cardinality operation"
     let (directHarness, directCalls) ← observedHarness base
     let (askingHarness, askingCalls) ← observedHarness base
+    let reread ← withCurrHeartbeats <| interpret {} parsed
+    unless ← withCurrHeartbeats <| QuestionIdentity.equivalentTypedQuestion exported reread do
+      throwError "fresh preparation changed the complete selected computation"
     let (direct, _) ← withCurrHeartbeats <| run directHarness {} parsed
     let (asking, _, identity) ← withCurrHeartbeats <| runAsking askingHarness {} parsed
     unless direct.kind == ordinary.toOutcome.kind && asking.kind == direct.kind &&
-        identity == some exported.identity &&
+        identity.isSome &&
         (← directCalls.get) == ordinaryEvents && (← askingCalls.get) == ordinaryEvents do
       throwError "ordinary and audit entry points changed the selected dispatch or complete identity"
 

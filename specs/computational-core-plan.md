@@ -275,7 +275,7 @@ a formal law or proves an arbitrary backend correct.
 
 #### Supporting source locations and historical engineering checks
 
-The [prior source-specific KM table](https://github.com/dzackgarza/lean-cas-dsl/blob/afbcd01d3c0933c5eac96a6e46bb075cc711f197/specs/computational-core-plan.md#concrete-kernel-implementation-work--exhaustive-within-the-declared-b0-scope)
+The [prior source-specific KM table](https://github.com/dzackgarza/lean-cas-dsl/blob/479d9bceb318a8966c95b3d1f9c19e68b9e03534/specs/computational-core-plan.md#concrete-kernel-implementation-work--exhaustive-within-the-declared-b0-scope)
 is preserved at its inspected revision. Its `b0/kernel` locations and reported defects are
 implementation leads to reproduce on the current candidate, not a second work order.
 The mathematical cases and supporting build, source-removal, codec, performance and failure

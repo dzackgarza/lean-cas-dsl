@@ -492,3 +492,25 @@ engineering control separately checks that an untraced action contains its cache
 source data and owner instead of reconstructing the source's formal descriptor.
 
 </details>
+
+## Selected Hom contexts and captured forms (2026-10-29)
+
+The inclusion endpoints belong to the complete context selected by the original
+lift action. `liftOperand`, `retainedLiftStage` and `captureDirectLiftInvocation`
+therefore use the existing `contextualMorphismEndpoints` reader, whose full
+`CategoryContext.checkMorphism` validation remains in place. No reduced carrier
+category or replacement inclusion supplies an endpoint.
+
+Prospective and actual field/factor returns preserve the form of their canonical
+invocation input; the prospective reader receives that authenticated stored wire.
+An ordinary captured action likewise retains its original wire form after every
+prospective branch and after actual completion. Building the same object's data
+with a fresh action template does not choose another public operation address.
+The existing action, category, formal-value, ownership and input-address guards
+remain unchanged. New action construction continues to use its own template.
+The action guard reports closure and typing failures separately to diagnose the
+remaining failure without accepting any open or ill-typed selected application.
+
+These corrections are reconstructed source after the local workspace restart.
+The focused build and original RX-LIFT computations must be rerun on the current
+main dependencies; this source argument supplies no computational acceptance.

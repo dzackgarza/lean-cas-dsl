@@ -3796,8 +3796,12 @@ def proofRefinementBase (trace : Trace) (wire : Wire) (action : Expr) : TermElab
 /-- Both projections use the same whole registered action check. -/
 def checkExecutableEdgeAction (state : RegistryState) (edge : EdgeRef) (action : Expr) :
     TermElabM Unit := do
-  unless FunctorActionData.closedParameter action && (← isTypeCorrect action) do
-    throwError "the executable edge requires its complete selected action"
+  unless FunctorActionData.closedParameter action do
+    throwError "the executable edge requires its complete selected action: {reprStr edge}; \
+      expression metavariables: {action.hasMVar}; universe metavariables: {action.hasLevelMVar}; \
+      free variables: {action.hasFVar}; loose bound variables: {action.hasLooseBVars}"
+  unless ← isTypeCorrect action do
+    throwError "the executable edge requires its type-correct complete selected action: {reprStr edge}"
   match edge with
   | .functor _ | .classifierForget _ =>
     let some selected ← FunctorActionData.registeredAction? state action
@@ -5747,9 +5751,7 @@ def liftOperand (formal : Expr) (context : CategoryContext) (origin : Form)
     (data : DataOwnership.Data) (morphism : Bool := false) (observed : Bool := false) :
     TermElabM Wire := do
   if morphism then
-    let some (source, target) := Language.homEnds? (← inferType formal)
-      | throwError "the retained lift operand lost its complete Hom type"
-    CategoryContext.checkMorphism context formal source target
+    discard <| contextualMorphismEndpoints context formal
   else CategoryContext.checkObject context formal
   return {
     form := contextualForm (← registryState) context origin morphism
@@ -9739,8 +9741,7 @@ def retainedLiftStage (h : Harness) (execution : LiftExecution) (index : Nat) :
     | throwError "the typed lift stage omitted its selected actual source image"
   let sourceImage ← read handles.sourceImage (← Semantic.objOf selection.action selection.source)
     targetContext sourceImageData false
-  let some (baseObjectFormal, _) := Language.homEnds? (← inferType selection.inclusion)
-    | throwError "the retained lift lost its complete base inclusion"
+  let (baseObjectFormal, _) ← contextualMorphismEndpoints targetContext selection.inclusion
   let baseData ← execution.baseFragment index
   let some base := operands[handles.base]?
     | throwStratum .unavailable "the complete lift base's runtime scope has expired"
@@ -12846,7 +12847,7 @@ partial def prospectiveDirectLift (reader : ProspectiveReader)
 
 /-- Projection follows the exact parent occurrence in the private or live
 owner; equal apices and equal packets do not participate in field selection. -/
-partial def prospectiveLiftField (reader : ProspectiveReader)
+partial def prospectiveLiftField (reader : ProspectiveReader) (wire : Wire)
     (selected : SelectedLiftFieldInvocation) (captured : CapturedInvocation) :
     TermElabM ProspectiveInvocationData := do
   let parent ← prospectiveWireWith reader .object selected.parent
@@ -12861,7 +12862,7 @@ partial def prospectiveLiftField (reader : ProspectiveReader)
     | throwError "the prospective lift field lost its fixed output position"
   let field ← forwardProspectiveValue reader field selected.formal
   checkCapturedResultInterface field selected.result
-  let result := { field with capturedInvocation := some captured }
+  let result := { field with form := wire.form, capturedInvocation := some captured }
   if selected.index == 0 then
     if let some parentView := parentView then
       return { parentView with result, inputs := #[parent] }
@@ -12872,7 +12873,7 @@ partial def prospectiveLiftField (reader : ProspectiveReader)
 
 /-- A future factor has the declared cone domain and its original selected
 apex. Its private packet supplies no factorization or correctness evidence. -/
-partial def prospectiveLiftFactor (reader : ProspectiveReader)
+partial def prospectiveLiftFactor (reader : ProspectiveReader) (wire : Wire)
     (selected : SelectedLiftFactorInvocation) (captured : CapturedInvocation) :
     TermElabM ProspectiveInvocationData := do
   let operands ← selected.operands.mapM fun operand =>
@@ -12885,7 +12886,7 @@ partial def prospectiveLiftFactor (reader : ProspectiveReader)
   let body ← prospectiveDatum reader selected.formal
   let data ← scopedNode "typedMap" #[domain.fragment, parent.fragment, body]
   let template : Wire := {
-    form := contextualForm (← registryState) selected.context parent.form true,
+    form := wire.form,
     payload := (← recipePayload selected.formal data), categoryContext := some selected.context,
     capturedInvocation := some captured }
   let result ← prospectiveResultWire template data (.map selected.context) (some (domain, parent))
@@ -12969,8 +12970,8 @@ partial def prospectiveInvocationWith (reader : ProspectiveReader) (wire : Wire)
           prospectivePrescribedWith reader record.input selected record.captured
             (prospectivePrescribedRouteInputs reader)
       | .directLift selected => prospectiveDirectLift reader selected record.captured
-      | .liftField selected => prospectiveLiftField reader selected record.captured
-      | .liftFactor selected => prospectiveLiftFactor reader selected record.captured
+      | .liftField selected => prospectiveLiftField reader record.input selected record.captured
+      | .liftFactor selected => prospectiveLiftFactor reader record.input selected record.captured
     reader.state.modify fun state => { state with
       invocations := state.invocations.push (captured.occurrence, prospectiveData) }
     forwardProspectiveValue reader prospectiveData.result wire.value
@@ -13246,56 +13247,59 @@ partial def prospectiveActionWith (reader : ProspectiveReader) (wire : Wire)
   let (descriptor, dependencies) ← renderActionDataWith (prospectiveWireWith reader) recipe.descriptor
   let (operation, parameters) ← reader.invocation recipe.owner descriptor recipe.morphism
   let action ← instantiateMVars (← Semantic.asFunctor recipe.application)
-  if !recipe.morphism then
-    if let .edge edge := recipe.owner then
-      if let .proofRefinement _ classifier _ := original.form then
-        if edge == .classifierForget classifier then
-          return ← prospectiveWireWith reader .object (← proofRefinementBase reader.trace original action)
-    let template ← reader.objectTemplate recipe original descriptor dependencies
-    if let .edge edge := recipe.owner then
-      if let some data ← intrinsicObjectEdgeData? reader.trace edge action original template.value
-          descriptor (← reader.state.get).objects then
-        let pending := (← reader.state.get).containsFuture data.json
-        return { template with
-          payload := (← if pending then recipePayload template.value data else scopedPayload template.value data)
-          objectObserved := !pending }
-    let key : ProspectiveActionKey := {
-      operation, action, input := original, parameters := parameters.map (·.json)
-      parameterOwnership := (DataOwnership.Data.array parameters).ownership, dependencies, images := #[] }
-    if let some actual ← retainedActionResult? reader.live operation action original key.parameters
-        dependencies #[] key.parameterOwnership then
-      return ← forwardRetainedValue actual template.value
-    prospectiveActionValue reader key template recipe.target false
-  else
-    let endpoints ← if sameCompleteWireContext original recipe.original then
-        match recipe.endpoints with
-        | some endpoints => pure endpoints
-        | none => throwError "the prospective map lost its original complete endpoint occurrences"
-      else reader.endpoints original recipe.source
-    let images ← match recipe.imageEndpoints with
-      | some (source, target) => pure #[
-          ← prospectiveWireWith reader .object source,
-          ← prospectiveWireWith reader .object target]
-      | none => do
-        let mut images := #[]
-        for endpoint in #[endpoints.1, endpoints.2] do
-          let formal ← Semantic.objOf action endpoint.value
-          let endpointRecipe := { recipe with
-            morphism := false, original := endpoint, formal, endpoints := none,
-            imageEndpoints := none }
-          let image ← reader.objectTemplate endpointRecipe endpoint descriptor dependencies
-          let endpointRecipe := { endpointRecipe with formal := image.value, fragment := image.fragment }
-          let image ← prospectiveActionWith reader image endpointRecipe
-          images := images.push image
-        pure images
-    let key : ProspectiveActionKey := {
-      operation, action, input := original, parameters := parameters.map (·.json)
-      parameterOwnership := (DataOwnership.Data.array parameters).ownership
-      dependencies := dependencies ++ #[endpoints.1, endpoints.2], images }
-    if let some actual ← retainedActionResult? reader.live operation action original key.parameters
-        key.dependencies images key.parameterOwnership then
-      return ← forwardRetainedValue actual wire.value
-    prospectiveActionValue reader key wire recipe.target true
+  let projected ← if !recipe.morphism then do
+      if let .edge edge := recipe.owner then
+        if let .proofRefinement _ classifier _ := original.form then
+          if edge == .classifierForget classifier then
+            return ← prospectiveWireWith reader .object (← proofRefinementBase reader.trace original action)
+      let template ← reader.objectTemplate recipe original descriptor dependencies
+      if let .edge edge := recipe.owner then
+        if let some data ← intrinsicObjectEdgeData? reader.trace edge action original template.value
+            descriptor (← reader.state.get).objects then
+          let pending := (← reader.state.get).containsFuture data.json
+          return { template with
+            payload := (← if pending then recipePayload template.value data else scopedPayload template.value data)
+            objectObserved := !pending }
+      let key : ProspectiveActionKey := {
+        operation, action, input := original, parameters := parameters.map (·.json)
+        parameterOwnership := (DataOwnership.Data.array parameters).ownership, dependencies, images := #[] }
+      if let some actual ← retainedActionResult? reader.live operation action original key.parameters
+          dependencies #[] key.parameterOwnership then
+        return ← forwardRetainedValue actual template.value
+      prospectiveActionValue reader key template recipe.target false
+    else do
+      let endpoints ← if sameCompleteWireContext original recipe.original then
+          match recipe.endpoints with
+          | some endpoints => pure endpoints
+          | none => throwError "the prospective map lost its original complete endpoint occurrences"
+        else reader.endpoints original recipe.source
+      let images ← match recipe.imageEndpoints with
+        | some (source, target) => pure #[
+            ← prospectiveWireWith reader .object source,
+            ← prospectiveWireWith reader .object target]
+        | none => do
+          let mut images := #[]
+          for endpoint in #[endpoints.1, endpoints.2] do
+            let formal ← Semantic.objOf action endpoint.value
+            let endpointRecipe := { recipe with
+              morphism := false, original := endpoint, formal, endpoints := none,
+              imageEndpoints := none }
+            let image ← reader.objectTemplate endpointRecipe endpoint descriptor dependencies
+            let endpointRecipe := { endpointRecipe with formal := image.value, fragment := image.fragment }
+            let image ← prospectiveActionWith reader image endpointRecipe
+            images := images.push image
+          pure images
+      let key : ProspectiveActionKey := {
+        operation, action, input := original, parameters := parameters.map (·.json)
+        parameterOwnership := (DataOwnership.Data.array parameters).ownership
+        dependencies := dependencies ++ #[endpoints.1, endpoints.2], images }
+      if let some actual ← retainedActionResult? reader.live operation action original key.parameters
+          key.dependencies images key.parameterOwnership then
+        return ← forwardRetainedValue actual wire.value
+      prospectiveActionValue reader key wire recipe.target true
+  -- Observation fills the captured result's data slots; rebuilding an action
+  -- template must not change the caller's already selected public input form.
+  return { projected with form := wire.form }
 
 end
 
@@ -16315,6 +16319,7 @@ partial def observeActionRecipe (h : Harness) (trace : Trace) (wire : Wire)
   discard <| framingContext (some recipe.target) actual.categoryContext
   let result ← forwardRetainedValue actual wire.value
   let result := { result with
+    form := wire.form,
     actionRecipe := none,
     endpointPresentation := if recipe.morphism then result.endpointPresentation
       else wire.endpointPresentation <|> result.endpointPresentation }
@@ -17490,8 +17495,7 @@ partial def captureDirectLiftInvocation (h : Harness) (trace : Trace) (plan : Se
   let targetContext ← SelectedLift.context plan true
   let source ← realizeUnobserved h trace "the selected lift's original source" plan.source
   let source ← captureDeclaredObjectInput source context
-  let some (baseSource, baseTarget) := Language.homEnds? (← inferType plan.inclusion)
-    | throwError "the selected lift lost its complete inclusion signature"
+  let (baseSource, baseTarget) ← contextualMorphismEndpoints targetContext plan.inclusion
   let inclusion ← realizeUnobserved h trace "the selected lift's base inclusion" plan.inclusion
   let inclusion ← captureDeclaredCallableInput h trace inclusion targetContext fun _ => do
     pure (← realizeEndpoint h trace "the selected inclusion's source" baseSource,
@@ -18441,7 +18445,9 @@ partial def operationObservationRegistrations (h : Harness) (request : Operation
       (← withoutModifyingState (withTransparency .all <|
         isDefEq (← inferType projected.input.value) (← inferType request.input.value) <&&>
           isDefEq projected.input.value request.input.value)) do
-    throwError "prospective admission changed the complete operation or input address"
+    throwError "prospective admission changed the complete operation or input address: \
+      operation {request.operation.raw}, original input {request.input.form.id}, \
+      projected input {projected.input.form.id}"
   checkDataOwners h projected.input.fragment
   admittedRegistrations h request.operation.raw projected.input true
 
@@ -18610,6 +18616,7 @@ partial def resumeCapturedInvocation (h : Harness) (trace : Trace)
       let output ← forwardRetainedValue output selected.formal
       checkCapturedResultInterface output selected.result
       return { output with
+        form := frame.record.input.form,
         liftExecution := if selected.index == 0 then some execution else none
         serviceHandles := parent.serviceHandles ++ execution.stageHandles.flatMap (·.all) ++
           output.serviceHandles }
@@ -18618,7 +18625,8 @@ partial def resumeCapturedInvocation (h : Harness) (trace : Trace)
         | throwError "the selected factor lost an exact operand position"
       let some execution := parent.liftExecution
         | throwError "the selected factor's parent omitted its complete construction"
-      completeRetainedLiftFactor h trace selected parent base cone execution
+      let output ← completeRetainedLiftFactor h trace selected parent base cone execution
+      return { output with form := frame.record.input.form }
   | _ => throwError "an unstaged protocol cannot resume as a selected lift"
 
 /-- Enter, suspend and return through the existing invocation table. Adapted

@@ -1217,3 +1217,25 @@ The exact final source/control patches and their evidence-presentation preimage
 were recovered after a workspace replacement. Earlier prototype passes do not
 substitute for compiling and running the original production controls against
 the recovered source. Protected questions, expected answers and budgets are unchanged.
+
+## Private complete snapshots and bounded profiling (2026-10-29)
+
+Source inspection of `readingTrace?`, `eval`, `structuredParameterView`, the joint
+family-argument trial and the generalized-map argument trial locates the existing
+owners of the original records. A private recorder now copies the complete
+`readingTrace?` snapshot before clearing only its redundant `sourceTrace` field.
+The inherited records remain in that isolated copy; subsequent writes remain
+private until the existing success path commits them. A recorder that starts
+empty retains its inherited source. No producer, parameter, comparison or
+mathematical reading is removed. This restores the recorded correction after
+the workspace restart; the unavailable original commit is not claimed recovered.
+
+Optional profiler regions separate carrier-map applicability, selected map
+reconstruction and final checks, joint family binding and subsequent rebinding,
+complete parameter reconstruction and declared endpoint reconstruction. They use
+the existing `profileReader` switch and preserve the original execution order
+and checks. The original 200000 question budget is unchanged. Earlier measured
+producer-wrapper construction was negligible and is not an optimization target.
+Fresh-reading engineering comparisons use the existing full typed-question
+comparator, while repeated exports of one prepared question still require exact
+identity equality; fresh administrative occurrence numbers are not mathematics.

@@ -1256,7 +1256,8 @@ partial def carrierMorphismWith (value : Value) (readCarrier : Value → M Value
   if context.expression.syntacticEq sets.expression then return value
   let state ← registryState
   let routes ← routesBetween state context.expression sets.expression
-  let routes ← routes.filterM fun route => parameterCompatible do
+  let routes ← profileReader "carrier map applicability trials" <|
+      routes.filterM fun route => parameterCompatible do
     let (action, _, targetContext) ← contextualRouteFunctor state context route
     let mapped ← Semantic.mapOf action hom
     CategoryContext.checkMorphism targetContext mapped sourceObject targetObject
@@ -1276,20 +1277,25 @@ partial def carrierMorphismWith (value : Value) (readCarrier : Value → M Value
   discard <| Semantic.validateRouteComparisons state cls.comparisonWitnesses (some source)
   let #[route] := cls.sources
     | throwSemanticAmbiguity "the generalized map has several directed carrier actions"
-  let (action, applications, targetContext) ← contextualRouteFunctor state context route
-  let mapped ← instantiateMVars (← Semantic.mapOf action hom)
-  let targetContext := { targetContext with bundle := (← instantiateMVars targetContext.bundle) }
-  CategoryContext.checkMorphism targetContext mapped sourceObject targetObject
-  unless ← withTransparency .all <|
-      isDefEq (← Semantic.objOf action source) sourceObject <&&>
-      isDefEq (← Semantic.objOf action target) targetObject do
-    throwStratum .invalid "the carrier action changed the generalized map's complete endpoints"
-  let applications ← applications.mapM instantiateMVars
-  unless !mapped.hasMVar && !mapped.hasLevelMVar &&
-      !targetContext.bundle.hasMVar && !targetContext.bundle.hasLevelMVar &&
-      applications.all (fun application => !application.hasMVar && !application.hasLevelMVar) &&
-      (← applications.allM fun value => isTypeCorrect value) do
-    throwStratum .invalid "the carrier action has undetermined complete parameters"
+  let (action, applications, targetContext, mapped) ←
+      profileReader "carrier map selected reconstruction" do
+    let (action, applications, targetContext) ← contextualRouteFunctor state context route
+    let mapped ← instantiateMVars (← Semantic.mapOf action hom)
+    let targetContext := { targetContext with bundle := (← instantiateMVars targetContext.bundle) }
+    return (action, applications, targetContext, mapped)
+  let applications ← profileReader "carrier map final checks" do
+    CategoryContext.checkMorphism targetContext mapped sourceObject targetObject
+    unless ← withTransparency .all <|
+        isDefEq (← Semantic.objOf action source) sourceObject <&&>
+        isDefEq (← Semantic.objOf action target) targetObject do
+      throwStratum .invalid "the carrier action changed the generalized map's complete endpoints"
+    let applications ← applications.mapM instantiateMVars
+    unless !mapped.hasMVar && !mapped.hasLevelMVar &&
+        !targetContext.bundle.hasMVar && !targetContext.bundle.hasLevelMVar &&
+        applications.all (fun application => !application.hasMVar && !application.hasLevelMVar) &&
+        (← applications.allM fun value => isTypeCorrect value) do
+      throwStratum .invalid "the carrier action has undetermined complete parameters"
+    return applications
   let mapped ← Trace.recordProduced (← read).trace mapped
     (.contextualRoute context targetContext route.refs applications hom true)
   return .morphism mapped sourceObject targetObject sets (some (sourceCarrier, targetCarrier))
@@ -2367,10 +2373,13 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
   -- the caller does not request an execution trace. Keep their local records in
   -- an isolated reading; a speculative caller's trace and cache remain untouched.
   if ctx.trace.isNone then
-    let trace ← Trace.new
+    let trace ← match ← readingTrace? with
+      | some source => IO.mkRef (← source.get)
+      | none => Trace.new
     let closedTerms ← IO.mkRef ({} : Std.HashMap String Value)
     return ← withReader (fun context =>
-      { context with trace := some trace, closedTerms := some closedTerms })
+      { context with trace := some trace, sourceTrace := none,
+        closedTerms := some closedTerms })
       (eval scope stx category? ambient?)
   -- Printed source does not include quotation scopes. Distinct exact file bindings
   -- can therefore share that spelling; scoped syntax is read without this cache.
@@ -3626,7 +3635,8 @@ partial def structuredParameterView (original : Value) (actual : Expr)
     | some original => IO.mkRef (← original.get)
     | none => Trace.new
   let expected ← inferType actual
-  let recorded ← withReader (fun context => { context with trace := some recorder }) do
+  let recorded ← withReader (fun context =>
+      { context with trace := some recorder, sourceTrace := none }) do
     typedParameter expected original
   unless ← isDefEq recorded actual do
     throwStratum .invalid m!"a structural view differs from its accepted parameter"
@@ -3634,7 +3644,8 @@ partial def structuredParameterView (original : Value) (actual : Expr)
     | throwStratum .invalid m!"a converted structure has no retained registered source"
   -- The converted source is selected in this recorder. Every later endpoint
   -- inspection sees those same records before the successful view is committed.
-  let result ← withReader (fun context => { context with trace := some recorder }) do
+  let result ← withReader (fun context =>
+      { context with trace := some recorder, sourceTrace := none }) do
     let state ← registryState
     let (sourceContext, receiver, route, alternatives, fullApplications) ← match node with
       | .object id parameters => do
@@ -5217,9 +5228,9 @@ partial def applyFamilyWithOwners (declaration : Name) (category : NamedCategory
   -- Numeral operands wait for that complete family and keep their ordinary admission checks.
   -- The same isolated trial keeps the actual checked parameter actions; failed candidates
   -- publish neither assignments nor records into the statement that owns this application.
-  let jointTrace? ← (← read).trace.mapM fun trace => do IO.mkRef (← trace.get)
-  let joint? ← parameterTrial <| withReader (fun context =>
-      { context with trace := jointTrace? }) do
+  let jointTrace? ← (← readingTrace?).mapM fun trace => do IO.mkRef (← trace.get)
+  let joint? ← profileReader "family joint source binding" <| parameterTrial <|
+      withReader (fun context => { context with trace := jointTrace?, sourceTrace := none }) do
     try
       for (set, operand) in sources.zip elements do
         match operand with
@@ -5258,34 +5269,36 @@ partial def applyFamilyWithOwners (declaration : Name) (category : NamedCategory
           trace.modify (·.insert value node)
   -- A registered inclusion carries its dependent target parameters. Use that actual
   -- arrow before attempting to infer a bundled parameter from a bare carrier.
-  for (set, operand) in sources.zip elements do
-    let .element _ A@(.object _ _ (some (origin, _)) _ _) := operand | continue
-    if set.getAppFn.constName? == some origin.declaration then
-      let sourceInfos ← forallTelescopeReducing (← getConstInfo origin.declaration).type fun xs _ =>
-        xs.mapM (·.fvarId!.getBinderInfo)
-      let declaredParameters := (set.getAppArgs.zip sourceInfos).filterMap fun (argument, info) =>
-        if info.isExplicit then some argument else none
-      let .object _ _ (some (_, actualParameters)) _ _ := A | unreachable!
-      for (parameter, actual) in declaredParameters.zip actualParameters do
-        let expected ← instantiateMVars (← inferType parameter)
-        if ← parameterCompatible (do
-            unless ← bindSourceParameter parameter actual do return false
-            isTypeCorrect (← instantiateMVars (mkAppN constant args))) then
-          discard <| bindSourceParameter parameter actual
-    if !(← instantiateMVars set).hasMVar then continue
-    if ← parameterCompatible (do
-        unless ← isDefEq set (← semanticObject A) do return false
-        isTypeCorrect (← instantiateMVars (mkAppN constant args))) then
-      discard <| isDefEq set (← semanticObject A)
-      continue
-    let head := (← instantiateMVars set).getAppFn.constName?
-    let rows := state.objects.filter fun row =>
-      row.category == category.id && some row.declaration == head
-    if let [row] := rows.toList then
+  profileReader (if joint?.isSome then "family committed source rebinding"
+      else "family residual source binding") do
+    for (set, operand) in sources.zip elements do
+      let .element _ A@(.object _ _ (some (origin, _)) _ _) := operand | continue
+      if set.getAppFn.constName? == some origin.declaration then
+        let sourceInfos ← forallTelescopeReducing (← getConstInfo origin.declaration).type fun xs _ =>
+          xs.mapM (·.fvarId!.getBinderInfo)
+        let declaredParameters := (set.getAppArgs.zip sourceInfos).filterMap fun (argument, info) =>
+          if info.isExplicit then some argument else none
+        let .object _ _ (some (_, actualParameters)) _ _ := A | unreachable!
+        for (parameter, actual) in declaredParameters.zip actualParameters do
+          let expected ← instantiateMVars (← inferType parameter)
+          if ← parameterCompatible (do
+              unless ← bindSourceParameter parameter actual do return false
+              isTypeCorrect (← instantiateMVars (mkAppN constant args))) then
+            discard <| bindSourceParameter parameter actual
+      if !(← instantiateMVars set).hasMVar then continue
       if ← parameterCompatible (do
-          let some _ ← selectedInclusion? state A row.id (some set) | return false
+          unless ← isDefEq set (← semanticObject A) do return false
           isTypeCorrect (← instantiateMVars (mkAppN constant args))) then
-        discard <| selectedInclusion? state A row.id (some set)
+        discard <| isDefEq set (← semanticObject A)
+        continue
+      let head := (← instantiateMVars set).getAppFn.constName?
+      let rows := state.objects.filter fun row =>
+        row.category == category.id && some row.declaration == head
+      if let [row] := rows.toList then
+        if ← parameterCompatible (do
+            let some _ ← selectedInclusion? state A row.id (some set) | return false
+            isTypeCorrect (← instantiateMVars (mkAppN constant args))) then
+          discard <| selectedInclusion? state A row.id (some set)
   for parameter in explicit do
     if !(← instantiateMVars parameter).isMVar then continue
     if (source.findMVar? (· == parameter.mvarId!)).isNone then continue
@@ -6242,7 +6255,8 @@ partial def invariantApplication (entry : MorphismEntry) (A : Value) :
 /-- Complete declaration parameters are endpoint witnesses in their actual registered
 categories. All original supplied context remains available beside these full values. -/
 partial def completeParameterObjects (parameters : Array Expr)
-    (known : Array Value) (retainActionSources : Bool := true) : M (Array Value) := do
+    (known : Array Value) (retainActionSources : Bool := true) : M (Array Value) := profileReader
+      "complete parameter objects" do
   let state ← registryState
   let mut known := known
   for parameter in parameters do
@@ -7698,7 +7712,8 @@ partial def declaredFieldEndpoint? (state : RegistryState) (endpoint : Expr)
 /-- An object endpoint supplied by a checked declaration. Product endpoints are reconstructed
 through their registered universal construction, retaining each complete source parameter. -/
 partial def declaredEndpointObject (endpoint : Expr) (category : NamedCategoryEntry)
-    (known : Array Value) (fixedParameters : Array Expr := #[]) : M Value := do
+    (known : Array Value) (fixedParameters : Array Expr := #[]) : M Value := profileReader
+      "declared endpoint reconstruction" do
   let state ← registryState
   let productEndpoint (product : Expr) : M Value := do
     let #[left, right] := product.getAppArgs | unreachable!
@@ -8967,7 +8982,7 @@ partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value :=
     if let #[argumentSyntax] := generalizedArgs then
       -- The trial sees this question's already checked values and their original
       -- records. Separate references keep every speculative write isolated.
-      let temporary ← match context.trace with
+      let temporary ← match ← readingTrace? with
         | some existing => IO.mkRef (← existing.get)
         | none => Trace.new
       let temporaryCache ← if context.trace.isSome then
@@ -8977,7 +8992,8 @@ partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value :=
       let argumentContext ← readCarrier originalSource
       let candidate ← try
         pure (some (← withReader (fun context =>
-          { context with trace := some temporary, closedTerms := temporaryCache })
+          { context with trace := some temporary, sourceTrace := none,
+            closedTerms := temporaryCache })
           (eval scope argumentSyntax none (some argumentContext))))
       catch error =>
         if CasCatalogue.Exception.interpretationKind error == .invalid then pure none else throw error
