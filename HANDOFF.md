@@ -7,7 +7,13 @@ own the work order. #66 owns complete mathematical interpretation; #69 owns comp
 #24 owns integration and independent acceptance. #23/#82 review construction requirements
 and exact mathematical inputs alongside that work.
 
-## Issue #83: measured feedback and build recovery — 2026-10-30 (Asia/Taipei)
+## Issue #83: repeated edit-to-result feedback — 2026-10-30 (Asia/Taipei)
+
+**Owner clarification (2026-10-30): the problem is the repeated feedback loop, not
+cold-start time.** Work in the existing Pro cloud container. Survival of container
+replacement, a new persistent workspace and access to the owner's machine are not
+completion requirements for #83. Retain the language server and reusable artifacts
+to shorten ordinary iterations; saved recovery records are supplementary evidence.
 
 The measured implementation is published through [PR #67](https://github.com/dzackgarza/lean-cas-dsl/pull/67).
 `3beca435342d296fcdb462cd427b4220a850237b` preserves the recovered diagnostic implementation;
@@ -21,6 +27,8 @@ original runtime invocation pass. Python syntax and actionlint 1.7.12 pass.
 
 | Completed observation | Result and scope |
 |---|---|
+| Current repeated edit-to-result loop | 97.031 s from the actual edit to the original runtime result; 97.062 s until ready for the next edit. The same Realize file worker and MCP remain alive. |
+| Current loop phases, including command overhead | 31.558 s to completed error-free diagnostics, 38.469 s for the required fresh artifact, 26.965 s for the original focused runtime. No dependency refresh, publication or integration wait is in this interval. |
 | Actual diagnostic edit, persistent LSP | Completed, error-free warm feedback in 57.430 s; original hover/references 0.238/0.056 s. |
 | Fresh monolithic Realize artifact | 463.365 s; peak child RSS 6645140 KiB. |
 | Fresh extracted Realize artifact | 36.034 s; peak child RSS 2627144 KiB; the support artifact's bytes and mtime are unchanged. This is the measured benefit for edits confined to the evaluator. |
@@ -69,16 +77,23 @@ raw completed/failed measurements, source-preservation and runtime comparisons, 
 inventories. Restore caches only beside the recorded source/toolchain tuple and let Lake
 validate them. These records establish actual recovery, not a live persistent checkout.
 
-**Remaining #83 requirement: a connected persistent working environment.** The current
-execution checkout is still conversation scratch. Published source and verified saved caches
-survive it; the live working checkout, installed environment and diagnostic session have not
-been demonstrated on the existing workstation or another persistent remote workspace.
-The existing Core2 `lean-cas-dsl` continuation returns `WORKSTREAM_PAUSED`, which permits
-independent tooling repair but reserves resumption of that implementation workstream to the
-owner. Core2 is not a unique requirement of #83. Access to an authorized persistent workspace
-is the unresolved execution dependency; do not close #83 or substitute recoverability for it.
-The interrupted build had no completed result. Its replacement ran in an owned detached host
-session, survived its launcher and completed; no independent terminal or worker was touched.
+**The repeated-loop demonstration is complete.** `issue83-repeated-loop.json` records a
+controlled replay of the existing `970ecc4` to `3beca43` diagnostic edit: supplying
+`(phase := "prospective admission")` at the already selected observation call. The pre-edit
+artifact was built first, so the post-edit artifact build was real. The source ends at exact
+published HEAD bytes, and its olean reproduces the original HEAD artifact byte for byte.
+The support artifact, question, driver, package selection and leaf manifest remain unchanged.
+MCP 82028 and Realize worker 97507 remain alive through edit, diagnostics, build and runtime;
+there is no worker eviction, recurring reopen, swap use or additional OOM kill. The baseline
+build/open prepares this controlled replay; the measured cycle itself ends ready for the next
+edit with the same worker. Do not carry forward the old monolithic-build eviction policy.
+
+The 97.031 s interval measures the current loop. The historical 463.365 s figure measures
+only the old artifact step; these are not a paired historical full-loop speedup measurement.
+The existing four controls apply to the same final production source. The unchanged
+`NoImplementation` result remains work under #66/#69; it is not an unfinished tooling or
+restart-survival requirement. Keep publication, broader CI and recovery work outside the
+local feedback path.
 
 ## Source and actual input status — 2026-10-29 UTC
 

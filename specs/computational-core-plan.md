@@ -544,6 +544,13 @@ The current work is still #10's coupled #66/#69 trial; earlier compiler feedback
 build/cache work support that computation. Publication, a green legacy aggregate build and
 completed CI are not entrance conditions for local feedback.
 
+**Owner clarification (2026-10-30): measure the repeated feedback loop.** The problem is
+the elapsed time from an ordinary edit to completed compiler feedback and the relevant
+fresh runtime result in the active environment. Cold-start time and survival of a container
+restart are not completion requirements for #83. Continue in the existing Pro cloud container;
+access to the owner's machine or a new workspace is not a prerequisite. Preserve the server
+and reusable artifacts across ordinary iterations. Recovery records remain supplementary.
+
 **MCP setup in the actual worktree.** The repository's [`.mcp.json`](../.mcp.json) uses
 the [upstream standard stdio configuration](https://github.com/oOo0oOo/lean-lsp-mcp#3-configure-your-idesetup)
 (`uvx lean-lsp-mcp`, `LEAN_PROJECT_PATH=.`). Start a client supporting project `.mcp.json`
@@ -558,15 +565,21 @@ there. Reuse the recorded selection during diagnostics without `lake update` or 
 changed imports still require the rebuild/restart in step 3.
 
 **Memory during targeted builds.** Keep the Realize worker open across edits, completed
-diagnostics and hover/reference queries. On a memory-constrained host, finish those requests,
-then request `lean_diagnostic_messages` for `CasCatalogue/FileItems.lean` before building.
+diagnostics, targeted evaluator builds and focused runtime checks when measured memory permits.
+The repeated loop below completed on this 8 GiB host with the same worker alive throughout;
+the extracted evaluator no longer requires the monolithic build's unconditional eviction.
+Check actual anonymous memory, reclaimable file cache and the relevant compiler's measured
+memory requirement. A full cgroup including reclaimable cache or a sum of RSS values alone
+does not show that eviction is necessary. For a heavier target that needs release, finish
+pending requests and request `lean_diagnostic_messages` for `CasCatalogue/FileItems.lean`.
 The configured [`LEAN_LSP_MAX_OPEN_FILES=1`](https://github.com/oOo0oOo/lean-lsp-mcp/blob/v0.31.0/src/lean_lsp_mcp/config.py#L63-L73)
 makes the [idle-file eviction in leanclient 0.13.2](https://github.com/oOo0oOo/leanclient/blob/v0.13.2/leanclient/aio/client.py#L574-L589)
 send `textDocument/didClose`; [Lean 4.33 terminates that file worker](https://github.com/leanprover/lean4/blob/v4.33.0/src/Lean/Server/Watchdog.lean#L1277-L1278).
 FileItems imports only Lean. Verify the Realize worker exits and record memory plus the unchanged
-MCP/watchdog PIDs before starting the targeted build. Pending requests and pinned scratch
+MCP/watchdog PIDs before starting that heavier build. Pending requests and pinned scratch
 documents are excluded from eviction. The server stays alive; closing Realize discards its
-file elaboration state, so measure reopening separately from warm edits. Use step 3's targeted
+file elaboration state. Count reopening as a recurring cost of the next iteration when this
+fallback is used, not as a one-time cold start. Use step 3's targeted
 command: MCP `lean_build` runs the whole build and restarts the shared Lean client.
 
 **Observed memory cost (2026-10-30, #83).** The isolated original `Realize:olean` build at
@@ -576,7 +589,21 @@ command: MCP `lean_build` runs the whole build and restarts the shared Lean clie
 build exited 137, and the cgroup recorded an OOM kill. These observations support overlapping
 LSP/compiler memory as the cause; summed RSS includes shared pages and does not establish an
 exact simultaneous memory peak. Measure release and the next build before claiming this sequence
-prevents the failure or improves elapsed time.
+prevents the failure or improves elapsed time. That monolithic measurement does not require
+eviction for the extracted evaluator; use the current repeated-loop evidence below.
+
+**Measured repeated loop (2026-10-30 Asia/Taipei).** Reapplying the existing production
+diagnostic edit `(phase := "prospective admission")` received completed error-free diagnostics
+in 31.558 seconds, rebuilt the required evaluator artifact in 38.469 seconds, and ran the
+unchanged original first question in 26.965 seconds. These phase times include their command
+overhead. The measured interval from edit to result is 97.031 seconds; readiness for the next
+edit is 97.062 seconds. The same MCP and Realize file worker survive all phases, with no
+eviction, recurring reopen, swap use or additional OOM kill. The final source and evaluator
+artifact reproduce the published candidate exactly; the support artifact and selected inputs
+are unchanged. The original failure and the existing same-source protected controls retain
+their meanings. This is an actual current loop measurement, not a historical paired full-loop
+speedup ratio. Its baseline build/open is controlled-replay setup; no such reopen is needed
+between the measured cycle and its next edit.
 
 **Completed #83 measurements (2026-10-30 Asia/Taipei; raw times in UTC).** The extraction published at `1a4085e`
 preserves every original declaration body and registry import. A fresh evaluator artifact
@@ -602,9 +629,9 @@ server and IR artifacts. All 57485 restored files remain byte-, mode- and nanose
 identical after ordinary Lake validation of the original driver's eight imports (10.509 s).
 The saved three-part archive was downloaded and compared byte for byte to the original.
 No source symlink, trace rewrite, timestamp adjustment or dependency refresh manufactures
-this reuse. See `HANDOFF.md` for the source tuple, archive identity and remaining workspace
-requirement. Durable cache recovery does not itself establish a connected persistent working
-checkout. A named Core2 workstream is not an additional requirement of #83.
+this reuse. See `HANDOFF.md` for the source tuple and archive identity. These are recovery
+observations; they neither measure the repeated edit-to-result loop nor introduce a restart,
+workstation-access or named-workstream requirement for #83.
 
 Keep long jobs in the existing runner's supported detached sessions and record their identity,
 log and completion status. Verify that they outlive the invoking command. The per-command
@@ -662,12 +689,12 @@ review in rule 6. Do not substitute an easier question, different state or large
 fill a slow check's wait with unrelated changes. A targeted result establishes only its actual
 scope; all evidence in the corresponding KM row remains necessary for closure.
 
-**Environment and dependency boundaries.** Keep checkout, dependencies, compiled artifacts,
-Lake traces and diagnostic logs in the existing authorized durable workstation or remote
-workspace, and use existing process/session tools so a build can continue independently of the
-chat connection. Verify access and persistence rather than inferring them from installation.
-Use native Git where the environment permits it. A new host, a bespoke server or a new authority
-controller is not a prerequisite for this local sequence.
+**Environment and dependency boundaries.** Use the existing assigned container and retain its
+selected checkout, dependencies, compiled artifacts, Lake traces and diagnostic logs between
+iterations. Keep long jobs in the existing supported process/session tools. Publish through
+the available GitHub connection or native Git without putting publication on the diagnostic
+path. Moving to another host or demonstrating survival of container replacement is not a
+prerequisite for this local sequence or for #83.
 
 Consume own-organisation dependencies at latest `main`: run `just track-main` in the assigned
 worktree at session start and when consuming a completed role's dependency input (rule 8), and
@@ -680,15 +707,16 @@ mathematical environment it actually imported, not acquire a new label from a mu
 `just focus`, `just probe`, `just bench-question` and `just bench-reading` are not substitutes
 when their update/limit behavior changes that environment or the original question's budget.
 
-**Evidence required for #83.** Demonstrate a real production edit, completed diagnostics for
-that edit, a fresh downstream result with the required context and negatives, and actual artifact
-reuse. Record cold startup, warm edit-to-completed-diagnostics, required dependency rebuild,
-preparation/execution/export and memory separately in the existing work record. Tool installation,
-a no-op build, a pre-edit runtime baseline or this policy update establishes only its stated
-scope; none establishes the complete persistent setup or closes #83. Diagnose measured swapping,
-serial elaboration or startup costs at their causes. Module extraction requires measured benefit
-and retained behavior, including dynamically discovered registry semantics; no line quota or
-wholesale split mandate is introduced.
+**Evidence required for #83.** Demonstrate a real production edit through completed diagnostics,
+the artifact rebuild its consumer requires, and the unchanged focused downstream question with
+its context and protected negatives. Record the elapsed edit-to-result time for an actual
+iteration and its diagnostic, required rebuild and runtime phases; verify reuse of unchanged
+artifacts. Keep cold opening and recovery measurements separate. Do not add timings from
+unpaired runs and call the sum a measured loop or infer a full-loop speedup from one phase.
+Tool installation, a no-op build, a pre-edit baseline or this policy update establishes only
+its stated scope. Diagnose measured waiting, swapping and serial elaboration at their causes.
+Module extraction requires measured benefit and retained behavior, including dynamically
+discovered registry semantics; no line quota or wholesale split mandate is introduced.
 
 **Integration ownership.** Under #24, compile named production modules before engine installation,
 then retain engine-dependent probes, integrated consumers and native tools. Use standard cache
