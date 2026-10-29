@@ -7,40 +7,60 @@ own the work order. #66 owns complete mathematical interpretation; #69 owns comp
 #24 owns integration and independent acceptance. #23/#82 review construction requirements
 and exact mathematical inputs alongside that work.
 
-## Issue #83 implementation checkpoint — 2026-10-29 17:58 UTC
+## Issue #83: measured feedback and build recovery — 2026-10-30
 
-The owner has made #83 the immediate priority. This checkpoint contains the standard
-project `lean-lsp-mcp` configuration, one current development-check sequence, a maintained
-original-prefix RX-LIFT driver, production-before-engines CI ordering, standard cache
-restore/save for the actual build directories, and failure-only operation/endpoint context
-in the existing shared preparation guard. The original guard, failure stratum, mathematical
-inputs, permanent assertions and 200000 shared runtime budget are preserved.
+The owner made #83 the immediate priority. Its source is published through PR #67:
+`3beca435342d296fcdb462cd427b4220a850237b` preserves the exact recovered implementation
+checkpoint, and `b956a874ef58c8ee069c391d5108fc236407b537` fixes the observed GitHub workflow
+context error. The corrected workflow passes actionlint 1.7.12 and its candidate run
+[40931285588](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40931285588) has reached
+production compilation before engine setup. Inspect its final result; no cache-save or
+integration pass is inferred from a running step.
 
-The official MCP 0.31.0 ran on the actual integration worktree with Lean 4.33.0. Lake's standard
-`.lake/package-overrides.json` was necessary: a PATH wrapper alone did not propagate `--packages`
-to nested `setup-file`. The corrected server used the already selected dependencies. A real
-production diagnostics edit received completed error-free diagnostics in **57.430 seconds** on
-that persistent server; hover and references took 0.238 and 0.056 seconds. The edited source's
-SHA-256 is `62566cbe653224633dbe501471a9b89158d7456e4d9a1c9789f8ff4244ca713e`.
-A focused `CasCatalogue.Realize:olean` build is still running at this checkpoint; the fresh
-first-question result and archive-restoration measurement are **not yet available**. This is a
-source checkpoint, not a completed repair or closure of #83/#66/#24.
+The implementation includes the standard project Lean MCP configuration, one current
+check sequence, the original-prefix RX-LIFT driver, production-before-engines CI ordering,
+standard artifact restore/save, and failure-only producer/action/endpoint context. The
+original guard, failure stratum, mathematical inputs, assertions and 200000 shared runtime
+budget remain unchanged.
 
-The latest completed preceding source is published `970ecc4480b110f23ceab32da6c15e99ae7c1e0d`,
-tree `3fabcafe10fe8a257d2dd2c0faf2f3350f5c1795`; its production build passed 3802 jobs. All ten
-unchanged first-stage questions completed on frozen independent leaf `11201337b491b9a354cd3385984f8a494fc83a88`,
-with **zero passing assertions**. The first four reach the captured-argument complete-endpoint
-guard; nonidentity coordinate lacks negation; later evaluations/preparations retain their original
-timeouts. The shared producer/action-retention repair remains open. The measured no-op focused
-build at that source took 2.555 seconds and preserved the Realize artifact; that alone is not an
-archive-restore result or a measured end-to-end speedup.
+Completed local measurements on the preserved source tuple:
 
-Native `git push --dry-run` lacks HTTPS credentials in this environment. Source is published
-through the authorized GitHub connector; native authentication does not block that publication.
-The durable-workstation portion remains blocked: the existing Core2 approved `/lean-cas-dsl`
-root reports that it is unavailable or changed on disk and must be approved again. No other
-workstream or terminal session was claimed to work around that refusal. Persistent tooling in
-this container does not establish survival of a container restart.
+- The original production diagnostic edit received completed error-free persistent-LSP
+  diagnostics in 57.430 seconds; hover/references took 0.238/0.056 seconds.
+- The first artifact attempt ended with code 137. Its recovered resource snapshot and the
+  cgroup OOM count exposed overlap between the large file worker and compiler.
+- The isolated fresh `CasCatalogue.Realize:olean` build passed 3802 jobs in 463.365 seconds,
+  with peak child RSS 6645140 KiB and no additional OOM kill.
+- The unchanged first RX-LIFT question then completed in 24.711 seconds. It preserved all
+  22 preceding bindings and the original budget. Preparation took 5704 ms and execution
+  8500 ms. Its result remains `NoImplementation`: prospective admission of `op.rings.neg`
+  compares endpoint producers 6 and 16 whose JSON, selected action, intrinsic assembly and
+  payload differ. This identifies the original failure; it does not satisfy the assertion.
+
+The following extraction preserves every original declaration body: the stable records,
+port/harness, validation/preparation routines and callback evaluator move into
+`CasCatalogue.Realize.RuntimeSupport`; the existing recursive evaluator and diagnostics
+remain in `Realize`. All 23 public imports and 734 named declaration headers are retained.
+The three private helpers remain private with their callers. The purity gate imports the
+new module with `import all` so its private bodies remain visible to the existing rules.
+The artifact observer includes both modules. The source reconstruction exactly matches
+pre-extraction Realize SHA-256 `62566cbe653224633dbe501471a9b89158d7456e4d9a1c9789f8ff4244ca713e`.
+The support module compiled in 427.852 seconds; the extracted evaluator received completed,
+error-free cold LSP diagnostics in 51.332 seconds. The smaller evaluator's fresh artifact,
+protected negatives, paired runtime and restore/reuse measurement remain pending.
+
+The prior chat's scratch checkout was automatically cleaned during verification. Published
+source, the extraction patch and the new measurement records survived in the active workspace;
+the compiled state did not. Work resumed from the published branch without rewriting accepted
+questions or reconstructing source by inference. Preserve the resulting cache and records before
+another workspace transition. The active checkout is under the current conversation workspace;
+the published branch is the source of record.
+
+The explicit Core2 continuation attempt returned `WORKSTREAM_PAUSED`: only the owner may
+resume that implementation workstream. The refusal expressly permits independent repository
+tooling repair, which is the current #83 work. The durable-workstation demonstration requires
+the owner to resume the existing `lean-cas-dsl` workstream. No #83 or mathematical-acceptance
+closure is claimed while its required evidence remains unfinished.
 
 ## Source and actual input status — 2026-10-29 UTC
 

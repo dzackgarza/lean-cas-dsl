@@ -31,7 +31,8 @@ FIXED_IMPORTS = (
 )
 
 PRODUCTION_MODULES = (
-    'CasCatalogue.ConstrainedPoint', 'CasCatalogue.Language', 'CasCatalogue.Realize',
+    'CasCatalogue.ConstrainedPoint', 'CasCatalogue.Language',
+    'CasCatalogue.Realize.RuntimeSupport', 'CasCatalogue.Realize',
 )
 
 

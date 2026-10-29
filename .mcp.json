@@ -5,7 +5,8 @@
       "command": "uvx",
       "args": ["lean-lsp-mcp"],
       "env": {
-        "LEAN_PROJECT_PATH": "."
+        "LEAN_PROJECT_PATH": ".",
+        "LEAN_LSP_MAX_OPEN_FILES": "1"
       }
     }
   }

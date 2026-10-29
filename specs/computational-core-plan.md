@@ -557,6 +557,27 @@ in nested `setup-file` calls; a `PATH` wrapper's `--packages` option alone does 
 there. Reuse the recorded selection during diagnostics without `lake update` or `just track-main`;
 changed imports still require the rebuild/restart in step 3.
 
+**Memory during targeted builds.** Keep the Realize worker open across edits, completed
+diagnostics and hover/reference queries. On a memory-constrained host, finish those requests,
+then request `lean_diagnostic_messages` for `CasCatalogue/FileItems.lean` before building.
+The configured [`LEAN_LSP_MAX_OPEN_FILES=1`](https://github.com/oOo0oOo/lean-lsp-mcp/blob/v0.31.0/src/lean_lsp_mcp/config.py#L63-L73)
+makes the [idle-file eviction in leanclient 0.13.2](https://github.com/oOo0oOo/leanclient/blob/v0.13.2/leanclient/aio/client.py#L574-L589)
+send `textDocument/didClose`; [Lean 4.33 terminates that file worker](https://github.com/leanprover/lean4/blob/v4.33.0/src/Lean/Server/Watchdog.lean#L1277-L1278).
+FileItems imports only Lean. Verify the Realize worker exits and record memory plus the unchanged
+MCP/watchdog PIDs before starting the targeted build. Pending requests and pinned scratch
+documents are excluded from eviction. The server stays alive; closing Realize discards its
+file elaboration state, so measure reopening separately from warm edits. Use step 3's targeted
+command: MCP `lean_build` runs the whole build and restarts the shared Lean client.
+
+**Observed memory cost (2026-10-30, #83).** The isolated original `Realize:olean` build at
+`922920b` completed in **463.365 seconds**, with **6,645,140 KiB** peak child RSS
+(`issue83-targeted-artifact-build-02.json`). The preceding LSP snapshot summed to about
+**5 GiB RSS** across its processes; this host's cgroup limit is **8 GiB**. The earlier overlapping
+build exited 137, and the cgroup recorded an OOM kill. These observations support overlapping
+LSP/compiler memory as the cause; summed RSS includes shared pages and does not establish an
+exact simultaneous memory peak. Measure release and the next build before claiming this sequence
+prevents the failure or improves elapsed time.
+
 1. **Inspect the actual declarations.** Use declaration search, hover, references and source
    from the selected worktree and its actual dependencies before changing an application or
    interface. Run the existing Lean language server through `lean-lsp-mcp` against that
