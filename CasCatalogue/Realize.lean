@@ -1942,13 +1942,31 @@ partial def pointAtAdmissionDomain (h : Harness) (trace : Trace) (wire : Wire)
     | throwStratum .noImplementation "the admission domain has no accepted global-point comparison"
   let (_, _, inverse) ← (Language.constructionCoreMap comparison one domain).run
     { trace := some trace }
-  let inverseWire ← realize h trace "the admission's actual inverse point-domain comparison" inverse
+  -- This is a new point construction. Reuse the accepted comparison's
+  -- declaration and positioned parameters, not an earlier completed map.
+  let inverseWire ← realizeFresh h trace "the admission's actual inverse point-domain comparison" inverse
   unless ← withoutModifyingState (withTransparency .all <| isDefEq inverseWire.value inverse) do
     throwError "the admission changed its independently accepted point-domain comparison"
   let argument ← captureCompleteCallable h trace wire context
   let some (argumentDomain, argumentTarget) ← retainedCallableEndpoints? argument context
     | throwError "the admission lost its original complete point endpoint occurrences"
   let inverseContext ← CategoryContext.ofNamed sets domain
+  let domainWire ← realizeEndpoint h trace "the admission's selected point domain" domain
+  let some selected ← retainedSelectedCallableInvocation? inverseWire
+    | throwError "the admission lost its selected registered comparison producer"
+  let (data, dependencies) ← renderCapturedActionData selected.descriptor
+  let original : Wire := {
+    form := inverseWire.form
+    payload := (← combinedRecipePayload inverseWire.value data dependencies)
+    categoryContext := some inverseContext }
+  -- The declaration's reduced endpoint can have a different expression key.
+  -- Only this initial producer boundary selects the caller's actual domain;
+  -- later callable reuse continues to retain the resulting complete receipt.
+  let inverseWire ← captureSelectedCallable h trace original selected.address selected.application
+    selected.declarationParameters selected.descriptor selected.parameters
+    (some inverseContext)
+    (some ({ wire := domainWire, origin := .retained },
+      { wire := argumentDomain, origin := .retained })) selected.inverse
   let comparison ← captureCompleteCallable h trace inverseWire inverseContext
   let some (comparisonDomain, comparisonTarget) ← retainedCallableEndpoints? comparison inverseContext
     | throwError "the admission lost its accepted comparison endpoint occurrences"
@@ -2010,7 +2028,7 @@ partial def wholeCallablePoint (h : Harness) (trace : Trace) (wire : Wire)
   let complete ← captureCompleteCallable h trace wire context
   let template : ActionDataTemplate := .wire .map complete
   let (data, children) ← renderCapturedActionData template
-  let dependencies := children ++ #[domainWire, targetWire]
+  let dependencies := #[wire] ++ children ++ #[domainWire, targetWire]
   let point : Wire := {
     form := .canonicalMorphism sets
     payload := (← combinedRecipePayload formal data dependencies)

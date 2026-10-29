@@ -6844,8 +6844,10 @@ complete callable specialization has passed its own formal and input checks. -/
 def retainSelectedCallableInvocation (h : Harness) (wire : Wire)
     (selected : SelectedCallableInvocation) : TermElabM Wire := do
   checkSelectedCallableInvocation wire selected
-  retainCapturedInvocation h { wire with categoryContext := some selected.context }
-    (.callable selected)
+  -- Every consumer of this pending callable reads its producer's exact
+  -- endpoint occurrences, including before the invocation is observed.
+  let wire ← retainCallableEndpoints wire selected.source selected.target selected.context
+  retainCapturedInvocation h wire (.callable selected)
 
 def selectedCallableIdentity (context : CategoryContext) (source : Wire) : TermElabM Wire := do
   let formal ← identityAtContext context source.value

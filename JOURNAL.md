@@ -1,5 +1,36 @@
 # Journal
 
+## 2026-10-30 — Close the Lean feedback-loop task (#83)
+
+[#83 is closed](https://github.com/dzackgarza/lean-cas-dsl/issues/83#issuecomment-6509244748).
+The active container now supports completed focused Lean diagnostics, targeted
+artifact rebuilding and the original focused runtime with its full context and
+unchanged budget. Existing compiled dependencies are reused, and publication and
+full integration are separate from local diagnosis. The implementation and its
+verification are preserved through PR #67 and the existing handoff records.
+
+The owner's completion criterion is eliminating 20–30 minute feedback waits.
+Further timing proofs, seconds-level optimization, restart-survival work and
+access to another machine are outside this completed task. Work continues on the
+unchanged mathematical computation under #66/#69; their acceptance remains open.
+
+## 2026-10-30 — Retain selected callable endpoints and new admission domains
+
+The selected-callable producer now exposes its already checked complete endpoints
+through the standard endpoint receipt. A new whole-callable point supplies its
+actual admission domain to a fresh pending comparison producer, using the same
+accepted declaration and retained parameter templates. It also retains its exact
+original service operand alongside the framed child. Existing callables and
+comparisons keep their original receipts after later cache changes.
+
+Both production modules compile. The unchanged whole-function framing control
+now passes its nonidentity restaging, service-operand, reuse, owner, inventory and
+full category-dictionary assertions; the returned-callable control also passes.
+No mathematical assertion or rejection guard changed. The unchanged first
+RX-LIFT question still reaches a separate complete-endpoint framing gap after
+29 successful carrier-action dispatches. This repair establishes no mathematical
+acceptance or closure of #66/#69.
+
 ## 2026-10-26 — Preserve complete operation product presentations and actions
 
 Operation preparation now binds original complete point presentations to the

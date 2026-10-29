@@ -10,23 +10,64 @@ and exact mathematical inputs alongside that work.
 ## Current computation repair — 2026-10-30 (Asia/Taipei)
 
 The active work is the unchanged first RX-LIFT construction under #66/#69.
-`prepareOperationObservation` now interprets ordinary consumer endpoints through
-the same reader as its argument, preserving canonical capture and producer-owned
-prepared point frames. The original question still fails: after this change its
-diagnostic identifies an unobserved product mediator in `op.rings.mul`, rather than
-the earlier mixed-phase endpoints in `op.rings.neg`. Neither is a comparison of
-source producer 6 against target producer 16; each endpoint is compared with its
-own retained occurrence.
+The compiled repair is published as
+[`154a818b`](https://github.com/dzackgarza/lean-cas-dsl/commit/154a818bb63492d154c4676d6b9cb597b6cf049b),
+tree `360d25c08f5f16baa124f4f6001fd726091c35ad`, exactly matching local `f7cb5560`.
+`prepareOperationObservation` interprets ordinary consumer endpoints through the
+same reader as its argument, preserving canonical capture and producer-owned
+prepared point frames. Both product-mediator encodings retain their typed child
+assemblies, callable frames and authenticated product provenance through the
+shared observer. The original children, endpoint relations, selected presentation,
+data positions and owners remain attached. The point-preparation helper supplies
+its default reader inside the recursive owner.
 
-The current source captures both product-mediator encodings as typed intrinsic
-assemblies and refreshes their authenticated product provenance through the
-shared observer. It preserves the original children, endpoint relations, selected
-presentation and data positions. Focused compilation checked the changed producer
-and observer bodies. A later helper edit used a reserved Lean identifier, caught
-by focused feedback and corrected; the complete production build and original
-runtime verification remain pending. Existing mathematical assertions and leaf
-inputs are unchanged. The existing point-preparation helper again supplies its
-capture-reader default so its unchanged product comparison controls can run.
+The production `RuntimeSupport:olean` and `Realize:olean` builds pass. The original
+first question retains all 22 preceding bindings, 104 trace nodes and its 200000
+heartbeat budget. It advances through the former `op.rings.neg`/`op.rings.mul`
+endpoint failures. The separately authored module functor source `7113a646`
+is published as
+[`54604e4e`](https://github.com/dzackgarza/lean-cas-dsl-leaves/commit/54604e4ef38ceca6d57d3943574f58e1983f597c),
+with exact tree `fb932513f1c8a6da5016fda647fa0528bde23058`.
+
+Preparation-only inspection accounts for the complete selected module and ring
+carrier routes. The absent direct registrations are the eight published functors
+`modules.additive_group`, `additive_groups.to_groups`, `groups.monoid`,
+`monoids.semigroup`, `rings.multiplicative_monoid`,
+`rings.additive_commutative_monoid`,
+`additive_commutative_monoids.additive_monoid`, `additive_monoids.underlying`, plus
+the published classifier-forget actions for `clf.magmas.associative` and
+`clf.sets.binary_operation`. Their public object/map interfaces were implemented
+as one bounded independent leaf addition, without the question or its expected
+answers. Source `f0dc0837` is published as
+[`33cd4cd9`](https://github.com/dzackgarza/lean-cas-dsl-leaves/commit/33cd4cd9d0deed5138c7b50dc8724c870f1e7174),
+with exact tree `343b1c6b269d1053f4aa83f45d665417c0403a80`.
+`modules.underlying` is not the selected structural route. The retained
+`bilin_module.forget` may use generic record projection and is not declared a
+missing leaf merely because it lacks a direct registration.
+
+With that frozen leaf, the unchanged first question makes 29 successful backend
+calls through the complete module carrier route. It then reports
+`NoImplementation: the observed callable has no retained action to the selected
+comparison's complete semantic endpoints`. This is still not a mathematical
+pass. Repeated action calls with the same public descriptor alone do not prove a
+memoization defect; their complete retained producer inputs must be compared.
+
+The subsequent source `278fd420` repairs the previously failing whole-function
+restaging control: the shared selected-callable owner exposes the exact endpoints
+it already stores, and a new whole-callable point supplies its actual admission
+domain explicitly and retains its original service operand. Both production
+artifact builds and the unchanged whole-function/returned-callable controls pass,
+including the protected owner, inventory and category-dictionary negatives.
+The original first question still reports the same frame gap after 29 dispatches
+on those fresh artifacts. Its exact failing side/producer is under investigation;
+the restaging correction is not claimed to resolve it.
+
+Intrinsic-occurrence and arrow-framing controls passed the preceding compiled
+repair. Whole-operation observation reproduced its prior CI failure.
+The product-comparison control now elaborates but still supplies a raw completed
+fixture without the producer receipt required by point preparation. No guard,
+mathematical assertion or resource budget has been weakened. These engineering
+results do not complete #66/#69 or their independent #24 acceptance.
 
 ## Issue #83: closed — 2026-10-30 (Asia/Taipei)
 
