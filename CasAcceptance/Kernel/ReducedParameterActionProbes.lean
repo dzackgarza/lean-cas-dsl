@@ -68,9 +68,13 @@ run_elab do
   let .ok ("functorAction", #[descriptor, sourceData]) :=
       ComputationalData.envelope parameter.json
     | throwError "the reduced parameter erased its declared object action"
+  -- Capture retains the complete action as its dependency. Its source packet
+  -- and supplying owner must still be the original selected occurrence's.
+  let #[dependency] := dependencies
+    | throwError "the recovered parameter lost its complete action dependency"
   unless descriptor == dataNode FunctorId.commutativeRingsRings.raw #[] &&
-      sourceData == original.json && dependencies.any (fun wire =>
-        wire.value == source && wire.json == original.json && wire.owner? == original.owner?) &&
+      sourceData == original.json && dependency.value == actual &&
+      dependency.fragment == parameter && dependency.owner? == original.owner? &&
       !dependencies.any (·.owner? == foreign.owner?) do
     throwError "the reduced parameter replaced its actual source packet or session owner"
   let combined := { original with payload := ← combinedPayload actual parameter dependencies }
@@ -199,8 +203,10 @@ run_elab do
   Trace.record (some trace) image
     (.retainedRoute row.category targetCategory.id #[edge] #[action] source)
   let sourceCarrier ← withTransparency .all <| mkAppM ``RingCat.carrier #[source]
+  let sourceRing ← mkAppM ``RingCat.ring #[source]
   let different ← withTransparency .all <| elabTermAndSynthesize
-    (← `(MonCat.of (Multiplicative $(← exprToSyntax sourceCarrier)))) none
+    (← `(letI : Ring $(← exprToSyntax sourceCarrier) := $(← exprToSyntax sourceRing)
+         MonCat.of (Multiplicative $(← exprToSyntax sourceCarrier)))) none
   let imageCarrier ← withTransparency .all <| mkAppM ``MonCat.carrier #[image]
   let differentCarrier ← withTransparency .all <| mkAppM ``MonCat.carrier #[different]
   unless (← withTransparency .all <| isDefEq imageCarrier differentCarrier) &&

@@ -159,6 +159,16 @@ dependency. The other failures are anchored multiplicative-instance synthesis an
 action validation. The full target does not pass; preserve its substantive source, owner,
 structure-dictionary and ambiguity checks while diagnosing each boundary.
 
+The two stale fixture setups are corrected without changing their obligations: the ownership
+control checks the complete action dependency and its full fragment, exact original source
+packet and original owner; the different-dictionary control supplies the original bundled
+ring dictionary explicitly on its anchored carrier. The nested/composed-action control remains
+unchanged. It exposed a production argument mismatch: the literal-action callback passed the
+raw declaration application to a strict whole-functor descriptor checker. Both callbacks now
+pass the complete selected action they already receive, retaining the existing declaration
+parameter-consistency checks. The in-progress profiling rebuild was stopped to include this
+correction; the next production build and unchanged controls must verify it.
+
 ### Preceding integrated execution — 2026-10-29 12:12 UTC
 
 At published kernel `deafe9b61b0ba09795ce92f351b0d578aff12d04`, tree

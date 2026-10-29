@@ -567,3 +567,12 @@ exercise distinct occurrences and explicit references, full endpoint roles, and
 wrong-row/changed-diagram refusal; the complete universal-object controls exercise
 the full structure and owner boundary. Both targets pass on `695210`. Their scope
 is engineering preservation, not universality or correctness of a leaf's answers.
+
+The missing-node literal-action path already retains the selected component applications
+in `transportImage`. Its descriptor callbacks now pass that same complete application to
+`realizedEdgeData` / `capturedEdgeData`, as their strict whole-action checks require. The
+literal declaration application remains the independently checked source of ordered parameters;
+it is not substituted for the functor at the checker boundary. This corrects a raw `Cat.Hom`
+versus projected `Functor` argument mismatch without changing selected actions, receivers,
+routes, parameter-consistency checks or ambiguity. The existing nested/composed source-owner
+control remains unchanged and is the direct regression for this path.

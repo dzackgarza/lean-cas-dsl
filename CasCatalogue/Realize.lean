@@ -13697,7 +13697,9 @@ def realizeFreshWith
               unless components.all (fun candidate =>
                   candidate.declarationApplication == component.declarationApplication) do
                 throwError "the literal action has distinct retained parameter presentations"
-              realizedEdgeData h trace edge component.declarationApplication)
+              -- Parameter provenance belongs to the declaration above; the
+              -- strict descriptor checker consumes this complete selected functor.
+              realizedEdgeData h trace edge application)
             (some fun edge application => do
               let components := selected.filter fun candidate =>
                 candidate.edge == edge && candidate.application == application
@@ -13706,7 +13708,7 @@ def realizeFreshWith
               unless components.all (fun candidate =>
                   candidate.declarationApplication == component.declarationApplication) do
                 throwError "the literal action has distinct captured parameter presentations"
-              capturedEdgeData h trace edge component.declarationApplication)
+              capturedEdgeData h trace edge application)
           unless ← withTransparency .all <|
               isDefEq (← inferType image.value) (← inferType e) <&&> isDefEq image.value e do
             throwError "the literal action changed the complete selected object"
