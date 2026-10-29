@@ -632,3 +632,33 @@ existing private object reader; live observation uses its original typed object 
 the same explicit-demand policy as intrinsic map observation. No equal-value/packet lookup or
 new identity association selects the endpoint. The production build, original runtime and
 relevant preserved controls must still establish executable behavior on this source.
+
+At `6df7f8fd`, the frame correction passes the 3802-job production build. All six original
+terminal-node frame observations and twelve endpoint comparisons then pass without dispatch;
+the existing arrow-framing, intrinsic-occurrence and reduced-parameter targets pass. The
+unchanged ten-question runtime with frozen independent leaf `940add07` still has zero passing
+assertions. Its first four now expose the analogous missing producer relation for a literal
+`element`, while the nonidentity negation gap and five budget failures remain.
+
+The next no-dispatch scan enumerates both original numeral nodes from the unchanged first
+question. A scratch literal template exactly reproduces their original packet, selected owner
+and suppliers. All four private observation orders then pass the complete callable frame and
+positioned public admission, but their current `PointOrigin` still has the old target. This is
+an incomplete repair: later operation preparation can prefer that point receipt. Both receipts
+must describe the same current point rather than merely letting the outer guard proceed.
+
+The literal producer now retains its exact typed owner slot and the original numeral template
+after its existing full formal-point, closure, selected-target and endpoint checks. The shared
+operation-expression path does not receive this template: its recursively flattened parameters
+and operands need their own ordered typed capture. The public literal encoding is unchanged,
+and `retainIntrinsicAssembly` verifies its original positioned data and ownership exactly.
+
+Before observation, the literal case requires the original current point receipt, full context,
+formal value and fragment, empty expression dependencies, exact owner-slot correspondence and
+exact agreement with the original callable endpoint receipt. After observation it takes the
+owner from that same typed template slot and the endpoints from the existing original-object
+observations, checks the numeral is unchanged, and reattaches `PointOrigin` through the existing
+typed constructor. No additional observation, cache search, selected identity or execution flag
+is introduced. These original records and the surviving full-context guard own the preservation
+argument; matching a public packet tag alone supplies no provenance. The production build,
+original numeral scan, existing preservation controls and unchanged runtime remain required.

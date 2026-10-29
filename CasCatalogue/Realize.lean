@@ -11441,6 +11441,31 @@ def observeIntrinsicAssemblyWith
   let (original, _) ← renderCapturedActionData assembly.template
   unless original == wire.fragment do
     throwStratum .unavailable "the intrinsic assembly changed its original positioned child data"
+  -- Only the literal producer's typed owner slot licenses refreshing its point
+  -- receipt. A matching packet tag or historical PointOrigin is insufficient.
+  let literalPointData ← match assembly.template with
+    | .ctor "element" #[.wire .object owner, .ctor "numeral" #[.literal number]] => do
+      let .map context := assembly.result
+        | throwError "the captured literal point changed its complete result role"
+      unless assembly.endpointRoles == (.object, .object) do
+        throwError "the captured literal point changed its original endpoint roles"
+      let some origin ← retainedPointOrigin? wire
+        | throwStratum .unavailable "the captured literal point lost its current original producer"
+      unless origin.formal == wire.value && origin.fragment == wire.fragment &&
+          origin.context.bundle == context.bundle &&
+          origin.context.expression.syntacticEq context.expression do
+        throwStratum .unavailable "the captured literal point changed its original full context"
+      let .element selected inputs := origin.recipe
+        | throwError "the captured literal point changed its original construction"
+      unless inputs.isEmpty && sameCompleteWireContext selected owner do
+        throwStratum .unavailable "the captured literal point changed its complete selected owner"
+      unless sameCallableEndpoints wire.callableEndpoints (some {
+          formal := origin.formal, fragment := origin.fragment, context := origin.context,
+          source := origin.source, target := origin.target }) &&
+          (← retainedCallableEndpoints? wire context).isSome do
+        throwStratum .unavailable "the captured literal point changed its original endpoint receipt"
+      pure (some number)
+    | _ => pure none
   let observed ← IO.mkRef (#[] : Array (ActionDataRole × Wire × Wire))
   let observe := fun (role : ActionDataRole) (original : Wire) => do
     if let some (_, _, actual) := (← observed.get).find? (fun (selected, input, _) =>
@@ -11728,8 +11753,19 @@ def observeIntrinsicAssemblyWith
         result ← retainCallableEndpoints result source target context
     | none =>
         if let some (source, target) ← retainedCallableEndpoints? wire context then
-          result ← retainCallableEndpoints result (← observe assembly.endpointRoles.1 source)
-            (← observe assembly.endpointRoles.2 target) context
+          let source ← observe assembly.endpointRoles.1 source
+          let target ← observe assembly.endpointRoles.2 target
+          result ← retainCallableEndpoints result source target context
+          if let some number := literalPointData then
+            let .ctor "element" #[.wire .object owner, .ctor "numeral" #[.literal actualNumber]] := template
+              | throwError "the observed literal point lost its original typed owner slot"
+            unless actualNumber == number do
+              throwError "the observed literal point changed its captured numeral"
+            -- These are the same original endpoint observations and the same
+            -- positioned owner read. No point execution or new meaning is added.
+            result ← retainPointOrigin result context source target (.element owner #[])
+        else if literalPointData.isSome then
+          throwStratum .unavailable "the captured literal point lost its original endpoint receipt"
   if sameCompleteWireContext result wire then return wire
   result := { result with
     serviceHandles := (← retainServiceOperands h (dependencies ++ (← observed.get).map (·.2.2))) }
@@ -14916,7 +14952,14 @@ def realizeFreshWith
       let context ← CategoryContext.ofNamed sets domain
       let sourceWire ← realizeCallableEndpoint h trace point domain true (some context)
       let targetWire ← realizeCallableEndpoint h trace point endpoint false (some context)
-      retainPointOrigin point context sourceWire targetWire (.element selectedWire dependencies)
+      let point ← retainPointOrigin point context sourceWire targetWire (.element selectedWire dependencies)
+      if let .elementNumeral value _ _ := node then
+        unless dependencies.isEmpty do
+          throwError "the literal point changed its captured numeral expression inputs"
+        let template : ActionDataTemplate := .ctor "element" #[
+          .wire .object selectedWire, .ctor "numeral" #[.literal { json := toJson value }]]
+        return ← retainIntrinsicAssembly point .map context template
+      return point
   | .presentationApply id params inverse source target argument =>
       let some entry := state.presentations.find? (·.id == id) | unreachable!
       let comparison ← elabTermAndSynthesize

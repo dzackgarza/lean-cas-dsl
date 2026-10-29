@@ -4466,10 +4466,22 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
       if let #[(parameter, parameterCategory, views)] := fixedViews then
         let (originals, source, route, alternatives, applications) ←
           coalesceSelectedParameterViews (← inferType parameter) parameter views
-        unless alternatives.isEmpty do
-          Trace.record (← read).trace parameter
-            (.parameterEquivalence (← inferType parameter) parameter alternatives)
-        let selected := Value.object parameter parameterCategory none none
+        -- Exact writable-trace recovery keeps its producer; a different record
+        -- gets its own key while an unrecorded parameter keeps its self-record.
+        let retained ← if alternatives.isEmpty then pure parameter else do
+          let node := Node.parameterEquivalence (← inferType parameter) parameter alternatives
+          let trace? := (← read).trace
+          let previous? ← match trace? with
+            | some trace => pure ((← trace.get)[parameter]?)
+            | none => pure none
+          match previous? with
+          | some previous =>
+              if previous == node then pure parameter
+              else Trace.recordProduced trace? parameter node
+          | none =>
+              Trace.record trace? parameter node
+              pure parameter
+        let selected := Value.object retained parameterCategory none none
           (some (originals, source, route, alternatives, applications))
         let carrier ← carrierObject selected
         unless ← withTransparency .all <| isDefEq (← semanticObject carrier) x do

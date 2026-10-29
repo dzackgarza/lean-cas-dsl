@@ -1220,6 +1220,35 @@ the recovered source. Protected questions, expected answers and budgets are unch
 
 ## Private complete snapshots and bounded profiling (2026-10-29)
 
+### Preserve an existing producer when recording a fixed-parameter view
+
+The unchanged integer-coordinate control in `ReaderFamilyParameterProbes` exposes a call
+from `recognize`'s fixed-parameter endpoint branch to `Trace.record`: it tries to attach
+`parameterEquivalence` to an exact key already owned by `object obj.rings.integers`.
+The collision refusal is correct. The existing owners are `Trace.record` for recovery of
+the same complete node and `Trace.recordProduced` for a new producer with ordered typed
+children. Source inspection of those functions, `coalesceSelectedParameterViews`,
+`retainedCarrierRoute` and the equivalence consumers in `Realize` supplies the reuse argument;
+no new mathematical declaration, identity mechanism or equivalence test is introduced.
+
+After unchanged full-view coalescing, the fixed-parameter branch now inspects only the exact
+key in the same writable trace. If its complete node already agrees, the old parameter is
+returned without a new wrapper. If a different record owns that key, a fresh equivalence
+producer is returned, with the original parameter and every original evidence child retained.
+If the key is absent, the old self-record path remains. This distinction matters: forwarding
+an unrecorded representative could reopen named recovery and lose an already checked view.
+The lookup does not consult a source recorder, normalization, carrier equality or data bytes.
+
+The outward value uses the new handle; its evidence source, complete route applications,
+ordered alternatives and original literal action receiver remain exact children. Carrier
+conversion replays that original evidence and checks the complete result before using the
+outward handle. All category, full-type, prefix/result, endpoint and ambiguity checks remain.
+The two adjacent analogous branches remain unworked rather than receiving an unexercised
+blanket rewrite. `ReaderFamilyParameterProbes` and `ProducerOccurrenceProbes` are the existing
+verification boundaries; source inspection is not a passing runtime result.
+
+### Existing snapshot and performance work
+
 Source inspection of `readingTrace?`, `eval`, `structuredParameterView`, the joint
 family-argument trial and the generalized-map argument trial locates the existing
 owners of the original records. A private recorder now copies the complete

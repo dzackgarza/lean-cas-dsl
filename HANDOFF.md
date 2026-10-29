@@ -96,6 +96,48 @@ the ordinary first RX-LIFT or claiming that it establishes general higher covera
 
 ### Latest integrated execution — 2026-10-29
 
+The latest completed source is published `6df7f8fdbf26d9c22ea492495b774a1bfce750c8`,
+tree `bfb4b2cfab4ff752ea8f671df6c72b5debdde25c`, identical to local `a66c50a0`.
+Its focused production build passes 3802 jobs (Realize 511 seconds). The original terminal
+scan now succeeds at all six production frame observations, preserves all twelve independent
+endpoint comparisons, and dispatches nothing. Existing `ArrowFramingReuseProbes`,
+`IntrinsicOccurrenceProbes` and `ReducedParameterActionProbes` all pass on this source.
+
+All ten original first-stage questions then completed against a frozen checkout of the same
+independent leaf `940add07`, with both source trees clean. Text, IDs, lines, preceding bindings,
+six normal/meta imports, shared harness, rejected registration and the 200000 shared budget
+are unchanged. The input path is normalized but resolves to the identical original file.
+There are still **zero passing assertions**. The first four now reach a different intrinsic
+endpoint mismatch: the target of the original literal `element` callable remains a pending
+underlying-carrier action while the enclosing typed map observes that action. Each has one
+successful multiplication response. The nonidentity coordinate still has unavailable negation;
+three later evaluations and both factor-sample preparations still exhaust their budgets.
+
+The next bounded scan prepares the same original question and visits all two original
+`elementNumeral` nodes in both read orders. Their ordinary public admission succeeds, but all
+four production frames fail. A scratch-only typed literal template reproduces the original
+packet, owner and suppliers exactly; it makes all four frames and positioned public admissions
+succeed without dispatch. It also exposes an incomplete repair: the current `PointOrigin`
+retains the old target while the callable receipt has the observed target. The separate scan
+uses 10948569 raw ticks; preparation uses 64541777, within its unchanged 200000 limit.
+No literal template is accepted as a complete repair without keeping both receipts consistent.
+
+The next source retains the literal's selected typed owner and original numeral template,
+then refreshes its current point-origin receipt from those same observed owner and endpoint
+fields. Its original formal point, full type, context, closure and selected-target checks
+remain. General operation-expression capture is a different path and is not approximated
+by the literal case. The complete endpoint guard and all selected-comparison checks remain.
+
+The separately diagnosed integer-coordinate reader control tries to record a parameter
+equivalence at an exact key already owned by its named ring object. The next reader source
+preserves that original producer as the child of a distinct equivalence occurrence. Exact
+existing-node recovery remains idempotent; a genuinely unrecorded parameter keeps the existing
+self-record path. Every full view, original representative, route/application and ambiguity
+check remains. Only the exercised fixed-parameter branch is changed. The unchanged reader
+family and producer-occurrence controls must confirm this correction before any pass is claimed.
+
+### Preceding integrated source and profile — 2026-10-29
+
 Published kernel `bd1f0debfbd1e51802708e410f9109b060506dc6`, tree
 `53710136bffef3bd5a55c0e5b2d8cfb2d4a7fb1a`, exactly matches local author `8fa4d873`.
 Its focused production build passes 3802 jobs (Language 101 seconds, Realize 453 seconds).
@@ -2334,6 +2376,10 @@ Deliver the working system and its runnable examples, not another assessment or 
 
 ## Noticed, not worked
 
+- `recognize`'s non-Sets multiple-view and common-full-source branches can still attach
+  parameter-equivalence records to already owned keys. They remain unchanged; a repair must
+  preserve exact-record idempotence, unrecorded self-record behavior and original source/action
+  children. The integer-coordinate collision exercises the separate fixed-parameter branch.
 - Current focused controls retain visible failures in named-presentation data/action capture,
   inventory endpoint receipts, whole-function nonidentity restaging and reader producer-key
   collisions, as recorded above. Their failures are not accepted or hidden by passing family,
