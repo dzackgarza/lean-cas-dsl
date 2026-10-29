@@ -491,6 +491,7 @@ def Value.closedReading (value : Value) : Bool :=
 retention only: it does not change the object, its selected structure, or any
 existing comparison and action data. -/
 def retainObjectContext (value : Value) (known : Array Value) : Value :=
+  if known.isEmpty then value else
   let existing := sourceParameterValues value
   let known := known.foldl (fun retained witness =>
     if existing.any (·.sameSource witness) || retained.any (·.sameSource witness) then retained
@@ -4337,6 +4338,8 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
         (some x)
   if !x.hasMVar then
     let mut matchedValues : Array Value := #[]
+    let declared := state.objects.filter (fun row =>
+      row.category == category.id && some row.declaration == x.getAppFn.constName?)
     let mut supplied := known
     let mut position := 0
     while position < supplied.size do
@@ -4349,21 +4352,23 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
           supplied := supplied ++ parameters
       let candidate ← try
         match candidate with
-        | .object .. => if category.id == CategoryId.sets then carrierObject candidate else pure candidate
+        | .object .. =>
+            if category.id == CategoryId.sets then
+              profileReader "recognition carrier conversion" (carrierObject candidate)
+            else pure candidate
         | _ => continue
       catch error =>
         if (CasCatalogue.Exception.interpretationKind error) == .invalid then continue else throw error
       let .object handle candidateCategory origin .. := candidate | continue
       unless candidateCategory.id == category.id do continue
-      let declared := state.objects.filter (fun row =>
-        row.category == category.id && some row.declaration == x.getAppFn.constName?)
       if !declared.isEmpty && !origin.any (fun (entry, _) => declared.any (·.id == entry.id)) then
         continue
       -- Compare the complete stored objects, not their richer projection owners.
       -- Their original handles remain the selected values and retained provenance.
-      if ← parameterTrial (withTransparency .all <| isDefEq
-          (← withTransparency .default <| whnf handle)
-          (← withTransparency .default <| whnf x)) then
+      if ← profileReader "recognition candidate comparison"
+          (parameterTrial (withTransparency .all <| isDefEq
+            (← withTransparency .default <| whnf handle)
+            (← withTransparency .default <| whnf x))) then
         if let some index := matchedValues.findIdx? (·.sameSelection candidate) then
           matchedValues := matchedValues.set! index
             (retainObjectContext matchedValues[index]! #[candidate])
@@ -6263,7 +6268,8 @@ partial def completeParameterObjects (parameters : Array Expr)
   let mut known := known
   for parameter in parameters do
     if parameter.hasMVar || parameter.hasLevelMVar then continue
-    let applicable ← state.categories.filterM fun candidate => parameterCompatible do
+    let applicable ← profileReader "complete parameter category trials" <|
+        state.categories.filterM fun candidate => parameterCompatible do
       let context ← CategoryContext.ofNamed candidate parameter
       return !context.bundle.hasMVar && !context.bundle.hasLevelMVar
     match applicable with
@@ -7561,7 +7567,6 @@ Every successful reading keeps the ordinary full-selection ambiguity checks. -/
 partial def recognizedEndpoint? (state : RegistryState) (endpoint : Expr)
     (category : NamedCategoryEntry) (known : Array Value)
     (fixedParameters : Array Expr := #[]) : M (Option Value) := do
-  let mut available := known.flatMap sourceParameterValues
   -- A declaration-owned constructor already fixes the result's identity. Keep every
   -- retained witness for its dependent parameters, even when a parameter's registered
   -- wrapper was reduced in the declaration's signature (`FiniteSubsets (Polynomial R)`).
@@ -7569,8 +7574,10 @@ partial def recognizedEndpoint? (state : RegistryState) (endpoint : Expr)
   if state.objects.any (fun row => row.category == category.id &&
       some row.declaration == endpoint.getAppFn.constName?) then
     return ← optionalReading (recognize state endpoint category known fixedParameters)
+  let mut available := known.flatMap sourceParameterValues
   for _ in [:available.size + 1] do
-    let (preferred, expandParameters) ← endpointWitnesses endpoint available
+    let (preferred, expandParameters) ← profileReader "endpoint witness preference" <|
+      endpointWitnesses endpoint available
     if let some recognized ← optionalReading
         (recognize state endpoint category preferred fixedParameters expandParameters) then
       return some recognized

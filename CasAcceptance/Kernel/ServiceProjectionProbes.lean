@@ -71,10 +71,12 @@ run_elab do
   try
     let formal ← instantiateMVars (← elabTermAndSynthesize
       (← `(TypeCat.ofHom (fun (_ : $(← exprToSyntax source.value)) =>
-        (0 : $(← exprToSyntax target.value))))) none)
+        (show $(← exprToSyntax target.value) from (0 : Fin 3))))) none)
+    -- This asymmetric Hom has no identity. The projection-only control retains
+    -- arbitrary owned callable data and never evaluates its opaque token.
     let data := Backend.TypedMap.encode {
       source := source.json, target := target.json,
-      callable := node "identity" #[source.json, target.json] }
+      callable := node "opaqueData" #[toJson "projection-probe-callable"] }
     let mapWire : Wire := {
       form := ServiceRequest.formFor (← registryState) context source.form true
       payload := computedPayload formal data source.owner?
@@ -112,7 +114,7 @@ run_elab do
     let swapped := { arrowWire with payload := (computedPayload arrowFormal
       (node "arrow" #[target.json, source.json, data]) source.owner?) }
     let swappedScope := { scope with references := #[swapped] }
-    rejects "actual complete endpoints" <|
+    rejects "complete endpoint descriptors differ from its selected data roles" <|
       serviceArrow swappedScope (node "arrowHom" #[Backend.resultRef 0])
     record "nested-endpoint-and-arrow-projections" harness
       #["full asymmetric Hom", "exact actual endpoint fields", "opaque child owner",

@@ -1249,3 +1249,14 @@ for 1.43 seconds of the observed 18.307 seconds. Committed family rebinding is
 changing carrier-map applicability, dropping candidate categories or caching a
 semantic reading by equal carriers. The two inner endpoint regions attribute the
 next correction before any sharing of structural owner analysis is implemented.
+
+That split attributes 3.73 seconds to recognition and 757 milliseconds to field
+discovery in the next unchanged sample; no structural-owner cache is selected.
+Three pure changes remove demonstrably unused work: empty context retention returns
+its original value immediately, declaration-head recognition skips unused witness
+expansion, and the fixed declaration-row filter is computed once before its supplied
+witness loop. Optional subregions now measure carrier conversion, full-handle
+comparison, endpoint preference and parameter category trials. No source witness,
+candidate multiplicity or comparison is removed. Global witness deduplication is
+not substituted: preference currently branches on multiplicity and must retain its
+existing complete-owner selection until separately justified.

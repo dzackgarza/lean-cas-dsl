@@ -63,7 +63,7 @@ private def fixture : TermElabM (Trace × FunctorEntry × Expr × Wire × Wire �
   let action ← instantiateMVars action
   let morphism ← instantiateMVars (← elabTermAndSynthesize
     (← `(TypeCat.ofHom (fun (_ : $(← exprToSyntax source)) =>
-      (0 : $(← exprToSyntax target))))) none)
+      (show $(← exprToSyntax target) from (0 : Fin 3))))) none)
   let context ← CategoryContext.ofNamed sets source
   let original : Wire := {
     form := .canonicalMorphism sets
@@ -421,7 +421,7 @@ run_elab do
   let harness ← Harness.empty
   let second ← instantiateMVars (← elabTermAndSynthesize
     (← `(TypeCat.ofHom (fun (_ : $(← exprToSyntax target.value)) =>
-      (0 : $(← exprToSyntax source.value))))) none)
+      (show $(← exprToSyntax source.value) from (0 : Fin 2))))) none)
   let composite ← mkAppM ``CategoryTheory.CategoryStruct.comp #[first.value, second]
   let endpoint := fun (size : Nat) => dataNode "obj.sets.fin" #[toJson size]
   let firstData := dataNode "typedMap" #[endpoint 5, endpoint 7,

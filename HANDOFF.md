@@ -27,7 +27,9 @@ The public contract is integrated through
 `81c04e6759a5da6799020078aa8af446eacf4a11`, after repository QC passed.
 The independently authored actual-image adapter remains in
 [leaves #7](https://github.com/dzackgarza/lean-cas-dsl-leaves/pull/7), head
-`1fc1ee8b438aa6f1c78f21e99359c0408f8233e7`; its protocol conformance is separate from
+`97188099c6d5a260dceeb7af1317b2e5eb8c8701`, tree
+`429ec639c84b9dc007d56f0dee0b4ca18e145f19`; this additionally publishes the independently
+authored ordinary `fun.commutative_rings.ring` object action. Its protocol conformance is separate from
 mathematical acceptance. The kernel manifest now records the actual mathematical and contract
 main inputs, with `inputRev: main` unchanged. The focused production build at kernel
 `13c5e8e0` passed on these inputs (3820 jobs), including all six original RX-LIFT imports;
@@ -42,7 +44,7 @@ retain that distinction.
 
 ## Current computation and recovery checkpoint
 
-The complete latest-main runtime diagnostic at `13c5e8e0` preserved all ten original first-stage
+The first restored latest-main runtime diagnostic at `13c5e8e0` preserved all ten original first-stage
 questions, preceding bindings, six normal/meta imports, one shared harness, the actual diagnostic
 leaf manifest and the original 200000 shared preparation/evaluation budget. Eight prepared
 questions failed during evaluation because a universal-object candidate scan synthesized
@@ -71,8 +73,14 @@ in 18.307 seconds. Lean's profiler totals are exclusive: declared endpoint recon
 3.57 seconds and complete parameter discovery 1.43 seconds; committed family rebinding used
 25.7 milliseconds, and no carrier-map timing group appeared. Two optional subregions now
 separate field discovery from endpoint recognition before selecting an optimization. Producer
-wrapper construction and committed rebinding are not measured optimization targets. No budget,
-assertion, input, candidate set or validation is weakened.
+wrapper construction and committed rebinding are not measured optimization targets. The split
+profile at `deafe9b6` instead attributes 3.73 seconds to endpoint recognition, 757 milliseconds
+to field discovery, 52.2 milliseconds to the remaining endpoint work and 1.61 seconds to complete
+parameter discovery (21.824 seconds total, still the original preparation timeout). No field-owner
+cache is introduced. The next source removes unused empty-context/declared-head work, hoists a
+fixed pure row filter, and profiles carrier conversion, full-handle comparison, witness preference
+and category trials. Candidate multiplicities, expansion and selection order remain unchanged.
+No budget, assertion, input, candidate set or validation is weakened.
 
 The 2026-10-29 workspace restart removed the local checkout, compiler cache, unpushed commits
 and logs. Published branches, the exact toolchain, current mathematical/contract inputs and
@@ -81,6 +89,40 @@ from their recorded changes; the interrupted build10 has no retained complete re
 claimed to pass. The dated records below retain their historical scope. Main's documentation-only
 `f34ce0de` higher-coherence clarification is integrated without adding a serial prerequisite to
 the ordinary first RX-LIFT or claiming that it establishes general higher coverage.
+
+### Latest integrated execution — 2026-10-29 12:12 UTC
+
+At published kernel `deafe9b61b0ba09795ce92f351b0d578aff12d04`, tree
+`9300b307d612f740d2a019bc2adaa9320c1db98a`, the focused `Realize` build passed 3802 jobs.
+All ten original runtime questions completed with the same text, prior bindings, imports,
+shared session, rejected registration and 200000 shared budget. Seven now fail with distinct
+retained-source-action ambiguity; the nonidentity coordinate reaches the unavailable ordinary
+ring-object action; both factor samples still time out in preparation. Full pairing dispatches
+once. The earlier premature category synthesis and open-action failures are absent, but there
+are still **zero passing first-stage assertions**.
+
+A bounded scan of fourteen exact parameters retained in the prepared first question found two
+ambiguities between the same ring receiver/route: the `.functor` candidate rebuilt a raw category
+morphism, while the retained route kept its actual public functor projection. Their projected
+applications are literally equal. This scan does not identify the runtime helper argument. The
+parameter candidate path now retains the literal action from its original object projection,
+checking the exact receiver, whole registered edge and ordered parameter occurrences. All prior
+prefix, original-result, kernel and exact ambiguity checks remain. Integrated verification of
+this next source is pending.
+
+The existing `CompleteUniversalObjectProbes` passes on `deafe9b6`. After three engineering-only
+fixture corrections (explicit numeral types, an owned callable for an asymmetric Hom, and the
+current exact swapped-endpoint diagnostic), all three `ServiceProjectionProbes` controls pass
+against that built runtime. `FunctorActionExecutionProbes` has four completed protocol records
+but still fails its open direct action, duplicated cell-endpoint key and parameterized-map cases;
+the full target is not claimed to pass. Permanent mathematical assertions are untouched.
+
+The independent ordinary ring adapter was authored from public contract `fcefc8ba` only. Its
+eight representations, 48 session requests and two closed-owner controls test protocol/ownership,
+not mathematical results. The published tree equals the author's source exactly. Its public API
+review exposed an outdated generated admission inventory: all 94 previously exported functors
+lack their current derived map/input metadata. Existing exporter logic is already complete;
+regenerate the whole public inventory from clean committed built sources, without hand-added IDs.
 
 [PR #70](https://github.com/dzackgarza/lean-cas-dsl/pull/70) is ready for independent review.
 Its exact isolated shallow-fetch regression passed two tests before the restart. The existing

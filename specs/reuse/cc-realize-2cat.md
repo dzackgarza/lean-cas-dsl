@@ -540,3 +540,15 @@ alone is removed from this path; it discarded already selected implicit data.
 Bounded diagnostics on the original first question confirm these source defects
 and the preserved fields. They create no new mathematical input, leaf or acceptance
 assertion; integrated execution still determines whether the first slice works.
+
+The retained-parameter candidate path now uses the same literal-action rule. A
+fresh category-morphism declaration and its original public functor projection
+previously entered the exact candidate set as different expression arrays, despite
+coming from the same source occurrence and route. The original recorded projection
+already supplies the whole action. Its receiver, registered edge and explicit
+parameter occurrences are checked before retaining that action; neither a fresh
+declaration nor the validator's presentation replaces it. The existing complete
+prefix/result checks, kernel checks, exact duplicate handling and ambiguity remain.
+This removes a reconstruction-induced distinction rather than identifying arbitrary
+actions by their values or by definitional equality. Missing literal source data
+remains an error at its producer boundary.

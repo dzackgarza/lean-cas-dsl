@@ -168,20 +168,32 @@ def retainedParameterAction? (trace : Trace) (value : Expr) :
         | .functor id parameters _ => do
           let some entry := state.functor? id
             | throwError "the retained parameter action is not registered"
-          let declaration ← mkConstWithFreshMVarLevels entry.declaration
-          let (arguments, infos, _) ← forallMetaTelescopeReducing (← inferType declaration)
-          let explicit := (arguments.zip infos).filterMap fun (argument, info) =>
-            if info.isExplicit then some argument else none
+          -- The recorded object projection retains the complete selected action,
+          -- including its implicit data. Rebuilding the declaration from explicit
+          -- parameters would invent another application of that same selection.
+          let some (retainedAction, retainedReceiver) := objectAction? recorded
+            | throwError "the retained parameter action lost its literal complete object action"
+          unless retainedReceiver == receiver do
+            throwError "the retained parameter action changed its original receiver occurrence"
+          let action ← instantiateMVars (← Semantic.asFunctor retainedAction)
+          let some registered ← registeredAction? state action
+            | throwError "the retained parameter action lost its whole selected action application"
+          unless registered.edge == .functor id do
+            throwError "the retained parameter action selected a different registered edge"
+          let infos ← forallTelescopeReducing (← getConstInfo entry.declaration).type fun fields _ =>
+            fields.mapM (·.fvarId!.getBinderInfo)
+          let explicit := (registered.declarationApplication.getAppArgs.zip infos).filterMap
+            fun (argument, info) =>
+              if info.isExplicit then some argument else none
           unless explicit.size == parameters.size do
             throwError "the retained parameter action lost its ordered declaration parameters"
           for (argument, parameter) in explicit.zip parameters do
             unless closedParameter parameter && (← isTypeCorrect parameter) &&
+                argument == parameter &&
                 (← isDefEq (← inferType argument) (← inferType parameter)) &&
                 (← isDefEq argument parameter) do
               throwError "the retained parameter action changed a complete declaration parameter"
-          let action := mkAppN declaration arguments
-          discard <| Semantic.objOf action receiver
-          pure (#[.functor id], #[← instantiateMVars action])
+          pure (#[.functor id], #[action])
         | _ => unreachable!
       unless !route.isEmpty && route.size == applications.size do
         throwError "the retained parameter action lost its complete ordered route"
