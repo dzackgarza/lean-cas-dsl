@@ -14321,13 +14321,57 @@ def realizeFreshWith
         form := .canonicalMorphism category
         payload := (← combinedRecipePayload e json dependencies) }
   | .powerObjectMap id field params =>
-      unless state.powerObjects.any (·.id == id) do
-        throwError "the retained power object is not registered"
-      let (parameters, wires) ← realizedParameterData h trace params
-      let some sets := state.categories.find? (·.id == CategoryId.sets) | unreachable!
-      let json ← scopedNode "powerObjectMap" #[{ json := toJson id.raw },
-        { json := toJson field }, DataOwnership.Data.array parameters]
-      return { form := .canonicalMorphism sets, payload := (← combinedRecipePayload e json wires) }
+      let some entry := state.powerObjects.find? (·.id == id)
+        | throwError "the retained power object is not registered"
+      let declaration ← match field with
+        | "member" => pure entry.member
+        | "terminal" => pure entry.terminal
+        | "transpose" => pure entry.transpose
+        | "image" => pure entry.image
+        | "truth" => pure entry.truth
+        | _ => throwError "the retained power object registers no {field} map"
+      -- The field's complete original application fixes its declaration and
+      -- ordered parameters; no reconstructed application supplies this receipt.
+      let application ← StructuredResult.checkReconstruction (operationApplicationBody e)
+      unless application.getAppFn.constName? == some declaration do
+        throwError "the retained power-object field changed its complete registered declaration"
+      let infos ← forallTelescopeReducing (← getConstInfo declaration).type fun fields _ =>
+        fields.mapM (·.fvarId!.getBinderInfo)
+      unless application.getAppNumArgs == infos.size do
+        throwError "the retained power-object field lost its complete declaration application"
+      let explicit := (application.getAppArgs.zip infos).filterMap fun (value, info) =>
+        if info.isExplicit then some value else none
+      unless explicit.size == params.size do
+        throwError "the retained power-object field lost an ordered declaration parameter"
+      for (formal, selected) in explicit.zip params do
+        unless ← withoutModifyingState (withTransparency .all <|
+            isDefEq (← inferType formal) (← inferType selected) <&&>
+              isDefEq formal selected) do
+          throwError "the retained power-object field changed a complete declaration parameter"
+      let some object := state.objects.find? (·.id == entry.object)
+        | throwError "the retained power object lost its registered object family"
+      let some category := state.categories.find? (·.id == object.category)
+        | throwError "the retained power object lost its registered complete category"
+      let some (source, target) := Language.homEnds? (← inferType e)
+        | throwError "the retained power-object field lost its complete declared Hom"
+      let context ← CategoryContext.ofNamed category source
+      CategoryContext.checkMorphism context e source target
+      let parameters ← capturedCallableParameters h trace params #[]
+      let descriptor : ActionDataTemplate := .ctor "powerObjectMap"
+        #[.literal { json := toJson id.raw }, .literal { json := toJson field },
+          .array (parameters.flatMap (·.templates))]
+      let (json, dependencies) ← renderCapturedActionData descriptor
+      let wire : Wire := {
+        form := .canonicalMorphism category
+        payload := (← combinedRecipePayload e json dependencies)
+        categoryContext := some context }
+      -- Capture the same initial endpoint occurrences before the raw callable
+      -- leaves its producer. Observation refreshes them and the parameter slots
+      -- through their retained typed children, never through a later cache read.
+      let (source, target) ← capturedMapEndpoints
+        { h with demandObjectActions := false } trace wire context
+      let wire ← retainIntrinsicAssembly wire .map context descriptor
+      retainCallableEndpoints wire source target context
   | .objectField id field categoryId params =>
       let some entry := state.objects.find? (·.id == id)
         | throwError "the retained field owner is not registered"

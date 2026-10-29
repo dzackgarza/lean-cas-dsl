@@ -28,16 +28,17 @@ inventory [#9](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/pull/9)
 `968ea95a5f8e7f76de95461999e8bafee74f2d39`, after repository QC passed.
 The independently authored actual-image adapter remains in
 [leaves #7](https://github.com/dzackgarza/lean-cas-dsl-leaves/pull/7), head
-`d4a92aa8294f30ec31b134302b4d6806e915528a`, tree
-`6f7c0db6c026b0d4f9f01bd00ce45159a1f79017`; this publishes the independently
+`940add07959c924966d92c071b1e86df576ca9f5`, tree
+`5a1e915be13a57a2f173af09e30c1089eac21fb0`; this publishes the independently
 authored ordinary `fun.commutative_rings.ring` object action and subsequent public-contract
-descriptor, wrapper and owned-value consumption corrections. Its protocol conformance is separate from
+descriptor, wrapper and owned-value consumption corrections, including callable point readers
+retained through returned-data chains. Its protocol conformance is separate from
 mathematical acceptance. The kernel manifest now records the actual mathematical and contract
 main inputs, with `inputRev: main` unchanged. The focused production build at kernel
 `13c5e8e0` passed on these inputs (3820 jobs), including all six original RX-LIFT imports;
 `FileItems` also built. Compilation is not a computational acceptance result.
 
-The latest complete kernel CI inspected is
+The latest complete candidate-build workflow inspected is
 [40782042428 at fef6be1e](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40782042428).
 It failed the combined build before acceptance, including stale contract `inputRef` API and
 existing reader/probe failures. Gates and the candidate workflow have distinct branch filters
@@ -124,12 +125,52 @@ and vector-module endpoints each build four structural views. Trial recording is
 does not produce a complete reusable producer trace; enabling it or restoring a trial snapshot
 would change the interpretation. No such cache, witness deduplication or budget change is made.
 
-The next source adds error-only field differences at the unchanged intrinsic-endpoint guard
-and optional timing labels for the existing target-category scan and each parameter-witness
-trial. It changes no candidate, trial body, selected endpoint or completion condition. The
-bounded next runtime selects the unchanged first question with its full preceding bindings
-and original shared budget, using an isolated exact checkout of published leaf `d4a92aa8` so
-independent public-only leaf maintenance cannot change that diagnostic's source mid-run.
+The diagnostic source is published as `0996bc04baf5d1a44fd7b584508400e7a916235b`, tree
+`f7f165a311164a2415e61f4e4749c6588d59473c`, identical to local author `d867ff0f`. Its focused
+production build passes 3802 jobs (Language 100 seconds, Realize 470 seconds). Error-only
+field differences preserve the original intrinsic-endpoint guard and malformed stratum;
+optional timing labels preserve every category-filter and witness-trial body. The exact
+factor-sample profile still times out at 200000280 raw ticks in 19.903 seconds. The target-category
+filter accounts for 1.65 seconds exclusive; this justifies investigating repeated schema
+eligibility within the existing isolated witness search, without reusing producer traces.
+
+The bounded first-question diagnostic uses all 22 original preceding bindings, six normal/meta
+imports and the original shared 200000 budget, with an isolated exact checkout of published
+leaf `d4a92aa8`. It reaches the same malformed guard at 126665911 raw ticks after one successful
+multiplication reply; it is not an acceptance result. The mismatch is source field 0 of a
+`typedMap` wrapper around `powerObjectMap`. Prospective inspection changes that endpoint's
+pending classifier-forget action into a private `resultRef`; the wrapped map retains its
+original `functorAction` endpoint. Only packet, action recipe, intrinsic assembly and payload
+comparisons differ. Formal value after the checked alias, complete form/category, owner table,
+presentation and observation flags agree. Private future data remain recipes with no supplier
+or completion claim; this result does not demonstrate a future leaking into execution.
+The `.powerObjectMap` producer currently renders parameter data into a bare wire without a
+typed parameter template or retained endpoint relation. Repair that producer loss, preserving
+the exact endpoint guard and its distinct object-demand versus retained-descriptor obligations.
+
+The next source repairs that power-object field producer: it validates the original admitted
+field and complete declaration application, retains the ordered parameter templates, and captures
+both complete original endpoints before returning the raw callable. Its descriptor encoding,
+ordinary endpoint roles and exact observer checks remain unchanged. The adjacent `objectField`
+branch has a different exercised input-timing contract and is not changed by this correction.
+
+The next reader source reuses only the successfully completed ordered category-row filter
+within one witness applicability loop. Reuse requires an exact closed expected type, empty
+Lean local context/instances, no custom unfolding or postponed constraints, and unchanged
+options and relevant Meta configuration/depths. Trial state restoration and the metadata-only
+path to this filter keep its environment and registry fixed. Every fallback executes the
+original filter; every candidate still runs its full source, route, image and ambiguity checks.
+No producer, action, value, failure or elaborator snapshot is reused, and committed structural
+views keep their existing path. The combined build and unchanged profile must measure this change.
+
+The separately authored public-contract composition correction is published as `940add07`,
+tree `5a1e915b`, exactly matching author `0480ea75` and its fetched parent. Private callable
+point readers now survive owned results, compositions, mediators and product projections;
+nested expressions validate their original complete selected target. Its unchanged 67 registrations
+passed protocol-only new composition (103 requests plus two owner controls), prior ring (103
+plus two), generic (36) and additive (66 plus one) checks and independent static review. These
+checks assert framing, returned-data consumption and ownership, not mathematical answers.
+The next integrated runtime consumes this exact independent source; no acceptance result is implied.
 
 ### Preceding integrated execution — 2026-10-29 12:44 UTC
 
@@ -252,6 +293,12 @@ Noticed, not worked (2026-10-29): `structuredParameterView`'s two early `Trace.a
 branches can copy a `.functor` record to a reduced value without retaining the original full
 action as a child. The actual first-question nodes retain it; repair the specific producer
 if this boundary is exercised, preserving its public form rather than adding reconstruction.
+
+Noticed, not worked (2026-10-29): `realizeObjectPresentation` can seed a presentation argument
+in `h.results` from a definitionally equal dependency selected by packet/owner equality. That
+does not establish its original selected occurrence. No current failing boundary has been
+attributed to this branch; replace its recovery with producer-retained input when that use is
+transferred, rather than treating equal values or cached packets as an identity association.
 
 ## Next work — 2026-10-29
 

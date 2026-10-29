@@ -587,3 +587,19 @@ has an unavailable negation implementation, three later evaluations exhaust thei
 and both factor samples exhaust preparation. A successful backend reply is not a completed
 kernel result. The complete occurrence/presentation check stays at its current boundary;
 the next diagnosis must identify differing retained fields before changing their producer.
+
+The bounded first-question diagnostic on `0996bc04` identifies a `typedMap` around an intrinsic
+`powerObjectMap`. Its source advances through its original classifier-forget action to a private
+prospective reference, while the bare field callable retains the old source recipe. Full formal
+value, form/category, owner table and observation flags agree; the packet and producer payload
+differ. The reference is still a private unsupplied recipe, so this does not show it crossing an
+execution boundary. The `powerObjectMap` branch had rendered parameters without retaining their
+typed producer template or the callable's own endpoint relation.
+
+That branch now checks its already selected field declaration and complete original application,
+including ordered typed parameters, and retains those parameters through
+`capturedCallableParameters`. It renders the same public descriptor and captures the original
+complete endpoints at this initial producer boundary. Its intrinsic assembly subsequently observes
+both the parameter slots and those exact endpoint actions; no changed cache or equal packet supplies
+a replacement. The original complete Hom check, object endpoint demand and outer exact occurrence
+guard remain. Power fields acquire no new operation address or mathematical implementation.

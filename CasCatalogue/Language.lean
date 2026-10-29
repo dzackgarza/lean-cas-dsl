@@ -1418,7 +1418,9 @@ partial def closedParameterPoint (point target : Expr) : M Expr := do
     throwStratum .invalid "the staged element parameter changed its complete composition"
   return original
 
-partial def typedParameter (expected : Expr) (value : Value) : M Expr := do
+partial def typedParameter (expected : Expr) (value : Value)
+    (categoryRows? : Option (Expr → Array NamedCategoryEntry →
+      M (Array NamedCategoryEntry)) := none) : M Expr := do
   if let .formalProof proofSyntax := value then
     unless ← isProp expected do
       throwStratum .invalid "an explicit proof supplies a proposition-valued parameter only"
@@ -1518,7 +1520,7 @@ partial def typedParameter (expected : Expr) (value : Value) : M Expr := do
         (← isDefEq (← inferType image) expected) do
       throwStratum .invalid m!"the selected object's actual carrier is outside its declared type"
     return image
-  if let some chosen := selected then return ← typedParameter expected chosen
+  if let some chosen := selected then return ← typedParameter expected chosen categoryRows?
   let some (origin, parameters) := origin?
     | return ← transportedStructure expected value
   let state ← registryState
@@ -1528,7 +1530,9 @@ partial def typedParameter (expected : Expr) (value : Value) : M Expr := do
       state.objects.filter (refinesObject state · origin.id)
     else #[origin]
   let targetCategories ← profileReader "typed parameter target categories" <|
-    state.categories.filterM (parameterCategoryCompatible expected)
+    match categoryRows? with
+    | some rows => rows expected state.categories
+    | none => state.categories.filterM (parameterCategoryCompatible expected)
   let mut routeCandidates : Array (ObjectEntry × Route) := #[]
   for source in sources do
     let some sourceCategory := state.categories.find? (·.id == source.category) | continue
@@ -4285,6 +4289,39 @@ partial def selectedParameterFromWitnesses (state : RegistryState) (actual : Exp
     | .object _ candidateCategory origin selected _ =>
         candidateCategory.id != CategoryId.sets || selected.isSome || origin.isSome
     | _ => false
+  -- Only applicability trials share this completed schema filter. Every trial restores
+  -- the Term state; the path to typedParameter's filter (including a selected object)
+  -- only inspects types/category metadata and does not change the environment. Branches
+  -- that elaborate arbitrary terms return before that filter. Thus its registry and
+  -- declarations stay fixed here, without an environment identity shortcut. No provider
+  -- is passed to nested declaration parameters or the later recorded structural views.
+  let trialContext ← readThe Meta.Context
+  let trialOptions ← getOptions
+  let trialDepth := (← getMCtx).depth
+  let trialLevelDepth := (← getMCtx).levelAssignDepth
+  let completedRows ← IO.mkRef (none : Option (Expr × Array NamedCategoryEntry))
+  let categoryRows : Expr → Array NamedCategoryEntry → M (Array NamedCategoryEntry) :=
+      fun expected categories => do
+    let compute := categories.filterM (parameterCategoryCompatible expected)
+    let context ← readThe Meta.Context
+    let mctx ← getMCtx
+    unless closedReadingTerm expected && context.lctx.isEmpty &&
+        context.localInstances.isEmpty && context.canUnfold?.isNone &&
+        context.defEqCtx?.isNone && !context.trackZetaDelta && context.zetaDeltaSet.isEmpty &&
+        context.configKey == trialContext.configKey && (← getOptions) == trialOptions &&
+        context.synthPendingDepth == trialContext.synthPendingDepth &&
+        context.univApprox == trialContext.univApprox &&
+        context.inTypeClassResolution == trialContext.inTypeClassResolution &&
+        context.cacheInferType == trialContext.cacheInferType &&
+        mctx.depth == trialDepth && mctx.levelAssignDepth == trialLevelDepth &&
+        (← getPostponed).isEmpty do
+      return ← compute
+    if let some (previous, rows) ← completedRows.get then
+      if previous == expected then return rows
+      return ← compute
+    let rows ← compute
+    completedRows.set (some (expected, rows))
+    return rows
   for candidate in (if selected.isEmpty then sourceValues else selected) do
     let trialProfile := match candidate with
       | .object _ category (some (entry, _)) _ _ =>
@@ -4293,7 +4330,7 @@ partial def selectedParameterFromWitnesses (state : RegistryState) (actual : Exp
           s!"parameter witness trial {category.id.raw}/<anonymous>"
       | _ => "parameter witness trial <non-object>"
     if ← profileReader trialProfile (parameterCompatible (do
-        let image ← typedParameter (← inferType actual) candidate
+        let image ← typedParameter (← inferType actual) candidate (some categoryRows)
         isDefEq image actual)) then
       unless witnesses.any (fun existing =>
           existing.declarations == candidate.declarations && existing.terms == candidate.terms) do
