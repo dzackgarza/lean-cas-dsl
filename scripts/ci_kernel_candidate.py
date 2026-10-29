@@ -30,6 +30,10 @@ FIXED_IMPORTS = (
     'LeanCategories.Catalogue.Semantics.Independent.InterfaceCompletionTests',
 )
 
+PRODUCTION_MODULES = (
+    'CasCatalogue.ConstrainedPoint', 'CasCatalogue.Language', 'CasCatalogue.Realize',
+)
+
 
 def stamp():
     return time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
@@ -62,6 +66,29 @@ def state(path):
 def snapshot(runtime):
     roots = json.loads((runtime / 'evidence/source-roots.json').read_text())
     return {name: state(Path(path)) for name, path in roots.items()}
+
+
+def production_artifacts(root):
+    """Observe named outputs without substituting a cache hit for Lake validation."""
+    result = {}
+    for module in PRODUCTION_MODULES:
+        relative = Path(module.replace('.', '/'))
+        outputs = {}
+        for directory in ['lib/lean', 'ir']:
+            parent = root / '.lake/build' / directory / relative.parent
+            for path in sorted(parent.glob(relative.name + '.*')):
+                if not path.is_file():
+                    continue
+                info = path.stat()
+                item = {'bytes': info.st_size, 'mtimeNs': info.st_mtime_ns}
+                if path.suffix == '.trace':
+                    item['sha256'] = record(path)['sha256']
+                outputs[str(path.relative_to(root))] = item
+        prefix = '.lake/build/lib/lean/' + relative.as_posix()
+        result[module] = {
+            'oleanAndTracePresent': all(prefix + suffix in outputs for suffix in ['.olean', '.trace']),
+            'outputs': outputs}
+    return result
 
 
 def prepare(root, runtime, baseline):
@@ -148,7 +175,17 @@ def run(root, runtime, name, command):
               'command': command, 'startedUtc': stamp(), 'status': 'running',
               'runtimeEnvironment': {key: os.environ.get(key) for key in
                   ['LEAN_NUM_THREADS', 'CAS_SAGE_PYTHON', 'CAS_GAP_PYTHON',
-                   'CAS_LEAF_CONTRACT_PATH', 'PYTHONPATH', 'DOT_SAGE', 'MPLCONFIGDIR']}}
+                   'CAS_LEAF_CONTRACT_PATH', 'PYTHONPATH', 'DOT_SAGE', 'MPLCONFIGDIR',
+                   'MATHLIB_CACHE_DIR']}}
+    if name == 'production':
+        hit = os.environ.get('CAS_PRODUCTION_CACHE_HIT')
+        report['productionCache'] = {
+            'requestedKey': os.environ.get('CAS_PRODUCTION_CACHE_PRIMARY_KEY') or None,
+            'restoredKey': os.environ.get('CAS_PRODUCTION_CACHE_MATCHED_KEY') or None,
+            'exactKeyHit': hit == 'true' if hit is not None else None,
+            'artifactsBefore': production_artifacts(root),
+            'scope': 'Cache restoration and named-target reuse are separate observations; '
+                     'dependency rebuilds remain in the build log.'}
     write(report_path, report)
     start = time.monotonic()
     with log.open('x') as output:
@@ -164,6 +201,14 @@ def run(root, runtime, name, command):
                   seconds=round(time.monotonic() - start, 3), producerAfter=after,
                   sourceTupleChanged=before != after, log=record(log),
                   peakChildRssKiB=resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss)
+    if name == 'production':
+        cached = report['productionCache']
+        artifacts = production_artifacts(root)
+        cached['artifactsAfter'] = artifacts
+        cached['targetsWithUnchangedArtifacts'] = [
+            module for module in PRODUCTION_MODULES
+            if code == 0 and before == after and artifacts[module]['oleanAndTracePresent']
+            and cached['artifactsBefore'][module] == artifacts[module]]
     write(report_path, report)
     if code or before != after:
         raise SystemExit(code or 2)
@@ -230,8 +275,8 @@ def verify(root, runtime):
     configuration = json.loads((evidence / 'configuration.json').read_text())
     changes = [name for name in ['manifest', 'toolchain', 'overrides', 'helper', 'wrapper']
                if record(configuration[name]['path']) != configuration[name]]
-    required = ['no-leaves-selftest', 'no-leaves', 'permanent-assertions', 'engine-install',
-                'mathlib-cache', 'consumers', 'native', 'axiom-audit']
+    required = ['no-leaves-selftest', 'no-leaves', 'permanent-assertions', 'mathlib-cache',
+                'production', 'engine-install', 'consumers', 'native', 'axiom-audit']
     stages = {}
     for name in required:
         path = evidence / (name + '-provenance.json')

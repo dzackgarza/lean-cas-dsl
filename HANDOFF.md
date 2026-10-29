@@ -7,6 +7,41 @@ own the work order. #66 owns complete mathematical interpretation; #69 owns comp
 #24 owns integration and independent acceptance. #23/#82 review construction requirements
 and exact mathematical inputs alongside that work.
 
+## Issue #83 implementation checkpoint — 2026-10-29 17:58 UTC
+
+The owner has made #83 the immediate priority. This checkpoint contains the standard
+project `lean-lsp-mcp` configuration, one current development-check sequence, a maintained
+original-prefix RX-LIFT driver, production-before-engines CI ordering, standard cache
+restore/save for the actual build directories, and failure-only operation/endpoint context
+in the existing shared preparation guard. The original guard, failure stratum, mathematical
+inputs, permanent assertions and 200000 shared runtime budget are preserved.
+
+The official MCP 0.31.0 ran on the actual integration worktree with Lean 4.33.0. Lake's standard
+`.lake/package-overrides.json` was necessary: a PATH wrapper alone did not propagate `--packages`
+to nested `setup-file`. The corrected server used the already selected dependencies. A real
+production diagnostics edit received completed error-free diagnostics in **57.430 seconds** on
+that persistent server; hover and references took 0.238 and 0.056 seconds. The edited source's
+SHA-256 is `62566cbe653224633dbe501471a9b89158d7456e4d9a1c9789f8ff4244ca713e`.
+A focused `CasCatalogue.Realize:olean` build is still running at this checkpoint; the fresh
+first-question result and archive-restoration measurement are **not yet available**. This is a
+source checkpoint, not a completed repair or closure of #83/#66/#24.
+
+The latest completed preceding source is published `970ecc4480b110f23ceab32da6c15e99ae7c1e0d`,
+tree `3fabcafe10fe8a257d2dd2c0faf2f3350f5c1795`; its production build passed 3802 jobs. All ten
+unchanged first-stage questions completed on frozen independent leaf `11201337b491b9a354cd3385984f8a494fc83a88`,
+with **zero passing assertions**. The first four reach the captured-argument complete-endpoint
+guard; nonidentity coordinate lacks negation; later evaluations/preparations retain their original
+timeouts. The shared producer/action-retention repair remains open. The measured no-op focused
+build at that source took 2.555 seconds and preserved the Realize artifact; that alone is not an
+archive-restore result or a measured end-to-end speedup.
+
+Native `git push --dry-run` lacks HTTPS credentials in this environment. Source is published
+through the authorized GitHub connector; native authentication does not block that publication.
+The durable-workstation portion remains blocked: the existing Core2 approved `/lean-cas-dsl`
+root reports that it is unavailable or changed on disk and must be approved again. No other
+workstream or terminal session was claimed to work around that refusal. Persistent tooling in
+this container does not establish survival of a container restart.
+
 ## Source and actual input status — 2026-10-29 UTC
 
 The required independently authored mathematical reconciliation is integrated through

@@ -11120,6 +11120,86 @@ partial def capturedTemplateWire? : ActionDataTemplate → Option Wire
   | .retained child | .logical child => capturedTemplateWire? child
   | _ => none
 
+/-- Compact failure-only context for one already selected occurrence. Producer
+ordinals are execution addresses in this question; hashes only abbreviate formal
+terms. Neither summary nor equality flags select an input or observe a child. -/
+def operationEndpointDiagnosticSummary (wire : Wire) : Json := Json.mkObj [
+  ("producer", toJson ((Trace.producerAnchor? wire.value).map (·.occurrence))),
+  ("producerDescription", toJson ((Trace.producerAnchor? wire.value).map fun anchor =>
+    s!"{anchor.description.take 160}")),
+  ("formalHash", toJson (toString (hash wire.value))),
+  ("form", toJson wire.form.id), ("category", toJson wire.form.category.raw),
+  ("contextHash", toJson (wire.categoryContext.map fun context => toString (hash context.bundle))),
+  ("packetCtor", toJson ((wire.json.getObjValAs? String "ctor").toOption)),
+  ("ownershipSlots", toJson wire.ownership.size),
+  ("objectObserved", toJson wire.objectObserved),
+  ("callableObserved", toJson wire.callableObserved),
+  ("morphismFramed", toJson wire.morphismFramed),
+  ("action", toJson (wire.actionRecipe.map fun recipe => Json.mkObj [
+    ("owner", toJson (match recipe.owner with
+      | .edge edge => edge.label
+      | .construction id _ => id.raw)),
+    ("morphism", toJson recipe.morphism),
+    ("applicationHash", toJson (toString (hash recipe.application)))])),
+  ("intrinsicAssembly", toJson wire.intrinsicAssembly.isSome),
+  ("capturedInvocation", toJson (wire.capturedInvocation.map (·.occurrence))),
+  ("endpointPresentation", toJson wire.endpointPresentation.isSome)]
+
+/-- Report the same top-level components as `sameCompleteWireContext` only after
+its existing guard fails. This does not unfold terms, query a trace/cache, read
+endpoint data, or replace the original complete comparison. -/
+def operationEndpointDiagnosticDifferences (left right : Wire) : Array String :=
+  ((#[("value", left.value == right.value), ("json", left.json == right.json),
+    ("ownership", left.ownership == right.ownership),
+    ("serviceInputPaths", left.serviceInputPaths == right.serviceInputPaths),
+    ("pointDataInterface", left.pointDataInterface == right.pointDataInterface),
+    ("objectIso", left.objectIso == right.objectIso),
+    ("endpointPresentation.comparison",
+      left.endpointPresentation.map (·.comparison) == right.endpointPresentation.map (·.comparison)),
+    ("endpointPresentation.forward",
+      left.endpointPresentation.map (·.forward) == right.endpointPresentation.map (·.forward)),
+    ("endpointPresentation.backward",
+      left.endpointPresentation.map (·.backward) == right.endpointPresentation.map (·.backward)),
+    ("endpointPresentation.forwardOwnership",
+      left.endpointPresentation.map (·.forwardOwnership) == right.endpointPresentation.map (·.forwardOwnership)),
+    ("endpointPresentation.backwardOwnership",
+      left.endpointPresentation.map (·.backwardOwnership) == right.endpointPresentation.map (·.backwardOwnership)),
+    ("endpointPresentation.maps", sameEndpointComparisonMaps
+      (left.endpointPresentation.bind (·.maps)) (right.endpointPresentation.bind (·.maps))),
+    ("endpointPresentation.namedRefinement", sameNamedRefinementOrigin
+      (left.endpointPresentation.bind (·.namedRefinement)) (right.endpointPresentation.bind (·.namedRefinement))),
+    ("productComponents", sameProductComponents left.productComponents right.productComponents),
+    ("morphismFraming", sameMorphismFraming left.morphismFraming right.morphismFraming),
+    ("actionRecipe", sameActionRecipe left.actionRecipe right.actionRecipe),
+    ("intrinsicAssembly", sameIntrinsicAssembly left.intrinsicAssembly right.intrinsicAssembly),
+    ("capturedInvocation.occurrence",
+      left.capturedInvocation.map (·.occurrence) == right.capturedInvocation.map (·.occurrence)),
+    ("callableEndpoints", sameCallableEndpoints left.callableEndpoints right.callableEndpoints),
+    ("pointOrigin", samePointOrigin left.pointOrigin right.pointOrigin),
+    ("payload", sameOperationPresentationPayload left.payload right.payload),
+    ("form", sameOperationPresentationForm left.form right.form),
+    ("morphismFramed", left.morphismFramed == right.morphismFramed),
+    ("callableObserved", left.callableObserved == right.callableObserved),
+    ("objectObserved", left.objectObserved == right.objectObserved),
+    ("presentationIsos", left.presentationIsos == right.presentationIsos),
+    ("category.bundle", left.categoryContext.map (·.bundle) == right.categoryContext.map (·.bundle)),
+    ("category.expression", match left.categoryContext, right.categoryContext with
+      | none, none => true
+      | some first, some second => first.expression.syntacticEq second.expression
+      | _, _ => false),
+    ("constructionInputs", left.constructionInputs == right.constructionInputs),
+    ("constructionInputOwnership", left.constructionInputOwnership == right.constructionInputOwnership),
+    ("liftExecution", sameRetainedLiftExecution left.liftExecution right.liftExecution),
+    ("proofSources", left.proofSources.length == right.proofSources.length &&
+      (left.proofSources.zip right.proofSources).all (fun (first, second) =>
+        sameCompleteWireContext (retainedSnapshotWire first) (retainedSnapshotWire second)))] :
+      Array (String × Bool)).filterMap fun (field, same) => if same then none else some field)
+
+def operationEndpointDiagnosticComparison (consumer argument : Wire) : Json := Json.mkObj [
+  ("consumer", operationEndpointDiagnosticSummary consumer),
+  ("argument", operationEndpointDiagnosticSummary argument),
+  ("unequal", toJson (operationEndpointDiagnosticDifferences consumer argument))]
+
 /-- Check an argument against its fixed complete consumer endpoints. Full
 receipts retain their comparison/action selections; only the explicit native
 point interface can supply endpoint data without a whole endpoint receipt.
@@ -11129,10 +11209,17 @@ partial def checkCapturedArgumentEndpoints (context : CategoryContext)
   match template with
   | .wire _ wire =>
       if let some endpoints ← retainedCallableEndpoints? wire context then
-        unless sameCompleteWireContext endpoints.1 (← forwardRetainedValue source endpoints.1.value) &&
-            sameCompleteWireContext endpoints.2 (← forwardRetainedValue target endpoints.2.value) do
+        let expectedSource ← forwardRetainedValue source endpoints.1.value
+        let expectedTarget ← forwardRetainedValue target endpoints.2.value
+        unless sameCompleteWireContext endpoints.1 expectedSource &&
+            sameCompleteWireContext endpoints.2 expectedTarget do
+          let details := Json.mkObj [
+            ("argument", operationEndpointDiagnosticSummary wire),
+            ("source", operationEndpointDiagnosticComparison expectedSource endpoints.1),
+            ("target", operationEndpointDiagnosticComparison expectedTarget endpoints.2)]
           throwStratum .noImplementation
-            "the observed argument requires a declared action between its complete endpoint occurrences"
+            m!"the observed argument requires a declared action between its complete endpoint occurrences; \
+              captured argument endpoints: {details.compress}"
         return true
       if let some point := wire.pointDataInterface then
         CategoryContext.checkMorphism context wire.value point.domain point.target
@@ -18411,7 +18498,8 @@ partial def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wi
     (retained : Option OperationObservation := none)
     (objects : ComputationalData.InterfaceObjects := #[])
     (initialParameters : Option (Array OperationParameterOccurrence) := none)
-    (reader : Option CallablePreparationReader := none) :
+    (reader : Option CallablePreparationReader := none)
+    (phase : String := "capture") :
     TermElabM OperationObservation := do
   let h := { h with demandObjectActions := false }
   let reader := reader.getD {
@@ -18568,10 +18656,25 @@ partial def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wi
           isDefEq endpoint.value expected) do
       throwError "the operation changed a retained complete endpoint occurrence"
   if pointEndpoints.isNone then
-    let complete ← checkCapturedArgumentEndpoints dataContext argumentTemplate domainWire sourceWire
-    if argumentChanged && !complete then
-      throwStratum .noImplementation
-        "the observed operation argument omitted its complete public endpoint interface"
+    try
+      let complete ← checkCapturedArgumentEndpoints dataContext argumentTemplate domainWire sourceWire
+      if argumentChanged && !complete then
+        throwStratum .noImplementation
+          "the observed operation argument omitted its complete public endpoint interface"
+    catch error =>
+      match error with
+      | .error ref message =>
+          let details := Json.mkObj [
+            ("phase", toJson phase), ("operation", toJson id.raw),
+            ("result", operationEndpointDiagnosticSummary wire),
+            ("owner", operationEndpointDiagnosticSummary receiverWire),
+            ("originalArgument", operationEndpointDiagnosticSummary argumentWire),
+            ("operationTarget", operationEndpointDiagnosticSummary targetWire),
+            ("argumentChanged", toJson argumentChanged)]
+          -- Keep the original syntax reference and complete MessageData tree,
+          -- including its stratum tags. Internal exceptions are not rewritten.
+          throw (.error ref (message ++ m!"\noperation preparation: {details.compress}"))
+      | _ => throw error
   let callable ← retainCallableEndpoints callable sourceWire targetWire dataContext
   let frameCallable := pointEndpoints.isSome || sourceWire.endpointPresentation.isSome ||
     targetWire.endpointPresentation.isSome
@@ -18730,7 +18833,7 @@ partial def operationObservationRegistrations (h : Harness) (request : Operation
   -- Their future slots and all known siblings belong to this same private scope.
   let projected ← prepareOperationObservation inspect privateTrace request.original request.operation
     request.parameters (some owner) (some request) (← reader.state.get).objects none
-    (some callableReader)
+    (some callableReader) (phase := "prospective admission")
   unless projected.input.form.id == request.input.form.id &&
       (← withoutModifyingState (withTransparency .all <|
         isDefEq (← inferType projected.input.value) (← inferType request.input.value) <&&>
@@ -18775,6 +18878,7 @@ partial def executeOperationObservation (h : Harness) (request : OperationObserv
     observeData := observeActionDataWire { h with demandObjectActions := true } request.trace }
   let actual ← prepareOperationObservation h request.trace request.original request.operation
     request.parameters (some owner) (some request) #[] none (some reader)
+    (phase := "selected execution")
   dispatchOperationObservation h actual (some selected)
 
 /-- Complete one exact retained occurrence. The table owns the canonical source

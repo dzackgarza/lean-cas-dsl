@@ -18,6 +18,9 @@ jobs:
     timeout-minutes: 180
     env:
       LEAN_NUM_THREADS: '1'
+      MATHLIB_CACHE_DIR: ${{ runner.temp }}/kernel-v1-candidate/mathlib-cache
+      CAS_LEAF_CONTRACT_PATH: ${{ runner.temp }}/kernel-v1-candidate/dependencies/cas_leaf_contracts
+      PYTHONPATH: ${{ runner.temp }}/kernel-v1-candidate/dependencies/cas_leaf_contracts/python
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -44,6 +47,37 @@ jobs:
           lint: 'false'
           use-mathlib-cache: 'false'
           use-github-cache: 'false'
+      - name: Restore compiled production artifacts
+        id: production-cache
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ${{ github.workspace }}/.lake/build
+            ${{ runner.temp }}/kernel-v1-candidate/dependencies/**/.lake/build
+          key: kernel-production-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json', 'lakefile.lean') }}-${{ github.sha }}
+          restore-keys: |
+            kernel-production-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json', 'lakefile.lean') }}-
+      - name: Restore the selected Mathlib import closure
+        run: python3 scripts/ci_kernel_candidate.py cache
+      - name: Compile named production modules before engine setup
+        env:
+          CAS_PRODUCTION_CACHE_PRIMARY_KEY: ${{ steps.production-cache.outputs.cache-primary-key }}
+          CAS_PRODUCTION_CACHE_MATCHED_KEY: ${{ steps.production-cache.outputs.cache-matched-key }}
+          CAS_PRODUCTION_CACHE_HIT: ${{ steps.production-cache.outputs.cache-hit }}
+        run: |
+          python3 scripts/ci_kernel_candidate.py run --name production -- \
+            bash "$RUNNER_TEMP/kernel-v1-candidate/lake.sh" build \
+              CasCatalogue.ConstrainedPoint:olean CasCatalogue.Language:olean CasCatalogue.Realize:olean
+      # Save at this boundary only: cached run_elab probes must not replace the
+      # later engine-dependent execution checks with already-built artifacts.
+      - name: Save compiled production artifacts
+        if: ${{ success() && steps.production-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ${{ github.workspace }}/.lake/build
+            ${{ runner.temp }}/kernel-v1-candidate/dependencies/**/.lake/build
+          key: ${{ steps.production-cache.outputs.cache-primary-key }}
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
       - name: Install the fixed computational engines
         run: |
@@ -57,11 +91,8 @@ jobs:
           {
             echo "CAS_SAGE_PYTHON=$runtime/engines/bin/python"
             echo "CAS_GAP_PYTHON=$runtime/engines/bin/python"
-            echo "CAS_LEAF_CONTRACT_PATH=$runtime/dependencies/cas_leaf_contracts"
-            echo "PYTHONPATH=$runtime/dependencies/cas_leaf_contracts/python"
             echo "DOT_SAGE=$runtime/sage-state"
             echo "MPLCONFIGDIR=$runtime/matplotlib-state"
-            echo "MATHLIB_CACHE_DIR=$runtime/mathlib-cache"
           } >> "$GITHUB_ENV"
       - name: Record the actual computation engine versions
         run: |
@@ -76,8 +107,6 @@ jobs:
               "packages": {d.metadata["Name"]: d.version for d in importlib.metadata.distributions()}
           }, indent=2))
           PY
-      - name: Restore the selected Mathlib import closure
-        run: python3 scripts/ci_kernel_candidate.py cache
       - name: Build the complete current consumer family
         run: |
           python3 scripts/ci_kernel_candidate.py run --name consumers -- \
