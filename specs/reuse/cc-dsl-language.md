@@ -1273,3 +1273,10 @@ explicitly hoisting repeated closed-endpoint `whnf` calls would mostly duplicate
 existing sharing. No such cache or hoist is introduced. The existing preparation
 and explicit-export controls pass on this source, including fresh full-question
 comparison, dispatch agreement and missing-producer refusal before execution.
+
+The next optional attribution wraps the existing complete `recognizeObjectApplication`,
+`selectedParameterFromWitnesses`, `structuredParameterView` and
+`coalesceSelectedParameterViews` bodies. The named-object label distinguishes the actual
+constructor rows. No branch, comparison, candidate or returned value changes. This separates
+supplied-witness applicability from committed conversion and provenance coalescing before
+deciding whether any completed local interpretation can be retained safely.

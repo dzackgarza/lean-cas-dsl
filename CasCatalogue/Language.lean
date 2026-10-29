@@ -3610,7 +3610,7 @@ partial def registeredEdgeMapAt (scope : Scope) (edge : EdgeRef)
     (← endpoint imageSource sourceValue, ← endpoint imageTarget targetValue)
 
 partial def structuredParameterView (original : Value) (actual : Expr)
-    (category : NamedCategoryEntry) : M Value := do
+    (category : NamedCategoryEntry) : M Value := profileReader "structured parameter view" do
   let originalContext ← objectContext original
   let handle ← semanticObject original
   if originalContext.expression.syntacticEq category.expression &&
@@ -4203,7 +4203,8 @@ The caller stores *all* returned original views in its provenance, not only the 
 Existing route classification occurs when each selectedView is constructed, before this helper. -/
 partial def coalesceSelectedParameterViews (expected actual : Expr)
     (views : Array Value) : M
-    (Array Value × Value × Array EdgeRef × Array ParameterPresentation × Array (EdgeRef × Array Expr)) := do
+    (Array Value × Value × Array EdgeRef × Array ParameterPresentation × Array (EdgeRef × Array Expr)) :=
+    profileReader "selected parameter coalescing" do
   unless !actual.hasMVar && (← isDefEq (← inferType actual) expected) &&
       (← isTypeCorrect actual) do
     throwStratum .invalid m!"the selected dependent parameter is not completely typed"
@@ -4275,7 +4276,8 @@ partial def coalesceSelectedParameterViews (expected actual : Expr)
 /-- Retain complete structured views supplied by the caller at one fixed parameter.
 No object is selected from a carrier, and all checked source presentations are preserved. -/
 partial def selectedParameterFromWitnesses (state : RegistryState) (actual : Expr)
-    (parameterCategory : NamedCategoryEntry) (known : Array Value) : M (Option Value) := do
+    (parameterCategory : NamedCategoryEntry) (known : Array Value) : M (Option Value) :=
+    profileReader "selected parameter witnesses" do
   let mut witnesses : Array Value := #[]
   let sourceValues := known.flatMap sourceParameterValues
   let selected := sourceValues.filter fun
@@ -4495,7 +4497,8 @@ trigger a second name/head lookup or replace that independent selection. -/
 partial def recognizeObjectApplication (state : RegistryState) (entry : ObjectEntry)
     (category : NamedCategoryEntry) (params : Array Expr)
     (known : Array Value := #[]) (fixedParameters : Array Expr := #[])
-    (original? : Option Expr := none) : M Value := do
+    (original? : Option Expr := none) : M Value :=
+    profileReader s!"recognized object application {entry.id.raw}" do
   unless entry.category == category.id do
     throwStratum .invalid "the selected object application changed its registered category"
   -- Its parameters: numerals, or sets (`𝒫(ℤ[x])`), recognized in turn.

@@ -113,6 +113,16 @@ do not infer a kernel defect from a backend error or replace a selected endpoint
 carrier. A separate public-only leaf audit uses public declarations and wire examples, with no
 access to these questions or results.
 
+A separate no-dispatch scan prepares the unchanged first question at 200000, then inspects its
+two original multiplication producers under a separately labelled 200000 engineering budget.
+One producer reproduces the first runtime packet exactly. Its declaration owner, ordered
+parameters, selected object and element `PointOrigin` owner retain literal equality, and its
+arrow and argument pass the public validator without private interface bindings. The standalone
+domain decoder still requests the independently retained formal receiver context; that context
+is present in the original wire. The other producer has a different packet and fails standalone
+argument validation. These observations correlate packets only, do not establish runtime
+occurrence identity, and justify no change to the first packet's producer/endpoint checks.
+
 The existing `CompleteUniversalObjectProbes` passes on `695210` (3803-job target build), all
 three `ServiceProjectionProbes` controls pass, and `PreparedQuestionProbes` passes (3804-job
 target build), including fresh complete-question comparison, unchanged dispatch and rejection
@@ -126,6 +136,9 @@ Candidate comparison is only 4.94 milliseconds and witness preference 0.821 mill
 Lean's native closed-expression WHNF cache survives the existing speculative-state restoration;
 manual endpoint-normalization hoisting is not a substantive repair. The remaining reader work
 is being localized without changing witness multiplicities, accepted candidates or the budget.
+Four further optional timing wrappers separate named object application, supplied parameter
+witnesses, committed structural views and complete parameter coalescing. Their function bodies
+are unchanged; the next production rebuild and original profile verify that instrumentation.
 
 The complete public inventory has been mechanically regenerated and published through
 [contract #9](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/pull/9), head
@@ -134,8 +147,17 @@ The complete public inventory has been mechanically regenerated and published th
 validated every address against the current admission inventory, using clean committed kernel
 `695210`, mathematical main `3f8aed` and protocol main `fcefc8`. Only the generated JSON changes;
 all 106 functors include complete object/map signatures and derived addresses. The uploaded
-blob, whole tree and fetched parent match exactly. Repository QC is pending. This public source
-publication is not an independent unchanged-consumer trial.
+blob, whole tree and fetched parent match exactly. [Repository QC 40876444879](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/actions/runs/40876444879)
+passed, and #9 is merged into actual contract main `5db631a34c9d4f65a535fad61b6f76af39fb56f6`
+with that same whole tree. The kernel manifest follows that actual main; `inputRev: main`
+is unchanged. This public source publication is not an independent unchanged-consumer trial.
+
+The subsequent `ReducedParameterActionProbes` target fails three controls. A bounded inspection
+of the first failure confirms that the exact source packet and owner survive inside the captured
+action dependency, with no foreign owner; its fixture still expects the former flat source-wire
+dependency. The other failures are anchored multiplicative-instance synthesis and nested whole
+action validation. The full target does not pass; preserve its substantive source, owner,
+structure-dictionary and ambiguity checks while diagnosing each boundary.
 
 ### Preceding integrated execution — 2026-10-29 12:12 UTC
 
