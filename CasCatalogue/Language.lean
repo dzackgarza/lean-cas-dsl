@@ -7752,9 +7752,11 @@ partial def declaredEndpointObject (endpoint : Expr) (category : NamedCategoryEn
   if category.id == CategoryId.sets && direct.isAppOf ``Prod then
     return ← productEndpoint direct
   if category.id == CategoryId.sets then
-    if let some projected ← declaredFieldEndpoint? state endpoint known then
+    if let some projected ← profileReader "declared endpoint field discovery"
+        (declaredFieldEndpoint? state endpoint known) then
       return retainObjectContext projected known
-  if let some recognized ← recognizedEndpoint? state endpoint category known fixedParameters then
+  if let some recognized ← profileReader "declared endpoint recognition"
+      (recognizedEndpoint? state endpoint category known fixedParameters) then
     return retainObjectContext recognized known
   let reduced ← whnfR endpoint
   if category.id == CategoryId.sets && reduced.isAppOf ``Prod then

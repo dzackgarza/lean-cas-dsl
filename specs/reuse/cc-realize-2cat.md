@@ -514,3 +514,29 @@ remaining failure without accepting any open or ill-typed selected application.
 These corrections are reconstructed source after the local workspace restart.
 The focused build and original RX-LIFT computations must be rerun on the current
 main dependencies; this source argument supplies no computational acceptance.
+
+### Complete record projections and selected functor actions
+
+`recordCompleteUniversalObject` projects a candidate's cone/cocone and apex through
+Lean's public `Meta.mkProjection`, as `StructuredResult.dataPlan` already does.
+`Lean/Meta/AppBuilder.lean` constructs this projection from the actual record's
+type, universes and full parameters. Fresh `mkAppM` instance synthesis would ask
+for `Category ?J` before the generic set-diagram candidate has been matched. The
+original full-type/apex comparison still fixes the candidate, and all subsequent
+closure, category, accepted-presentation, kernel and ambiguity checks remain.
+No unmatched candidate is suppressed by exception handling or an exclusion list.
+
+The ordinary functor consumer takes the literal whole action already retained in
+the reader's object projection. `Semantic.objOf` embeds that completed action,
+including its implicit dictionaries, and `FunctorActionData.objectAction?` reads
+its two existing public projection forms. Execution checks the exact original
+receiver occurrence and all ordered declaration parameters through the strict
+whole-action validator. It keeps the extracted action itself: a registered
+declaration presentation that validates a whole composite cannot replace that
+composite's selected occurrence. Original image, endpoint type, target context,
+capture and execution guards remain. Fresh elaboration from explicit parameters
+alone is removed from this path; it discarded already selected implicit data.
+
+Bounded diagnostics on the original first question confirm these source defects
+and the preserved fields. They create no new mathematical input, leaf or acceptance
+assertion; integrated execution still determines whether the first slice works.

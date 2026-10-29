@@ -1232,10 +1232,20 @@ the workspace restart; the unavailable original commit is not claimed recovered.
 
 Optional profiler regions separate carrier-map applicability, selected map
 reconstruction and final checks, joint family binding and subsequent rebinding,
-complete parameter reconstruction and declared endpoint reconstruction. They use
+complete parameter reconstruction and declared endpoint reconstruction. The latter
+also separates field discovery from endpoint recognition. They use
 the existing `profileReader` switch and preserve the original execution order
 and checks. The original 200000 question budget is unchanged. Earlier measured
 producer-wrapper construction was negligible and is not an optimization target.
 Fresh-reading engineering comparisons use the existing full typed-question
 comparator, while repeated exports of one prepared question still require exact
 identity equality; fresh administrative occurrence numbers are not mathematics.
+
+The first latest-main factor-sample profile stops at the original preparation
+budget. Lean 4.33's `Lean/Util/Profile.lean` specifies exclusive group totals:
+endpoint reconstruction accounts for 3.57 seconds and complete parameter discovery
+for 1.43 seconds of the observed 18.307 seconds. Committed family rebinding is
+25.7 milliseconds; no carrier-map group appears. These measurements do not justify
+changing carrier-map applicability, dropping candidate categories or caching a
+semantic reading by equal carriers. The two inner endpoint regions attribute the
+next correction before any sharing of structural owner analysis is implemented.

@@ -29,7 +29,9 @@ The independently authored actual-image adapter remains in
 [leaves #7](https://github.com/dzackgarza/lean-cas-dsl-leaves/pull/7), head
 `1fc1ee8b438aa6f1c78f21e99359c0408f8233e7`; its protocol conformance is separate from
 mathematical acceptance. The kernel manifest now records the actual mathematical and contract
-main inputs, with `inputRev: main` unchanged. Builds still need verification on these inputs.
+main inputs, with `inputRev: main` unchanged. The focused production build at kernel
+`13c5e8e0` passed on these inputs (3820 jobs), including all six original RX-LIFT imports;
+`FileItems` also built. Compilation is not a computational acceptance result.
 
 The latest complete kernel CI inspected is
 [40782042428 at fef6be1e](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40782042428).
@@ -40,32 +42,55 @@ retain that distinction.
 
 ## Current computation and recovery checkpoint
 
-Before the workspace restart, the focused `Realize` build09 passed (3798 jobs). The complete
-runtime04 diagnostic preserved all ten original first-stage questions, preceding bindings,
-imports, the actual diagnostic leaf manifest and the original 200000 shared preparation/evaluation
-budget. Eight questions reached evaluation: seven failed the complete-action guard; the
-nonidentity coordinate failed an exact input-address guard. Full pairing dispatched once.
-Both factor samples timed out during preparation. No first-stage assertion passed.
+The complete latest-main runtime diagnostic at `13c5e8e0` preserved all ten original first-stage
+questions, preceding bindings, six normal/meta imports, one shared harness, the actual diagnostic
+leaf manifest and the original 200000 shared preparation/evaluation budget. Eight prepared
+questions failed during evaluation because a universal-object candidate scan synthesized
+`Category ?J` before fixing its diagram. Full pairing dispatched once. Both factor samples
+timed out during preparation. **No first-stage assertion passed.** The unrelated rejected
+`meth.arrow_ker` registration was retained in the report, not filtered out.
 
-The selected-context inclusion repair therefore reached the next runtime boundary. The pending
-corrections preserve captured canonical forms through field/factor/action projection. A read-only
-diagnostic confirmed that retained actions and the selected lift action are closed and typed;
-a fresh `.functor` reconstruction is the remaining suspect. Its exact receiver checks assign
-metavariables, but the old expression reaches the guard without substituting assignments.
-Keep the strict guard; confirm the cause on the original question before changing that path.
-Producer-wrapper profiling ruled out that construction as a material reading cost. Narrow
-carrier-map, joint-binding and endpoint profiling is the next measured performance step.
+A bounded original-question diagnostic isolated the universal projection defect. The two
+generic set-diagram rows fail with fresh `mkAppM` projections; Lean's existing `mkProjection`
+uses the actual record parameters and yields type-correct cone/apex projections with identical
+input occurrences. Every one of the nine rows still rejects that unrelated original source
+through the existing full-type/apex checks. The production correction changes only those two
+projection builders, leaving closure, accepted presentation, kernel equality and ambiguity checks.
+
+A second diagnostic compared all three functor nodes of the original first question. Their
+literal complete actions preserve the exact receiver and ordered parameters, reproduce the
+original image and pass the strict execution guard. Fresh explicit-parameter re-elaboration
+loses the implicit `CommRing` dictionary for both bilinear actions; the ring action retains
+assigned metavariables until substitution. The consumer now retains the reader's full action
+and checks its original receiver, whole registered action and ordered parameters. It does not
+replace that action with the validator's declaration presentation. Integrated rebuild/runtime
+verification of these corrections remains pending.
+
+The exact factor-sample preparation profile still timed out at 200061560 raw heartbeat ticks
+in 18.307 seconds. Lean's profiler totals are exclusive: declared endpoint reconstruction used
+3.57 seconds and complete parameter discovery 1.43 seconds; committed family rebinding used
+25.7 milliseconds, and no carrier-map timing group appeared. Two optional subregions now
+separate field discovery from endpoint recognition before selecting an optimization. Producer
+wrapper construction and committed rebinding are not measured optimization targets. No budget,
+assertion, input, candidate set or validation is weakened.
 
 The 2026-10-29 workspace restart removed the local checkout, compiler cache, unpushed commits
-and logs. The published branches were restored; the pending selected-context/form repairs were
-reconstructed from their recorded changes. The interrupted build10 has no retained complete
-report and is not claimed to pass. Rebuild and rerun on the current source and actual main inputs.
-The dated records below retain their historical scope and do not establish current passes.
+and logs. Published branches, the exact toolchain, current mathematical/contract inputs and
+native engine environment were restored. Pending selected-context/form repairs were reconstructed
+from their recorded changes; the interrupted build10 has no retained complete report and is not
+claimed to pass. The dated records below retain their historical scope. Main's documentation-only
+`f34ce0de` higher-coherence clarification is integrated without adding a serial prerequisite to
+the ordinary first RX-LIFT or claiming that it establishes general higher coverage.
 
 [PR #70](https://github.com/dzackgarza/lean-cas-dsl/pull/70) is ready for independent review.
 Its exact isolated shallow-fetch regression passed two tests before the restart. The existing
 PR instructions reserve installation into trusted review for independent authority. It has not
 been merged or installed, and its author's test is not an independent approval.
+
+Noticed, not worked (2026-10-29): `structuredParameterView`'s two early `Trace.alias`
+branches can copy a `.functor` record to a reduced value without retaining the original full
+action as a child. The actual first-question nodes retain it; repair the specific producer
+if this boundary is exercised, preserving its public form rather than adding reconstruction.
 
 ## Next work — 2026-10-29
 

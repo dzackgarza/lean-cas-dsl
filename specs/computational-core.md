@@ -107,12 +107,13 @@ third disappears, and the last two become a hard, typed boundary.
 | Property subcategories and their inclusions | `cat_kernel` | typed classifier/refinement expressions (#54, CC-PROP) |
 | Semantic collision check (same public name, unrelated owners) | `resolution.md` "Semantic collisions" | registry duplicate/ambiguity errors at elaboration (CC-RESOLVE) |
 | Diamond handling by declaration order plus executable comparisons | `resolution.md` "Diamond diagnostics" | explicit `NatTransExpr` comparisons; ambiguity is an error (CC-COHERE) |
+| Higher cells and homotopy-coherent diagrams | DECISIONS.md "Higher invertibility and mathematical audit" | Upstream owns the complete coherent construction; #66 preserves it, #69 consumes its declared actions, and #24 assesses it (CC-HIGHER/#82). No dimension-two replacement is presumed. |
 | Universal constructions with retained apex, legs, mediator | `functor.md` "Diagram shapes and universal constructions" | Mathlib/project constructions returning complete universal data (CC-UNIV) |
 | Engine lowering and native reconstruction | `leaves.md` "Computation-engine boundary" | still required: a leaf computes on a declared input form, and the kernel reads its answer into the declared result form (CC-ADAPTER, CC-DECODE) |
 
 What is retained from `sage-categories` is its *requirements*: explicit object and
 morphism actions, retained defining maps, comparison cells instead of priorities,
-properties outside leaf control, and the separation between formally established laws
+the complete higher coherence needed by each construction, properties outside leaf control, and the separation between formally established laws
 and empirical checking of untrusted computations (CC-LAWS).
 
 ---
@@ -233,6 +234,76 @@ For each claimed construction, identify its accepted source, actual consumer and
 boundary/extension, or its precise missing input. Existing ordinary constructions remain
 valid in their justified fragment. This does not demand unrelated completion of all higher
 category theory, or change the fixed V1 questions to fit an implementation.
+
+#### Higher input, computational use, and justified reduction
+
+The inherited ambient is \((\infty,2)\)-categorical, with mapping
+\(\infty\)-categories as in FOUNDATIONS Definition 1.2. This does not mean that every
+2-cell is invertible, or that every higher cell must be a separately serialized
+runtime value. It means that the chosen presentation must express the construction
+and preserve every distinction on which its specified uses depend.
+
+For a boundary-extension construction, use the actual datum of FOUNDATIONS §9:
+\(j:\partial K\to K\), \(R:\mathcal B\to\operatorname{Fun}(\partial K,\mathcal E)\),
+and
+\[
+\mathcal B.A =
+\mathcal B\times^h_{\operatorname{Fun}(\partial K,\mathcal E)}
+\operatorname{Fun}(K,\mathcal E).
+\]
+A selected structure consists of \(b\), its extension \(\widetilde R_b\), and the
+specified identification \(j^*\widetilde R_b\simeq R(b)\). Its required transformations
+and their compatibility belong to this classifier; a Boolean saying that some filler
+exists is not a chosen filler. This is the upstream mathematical specification, not
+a new kernel datatype or a demand to enumerate an infinite tower.
+
+| Responsibility | Mathematical obligation and computational boundary |
+| --- | --- |
+| Upstream mathematics, consumed by #23/#82 | Own the ambient, shapes, mapping objects, coherent diagrams, classifiers, universal properties, actions, and comparison/strictification/truncation theorems. Establish their hypotheses. An ordinary library or a formal generating-cell engine does not by itself supply these interpretations or theorems. |
+| Interpretation, #66 (KM2/KM3/KM8) | Retain the selected diagram, extension, boundary identification and dependent parameters through substitution and question comparison. Replacing a cell by its existence proposition, endpoints or homotopy class requires adequacy for the actual subsequent operation. |
+| Computational realization, #69 (KM4–KM7) | Use the admitted actions on the selected data and preserve the boundary identifications under composition, whiskering, reindexing and later defining-map use. Execute the demanded components, or an adequate fused realization. A reference is sufficient only when it retains access to the complete required data and operations; retaining a name alone is insufficient. |
+| Independent acceptance, #24 (KM9) | Assess that same selected construction and its required uses under the existing independent-author rules. Structural preservation and empirical observations are separate: neither supplies a missing upstream theorem. |
+| Opaque leaves | Compute only the already declared operation and result presentation. Proposed cell-component data are untrusted answers, not declarations of coherence or evidence that its equations hold. |
+
+A homotopy 2-category is a derived 2-dimensional view of a higher presentation, not
+a lossless replacement for its mapping \(\infty\)-categories. Nevertheless particular
+constructions can be controlled by 2-dimensional data. For quasi-categorical
+adjunctions, Riehl–Verity prove coherent extension and homotopical uniqueness
+([*Homotopy coherent adjunctions and the formal theory of monads*,
+§§4.3–4.4](https://arxiv.org/abs/1310.8279)).
+That theorem can justify the corresponding use when its actual hypotheses and
+comparison are supplied upstream. It does not identify arbitrary parallel cells or
+supply a general extension theorem for every boundary. Thus neither “a homotopy
+2-category is always enough” nor “every ordinary computation needs an explicit
+infinite list of cells” is the contract.
+
+**Reduction has a construction-specific obligation.** If an implementation forgets
+data by a projection \(q\), each claimed observation/action must descend along \(q\)
+with the required comparison and compatibility, supplied by accepted mathematics.
+For an ordinary set-valued observation \(O\), this means an observation \(\bar O\)
+with \(O=\bar Oq\); more structured actions require the corresponding coherent
+comparison. A useful normal form or a decidable quotient does not establish descent.
+No such reduction is required where the full selected data are retained.
+
+The obstruction already appears in ordinary mathematics. On rational vector spaces,
+both \(+\mathrm{id}\) and \(-\mathrm{id}\) are natural automorphisms of the identity
+functor: every linear map commutes with multiplication by either scalar, and each
+is its own inverse. At \(1\in\mathbb Q\) their components give \(1\) and \(-1\).
+Any encoding identifying those selected comparisons cannot determine both component
+evaluations. This rules out the superseded route-quotient realization as a general
+solution; it does not forbid quotients for observations proved insensitive to them.
+
+**Remaining mathematical inputs, rather than assumed implementation decisions.**
+For each higher construction actually promised, #23/#82 must resolve its accepted
+declaration of the shape/extension and the transformations needed by its next use,
+or identify that precise missing input. If a truncated or strict consumer is used,
+resolve the applicable adequacy theorem as well. FOUNDATIONS prose, an ordinary
+'NatTrans' row and a successful ordinary RX-LIFT calculation alone do not establish
+those inputs. The first RX-LIFT's ordinary module kernel, restricted form, specified
+comparison and factorization retain their existing scope and acceptance; no unrelated
+higher-model migration is inserted before it. Internal encoding and evaluator choices
+remain implementation decisions. A missing theorem is an upstream mathematical
+dependency; a change to the supported user questions remains an owner decision.
 
 ### CC-CALC — The semantic calculus denotes the declared mathematical constructions
 
@@ -903,19 +974,45 @@ rediscover them.
 
 ---
 
-## 9. Open questions (do not reopen the governing decisions)
+## 9. Decisions and exact remaining mathematical inputs
 
-1. Which existing session or operation boundary owns required retained results, and which
-   lookups are disposable under CC-MEMO? Their lifetimes must preserve selected data and
-   dependent maps; a cache label does not settle that distinction.
-2. How does `FunctorExpr` represent a fibration's reindexing \(\varphi^{*}\) and fibre
-   inclusions \(\iota_R\): as constructors derived from a registered fibration entry, or as
-   `atomic` functors whose registration must cite that fibration? Either way the
-   fibration, not the pair of `familyApp` endpoints, is the owner.
-3. #53 §16's ten questions remain open and are inherited unchanged.
-4. For a particular property subcategory, does an accepted closure-under-subobjects theorem
-   supply the structured-kernel lift and its comparison with the underlying kernel? For a
-   category carrying additional chosen data, what further construction supplies that data on
-   the kernel? CC-CLOSURE inherits the underlying operation only on its actual domain;
-   CC-LIFT requires the actual structured return. A closure theorem for a property alone
-   is not a general reconstruction of arbitrary extra structure.
+The older blanket incorporation of [upstream #53 §16](https://github.com/dzackgarza/lean-categories/issues/53)
+is replaced by the dispositions below. That historical list contains implementation choices,
+user-interface questions and a now-incompatible trusted-backend premise; it is not ten
+unresolved mathematical prerequisites. Nothing here changes that upstream issue or authors
+its mathematics.
+
+| Earlier question | Operative disposition here |
+| --- | --- |
+| Retained-result lifetime / backend caching | #69's selected-plan invocation owner retains required outputs and maps; CC-MEMO distinguishes optional lookup storage and fresh execution. This is implementation work, not an unresolved mathematical choice or permission to discard selected data. |
+| Reindexing encoded as a constructor or atomic functor | An implementation choice under #66, constrained by the accepted fibration, variance, selected base map and coherence in CC-FIB. Neither encoding may infer transport from two family endpoints. The actual mathematical transport is upstream. |
+| #53.16.1: atomic method target or checked composite | CC-ROUTE already permits a registered operation or composite. Preserve its complete declared meaning and comparisons; no new semantic generator is required merely to register a fused computation. |
+| #53.16.2–3: constructor and receiver-schema encodings | Internal implementation choices under #66/CC-CALC. They cannot replace the accepted categories, dependent interfaces or their denotations. |
+| #53.16.4: native namespace wrappers | Public-interface behavior follows the existing supported surface and #68's selected facade. Any proposed additional user-facing surface is separate from internal encoding and does not block current V1. |
+| #53.16.5: display of a trusted backend decision | The trusted-backend premise is superseded by INTENT and the evidence model. No leaf answer or status becomes trusted. Formal discharge and independent computational observations remain distinct; #8 owns opt-in diagnostics. |
+| #53.16.6: exact-real approximation | #13/#23 identify the represented input and required error relation against current promises; #66/#69 implement already admitted forms. Completeness of the real field does not establish an algorithm on every real term. A precise missing mathematical presentation or operation remains upstream; new visible capabilities require their existing owner. |
+| #53.16.7: backend state | CC-MEMO and #69 own selected computational results and lifetime. Formal functoriality does not prove arbitrary backend purity or reproducibility. |
+| #53.16.8: definitional equality, equality of functors or natural isomorphism | These are different mathematical data, not interchangeable storage options. Use the actual accepted equality/comparison; changing to a strict or truncated presentation requires CC-HIGHER's construction-specific adequacy. |
+| #53.16.9–10: cardinal display/refinement and polynomial binding scope | Preserve the current selected mathematical domain and established notebook behavior. Refinement needs its accepted hypothesis; display changes cannot change the question. New user-visible behavior is an owner decision, not a prerequisite invented for this architectural revision. |
+
+The unresolved mathematical obligations are now stated at their actual boundary:
+
+1. For a promised higher construction, identify the accepted boundary-extension datum and
+   transformations required by its continuation, and any adequacy theorem for the chosen
+   strict/truncated presentation (CC-HIGHER, #23/#82). No general theorem supplies a filler for
+   an arbitrary boundary. A missing declaration and a missing computational component action
+   remain different gaps.
+2. For each structured return, identify the accepted lift and comparison under its actual
+   hypotheses (CC-LIFT, #23/#69). A closure-under-subobjects theorem for a property does not
+   reconstruct arbitrary additional chosen data. Restricting a form to an underlying module
+   kernel does not automatically give a categorical kernel in the category of
+   form-preserving maps.
+3. For an observation reduced to equality of presentations or a lower-dimensional quotient,
+   identify the accepted comparison/descent theorem for that particular relation
+   (CC-DECODE/CC-HIGHER, #66/#69). A denotation function, decoder or successful example does not
+   establish it.
+
+These obligations are resolved in the existing construction work, with exact source
+declarations or precise missing inputs. They are not invitations to choose mathematics to
+fit the runtime, additional universal prerequisites, or a claim that the higher inputs have
+already been formalized or computationally validated.

@@ -3261,10 +3261,11 @@ def recordCompleteUniversalObject (trace : Trace) (value : Expr) : TermElabM Boo
   for row in state.limits do
     let diagram? ← withoutModifyingState do
       let application ← instantiateFresh row.declaration
-      let cone ← mkAppM (if row.colimit then ``CategoryTheory.Limits.ColimitCocone.cocone
-        else ``CategoryTheory.Limits.LimitCone.cone) #[application]
-      let apex ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone.pt
-        else ``CategoryTheory.Limits.Cone.pt) #[cone]
+      -- Keep the declaration's actual diagram and category parameters while
+      -- matching its apex. Fresh instance synthesis cannot select an open shape.
+      let cone ← withTransparency .all <|
+        mkProjection application (if row.colimit then `cocone else `cone)
+      let apex ← withTransparency .all <| mkProjection cone `pt
       unless ← withoutModifyingState (withTransparency .all <|
           isDefEq (← inferType apex) (← inferType value) <&&> isDefEq apex value) do
         CategoryContext.exposeStructureParameters application
@@ -14741,11 +14742,19 @@ def realizeFreshWith
         payload := forwardPayload output e output.json }
   | .functor id params receiver =>
       let some entry := state.functor? id | unreachable!
+      -- The reader already selected the whole action, including its implicit
+      -- dictionaries. Keep that literal child instead of elaborating its name
+      -- again from only the explicit parameter vector.
+      let some (retainedAction, retainedReceiver) := FunctorActionData.objectAction? e
+        | throwError "the recorded functor lost its complete selected object action"
+      let receiver ← instantiateMVars receiver
+      unless (← instantiateMVars retainedReceiver) == receiver do
+        throwError "the recorded functor changed its original receiver occurrence"
+      let F ← instantiateMVars (← Semantic.asFunctor retainedAction)
+      let actualParameters ← actionDeclarationParameters state (.functor id) F true
+      unless actualParameters == (← params.mapM instantiateMVars) do
+        throwError "the recorded functor changed its ordered declaration parameters"
       let input ← realizeUnobserved h trace s!"the source of {id.raw} in {what}" receiver
-      let raw ← elabTermAndSynthesize
-        (← `($(mkCIdent entry.declaration) $(← params.mapM exprToSyntax)*)) none
-      let F ← if (← whnf (← inferType raw)).isAppOf ``CategoryTheory.Cat.Hom then
-        mkAppM ``CategoryTheory.Cat.Hom.toFunctor #[raw] else pure raw
       let semanticImage ← Semantic.objOf F receiver
       unless ← withoutModifyingState (isDefEq semanticImage e) do
         throwError "the recorded selected functor action disagrees with the semantic request"
