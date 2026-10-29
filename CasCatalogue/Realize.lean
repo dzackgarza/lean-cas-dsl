@@ -3083,7 +3083,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
     (fun h trace wire value source context =>
       realizeCallableEndpoint h trace wire value source context)
     (fun h trace source target wire context pointAsMap =>
-      frameMorphismFragment h trace source target wire context pointAsMap)
+      frameMorphismTemplate h trace source target wire context pointAsMap)
     (fun h trace input context endpoints publicFrame =>
       captureCompleteCallable h trace input context endpoints publicFrame)
     callableObjectPlan? (fun h trace input context => capturedMapEndpoints h trace input context)
@@ -3310,7 +3310,10 @@ selection, decoding rule or execution policy is introduced. -/
 partial def prepareOperationPointArgument (h : Harness) (trace : Trace)
     (context : CategoryContext) (point originalDomain originalTarget domain target : Wire)
     (data : DataOwnership.Data) (parameters : Array Wire)
-    (reader : CallablePreparationReader) : TermElabM PreparedOperationArgument :=
+    (reader : Option CallablePreparationReader := none) :
+    TermElabM PreparedOperationArgument := do
+  let reader := reader.getD {
+    observe := fun context wire => capturePointCallable h trace wire context }
   prepareOperationPointArgumentWith
     (fun point => operationPointRecipeInputs h trace point) reader
     h context point originalDomain originalTarget domain target data parameters
@@ -3380,7 +3383,7 @@ partial def operationPointEndpoints? (h : Harness) (trace : Trace) (context : Ca
     | throwError "the operation point lost its complete normalized source"
   let actualTarget := if targetWire.isSome then normalized[2]? else none
   let argument ← prepareOperationPointArgument h trace context point domainWire sourceWire
-    actualDomain actualSource data parameters reader
+    actualDomain actualSource data parameters (some reader)
   return some {
     domain := actualDomain, source := actualSource, target := actualTarget
     argument := argument.data, argumentTemplate := argument.template
@@ -3512,7 +3515,12 @@ partial def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wi
       let template ← mapActionTemplateWires reader.readData template
       let (data, dependencies) ← renderCapturedActionData template
       pure (data, template, dependencies, !sameActionTemplate originalTemplate template)
-  let domainWire := (pointEndpoints.map (·.domain)).getD domainWire
+  -- Retain the canonical argumentDomain for replay, but prepare ordinary
+  -- consumer endpoints with the same reader as the argument. A prepared point
+  -- already owns its coupled endpoint/comparison frame and retains that frame.
+  let domainWire ← match pointEndpoints with
+    | some prepared => pure prepared.domain
+    | none => reader.readData .object argumentDomain
   -- The argument's actual target supplies the selected input presentation. The
   -- declaration may expose only a reduced carrier with several accepted names;
   -- its complete equality with this original endpoint was checked above.
@@ -3526,6 +3534,8 @@ partial def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wi
       | none => match retained with
         | some retained => pure retained.sourceWire
         | none => realizeCallableEndpoint h trace argumentWire originalSource false
+  let sourceWire ← if pointEndpoints.isSome then pure sourceWire
+    else reader.readData .object sourceWire
   let targetEndpoint : CallableEndpointData ← match pointEndpoints.bind (·.target) with
     | some target => pure { wire := target, origin := .retained }
     | none => match recordTarget with
@@ -3544,7 +3554,8 @@ partial def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wi
         | none =>
           realizeCallableEndpointWithOrigin h trace callable resultTarget false
             (some dataContext)
-  let targetWire := targetEndpoint.wire
+  let targetWire ← if (pointEndpoints.bind (·.target)).isSome then pure targetEndpoint.wire
+    else reader.readData .object targetEndpoint.wire
   for (endpoint, expected) in #[(domainWire, resultDomain), (sourceWire, originalSource),
       (targetWire, resultTarget)] do
     unless ← withoutModifyingState (withTransparency .all <|

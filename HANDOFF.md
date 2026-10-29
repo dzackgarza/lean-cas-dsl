@@ -7,7 +7,34 @@ own the work order. #66 owns complete mathematical interpretation; #69 owns comp
 #24 owns integration and independent acceptance. #23/#82 review construction requirements
 and exact mathematical inputs alongside that work.
 
-## Issue #83: repeated edit-to-result feedback — 2026-10-30 (Asia/Taipei)
+## Current computation repair — 2026-10-30 (Asia/Taipei)
+
+The active work is the unchanged first RX-LIFT construction under #66/#69.
+`prepareOperationObservation` now interprets ordinary consumer endpoints through
+the same reader as its argument, preserving canonical capture and producer-owned
+prepared point frames. The original question still fails: after this change its
+diagnostic identifies an unobserved product mediator in `op.rings.mul`, rather than
+the earlier mixed-phase endpoints in `op.rings.neg`. Neither is a comparison of
+source producer 6 against target producer 16; each endpoint is compared with its
+own retained occurrence.
+
+The current source captures both product-mediator encodings as typed intrinsic
+assemblies and refreshes their authenticated product provenance through the
+shared observer. It preserves the original children, endpoint relations, selected
+presentation and data positions. Focused compilation checked the changed producer
+and observer bodies. A later helper edit used a reserved Lean identifier, caught
+by focused feedback and corrected; the complete production build and original
+runtime verification remain pending. Existing mathematical assertions and leaf
+inputs are unchanged. The existing point-preparation helper again supplies its
+capture-reader default so its unchanged product comparison controls can run.
+
+## Issue #83: closed — 2026-10-30 (Asia/Taipei)
+
+[#83 is closed](https://github.com/dzackgarza/lean-cas-dsl/issues/83#issuecomment-6509244748).
+The owner clarified that the task was eliminating 20–30 minute feedback waits.
+The existing loop is sufficient for implementation; further timing proofs,
+micro-optimization, restart-survival work and workstation access are outside this
+completed task. The records below are historical verification, not unfinished work.
 
 **Owner clarification (2026-10-30): the problem is the repeated feedback loop, not
 cold-start time.** Work in the existing Pro cloud container. Survival of container

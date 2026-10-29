@@ -11337,6 +11337,40 @@ def capturePointCallableWith
     captureCompleteCallableWith readEndpoints input context
   else pure input
 
+/-- A product point's positioned child is either its complete original map or
+the exact frame already supplied for that map. A public typed-map wrapper keeps
+the frame's selected actual endpoints; equal terms or packets select nothing. -/
+def checkIntrinsicProductChild (context : CategoryContext) (original : Wire)
+    (template : ActionDataTemplate) : TermElabM Unit := do
+  let (selected, publicEndpoints) ← match template with
+    | .wire .map selected => pure (selected, none)
+    | .ctor "typedMap" #[.wire .retained source, .wire .retained target, .wire .map selected] =>
+        pure (selected, some (source, target))
+    | _ => throwStratum .unavailable "the product point lost its positioned typed child"
+  unless sameCompleteWireContext selected original do
+    let some frame := selected.morphismFraming
+      | throwStratum .unavailable "the product point changed its complete selected child"
+    let replayed ← presentMorphism frame.input frame.source frame.target frame.context frame.comparisons
+    unless sameCompleteWireContext replayed selected do
+      throwStratum .unavailable "the product point lost its exact child frame"
+    unless sameCompleteWireContext frame.input original do
+      -- Observation can retain the whole current child in a new outer frame.
+      -- Follow that explicit alias only; its packet equality does not choose it.
+      let some retainedChild ← retainedIntrinsicAssembly? frame.input .map
+        | throwStratum .unavailable "the product point frame belongs to a different child"
+      let .retained (.wire .map child) := retainedChild.template
+        | throwStratum .unavailable "the product point frame lost its exact whole child"
+      unless retainedChild.endpointRoles == (.retained, .retained) &&
+          sameCompleteWireContext child original do
+        throwStratum .unavailable "the product point frame changed its retained child occurrence"
+  if let some (source, target) := publicEndpoints then
+    let some endpoints ← retainedCallableEndpoints? selected context
+      | throwStratum .unavailable "the product point frame lost its complete endpoint receipt"
+    let actualSource ← callableActualEndpoint context endpoints.1 true
+    let actualTarget ← callableActualEndpoint context endpoints.2 false
+    unless sameCompleteWireContext source actualSource && sameCompleteWireContext target actualTarget do
+      throwStratum .unavailable "the product point wrapper changed its selected frame endpoints"
+
 /-- Observe one producer-owned intrinsic tree. The callbacks receive complete
 retained occurrences; this function performs no expression-cache lookup and
 never restarts a specialized producer or chooses a computational registration. -/
@@ -11351,8 +11385,8 @@ def observeIntrinsicAssemblyWith
   let (original, _) ← renderCapturedActionData assembly.template
   unless original == wire.fragment do
     throwStratum .unavailable "the intrinsic assembly changed its original positioned child data"
-  -- Only the literal producer's typed owner slot licenses refreshing its point
-  -- receipt. A matching packet tag or historical PointOrigin is insufficient.
+  -- A literal point's typed owner slot licenses refreshing its point receipt.
+  -- A matching packet tag or historical PointOrigin is insufficient.
   let literalPointData ← match assembly.template with
     | .ctor "element" #[.wire .object owner, .ctor "numeral" #[.literal number]] => do
       let .map context := assembly.result
@@ -11376,6 +11410,42 @@ def observeIntrinsicAssemblyWith
         throwStratum .unavailable "the captured literal point changed its original endpoint receipt"
       pure (some number)
     | _ => pure none
+  -- A current product recipe records the selected presentation and the two
+  -- original children. Authenticate its exact assembly positions before those
+  -- children are observed; historical origins cannot license a new receipt.
+  let productPointRecipe : Option PointRecipe ← match wire.pointOrigin with
+    | some origin => match origin.recipe with
+      | .product _ _ first second firstPath secondPath => do
+        if wire.completedData || origin.formal != wire.value || origin.fragment != wire.fragment then
+          pure none
+        else do
+          let .map context := assembly.result
+            | throwError "the captured product point changed its complete result role"
+          unless assembly.endpointRoles == (.object, .object) &&
+              origin.context.bundle == context.bundle &&
+              origin.context.expression.syntacticEq context.expression do
+            throwStratum .unavailable "the captured product point changed its original full context"
+          unless sameCallableEndpoints wire.callableEndpoints (some {
+              formal := origin.formal, fragment := origin.fragment, context := origin.context,
+              source := origin.source, target := origin.target }) &&
+              (← retainedCallableEndpoints? wire context).isSome do
+            throwStratum .unavailable "the captured product point changed its original endpoint receipt"
+          let (firstTemplate, secondTemplate) ← match assembly.template with
+            | .ctor "mediator" #[firstTemplate, secondTemplate] => do
+              unless firstPath == #[.field "args", .index 0] &&
+                  secondPath == #[.field "args", .index 1] do
+                throwError "the captured product point changed its mediator child positions"
+              pure (firstTemplate, secondTemplate)
+            | .array #[firstTemplate, secondTemplate] => do
+              unless firstPath == #[.index 0] && secondPath == #[.index 1] do
+                throwError "the captured product point changed its ordered array positions"
+              pure (firstTemplate, secondTemplate)
+            | _ => throwStratum .unavailable "the product point lost its original typed assembly"
+          checkIntrinsicProductChild context first firstTemplate
+          checkIntrinsicProductChild context second secondTemplate
+          pure (some origin.recipe)
+      | _ => pure none
+    | none => pure none
   let observed ← IO.mkRef (#[] : Array (ActionDataRole × Wire × Wire))
   let observe := fun (role : ActionDataRole) (original : Wire) => do
     if let some (_, _, actual) := (← observed.get).find? (fun (selected, input, _) =>
@@ -11674,8 +11744,13 @@ def observeIntrinsicAssemblyWith
             -- These are the same original endpoint observations and the same
             -- positioned owner read. No point execution or new meaning is added.
             result ← retainPointOrigin result context source target (.element owner #[])
-        else if literalPointData.isSome then
-          throwStratum .unavailable "the captured literal point lost its original endpoint receipt"
+          if let some (.product presentation domain first second firstPath secondPath) := productPointRecipe then
+            let first ← observe .map first
+            let second ← observe .map second
+            result ← retainPointOrigin result context source target
+              (.product presentation domain first second firstPath secondPath)
+        else if literalPointData.isSome || productPointRecipe.isSome then
+          throwStratum .unavailable "the captured point lost its original endpoint receipt"
   if sameCompleteWireContext result wire then return wire
   result := { result with
     serviceHandles := (← retainServiceOperands h (dependencies ++ (← observed.get).map (·.2.2))) }
@@ -13771,9 +13846,9 @@ def realizeFreshWith
       TermElabM Wire)
     (realizeCallableEndpoint : Harness → Trace → Wire → Expr → Bool →
       (context : optParam (Option CategoryContext) none) → TermElabM Wire)
-    (frameMorphismFragment : Harness → Trace → Expr → Expr → Wire →
+    (frameMorphismTemplate : Harness → Trace → Expr → Expr → Wire →
       (context : optParam (Option CategoryContext) none) →
-      (pointAsMap : optParam Bool false) → TermElabM (DataOwnership.Data × Array Wire))
+      (pointAsMap : optParam Bool false) → TermElabM ActionDataTemplate)
     (captureCompleteCallable : Harness → Trace → Wire → CategoryContext →
       (endpoints : optParam (Option (Wire × Wire)) none) →
       (publicFrame : optParam Bool true) → TermElabM Wire)
@@ -14569,35 +14644,51 @@ def realizeFreshWith
       let context ← CategoryContext.ofNamed category domain
       let source ← realizeEndpoint h trace "the product point's generalized domain" domain
       let target ← realizeEndpoint h trace "the product point's complete target" apex
+      -- A child with a current callable receipt owns its complete endpoints.
+      -- Native point data keep their original interface; this producer does not
+      -- invent a whole-map receipt for them from the parent or a formal key.
+      let childFields ← #[first, second].mapM fun child => do
+        let endpoints ← retainedCallableEndpoints? child context
+        return endpoints.map fun (source, target) =>
+          ({ context, source, target, callable := child } : IntrinsicMapFields)
+      let maps := childFields.filterMap id
+      let mut equalObjects := maps.map fun fields => (source, fields.source)
+      if let #[firstTarget, secondTarget] := target.productComponents then
+        for (fields, component) in childFields.zip #[firstTarget, secondTarget] do
+          if let some fields := fields then
+            equalObjects := equalObjects.push (component, fields.target)
       -- Generalized maps and closed point arrays keep their existing distinct
       -- public encodings. Their ordered child occurrences are fixed here.
       unless ← withTransparency .all <| isDefEq domain (← closedElementDomain state) do
-        let json ← scopedNode "mediator" #[first.fragment, second.fragment]
+        let template : ActionDataTemplate := .ctor "mediator"
+          #[.wire .map first, .wire .map second]
+        let (json, dependencies) ← renderCapturedActionData template
         let point : Wire := {
           form := .canonicalMorphism category
-          payload := (← combinedRecipePayload e json #[first, second]) }
-        return ← retainPointOrigin point context source target
+          payload := (← combinedRecipePayload e json dependencies) }
+        let point ← retainPointOrigin point context source target
           (.product presentation domain first second
             #[.field "args", .index 0] #[.field "args", .index 1])
+        return ← retainIntrinsicAssembly point .map context template maps equalObjects
       -- A symbolic element retains its arithmetic owner, which may differ from
       -- this component's complete coordinate. Keep both in the existing public
       -- callable frame. Actual returned point data keep their original encoding.
-      let framePoint (wire : Wire) : TermElabM (DataOwnership.Data × Array Wire) := do
+      let framePoint (wire : Wire) : TermElabM ActionDataTemplate := do
         unless (wire.json.getObjValAs? String "ctor").toOption == some "element" do
-          return (wire.fragment, #[])
+          return .wire .map wire
         let some (_, endpoint) := Language.homEnds? (← inferType wire.value)
           | throwError "the product's symbolic point lost its complete endpoint"
-        frameMorphismFragment h trace domain endpoint wire
-      let (firstData, firstEndpoints) ← framePoint first
-      let (secondData, secondEndpoints) ← framePoint second
-      let payload ← combinedRecipePayload e (DataOwnership.Data.array #[firstData, secondData])
-        (#[first, second] ++ firstEndpoints ++ secondEndpoints)
+        frameMorphismTemplate h trace domain endpoint wire
+      let template : ActionDataTemplate := .array #[← framePoint first, ← framePoint second]
+      let (data, dependencies) ← renderCapturedActionData template
+      let payload ← combinedRecipePayload e data (#[first, second] ++ dependencies)
       -- This array is the product point's two ordered components, not a graph
       -- over its generalized domain. Apply the complete endpoint presentations
       -- here so later callable framing preserves the released point encoding.
       let point : Wire := { form := .canonicalMorphism category, payload }
       let point ← retainPointOrigin point context source target
         (.product presentation domain first second #[.index 0] #[.index 1])
+      let point ← retainIntrinsicAssembly point .map context template maps equalObjects
       presentMorphism point source target
   | .morphismComposition categoryId first second source middle target =>
       let some category := state.categories.find? (·.id == categoryId) | unreachable!
@@ -14681,9 +14772,10 @@ def realizeFreshWith
         let sourceWire ← realizeEndpoint h trace "the applied operation source" middle
         let targetWire ← realizeEndpoint h trace "the applied operation target" target
         let operationWire ← realize h trace "the complete applied operation" second
-        let (arrow, operationEndpoints) ← frameMorphismFragment h trace middle target operationWire
-          (some context) (pointAsMap := true)
-        let (argumentData, argumentEndpoints) ← frameMorphismFragment h trace source middle argument (some context)
+        let (arrow, operationEndpoints) ← renderCapturedActionData (← frameMorphismTemplate
+          h trace middle target operationWire (some context) (pointAsMap := true))
+        let (argumentData, argumentEndpoints) ← renderCapturedActionData (← frameMorphismTemplate
+          h trace source middle argument (some context))
         let requestData ← pointInvocationData address parameters arrow domainWire.fragment
           sourceWire.fragment targetWire.fragment argumentData
         let payload ← combinedRecipePayload e requestData
