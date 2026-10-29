@@ -65,8 +65,9 @@ original image and pass the strict execution guard. Fresh explicit-parameter re-
 loses the implicit `CommRing` dictionary for both bilinear actions; the ring action retains
 assigned metavariables until substitution. The consumer now retains the reader's full action
 and checks its original receiver, whole registered action and ordered parameters. It does not
-replace that action with the validator's declaration presentation. Integrated rebuild/runtime
-verification of these corrections remains pending.
+replace that action with the validator's declaration presentation. The integrated build and
+runtime results below verify these paths on the original questions without establishing a
+passing mathematical result.
 
 The exact factor-sample preparation profile still timed out at 200061560 raw heartbeat ticks
 in 18.307 seconds. Lean's profiler totals are exclusive: declared endpoint reconstruction used
@@ -90,7 +91,53 @@ claimed to pass. The dated records below retain their historical scope. Main's d
 `f34ce0de` higher-coherence clarification is integrated without adding a serial prerequisite to
 the ordinary first RX-LIFT or claiming that it establishes general higher coverage.
 
-### Latest integrated execution — 2026-10-29 12:12 UTC
+### Latest integrated execution — 2026-10-29 12:44 UTC
+
+At published kernel `695210ecef9beb3015782ee82b34852818a32257`, tree
+`9aa0c8010abe97d83c7105ad1a571e7eb57eddfd`, the focused `Realize` build passed 3802 jobs.
+The unchanged ten-question runtime used published independent leaf `97188099`, whose whole
+tree matches local author commit `719a1321`. Both source trees stayed clean throughout the run.
+All original question texts, identities, prerequisite bindings, imports, shared session,
+rejected registration and 200000 shared preparation/evaluation budgets remain unchanged.
+Six questions reach a backend scalar-endpoint descriptor rejection; the nonidentity coordinate
+reaches an unsupported `op.rings.neg` request; full pairing exhausts the budget in evaluation;
+both factor samples still exhaust it in preparation. There are **zero passing first-stage
+assertions**. The retained-action ambiguity is absent. Every question that reaches evaluation
+now dispatches, with two calls for the nonidentity coordinate and one for each of the other seven.
+
+The first multiplication packet retains the same ring descriptor in its operation parameter,
+operation descriptor and numeral owner. Its generalized argument retains a distinct module
+carrier presentation. The packet alone does not establish whether the kernel lost an endpoint
+association or the leaf lacks a public codec. Inspect the original producer/endpoint metadata;
+do not infer a kernel defect from a backend error or replace a selected endpoint by an equal
+carrier. A separate public-only leaf audit uses public declarations and wire examples, with no
+access to these questions or results.
+
+The existing `CompleteUniversalObjectProbes` passes on `695210` (3803-job target build), all
+three `ServiceProjectionProbes` controls pass, and `PreparedQuestionProbes` passes (3804-job
+target build), including fresh complete-question comparison, unchanged dispatch and rejection
+of a missing producer before dispatch. `FunctorActionExecutionProbes` remains a failed full
+target as recorded below; these focused controls do not replace mathematical acceptance.
+
+The exact factor-sample profile still stops at 200000261 raw ticks in 19.481 seconds. Exclusive
+totals attribute 2.64 seconds to remaining endpoint recognition, 878 milliseconds to carrier
+conversion, 1.56 seconds to parameter category trials and 618 milliseconds to field discovery.
+Candidate comparison is only 4.94 milliseconds and witness preference 0.821 milliseconds.
+Lean's native closed-expression WHNF cache survives the existing speculative-state restoration;
+manual endpoint-normalization hoisting is not a substantive repair. The remaining reader work
+is being localized without changing witness multiplicities, accepted candidates or the budget.
+
+The complete public inventory has been mechanically regenerated and published through
+[contract #9](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/pull/9), head
+`23cf6a30f68b188543f0f280fc5c88899678ee4d`, tree
+`968ea95a5f8e7f76de95461999e8bafee74f2d39`. The unmodified exporter ran both Lean exports and
+validated every address against the current admission inventory, using clean committed kernel
+`695210`, mathematical main `3f8aed` and protocol main `fcefc8`. Only the generated JSON changes;
+all 106 functors include complete object/map signatures and derived addresses. The uploaded
+blob, whole tree and fetched parent match exactly. Repository QC is pending. This public source
+publication is not an independent unchanged-consumer trial.
+
+### Preceding integrated execution — 2026-10-29 12:12 UTC
 
 At published kernel `deafe9b61b0ba09795ce92f351b0d578aff12d04`, tree
 `9300b307d612f740d2a019bc2adaa9320c1db98a`, the focused `Realize` build passed 3802 jobs.
@@ -107,8 +154,8 @@ morphism, while the retained route kept its actual public functor projection. Th
 applications are literally equal. This scan does not identify the runtime helper argument. The
 parameter candidate path now retains the literal action from its original object projection,
 checking the exact receiver, whole registered edge and ordered parameter occurrences. All prior
-prefix, original-result, kernel and exact ambiguity checks remain. Integrated verification of
-this next source is pending.
+prefix, original-result, kernel and exact ambiguity checks remain. The later `695210` run above
+tests this correction on all ten original questions.
 
 The existing `CompleteUniversalObjectProbes` passes on `deafe9b6`. After three engineering-only
 fixture corrections (explicit numeral types, an owned callable for an asymmetric Hom, and the
@@ -121,8 +168,8 @@ The independent ordinary ring adapter was authored from public contract `fcefc8b
 eight representations, 48 session requests and two closed-owner controls test protocol/ownership,
 not mathematical results. The published tree equals the author's source exactly. Its public API
 review exposed an outdated generated admission inventory: all 94 previously exported functors
-lack their current derived map/input metadata. Existing exporter logic is already complete;
-regenerate the whole public inventory from clean committed built sources, without hand-added IDs.
+lacked their current derived map/input metadata. Existing exporter logic was already complete;
+the later whole-inventory regeneration above uses it without hand-added IDs.
 
 [PR #70](https://github.com/dzackgarza/lean-cas-dsl/pull/70) is ready for independent review.
 Its exact isolated shallow-fetch regression passed two tests before the restart. The existing

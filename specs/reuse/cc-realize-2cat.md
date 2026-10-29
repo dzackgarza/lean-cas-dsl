@@ -512,8 +512,10 @@ The action guard reports closure and typing failures separately to diagnose the
 remaining failure without accepting any open or ill-typed selected application.
 
 These corrections are reconstructed source after the local workspace restart.
-The focused build and original RX-LIFT computations must be rerun on the current
-main dependencies; this source argument supplies no computational acceptance.
+At published kernel `695210`, the focused production build passes on the current
+main dependencies. All ten unchanged first-stage RX-LIFT questions run, with no
+passing result: six scalar-descriptor rejections, one unsupported negation request
+and three budget timeouts. This source argument supplies no computational acceptance.
 
 ### Complete record projections and selected functor actions
 
@@ -552,3 +554,16 @@ prefix/result checks, kernel checks, exact duplicate handling and ambiguity rema
 This removes a reconstruction-induced distinction rather than identifying arbitrary
 actions by their values or by definitional equality. Missing literal source data
 remains an error at its producer boundary.
+
+Preservation is literal at the changed boundary: the original receiver must occur
+inside the parameter and equal the object projection's receiver; the complete
+registered edge and ordered explicit arguments must equal the trace selections;
+the candidate stores the original action, not `RegisteredAction.application`.
+The unchanged exact receiver/route/application-array comparison therefore still
+distinguishes identity from identity composed with identity, even when whole-action
+validation accepts both. Existing complete-prefix, original-result and kernel
+checks still reject an unrelated image. The current service projection controls
+exercise distinct occurrences and explicit references, full endpoint roles, and
+wrong-row/changed-diagram refusal; the complete universal-object controls exercise
+the full structure and owner boundary. Both targets pass on `695210`. Their scope
+is engineering preservation, not universality or correctness of a leaf's answers.

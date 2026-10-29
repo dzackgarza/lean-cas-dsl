@@ -1260,3 +1260,16 @@ comparison, endpoint preference and parameter category trials. No source witness
 candidate multiplicity or comparison is removed. Global witness deduplication is
 not substituted: preference currently branches on multiplicity and must retain its
 existing complete-owner selection until separately justified.
+
+On published source `695210`, the same original sample still exhausts its 200000
+budget (19.481 seconds, 200000261 raw ticks). The new exclusive regions report
+4.94 milliseconds for full-handle candidate comparison, 0.821 milliseconds for
+witness preference, 878 milliseconds for carrier conversion and 1.56 seconds for
+parameter category trials. Remaining endpoint recognition takes 2.64 seconds;
+field discovery takes 618 milliseconds. These measurements rule out candidate
+comparison as the dominant target. Lean 4.33's `Meta.SavedState.restore` preserves
+the WHNF cache used for closed expressions under the same configuration, so
+explicitly hoisting repeated closed-endpoint `whnf` calls would mostly duplicate
+existing sharing. No such cache or hoist is introduced. The existing preparation
+and explicit-export controls pass on this source, including fresh full-question
+comparison, dispatch agreement and missing-producer refusal before execution.
