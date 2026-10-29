@@ -22,14 +22,16 @@ assessed main; `COMPLAINTS.md` records the exact source provenance. This is sour
 not protected mathematical release, a completed vacuity audit or computational acceptance.
 
 The public contract is integrated through
-[contract #8](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/pull/8) into main
-`fcefc8ba8296bd4d771cabd8b805c9061ada7513`, fetched tree
-`81c04e6759a5da6799020078aa8af446eacf4a11`, after repository QC passed.
+[contract #8](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/pull/8) and the generated
+inventory [#9](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/pull/9) into actual main
+`5db631a34c9d4f65a535fad61b6f76af39fb56f6`, fetched tree
+`968ea95a5f8e7f76de95461999e8bafee74f2d39`, after repository QC passed.
 The independently authored actual-image adapter remains in
 [leaves #7](https://github.com/dzackgarza/lean-cas-dsl-leaves/pull/7), head
-`97188099c6d5a260dceeb7af1317b2e5eb8c8701`, tree
-`429ec639c84b9dc007d56f0dee0b4ca18e145f19`; this additionally publishes the independently
-authored ordinary `fun.commutative_rings.ring` object action. Its protocol conformance is separate from
+`d4a92aa8294f30ec31b134302b4d6806e915528a`, tree
+`6f7c0db6c026b0d4f9f01bd00ce45159a1f79017`; this publishes the independently
+authored ordinary `fun.commutative_rings.ring` object action and subsequent public-contract
+descriptor, wrapper and owned-value consumption corrections. Its protocol conformance is separate from
 mathematical acceptance. The kernel manifest now records the actual mathematical and contract
 main inputs, with `inputRev: main` unchanged. The focused production build at kernel
 `13c5e8e0` passed on these inputs (3820 jobs), including all six original RX-LIFT imports;
@@ -91,7 +93,45 @@ claimed to pass. The dated records below retain their historical scope. Main's d
 `f34ce0de` higher-coherence clarification is integrated without adding a serial prerequisite to
 the ordinary first RX-LIFT or claiming that it establishes general higher coverage.
 
-### Latest integrated execution — 2026-10-29 12:44 UTC
+### Latest integrated execution — 2026-10-29 13:18 UTC
+
+At published kernel `e03ad05e8b01f03e65a18e525cb6d98dd875062b`, tree
+`9f328679228b280eb29577c4d005d1a96dc1814e` (identical to local source `0c04e934`), the
+focused production build passes 3802 jobs. The complete `ReducedParameterActionProbes`
+target then passes 3803 jobs, including the unchanged nested/composed-action control and
+the preserved source, owner, wrong-dictionary, ambiguity and exact-priority obligations.
+The earlier profiling build was deliberately interrupted to include the literal-action
+callback repair; it is not counted as a completed build.
+
+All ten original first-stage questions completed against independently authored leaf
+`d4a92aa8`, whose whole tree equals author commit `f7ed66d9`, with both source trees clean
+throughout. Text, IDs, lines, prerequisite binding counts, six normal/meta imports, shared
+harness, rejected registration and the original 200000 shared preparation/evaluation budget
+match the preceding run. There are **zero passing first-stage assertions**. The first four
+questions receive a successful multiplication reply, then fail the intrinsic callable's
+complete endpoint occurrence/presentation check. The nonidentity coordinate still reaches
+an unsupported `op.rings.neg` request. Full pairing, whole factorization and factor comparison
+exhaust the budget during evaluation; both factor samples exhaust it during preparation.
+Nine requests are dispatched and eight return data; returned data do not establish an answer.
+The next endpoint diagnosis must retain the exact occurrence/presentation guard and identify
+the producer's differing fields, rather than substitute an equal-looking endpoint.
+
+The exact factor-sample profile still times out at 200000324 raw ticks in 20.992 seconds.
+Exclusive timing attributes 1.38 seconds to supplied parameter witness search, 692 milliseconds
+to structural views, 156 milliseconds to coalescing, 830 milliseconds to carrier conversion,
+1.59 seconds to category trials and 618 milliseconds to field discovery. The large regular-module
+and vector-module endpoints each build four structural views. Trial recording is disabled and
+does not produce a complete reusable producer trace; enabling it or restoring a trial snapshot
+would change the interpretation. No such cache, witness deduplication or budget change is made.
+
+The next source adds error-only field differences at the unchanged intrinsic-endpoint guard
+and optional timing labels for the existing target-category scan and each parameter-witness
+trial. It changes no candidate, trial body, selected endpoint or completion condition. The
+bounded next runtime selects the unchanged first question with its full preceding bindings
+and original shared budget, using an isolated exact checkout of published leaf `d4a92aa8` so
+independent public-only leaf maintenance cannot change that diagnostic's source mid-run.
+
+### Preceding integrated execution — 2026-10-29 12:44 UTC
 
 At published kernel `695210ecef9beb3015782ee82b34852818a32257`, tree
 `9aa0c8010abe97d83c7105ad1a571e7eb57eddfd`, the focused `Realize` build passed 3802 jobs.

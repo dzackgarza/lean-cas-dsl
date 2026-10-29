@@ -576,3 +576,14 @@ it is not substituted for the functor at the checker boundary. This corrects a r
 versus projected `Functor` argument mismatch without changing selected actions, receivers,
 routes, parameter-consistency checks or ambiguity. The existing nested/composed source-owner
 control remains unchanged and is the direct regression for this path.
+
+At published `e03ad05e`, the focused production build and the full existing
+`ReducedParameterActionProbes` target pass. The two adapted fixture setups retain exact source
+data/owner and wrong-dictionary checks; the nested/composed control itself is unchanged.
+The original ten-question runtime against independently authored public-contract adapter
+`d4a92aa8` still has no passing assertion. Four questions now receive multiplication data and
+then fail the intrinsic callable's exact complete-endpoint check; the nonidentity coordinate
+has an unavailable negation implementation, three later evaluations exhaust their budgets,
+and both factor samples exhaust preparation. A successful backend reply is not a completed
+kernel result. The complete occurrence/presentation check stays at its current boundary;
+the next diagnosis must identify differing retained fields before changing their producer.

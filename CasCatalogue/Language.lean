@@ -1527,7 +1527,8 @@ partial def typedParameter (expected : Expr) (value : Value) : M Expr := do
   let sources := if sourceContext.expression.syntacticEq (.atom CategoryId.sets) then
       state.objects.filter (refinesObject state · origin.id)
     else #[origin]
-  let targetCategories ← state.categories.filterM (parameterCategoryCompatible expected)
+  let targetCategories ← profileReader "typed parameter target categories" <|
+    state.categories.filterM (parameterCategoryCompatible expected)
   let mut routeCandidates : Array (ObjectEntry × Route) := #[]
   for source in sources do
     let some sourceCategory := state.categories.find? (·.id == source.category) | continue
@@ -4285,9 +4286,15 @@ partial def selectedParameterFromWitnesses (state : RegistryState) (actual : Exp
         candidateCategory.id != CategoryId.sets || selected.isSome || origin.isSome
     | _ => false
   for candidate in (if selected.isEmpty then sourceValues else selected) do
-    if ← parameterCompatible (do
+    let trialProfile := match candidate with
+      | .object _ category (some (entry, _)) _ _ =>
+          s!"parameter witness trial {category.id.raw}/{entry.id.raw}"
+      | .object _ category none _ _ =>
+          s!"parameter witness trial {category.id.raw}/<anonymous>"
+      | _ => "parameter witness trial <non-object>"
+    if ← profileReader trialProfile (parameterCompatible (do
         let image ← typedParameter (← inferType actual) candidate
-        isDefEq image actual) then
+        isDefEq image actual)) then
       unless witnesses.any (fun existing =>
           existing.declarations == candidate.declarations && existing.terms == candidate.terms) do
         witnesses := witnesses.push candidate

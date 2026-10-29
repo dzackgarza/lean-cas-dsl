@@ -11446,18 +11446,200 @@ def observeIntrinsicAssemblyWith
     observed.modify (·.push (role, original, actual))
     return actual
   let template ← mapActionTemplateWires observe assembly.template
-  let checkEndpoint := fun (context : CategoryContext) (expected actual : Wire) => do
+  let checkEndpoint := fun (index : Nat) (direction : String)
+      (fields : IntrinsicMapFields) (callable expected actual : Wire) => do
+    let context := fields.context
     discard <| framingContext (some context) expected.categoryContext
     discard <| framingContext (some context) actual.categoryContext
     unless ← withoutModifyingState (withTransparency .all <|
         isDefEq (← inferType expected.value) (← inferType actual.value) <&&>
           isDefEq expected.value actual.value) do
       throwError "an intrinsic callable field changed its complete selected endpoint"
+    let returned := actual
     let actual ← forwardRetainedValue actual expected.value
     unless sameCompleteWireContext expected actual do
+      -- Report exact comparison failures only after the existing guard fails.
+      -- Hashes abbreviate formal terms; neither hashes nor packet equality select data.
+      let sameContext := fun (left right : Option CategoryContext) =>
+        match left, right with
+        | none, none => true
+        | some left, some right => left.expression.syntacticEq right.expression
+        | _, _ => false
+      let wireFlags := fun (left right : Wire) => (#[("value", left.value == right.value),
+        ("json", left.json == right.json), ("ownership", left.ownership == right.ownership),
+        ("serviceInputPaths", left.serviceInputPaths == right.serviceInputPaths),
+        ("pointDataInterface", left.pointDataInterface == right.pointDataInterface),
+        ("objectIso", left.objectIso == right.objectIso),
+        ("endpointPresentation.comparison",
+          left.endpointPresentation.map (·.comparison) == right.endpointPresentation.map (·.comparison)),
+        ("endpointPresentation.forward",
+          left.endpointPresentation.map (·.forward) == right.endpointPresentation.map (·.forward)),
+        ("endpointPresentation.backward",
+          left.endpointPresentation.map (·.backward) == right.endpointPresentation.map (·.backward)),
+        ("endpointPresentation.forwardOwnership", left.endpointPresentation.map (·.forwardOwnership) ==
+          right.endpointPresentation.map (·.forwardOwnership)),
+        ("endpointPresentation.backwardOwnership", left.endpointPresentation.map (·.backwardOwnership) ==
+          right.endpointPresentation.map (·.backwardOwnership)),
+        ("endpointPresentation.maps", sameEndpointComparisonMaps
+          (left.endpointPresentation.bind (·.maps)) (right.endpointPresentation.bind (·.maps))),
+        ("endpointPresentation.namedRefinement", sameNamedRefinementOrigin
+          (left.endpointPresentation.bind (·.namedRefinement))
+          (right.endpointPresentation.bind (·.namedRefinement))),
+        ("productComponents", sameProductComponents left.productComponents right.productComponents),
+        ("morphismFraming", sameMorphismFraming left.morphismFraming right.morphismFraming),
+        ("actionRecipe", sameActionRecipe left.actionRecipe right.actionRecipe),
+        ("intrinsicAssembly", sameIntrinsicAssembly left.intrinsicAssembly right.intrinsicAssembly),
+        ("capturedInvocation.occurrence",
+          left.capturedInvocation.map (·.occurrence) == right.capturedInvocation.map (·.occurrence)),
+        ("callableEndpoints", sameCallableEndpoints left.callableEndpoints right.callableEndpoints),
+        ("pointOrigin", samePointOrigin left.pointOrigin right.pointOrigin),
+        ("payload", sameOperationPresentationPayload left.payload right.payload),
+        ("form", sameOperationPresentationForm left.form right.form),
+        ("morphismFramed", left.morphismFramed == right.morphismFramed),
+        ("callableObserved", left.callableObserved == right.callableObserved),
+        ("objectObserved", left.objectObserved == right.objectObserved),
+        ("presentationIsos", left.presentationIsos == right.presentationIsos),
+        ("category.bundle", left.categoryContext.map (·.bundle) == right.categoryContext.map (·.bundle)),
+        ("category.expression", sameContext left.categoryContext right.categoryContext),
+        ("constructionInputs", left.constructionInputs == right.constructionInputs),
+        ("constructionInputOwnership", left.constructionInputOwnership == right.constructionInputOwnership),
+        ("liftExecution", sameRetainedLiftExecution left.liftExecution right.liftExecution),
+        ("proofSources", left.proofSources.length == right.proofSources.length &&
+          (left.proofSources.zip right.proofSources).all (fun (a, b) =>
+            sameCompleteWireContext (retainedSnapshotWire a) (retainedSnapshotWire b)))] :
+          Array (String × Bool))
+      let summary := fun (input : Wire) => Json.mkObj [
+        ("form", toJson input.form.id), ("category", toJson input.form.category.raw),
+        ("formalHash", toJson (toString (hash input.value))),
+        ("producer", toJson ((Trace.producerAnchor? input.value).map (·.occurrence))),
+        ("contextHash", toJson (input.categoryContext.map fun c => toString (hash c.bundle))),
+        ("packetCtor", toJson ((input.json.getObjValAs? String "ctor").toOption)),
+        ("payload", toJson (match input.payload with
+          | .ordinary .. => "ordinary"
+          | .construction .. => "construction"
+          | .computed _ data => match data with
+            | .inline _ => "computed.inline" | .opaque .. => "computed.opaque"
+            | .owned .. => "computed.owned" | .scoped _ => "computed.scoped"
+            | .recipe _ => "computed.recipe")),
+        ("ownershipSlots", toJson input.ownership.size),
+        ("actualData", toJson input.actualData), ("completedData", toJson input.completedData),
+        ("objectObserved", toJson input.objectObserved),
+        ("callableObserved", toJson input.callableObserved),
+        ("morphismFramed", toJson input.morphismFramed),
+        ("morphismFraming", toJson input.morphismFraming.isSome),
+        ("endpointPresentation", toJson input.endpointPresentation.isSome),
+        ("pointDataInterface", toJson input.pointDataInterface.isSome),
+        ("actionRecipe", toJson input.actionRecipe.isSome),
+        ("intrinsicAssembly", toJson input.intrinsicAssembly.isSome),
+        ("callableEndpoints", toJson input.callableEndpoints.isSome),
+        ("pointOrigin", toJson input.pointOrigin.isSome),
+        ("invocation", toJson (input.capturedInvocation.map (·.occurrence)))]
+      let mut flags := wireFlags expected actual
+      let mut children : Array (String × Wire × Wire) := #[]
+      if let (some left, some right) := (expected.callableEndpoints, actual.callableEndpoints) then
+        flags := flags ++ #[("callableEndpoints.formal", left.formal == right.formal),
+          ("callableEndpoints.fragment", left.fragment == right.fragment),
+          ("callableEndpoints.context.bundle", left.context.bundle == right.context.bundle),
+          ("callableEndpoints.context.expression", left.context.expression.syntacticEq right.context.expression)]
+        children := children ++ #[("callableEndpoints.source", left.source, right.source),
+          ("callableEndpoints.target", left.target, right.target)]
+      if let (some left, some right) := (expected.actionRecipe, actual.actionRecipe) then
+        flags := flags ++ #[("actionRecipe.morphism", left.morphism == right.morphism),
+          ("actionRecipe.owner", left.owner == right.owner),
+          ("actionRecipe.application", left.application == right.application),
+          ("actionRecipe.formal", left.formal == right.formal),
+          ("actionRecipe.fragment", left.fragment == right.fragment),
+          ("actionRecipe.source.bundle", left.source.bundle == right.source.bundle),
+          ("actionRecipe.source.expression", left.source.expression.syntacticEq right.source.expression),
+          ("actionRecipe.target.bundle", left.target.bundle == right.target.bundle),
+          ("actionRecipe.target.expression", left.target.expression.syntacticEq right.target.expression),
+          ("actionRecipe.descriptor", sameActionTemplate left.descriptor right.descriptor),
+          ("actionRecipe.endpoints", sameEndpointComparisonMaps left.endpoints right.endpoints),
+          ("actionRecipe.imageEndpoints", sameEndpointComparisonMaps left.imageEndpoints right.imageEndpoints)]
+        children := children.push ("actionRecipe.original", left.original, right.original)
+      if let (some left, some right) := (expected.morphismFraming, actual.morphismFraming) then
+        flags := flags ++ #[("morphismFraming.context.bundle",
+          left.context.map (·.bundle) == right.context.map (·.bundle)),
+          ("morphismFraming.context.expression", sameContext left.context right.context),
+          ("morphismFraming.comparisons", match left.comparisons, right.comparisons with
+            | none, none => true
+            | some (a, b), some (c, d) =>
+                sameProductComponents a.toArray c.toArray && sameProductComponents b.toArray d.toArray
+            | _, _ => false)]
+        children := children ++ #[("morphismFraming.input", left.input, right.input),
+          ("morphismFraming.source", left.source, right.source),
+          ("morphismFraming.target", left.target, right.target)]
+      if let (some left, some right) := (expected.intrinsicAssembly, actual.intrinsicAssembly) then
+        flags := flags ++ #[("intrinsicAssembly.result", match left.result, right.result with
+            | .object a, .object b | .map a, .map b =>
+                a.expression.syntacticEq b.expression && a.bundle == b.bundle
+            | .value a, .value b => a == b
+            | _, _ => false),
+          ("intrinsicAssembly.formal", left.formal == right.formal),
+          ("intrinsicAssembly.fragment", left.fragment == right.fragment),
+          ("intrinsicAssembly.endpointRoles", left.endpointRoles == right.endpointRoles),
+          ("intrinsicAssembly.template", sameActionTemplate left.template right.template),
+          ("intrinsicAssembly.maps.size", left.maps.size == right.maps.size),
+          ("intrinsicAssembly.equalObjects.size", left.equalObjects.size == right.equalObjects.size)]
+        for ((a, b), position) in (left.maps.zip right.maps).zipIdx do
+          flags := flags ++ #[(s!"intrinsicAssembly.maps[{position}].context.bundle", a.context.bundle == b.context.bundle),
+            (s!"intrinsicAssembly.maps[{position}].context.expression", a.context.expression.syntacticEq b.context.expression)]
+          children := children ++ #[(s!"intrinsicAssembly.maps[{position}].source", a.source, b.source),
+            (s!"intrinsicAssembly.maps[{position}].target", a.target, b.target),
+            (s!"intrinsicAssembly.maps[{position}].callable", a.callable, b.callable)]
+        for ((a, b), position) in ((actionTemplateInputs left.template).zip
+            (actionTemplateInputs right.template)).zipIdx do
+          children := children.push (s!"intrinsicAssembly.template.input[{position}]", a, b)
+        for (((a, b), (c, d)), position) in (left.equalObjects.zip right.equalObjects).zipIdx do
+          children := children ++ #[(s!"intrinsicAssembly.equalObjects[{position}].first", a, c),
+            (s!"intrinsicAssembly.equalObjects[{position}].second", b, d)]
+      if let (some left, some right) := (expected.pointOrigin, actual.pointOrigin) then
+        flags := flags ++ #[("pointOrigin.formal", left.formal == right.formal),
+          ("pointOrigin.fragment", left.fragment == right.fragment),
+          ("pointOrigin.context.bundle", left.context.bundle == right.context.bundle),
+          ("pointOrigin.context.expression", left.context.expression.syntacticEq right.context.expression)]
+        children := children ++ #[("pointOrigin.source", left.source, right.source),
+          ("pointOrigin.target", left.target, right.target)]
+        match left.recipe, right.recipe with
+        | .element a inputs, .element b actualInputs =>
+            flags := flags.push ("pointOrigin.element.dependencies", sameProductComponents inputs actualInputs)
+            children := children.push ("pointOrigin.element.owner", a, b)
+        | .product p d a b x y, .product q e c f u v =>
+            flags := flags ++ #[("pointOrigin.product.presentation", p == q),
+              ("pointOrigin.product.domain", d == e), ("pointOrigin.product.paths", x == u && y == v)]
+            children := children ++ #[("pointOrigin.product.first", a, c), ("pointOrigin.product.second", b, f)]
+        | .alias a, .alias b => children := children.push ("pointOrigin.alias", a, b)
+        | _, _ => flags := flags.push ("pointOrigin.recipe", false)
+      for ((left, right), position) in (expected.productComponents.zip actual.productComponents).zipIdx do
+        children := children.push (s!"productComponents[{position}]", left, right)
+      let mut childDetails : Array Json := #[]
+      for (path, left, right) in children do
+        unless sameCompleteWireContext left right do
+          flags := flags ++ (wireFlags left right).map fun (field, same) => (path ++ "." ++ field, same)
+          childDetails := childDetails.push (Json.mkObj [
+            ("path", toJson path), ("expected", summary left), ("actual", summary right)])
+      let result := match assembly.result with
+        | .object _ => "object" | .map _ => "map" | .value _ => "value"
+      let roleName := fun (role : ActionDataRole) => match role with
+        | .parameter => "parameter" | .object => "object" | .map => "map" | .retained => "retained"
+      let originalEndpoint := if direction == "source" then fields.source else fields.target
+      let details := Json.mkObj [
+        ("assembly", summary wire), ("resultRole", toJson result),
+        ("assemblyFormalHash", toJson (toString (hash assembly.formal))),
+        ("endpointRoles", toJson #[roleName assembly.endpointRoles.1, roleName assembly.endpointRoles.2]),
+        ("fieldContextHash", toJson (toString (hash fields.context.bundle))),
+        ("mapIndex", toJson index), ("direction", toJson direction),
+        ("originalCallable", summary fields.callable), ("observedCallable", summary callable),
+        ("originalEndpoint", summary originalEndpoint),
+        ("observedEndpointChanges", toJson ((wireFlags originalEndpoint expected).filterMap
+          fun (field, same) => if same then none else some field)),
+        ("expected", summary expected), ("returned", summary returned), ("actual", summary actual),
+        ("unequal", toJson (flags.filterMap fun (field, same) => if same then none else some field)),
+        ("children", Json.arr (childDetails.extract 0 8)),
+        ("omittedChildSummaries", toJson (childDetails.size - 8))]
       throwStratum .malformed
-        "an intrinsic callable field changed its complete endpoint occurrence or presentation"
-  let maps ← assembly.maps.mapM fun fields => do
+        m!"an intrinsic callable field changed its complete endpoint occurrence or presentation; {details.compress}"
+  let maps ← assembly.maps.mapIdxM fun index fields => do
     let source ← observe .object fields.source
     let target ← observe .object fields.target
     let callable ← observe .map fields.callable
@@ -11468,8 +11650,8 @@ def observeIntrinsicAssemblyWith
         sameCompleteWireContext target fields.target &&
         sameCompleteWireContext callable fields.callable do
       let (left, right) ← readEndpoints callable fields.context
-      checkEndpoint fields.context source left
-      checkEndpoint fields.context target right
+      checkEndpoint index "source" fields callable source left
+      checkEndpoint index "target" fields callable target right
     return { fields with source, target, callable }
   let equalObjects ← assembly.equalObjects.mapM fun (first, second) => do
     let first ← observe .object first
