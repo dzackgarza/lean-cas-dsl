@@ -74,9 +74,9 @@ By node:
 | `Fun(C,D)` as a category, evaluation, composition functors | "Functor-category calculus" | PARTIAL | `Constructors.lean:functorCategory` (only `endofunctorsSets` registered); no `ev(i)`, `Fun.composition`, `Fun.evaluation` |
 | Natural transformations: vertical, horizontal composition, whiskering | "Functors as morphisms of Cat", "Functor-category calculus" | PARTIAL | `NatTransExpr.{identity,atomic,vcomp,hcomp}`, `Interpretation.lean:evalNatTrans`; no registry row kind, no consumer |
 | Associator/unitor isomorphisms retained | "Functor-category calculus" | GAP | — |
-| Invertible 2-cells, executable componentwise inverses | TODO decision row "Existing higher cells" | GAP | no inverse/iso in `NatTransExpr` |
-| Formal generator vs executable transformation (component rule on unenumerated domains) | "The Mor(n, C) tower" | GAP | transformations have no realizer action |
-| `Mor(n,C)` tower, higher cells | "The Mor(n, C) tower" | GAP | — |
+| Invertible 2-cells, executable componentwise inverses | TODO decision row "Existing higher cells" | GAP | Historical absence; current ordinary inverse/component action must be checked at the selected source. Owners: #66/#69, KM4/KM5, CC-COHERE; higher compatibility additionally #82/CC-HIGHER. |
+| Formal generator vs executable transformation (component rule on unenumerated domains) | "The Mor(n, C) tower" | GAP | Historical absence. Upstream owns the interpreted cell; #69 owns its demanded component realization, #66 its selected context, and #24 independent observation. A formal generator alone is not a component algorithm. |
+| `Mor(n,C)` tower, higher cells | "The Mor(n, C) tower" | GAP | #82/CC-HIGHER owns the exact construction-specific input; mathematics stays upstream. #66 (KM2/KM3/KM8) preserves the coherent diagram and boundary; #69 (KM4–KM7) consumes its required actions; #24 (KM9) assesses the result. Ordinary bicategorical machinery does not close this row. |
 | `Op` on C, F, η; `Op∘Op ≅ Id` | "Opposites and dualization" | GAP | — |
 | Functor-property subcategories (Full, Faithful, EssSurj, Equivalences) and containments | "Functor property subcategories" | PARTIAL | proofs carried by `PropertyClassifier`/`FibrationEntry` only; no property categories of `Fun` |
 | Subcategory mono = monic isofibration | "Monomorphisms of Cat() and placement" | PARTIAL | `PropertyClassifier` lacks repleteness / injectivity on objects |

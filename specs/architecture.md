@@ -152,6 +152,23 @@ data for the independently fixed operation; it is not a proof of a universal pro
 an authoritative identification with the formal result. The independent suite judges its
 answers. A finite execution test cannot supply missing functor laws or higher coherence.
 
+### Higher-dimensional responsibility
+
+The [CC-HIGHER boundary](computational-core.md#higher-input-computational-use-and-justified-reduction)
+assigns mathematical shapes, coherent extensions and adequacy theorems upstream; selected
+interpretation and computational use belong to this kernel. A homotopy 2-category is a
+derived view, usable for a specific construction through its applicable comparison theorem.
+It is not a blanket replacement for higher mapping objects. Conversely, retention does not
+require eager serialization of all higher cells: accepted symbolic data or references may
+retain the required actions and dependencies. Existence propositions, route quotients and
+execution records cannot replace chosen cells needed by a subsequent operation.
+
+The actual interpretation must preserve the admitted boundary and selected extension. A
+reduction must justify the descent of the required observations/actions; a computation tree
+or effect handler supplies no such theorem. The scalar natural-automorphism counterexample
+and the construction-specific acceptance conditions are stated in CC-HIGHER. These refine
+#66/#69/#82's existing work without changing the mathematical authority or evidence model.
+
 ### Operative work and acceptance
 
 The first #66/#69 trial uses the existing selected structured construction, its required

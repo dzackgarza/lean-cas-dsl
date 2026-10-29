@@ -31,6 +31,24 @@ Direct check: `Mathlib/CategoryTheory/CatCommSq.lean` (`CatCommSq T L R B`: an i
   higher-category libraries against that actual requirement, without assuming pairwise cells
   or a homotopy 2-category automatically preserve it.
 
+## Higher-dimensional reuse boundary (2026-10-29)
+
+The owners above supply the ordinary fragment. For higher constructions use the
+[CC-HIGHER responsibility and reduction contract](../computational-core.md#higher-input-computational-use-and-justified-reduction).
+A general homotopy 2-category forgets higher information; a construction-specific theorem
+may nevertheless make that view sufficient for a specified task. Riehl–Verity's
+[coherent-adjunction extension and uniqueness results, §§4.3–4.4](https://arxiv.org/abs/1310.8279)
+are such results under their hypotheses, not a theorem that all boundaries admit coherent
+fillers. Their mathematical instantiation belongs upstream. No new library dependency is
+selected by this source citation.
+
+A required selected cell is not replaced by an existential proposition or a quotient class
+unless the needed observation/action has the accepted descent comparison. Complete
+symbolic data and operations can retain coherence without an eager infinite runtime list.
+The present record establishes neither a general higher consumer nor an accepted
+formalization of those extension theorems. #82 identifies the exact input for each claim;
+#66/#69/#24 retain their interpretation, realization and assessment obligations.
+
 ## New code, and why no dependency supplies it
 The registry row `cell` (a registered `NatTrans` or `Iso` between registered functor expressions),
 its validation, and the `cell%` elaborator composing registered cells with Mathlib's operations. Everything with categorical content is the

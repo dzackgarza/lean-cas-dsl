@@ -273,6 +273,15 @@ a formal law or proves an arbitrary backend correct.
 | **KM8 — The same mathematical question and observation** | Every permanent assertion retains its independently assessed relation/proposition, operands, domains, parameters, selected structures, morphisms and required comparisons. Proof terms and revision labels alone do not change that meaning. For a form `d : T → C` and relation `R`, a kernel comparison of decoded presentations `c` needs accepted justification `c(a,b)=true ↔ R(d(a),d(b))` at the complete parameters; `DecidableEq T` alone is insufficient. A declared opaque computational comparison answers that same fixed relation and is judged by independent acceptance, without supplying its proof. Preserve all admitted questions, including newly readable inverses, through independently assessed interpretation changes. **Supporting checks:** execute the same question with or without requested audit export; preserve every failure meaning and fix measured runtime obstructions to the required computations without hiding them by changed questions or budgets. |
 | **KM9 — Independent extension within the promised mathematical scope** | After KM1–KM8, complete the prescribed frozen independent trials for new objects/old operations, new operations/old objects, group-valued constructions, refinements, competing comparisons, reindexing, nonidentity presentation change, dependent application/admission/binders, complete structured results/lifts and leaf replacement. Each extension is interpreted and computed with its full mathematical data, required higher compatibility and declared subsequent uses. Give the compositional argument for each claimed mechanism; finite examples supplement it. Contributors use published interfaces, and the fixed kernel, contract, old objects and old leaves receive zero accommodating changes. A required repair means failure, refreezing and affected reruns, not exemption. |
 
+For KM2–KM8, apply the [CC-HIGHER input/use boundary](computational-core.md#higher-input-computational-use-and-justified-reduction)
+inside the construction's existing work: identify its accepted full diagram and extension,
+the actual operations demanded by its continuation, and any theorem licensing a strict or
+truncated consumer. KM9 assesses the corresponding preservation and existing independent
+observations. The ordinary first RX-LIFT does not prove general higher coverage; a missing
+higher input blocks its actual dependent construction, without introducing a separate
+foundation project or relaxing any fixed question. #82 owns unresolved higher inputs and
+#23 locates their consumers; no new issue queue or serial gate is added.
+
 #### Supporting source locations and historical engineering checks
 
 The [prior source-specific KM table](https://github.com/dzackgarza/lean-cas-dsl/blob/479d9bceb318a8966c95b3d1f9c19e68b9e03534/specs/computational-core-plan.md#concrete-kernel-implementation-work--exhaustive-within-the-declared-b0-scope)
