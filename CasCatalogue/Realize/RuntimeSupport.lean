@@ -2422,7 +2422,8 @@ structure Harness where
   /-- Trusted observations of requests actually dispatched by this kernel harness. -/
   dispatches : Option (IO.Ref (Array Json)) := none
   connections : IO.Ref (Std.HashMap String (Except Backend.PortError BackendSession))
-  /-- Actual computed results keyed by their exact closed formal terms; no dispatch is fabricated on reuse. -/
+  /-- Complete values keyed by their exact closed formal terms. Pending producer
+  recipes keep their observation flags; table presence does not imply completion. -/
   results : IO.Ref (Std.HashMap Expr Wire)
   /-- Retained images are keyed by the selected action and actual input data,
   including owners and, for maps, both already computed image endpoints. -/
@@ -15310,7 +15311,7 @@ def realizeFreshWith
       for application in applications do expected ← Semantic.objOf application expected
       unless ← withTransparency .all <| isDefEq expected e do
         throwError "the retained route changed its independently fixed semantic image"
-      return result
+      return ← forwardRetainedValue result e
   | .structureTransport sourceCategory targetCategory route receiver =>
       let semanticImage ← if route.isEmpty then pure receiver
         else Semantic.objOf (← Semantic.routeFunctor state route) receiver

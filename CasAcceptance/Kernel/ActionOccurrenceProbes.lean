@@ -89,6 +89,92 @@ run_elab do
       throwError "reusing an actual object image replayed its recipe"
   finally harness.stop
 
+-- A retained route keeps its addressed result before and after observation.
+-- Equal mathematical sources have independent producer occurrences; repeating
+-- one pending selection must not capture a later ambient source replacement.
+run_elab do
+  let state ← registryState
+  let some entry := state.functors.find? (·.id.raw == "fun.sets.list")
+    | throwError "the retained-route control lost its existing list action"
+  let some row := state.objects.find? (·.id.raw == "obj.sets.fin")
+    | throwError "the retained-route control lost its existing finite-object declaration"
+  let some sets := state.categories.find? (·.id == CategoryId.sets)
+    | throwError "the retained-route control lost its complete set category"
+  let trace ← Trace.new
+  let edge := EdgeRef.functor entry.id
+  let action ← Semantic.edgeFunctor state edge
+  let (harness, calls) ← harnessFor entry #["--opaque-objects"]
+  let preparing := { harness with demandObjectActions := false }
+  try
+    let sources ← #[(), ()].mapM fun _ => do
+      Semantic.object row #[← `(2)] (some trace)
+    let selections ← sources.mapM fun source => do
+      let original ← realizeUnobserved preparing trace "the retained route's original source" source
+      let image ← Semantic.objOf action source
+      let (formal, applications) ← (Language.checkedRouteAction state sets.id sets.id
+        #[edge] source (← inferType image)).run { trace := some trace }
+      let some (.retainedRoute sourceCategory targetCategory route retained receiver) ← trace.node? formal
+        | throwError "the route control did not select the retained-route evaluator"
+      unless sourceCategory == sets.id && targetCategory == sets.id && route == #[edge] &&
+          retained == applications && receiver == source && (Trace.producerAnchor? formal).isSome do
+        throwError "the retained route changed its exact selected construction"
+      let pending ← realizeUnobserved preparing trace "the addressed pending route" formal
+      let .ordinary .. := pending.payload
+        | throwError "the route control did not exercise an ordinary pending interpretation"
+      unless pending.value == formal && !pending.completedData && pending.actionRecipe.isSome do
+        throwError "the pending retained route lost its exact producer anchor or pending role"
+      return (formal, original, pending)
+    let #[(firstFormal, firstSource, firstPending), (secondFormal, secondSource, secondPending)] := selections
+      | throwError "the route control lost its two selected occurrences"
+    unless firstFormal != secondFormal && firstSource.value != secondSource.value &&
+        firstSource.fragment == secondSource.fragment &&
+        (← withoutModifyingState (withTransparency .all <| isDefEq firstFormal secondFormal)) &&
+        (← calls.get).isEmpty do
+      throwError "the route control did not retain distinct equal-mathematical pending producers"
+    let replacement := { firstSource with
+      payload := .computed firstSource.value (.inline (node row.id.raw #[toJson (3 : Nat)])) }
+    harness.results.modify (·.insert firstSource.value replacement)
+    let repeated ← realize preparing trace "the same pending route" firstFormal
+    let unobserved ← realizeUnobserved preparing trace "the same unobserved route" firstFormal
+    for selected in #[repeated, unobserved] do
+      let some recipe := selected.actionRecipe
+        | throwError "reusing a pending route discarded its selected action"
+      unless sameCompleteWireContext selected firstPending &&
+          sameRetainedServiceHandles selected firstPending && !selected.completedData &&
+          recipe.original.value == firstSource.value &&
+          recipe.original.fragment == firstSource.fragment && (← calls.get).isEmpty do
+        throwError "a repeated pending route selected the ambient replacement or executed an action"
+    let first ← realizeObjectObservation harness trace firstPending
+    let second ← realizeObjectObservation harness trace secondPending
+    let #[firstReceipt, secondReceipt] ← harness.actions.get
+      | throwError "the two retained routes lost their independent action receipts"
+    let some (.ok session) := (← harness.connections.get)["action-occurrence-probe"]?
+      | throwError "the retained routes lost their actual supplying session"
+    for (formal, original, actual, receipt) in #[
+        (firstFormal, firstSource, first, firstReceipt),
+        (secondFormal, secondSource, second, secondReceipt)] do
+      unless actual.value == formal && actual.actualData && actual.objectObserved &&
+          receipt.input.value == original.value && receipt.input.fragment == original.fragment &&
+          actual.fragment == receipt.result.fragment &&
+          actual.owner? == some ("action-occurrence-probe", session.identity) do
+        throwError "a retained route changed its addressed result, original input, or actual suppliers"
+      let reused ← realize harness trace "the same completed addressed route" formal
+      unless sameCompleteWireContext reused actual && sameRetainedServiceHandles reused actual do
+        throwError "an exact producer lookup changed its completed route occurrence"
+    unless first.fragment != second.fragment && (← calls.get).size == 2 do
+      throwError "distinct retained routes merged their outputs or repeated an action"
+    let some before := (← harness.results.get)[firstFormal]?
+      | throwError "the completed retained route lost its exact result entry"
+    let fresh ← realizeFresh preparing trace "an explicit fresh route preparation" firstFormal
+    let some after := (← harness.results.get)[firstFormal]?
+      | throwError "explicit fresh preparation removed an earlier actual result"
+    unless fresh.value == firstFormal && !fresh.completedData &&
+        sameCompleteWireContext before first && sameCompleteWireContext after before &&
+        sameRetainedServiceHandles after before && (← calls.get).size == 2 do
+      throwError "explicit fresh preparation overwrote an actual route or executed its pending action"
+    retainReport "addressed-retained-route-reuse" firstFormal (← calls.get)
+  finally harness.stop
+
 -- A retained map has its own complete callable and endpoint fields. Replacing
 -- both formal cache keys must not change those fields or the primitive request.
 run_elab do

@@ -30,9 +30,25 @@ passes against exact source-guarded candidate declarations with recursive calls
 bound to the candidate. This final reader change is not yet artifact-built.
 The original first mathematical question on the preceding fresh artifacts still
 times out after 16 dispatches at its unchanged 200000 budget, with all 22 bindings
-and 104 trace nodes. Its singleton comparison completes. Read-only post-failure
-inspection is locating the expensive execution path without altering that
-outcome. No mathematical assertion or issue acceptance is claimed.
+and 104 trace nodes. Its singleton comparison completes. A separate inclusion
+replay did not establish that observer as the cause. The marked original path
+instead found twelve reconstructions of the same pending route before its first
+execution.
+
+The candidate preserves the original administrative anchor at the already-checked
+route exit, then retains the complete pending ordinary Wire through the existing
+normal reader entries. Retention requires a closed exact producer recorded in
+the trace, an identical returned value and an absent existing entry. It changes
+no observation flag, supplier, fresh/parameter-override path or staged owner.
+The source-guarded original question now completes within its unchanged budget
+with a tuple implementation gap after 17 dispatches; that route is prepared once.
+Fresh combined artifact verification remains pending.
+
+The independent tuple family implementation was authored at `df699aef` and
+published as `a1d72cfa` with identical tree
+`f1800fdf0e6638f7a2b073f49b2d77d5493c20b0`. Its public-only protocol and source
+review evidence does not establish mathematical correctness. No mathematical
+assertion or issue acceptance is claimed.
 
 ## 2026-10-30 — Consume the canonical prepared input and action
 

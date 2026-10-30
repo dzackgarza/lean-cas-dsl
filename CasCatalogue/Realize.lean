@@ -217,6 +217,19 @@ partial def checkCapturedArgumentEndpoints (context : CategoryContext)
       checkCapturedArgumentEndpoints context child source target
   | .literal _ | .ctor _ _ | .array _ | .object _ | .project _ _ => return false
 
+/-- Retain an exact prepared producer after normal realization returns. Its
+complete Wire keeps every current observation flag, child occurrence and owner;
+an earlier cached choice remains authoritative. Explicit fresh callers keep
+their existing bypass behavior. -/
+private def retainPendingOrdinary (h : Harness) (trace : Trace) (e : Expr) (wire : Wire) :
+    TermElabM Unit := do
+  let .ordinary .. := wire.payload | return
+  unless !e.hasMVar && !e.hasLevelMVar && !e.hasFVar && !e.hasLooseBVars &&
+      (Trace.producerAnchor? e).isSome && wire.value == e do return
+  unless (← trace.get).contains e do return
+  h.results.modify fun results =>
+    if results.contains e then results else results.insert e wire
+
 mutual
 
 /-- A declaration position keeps the public role fixed by its original typed
@@ -3171,7 +3184,7 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
       h.results.modify (·.insert e wire)
     else
       match wire.payload with
-      | .ordinary .. => pure ()
+      | .ordinary .. => private_decl% (retainPendingOrdinary h trace e wire)
       | .computed .. | .construction .. => h.results.modify (·.insert e wire)
   return wire
 
@@ -3186,7 +3199,9 @@ partial def realizeUnobserved (h : Harness) (trace : Trace) (what : String) (e :
     return ← realizeFresh h trace what e
   if !e.hasMVar && !e.hasLevelMVar && !e.hasFVar && !e.hasLooseBVars then
     if let some wire := (← h.results.get)[e]? then return wire
-  realizeFresh h trace what e
+  let wire ← realizeFresh h trace what e
+  private_decl% (retainPendingOrdinary h trace e wire)
+  return wire
 
 /-- Supply an initial producer's already fixed parameter reader to the common
 node evaluator. Recursive producers keep their own ordinary preparation boundary. -/

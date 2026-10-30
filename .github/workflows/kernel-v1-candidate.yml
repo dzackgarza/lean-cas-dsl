@@ -127,7 +127,7 @@ jobs:
           git init "$runtime/rx-lift-leaves"
           git -C "$runtime/rx-lift-leaves" fetch --depth 1 \
             https://github.com/dzackgarza/lean-cas-dsl-leaves.git \
-            810abdf8493da1f88507a417d1e6ed289c021531
+            a1d72cfa1daf5cff15300d71f889459c7953e374
           git -C "$runtime/rx-lift-leaves" checkout --detach FETCH_HEAD
           git -C "$runtime/rx-lift-leaves" rev-parse HEAD > "$runtime/evidence/rx-lift-leaf-commit.txt"
           for selection in first all; do
@@ -170,6 +170,7 @@ jobs:
               CasAcceptance.Kernel.IntrinsicOccurrenceProbes \
               CasAcceptance.Kernel.IntrinsicObservationReuseProbes \
               CasAcceptance.Kernel.IntrinsicValueOccurrenceProbes \
+              CasAcceptance.Kernel.ActionOccurrenceProbes \
               CasAcceptance.Kernel.CompleteCallableObservationProbes \
               CasAcceptance.Kernel.ReturnedCallableEndpointProbes \
               CasAcceptance.Kernel.ActionCarrierInterfaceProbes \

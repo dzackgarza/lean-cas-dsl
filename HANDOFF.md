@@ -10,7 +10,14 @@ and exact mathematical inputs alongside that work.
 ## Current computation: preserve complete callable values — 2026-10-30 UTC
 
 The active work remains the original first RX-LIFT construction under #66/#69.
-The unchanged local replay reproduced the 14-dispatch resource failure with all
+The current source-guarded candidate preserves its route producer and retains the
+complete pending ordinary value. It runs the unchanged first question within its
+200000-heartbeat budget and reaches an ordinary tuple implementation gap after
+17 dispatches. The independent tuple implementation is now published; fresh
+combined artifacts and the original question with that source remain pending.
+No mathematical hold is established, and #83 remains closed.
+
+An earlier unchanged local replay reproduced the 14-dispatch resource failure with all
 22 preceding bindings, 104 trace nodes and the 200000-heartbeat budget. Boundary
 inspection located it at intrinsic observation of the retained inclusion, producer
 51. Separate inspection of that exact failed operand found recursive comparisons
@@ -106,13 +113,29 @@ artifacts for this final reader change have not yet been rebuilt.
 The unchanged first mathematical question on the preceding fresh artifacts still
 times out at the original 200000-heartbeat budget after 16 dispatches, retaining
 all 22 bindings and 104 trace nodes (`rx-lift-value-callable-first-02.json`). The
-singleton comparison now completes. Read-only inspection after a separate
-unchanged replay locates the pending retained inclusion value and shows expensive
-recursive comparisons of its complete context; that inspection does not yet
-identify which production guard exhausted the original run. The active work is
-to locate and repair that actual execution path before the next coherent build.
-No mathematical hold is established. The broader run remains gated on the
-original first hold and its related controls; #83 remains closed.
+singleton comparison now completes. A focused replay showed that this pending
+inclusion observer was not the demonstrated cause of the cumulative timeout.
+Tracing the original path instead found twelve preparations of one exact route
+before its first execution. The route exit discarded its administrative producer
+anchor, and the normal reader discarded its complete pending ordinary value.
+
+The checked route exit now uses the existing metadata-aware alias operation to
+preserve that anchor. The normal realization entries retain the entire ordinary
+Wire only for a closed, exact, trace-recorded producer whose returned value is
+that same anchor, and only when the existing result table has no entry. Pending
+flags, typed children, suppliers, fresh/parameter-override paths and staged owners
+are unchanged. No new cache or completion authority is introduced. In the
+source-guarded original-budget candidate, the route is prepared once and the
+first question completes with the tuple gap after 17 dispatches. This is a
+candidate execution result, not fresh artifact verification or acceptance.
+
+The independent tuple author then froze local `df699aef`, published as
+[`a1d72cfa`](https://github.com/dzackgarza/lean-cas-dsl-leaves/commit/a1d72cfa1daf5cff15300d71f889459c7953e374),
+with exact tree `f1800fdf0e6638f7a2b073f49b2d77d5493c20b0`. The author received
+only its owned subtree and public interfaces. Its 87 primary protocol requests
+and five stopped-owner controls are engineering evidence; the separate public-only
+diff review found no blocking issue. The broader mathematical run remains gated
+on the original first hold and its related controls.
 
 ## Preceding computation repairs — 2026-10-30 (Asia/Taipei)
 
