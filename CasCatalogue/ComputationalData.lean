@@ -2000,17 +2000,27 @@ def validateCallableAtWith
   if let some binding := fixed then
     if let .object _ := binding.role then
       return .error "an independently selected object position is not a whole callable"
-  let expected ← instantiateMVars (if dataEndpoints.isSome then expected else
+  -- A positioned value may retain a definition alias for its complete Hom.
+  -- Keep existing Hom heads, including recursive endpoint metavariables, intact;
+  -- only the declared-type reader may expose an alias's original dictionary.
+  let declaredHom? : Expr → TermElabM (Option Expr) := fun type => do
+    let type ← instantiateMVars type
+    if (Language.homEnds? type).isSome then return some type
+    declaredCallableType? type
+  let some expected ← declaredHom? (if dataEndpoints.isSome then expected else
     fixed.map (fun binding =>
       binding.representation.map Prod.snd |>.getD binding.expectedType) |>.getD expected)
+    | return .error "a symbolic point requires its independently fixed Hom type"
   let some (source, target) := Language.homEnds? expected
     | return .error "a symbolic point requires its independently fixed Hom type"
   if dataEndpoints.isSome then
     if let some binding := fixed then
-      let some _ := Language.homEnds? binding.expectedType
+      let some retained ← declaredHom? binding.expectedType
+        | return .error "the retained callable omitted its original full Hom"
+      let some _ := Language.homEnds? retained
         | return .error "the retained callable omitted its original full Hom"
       unless ← withTransparency .all <| isDefEq expected
-          (← interfaceHomAt binding.expectedType source target) do
+          (← interfaceHomAt retained source target) do
         return .error "the data callable changed its full selected category dictionary"
   let originalScope := scope
   let scope := if dataEndpoints.isSome then InterfaceScope.withoutRoot? scope

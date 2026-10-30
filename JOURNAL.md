@@ -1,5 +1,25 @@
 # Journal
 
+## 2026-10-30 — Preserve complete callable values at their shared consumers
+
+The extracted-Hom adapter retains the complete original value as a typed child of
+the existing transparent envelope. Its first compiled run, with the independently
+authored comparison published as `810abdf8` (exact author tree `07927d72`), advances
+the unchanged first RX-LIFT question to 16 dispatches. The result is malformed:
+the generic caller requests the registry global-point domain but rejects its
+public scalar-result convention. The mathematical assertion remains unresolved.
+
+The source checkpoint applies the ordinary point-result validator and complete
+callable conversion at that shared caller, preserves definition-aliased full Hom
+types in positioned validation, and removes a redundant public frame only when
+its original typed producer already supplied the exact completed whole child.
+The original receipt/owner assertion remains intact; scoped endpoint and
+unpositioned-value negatives accompany the complete-Hom regression. The existing
+fixture uses the production contextual-action reader and a generic bare opaque
+protocol witness. Exact focused compilation of the four changed declarations
+passed without diagnostics. Fresh combined artifacts, the original question and
+related controls remain pending; this entry records saved source, not completed acceptance.
+
 ## 2026-10-30 — Consume the canonical prepared input and action
 
 The original first RX-LIFT question still failed after 14 successful dispatches
@@ -22,7 +42,14 @@ Fresh production builds passed with stable source hashes. The unchanged first
 question now finishes within its original budget, reporting a specific missing
 computation for `fun.bilin_module.forget` on `obj.bilin_module.degenerate_plane`
 after 14 dispatches. It does not hold, so the all-ten run remains gated. The actual
-object-action gap is the next repair. Intrinsic-observation, whole-function-framing,
+object-action gap was supplied by independent leaf source `7fec4bf6`, published as
+`33d997e6` with identical complete tree. Its public-interface checks are not
+mathematical acceptance. The unchanged first question now executes that action
+and reaches 15 successful dispatches, then exposes a current extracted Hom value
+being sent to a map observer without its explicit callable conversion. The
+retained point includes admission and singleton comparisons; the active conversion
+repair preserves those typed children through the existing value envelope.
+Intrinsic-observation, whole-function-framing,
 session-ownership and returned-callable-endpoint controls all pass on the fresh
 production artifacts, including the added lifecycle and supplied-body negatives.
 These engineering checks do not establish #66/#69 or independent #24 acceptance.

@@ -79,6 +79,18 @@ def operationEndpointDiagnosticSummary (wire : Wire) : Json := Json.mkObj [
     ("morphism", toJson recipe.morphism),
     ("applicationHash", toJson (toString (hash recipe.application)))])),
   ("intrinsicAssembly", toJson wire.intrinsicAssembly.isSome),
+  ("intrinsicSelection", toJson (wire.intrinsicAssembly.map fun selected => Json.mkObj [
+    ("role", toJson (match selected.result with
+      | .object _ => "object" | .map _ => "map" | .value _ => "value")),
+    ("formalMatches", toJson (wire.value == selected.formal)),
+    ("fragmentMatches", toJson (wire.fragment == selected.fragment)),
+    ("categoryMatches", toJson (match selected.result.context?, wire.categoryContext with
+      | some expected, some current => expected.expression.syntacticEq current.expression
+      | none, none => true | _, _ => false))])),
+  ("pointDataInterface", toJson wire.pointDataInterface.isSome),
+  ("pointOrigin", toJson wire.pointOrigin.isSome),
+  ("morphismFraming", toJson wire.morphismFraming.isSome),
+  ("completedData", toJson wire.completedData),
   ("capturedInvocation", toJson (wire.capturedInvocation.map (·.occurrence))),
   ("endpointPresentation", toJson wire.endpointPresentation.isSome)]
 
@@ -4184,8 +4196,11 @@ partial def observeSelectedCallable (h : Harness) (trace : Trace) (wire : Wire)
   let dependencies := descriptorInputs ++
     parameters.foldl (fun inputs item => inputs ++ item.2) #[] ++
     (← observed.get).map (·.2.2)
-  dispatchSelectedCallable h wire selected (parameters.map Prod.fst) framed
+  let actual ← dispatchSelectedCallable h wire selected (parameters.map Prod.fst) framed
     source target dependencies
+  if actual.pointDataInterface.isSome then
+    return ← captureCompleteCallable h trace actual selected.context
+  return actual
 
 /-- Compatibility entry point for callers that already hold the producer's
 complete selected invocation. Supplied metadata checks that same record; it
@@ -4365,8 +4380,13 @@ partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire)
               (← h.portFailures.get) == failures then return wire
           throw error
     | .admittedPoint .. | .constrainedPoint .. | .elementValue .. =>
+        let producer := match node with
+          | .admittedPoint .. => "admittedPoint"
+          | .constrainedPoint .. => "constrainedPoint"
+          | .elementValue .. => "elementValue"
+          | _ => "intrinsic"
         throwStratum .noImplementation
-          "the intrinsic point or value has no current retained typed child occurrences"
+          m!"the intrinsic point or value has no current retained typed child occurrences; producerNode={producer}; {operationEndpointDiagnosticSummary wire |>.compress}"
     | .morphismComposition .. | .contextualComposition .. | .callableRecipe .. |
         .contextualIdentity .. =>
         throwStratum .noImplementation

@@ -2013,6 +2013,38 @@ def retainedIntrinsicValueAssembly? (wire : Wire) : TermElabM (Option IntrinsicA
   if let .value _ := selected.result then return some selected
   return none
 
+/-- Historical producer metadata cannot describe a new current value. -/
+def retainedCapturedInvocation? (wire : Wire) : TermElabM (Option CapturedInvocation) := do
+  -- A received packet can equal its old request bytes. Completion, not the
+  -- packet's spelling, keeps its retained provenance from becoming a request.
+  if wire.completedData then return none
+  let some captured := wire.capturedInvocation | return none
+  let selected := captured.interface
+  unless wire.value == selected.formal && wire.fragment == selected.fragment do return none
+  match selected.result with
+  | .object fixed | .map fixed =>
+      let some context := wire.categoryContext | return none
+      unless context.expression.syntacticEq fixed.expression do return none
+      unless ← withoutModifyingState (withTransparency .all <|
+          isDefEq context.bundle fixed.bundle) do return none
+  | .value expectedType =>
+      unless wire.categoryContext.isNone && !wire.objectObserved && !wire.callableObserved &&
+          !wire.morphismFramed && wire.callableEndpoints.isNone && wire.pointDataInterface.isNone do
+        return none
+      unless ← withoutModifyingState (withTransparency .all <|
+          isDefEq (← inferType wire.value) expectedType) do return none
+  return some captured
+
+/-- Current declared value roles survive both pending capture and completed
+intrinsic value assembly. Historical producer metadata never chooses a role. -/
+def retainedValueResultInterface? (wire : Wire) : TermElabM (Option IntrinsicResultInterface) := do
+  if let some assembly ← retainedIntrinsicValueAssembly? wire then
+    return some assembly.result
+  if let some captured ← retainedCapturedInvocation? wire then
+    if let .value expectedType := captured.interface.result then
+      return some (.value expectedType)
+  return none
+
 /-- Read only the exact original point occurrence. A framing replay is checked
 against its complete historical input before exposing that input's provenance. -/
 partial def retainedPointOrigin? (wire : Wire) : TermElabM (Option PointOrigin) := do
@@ -2130,6 +2162,32 @@ def captureCompleteCallableWith
       pure selected
     | none => pure selected
   CategoryContext.checkMorphism context input.value source.value target.value
+  -- A value already declared at a complete Hom is consumed through its own
+  -- value producer before it acquires this caller's map view. The transparent
+  -- value envelope keeps that distinct typed child at a public data position;
+  -- in particular, an element extraction retains its entire original point,
+  -- including any admission and singleton comparisons. A scalar whose type
+  -- merely reduces to some Hom is not a declared callable input.
+  let input ← match ← retainedValueResultInterface? input with
+    | some (.value expectedType) => do
+      let some declared ← ComputationalData.declaredCallableType? expectedType | pure input
+      let expected ← context.hom source.value target.value
+      unless declared.isAppOfArity ``Quiver.Hom 4 && expected.isAppOfArity ``Quiver.Hom 4 do
+        throwError "the declared callable value lost its complete Hom interface"
+      unless ← withoutModifyingState (withTransparency .all <|
+          isDefEq declared.getAppArgs[0]! expected.getAppArgs[0]! <&&>
+          isDefEq declared.getAppArgs[1]! expected.getAppArgs[1]! <&&>
+          isDefEq declared expected) do
+        throwStratum .unavailable "the callable value changed its complete selected category or endpoints"
+      let template := ActionDataTemplate.ctor "valueData" #[.wire .parameter input]
+      let (data, dependencies) ← renderCapturedActionData template
+      let value : Wire := {
+        form := input.form,
+        payload := (← combinedRecipePayload input.value data dependencies),
+        categoryContext := some context, serviceHandles := input.serviceHandles }
+      let value ← retainIntrinsicAssembly value .map context template
+      retainCallableEndpoints value source target context
+    | _ => pure input
   if let some selected := input.pointDataInterface then
     unless source.fragment == selected.domainData && target.fragment == selected.targetData do
       throwStratum .unavailable "the point conversion changed its exact retained endpoint packets"
@@ -2407,38 +2465,6 @@ def Harness.ofManifest (root : System.FilePath) (manifest : Manifest) : CoreM Ha
            replies := ← IO.mkRef #[], services := ← IO.mkRef #[], derivations := ← IO.mkRef #[]
            portFailures := ← IO.mkRef 0
            serviceOperands := ← IO.mkRef #[], invocations := ← IO.mkRef #[] }
-
-/-- Historical producer metadata cannot describe a new current value. -/
-def retainedCapturedInvocation? (wire : Wire) : TermElabM (Option CapturedInvocation) := do
-  -- A received packet can equal its old request bytes. Completion, not the
-  -- packet's spelling, keeps its retained provenance from becoming a request.
-  if wire.completedData then return none
-  let some captured := wire.capturedInvocation | return none
-  let selected := captured.interface
-  unless wire.value == selected.formal && wire.fragment == selected.fragment do return none
-  match selected.result with
-  | .object fixed | .map fixed =>
-      let some context := wire.categoryContext | return none
-      unless context.expression.syntacticEq fixed.expression do return none
-      unless ← withoutModifyingState (withTransparency .all <|
-          isDefEq context.bundle fixed.bundle) do return none
-  | .value expectedType =>
-      unless wire.categoryContext.isNone && !wire.objectObserved && !wire.callableObserved &&
-          !wire.morphismFramed && wire.callableEndpoints.isNone && wire.pointDataInterface.isNone do
-        return none
-      unless ← withoutModifyingState (withTransparency .all <|
-          isDefEq (← inferType wire.value) expectedType) do return none
-  return some captured
-
-/-- Current declared value roles survive both pending capture and completed
-intrinsic value assembly. Historical producer metadata never chooses a role. -/
-def retainedValueResultInterface? (wire : Wire) : TermElabM (Option IntrinsicResultInterface) := do
-  if let some assembly ← retainedIntrinsicValueAssembly? wire then
-    return some assembly.result
-  if let some captured ← retainedCapturedInvocation? wire then
-    if let .value expectedType := captured.interface.result then
-      return some (.value expectedType)
-  return none
 
 /-- The common owner fixes one complete input and selected interface before
 allocating its private identity. Preparation chooses no implementation and
@@ -11808,6 +11834,41 @@ private def observeIntrinsicAssemblyBodyWith
       throwStratum .noImplementation
         "the intrinsic composition requires a selected comparison between its actual middle endpoints"
     return (first, second)
+  -- A pending public frame owns its three typed slots. Once that exact child
+  -- returns a complete map at the checked endpoint occurrences, keep the whole
+  -- returned frame instead of inserting it as the body of a second typedMap.
+  -- The map-field witness ties this refresh to the original producer's slots;
+  -- a matching packet shape alone cannot discard a wrapper or a point role.
+  let refreshTemplate : TermElabM ActionDataTemplate := do
+    let .map context := assembly.result | pure template
+    let .ctor "typedMap" #[.wire .object actualSource, .wire .object actualTarget,
+        .wire .map actual] := template | pure template
+    unless actual.completedData && actual.morphismFramed &&
+        actual.pointDataInterface.isNone do return template
+    let some data := ComputationalData.recordPayload? actual.fragment | pure template
+    unless (Backend.TypedMap.decode data.json).isOk do return template
+    let .ctor "typedMap" #[.wire .object source, .wire .object target,
+        .wire .map original] := assembly.template | pure template
+    let #[fields] := assembly.maps | pure template
+    unless context.expression.syntacticEq fields.context.expression &&
+        sameCompleteWireContext fields.source source &&
+        sameCompleteWireContext fields.target target &&
+        sameCompleteWireContext fields.callable original do return template
+    discard <| framingContext (some context) (some fields.context)
+    discard <| framingContext (some context) actual.categoryContext
+    unless ← withoutModifyingState (withTransparency .all <|
+        isDefEq (← inferType actual.value) (← inferType wire.value) <&&>
+          isDefEq actual.value wire.value) do return template
+    let some (source, target) ← retainedCallableEndpoints? actual context | pure template
+    unless sameCompleteWireContext source actualSource &&
+        sameCompleteWireContext target actualTarget do
+      throwStratum .malformed "the completed public frame changed its checked endpoint occurrences"
+    let suppliedSource ← checkedFragment (data.project #[.field "args", .index 0])
+    let suppliedTarget ← checkedFragment (data.project #[.field "args", .index 1])
+    unless suppliedSource == source.fragment && suppliedTarget == target.fragment do
+      throwStratum .malformed "the completed public frame changed its exact endpoint packets or suppliers"
+    return ActionDataTemplate.wire .map actual
+  let template ← refreshTemplate
   let (data, dependencies) ← renderCapturedActionData template
   let same := sameActionTemplate template assembly.template
   let isAlias ← match actionTemplateExecution template with
@@ -13690,7 +13751,7 @@ def retainedSelectedCallableInvocation? (wire : Wire) :
 
 /-- The existing complete-callable execution boundary, supplied with already
 selected typed occurrences. Only the public invocation encoder builds its wire;
-the original endpoint validator still checks the returned whole callable. -/
+the original domain selects the point or whole-callable result interface. -/
 def dispatchSelectedCallable (h : Harness) (wire : Wire) (selected : SelectedCallableInvocation)
     (parameters : Array DataOwnership.Data) (arrow : Wire)
     (source target : Wire) (dependencies : Array Wire) : TermElabM Wire := do
@@ -13698,6 +13759,8 @@ def dispatchSelectedCallable (h : Harness) (wire : Wire) (selected : SelectedCal
   CategoryContext.checkMorphism selected.context arrow.value source.value target.value
   discard <| framingContext (some selected.context) arrow.categoryContext
   let arrow ← forwardRetainedValue arrow wire.value
+  let pointInterface ← pointDataInterfaceAt source.value target.value
+    source.fragment target.fragment
   -- The generalized identity is reassembled at its selected actual domain.
   -- It remains a full typed operand of this request, alongside the exact
   -- materialized callable, so services never rediscover either from old bytes.
@@ -13716,19 +13779,21 @@ def dispatchSelectedCallable (h : Harness) (wire : Wire) (selected : SelectedCal
     serviceHandles := (← retainServiceOperands h operands) }
   let reply ← sendData h selected.address input (completeRequest := true)
   let answer := reply.data.json
-  if let .error message ← ComputationalData.validateEndpointPort wire.value
-      source.json target.json answer then
+  let checked ← if pointInterface.isSome then
+    ComputationalData.validateElementAt target.value target.json
+      (← ServiceRequest.pointResultValue wire.value) answer
+  else ComputationalData.validateEndpointPort wire.value source.json target.json answer
+  if let .error message := checked then
     malformed reply.backend selected.address answer message
   let data ← receiveReplyData h selected.address reply true
   let result : Wire := { wire with
     payload := .computed wire.value data
     categoryContext := some selected.context
     morphismFramed := true, morphismFraming := none
-    callableObserved := true, pointDataInterface := none
+    callableObserved := true, pointDataInterface := pointInterface
     actionRecipe := none, intrinsicAssembly := none, callableEndpoints := none
     capturedInvocation := none }
-  let result ← retainMapImageEndpoints result source target
-  retainCallableEndpoints result source target selected.context
+  retainPointOrMapEndpoints result source target
 
 /-- The actual callable validator owns a private computational endpoint view.
 Its slot indices are declaration positions, not equal-value or packet keys. -/

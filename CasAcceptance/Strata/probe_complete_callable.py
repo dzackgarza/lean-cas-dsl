@@ -10,6 +10,7 @@ from cas_port import opaque_data, point_invocation, presentation_invocation, ser
 process = uuid.uuid4().hex
 serials = itertools.count()
 wrong_endpoints = "--wrong-endpoints" in sys.argv[1:]
+bare_reply = "--bare-reply" in sys.argv[1:]
 
 
 def implementation(operation):
@@ -23,6 +24,10 @@ def implementation(operation):
         if argument != {"ctor": "identity", "args": [source, source]}:
             raise ValueError("whole-callable observation substituted a point or sample")
         token = opaque_data(f"{process}:{next(serials)}")
+        if bare_reply:
+            if wrong_endpoints:
+                raise ValueError("a bare protocol witness has no replaceable endpoint fields")
+            return token
         if wrong_endpoints:
             source, target = target, source
             if source == target:

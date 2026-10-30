@@ -18,6 +18,12 @@ meta section
 private def node (tag : String) (arguments : Array Json) : Json :=
   Json.mkObj [("ctor", toJson tag), ("args", Json.arr arguments)]
 
+private partial def containsData (data expected : Json) : Bool :=
+  data == expected || match data with
+    | .arr children => children.any (containsData · expected)
+    | .obj fields => fields.any fun _ child => containsData child expected
+    | _ => false
+
 run_elab do
   let state ← registryState
   let some entry := state.functors.find? (·.id.raw == "fun.linear_orders.forget")
@@ -32,12 +38,13 @@ run_elab do
   let source ← Semantic.object row #[] (some trace)
   let sourceContext ← CategoryContext.ofNamed category source
   let identity ← mkAppM ``CategoryTheory.CategoryStruct.id #[source]
-  let action ← Semantic.edgeFunctor state (.functor entry.id)
+  let (action, _, context) ←
+    (Language.selectedEdgeAction {} (.functor entry.id) #[] sourceContext).run
+      { trace := some trace }
   let formal ← Semantic.mapOf action identity
   let image ← Semantic.objOf action source
-  let context ← CategoryContext.ofNamed sets image
   Trace.record (some trace) formal
-    (.morphismTransport category.id sets.id #[.functor entry.id] identity)
+    (.contextualRoute sourceContext context #[.functor entry.id] #[action] identity true)
   let supplied := node "obj.linear_orders.integers" #[]
   let replacement := node "obj.linear_orders.naturals" #[]
   let mapData := fun endpoint => Backend.TypedMap.encode {
@@ -138,6 +145,137 @@ run_elab do
     let reused ← observeActionDataWire { h with demandObjectActions := true } trace .parameter actual
     unless reused.fragment == actual.fragment && (← calls.get).size == 2 do
       throwError "reusing the scalar value changed an occurrence or repeated computation"
+  finally h.stop
+
+-- The extracted value itself can inhabit a complete structured Hom. This is
+-- distinct from using the outer point as a map out of the global-point source.
+-- The registered module-map owner fixes the full scalar/module dictionaries;
+-- the arbitrary portable packet supplies no mathematical answer.
+run_elab do
+  let state ← registryState
+  let some rings := state.categories.find? (·.id == CategoryId.rings)
+    | throwError "the extracted-Hom control lost the published ring category"
+  let some modules := state.categories.find? (·.id == CategoryId.modulesR)
+    | throwError "the extracted-Hom control lost the published module category"
+  let some sets := state.categories.find? (·.id == CategoryId.sets)
+    | throwError "the extracted-Hom control lost the published set category"
+  let trace ← Trace.new
+  let ringValue ← (Language.object state "ℤ" #[] (some rings)).run { trace := some trace }
+  let moduleValue ← (Language.object state "RegularModule" #[ringValue] (some modules)).run
+    { trace := some trace }
+  let module ← (Language.semanticObject moduleValue).run {}
+  let context ← CategoryContext.ofNamed modules module
+  let identity ← mkAppM ``CategoryTheory.CategoryStruct.id #[module]
+  Trace.record (some trace) identity (.contextualIdentity context module)
+  discard <| Semantic.recordNamedObject module (some trace)
+  let owner ← wholeCallableObject identity module module context
+  let expected ← context.hom module module
+  unless ← withoutModifyingState (withTransparency .all <|
+      isDefEq owner.application.value expected) do
+    throwError "the extracted-Hom control erased its full module Hom to a function"
+  let some comparison := state.presentations.find? (·.id.raw == "cmp.sets.singleton_terminal")
+    | throwError "the extracted-Hom control lost its accepted singleton comparison"
+  let root : System.FilePath := (← IO.getEnv "CAS_OWNERSHIP_PROTOCOL_DIR").getD
+    ("CasAcceptance" / "Strata" : System.FilePath).toString
+  let manifest : Manifest := {
+    backends := #[{
+      name := "intrinsic-hom-comparison-probe", command := "python3",
+      args := #["probe_complete_callable.py", "--bare-reply", comparison.id.raw] }]
+    registrations := #[{
+      operation := comparison.id.raw, input := comparison.id.raw,
+      backend := "intrinsic-hom-comparison-probe" }] }
+  let h ← Harness.ofManifest root manifest
+  let calls ← IO.mkRef #[]
+  let h := { h with dispatches := some calls }
+  unless h.rejected.isEmpty && h.admitted.size == 1 do
+    throwError "the accepted singleton comparison was not admitted by its original interface"
+  try
+    let endpoint ← realizeEndpoint h trace "the original complete module endpoint" module
+    let token := node "identity" #[endpoint.json, endpoint.json]
+    let replacement := node "zero" #[endpoint.json, endpoint.json]
+    let original : Wire := {
+      form := .canonicalMorphism modules,
+      payload := .computed identity (.inline token), categoryContext := some context,
+      callableObserved := true }
+    let original ← retainCallableEndpoints original endpoint endpoint context
+    let one ← Language.globalPointSource.run {}
+    let terminal ← elabTermAndSynthesize (← `(PUnit.{1})) none
+    let restaged ← wholeCallablePoint h trace original module module terminal context owner
+    let some forward ← (Language.operationPointComparison terminal).run { trace := some trace }
+      | throwError "the full-Hom control lost its complete forward singleton comparison"
+    h.results.modify (·.insert restaged.value restaged)
+    let composed ← mkAppM ``CategoryTheory.CategoryStruct.comp #[forward, restaged.value]
+    Trace.record (some trace) composed
+      (.morphismComposition sets.id forward restaged.value one terminal owner.application.value)
+    let point ← realizeUnobserved h trace "the complete compared full-Hom point" composed
+    unless point.pointDataInterface.isNone && !point.completedData &&
+        (← retainedIntrinsicAssembly? point .map).isSome do
+      throwError "the full-Hom control bypassed its retained closed-point composition"
+    let selected : Language.Value := .object owner.application.value sets none none none
+    let scalar ← (Language.typedParameter owner.application.value (.element point.value selected)).run
+      { trace := some trace }
+    let some (.elementValue retainedPoint _ _) ← trace.node? scalar
+      | throwError "the full Hom extraction did not retain its original point"
+    let point ← forwardRetainedValue point retainedPoint
+    h.results.modify (·.insert retainedPoint point)
+    let value ← realizeUnobserved h trace "the extracted complete module Hom" scalar
+    let some assembly ← retainedIntrinsicValueAssembly? value
+      | throwError "the extracted full Hom lost its independent value result role"
+    let .value retainedType := assembly.result
+      | throwError "extracting a full Hom prematurely assigned a map result role"
+    unless ← withoutModifyingState (withTransparency .all <|
+        isDefEq retainedType expected <&&> isDefEq (← inferType scalar) expected) do
+      throwError "the extracted value changed its full module Hom type"
+    unless value.categoryContext.isNone && value.pointDataInterface.isNone &&
+        !value.completedData do
+      throwError "the extracted value borrowed the outer point's computational role"
+    let complete ← captureCompleteCallable h trace value context
+    let some (source, target) ← retainedCallableEndpoints? complete context
+      | throwError "the complete extracted Hom lost its original endpoint occurrences"
+    unless (← calls.get).isEmpty do
+      throwError "capturing the full Hom executed an unselected point comparison"
+    h.results.modify (·.insert module { endpoint with
+      payload := .computed module (.inline replacement) } |>.insert identity { original with
+      payload := .computed identity (.inline replacement) } |>.insert scalar { value with
+      payload := .computed scalar (.inline replacement) } |>.insert retainedPoint { point with
+      payload := .computed retainedPoint (.inline replacement), callableObserved := true })
+    let actual ← realizeArrowObservation h trace complete
+    let some (actualSource, actualTarget) ← retainedCallableEndpoints? actual context
+      | throwError "observing the extracted Hom lost its complete endpoint receipt"
+    CategoryContext.checkMorphism context actual.value module module
+    let events ← calls.get
+    unless events.map (fun event => (event.getObjValAs? String "operation").toOption) ==
+        #[some comparison.id.raw, some comparison.id.raw] do
+      throwError "the extracted value bypassed a retained closed-point comparison"
+    let .ok connection ← h.connection "intrinsic-hom-comparison-probe"
+      | throwError "the full-Hom control lost its actual comparison supplier"
+    unless actual.value == scalar && actualSource.fragment == source.fragment &&
+        actualTarget.fragment == target.fragment && containsData actual.json token &&
+        !containsData actual.json replacement &&
+        (DataOwnership.owners actual.ownership).contains
+          ("intrinsic-hom-comparison-probe", connection.identity) do
+      throwError "the extracted Hom replaced a retained occurrence or invented a computation"
+    let objects : ComputationalData.InterfaceObjects :=
+      #[(actualSource.json, actualSource.value), (actualTarget.json, actualTarget.value)]
+    let scope ← wireValidationScope .map actual (some context)
+    if let .error message ← ComputationalData.validateCallableAt objects expected actual.json
+        (some scope) then
+      throwError "the extracted Hom has no valid complete callable interface: {message}"
+    let .error _ ← ComputationalData.validateCallableAt objects expected actual.json
+      | throwError "unpositioned scalar bytes acquired a complete callable interface"
+    let .ok _ := Backend.TypedMap.decode actual.json
+      | throwError "the extracted Hom lost its public complete callable frame"
+    let other ← elabTermAndSynthesize (← `(ModuleCat.of ℤ (ℤ × ℤ))) none
+    if ← withoutModifyingState (withTransparency .all <| isDefEq module other) then
+      throwError "the full-Hom negative control did not change its module endpoint"
+    for changed in #[← context.hom other module, ← context.hom module other] do
+      let .error _ ← ComputationalData.validateCallableAt objects changed actual.json (some scope)
+        | throwError "the extracted Hom accepted a different complete endpoint"
+    let again ← realizeArrowObservation h trace actual
+    unless sameCompleteWireContext again actual && (← calls.get).size == 2 &&
+        value.categoryContext.isNone && (← retainedIntrinsicValueAssembly? value).isSome do
+      throwError "complete callable reuse changed the independent original value occurrence"
+    logInfo "PASS: an extracted full Hom retains its original callable and endpoints through reuse"
   finally h.stop
 
 end

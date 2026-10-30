@@ -29,6 +29,9 @@ identity. The shared observer body, typed result checks, liveness, cycle and
 second-completion guards are retained. Private prospective observation consumes
 the same complete current or authenticated canonical input.
 
+This repair is published as
+[`a347e1da`](https://github.com/dzackgarza/lean-cas-dsl/commit/a347e1da2dc88eda09b6dbb080976ed33c237bb1),
+tree `e59dfa1c9f0f86affb61b6f94a6ba67cf5ccbfa3`, exactly matching local `6ec2fbe3`.
 Focused compilation of the exact new owner and observer declarations, their
 ordinary-import public API, and the private-constructor rejection checks passed.
 Independent source review found no blocking bypass. Fresh `RuntimeSupport:olean`
@@ -37,13 +40,57 @@ The unchanged first question now completes within its original budget and report
 `NoImplementation: no finite primitive-supported computational derivation computes
 fun.bilin_module.forget on obj.bilin_module.degenerate_plane; missing or cyclic
 prerequisites []`. It retains all 22 bindings and 104 trace nodes, with 14 successful
-dispatches. The all-ten run is not started because the first does not hold. The
-next task is this actual object-action gap, including whether the complete original
-record exposes the selected projection. The fresh intrinsic-observation,
+dispatches. Inspection established that this parameterless named descriptor has
+no exposed runtime record; the generic projection correctly cannot invent one.
+The fresh intrinsic-observation,
 whole-function-framing, session-ownership and returned-callable-endpoint controls
 all pass, including canonical reuse and the supplied-body, foreign-owner,
 completed-input and stopped-scope negatives. No mathematical pass or issue closure
 is claimed.
+
+The independently authored ordinary forgetful object/map implementation is now
+published in the leaf repository as
+[`33d997e6`](https://github.com/dzackgarza/lean-cas-dsl-leaves/commit/33d997e6da862ff7d69beb456eb2d906351317ab),
+tree `0d3cea36e7adcbe7ba9675b6f8a984cba39c8589`, exactly matching author `7fec4bf6`.
+The author and public-interface reviewer received only the published interfaces;
+their protocol checks are engineering evidence, not mathematical acceptance.
+The unchanged first question now makes 15 successful dispatches, including that
+object action, then reports that an intrinsic point/value has no current typed
+children. The failure-only Wire diagnostic identifies producer 51 as a current
+`.value` assembly whose formal, fragment and category all still match. Its map
+caller is missing the explicit value-to-complete-callable transition. The retained
+point includes admission and actual singleton comparison directions; those cannot
+be bypassed by extracting convenient nested bytes. The active shared-owner repair
+uses the existing transparent value envelope and preserves that full typed child.
+The first conversion artifacts compiled. The independent author also added the
+published singleton-terminal comparison, frozen at local `5b43304b` and published
+as [`810abdf8`](https://github.com/dzackgarza/lean-cas-dsl-leaves/commit/810abdf8493da1f88507a417d1e6ed289c021531),
+with identical tree `07927d72e2abc7bc7a655c8967aec59b745299b3`. The unchanged
+first question then reached 16 dispatches and a malformed-reply classification:
+the generic callable caller required a whole map from the registry global-point
+domain, although the public contract preserves its scalar-result convention.
+That run retains all 22 bindings, 104 trace nodes and the original budget; its
+report is `rx-lift-value-callable-first-01.json`. It does not establish a hold.
+
+The combined source repair now applies the existing point validator, endpoint
+retention and point-to-callable conversion at that shared caller. It also resolves
+a positioned value's declared Hom alias through the existing declared-type reader,
+without replacing its value role or full dictionary. The new regression exposed
+an additional shared assembly defect: a pending public frame was wrapped around
+its child's already complete returned frame. The assembly owner now forwards that
+exact completed child only after checking the producer's original typed slots,
+full category, mathematical alias, actual endpoint occurrences and suppliers.
+The existing exact-receipt assertion is retained.
+
+The regression fixture now uses the production reader's complete contextual
+action and the existing public comparison protocol scaffold. Its generic bare
+opaque mode supplies only an ownership witness, not a mathematical answer. The
+new full-Hom control retains both comparison directions, the complete admission
+and original callable, checks scoped endpoint negatives, and rejects unpositioned
+scalar bytes. Exact focused compilation of all four changed declarations passed
+without diagnostics. This is a source checkpoint: fresh combined artifacts,
+the original first question and related controls are pending. The
+broader run remains gated on the original first hold and its related controls.
 
 ## Preceding computation repairs — 2026-10-30 (Asia/Taipei)
 
@@ -2632,6 +2679,12 @@ Deliver the working system and its runnable examples, not another assessment or 
 
 ## Noticed, not worked
 
+- `retainPreparedOperationArgument` changes a pending product point's payload when
+  `framed = none` and the supplied data differ, but does not attach the validated
+  supplied template or refresh the old assembly. The product reconstruction is
+  its sole caller without a complete framed Wire. This static retention defect
+  still needs its own focused reproduction; it is distinct from the current
+  producer-51 failure, whose original value assembly remains current.
 - `recognize`'s non-Sets multiple-view and common-full-source branches can still attach
   parameter-equivalence records to already owned keys. They remain unchanged; a repair must
   preserve exact-record idempotence, unrecorded self-record behavior and original source/action
