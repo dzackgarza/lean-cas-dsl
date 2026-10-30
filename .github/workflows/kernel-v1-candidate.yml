@@ -170,6 +170,7 @@ jobs:
               CasAcceptance.Kernel.ArrowFramingReuseProbes \
               CasAcceptance.Kernel.IntrinsicOccurrenceProbes \
               CasAcceptance.Kernel.IntrinsicObservationReuseProbes \
+              CasAcceptance.Kernel.CompleteContextSharingProbes \
               CasAcceptance.Kernel.IntrinsicValueOccurrenceProbes \
               CasAcceptance.Kernel.ActionOccurrenceProbes \
               CasAcceptance.Kernel.CompleteCallableObservationProbes \

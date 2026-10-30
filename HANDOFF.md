@@ -16,14 +16,56 @@ author `910f599`. Its combined `ComputationalData:olean`,
 `Realize.RuntimeSupport:olean` and `Realize:olean` build passes all 3803 jobs.
 Source review found no guard bypass: original complete endpoint receipts are
 authenticated before child observation, and the point interface and endpoint
-receipt advance from the same original typed endpoint slots. The unchanged
-first question must still run with frozen independent tuple source `a1d72cfa`,
-all 22 bindings and the original 200000-heartbeat budget. The earlier temporary
-dependency directory disappeared before that invocation; its recorded inputs
-are being restored within the current workspace. No mathematical hold is
-established, and #83 remains closed.
+receipt advance from the same original typed endpoint slots. The recorded
+environment is restored, and its original import closure builds successfully
+(3822 jobs). The unchanged first question, with frozen independent tuple source
+`a1d72cfa`, all 22 bindings and the original 200000-heartbeat budget, reaches
+20 replied dispatches and then reports an internal timeout. No mathematical hold
+is established, and #83 remains closed.
 
-The candidate integration workflow now invokes the existing full 134-question
+Source-matched diagnostic markers locate the timeout in repeated traversal of
+the retained immutable dependency graph: two complete frame comparisons consume
+17836200 and 8910332 raw heartbeat ticks. A later endpoint comparison consumes
+2224581 ticks and crosses the budget before the next checked operation. The
+pending point's endpoint equalities and the frame's kernel reconstruction check
+are not the dominant work. The correction shares completed exact node-pair
+comparison results within one comparison call, using Lean's existing `PtrMap`.
+One monadic body retains every original field predicate; its reference runner
+uses `Id`, and its runtime runner stores a result only after that full comparison
+finishes. Pointer identity selects an already computed result and never returns
+true merely because a node was visited. No semantic or session cache is added.
+Exact focused compilation and independent field-by-field source review pass.
+The fresh `Realize:olean` closure builds successfully (3803 jobs). The unchanged
+first question now finishes within its budget: preparation uses 64355962 raw
+ticks and evaluation 104081689. It still has 22 bindings, 104 trace nodes and
+20 dispatches, and reports malformed output: `the selected lift changed its
+actual image ambient: a computational function field requires a graph`. The
+next defect is the selected-lift validation boundary, not the completed graph
+comparison. Original source, driver, assertion and frozen leaf guards pass.
+
+Seven fresh engineering controls pass: complete-context sharing, intrinsic
+observation reuse, intrinsic value occurrences, action occurrences, whole-function
+framing, session ownership and returned-callable endpoints. The additionally
+run product-comparison control still calls the pending-point preparer on
+completed supplied maps and is red at its explicit completed-point guard; it is
+being reviewed against the current whole-callable API without relabelling actual
+data as pending or weakening its comparison/supplier assertions.
+
+The occurrence control also exposed a genuine legacy map-route defect: fresh
+functor instances discarded the complete action parameters retained in the
+original `Functor.map`. The evaluator now consumes those exact literal factors
+and preserves the existing complete-action and endpoint checks. Its fresh control
+passes. A separate complete-callable reuse defect comes from newly created Arrow
+and cell producers using recovery-only `Trace.record`: later observation allocates
+fresh execution handles and repeats the endpoint actions. The relevant language
+producers now retain `Trace.recordProduced` results. Exact copied declarations
+preserve their complete values/types and authenticate their producer records;
+the production-cell fixture then uses exactly ten prerequisite calls plus one
+component, with reuse, missing-port and hostile-endpoint checks intact. The new
+Language artifacts still require a combined build and fresh fixture execution.
+
+The candidate integration wiring is published as `b03d844f57528052b8737f13dafb18c9f710395b`,
+tree `7415d3fa52660b44197639a8a202c500d6ea272d`. The workflow invokes the existing full 134-question
 positive computation suite in its 14 original files and the existing
 RX05/RX09/RX10 controls. Their report validators reject missing or duplicated
 results, changed questions, nonfailing gaps and incomplete controls independently

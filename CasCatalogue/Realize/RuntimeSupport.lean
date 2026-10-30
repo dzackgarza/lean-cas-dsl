@@ -27,6 +27,7 @@ public import CasCatalogue.UniversalServiceRequest
 public import CasCatalogue.ComputationDerivation
 public import Mathlib.CategoryTheory.ConcreteCategory.EpiMono
 public import CasContract.Port
+public import Lean.Util.PtrSet
 
 @[expose] public section
 
@@ -1149,265 +1150,372 @@ def CapturedInvocationInterface.staged : CapturedInvocationInterface → Bool
   | .directLift _ | .liftField _ | .liftFactor _ => true
   | _ => false
 
+/- The field predicates are independent of the traversal store. The reference
+runner evaluates them directly; the runtime runner retains only completed
+full-Wire comparisons during this one call. -/
+namespace CompleteContextComparison
+
+abbrev Memo (m : Type → Type) := Wire → Wire → m Bool → m Bool
+
 mutual
 
-/-- Computational occurrence identity never compares carriers or mathematical
-values for equality. Distinct actual packets and live owners remain distinct. -/
-partial def sameActionOperand (left right : Wire) : Bool :=
-  left.value == right.value && left.json == right.json && left.ownership == right.ownership &&
-    left.serviceInputPaths == right.serviceInputPaths &&
-    left.pointDataInterface == right.pointDataInterface &&
-    left.objectIso == right.objectIso &&
-    left.endpointPresentation.map (·.comparison) == right.endpointPresentation.map (·.comparison) &&
-    left.endpointPresentation.map (·.forward) == right.endpointPresentation.map (·.forward) &&
-    left.endpointPresentation.map (·.backward) == right.endpointPresentation.map (·.backward) &&
-    left.endpointPresentation.map (·.forwardOwnership) ==
-      right.endpointPresentation.map (·.forwardOwnership) &&
-    left.endpointPresentation.map (·.backwardOwnership) ==
-      right.endpointPresentation.map (·.backwardOwnership) &&
-    sameEndpointComparisonMaps (left.endpointPresentation.bind (·.maps))
-      (right.endpointPresentation.bind (·.maps)) &&
-    sameNamedRefinementOrigin (left.endpointPresentation.bind (·.namedRefinement))
-      (right.endpointPresentation.bind (·.namedRefinement)) &&
-    sameProductComponents left.productComponents right.productComponents &&
-    sameMorphismFraming left.morphismFraming right.morphismFraming &&
-    sameActionRecipe left.actionRecipe right.actionRecipe &&
-    sameIntrinsicAssembly left.intrinsicAssembly right.intrinsicAssembly &&
-    left.capturedInvocation.map (·.occurrence) == right.capturedInvocation.map (·.occurrence) &&
-    sameCallableEndpoints left.callableEndpoints right.callableEndpoints &&
-    samePointOrigin left.pointOrigin right.pointOrigin
+partial def operand {m : Type → Type} [Monad m] [Inhabited (m Bool)]
+    (memo : Memo m) (left right : Wire) : m Bool := do
+  unless left.value == right.value && left.json == right.json &&
+      left.ownership == right.ownership && left.serviceInputPaths == right.serviceInputPaths &&
+      left.pointDataInterface == right.pointDataInterface && left.objectIso == right.objectIso &&
+      left.endpointPresentation.map (·.comparison) == right.endpointPresentation.map (·.comparison) &&
+      left.endpointPresentation.map (·.forward) == right.endpointPresentation.map (·.forward) &&
+      left.endpointPresentation.map (·.backward) == right.endpointPresentation.map (·.backward) &&
+      left.endpointPresentation.map (·.forwardOwnership) == right.endpointPresentation.map (·.forwardOwnership) &&
+      left.endpointPresentation.map (·.backwardOwnership) == right.endpointPresentation.map (·.backwardOwnership)
+    do return false
+  endpointMaps memo (left.endpointPresentation.bind (·.maps)) (right.endpointPresentation.bind (·.maps)) <&&>
+    namedOrigin memo (left.endpointPresentation.bind (·.namedRefinement))
+      (right.endpointPresentation.bind (·.namedRefinement)) <&&>
+    products memo left.productComponents right.productComponents <&&>
+    framing memo left.morphismFraming right.morphismFraming <&&>
+    action memo left.actionRecipe right.actionRecipe <&&>
+    intrinsic memo left.intrinsicAssembly right.intrinsicAssembly <&&>
+    pure (left.capturedInvocation.map (·.occurrence) == right.capturedInvocation.map (·.occurrence)) <&&>
+    endpoints memo left.callableEndpoints right.callableEndpoints <&&>
+    point memo left.pointOrigin right.pointOrigin
 
-partial def samePointOrigin (left right : Option PointOrigin) : Bool :=
+partial def point {m : Type → Type} [Monad m] [Inhabited (m Bool)]
+    (memo : Memo m) (left right : Option PointOrigin) : m Bool := do
   match left, right with
-  | none, none => true
+  | none, none => return true
   | some left, some right =>
-      left.formal == right.formal && left.fragment == right.fragment &&
-      left.context.bundle == right.context.bundle &&
-      left.context.expression.syntacticEq right.context.expression &&
-      sameCompleteWireContext left.source right.source &&
-      sameCompleteWireContext left.target right.target &&
-      (match left.recipe, right.recipe with
-        | .element owner inputs, .element actualOwner actualInputs =>
-            sameCompleteWireContext owner actualOwner &&
-              sameProductComponents inputs actualInputs
-        | .product presentation domain first second firstPath secondPath,
-            .product actualPresentation actualDomain actualFirst actualSecond
-              actualFirstPath actualSecondPath =>
-            presentation == actualPresentation && domain == actualDomain &&
-              firstPath == actualFirstPath && secondPath == actualSecondPath &&
-              sameCompleteWireContext first actualFirst &&
-              sameCompleteWireContext second actualSecond
-        | .alias original, .alias actual => sameCompleteWireContext original actual
-        | _, _ => false)
-  | _, _ => false
+      unless left.formal == right.formal && left.fragment == right.fragment &&
+          left.context.bundle == right.context.bundle &&
+          left.context.expression.syntacticEq right.context.expression do return false
+      unless ← wire memo left.source right.source <&&> wire memo left.target right.target do return false
+      match left.recipe, right.recipe with
+      | .element owner inputs, .element actualOwner actualInputs =>
+          wire memo owner actualOwner <&&> products memo inputs actualInputs
+      | .product presentation domain first second firstPath secondPath,
+          .product actualPresentation actualDomain actualFirst actualSecond actualFirstPath actualSecondPath =>
+          unless presentation == actualPresentation && domain == actualDomain &&
+              firstPath == actualFirstPath && secondPath == actualSecondPath do return false
+          wire memo first actualFirst <&&> wire memo second actualSecond
+      | .alias original, .alias actual => wire memo original actual
+      | _, _ => return false
+  | _, _ => return false
 
-partial def sameEndpointComparisonMaps (left right : Option (Wire × Wire)) : Bool :=
+partial def endpointMaps {m : Type → Type} [Monad m] [Inhabited (m Bool)]
+    (memo : Memo m) (left right : Option (Wire × Wire)) : m Bool := do
   match left, right with
-  | none, none => true
-  | some (a, b), some (c, d) =>
-      sameCompleteWireContext a c && sameCompleteWireContext b d
-  | _, _ => false
+  | none, none => return true
+  | some (a, b), some (c, d) => wire memo a c <&&> wire memo b d
+  | _, _ => return false
 
-partial def sameNamedRefinementOrigin
-    (left right : Option NamedRefinementOrigin) : Bool :=
+partial def namedOrigin {m : Type → Type} [Monad m] [Inhabited (m Bool)]
+    (memo : Memo m) (left right : Option NamedRefinementOrigin) : m Bool := do
   match left, right with
-  | none, none => true
+  | none, none => return true
   | some left, some right =>
-      left.formal == right.formal && left.fragment == right.fragment &&
-      left.comparison == right.comparison && left.entry == right.entry &&
-      left.target == right.target && left.parameters == right.parameters &&
-      left.route == right.route && left.applications == right.applications &&
-      left.identification == right.identification &&
-      sameCompleteWireContext left.source right.source &&
-      left.templates.size == right.templates.size &&
-      (left.templates.zip right.templates).all (fun (a, b) => sameActionTemplate a b) &&
-      left.descriptors.size == right.descriptors.size &&
-      (left.descriptors.zip right.descriptors).all (fun (a, b) => sameActionTemplate a b)
-  | _, _ => false
+      unless left.formal == right.formal && left.fragment == right.fragment &&
+          left.comparison == right.comparison && left.entry == right.entry &&
+          left.target == right.target && left.parameters == right.parameters &&
+          left.route == right.route && left.applications == right.applications &&
+          left.identification == right.identification do return false
+      unless ← wire memo left.source right.source do return false
+      unless left.templates.size == right.templates.size do return false
+      unless ← (left.templates.zip right.templates).allM (fun (a, b) => template memo a b) do return false
+      unless left.descriptors.size == right.descriptors.size do return false
+      (left.descriptors.zip right.descriptors).allM (fun (a, b) => template memo a b)
+  | _, _ => return false
 
-partial def sameMorphismFraming (left right : Option MorphismFraming) : Bool :=
+partial def framing {m : Type → Type} [Monad m] [Inhabited (m Bool)]
+    (memo : Memo m) (left right : Option MorphismFraming) : m Bool := do
   match left, right with
-  | none, none => true
+  | none, none => return true
   | some left, some right =>
-    sameCompleteWireContext left.input right.input &&
-      sameCompleteWireContext left.source right.source &&
-      sameCompleteWireContext left.target right.target &&
-      (match left.comparisons, right.comparisons with
-        | none, none => true
+      unless ← wire memo left.input right.input <&&> wire memo left.source right.source <&&>
+          wire memo left.target right.target do return false
+      let comparisons ← match left.comparisons, right.comparisons with
+        | none, none => pure true
         | some (a, b), some (c, d) =>
-            sameProductComponents a.toArray c.toArray && sameProductComponents b.toArray d.toArray
-        | _, _ => false) &&
-      left.context.map (·.bundle) == right.context.map (·.bundle) &&
-      (match left.context, right.context with
-        | none, none => true
-        | some left, some right => left.expression.syntacticEq right.expression
-        | _, _ => false)
-  | _, _ => false
+            products memo a.toArray c.toArray <&&> products memo b.toArray d.toArray
+        | _, _ => pure false
+      return comparisons && left.context.map (·.bundle) == right.context.map (·.bundle) &&
+        (match left.context, right.context with
+          | none, none => true
+          | some left, some right => left.expression.syntacticEq right.expression
+          | _, _ => false)
+  | _, _ => return false
 
-partial def sameActionTemplate (left right : ActionDataTemplate) : Bool :=
+partial def template {m : Type → Type} [Monad m] [Inhabited (m Bool)]
+    (memo : Memo m) (left right : ActionDataTemplate) : m Bool := do
   match left, right with
-  | .literal left, .literal right => left == right
+  | .literal left, .literal right => return left == right
   | .wire leftRole left, .wire rightRole right =>
-      leftRole == rightRole && sameCompleteWireContext left right
+      if leftRole != rightRole then return false
+      wire memo left right
   | .ctor leftTag left, .ctor rightTag right =>
-      leftTag == rightTag && left.size == right.size &&
-        (left.zip right).all (fun (a, b) => sameActionTemplate a b)
-  | .array left, .array right => left.size == right.size &&
-      (left.zip right).all (fun (a, b) => sameActionTemplate a b)
-  | .object left, .object right => left.size == right.size &&
-      (left.zip right).all (fun ((firstKey, first), (secondKey, second)) =>
-        firstKey == secondKey && sameActionTemplate first second)
+      unless leftTag == rightTag && left.size == right.size do return false
+      (left.zip right).allM fun (a, b) => template memo a b
+  | .array left, .array right =>
+      unless left.size == right.size do return false
+      (left.zip right).allM fun (a, b) => template memo a b
+  | .object left, .object right =>
+      unless left.size == right.size do return false
+      (left.zip right).allM fun ((firstKey, first), (secondKey, second)) => do
+        if firstKey != secondKey then return false
+        template memo first second
   | .project firstPath first, .project secondPath second =>
-      firstPath == secondPath && sameActionTemplate first second
-  | .retained left, .retained right | .logical left, .logical right =>
-      sameActionTemplate left right
+      if firstPath != secondPath then return false
+      template memo first second
+  | .retained left, .retained right | .logical left, .logical right => template memo left right
   | .pointCallable a s t x, .pointCallable b u v y =>
-      a.expression.syntacticEq b.expression && a.bundle == b.bundle &&
-        s == u && t == v && sameCompleteWireContext x y
+      unless a.expression.syntacticEq b.expression && a.bundle == b.bundle && s == u && t == v do return false
+      wire memo x y
   | .inventoryMap a s t x, .inventoryMap b u v y =>
-      a.expression.syntacticEq b.expression && a.bundle == b.bundle &&
-        sameCompleteWireContext s u && sameCompleteWireContext t v &&
-          sameCompleteWireContext x y
-  | _, _ => false
+      unless a.expression.syntacticEq b.expression && a.bundle == b.bundle do return false
+      wire memo s u <&&> wire memo t v <&&> wire memo x y
+  | _, _ => return false
 
-partial def sameActionRecipe (left right : Option ActionRecipe) : Bool :=
+partial def action {m : Type → Type} [Monad m] [Inhabited (m Bool)]
+    (memo : Memo m) (left right : Option ActionRecipe) : m Bool := do
   match left, right with
-  | none, none => true
+  | none, none => return true
   | some left, some right =>
-      left.morphism == right.morphism && left.owner == right.owner &&
-      left.application == right.application && left.formal == right.formal &&
-      left.fragment == right.fragment &&
-      left.source.expression.syntacticEq right.source.expression &&
-      left.source.bundle == right.source.bundle &&
-      left.target.expression.syntacticEq right.target.expression &&
-      left.target.bundle == right.target.bundle &&
-      sameCompleteWireContext left.original right.original &&
-      sameActionTemplate left.descriptor right.descriptor &&
-      sameEndpointComparisonMaps left.imageEndpoints right.imageEndpoints &&
-      (match left.endpoints, right.endpoints with
-        | none, none => true
-        | some (a, b), some (c, d) =>
-            sameCompleteWireContext a c && sameCompleteWireContext b d
-        | _, _ => false)
-  | _, _ => false
+      unless left.morphism == right.morphism && left.owner == right.owner &&
+          left.application == right.application && left.formal == right.formal &&
+          left.fragment == right.fragment &&
+          left.source.expression.syntacticEq right.source.expression && left.source.bundle == right.source.bundle &&
+          left.target.expression.syntacticEq right.target.expression && left.target.bundle == right.target.bundle
+        do return false
+      unless ← wire memo left.original right.original <&&> template memo left.descriptor right.descriptor <&&>
+          endpointMaps memo left.imageEndpoints right.imageEndpoints do return false
+      endpointMaps memo left.endpoints right.endpoints
+  | _, _ => return false
 
-partial def sameCallableEndpoints (left right : Option CallableEndpoints) : Bool :=
+partial def endpoints {m : Type → Type} [Monad m] [Inhabited (m Bool)]
+    (memo : Memo m) (left right : Option CallableEndpoints) : m Bool := do
   match left, right with
-  | none, none => true
+  | none, none => return true
   | some left, some right =>
-      left.formal == right.formal && left.fragment == right.fragment &&
-      left.context.expression.syntacticEq right.context.expression &&
-      left.context.bundle == right.context.bundle &&
-      sameCompleteWireContext left.source right.source &&
-      sameCompleteWireContext left.target right.target
-  | _, _ => false
+      unless left.formal == right.formal && left.fragment == right.fragment &&
+          left.context.expression.syntacticEq right.context.expression && left.context.bundle == right.context.bundle
+        do return false
+      wire memo left.source right.source <&&> wire memo left.target right.target
+  | _, _ => return false
 
-partial def sameIntrinsicAssembly (left right : Option IntrinsicAssembly) : Bool :=
+partial def intrinsic {m : Type → Type} [Monad m] [Inhabited (m Bool)]
+    (memo : Memo m) (left right : Option IntrinsicAssembly) : m Bool := do
   match left, right with
-  | none, none => true
+  | none, none => return true
   | some left, some right =>
-      (match left.result, right.result with
+      let sameResult := match left.result, right.result with
         | .object a, .object b | .map a, .map b =>
             a.expression.syntacticEq b.expression && a.bundle == b.bundle
         | .value a, .value b => a == b
-        | _, _ => false) && left.formal == right.formal &&
-      left.fragment == right.fragment &&
-      left.endpointRoles == right.endpointRoles &&
-      sameActionTemplate left.template right.template &&
-      left.maps.size == right.maps.size &&
-      (left.maps.zip right.maps).all (fun (a, b) =>
-        a.context.expression.syntacticEq b.context.expression &&
-        a.context.bundle == b.context.bundle &&
-        sameCompleteWireContext a.source b.source &&
-        sameCompleteWireContext a.target b.target &&
-        sameCompleteWireContext a.callable b.callable) &&
-      left.equalObjects.size == right.equalObjects.size &&
-      (left.equalObjects.zip right.equalObjects).all (fun ((a, b), (c, d)) =>
-        sameCompleteWireContext a c && sameCompleteWireContext b d)
-  | _, _ => false
+        | _, _ => false
+      unless sameResult && left.formal == right.formal && left.fragment == right.fragment &&
+          left.endpointRoles == right.endpointRoles do return false
+      unless ← template memo left.template right.template do return false
+      unless left.maps.size == right.maps.size do return false
+      unless ← (left.maps.zip right.maps).allM (fun (a, b) => do
+          unless a.context.expression.syntacticEq b.context.expression && a.context.bundle == b.context.bundle do return false
+          wire memo a.source b.source <&&> wire memo a.target b.target <&&> wire memo a.callable b.callable)
+        do return false
+      unless left.equalObjects.size == right.equalObjects.size do return false
+      (left.equalObjects.zip right.equalObjects).allM (fun ((a, b), (c, d)) =>
+        wire memo a c <&&> wire memo b d)
+  | _, _ => return false
 
-partial def sameSelectedCallableParameter (left right : SelectedCallableParameter) : Bool :=
-  left.formal == right.formal && left.expectedType == right.expectedType &&
-    left.templates.size == right.templates.size &&
-    (left.templates.zip right.templates).all (fun (a, b) => sameActionTemplate a b)
+partial def parameter {m : Type → Type} [Monad m] [Inhabited (m Bool)]
+    (memo : Memo m) (left right : SelectedCallableParameter) : m Bool := do
+  unless left.formal == right.formal && left.expectedType == right.expectedType &&
+      left.templates.size == right.templates.size do return false
+  (left.templates.zip right.templates).allM (fun (a, b) => template memo a b)
 
-partial def samePreparedOperation (left right : OperationObservation) : Bool :=
-  left.operation == right.operation && left.parameters == right.parameters &&
-    left.parameterOccurrences.size == right.parameterOccurrences.size &&
-    (left.parameterOccurrences.zip right.parameterOccurrences).all (fun (a, b) =>
-      a.formal == b.formal && a.expectedType == b.expectedType &&
-        a.templates.size == b.templates.size &&
-        (a.templates.zip b.templates).all (fun (left, right) => sameActionTemplate left right) &&
-        a.data == b.data && sameProductComponents a.dependencies b.dependencies) &&
-    sameCompleteWireContext left.original right.original &&
-    sameCompleteWireContext left.owner right.owner &&
-    sameCompleteWireContext left.argument right.argument &&
-    sameCompleteWireContext left.argumentDomain right.argumentDomain &&
-    left.argumentData == right.argumentData &&
-    sameActionTemplate left.argumentTemplate right.argumentTemplate &&
-    sameProductComponents left.argumentDependencies right.argumentDependencies &&
-    sameCompleteWireContext left.domainWire right.domainWire &&
-    sameCompleteWireContext left.sourceWire right.sourceWire &&
-    sameCompleteWireContext left.targetWire right.targetWire &&
-    left.targetOrigin == right.targetOrigin &&
-    sameCompleteWireContext left.input right.input &&
-    left.domain == right.domain && left.target == right.target &&
+partial def operation {m : Type → Type} [Monad m] [Inhabited (m Bool)]
+    (memo : Memo m) (left right : OperationObservation) : m Bool := do
+  unless left.operation == right.operation && left.parameters == right.parameters &&
+      left.parameterOccurrences.size == right.parameterOccurrences.size do return false
+  unless ← (left.parameterOccurrences.zip right.parameterOccurrences).allM (fun (a, b) => do
+      unless a.formal == b.formal && a.expectedType == b.expectedType &&
+          a.templates.size == b.templates.size do return false
+      unless ← (a.templates.zip b.templates).allM (fun (left, right) => template memo left right) do return false
+      unless a.data == b.data do return false
+      products memo a.dependencies b.dependencies) do return false
+  unless ← wire memo left.original right.original <&&> wire memo left.owner right.owner <&&>
+      wire memo left.argument right.argument <&&> wire memo left.argumentDomain right.argumentDomain do return false
+  unless left.argumentData == right.argumentData do return false
+  unless ← template memo left.argumentTemplate right.argumentTemplate <&&>
+      products memo left.argumentDependencies right.argumentDependencies <&&>
+      wire memo left.domainWire right.domainWire <&&> wire memo left.sourceWire right.sourceWire <&&>
+      wire memo left.targetWire right.targetWire do return false
+  unless left.targetOrigin == right.targetOrigin do return false
+  unless ← wire memo left.input right.input do return false
+  return left.domain == right.domain && left.target == right.target &&
     left.targetData == right.targetData && left.materialized == right.materialized
 
-partial def sameSelectedCallableInvocation
-    (left right : Option SelectedCallableInvocation) : Bool :=
+partial def selected {m : Type → Type} [Monad m] [Inhabited (m Bool)]
+    (memo : Memo m) (left right : Option SelectedCallableInvocation) : m Bool := do
   match left, right with
-  | none, none => true
+  | none, none => return true
   | some left, some right =>
-      left.address == right.address && left.application == right.application &&
-      left.formal == right.formal && left.fragment == right.fragment &&
-      left.context.expression.syntacticEq right.context.expression &&
-      left.context.bundle == right.context.bundle &&
-      left.declarationParameters.size == right.declarationParameters.size &&
-      (left.declarationParameters.zip right.declarationParameters).all
-        (fun (a, b) => sameSelectedCallableParameter a b) &&
-      sameActionTemplate left.descriptor right.descriptor &&
-      left.parameters.size == right.parameters.size &&
-      (left.parameters.zip right.parameters).all (fun (a, b) => sameActionTemplate a b) &&
-      sameCompleteWireContext left.source right.source &&
-      sameCompleteWireContext left.target right.target &&
-      left.sourceOrigin == right.sourceOrigin && left.targetOrigin == right.targetOrigin &&
-      sameCompleteWireContext left.argument right.argument && left.inverse == right.inverse &&
-      (match left.operationRequest, right.operationRequest with
-      | none, none => true
-      | some a, some b => samePreparedOperation a b
-      | _, _ => false)
-  | _, _ => false
+      unless left.address == right.address && left.application == right.application &&
+          left.formal == right.formal && left.fragment == right.fragment &&
+          left.context.expression.syntacticEq right.context.expression && left.context.bundle == right.context.bundle &&
+          left.declarationParameters.size == right.declarationParameters.size do return false
+      unless ← (left.declarationParameters.zip right.declarationParameters).allM
+          (fun (a, b) => parameter memo a b) do return false
+      unless ← template memo left.descriptor right.descriptor do return false
+      unless left.parameters.size == right.parameters.size do return false
+      unless ← (left.parameters.zip right.parameters).allM (fun (a, b) => template memo a b) <&&>
+          wire memo left.source right.source <&&> wire memo left.target right.target do return false
+      unless left.sourceOrigin == right.sourceOrigin && left.targetOrigin == right.targetOrigin do return false
+      unless ← wire memo left.argument right.argument do return false
+      unless left.inverse == right.inverse do return false
+      match left.operationRequest, right.operationRequest with
+      | none, none => return true
+      | some a, some b => operation memo a b
+      | _, _ => return false
+  | _, _ => return false
 
-/-- Product identity keeps every ordered child selection recursively. The
-service graph may allocate different exact handles for the same selection. -/
-partial def sameProductComponents (left right : Array Wire) : Bool :=
-  left.size == right.size && (left.zip right).all fun (first, second) =>
-    sameCompleteWireContext first second
+partial def products {m : Type → Type} [Monad m] [Inhabited (m Bool)]
+    (memo : Memo m) (left right : Array Wire) : m Bool := do
+  unless left.size == right.size do return false
+  (left.zip right).allM fun (first, second) => wire memo first second
 
-/-- Global selection identity is reflexive on every complete retained payload.
-Operation-use restrictions are checked separately; unpositioned dependency
-handles do not choose a mathematical context. Exact request-path bindings remain
-part of the retained occurrence. -/
-partial def sameCompleteWireContext (left right : Wire) : Bool :=
-  sameActionOperand left right && sameOperationPresentationPayload left.payload right.payload &&
-    sameOperationPresentationForm left.form right.form &&
-    left.morphismFramed == right.morphismFramed &&
-    left.callableObserved == right.callableObserved && left.objectObserved == right.objectObserved &&
-    left.presentationIsos == right.presentationIsos &&
-    left.categoryContext.map (·.bundle) == right.categoryContext.map (·.bundle) &&
-    (match left.categoryContext, right.categoryContext with
-      | none, none => true
-      | some left, some right => left.expression.syntacticEq right.expression
-      | _, _ => false) &&
-    left.constructionInputs == right.constructionInputs &&
-    left.constructionInputOwnership == right.constructionInputOwnership &&
-    sameRetainedLiftExecution left.liftExecution right.liftExecution &&
-    left.proofSources.length == right.proofSources.length &&
-    (left.proofSources.zip right.proofSources).all (fun (first, second) =>
-      sameCompleteWireContext (retainedSnapshotWire first) (retainedSnapshotWire second))
+partial def wire {m : Type → Type} [Monad m] [Inhabited (m Bool)]
+    (memo : Memo m) (left right : Wire) : m Bool := memo left right do
+  unless ← operand memo left right do return false
+  unless sameOperationPresentationPayload left.payload right.payload &&
+      sameOperationPresentationForm left.form right.form &&
+      left.morphismFramed == right.morphismFramed &&
+      left.callableObserved == right.callableObserved && left.objectObserved == right.objectObserved &&
+      left.presentationIsos == right.presentationIsos &&
+      left.categoryContext.map (·.bundle) == right.categoryContext.map (·.bundle) &&
+      (match left.categoryContext, right.categoryContext with
+        | none, none => true
+        | some left, some right => left.expression.syntacticEq right.expression
+        | _, _ => false) &&
+      left.constructionInputs == right.constructionInputs &&
+      left.constructionInputOwnership == right.constructionInputOwnership &&
+      sameRetainedLiftExecution left.liftExecution right.liftExecution &&
+      left.proofSources.length == right.proofSources.length do return false
+  (left.proofSources.zip right.proofSources).allM (fun (first, second) =>
+    wire memo (retainedSnapshotWire first) (retainedSnapshotWire second))
 
 end
+
+/-- Keys retain both immutable nodes. Only a completed full comparison may
+populate this table; pointer identity never establishes a positive result. -/
+private unsafe abbrev Cache := PtrMap Wire (PtrMap Wire Bool)
+
+private unsafe def remember (left right : Wire) (next : StateM Cache Bool) : StateM Cache Bool := do
+  if let some row := (← get).find? left then
+    if let some result := row.find? right then return result
+  let result ← next
+  modify fun cache =>
+    let row := (cache.find? left).getD (mkPtrMap 16)
+    cache.insert left (row.insert right result)
+  return result
+
+private unsafe def operandCached (left right : Wire) : Bool :=
+  (operand (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+
+private unsafe def pointCached (left right : Option PointOrigin) : Bool :=
+  (point (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+
+private unsafe def endpointMapsCached (left right : Option (Wire × Wire)) : Bool :=
+  (endpointMaps (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+
+private unsafe def namedOriginCached (left right : Option NamedRefinementOrigin) : Bool :=
+  (namedOrigin (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+
+private unsafe def framingCached (left right : Option MorphismFraming) : Bool :=
+  (framing (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+
+private unsafe def templateCached (left right : ActionDataTemplate) : Bool :=
+  (template (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+
+private unsafe def actionCached (left right : Option ActionRecipe) : Bool :=
+  (action (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+
+private unsafe def endpointsCached (left right : Option CallableEndpoints) : Bool :=
+  (endpoints (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+
+private unsafe def intrinsicCached (left right : Option IntrinsicAssembly) : Bool :=
+  (intrinsic (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+
+private unsafe def parameterCached (left right : SelectedCallableParameter) : Bool :=
+  (parameter (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+
+private unsafe def operationCached (left right : OperationObservation) : Bool :=
+  (operation (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+
+private unsafe def selectedCached (left right : Option SelectedCallableInvocation) : Bool :=
+  (selected (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+
+private unsafe def productsCached (left right : Array Wire) : Bool :=
+  (products (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+
+private unsafe def wireCached (left right : Wire) : Bool :=
+  (wire (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+
+end CompleteContextComparison
+
+@[implemented_by CompleteContextComparison.operandCached]
+def sameActionOperand (left right : Wire) : Bool :=
+  CompleteContextComparison.operand (m := Id) (fun _ _ next => next) left right
+
+@[implemented_by CompleteContextComparison.pointCached]
+def samePointOrigin (left right : Option PointOrigin) : Bool :=
+  CompleteContextComparison.point (m := Id) (fun _ _ next => next) left right
+
+@[implemented_by CompleteContextComparison.endpointMapsCached]
+def sameEndpointComparisonMaps (left right : Option (Wire × Wire)) : Bool :=
+  CompleteContextComparison.endpointMaps (m := Id) (fun _ _ next => next) left right
+
+@[implemented_by CompleteContextComparison.namedOriginCached]
+def sameNamedRefinementOrigin (left right : Option NamedRefinementOrigin) : Bool :=
+  CompleteContextComparison.namedOrigin (m := Id) (fun _ _ next => next) left right
+
+@[implemented_by CompleteContextComparison.framingCached]
+def sameMorphismFraming (left right : Option MorphismFraming) : Bool :=
+  CompleteContextComparison.framing (m := Id) (fun _ _ next => next) left right
+
+@[implemented_by CompleteContextComparison.templateCached]
+def sameActionTemplate (left right : ActionDataTemplate) : Bool :=
+  CompleteContextComparison.template (m := Id) (fun _ _ next => next) left right
+
+@[implemented_by CompleteContextComparison.actionCached]
+def sameActionRecipe (left right : Option ActionRecipe) : Bool :=
+  CompleteContextComparison.action (m := Id) (fun _ _ next => next) left right
+
+@[implemented_by CompleteContextComparison.endpointsCached]
+def sameCallableEndpoints (left right : Option CallableEndpoints) : Bool :=
+  CompleteContextComparison.endpoints (m := Id) (fun _ _ next => next) left right
+
+@[implemented_by CompleteContextComparison.intrinsicCached]
+def sameIntrinsicAssembly (left right : Option IntrinsicAssembly) : Bool :=
+  CompleteContextComparison.intrinsic (m := Id) (fun _ _ next => next) left right
+
+@[implemented_by CompleteContextComparison.parameterCached]
+def sameSelectedCallableParameter (left right : SelectedCallableParameter) : Bool :=
+  CompleteContextComparison.parameter (m := Id) (fun _ _ next => next) left right
+
+@[implemented_by CompleteContextComparison.operationCached]
+def samePreparedOperation (left right : OperationObservation) : Bool :=
+  CompleteContextComparison.operation (m := Id) (fun _ _ next => next) left right
+
+@[implemented_by CompleteContextComparison.selectedCached]
+def sameSelectedCallableInvocation (left right : Option SelectedCallableInvocation) : Bool :=
+  CompleteContextComparison.selected (m := Id) (fun _ _ next => next) left right
+
+@[implemented_by CompleteContextComparison.productsCached]
+def sameProductComponents (left right : Array Wire) : Bool :=
+  CompleteContextComparison.products (m := Id) (fun _ _ next => next) left right
+
+@[implemented_by CompleteContextComparison.wireCached]
+def sameCompleteWireContext (left right : Wire) : Bool :=
+  CompleteContextComparison.wire (m := Id) (fun _ _ next => next) left right
 
 def sameOperationPointPresentation (left right : Wire) : Bool :=
   sameCompleteWireContext left right && left.serviceHandles == right.serviceHandles
@@ -15272,9 +15380,40 @@ def realizeFreshWith
       let input ← realizeUnobserved h trace "the map before structural transport" receiver
       unless input.form.category == sourceCategory do
         throwError "the structural map has the wrong recorded source category"
-      let applications ← route.mapM (fun edge => do Semantic.edgeFunctor state edge)
+      -- The formal map retains the whole selected functor, including dictionaries
+      -- and parameters that equality at this particular map may erase.
+      let mut mapped := Trace.unanchor e.consumeMData
+      while mapped.isAppOfArity ``id 2 do
+        mapped := Trace.unanchor mapped.appArg!.consumeMData
+      unless mapped.isAppOfArity ``CategoryTheory.Functor.map 8 do
+        throwError "the recorded map transport lost its literal complete action"
+      let receiver ← instantiateMVars receiver
+      unless mapped.appArg! == receiver do
+        throwError "the recorded map transport changed its original receiver occurrence"
+      unless !route.isEmpty do
+        throwError "the recorded map transport has an empty selected route"
+      let retainedAction := mapped.getAppArgs[4]!
+      let mut first := retainedAction
+      let mut reversed : Array Expr := #[]
+      -- Route construction associates to the left. Peel only its selected
+      -- boundaries; an atomic or constructor action remains its original child.
+      for _ in [:route.size - 1] do
+        let mut composite := Trace.unanchor first.consumeMData
+        while composite.isAppOfArity ``id 2 do
+          composite := Trace.unanchor composite.appArg!.consumeMData
+        unless composite.isAppOfArity ``CategoryTheory.Functor.comp 8 do
+          throwError "the recorded map transport lost an ordered complete route application"
+        let fields := composite.getAppArgs
+        reversed := reversed.push fields[7]!
+        first := fields[6]!
+      let applications := (reversed.push first).reverse
+      let action ← Semantic.compositeOfApplications applications
+      unless ← withoutModifyingState (withTransparency .all <|
+          isDefEq (← inferType action) (← inferType retainedAction) <&&>
+            isDefEq action retainedAction) do
+        throwError "the recorded map transport changed its complete selected functor"
       let output ← captureMapRoute h trace input route applications
-      let requested ← Semantic.mapOf (← Semantic.routeFunctor state route) receiver
+      let requested ← Semantic.mapOf action receiver
       unless ← withTransparency .all <|
           isDefEq requested e <&&> isDefEq output.value e do
         throwError "the recorded map transport differs from its complete semantic request"

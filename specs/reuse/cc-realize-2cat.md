@@ -315,6 +315,41 @@ private prospective data, and a successful build alone do not satisfy these gate
 These notes describe the source and checks at their stated dates. Their present-tense
 implementation descriptions are historical; the selected replacement above governs current work.
 
+#### Shared complete-context comparison (2026-10-31)
+
+The unchanged first RX-LIFT question exposes repeated traversal of a retained
+dependency DAG. A frame, its callable endpoint receipt, intrinsic map witnesses,
+and point origin can all retain the same complete child. Comparing each path
+recursively as a separate tree exhausts the original question budget.
+
+The corpus query `PtrMap` finds the existing `Lean4Lean/Expr.lean` replacement
+traversal; the broader `DAG traversal` query returns unrelated domain graph
+definitions and no replacement for the exact-node traversal owner. The
+implementation owner is Lean 4.33's
+[`Lean/Util/PtrSet.lean`](https://github.com/leanprover/lean4/blob/v4.33.0/src/Lean/Util/PtrSet.lean):
+`Ptr`, `PtrMap`, `mkPtrMap`, `PtrMap.find?` and `PtrMap.insert`. The kernel imports
+that existing module rather than defining an address table. No mathematical
+declaration or predicate is introduced.
+
+`CompleteContextComparison` in `Realize/RuntimeSupport.lean` has one set of field
+predicates parameterized by the traversal monad. The public reference functions
+use `Id` without memoization. Their runtime implementations use a fresh
+`PtrMap Wire (PtrMap Wire Bool)` for one top-level comparison. Only the complete
+Wire predicate can populate the table, and only after its entire result has
+been computed. Weaker operand comparisons never populate it. Both keys retain
+their actual immutable nodes, so live entries cannot refer to reused addresses.
+
+The invariant is that each entry is the result of the reference predicate on
+those two retained nodes. It holds initially for the empty table. A miss runs
+the same field predicates and recursively sound comparisons before inserting
+the result. A hit selects those same immutable nodes and returns their completed
+result. This argument does not assume reflexivity and does not accept a node
+merely because it was encountered. The table cannot outlive the call, and it
+contains no `MetaM` equality, typechecking, supplier-liveness, or backend result.
+All category dictionaries, ordered fields, endpoint occurrences, point roles,
+completion states, scoped suppliers and proof-source checks remain present.
+Administrative service handles keep their separate execution-identity check.
+
 ## V1 generic computational composition (2026-10-23)
 
 Direct source searches for `ComputationPacket`, `dataProjection`,

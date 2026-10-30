@@ -1,5 +1,31 @@
 # Journal
 
+## 2026-10-31 — Compare shared retained contexts once per complete node pair
+
+The unchanged first RX-LIFT computation exhausted its original budget while
+recursively comparing shared endpoint/producer graphs as trees. Source-matched
+diagnostics separated that repeated structural work from the inexpensive formal
+endpoint checks. The comparator now has one set of field predicates, with a
+reference `Id` runner and a runtime traversal over Lean's existing pointer maps.
+Only completed full comparisons populate a fresh per-call table keyed by both
+retained nodes. Pointer identity never itself establishes equality, and no
+mathematical, session or backend result is cached.
+
+Focused compilation, independent field review, the fresh 3803-job production
+build and seven relevant engineering controls pass. The original first question
+now finishes within the unchanged 200000 budget, still with 22 bindings,
+104 trace nodes and 20 dispatches. Its result is malformed at selected-lift
+ambient validation (`a computational function field requires a graph`), not a
+mathematical hold. The additional product-comparison fixture remains red at its
+use of the pending-point API on completed maps.
+
+The occurrence controls also close the legacy map-route loss of complete action
+parameters. A separately reviewed Arrow/cell producer repair is included as
+source: copied declarations preserve their whole types and selections and pass
+the complete-callable protocol controls, including eleven-call reuse. Its new
+Language production artifacts remain unbuilt at this checkpoint. No permanent
+assertion, leaf implementation, mathematical input or budget was changed.
+
 ## 2026-10-31 — Execute the complete existing fixed acceptance inventory in candidate CI
 
 Candidate CI previously exported all 134 fixed positive questions but executed
@@ -20,8 +46,9 @@ required for V1.
 
 The pending-point runtime repair is separately published as `f06b7042`, tree
 `ef3e060dccc9df75285cb6c154282b1596e71d35`. Its combined production build passes
-3803 jobs. Its original RX-LIFT computation remains unverified pending restoration
-of the recorded runtime inputs; no mathematical or V1 completion is claimed.
+3803 jobs. After restoration of the recorded runtime inputs, the original
+RX-LIFT computation reaches 20 replied dispatches and reports an internal
+200000-heartbeat timeout; no mathematical or V1 completion is claimed.
 
 ## 2026-10-30 — Preserve complete callable values at their shared consumers
 

@@ -3369,7 +3369,7 @@ partial def structuredField (receiver : Value) (name : String) (index : Option N
         let arrow ← mkAppOptM ``CategoryTheory.Arrow.mk
           #[some (← CategoryContext.carrier context), some (← CategoryContext.dictionary context),
             some source, some target, some hom]
-        Trace.record (← read).trace arrow (.contextualArrow context hom source target)
+        let arrow ← Trace.recordProduced (← read).trace arrow (.contextualArrow context hom source target)
         objectInContext arrow arrowContext #[receiver, first, second]
     | _ => pure receiver
   let object ← match receiver with
@@ -3485,21 +3485,20 @@ partial def selectedCell (scope : Scope) (name : String) (parameters : Array Syn
     | .morphism .. | .derivedMorphism .. => do
       let (value, source, target, context, _, _) ← morphismContext receiverValue
       let arrow ← mkAppM ``CategoryTheory.Arrow.mk #[value]
-      Trace.record (← read).trace arrow (.contextualArrow context value source target)
-      pure arrow
+      Trace.recordProduced (← read).trace arrow (.contextualArrow context value source target)
     | _ => throwStratum .invalid "a cell component requires its exact selected object"
   let action ← CellAction.select entry
     (← selectedParameterTerms scope entry.declaration parameters) constructors inverse receiver
   let value ← CellAction.component action receiver
   let (source, target) ← CellAction.objects action receiver
   let context : CategoryContext := { expression := action.target, bundle := action.targetBundle }
-  unless source == receiver do
-    Trace.record (← read).trace source
+  let source ← if source == receiver then pure source else
+    Trace.recordProduced (← read).trace source
       (.cellEndpoint entry.id action.parameters constructors inverse false receiver)
-  unless target == receiver do
-    Trace.record (← read).trace target
+  let target ← if target == receiver then pure target else
+    Trace.recordProduced (← read).trace target
       (.cellEndpoint entry.id action.parameters constructors inverse true receiver)
-  Trace.record (← read).trace value
+  let value ← Trace.recordProduced (← read).trace value
     (.cellComponent entry.id action.parameters constructors inverse receiver)
   morphismInContext value source target context
     (← objectInContext source context #[receiverValue],
@@ -3798,7 +3797,7 @@ partial def call (scope : Scope) (t : Syntax) (name : String)
       | throwStratum .invalid "the complete Arrow context is absent or ambiguous"
     let arrowContext ← CategoryContext.construct context constructor.id
     let arrow ← mkAppM ``CategoryTheory.Arrow.mk #[hom]
-    Trace.record (← read).trace arrow (.contextualArrow context hom source target)
+    let arrow ← Trace.recordProduced (← read).trace arrow (.contextualArrow context hom source target)
     let (value, resultContext) ← Semantic.methodIn name arrow arrowContext.expression (← read).trace
     return ← objectInContext value resultContext #[receiver]
   if let .derivedObject handle context _ := receiver then
@@ -3848,7 +3847,7 @@ partial def call (scope : Scope) (t : Syntax) (name : String)
     let arrow ← mkAppM ``CategoryTheory.Arrow.mk #[hom]
     discard <| Semantic.recordNamedObject source (← read).trace
     discard <| Semantic.recordNamedObject target (← read).trace
-    Trace.record (← read).trace arrow (.arrow sourceCategory.id hom source target)
+    let arrow ← Trace.recordProduced (← read).trace arrow (.arrow sourceCategory.id hom source target)
     let (value, target) ← Semantic.method name arrow arrowCategory (← read).trace
     return .object value target none none none
   let .object handle category _ _ _ := receiver

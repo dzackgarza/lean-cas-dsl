@@ -22,41 +22,69 @@ private partial def containsData (data expected : Json) : Bool :=
 
 private def exercise (trace : Trace) (formal : Expr) (context : CategoryContext)
     (address inputAddress : String) (inverse : Option Bool := none)
-    (constructors : Array ConstructorId := #[]) : TermElabM Unit := do
+    (constructors : Array ConstructorId := #[])
+    (endpointRoutes : Array (Array EdgeRef) := #[]) : TermElabM Unit := do
   let some (source, target) := homEnds? (← inferType formal)
     | throwError "the complete fixture lost its original full Hom"
   CategoryContext.checkMorphism context formal source target
   let root : System.FilePath := (← IO.getEnv "CAS_OWNERSHIP_PROTOCOL_DIR").getD
     ("CasAcceptance" / "Strata" : System.FilePath).toString
-  for hostile in #[false, true] do
+  let prerequisites := endpointRoutes.flatten.foldl (fun selected edge =>
+    if selected.contains edge then selected else selected.push edge) (#[] : Array EdgeRef)
+  let expectedOperations := endpointRoutes.flatten.map edgeActionAddress |>.push address
+  let cases := (if prerequisites.isEmpty then #[] else #[(false, false)]) ++
+    #[(true, false), (true, true)]
+  for (available, hostile) in cases do
+    let installed := if available then prerequisites else #[]
     let manifest : Manifest := {
       backends := #[{
         name := "complete-callable-probe", command := "python3"
-        args := #["probe_complete_callable.py", address] ++
+        args := #["probe_complete_callable.py", address] ++ installed.map edgeActionAddress ++
           (if hostile then #["--wrong-endpoints"] else #[]) }]
       registrations := #[{
-        operation := address, input := inputAddress, backend := "complete-callable-probe" }] }
+        operation := address, input := inputAddress, backend := "complete-callable-probe" }] ++
+        installed.map (fun edge => {
+          operation := edgeActionAddress edge, input := edgeActionInputAddress edge,
+          backend := "complete-callable-probe" }) }
     let calls ← IO.mkRef #[]
     let harness ← Harness.ofManifest root manifest
     let harness := { harness with dispatches := some calls }
-    unless harness.rejected.isEmpty && harness.admitted.size == 1 do
+    unless harness.rejected.isEmpty && harness.admitted.size == 1 + installed.size do
       throwError "the complete callable's published input registration was rejected"
     try
       let descriptor ← realize harness trace "the complete callable's original descriptor" formal
-      if hostile then
+      if !available then
+        let missing ← try
+          discard <| realizeArrowObservation harness trace descriptor
+          pure false
+        catch error => pure (Exception.stratum? error == some .noImplementation)
+        unless missing && (← calls.get).isEmpty do
+          throwError "a complete component hid its absent endpoint action registration"
+      else if hostile then
         let malformed ← try
           discard <| realizeArrowObservation harness trace descriptor
           pure false
         catch error => pure (Exception.stratum? error == some .malformed)
         unless malformed do throwError "a complete callable accepted different full endpoints"
+        unless (← calls.get).map (fun event =>
+            (event.getObjValAs? String "operation").toOption) == expectedOperations.map some do
+          throwError "the hostile callable did not observe its original prerequisite actions"
       else
         let actual ← realizeArrowObservation harness trace descriptor
         unless actual.value == formal && actual.owner?.isSome do
           throwError "the observed complete callable lost its formal type or actual owner"
-        let #[sent] ← calls.get | throwError "whole-callable observation did not dispatch once"
+        let events ← calls.get
+        unless events.map (fun event => (event.getObjValAs? String "operation").toOption) ==
+            expectedOperations.map some do
+          throwError "whole-callable observation changed its original ordered prerequisite actions"
+        let #[sent] := events.filter (fun event =>
+          (event.getObjValAs? String "operation").toOption == some address)
+          | throwError "whole-callable observation did not dispatch its own operation once"
         let .ok request := sent.getObjVal? "request" | throwError "the request was not retained"
         let sourceWire ← realizeCallableEndpoint harness trace descriptor source true (some context)
         let targetWire ← realizeCallableEndpoint harness trace descriptor target false (some context)
+        let sourceWire ← realizeObjectObservation harness trace sourceWire
+        let targetWire ← realizeObjectObservation harness trace targetWire
         if let some inverse := inverse then
           let .ok invocation := Backend.PresentationInvocation.decode request
             | throwError "a presentation direction lost its complete comparison invocation"
@@ -78,14 +106,16 @@ private def exercise (trace : Trace) (formal : Expr) (context : CategoryContext)
             throwError "the component changed its exact ordered constructor path"
         let retained ← realizeArrowObservation harness trace actual
         unless retained.json == actual.json && retained.owner? == actual.owner? &&
-            (← calls.get).size == 1 do
+            (← calls.get).size == expectedOperations.size do
           throwError "a returned complete callable replayed its descriptor"
         let arrow ← mkAppOptM ``CategoryTheory.Arrow.mk
           #[some (← CategoryContext.carrier context), some (← CategoryContext.dictionary context),
             some source, some target, some formal]
         Trace.record (some trace) arrow (.contextualArrow context formal source target)
         let wrapper ← realize harness trace "the returned callable in its complete Arrow" arrow
-        unless wrapper.owner? == actual.owner? && containsData wrapper.json actual.json do
+        let wrapper ← realizeObjectObservation harness trace wrapper
+        unless wrapper.owner? == actual.owner? && containsData wrapper.json actual.json &&
+            (← calls.get).size == expectedOperations.size do
           throwError "the complete Arrow detached the actual returned callable or owner"
     finally harness.stop
 
@@ -112,31 +142,24 @@ run_elab do
   let state ← registryState
   let some cell := state.cells.find? (·.id.raw == "cmp.rings.carrier")
     | throwError "the accepted constructor comparison is absent"
-  let some rings := state.categories.find? (·.id == CategoryId.rings)
-    | throwError "the selected comparison source category is absent"
+  let .ok receiverSyntax := Parser.runParserCategory (← getEnv) `cas_term "id(ℤ in Rings)"
+    | throwError "the selected comparison source map did not parse"
   let trace ← Trace.new
-  let original ← (object state "ℤ" #[] (some rings)).run { trace := some trace }
-  let original ← (semanticObject original).run {}
-  let context ← CategoryContext.ofNamed rings original
-  let identity ← mkAppM ``CategoryTheory.CategoryStruct.id #[original]
-  Trace.record (some trace) identity (.contextualIdentity context original)
-  let receiver ← mkAppOptM ``CategoryTheory.Arrow.mk
-    #[some (← CategoryContext.carrier context), some (← CategoryContext.dictionary context),
-      some original, some original, some identity]
-  Trace.record (some trace) receiver (.contextualArrow context identity original original)
   let constructors := #[ConstructorId.arrow]
+  let selected ← (Language.selectedCell {} cell.id.raw #[] receiverSyntax constructors false).run
+    { trace := some trace }
+  let (formal, _, _, context, _, _) ← (morphismContext selected).run {}
+  let some (.cellComponent id parameters retainedConstructors inverse receiver) ← trace.node? formal
+    | throwError "the selected comparison lost its complete producer record"
+  unless id == cell.id && parameters.isEmpty && retainedConstructors == constructors && !inverse do
+    throwError "the selected comparison changed its original parameters or direction"
   let action ← CellAction.select cell #[] constructors false receiver
-  let formal ← CellAction.component action receiver
-  let (source, target) ← CellAction.objects action receiver
-  Trace.record (some trace) source (.cellEndpoint cell.id #[] constructors false false receiver)
-  Trace.record (some trace) target (.cellEndpoint cell.id #[] constructors false true receiver)
-  Trace.record (some trace) formal (.cellComponent cell.id #[] constructors false receiver)
   let address := cell.componentAddress constructors
   let some form := state.componentForm? address
     | throwError "the constructed component has no published complete request form"
   let some category := state.categories.find? (·.id == form.category)
     | throwError "the constructed component's full category is not registered"
-  exercise trace formal { expression := action.target, bundle := action.targetBundle }
-    address category.id.raw none constructors
+  exercise trace formal context address category.id.raw none constructors
+    #[action.leftRoute, action.rightRoute]
 
 end

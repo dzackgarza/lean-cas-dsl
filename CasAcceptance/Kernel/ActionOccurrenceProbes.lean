@@ -81,8 +81,9 @@ run_elab do
       | throwError "the object action lost its public request"
     unless (request.getObjVal? "receiver").toOption == some supplied do
       throwError "a deferred object action replaced its captured source occurrence from the cache"
-    let receipts ← harness.actions.get
-    unless receipts.size == 1 && sameActionOperand receipts[0]!.input original do
+    let #[receipt] ← harness.actions.get
+      | throwError "the object action receipt replaced its exact original input"
+    unless sameActionOperand receipt.input original do
       throwError "the object action receipt replaced its exact original input"
     let reused ← realizeObjectObservation harness trace actual
     unless reused.fragment == actual.fragment && (← calls.get).size == 1 do
@@ -92,14 +93,17 @@ run_elab do
 -- A retained route keeps its addressed result before and after observation.
 -- Equal mathematical sources have independent producer occurrences; repeating
 -- one pending selection must not capture a later ambient source replacement.
+-- The existing ring-to-multiplicative-monoid functor supplies a structural route.
 run_elab do
   let state ← registryState
-  let some entry := state.functors.find? (·.id.raw == "fun.sets.list")
-    | throwError "the retained-route control lost its existing list action"
-  let some row := state.objects.find? (·.id.raw == "obj.sets.fin")
+  let some entry := state.functors.find? (·.id.raw == "fun.rings.multiplicative_monoid")
+    | throwError "the retained-route control lost its existing structural action"
+  let some row := state.objects.find? (·.id.raw == "obj.rings.integers_mod")
     | throwError "the retained-route control lost its existing finite-object declaration"
-  let some sets := state.categories.find? (·.id == CategoryId.sets)
-    | throwError "the retained-route control lost its complete set category"
+  let some targetCategory := state.categories.find? (·.id == CategoryId.monoids)
+    | throwError "the retained-route control lost its complete target category"
+  unless entry.structural do
+    throwError "the retained-route control requires an accepted structural action"
   let trace ← Trace.new
   let edge := EdgeRef.functor entry.id
   let action ← Semantic.edgeFunctor state edge
@@ -111,11 +115,11 @@ run_elab do
     let selections ← sources.mapM fun source => do
       let original ← realizeUnobserved preparing trace "the retained route's original source" source
       let image ← Semantic.objOf action source
-      let (formal, applications) ← (Language.checkedRouteAction state sets.id sets.id
+      let (formal, applications) ← (Language.checkedRouteAction state row.category targetCategory.id
         #[edge] source (← inferType image)).run { trace := some trace }
-      let some (.retainedRoute sourceCategory targetCategory route retained receiver) ← trace.node? formal
+      let some (.retainedRoute sourceCategory targetId route retained receiver) ← trace.node? formal
         | throwError "the route control did not select the retained-route evaluator"
-      unless sourceCategory == sets.id && targetCategory == sets.id && route == #[edge] &&
+      unless sourceCategory == row.category && targetId == targetCategory.id && route == #[edge] &&
           retained == applications && receiver == source && (Trace.producerAnchor? formal).isSome do
         throwError "the retained route changed its exact selected construction"
       let pending ← realizeUnobserved preparing trace "the addressed pending route" formal
@@ -233,8 +237,9 @@ run_elab do
     unless (objectRequest.getObjVal? "receiver").toOption == some supplied &&
         retained == mapData supplied do
       throwError "a deferred map action replaced its captured callable or endpoint occurrence from the cache"
-    let receipts ← harness.actions.get
-    unless receipts.size == 2 && actual.owner? == receipts[1]!.result.owner? &&
+    let #[_, receipt] ← harness.actions.get
+      | throwError "the actual whole map lost its original supplying session"
+    unless actual.owner? == receipt.result.owner? &&
         actual.owner?.isSome do
       throwError "the actual whole map lost its original supplying session"
     let reused ← realizeArrowObservation harness trace actual
@@ -286,8 +291,9 @@ run_elab do
       | throwError "the parameterized action lost its request"
     unless (request.getObjVal? "args").toOption == some (Json.arr #[originalScalar.json]) do
       throwError "a deferred action replaced its captured complete parameter occurrence from the cache"
-    let receipts ← harness.actions.get
-    unless receipts.size == 1 && receipts[0]!.parameterInputs.any
+    let #[receipt] ← harness.actions.get
+      | throwError "the parameterized action receipt lost its exact original scalar occurrence"
+    unless receipt.parameterInputs.any
         (fun parameter => sameActionOperand parameter originalScalar) do
       throwError "the parameterized action receipt lost its exact original scalar occurrence"
   finally harness.stop
