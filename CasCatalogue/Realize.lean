@@ -1307,6 +1307,13 @@ partial def capturePointCallable (h : Harness) (trace : Trace) (input : Wire)
 partial def observeIntrinsicAssembly (h : Harness) (trace : Trace) (wire : Wire)
     (assembly : IntrinsicAssembly) (registeredOnly : Bool := false) : TermElabM Wire := do
   let h := { h with demandObjectActions := true }
+  -- Restricted preparation may retain pending children. It neither reads nor
+  -- installs an unrestricted completion in the actual invocation owner.
+  if !registeredOnly then
+    if let some prepared ← intrinsicInvocationReference? h trace wire assembly then
+      let some captured := prepared.capturedInvocation
+        | throwError "the intrinsic preparation omitted its retained invocation"
+      return ← observeCapturedInvocation h trace prepared captured
   observeIntrinsicAssemblyWith
     (fun role input => match role with
       | .map => realizeArrowObservation h trace input registeredOnly
@@ -1996,6 +2003,60 @@ partial def pointAtAdmissionDomain (h : Harness) (trace : Trace) (wire : Wire)
     #[(comparisonTarget, argumentDomain)]
   retainCallableEndpoints result comparisonDomain argumentTarget inverseContext
 
+/-- Instantiate the already selected callable object at its original endpoint
+slots. Local slots retain declaration positions even when the two actual formal
+objects coincide; substituting them never selects an equal carrier or packet. -/
+partial def wholeCallableOwnerParameters (wire : Wire) (source target : Expr)
+    (context : CategoryContext) (owner : DeclaredAdmission.Plan)
+    (sourceWire targetWire : Wire) :
+    TermElabM (DeclaredAdmission.Plan × Array (Nat × Wire)) := do
+  CategoryContext.checkMorphism context wire.value source target
+  let fullHom ← context.hom source target
+  let full := ← withoutModifyingState (withTransparency .all <|
+    isDefEq owner.application.value fullHom)
+  unless full do
+    unless ← callableHasSetsContext context source do
+      throwStratum .noImplementation
+        "the selected callable object has no full-context function projection"
+    unless ← withoutModifyingState (withTransparency .all <|
+        isDefEq owner.application.value (← mkArrow source target)) do
+      throwStratum .noImplementation
+        "the selected callable object changed its original complete Hom"
+  let carrier ← context.carrier
+  let (application, slots) ← withLocalDeclD `sourceSlot carrier fun sourceSlot =>
+    withLocalDeclD `targetSlot carrier fun targetSlot => do
+      let expected ← if full then context.hom sourceSlot targetSlot
+        else mkArrow sourceSlot targetSlot
+      let application ← DirectConstruction.instantiate owner.entry.declaration #[]
+      let some projections ← DeclaredAdmission.projectionPath? application.value expected
+          (!owner.projections.isEmpty)
+        | throwStratum .noImplementation
+            "the retained callable object has no declared parameter interface for its endpoints"
+      unless projections.size == owner.projections.size &&
+          (projections.zip owner.projections).all (fun (a,b) =>
+            a.structureName == b.structureName && a.field == b.field) do
+        throwError "the retained callable object changed its selected projection"
+      let application ← DirectConstruction.close application
+      let slots := application.explicit.map fun argument =>
+        if argument == sourceSlot then some true
+        else if argument == targetSlot then some false else none
+      let instantiate := fun (value : Expr) =>
+        value.replaceFVars #[sourceSlot, targetSlot] #[source, target]
+      let application : DirectConstruction.Application := {
+        value := instantiate application.value
+        arguments := application.arguments.map instantiate
+        explicit := application.explicit.map instantiate }
+      pure (application, slots)
+  unless ← withoutModifyingState (withTransparency .all <|
+      isDefEq application.value owner.application.value) do
+    throwError "the retained callable object changed its complete selected owner"
+  let application ← DirectConstruction.close application
+  let sourceWire ← forwardRetainedValue sourceWire source
+  let targetWire ← forwardRetainedValue targetWire target
+  let overrides := (slots.zipIdx).filterMap fun (slot,index) =>
+    slot.map (fun source => (index, if source then sourceWire else targetWire))
+  return ({ owner with application }, overrides)
+
 /-- Regard the actual whole callable as one point of its already selected full
 function/Hom object. The constant formal point supplies only its type; every
 computational byte and opaque occurrence still comes from the original wire. -/
@@ -2003,6 +2064,12 @@ partial def wholeCallablePoint (h : Harness) (trace : Trace) (wire : Wire)
     (source target domain : Expr) (context : CategoryContext)
     (owner : DeclaredAdmission.Plan) : TermElabM Wire := do
   CategoryContext.checkMorphism context wire.value source target
+  let retainedTarget := (← h.results.get)[owner.application.value]?
+  let complete ← captureCompleteCallable h trace wire context
+  let some (sourceWire, targetWire) ← retainedCallableEndpoints? complete context
+    | throwError "the whole callable lost its selected endpoint occurrences"
+  let (owner, overrides) ← if retainedTarget.isSome then pure (owner, #[])
+    else wholeCallableOwnerParameters wire source target context owner sourceWire targetWire
   let selected := owner.application.value
   let value ← if ← withoutModifyingState (withTransparency .all <|
       isDefEq (← inferType wire.value) selected) then pure wire.value
@@ -2024,8 +2091,17 @@ partial def wholeCallablePoint (h : Harness) (trace : Trace) (wire : Wire)
   CategoryContext.checkMorphism pointContext formal one selected
   discard <| Semantic.recordNamedObject selected (some trace)
   let domainWire ← realizeEndpoint h trace "the whole-callable point's actual global domain" one
-  let targetWire ← realizeEndpoint h trace "the complete registered callable object" selected
-  let complete ← captureCompleteCallable h trace wire context
+  let targetWire ← match retainedTarget with
+    | some retained =>
+        captureDeclaredObjectInput (← forwardRetainedValue retained selected) pointContext
+    | none => do
+        let parameters ← capturedCallableParameters h trace owner.application.explicit overrides
+        let templates := parameters.flatMap (·.templates)
+        realizeFreshWithParameters
+          (fun _ _ requested => do
+            unless requested == owner.application.explicit do
+              throwError "the whole callable object changed its selected parameter positions"
+            pure templates) h trace "the complete registered callable object" selected
   let template : ActionDataTemplate := .wire .map complete
   let (data, children) ← renderCapturedActionData template
   let dependencies := #[wire] ++ children ++ #[domainWire, targetWire]
@@ -3084,11 +3160,14 @@ partial def realizeUnobserved (h : Harness) (trace : Trace) (what : String) (e :
     if let some wire := (← h.results.get)[e]? then return wire
   realizeFresh h trace what e
 
-/-- Supply the same recursive operations to the separately compiled node evaluator. -/
-partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr) :
+/-- Supply an initial producer's already fixed parameter reader to the common
+node evaluator. Recursive producers keep their own ordinary preparation boundary. -/
+partial def realizeFreshWithParameters
+    (reader : Harness → Trace → Array Expr → TermElabM (Array ActionDataTemplate))
+    (h : Harness) (trace : Trace) (what : String) (e : Expr) :
     TermElabM Wire :=
   realizeFreshWith elementFragment realizedParameterData realizedEdgeData capturedEdgeData
-    capturedParameterData
+    reader
     (fun h trace parameters overrides => capturedCallableParameters h trace parameters overrides)
     (fun h trace wire address application parameters descriptor invocationParameters context endpoints inverse =>
       captureSelectedCallable h trace wire address application parameters descriptor
@@ -3110,6 +3189,11 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
     structuredProjection captureConstructionLeg retainedLiftExecution
     composedLiftExecution captureDirectLiftInvocation captureLiftField captureLiftFactor realize realizeUnobserved
     realizeFresh h trace what e
+
+/-- Supply the same recursive operations to the separately compiled node evaluator. -/
+partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr) :
+    TermElabM Wire :=
+  realizeFreshWithParameters capturedParameterData h trace what e
 
 /-- An accepted operation's actual owner is the declaration argument preceding
 its numeral parameters. Its set-valued source and result do not select that owner. -/
@@ -3834,6 +3918,15 @@ partial def observeCapturedInvocation (h : Harness) (trace : Trace) (wire : Wire
     throwStratum .unavailable "the captured computation has cyclic operand dependencies"
   let active := { h with invocationStack := h.invocationStack.push captured.occurrence }
   let (result, recordFields) : Wire × Option RetainedResultFields ← match record.captured.interface with
+    | .intrinsic selected => do
+        let active := { active with demandObjectActions := true }
+        let result ← observeIntrinsicAssemblyWith
+          (fun role input => match role with
+            | .map => realizeArrowObservation active trace input
+            | _ => observeActionDataWire active trace role input)
+          (fun input context => capturedMapEndpoints active trace input context true)
+          active record.input selected
+        pure (result, none)
     | .callable selected => do
       pure (← observeSelectedCallable active trace record.input selected, none)
     | .structured selected => do

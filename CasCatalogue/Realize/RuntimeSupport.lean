@@ -587,6 +587,7 @@ structure SelectedLiftFactorInvocation where
 /-- Result protocols share occurrence identity and completion reuse. Protocol
 kind does not assert that any computational data has been received. -/
 inductive CapturedInvocationInterface where
+  | intrinsic (selected : IntrinsicAssembly)
   | callable (selected : SelectedCallableInvocation)
   | structured (selected : SelectedStructuredInvocation)
   | projection (selected : SelectedStructuredProjection)
@@ -1064,6 +1065,7 @@ def retainedSnapshotWire (snapshot : WireSnapshot) : Wire := {
   morphismFramed := snapshot.morphismFramed, morphismFraming := snapshot.morphismFraming }
 
 def CapturedInvocationInterface.formal : CapturedInvocationInterface → Expr
+  | .intrinsic selected => selected.formal
   | .callable selected => selected.formal
   | .structured selected => selected.formal
   | .projection selected => selected.formal
@@ -1075,6 +1077,7 @@ def CapturedInvocationInterface.formal : CapturedInvocationInterface → Expr
   | .liftFactor selected => selected.formal
 
 def CapturedInvocationInterface.fragment : CapturedInvocationInterface → DataOwnership.Data
+  | .intrinsic selected => selected.fragment
   | .callable selected => selected.fragment
   | .structured selected => selected.fragment
   | .projection selected => selected.fragment
@@ -1086,6 +1089,7 @@ def CapturedInvocationInterface.fragment : CapturedInvocationInterface → DataO
   | .liftFactor selected => selected.fragment
 
 def CapturedInvocationInterface.result : CapturedInvocationInterface → IntrinsicResultInterface
+  | .intrinsic selected => selected.result
   | .callable selected => .map selected.context
   | .structured selected => .object selected.context
   | .projection selected => selected.result
@@ -1102,6 +1106,7 @@ def CapturedInvocationInterface.context? (selected : CapturedInvocationInterface
 def CapturedInvocationInterface.reanchor (selected : CapturedInvocationInterface)
     (formal : Expr) : CapturedInvocationInterface :=
   match selected with
+  | .intrinsic selected => .intrinsic { selected with formal }
   | .callable selected => .callable { selected with formal }
   | .structured selected => .structured { selected with formal }
   | .projection selected => .projection { selected with formal }
@@ -1115,7 +1120,7 @@ def CapturedInvocationInterface.reanchor (selected : CapturedInvocationInterface
 /-- A field alias keeps the original computational occurrence. New replies and
 newly projected constructor data retain the owning computation's receipt. -/
 def CapturedInvocationInterface.retainsResultOccurrence : CapturedInvocationInterface → Bool
-  | .recordProjection _ => true
+  | .intrinsic _ | .recordProjection _ => true
   | .projection selected => !selected.inputOccurrences.isEmpty
   | .callable _ | .structured _ | .routed _ | .prescribed _ |
       .directLift _ | .liftField _ | .liftFactor _ => false
@@ -1775,6 +1780,46 @@ partial def actionTemplateInputs (template : ActionDataTemplate) : Array Wire :=
   | .object fields => fields.flatMap (fun (_, child) => actionTemplateInputs child)
   | .ctor _ children | .array children => children.flatMap actionTemplateInputs
 
+/-- The producer's explicit typed children, including retained framing context.
+This traversal reads no expression cache and allocates no service handles. A
+captured invocation's private ID already selects its canonical input table. -/
+def retainedWireInputs (wire : Wire) : Array Wire :=
+  wire.productComponents ++ wire.proofSources.toArray.map retainedSnapshotWire ++
+    (wire.morphismFraming.toArray.flatMap fun frame =>
+      #[frame.input, frame.source, frame.target] ++
+        frame.comparisons.toArray.flatMap (fun (a, b) => a.toArray ++ b.toArray)) ++
+    (wire.actionRecipe.toArray.flatMap fun recipe =>
+      #[recipe.original] ++ actionTemplateInputs recipe.descriptor ++
+        recipe.endpoints.toArray.flatMap (fun (a, b) => #[a, b]) ++
+        recipe.imageEndpoints.toArray.flatMap (fun (a, b) => #[a, b])) ++
+    (wire.intrinsicAssembly.toArray.flatMap fun assembly =>
+      actionTemplateInputs assembly.template ++
+        assembly.maps.flatMap (fun fields => #[fields.source, fields.target, fields.callable]) ++
+        assembly.equalObjects.flatMap (fun (a, b) => #[a, b])) ++
+    (wire.callableEndpoints.toArray.flatMap fun endpoints => #[endpoints.source, endpoints.target]) ++
+    (wire.pointOrigin.toArray.flatMap fun origin =>
+      #[origin.source, origin.target] ++ (match origin.recipe with
+        | .element owner inputs => #[owner] ++ inputs
+        | .product _ _ first second _ _ => #[first, second]
+        | .alias original => #[original])) ++
+    (wire.endpointPresentation.toArray.flatMap fun presentation =>
+      presentation.maps.toArray.flatMap (fun (a, b) => #[a, b]) ++
+        presentation.namedRefinement.toArray.flatMap (fun origin =>
+          #[origin.source] ++ (origin.templates ++ origin.descriptors).flatMap actionTemplateInputs))
+
+/-- Complete selection equality deliberately ignores unpositioned service
+indices. Reusing one actual production additionally preserves every original
+typed child's exact handle graph; equal public packets cannot merge requests. -/
+partial def sameRetainedServiceHandles (left right : Wire) : Bool :=
+  left.serviceHandles == right.serviceHandles && Id.run do
+    let first := retainedWireInputs left
+    let second := retainedWireInputs right
+    return first.size == second.size &&
+      (first.zip second).all (fun (a, b) => sameRetainedServiceHandles a b)
+
+def sameIntrinsicObservationInput (left right : Wire) : Bool :=
+  sameCompleteWireContext left right && sameRetainedServiceHandles left right
+
 /-- Logical validation annotations do not change an intrinsic assembly's
 execution role. Retained wrappers remain distinct because they suppress demand. -/
 partial def actionTemplateExecution : ActionDataTemplate → ActionDataTemplate
@@ -2389,6 +2434,30 @@ def retainCapturedInvocation (h : Harness) (wire : Wire)
   let captured : CapturedInvocation := { occurrence, interface }
   h.invocations.modify (·.push { input := wire, captured })
   return { wire with capturedInvocation := some captured }
+
+/-- An interpreted intrinsic producer joins the existing invocation owner.
+Only its checked administrative anchor can recover a preparation, and its
+complete original input graph must still agree. Unanchored synthetic assemblies
+and already captured producers keep their own existing observation path. -/
+def intrinsicInvocationReference? (h : Harness) (trace : Trace) (wire : Wire)
+    (assembly : IntrinsicAssembly) : TermElabM (Option Wire) := do
+  if wire.capturedInvocation.isSome then return none
+  let some _ := Trace.producerAnchor? wire.value | return none
+  let some node ← trace.node? wire.value
+    | throwStratum .unavailable "the intrinsic observation lost its original typed producer"
+  Trace.checkProducerRecord wire.value node
+  let some current ← currentIntrinsicAssembly? wire
+    | throwStratum .unavailable "the intrinsic observation lost its current complete assembly"
+  unless sameIntrinsicAssembly (some current) (some assembly) &&
+      sameIntrinsicObservationInput wire { wire with intrinsicAssembly := some assembly } do
+    throwStratum .unavailable "the intrinsic observation changed its selected assembly"
+  let records := (← h.invocations.get).filter fun record =>
+    (match record.captured.interface with | .intrinsic _ => true | _ => false) &&
+      record.input.value == wire.value && sameIntrinsicObservationInput record.input wire
+  match records with
+  | #[] => return some (← retainCapturedInvocation h wire (.intrinsic current))
+  | #[record] => return some { record.input with capturedInvocation := some record.captured }
+  | _ => throwStratum .unavailable "the intrinsic producer has several canonical preparations"
 
 /-- A migrated use is identified by its original typed producer node. This
 predicate does not infer an executable producer from a reduced formal value. -/
@@ -12589,6 +12658,12 @@ partial def prospectiveReservedWire (wire : Wire) : Array Json :=
 
 partial def prospectiveReservedInvocation (selected : CapturedInvocationInterface) : Array Json :=
   match selected with
+  | .intrinsic selected => #[selected.fragment.json] ++
+      prospectiveReservedTemplate selected.template ++
+      selected.maps.flatMap (fun fields =>
+        #[fields.source, fields.target, fields.callable].flatMap prospectiveReservedWire) ++
+      selected.equalObjects.flatMap (fun (a, b) =>
+        prospectiveReservedWire a ++ prospectiveReservedWire b)
   | .directLift selected => #[selected.fragment.json] ++
       selected.operands.flatMap (fun operand => prospectiveReservedWire operand.wire)
   | .liftField selected => #[selected.fragment.json] ++ prospectiveReservedWire selected.parent
@@ -13175,6 +13250,10 @@ partial def prospectiveInvocationWith (reader : ProspectiveReader) (wire : Wire)
     activeInvocations := state.activeInvocations.push captured.occurrence }
   try
     let prospectiveData ← match record.captured.interface with
+      | .intrinsic selected => do
+          let result ← observeIntrinsicAssemblyWith (prospectiveWireWith reader) reader.endpoints
+            reader.inspect record.input selected
+          pure { result }
       | .callable selected => prospectiveCallableWith reader record.input selected record.captured
       | .structured selected => prospectiveUniversalWith reader record.input selected record.captured
       | .projection selected => prospectiveProjectionWith reader record.input selected

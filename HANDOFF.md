@@ -45,12 +45,10 @@ with exact tree `343b1c6b269d1053f4aa83f45d665417c0403a80`.
 `bilin_module.forget` may use generic record projection and is not declared a
 missing leaf merely because it lacks a direct registration.
 
-With that frozen leaf, the unchanged first question makes 29 successful backend
-calls through the complete module carrier route. It then reports
+With that frozen leaf, the earlier unchanged first question made 29 successful backend
+calls through the complete module carrier route. It then reported
 `NoImplementation: the observed callable has no retained action to the selected
-comparison's complete semantic endpoints`. This is still not a mathematical
-pass. Repeated action calls with the same public descriptor alone do not prove a
-memoization defect; their complete retained producer inputs must be compared.
+comparison's complete semantic endpoints`.
 
 The subsequent source `278fd420` repairs the previously failing whole-function
 restaging control: the shared selected-callable owner exposes the exact endpoints
@@ -58,9 +56,60 @@ it already stores, and a new whole-callable point supplies its actual admission
 domain explicitly and retains its original service operand. Both production
 artifact builds and the unchanged whole-function/returned-callable controls pass,
 including the protected owner, inventory and category-dictionary negatives.
-The original first question still reports the same frame gap after 29 dispatches
-on those fresh artifacts. Its exact failing side/producer is under investigation;
-the restaging correction is not claimed to resolve it.
+The original first question still reported the same frame gap after 29 dispatches
+on those fresh artifacts; the restaging correction did not resolve it.
+
+The exact retained-state replay identified the shared cause. Repeated actual
+observations of the same original module producer allocated new service handles
+for the same complete retained ring child. The strict action cache then treated
+those inputs as different requests, producing different carriers for the
+terminal map's parameter, source endpoint and outer frame. No endpoint comparison
+was selected at that failing boundary.
+
+Actual anchored intrinsic observations now use the existing invocation owner.
+The checked producer anchor, complete original assembly and all nested retained
+handles select one preparation and its reusable result. A changed child graph
+cannot be supplied under an unchanged input. Distinct producers remain distinct;
+restricted and private prospective reads do not install an unrestricted result.
+Existing completion, liveness and shutdown checks remain responsible for the
+receipt. Endpoint and action-cache equality guards are unchanged.
+
+Both production modules compiled and the new `IntrinsicObservationReuseProbes`
+passed its repeated-original, distinct-producer, changed-child, supplied-assembly,
+private-read, restricted-read, expired-owner and shutdown checks. The unchanged
+first RX-LIFT question then passed the former frame boundary and executed ring
+multiplication and negation, making 14 successful dispatches. It stopped before
+the lift with `ambiguous realization: the reduced parameter retains several
+distinct accepted source actions`. All 22 preceding bindings, 104 trace nodes and
+the 200000-heartbeat budget were unchanged.
+
+That parameter failure was traced to `wholeCallablePoint`. Its callable already
+retained the selected source and target, but reconstructing its whole function
+object reduced those endpoints to carriers. Several legitimate source actions
+then satisfied the reconstructed parameter. The repair keeps the same accepted
+owner declaration, projection chain and full category context, identifies its
+endpoint parameter positions, and supplies the exact original endpoint Wires to
+the ordinary object producer. A previously selected complete function/Hom object
+keeps priority. The reduced-parameter ambiguity guard is unchanged.
+
+The final `Realize:olean` build and unchanged whole-function controls passed.
+The intrinsic-occurrence and returned-callable controls also passed. Two existing
+developer fixtures needed technical repairs: checked Wire indexing in
+`ActionCacheOccurrenceProbes` and source-instantiated polymorphic action data in
+`NestedOwnerAdmissionProbes`. Both passed with every original assertion retained.
+`SessionOwnershipProbes` still has the exact earlier `b956a874` failure about
+replaying a descriptor or detaching its owner; it is not counted as passing.
+
+The execution environment reset before the original first question could run
+against the final parameter repair. The recovered production files exactly match
+their successfully compiled source hashes: `Realize.lean`
+`574a6f9319e093a7e77fcc3ea74f6699ed05263d3b4de3ae38652e0688f8be33`
+and `RuntimeSupport.lean`
+`d742e84778325270d42011afa7b4f317be4618b3bc4e23fec6e6ca46e534498a`.
+The extra scratch endpoint-substitution control passed before the reset, but its
+complete body was not recoverable and is not supplied as a reproducible control
+in this checkpoint. The original RX-LIFT rerun remains required; no mathematical
+pass or closure of #66/#69/#24 is claimed.
 
 Intrinsic-occurrence and arrow-framing controls passed the preceding compiled
 repair. Whole-operation observation reproduced its prior CI failure.

@@ -58,8 +58,11 @@ run_elab do
       !first.serviceHandles.isEmpty && first.serviceHandles != second.serviceHandles do
     throwError "the action-cache fixture did not isolate distinct retained output occurrences"
   let retained ← harness.serviceOperands.get
-  unless retained[first.serviceHandles[0]!]!.value == firstProducer &&
-      retained[second.serviceHandles[0]!]!.value == secondProducer do
+  let some firstOriginal := retained[first.serviceHandles[0]!]?
+    | throwError "the first returned packet lost its retained input slot"
+  let some secondOriginal := retained[second.serviceHandles[0]!]?
+    | throwError "the second returned packet lost its retained input slot"
+  unless firstOriginal.value == firstProducer && secondOriginal.value == secondProducer do
     throwError "the returned packets lost their respective selected producer inputs"
 
   -- Re-retention and explicit input-reference decoding preserve the actual

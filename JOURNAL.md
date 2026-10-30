@@ -1,5 +1,32 @@
 # Journal
 
+## 2026-10-30 — Retain original intrinsic and whole-callable inputs
+
+Repeated actual reads of one original intrinsic producer previously allocated
+different service handles for the same complete retained child. The exact action
+cache then produced different carriers for a callable's parameter and endpoints.
+Actual anchored assemblies now enter the existing checked invocation lifecycle,
+which retains one result for the same complete producer and input graph. The new
+intrinsic-observation control reproduced the old failure and passes the repaired
+source, including separate producers, changed nested handles, supplied-assembly
+substitution, private/restricted reads, expired owners and shutdown. It is included
+in the existing candidate workflow.
+
+The unchanged first RX-LIFT question passed the former frame failure and performed
+ring multiplication/negation. It then reported an ambiguous reduced-parameter
+source action after 14 dispatches. The exact caller was `wholeCallablePoint`,
+which had retained endpoints but reduced their types while reconstructing the
+whole function object. The repaired boundary supplies the same owner declaration
+with those original endpoint occurrences in their declared positions. It keeps
+an existing selected whole object and the complete category context; no ambiguity
+or endpoint guard was weakened.
+
+The final production modules and existing whole-function controls compiled and
+passed before the environment reset. The restored production source is byte-for-byte
+identical to those compiled files, as recorded in HANDOFF.md. The original question
+has not run against the final parameter repair. The separate baseline session-owner
+failure remains open; #66/#69 and independent #24 acceptance are not complete.
+
 ## 2026-10-30 — Close the Lean feedback-loop task (#83)
 
 [#83 is closed](https://github.com/dzackgarza/lean-cas-dsl/issues/83#issuecomment-6509244748).

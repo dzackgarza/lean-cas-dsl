@@ -46,8 +46,7 @@ run_elab do
     | throwError "the existing nested ownership action is absent"
   let some finite := state.objects.find? (·.id.raw == "obj.sets.fin")
     | throwError "the existing product component is absent"
-  let action ← instantiateMVars (← Semantic.asFunctor
-    (← Semantic.edgeFunctor state (.functor entry.id)))
+  let action ← Semantic.asFunctor (← Semantic.edgeFunctor state (.functor entry.id))
   let root : System.FilePath := (← IO.getEnv "CAS_OWNERSHIP_PROTOCOL_DIR").getD
     ("CasAcceptance" / "Strata" : System.FilePath).toString
   let manifest : Manifest := {
@@ -73,6 +72,8 @@ run_elab do
     let second ← Semantic.object finite #[← `(3)] (some trace)
     let first ← realize prepare trace "the first independently fixed source" first
     let second ← realize prepare trace "the second independently fixed source" second
+    discard <| Semantic.objOf action first.value
+    let action ← instantiateMVars action
     let source ← executeObjectEdge (scope "nested-source") trace (.functor entry.id) action first
     let foreign ← executeObjectEdge (scope "nested-foreign") trace (.functor entry.id) action second
     unless source.owner?.map Prod.fst == some "nested-source" &&
