@@ -12,6 +12,9 @@ fixed RX10 equality or its required reindexed callable observation. -/
 
 open Lean Meta Elab Term CasCatalogue CasCatalogue.Language CasCatalogue.Realize
 
+private def node (tag : String) (arguments : Array Json) : Json :=
+  Json.mkObj [("ctor", toJson tag), ("args", Json.arr arguments)]
+
 private partial def containsData (data expected : Json) : Bool :=
   data == expected || match data with
     | .arr children => children.any (containsData · expected)
@@ -38,6 +41,7 @@ run_elab do
   discard <| Semantic.recordNamedObject source (some trace)
   discard <| Semantic.recordNamedObject target (some trace)
   let mut applications : Array Expr := #[]
+  let mut points : Array Expr := #[]
   for numeral in #[0, 1] do
     let .ok parsed := Parser.runParserCategory (← getEnv) `cas_term s!"{numeral} in Fin(4)"
       | throwError "the independent point input did not parse"
@@ -50,6 +54,7 @@ run_elab do
     Trace.record (some trace) application
       (.morphismComposition sets.id point formal domain source target)
     applications := applications.push application
+    points := points.push point
   let manifest : Manifest := {
     backends := #[{
       name := "session-probe"
@@ -74,8 +79,36 @@ run_elab do
       | throwError "the actual process reply did not retain its host connection identity"
     unless actual.value == formal && (← observations.get).size == 1 do
       throwError "whole-callable materialization changed its formal value or dispatch count"
-    for application in applications do
-      discard <| realize harness trace "a subsequent computation with the returned callable" application
+    -- Later computations select the returned occurrence explicitly. Replaying
+    -- the bare mathematical expression would ask for a new callable, not reuse
+    -- this result. The same original point applications still fix their types.
+    let callablePath : DataOwnership.Path := #[.field "args", .index 2]
+    let argumentPath : DataOwnership.Path := #[.field "args", .index 6]
+    let callableRef := Backend.inputRef (publicServiceInputPath callablePath)
+    let argumentRef := Backend.inputRef (publicServiceInputPath argumentPath)
+    let scopeFor (active : Harness) (callable : Wire) (argument : Wire) :
+        TermElabM ServiceScope := do
+      return {
+        harness := active, trace, references := #[], known := #[]
+        inputReferences := #[(callablePath, callable), (argumentPath, argument)]
+        positionedInputs := true, operands := (← IO.mkRef #[]), backend := "session-probe" }
+    let consume (active : Harness) (callable : Wire) (point application : Expr) :
+        TermElabM Unit := do
+      let argument ← realize active trace "the original independent point input" point
+      let scope ← scopeFor active callable argument
+      let invocation : Backend.PointInvocation := {
+        operation := row.id.raw, parameters := #[toJson (4 : Nat)]
+        arrow := callableRef
+        domain := node "morphismEndpoint" #[argumentRef, toJson "source"]
+        source := node "morphismEndpoint" #[callableRef, toJson "source"]
+        target := node "morphismEndpoint" #[callableRef, toJson "target"]
+        argument := argumentRef }
+      let prepared ← prepareServiceRequest scope row.id.raw descriptor.form invocation.encode
+      unless ← isDefEq prepared.result application do
+        throwError "retained-callable consumption changed its original complete point application"
+      discard <| executeServiceRequest scope row.id.raw descriptor.form prepared
+    for (point, application) in points.zip applications do
+      consume harness actual point application
     let calls ← observations.get
     unless calls.size == 3 do
       throwError "subsequent distinct point computations did not each use the returned callable"
@@ -89,11 +122,21 @@ run_elab do
     let context ← CategoryContext.ofNamed sets source
     let structured ← mkAppM ``CategoryTheory.Arrow.mk #[formal]
     Trace.record (some trace) structured (.contextualArrow context formal source target)
-    let structuredWire ← realize harness trace "the complete structured wrapper" structured
+    let scope ← scopeFor harness actual
+      (← realize harness trace "the original independent point input" points[0]!)
+    let sourceRef := node "morphismEndpoint" #[callableRef, toJson "source"]
+    let targetRef := node "morphismEndpoint" #[callableRef, toJson "target"]
+    let structuredWire ← serviceWire scope
+      (← serviceObject scope (node "arrow" #[sourceRef, targetRef, callableRef]))
+    unless ← isDefEq structuredWire.value structured do
+      throwError "the retained callable's wrapper changed its original complete Arrow"
     let composition ← mkAppM ``CategoryTheory.CategoryStruct.comp #[formal, formal]
     Trace.record (some trace) composition
       (.morphismComposition sets.id formal formal source target target)
-    let composedWire ← realize harness trace "the later complete composition" composition
+    let composedWire ← serviceWire scope
+      (← serviceArrow scope (node "compose" #[callableRef, callableRef]))
+    unless ← isDefEq composedWire.value composition do
+      throwError "the retained callable's composition changed its original complete Hom"
     for wrapper in #[structuredWire, composedWire] do
       unless wrapper.owner? == actual.owner? && containsData wrapper.json actual.json do
         throwError "a complete wrapper lost the actual returned callable or changed its owner"
@@ -102,8 +145,7 @@ run_elab do
     let .ok other ← foreign.connection "session-probe"
       | throwError "the independent foreign session did not start"
     unless other.identity != owner.2 do throwError "independent live sessions share an identity"
-    foreign.results.modify (·.insert formal actual)
-    unless ← unavailable (realize foreign trace "foreign owned callable" applications[0]!) do
+    unless ← unavailable (consume foreign actual points[0]! applications[0]!) do
       throwError "a foreign session consumed another connection's actual callable"
     unless (← foreignObservations.get).isEmpty do
       throwError "foreign data crossed the host boundary before rejection"
@@ -111,8 +153,7 @@ run_elab do
     let .ok reconnected ← harness.connection "session-probe"
       | throwError "the new owning-session connection did not start"
     unless reconnected.identity != owner.2 do throwError "reconnection revived the old identity"
-    harness.results.modify (·.insert formal actual)
-    unless ← unavailable (realize harness trace "expired owned callable" applications[0]!) do
+    unless ← unavailable (consume harness actual points[0]! applications[0]!) do
       throwError "reconnection revived old owned computational data"
     unless (← observations.get).size == 3 do
       throwError "expired data were dispatched before rejection"
@@ -122,7 +163,7 @@ run_elab do
     unless fresh.owner? == some ("session-probe", reconnected.identity) &&
         fresh.json != actual.json && fresh.value == formal do
       throwError "fresh realization reused the old token, identity or a different formal arrow"
-    discard <| realize harness trace "a new-session computation with fresh returned data" applications[0]!
+    consume harness fresh points[0]! applications[0]!
     unless (← observations.get).size == 5 do
       throwError "fresh realization and consumption did not both reach the new actual process"
   finally

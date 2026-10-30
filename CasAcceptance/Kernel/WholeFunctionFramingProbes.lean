@@ -342,6 +342,70 @@ run_elab do
 
 run_elab do
   let state ← registryState
+  let some sets := state.categories.find? (·.id == CategoryId.sets)
+    | throwError "the selected set category is absent"
+  let endpoint ← elabTermAndSynthesize (← `(Fin 2)) none
+  let context ← CategoryContext.ofNamed sets endpoint
+  let formal ← mkAppM ``CategoryTheory.CategoryStruct.id #[endpoint]
+  let owner ← wholeCallableObject formal endpoint endpoint context
+  unless owner.entry.id.raw == "obj.sets.maps" do
+    throwError "the equal-endpoint control lost its existing complete function object"
+  let trace ← Trace.new
+  Trace.record (some trace) formal (.morphismIdentity sets.id endpoint)
+  discard <| Semantic.recordNamedObject endpoint (some trace)
+  let source : Wire := {
+    form := .diagrams sets
+    payload := .computed endpoint (.owned "whole-function-source" 701
+      (packet "opaqueData" #["the original source occurrence"]))
+    categoryContext := some context }
+  let target : Wire := {
+    form := .diagrams sets
+    payload := .computed endpoint (.owned "whole-function-target" 702
+      (packet "opaqueData" #["the original target occurrence"]))
+    categoryContext := some context }
+  let original : Wire := {
+    form := .canonicalMorphism sets
+    payload := .computed formal (.owned "whole-function-callable" 700
+      (packet "opaqueData" #["the original complete callable"]))
+    categoryContext := some context }
+  let original ← retainCallableEndpoints original source target context
+  let replacement : Wire := { source with
+    payload := .computed endpoint (.owned "whole-function-replacement" 703
+      (packet "opaqueData" #["an unrelated equal-formal endpoint occurrence"])) }
+  let harness ← Harness.empty
+  harness.results.modify (·.insert endpoint replacement)
+  -- No complete function object is supplied: its ordinary constructor must
+  -- receive both original endpoint positions despite their equal formal type.
+  unless (← harness.results.get)[owner.application.value]?.isNone do
+    throwError "the endpoint-position control bypassed fresh function-object construction"
+  let one ← globalPointSource.run {}
+  let point ← wholeCallablePoint harness trace original endpoint endpoint one context owner
+  let pointContext ← CategoryContext.ofNamed sets one
+  let some (_, selected) ← retainedCallableEndpoints? point pointContext
+    | throwError "the complete function point lost its freshly constructed target"
+  let some assembly ← retainedIntrinsicAssembly? selected .object
+    | throwError "the fresh function object lost its original parameter assembly"
+  let .ctor tag #[.wire .parameter first, .wire .parameter second] := assembly.template
+    | throwError "the fresh function object lost its two ordered endpoint parameters"
+  unless tag == owner.entry.id.raw && sameCompleteWireContext first source &&
+      sameCompleteWireContext second target do
+    throwError "equal formal endpoints replaced or exchanged their original complete parameters"
+  let .ok sourceData := selected.fragment.project #[.field "args", .index 0]
+    | throwError "the fresh function object omitted its source parameter data"
+  let .ok targetData := selected.fragment.project #[.field "args", .index 1]
+    | throwError "the fresh function object omitted its target parameter data"
+  unless sourceData == source.fragment && targetData == target.fragment do
+    throwError "the function-object encoder changed a positioned endpoint packet or supplier"
+  unless containsPacket point.json original.json &&
+      (DataOwnership.owners point.ownership).contains ("whole-function-callable", 700) do
+    throwError "fresh function-object construction lost the original callable occurrence"
+  unless ((← harness.results.get)[endpoint]?).any (fun cached =>
+      sameCompleteWireContext cached replacement) do
+    throwError "retaining original endpoint positions rewrote an unrelated cache occurrence"
+  logInfo "PASS: fresh whole-function object retains equal-formal endpoint positions and owners"
+
+run_elab do
+  let state ← registryState
   let some modules := state.categories.find? (·.id == CategoryId.modulesR)
     | throwError "the selected module category is absent"
   let integerModule ← elabTermAndSynthesize (← `(ModuleCat.of ℤ PUnit.{1})) none

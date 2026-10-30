@@ -637,7 +637,7 @@ structure NamedRefinementOrigin where
 
 end
 
-initialize nextInvocationOccurrence : IO.Ref Nat ← IO.mkRef 0
+private initialize nextInvocationOccurrence : IO.Ref Nat ← IO.mkRef 0
 
 def SelectedRoutedInvocation.boundaries (selected : SelectedRoutedInvocation) :
     Array SelectedRoutedBoundary :=
@@ -690,13 +690,32 @@ structure RetainedResultFields where
   inputs : Option RoutedInputData := none
   intermediates : Option (IO.Ref IntermediateResultState) := none
 
-/-- A harness-owned immutable producer occurrence and its optional completed
-result. Equal formal terms or bytes never select a different occurrence. -/
-structure InvocationExecution where
+/-- One immutable input and complete selected interface, created together by
+the invocation owner. Reading either field cannot replace it under this
+preparation's identity; a new preparation receives a fresh occurrence. -/
+structure PreparedInvocation where
+  private mk ::
   input : Wire
   captured : CapturedInvocation
+
+/-- Identity of an owner-created preparation, not equality of mathematical
+values or packets. The private constructor and allocator bind the complete
+input and interface to this occurrence for its lifetime. -/
+def PreparedInvocation.same (first second : PreparedInvocation) : Bool :=
+  first.captured.occurrence == second.captured.occurrence
+
+/-- A harness-owned immutable preparation and its optional completed result.
+Equal formal terms or bytes never select a different occurrence. -/
+structure InvocationExecution where
+  prepared : PreparedInvocation
   result : Option Wire := none
   recordFields : Option RetainedResultFields := none
+
+def InvocationExecution.input (record : InvocationExecution) : Wire :=
+  record.prepared.input
+
+def InvocationExecution.captured (record : InvocationExecution) : CapturedInvocation :=
+  record.prepared.captured
 
 /-- A suspended caller in the existing invocation owner. Results fill only
 the next fixed operand position; there is no expression-keyed result recovery.
@@ -2421,10 +2440,11 @@ def retainedValueResultInterface? (wire : Wire) : TermElabM (Option IntrinsicRes
       return some (.value expectedType)
   return none
 
-/-- Capture allocates private occurrence identity only. It neither chooses an
-implementation nor creates an actual packet or a dispatch receipt. -/
-def retainCapturedInvocation (h : Harness) (wire : Wire)
-    (interface : CapturedInvocationInterface) : TermElabM Wire := do
+/-- The common owner fixes one complete input and selected interface before
+allocating its private identity. Preparation chooses no implementation and
+creates neither an actual packet nor a completion receipt. -/
+private def captureInvocationCore (h : Harness) (wire : Wire)
+    (interface : CapturedInvocationInterface) : TermElabM PreparedInvocation := do
   unless wire.value == interface.formal && wire.fragment == interface.fragment do
     throwError "the captured invocation changed its original selected anchor"
   checkCapturedResultInterface wire interface.result
@@ -2432,13 +2452,61 @@ def retainCapturedInvocation (h : Harness) (wire : Wire)
     throwError "a fresh invocation must retain its previous producer as an explicit operand"
   let occurrence ← nextInvocationOccurrence.modifyGet fun next => (next, next + 1)
   let captured : CapturedInvocation := { occurrence, interface }
-  h.invocations.modify (·.push { input := wire, captured })
-  return { wire with capturedInvocation := some captured }
+  let prepared := PreparedInvocation.mk wire captured
+  h.invocations.modify (·.push { prepared })
+  return prepared
+
+/-- A separately supplied intrinsic interface must retain the Wire's complete
+current assembly and every original child handle before receiving identity. -/
+def captureInvocation (h : Harness) (wire : Wire)
+    (interface : CapturedInvocationInterface) : TermElabM PreparedInvocation := private_decl% (do
+  if let .intrinsic assembly := interface then
+    let some current ← currentIntrinsicAssembly? wire
+      | throwStratum .unavailable "the captured invocation lost its current complete assembly"
+    unless sameIntrinsicAssembly (some current) (some assembly) &&
+        sameIntrinsicObservationInput wire { wire with intrinsicAssembly := some assembly } do
+      throwStratum .unavailable "the captured invocation changed its selected assembly"
+  captureInvocationCore h wire interface)
+
+/-- This private entry derives the intrinsic interface from its sole input.
+There is no separately supplied assembly to authenticate against that input. -/
+private def captureCurrentIntrinsicInvocation (h : Harness) (wire : Wire) :
+    TermElabM PreparedInvocation := do
+  let some assembly ← currentIntrinsicAssembly? wire
+    | throwStratum .unavailable "the intrinsic observation lost its current complete assembly"
+  captureInvocationCore h wire (.intrinsic assembly)
+
+/-- Expose the existing wire reference to the same owner-created preparation.
+The canonical input and interface remain together in the invocation table. -/
+def retainCapturedInvocation (h : Harness) (wire : Wire)
+    (interface : CapturedInvocationInterface) : TermElabM Wire := do
+  let prepared ← captureInvocation h wire interface
+  return { wire with capturedInvocation := some prepared.captured }
 
 /-- An interpreted intrinsic producer joins the existing invocation owner.
 Only its checked administrative anchor can recover a preparation, and its
 complete original input graph must still agree. Unanchored synthetic assemblies
 and already captured producers keep their own existing observation path. -/
+def currentIntrinsicInvocationReference? (h : Harness) (trace : Trace) (wire : Wire) :
+    TermElabM (Option PreparedInvocation) := private_decl% (do
+  if wire.capturedInvocation.isSome then return none
+  let some _ := Trace.producerAnchor? wire.value | return none
+  let some node ← trace.node? wire.value
+    | throwStratum .unavailable "the intrinsic observation lost its original typed producer"
+  Trace.checkProducerRecord wire.value node
+  let some _ ← currentIntrinsicAssembly? wire
+    | throwStratum .unavailable "the intrinsic observation lost its current complete assembly"
+  let records := (← h.invocations.get).filter fun record =>
+    (match record.captured.interface with | .intrinsic _ => true | _ => false) &&
+      record.input.value == wire.value && sameIntrinsicObservationInput record.input wire
+  match records with
+  | #[] => return some (← captureCurrentIntrinsicInvocation h wire)
+  | #[record] => return some record.prepared
+  | _ => throwStratum .unavailable "the intrinsic producer has several canonical preparations")
+
+/-- A separately supplied assembly must still match every original field and
+retained child handle before the current producer can enter the owner. Ordinary
+observation supplies only its Wire and reads that Wire's own current assembly. -/
 def intrinsicInvocationReference? (h : Harness) (trace : Trace) (wire : Wire)
     (assembly : IntrinsicAssembly) : TermElabM (Option Wire) := do
   if wire.capturedInvocation.isSome then return none
@@ -2451,13 +2519,8 @@ def intrinsicInvocationReference? (h : Harness) (trace : Trace) (wire : Wire)
   unless sameIntrinsicAssembly (some current) (some assembly) &&
       sameIntrinsicObservationInput wire { wire with intrinsicAssembly := some assembly } do
     throwStratum .unavailable "the intrinsic observation changed its selected assembly"
-  let records := (← h.invocations.get).filter fun record =>
-    (match record.captured.interface with | .intrinsic _ => true | _ => false) &&
-      record.input.value == wire.value && sameIntrinsicObservationInput record.input wire
-  match records with
-  | #[] => return some (← retainCapturedInvocation h wire (.intrinsic current))
-  | #[record] => return some { record.input with capturedInvocation := some record.captured }
-  | _ => throwStratum .unavailable "the intrinsic producer has several canonical preparations"
+  let some prepared ← currentIntrinsicInvocationReference? h trace wire | return none
+  return some { prepared.input with capturedInvocation := some prepared.captured }
 
 /-- A migrated use is identified by its original typed producer node. This
 predicate does not infer an executable producer from a reduced formal value. -/
@@ -11442,17 +11505,13 @@ def checkIntrinsicProductChild (context : CategoryContext) (original : Wire)
     unless sameCompleteWireContext source actualSource && sameCompleteWireContext target actualTarget do
       throwStratum .unavailable "the product point wrapper changed its selected frame endpoints"
 
-/-- Observe one producer-owned intrinsic tree. The callbacks receive complete
-retained occurrences; this function performs no expression-cache lookup and
-never restarts a specialized producer or chooses a computational registration. -/
-def observeIntrinsicAssemblyWith
+/-- Both intrinsic observation entries consume this same checked tree body.
+Only their entry checks differ: a supplied assembly is authenticated, while the
+current entry reads the assembly directly from its sole Wire input. -/
+private def observeIntrinsicAssemblyBodyWith
     (observeChild : ActionDataRole → Wire → TermElabM Wire)
     (readEndpoints : Wire → CategoryContext → TermElabM (Wire × Wire))
     (h : Harness) (wire : Wire) (assembly : IntrinsicAssembly) : TermElabM Wire := do
-  let some current ← currentIntrinsicAssembly? wire
-    | throwStratum .unavailable "historical intrinsic context cannot rebuild a different current value"
-  unless sameIntrinsicAssembly (some current) (some assembly) do
-    throwStratum .unavailable "the intrinsic observer changed its current producer selection"
   let (original, _) ← renderCapturedActionData assembly.template
   unless original == wire.fragment do
     throwStratum .unavailable "the intrinsic assembly changed its original positioned child data"
@@ -11826,6 +11885,29 @@ def observeIntrinsicAssemblyWith
   result := { result with
     serviceHandles := (← retainServiceOperands h (dependencies ++ (← observed.get).map (·.2.2))) }
   return result
+
+/-- Observe the current intrinsic tree selected by this Wire. Its callbacks
+receive complete retained occurrences; there is no second assembly argument,
+expression-cache lookup, producer restart, or registration selection. -/
+def observeCurrentIntrinsicAssemblyWith
+    (observeChild : ActionDataRole → Wire → TermElabM Wire)
+    (readEndpoints : Wire → CategoryContext → TermElabM (Wire × Wire))
+    (h : Harness) (wire : Wire) : TermElabM Wire := private_decl% (do
+  let some assembly ← currentIntrinsicAssembly? wire
+    | throwStratum .unavailable "historical intrinsic context cannot rebuild a different current value"
+  observeIntrinsicAssemblyBodyWith observeChild readEndpoints h wire assembly)
+
+/-- A separately supplied assembly retains the original complete selection
+guard before its selected tree enters the shared observation body. -/
+def observeIntrinsicAssemblyWith
+    (observeChild : ActionDataRole → Wire → TermElabM Wire)
+    (readEndpoints : Wire → CategoryContext → TermElabM (Wire × Wire))
+    (h : Harness) (wire : Wire) (assembly : IntrinsicAssembly) : TermElabM Wire := private_decl% (do
+  let some current ← currentIntrinsicAssembly? wire
+    | throwStratum .unavailable "historical intrinsic context cannot rebuild a different current value"
+  unless sameIntrinsicAssembly (some current) (some assembly) do
+    throwStratum .unavailable "the intrinsic observer changed its current producer selection"
+  observeIntrinsicAssemblyBodyWith observeChild readEndpoints h wire assembly)
 
 def routedBoundaryContext (wire : Wire) : TermElabM CategoryContext := do
   if let some context := wire.categoryContext then
@@ -13211,9 +13293,9 @@ partial def prospectiveWireWith (reader : ProspectiveReader) (role : ActionDataR
       materializeNamedRefinementWith (prospectiveWireWith reader) reader.trace wire origin
     else if let some captured := captured then
       prospectiveInvocationWith reader wire captured
-    else if let some assembly := assembly then
-      observeIntrinsicAssemblyWith (prospectiveWireWith reader) reader.endpoints
-        reader.inspect wire assembly
+    else if assembly.isSome then
+      observeCurrentIntrinsicAssemblyWith (prospectiveWireWith reader) reader.endpoints
+        reader.inspect wire
     else if role == .map && wire.morphismFraming.isSome then do
       let some frame := wire.morphismFraming | unreachable!
       let callableReader : CallablePreparationReader := {
@@ -13250,9 +13332,9 @@ partial def prospectiveInvocationWith (reader : ProspectiveReader) (wire : Wire)
     activeInvocations := state.activeInvocations.push captured.occurrence }
   try
     let prospectiveData ← match record.captured.interface with
-      | .intrinsic selected => do
-          let result ← observeIntrinsicAssemblyWith (prospectiveWireWith reader) reader.endpoints
-            reader.inspect record.input selected
+      | .intrinsic _ => do
+          let result ← observeCurrentIntrinsicAssemblyWith (prospectiveWireWith reader) reader.endpoints
+            reader.inspect record.input
           pure { result }
       | .callable selected => prospectiveCallableWith reader record.input selected record.captured
       | .structured selected => prospectiveUniversalWith reader record.input selected record.captured

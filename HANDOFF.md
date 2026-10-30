@@ -7,7 +7,45 @@ own the work order. #66 owns complete mathematical interpretation; #69 owns comp
 #24 owns integration and independent acceptance. #23/#82 review construction requirements
 and exact mathematical inputs alongside that work.
 
-## Current computation repair — 2026-10-30 (Asia/Taipei)
+## Current computation: consume the prepared input — 2026-10-30 UTC
+
+The active work remains the original first RX-LIFT construction under #66/#69.
+The unchanged local replay reproduced the 14-dispatch resource failure with all
+22 preceding bindings, 104 trace nodes and the 200000-heartbeat budget. Boundary
+inspection located it at intrinsic observation of the retained inclusion, producer
+51. Separate inspection of that exact failed operand found recursive comparisons
+of the assembly and complete input against themselves; producer checking and the
+current-assembly lookup were not the dominant work. This is a failure of the
+actual computation, not further work on the closed #83 feedback-loop task.
+
+The invocation owner now binds the immutable original Wire and selected interface
+in a private-constructor `PreparedInvocation`. Ordinary intrinsic observation
+derives the assembly from that same Wire, executes the canonical preparation, and
+completes through the existing single completion authority. It no longer supplies
+second copies for recursive authentication. Separately supplied Wires and
+assemblies retain complete checks, including nested service handles; the generic
+capture factory validates a supplied intrinsic interface before allocating its
+identity. The shared observer body, typed result checks, liveness, cycle and
+second-completion guards are retained. Private prospective observation consumes
+the same complete current or authenticated canonical input.
+
+Focused compilation of the exact new owner and observer declarations, their
+ordinary-import public API, and the private-constructor rejection checks passed.
+Independent source review found no blocking bypass. Fresh `RuntimeSupport:olean`
+and `Realize:olean` builds passed with source hashes unchanged during compilation.
+The unchanged first question now completes within its original budget and reports
+`NoImplementation: no finite primitive-supported computational derivation computes
+fun.bilin_module.forget on obj.bilin_module.degenerate_plane; missing or cyclic
+prerequisites []`. It retains all 22 bindings and 104 trace nodes, with 14 successful
+dispatches. The all-ten run is not started because the first does not hold. The
+next task is this actual object-action gap, including whether the complete original
+record exposes the selected projection. The fresh intrinsic-observation,
+whole-function-framing, session-ownership and returned-callable-endpoint controls
+all pass, including canonical reuse and the supplied-body, foreign-owner,
+completed-input and stopped-scope negatives. No mathematical pass or issue closure
+is claimed.
+
+## Preceding computation repairs — 2026-10-30 (Asia/Taipei)
 
 The active work is the unchanged first RX-LIFT construction under #66/#69.
 The compiled repair is published as

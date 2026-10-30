@@ -1,5 +1,32 @@
 # Journal
 
+## 2026-10-30 — Consume the canonical prepared input and action
+
+The original first RX-LIFT question still failed after 14 successful dispatches
+with its unchanged bindings and budget. Inspection of its exact retained inclusion
+identified recursive self-comparisons in intrinsic observation. The shared owner
+now encapsulates the immutable input and selected interface under one private
+preparation identity. Ordinary execution and completion consume that preparation;
+separately supplied inputs retain complete authentication. Intrinsic observation
+and private prospective inspection derive their assembly from the same retained
+Wire. The shared observer body and single completion write are unchanged.
+
+Focused declaration and ordinary-import API compilation passed, including the
+private construction controls. Added developer controls cover canonical reuse,
+foreign/stopped scopes, completed-input replay and generic supplied-assembly
+substitution. A fresh whole-function control preserves two equal-formal endpoint
+positions with distinct actual owners. The session-ownership fixture now explicitly
+supplies the returned callable to its same original applications and wrappers,
+retaining every existing ownership, dispatch-count and rejection assertion.
+Fresh production builds passed with stable source hashes. The unchanged first
+question now finishes within its original budget, reporting a specific missing
+computation for `fun.bilin_module.forget` on `obj.bilin_module.degenerate_plane`
+after 14 dispatches. It does not hold, so the all-ten run remains gated. The actual
+object-action gap is the next repair. Intrinsic-observation, whole-function-framing,
+session-ownership and returned-callable-endpoint controls all pass on the fresh
+production artifacts, including the added lifecycle and supplied-body negatives.
+These engineering checks do not establish #66/#69 or independent #24 acceptance.
+
 ## 2026-10-30 — Retain original intrinsic and whole-callable inputs
 
 Repeated actual reads of one original intrinsic producer previously allocated

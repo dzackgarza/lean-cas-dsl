@@ -1303,7 +1303,23 @@ partial def capturePointCallable (h : Harness) (trace : Trace) (input : Wire)
   capturePointCallableWith
     (fun wire context => capturedMapEndpoints h trace wire context true) input context
 
-/-- Both object records and callable composites share typed child observation. -/
+/-- Ordinary observation consumes the assembly selected by the current Wire.
+The invocation owner retains that exact input; it does not authenticate a second
+copy of the same assembly before observing its canonical preparation. -/
+partial def observeCurrentIntrinsicAssembly (h : Harness) (trace : Trace) (wire : Wire)
+    (registeredOnly : Bool := false) : TermElabM Wire := do
+  let h := { h with demandObjectActions := true }
+  if !registeredOnly then
+    if let some prepared ← currentIntrinsicInvocationReference? h trace wire then
+      return ← observePreparedInvocation h trace prepared
+  observeCurrentIntrinsicAssemblyWith
+    (fun role input => match role with
+      | .map => realizeArrowObservation h trace input registeredOnly
+      | _ => observeActionDataWire h trace role input)
+    (fun input context => capturedMapEndpoints h trace input context true) h wire
+
+/-- A separately supplied assembly remains a checked adapter. Ordinary object,
+map and value consumers use their current Wire's assembly directly. -/
 partial def observeIntrinsicAssembly (h : Harness) (trace : Trace) (wire : Wire)
     (assembly : IntrinsicAssembly) (registeredOnly : Bool := false) : TermElabM Wire := do
   let h := { h with demandObjectActions := true }
@@ -1329,8 +1345,8 @@ partial def realizeValueObservation (h : Harness) (trace : Trace) (wire : Wire) 
     if let .value _ := captured.interface.result then
       return ← observeCapturedInvocation h trace wire captured
     return wire
-  let some assembly ← retainedIntrinsicValueAssembly? wire | return wire
-  observeIntrinsicAssembly h trace wire assembly
+  unless (← retainedIntrinsicValueAssembly? wire).isSome do return wire
+  observeCurrentIntrinsicAssembly h trace wire
 
 /-- Demand one selected comparison direction through the same complete typed
 reader used by request preparation and private prospective inspection. -/
@@ -1619,8 +1635,8 @@ partial def realizeObjectObservation (h : Harness) (trace : Trace) (wire : Wire)
     unless captured.interface.result.role == .object do
       throwError "an object observation cannot consume another declared result role"
     return ← observeCapturedInvocation h trace wire captured
-  if let some assembly ← retainedIntrinsicAssembly? wire .object then
-    return ← observeIntrinsicAssembly h trace wire assembly
+  if (← retainedIntrinsicAssembly? wire .object).isSome then
+    return ← observeCurrentIntrinsicAssembly h trace wire
   if let some recipe := wire.actionRecipe then
     if recipe.morphism then
       throwError "an object observation cannot consume a retained map-action role"
@@ -3890,42 +3906,37 @@ partial def executeOperationObservation (h : Harness) (request : OperationObserv
     (phase := "selected execution")
   dispatchOperationObservation h actual (some selected)
 
-/-- Complete one exact retained occurrence. The table owns the canonical source
-and selected interface; a copied alias cannot install a different producer. -/
-partial def observeCapturedInvocation (h : Harness) (trace : Trace) (wire : Wire)
-    (captured : CapturedInvocation) : TermElabM Wire := do
-  if captured.interface.staged then
-    return ← demandCapturedInvocation h trace wire captured
-  let some current ← retainedCapturedInvocation? wire
-    | throwStratum .unavailable "the invocation has no current complete producer occurrence"
-  unless current.occurrence == captured.occurrence do
-    throwError "the invocation observer changed its retained occurrence identity"
+/-- Observe the canonical preparation selected by an encapsulated owner reference.
+The reference carries its immutable original input and interface together; no
+second caller-supplied body participates in execution or completion. -/
+partial def observePreparedInvocation (h : Harness) (trace : Trace)
+    (prepared : PreparedInvocation) : TermElabM Wire := do
   let records ← h.invocations.get
-  let some position := records.findIdx? (·.captured.occurrence == captured.occurrence)
-    | throwStratum .unavailable "the invocation's owning preparation scope has expired"
-  let some record := records[position]?
-    | throwError "the captured invocation table lost its selected occurrence"
-  unless record.captured.occurrence == captured.occurrence do
-    throwError "the invocation table changed its immutable occurrence identity"
-  let original ← forwardRetainedValue record.input wire.value
-  unless sameCompleteWireContext original { wire with capturedInvocation := none } do
-    throwStratum .unavailable "the invocation changed its original complete typed input occurrence"
+  let selected := (records.zipIdx).filter fun (record, _) =>
+    record.prepared.same prepared
+  let #[(record, position)] := selected
+    | throwStratum .unavailable "the invocation's unique owning preparation scope has expired"
+  let captured := record.captured
+  if record.input.completedData then
+    throwStratum .unavailable "actual received data cannot be replayed as a prepared invocation"
+  if captured.interface.staged then
+    throwError "a staged selected invocation requires its demand/resume owner"
   if let some result := record.result then
     checkCapturedResultInterface result record.captured.interface.result
     checkDataOwners h result.fragment
-    return ← forwardRetainedValue result wire.value
+    return ← forwardRetainedValue result record.input.value
   if h.invocationStack.contains captured.occurrence then
     throwStratum .unavailable "the captured computation has cyclic operand dependencies"
   let active := { h with invocationStack := h.invocationStack.push captured.occurrence }
   let (result, recordFields) : Wire × Option RetainedResultFields ← match record.captured.interface with
-    | .intrinsic selected => do
+    | .intrinsic _ => do
         let active := { active with demandObjectActions := true }
-        let result ← observeIntrinsicAssemblyWith
+        let result ← observeCurrentIntrinsicAssemblyWith
           (fun role input => match role with
             | .map => realizeArrowObservation active trace input
             | _ => observeActionDataWire active trace role input)
           (fun input context => capturedMapEndpoints active trace input context true)
-          active record.input selected
+          active record.input
         pure (result, none)
     | .callable selected => do
       pure (← observeSelectedCallable active trace record.input selected, none)
@@ -3947,6 +3958,26 @@ partial def observeCapturedInvocation (h : Harness) (trace : Trace) (wire : Wire
     | .directLift _ | .liftField _ | .liftFactor _ =>
         throwError "a staged selected invocation escaped its demand/resume owner"
   let result ← completeCapturedInvocation h position record result recordFields
+  forwardRetainedValue result record.input.value
+
+/-- Authenticate a separately supplied Wire before entering its canonical owner.
+A copied alias or invocation ID cannot install a different producer body. -/
+partial def observeCapturedInvocation (h : Harness) (trace : Trace) (wire : Wire)
+    (captured : CapturedInvocation) : TermElabM Wire := do
+  if captured.interface.staged then
+    return ← demandCapturedInvocation h trace wire captured
+  let some current ← retainedCapturedInvocation? wire
+    | throwStratum .unavailable "the invocation has no current complete producer occurrence"
+  unless current.occurrence == captured.occurrence do
+    throwError "the invocation observer changed its retained occurrence identity"
+  let records ← h.invocations.get
+  let selected := records.filter (·.captured.occurrence == captured.occurrence)
+  let #[record] := selected
+    | throwStratum .unavailable "the invocation's unique owning preparation scope has expired"
+  let original ← forwardRetainedValue record.input wire.value
+  unless sameCompleteWireContext original { wire with capturedInvocation := none } do
+    throwStratum .unavailable "the invocation changed its original complete typed input occurrence"
+  let result ← observePreparedInvocation h trace record.prepared
   forwardRetainedValue result wire.value
 
 /-- The only invocation-completion write. Both original protocols and staged
@@ -3967,8 +3998,7 @@ partial def completeCapturedInvocation (h : Harness) (position : Nat)
   checkDataOwners h result.fragment
   let some current := (← h.invocations.get)[position]?
     | throwStratum .unavailable "the invocation's original completion scope has expired"
-  unless current.captured.occurrence == record.captured.occurrence &&
-      sameCompleteWireContext current.input record.input do
+  unless current.prepared.same record.prepared do
     throwStratum .unavailable "the invocation changed its canonical prepared input before completion"
   unless current.result.isNone do
     throwError "an invocation cannot independently install a second completion"
@@ -4193,8 +4223,8 @@ partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire)
     return { result with
       serviceHandles := result.serviceHandles ++ (← retainServiceOperands h prepared.dependencies) }
   if wire.callableObserved || wire.actualData then return wire
-  if let some assembly ← retainedIntrinsicAssembly? wire .map then
-    return ← observeIntrinsicAssembly h trace wire assembly registeredOnly
+  if (← retainedIntrinsicAssembly? wire .map).isSome then
+    return ← observeCurrentIntrinsicAssembly h trace wire registeredOnly
   if let some recipe := wire.actionRecipe then
     unless recipe.morphism do
       throwError "a map observation cannot consume a retained object-action role"

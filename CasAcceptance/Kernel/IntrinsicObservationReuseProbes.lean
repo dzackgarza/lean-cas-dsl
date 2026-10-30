@@ -96,6 +96,45 @@ run_elab do
         (← calls.get).size == 1 && (← harness.invocations.get).size == receiptCount do
       throwError "re-reading one original intrinsic producer replaced its actual result or retained handles"
 
+    -- The owner reference reuses the same completion without accepting another
+    -- supplied body. A different preparation table cannot borrow that reference,
+    -- even while all of its actual suppliers remain live.
+    let some prepared ← currentIntrinsicInvocationReference? harness trace first
+      | throwError "the original intrinsic producer lost its canonical preparation"
+    unless exactResult observed (← observePreparedInvocation harness trace prepared) &&
+        (← calls.get).size == 1 && (← harness.invocations.get).size == receiptCount do
+      throwError "the canonical reference replaced its result or repeated its computation"
+    let foreign ← Harness.empty
+    foreign.connections.set (← harness.connections.get)
+    foreign.serviceOperands.set (← harness.serviceOperands.get)
+    try
+      unless ← unavailable (observePreparedInvocation foreign trace prepared) do
+        throwError "another harness borrowed a canonical preparation from its live owner"
+      unless (← foreign.invocations.get).isEmpty && (← calls.get).size == 1 do
+        throwError "foreign canonical observation installed a preparation or dispatched computation"
+    finally foreign.connections.set {}
+
+    -- A real returned action packet remains completed data even if a caller
+    -- attaches an intrinsic description and requests another preparation.
+    let some actionResult := (← harness.actions.get).find? (·.operation == action.id.raw)
+      | throwError "the intrinsic parameter lost its actual action completion"
+    let completed := { actionResult.result with capturedInvocation := none }
+    unless completed.completedData do
+      throwError "the completed-input control did not use an actual returned packet"
+    let some completedContext := completed.categoryContext
+      | throwError "the actual returned object lost its complete category"
+    let completed ← retainIntrinsicAssembly completed .object completedContext
+      (.literal completed.fragment)
+    let some completedAssembly ← currentIntrinsicAssembly? completed
+      | throwError "the completed-input control lost its checked description"
+    let replay ← captureInvocation harness completed (.intrinsic completedAssembly)
+    unless ← unavailable (observePreparedInvocation harness trace replay) do
+      throwError "a canonical reference replayed actual received data as a pending computation"
+    let replayRecords := (← harness.invocations.get).filter (·.prepared.same replay)
+    unless replayRecords.size == 1 && replayRecords.all (·.result.isNone) &&
+        (← calls.get).size == 1 do
+      throwError "completed-input rejection installed a completion or dispatched computation"
+
     let separate ← realizeObjectObservation harness trace second
     unless separate.fragment == observed.fragment &&
         separate.serviceHandles != observed.serviceHandles &&
@@ -117,6 +156,10 @@ run_elab do
       throwError "an intrinsic observation accepted another supplied assembly's child occurrences"
     unless (← harness.invocations.get).size == beforeMismatch.size && (← calls.get).size == 1 do
       throwError "a mismatched intrinsic assembly allocated an invocation or dispatched computation"
+    unless ← unavailable (captureInvocation harness first (.intrinsic changedAssembly)) do
+      throwError "generic capture accepted another intrinsic assembly's retained child occurrences"
+    unless (← harness.invocations.get).size == beforeMismatch.size && (← calls.get).size == 1 do
+      throwError "mismatched intrinsic capture allocated an invocation or dispatched computation"
     let changedResult ← realizeObjectObservation harness trace changed
     unless changedResult.fragment == observed.fragment &&
         changedResult.serviceHandles != observed.serviceHandles &&
@@ -138,6 +181,10 @@ run_elab do
     harness.stop
     unless (← harness.invocations.get).isEmpty do
       throwError "stopping the harness retained an intrinsic observation receipt"
+    unless ← unavailable (observePreparedInvocation harness trace prepared) do
+      throwError "a canonical reference revived a stopped preparation scope"
+    unless (← harness.invocations.get).isEmpty && (← calls.get).size == 1 do
+      throwError "a stopped canonical reference installed a receipt or dispatched computation"
     logInfo "PASS: original intrinsic observations retain one actual result and preserve occurrence, phase and ownership boundaries"
   finally harness.stop
 
