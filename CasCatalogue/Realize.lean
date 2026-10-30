@@ -2152,8 +2152,7 @@ partial def wholeCallablePoint (h : Harness) (trace : Trace) (wire : Wire)
     categoryContext := some pointContext
     pointDataInterface := (← pointDataInterfaceAt one selected domainWire.fragment targetWire.fragment)
     serviceHandles := (← retainLiftOperands h dependencies) }
-  let point ← retainIntrinsicAssembly point .map pointContext template #[] #[]
-    (.retained, .retained)
+  let point ← retainIntrinsicAssembly point .map pointContext template
   let point ← retainCallableEndpoints point domainWire targetWire pointContext
   pointAtAdmissionDomain h trace point one selected domain
 

@@ -10,12 +10,19 @@ and exact mathematical inputs alongside that work.
 ## Current computation: preserve complete callable values — 2026-10-30 UTC
 
 The active work remains the original first RX-LIFT construction under #66/#69.
-The current source-guarded candidate preserves its route producer and retains the
-complete pending ordinary value. It runs the unchanged first question within its
-200000-heartbeat budget and reaches an ordinary tuple implementation gap after
-17 dispatches. The independent tuple implementation is now published; fresh
-combined artifacts and the original question with that source remain pending.
-No mathematical hold is established, and #83 remains closed.
+The route and complete pending-value repair is published as `2f3fa020` with exact
+tree `aa6a39f9c5c001f71e336772457862c63297cc37`. With independent tuple source
+`a1d72cfa`, the source-guarded candidate runs the unchanged first question within
+its 200000-heartbeat budget and reaches a retained endpoint guard after 20
+dispatches. The exact failed source endpoint agrees; its admitted-point target
+still contains pending module parameters while the outer frame observes those
+same original parameters into owned results. The current repair advances the
+point's original typed endpoint fields and complete endpoint receipt together.
+The shared intrinsic owner also authenticates and refreshes a pending native
+point interface from those exact endpoint observations. The frame guard remains
+unchanged. The validator artifact has rebuilt successfully; combined support and
+realization artifacts and the repaired original run remain pending. No
+mathematical hold is established, and #83 remains closed.
 
 An earlier unchanged local replay reproduced the 14-dispatch resource failure with all
 22 preceding bindings, 104 trace nodes and the 200000-heartbeat budget. Boundary
@@ -107,8 +114,9 @@ through the existing value-port validator. Its declared Hom carrier and Quiver
 remain checked; full category identity remains with the unchanged capture,
 framing and enclosing map-scope guards. The complete unchanged occurrence/Hom
 control passes against exact source-guarded candidate declarations, including
-recursive callbacks, endpoint negatives and unpositioned rejection. Production
-artifacts for this final reader change have not yet been rebuilt.
+recursive callbacks, endpoint negatives and unpositioned rejection. The changed
+`ComputationalData:olean` has now rebuilt successfully. Fresh combined support
+and realization artifacts remain pending.
 
 The unchanged first mathematical question on the preceding fresh artifacts still
 times out at the original 200000-heartbeat budget after 16 dispatches, retaining
@@ -136,6 +144,31 @@ only its owned subtree and public interfaces. Its 87 primary protocol requests
 and five stopped-owner controls are engineering evidence; the separate public-only
 diff review found no blocking issue. The broader mathematical run remains gated
 on the original first hold and its related controls.
+
+With that exact tuple source, the original-budget candidate completes 20
+dispatches and reports the retained frame endpoint gap. Failure-only capture
+freezes that original outcome before inspecting its complete Wires. The source
+endpoint agrees completely and neither endpoint has a selected comparison. The
+target differs in its packet, supplier paths, intrinsic assembly and payload:
+the old `ModuleMorphisms` descriptor retains pending module parameters, while
+observation of that same target retains the already returned ring and module
+values. Formal endpoint, full category and roles agree. Evidence is
+`rx-lift-frame-endpoint-failure-02.json` and its separately labelled inspection.
+
+The admitted-point and constrained-point producers now observe their original
+domain, input-target and selected-target slots and retain a map-field witness for
+the complete original datum. The admission entry and ordered declaration
+parameters, and the constrained constructor's schema and proof checks, remain
+unchanged.
+Whole-callable points likewise observe their original endpoint occurrences. A
+pending native point interface is refreshed only after its current full endpoint
+receipt and exact old data/suppliers are authenticated. It keeps its original
+formal endpoints; the branch forwarding a completed child keeps that child's
+interface. Completed reply checks and the outer strict frame guard are unchanged.
+The engineering reuse control adds stale formal/data interfaces and historical
+receipt negatives plus owned endpoint refresh and reuse without another primitive
+call. Its complete unchanged existing body plus the new block compiles as an
+uncalled declaration. Combined execution of this final change remains pending.
 
 ## Preceding computation repairs — 2026-10-30 (Asia/Taipei)
 

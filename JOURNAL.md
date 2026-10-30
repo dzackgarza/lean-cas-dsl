@@ -27,7 +27,8 @@ The existing value-port validator now receives that same binding, formal type,
 packet and scope. Declared Hom carrier/Quiver checks remain separate from the
 unchanged full-category capture/framing guards. The entire unchanged control
 passes against exact source-guarded candidate declarations with recursive calls
-bound to the candidate. This final reader change is not yet artifact-built.
+bound to the candidate. Its `ComputationalData:olean` has now rebuilt successfully;
+fresh combined support and realization artifacts remain pending.
 The original first mathematical question on the preceding fresh artifacts still
 times out after 16 dispatches at its unchanged 200000 budget, with all 22 bindings
 and 104 trace nodes. Its singleton comparison completes. A separate inclusion
@@ -49,6 +50,29 @@ published as `a1d72cfa` with identical tree
 `f1800fdf0e6638f7a2b073f49b2d77d5493c20b0`. Its public-only protocol and source
 review evidence does not establish mathematical correctness. No mathematical
 assertion or issue acceptance is claimed.
+
+The complete pending-value repair is published as `2f3fa020`, exact tree
+`aa6a39f9c5c001f71e336772457862c63297cc37`. With that tuple source, the guarded
+original-budget candidate executes 20 dispatches and reaches the strict retained
+frame endpoint guard. Failure-only capture saves the original result before any
+extra inspection. Source endpoints agree and there are no selected comparisons.
+The admitted point's target retains pending module parameters; observation of
+the same original target has their actual ring and module values and supplier
+paths. Its formal endpoint, full category and roles are unchanged.
+
+The admitted and constrained point producers now demand their original typed
+endpoint fields together with the original complete datum and retain its
+map-field witness. Whole-callable points also observe their own endpoint occurrences.
+The shared intrinsic owner
+authenticates a pending point interface against its current complete endpoint
+receipt before observing children, then updates only its endpoint data from those
+same observations. It preserves the point's formal endpoints and a completed
+forwarded child's interface. No frame guard, completed-reply check, admission
+entry, ordered parameter selection or mathematical assertion is relaxed. A
+narrow engineering control adds stale-interface/historical-receipt rejection,
+owned endpoint refresh, ambient replacement resistance and one-dispatch reuse.
+The complete engineering probe compiles as an uncalled declaration. Fresh
+combined artifacts and the repaired original run are pending; no hold is claimed.
 
 ## 2026-10-30 — Consume the canonical prepared input and action
 

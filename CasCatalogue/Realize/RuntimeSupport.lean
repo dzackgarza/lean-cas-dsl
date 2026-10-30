@@ -11532,6 +11532,27 @@ def checkIntrinsicProductChild (context : CategoryContext) (original : Wire)
     unless sameCompleteWireContext source actualSource && sameCompleteWireContext target actualTarget do
       throwStratum .unavailable "the product point wrapper changed its selected frame endpoints"
 
+/-- Only the current pending point producer may refresh its endpoint data.
+Its original complete endpoint receipt authenticates the point's role, formal
+endpoints and exact suppliers before any child observation takes place. -/
+private def pendingIntrinsicPointInterface? (wire : Wire) (assembly : IntrinsicAssembly) :
+    TermElabM (Option PointDataInterface) := do
+  let some selected := wire.pointDataInterface | return none
+  if wire.completedData then return none
+  let .map context := assembly.result
+    | throwStratum .unavailable "the pending point lost its complete map result interface"
+  let some (source, target) ← retainedCallableEndpoints? wire context
+    | throwStratum .unavailable "the pending point lost its current complete endpoint receipt"
+  unless selected.domainData == source.fragment && selected.targetData == target.fragment &&
+      (← withoutModifyingState (withTransparency .all <|
+        isDefEq (← inferType selected.domain) (← inferType source.value) <&&>
+          isDefEq selected.domain source.value <&&>
+          isDefEq (← inferType selected.target) (← inferType target.value) <&&>
+          isDefEq selected.target target.value)) do
+    throwStratum .unavailable "the pending point changed its original endpoint data or suppliers"
+  CategoryContext.checkMorphism context wire.value selected.domain selected.target
+  return some selected
+
 /-- Both intrinsic observation entries consume this same checked tree body.
 Only their entry checks differ: a supplied assembly is authenticated, while the
 current entry reads the assembly directly from its sole Wire input. -/
@@ -11542,6 +11563,7 @@ private def observeIntrinsicAssemblyBodyWith
   let (original, _) ← renderCapturedActionData assembly.template
   unless original == wire.fragment do
     throwStratum .unavailable "the intrinsic assembly changed its original positioned child data"
+  let pendingPointInterface ← pendingIntrinsicPointInterface? wire assembly
   -- A literal point's typed owner slot licenses refreshing its point receipt.
   -- A matching packet tag or historical PointOrigin is insufficient.
   let literalPointData ← match assembly.template with
@@ -11929,6 +11951,12 @@ private def observeIntrinsicAssemblyBodyWith
         if let some (source, target) ← retainedCallableEndpoints? wire context then
           let source ← observe assembly.endpointRoles.1 source
           let target ← observe assembly.endpointRoles.2 target
+          if let some selected := pendingPointInterface then
+            -- The same typed endpoint observations keep their complete formal
+            -- selections. Refresh their data without changing the point role
+            -- or overwriting an interface forwarded from a completed child.
+            result := { result with pointDataInterface := some { selected with
+              domainData := source.fragment, targetData := target.fragment } }
           result ← retainCallableEndpoints result source target context
           if let some number := literalPointData then
             let .ctor "element" #[.wire .object owner, .ctor "numeral" #[.literal actualNumber]] := template
@@ -14673,16 +14701,17 @@ def realizeFreshWith
       let domainWire ← realizeCallableEndpoint h trace datum domain true (some context)
       let sourceWire ← realizeCallableEndpoint h trace datum source false (some context)
       let targetWire ← realizeEndpoint h trace "the constrained point selected target" target
+      let datumContext ← completedCallableContext datum domainWire sourceWire
       let template : ActionDataTemplate := .ctor "constrainedPoint"
-        #[.literal { json := toJson constructor.toString }, .wire .retained domainWire,
-          .wire .retained sourceWire, .wire .retained targetWire, .wire .map datum]
+        #[.literal { json := toJson constructor.toString }, .wire .object domainWire,
+          .wire .object sourceWire, .wire .object targetWire, .wire .map datum]
       let (json, dependencies) ← renderCapturedActionData template
       let result : Wire := {
         form := .canonicalMorphism category
         payload := (← combinedRecipePayload e json dependencies)
         categoryContext := some context }
-      let result ← retainIntrinsicAssembly result .map context template #[] #[]
-        (.retained, .retained)
+      let result ← retainIntrinsicAssembly result .map context template
+        #[{ context := datumContext, source := domainWire, target := sourceWire, callable := datum }]
       return ← retainCallableEndpoints result domainWire targetWire context
   | .admittedPoint id categoryId params original originalCategory originalSource originalTarget =>
       let some entry := state.objects.find? (·.id == id)
@@ -14750,9 +14779,10 @@ def realizeFreshWith
       let target ← realizeCallableEndpoint h trace datum inputObject false
       discard <| Semantic.recordNamedObject selected (some trace)
       let selected ← realizeEndpoint h trace "the admitted point selected target" selected
+      let datumContext ← completedCallableContext datum source target
       let template : ActionDataTemplate := .ctor "admittedPoint"
         #[.literal { json := toJson id.raw }, .retained (.array parameterTemplates),
-          .wire .retained source, .wire .retained target, .wire .retained selected,
+          .wire .object source, .wire .object target, .wire .object selected,
           .wire .map datum]
       let (json, dependencies) ← renderCapturedActionData template
       let payload ← combinedRecipePayload e json dependencies
@@ -14761,8 +14791,8 @@ def realizeFreshWith
         payload := payload
         categoryContext := some context
         serviceHandles := (← retainLiftOperands h dependencies) }
-      let result ← retainIntrinsicAssembly result .map context template #[] #[]
-        (.retained, .retained)
+      let result ← retainIntrinsicAssembly result .map context template
+        #[{ context := datumContext, source, target, callable := datum }]
       return ← retainCallableEndpoints result source selected context
   | .namedCallable address categoryId params =>
       let some (_, declaredCategory) := state.callable? address

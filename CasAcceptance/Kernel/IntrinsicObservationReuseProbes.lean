@@ -168,6 +168,74 @@ run_elab do
     unless exactResult observed (← realizeObjectObservation harness trace first) do
       throwError "another intrinsic preparation replaced the original completed receipt"
 
+    -- A pending point owns both its native value interface and its complete
+    -- endpoint receipt. Observing the selected Hom object must refresh those
+    -- two views from the same original endpoint, including every supplier.
+    let some moduleContext := first.categoryContext
+      | throwError "the point-refresh control lost its original module context"
+    let identity ← selectedCallableIdentity moduleContext first
+    let owner ← wholeCallableObject identity.value first.value first.value moduleContext
+    let one ← Language.globalPointSource.run {}
+    let point ← wholeCallablePoint harness trace identity first.value first.value one moduleContext owner
+    let some sets := state.categories.find? (·.id == CategoryId.sets)
+      | throwError "the point-refresh control lost its complete set category"
+    let pointContext ← CategoryContext.ofNamed sets one
+    let some oldInterface := point.pointDataInterface
+      | throwError "the pending intrinsic point lost its native value interface"
+    let some oldReceipt := point.callableEndpoints
+      | throwError "the pending intrinsic point lost its original endpoint receipt"
+    let some (oldSource, oldTarget) ← retainedCallableEndpoints? point pointContext
+      | throwError "the pending intrinsic point has no current complete endpoints"
+    unless !point.completedData && oldInterface.domainData == oldSource.fragment &&
+        oldInterface.targetData == oldTarget.fragment && oldSource.fragment != oldTarget.fragment &&
+        point.fragment != oldSource.fragment &&
+        !(← withoutModifyingState (withTransparency .all <| isDefEq oldInterface.target oldSource.value)) &&
+        (← calls.get).size == 1 do
+      throwError "the point-refresh control did not retain a pending, independently framed point"
+    let beforeInvalidPoint ← harness.invocations.get
+    for invalid in #[
+        { point with pointDataInterface := some { oldInterface with targetData := oldSource.fragment } },
+        { point with pointDataInterface := some { oldInterface with target := oldSource.value } },
+        { point with callableEndpoints := some { oldReceipt with fragment := oldSource.fragment } }] do
+      unless ← unavailable (realizeArrowObservation harness trace invalid) do
+        throwError "a pending intrinsic point refreshed incompatible or historical endpoint data"
+      unless (← harness.invocations.get).size == beforeInvalidPoint.size && (← calls.get).size == 1 do
+        throwError "invalid point metadata reached a child computation before rejection"
+
+    let cachedResults ← harness.results.get
+    try
+      harness.results.modify (·.insert firstProducer changedResult |>.insert oldTarget.value
+        { oldTarget with payload := .computed oldTarget.value (.inline oldSource.json) })
+      let actualPoint ← realizeArrowObservation harness trace point
+      let some actualInterface := actualPoint.pointDataInterface
+        | throwError "observing the intrinsic point discarded its native value role"
+      let some (actualSource, actualTarget) ← retainedCallableEndpoints? actualPoint pointContext
+        | throwError "observing the intrinsic point discarded its complete endpoint receipt"
+      let expectedTarget ← realizeObjectObservation { harness with demandObjectActions := true }
+        trace oldTarget
+      unless actualTarget.fragment != oldTarget.fragment &&
+          sameCompleteWireContext actualTarget expectedTarget &&
+          actualTarget.fragment == expectedTarget.fragment &&
+          actualTarget.owner? == actionResult.result.owner? && actualTarget.owner?.isSome &&
+          actualInterface.domain == oldInterface.domain && actualInterface.target == oldInterface.target &&
+          actualInterface.domainData == actualSource.fragment &&
+          actualInterface.targetData == actualTarget.fragment &&
+          actualPoint.value == point.value && !actualPoint.completedData && (← calls.get).size == 1 do
+        throwError "the pending point did not refresh its exact owned endpoint and native interface together"
+      let complete ← captureCompleteCallable harness trace actualPoint pointContext
+      let some (completeSource, completeTarget) ← retainedCallableEndpoints? complete pointContext
+        | throwError "the converted point lost its refreshed complete endpoints"
+      let .ok publicMap := Backend.TypedMap.decode complete.json
+        | throwError "the refreshed point has no complete callable encoding"
+      unless complete.pointDataInterface.isNone &&
+          sameCompleteWireContext completeSource actualSource &&
+          sameCompleteWireContext completeTarget actualTarget &&
+          publicMap.source == actualSource.json && publicMap.target == actualTarget.json &&
+          exactResult actualPoint (← realizeArrowObservation harness trace actualPoint) &&
+          (← calls.get).size == 1 do
+        throwError "reusing the refreshed point changed its endpoint ownership or repeated computation"
+    finally harness.results.set cachedResults
+
     -- A completed observation remains owned by its actual live supplier even
     -- when reuse would otherwise avoid every computational dispatch.
     let connections ← harness.connections.get
