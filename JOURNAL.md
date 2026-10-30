@@ -23,9 +23,13 @@ or endpoint guard was weakened.
 
 The final production modules and existing whole-function controls compiled and
 passed before the environment reset. The restored production source is byte-for-byte
-identical to those compiled files, as recorded in HANDOFF.md. The original question
-has not run against the final parameter repair. The separate baseline session-owner
-failure remains open; #66/#69 and independent #24 acceptance are not complete.
+identical to those compiled files and is published as `6880bff3`. The existing
+candidate workflow at `c84d9036` rebuilt that source and ran the unchanged first
+question against the same independent leaf. It exhausted the original
+200000-heartbeat budget at `isDefEq` during evaluation, after 14 successful
+dispatches. The original `internal` outcome is retained in run `41023488680`;
+the ten-question run did not start. The remaining failure is not resolved, and
+#66/#69 and independent #24 acceptance are not complete.
 
 ## 2026-10-30 — Close the Lean feedback-loop task (#83)
 

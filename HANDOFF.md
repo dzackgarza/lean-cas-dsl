@@ -100,16 +100,29 @@ developer fixtures needed technical repairs: checked Wire indexing in
 `SessionOwnershipProbes` still has the exact earlier `b956a874` failure about
 replaying a descriptor or detaching its owner; it is not counted as passing.
 
-The execution environment reset before the original first question could run
-against the final parameter repair. The recovered production files exactly match
-their successfully compiled source hashes: `Realize.lean`
+The execution environment reset before the local rerun. The recovered production
+files exactly match their successfully compiled source hashes: `Realize.lean`
 `574a6f9319e093a7e77fcc3ea74f6699ed05263d3b4de3ae38652e0688f8be33`
 and `RuntimeSupport.lean`
 `d742e84778325270d42011afa7b4f317be4618b3bc4e23fec6e6ca46e534498a`.
 The extra scratch endpoint-substitution control passed before the reset, but its
 complete body was not recoverable and is not supplied as a reproducible control
-in this checkpoint. The original RX-LIFT rerun remains required; no mathematical
-pass or closure of #66/#69/#24 is claimed.
+in this checkpoint.
+
+The source is saved in
+[`6880bff3`](https://github.com/dzackgarza/lean-cas-dsl/commit/6880bff33ae76d75baf501fa8fb00d179da8b89c).
+The existing candidate workflow at
+[`c84d9036`](https://github.com/dzackgarza/lean-cas-dsl/commit/c84d9036a73ea0f1c0bc1861105cf3c3f77c8d5a)
+now runs the maintained first-question driver before broader checks, against
+the same independent leaf `33cd4cd9`, and runs all ten only if the first holds.
+Its [completed original-question run](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/41023488680)
+successfully built the production source and fixed import/engine environment.
+The first question then reached the same 14 successful dispatches and exhausted
+its unchanged 200000-heartbeat budget at `isDefEq` during evaluation. Its outcome
+is `internal`, not ambiguity, mathematical falsity, or a pass. The broader
+ten-question run was correctly not started. The exact remaining expensive
+operation is not identified by that error alone. No mathematical pass or closure
+of #66/#69/#24 is claimed.
 
 Intrinsic-occurrence and arrow-framing controls passed the preceding compiled
 repair. Whole-operation observation reproduced its prior CI failure.
