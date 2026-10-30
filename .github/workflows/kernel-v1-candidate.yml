@@ -112,6 +112,43 @@ jobs:
               "packages": {d.metadata["Name"]: d.version for d in importlib.metadata.distributions()}
           }, indent=2))
           PY
+      - name: Run the unchanged first RX-LIFT construction before broader checks
+        run: |
+          runtime="$RUNNER_TEMP/kernel-v1-candidate"
+          python3 scripts/ci_kernel_candidate.py run --name rx-lift-imports -- \
+            bash "$runtime/lake.sh" build \
+              CasCatalogue.FileItems:olean \
+              LeanCategories.Catalogue.Semantics.Foundation.FiniteOrders:olean \
+              LeanCategories.Catalogue.Semantics.Foundation.TwoSubsets:olean \
+              LeanCategories.Catalogue.Semantics.Foundation.IntegerSquareBounds:olean \
+              LeanCategories.Catalogue.Semantics.Algebra.CyclicQuotients:olean \
+              LeanCategories.Catalogue.Semantics.Independent.ScalarAndFormExtensions:olean \
+              LeanCategories.Catalogue.Semantics.Independent.InterfaceCompletionTests:olean
+          git init "$runtime/rx-lift-leaves"
+          git -C "$runtime/rx-lift-leaves" fetch --depth 1 \
+            https://github.com/dzackgarza/lean-cas-dsl-leaves.git \
+            33cd4cd9d0deed5138c7b50dc8724c870f1e7174
+          git -C "$runtime/rx-lift-leaves" checkout --detach FETCH_HEAD
+          git -C "$runtime/rx-lift-leaves" rev-parse HEAD > "$runtime/evidence/rx-lift-leaf-commit.txt"
+          for selection in first all; do
+            through=()
+            if [[ "$selection" == first ]]; then through=(first); fi
+            report="$runtime/evidence/rx-lift-$selection-runtime.json"
+            python3 scripts/ci_kernel_candidate.py run --name "rx-lift-$selection-runtime" -- \
+              env CAS_LAKE="$runtime/lake.sh" \
+              CAS_LEAVES="$runtime/rx-lift-leaves/diagnostics/extensions-20261024/leaves.json" \
+              bash scripts/run_rx_lift_runtime.sh "$report" "${through[@]}"
+            python3 - "$report" <<'PY'
+          import json, sys
+          report = json.load(open(sys.argv[1]))
+          rows = report["observations"]
+          for row in rows:
+              print(json.dumps({key: row[key] for key in
+                    ["id", "kind", "detail", "precedingBindings", "maxHeartbeats"]}))
+          if len(rows) != len(report["selected"]) or any(row["kind"] != "holds" for row in rows):
+              raise SystemExit("The unchanged RX-LIFT construction remains unresolved; see its original outcome.")
+          PY
+          done
       - name: Build the complete current consumer family
         run: |
           python3 scripts/ci_kernel_candidate.py run --name consumers -- \
