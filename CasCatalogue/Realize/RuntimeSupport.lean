@@ -11860,8 +11860,10 @@ private def observeIntrinsicAssemblyBodyWith
         isDefEq (← inferType actual.value) (← inferType wire.value) <&&>
           isDefEq actual.value wire.value) do return template
     let some (source, target) ← retainedCallableEndpoints? actual context | pure template
-    unless sameCompleteWireContext source actualSource &&
-        sameCompleteWireContext target actualTarget do
+    let sourceView ← forwardRetainedValue source actualSource.value
+    let targetView ← forwardRetainedValue target actualTarget.value
+    unless sameCompleteWireContext sourceView actualSource &&
+        sameCompleteWireContext targetView actualTarget do
       throwStratum .malformed "the completed public frame changed its checked endpoint occurrences"
     let suppliedSource ← checkedFragment (data.project #[.field "args", .index 0])
     let suppliedTarget ← checkedFragment (data.project #[.field "args", .index 1])
