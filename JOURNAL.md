@@ -17,8 +17,22 @@ The original receipt/owner assertion remains intact; scoped endpoint and
 unpositioned-value negatives accompany the complete-Hom regression. The existing
 fixture uses the production contextual-action reader and a generic bare opaque
 protocol witness. Exact focused compilation of the four changed declarations
-passed without diagnostics. Fresh combined artifacts, the original question and
-related controls remain pending; this entry records saved source, not completed acceptance.
+passed without diagnostics. Fresh combined artifacts subsequently passed after
+aligning the retained endpoint aliases; that source is published as `993d2fe1`
+with tree `f647ccb42ea3a140b246447cf516bea71b7ec82a`. The original exact occurrence
+and receipt control passes. The extracted-Hom control exposed the validator
+reinterpreting an exact positioned value as an outer point map.
+
+The existing value-port validator now receives that same binding, formal type,
+packet and scope. Declared Hom carrier/Quiver checks remain separate from the
+unchanged full-category capture/framing guards. The entire unchanged control
+passes against exact source-guarded candidate declarations with recursive calls
+bound to the candidate. This final reader change is not yet artifact-built.
+The original first mathematical question on the preceding fresh artifacts still
+times out after 16 dispatches at its unchanged 200000 budget, with all 22 bindings
+and 104 trace nodes. Its singleton comparison completes. Read-only post-failure
+inspection is locating the expensive execution path without altering that
+outcome. No mathematical assertion or issue acceptance is claimed.
 
 ## 2026-10-30 — Consume the canonical prepared input and action
 

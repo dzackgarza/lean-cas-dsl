@@ -7,7 +7,7 @@ own the work order. #66 owns complete mathematical interpretation; #69 owns comp
 #24 owns integration and independent acceptance. #23/#82 review construction requirements
 and exact mathematical inputs alongside that work.
 
-## Current computation: consume the prepared input — 2026-10-30 UTC
+## Current computation: preserve complete callable values — 2026-10-30 UTC
 
 The active work remains the original first RX-LIFT construction under #66/#69.
 The unchanged local replay reproduced the 14-dispatch resource failure with all
@@ -88,9 +88,31 @@ opaque mode supplies only an ownership witness, not a mathematical answer. The
 new full-Hom control retains both comparison directions, the complete admission
 and original callable, checks scoped endpoint negatives, and rejects unpositioned
 scalar bytes. Exact focused compilation of all four changed declarations passed
-without diagnostics. This is a source checkpoint: fresh combined artifacts,
-the original first question and related controls are pending. The
-broader run remains gated on the original first hold and its related controls.
+without diagnostics. Fresh combined artifacts passed after the endpoint guard
+adopted the same explicit formal aliases as the existing endpoint reader. That
+compiled source is published as `993d2fe1`, tree
+`f647ccb42ea3a140b246447cf516bea71b7ec82a`. The original occurrence/receipt control
+passes. The added extracted-Hom control exposed a further shared reader defect:
+its exact positioned `.value` was being reinterpreted as an outer point map.
+
+The value reader now consumes that original binding, formal type, packet and scope
+through the existing value-port validator. Its declared Hom carrier and Quiver
+remain checked; full category identity remains with the unchanged capture,
+framing and enclosing map-scope guards. The complete unchanged occurrence/Hom
+control passes against exact source-guarded candidate declarations, including
+recursive callbacks, endpoint negatives and unpositioned rejection. Production
+artifacts for this final reader change have not yet been rebuilt.
+
+The unchanged first mathematical question on the preceding fresh artifacts still
+times out at the original 200000-heartbeat budget after 16 dispatches, retaining
+all 22 bindings and 104 trace nodes (`rx-lift-value-callable-first-02.json`). The
+singleton comparison now completes. Read-only inspection after a separate
+unchanged replay locates the pending retained inclusion value and shows expensive
+recursive comparisons of its complete context; that inspection does not yet
+identify which production guard exhausted the original run. The active work is
+to locate and repair that actual execution path before the next coherent build.
+No mathematical hold is established. The broader run remains gated on the
+original first hold and its related controls; #83 remains closed.
 
 ## Preceding computation repairs — 2026-10-30 (Asia/Taipei)
 

@@ -2007,6 +2007,7 @@ def validateCallableAtWith
     let type ← instantiateMVars type
     if (Language.homEnds? type).isSome then return some type
     declaredCallableType? type
+  let requested := expected
   let some expected ← declaredHom? (if dataEndpoints.isSome then expected else
     fixed.map (fun binding =>
       binding.representation.map Prod.snd |>.getD binding.expectedType) |>.getD expected)
@@ -2022,6 +2023,19 @@ def validateCallableAtWith
       unless ← withTransparency .all <| isDefEq expected
           (← interfaceHomAt retained source target) do
         return .error "the data callable changed its full selected category dictionary"
+  -- A positioned value retains its declared data port even when that type is
+  -- a complete Hom. Its codec does not turn it into another outer point map.
+  if let some binding := fixed then
+    if let .value := binding.role then
+      let some requested ← declaredHom? requested
+        | return .error "a callable value requires its independently fixed Hom type"
+      let some retained ← declaredHom? binding.expectedType
+        | return .error "the retained callable value omitted its original full Hom"
+      unless ← withoutModifyingState (withTransparency .all <|
+          isDefEq requested.getAppArgs[0]! retained.getAppArgs[0]! <&&>
+          isDefEq requested.getAppArgs[1]! retained.getAppArgs[1]!) do
+        return .error "the callable value changed its declared Hom carrier or quiver"
+      return ← validatePort binding.formal binding.expectedType data objects false scope
   let originalScope := scope
   let scope := if dataEndpoints.isSome then InterfaceScope.withoutRoot? scope
     else InterfaceScope.actual? scope
