@@ -745,6 +745,198 @@ def questions_export(root, runtime, published):
         raise SystemExit('Pure question export incomplete; inspect full readings and separate failures')
 
 
+def check_fixed_execution(document, expected):
+    """A successful process or a nonfailing gap is not a completed fixed computation."""
+    if not isinstance(document, list):
+        return ['fixed execution did not produce a result array']
+    problems = []
+    if [row.get('id') for row in document if isinstance(row, dict)] != list(expected):
+        problems.append('missing, duplicate, reordered or unexpected fixed assertion IDs')
+    for row in document:
+        if not isinstance(row, dict) or row.get('id') not in expected:
+            problems.append('malformed or unexpected fixed execution result')
+            continue
+        identity = row['id']
+        if row.get('file') != expected[identity]['file']:
+            problems.append('fixed execution source differs: ' + identity)
+        if row.get('kind') != 'holds' or row.get('fails') is not False:
+            problems.append(identity + ': ' + str(row.get('kind')) + ': ' + str(row.get('detail', '')))
+        if any(not isinstance(row.get(key), str) or not row[key].strip()
+               for key in ['question', 'proposition']):
+            problems.append('fixed execution omitted its complete reading: ' + identity)
+        if not isinstance(row.get('dispatches'), list):
+            problems.append('fixed execution omitted dispatch records: ' + identity)
+    return problems
+
+
+def check_fixed_controls(name, document):
+    """Check the existing controls' complete results in addition to their exit code."""
+    if name == 'rx10':
+        if not isinstance(document, dict) or not isinstance(document.get('observations'), list):
+            return ['RX10 did not produce its six-condition report']
+        rows = document['observations']
+        conditions = ['holds', 'gap', 'unavailable', 'malformed', 'wrong', 'internal']
+        if any(not isinstance(row, dict) for row in rows) \
+                or [row.get('condition') for row in rows] != conditions:
+            return ['RX10 omitted, duplicated or reordered a fixed execution condition']
+        problems = []
+        for row in rows:
+            condition = row['condition']
+            if row.get('kind') != condition or row.get('expectedKind') != condition:
+                problems.append('RX10 ' + condition + ' observed ' + str(row.get('kind')))
+            if row.get('sameIndependentTypedQuestion') is not True:
+                problems.append('RX10 lost independent question agreement: ' + condition)
+            if any(not isinstance(row.get(key), str) or not row[key].strip()
+                   for key in ['id', 'question', 'proposition']):
+                problems.append('RX10 omitted its original complete question: ' + condition)
+            if any(row.get(key) != rows[0].get(key)
+                   for key in ['id', 'source', 'sourceLine', 'question', 'proposition']):
+                problems.append('RX10 changed its original question: ' + condition)
+            if condition in {'holds', 'wrong'} and row.get('callableReused') is not True:
+                problems.append('RX10 did not consume its returned callable: ' + condition)
+            if condition == 'holds' and (not isinstance(row.get('sessionControls'), dict)
+                                        or row['sessionControls'].get('kind') != 'holds'):
+                problems.append('RX10 did not complete the original session controls')
+        return problems
+    if not isinstance(document, list) or len(document) != 1 \
+            or not isinstance(document[0], dict) or document[0].get('control') != name.upper():
+        return [name.upper() + ' did not produce its selected complete control report']
+    row = document[0]
+    if name == 'rx05':
+        environments = row.get('environments', [])
+        if not isinstance(environments, list) or any(not isinstance(item, dict) for item in environments) \
+                or [item.get('environment') for item in environments] != [
+                    'present', 'present-reversed', 'absent', 'absent-reversed']:
+            return ['RX05 did not retain all four declaration environments']
+        checks = row.get('crossEnvironmentChecks', {})
+        required = ['presentResolutionMetadataEqual', 'presentCompleteTypedRequestsEquivalent',
+                    'absentCompleteCandidatesEquivalentAsMultisets',
+                    'registryApplicableInventoriesEquivalentAsMultisets']
+        if not isinstance(checks, dict) or any(checks.get(key) is not True for key in required):
+            return ['RX05 did not complete its original full typed comparisons']
+        for index, environment in enumerate(environments):
+            if not isinstance(environment.get('selectedInventory'), dict) \
+                    or not isinstance(environment.get('typedReceiver'), dict):
+                return ['RX05 omitted the selected inventory or complete receiver']
+            if index < 2:
+                if environment.get('resolutionKind') != 'resolved' \
+                        or not isinstance(environment.get('typedRequest'), dict):
+                    return ['RX05 omitted a complete selected comparison request']
+            elif environment.get('resolutionKind') != 'ambiguous' \
+                    or environment.get('completeRegistryInventoryRetained') is not True \
+                    or not isinstance(environment.get('candidates'), list) \
+                    or not environment['candidates'] \
+                    or not isinstance(environment.get('registryApplicableCandidates'), list) \
+                    or not environment['registryApplicableCandidates']:
+                return ['RX05 omitted its complete actual ambiguity inventory']
+        return []
+    if name == 'rx09':
+        if row.get('kind') != 'invalid' or row.get('stage') != 'admission' \
+                or row.get('prerequisites') != 4 or row.get('dispatches') != [] \
+                or not isinstance(row.get('actualAttempt'), dict) \
+                or not isinstance(row.get('independentObligation'), dict):
+            return ['RX09 did not retain its exact typed negative admission observation']
+        return []
+    raise ValueError('Unknown fixed control: ' + name)
+
+
+def fixed_execution(root, runtime, published, manifest, leaf_commit, controls=False):
+    """Run existing fixed inputs unchanged; this does not admit or rewrite an assertion."""
+    gate = export_gate(root, runtime, published)
+    manifest = manifest.resolve()
+    leaf_root = Path(git(manifest.parent, 'rev-parse', '--show-toplevel')).resolve()
+    leaf = state(leaf_root)
+    if not re.fullmatch('[0-9a-f]{40}', leaf_commit) or leaf['commit'] != leaf_commit \
+            or leaf['workingTree'] or not manifest.is_relative_to(leaf_root):
+        raise SystemExit('Fixed execution requires the exact clean frozen leaf checkout')
+    name = 'fixed-controls' if controls else 'fixed-execution'
+    directory = runtime / 'evidence' / name
+    directory.mkdir()
+    guards = [*gate['guardedInputs'], record(__file__), record(manifest)]
+    invocations = []
+    if controls:
+        for control, module in [('rx10', 'FixedQuestionExecutionControls'),
+                                ('rx05', 'FrozenObservationControls'),
+                                ('rx09', 'FrozenObservationControls')]:
+            report = directory / (control + '.json')
+            source = root / 'CasAcceptance/Kernel' / (module + '.lean')
+            guards.append(record(source))
+            environment = (['CAS_FROZEN_LEAF_MANIFEST=' + str(manifest),
+                            'CAS_FIXED_QUESTION_REPORT=' + str(report),
+                            'CAS_CONDITION_PROTOCOL_DIR=' + str(root / 'CasAcceptance/Strata')]
+                           if control == 'rx10' else
+                           ['CAS_EXTENSION_CONTROL=' + control.upper(),
+                            'CAS_EXTENSION_CONTROL_REPORT=' + str(report)])
+            command = ['env', *environment, 'bash', str(runtime / 'lake.sh'),
+                       'env', 'lean', str(source)]
+            invocations.append((control, report, command, None))
+    else:
+        exported = runtime / 'evidence/pure-questions'
+        summary = exported / 'summary.json'
+        receipt = json.loads(summary.read_text())
+        if receipt.get('completeExports') is not True or receipt.get('producer') != gate['producer'] \
+                or receipt.get('publishedKernel') != published:
+            raise SystemExit('Fixed execution requires the complete exports from this exact built source')
+        guards += [record(summary), *receipt['sourceInputs']]
+        suite, inventory = exported / 'positive-clarified', exported / 'fixed-inventory.json'
+        fixture = json.loads((root / 'scripts/probes/fixed_question_export_inputs.json').read_text())
+        files = sorted(suite.glob('*.cas'))
+        expected = question_sources(files)
+        if len(files) != 14 or len(expected) != 134 \
+                or set(expected) != set(fixture['assertions']) \
+                or json.loads(inventory.read_text()) != {'assertions': fixture['assertions']}:
+            raise SystemExit('Fixed execution selection differs from the original 134 questions in 14 files')
+        for item in fixture['extensionSources']:
+            path = suite / item['selectedName']
+            if record(path)['sha256'] != item['sha256']:
+                raise SystemExit('Staged fixed source changed: ' + str(path))
+        guards += [record(inventory), *[record(path) for path in files]]
+        report = directory / 'fixed-positive.json'
+        command = ['bash', str(runtime / 'lake.sh'), 'env',
+                   str(root / '.lake/build/bin/cas-harness'), '--suite', str(suite),
+                   '--inventory', str(inventory), '--manifest', str(manifest),
+                   '--report', str(report), '--computation-only']
+        for module in FIXED_IMPORTS:
+            command.extend(['--import', module])
+        invocations.append(('fixed-positive', report, command, expected))
+    if changed_records(guards):
+        raise SystemExit('A fixed execution input changed since its recorded build/export')
+    results = {}
+    summary_path = directory / 'summary.json'
+    summary = {'purpose': 'Existing fixed computations and controls; no independent acceptance claimed',
+               **gate, 'frozenLeaf': leaf, 'manifest': record(manifest), 'results': results,
+               'guardedInputs': guards, 'completeExecution': False}
+    write(summary_path, summary)
+    for selection, report, command, expected in invocations:
+        code = export_attempt(root, runtime, name + '-' + selection, command)
+        problems = []
+        if code != 0:
+            problems.append('original runner exited unsuccessfully: ' + str(code))
+        try:
+            document = json.loads(report.read_text())
+            problems += (check_fixed_controls(selection, document) if controls else
+                         check_fixed_execution(document, expected))
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            problems.append('fixed report unavailable or malformed: ' + str(error))
+        changes = changed_records(guards)
+        leaf_after = state(leaf_root)
+        if changes or leaf_after != leaf:
+            problems.append('fixed source, artifact, input or frozen leaf changed during execution')
+        results[selection] = {'exit': code, 'problems': problems, 'complete': not problems,
+                              'report': record(report) if report.is_file() else {'missing': True},
+                              'changedInputs': changes, 'frozenLeafAfter': leaf_after}
+        write(summary_path, summary)
+        # Failed assertions do not suppress independent controls, but changed
+        # inputs invalidate the frozen experiment and must not be reused.
+        if changes or leaf_after != leaf:
+            break
+    summary['completeExecution'] = (len(results) == len(invocations)
+                                    and all(item['complete'] for item in results.values()))
+    write(summary_path, summary)
+    if not summary['completeExecution']:
+        raise SystemExit('Fixed computations or controls failed; inspect ' + str(summary_path))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[1])
@@ -766,6 +958,12 @@ def main():
         export = commands.add_parser(name)
         export.add_argument('--published-kernel-commit', required=True,
                             help='complete published SHA of this already built candidate')
+    for name in ['execute-fixed', 'execute-fixed-controls']:
+        execution = commands.add_parser(name)
+        execution.add_argument('--published-kernel-commit', required=True)
+        execution.add_argument('--manifest', type=Path, required=True)
+        execution.add_argument('--leaf-commit', required=True,
+                               help='exact frozen leaf SHA shared with the original RX-LIFT run')
     args = parser.parse_args()
     root, runtime = args.root.resolve(), args.runtime.resolve()
     if args.phase == 'prepare':
@@ -783,6 +981,9 @@ def main():
         api_export(root, runtime, args.published_kernel_commit)
     elif args.phase == 'export-questions':
         questions_export(root, runtime, args.published_kernel_commit)
+    elif args.phase in {'execute-fixed', 'execute-fixed-controls'}:
+        fixed_execution(root, runtime, args.published_kernel_commit, args.manifest,
+                        args.leaf_commit, controls=args.phase == 'execute-fixed-controls')
     else:
         verify(root, runtime)
 

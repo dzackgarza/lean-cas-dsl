@@ -3,10 +3,13 @@
 
 The historical kernel is extracted byte-for-byte from its published git tree and
 built in an isolated runtime checkout with its own internal import closure. It
-never imports a candidate Trace, Semantic, or other kernel module. Both builds
-use the selected external semantic/toolchain tuple; only an exact reviewed
-compatible contract revision may differ from f65's manifest. Candidate source
-pairs remain hash guarded, but they no longer claim historical ABI compatibility.
+never imports a candidate Trace, Semantic, or other kernel module. The historical
+build uses its exact recorded external tuple with its previously reviewed
+contract override. The current build retains its own published tuple.
+Current source is verified against that exact commit and matching build receipts;
+historical probes and expected diagnostics retain their original frozen bytes.
+This compares the two recorded combinations, without claiming identical APIs or
+attributing every difference to a single changed kernel component.
 These are engineering controls, not independent mathematical acceptance.
 
 Lean 4.33 source references for the invocation:
@@ -39,102 +42,17 @@ BASELINE = 'f65f3e9bed748ee8bc699e16ff43d29fb8fbce79'
 MODULE = 'CasCatalogue.Realize'
 REALIZE = 'CasCatalogue/Realize.lean'
 BASELINE_REALIZE_SHA256 = '79c1257296030f7be30624ea6fede5786c18d241dacb7d9c31b761e290dcc53e'
-# Replace only after the source owner freezes the complete reviewed candidate,
-# including the registered-product comparison. No CLI or environment override.
-CANDIDATE_REALIZE_SHA256 = '17551055b02f219a97137b48d7ff07604d45a67ae2312da3d887abf3867f9bfa'
-REVIEWED_DEPENDENCY_SOURCES = {
-    'CasCatalogue/ObjectPresentation.lean': {
-        'before': '7ae808d09cce776c4eab6d18a022851ffd8da4ae4366c2059d728457ac320ebf',
-        'after': '952b500c2c432d74bcd11281614f37efc8f2e2f9a210dad4426964fbd0c447a7',
-        'scope': 'Public named-refinement fields project the accepted identification in its complete target category and return addressed producer occurrences'},
-    'CasCatalogue/FunctorActionData.lean': {
-        'before': '5940b628eac528839948ed947b62a613bab97e46966a8be295d580ab4e59dfc6',
-        'after': 'f84b204f539bf2a676d42d21ebac77e8dc7e039706c002bcadb9778a2d10e64c',
-        'scope': 'Literal action inspection passes through administrative producer wrappers while retaining original selected typed operands'},
-    'CasCatalogue/StructuredProjection.lean': {
-        'before': 'b0b5687201fcbc2033aedc7252ac42eadf2ad8de25ceb9b952dd85b89947e374',
-        'after': '2e28e275fb8e7a638de11bfd19a6ae0a2cfb6fc3761fa05ea30959731e884107',
-        'scope': 'Universal interface recovery inspects the original anchored value and preserves any existing producer instead of overwriting it'},
-    'CasCatalogue/DeclaredApplication.lean': {
-        'before': None,
-        'after': 'a87eff6d63fa068817b2175cb8fc7bcda634138fc06b29cc583618e9df85f4f4',
-        'scope': 'New shared full declaration matcher extracted from the existing Realize interface; the original wrapper delegates without changing its signature'},
-    'CasCatalogue/RoutedResultPlan.lean': {
-        'before': None,
-        'after': 'f90bc2b292606dba9fa6fc9cfe343c5c49ab1a98eb226f0b06f898f0a101a9d2',
-        'scope': 'Dependent result schemas retain symbolic parameter origins, exact public field positions, comparison-aligned projection actions and final reply paths across composition; no mathematical values are manufactured'},
-    'CasCatalogue/LiftStageExecution.lean': {
-        'before': None,
-        'after': '4cef385c924dc50f0bf951d211ce242e884a2abf17deec49322468eae21f1995',
-        'scope': 'Shared four-field dependency fold over retained operands; actual and prospective lift consumers supply their existing image and field callbacks without changing legacy packet order'},
-    'CasCatalogue/EvidencePresentation.lean': {
-        'before': 'adabad6c26d8fa6ed82feca70c10e32c20353662a5eddefc7e27de089bbec39a',
-        'after': 'ea1f8a4b718987bf3046e4b908509c405afe07f636664f76ca1996c903f75454',
-        'scope': 'Original producer markers are transparent to evidence; stored fields and closed type visibility remain separate checked equivalent presentations'},
-    'CasCatalogue/ProofRefinement.lean': {
-        'before': '7cb2193811cbea259af2828693843289261e08d73e2dacf4fa33ca61f040d93a',
-        'after': '1822f4ba4395db521acc0e6af8c517f565bc26718dd0eadfd9a9e5ecfcc0c5e6',
-        'scope': 'Existing class and Decidable acquisition explicitly retains its former checked type-visibility presentation without changing refinement mathematics'},
-    'CasCatalogue/Language.lean': {
-        'before': '585a2e71efec55c1164726f528a5d1f3cb3bd23052a74f48e080a3c0164769a1',
-        'after': '58d7f1f4e9363e3f0d9dc32be30f482ae954a33ed89a65bf9939b547130f9fc3',
-        'scope': 'Complete source contexts and dependent typed selection; same-provider evidence uses original and checked equivalent targets with shared budgets, isolated caller proof state, and checked auxiliary results; no new mathematical objects or operations'},
-    'CasCatalogue/StructuredResult.lean': {
-        'before': 'fb3b8495e4423d857b9626b2ade65b713e58de02a3e90d9ce23536a344f061e6',
-        'after': '7b1af5f9ca8f0b8a482026b06659331ae34ece98613a76b11cd7591a0e7d0103',
-        'scope': 'A defaulted apex binder is selected on the symbolic registered schema before formal binder unification; existing DataPlan construction remains compatible'},
-    'CasCatalogue/ComputationalData.lean': {
-        'before': 'c0cb16055ad7fa6fc6086f0fd3863965a02164b8bfe6b1dba39eb5e68fe82c84',
-        'after': '6eef76ad80969428447e6e0cae4cd421edff10c64652d36de8adf271bc9b20dc',
-        'scope': 'Generic endpoint slots validate returned graph/named/opaque maps at distinct actual data roles; public lift-codec projection retains exact ownership; existing dispatchers remain separately compiled'},
-    'CasCatalogue/ServiceRequest.lean': {
-        'before': '4d1d2c5a4b11e63141b3eb10a8b1ed0650e55ab8263a42f40a5cf330017a8be3',
-        'after': '94c82c2118483ce27541390bbb46558f33a91ac4e044f290d87963e05659c34f',
-        'scope': 'Prepared retains exact endpoint operands and the independently selected typed method application; baseline uses its own original Prepared interface'},
-    'CasCatalogue/SimpleServiceRequest.lean': {
-        'before': '4937a53e5de24b73f335f80c6ee37a2c60a5ca649424b95d9dbf95b99625c219',
-        'after': '9ac765d65312d1703e77420922d2b16c8c297da5db077f96243fbd05bb5feb22',
-        'scope': 'Simple preparers retain exact typed operands and complete method descriptors without restarting execution through an Expr cache'},
-    'CasCatalogue/StructuredServiceRequest.lean': {
-        'before': '259d2fd6937020d8f7b5e76766bb4f651c7fcce1c74c0cb7238c103ed61e18f4',
-        'after': '603924334dee68796c17c81ad061d890276597b3472de95cec39b2b840e77a71',
-        'scope': 'Existing structured preparers retain exact typed callable endpoint operands'},
-    'CasCatalogue/UniversalServiceRequest.lean': {
-        'before': '4781b2991d976c080c47069461cac309f1dee946775a1b70a86f0548a60e04e5',
-        'after': 'e3170277c6f31715e219455aa1ef315c1689db0bc72d6e165f6c5dad0b3e0d56',
-        'scope': 'Universal invocations retain complete typed operands and actual lift action image data through the reviewed optional public metadata; legacy requests retain their recipe framing'},
-    'CasCatalogue/ComputationDerivation.lean': {
-        'before': '5db0786c3ce5766a6f1f2d298e4ad6135b3f3f3b08e666019ac81a4d054b84e5',
-        'after': 'a8197d068b7094f013ff79ceae842a653d01a8e6046029a02d3398ae86898702',
-        'scope': 'Retained typed method application and generic execution consumers; compiled independently of the historical kernel'},
-    'CasCatalogue/LiftedSubobjectData.lean': {
-        'before': '5e0cebc28b49eb3d437bc67a0d2a07e100655c2d0d360147d249ff6fd9d3afdf',
-        'after': '4ef3bb20941f8d7956a33e950b25c6c82dd16f43a231e353a5b1882fe2c42ff6',
-        'scope': 'Completed lift decoding keeps each actual source/comparison image and its ownership at independently selected formal interfaces; legacy packets preserve their explicit recipe mode'},
-    'CasCatalogue/QuestionIdentity.lean': {
-        'before': '31df18299a1074aca65ca5f0e61becc3867b7d16c1e00944bbe1c9ce17c32f32',
-        'after': 'e3a241ebb78e40162dd60da280ab8e166fe53f2db1ac442734388b6c8cc01b02',
-        'scope': 'Retained typed method application and generic execution consumers; compiled independently of the historical kernel'},
-    'CasCatalogue/SelectedLift.lean': {
-        'before': 'c055982c0bbf182399e8fe623e98190b4209fa912bebe0c81bbaf545069c3622',
-        'after': '3b6398d73eb884c8052664e89048efd492c05c4d9aed2dd07c17ae2bc5eb8e1c',
-        'scope': 'Retained typed method application and generic execution consumers; compiled independently of the historical kernel'},
-    'CasCatalogue/Semantic.lean': {
-        'before': 'd1ec8ea5007c039985b0fff5e0e6b4db4f53c1e68c03cdfef7663ee67e17f232',
-        'after': 'abfa2269aa355d66ebebe3cb777cf1eac94bef34b967420d83f1da92ae280f50',
-        'scope': 'Retained complete method and comparison applications, plus exact dependent limit choice validation; registry-only resolution and accepted creation/comparison constructions remain in use'},
-    'CasCatalogue/Trace.lean': {
-        'before': '5ffbe244154fcd65f5c889ffd45df302fa36d01436f6862bb48c14d78d0c20b7',
-        'after': '544c4a440c3e99a426b90332ded7264cb9e9513544989a62796dc252fc36ff04',
-        'scope': 'Retained typed method application and generic execution consumers; compiled independently of the historical kernel'},
-}
+# These original probes supplied the frozen historical failure expectations.
+# Current probes are checked against the published candidate and executed too;
+# historical controls always use these exact older source bytes.
+CONTROL_REVISION = '4c33b5747f539dd2ca8ba169bcded6868c52812f'
 
 # The reviewed contract adds a complete-method decoder and optional actual-image
 # lift metadata. LiftInput/LiftFactorInput records, encoders and decoders change:
 # defaults omit the new fields and preserve the legacy ordered wire arguments.
 # Historical consumers construct/access named fields, not positional constructors.
-# Both kernels use this effective contract tuple, recorded explicitly rather than
-# misreported as the historical manifest; baseline sources are never rewritten.
+# The historical kernel uses this effective contract tuple, recorded explicitly
+# rather than misreported as its original manifest; sources are never rewritten.
 REVIEWED_EXTERNAL_REVISIONS = {
     'cas_leaf_contracts': {
         'before': '3f7a22e0b6afc3e745f3aa60a9ceecf6740948d5',
@@ -218,29 +136,35 @@ def require_hash(data, expected, label):
         raise ValueError(label + ' differs from its reviewed frozen SHA256')
 
 
-def reviewed_source_pair(root, relative, pair):
-    if pair['before'] is None:
-        if git_bytes(root, 'ls-tree', '-z', BASELINE, '--', relative):
-            raise ValueError('A reviewed new dependency already exists at f65: ' + relative)
-        before = b''
-    else:
-        before = git_bytes(root, 'show', BASELINE + ':' + relative)
-        require_hash(before, pair['before'], 'Published dependency ' + relative)
-    after = (root / relative).read_bytes()
-    require_hash(after, pair['after'], 'Reviewed dependency ' + relative)
-    return before, after
+def published_source(root, relative, published):
+    """Authenticate current bytes against the exact built, published source tree."""
+    expected = git_bytes(root, 'show', published + ':' + relative)
+    source = root / relative
+    if source.is_symlink() or not source.is_file() or source.read_bytes() != expected:
+        raise ValueError('Source differs from its exact published git blob: ' + relative)
+    return expected
 
 
-def kernel_dependency_source(root, module):
+def kernel_dependency_source(root, module, published):
     source = root / (module.replace('.', '/') + '.lean')
     if not source.is_file():
         return None
-    relative = source.relative_to(root).as_posix()
-    if relative in REVIEWED_DEPENDENCY_SOURCES:
-        reviewed_source_pair(root, relative, REVIEWED_DEPENDENCY_SOURCES[relative])
-    elif git_bytes(root, 'show', BASELINE + ':' + relative) != source.read_bytes():
-        raise ValueError('An unapproved kernel dependency changed since f65: ' + relative)
+    published_source(root, source.relative_to(root).as_posix(), published)
     return candidate.record(source)
+
+
+def candidate_source_pair(root, relative, published):
+    after = published_source(root, relative, published)
+    present = bool(git_bytes(root, 'ls-tree', '-z', BASELINE, '--', relative))
+    before = git_bytes(root, 'show', BASELINE + ':' + relative) if present else b''
+    return before, after, present
+
+
+def historical_control_source(root, control):
+    relative = 'CasAcceptance/Kernel/' + control['module'] + '.lean'
+    original = git_bytes(root, 'show', CONTROL_REVISION + ':' + relative)
+    require_hash(original, control['sha256'], 'Frozen historical ' + control['module'])
+    return original
 
 
 def import_artifacts(olean):
@@ -302,28 +226,64 @@ def normalized_setup(path, source_root):
     return value
 
 
-def reviewed_external_selection(root):
-    """No changed mathematics, toolchain, package URL or unreviewed revision."""
+def historical_manifest(root):
+    """Use the fixed historical tuple and only its previously reviewed override."""
     if git_bytes(root, 'show', BASELINE + ':lean-toolchain') != (root / 'lean-toolchain').read_bytes():
         raise ValueError('Baseline and candidate select different Lean toolchains')
-    before = json.loads(git_bytes(root, 'show', BASELINE + ':lake-manifest.json'))
-    after = json.loads((root / 'lake-manifest.json').read_text())
-    original = {row['name']: row for row in before.pop('packages')}
-    current = {row['name']: row for row in after.pop('packages')}
-    if before != after or original.keys() != current.keys():
-        raise ValueError('Baseline and candidate changed the external package configuration')
+    original = json.loads(git_bytes(root, 'show', BASELINE + ':lake-manifest.json'))
+    selected = copy.deepcopy(original)
     changes = []
-    for name, prior in original.items():
-        selected = current[name]
-        if prior == selected:
+    for row in selected['packages']:
+        reviewed = REVIEWED_EXTERNAL_REVISIONS.get(row['name'])
+        if reviewed is None:
             continue
-        reviewed = REVIEWED_EXTERNAL_REVISIONS.get(name)
-        if reviewed is None or prior.get('rev') != reviewed['before'] \
-                or selected.get('rev') != reviewed['after'] \
-                or {**prior, 'rev': selected['rev']} != selected:
-            raise ValueError('Unreviewed baseline external dependency change: ' + name)
-        changes.append({'package': name, **reviewed, 'baselineDeclared': prior, 'effective': selected})
-    return changes
+        if row['rev'] != reviewed['before']:
+            raise ValueError('Historical dependency differs from its reviewed source: ' + row['name'])
+        prior = copy.deepcopy(row)
+        row['rev'] = reviewed['after']
+        changes.append({'package': row['name'], **reviewed,
+                        'baselineDeclared': prior, 'effective': copy.deepcopy(row)})
+    return selected, changes
+
+
+def historical_packages(root, runtime, directory):
+    """Reuse matching immutable checkouts; restore only the baseline's exact inputs."""
+    manifest, changes = historical_manifest(root)
+    candidate_manifest = {row['name']: row for row in
+                          json.loads((root / 'lake-manifest.json').read_text())['packages']}
+    current = {row['name']: row for row in
+               json.loads((runtime / 'packages.json').read_text())['packages']}
+    selected, sources = [], {}
+    for row in manifest['packages']:
+        name, revision = row['name'], row['rev']
+        if Path(name).name != name or name in {'.', '..'} or not re.fullmatch('[0-9a-f]{40}', revision):
+            raise ValueError('Unsafe historical package selection')
+        subdir = Path(row.get('subDir') or '.')
+        if subdir.is_absolute() or '..' in subdir.parts:
+            raise ValueError('Historical package subdirectory escapes its repository')
+        if candidate_manifest.get(name) == row and name in current:
+            package = Path(current[name]['dir'])
+            checkout = Path(candidate.git(package, 'rev-parse', '--show-toplevel'))
+        else:
+            checkout = runtime / 'operation-owner-historical-dependencies' / name
+            if checkout.exists():
+                raise ValueError('Refuse to replace an earlier historical dependency: ' + name)
+            with (directory / ('fetch-' + name + '.log')).open('x') as log:
+                for command in [['git', 'init', str(checkout)],
+                                ['git', '-C', str(checkout), 'fetch', '--depth', '1', row['url'], revision],
+                                ['git', '-C', str(checkout), 'checkout', '--detach', 'FETCH_HEAD']]:
+                    subprocess.run(command, check=True, stdout=log, stderr=subprocess.STDOUT)
+            package = checkout / subdir
+        source = candidate.state(checkout)
+        if source['commit'] != revision or source['workingTree'] \
+                or not (package / row['configFile']).is_file():
+            raise ValueError('Historical package does not match its exact clean source: ' + name)
+        sources[name] = source
+        selected.append({'name': name, 'dir': str(package), 'type': 'path',
+                         **{key: row[key] for key in ['inherited', 'scope', 'configFile', 'manifestFile']}})
+    path = directory / 'historical-packages.json'
+    candidate.write(path, {'schemaVersion': '1.2.0', 'packages': selected})
+    return path, sources, changes
 
 
 def stage_baseline(root, baseline_root, directory, packages, guards):
@@ -410,7 +370,7 @@ def baseline_dependencies(setup, baseline_root, candidate_root):
 
 def execute_controls(lean, setup, directory, modules, probes, current_parts,
                      baseline_source, baseline_setup, baseline_command, candidate_root,
-                     step, guards, report):
+                     step, guards, report, baseline_lean=None):
     """All candidate checks run; a bad independent baseline build proves nothing."""
     successful = True
     for control in probes:
@@ -442,8 +402,9 @@ def execute_controls(lean, setup, directory, modules, probes, current_parts,
             continue
         name = control['name'] + '-baseline'
         selected = probe_setup(directory, name, control, baseline_imports, baseline_parts, guards)
-        passed = step(name, [*lean, '--setup=' + str(selected), str(control['copy'])],
-                      control['copy'], control['baselineErrors'])
+        source = control.get('baselineCopy', control['copy'])
+        passed = step(name, [*(baseline_lean or lean), '--setup=' + str(selected), str(source)],
+                      source, control['baselineErrors'])
         successful = passed and successful
     return successful
 
@@ -487,24 +448,21 @@ def run(root, runtime, published):
         guards += [builds[name], receipt['log']]
     if candidate.git(root, 'rev-parse', BASELINE + '^{commit}') != BASELINE:
         raise ValueError('The exact published baseline is unavailable')
-    external_changes = reviewed_external_selection(root)
+    if candidate.git(root, 'rev-parse', CONTROL_REVISION + '^{commit}') != CONTROL_REVISION:
+        raise ValueError('The exact published historical control sources are unavailable')
     baseline_bytes = git_bytes(root, 'show', BASELINE + ':' + REALIZE)
     require_hash(baseline_bytes, BASELINE_REALIZE_SHA256, 'Published f65 Realize source')
-    require_hash((root / REALIZE).read_bytes(), CANDIDATE_REALIZE_SHA256, 'Candidate Realize source')
-    reviewed_sources = {}
-    for relative, pair in REVIEWED_DEPENDENCY_SOURCES.items():
-        reviewed_sources[relative] = reviewed_source_pair(root, relative, pair)
+    published_source(root, REALIZE, published)
+    source_pairs = {REALIZE: candidate_source_pair(root, REALIZE, published)}
 
     setup_path = root / '.lake/build/ir/CasCatalogue/Realize.setup.json'
     setup = normalized_setup(setup_path, root)
-    reviewed_modules = {path.removesuffix('.lean').replace('/', '.') for path in reviewed_sources}
     if setup.get('name') != MODULE or setup.get('isModule') is not True \
             or setup.get('imports') is not None or not isinstance(setup.get('importArts'), dict) \
-            or not setup['importArts'] or MODULE in setup['importArts'] \
-            or not reviewed_modules.issubset(setup['importArts']):
+            or not setup['importArts'] or MODULE in setup['importArts']:
         raise ValueError('Expected the original complete Realize dependency setup without a header override')
     guards += [candidate.record(setup_path), candidate.record(root / REALIZE)]
-    # Candidate imports keep their exact reviewed source/artifact closure. The
+    # Candidate imports keep their exact published source/artifact closure. The
     # baseline is built separately below; none of these kernel artifacts are
     # overlaid into it. External package selection is independently checked.
     dependency_paths = set()
@@ -513,9 +471,13 @@ def run(root, runtime, published):
         for group in groups:
             for value in group:
                 dependency_paths.add((root / value).resolve())
-        source = kernel_dependency_source(root, module)
+        source = kernel_dependency_source(root, module, published)
         if source is not None:
             kernel_dependencies.append(source)
+            relative = Path(source['path']).relative_to(root).as_posix()
+            pair = candidate_source_pair(root, relative, published)
+            if pair[0] != pair[1]:
+                source_pairs[relative] = pair
     for value in setup.get('dynlibs', []):
         dependency_paths.add((root / value).resolve())
     for plugin in setup.get('plugins', []):
@@ -530,7 +492,7 @@ def run(root, runtime, published):
     probes = []
     for control in CONTROLS:
         source = root / 'CasAcceptance/Kernel' / (control['module'] + '.lean')
-        require_hash(source.read_bytes(), control['sha256'], 'Frozen ' + control['module'])
+        published_source(root, source.relative_to(root).as_posix(), published)
         item = candidate.record(source)
         probes.append({**control, 'original': item})
         guards.append(item)
@@ -545,20 +507,22 @@ def run(root, runtime, published):
     directory.mkdir()
     admission_runtime = directory / 'admission-configurations'
     admission_runtime.mkdir()
-    baseline_tree = stage_baseline(root, baseline_root, directory, runtime / 'packages.json', guards)
+    packages, historical_sources, external_changes = historical_packages(root, runtime, directory)
+    guards.append(candidate.record(packages))
+    baseline_tree = stage_baseline(root, baseline_root, directory, packages, guards)
     baseline_source = baseline_root / REALIZE
     current_source = directory / 'candidate-source' / REALIZE
     current_source.parent.mkdir(parents=True)
     current_source.write_bytes((root / REALIZE).read_bytes())
     deltas = []
-    for relative, (original, current) in reviewed_sources.items():
+    for relative, (original, current, present) in source_pairs.items():
         before = directory / 'baseline-source' / relative
         after = directory / 'candidate-source' / relative
         before.parent.mkdir(parents=True, exist_ok=True)
         after.parent.mkdir(parents=True, exist_ok=True)
         before.write_bytes(original)
         after.write_bytes(current)
-        delta = directory / 'reviewed-dependency-deltas' / Path(relative).with_suffix('.patch')
+        delta = directory / 'candidate-source-deltas' / Path(relative).with_suffix('.patch')
         delta.parent.mkdir(parents=True, exist_ok=True)
         delta.write_text(''.join(difflib.unified_diff(
             original.decode().splitlines(keepends=True), current.decode().splitlines(keepends=True),
@@ -566,10 +530,11 @@ def run(root, runtime, published):
         deltas.append({
             'path': relative, 'baselineBlob': (
                 candidate.git(root, 'rev-parse', BASELINE + ':' + relative)
-                if REVIEWED_DEPENDENCY_SOURCES[relative]['before'] is not None else None),
-            'newDependency': REVIEWED_DEPENDENCY_SOURCES[relative]['before'] is None,
+                if present else None),
+            'candidateBlob': candidate.git(root, 'rev-parse', published + ':' + relative),
+            'newDependency': not present,
             'before': candidate.record(before), 'after': candidate.record(after),
-            'patch': candidate.record(delta), 'scope': REVIEWED_DEPENDENCY_SOURCES[relative]['scope']})
+            'patch': candidate.record(delta)})
         guards += [candidate.record(path) for path in [before, after, delta]]
     baseline_setup = baseline_root / '.lake/build/ir/CasCatalogue/Realize.setup.json'
     for control in probes:
@@ -577,6 +542,20 @@ def run(root, runtime, published):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(Path(control['original']['path']).read_bytes())
         control['copy'] = path
+        guards.append(candidate.record(path))
+        if control['baselineErrors'] is not None:
+            relative = 'CasAcceptance/Kernel/' + control['module'] + '.lean'
+            original = historical_control_source(root, control)
+            historical = directory / 'historical-probes' / relative
+            historical.parent.mkdir(parents=True, exist_ok=True)
+            historical.write_bytes(original)
+            control['baselineCopy'] = historical
+            guards.append(candidate.record(historical))
+    historical_fixtures = directory / 'historical-fixtures'
+    historical_fixtures.mkdir()
+    for name in FIXTURES:
+        path = historical_fixtures / name
+        path.write_bytes(git_bytes(root, 'show', CONTROL_REVISION + ':CasAcceptance/Strata/' + name))
         guards.append(candidate.record(path))
     guards += [candidate.record(path) for path in
                [baseline_source, current_source]]
@@ -586,13 +565,20 @@ def run(root, runtime, published):
                    'CAS_LEAF_CONTRACT_PATH=' + str(contract),
                    'PYTHONPATH=' + str(contract / 'python')]
     lean = [*environment, 'bash', str(runtime / 'lake.sh'), 'env', 'lean', '--json']
-    baseline_command = [*environment, 'bash', baseline_tree['wrapper']['path'], 'build', MODULE]
+    historical_contract = Path(historical_sources['cas_leaf_contracts']['path'])
+    historical_environment = ['env', 'PYTHONDONTWRITEBYTECODE=1',
+                              'CAS_OWNERSHIP_PROTOCOL_DIR=' + str(historical_fixtures),
+                              'CAS_LEAF_CONTRACT_PATH=' + str(historical_contract),
+                              'PYTHONPATH=' + str(historical_contract / 'python')]
+    baseline_command = [*historical_environment, 'bash', baseline_tree['wrapper']['path'], 'build', MODULE]
+    baseline_lean = [*historical_environment, 'bash', baseline_tree['wrapper']['path'],
+                     'env', 'lean', '--json']
     report = {
         'purpose': 'Frozen action execution engineering controls; no mathematical or architectural acceptance',
         **gate, 'verifiedBuilds': builds, 'priorPureExports': pure_exports,
-        'baselineDescription': 'Exact f65 kernel import closure rebuilt independently; fixed external tuple with the explicitly reviewed additive contract revision',
+        'baselineDescription': 'Exact f65 kernel, its recorded external tuple with the previously reviewed contract override, and the original frozen control sources',
         'baselineSourceTree': baseline_tree,
-        'baselineEffectiveExternalTuple': {name: item for name, item in producer.items() if name != 'kernel'},
+        'baselineEffectiveExternalTuple': historical_sources,
         'reviewedExternalSelectionChanges': external_changes,
         'baselineKernelSourceCommit': BASELINE,
         'baselineBlob': candidate.git(root, 'rev-parse', BASELINE + ':' + REALIZE),
@@ -601,9 +587,14 @@ def run(root, runtime, published):
         'candidateDependencySetup': candidate.record(setup_path),
         'candidateDependencyArtifacts': dependency_artifacts,
         'candidateKernelDependencySources': kernel_dependencies,
-        'reviewedCandidateSourceDeltas': deltas,
-        'controls': [{**{key: value for key, value in control.items() if key != 'copy'},
+        'candidateSourceDeltas': deltas,
+        'historicalControlSourceCommit': CONTROL_REVISION,
+        'comparisonScope': 'Current published controls versus original historical controls; exact source deltas are retained, without claiming identical APIs or independent acceptance',
+        'controls': [{**{key: value for key, value in control.items() if key not in {'copy', 'baselineCopy', 'sha256'}},
+                      'frozenHistoricalSha256': control['sha256'],
                       'executedSourceCopy': candidate.record(control['copy']),
+                      'historicalSourceCopy': (candidate.record(control['baselineCopy'])
+                                               if 'baselineCopy' in control else None),
                       'baselineExpected': ('not run' if control['baselineErrors'] is None else
                                            'exact assertion errors' if control['baselineErrors'] else 'success')}
                      for control in probes],
@@ -656,13 +647,17 @@ def run(root, runtime, published):
                 raise ValueError('Successful admission control omitted its four retained configurations')
             candidate.write(report_path, report)
         changes = candidate.changed_records(guards)
+        for name, original in historical_sources.items():
+            if candidate.state(Path(original['path'])) != original:
+                changes.append('historical dependency source: ' + name)
         if changes:
             raise ValueError('Immutable control input/output changed: ' + ', '.join(changes))
         return valid
 
     try:
         if execute_controls(lean, setup, directory, modules, probes, current_parts,
-                            baseline_source, baseline_setup, baseline_command, root, step, guards, report):
+                            baseline_source, baseline_setup, baseline_command, root, step, guards, report,
+                            baseline_lean=baseline_lean):
             code = 0
         else:
             report['error'] = 'One or more controls did not reach their exact required result'
@@ -671,6 +666,9 @@ def run(root, runtime, published):
     finally:
         after_state = candidate.snapshot(runtime)
         changes = candidate.changed_records(guards)
+        for name, original in historical_sources.items():
+            if candidate.state(Path(original['path'])) != original:
+                changes.append('historical dependency source: ' + name)
         if after_state != producer or changes:
             code = 2
         report.update(status='completed', exit=code, finishedUtc=candidate.stamp(),
@@ -740,77 +738,46 @@ def self_test():
             with self.assertRaisesRegex(ValueError, 'differs'):
                 require_hash(b'changed', digest, 'fixture')
 
-        def test_only_the_exact_reviewed_dependency_sources_may_change(self):
+        def test_current_dependency_must_match_the_published_blob(self):
             import sys
             this = sys.modules[__name__]
-            other = self.root / 'CasCatalogue/Other.lean'
-            other.parent.mkdir()
-            other.write_bytes(b'changed')
-            self.assertEqual(set(REVIEWED_DEPENDENCY_SOURCES), {
-                'CasCatalogue/ObjectPresentation.lean', 'CasCatalogue/FunctorActionData.lean',
-                'CasCatalogue/StructuredProjection.lean',
-                'CasCatalogue/ComputationalData.lean', 'CasCatalogue/ServiceRequest.lean',
-                'CasCatalogue/SimpleServiceRequest.lean', 'CasCatalogue/StructuredServiceRequest.lean',
-                'CasCatalogue/UniversalServiceRequest.lean', 'CasCatalogue/StructuredResult.lean',
-                'CasCatalogue/DeclaredApplication.lean', 'CasCatalogue/RoutedResultPlan.lean',
-                'CasCatalogue/EvidencePresentation.lean', 'CasCatalogue/ProofRefinement.lean',
-                'CasCatalogue/Language.lean', 'CasCatalogue/LiftStageExecution.lean',
-                'CasCatalogue/ComputationDerivation.lean', 'CasCatalogue/LiftedSubobjectData.lean', 'CasCatalogue/QuestionIdentity.lean', 'CasCatalogue/SelectedLift.lean', 'CasCatalogue/Semantic.lean', 'CasCatalogue/Trace.lean'})
-            before = hashlib.sha256(b'baseline').hexdigest()
-            reviewed = {}
-            for relative in REVIEWED_DEPENDENCY_SOURCES:
-                source = self.root / relative
-                source.write_text('reviewed change in ' + relative)
-                reviewed[relative] = {'before': before, 'after': candidate.record(source)['sha256']}
-            with patch.object(this, 'git_bytes', return_value=b'baseline'), \
-                    patch.object(this, 'REVIEWED_DEPENDENCY_SOURCES', reviewed):
-                for relative in reviewed:
-                    module = relative.removesuffix('.lean').replace('/', '.')
-                    self.assertEqual(kernel_dependency_source(self.root, module),
-                                     candidate.record(self.root / relative))
-                with self.assertRaisesRegex(ValueError, 'unapproved kernel dependency'):
-                    kernel_dependency_source(self.root, 'CasCatalogue.Other')
-                other.write_bytes(b'baseline')
-                self.assertEqual(kernel_dependency_source(self.root, 'CasCatalogue.Other'),
-                                 candidate.record(other))
-                helper = self.root / 'CasCatalogue/ComputationalData.lean'
-                helper.write_bytes(b'an additional unreviewed change')
-                with self.assertRaisesRegex(ValueError, 'reviewed frozen SHA256'):
-                    kernel_dependency_source(self.root, 'CasCatalogue.ComputationalData')
-                reviewed['CasCatalogue/ServiceRequest.lean']['after'] = 'PENDING_REVIEW'
-                with self.assertRaisesRegex(ValueError, 'no reviewed frozen SHA256'):
-                    kernel_dependency_source(self.root, 'CasCatalogue.ServiceRequest')
+            source = self.root / 'CasCatalogue/Changed.lean'
+            source.parent.mkdir()
+            source.write_bytes(b'published current source')
+            with patch.object(this, 'git_bytes', return_value=b'published current source') as read:
+                self.assertEqual(kernel_dependency_source(self.root, 'CasCatalogue.Changed', 'published'),
+                                 candidate.record(source))
+                read.assert_called_with(self.root, 'show', 'published:CasCatalogue/Changed.lean')
+                source.write_bytes(b'unpublished accommodating edit')
+                with self.assertRaisesRegex(ValueError, 'exact published git blob'):
+                    kernel_dependency_source(self.root, 'CasCatalogue.Changed', 'published')
 
-        def test_new_dependency_requires_absence_and_its_exact_reviewed_bytes(self):
+        def test_new_dependency_keeps_its_exact_source_and_absent_historical_record(self):
             import sys
             this = sys.modules[__name__]
             source = self.root / 'New.lean'
-            source.write_bytes(b'new module')
-            pair = {'before': None, 'after': candidate.record(source)['sha256']}
-            with patch.object(this, 'git_bytes', return_value=b''):
-                self.assertEqual(reviewed_source_pair(self.root, 'New.lean', pair),
-                                 (b'', b'new module'))
-                source.write_bytes(b'changed module')
-                with self.assertRaisesRegex(ValueError, 'reviewed frozen SHA256'):
-                    reviewed_source_pair(self.root, 'New.lean', pair)
-            with patch.object(this, 'git_bytes', return_value=b'existing tree entry'):
-                with self.assertRaisesRegex(ValueError, 'already exists at f65'):
-                    reviewed_source_pair(self.root, 'New.lean', pair)
+            source.write_bytes(b'published new module')
+            def read(_root, operation, *arguments):
+                return b'' if operation == 'ls-tree' else b'published new module'
+            with patch.object(this, 'git_bytes', side_effect=read):
+                self.assertEqual(candidate_source_pair(self.root, 'New.lean', 'published'),
+                                 (b'', b'published new module', False))
+                source.write_bytes(b'unpublished module')
+                with self.assertRaisesRegex(ValueError, 'exact published git blob'):
+                    candidate_source_pair(self.root, 'New.lean', 'published')
 
-        def test_all_declared_probe_bytes_are_frozen(self):
-            root = Path(__file__).resolve().parents[1]
-            self.assertEqual([item['module'] for item in CONTROLS], [
-                'OperationOwnerExecutionProbes', 'OperationOwnerAdmissionProbes', 'ActionOccurrenceProbes',
-                'NestedArrowActionProbes', 'DiagramActionExecutionProbes',
-                'ReturnedCallableEndpointProbes', 'ArrowFramingReuseProbes',
-                'IntrinsicOccurrenceProbes', 'ConstructionActionOccurrenceProbes',
-                'SyntheticEndpointOccurrenceProbes', 'NestedOwnerAdmissionProbes',
-                'IntrinsicValueOccurrenceProbes', 'PositionedInterfaceScopeProbes',
-                'RoutedResultSchemaProbes',
-                'EndpointComparisonOccurrenceProbes'])
-            for control in CONTROLS:
-                source = root / 'CasAcceptance/Kernel' / (control['module'] + '.lean')
-                require_hash(source.read_bytes(), control['sha256'], control['module'])
+        def test_historical_probe_uses_frozen_revision_and_checksum(self):
+            import sys
+            this = sys.modules[__name__]
+            data = b'original historical probe'
+            control = {'module': 'HistoricalProbe', 'sha256': hashlib.sha256(data).hexdigest()}
+            with patch.object(this, 'git_bytes', return_value=data) as read:
+                self.assertEqual(historical_control_source(self.root, control), data)
+                read.assert_called_with(self.root, 'show',
+                    CONTROL_REVISION + ':CasAcceptance/Kernel/HistoricalProbe.lean')
+            with patch.object(this, 'git_bytes', return_value=b'changed historical assertion'):
+                with self.assertRaisesRegex(ValueError, 'differs'):
+                    historical_control_source(self.root, control)
 
     class BaselineIsolationTests(unittest.TestCase):
         def setUp(self):
@@ -818,55 +785,61 @@ def self_test():
             self.addCleanup(self.temp.cleanup)
             self.root = Path(self.temp.name)
 
-        def test_only_reviewed_additive_external_revision_is_permitted(self):
+        def test_historical_external_tuple_retains_its_exact_reviewed_override(self):
             import sys
             this = sys.modules[__name__]
             old = {'packages': [
                 {'name': 'cas_leaf_contracts', 'rev': REVIEWED_EXTERNAL_REVISIONS['cas_leaf_contracts']['before'], 'url': 'contract'},
                 {'name': 'lean_categories', 'rev': 'fixed-mathematics', 'url': 'mathematics'}], 'version': '1.2.0'}
-            new = copy.deepcopy(old)
-            new['packages'][0]['rev'] = REVIEWED_EXTERNAL_REVISIONS['cas_leaf_contracts']['after']
             (self.root / 'lean-toolchain').write_bytes(b'fixed-toolchain')
             def fixed(_root, _command, reference):
                 return b'fixed-toolchain' if reference.endswith(':lean-toolchain') else json.dumps(old).encode()
             with patch.object(this, 'git_bytes', side_effect=fixed):
-                candidate.write(self.root / 'lake-manifest.json', new)
-                self.assertEqual(len(reviewed_external_selection(self.root)), 1)
-                for field, value in [('rev', 'different-contract'), ('url', 'another-repository')]:
-                    changed = copy.deepcopy(new)
-                    changed['packages'][0][field] = value
-                    candidate.write(self.root / 'lake-manifest.json', changed)
-                    with self.assertRaisesRegex(ValueError, 'Unreviewed baseline external'):
-                        reviewed_external_selection(self.root)
-                changed = copy.deepcopy(new)
-                changed['packages'][1]['rev'] = 'different-mathematics'
-                candidate.write(self.root / 'lake-manifest.json', changed)
-                with self.assertRaisesRegex(ValueError, 'Unreviewed baseline external'):
-                    reviewed_external_selection(self.root)
-                candidate.write(self.root / 'lake-manifest.json', old)
-                self.assertEqual(reviewed_external_selection(self.root), [])
+                selected, changes = historical_manifest(self.root)
+                self.assertEqual(len(changes), 1)
+                self.assertEqual(selected['packages'][0]['rev'],
+                                 REVIEWED_EXTERNAL_REVISIONS['cas_leaf_contracts']['after'])
+                self.assertEqual(selected['packages'][1], old['packages'][1])
+                self.assertEqual(selected['packages'][0]['url'], 'contract')
+                old['packages'][0]['rev'] = 'unreviewed-contract'
+                with self.assertRaisesRegex(ValueError, 'Historical dependency differs'):
+                    historical_manifest(self.root)
                 (self.root / 'lean-toolchain').write_bytes(b'changed-toolchain')
                 with self.assertRaisesRegex(ValueError, 'different Lean toolchains'):
-                    reviewed_external_selection(self.root)
+                    historical_manifest(self.root)
 
         def test_fixed_archive_is_complete_exact_and_source_guarded(self):
-            root = Path(__file__).resolve().parents[1]
+            import sys
+            this = sys.modules[__name__]
+            root = self.root / 'git-fixture'
+            subprocess.run(['git', 'init', '-q', str(root)], check=True)
+            subprocess.run(['git', '-C', str(root), 'config', 'user.name', 'Control fixture'], check=True)
+            subprocess.run(['git', '-C', str(root), 'config', 'user.email', 'control@example.invalid'], check=True)
+            subprocess.run(['git', '-C', str(root), 'config', 'core.hooksPath', str(self.root / 'no-hooks')], check=True)
+            source = root / REALIZE
+            source.parent.mkdir()
+            source.write_bytes(b'fixed original evaluator')
+            (root / 'CasCatalogue/Trace.lean').write_bytes(b'fixed original trace')
+            subprocess.run(['git', '-C', str(root), 'add', '.'], check=True)
+            subprocess.run(['git', '-C', str(root), '-c', 'commit.gpgsign=false', 'commit', '-qm', 'fixture'], check=True)
+            revision = candidate.git(root, 'rev-parse', 'HEAD')
             directory = self.root / 'evidence'
             directory.mkdir()
             checkout = self.root / 'independent-baseline'
             guards = []
-            staged = stage_baseline(root, checkout, directory, self.root / 'packages.json', guards)
-            self.assertEqual(staged['commit'], BASELINE)
-            self.assertEqual((checkout / REALIZE).read_bytes(), git_bytes(root, 'show', BASELINE + ':' + REALIZE))
-            self.assertEqual((checkout / 'CasCatalogue/Trace.lean').read_bytes(),
-                             git_bytes(root, 'show', BASELINE + ':CasCatalogue/Trace.lean'))
-            self.assertGreater(len(staged['sources']), 1)
-            self.assertFalse((checkout / '.lake').exists())
-            self.assertEqual(candidate.changed_records(guards), [])
-            (checkout / 'CasCatalogue/Trace.lean').write_bytes(b'a candidate ABI cannot replace this source')
-            self.assertIn(str(checkout / 'CasCatalogue/Trace.lean'), candidate.changed_records(guards))
-            with self.assertRaisesRegex(ValueError, 'replace an earlier'):
-                stage_baseline(root, checkout, directory, self.root / 'packages.json', guards)
+            with patch.object(this, 'BASELINE', revision), patch.object(this, 'BASELINE_REALIZE_SHA256',
+                    hashlib.sha256(source.read_bytes()).hexdigest()):
+                staged = stage_baseline(root, checkout, directory, self.root / 'packages.json', guards)
+                self.assertEqual(staged['commit'], revision)
+                self.assertEqual((checkout / REALIZE).read_bytes(), source.read_bytes())
+                self.assertEqual((checkout / 'CasCatalogue/Trace.lean').read_bytes(), b'fixed original trace')
+                self.assertEqual(len(staged['sources']), 2)
+                self.assertFalse((checkout / '.lake').exists())
+                self.assertEqual(candidate.changed_records(guards), [])
+                (checkout / 'CasCatalogue/Trace.lean').write_bytes(b'a candidate ABI cannot replace this source')
+                self.assertIn(str(checkout / 'CasCatalogue/Trace.lean'), candidate.changed_records(guards))
+                with self.assertRaisesRegex(ValueError, 'replace an earlier'):
+                    stage_baseline(root, checkout, directory, self.root / 'packages.json', guards)
 
         def test_candidate_artifact_cannot_enter_old_kernel_closure(self):
             baseline = self.root / 'baseline'
@@ -907,9 +880,17 @@ def self_test():
             for control in CONTROLS:
                 source = self.root / (control['module'] + '.lean')
                 source.write_text(control['module'] + ': immutable source fixture\n')
-                self.probes.append({**control, 'copy': source})
+                selected = {**control, 'copy': source}
+                if control['baselineErrors'] is not None:
+                    historical = self.root / 'original-probes' / source.name
+                    historical.parent.mkdir(exist_ok=True)
+                    historical.write_text(control['module'] + ': frozen historical fixture\n')
+                    selected['baselineCopy'] = historical
+                self.probes.append(selected)
             self.guards = [candidate.record(self.baseline_source), candidate.record(self.baseline_dependency)]
             self.guards += [candidate.record(control['copy']) for control in self.probes]
+            self.guards += [candidate.record(control['baselineCopy']) for control in self.probes
+                            if 'baselineCopy' in control]
             self.report = {}
 
         def execute(self, failures=(), omit_artifacts=False):
@@ -938,7 +919,8 @@ def self_test():
             return execute_controls(['lean', '--json'], self.setup, self.directory, self.modules,
                                     self.probes, self.current_parts, self.baseline_source,
                                     self.baseline_setup, self.baseline_command, self.root,
-                                    self.step, self.guards, self.report)
+                                    self.step, self.guards, self.report,
+                                    baseline_lean=['historical-lean', '--json'])
 
         def test_exact_matrix_with_isolated_kernel_artifacts(self):
             self.assertTrue(self.execute())
@@ -968,6 +950,8 @@ def self_test():
                     continue
                 selected = json.loads(Path(next(value.split('=', 1)[1] for value in command
                                                 if value.startswith('--setup='))).read_text())
+                self.assertEqual(command[0], 'historical-lean' if name.endswith('-baseline') else 'lean')
+                self.assertEqual(source.parent.name == 'original-probes', name.endswith('-baseline'))
                 parts = selected['importArts'].pop(MODULE)
                 expected_imports = copy.deepcopy(self.setup_original['importArts'])
                 if name.endswith('-baseline'):

@@ -7,22 +7,34 @@ own the work order. #66 owns complete mathematical interpretation; #69 owns comp
 #24 owns integration and independent acceptance. #23/#82 review construction requirements
 and exact mathematical inputs alongside that work.
 
-## Current computation: preserve complete callable values — 2026-10-30 UTC
+## Current computation: preserve complete callable values — 2026-10-31 Asia/Taipei
 
 The active work remains the original first RX-LIFT construction under #66/#69.
-The route and complete pending-value repair is published as `2f3fa020` with exact
-tree `aa6a39f9c5c001f71e336772457862c63297cc37`. With independent tuple source
-`a1d72cfa`, the source-guarded candidate runs the unchanged first question within
-its 200000-heartbeat budget and reaches a retained endpoint guard after 20
-dispatches. The exact failed source endpoint agrees; its admitted-point target
-still contains pending module parameters while the outer frame observes those
-same original parameters into owned results. The current repair advances the
-point's original typed endpoint fields and complete endpoint receipt together.
-The shared intrinsic owner also authenticates and refreshes a pending native
-point interface from those exact endpoint observations. The frame guard remains
-unchanged. The validator artifact has rebuilt successfully; combined support and
-realization artifacts and the repaired original run remain pending. No
-mathematical hold is established, and #83 remains closed.
+The pending-point repair is published as `f06b70421b2da1ca73604d62cc118bf48bd6656b`,
+with exact tree `ef3e060dccc9df75285cb6c154282b1596e71d35`, identical to local
+author `910f599`. Its combined `ComputationalData:olean`,
+`Realize.RuntimeSupport:olean` and `Realize:olean` build passes all 3803 jobs.
+Source review found no guard bypass: original complete endpoint receipts are
+authenticated before child observation, and the point interface and endpoint
+receipt advance from the same original typed endpoint slots. The unchanged
+first question must still run with frozen independent tuple source `a1d72cfa`,
+all 22 bindings and the original 200000-heartbeat budget. The earlier temporary
+dependency directory disappeared before that invocation; its recorded inputs
+are being restored within the current workspace. No mathematical hold is
+established, and #83 remains closed.
+
+The candidate integration workflow now invokes the existing full 134-question
+positive computation suite in its 14 original files and the existing
+RX05/RX09/RX10 controls. Their report validators reject missing or duplicated
+results, changed questions, nonfailing gaps and incomplete controls independently
+of the process exit code. The historical comparison preserves its original
+baseline and probe bytes, selects that baseline's own recorded dependencies,
+and authenticates current source against the published commit and build receipts.
+It follows the current computations and notebook, rather than blocking them.
+Independent source review, all eight fixed-execution runner tests and all sixteen
+historical-comparator self-tests pass. These are orchestration checks; the Lean
+computations, complete readings, connected workflows and independent frozen
+extension acceptance remain required.
 
 An earlier unchanged local replay reproduced the 14-dispatch resource failure with all
 22 preceding bindings, 104 trace nodes and the 200000-heartbeat budget. Boundary

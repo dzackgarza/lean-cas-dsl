@@ -18,6 +18,7 @@ jobs:
     timeout-minutes: 180
     env:
       LEAN_NUM_THREADS: '1'
+      CAS_FROZEN_LEAF_COMMIT: a1d72cfa1daf5cff15300d71f889459c7953e374
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -127,7 +128,7 @@ jobs:
           git init "$runtime/rx-lift-leaves"
           git -C "$runtime/rx-lift-leaves" fetch --depth 1 \
             https://github.com/dzackgarza/lean-cas-dsl-leaves.git \
-            a1d72cfa1daf5cff15300d71f889459c7953e374
+            "$CAS_FROZEN_LEAF_COMMIT"
           git -C "$runtime/rx-lift-leaves" checkout --detach FETCH_HEAD
           git -C "$runtime/rx-lift-leaves" rev-parse HEAD > "$runtime/evidence/rx-lift-leaf-commit.txt"
           for selection in first all; do
@@ -216,6 +217,12 @@ jobs:
         run: python3 scripts/ci_kernel_candidate.py reader-preflight
       - name: Verify the coherent build before exporting
         run: python3 scripts/ci_kernel_candidate.py verify
+      - name: Run the original RX10 execution and RX05/RX09 environment controls
+        run: |
+          python3 scripts/ci_kernel_candidate.py execute-fixed-controls \
+            --published-kernel-commit "$GITHUB_SHA" \
+            --manifest "$RUNNER_TEMP/kernel-v1-candidate/rx-lift-leaves/diagnostics/extensions-20261024/leaves.json" \
+            --leaf-commit "$CAS_FROZEN_LEAF_COMMIT"
       - name: Export the fresh public API from the built source tuple
         run: |
           python3 scripts/ci_kernel_candidate.py export-api \
@@ -224,10 +231,16 @@ jobs:
         run: |
           python3 scripts/ci_kernel_candidate.py export-questions \
             --published-kernel-commit "$GITHUB_SHA"
-      - name: Check frozen actions against the published Realize component baseline
-        run: python3 scripts/ci_operation_owner_control.py
+      - name: Execute all 134 fixed positive questions with their original contexts
+        run: |
+          python3 scripts/ci_kernel_candidate.py execute-fixed \
+            --published-kernel-commit "$GITHUB_SHA" \
+            --manifest "$RUNNER_TEMP/kernel-v1-candidate/rx-lift-leaves/diagnostics/extensions-20261024/leaves.json" \
+            --leaf-commit "$CAS_FROZEN_LEAF_COMMIT"
       - name: Run the connected real-engine workflows and original notebook
         run: python3 scripts/ci_kernel_workflows.py
+      - name: Compare current actions with the exact historical kernel and controls
+        run: python3 scripts/ci_operation_owner_control.py
       - name: Record final source stability and built products
         if: always()
         run: python3 scripts/ci_kernel_candidate.py verify

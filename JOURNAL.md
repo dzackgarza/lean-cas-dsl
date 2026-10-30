@@ -1,5 +1,28 @@
 # Journal
 
+## 2026-10-31 — Execute the complete existing fixed acceptance inventory in candidate CI
+
+Candidate CI previously exported all 134 fixed positive questions but executed
+only the first ten RX-LIFT questions and the connected examples. It now invokes
+the unchanged positive suite and the existing RX05/RX09/RX10 controls with their
+original inputs, imports and frozen leaf. Result validation checks the complete
+inventory and exact required outcomes, including failures that the harness may
+report with exit zero. No mathematical assertion changes.
+
+The historical engineering comparison no longer pins an obsolete current
+`Realize` hash. It verifies the published current tree and matching build receipt,
+while retaining the exact historical baseline, probe hashes, expected diagnostics
+and recorded dependency tuple. Its old kernel artifacts remain isolated from the
+current build. The comparison runs after current computations and the notebook.
+Independent source review found no blocking defect; eight runner tests and sixteen
+comparator self-tests pass. Actual fixed-suite and notebook execution remain
+required for V1.
+
+The pending-point runtime repair is separately published as `f06b7042`, tree
+`ef3e060dccc9df75285cb6c154282b1596e71d35`. Its combined production build passes
+3803 jobs. Its original RX-LIFT computation remains unverified pending restoration
+of the recorded runtime inputs; no mathematical or V1 completion is claimed.
+
 ## 2026-10-30 — Preserve complete callable values at their shared consumers
 
 The extracted-Hom adapter retains the complete original value as a typed child of
