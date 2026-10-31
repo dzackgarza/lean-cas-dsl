@@ -71,8 +71,16 @@ passes in 58.115 seconds, including the original ElementData limit and full
 admission/ownership controls. Both runs preserve all input hashes. The original
 first preparation then passes in 10.754 seconds with 22 bindings, 104 nodes,
 5940 ms and 69,447,230 raw preparation ticks. Its source and 200000 setting are
-unchanged. Full shared-budget engine execution still has to establish the
-original outcome; these results do not accept a mathematical release or V1.
+unchanged. The published candidate's original engine run then completes 21
+recorded dispatches within the shared budget (198,062,567 total ticks) and
+reports `unavailable` at the selected-descriptor check. Its three original
+admission parameters now exactly match the selected target's arguments.
+The bounded original numeral diagnostic subsequently passes with unchanged
+inputs and finds two separate closed ring owners and anchored three-step Sets
+carriers. Strict stored-key absence for the owners is diagnostic data, not a
+producer-loss finding. Together with 38 matching public field relationships,
+this establishes no new kernel contradiction; the opaque-operation rejection
+remains unavailable. Neither result accepts a mathematical release or V1.
 
 ## Reconstructed partial named-object views — 2026-10-31
 

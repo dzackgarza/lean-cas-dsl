@@ -208,6 +208,57 @@ fixture proposals remain unapplied. The owning [reader](specs/reuse/cc-dsl-langu
 and [realizer](specs/reuse/cc-realizer-first.md#fixed-label-runtime-profiling-of-the-original-construction--2026-10-31)
 records state the exact scope and remaining checks.
 
+The repair is published as `8d357f91e7198bb54afec4509199566def6abccc`, tree
+`32ec0e04223fc07cf69e03892babf05945440f56`, identical to local `a462029b` and
+verified by API and ordinary Git fetch. Its [candidate run 41220174950](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/41220174950)
+passes production and engine setup, then completes 21 recorded dispatches within
+the original shared budget: 68,359,636 preparation ticks, 129,702,758 execution
+ticks and 198,062,567 total ticks. The result is `unavailable` at dispatch 20,
+`lift.bilin_module.restrict#obj`, with the reported complete scalar target versus
+selected descriptor error. The run still does not establish the original assertion.
+
+Literal packet comparison confirms that all three admission parameters now
+exactly equal the selected target's ordered arguments, and the outer element
+target equals that admitted target. The two earlier recipe-versus-owned-result
+mismatches are gone. The repeated backend error text alone does not establish
+that the old kernel defect remains. A bounded public-packet audit finds 38
+matching recorded field relationships, including all five composition joins.
+The separate profiled run has the same outcome and operation sequence,
+using 198,070,743 total ticks. CI remains failed as required. Before/after source
+tuples are byte-identical, and later integration products remain absent.
+
+The engineering artifact SHA-256 is
+`3ac34fa0e06c52ce12f819f4bca43a7c91374c5f496d58f81d1c448c2e1edbdc`;
+the original runtime report SHA-256 is
+`3c2ba395a0105b47dffc8fb4bccf5d1be161bd8aac59690c690be7aa98cd134b`.
+The separate closed-bundle-check proposal passes its controls but saves only
+2365 raw ticks across the two original map contexts; it stays unapplied.
+
+The frozen original numeral diagnostic also passes in 10.235 seconds with all
+source inputs unchanged, 22 preceding bindings, 104 nodes and the 200000 setting.
+Its two numeral nodes keep a closed `RingCat.of` owner separately from an anchored
+three-step `cat.rings` to `cat.sets` carrier route (occurrences 16 and 22).
+The owners have no raw anchor or strict `Expr.equal` trace record; this is data,
+not evidence that a producer was lost. `validateCallableAt` derives the carrier
+from the complete selected structure and does not equate those two JSON roles.
+The report SHA-256 is `eb46056f92962080a498d37e80ec9c6a4bae1cdab824f775716fc6b73940d644`.
+These observations justify no further kernel mutation by themselves and do not
+prove the whole request correct. The original opaque operation remains
+unavailable, blocking that assertion and its dependent construction claims.
+
+Two existing runtime engineering consumers now use genuine live protocol
+ownership. `StagedNumeralDataProbes` retains both original numeral selections,
+the reader-generated staging call, complete-Hom and closed-point guards, and
+packet/owner comparisons; its fabricated session is replaced by public receive
+and complete-callable capture. `CompleteNamedDataProbes` keeps its first four
+blocks byte-identical, checks the explicit identity's named endpoints, and
+applies the original anonymous-endpoint predicate to a real opaque reply.
+Both add foreign-harness and stopped-session ownership guards without assigning
+producer receipts or observation flags. Their guarded local runs pass in 6.795
+and 7.201 seconds respectively. Production source, permanent assertions and
+budgets are unchanged. These are two repaired engineering consumers, not a
+fresh full integration result or a resolution of the original unavailable lift.
+
 ### Owner actions and execution dependencies
 
 `git push origin HEAD:refs/heads/work/kernel-v1-20261023` failed with
@@ -3063,11 +3114,13 @@ Deliver the working system and its runnable examples, not another assessment or 
 - Ordinary method trace keys still use the raw result expression; accepted
   aliases can overwrite an earlier method occurrence. The complete retained
   application record does not itself repair this key collision.
-- The `f3545ac` custodian review did not produce a verdict. Run `40197923885`,
-  job `121182701288`, reports `REVIEW NOT COMPLETED (inputs unavailable)` because
-  `git -c core.hooksPath=/dev/null -C /tmp/custodian-review-ct_kwx98/base rev-parse
-  FETCH_HEAD^{commit}` exited 128. This is an unavailable review input, not a
-  semantic rejection or approval. No authority check has been bypassed or
+- The `8d357f9` custodian review still produces no verdict: run `41220259900`,
+  job `124593146786`, reports `REVIEW NOT COMPLETED (inputs unavailable)` because
+  the private base checkout's `rev-parse FETCH_HEAD^{commit}` exits 128. The same
+  failure occurred on parent `cb2239c` in run `41218348173`, job `124587506022`,
+  before this publication, and was previously recorded for `f3545ac`. No verdict
+  files were produced. Current seal and controller source checks pass, but they
+  do not replace the unavailable review. No authority check is bypassed or
   self-approved; unaffected construction continues under the existing mandate.
 - The unchanged original leaf manifest contains overlapping exact/category and
   own-request/source registrations. These correctly remain ambiguous. Runtime

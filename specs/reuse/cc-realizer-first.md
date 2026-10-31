@@ -15,6 +15,55 @@ Corpus (`<lean-categories>/scripts/formalization_corpus.py search`), 2026-09-29.
 - Composition of the catalogue's functors, and of commuting squares between them, is Mathlib's
   (`Functor.comp`, pasting of `CatCommSq`s).
 
+## Live supplied-point and anonymous-endpoint engineering fixtures — 2026-10-31
+
+### Queries and existing owners
+
+Successful corpus searches for `"IO.Process" "spawn"` (110 files, 623 matches)
+and `"Quiver.Hom" "CategoryStruct.comp"` (11 files, 65 matches) supplied no
+replacement for the existing runtime boundary. The mathematical Hom and
+composition remain the accepted category declarations. The fixture reuses
+`Harness.ofManifest`, the existing protocol-only `probe_owned_callable.py`,
+`receiveComputationalData`, `captureCompleteCallable`, `checkDataOwners` and
+the original `realize` entry point. No mathematical operation is registered.
+
+### Fixture correction and validation boundary
+
+The old staged-numeral setup copied a recipe Wire, replaced its payload with a
+fabricated owner/session, and inserted it into an empty harness. The replacement
+receives a genuine owned protocol packet at the independently fixed original
+closed-point Hom and captures its complete callable interface through the
+public API. It copies no endpoint or producer receipts and assigns no observation
+flags. The fixture retains its original cache key and reader-generated staging
+call, both original numeral selections, complete-type checks, closed-point
+negative and final packet/owner comparisons. The terminal comparison uses the
+same public complete-callable frame as composition. Additional controls require
+unavailability in a different harness and after the real supplier stops.
+
+The earlier scratch service-only proposal was rejected because it bypassed the
+original staging path. The first coordinated run reports only Lean fixture
+syntax errors. After the backend record and decode-pattern syntax are corrected,
+the original two runtime blocks and additional liveness controls pass in 6.795
+seconds with all source inputs unchanged (`staged-numeral-live-fixture-v3`, log
+SHA-256 `b24bb9f068fac337a782676ab692752c2feaabac14f6b2b7e8fddd111709d04c`).
+This setup migration establishes no mathematical answer and does not explain
+the separate RX-LIFT opaque-operation rejection.
+
+The adjacent current `CompleteNamedDataProbes` fails its fifth block in 6.348
+seconds with unchanged inputs: that loop treats both an explicit named identity
+packet and a fabricated owned token as anonymous. The first four blocks stay
+byte-identical. The explicit identity now checks its supplied named endpoint;
+the original anonymous endpoint predicate runs on a genuine reply received
+through the same public session APIs. It still calls `realizeCallableEndpoint`
+directly and checks the original full Hom, exact ownership path, foreign harness
+and expired session. No alternate projection route, endpoint receipt or
+observation flag is introduced. The revised module passes in 7.201 seconds with
+unchanged inputs (`complete-named-data-live-fixture-v2`, log SHA-256
+`68b9a2e31d29d5153b9107d55b22ca84b1fc9e0466b4547670d985994f054658`).
+The liveness negatives consume `checkDataOwners`; they do not claim that endpoint
+projection itself performs that later ownership check. No separate wrong-Hom
+negative is added or claimed by this fixture migration.
+
 ## Original admission parameters and producer retention — 2026-10-31
 
 ### Queries and existing owners
@@ -124,9 +173,23 @@ YAML parsing and shell syntax. The current-source production run compiles
 RuntimeSupport and Realize successfully, and the follow-up complete admission,
 callable and context controls pass with unchanged inputs. The original
 preparation takes 69,447,230 ticks after the separate exact producer-validation
-repair. Actual engine results remain required; fixed short labels do not impose
-a total log-line cap, and no runtime performance or acceptance conclusion
-follows from instrumentation.
+repair. In actual run `41220174950`, ordinary execution completes 21 recorded
+dispatches in 198,062,567 total raw ticks and reports the selected-descriptor
+rejection; the profiled diagnostic reports the same outcome and operation
+sequence in 198,070,743 ticks. The original CI gate still fails. Source tuples
+remain byte-identical before/after. Fixed short labels do not impose a total
+log-line cap, and no mathematical acceptance follows from instrumentation.
+
+The subsequent bounded numeral diagnostic retains the original imports,
+bindings, node inventory and budget. It reports separate closed selected ring
+owners and anchored Sets carrier routes, without evaluation or normalization.
+`ComputationalData.validateCallableAt` checks the carrier derived from the
+selected structure against the complete formal endpoints; equality of the
+structure's JSON and its carrier's JSON is not that predicate. All 38 audited
+public field relationships agree. No new source repair follows from the
+backend's descriptor-error text alone, and the first assertion remains
+unavailable. The diagnostic is local engineering evidence, not acceptance or
+proof of complete kernel correctness.
 
 ## Reconstructed operation operands and reservation — 2026-10-31
 

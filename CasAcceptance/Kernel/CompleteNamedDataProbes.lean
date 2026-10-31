@@ -113,8 +113,12 @@ run_elab do
   unless endpoint.value == target && endpoint.json == framedData.target do
     throwError "complete endpoint recovery depends on the enclosing callable"
 
--- An actual callable keeps its anonymous computational endpoint even when its
--- formal carrier has a unique definitionally equal named presentation.
+-- An explicit identity packet supplies its named endpoints. An actual anonymous
+-- callable keeps its own endpoint reference even when its formal carrier has a
+-- unique definitionally equal named presentation. The original portable packet
+-- and full Int → Int remain unchanged; a real protocol reply supplies the opaque
+-- input instead of a fabricated owner/session pair. This process witnesses data
+-- ownership only and installs no mathematical registration.
 run_elab do
   let state ← registryState
   let some category := state.categories.find? (·.id == CategoryId.sets)
@@ -123,15 +127,68 @@ run_elab do
   let identity ← mkAppM ``CategoryTheory.CategoryStruct.id #[target]
   let portable := node "identity"
     #[node "obj.sets.integers" #[], node "obj.sets.integers" #[]]
-  let token := node "opaqueData" #[toJson "actual anonymous callable"]
-  for payload in #[WirePayload.computed identity (.inline portable),
-      WirePayload.computed identity (.owned "anonymous-callable-owner" 413 token)] do
-    let actual : Wire := { form := .canonicalMorphism category, payload }
-    let trace ← Trace.new
-    let endpoint ← realizeCallableEndpoint (← Harness.empty) trace actual target false
+  let context ← CategoryContext.ofNamed category target
+  CategoryContext.checkMorphism context identity target target
+  let trace ← Trace.new
+  let supplied : Wire := {
+    form := .canonicalMorphism category
+    payload := .computed identity (.inline portable)
+    categoryContext := some context }
+  let suppliedEndpoint ← realizeCallableEndpoint (← Harness.empty) trace supplied target false
+  unless suppliedEndpoint.value == target && suppliedEndpoint.owner?.isNone &&
+      suppliedEndpoint.json == node "obj.sets.integers" #[] &&
+      suppliedEndpoint.categoryContext.map (·.bundle) == some context.bundle do
+    throwError "a complete identity replaced its explicitly supplied named endpoint"
+
+  let root : System.FilePath := (← IO.getEnv "CAS_OWNERSHIP_PROTOCOL_DIR").getD
+    ("CasAcceptance" / "Strata" : System.FilePath).toString
+  let backend := "anonymous-callable-probe"
+  let manifest : Manifest := {
+    backends := #[{
+      name := backend
+      command := "python3"
+      args := #["probe_owned_callable.py", "identity"] }]
+    registrations := #[] }
+  let harness ← Harness.ofManifest root manifest
+  try
+    let .ok session ← harness.connection backend
+      | throwError "the anonymous-callable ownership process did not start"
+    -- This is the existing protocol-only token producer. No registered map
+    -- observer has supplied endpoint occurrences that could be discarded here.
+    let .ok answer ← Backend.call session.connection "identity" portable
+      | throwError "the anonymous-callable ownership process did not return its input witness"
+    match Backend.ComputationalValue.decode answer with
+    | .ok (.opaque _) => pure ()
+    | _ => throwError "the anonymous-callable fixture did not return an anonymous packet"
+    let received ← receiveComputationalData harness backend "identity" answer
+    let actual : Wire := {
+      form := .canonicalMorphism category
+      payload := .computed identity received
+      categoryContext := some context }
+    if let .error message ← ComputationalData.validateCallableAt #[] (← inferType identity) actual.json then
+      throwError "the anonymous input changed its independently fixed full Hom: {message}"
+    unless actual.value == identity && actual.owner? == some (backend, session.identity) do
+      throwError "the anonymous input lost its original callable or actual supplier"
+    checkDataOwners harness actual.fragment
+    let endpoint ← realizeCallableEndpoint harness trace actual target false
     unless endpoint.value == target && endpoint.owner? == actual.owner? &&
         endpoint.json == Backend.MorphismEndpoint.encode
           { callable := actual.json, source := false } do
       throwError "complete named fallback replaced an actual anonymous endpoint"
+    unless endpoint.categoryContext.map (·.bundle) == some context.bundle &&
+        endpoint.ownership == DataOwnership.prefix #[.field "args", .index 0] actual.ownership do
+      throwError "the anonymous endpoint lost its complete category or exact supplier occurrence"
+    checkDataOwners harness endpoint.fragment
+    let unavailable (active : Harness) : TermElabM Bool := do
+      try
+        checkDataOwners active endpoint.fragment
+        return false
+      catch error => return Exception.stratum? error == some .unavailable
+    unless ← unavailable (← Harness.empty) do
+      throwError "an anonymous endpoint became available outside its actual owning session"
+    harness.stop
+    unless ← unavailable harness do
+      throwError "an anonymous endpoint survived expiry of its actual owning session"
+  finally harness.stop
 
 end

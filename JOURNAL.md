@@ -1,12 +1,24 @@
 # Journal
 
+## 2026-10-31 — Exercise staged points and anonymous endpoints with live suppliers
+
+Two engineering fixtures no longer fabricate opaque owners in empty harnesses.
+The staged-numeral control keeps its original reader-generated realization, exact input key, both selections and packet/type assertions, with an input received and framed through the public APIs.
+The complete-named-data control keeps its first four blocks, separates the explicitly named identity from an actual anonymous reply, and retains the anonymous endpoint predicate at the original projection entry point.
+Both now reject ownership use in a foreign harness and after the real supplier stops, without assigning producer receipts or observation flags.
+Guarded local runs pass in 6.795 and 7.201 seconds with unchanged inputs; source review found no blocking scope defect.
+No production, mathematical, permanent-assertion, leaf or budget changes; the first RX-LIFT assertion and full integration remain unresolved.
+
 ## 2026-10-31 — Validate checked proof targets and reuse exact producer checks
 
 The original limit fixture's checked proof implementation contains numeral copies of producer addresses absent from its full original proposition.
 Producer closure now validates exact addresses before proof boundaries and traverses each checked proof's original proposition in its actual binder context.
 A local successful-check cache uses the exact closed expression, complete descriptor and ordered structural fields, preserving the original predicate and rejection order.
 Production and eleven focused engineering control modules pass with unchanged inputs, including the original limit, proof identity, admission reuse and ownership controls.
-The original first RX-LIFT question prepares with all 22 bindings and 104 nodes in 69,447,230 ticks at its unchanged budget; shared engine execution remains required.
+The original first RX-LIFT question prepares locally with all 22 bindings and 104 nodes in 69,447,230 ticks at its unchanged budget.
+The published candidate's engine run completes 21 recorded dispatches in 198,062,567 total ticks, then reports unavailable at the selected-descriptor check; the original assertion remains unresolved.
+Its three admission parameters now exactly agree with the selected target's arguments, so the two earlier packet mismatches are absent.
+A bounded audit finds 38 matching public field relationships; original numeral preparation separately retains the ring owners and their anchored Sets carriers. No new kernel contradiction is established, and the opaque operation remains unavailable.
 Fixed-label runtime profiling is opt-in, and its separate diagnostic cannot replace or promote a failed original CI result.
 No mathematical input, permanent assertion, leaf or budget changes. Full integration and independent assessment remain open.
 
