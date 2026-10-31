@@ -37,7 +37,7 @@ def decode (expected : Expr) (json : Json)
         | return .error "the canonical descriptor has an invalid complete diagram"
       let familyDiagram := (← whnfR (← inferType family)).appArg!
       unless ← withReducible <| isDefEq familyDiagram diagram do
-        let some isoName := standardFormIso row.shape
+        let some isoName := row.standardization
           | return .error "the registered limit has no supported standard diagram form"
         let iso ← mkAppM isoName #[diagram]
         let standard := (← whnfR (← inferType iso)).getAppArgs.back!

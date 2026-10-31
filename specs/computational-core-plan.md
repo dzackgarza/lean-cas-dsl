@@ -147,6 +147,9 @@ temporary compiler/environment blocker; otherwise replace the failing path direc
 Do not require a green legacy whole-kernel, native-tool or notebook build before the first
 substitution. A mock, type-only prototype or unintegrated second kernel does not count.
 Keep the work in PR #67's integration line and measure the existing focused edit/check loop.
+The high-priority [#83](https://github.com/dzackgarza/lean-cas-dsl/issues/83) tooling work
+uses the local sequence in [Running checks](#running-checks) within this trial. It does not
+replace the shared producer/action-retention repair or introduce a new evaluator or controller.
 The complete combined build, native tools and notebook remain required before delivery.
 
 Reuse adequate common machinery, including the existing execution owner where sufficient;
@@ -246,6 +249,7 @@ freezing the unchanged-target trial. Source selection does not establish runtime
 | #19 → #20 → (#21 and #23) → #22 | Full B0 computational coverage and exhaustive Sage parity after V1; bounded requirement discovery already runs now. |
 | #3, #8, #13, #34, #68 | Later unit-group delivery through the selected process-hosted GAP bridge, logging, the next genuine research-use harvest, wider Sage installation portability and the selected public research entry point. Existing V1 runtime and advertised-capability defects stay in #24/#66/#69. |
 | #71–#81 | Historical findings, corrections and resolved/superseded proposals. Closure consolidates tracking; it does not claim their transferred runtime work has passed. |
+| #83, within #66/#24 | Demonstrate persistent compiler feedback on a real production edit, the fresh downstream result and measured artifact reuse; #66 owns focused feedback and question provenance, and #24 owns build/cache integration. Tool installation or policy edits alone do not complete this obligation. |
 
 Certificate-primary evidence remains unadopted and would first require an INTENT change.
 The selected existing forms and realizations in #10 resolve the reuse direction;
@@ -332,11 +336,23 @@ counterexamples in KM2–KM9 are essential.
 
 ### Kernel construction procedure (owner instruction, 2026-10-21)
 
-A **kernel session** is the orchestrator's own session in this repository: the session the
-owner is talking to, or the one the owner starts to work the kernel. It is never delegated. The
-orchestrator does not hand the kernel, an item or this procedure to a subagent or a fresh agent,
-and does not ask the owner whether to. Subagents are only the formalization, acceptance and leaf
-authors (rule 8) and the rule-6 reviewer; none of them writes the kernel.
+**Owner V1 assignment, 2026-10-23.** The current assignment explicitly authorizes
+kernel delegation, targeted upstream interface work, computational-contract changes,
+necessary execution-surface repairs and publication. Those authorizations supersede
+the older procedural restrictions below where they conflict with finishing V1.
+Mathematical ownership, leaf blindness, permanent assertions and independent
+acceptance remain binding. Implementation authorship cannot accept its own
+mathematics or interpretation migration.
+
+The integrated candidate must also execute at least four useful connected real-CAS
+workflows across at least three areas: exact selected arithmetic, finite sets and
+constructions, polynomial algebra, linear or structured algebra, and transport or
+inherited operations. The executed set must include complete structured data used
+in a subsequent operation and a nonidentity transport. Reuse existing real engines
+and narrowly scoped independent diagnostic leaves. This functional demonstration
+and the ten frozen-candidate exit trials are required for V1; a compiling source
+tree or a protocol self-test alone does not complete it. Broad leaf expansion and
+unrelated notebook work remain outside scope.
 
 Use this procedure subject to the current delivery sequence above and #10. Its older
 priority wording does not override the coupled #66/#69 construction trial, deletion of its
@@ -344,6 +360,12 @@ superseded paths, or the distinction between the first executable dependency clo
 final combined build. The applicable ownership, question-preservation and independent
 acceptance requirements remain in force; no admitted assertion or completion requirement
 changes with this ordering correction.
+
+For local development, [#83](https://github.com/dzackgarza/lean-cas-dsl/issues/83) and the
+[#74 disposition](https://github.com/dzackgarza/lean-cas-dsl/issues/74#issuecomment-6468597360)
+govern through the single sequence in [Running checks](#running-checks). Local feedback does
+not wait for source publication or CI. Explicit red source checkpoints preserve work without
+claiming verification, completing an obligation or bypassing independent acceptance.
 
 The former diagnostic criterion was *no admitted assertion stopping at a
 request-formation gap*: an entry of kind `gap` whose detail does not begin
@@ -355,10 +377,13 @@ for substantive leaf work only after KM1–KM9, including the frozen-kernel
 independent trials and question-preservation assessment; full B0 execution
 and independent acceptance remain obligatory.
 
-Controller, custodian, review, publication and CI work (construction directive A) is a separate
-session. It starts only on an owner instruction that names it, and it follows directive A, not
-this procedure. A kernel session that finds a defect there writes one line under "Noticed, not
-worked" (rule 1).
+Controller, custodian, review, publication and CI work (construction directive A) ordinarily
+belongs to a separate session authorized by an owner instruction that names it, following
+directive A. The explicit #83/#24 assignment includes local development tooling and the existing
+build/cache integration in this kernel work, as specified in [Running checks](#running-checks).
+That assignment does not transfer independent mathematical authorship, evaluator installation
+or acceptance authority. A kernel session that finds a defect outside its assigned scope writes
+one line under "Noticed, not worked" (rule 1).
 
 #### Rules
 
@@ -387,17 +412,22 @@ how important, small, risky or promising something is.
    component must pass. A defect unrelated to the selected KM
    mechanism is recorded once in `HANDOFF.md`, not opportunistically
    patched.
-2. **Write set.** An item's commits change only: `CasCatalogue/`, `CasGates/`, `CasTools/`,
+2. **Write set.** An ordinary kernel-mechanism item's source changes only: `CasCatalogue/`, `CasGates/`, `CasTools/`,
    `CasAcceptance/*Probes.lean`, `CasAcceptance/Strata/`, the existing
    owning `specs/reuse/cc-*.md` or `specs/reuse/K<n>.md` (and
    `specs/reuse/KM<n>.md` only if a genuinely new KM-specific Lean
    definition requires a reuse record), `JOURNAL.md` (rule 9) and `HANDOFF.md`
    (rule 9); and, when the item's request form needs it, `CasContract/` in
-   `lean-cas-dsl-leaf-contracts`, committed to its `main` and named in the kernel commit. Any
-   other path or repository is outside every item: `custodian/`, `.github/`, `scripts/`,
+   `lean-cas-dsl-leaf-contracts`. Publish the compatible contract through its owner and record
+   it for integration; local edits, diagnostics and red checkpoints do not wait for that
+   publication. Other paths and repositories are outside that item's ordinary scope:
+   `custodian/`, `.github/`, `scripts/`,
    `justfile`, `tests/acceptance/`, `CasAcceptance/Permanent/`, the rest of `specs/`, hooks, CI,
    leaves, `lean-categories`, containers and every other repository. If the next edit is there,
-   it is not this item's work: do not make it.
+   it is not this item's work unless an explicit owner assignment includes it. The #83
+   development-tooling and #24 build/cache integration assignments include their existing
+   owning instructions and execution configuration; they do not change mathematical ownership,
+   protected acceptance or the scope of a kernel mechanism.
 3. **Refused or unavailable operations.** When a commit hook, push, CI job, controller or reviewer
    refuses an operation, or a backend (`CAS_SAGE_PYTHON`, `CAS_GAP_PYTHON`) fails to start, write
    the exact command and its error under "Owner actions" in `HANDOFF.md` and continue. A backend
@@ -405,36 +435,38 @@ how important, small, risky or promising something is.
    controller, workflow or recipe to get past a refusal, never bypass one, and never build,
    install or recreate an engine or container. A refused push leaves the commits on the local
    branch.
-4. **Performance.** The owner's feedback budgets (2026-10-21) are: a targeted check of the IDs
-   one edit is meant to change, under two minutes; a commit, hooks included, under two minutes;
-   a push under ten minutes; CI under six hours, never waited on. Performance work starts only
-   when one of these is exceeded with no other harness or Lean build running on the machine, or
-   when a report entry for an item ID has kind `internal` with a timeout, heartbeat or memory
-   detail. Name the exceeded budget or entry in every commit of that work; it ends when the
-   budget holds or the entry changes. Profiles, `just bench-question` and `just bench-reading`
-   are used only inside such work. Do not raise heartbeats.
-5. **Verification.** For every repair attempt, including one later
-    undone, run the relevant targeted check on the edited tree, then
-    commit. For a K assertion-ID item the commit records one line per
-    ID, `id: kind → kind` (and `detail changed` when appropriate)
-    and the report path. For a generic KM-only mechanism without an
-    assertion ID, name the KM obligation, exact existing probe or
-    end-to-end check, and observed result. Do not invent assertion
-    IDs or treat one successful probe as proof of the entire KM gate.
-    When neither IDs nor relevant generic check outcomes change, mark
-    `no outcome change` in the subject. Undo by a forward commit.
-    Compare assertion reports only against the same
-    `lake-manifest.json` hash; if it changed, rerun the older report
-    at the current manifest. Compare every entry's `question` with
-    the preceding report; a `question changed` entry cannot close
-    without independent assessment of the unchanged assertion (rule 8).
-6. **Thrash interlock.** After three consecutive commits on one
-    item saying `no outcome change`, stop editing. Start a fresh
-    read-only subagent with only the item's IDs and their before/after
-    report entries (or the exact generic-probe results), and the three
-    diffs; do not supply an explanation or plan. Follow the diagnosis,
-    or record a disagreement in "Owner actions" and take the next item.
-    No fourth edit on the same diagnosis.
+4. **Performance.** Measure the current edit-to-result path: startup, completed diagnostics,
+   required artifact rebuild, preparation, execution, export and memory separately. Diagnose
+   a persistently slow focused check or an internal timeout at its owning boundary; do not
+   fill the wait with unrelated edits or raise heartbeats. #83 authorizes this work within
+   the existing #66/#24 allocation. Use the selected environment and existing profiler or
+   driver, without a diagnostic command silently refreshing dependencies or changing budgets.
+   Split a compilation boundary only when measurements justify it; preserve dynamically
+   discovered registry imports and the original behavior. No file-size or check-count quota
+   substitutes for that evidence.
+5. **Verification and checkpoints.** Follow [Running checks](#running-checks) for the edited
+   source. A checkpoint may be explicitly labelled red/source-only with failed or unrun
+   stages recorded in its commit or existing work record. It preserves source without
+   claiming a completed diagnostic, fresh artifact, runtime result or acceptance. Neither
+   publication nor a full-suite run is a prerequisite for that checkpoint or local feedback;
+   protected publication and acceptance gates remain in force at their actual boundaries.
+   When reporting a verified repair, name the relevant unchanged assertion IDs or exact
+   existing generic check, the source/environment used, the observed result and evidence path.
+   Do not invent IDs or treat one passing probe as the whole KM gate. Compare before/after
+   runtime reports with the same mathematical/dependency inputs, package selection and manifest,
+   identifying the kernel source and artifacts separately for each run. If those inputs change,
+   rerun the required comparison on the new dependency environment. Compare every entry's
+   mathematical question;
+   a changed question cannot close without independent assessment of the unchanged assertion
+   (rule 8). Source-ready, published and verified are distinct states.
+6. **Causal review when repairs stall.** Repeated changes that do not advance the intended
+   computation require reconsidering the shared mechanism before another symptom patch.
+   Inspect the unchanged failing question, completed diagnostics, actual stage results and
+   relevant diffs; use a fresh read-only review when it helps challenge the diagnosis.
+   Check whether missing producer/action retention or an invented prerequisite is generating
+   the repairs. Record the causal finding in the existing owning document and resume the
+   required construction. Red checkpoints do not count as progress or suppress this review;
+   neither a commit counter nor an easier successor replaces the original obligation.
 7. **Item identity.** A K assertion item is its ID set, not the
     current detail. Moving an ID to another request-formation error
     does not close it. A K assertion item closes when every ID meets
@@ -459,8 +491,10 @@ how important, small, risky or promising something is.
    - write `blocked: <exact missing input>` next to the item in `HANDOFF.md` and take the next
      item.
    The session does not end while a subagent it started is running. When one finishes, run
-   `just track-main` in the work worktree, commit `lake-manifest.json` if it changed, rerun the
-   targeted check of each item blocked on it, and resume selection
+   `just track-main` in the work worktree when consuming its dependency input, record the
+   actual selection and commit `lake-manifest.json` if it changed. Rebuild affected imports,
+   restart their persistent consumers, rerun the targeted check of each item blocked on that
+   input, and resume selection
    at rule 1. Nothing waits for a subagent: the session keeps working the work list while it
    runs. The session ends when every item is closed or blocked and no started subagent is
    running, or when the owner stops it.
@@ -474,14 +508,16 @@ how important, small, risky or promising something is.
    this plan fixes requirements, not writable completion claims.
    Write no other administrative report or agent-memory record
    during a kernel session.
-10. **Checkouts.** Run `git worktree prune`, then edit, build and run targeted checks in one
-    worktree on the construction branch `HANDOFF.md` names
-    (`git worktree add ../lean-cas-dsl-kernel <branch>`). Never run `git stash`, `checkout`,
+10. **Checkouts.** Reuse the assigned worktree on the construction branch `HANDOFF.md` names
+    for editing, persistent diagnostics and targeted checks. When a separate worktree is
+    needed, create it outside the repository (`git worktree add ../lean-cas-dsl-kernel <branch>`).
+    Preserve the checkout, selected dependencies, artifacts, Lake traces and logs in the
+    authorized durable workspace. Never run `git stash`, `checkout`,
     `reset`, `restore` or `clean` in `/home/dzack/gitclones/lean-cas-dsl`; its working tree holds
-    the owner's uncommitted edit. Every checkout shares one Lake package directory
-    (`packagesDir` in the lakefile), and a `lake` command in a checkout whose `lake-manifest.json`
-    differs moves those packages to its own revisions and forces a rebuild of everything above
-    them. So run no `lake` or `just` command in `/home/dzack/gitclones/lean-cas-dsl`, and run
+    the owner's uncommitted edit. Where checkouts share a Lake package directory
+    (`packagesDir` in the lakefile), a different manifest can move those packages to another
+    revision and invalidate dependent artifacts. Respect the selected-package wrapper and
+    preserve that environment. Run no `lake` or `just` command in the owner's checkout, and run
     `just track-main` only where "Running checks" says.
 11. **Handoff.** At session end `HANDOFF.md` contains only:
     the branch and commit, pushed status or exact error; latest CI
@@ -500,11 +536,200 @@ how important, small, risky or promising something is.
 
 #### Running checks
 
-Use focused checks for edits and the configured integration workflow for full reports.
-The host timings and local-memory restrictions below are dated observations, not universal
-latency promises or permission to replace the current source with an old checkpoint.
+**Current local development sequence (owner #83, 2026-10-29).** This is the single
+local-check sequence used by `AGENTS.md` and the construction rules above. It implements
+[#83](https://github.com/dzackgarza/lean-cas-dsl/issues/83) with the source-checked
+[#74 disposition](https://github.com/dzackgarza/lean-cas-dsl/issues/74#issuecomment-6468597360).
+The current work is still #10's coupled #66/#69 trial; earlier compiler feedback and #24's
+build/cache work support that computation. Publication, a green legacy aggregate build and
+completed CI are not entrance conditions for local feedback.
 
-- **Gates and candidate CI are distinct.** [`gates.yml`](../.github/workflows/gates.yml)
+**Owner clarification (2026-10-30): measure the repeated feedback loop.** The problem is
+the elapsed time from an ordinary edit to completed compiler feedback and the relevant
+fresh runtime result in the active environment. Cold-start time and survival of a container
+restart are not completion requirements for #83. Continue in the existing Pro cloud container;
+access to the owner's machine or a new workspace is not a prerequisite. Preserve the server
+and reusable artifacts across ordinary iterations. Recovery records remain supplementary.
+
+**MCP setup in the actual worktree.** The repository's [`.mcp.json`](../.mcp.json) uses
+the [upstream standard stdio configuration](https://github.com/oOo0oOo/lean-lsp-mcp#3-configure-your-idesetup)
+(`uvx lean-lsp-mcp`, `LEAN_PROJECT_PATH=.`). Start a client supporting project `.mcp.json`
+from this worktree's root, with `uvx` and the selected Lean/Lake on its inherited `PATH`;
+other clients use upstream's equivalent configuration. Keep the session alive and request
+`lean_diagnostic_messages` for the edited file, waiting for the completed current-source result
+as below. For already selected dependencies outside Lake's default package location, copy or
+symlink the existing Lake `--packages` JSON to this worktree's `.lake/package-overrides.json`
+before starting the server. [Lake loads these workspace overrides](https://github.com/leanprover/lean4/blob/v4.33.0/src/lake/Lake/Load/Resolve.lean#L584)
+in nested `setup-file` calls; a `PATH` wrapper's `--packages` option alone does not propagate
+there. Reuse the recorded selection during diagnostics without `lake update` or `just track-main`;
+changed imports still require the rebuild/restart in step 3.
+
+**Memory during targeted builds.** Keep the Realize worker open across edits, completed
+diagnostics, targeted evaluator builds and focused runtime checks when measured memory permits.
+The repeated loop below completed on this 8 GiB host with the same worker alive throughout;
+the extracted evaluator no longer requires the monolithic build's unconditional eviction.
+Check actual anonymous memory, reclaimable file cache and the relevant compiler's measured
+memory requirement. A full cgroup including reclaimable cache or a sum of RSS values alone
+does not show that eviction is necessary. For a heavier target that needs release, finish
+pending requests and request `lean_diagnostic_messages` for `CasCatalogue/FileItems.lean`.
+The configured [`LEAN_LSP_MAX_OPEN_FILES=1`](https://github.com/oOo0oOo/lean-lsp-mcp/blob/v0.31.0/src/lean_lsp_mcp/config.py#L63-L73)
+makes the [idle-file eviction in leanclient 0.13.2](https://github.com/oOo0oOo/leanclient/blob/v0.13.2/leanclient/aio/client.py#L574-L589)
+send `textDocument/didClose`; [Lean 4.33 terminates that file worker](https://github.com/leanprover/lean4/blob/v4.33.0/src/Lean/Server/Watchdog.lean#L1277-L1278).
+FileItems imports only Lean. Verify the Realize worker exits and record memory plus the unchanged
+MCP/watchdog PIDs before starting that heavier build. Pending requests and pinned scratch
+documents are excluded from eviction. The server stays alive; closing Realize discards its
+file elaboration state. Count reopening as a recurring cost of the next iteration when this
+fallback is used, not as a one-time cold start. Use step 3's targeted
+command: MCP `lean_build` runs the whole build and restarts the shared Lean client.
+
+**Observed memory cost (2026-10-30, #83).** The isolated original `Realize:olean` build at
+`922920b` completed in **463.365 seconds**, with **6,645,140 KiB** peak child RSS
+(`issue83-targeted-artifact-build-02.json`). The preceding LSP snapshot summed to about
+**5 GiB RSS** across its processes; this host's cgroup limit is **8 GiB**. The earlier overlapping
+build exited 137, and the cgroup recorded an OOM kill. These observations support overlapping
+LSP/compiler memory as the cause; summed RSS includes shared pages and does not establish an
+exact simultaneous memory peak. Measure release and the next build before claiming this sequence
+prevents the failure or improves elapsed time. That monolithic measurement does not require
+eviction for the extracted evaluator; use the current repeated-loop evidence below.
+
+**Measured repeated loop (2026-10-30 Asia/Taipei).** Reapplying the existing production
+diagnostic edit `(phase := "prospective admission")` received completed error-free diagnostics
+in 31.558 seconds, rebuilt the required evaluator artifact in 38.469 seconds, and ran the
+unchanged original first question in 26.965 seconds. These phase times include their command
+overhead. The measured interval from edit to result is 97.031 seconds; readiness for the next
+edit is 97.062 seconds. The same MCP and Realize file worker survive all phases, with no
+eviction, recurring reopen, swap use or additional OOM kill. The final source and evaluator
+artifact reproduce the published candidate exactly; the support artifact and selected inputs
+are unchanged. The original failure and the existing same-source protected controls retain
+their meanings. This is an actual current loop measurement, not a historical paired full-loop
+speedup ratio. Its baseline build/open is controlled-replay setup; no such reopen is needed
+between the measured cycle and its next edit.
+
+**Completed #83 measurements (2026-10-30 Asia/Taipei; raw times in UTC).** The extraction published at `1a4085e`
+preserves every original declaration body and registry import. A fresh evaluator artifact
+now takes 36.034 seconds, with peak child RSS 2627144 KiB and the support artifact unchanged;
+the original monolithic artifact took 463.365 seconds. This measures that artifact step,
+not an end-to-end or statistical speedup; support edits still need their own compilation.
+The recovered server gives completed cold feedback in 46.108 seconds including client connection;
+hover/reference calls take 0.060/0.066 seconds. Closing Realize through the configured FileItems request was verified
+to remove its worker while retaining the MCP and watchdog. Summed RSS changed from 4454680
+to 2551096 KiB; that sum includes shared pages. The subsequent build had no new OOM kill.
+
+The original first runtime on restored artifacts takes 31.144 seconds (5990 ms preparation,
+10183 ms execution), retaining its original context and its identical NoImplementation gap.
+The before/after pair does not show a runtime speedup. The four focused framing, occurrence,
+action and failure-tag controls pass across fresh local elaboration and exact-source CI.
+Use the same selected public protocol/engine environment for those controls as for the runtime.
+The generated `lake.sh` has executable mode 0755 because the maintained runtime driver calls
+`CAS_LAKE` directly; invoking it only through bash would not check that contract.
+
+Actual restoration was tested beside independent checkouts at different real filesystem
+paths. PAX/zstd preserves the whole `.lake/build` directories, including traces and private,
+server and IR artifacts. All 57485 restored files remain byte-, mode- and nanosecond-mtime
+identical after ordinary Lake validation of the original driver's eight imports (10.509 s).
+The saved three-part archive was downloaded and compared byte for byte to the original.
+No source symlink, trace rewrite, timestamp adjustment or dependency refresh manufactures
+this reuse. See `HANDOFF.md` for the source tuple and archive identity. These are recovery
+observations; they neither measure the repeated edit-to-result loop nor introduce a restart,
+workstation-access or named-workstream requirement for #83.
+
+Keep long jobs in the existing runner's supported detached sessions and record their identity,
+log and completion status. Verify that they outlive the invoking command. The per-command
+sandbox here did not preserve a detached child when its namespace exited; the subsequently
+authorized, owned host-session build did. An interrupted record without an exit status is
+unfinished. Do not control an independently owned terminal or substitute process installation
+for evidence of persistence.
+
+1. **Inspect the actual declarations.** Use declaration search, hover, references and source
+   from the selected worktree and its actual dependencies before changing an application or
+   interface. Run the existing Lean language server through `lean-lsp-mcp` against that
+   worktree and package/toolchain selection; keep it alive across edits. Do not guess a
+   signature from a stale branch, a printed name or a remembered implementation.
+2. **Edit and obtain completed local diagnostics.** Wait for diagnostics corresponding to
+   the current source version, and retain the actual error or completed result. A request
+   still processing, an empty partial response or a timeout is not a clean diagnostic.
+   When the existing editor/MCP client cannot operate in the assigned worktree, record the
+   observed access/setup failure and use the existing focused module build as the evidenced
+   fallback. Installing or configuring the official tooling remains implementation work;
+   writing a bespoke client is not a prerequisite. Lean's server can expose executable-
+   declaration compilation failures as well as elaboration errors. Its completed diagnostics
+   do not by themselves establish fresh module artifacts, downstream execution or native linking.
+3. **Build the artifacts the downstream consumer needs.** After an imported module changes,
+   use the selected environment's targeted `lake build Module:olean` or other actual required
+   target. Rebuild its affected imports, then restart dependent file/runtime workers before
+   attributing a result to the edit: imports are loaded once per file-worker process. Reuse
+   an existing worker for repeated specimens only while its compiled imports remain unchanged.
+   A behavior that depends on C compilation, linking or native execution needs the corresponding
+   focused native check. Preserve Lake's artifacts and traces so it can reuse unchanged work.
+4. **Run the unchanged failing question and protected negatives.** Use the existing downstream
+   driver/harness through the production path with fresh compiled imports. Preserve the original
+   prerequisite bindings and their order, imports, mathematical parameters and comparisons,
+   shared execution session/state, and the original budget. Keep preparation, execution and
+   requested export results separate. For `cas-harness`, supply `--suite` and `--inventory`
+   for the selected original scope. A scratch selection may omit unrelated questions only
+   while retaining that complete context; otherwise feed the original file to the existing
+   selection mechanism. `#cas_tests` takes a file/directory, not a one-ID selector, and separate
+   standalone `#cas` commands each start a fresh scope/harness: they do not demonstrate retained
+   cross-command computation. Keep integrated drivers downstream of `TestSuite`/`Realize`;
+   importing `TestSuite` into `Language` or `Realize` creates a cycle. Temporary same-file checks
+   use only APIs already available there. Run the relevant protected negatives on the same
+   candidate, preserving their original assertions and failure meanings.
+5. **Run broader integration asynchronously.** The configured candidate/full-suite workflows,
+   complete combined build, real engines, notebook consumers and independent frozen trials
+   remain required at their prescribed delivery/acceptance boundaries. They are not routine
+   local-commit checks. Inspect actual reports and stages reached; a missing or failed stage
+   supplies no passing result. Source checkpoints, publication, compiler feedback and runtime
+   verification remain distinct from independent mathematical acceptance.
+
+An explicitly labelled red/source-only checkpoint may precede successful diagnostics, artifact
+build or execution. State failed and unrun stages in the commit or existing work record without
+claiming verification or bypassing a protected gate. Resume the failed local step on that source.
+Checkpoint frequency is not progress evidence; repeated symptom fixes still require the causal
+review in rule 6. Do not substitute an easier question, different state or larger budget, or
+fill a slow check's wait with unrelated changes. A targeted result establishes only its actual
+scope; all evidence in the corresponding KM row remains necessary for closure.
+
+**Environment and dependency boundaries.** Use the existing assigned container and retain its
+selected checkout, dependencies, compiled artifacts, Lake traces and diagnostic logs between
+iterations. Keep long jobs in the existing supported process/session tools. Publish through
+the available GitHub connection or native Git without putting publication on the diagnostic
+path. Moving to another host or demonstrating survival of container replacement is not a
+prerequisite for this local sequence or for #83.
+
+Consume own-organisation dependencies at latest `main`: run `just track-main` in the assigned
+worktree at session start and when consuming a completed role's dependency input (rule 8), and
+resolve latest-main inputs at the prescribed integration-build and full-harness boundaries.
+Record actual checkouts, package overrides, toolchain and manifest in the existing provenance.
+Local LSP diagnostics, targeted builds and focused runtime commands add no dependency refresh.
+Keep one comparison on the same selected dependency environment; when its inputs change,
+rebuild/restart the consumers and rerun the affected comparison. A persistent process must identify the
+mathematical environment it actually imported, not acquire a new label from a mutable manifest.
+`just focus`, `just probe`, `just bench-question` and `just bench-reading` are not substitutes
+when their update/limit behavior changes that environment or the original question's budget.
+
+**Evidence required for #83.** Demonstrate a real production edit through completed diagnostics,
+the artifact rebuild its consumer requires, and the unchanged focused downstream question with
+its context and protected negatives. Record the elapsed edit-to-result time for an actual
+iteration and its diagnostic, required rebuild and runtime phases; verify reuse of unchanged
+artifacts. Keep cold opening and recovery measurements separate. Do not add timings from
+unpaired runs and call the sum a measured loop or infer a full-loop speedup from one phase.
+Tool installation, a no-op build, a pre-edit baseline or this policy update establishes only
+its stated scope. Diagnose measured waiting, swapping and serial elaboration at their causes.
+Module extraction requires measured benefit and retained behavior, including dynamically
+discovered registry semantics; no line quota or wholesale split mandate is introduced.
+
+**Integration ownership.** Under #24, compile named production modules before engine installation,
+then retain engine-dependent probes, integrated consumers and native tools. Use standard cache
+actions to restore the actual selected artifact directories before compilation and save after
+the build produces them, preserving toolchain/dependency identity and Lake traces. Measure a
+subsequent restore/reuse before claiming a speedup. This is existing build/cache integration,
+not another framework or a prerequisite for local diagnostics.
+
+**Historical observations.** The following measurements and workflow descriptions record their
+inspected sources and host. They are not present-day timings, universal memory limits or local
+commit/check quotas. Use current measurements and actual workflow source for current decisions.
+
+- **Gates and candidate CI were distinct in the inspected workflow sources.** [`gates.yml`](../.github/workflows/gates.yml)
   triggers on non-Markdown pushes to `main`/`b0/**` and explicit dispatch. Its acceptance job
   runs base/head reports and publishes `acceptance-report` when the files were actually
   produced. **Workflow source matters:** main at `1d5b06c` has no Sage/GAP installation
@@ -520,42 +745,21 @@ latency promises or permission to replace the current source with an old checkpo
   gaps. Documentation-only commits supply no fresh computational verdict. Use the latest
   applicable completed evidence when selecting/closing work; an unrelated source-check or
   custodian result is not a Lean build or acceptance result. A refused push is rule 3.
-- **Measured cost of one check (2026-10-21, this machine).** Harness startup maps 3.9 GB of
+- **Measured cost of one check (2026-10-21, then-current host).** Harness startup mapped 3.9 GB of
   imports: 30 s with a warm page cache, about 110 s cold, and any build evicts that cache. Each
   assertion then costs 10 to 30 s of CPU, more when it dispatches to a backend. Kernel C is
   compiled at `-O0`, which makes a full kernel C rebuild and link take about 70 s instead of
-  about six minutes. Elaborating `Language.lean` (about 5,500 lines) takes several minutes, and
-  an edit to it or to `Trace.lean` rebuilds everything above it. So a check names at most three
-  IDs, and an edit to `Language.lean` or `Trace.lean` is batched with the other edits it needs.
-- **One heavy process at a time.** This machine has 7 GB of memory; each harness process maps
-  about 2 GB of imports, and two of them, or one beside a Lean build, swap and slow every check
-  several-fold. Run one harness or one `lake build` at a time, never both.
-- **No full run locally.** Do not run `cas-harness` without `--suite` and `--inventory`, and do
-  not run `B0_INTEGRATION=1 just build`, on this machine.
-- **Dependencies.** Run `just track-main` in the work worktree at session start and after a
-  subagent finishes (rule 8), never between the two reports of one comparison. A report records
-  the `lake-manifest.json` hash it ran at.
-- **Targeted check.** Copy each `tests/acceptance/*.cas` file containing one of the checked IDs
-  into an empty scratch directory (for K3 and K14, the `.cas.proposed` file under a `.cas` name),
-  keeping only the `test` blocks of the checked IDs and the `let` bindings they use, transitively;
-  every binding left in the file is read, at several seconds each. Write an inventory file
-  `{"assertions": {"<id>": "", …}}` listing exactly the checked IDs. Elaborate the suite in the
-  Lean frontend, which needs `.olean` files only (no C compile, no link), from the work worktree:
-
-  ```bash
-  lake build CasCatalogue.TestSuite
-  printf 'import CasCatalogue.TestSuite\nset_option profiler true in\n#cas_tests "%s" reporting "%s" inventory "%s" computing\n' \
-    SCRATCH REPORT.json SCRATCH/inventory.json > SCRATCH.lean
-  CAS_SAGE_PYTHON=/home/dzack/.local/bin/sage-docker-python \
-  CAS_GAP_PYTHON=/home/dzack/gitclones/lean-cas-dsl/.venv/bin/python \
-  lake env lean SCRATCH.lean
-  ```
-
-  The report is named `<commit>-<manifest hash>-targeted-<label>.json` in the reports directory.
-  Drop `computing` for the Lean-discharge outcome K4 accepts. The profile in the output names
-  the reader steps that cost time. A targeted report closes an item; later CI reports re-check it.
-- **Lean source checks.** `lake build TARGET` in the work worktree for the changed module or
-  probe. It has no time limit and does not refresh dependencies.
+  about six minutes. Elaborating `Language.lean` (then about 5,500 lines) took several minutes,
+  and an edit to it or to `Trace.lean` rebuilt its dependants. Those observations motivated
+  focused checks; the current question and protected negatives determine their scope.
+- **Observed memory contention on that host.** The machine had 7 GB of memory; each harness
+  process mapped about 2 GB of imports, and concurrent harness/build work swapped and slowed
+  checks several-fold. Respect current resource constraints and measure contention before
+  parallelizing heavy work; these old figures do not establish the current host's capacity.
+- **Historical feedback targets (2026-10-21).** The instruction used under two minutes for a
+  targeted check and a commit including hooks, under ten minutes for a push, and under six
+  hours for asynchronous CI. These planning targets supply comparison context, not measured
+  current performance or a restriction on starting the authorized #83 improvement work.
 
 #### Work list
 
@@ -1243,7 +1447,7 @@ model that the delivered code does not meet; its code gap is listed under `gov-l
 | `cc-lift` | **Delivered 2026-09-28: `CasCatalogue/Lift.lean` — `MonoLift U`, cartesian lifts of monomorphisms along `U` up to the canonical isomorphism over the base. `.lift` rows are validated so that the evidence's `U.mapArrow` is the route step's functor; methods may be marked `returnsToSource`, and resolution then requires a registered lift for every route step or fails with `missingLift` naming the step, recording the lifts used as provenance. `kernel` is owned by modules (`LeanCategories.kernelFunctor : Arr(C) ⥤ Subobjects(C)`, lean-categories `9428a02`, complete universal data `(K, ι)`), reached from formed-module morphisms along the structural `Arr(BilinModule) → Arr(Mod_R)`, and lifted back by `lift.bilin_module.restrict`, the restriction of forms (`BilinModuleCat.restrict`). `formedKernel f` is that lift; its form is the restriction (`formedKernel_pairing`, by `rfl`) and `f` kills its elements (`kernelSubmodule_map`). `Constructors.isMonoArrow` now defers to `LeanCategories.isMonoArrow`. Acceptance in `LiftProbes.lean`: the formed-module kernel resolves with the lift in its provenance; with the lift row removed it reports the missing lift on `fun.arrows_bilin_module.forget`; lift rows for the wrong step or with non-lift evidence are rejected. Executing kernels on presented data is a registered computation whose answers the suite judges (`cc-realize`, `cc-adapter`).** Operations returning to the source side require registered lifts, sections, preserved limits or adjunctions. **Acceptance:** CC-LIFT's acceptance: the kernel of a formed-module morphism is a formed submodule via the registered restriction of forms; without it, a missing-lift diagnostic. | CC-LIFT | `cc-universal`, `cc-cohere` |
 | `cc-realize` | **Open.** The registry of leaf computations, keyed by semantic `FunctorExpr`/classifier (#53 §10 `BackendRealizationEntry`): each registration is (operation id, input form, implementation). `run% m (x) in "cat"` runs the selected computation and returns a value of the declared result form, with no status, proof or certificate; `using "impl"` selects one of several registered computations of the same composite. A memo table is keyed by explicit application (`Memo.lean`). Two presentations of a finite field stay distinct, and a comparison between them is mathematics of the catalogue (CC-CARRIER); `transport% (x) from K₁ to K₂` moves elements only along such a comparison. **Acceptance:** formed-module cardinality computed by several registered computations, each answer judged by the suite and none carrying a status; a receiver without a declared input form is rejected; cached/uncached observations use the declared mathematical relation and independent expectation under CC-MEMO; required selected results and their maps are retained; `𝔽₉ = 𝔽₃[x]/(x²+1)` and `𝔽₃[y]/(y²+y+2)` stay distinct and their equality is not decided true; `x ↦ y + 2` transports along the catalogue's comparison and its absence is reported as absence. Delivered 2026-09-28: `Memo.lean`; `Trust`, `Result` statuses, `TrustedImplementation`, `CertifiedImplementation`, leaf `.realizer` denotations, leaf `.handleIso` isomorphisms and `run% … proved` are (code gap: `gov-leaf-authority`). | CC-SEP, CC-ROUTE, CC-MEMO, CC-CARRIER | `cc-actions`, `cc-props` |
 | `cc-adapter` | **Open.** The leaf contract command registers exactly (operation id, input form, implementation): no other field exists, so a category, method, property, placement, forgetful route, coercion, natural transformation, denotation, proof, identification, evidence or status is unrepresentable (spec §5). The kernel reads a backend answer (`BackendResult { operation, encoded }`) into the operation's declared result type or rejects it; for `op.groups.kernel` the answer must supply `(K, ι : K ↪ G)`, and one missing its inclusion is malformed. **Acceptance:** CC-ADAPTER (the registration type has exactly the three fields, and replacing every installed leaf changes no meaning, type or available operation) and CC-DECODE (a result missing its defining arrow is rejected; the kernels of `sign : S₃ → ℤ/2`, the trivial map and `id_{S₃}` meet the suite's assertions `A₃`, `S₃`, `1`). Delivered 2026-09-28: `register_leaf` refusing ten forbidden kinds (`AdapterProbes`); its five permitted kinds carrying denotations, proofs, evidence and statuses, and the leaf decoder `KernelDecode.lean`, are (code gap: `gov-leaf-authority`). | CC-ADAPTER, CC-DECODE | `cc-realize`, `cc-immediate`, `cc-universal` |
-| `cc-closure` | **Delivered 2026-09-28.** `RegistryState.closure` and `#methods "cat"` compute a category's operation surface (objects, and morphisms through the arrow constructor) from the registry at query time: every method and property whose owner is structurally reachable, with its route, or with why it does not resolve (ambiguity, missing lift). Functorial constructors act on the structural graph (`FunctorExpr.constructMap` with `ConstructorEntry.functorialAction`: `Arr` by `Functor.mapArrow`, `Core` by `Functor.core`), so `Arr(U)` is a derived edge. `rank : Core(Mod_R) ⥤ Disc(Card)` (`lean-categories` `6fcabb7`) is registered as `meth.rank`. **Acceptance (`ClosureProbes`):** a new category formalized upstream with one property classifier on `Mod_R`, declaring no operation (torsion-free modules), gets `cardinality` and `rank` resolved and `kernel` on its morphisms reported with its missing lift; lattices inherit `rank`, and `rank(A₂) = 2`, `rank(E₈) = 8` are assertions of the suite. CC-CLOSURE's "inherits `kernel` with no further declaration" holds only up to CC-LIFT: an operation returning to the source needs a lift in the catalogue (spec §9, question 4). | CC-CLOSURE | `cc-resolve`, `cc-cohere`, `cc-lift` |
+| `cc-closure` | **Delivered 2026-09-28.** `RegistryState.closure` and `#methods "cat"` compute a category's operation surface (objects, and morphisms through the arrow constructor) from the registry at query time: every method and property whose owner is structurally reachable, with its route, or with why it does not resolve (ambiguity, missing lift). Functorial constructors act on the structural graph (`FunctorExpr.constructMap` with `ConstructorEntry.functorialAction`: `Arr` by `Functor.mapArrow`, `Core` by `Functor.core`), so `Arr(U)` is a derived edge. `rank : Core(Mod_R) ⥤ Disc(Card)` (`lean-categories` `6fcabb7`) is registered as `meth.rank`. **Acceptance (`ClosureProbes`):** a new category formalized upstream with one property classifier on `Mod_R`, declaring no operation (torsion-free modules), gets `cardinality` and `rank` resolved and `kernel` on its morphisms reported with its missing lift; lattices inherit `rank`, and `rank(A₂) = 2`, `rank(E₈) = 8` are assertions of the suite. CC-CLOSURE's "inherits `kernel` with no further declaration" holds only up to CC-LIFT: an operation returning to the source needs a lift in the catalogue (spec §9, question 4). **Latest-main integration finding (2026-10-20):** hosted candidate `8be6fe8` with mathematics `80520813` fails the unchanged `LiftProbes`: the direct constructed forgetful route and the constructed fixed-value/carrier composite are distinct, and the resolver finds no registered comparison between them. The published base-category carrier comparison is present; constructor metadata publishes an action on functors, not an action on cells. The owning obligation remains open until the existing formal inputs and generic resolver justify this constructed coherence; no edge is removed, comparison invented, or positive assertion weakened. The same hosted run also exposes a stale single-route control in `CohereProbes` after the new base routes were added. Neither failure is B0 completion. | CC-CLOSURE | `cc-resolve`, `cc-cohere`, `cc-lift` |
 
 ## Order
 

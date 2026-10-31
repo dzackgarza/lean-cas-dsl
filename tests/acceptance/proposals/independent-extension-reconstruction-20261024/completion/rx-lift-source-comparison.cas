@@ -1,0 +1,66 @@
+-- RX-LIFT supplement. Separate second-stage factorization reuses the actual
+-- first returned factor through the required complete cone-source comparison.
+-- Sources: [M16a-c], ChangeValueComparisons, and InterfaceCompletionTests.
+let Q := ℚ in CommutativeRings
+let Qring := view Q along «fun.commutative_rings.ring»()
+let scalarModule := RegularModule(Qring)
+let X := DegeneratePlane()
+let sourceModule := view X along «fun.bilin_module.forget»(ℚ, ℚ)
+let i0(t) := (2*t, -2*t) in scalarModule → sourceModule
+let first := lift(X) along «lift.bilin_module.restrict»(ℚ, ℚ) with i0 using proof(CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneLifts.kernelInclusion_mono)
+let i1 := first.hom()
+let cone := degenerate_plane_cone()
+let mediatorRow := [3/2, -1] in RectangularMatrices(1, 2, Q)
+let g0 := row_linear_map(2, Q, mediatorRow)
+let h1 := factor(g0) through first with cone using proof(CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneFactorization.cone_base_factorization)
+let Xplus := DegeneratePlaneWithDot()
+let pairedCone := degenerate_plane_paired_cone()
+let second := lift(Xplus) along «lift.bilin_module.change_value_restriction»(ℚ, ℚ × ℚ, ℚ, ((a, b) ↦ a)) with i1 using proof(CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneLifts.firstInclusion_mono)
+let combined := composite_lift(second)
+let i2 := second.hom()
+let compositeFactor := factor(g0) through combined with pairedCone using proof(CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneFactorization.cone_base_factorization)
+
+-- These are the two arrows of the existing pulledBackIso at the actual cone.
+-- Its source is V(pairedConeSource), its target is zeroSource. The cone is
+-- not monic; no monomorphism-lift call is used to manufacture this comparison.
+let coneComparison := pulled_back_forward(ℚ, ℚ × ℚ, ℚ, ((a, b) ↦ a), Xplus, cone)
+let coneComparisonInverse := pulled_back_backward(ℚ, ℚ × ℚ, ℚ, ((a, b) ↦ a), Xplus, cone)
+let originalConeSource := cone.source()
+let pairedConeSource := pairedCone.source()
+let changedConeSource := view pairedConeSource along «fun.bilin_module.change_value»(ℚ, ℚ × ℚ, ℚ, ((a, b) ↦ a))
+let changedCone := map pairedCone along «fun.bilin_module.change_value»(ℚ, ℚ × ℚ, ℚ, ((a, b) ↦ a))
+let comparedFirstFactor := h1 ∘ coneComparison
+
+test reconstructed_extensions_20261024.addition.lift.cone_comparison_inverse_left "ChangeValueLifts.pulledBackForward_backward at the exact formed cone-source objects":
+  assert coneComparisonInverse ∘ coneComparison = id(changedConeSource)
+
+test reconstructed_extensions_20261024.addition.lift.cone_comparison_inverse_right "ChangeValueLifts.pulledBackBackward_forward; same complete original zero-formed source":
+  assert coneComparison ∘ coneComparisonInverse = id(originalConeSource)
+
+test reconstructed_extensions_20261024.addition.lift.complete_cone_triangle "ChangeValueLifts.pulledBackForward_hom; uses the actual nonmonic cone":
+  assert changedCone = cone ∘ coneComparison
+
+test reconstructed_extensions_20261024.addition.lift.second_input_compatibility "InterfaceCompletionTests.paired_cone_factor_compatibility and MonoLift.factor_hom for the actual first factor":
+  assert changedCone = i1 ∘ comparedFirstFactor
+
+-- The closed proof is universal in the actual first factor: it invokes the
+-- selected lift's formal factor law. It does not substitute formedMediator
+-- for the previously returned h1, nor prove compatibility from returned data.
+let separateSecondFactor := factor(comparedFirstFactor) through second with pairedCone using proof(by apply CasCatalogue.Independent.InterfaceCompletionTests.paired_cone_factor_compatibility; exact CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneLifts.firstLift.factor_hom _ _ _ _ _)
+let changedSeparateFactor := map separateSecondFactor along «fun.bilin_module.change_value»(ℚ, ℚ × ℚ, ℚ, ((a, b) ↦ a))
+let changedCompositeFactor := map compositeFactor along «fun.bilin_module.change_value»(ℚ, ℚ × ℚ, ℚ, ((a, b) ↦ a))
+
+test reconstructed_extensions_20261024.addition.lift.separate_second_defining_equation "MonoLift.factor_hom through the actual second lift, original full paired-cone domain":
+  assert i2 ∘ separateSecondFactor = pairedCone
+
+test reconstructed_extensions_20261024.addition.lift.separate_second_comparison "MonoLift.factor_map for the second stage; reuse h1 through the required comparison":
+  assert second.forward() ∘ changedSeparateFactor = comparedFirstFactor
+
+test reconstructed_extensions_20261024.addition.lift.composed_factor_against_first "InterfaceCompletionTests.paired_factor_comparison for the two actual returned factors":
+  assert second.forward() ∘ changedCompositeFactor = comparedFirstFactor
+
+test reconstructed_extensions_20261024.addition.lift.unique_second_factor "MonoLift.factor_unique, equivalently cancellation by the monic final defining map, on the entire original domain":
+  assert separateSecondFactor = compositeFactor
+
+-- The two comparison endpoints are formed objects with the actual selected
+-- forms. Equality of their vector carriers does not discharge these equations.

@@ -110,6 +110,38 @@ non-documentation changes; `lean-categories`' totality gate runs in its own buil
 Constructor applications and family parameters are typed mathematical data, never strings such as
 `"Modules(QQ)"`. Otherwise a backend's spelling can leak into semantic identity.
 
+**Owner clarification (2026-10-25): constructor services and implementation irrelevance.**
+The one-way boundary governs mathematical authority and evidence, not the direction of runtime
+calls. A leaf may request any published constructor or computation through the kernel without
+choosing or knowing its implementation. The kernel checks the declared interface, composes the
+required actions and retains the actual result, selected comparisons, maps and dependencies.
+Callbacks or typed deferred computation requests may implement this service. Missing computation
+or a representation bridge remains a computational failure and cannot change mathematical
+availability. A deferred request is executed by the shared runtime before its target consumer
+needs the result; it does not require that consumer to interpret another category's recipe.
+
+Leaves may import other leaves or share private code for implementation convenience. Those
+dependencies are optional, have no semantic standing and impose no new obligations on another
+implementation. The kernel depends on published interfaces and returned computations, not the
+internal dependency graph. Freezing an independent target leaf is an interoperability test,
+not a prohibition on lateral imports or sufficient evidence for the complete service boundary.
+
+Published constructors are the interoperability interface: a producer can construct an image
+using an existing target-category presentation instead of exporting its private native object.
+Object and morphism actions retain the actual selected comparison and image endpoints; a
+computational choice or construction request supplies no proof that the original operation was
+computed correctly. Independent fixed mathematical verification and all existing authority
+boundaries remain unchanged.
+
+The owner's [issue 69 Addendum IV](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6402830212)
+makes the earlier `sage-categories` and `research` repairs, CAP's derived-method
+machinery, GATlab's explicit models, and the existing Catlab/`homotopy-core`
+adapters explicit inputs to this work. The [source-based reuse record](reuse/cross-repository-execution-prior-art.md)
+distinguishes implemented mechanisms, historical tests and remaining integrated
+obligations. Reuse their ownership, retention and dependency lessons through the
+existing Lean declarations; do not add another semantic graph or transplant the
+older projects' leaf import restrictions.
+
 ## Categorical realization and complete construction data (2026-10-29)
 
 ### Mathematical obligation
@@ -540,8 +572,14 @@ The current phase is construction of B0, including its working development,
 integration, review, and acceptance mechanisms. It is not operation under an
 already accepted B0 substrate.
 
-Kernel construction sessions select and verify work only by the
+Kernel construction sessions follow the generic KM1–KM9 implementation programme
+and the owner's V1 assignment of 2026-10-23, recorded in the
 [kernel construction procedure](computational-core-plan.md#kernel-construction-procedure-owner-instruction-2026-10-21).
+That assignment authorizes kernel delegation and the targeted upstream, contract,
+execution-surface and publication work needed for a usable V1. It supersedes older
+procedural prohibitions, while preserving mathematical ownership, independent
+acceptance, permanent assertions and leaf blindness. Source integration is not
+acceptance of the author's mathematics or interpretation changes.
 
 A successful compile does not discharge the unchanged positive assertion and its same-candidate
 protected negatives.

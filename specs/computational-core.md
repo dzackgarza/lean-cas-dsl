@@ -853,6 +853,21 @@ machinery and engine values kept private ([`lean-cas-dsl-leaves` AGENTS.md](http
 over existing backends"). That is writing guidance for an engineering review, and following it
 earns no trust.
 
+The owner clarification of 2026-10-25 additionally requires a leaf-facing computational service.
+A handler may construct and compute through any already published mathematical interface,
+without selecting a backend or knowing whether a realization is installed. The runtime may use
+callbacks or typed deferred computation requests, but it owns their admission and execution.
+Registered object constructors, functor object/map actions and ordinary operations compose through
+that same service. Selected presentation comparisons, actual defining maps, image endpoints and
+separately owned dependencies remain attached to their actual data. A source leaf's private object
+must not become a representation language that unrelated target consumers must implement.
+
+Optional direct imports or shared implementation code between leaves are permitted. They change
+neither the mathematical API nor the kernel's obligations. The existing single-owner wire payload
+and synchronous request/reply server do not by themselves satisfy this service requirement.
+Completing ordinary action dispatch and a frozen two-leaf composition is necessary evidence but
+does not close the broader constructor-centric execution obligation.
+
 ---
 
 ## 6. Division of ownership between the two Lean repositories

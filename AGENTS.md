@@ -114,13 +114,23 @@ criteria remain fixed. The current controller and development workflow are being
 constructed and corrected; they are not an already accepted substrate whose
 steady-state restrictions govern their own replacement.
 
-**The orchestrator's own session is the kernel session; the kernel is never delegated to a
-subagent or a fresh agent. That session selects, verifies and records work only by the
-[kernel construction procedure](specs/computational-core-plan.md#kernel-construction-procedure-owner-instruction-2026-10-21).**
-Its rules override any other sentence in this repository about what to work on next.
-Subagents are only the formalization, acceptance and leaf authors and the procedure's
-read-only reviewer. Controller, custodian, review, publication and CI work happens only when
-an owner instruction names it.
+**Owner V1 assignment (2026-10-23).** Deliver an integrated, usable kernel MVP,
+its necessary upstream interfaces and public computational contract. The owner
+explicitly authorizes delegation of kernel work and targeted upstream changes,
+superseding older procedural restrictions that would prevent this delivery.
+Select actual generic defects through KM1–KM9 and their dependencies; K1–K14
+remain regression evidence. Implement, integrate, validate and publish the
+working system rather than stopping at an audit or a passing isolated probe.
+
+V1 includes at least four useful connected real-engine workflows across at least
+three mathematical areas, including structured-result reuse and nonidentity
+transport, followed by the ten independent extension trials on frozen source.
+Use the existing CAS/notebook surface and only the invocation repairs necessary
+to demonstrate it. Substantial leaf expansion, broad backend parity and unrelated
+notebook or performance work remain excluded. Mathematical ownership, permanent
+assertions, independent acceptance and the prohibition on leaf-provided authority
+are unchanged. Authorship and source publication do not accept a mathematical
+release, an interpretation migration or B0.
 
 Proceed with the approved B0 work without requesting repeated owner approval.
 In a controller session this includes corrections to custodian code, reviewer prompts,
@@ -271,7 +281,17 @@ prerequisite. Independently protected acceptance operations remain separate from
 
 # Architecture contract (read first)
 
-**Owner ruling (2026-10-10): every repository consumes its own-organisation dependencies (`lean-categories`, `lean-cas-dsl-leaf-contracts`, `lean-cas-dsl-leaves`, `lean-jupyter-kernel`) at their latest `main`. There are no pins, accepted release tuples or re-pin steps; every build and harness run updates those requires to the latest `main` first. Where a spec in this repository speaks of a pinned or released revision, read it as the latest `main`.**
+**Owner ruling (2026-10-10), with the local-development clarification in
+[#83](https://github.com/dzackgarza/lean-cas-dsl/issues/83) (2026-10-29):** every repository
+consumes its own-organisation dependencies (`lean-categories`, `lean-cas-dsl-leaf-contracts`,
+`lean-cas-dsl-leaves`, `lean-jupyter-kernel`) at their latest `main`. Resolve and record them at
+the session, dependency-integration and full build/harness boundaries specified in
+[Running checks](specs/computational-core-plan.md#running-checks). Local diagnostics, targeted
+artifact builds and focused runtime checks reuse that selected environment without another
+dependency update. Rebuild changed imports and restart their consumers when the selection
+changes. Recorded revisions identify the environment actually used; they are not permanent
+dependency pins or self-accepted releases. Where an older spec speaks of a pinned or released
+revision, the latest-main delivery rule still applies.
 
 [`specs/architecture.md`](specs/architecture.md) owns the separation of concerns:
 - `lean-categories` owns all mathematics;
@@ -374,19 +394,31 @@ saved harness executables, logs and worktrees with full Lake package copies left
 
 # Builds and checks
 
-Which check to run, and when, is the procedure's "Running checks". The commands:
-- In a kernel session, `lake build TARGET` in the worktree builds one Lean target with no time
-  limit and no dependency refresh. `just focus`, `just probe`, `just bench-question` and
-  `just bench-reading` refresh dependencies or impose diagnostic limits; a kernel session uses
-  them only inside the procedure's rule-4 performance work.
-- The whole-candidate build and the whole suite run in CI (the Gates workflow), whose suite
-  report is the burndown queue. A kernel session runs neither locally: plain local `just build`
-  refuses to start, and `B0_INTEGRATION=1 just build` is CI's. A compile does not execute the
-  suite and discharges no assertion.
-- Locally, `cas-harness` runs only with `--suite` and `--inventory` over an item's IDs; its
-  report and CI's are the only evidence an item uses.
+The single current development sequence is
+[Running checks](specs/computational-core-plan.md#running-checks), implementing
+[#83](https://github.com/dzackgarza/lean-cas-dsl/issues/83) and the
+[#74 disposition](https://github.com/dzackgarza/lean-cas-dsl/issues/74#issuecomment-6468597360):
+inspect actual declaration types; edit; obtain completed diagnostics through persistent
+`lean-lsp-mcp` in the actual worktree (or an explicitly evidenced focused fallback); build
+the changed imports when a downstream consumer needs fresh artifacts; run the unchanged
+question with its original context, shared execution state, budget and protected negatives;
+run broader integration asynchronously.
 
-Do not raise heartbeats or weaken an assertion to shorten feedback.
+An explicitly labelled red/source-only checkpoint may preserve unfinished work. Record failed
+or unrun checks without claiming verification; publication and CI are not prerequisites for
+local compiler feedback. Routine commits do not run the full suite. Such a checkpoint neither
+completes an obligation nor bypasses a protected gate. Repeated symptom repairs that do not
+advance the intended computation require causal review of the shared mechanism, regardless of
+checkpoint frequency. A persistently slow targeted check is work to diagnose, not a reason to
+fill its wait with unrelated edits.
+
+Use the selected package/toolchain wrapper for targeted `lake build TARGET` or `TARGET:olean`
+and the existing downstream driver. These commands do not refresh dependencies. Do not use
+`just focus`, `just probe`, `just bench-question` or `just bench-reading` as diagnostic shortcuts
+when their refresh or limit behavior would change that environment or the original question.
+Keep full-candidate and full-suite checks in their configured integration workflow;
+`B0_INTEGRATION=1 just build` remains an integration command. A compile discharges no
+computational assertion. Do not raise heartbeats or weaken an assertion to shorten feedback.
 
 <!-- agent-memory:start -->
 # Agent memory

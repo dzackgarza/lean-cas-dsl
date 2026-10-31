@@ -1,0 +1,170 @@
+/- Copyright (c) 2026 Dzack Garza. Released under Apache 2.0 license. -/
+module
+
+import CasCatalogue.Realize
+meta import CasCatalogue.Realize
+
+/-! Engineering controls for lexical binding ownership and actual parameter endpoint reuse. -/
+
+open Lean Meta Elab Command Term CategoryTheory
+open CasCatalogue CasCatalogue.Language CasCatalogue.Realize
+
+run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
+  let parse (text : String) : TermElabM Syntax := do
+    let .ok stx := Parser.runParserCategory (← getEnv) `cas_term text
+      | throwError "the lexical control input did not parse"
+    return stx
+  let quoted ← `(cas_term| M)
+  let `(cas_term| $identifier:ident) := quoted | unreachable!
+  unless identifier.getId != identifier.getId.eraseMacroScopes do
+    throwError "the quoted lexical control has no macro scope"
+  let first ← parse "ℤ in Rings"
+  let second ← parse "ℚ in Rings"
+  -- All unbound references belong to one reading and retain its exact producer.
+  let cache ← IO.mkRef ({} : Std.HashMap String Value)
+  let trace ← Trace.new
+  let context : Ctx := { trace := some trace, closedTerms := some cache }
+  -- A fresh reading allocates a fresh occurrence. Compare its complete retained
+  -- Value, removing only that administrative ordinal from every typed field.
+  let sameReading := fun (left right : Value) => do
+    let terms ← IO.mkRef ({} : Std.HashMap ExprStructEq Nat)
+    let encode : Expr → TermElabM Nat := fun term => do
+      let key : ExprStructEq := ⟨Trace.withoutOccurrences term⟩
+      let known ← terms.get
+      if let some index := known[key]? then return index
+      let index := known.size
+      terms.set (known.insert key index)
+      return index
+    return (← encodeParameterViewValue encode left) ==
+      (← encodeParameterViewValue encode right)
+  let plain : Language.Scope := ({} : Language.Scope).insert `M first
+  let expectedFirst ← (eval {} first).run context
+  let expectedSecond ← (eval {} second).run context
+  if ← sameReading expectedFirst expectedSecond then
+    throwError "the lexical controls lost their distinct complete selected objects"
+  let actual ← (eval plain quoted).run context
+  unless actual.sameSource expectedFirst do
+    throwError "a quoted reference did not retain its complete file binding"
+  unless ← (namesObject plain quoted).run context do
+    throwError "quoted file lookup and object recognition disagree"
+  let exact := plain.insert identifier.getId second
+  let actual ← (eval exact quoted).run context
+  unless actual.sameSource expectedSecond do
+    throwError "an exact scoped file binding lost precedence over its written name"
+  let plainReference ← parse "M"
+  let plainValue ← (eval exact plainReference).run context
+  let quotedValue ← (eval exact quoted).run context
+  unless plainValue.sameSource expectedFirst && quotedValue.sameSource expectedSecond do
+    throwError "closed reading reuse identified distinct lexical file bindings"
+  let actual ← (eval exact quoted).run { context with bound := [(identifier.getId, expectedFirst)] }
+  unless actual.sameSource expectedFirst do
+    throwError "a file binding captured an exact lexical stage binding"
+  let other ← withFreshMacroScope `(cas_term| M)
+  let `(cas_term| $otherIdentifier:ident) := other | unreachable!
+  unless otherIdentifier.getId != identifier.getId do
+    throwError "the independent lexical control scopes coincide"
+  let actual ← (eval plain quoted).run
+    { context with bound := [(otherIdentifier.getId, expectedSecond)] }
+  unless ← sameReading actual expectedFirst do
+    throwError "different lexical macro scopes captured one another"
+
+run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
+  let expected ← elabTermAndSynthesize (← `((ℚ × ℚ) →ₗ[ℚ] ℚ)) none
+  let .ok parsed := Parser.runParserCategory (← getEnv) `cas_term "((a, b) ↦ a)"
+    | throwError "the endpoint reuse control did not parse"
+  let trace ← Trace.new
+  let value ← (selectedTypedParameter {} expected parsed).run { trace := some trace }
+  let some (.elementValue point target selected) ← trace.node? value
+    | throwError "the endpoint reuse control has no original admitted point"
+  unless ← withTransparency .all <| isDefEq selected target do
+    throwError "the control's selected object is not the complete point target"
+  let some sets := (← registryState).categories.find? (·.id == CategoryId.sets)
+    | throwError "the endpoint reuse control has no set category"
+  let packet := Json.mkObj [("ctor", "opaqueData"), ("args", Json.arr #["actual point"])]
+  let supplied : Wire := {
+    form := .canonicalMorphism sets
+    payload := .computed point (.owned "actual-parameter" 43 packet) }
+  let harness ← Harness.empty
+  harness.results.modify (·.insert point supplied)
+  let actual ← realize harness trace "the original projected parameter" value
+  let .ok ("element", #[selectedData, pointData]) := ComputationalData.envelope actual.json
+    | throwError "the projected parameter lost its element frame"
+  let .ok endpoint := Backend.MorphismEndpoint.decode selectedData
+    | throwError "the unnamed selected target did not use its complete actual callable"
+  unless !endpoint.source && endpoint.callable == packet &&
+      actual.owner? == supplied.owner? && actual.value == value &&
+      pointData == Json.mkObj [("ctor", "point"), ("args", Json.arr #[packet])] do
+    throwError "the endpoint frame changed the direction, actual packet, owner or formal parameter"
+  -- An independently supplied target belongs to this exact point through its
+  -- retained endpoint receipt, and participates in ownership. A global expression
+  -- cache entry is not an endpoint field of that callable occurrence.
+  let some (domain, _) := Language.homEnds? (← inferType point)
+    | throwError "the endpoint reuse control lost its complete point signature"
+  let context ← CategoryContext.ofNamed sets domain
+  let sourceWire ← callableEndpointReference supplied domain true (some context)
+  let actualTarget := Json.mkObj [("ctor", "opaqueData"), ("args", Json.arr #["actual target"])]
+  for separate in #[false, true] do
+    let harness ← Harness.empty
+    let targetWire : Wire := {
+      form := .diagrams sets
+      payload := .computed selected
+        (.owned (if separate then "actual-target" else "actual-parameter")
+          (if separate then 44 else 43) actualTarget) }
+    let retainedPoint ← retainCallableEndpoints supplied sourceWire targetWire context
+    let unrelatedTarget := { targetWire with
+      payload := .computed selected (.owned "unrelated-target" 46 actualTarget) }
+    unless unrelatedTarget.json == targetWire.json &&
+        unrelatedTarget.fragment != targetWire.fragment do
+      throwError "the endpoint cache control lost its distinct actual supplier"
+    harness.results.modify fun cache =>
+      (cache.insert point retainedPoint).insert selected unrelatedTarget
+    let actual ← realize harness trace "the actual selected target" value
+    let .ok ("element", #[selectedData, _]) := ComputationalData.envelope actual.json
+      | throwError "the independently supplied target lost its element frame"
+    let targetFragment ← checkedFragment
+      (actual.fragment.project #[.field "args", .index 0])
+    let pointFragment ← checkedFragment
+      (actual.fragment.project #[.field "args", .index 1, .field "args", .index 0])
+    unless selectedData == actualTarget && actual.value == value &&
+        targetFragment == targetWire.fragment && pointFragment == supplied.fragment do
+      throwError "the projected parameter changed its complete target or retained point occurrence"
+    unless (DataOwnership.owners actual.ownership).size == (if separate then 2 else 1) do
+      throwError "the projected parameter collapsed or invented a supplier"
+    if separate then
+      unless actual.owner?.isNone do
+        throwError "a two-supplier parameter claimed one aggregate owner"
+    else
+      unless actual.owner? == supplied.owner? do
+        throwError "the single-supplier parameter changed its retained owner"
+
+run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
+  let .ok ring := Parser.runParserCategory (← getEnv) `cas_term "ℤ in Rings"
+    | throwError "the structured-selection control ring did not parse"
+  let .ok literal := Parser.runParserCategory (← getEnv) `cas_term "1 in R"
+    | throwError "the structured-selection control point did not parse"
+  let scope : Language.Scope := ({} : Language.Scope).insert `R ring
+  let trace ← Trace.new
+  let original ← (eval scope literal).run { trace := some trace }
+  let expected ← elabTermAndSynthesize (← `(ℤ)) none
+  let value ← (typedParameter expected original).run { trace := some trace }
+  let some (.elementValue point target selected) ← trace.node? value
+    | throwError "the scalar parameter lost its complete selected object"
+  if ← withoutModifyingState (withTransparency .all <|
+      isDefEq (← inferType selected) (← inferType target)) then
+    throwError "the structured-selection control has only a bare carrier"
+  let some sets := (← registryState).categories.find? (·.id == CategoryId.sets)
+    | throwError "the structured-selection control has no set category"
+  let packet := Json.mkObj [("ctor", "opaqueData"), ("args", Json.arr #["selected ring point"])]
+  let supplied : Wire := {
+    form := .canonicalMorphism sets
+    payload := .computed point (.owned "actual-parameter" 45 packet) }
+  let harness ← Harness.empty
+  harness.results.modify (·.insert point supplied)
+  let actual ← realize harness trace "the structured scalar parameter" value
+  let .ok ("element", #[selectedData, _]) := ComputationalData.envelope actual.json
+    | throwError "the selected scalar lost its complete element frame"
+  let selectedWire ← realize harness trace "the original selected ring" selected
+  unless selectedData == selectedWire.json && actual.owner? == supplied.owner? do
+    throwError "the scalar parameter replaced its selected structure with the carrier endpoint"
+  if (Backend.MorphismEndpoint.decode selectedData).isOk then
+    throwError "a bare carrier supplied the selected ring structure"

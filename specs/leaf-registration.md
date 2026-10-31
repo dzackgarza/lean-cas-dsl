@@ -79,6 +79,17 @@ Prescribed formal lifts determine the semantic construction; computational lifti
 the returned inclusion and complete representation. A well-formed wrong structured answer,
 like a well-typed wrong numeral, reaches acceptance as a wrong answer.
 
+For each prescribed subobject-lift step, the kernel instantiates all four public fields of
+`LiftEntry.computation` (`MonoLiftComputation.obj`, `hom`, `forward`, and `backward`) at the
+complete selected action, source receiver and formal base. The corresponding concrete field
+addresses and input packet are specified in `CasContract/Port.lean`. It executes the route
+in reverse order, supplying preceding actual outputs to subsequent field requests and using
+the actual object and inclusion as the next step's base. A completed packet retains all four
+outputs of every step. A packet containing only a base reply, source and lift ids is incomplete.
+Map framing uses actual computational endpoints and `Unit` validators; it does not prove
+monicity, inverse equations, factorization, universality or agreement with a canonical answer.
+Opaque callables on infinite carriers retain their owning session and are never enumerated.
+
 Subsequent computations retain the complete requested functor action and returned subobject
 response together. The first is fixed by the formal trace; the second is computational data.
 An `objectPresentation` envelope does not establish an isomorphism between them or determine
@@ -125,6 +136,113 @@ edge and target schema; its actual ordered declaration parameters remain in the 
 and wire data. A short classifier or constructor identifier resolves only when the registry
 contains exactly one matching edge and target. Competing edges require the complete image key.
 
+## Executable registered actions
+
+A `FunctorEntry` already supplies a complete mathematical functor. Its existing
+identifier names the object action; `<id>#map` names its morphism action and
+`<id>#input` names the complete request form. These are projections of that row,
+not additional mathematical operations. Existing object-action registrations at
+source forms remain peers of the complete request form. An ambiguous choice of
+admitted implementations remains ambiguous.
+
+One executor demands object images and whole morphism images from these ports.
+An object request contains the actual source and all ordered explicit action
+parameters. A whole-map request uses the existing `apply` frame, with
+`map(action, typedMap(X_actual, Y_actual, f_actual))` as its arrow. Its source and
+target are the already executed `F(X)` and `F(Y)` packets. Its generalized domain
+is that actual image source and its argument is the identity on that domain.
+Returned `typedMap` endpoints must equal those exact supplied image packets.
+An unframed whole callable is retained inside that same `typedMap` frame, with
+its original returned data unchanged. Later actions read the occurrence's actual
+endpoint fields even when its two formal endpoints are the same expression.
+This validates the interface; it neither proves the functor laws nor checks the
+mathematical answer by substituting a canonical result.
+
+A composite executes the dependencies of its selected realization. Sequential
+realization applies its selected primitive actions in order; an admitted direct
+realization of the complete composite need not execute unavailable primitive
+implementations or invent receipts for them. Both preserve the same selected
+formal composite and every comparison required by its use. The retained result
+keeps the full action, actual original data and owners, complete parameters,
+and both actual image endpoints for a map. Carrier equality, coincidence at one
+object, and a definitionally equal cached name do not choose a different source
+or action. A registered comparison's component reuses the images of its already
+checked left and right routes even when its Hom type reduces their expressions.
+Existing dependent constructions use this same object/map boundary at their
+published construction addresses.
+
+Production execution demands these actions before an unrelated target operation
+consumes their result; interpretation may retain deferred recipes. The action
+receipt preserves the source, complete action and parameter owners internally.
+A complete returned packet with no nested opaque token is portable. A token
+anywhere in a returned packet keeps the supplying process and session, including
+when it is nested in a typed map. A retained owned result cannot cross an expired
+session. A target-only consumer receives the actual target packet; the internal
+action receipt does not require it to decode source routes or source data.
+
+Checked projections from actual complete Arrow/subobject fields and restoration
+of a retained proof-refinement source remain intrinsic. Other classifier-forget
+and constructor-induced actions use the same executor through a canonical
+derived address. Write `E` for the existing structured edge identity:
+
+```text
+E = {"functor": id}
+  | {"classifierForget": id}
+  | {"constructorMap": [constructorId, E]}
+```
+
+For a non-functor root, the object address is `action:` followed by the canonical
+compact JSON spelling of `E`; its map and input projections append `#map` and
+`#input`. Every referenced row must exist, and every constructor must publish its
+action on functors. A bare functor root retains its existing public identifier;
+alternate JSON spellings are not aliases. The recursive family includes nested
+registered constructors and therefore is not a finite list of new operations.
+
+Both requests carry the existing complete action descriptor as their single
+framing parameter. It retains the ordered actual parameters inside every nested
+action. The object request retains its actual receiver. The map request uses
+that same descriptor in `map(action, typedMap(X_actual, Y_actual, f_actual))`
+and retains the actual image endpoints fixed before dispatch. An implementation
+at one derived input cannot supply a different edge's action. The kernel checks
+the whole selected formal action separately from these framing checks.
+
+The existing `coreObject(original)` data form is checked through the independently
+selected `Core.of` field and its original complete object interface. Missing or
+unrelated data cannot select that field. An absent action required by the selected
+realization reports a computational gap; an unavailable representation bridge between live
+processes remains distinct. Neither is filled by changing a target consumer's
+decoder.
+
+### Named refinement representations
+
+An accepted object refinement identifies the full structural image `U(X(p))`
+with the registered base `B(p)`. A canonical-base registration may receive the
+`B(p)` constructor data, with every original parameter and supplier retained.
+The semantic receiver remains `U(X(p))`. The kernel retains the accepted
+identification and both complete callable occurrences, so subsequent points,
+maps and structured results use the selected comparison when their framing
+requires it. Forming this representation neither executes `U` nor marks the
+comparison maps as computed.
+
+The public comparison descriptors are
+`objectField(object_id, "refinement", parameters)` for the identification's
+`hom : U(X(p)) → B(p)`, and
+`objectField(object_id, "inverseRefinement", parameters)` for its `inv`.
+They use the existing three-field `objectField` envelope, in the route's target
+category and with the object's complete ordered declaration parameters.
+They are distinct from `presentation` and `inversePresentation`, which expose
+an object's separate `functorPresentation` comparison. The contract's
+[`ObjectField` guide](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/blob/main/api/wire-examples.md#registered-object-fields)
+publishes the decoder vocabulary, endpoint directions and common callable framing.
+
+An ordinary inherited method retains its complete original route even when
+the chosen implementation accepts a canonical base. Its request and result
+schema use the remaining suffix; an explicit offset relates their local action
+indices to the original positions. Later prescribed lifts retain that exact
+request receiver as the consumed prefix's final image, with its accepted
+presentation. They do not replace it by separately computed equal expressions
+or claim that a representation descriptor is an action execution receipt.
+
 ## A registration is data
 
 A leaf package is a manifest, `leaves.json` at the root of the package, plus the programs it
@@ -165,11 +283,13 @@ realization, preserving lazy demand and admitted direct computations of composit
 
 1. **Literals.** A subterm `denote t` of a registered literal form is the value `t` of that form,
    encoded by the kernel. The extent of a finite-subset literal is the literal itself.
-2. **Transport.** Before a registration is selected, the receiver of a method or property is sent
-   along the route the semantic reading resolved, as far as the catalogue's refinement rows relate
-   it to a base object at the same parameters. For example, `Fin(3) in FiniteSets` goes to
-   `Fin(3)` in `Sets`. Only catalogue rows move an object. A registration on a form the catalogue
-   sends elsewhere along the operation's route could never be selected, so it is not admitted.
+2. **Transport.** The method or property retains the route selected by interpretation. Accepted
+   refinement rows can supply a canonical base representation for a prefix at the same complete
+   parameters, while the semantic receiver remains the full structural image. For example,
+   the underlying set of `Fin(3) in FiniteSets` may use the registered `Fin(3)` data in `Sets`
+   through its accepted identification. Only catalogue comparisons authorize that representation.
+   A registration on a named form whose accepted refinement sends it to a base along the
+   operation's route is not admitted; the existing canonical-base registration implements it.
 3. **Operations.** For an operation applied to evaluated arguments, the kernel picks the admitted
    registration of that operation for the arguments' form, sends the encoded input, and decodes
    the answer in the operation's result form. The outcomes:
@@ -252,6 +372,65 @@ Lean, generically: `decide` within a fixed budget, and the catalogue's registere
 - If Lean refutes the well-typed comparison, its outcome is `wrong`; reading validity is
   unchanged. No leaf was consulted in that discharge.
 - Otherwise the realized reading decides it.
+
+## Running a fixed question with selected implementations
+
+The public harness selects an implementation environment independently of the mathematical
+statement. Given an already built kernel, an independently supplied assertion file and its
+inventory, run:
+
+```sh
+lake env .lake/build/bin/cas-harness \
+  --suite /absolute/path/to/questions.cas \
+  --inventory /absolute/path/to/inventory.json \
+  --manifest /absolute/path/to/leaves.json \
+  --report /absolute/path/to/report.json \
+  --computation-only
+```
+
+The `--suite` argument also accepts a directory. `--computation-only` requests actual
+computational execution of the same interpreted question instead of first discharging it in
+Lean. It changes neither the assertion nor its expected answer. To compare implementations,
+keep the question file, inventory and selected mathematical source fixed and supply a different
+manifest and report path. A manifest contains only the public backend declarations and
+operation/input registrations above; it carries no interpretation or expected answer.
+
+For independently supplied mathematical extensions, repeat `--import Fully.Qualified.Module`
+to load their already compiled catalogue modules alongside the standard catalogue. The selected
+module list is part of the mathematical environment and stays fixed when comparing computational
+implementations. This uses the same built harness and kernel; adding a mathematical module does
+not require editing their source. A leaf still ships no Lean and cannot choose these imports.
+
+The JSON report retains `id`, `question`, `proposition`, `kind`, `detail`, `fails` and the actual
+`dispatches` for each assertion. `question` includes the complete typed claim and its operation
+trace; `proposition` is a readable display. A comparison of environments must retain the same
+question, rather than treating equal displays or equal answers as proof of unchanged meaning.
+The report's dispatch records are engineering observations, not mathematical evidence.
+
+For a fixed well-formed true assertion, independent environment specimens exercise the
+following outcomes:
+
+| Environment behavior | Reported outcome |
+| --- | --- |
+| Declared computations supply the independently expected answer | `holds` |
+| No matching registration, or a conforming `unsupported` reply for the dispatched operation | `gap` with the missing implementation reason |
+| Several matching registrations | `gap` with the realization ambiguity reason |
+| A backend cannot start, exits during a request, or reports an engine failure | `unavailable` |
+| A response has an invalid frame, wrong request ID, missing required field or incompatible endpoint | `malformed` |
+| A response has the required form but contradicts the independent assertion | `wrong` |
+| The kernel violates an internal invariant or raises an unclassified exception | `internal` |
+
+The last row is exercised by a kernel engineering fault fixture, not by granting a leaf an
+`internal` or `invalid` verdict. A leaf's error reply remains an execution failure. Semantic
+invalidity or ambiguity is determined before implementation selection. Conflicting nested
+failure tags cannot turn an internal failure into an invalid mathematical question or a gap.
+
+Owned data and callable tokens remain attached to the live connection that created them.
+Subsequent operations in that session must retain their owners, including every owner carried
+by transported maps and complete structured results. A fresh harness invocation opens its own
+sessions; it does not import tokens from an earlier report. Ownership checks and deliberate
+foreign-session fixtures are engineering tests of this boundary, separate from the unchanged
+mathematical assertion. No backend identifier or wire token belongs in the assertion text.
 
 The normal path avoids backend calls after successful Lean discharge. A leaf supplies values
 and never supplies a proof.

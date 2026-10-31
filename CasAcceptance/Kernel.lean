@@ -1,0 +1,65 @@
+module
+
+public import CasAcceptance.Kernel.BinderReaderProbes
+public import CasAcceptance.Kernel.AdmissionBoundaryProbes
+public import CasAcceptance.Kernel.ApexReceiverContextProbes
+public import CasAcceptance.Kernel.AnonymousApexProbes
+public import CasAcceptance.Kernel.ConstrainedPointProbes
+public import CasAcceptance.Kernel.CreatedProjectionDataProbes
+public import CasAcceptance.Kernel.DependentElaborationProbes
+public import CasAcceptance.Kernel.FileItemProbes
+public import CasAcceptance.Kernel.SessionOwnershipProbes
+public import CasAcceptance.Kernel.DataOwnershipProbes
+public import CasAcceptance.Kernel.WholeOperationObservationProbes
+public import CasAcceptance.Kernel.WholeFunctionFramingProbes
+public import CasAcceptance.Kernel.ProspectiveReservationProbes
+public import CasAcceptance.Kernel.PositionedLiftServiceScopeProbes
+public import CasAcceptance.Kernel.FunctorActionExecutionProbes
+public import CasAcceptance.Kernel.DerivedActionExecutionProbes
+public import CasAcceptance.Kernel.DeferredServiceProbes
+public import CasAcceptance.Kernel.ComputationDerivationProbes
+public import CasAcceptance.Kernel.MixedDataOwnershipProbes
+public import CasAcceptance.Kernel.ServiceProjectionProbes
+public import CasAcceptance.Kernel.StructuredServiceRequestProbes
+public import CasAcceptance.Kernel.StructuredRecordDataProbes
+public import CasAcceptance.Kernel.NestedScalarLiteralProbes
+public import CasAcceptance.Kernel.ActualPointConstraintProbes
+public import CasAcceptance.Kernel.RecordProjectionBoundaryProbes
+public import CasAcceptance.Kernel.ObjectPresentationProbes
+public import CasAcceptance.Kernel.ProductPointFramingProbes
+public import CasAcceptance.Kernel.ProductComparisonActionsProbes
+public import CasAcceptance.Kernel.ComputedPointFramingProbes
+public import CasAcceptance.Kernel.ContextualNumeralOwnerProbes
+public import CasAcceptance.Kernel.ForwardNumeralIndependentOwnerProbes
+public import CasAcceptance.Kernel.CallableCoordinateFramingProbes
+public import CasAcceptance.Kernel.CompleteNamedDataProbes
+public import CasAcceptance.Kernel.CompleteUniversalObjectProbes
+public import CasAcceptance.Kernel.CompleteModuleProductProbes
+public import CasAcceptance.Kernel.RetainedConstructionDataProbes
+public import CasAcceptance.Kernel.CompleteConstructionDataProbes
+public import CasAcceptance.Kernel.ProjectionBoundaryProbes
+public import CasAcceptance.Kernel.QuestionComparisonProbes
+public import CasAcceptance.Kernel.QuestionSnapshotProbes
+public import CasAcceptance.Kernel.GenericExecutionProbes
+public import CasAcceptance.Kernel.PortableExecutionProbes
+public import CasAcceptance.Kernel.ShortElementInterfaceProbes
+public import CasAcceptance.Kernel.MorphismEndpointProbes
+public import CasAcceptance.Kernel.PortFailureProbes
+public import CasAcceptance.Kernel.StructuredReconstructionProbes
+public import CasAcceptance.Kernel.StructuredExecutionProbes
+public import CasAcceptance.Kernel.DeclaredProductContextProbes
+public import CasAcceptance.Kernel.ReaderContextContinuityProbes
+public import CasAcceptance.Kernel.DeclaredParameterEndpointProbes
+public import CasAcceptance.Kernel.ProofSourceIdentityProbes
+public import CasAcceptance.Kernel.MethodComparisonRetentionProbes
+public import CasAcceptance.Kernel.DeclaredContextBindingProbes
+public import CasAcceptance.Kernel.ClosedBindingReadingProbes
+public import CasAcceptance.Kernel.ClosedRouteTrialProbes
+public import CasAcceptance.Kernel.SelectedCarrierProbes
+public import CasAcceptance.Kernel.SourceParameterBindingProbes
+public import CasAcceptance.Kernel.InclusionSelectionProbes
+
+/- Engineering checks of the generic kernel. Independent extension fixtures are
+built separately against their explicitly supplied mathematical inputs. -/
+import CasAcceptance.Kernel.GlobalStageProbes
+import CasAcceptance.Kernel.ParameterResultReuseProbes

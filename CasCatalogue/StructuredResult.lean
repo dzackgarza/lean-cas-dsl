@@ -38,7 +38,7 @@ def decode (row : LimitEntry) (diagram : Expr) (answer : Json)
   unless name == kind do return .error s!"expected {kind}, received {name}"
   let .ok args := (answer.getObjVal? "args").bind (·.getArr?)
     | return .error s!"the {kind} has no args array"
-  let some constructor := standardCone row.shape row.colimit
+  let some constructor := row.dataConstructor
     | return .error s!"no standard constructor for {row.shape} {kind}"
   let expected ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone
     else ``CategoryTheory.Limits.Cone) #[diagram]
@@ -157,6 +157,9 @@ structure DataPlan where
   constructor : Name
   binders : Array DataBinder
   ports : Array DataPort
+  /-- The apex's original constructor-binder role, selected before formal
+  unification can identify independent inputs and returned fields. -/
+  apexBinder : Option Nat := none
 
 namespace DataPlan
 
@@ -168,17 +171,76 @@ def actualData? (plan : DataPlan) (binder : Nat) (seen : Array Json) : Option Js
 
 end DataPlan
 
+/-- Recover data ports from the registered constructor's own direct projection
+identities when an accepted created cone stays opaque. Only the independently
+fixed diagram index type is enumerated. A backend value, a cone law, and an
+identification of computational and formal objects never enter this procedure. -/
+def projectFormalDataPorts (colimit : Bool) (diagram schema formalCone : Expr)
+    (ports : Array Expr) : TermElabM (Except String Unit) := do
+  let directPort := fun expression => do
+    let reduced ← withTransparency .all <| whnfHeadPred expression fun part =>
+      pure (!ports.contains part)
+    return ports.findIdx? (· == reduced)
+  let mut projections : Array (Array Expr) := Array.replicate ports.size #[]
+  let pointName := if colimit then ``CategoryTheory.Limits.Cocone.pt
+    else ``CategoryTheory.Limits.Cone.pt
+  if let some index ← directPort (← mkAppM pointName #[schema]) then
+    let formalPoint ← mkAppM pointName #[formalCone]
+    projections := projections.modify index (·.push formalPoint)
+  let diagramType ← whnfR (← inferType diagram)
+  unless diagramType.isAppOfArity ``CategoryTheory.Functor 4 do
+    return .error "the data schema has no complete independent diagram category"
+  let transformationName := if colimit then ``CategoryTheory.Limits.Cocone.ι
+    else ``CategoryTheory.Limits.Cone.π
+  let schemaMaps ← mkAppM transformationName #[schema]
+  let formalMaps ← mkAppM transformationName #[formalCone]
+  if let some port ← directPort schemaMaps then
+    projections := projections.modify port (·.push formalMaps)
+  let schemaFamily ← mkAppM ``CategoryTheory.NatTrans.app #[schemaMaps]
+  if let some port ← directPort schemaFamily then
+    let formalFamily ← mkAppM ``CategoryTheory.NatTrans.app #[formalMaps]
+    projections := projections.modify port (·.push formalFamily)
+  -- Whole transformation/family ports keep arbitrary index domains. Enumeration
+  -- is needed only for a schema exposing separate finitely indexed leg slots.
+  if projections.any (·.isEmpty) then
+    if let some indices ← Codec.finiteDomain diagramType.getAppArgs[0]! then
+      for index in indices do
+        let projection ← mkAppM ``CategoryTheory.NatTrans.app #[schemaMaps, index]
+        if let some port ← directPort projection then
+          let formalProjection ← mkAppM ``CategoryTheory.NatTrans.app #[formalMaps, index]
+          projections := projections.modify port (·.push formalProjection)
+  for (port, candidates) in ports.zip projections do
+    let some candidate := candidates[0]?
+      | return .error "the registered constructor has no direct independent projection for a data port"
+    for alternative in candidates do
+      unless ← withoutModifyingState <| withTransparency .all <|
+          isDefEq (← inferType candidate) (← inferType alternative) <&&>
+            isDefEq candidate alternative do
+        return .error "several distinct formal projections address the same data port"
+    unless ← withTransparency .all <|
+        isDefEq (← inferType port) (← inferType candidate) <&&> isDefEq port candidate do
+      return .error "the independent field projection changes its registered dependent type"
+  return .ok ()
+
 /-- Prepare the complete computational dependency plan solely from the independent
 formal construction. No backend field binds a constructor metavariable. -/
 def dataPlan (row : LimitEntry) (diagram formalPresentation : Expr) :
     TermElabM (Except String DataPlan) := do
-  let some constructorName := standardCone row.shape row.colimit
+  let some constructorName := row.dataConstructor
     | return .error "the registered shape has no complete data constructor"
   let constructor ← mkConstWithFreshMVarLevels constructorName
   let (fields, infos, conclusion) ← forallMetaTelescopeReducing (← inferType constructor)
   -- Save dependency identities before formal unification resolves distinct roles
   -- to potentially equal expressions (for example both apex and diagram Fin 2).
   let rawTypes : Array Expr ← fields.mapM fun field => inferType field
+  let schema := mkAppN constructor fields
+  -- The symbolic constructor's category arguments are still its original
+  -- metavariables here. Project with those exact parameters; synthesizing a
+  -- fresh category instance would either fail or replace the selected context.
+  let apex ← withTransparency .all <| mkProjection schema `pt
+  let apex ← withTransparency .all <| whnfHeadPred apex fun expression =>
+    pure (!fields.contains expression)
+  let apexBinder := fields.findIdx? (· == apex)
   -- Capture the public diagram telescope before formal unification aliases roles.
   let rawConclusion ← whnfR conclusion
   let rawDiagram := rawConclusion.getAppArgs.back!
@@ -210,8 +272,12 @@ def dataPlan (row : LimitEntry) (diagram formalPresentation : Expr) :
   let formalCone ← mkAppM (if row.colimit then
     ``CategoryTheory.Limits.ColimitCocone.cocone else
     ``CategoryTheory.Limits.LimitCone.cone) #[formalPresentation]
-  unless ← withTransparency .all <| isDefEq (mkAppN constructor fields) formalCone do
-    return .error "the formal construction does not expose the declared data-port schema"
+  if ← withoutModifyingState <| withTransparency .all <| isDefEq schema formalCone then
+    discard <| withTransparency .all <| isDefEq schema formalCone
+  else
+    let .ok () ← projectFormalDataPorts row.colimit diagram schema formalCone
+        (portBinders.map (fields[·]!))
+      | return .error "the formal construction does not expose the declared data-port schema"
   let mut binders : Array DataBinder := #[]
   for index in [:fields.size] do
     let value ← instantiateMVars fields[index]!
@@ -251,7 +317,7 @@ def dataPlan (row : LimitEntry) (diagram formalPresentation : Expr) :
       dependencies := dependencies
       domainBinder := domainBinder
       codomainBinder := codomainBinder }
-  return .ok { colimit := row.colimit, constructor := constructorName, binders, ports }
+  return .ok { colimit := row.colimit, constructor := constructorName, binders, ports, apexBinder }
 
 /-- Prepare port values solely from the independent construction. Schema failure is
 an interpretation/protocol gap, not malformed backend data. -/
@@ -292,13 +358,60 @@ def validateData (row : LimitEntry) (diagram formalPresentation : Expr) (answer 
   validatePlannedData plan answer fun port _ data =>
     validatePort port.formalField port.expectedType data
 
+/-- A defining map is a categorical expression in returned fields and independently
+fixed diagram data. Its construction never supplies backend values to a Lean metavariable. -/
+inductive DataProjection where
+  | field (index : Nat)
+  | input (formal : Expr)
+  | composition (first second : DataProjection)
+  | identity (object : DataProjection)
+  | map (action : Expr) (arrow : DataProjection)
+
+/-- Expose categorical operations while retaining the symbolic identities of data ports. -/
+partial def projectionExpression (ports inputs : Array Expr) (expression : Expr) :
+    TermElabM (Except String DataProjection) := do
+  let expression ← instantiateMVars expression
+  if let some index := ports.findIdx? (· == expression) then
+    return .ok (.field index)
+  if inputs.contains expression then return .ok (.input expression)
+  let reduced ← withTransparency .all <| whnfHeadPred expression fun head =>
+    pure (!(head.isAppOf ``CategoryTheory.CategoryStruct.comp ||
+      head.isAppOf ``CategoryTheory.CategoryStruct.id ||
+      head.isAppOf ``CategoryTheory.Functor.map || ports.contains head ||
+      inputs.contains head))
+  let reduced ← instantiateMVars reduced
+  if let some index := ports.findIdx? (· == reduced) then
+    return .ok (.field index)
+  if inputs.contains reduced then return .ok (.input reduced)
+  let args := reduced.getAppArgs
+  if reduced.isAppOf ``CategoryTheory.CategoryStruct.comp && args.size >= 2 then
+    let .ok first ← projectionExpression ports inputs args[args.size - 2]!
+      | return .error "the defining-map composite has an unsupported first field"
+    let .ok second ← projectionExpression ports inputs args.back!
+      | return .error "the defining-map composite has an unsupported second field"
+    return .ok (.composition first second)
+  if reduced.isAppOf ``CategoryTheory.CategoryStruct.id then
+    let .ok object ← projectionExpression ports inputs args.back!
+      | return .error "the defining identity has an unsupported object field"
+    return .ok (.identity object)
+  if reduced.isAppOf ``CategoryTheory.Functor.map && args.size >= 4 then
+    let action := args[args.size - 4]!
+    if action.hasMVar || action.hasLevelMVar || action.hasFVar then
+      return .error "the defining-map action is not independently fixed"
+    let .ok arrow ← projectionExpression ports inputs args.back!
+      | return .error "the defining-map action has an unsupported arrow field"
+    return .ok (.map action arrow)
+  if expression.hasMVar || expression.hasLevelMVar || expression.hasFVar then
+    return .error "the defining map contains an unresolved computational field"
+  return .ok (.input expression)
+
 /-- Interpret a defining-map projection using only the authoritative constructor schema.
 No backend field is supplied to this procedure, and its temporary schema expression is never
-returned as a cone, law or universal witness. Only the data-port position and total
+returned as a cone, law or universal witness. Only the projection expression and total
 data-port count escape. -/
-def dataPortIndex (row : LimitEntry) (diagram index : Expr) :
-    TermElabM (Except String (Nat × Nat)) := withoutModifyingState do
-  let some constructor := standardCone row.shape row.colimit
+def dataProjection (row : LimitEntry) (diagram index : Expr) :
+    TermElabM (Except String (DataProjection × Nat)) := withoutModifyingState do
+  let some constructor := row.dataConstructor
     | return .error "the registered shape has no defining-map data-port schema"
   let constructor ← mkConstWithFreshMVarLevels constructor
   let (fields, infos, conclusion) ← forallMetaTelescopeReducing (← inferType constructor)
@@ -312,18 +425,80 @@ def dataPortIndex (row : LimitEntry) (diagram index : Expr) :
   let schema := mkAppN constructor fields
   let transformation ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone.ι
     else ``CategoryTheory.Limits.Cone.π) #[schema]
-  let projection ← withTransparency .all <| whnf
-    (← mkAppM ``CategoryTheory.NatTrans.app #[transformation, index])
-  let projection ← instantiateMVars projection
-  for port in [:ports.size] do
-    if projection == (← instantiateMVars ports[port]!) then
-      return .ok (port, ports.size)
-  return .error "the requested defining map is a composite, not a direct computational data port"
+  let projection ← mkAppM ``CategoryTheory.NatTrans.app #[transformation, index]
+  let normalizedPorts ← ports.mapM instantiateMVars
+  -- Retained diagram inputs remain computational operands even when their formal
+  -- terms are identities or composites. Only operations introduced by the defining
+  -- map schema are interpreted structurally here.
+  let some diagramConstructor ← Semantic.diagramConstructor row
+    | return .error "the defining-map schema has no registered diagram constructor"
+  let diagram ← withTransparency .all <| whnfHeadPred diagram fun head =>
+    pure (head.getAppFn.constName? != some diagramConstructor)
+  unless diagram.getAppFn.constName? == some diagramConstructor do
+    return .error "the defining-map schema lost its complete diagram inputs"
+  let infos ← forallTelescopeReducing (← getConstInfo diagramConstructor).type fun xs _ =>
+    xs.mapM (·.fvarId!.getBinderInfo)
+  let inputs := (diagram.getAppArgs.zip infos).filterMap fun (arg, info) =>
+    if info.isExplicit then some arg else none
+  return (← projectionExpression normalizedPorts inputs projection).map (·, normalizedPorts.size)
 
-/-- Select an opaque defining-map field using an independently interpreted formal schema. -/
-def projectData (row : LimitEntry) (diagram : Expr) (answer : Json) (index : Expr) :
+/-- The direct-field specialization, retained for consumers that require a port address. -/
+def dataPortIndex (row : LimitEntry) (diagram index : Expr) :
+    TermElabM (Except String (Nat × Nat)) := do
+  match ← dataProjection row diagram index with
+  | .error message => return .error message
+  | .ok (.field port, count) => return .ok (port, count)
+  | .ok _ => return .error "the defining map is a categorical expression in several data fields"
+
+/-- Render the independently selected projection in an injected data algebra.
+Fields and callbacks retain their actual fragments; the constructor assembler
+places every repeated occurrence, including both copies in an identity. -/
+partial def DataProjection.encodeWith {α : Type} (projection : DataProjection) (fields : Array α)
+    (encodeInput : Expr → TermElabM (Except String α))
+    (encodeAction : Expr → TermElabM (Except String α))
+    (ctor : String → Array α → Except String α) :
+    TermElabM (Except String α) := do
+  match projection with
+  | .field index => return match fields[index]? with
+      | some data => .ok data
+      | none => .error "the construction omitted a defining-map field"
+  | .input formal => encodeInput formal
+  | .composition first second =>
+    let .ok first ← first.encodeWith fields encodeInput encodeAction ctor
+      | return .error "the first defining-map component has no computational encoding"
+    let .ok second ← second.encodeWith fields encodeInput encodeAction ctor
+      | return .error "the second defining-map component has no computational encoding"
+    return ctor "compose" #[first, second]
+  | .identity object =>
+    let .ok object ← object.encodeWith fields encodeInput encodeAction ctor
+      | return .error "the defining identity has no complete object data"
+    return ctor "identity" #[object, object]
+  | .map action arrow =>
+    let .ok action ← encodeAction action
+      | return .error "the defining map has no registered action descriptor"
+    let .ok arrow ← arrow.encodeWith fields encodeInput encodeAction ctor
+      | return .error "the defining map has no complete source arrow data"
+    return ctor "map" #[action, arrow]
+
+/-- The original JSON data algebra, retained for metadata and portable consumers. -/
+def DataProjection.encode (projection : DataProjection) (fields : Array Json)
+    (encodeInput : Expr → TermElabM (Except String Json))
+    (encodeAction : Expr → TermElabM (Except String Json)) :
     TermElabM (Except String Json) := do
-  let (port, fieldCount) ← match ← dataPortIndex row diagram index with
+  projection.encodeWith fields encodeInput encodeAction fun tag args =>
+    .ok (Json.mkObj [("ctor", toJson tag), ("args", Json.arr args)])
+
+/-- Check the existing construction framing and formal projection schema before
+rendering exact field fragments. `encodeField` receives the literal `args` index
+and its JSON field; a scoped caller projects that position in its retained packet.
+Neither the fragment algebra nor its callbacks can change the formal projection. -/
+def projectDataWith {α : Type} (row : LimitEntry) (diagram : Expr) (answer : Json) (index : Expr)
+    (encodeField : Nat → Json → TermElabM (Except String α))
+    (encodeInput : Expr → TermElabM (Except String α))
+    (encodeAction : Expr → TermElabM (Except String α))
+    (ctor : String → Array α → Except String α) :
+    TermElabM (Except String α) := do
+  let (projection, fieldCount) ← match ← dataProjection row diagram index with
     | .error message => return .error message
     | .ok port => pure port
   let expected := if row.colimit then "cocone" else "cone"
@@ -335,9 +510,22 @@ def projectData (row : LimitEntry) (diagram : Expr) (answer : Json) (index : Exp
     | return .error "the computational construction has no complete args array"
   unless args.size == fieldCount do
     return .error "the computational construction has a different required field count"
-  let some data := args[port]?
-    | return .error "the computational construction omitted the requested defining-map port"
-  return .ok data
+  let mut fields : Array α := #[]
+  for position in [:args.size] do
+    match ← encodeField position args[position]! with
+    | .error message => return .error message
+    | .ok field => fields := fields.push field
+  projection.encodeWith fields encodeInput encodeAction ctor
+
+/-- Select an opaque defining-map field using an independently interpreted formal schema. -/
+def projectData (row : LimitEntry) (diagram : Expr) (answer : Json) (index : Expr)
+    (encodeInput : Expr → TermElabM (Except String Json) := fun value => Codec.encode value)
+    (encodeAction : Expr → TermElabM (Except String Json) := fun _ =>
+      pure (.error "a registered action descriptor is required")) :
+    TermElabM (Except String Json) :=
+  projectDataWith row diagram answer index (fun _ field => pure (.ok field))
+    encodeInput encodeAction fun tag args =>
+      .ok (Json.mkObj [("ctor", toJson tag), ("args", Json.arr args)])
 
 set_option backward.privateInPublic true in
 set_option backward.privateInPublic.warn false in

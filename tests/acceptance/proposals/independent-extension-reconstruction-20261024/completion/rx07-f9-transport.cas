@@ -1,0 +1,76 @@
+-- RX-07. Every succeeding operation consumes the preceding selected result.
+let A := F9x in CommutativeRings
+let B := F9y in CommutativeRings
+let Aset := F9x in Sets
+let Bset := F9y in Sets
+let coefficients := ZMod(3) in Sets
+let x := generator(A)
+let y := generator(B)
+let e := presentation(F9translation())
+let eInverse := inverse_presentation(F9translation())
+let sourceCoefficients := F9x_constants()
+let targetCoefficients := F9y_constants()
+
+test reconstructed_extensions_20261024.complete.rx07.generator_forward "[M09,M10] quadraticComparison_root: e(x)=y+2":
+  assert e(x) = y + 2 in B
+
+test reconstructed_extensions_20261024.complete.rx07.generator_backward "[M09,M10] quadraticComparison_inv_root: e inverse(y)=x-2":
+  assert eInverse(y) = x - 2 in A
+
+test reconstructed_extensions_20261024.complete.rx07.generator_nonidentity "[M10] comparison_root_ne":
+  assert (e(x) = y in B) = false
+
+test reconstructed_extensions_20261024.complete.rx07.left_inverse "[M09] the complete selected quotient-ring isomorphism":
+  assert eInverse ∘ e = id(A)
+
+test reconstructed_extensions_20261024.complete.rx07.right_inverse "[M09] both directions and exact ring endpoints of the actual presentation":
+  assert e ∘ eInverse = id(B)
+
+test reconstructed_extensions_20261024.complete.rx07.coefficients_forward "[M09] quadraticComparison_constants for every coefficient in ZMod 3":
+  assert e(sourceCoefficients) = targetCoefficients
+
+test reconstructed_extensions_20261024.complete.rx07.coefficients_backward "[M09] quadraticComparison_inv_constants for every coefficient in ZMod 3":
+  assert eInverse(targetCoefficients) = sourceCoefficients
+
+let u := x + 1 in A
+let v := e(u)
+let w := v^2 in B
+let returned := eInverse(w)
+
+test reconstructed_extensions_20261024.complete.rx07.successive_value "[M10] (y+2)+1=y in characteristic three":
+  assert v = y in B
+
+test reconstructed_extensions_20261024.complete.rx07.successive_square "[M10] y^2+y+2=0 gives y^2=2y+1":
+  assert w = 2*y + 1 in B
+
+test reconstructed_extensions_20261024.complete.rx07.successive_back "[M10] 2(x-2)+1=2x in characteristic three":
+  assert returned = 2*x in A
+
+let f(c) := x + sourceCoefficients(c) in coefficients → Aset
+let g := e(f)
+let h(c) := g(c)^2 in coefficients → Bset
+let k := eInverse(h)
+let expectedG(c) := y + 2 + targetCoefficients(c) in coefficients → Bset
+let expectedH(c) := (y + 2 + targetCoefficients(c))^2 in coefficients → Bset
+let expectedK(c) := (x + sourceCoefficients(c))^2 in coefficients → Aset
+
+test reconstructed_extensions_20261024.complete.rx07.full_forward_map "[M09,M10] e preserves addition and the complete coefficient map":
+  assert g = expectedG
+
+test reconstructed_extensions_20261024.complete.rx07.full_square_map "[M10] pointwise square consumes the whole returned map g":
+  assert h = expectedH
+
+test reconstructed_extensions_20261024.complete.rx07.full_backward_map "[M09,M10] ring inverse laws on every coefficient, original domain ZMod 3 retained":
+  assert k = expectedK
+
+test reconstructed_extensions_20261024.complete.rx07.full_map_inverse "[M09] inverse presentation applied to the entire generalized point":
+  assert eInverse(g) = f
+
+test reconstructed_extensions_20261024.complete.rx07.map_sample_forward "[M10] specialize the complete g at coefficient 1":
+  assert g(1) = y in B
+
+test reconstructed_extensions_20261024.complete.rx07.map_sample_square "[M10] specialize the complete h at coefficient 1":
+  assert h(1) = 2*y + 1 in B
+
+test reconstructed_extensions_20261024.complete.rx07.map_sample_backward "[M10] specialize the complete k at coefficient 1":
+  assert k(1) = 2*x in A

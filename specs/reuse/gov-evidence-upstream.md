@@ -66,3 +66,34 @@ exception transport, mathematical declaration, or leaf protocol. The existing re
 outcome remains `ambiguous`; a semantic exception during execution remains an interpreter
 error. Ownership follows architecture's interpretation stage and AGENTS's distinction
 between ambiguity, invalidity, and backend failures.
+
+## Transparent trace markers at the decision boundary (2026-10-25)
+
+`Trace.operationResult` is the kernel's existing typed identity wrapper for retaining
+distinct registered bindings as trace keys. The initial selective `deltaExpand` call
+was rejected by the unchanged purity gate because its owner is `Lean.Meta.Tactic.Delta`.
+Reuse `Lean.Core.transform` from `Lean.Meta.Transform` for structural traversal instead.
+Its post-order callback sees the complete application spine after visiting its children:
+the marker's first three arguments are the binding, implicit complete type, and value.
+Replace that full prefix by its value and reapply any remaining arguments, revisiting
+the assembled expression so newly exposed full markers are handled too. Partial marker
+applications with fewer than three arguments remain unchanged. The kernel's recording
+functions create full marker applications; this traversal is not arbitrary delta reduction.
+
+This presentation is confined to the residual proposition passed to existing proof
+acquisition in `Realize.evaluatedDecides`. The retained question, selected operation
+records, registered evaluator, and final kernel check against the complete original
+proposition remain unchanged. No gate allowance, mathematical normalization rule,
+decision instance, provider retry, or budget change is introduced.
+
+## Explicit imports for family-interface rejection controls (2026-10-25)
+
+`CategoryFamilyRealization.transport` and
+`CategoryFamilyRealization.canonicalDiscreteCommRingTransport` are declared in
+`LeanCategories.Catalogue.Realization`; `totalCat` and `reindexFunctor` are declared
+in `LeanCategories.Catalogue.FamilyFibration`, which publicly imports Realization.
+The gate's private `import all` closure does not export these declarations to its
+probe. The probe therefore publicly imports their existing owner. The three
+categorical-interface acceptance checks and the domain-specific helper rejection
+remain unchanged, as does the purity predicate. No namespace rename, added
+allowance, mathematical definition, or proof procedure is needed.

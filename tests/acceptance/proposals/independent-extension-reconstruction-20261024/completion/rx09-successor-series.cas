@@ -1,0 +1,35 @@
+-- RX-09. The entire infinite family is admitted before the old binder runs.
+-- Summable has parameters Y,N; the binder has parameters R,N.
+let R := ℤ in CommutativeRings
+let indices := ℕ in Sets
+let Y := PowerSeries(R) in HausdorffTopologicalMonoids
+let raw := successor_power_series_terms(R)
+let admitted := raw in Summable(Y, indices) using (proof(CasCatalogue.Algebra.SuccessorSeries.successorTerms_summable CasCatalogue.Algebra.NamedCommutativeRings.integers))
+let total := binder(«bind.sets.power_series_sum»(R, indices), admitted)
+
+let expectedTerm(n) := (n + 1)*t^n in indices → ℤ[[t]]
+let observedCoefficients(d) := coefficient(R)((total, d)) in indices → ℤ
+let expectedCoefficients(d) := d + 1 in indices → ℤ
+
+test reconstructed_extensions_20261024.complete.rx09.full_family "[M14] successorTerms is the whole function n -> C(n+1)*X^n, with no truncation":
+  assert raw = expectedTerm
+
+test reconstructed_extensions_20261024.complete.rx09.full_coefficients "[M14] successorTerms_sum and PowerSeries.coeff_mk for every natural degree":
+  assert observedCoefficients = expectedCoefficients
+
+test reconstructed_extensions_20261024.complete.rx09.degree_zero "[M14] the full coefficient formula at d=0 gives 1":
+  assert coefficient(R)((total, 0)) = 1 in ℤ
+
+test reconstructed_extensions_20261024.complete.rx09.degree_one "[M14] the full coefficient formula at d=1 gives 2":
+  assert coefficient(R)((total, 1)) = 2 in ℤ
+
+test reconstructed_extensions_20261024.complete.rx09.degree_three "[M14] integer_degree_three gives 4, not the old square-family coefficient 9":
+  assert coefficient(R)((total, 3)) = 4 in ℤ
+
+test reconstructed_extensions_20261024.complete.rx09.degree_five "[M14] the full coefficient formula at d=5 gives 6":
+  assert coefficient(R)((total, 5)) = 6 in ℤ
+
+-- The admitted input must retain raw as its complete toFun field. This is an
+-- interpretation obligation independently specified in expected-facts.lean.
+-- The separate constant-one input below is a mathematical rejection control,
+-- not a second summation assertion or a claim that a runtime returned false.

@@ -1,5 +1,1268 @@
 # Journal
 
+## 2026-10-31 — Exercise staged points and anonymous endpoints with live suppliers
+
+Two engineering fixtures no longer fabricate opaque owners in empty harnesses.
+The staged-numeral control keeps its original reader-generated realization, exact input key, both selections and packet/type assertions, with an input received and framed through the public APIs.
+The complete-named-data control keeps its first four blocks, separates the explicitly named identity from an actual anonymous reply, and retains the anonymous endpoint predicate at the original projection entry point.
+Both now reject ownership use in a foreign harness and after the real supplier stops, without assigning producer receipts or observation flags.
+Guarded local runs pass in 6.795 and 7.201 seconds with unchanged inputs; source review found no blocking scope defect.
+No production, mathematical, permanent-assertion, leaf or budget changes; the first RX-LIFT assertion and full integration remain unresolved.
+
+## 2026-10-31 — Validate checked proof targets and reuse exact producer checks
+
+The original limit fixture's checked proof implementation contains numeral copies of producer addresses absent from its full original proposition.
+Producer closure now validates exact addresses before proof boundaries and traverses each checked proof's original proposition in its actual binder context.
+A local successful-check cache uses the exact closed expression, complete descriptor and ordered structural fields, preserving the original predicate and rejection order.
+Production and eleven focused engineering control modules pass with unchanged inputs, including the original limit, proof identity, admission reuse and ownership controls.
+The original first RX-LIFT question prepares locally with all 22 bindings and 104 nodes in 69,447,230 ticks at its unchanged budget.
+The published candidate's engine run completes 21 recorded dispatches in 198,062,567 total ticks, then reports unavailable at the selected-descriptor check; the original assertion remains unresolved.
+Its three admission parameters now exactly agree with the selected target's arguments, so the two earlier packet mismatches are absent.
+A bounded audit finds 38 matching public field relationships; original numeral preparation separately retains the ring owners and their anchored Sets carriers. No new kernel contradiction is established, and the opaque operation remains unavailable.
+Fixed-label runtime profiling is opt-in, and its separate diagnostic cannot replace or promote a failed original CI result.
+No mathematical input, permanent assertion, leaf or budget changes. Full integration and independent assessment remain open.
+
+## 2026-10-31 — Observe original admission parameters and retain their producer
+
+The original RX-LIFT packet retained parameter recipes after its selected target had advanced to actual owned data.
+Admission observation now traverses the original typed children while preserving their inert roles and all complete-interface checks.
+Declaration-head inspection recognizes producer wrappers; the public reader retains the admission's produced handle through its Hom view.
+Eight focused controls pass with unchanged inputs, including distinct equal admissions, exact reuse and supplier rejection.
+The original first question prepares with all 22 bindings and 104 nodes; its next engine replay exhausts the unchanged shared budget after 20 dispatches.
+The preceding full consumer run is red in 40 modules. No mathematical source, permanent assertion, leaf or budget changes; V1 remains open.
+
+## 2026-10-31 — Compare shared retained contexts once per complete node pair
+
+The unchanged first RX-LIFT computation exhausted its original budget while
+recursively comparing shared endpoint/producer graphs as trees. Source-matched
+diagnostics separated that repeated structural work from the inexpensive formal
+endpoint checks. The comparator now has one set of field predicates, with a
+reference `Id` runner and a runtime traversal over Lean's existing pointer maps.
+Only completed full comparisons populate a fresh per-call table keyed by both
+retained nodes. Pointer identity never itself establishes equality, and no
+mathematical, session or backend result is cached.
+
+Focused compilation, independent field review, the fresh 3803-job production
+build and seven relevant engineering controls pass. The original first question
+now finishes within the unchanged 200000 budget, still with 22 bindings,
+104 trace nodes and 20 dispatches. Its result is malformed at selected-lift
+ambient validation (`a computational function field requires a graph`), not a
+mathematical hold. The additional product-comparison fixture remains red at its
+use of the pending-point API on completed maps.
+
+The occurrence controls also close the legacy map-route loss of complete action
+parameters. A separately reviewed Arrow/cell producer repair is included as
+source: copied declarations preserve their whole types and selections and pass
+the complete-callable protocol controls, including eleven-call reuse. Its new
+Language production artifacts remain unbuilt at this checkpoint. No permanent
+assertion, leaf implementation, mathematical input or budget was changed.
+
+## 2026-10-31 — Execute the complete existing fixed acceptance inventory in candidate CI
+
+Candidate CI previously exported all 134 fixed positive questions but executed
+only the first ten RX-LIFT questions and the connected examples. It now invokes
+the unchanged positive suite and the existing RX05/RX09/RX10 controls with their
+original inputs, imports and frozen leaf. Result validation checks the complete
+inventory and exact required outcomes, including failures that the harness may
+report with exit zero. No mathematical assertion changes.
+
+The historical engineering comparison no longer pins an obsolete current
+`Realize` hash. It verifies the published current tree and matching build receipt,
+while retaining the exact historical baseline, probe hashes, expected diagnostics
+and recorded dependency tuple. Its old kernel artifacts remain isolated from the
+current build. The comparison runs after current computations and the notebook.
+Independent source review found no blocking defect; eight runner tests and sixteen
+comparator self-tests pass. Actual fixed-suite and notebook execution remain
+required for V1.
+
+The pending-point runtime repair is separately published as `f06b7042`, tree
+`ef3e060dccc9df75285cb6c154282b1596e71d35`. Its combined production build passes
+3803 jobs. After restoration of the recorded runtime inputs, the original
+RX-LIFT computation reaches 20 replied dispatches and reports an internal
+200000-heartbeat timeout; no mathematical or V1 completion is claimed.
+
+## 2026-10-30 — Preserve complete callable values at their shared consumers
+
+The extracted-Hom adapter retains the complete original value as a typed child of
+the existing transparent envelope. Its first compiled run, with the independently
+authored comparison published as `810abdf8` (exact author tree `07927d72`), advances
+the unchanged first RX-LIFT question to 16 dispatches. The result is malformed:
+the generic caller requests the registry global-point domain but rejects its
+public scalar-result convention. The mathematical assertion remains unresolved.
+
+The source checkpoint applies the ordinary point-result validator and complete
+callable conversion at that shared caller, preserves definition-aliased full Hom
+types in positioned validation, and removes a redundant public frame only when
+its original typed producer already supplied the exact completed whole child.
+The original receipt/owner assertion remains intact; scoped endpoint and
+unpositioned-value negatives accompany the complete-Hom regression. The existing
+fixture uses the production contextual-action reader and a generic bare opaque
+protocol witness. Exact focused compilation of the four changed declarations
+passed without diagnostics. Fresh combined artifacts subsequently passed after
+aligning the retained endpoint aliases; that source is published as `993d2fe1`
+with tree `f647ccb42ea3a140b246447cf516bea71b7ec82a`. The original exact occurrence
+and receipt control passes. The extracted-Hom control exposed the validator
+reinterpreting an exact positioned value as an outer point map.
+
+The existing value-port validator now receives that same binding, formal type,
+packet and scope. Declared Hom carrier/Quiver checks remain separate from the
+unchanged full-category capture/framing guards. The entire unchanged control
+passes against exact source-guarded candidate declarations with recursive calls
+bound to the candidate. Its `ComputationalData:olean` has now rebuilt successfully;
+fresh combined support and realization artifacts remain pending.
+The original first mathematical question on the preceding fresh artifacts still
+times out after 16 dispatches at its unchanged 200000 budget, with all 22 bindings
+and 104 trace nodes. Its singleton comparison completes. A separate inclusion
+replay did not establish that observer as the cause. The marked original path
+instead found twelve reconstructions of the same pending route before its first
+execution.
+
+The candidate preserves the original administrative anchor at the already-checked
+route exit, then retains the complete pending ordinary Wire through the existing
+normal reader entries. Retention requires a closed exact producer recorded in
+the trace, an identical returned value and an absent existing entry. It changes
+no observation flag, supplier, fresh/parameter-override path or staged owner.
+The source-guarded original question now completes within its unchanged budget
+with a tuple implementation gap after 17 dispatches; that route is prepared once.
+Fresh combined artifact verification remains pending.
+
+The independent tuple family implementation was authored at `df699aef` and
+published as `a1d72cfa` with identical tree
+`f1800fdf0e6638f7a2b073f49b2d77d5493c20b0`. Its public-only protocol and source
+review evidence does not establish mathematical correctness. No mathematical
+assertion or issue acceptance is claimed.
+
+The complete pending-value repair is published as `2f3fa020`, exact tree
+`aa6a39f9c5c001f71e336772457862c63297cc37`. With that tuple source, the guarded
+original-budget candidate executes 20 dispatches and reaches the strict retained
+frame endpoint guard. Failure-only capture saves the original result before any
+extra inspection. Source endpoints agree and there are no selected comparisons.
+The admitted point's target retains pending module parameters; observation of
+the same original target has their actual ring and module values and supplier
+paths. Its formal endpoint, full category and roles are unchanged.
+
+The admitted and constrained point producers now demand their original typed
+endpoint fields together with the original complete datum and retain its
+map-field witness. Whole-callable points also observe their own endpoint occurrences.
+The shared intrinsic owner
+authenticates a pending point interface against its current complete endpoint
+receipt before observing children, then updates only its endpoint data from those
+same observations. It preserves the point's formal endpoints and a completed
+forwarded child's interface. No frame guard, completed-reply check, admission
+entry, ordered parameter selection or mathematical assertion is relaxed. A
+narrow engineering control adds stale-interface/historical-receipt rejection,
+owned endpoint refresh, ambient replacement resistance and one-dispatch reuse.
+The complete engineering probe compiles as an uncalled declaration. Fresh
+combined artifacts and the repaired original run are pending; no hold is claimed.
+
+## 2026-10-30 — Consume the canonical prepared input and action
+
+The original first RX-LIFT question still failed after 14 successful dispatches
+with its unchanged bindings and budget. Inspection of its exact retained inclusion
+identified recursive self-comparisons in intrinsic observation. The shared owner
+now encapsulates the immutable input and selected interface under one private
+preparation identity. Ordinary execution and completion consume that preparation;
+separately supplied inputs retain complete authentication. Intrinsic observation
+and private prospective inspection derive their assembly from the same retained
+Wire. The shared observer body and single completion write are unchanged.
+
+Focused declaration and ordinary-import API compilation passed, including the
+private construction controls. Added developer controls cover canonical reuse,
+foreign/stopped scopes, completed-input replay and generic supplied-assembly
+substitution. A fresh whole-function control preserves two equal-formal endpoint
+positions with distinct actual owners. The session-ownership fixture now explicitly
+supplies the returned callable to its same original applications and wrappers,
+retaining every existing ownership, dispatch-count and rejection assertion.
+Fresh production builds passed with stable source hashes. The unchanged first
+question now finishes within its original budget, reporting a specific missing
+computation for `fun.bilin_module.forget` on `obj.bilin_module.degenerate_plane`
+after 14 dispatches. It does not hold, so the all-ten run remains gated. The actual
+object-action gap was supplied by independent leaf source `7fec4bf6`, published as
+`33d997e6` with identical complete tree. Its public-interface checks are not
+mathematical acceptance. The unchanged first question now executes that action
+and reaches 15 successful dispatches, then exposes a current extracted Hom value
+being sent to a map observer without its explicit callable conversion. The
+retained point includes admission and singleton comparisons; the active conversion
+repair preserves those typed children through the existing value envelope.
+Intrinsic-observation, whole-function-framing,
+session-ownership and returned-callable-endpoint controls all pass on the fresh
+production artifacts, including the added lifecycle and supplied-body negatives.
+These engineering checks do not establish #66/#69 or independent #24 acceptance.
+
+## 2026-10-30 — Retain original intrinsic and whole-callable inputs
+
+Repeated actual reads of one original intrinsic producer previously allocated
+different service handles for the same complete retained child. The exact action
+cache then produced different carriers for a callable's parameter and endpoints.
+Actual anchored assemblies now enter the existing checked invocation lifecycle,
+which retains one result for the same complete producer and input graph. The new
+intrinsic-observation control reproduced the old failure and passes the repaired
+source, including separate producers, changed nested handles, supplied-assembly
+substitution, private/restricted reads, expired owners and shutdown. It is included
+in the existing candidate workflow.
+
+The unchanged first RX-LIFT question passed the former frame failure and performed
+ring multiplication/negation. It then reported an ambiguous reduced-parameter
+source action after 14 dispatches. The exact caller was `wholeCallablePoint`,
+which had retained endpoints but reduced their types while reconstructing the
+whole function object. The repaired boundary supplies the same owner declaration
+with those original endpoint occurrences in their declared positions. It keeps
+an existing selected whole object and the complete category context; no ambiguity
+or endpoint guard was weakened.
+
+The final production modules and existing whole-function controls compiled and
+passed before the environment reset. The restored production source is byte-for-byte
+identical to those compiled files and is published as `6880bff3`. The existing
+candidate workflow at `c84d9036` rebuilt that source and ran the unchanged first
+question against the same independent leaf. It exhausted the original
+200000-heartbeat budget at `isDefEq` during evaluation, after 14 successful
+dispatches. The original `internal` outcome is retained in run `41023488680`;
+the ten-question run did not start. The remaining failure is not resolved, and
+#66/#69 and independent #24 acceptance are not complete.
+
+## 2026-10-30 — Close the Lean feedback-loop task (#83)
+
+[#83 is closed](https://github.com/dzackgarza/lean-cas-dsl/issues/83#issuecomment-6509244748).
+The active container now supports completed focused Lean diagnostics, targeted
+artifact rebuilding and the original focused runtime with its full context and
+unchanged budget. Existing compiled dependencies are reused, and publication and
+full integration are separate from local diagnosis. The implementation and its
+verification are preserved through PR #67 and the existing handoff records.
+
+The owner's completion criterion is eliminating 20–30 minute feedback waits.
+Further timing proofs, seconds-level optimization, restart-survival work and
+access to another machine are outside this completed task. Work continues on the
+unchanged mathematical computation under #66/#69; their acceptance remains open.
+
+## 2026-10-30 — Retain selected callable endpoints and new admission domains
+
+The selected-callable producer now exposes its already checked complete endpoints
+through the standard endpoint receipt. A new whole-callable point supplies its
+actual admission domain to a fresh pending comparison producer, using the same
+accepted declaration and retained parameter templates. It also retains its exact
+original service operand alongside the framed child. Existing callables and
+comparisons keep their original receipts after later cache changes.
+
+Both production modules compile. The unchanged whole-function framing control
+now passes its nonidentity restaging, service-operand, reuse, owner, inventory and
+full category-dictionary assertions; the returned-callable control also passes.
+No mathematical assertion or rejection guard changed. The unchanged first
+RX-LIFT question still reaches a separate complete-endpoint framing gap after
+29 successful carrier-action dispatches. This repair establishes no mathematical
+acceptance or closure of #66/#69.
+
+## 2026-10-26 — Preserve complete operation product presentations and actions
+
+Operation preparation now binds original complete point presentations to the
+accepted declaration's fresh field roles. Ordered product contexts are retained
+symmetrically on domains and sources, including copied-data and snapshot reuse.
+Full structural context comparison is reflexive for construction, lift and proof
+provenance; unrelated dependency-handle allocation does not select a context.
+Conflicting histories or current whole-product comparisons remain ambiguous.
+
+Current product comparisons consume existing Cartesian isomorphisms and the
+uniquely applicable accepted product interface. Runtime maps retain full ordered
+component packets and owners through the existing public callable grammar.
+Generalized-domain arguments consume the domain inverse and target forward once,
+and their complete prepared packets remain available for nested service reuse.
+Exact framing origins support checked replay. Original endpoint presentations
+are validated as supplied occurrences, rather than re-selected from formal Hom
+syntax, which cannot reconstruct an independent computational presentation.
+
+The V21 private compile, unchanged nonidentity/mixed/nested control and its
+negative boundaries, five original framing/operation probes, and freshly rebuilt
+unchanged TestSuite all pass. The exact external control is now included in the
+kernel engineering aggregate without changing its assertions. The original frozen
+four-registration primitive observer holds through actual primitive dispatches
+and retained supplier-owned output. The unchanged connected workflows close all
+17 assertions with 73 dispatches in 97.477 seconds. Every source, input and
+artifact guard remains unchanged. Full source/artifact provenance and retained
+failures are recorded in `specs/reuse/operation-point-presentations.md` and the
+closed `kernel-product-actions-v11-20261026` evidence package. No assertion,
+expected value, registration, mathematical source, leaf implementation or budget
+was changed. Final combined native/CI and independent acceptance remain separate.
+
+## 2026-10-26 — Carry the recorded full category through composition framing
+
+A complete bundled map supplied as a Hom-object point retained a Sets data form,
+while the enclosing composition had already selected its actual Group category.
+The executor now validates and carries that independently selected full context
+through both original map frames and the result. The contextual composition path
+uses its existing checked context. No carrier-based category recovery is added.
+
+The isolated compiler and two original control modules pass after a preserved
+record-layout syntax failure. The entire original 14-ID RX03 run has unchanged
+question bytes and stable guards. Both internal framing errors become explicit
+missing-callable results, leaving 11 gap and 3 unavailable; exit zero does not
+mean those questions hold. Full combined tuple validation remains pending.
+
+## 2026-10-26 — Prepare complete requests and reuse completed creation images
+
+Complete operation preparation now preserves the selected public composite without
+requiring a separate implementation for every structural parameter action. The
+outer observers and explicit executors retain their action demands and shared
+actual-result cache. Completed creations are also retained at their exact actual
+apex. Their exact registered creating functor projects the actual supplied lower
+cone with complete action, type and target checks and original occurrence owners.
+No selected structure is recovered from equal carriers or equal reply bytes.
+
+The focused compile and unchanged deferred-service and whole-operation controls
+pass. The original four connected workflows produce 11 holds and 6 gaps across
+17 unchanged assertions, with 39 dispatches; finite construction/reuse and all
+four F9 transport assertions hold. The remaining rational-composition and matrix
+parameter defects are still assigned. The earlier 3/17 run and unsuccessful
+cache-only attempt remain recorded. This checkpoint does not claim final native,
+notebook, independent meaning or V1 acceptance.
+
+## 2026-10-26 — Retain ownership in injected product comparisons
+
+The full native build found an engineering fixture that constructed opaque
+endpoint-comparison packets without recording their supplier. The fixture now
+assigns every comparison occurrence the same explicit fixture owner as its
+component points. Its original ordered data, exactly-once endpoint composition,
+formal value, framing and owner assertions are unchanged and pass against the
+published runtime. This pure framing check establishes no live backend result;
+its log now states retained ownership accurately. The native failure is preserved,
+and the separate original power-series reader failure remains assigned work.
+
+## 2026-10-26 — Validate public structural records at fixed field types
+
+The public record codec permits carrier and callable data fields, but the scalar
+point-schema path could not validate those complete records. A generic traversal
+now uses Lean's existing structure metadata and projections of the independently
+fixed receiver. It checks every ordered non-proposition field recursively, keeping
+single-field elision and rejecting missing/extra data. Returned packets never
+construct a formal value, proof, selected structure, or another field's type.
+Opaque occurrences retain their independent live-session ownership checks.
+
+The focused compiler and malformed-record checks pass at the unchanged budget.
+The original portable extent and mixed-session ownership controls pass. The
+first mixed-owner invocation lacked the restored public Python helper path; a
+second passed but its source guard caught a concurrent documentation update. Both
+records are retained. The final rerun passes with the explicit contract path and
+unchanged source state. Actual public primitive execution remains a separate
+integration obligation. Failed compiler/probe attempts are preserved and no
+acceptance assertion was changed.
+
+## 2026-10-26 — Retrieve exact review inputs from shallow source checkouts
+
+The independent review's trusted input helper could not snapshot a shallow local
+checkout: Git returned success from fetch while rejecting the shallow boundary,
+leaving FETCH_HEAD absent. Retrieval now accepts that boundary with the existing
+fetch operation. The exact event SHA, complete regular-file tree validation,
+hook/filter isolation and no-candidate-execution rules remain unchanged.
+
+The original hostile-link/filter/moved-reference controls and a new depth-one
+source check both pass. The new check verifies exact bytes and HEAD, and retains
+rejection of a different expected SHA before exposing candidate data. This is an
+input-availability repair only. It supplies no review verdict and does not install
+a replacement evaluator or change independent acceptance authority.
+
+## 2026-10-26 — Close the remaining original final reader samples
+
+The two remaining final factor samples exceeded the ordinary reader budget
+because typed function parameters repeatedly reconstructed the same complete
+ring and module carriers. One inclusion endpoint read now reuses those exact
+closed views through the existing full-source and closure checks. The original
+trace must still be present unchanged before its closed action records are
+replayed. Stage, bound-variable and trace-free readings keep their existing path;
+failed endpoint trials still roll back every speculative trace entry.
+
+All eight unchanged original final readings now pass under the 200000-heartbeat
+limit. The formerly failing factor samples use 191861 and 192278 heartbeats.
+The complete endpoint, failed-trial replay and distinct same-carrier controls
+pass, as do four context/carrier probe targets and the unchanged structured-family
+reader block with both declaration orders and its ambiguity controls. The earlier
+timeouts remain recorded; no input, expected answer, mathematical source or
+caller budget changes. These are reader engineering results, while full typed
+export, real execution and independent mathematical acceptance remain separate.
+
+## 2026-10-26 — Retain complete endpoint and point owners in the reader
+
+The final inclusion's scalar fraction exposed a lost complete point source:
+the numeral had a checked ring owner, but its declared module coordinate and a
+subsequent identity view discarded that source. Generic source inference then
+competed with the module's additive structure. The reader now retains the
+original point's complete owner and reuses its checked registered action when
+binding a family. The whole accepted parameter action remains in the trace;
+failed family trials publish neither assignments nor speculative records.
+
+Declared endpoint projections now identify their actual supplied whole owner
+through the existing field reader. An implicit type parameter that merely occurs
+in the projection no longer competes with that owner. Named families share the
+existing complete-parameter endpoint reader, and directly recognized inclusion
+targets retain their domain context. Literal admission retains its original
+global proof before restaging the admitted point. All mathematics, fixed
+questions, original contexts, ordinary budgets and ambiguity rules are unchanged.
+
+The four assigned original final readings pass under 200000 heartbeats, including
+the final fraction inclusion at 153349. The global and staged full-action control,
+three complete binding/context probe targets, and the unchanged structured-family
+reader block pass. The final whole factorization and comparison also read. The
+two additional final factor samples still time out in `isDefEq` at the ordinary
+budget and remain reader work. These checks establish the focused source repair;
+full typed export, real execution and independent mathematical acceptance remain
+separate obligations.
+
+## 2026-10-26 — Retain independently fixed computational point interfaces
+
+Restoring the current published candidate and inspecting its failed aggregate CI
+exposed two finite-inventory regressions. The portable extent repair had removed
+the independently fixed point interface from opaque and projected action data.
+The validator now uses the actual representation's codec when available, retaining
+the fixed port interface where that descriptor needs independent context. Extents
+continue to use their actual ambient codec, never the original formal carrier.
+
+The remaining action case revealed a separate structural inspection issue: a
+fresh homomorphism placeholder occurred only in a kernel subtype's membership
+predicate, but the old whole-type metavariable check rejected its fixed ambient
+data fields. The existing constructor traversal now skips proof predicates and
+checks each data slot recursively. Scalar codecs with unresolved bounds still
+fail; inventories provide no membership, homomorphism or inverse-law proof.
+
+The original action-context and lifted comparison inventory controls, together
+with the original portable extent controls and additive opaque/predicate/bound
+separations, pass in one local consumer build. The first incomplete repair and
+one test-only Lean API invocation correction remain recorded. No protected
+assertion, mathematical declaration, heartbeat budget, or leaf implementation
+changed. Full combined execution and the remaining MVP obligations are separate.
+
+## 2026-10-25 — Select the published typed-service contract for integration
+
+The combined candidate now selects published leaf contract `9167e4c` for its
+typed deferred-request vocabulary. It integrates the closed service execution,
+exact retained projections, complete parameter-family recovery, declaration-derived
+transport controls and per-application carrier reuse. The candidate workflow also
+builds the independent declaration-derived and universal preparation modules
+explicitly. No permanent assertion or mathematical declaration changes.
+
+Each component has its recorded focused checks; the combined consumer build,
+unchanged frozen source/target workflow, native workflows and final independent
+reading review remain separate obligations. In particular, nested descriptor
+completion and additional reader repairs remain active kernel work. Selecting
+and publishing this source tuple does not close those obligations.
+
+## 2026-10-25 — Recover complete parameters from their original published family
+
+After the portable extent repair, the unchanged independent leaf trial computes
+both original object images. Whole-map execution next exposes a missing data
+presentation for the exact ring parameter in a registered matrix map's source.
+The full vector-module endpoint is known, but reverse unification cannot recover
+the modulus from its ring expression; all four ordinary transparency settings
+fail. The kernel then supplies a public callable-endpoint projection, which the
+bounded source specimen does not implement. That failed process run is preserved.
+
+Complete named data recovery now also compares an exact published object family
+already occurring inside the original parameter. It substitutes fresh typed
+parameters, checks equality of the entire structured family, restores the exact
+original arguments, and checks the closed full equality with the kernel. An
+agreement only at one value or carrier does not authorize the presentation.
+Nothing searches an equal cached object, invents an argument, or changes the
+selected formal expression. Existing actual data and action provenance retain
+priority; distinct recovered parameter occurrences remain distinct.
+
+The new whole-family controls and the unchanged complete-named-data,
+reduced-parameter-action, and declared-parameter-endpoint controls pass with
+unchanged imported source and artifacts. The earlier syntax and incomplete-fixture
+attempts remain recorded. These checks do not establish a successful cross-leaf
+workflow or mathematical correctness; the original trial still requires a run
+against the combined source.
+
+## 2026-10-25 — Validate the existing portable extent interface
+
+The frozen independent source/target trial reached an actual source-leaf
+underlying-object reply and exposed a generic typed-data gap before the target
+leaf was called: `finiteData(extent(...), inventory)` had a published public
+format, but the typed object validator did not handle `extent`. The failed
+trial is preserved; its process exit alone is not a successful workflow.
+
+The kernel now reuses the registered power-object and subset-literal signatures
+to check the complete actual ambient descriptor and subset data. Its interface
+expression leaves the subset as a typed placeholder, so computed members do
+not replace the fixed formal object or provide membership evidence. Finite keys
+and inventories describe the actual returned representation. Opaque subset
+inventories use the ambient point codec, rather than the original formal
+construction's carrier. Anonymous representations inside transparent wrappers
+require an exact retained input binding before they can serve as action inputs.
+
+The focused portable-extent controls and the unchanged projection-boundary and
+action-carrier controls pass with unchanged imported sources and artifacts.
+They cover function-valued points, whole-map endpoints, malformed data, and
+well-framed different computed values. The initial control attempt failed only
+while constructing its identity functor without the full explicit category
+dictionary; that attempt is preserved and the control now supplies the selected
+dictionary. These are boundary checks, not independent mathematical acceptance;
+the unchanged two-leaf trial must still be rerun on the integrated source.
+
+## 2026-10-25 — Ground shared execution in the previously implemented mechanisms
+
+Issue69 AddendumIV and the cited current Sage-category adapters, selected-action
+retention, reopened TODO entries, research constructor design, CAP derivations
+and GATlab models are now explicit architecture inputs. The reuse record maps
+those mechanisms to existing Lean owners and preserves their limitations.
+Historical tests, pure preparation controls and source publication do not imply
+current integrated acceptance. The separating regressions include distinct
+selected structures, composite actions, lifecycle retention, universal maps and
+the rejection of changed mathematical provenance even with a plausible answer.
+Private lateral leaf imports remain permitted and carry no semantic authority.
+## 2026-10-25 — Share an exact checked carrier inside one application
+
+The original first factor sample still exhausted its ordinary reading budget.
+Stage attribution measured 15,814 heartbeats for the outer source carrier and
+44,897 for the later complete carrier-map computation, which recomputed that
+same source; the nested application repeated the same pattern. The trial and
+actual source were exactly `sameSource`, with no context equivalence required.
+
+One application now reuses its own completed carrier result only for the exact
+same closed source value. The table stays inside that call and its original
+trace; speculative argument readers and subsequent calls receive no shared
+table. The complete functor, category dictionary and both mapped endpoints keep
+their existing checks. Full fixed-question measurements remain separate from
+this attribution and the focused source/endpoint controls.
+
+The focused build passed in 206.835 seconds with unchanged source/configuration,
+four isolated artifact changes and no dependency artifact changes. The original
+first sample at line 73 now reads under the unchanged 200000-heartbeat option;
+its measured total is 211,222, since checks are not continuous through pure work.
+The samples at lines 76, 152 and 155 still time out during semantic reading. That
+full production attempt closed in 92.441 seconds with no artifact changes. No
+success for the remaining samples or the complete lift export is asserted.
+
+## 2026-10-25 — Follow the actual complete carrier action to components
+
+The reader now obtains the actual route and full applications from its existing
+checked carrier computation. A complete intermediate image may supply registered
+components only when its whole structured value matches the existing declaration,
+its declared carrier suffix is the original suffix, and every typed application
+agrees. Both original action segments and the full selected source remain attached;
+no trace entry or bare carrier determines the presentation.
+
+Selected factors also retain the complete original base map and cone alongside
+the receiver on their unchanged endpoints. Retaining these inputs alone exposed
+an endpoint ambiguity in the fixed factor; the exact component-action prototype
+then read the original tuple while retaining every competing input. Optional
+controls cover trace independence, the original source/action records, distinct
+complete scalar actions on the same carrier, and the public factor's input context.
+The focused build passed in 207.314 seconds, including the unchanged original
+registered-map admission controls. Source/configuration guards remained stable,
+with 14 isolated kernel artifact changes and no dependency artifact changes.
+The original first/final factor samples at lines 73, 76, 152 and 155 still exhaust
+the unchanged 200000-heartbeat option during semantic reading. Their full
+production run closed in 95.232 seconds with no source or artifact changes; the
+component and input-context checks do not establish these whole-question reads.
+
+## 2026-10-25 — Retain the original defining-map context of a lift
+
+Explicit lift selection now keeps the entire supplied inclusion value alongside
+the original receiver. Previously it retained the typed inclusion expression in
+the trace but omitted that value's endpoint and selected-parameter context from
+the result. A later backward field could therefore have the exact regular-module
+source while losing the independently supplied scalar owner of that source.
+Selection, proof checking, the complete Hom endpoints and actual applications are
+unchanged; no structure is recovered from a bare carrier.
+
+The optional engineering control follows the actual supplied map, full domain and
+scalar owner through the selected backward field and its registered numeral. It
+also checks the unchanged original expressions in the existing lift trace. The
+candidate workflow explicitly builds this control against its independent fixture.
+The original final-inclusion reading and factor readings remain separate production
+verification obligations at the unchanged normal budget.
+
+The new input-retention control and unchanged composite-packet, complete-source,
+closed-reading and exporter controls pass. The original numeral `3` at the final
+backward field's exact source now reads in 3793 heartbeats. The unchanged `3/2`
+then exposes distinct complete source witnesses; the full inclusion reports that
+ambiguity at 184901 heartbeats. This is not a completed fixed-question repair.
+The original factor samples still exceed the production budget. A factor-input
+retention prototype also preserves its endpoint ambiguity; a separate exact
+carrier-prefix/suffix prototype reads its tuple while retaining all original
+inputs. Neither result authorizes discarding a competing selected structure.
+
+## 2026-10-25 — Share exact syntax during question canonicalization
+
+Question canonicalization now memoizes complete syntactic subterms within each
+call. Its output remains the existing metadata-free, anonymously bound syntax;
+all binder annotations, types, values, dictionaries and actual applications remain
+unchanged. The cache uses Lean's exact structural equality, with no reduction or
+proof quotient in its key. Serialization and the independent comparator are unchanged.
+
+Stage attribution of the unchanged final-pairing assertion found 111487 heartbeats
+and 21.737 seconds in the old repeated traversal, compared with 206 heartbeats and
+14 milliseconds for the memoized traversal. Their full syntax, encoded question
+and display bytes agree. Two initial pure-action timing attempts evaluated outside
+their measured closures; those zero-cost numbers are retained but are not evidence
+of traversal cost. The corrected measurement reads the input inside each stage.
+These stage measurements leave the normal fixed-question budget unchanged and do
+not establish a full final-pairing or full lift-export success.
+
+The unchanged question, dependent-proof, Type-valued witness, snapshot and exporter
+controls pass. Full production reading now completes for the original first pairing,
+final pairing and final pairing sample with the configured 200000-heartbeat limit
+unchanged. Their measured totals are 138386, 205225 and 207666, respectively; these
+totals are reported as observed, not claimed to be below the configured limit. The
+first pairing's complete identity/display match the prior successful export, and
+the final pairing's claim identity/display match the saved original stage output.
+The full lift inventory and separate inclusion/factor defects remain open.
+
+## 2026-10-25 — Preserve checked context in isolated argument trials
+
+Generalized-map argument trials now start from separate snapshots of the current
+question's accepted trace and closed-reading cache. Their writes remain isolated,
+while each reused complete value retains its original records. Successful trace
+merging, failure fallback, full endpoint checks, bound-name rules and cache closure
+guards are unchanged; no temporary cache replaces the caller's cache.
+
+After the construction-endpoint repair, stage attribution of the original nested
+`beta2` applications isolated 181386 heartbeats in the empty trial context versus
+27944 with the already checked context. The original factor, pairing and inclusion
+statements still require production checks at their unchanged single budget; this
+measurement alone is not a fixed-question success.
+
+The unchanged admission, lexical, closed-reading and context-continuity controls
+pass. At the original production budget, the final-pairing binding reads in
+176623 heartbeats and the first full pairing reads in 151557. The final full
+pairing, pairing sample and final factor sample now finish semantic reading but
+still time out in later question construction. The final nonzero inclusion
+instead exposes an invalid unnamed-set numeral at 142497 heartbeats; the first
+factor sample still times out. These remaining failures stay explicit. No full
+lift export or new acceptance result is claimed.
+
+## 2026-10-25 — Reuse actual declared family and construction endpoints
+
+Selected families now retain all their already checked complete object parameters
+as endpoint witnesses. A value-module projection therefore keeps that supplied
+module, including its scalar action, instead of rediscovering it from the whole
+formed receiver. The existing endpoint preference and fallback remain intact.
+
+Defining construction legs reuse an intact supplied endpoint reached by reducing
+the actual diagram/index projection after the original cone and full typed leg
+checks. Exact matching selections retain all their context payloads; different
+selected structures sharing a handle keep the original ambiguity-preserving
+fallback. No original arrow, endpoint expression, diagram, index, or trace node
+is replaced. Stage attribution isolated 57,076 heartbeats in field discovery and
+about 33,300 in recognition per product leg; exact supplied reuse reduced the
+two-component stage from 182,332 to 1,866 heartbeats. These stage resets are
+localization evidence, not a full fixed-question pass. Focused controls cover the
+complete supplied value module, actual factor/cone retention, additional context,
+and distinct full ring structures on a shared carrier. Fixed inputs and the
+ordinary 200000-heartbeat budget remain unchanged.
+
+The focused source/owner/ambiguity and continuity controls compile. The original
+first-pairing binding and full production assertion read in 125062 and 152825
+heartbeats, respectively. The exact final-pairing binding, full assertion, scalar
+sample and nonzero inclusion still hit the unchanged limit; they remain open
+rather than being counted as successes from the stage measurements.
+
+## 2026-10-25 — Execute canonical classifier and nested constructor actions
+
+The shared action executor now accepts canonical object/map/input projections
+of the existing recursive edge identity for classifier forgetful actions and
+constructor-induced actions. Every referenced row and constructor action must
+already be published; named functors retain their own addresses. Requests carry
+one complete nested action descriptor with its original ordered parameters,
+actual source data and independently materialized image endpoints. Strict
+parameter encoding follows the declaration occurrence checked against the whole
+selected action, so an ignored earlier occurrence cannot supply data or an owner.
+
+The existing public `coreObject` form now validates its original object through
+the independently selected `Core.of` projection. The original complete child
+interface remains mandatory. The new process controls cover classifier, Arrow,
+nested Core/Arrow and parameterized actions, exact canonical admission, owned
+image/map retention, repeated-image reuse and malformed Core interfaces. The
+earlier functor controls and unchanged projection controls also compile. No
+mathematical row, fixed question, budget, expected answer or public leaf changes.
+
+The first executor build exposed the normal compiler heartbeat limit in the
+large mutual block. Factoring nonrecursive helpers outside that block resolved
+it without a budget change. All original diagnostic attempts are preserved.
+These engineering checks close the missing derived-address path; they do not
+close the general leaf-facing computational service, the independent frozen
+two-leaf trial, or the complete native/fixed execution experiments.
+
+## 2026-10-25 — Retain actual image endpoints around an unframed map result
+
+The first action checkpoint's focused controls passed, then a bounded review
+identified a remaining composition case: a bare returned callable did not carry
+its selected actual endpoints into the next action. When both endpoints had
+the same formal expression, the result cache could substitute the target's
+representation for both. The added chained process control reproduced that
+failure on the unchanged executor before the repair.
+
+The executor now retains an otherwise unframed whole callable in the existing
+typed-map form at its exact independently supplied image endpoints. Its original
+returned packet remains the callable field, and opaque endpoint fields retain
+their own owner. The new control distinguishes equal formal endpoints with
+different actual data; the parameterized control also covers opaque image
+endpoints and an unframed owned return. No mathematical answer is asserted.
+
+## 2026-10-25 — Execute registered object and whole-map actions at one boundary
+
+`FunctorEntry` gains derived map/input addresses for its existing mathematical
+action. One runtime executor now materializes object images and whole mapped
+callables, including the existing dependent-construction ports. Each mapped
+request retains its actual source arrow, all ordered action parameters and the
+already computed image endpoints. Composites reuse these actual intermediate
+results. Registered comparison components obtain their endpoints through the
+same checked action routes, without searching equal cached objects.
+
+The internal receipt keeps original source data and owners. Actual portable
+target data can cross to an independent target-only process; nested opaque
+tokens keep the supplying live session. Expired cached tokens remain
+unavailable. Production execution demands action data while interpretation can
+keep deferred recipes. No mathematical row, route policy, fixed question,
+expected answer or public leaf implementation changes.
+
+The process controls cover portable and owned images, exact complete map
+framing, parameter retention, source/callable reuse, wrong endpoint rejection,
+different whole actions, changed actual packets and an independent target-only
+consumer. They supply arbitrary protocol data and make no mathematical
+acceptance claim. The classifier/constructor-induced executable address gap and
+the independent frozen two-leaf integration experiment remain open.
+
+## 2026-10-25 — Check every retained cache-context expression
+
+The complete-map cache guard now traverses retained comparison applications and
+already judged questions, including their typed operands. The previous guard
+used the question-operand accessor, which intentionally omits those two kinds
+of context. The existing complete evidence encoder supplies an independent
+coverage check; new engineering negatives place expression metavariables,
+universe metavariables, free locals, and loose binders behind otherwise closed
+map endpoints. Closed complete contexts remain eligible. Question operands,
+identity, fixed sources, budgets, and selected structures are unchanged.
+
+## 2026-10-25 — Retain the complete validated resolution comparisons
+
+Method, lifted-method and property readings now retain their already-validated
+comparison contexts and complete typed terms. Snapshots and independent question
+comparison preserve that inventory, including constructor and whiskering context.
+Execution checks its recomputed resolution against the originally retained data
+before dispatch. This closes an omission in the public meaning record without
+changing the selected route or the mathematical comparison machinery.
+
+The corrected MethodComparisonRetentionProbes rejects a missing comparison,
+changed whiskering context and different typed term. Selected consumer, snapshot,
+dispatch, resolution, property and purity targets pass at the unchanged local
+0300c4a source. The initial probe layout error and later incorrect target names
+are retained as separate failed attempts. No independent interpretation migration,
+RX05 designated-source acceptance or computational result is inferred.
+
+## 2026-10-25 — Reuse complete closed readings and selected family results
+
+Independent file bindings reuse their complete global reading and restage the original
+point through the existing terminal map. The existing transitive bound-name analysis
+keeps direct, indirect, and lexical dependencies in their actual context; closed maps
+are cached only with every retained endpoint/source expression closed. Member-family
+application also keeps the selected family's already-checked full target instead of
+reconstructing that endpoint from the operand carriers.
+
+The new owner/domain and closed-binding controls and the unchanged endpoint/context
+controls pass. At the original 200000-heartbeat budget, the frozen first-pairing binding
+reads in 144910 heartbeats and its complete original assertion reads in 172662, including
+production question construction and trace processing. Factor and final-pairing readings
+remain open; stage diagnostics expose a separate anonymous coordinate-numeral gap below
+the first factor timeout. No fixed source, assertion, inventory, mathematical row, or
+budget changed. All attempts and closed source/artifact guards remain in
+`runtime-verification/fixed-readings-repair-cedfad6/` outside this repository.
+
+## 2026-10-25 — Recover complete literal constructions and retain actual endpoints
+
+Execution can recover a literal object projection from a unique accepted whole
+construction, with every category field and ordered parameter fixed by its full
+functor type and value. A coincident result at one receiver selects nothing.
+The exact core receiver is framed from that independently selected complete
+source category. Registered category and functor parameters now bind their full
+selected type and value before closing declaration universes. This consumes the
+shared full-structure exposure helper and supplies no dictionary defaults.
+
+Actual computed callables keep their anonymous endpoint descriptors; a newly
+found equal named carrier does not replace an opaque selected presentation.
+The unchanged `ObjectPresentationProbes` and `ParameterResultReuseProbes` pass,
+as do the complete named, retained construction and new complete construction
+controls. They cover a different category dictionary on the same carrier,
+coincidence at one object, exact underlying core data and its original owner.
+The fixed RX03 assertion remains a separately guarded engineering observation;
+these source controls claim no mathematical answer. Whole-callable observation
+and the anonymous constructed value-module parameter remain separate work.
+
+
+## 2026-10-25 — Recover retained construction data and complete route prefixes
+
+Execution can now recover the complete intermediate object of a route already
+selected by the reader. It validates the entire retained route and each full
+action, then retains the matching prefix and the original source data. This
+addresses a reduced `MonCat.of` parameter without inferring its monoid from a
+carrier. A literal construction projection can also recover its original trace
+occurrence when the exact receiver and the entire functor agree. The original
+returned packet and owner survive that public projection spelling difference.
+
+`RetainedConstructionDataProbes` passes with actual-owner fixtures, an unrelated
+equal cached image, distinct full actions and ambiguous original occurrences.
+The unchanged `ReducedParameterActionProbes` and `CompleteNamedDataProbes` also
+pass. These controls inspect data flow and selection, not mathematical answers.
+Whole-callable observation and the anonymous constructed value-module parameter
+remain separate execution gaps at this checkpoint.
+
+## 2026-10-25 — Recover complete named objects during execution
+
+The unchanged extension execution exposed a difference between parameter
+encoding and endpoint realization: the former could uniquely present `Nat` and
+`RingCat.of` the rational carrier, while the latter rejected those same complete
+objects. Execution now shares that recovery, checking the full type and value
+and retaining literal declaration arguments. Retained object actions keep
+priority and ambiguity; optional callable endpoints do not choose among those
+actions. Actual data under the exact selected expression and all parameter
+owners remain intact. The original element envelope is retained when its scalar
+owner differs from its set coordinate.
+
+`CompleteNamedDataProbes` checks recovered descriptors, unrelated equal cache
+entries, exact returned owners, dependent parameter data and shared integer
+coordinates. It and the unchanged `ReducedParameterActionProbes` pass at the
+ordinary budget. This is a generic engineering checkpoint; remaining construction,
+whole-callable and ordinary backend gaps are not closed by this source change.
+
+## 2026-10-25 — Bind complete family sources and fixed record data fields
+
+Constrained inputs reuse the existing declared-endpoint check with their original whole point.
+The existing structure-field exposure helper moves to Semantic and unfolds actual type aliases;
+full receiver/action comparisons still reject different selected structures on the same carrier.
+Fixed-endpoint, missing-proof, whole-category, same-carrier negative, and family controls pass.
+The exact frozen lift admission and coordinate question now read at their original budget.
+First/final pairing and factor readings still time out; normal-budget performance remains open.
+Closed receipts and both failed probe-fixture attempts are in `runtime-verification/fixed-readings-repair-cedfad6/` outside the repository. This is a generic source checkpoint, not full export success or acceptance.
+
+## 2026-10-25 — Preserve exact proof-bearing source identity
+
+`Value.sameSource` now compares explicit proof inputs with exact Lean syntax equality.
+Full objects, types, selected structures, routes, and lexical scopes remain distinct.
+The unchanged RX05 file exports all 13 questions in 14.865s at its ordinary budget;
+the previously failing additive sample had exhausted 200000 heartbeats.
+Proof identity, lexical separation, Type-valued inverse-data rejection, selected-carrier
+controls, exporter, and purity targets pass (focused build 59.861s).
+The typo/ENOSPC attempt and closed receipts remain in `runtime-verification/fixed-readings-repair-cedfad6/` outside this repository. No fixed input, budget, mathematical source, or acceptance decision changed.
+
+## 2026-10-20 — Match binder engineering probes to production question scope
+
+The integrated `3e0f982` build timed out in the first `BinderReaderProbes`
+command at the ordinary 200000-heartbeat limit. After the independent Semantic
+source correction, the exact unchanged first loop still failed on its fifth
+question: the first four claims and retained-domain checks completed, then the
+infinite-limit question exhausted the shared budget at `whnf`
+(`/tmp/lean-cas-probe.fm9O6c.log`, 125.68s). Each of those same five questions
+passed independently with every original binder invariant and the ordinary
+heartbeat limit: polynomial integral 36.36s (`atcipD`), sine integral 29.74s
+(`Nch9me`), polynomial limit 53.80s (`44xFgk`), sine quotient limit 53.17s
+(`MFK8aB`), and infinite limit 42.93s (`iSchA4`); these are `/tmp/lean-cas-probe.*.log`.
+
+The first probe loop had shared one `liftTermElabM` state and heartbeat baseline
+across five independent questions. Production `TestSuite` instead enters a fresh
+`liftTermElabM`, `withoutErrToSorry`, and `withCurrHeartbeats` for each item.
+The probe now uses exactly that per-question boundary. All five original strings,
+all retained-binder invariants, and the ordinary limit remain unchanged; an
+individual timeout remains fatal. The second root-binder block is unchanged.
+The exact corrected first block passed in 136.72s
+(`/tmp/lean-cas-probe.c6bNq9.log`). This is a cached consumer diagnostic against
+the new Semantic artifact, not a rebuilt Language/BinderReaderProbes source gate
+or B0 acceptance. The parent owns the remaining dependent source gate.
+
+## 2026-10-20 — Bind categorical actions to their supplied full source realization
+
+The integrated `3e0f982` source gate failed unchanged
+`FunctorActionDataProbes` and `StructuredReconstructionProbes` at
+`Semantic.bindFunctorSource`'s complete declared-source guard. The exact public
+module-kernel diagnostic reproduced the failure: a fresh named source realization
+retained `arrowsModulesCategory ?R`; both `mkAppM` and `mkAppHere` carrier
+projections failed the same receiver-type check. The public realization bound to
+the actual `kernelDeclaration (RingCat.of ℤ)` passed that exact check
+(`/tmp/b0-poc-5410e70/functor-kernel-source-context-red-final.log`, 19.90s).
+This was a generic source-binding defect, not a stale fixture or permission to
+recover a ring bundle from its carrier.
+
+The source binder now projects the source realization of the exact supplied
+action, checks its declared source-category metadata, and retains the exact
+receiver-type guard. Explicit published family-fibre witnesses still elaborate
+omitted full parameters from the structured receiver and align all selected
+parameter data. The existing `FibreParameterProbes` caught omission of that
+necessary witness path in the first repair (red 17.49s); it remains unchanged.
+There is no catch/retry branch, canonical bundle substitution or mathematical
+addition. Public realization definitions and the existing family witness own the
+data; this change only binds their supplied contexts.
+
+Final focused `CasCatalogue.Semantic` source check passed 1,481 jobs in 27.04s
+(`/tmp/b0-poc-5410e70/semantic-action-bound-family-source-build.log`).
+Byte-identical scratch copies of unchanged `FunctorActionDataProbes` and
+`StructuredReconstructionProbes` both passed cached source elaboration (exit 0),
+including their wrong-source/endpoint and wrong-construction protections.
+The unchanged `FibreParameterProbes` passed in 29.02s, retaining composed E8 and
+direct fixed-value full-parameter inference. Logs are
+`functor-action-consumer-action-bound-final.log`,
+`structured-reconstruction-consumer-action-bound.log`, and
+`fibre-parameter-consumer-action-bound-green.log` under the same scratch directory.
+No Language or Realize source rebuild or native computation ran here. These
+focused checks do not close the other full-build failures or B0 acceptance.
+
+## 2026-10-20 — Integrated source gate at 3e0f982
+
+`B0_INTEGRATION=1 just build` completed with failure at clean committed
+`3e0f982`. Input revisions and source digests are retained in
+`/tmp/b0-poc-3e0f982/integration-inputs.json`: mathematics `80520813`,
+contract `c6e78eb2`, installed leaves `992f3c6`. The ordinary script tests,
+no-leaves checks, reuse records and permanent-text inventory checks passed.
+The native harness and registry exporter binaries built. The complete gate
+reports exactly these failed targets:
+
+- `CasCatalogue.FunctorActionDataProbes`: complete declared receiver source
+  type guard (`Semantic.bindFunctorSource`).
+- `CasCatalogue.StructuredReconstructionProbes`: the same source guard on
+  the supplied parameterized module action.
+- `CasCatalogue.BinderReaderProbes`: ordinary 200000-heartbeat timeout at
+  `isDefEq`; the exact failing member of its shared five-question block
+  requires isolation before assigning a cause.
+- `CasAcceptance.LiftProbes`: the retained constructed-arrow routes have no
+  registered comparison identifying them. This is the existing recorded
+  constructor-cell input/resolution boundary, not a new owner decision.
+
+`RegistrationProbes`, `QuestionProbes`, full structured-comparison and
+reindexing probes, and the notebook boundary probe all compiled successfully.
+`LiftedSubobjectDataProbes` also passes as a focused source target
+(`/tmp/lean-cas-focus.lPaIEw.log`, 51.88 seconds).
+Notebook cell compilation logged unavailable native engine invocations under
+its default environment. It is not evidence of suite execution. The complete
+native inventory and required positive outcomes remain owed.
+
+The source gate's failures stay recorded while exact receiver and binder
+reproducers run sequentially. No assertion, selected structure, source guard
+or heartbeat limit was weakened. The untouched original-worktree Language
+patch still compares byte-for-byte with its independently saved initial copy.
+
+## 2026-10-20 — Checkpoint combined reader and returned-result repairs
+
+Kernel source checkpoint `a45c797` integrates the proof-refinement, named-map
+context, complete computational inventory and receiver corrections. The combined
+`CasCatalogue.Realize` source gate passes at mathematics `805208138f016368f6a4eac415f25f3922a5807d`
+and contract `c6e78eb2e5939e58b6f18b5fc456320c65f10186`:
+`/tmp/lean-cas-focus.bCnVQe.log` (3738 jobs, 158.01 seconds).
+`RuntimeRequestProbes` passes in `/tmp/lean-cas-focus.wNyGJA.log`
+(66.35 seconds); its completed profile is `/tmp/lean-cas-profile.DaoVk0.log`.
+`ComputationalActionContextProbes` passes in `/tmp/lean-cas-focus.JQ5XG2.log`
+(43.10 seconds). These establish their individual construction checks.
+
+The original-source five-assertion diagnostic completes in 134.87 seconds,
+`/tmp/lean-cas-probe.ZsicEM.log`, with complete identities in
+`/tmp/b0-poc-5410e70/reader-product-f9-combined-final.json`. It retains all
+original bindings and reads the unchanged original proposal file. The finite
+product assertion holds through two registered dispatches. Both F9 generator
+assertions remain unavailable after one dispatch, and both coefficient-map
+assertions report `NoImplementation` before dispatch. Leaf main advanced after
+that loaded diagnostic; these outcomes must remain separate from the next run.
+
+The independent source engineering review of Admission, ProofRefinement,
+EvidencePresentation, Trace, Language and their Realize consumers established no
+concrete new defect. EvidencePresentation preserves the extracted original bodies.
+The review excludes the reviewer's own Data, LiftData and receiver changes and
+confers no protected acceptance. Independently authored mathematical assessments
+of the five product/F9 encodings and five inverse encodings are committed under
+`tests/acceptance/interpretation-comparison-5410e70-{product-f9,inverses}.md`.
+They assess question meaning, not runtime authentication or authoritative migration.
+
+The complete integrated inventory, remaining required positives, same-candidate
+protected negatives, frozen extension trials and independent acceptance remain
+owed. The already recorded constructor-cell coherence input remains unresolved;
+no kernel rule or assertion was weakened to hide it.
+
+## 2026-10-20 — Frame complete computational point data without reconstructing laws
+
+The unchanged actual `sign(3).ker()` computation dispatched
+`meth.group_arrow_kernel` and returned a three-field subobject packet, but framing
+rejected its projected apex action because the formal context used
+`Prefunctor.obj` and an `Arrow.left` projection rather than a syntactic
+`Functor.obj`. `ComputationalData.actionContext` now matches the whole public
+projection under a fresh receiver. Public declaration parameters come only from
+the closed fixed formal expression; backend JSON cannot bind that context.
+The original red is `/tmp/b0-poc-5410e70/lift-runtime-red.log`.
+
+The next actual packet boundary exposed the inclusion's opaque category alias
+and proof-bearing point structures. Concrete callable selection now normalizes
+only the retained category parameter. A generic schema derives every public
+constructor data slot, including both callable slots of an equivalence, while
+omitting proof slots and never reconstructing a law-bearing Lean value. It has
+no permutation-specific case. Its independently fixed public `ToType` telescope
+resolves the concrete dictionary before prerequisite callable dictionaries;
+expected missing dictionaries are handled by `trySynthInstance`, while internal
+interpreter failures propagate. Exact carrier/schema diagnosis is recorded in
+`/tmp/b0-poc-5410e70/computational-object-carrier.log`.
+
+Contract source `c603ede9e51adaa3a1365d2d82aeebb3aa0f6d13` publishes complete
+untrusted point inventories (`finiteData`) and nested callable inventories
+(`finiteGraph`). Graphs remain total at their actual declared inventory.
+`validateEndpointPort` preserves actual endpoint identity, complete point data,
+and graph domain/range checks. It never manufactures an inventory by enumerating
+the requested formal result or copying graph keys. Engineering probes cover the
+projected/direct action contexts, complete explicit inventories, well-framed
+false inverse-law data, missing/duplicate inventories and keys, incomplete nested
+functions, missing slots, and wrong ranges. Their invented computational carriers
+are framing fixtures, not mathematical expected answers or B0 acceptance.
+
+The earlier native sign run supplied a symbolic kernel apex without its actual
+point inventory and did not establish a positive computation. A conforming
+registered answer must carry the actual inventory or released opaque callable
+representation. The current latest-main native answer must be checked separately
+after the coupled framing repairs; the earlier failure is not a claim about that
+newer input. No leaf source or mathematical acceptance assertion was changed. The complete first question
+identity in `lift-runtime-current.json` equals the independently saved
+`computational-action-question-baseline.json` exactly. Before the later lift-endpoint context extension, the
+source-dependent `CasCatalogue.Realize` gate passed 3,738 jobs in 134.58 seconds
+(`/tmp/lean-cas-focus.ouqZk3.log`); the corresponding
+`ComputationalActionContextProbes` gate passed 3,701 jobs in 30.83 seconds
+(`/tmp/lean-cas-focus.5fTaIj.log`). These establish the stated source/framing
+checks, not the missing native positive or mathematical correctness. No independent authority operation or B0 acceptance
+is asserted here.
+
+The later real-boundary checks reproduced three coupled endpoint defects before
+repair: wrapped actual endpoints were rejected, an inverse comparison could
+replace the forward map's inventory, and `nextBase` discarded actual inclusion
+endpoints. The fixed four-field prefix now retains the forward map's actual
+image/base endpoints for its inverse and propagates the actual inclusion
+endpoints. Inner formal descriptors remain exactly equal; no carrier-equivalence
+or action-image inference is introduced.
+
+The saved actual native finite-product response exposed a separate primitive
+codec boundary: its `Fin 6` inventory was being checked as points of the formal
+product carrier. Data framing now checks supplied object inventories against
+their actual released descriptors and defining graphs against actual binder
+roles, retaining primitive scalar codecs and bounds. It never demands that an
+untrusted computational apex be the requested formal construction. The source
+check of `LiftedSubobjectData` and its current Data dependency passed 1,489 jobs
+in 60.37 seconds; the automatically completed profile took 18.00 seconds
+(`/tmp/b0-poc-5410e70/data-lift-actual-endpoints-build.log`). Cached exact packet
+replay (`product-packet-framing-green.log`), full prefix inventory regression
+(`lift-prefix-inventory-green.log`), and the complete current
+`ComputationalActionContextProbes` (`actual-endpoint-context-probes.log`) all
+exited successfully. The latter includes a deliberately wrong but well-framed
+noncanonical four-point product carrier and primitive range negatives. These
+are source/framing checks; final dependent Realize and unchanged native
+computation/identity checks remain separate.
+
+The actual saved native cone was also replayed at the real
+`Realize.computationalApexReceiver` boundary, with the original public product
+apex and a session-owned complete packet. The old helper retained its construction
+form because `decodeObject` has no `finiteData` constructor
+(`/tmp/b0-poc-5410e70/apex-receiver-framing-red.log`). The narrow receiver helper
+now projects exactly one two-field inventory envelope solely for registered-form
+lookup, while forwarding the complete original apex JSON, original formal value
+and ownership. Global object decoding and category checks are unchanged. Traversal
+follows the actual finite JSON wrapper chain instead of stopping after 32 layers.
+`RuntimeRequestProbes` records the actual packet and checks full payload/formal/
+ownership preservation and contradictory-category, unknown,
+malformed and nested descriptors. The cached exact-new-helper replay and these controls passed
+(`/tmp/b0-poc-5410e70/apex-receiver-source-green.log`, exit 0). This diagnostic
+compiled the extracted current helper source, not the entire modified Realize
+module. Final whole-source Realize and actual product execution gates must
+consume this added consumer correction as well.
+
+## 2026-10-20 — Construct proof-only refinements and preserve supplied map context
+
+The unchanged finite-product proposal previously failed reading because the product was
+read directly as finite-set parameters; the fixed F9 constants proposal failed because its
+raw `ZMod 3` source supplied no named set identity. Exact red logs are
+`/tmp/b0-poc-5410e70/reader-finite-product-red.log` and
+`/tmp/b0-poc-5410e70/reader-f9-constant-red.log`. Rational inverse reading already succeeds;
+its retained full parameter-equivalence context exposed a separate serialization gap.
+
+The candidate reader elaborates the registered classifier total's public constructor
+against its full forgetful image and fills only remaining proposition fields using existing
+class or Decidable instances, with kernel checking. Trace data retains the complete source,
+chosen action and identification. Realization retains the original complete input payload,
+form and comparisons and restores them only along the exact checked forgetful prefix.
+A classifier requiring unsupplied nonproof structure remains refused.
+
+For raw endpoints of a registered named map, the reader can inspect that map's accepted
+public-field presentation for full supplied structured arguments. It compares complete
+registered structures, retains every equivalent source and preserves the original named
+map declaration and public parameters. Bare carriers still select no structure. Existing
+named-endpoint readings retain their previous operation trees.
+
+The smallest source gate, `just focus CasCatalogue.ProofRefinement`, passed 1483 jobs in
+49.32 seconds after the normal latest-main dependency refresh; log
+`/tmp/lean-cas-focus.0ZPNnl.log`. The diagnosed Language source gate passed 3727 jobs in
+232.59 seconds (source 207 seconds), log `/tmp/lean-cas-focus.DyIOkk.log`. The combined Realize source gate passes 3738 jobs in 157.62 seconds (Data 17, LiftData 10,
+Realize 98 seconds), log `/tmp/lean-cas-focus.CPWi6K.log`, at actual latest-main mathematics
+`805208138f016368f6a4eac415f25f3922a5807d` and contracts
+`c603ede9e51adaa3a1365d2d82aeebb3aa0f6d13`. Proof-refinement runtime probes, unchanged proposal
+executions and full question-identity comparisons remain unestablished for this candidate. `NamedFieldContextProbes` passes at the
+current Language artifact (3728 jobs, 20.80 seconds; `/tmp/lean-cas-focus.wY4kYD.log`): both
+coefficient maps retain their original zero-parameter named-map identity and supplied full
+structured context; the corresponding raw carriers without that context remain refused. These construction changes do not admit or modify an acceptance assertion.
+
+The current Language artifact also passes the original matrix-unit reader positive
+(27.22 seconds, `/tmp/lean-cas-probe.BGHtkD.log`) and singular-matrix protected refusal
+(40.69 seconds, `/tmp/lean-cas-probe.Q7Vj7V.log`). Existing `SelectedCarrierProbes` passes
+(72.80-second source gate, `/tmp/lean-cas-focus.pmSAdr.log`; required completed profile
+62.15 seconds, `/tmp/lean-cas-profile.oiPwYT.log`). `ProofRefinementProbes` passes at the
+built Realize snapshot (26.38 seconds, `/tmp/lean-cas-focus.mf19un.log`): full original product
+and forgetful identity retained, false proof obligation and unsupplied chosen magma structure
+refused, original bound-source request restored only under its exact action and full source.
+
+An exact-file diagnostic selects the original product and four F9 assertions with all original
+bindings, using production `FileItems.items`, `cas_item` parsing and `runAsking`; it rewrites no
+assertion. At mathematics `80520813`, contracts `c603ede` and leaf manifest `7663031`, every
+selected assertion reads with a complete question. The first attempt lacked a configured native
+interpreter and is retained as an unavailable diagnostic. With the configured native interpreters,
+`/tmp/lean-cas-probe.s6NYHF.log` and
+`/tmp/b0-poc-5410e70/reader-product-f9-native-diagnostic.json` record: product malformed after
+one dispatch (finiteData/cone framing); both generator comparisons unavailable after one dispatch
+(the engine rejects a published generator point descriptor); both constant comparisons
+`NoImplementation` before dispatch on the exact `obj.sets.integers_mod` source form. None holds.
+These are runtime findings, not permission to substitute an alias, narrow mathematics or change
+an assertion. Later coupled LiftData/Data corrections are not represented by this loaded snapshot;
+final source and dependent/runtime checks remain required.
+
+## 2026-10-20 — Execute the prescribed public lift computation fields
+
+The runtime now fixes every selected `LiftEntry.computation` before dispatch and
+instantiates `MonoLiftComputation.obj`, `hom`, `forward`, and `backward` at the complete
+source receiver, selected action and independently retained formal base. Admission exposes
+only those published fields, at `<lift id>#<field>` on `<lift id>#input`; no semantic rows
+or leaf laws are introduced. Every field request includes the actual preceding outputs.
+Execution runs in reverse route order and constructs the next base from the preceding
+actual object and inclusion, never by repeating the original base packet. All four outputs
+and complete source/base/action context remain in the final packet. Opaque session owners
+are merged through every request and result; incompatible owners remain unavailable.
+
+The completed envelope now requires the actual four-field output group for every step.
+`typedMap` framing checks actual declared endpoints and shared finite-graph data inventories;
+opaque maps on infinite carriers remain callable data. Validators return `Unit`, never a
+backend-derived object, inverse law, monicity proof or universal-property certificate.
+Well-framed wrong objects and maps remain unchanged computational claims. The production
+caller passes the actual Subobjects result context to completion, rather than the original
+Arrow category, and cannot return the bare base when a lift registration is absent.
+
+Before repair, the unchanged production decoder probe
+`/tmp/b0-poc-5410e70/lift-unexecuted-packet.lean` failed because a three-field packet with no
+component outputs was accepted as completed data. It now passes (17.68 seconds).
+`LiftedSubobjectDataProbes` passes (3737 jobs, 34.92 seconds): all four public types are closed,
+all opaque computational fields survive completion, malformed/missing fields and wrong map
+endpoints fail, wrong but well-framed data survives, actual next-base data uses returned fields,
+wrong fixed source/route fails, and the production executor with no registrations reports
+`NoImplementation` rather than claiming completion. The selected formal fixture has an
+infinite integer-pair carrier; no map is enumerated or reconstructed as a law-bearing value.
+The first focused lift source check failed because a concurrent source build removed its
+Semantic import; the serial corrected check passed (1489 jobs, 25.43 seconds). The complete
+required Realize dependency build passed (3736 jobs, 374.91 seconds, diagnosed 600-second
+budget): Language 242 seconds, Realize 96 seconds. No heartbeats changed.
+
+These checks ran in the combined construction tree with the independent ComputationalData
+action-context repair. The unchanged installed-registration diagnostic then reports E8 rank,
+alternating-group cardinality and both cyclic/symmetric group abelianness assertions `holds`,
+each with one actual dispatch. The three earlier group question identities are unchanged;
+E8 previously failed before producing an identity. The separate sign-kernel diagnostic still
+rejects unsupported nested computational point framing, owned by the independent Data repair.
+Logs and JSON are in `/tmp/b0-poc-5410e70/`, including `lift-runtime-source-build.log`,
+`lift-computation-probes-third.log`, `lift-unexecuted-packet-{red,green}.log`,
+`composite-dispatch-lift-source.{json,log}` and `sign-runtime-context-repair.log`.
+
+Kernel-owned contract source `1d2b2be06e7b39acff30357d3dd9ae1d2831f88b` specifies the complete
+four-field protocol; its ordinary publication is queued at the machine-wide QC lock. Actual
+registered execution of the newly exposed lift fields remains dependent on the complete
+published contract and independently authored installed registrations. This source checkpoint
+and its engineering checks do not establish that missing execution, mathematical correctness,
+full assertion success, or B0 acceptance. The refreshed manifest is outside this source commit.
+
+## 2026-10-20 — Complete family parameters in structural applications
+
+The E8 route failed before execution when the new public fixed-value inclusion
+needed a bundled value-module parameter. Both ordinary and full-transparency
+composition refused the same middle-category constraint; the closed carrier
+projection did not determine the missing bundle. Logs are
+`/tmp/b0-poc-5410e70/route-composition.log` and
+`route-realized-composition-eta.log`.
+
+`Semantic` now reads the existing public functor endpoint realizations and
+family-fibre parameters. Lean structure eta reduction exposes the original
+complete parameter record before unification. After assignment, the original
+full parameters and their presentations are checked definitionally equal.
+Application uses the action's declared source-category witness and the supplied
+receiver's full type. No carrier search, new mathematics, or leaf data supplies
+structure. The exact public action and retained route applications stay intact.
+
+The first production check exposed an early presentation-equality check before
+bundle assignment; it was moved after assignment while retaining all original
+full-data checks. The full E8 method then exposed current-depth universe
+unification in ordinary metadata projection application; those projections now
+use the existing `mkAppHere` primitive. Focused `Semantic` passed 1481 jobs in
+25.41 seconds. The exact `FibreParameterProbes` target passed 3695 jobs in
+29.05 seconds, including the full registered E8 semantic method and application
+at a supplied formed module. The original `SelectedCarrierProbes`, registered
+execution, complete question preservation and final combined source checks
+remain required; these focused results do not establish them.
+
+The CI plumbing correction is published at
+`8be6fe8db2b46b0882de7de444b701390c7fe22e`. Exact hosted controller source checks,
+controller boundary fixtures and the construction seal check pass. Other Gates
+jobs remain separate from this unintegrated functional source candidate.
+
+## 2026-10-20 — Expose applied closed carrier projections for admission
+
+The unchanged matrix-unit reader binding was refused although its complete admission
+predicate is definitionally equal to the ordinary rational-matrix predicate, which the
+same registered evidence establishes. The explicit supplied presentation retained closed
+carrier projections applied to their selected object arguments inside the matrix entries.
+The final carrier cleanup recognized only bare projection nodes, leaving these applied
+projections hidden from the evidence procedure.
+
+`evidencePresentation` now recognizes a projection at the head of an application. This
+change is restricted to closed type expressions, retains the full definitional-equality
+check against the original target, and does not unfold mathematical values or ring-map
+applications. `CarrierProjectionProbes` exercises the actual reader admission and retains
+a singular-matrix refusal. No mathematical assertion, expected answer, or upstream
+procedure changed.
+
+At mathematical main `805208138f016368f6a4eac415f25f3922a5807d`, the permanent reader
+regression failed before repair (55.13 seconds). The focused Language build passed
+(3725 jobs, 254.96 seconds), using its completed prior profile and a 300-second diagnostic
+budget. Cached-import checks of the unchanged positive and negative probe sections pass
+separately (36.25 and 31.74 seconds), and the existing `EvidencePresentationProbes` passes
+(46.15 seconds), retaining the original typed predicate and polynomial nonunit refusal.
+The combined cached-import probe exceeded its 60-second budget and is not counted as a
+pass. Logs and exact original-predicate diagnostics are under `/tmp/b0-poc-5410e70/`.
+These checks establish this reader boundary only; a combined source build after the
+concurrent Semantic correction, complete question preservation, the permanent suite,
+protected negatives, and independent B0 acceptance remain separate obligations.
+
+## 2026-10-20 — Preserve complete Arrow and admitted composite requests
+
+`Realize` now resolves a traced base-category Arrow to its unique registered Arrow
+category, checks the complete typed value, and retains both endpoints and its defining
+map. Already normalized Arrow contexts remain unchanged; contradictory source contexts
+are rejected. The unchanged `arrow-runtime-form.lean` production reproducer failed
+before repair (“an Arrow receiver was framed as its base category”) and passes after.
+
+Operation requests now follow only the catalogue's complete named-refinement prefix,
+as required by `specs/leaf-registration.md`; residual structural route applications
+remain part of the fixed admitted source composite. Separately, the complete selected
+formal route is applied before method-domain/result and property-domain checks. Selection
+never consults backend availability. `RuntimeRequestProbes` exercises actual reader and
+realization boundaries with `Harness.empty`: Arrow framing and wrong-source rejection,
+already normalized context, full source parameters, distinct source structures, complete
+refinement prefixes, and definitional agreement with the independently read operation.
+
+At mathematics main `805208138f016368f6a4eac415f25f3922a5807d`, focused Realize builds pass
+(97.82 seconds), and `RuntimeRequestProbes` passes (3737 jobs, 32.44 seconds). The unchanged
+installed-registration diagnostic previously reported `NoImplementation` for alternating
+group cardinality and cyclic/symmetric group abelianness on transported image forms. After
+repair all three report `holds`, each with one actual `gap-groups` dispatch on its admitted
+source form and full parameter `[3]`. Their complete question identities are unchanged.
+The diagnostic still exits 1: `E8.rank()` retains its earlier internal `routeFunctor`
+composition failure between `integralLatticeFormForgetDeclaration` and `fixedValue`, before
+registered execution. This is separate from the repaired request boundary, not evidence
+of missing mathematics or a completed positive suite. Lift component execution remains
+separate construction work; no lift semantics or permanent assertions changed here.
+
+Scratch red/green evidence is under `/tmp/b0-poc-5410e70/`:
+`arrow-runtime-form-{red,green}.log`, `composite-dispatch-{red,green}.{json,log}`,
+`realize-runtime-repair-domain-build.log`, and `runtime-request-probes-final.log`.
+These engineering checks establish the repaired wiring, not mathematical correctness or
+B0 acceptance. The refreshed dependency manifest is deliberately outside this source commit.
+
 ## 2026-10-20 — Complete registered run at runtime candidate 5410e70
 
 Exec session `69924` terminated with exit 1 and PID 895162 is gone. The complete
@@ -2208,3 +3471,926 @@ entries stay unchanged, and a dirty dependency preserves both its local work
 and the previous manifest. No seal, verifier condition, protected accepted input,
 mathematics, acceptance assertion or leaf was changed. The hosted repaired run
 remains to be executed at the integrated source revision.
+
+
+## 2026-10-20 — Reconcile completed hosted comparison at 8be6fe8
+
+Gates run `39437629797` finished at exact published source
+`8be6fe8db2b46b0882de7de444b701390c7fe22e`. Controller boundary fixtures
+passed, including the repaired reviewer discovery. The per-assertion base/head
+comparison passed; the following permanence check failed because all five
+`inverses.*` questions were unread. No permanent record was rewritten.
+The full job log is `/tmp/b0-poc-5410e70/hosted-per-assertion-8be.log`.
+Both runner suites reported native Sage/GAP programs unavailable (`no ready
+frame`); that hosted run does not establish the required registered executions.
+The earlier local native report remains separate and has the already recorded
+mixed dependency-label provenance defect.
+
+Inspection of published constructor inputs confirms that Mathlib owns
+`Functor.mapArrowFunctor`, while the catalogue supplies only the constructor's
+action on functors. No general action on comparison cells is supplied through
+that registry interface. The unchanged constructed-route positive stays open;
+no Arrow-specific semantic inference or upstream work instruction was added.
+
+
+## 2026-10-20 — Provision native engines for hosted execution
+
+The missing-engine condition in hosted `8be6fe8` is repaired as construction
+workflow source: the build/audit and per-assertion jobs create the full Sage
+conda-forge environment through the pinned setup-micromamba action and export
+its actual interpreter as both `CAS_SAGE_PYTHON` and `CAS_GAP_PYTHON`. A required
+step imports Sage and its native libgap before either consumer runs. It does not
+assert mathematical correctness or count an installation check as acceptance.
+The installation follows Sage's official
+[installation guide](https://doc.sagemath.org/html/en/installation/index.html)
+and the action's documented
+[environment and run-shell interface](https://github.com/mamba-org/setup-micromamba).
+No leaf implementation or assertion was changed. `actionlint` 1.7.12 accepts
+the parsed workflow; actual hosted environment creation and registered execution
+remain to be run at the integrated published source revision.
+
+
+## 2026-10-20 — Preserve coherence controls after independent semantic growth
+
+The hosted `8be6fe8` failure in `CohereProbes` was the control's obsolete
+assumption that formed modules have one carrier route. The control now checks
+the method owner's Sets category for an empty prefix and no comparison; the
+formed-module check remains and requires its actual independently published
+`cell.bilin_module.carrier_routes` comparison. The ring-diamond, missing-cell,
+reordering, direction and ambiguous-comparison checks are unchanged. No
+permanent `.cas` statement or authoritative question record was altered.
+
+Exact target `just focus CasAcceptance.CohereProbes` passed 3694 jobs in
+48.66 seconds with mathematics `80520813` and contract `c603ede`; log
+`/tmp/lean-cas-focus.9r4uQG.log`. This establishes the engineering control at
+this source boundary, not the still-failing constructed-route positive, full
+POC execution, independent acceptance, or activation of a replacement judge.
+
+
+## 2026-10-20 — Read every original inverse question through actual execution
+
+The exact `tests/acceptance/inverses.cas` file (SHA256
+`29ff6c9e55285554b5c981f906e6a3ce131229bd81afae575ab8d6d41f96d738`)
+was parsed with production `FileItems.items` and `cas_item`, preserving every
+binding and all five original IDs. All three bindings held. All five admitted
+questions now read and retain both full identity and proposition. Each returns
+`NoImplementation` with zero dispatches: four lack structural arithmetic data
+for admitted-point operands; `inverses.right` lacks realization of its second
+product point. The diagnostic's stronger demand for five registered holds
+therefore failed after 314.09 seconds. This does not fail the frozen fifteen
+execution obligations: the plan permits gaps in these broader corpus statements.
+It establishes local repair of the former invalid/unread questions, not their
+independent interpretation approval or final-candidate question permanence.
+
+Evidence: `/tmp/b0-poc-5410e70/inverses-exact-file-current.json`, `.log`, and
+`inverses-exact-file-inputs.json`; the latter records dependency and compiled
+artifact digests for the loaded runtime preceding pending LiftData corrections.
+The opaque question/proposition-only extract is
+`inverses-opaque-interpretations.json`; no authoritative record was regenerated.
+Native engines were configured explicitly. Dependency publication and refresh
+were held until this run and the reader's product/F9 run ended.
+
+An earlier commentary prematurely included SelectedCarrierProbes among passes
+while its target was still running; it was corrected immediately. The eventual
+actual target passed in 72.80 seconds with a completed 62.15-second diagnostic
+profile. That exact result, not the earlier statement, is the evidence. The
+original unrelated dirty Language patch still exactly matches its saved baseline.
+
+## 2026-10-21: K1, K4, K6, K7, K9 closed
+
+- K1: the fifteen required computations hold with dispatches at `f208613`
+  (`lean-cas-dsl-reports/f208613-dcd5109…-targeted-k1k2.json`); `sets.eq.rev_rev` regressed when
+  the leaf began answering `finiteGraph`, repaired in `f208613`.
+- K4, K6, K7: no ID is a request-formation gap in CI run `39630187816` at `adaec09`
+  (holds 75 → 75; request-formation gaps 101 at `5410e70` → 9).
+- K9: the three requests use the declared `extent` and `constructionApex` forms
+  (contract `f7b047b`); remaining errors are the Sage leaf's (`*-targeted-rest2`).
+
+## 2026-10-21: K11 closed
+
+- The seven kernel consumers of `SemanticState.routes` now call `RegistryState.completeRoutes`,
+  which bounds the simple-route enumeration by the number of categories reachable from the
+  source along `edgesFrom`, and fails loudly when that set does not close within 4096.
+- `CasAcceptance.ResolveProbes`, `ClosureProbes`, `CohereProbes` build; `sets.card.fin2_times_z3`,
+  `lattices.discriminant.a2`, `sets.finite.integers` hold (`0eb14e2-dirty-…-targeted-k11.json`).
+
+## 2026-10-21: K10 closed
+
+- A method dispatch records the registered comparisons of the resolution that selected its
+  route. Scratch diagnostic `|ZMod(5) in Rings| = 5` holds with one `meth.cardinality` dispatch on
+  `obj.rings.integers_mod` recording `cell.rings.additive_monoid_carrier` and `cmp.rings.carrier`
+  (`6452585-dirty-…-targeted-k10.json`); `sets.card.z7`, `sets.card.integers` still hold.
+
+## 2026-10-25 — Complete the unchanged dependent-reader regressions
+
+The actual rebuilt reader at local `174c0907` / published `1b9d5a8` passes the
+entire unchanged `CasAcceptance.DependentReaderProbes` together with the complete-key
+ordering and direct-parameter controls. The 184.313-second run retained the exact
+kernel/mathematics/contract source tuple; peak child RSS was 3,081,756 KiB.
+The log and provenance retain their original `20261024` UTC filenames.
+
+Two measured generic obstructions caused the earlier formed-pairing failures:
+raw expression serialization when ordering validated evidence, and enumeration
+of 24 retained witnesses for a direct carrier type already fixed by its actual
+argument. The repairs use the existing complete question encoder for ordering
+and bind that resolved type directly. Nested/projected parameters preserve the
+complete witness scan and ambiguity checks. Runtime question budgets, cache
+eligibility, semantic reading order and all permanent assertions are unchanged.
+The independent bounded source review found no concrete defect; integrated
+consumer execution and the final frozen extension trials remain separate work.
+
+## 2026-10-25 — Integrate dependent contexts and complete callable endpoints
+
+The combined reader, constructor-proof and callable-endpoint source at local
+`b75dd8f` / published `81f63d0`, with mathematics `82d1370` and contract `90d7d3f`,
+passes all 28 selected targets and 3,803 build jobs. The actual run took 347.084
+seconds, with peak child RSS 3,227,704 KiB and no source-tuple change. The
+regression-only follow-up at local `95227b8` / published `8ea95e6` also passes
+the selected target set in 9.449 seconds. It strengthens both mapped endpoint
+checks and prevents a vacuous empty-source operation-binding comparison.
+
+The production changes preserve selected carrier source parameters and mapped
+endpoints, recover original closed declaration data through exact terminal
+precomposition, and retain the applicable named operation binding without
+changing explicit selections. Constructor proof syntax receives its full
+generalized condition before elaboration. An anonymous endpoint of a complete
+callable uses that callable's existing public descriptor when it has no exact
+independent presentation; ordinary action-recovery ambiguity remains an error.
+The original dependent-reader assertions and all prior negative controls remain.
+
+Both GitHub checkpoints were fetched afresh and compared with their entire local
+source trees. The build logs and producer records use the
+`kernel-mvp-combined-context-{consumers,controls}-20261025` prefixes. They are
+module/engineering results, not final interpretation, runtime, native-demo or
+frozen-extension outcomes. Those unchanged consumers run separately.
+
+## 2026-10-25 — Preserve the closed admission-integration failures
+
+The next 33-target consumer build at local `43d8608` / published `b814a19`
+completed with exit 1 after 505.325 seconds and an unchanged source tuple.
+The complete signed-product and exception-identity controls pass. Original
+bilinear and convergence binders regress, and the new constrained-map probe
+needs `Lean.mkConst` disambiguation. The failure record is retained under
+`kernel-mvp-admission-product-consumers-20261025`; it is not a passing build.
+The original target bodies and all mathematical assertions remain unchanged.
+
+The preceding fixed-binding report at `95227b8` contains four failed bindings,
+despite the reporting process exiting zero. The corresponding RX10 attempt
+reached its registered scalar action but stopped on an unsupported public
+callable. A separate leaf author, given only the published contract and its own
+source, completed that protocol interface at published `fa0856d`. Its unchanged
+66 registrations and protocol-only checks carry no mathematical acceptance.
+The next end-to-end consumers use the corrected frozen leaf and fixed questions
+only after the kernel regressions are resolved.
+
+## 2026-10-25 — Isolate admission presentation without changing its question
+
+The corrected typed-factor reader retains the whole independently specified
+hyperbolic map, while scoped implicit-argument conversion allows the registered
+limit and reindexed-module evidence to prove their original complete targets.
+A remaining bilinear admission requires a compatible uniform presentation.
+
+Controlled diagnostics restore complete Lean Term/Meta/Core state between
+attempts and invoke registered evidence once. They isolate expansion of one
+exterior reindexed carrier projection as a sufficient cause of rejection;
+three other stored-field changes individually preserve a proof. The initial
+comparison had changed both projection metadata and canonical dictionaries, so
+its earlier attribution to dictionaries was not established. Every failed,
+interrupted, and compilation-only diagnostic remains preserved.
+
+The checkpointed non-type-field presentation proves both limits and both
+reindexed obligations in 13.820 seconds, preserving typed closed proofs of the
+original statements. Its constant-polynomial unit and nonunit controls pass in
+5.369 seconds; the engineering probe therefore checks the retained original
+carrier rather than requiring that this candidate expand it. All mathematical
+positive/negative and option-scope controls remain. The corrected bilinear
+admission still rejects in 11.466 seconds, with the complete original map and
+type independently checked. This is an unfinished source checkpoint, not a
+passing integrated candidate; no combined build or frozen-trial pass is inferred.
+
+## 2026-10-25 — Preserve selected projection contexts during admission
+
+The bounded carrier-field isolation identified the missing distinction. On the
+unchanged corrected bilinear function, exposing the regular module's stored ring
+field alone establishes the original obligation, while exposing the earlier
+reindexed module's same module field alone had caused rejection. The generic
+presentation therefore retains forwarding through the same authoritative
+structure projection and field index; it exposes fields supplied through other
+structures. It contains no predicate, operation, backend or mathematical-name
+case, and it invokes no proof procedure of its own.
+
+The exact candidate passes the five original admission obligations and the
+polynomial unit positive/negative controls in 24.228 seconds with unchanged
+imported artifacts. Every accepted proof is closed, free of sorry, and checked
+at the original complete target. The compiled reader retains the independent
+whole hyperbolic function and its complete type, rejects the erroneous additive
+reading, and records both ring products. Full Term/Meta/Core state is isolated
+between diagnostic variants; the raw bilinear control still rejects. The prior
+insufficient candidates and the scratch layout failure remain preserved.
+The existing polynomial-head engineering assertion is restored without changing
+its mathematical controls or any permanent question. Source integration now
+requires the combined consumer build and unchanged execution trials.
+
+## 2026-10-25 — Retain actual action data through prescribed lifts
+
+`executePrescribedLift` retains its ordered public four-field execution and now
+accepts the existing optional action encoder. Production supplies the realized
+encoder, matching the neighboring transport paths. All action dependencies merge
+into the selected owner before dispatch; the exact actual actions persist in
+mapped source descriptors and completed steps. The static default remains for
+existing formal-only engineering fixtures.
+
+The additive kernel control reuses the accepted one-stage dependent lift and the
+existing unchanged protocol-only helper. It observes all four requests and their
+actual evidence/action parameters, preceding result prefixes, complete retained
+packet, cached object/comparison fields and owners. It checks same-owner dispatch
+selection and refuses different sessions or backends before dispatch. No packet
+is treated as a mathematical answer or law. A fresh-name exact-helper check passes
+with all 442 shared imported artifacts unchanged. The environment refusal and two
+probe syntax/type failures are separately preserved; the production correction
+was unchanged through those checks. The integrated build and fixed mathematical
+execution are the next consumer checks.
+
+## 2026-10-25 — Integrated consumer build and remaining refinement
+
+The combined 34-target build at local `0eeec39` / published `ac8a31e` completed
+with exit 1 after 622.608 seconds; all three selected source worktrees remained
+unchanged. Language, realization, question exports, the unchanged dependent and
+binder readers, and the other completed consumers compiled. The five failed
+targets comprise two additive probe application-layout errors, two protocol
+helper startup failures from the missing external contract path, and the unchanged
+positive `(Fin(2) × ℤ/3) in FiniteSets` in `ProofRefinementProbes`.
+
+Both layout corrections move the line break into the options lambda and preserve
+all non-whitespace bytes and controls. The next invocation must carry the explicit
+selected contract path. The finite-product refinement is a remaining generic
+evidence-path defect to diagnose and repair without changing its positive or
+negative assertions. No green combined build or frozen-trial pass is inferred.
+The existing 18 Python regression tests and four source-integrity checks pass on
+this source with unchanged worktrees; they do not discharge the failed Lean gate.
+
+## 2026-10-25 — Present type inputs for generic proof refinement
+
+The finite-product failure arises before instance matching: Lean's instance
+search fixes its own instances transparency, leaving a semireducible composed
+categorical object action hidden. A bounded comparison ruled out both a scoped
+conversion option and a whole-constructor option change. The owning constructor
+now uniformly exposes closed non-proposition type inputs with existing Lean
+WHNF/transformation APIs, checking every replacement and the whole original
+obligation. It still acquires one proof, kernel-checks it at the original target,
+refuses missing chosen data and retains the full original source and action.
+No mathematical name or predicate case is introduced, and the registered
+procedure presentation remains unchanged.
+
+The exact copied constructor passes the unchanged finite-product positive and
+retains a closed typed result, complete source and accepted original identity.
+Both required negatives reject; all seven actual registered-admission controls
+retain their outcomes and caller options. The comparison completes in 27.516
+seconds with 1,135 imported artifacts unchanged. The unsuccessful option-only
+comparison and initial scratch parsing failure are preserved separately. The
+four direct probes previously blocked by layout or contract-path configuration
+also pass against the compiled kernel with no imported-artifact changes. The
+next integrated build includes the full existing libraries, original consumers,
+native tools and notebook worker at one published source combination.
+
+## 2026-10-25 — Check the actual refinement module visibility
+
+The full native build at local `5cc198a` / published `38cf1a2` rejected the new
+helper's private name inside the existing public section. The copied-helper
+comparison had not tested that changed visibility wrapper. The failed broad
+build was stopped after 117.885 seconds with unchanged sources. A one-keyword
+visibility correction makes the helper follow the surrounding module convention.
+The exact committed production file, without a copied helper or output-artifact
+writes, then elaborated successfully in 2.703 seconds; all 115 imported artifacts
+and both source worktrees remained unchanged. No proof logic or control changed.
+The corrected source is published before resuming the full integrated build.
+
+## 2026-10-25 — Retain the complete coordinate of symbolic points
+
+Callable framing now carries a closed symbolic element's complete selected
+coordinate separately from its original arithmetic-owner envelope, using the
+existing public typed-map form. The same rule applies to symbolic components of
+closed product points. Actual returned data, owning sessions, selected category
+dictionaries and accepted endpoint comparisons remain attached. The complete
+formal endpoint check also applies to already framed callables.
+
+The added engineering controls cover symbolic and owned whole maps, wrong
+intermediate endpoints, distinct forms with one carrier, and literals whose
+scalar owner differs from their selected coordinate. Existing presentation,
+product-point, staged-numeral and full-Hom controls retain their requirements.
+The unchanged RX10 execution observation remains a separate recorded run; this
+source change supplies no mathematical answer or independent acceptance.
+
+
+## 2026-10-25 — Execute typed deferred computational dependencies
+
+The common action executor now underlies a leaf-facing deferred request graph.
+Existing published declarations and request forms determine each node's formal
+application; ordinary admission and dispatch determine its supplier. Pure
+preparers cover the current operation families, including component, cartesian,
+presentation, universal and selected-lift requests. The runtime retains exact
+Wire occurrences, raw replies, original caller meaning, complete parameters and
+live child ownership. Nested public object/map actions execute before independent
+target consumption. Self-contained results remain portable while the internal
+execution record retains every original dependency and failed scope's completed
+children. No mathematical registration, route policy, fixed input, expectation,
+budget, native implementation or public leaf source is changed.
+
+The isolated service runtime and fifteen process controls passed with source and
+configuration guards unchanged. These include same-formal/different-packet reuse
+through ordinary methods; actual child ownership; exact asymmetric endpoint
+projection through the shared universal adapter; intended malformed-reference,
+wrong-type, endpoint and backend-selector failures; mixed-owner and recursive
+request unavailability; nested scopes; owned-source/portable-result completion;
+whole nonidentity maps; and ordinary production installation. Existing object
+presentation, parameter reuse, functor-action and derived-action controls also
+passed. Earlier syntax/elaboration attempts, an incorrectly framed engineering
+cardinal reply, and the reproduced premature category-parameter closure are
+preserved; the latter now binds the complete expected type before closure.
+
+The scoped checkpoint does not close the independent frozen-leaf/native workflow
+or mathematical acceptance gates. Further public structured template projection
+coverage remains explicit kernel work where a typed branch is absent. It is not
+silently counted as a missing leaf, and no validator placeholder is promoted to
+mathematical input. The shared runtime endpoint convention is true=source and
+false=target; the universal preparer's initial opposite local convention was
+corrected and checked through the actual runtime callback.
+
+## 2026-10-25 — Project exact retained service data
+
+Nested released endpoint, Arrow/subobject and universal-result projection
+descriptors now reach the existing typed runtime projection paths. Complete
+registered row, original diagram, selected category and actual returned packet
+remain attached; no computational cone is treated as a formal proof-bearing
+cone. Direct portable fields drop only unrelated session requirements, while
+opaque fields retain their supplying process and the complete parent remains
+recorded. Copied parent data cannot merge distinct complete formal contexts or
+action occurrences; explicit result references remain exact. Named context
+construction no longer silently discards failures.
+
+Three focused runtime projection controls passed with source/configuration
+guards unchanged, alongside a fresh unchanged fifteen-case service run. The
+controls cover asymmetric endpoints, actual owner retention, exact universal
+ports and diagram indices, wrong selectors/refinements/owners/diagrams, and
+same-packet distinct selected occurrences. Earlier control layout errors and
+an incompletely framed arbitrary cone were preserved. This is a checked kernel
+increment, not independent mathematical acceptance or completion of the remaining
+released service data roles.
+
+## 2026-10-26 — Execute checked computational derivation closure
+
+The kernel now consumes the independently authored upstream computation
+catalogue's complete family plans and correctness identities. A finite support
+calculation and family recursion guard reject missing or cyclic dependencies;
+the compiler records supported structural plans through the existing reader and
+action owners. Exact request preparation fixes the declaration, universes,
+parameters and endpoints before specialization. Original operand occurrences
+retain their unchanged actual Wires, structured packets and live suppliers.
+Every primitive uses ordinary admission and validation. A dispatched failure
+cannot select another plan, and a wrong packet is not replaced by the formal
+identity. Shared closed-point service completion now uses the existing point
+result interface.
+
+The isolated focused engineering checks pass for nested primitive-only
+execution, registration-order reversal, an alternative after exact-form
+inapplicability, missing/cyclic support, changed recursive parameters, complete
+family binding refusals, actual ownership, result reuse, and wrong, malformed
+and unsupported replies. Original deferred-service, mixed-data-ownership,
+operation-agreement and whole-operation controls pass unchanged. The public
+primitive trial remains separate engineering evidence for integration; no
+independent mathematical acceptance or complete native workflow is claimed.
+Unsupported plan syntax and unavailable prescribed-lift/method-map compilation
+remain explicit gaps. Fixed mathematical questions, expectations and ordinary
+budgets were not changed.
+
+## 2026-10-26 — Retain source actions for inferred family endpoints
+
+A family result whose complete parameter is an actual object-action image now retains
+its supplied source and structural route through the existing checked parameter-view
+owners. The original variable-exponent power-series summand had lost that route when
+the full selected monoid was stored as a bare parameter. The ordinary carrier reader
+can now recover its declared named carrier from the retained full source action.
+Explicit complete targets and other fixed bundled parameters keep their existing
+endpoint path, avoiding redundant structural searches in dependent formed maps.
+
+The unchanged full dependent-reader, parameter-structure, selected-carrier,
+declared-context, closed-binding, and context-continuity probes pass. All eight original
+final RX-LIFT readings retain their complete preceding scope and fit the unchanged
+200000-heartbeat budget (maximum 192526). Broader rejected prototypes and their original
+determinant/timeout failures are preserved in the engineering evidence archive. No
+mathematical definition, fixed question, expected answer, selected structure, ambiguity
+control, caller budget, or shared dependency is changed by this reader repair.
+
+This closes the concrete native-build reader regression and its focused existing
+controls. Full native integration, typed export, execution, and independent acceptance
+are maintained separately by the integration owner.
+
+## 2026-10-26 — Preserve explicit record codecs before field elision
+
+Independent source review found that generic one-field projection could preserve
+a complete subobject envelope at a plain Arrow result. The registered inclusion
+now uses the established Arrow/subobject codec first. Core envelopes likewise
+expose only their independently selected original field. Generic structural
+projection and operation endpoints first require the packet to validate at the
+original record's fixed fields; correctly typed descriptor-valued fields remain
+supported, and no projected JSON supplies new InterfaceObjects or proof data.
+
+The added production inclusion/Core boundary control passes in 3.400 seconds,
+and the unchanged functor execution controls pass in 8.512 seconds. The isolated
+Realize compile passes in 56.805 seconds with stable source and ordinary budget.
+The initial new fixture's syntax and universe-binding failures are preserved.
+This closes the reproduced source boundary; combined native checks and actual
+public primitive computation are recorded separately. The fixed mathematical
+questions, expected answers, and public grammar remain unchanged.
+
+## 2026-10-26 — Reuse exact exposed records and their operation endpoints
+
+Selected structural actions can now project or assemble the actual fields of
+an already returned public record. Inspection uses a fresh symbolic receiver,
+so coincident actual fields cannot choose a projection. Complete point and
+whole-callable operation requests use the same declaration-derived projection
+for exposed endpoint carriers and their products. Opaque whole records stay
+opaque, and every projected occurrence retains its original supplying session.
+There is no new public data grammar, mathematical declaration, interpretation
+rule, canonical answer, or carrier-equality fallback.
+
+The structural projection and ownership controls pass, including equal opaque
+bytes from three suppliers, malformed arrays and an opaque single-field record.
+Original functor-action and whole-operation controls pass under unchanged
+budgets. The final Realize compile took 53.573 seconds and the last whole-operation
+run 4.460 seconds with unchanged source. An earlier rerun omitted its public
+protocol environment and is retained as unavailable. The public-only primitive
+trial now reaches a multiplication request whose complete source and target
+contain the actual returned carrier fields; its unsupported reply remains open
+execution work. No fixed mathematical input or expected answer changed.
+
+## 2026-10-26 — Preserve completed point roles and selected matrix rows
+
+Completed point replies now retain their independently fixed complete endpoints
+and exact scoped endpoint packets. A later whole-map consumer embeds that
+actual datum through the released typed-map/finite-graph interface using the
+supplied singleton inventory. Exact inventory projections retain key owners
+independently of equal returned-point bytes. Ordinary point arguments and the
+original ordered-product presentation remain unchanged. Missing inventories and
+changed complete targets are refused; no mathematical answer is substituted.
+
+The existing selected `Mat(n,K)` reader branch now precedes anonymous
+finite-function inspection, preserving the selected `Vec(K,n)` row presentation
+and coefficient object through parameter execution. All three original matrix
+assertions hold with 36 actual dispatches. All four original presentation
+assertions hold with 14 actual dispatches. New role/ownership controls and the
+unchanged product-point, whole-operation, deferred-service and derivation
+controls pass under the ordinary budgets in the isolated corrected-mathematics
+environment. One compile whose source guard changed was invalidated and retained
+as failed evidence; the final compile and controls have stable source guards.
+
+The three original rational composition assertions still stop earlier at a
+separate complete numeral-owner ambiguity with the wider corrected catalogue.
+Its exact Ring and inherited Semiring candidates were captured without changing
+selection or assertions and are assigned to the next reader increment. This is
+implementation evidence, not independent mathematical acceptance or complete V1
+integration. No protected input, expectation, registration or leaf source changed.
+
+## 2026-10-26 — Keep each retained source's declared numeral reading
+
+Contextual numerals now reuse the reader's existing direct-owner and named
+refinement priorities for each independently supplied complete witness. The
+original named commutative rational ring retains the Ring route chosen by its
+declared set refinement; an additional available Semiring action does not
+create another default numeral reading of that same named source. The complete
+source still binds the actual owner and action before the coordinate is checked.
+All witnesses and full-owner/application ambiguity checks remain intact.
+
+The clean production source compiles and passes the unchanged selected-carrier
+and declared-context controls. Added controls retain the full named source and
+actual Ring action and require independently supplied Ring/Semiring owners to
+remain ambiguous in either order. All eight original arithmetic readings also
+close after the repair. Failed narrower prototypes and the exact source-witness
+diagnostics are preserved. This changes no mathematics, fixed assertion,
+registration, leaf or resource budget. Connected execution and point metadata
+forwarding remain a separate increment.
+
+## 2026-10-26 — Close the original connected workflow execution
+
+Operation-equivalence observation now forwards the completed point interface
+with its actual payload, while whole-map completions clear that distinct role.
+An existing-protocol control reproduces the old metadata loss and verifies the
+repair with an arbitrary opaque point, exact endpoints and the live supplier.
+Original product-point, whole-operation and operation-agreement controls pass.
+
+Together with the separately committed numeral-reader repair, all 17 original
+connected assertions hold with 73 real dispatches in 155.424 seconds: arithmetic
+8/8, finite pullback/reuse 2/2, matrix 3/3, and presentation 4/4. The requested
+isolated corrected-mathematics snapshot and contract-compatible library remained
+fixed; before/after hashes found zero changes across 432 tracked sources, 4468
+library artifacts and 11 fixed inputs/drivers. No assertion, expected answer,
+registration, leaf or heartbeat budget changed. The full newer-pin native
+integration and separate public primitive trial remain with the integration
+owner; this result is implementation engineering evidence.
+
+## 2026-10-26 — Reuse closed actual comparison evidence within a claim
+
+The reader now retains the actual accepted comparison terms that its existing
+validator has checked at the complete supplied object. Reuse requires the exact
+whole source and ordered witness array, and every retained context and evidence
+term must be closed. All category/type trials, complete routes, coherence
+classes, final action checks, and trace records keep their original owners.
+No target decision or unresolved requested type is cached.
+
+The three original RX-LIFT full-context timeouts at lines 22, 73, 76 now read through
+all seven typed-export stages on immutable published mathematics ac9bb80. Their
+original input, full preceding scope, six imports, and ordinary 200000 option are
+unchanged. Reported total counters 176035, 202567, 203162 include later pure export
+work; they are not all below the option, and no timeout occurs. The original
+composed.charpoly, composed.det, and composed.trace consumers also read on this
+same final Language source with the independently published monicity repair.
+
+Five unchanged full-owner/context probes pass. The full unchanged dependent-reader
+probe retains a distinct numeral-owner ambiguity at line 63 under the corrected
+mathematics; it is an open blocker, not a passing result. The focused cache controls
+pass, including exact full-context distinctions, trace rollback/retry, a warm
+cache with an unresolved target, and rejection of comparison evidence that uses
+a local class hypothesis after that context ends. Rejected wider caches and
+all diagnostic failures are preserved. This increment changes only Language and
+its source-scoped records; no mathematical source, assertion, registration, leaf,
+shared dependency, or resource budget is changed. Full native/export integration
+and the remaining original numeral probe are maintained separately.
+
+## 2026-10-26 — Preserve intermediate and assembled record codecs
+
+Structural projection paths now retain each independently selected record and
+field declaration plus its existing complete public codec. Every nested step
+uses that original formal context. Core, Arrow and full-subcategory Arrow
+envelopes project their exact stored occurrences; ordinary records validate
+their own fields at each step. A descriptor accepted as the whole current
+record is not elided into its data slot. Output assembly also retains Core and
+Arrow envelopes, and refuses unexposed refined Arrow fields. No computational
+field supplies a formal value, context, law or property.
+
+The new nested controls pass in 4.333 seconds, including Core(Core(Type)), an
+opaque inner record, refined Arrow source selection, equal endpoint bytes with
+different suppliers, and Core assembly around an actual opaque field. The
+original reuse, transport, derived-action and service-projection controls pass
+without changing their assertions (4.567, 9.947, 5.429 and 4.783 seconds). The
+initial new fixture's unresolved ULift universe and two direct-run helper-path
+failures remain recorded; only that fixture's universe and the runner's public
+contract path were corrected. The unchanged anonymous created-apex control
+remains a separate open formal-occurrence defect. The validator and all six
+runtime consumers compile against isolated immutable dependencies.
+
+## 2026-10-26 — Preserve created-apex receivers and checked creation images
+
+Separated successful lower-apex extraction from the generic receiver wrapper.
+The extraction returns an explicit optional image with its independently checked
+base-category term. The generic wrapper keeps the exact original formal
+occurrence and only projects the actual packet and supplying fields. The exact
+creating-action path uses that successful checked image; a failed extraction
+cannot masquerade as a completed action image. All existing complete action,
+parameter, category, packet and ownership checks remain.
+
+The Realize compile passes in 57.889 seconds. The unchanged AnonymousApexProbes,
+ApexReceiverContextProbes and ComputationalTransportProbes pass in 3.774, 3.780
+and 9.455 seconds with stable source. The initial private-helper visibility
+compile failure is retained; the helper follows this module's existing public
+declaration convention. No assertion, fixture, mathematical definition, public
+wire grammar or leaf was changed.
+
+
+## 2026-10-26 — Retain declaration identity of inferred complete parameters
+
+The original dependent-reader's final selected zero exposed an anonymous
+parameter witness introduced alongside its actual named declaration. Both
+terms were the exact complete named integer commutative ring; the new plain
+copy had lost its origin and introduced an additional inherited Semiring
+numeral route. No originally supplied anonymous witness was responsible.
+
+`completeParameterObjects` now reuses existing recognition only for an actual
+registered declaration application in its already checked category, with all
+original witnesses and complete parameters supplied unchanged. Original
+anonymous or explicitly competing witnesses remain in context; declaration
+recognition failure follows the previous path. The numeral-selection rules,
+complete-owner comparisons, source-action retention, and all mathematics are
+unchanged. No carrier equality recovers a name or selects a source.
+
+The full unchanged dependent-reader probe now passes, including both the
+bilinear subsequent-zero sequence and the original power-series binder. All
+unchanged parameter-structure, selected-carrier, declared-context,
+closed-binding, context-continuity, and existing numeral-owner controls pass.
+An additive before/after control reproduces and closes the named-parameter
+failure while retaining independently supplied anonymous ambiguity in both
+orders. All three original full-context RX-LIFT statements and the three
+original composed consumers also read under their original budgets and scope.
+The source-stable evidence and exact complete-owner capture are preserved.
+This closes the previously recorded reader blocker; full integration remains
+the separate native/export/execution owner’s responsibility.
+
+
+## 2026-10-26 — Keep opaque fields inside plain composite record interfaces
+
+The complete native run at published `72d10e3` exposed an obsolete caller of the
+validated record-plan API. Supplying its required fresh independent receiver,
+without changing the original Nat × (Nat × Nat) fixture, then reproduced a real
+framing failure: the plain-type shortcut attempted to decode nested opaque
+fields as literal mathematical values. Equal token bytes from three distinct
+suppliers must remain three computational occurrences.
+
+`pointSchema` now treats only the existing atomic scalar codecs as atomic.
+Composite interfaces retain their published constructor slots. Early decoding
+of a plain composite is restricted to wholly inline data; opaque-containing
+records use the existing data-only schema validator. Fully inline literal
+constraints and explicit whole-record codecs retain their existing checks.
+The engineering probe passes the same complete independent receiver to the
+validated plan; all original types, packets, suppliers and assertions remain.
+
+The isolated ComputationalData compile passed in 48.018 seconds. The original
+record/ownership, literal-and-callable-contract, and explicit-record-boundary
+controls passed in 3.234, 8.161 and 4.403 seconds, with stable source. Earlier
+failed calls and the initial isolated search-path setup failure are preserved.
+These are focused engineering results on the recorded isolated dependencies;
+the complete current tuple still requires its successful native and frozen runs.
+
+The same native run also exposed a truncated generated Language private part
+left by disk exhaustion. An independent read-only diagnosis isolated the import
+crash before the purity traversal. Only that part, its hash and module trace
+were invalidated, with lossless original copies retained. Ordinary Lake rebuilt
+Language from unchanged source in 104.324 seconds. The purity predicate, its
+imports, assertions and budgets were not changed.
+
+## 2026-10-26 — Validate inline scalar subtrees inside computational graphs
+
+Published e4a1fd0 completed the full native target selection in 918.449 seconds,
+all 7,797 jobs, with the complete source tuple unchanged. A subsequent source
+audit identified an older recursive validation gap: a rational graph value had
+its Int/Nat fields checked but not its complete denominator/reduction constraints.
+The unchanged native producer accepted six malformed cases among thirteen
+rational graph, nested graph and list cases. Valid literals and whole/partial
+opaque cases were also recorded. Initial diagnostic parser, preflight and
+elaboration failures are preserved separately and made no runtime observation.
+
+Each existing scalar schema now retains its independently fixed complete type.
+Recursive validation checks the structural fields and applies the existing
+literal decoder only to a wholly inline subtree, discarding its decoded term.
+Opaque data keep their original representation and owner; callable, type-valued
+and actual-key schemas do not become scalar literals. The public protocol,
+mathematical declarations, fixed assertions and expected values are unchanged.
+The exact new diagnostic is retained as an additive engineering gate.
+
+The isolated validator compile passed in 36.054 seconds. All thirteen unchanged
+cases passed in 3.242 seconds, including rejection of every malformed inline
+case and preservation of opaque fields. Original record/ownership and public
+literal/callable controls passed in 3.063 and 7.863 seconds. Independent source
+review found no blocking boundary issue. These scoped results require the new
+source's complete native build and final frozen acceptance runs.
+
+
+## 2026-10-26 — Separate actual endpoint data from reference refinement proofs
+
+The complete 7462a36 native build failed only the unchanged lifted-subobject
+inventory control. Its actual pairs were being sent through full subtype decoding
+by the new recursive literal wrapper, which attempted to establish membership in
+the formal reference subobject. The failed build and exact error are retained.
+
+An internal schema mode is now chosen only from independently established actual
+endpoint roles. It reuses the existing constrained-record interface and validates
+the independently fixed data field behind a non-literal barrier. The barrier
+survives products, lists and wrappers; each nested Rat still checks its complete
+literal representation. Ordinary closed literal schemas retain their constructor
+conditions. Both modes retain fixed data slots under an unresolved predicate,
+without assigning that predicate or accepting unresolved data parameters.
+
+The isolated compile and all four original focused controls pass with stable
+source. The new additive control checks constrained Rat data through lists,
+ULift and products; rejects zero-denominator and unreduced rationals; preserves
+ordinary refinement and finite-set graph constraints; and leaves unknown
+predicates unassigned. Its initial unspecified ULift universe was corrected in
+the diagnostic only, with original source and failed result preserved. The final
+control passes in 3.268 seconds. Independent source review found no concrete
+blocker. Full native and final frozen execution remain separate obligations.
+
+The public primitive author source 939dea0 was published as a68a52e and verified
+by full-tree fetch. Its frozen unchanged observer still fails the exact callable
+target check. Engineering review assigned the cause to inconsistent outer and
+nested endpoint preparation in the kernel. A separate declaration-relative
+presentation repair is underway; the public-only author received no outcome or
+kernel material. No primitive success, full meaning acceptance or V1 completion
+is claimed here.
+
+
+## 2026-10-26 — Close interim permanent readings and preserve the upstream reader guard
+
+Published 8f454d6 passed the selected 7,801-job native build in 595.442 seconds.
+The first launcher had an environment-source-path error; the exact target
+selection was repeated under the configured engines and passed in 13.385 seconds.
+Only that configured build receipt was used for the complete pure exports.
+The CI target audit identified additional explicit consumers: the combined
+candidate will build the exact union of 51 consumer and six native targets.
+
+The unchanged 153 permanent questions all exported successfully, exactly once,
+under the original source files, imports and budgets, in 450.425 seconds. The
+complete preceding-binding/context export passed in 60.062 seconds, retaining
+48 bindings, 12,292 typed occurrences, 1,442 operation records and 568 registry
+rows. Its first helper launch failed at a CoreM/CommandElabM lift; the versioned
+mechanical correction preserved every encoded field and fixed input. A pure
+administrative declaration export completed in 3.290 seconds. All source,
+input, configuration and selected artifact guards remained unchanged. The
+independent meaning reviewer receives only normative mathematics and these
+complete pure interpretation inputs; no runtime evidence or implementation.
+Remaining exports and final computation are separate obligations.
+
+Main 95de265 introduced a zero-family rigid-target check overlapping, but not
+identical to, the candidate's generic guard. The source-reviewed three-way
+merge preserves it only in the zero-family named trial while keeping the full
+candidate owner/ambiguity/parameter and callable-address handling. The isolated
+Language compile passed in 98.860 seconds; the unchanged original dependent
+reader passed in 97.053 seconds. Every frozen output target remained unchanged.
+The combined remote commit must retain main as a second parent.
+
+The 8f independent CI review again produced no verdict: trusted main's private
+base materialization cannot resolve FETCH_HEAD, exit 128. The exact candidate
+retrieval and dependency-chain steps completed. This is an unavailable review
+input, not a substantive rejection. The published candidate already includes
+the separately reviewed source-retrieval correction; no author-installed
+replacement judge or self-approval is used.
+
+
+## 2026-10-26 — Independently assess every interim permanent meaning
+
+The isolated mathematical reviewer completed individual comparisons of all
+153 permanent pure readings and all 48 preceding binding observations against
+the unchanged questions and Mac9 normative mathematics. The full administrative
+identity declaration and route-whiskering format addendum resolved the earlier
+pure-input gaps. No mathematical meaning defect remains in the frozen 8f package.
+The final report, per-ID explanations, shared complete witnesses, binding record
+and input manifest are retained with exact hashes. The reviewer read no kernel
+implementation, leaf code, runtime outcome or engineering diagnosis.
+
+This is an interim interpretation finding, not a computation or availability
+result, a protected acceptance verdict, or a later producer's result. Proof terms
+are represented by their complete propositions; the reviewer did not replay
+omitted proof bodies or certify the exporter implementation. Every final source
+still needs fresh full exports and their complete independent comparison.
+
+## 2026-10-26 — Close the unchanged primitive specimen and retain a context defect
+
+The isolated V9 increment separates retained route history from current object
+and endpoint presentation comparisons. It preserves the ordered component
+Wires and their transitive dependency scope without inventing a product map
+from historical comparisons. Compile completed in 59.235 seconds. The frozen
+public-only a68 primitive observer then held in 8.672 seconds, with unchanged
+sources, inputs and selected artifacts. The actual dispatches were the
+semiring object action, monoid multiplication and set equality; both required
+proved dependency derivations completed. The strict leaf was not changed and
+its author received no execution result or kernel diagnosis.
+
+Independent source review then identified a remaining boundary: two equal
+product packets with distinct ordered child histories can be coalesced because
+service selection omits those histories when they are retained only as generic
+dependency handles. The bounded report freezes the concrete source-level case
+and separates it from the successful fixed specimen. This increment is held
+from publication while full product context selection and actual current
+comparison actions are completed. No generalized-domain, ownership or
+ambiguity requirement is relaxed.
+
+The independent mathematical reviewer separately completed the normative
+preparation for all 134 positive extension questions, citing 169 mathematical
+declarations. Every candidate interpretation verdict remains pending until
+the final complete pure terms and contexts arrive. No computational outcome
+or implementation entered this preparation.
+
+## 2026-10-26 — Execute the original notebook and expose the broader F9 boundary
+
+The original six-cell V1 notebook executed through the existing Jupyter adapter
+on clean published/built 8f in 107.511 seconds. Its single code cell executed
+without errors; the existing strict checker verified all 17 original assertions
+and recorded 73 dispatches across arithmetic, finite pullback reuse, repeated
+matrix applications and nonidentity presentation transport. Only execution
+paths in an external notebook copy changed. Complete source, artifact and fixed
+input guards remained stable. The executed notebook and raw report are retained;
+the final combined producer requires a fresh run.
+
+The separately frozen F9 extension group then executed all 17 fixed IDs in
+33.149 seconds, with stable guards and no missing or duplicate result. None
+held: the report retains four ambiguities, two malformed graph replies, three
+unavailable leaf evaluations and eight implementation gaps. Engineering
+inspection distinguishes an ordinary leaf F9 owner-decoding omission from the
+separate finite-graph contract boundary and numeric-left reader ambiguity.
+No fixed assertion, expectation, import scope, ID or budget changed. No outcome
+was sent to the isolated mathematical reviewer or public-only primitive author.
+
+Local checkpoint 49 preserves every prior archive entry byte-for-byte and adds
+these closed records together with the V8/V9 diagnostics and independent pure
+reviews. Its 159,483,042 bytes have SHA-256
+551aa5aea7160eb80e4e0dba5e411a8e332a978ebf0d92ed300781df1855afd9.
+This is local preservation only: the earlier automatic upload-review rejection
+remains recorded, and durable version 45 is unchanged. Active later source and
+execution records are excluded from this frozen checkpoint.
+
+
+## 2026-10-26 — Validate explicit graph inventories at actual public endpoints
+
+The FG1 repair now admits a released finiteGraph inventory when the primitive
+endpoint codec declines enumeration, validating each point against the actual
+complete descriptor and its ordered parameters. Existing actual inventories and
+errors remain authoritative; graph coverage and both codomain roles remain checked.
+Whole formal-apex and equal-JSON scalar associations cannot replace actual data
+shape. Unknown or opaque scalar representation parameters fail before semantic
+lookup. Returned data and opaque supplier records are unchanged.
+
+Independent source review caught and closed the constrained-scalar fallback issue.
+V2 then hit the unchanged compiler heartbeat limit in the enlarged mutual group.
+V3 separates the new recursion through exactly the existing semantic resolver
+callback; independent review mechanically checked equivalence of all six helpers.
+The V3 source compiled in 37.455 seconds. Additive controls passed in 7.330 seconds;
+unchanged action-context, lifted-data and contract probes passed in 8.506, 9.988 and
+9.831 seconds. All guards remained stable. The failed compiler attempt and initial
+fixture syntax error remain preserved. No acceptance input or budget changed.
+
+This commit integrates that closed source repair, while product current-comparison,
+RX05 reading and remaining execution-retention diagnostics continue separately.
+The final published/built tuple, API export and frozen executions remain required.
+
+
+## 2026-10-27 — Retain complete operation owners through inherited numeral reading
+
+Integrated the exact closed Language V3 source and its focused engineering
+regression control. All 13 original RX05 and 17 original F9 questions read at
+unchanged scope, order and budgets. Compilation and the focused, contextual,
+named-parameter and dependent-reader controls passed with all guards stable.
+The family application keeps every already selected complete owner and actual
+route; anonymous Sets numeral forwarding requires a real current action.
+The rejected V2 context-wrapper regression remains preserved. The focused
+control is now part of the existing engineering aggregate. This is source and
+reading validation, with final computation and independent pure review pending.
+The downstream returned-operation owner seam remains explicitly unobserved.
+
+The trusted shallow-input repair is separately concrete in PR 70 at 6d25e26,
+with two passing retrieval tests and freshly verified full-tree equality.
+Latest candidate trusted review again failed before producing a verdict.
+No author installation of the authoritative evaluator or main change occurred.
+
+## 2026-10-27 — Recover complete original object parameters
+
+Closed generic recovery of reduced named objects and accepted universal apices
+retains the entire original selected object, category bundle, diagram and
+declaration parameters. Existing structure-field exposure helps unification;
+full reconstruction, closure, type and kernel equality checks remain required.
+No carrier substitute, default dictionary or first matching presentation is used.
+Actual returned packets and original suppliers retain priority.
+
+The upstream author independently published the Cartesian module product with
+projections, pairing and universal property. Its public commit `3bd4d3d` was
+freshly fetched and compared against the complete compiled source tree. The
+manifest now pins it. The kernel compile, focused full-object control, two
+unchanged parameter/context controls and actual new-M product control all pass
+with stable guards; the two exact additive controls join the existing aggregate.
+The failed earlier compile and all source/receipt hashes remain preserved in the
+owning review. This source checkpoint does not claim a fresh complete build or
+extension acceptance; those remain required on the final coherent tuple.
+
+## 2026-10-27 — Reuse complete closed route trials within one transport
+
+Integrated clean reader commit `3e27780` and its exact closed/open engineering
+control. Successful applicability trials retain only closed actual images and
+ordered edge applications within the current transport invocation. The selected
+candidate still passes every original full-type, application, comparison and
+trace check; open terms follow the original construction. No cross-call cache,
+registry priority, ambiguity rule or trace precondition changed.
+
+Compilation, seven unchanged protected controls and the additive control pass
+with stable guards. Both exact original RX-LIFT factor samples now finish their
+original interpretation and computation-only evaluation within 200000 heartbeats,
+reaching the specific missing `mor.sets.tuple_cons` implementation. Their full
+canonical questions match the original profile byte-for-byte. Remaining margins
+are only about 1719 and 1212 heartbeats; a fresh combined-source preflight is
+required before API export, followed by the unchanged full final execution.
+
+The separately investigated handwritten open-module fixture supplied an unresolved
+module universe. Its comparison retains that exact parameter; complete closed and
+explicit-universe open receivers pass. No default was supplied and no accepted
+mathematics was changed. All earlier diagnostics and failed attempts remain
+preserved. Final source tuple, public API, complete build and executions are pending.
+
+## 2026-10-27 — Preserve complete callable admission and observation
+
+Integrated the closed whole-function source `9bc2baf` by three-way merge,
+retaining every product, full-object, composition and reader change. Complete
+registered Hom owners retain their selected category and scalar parameters.
+Only the declared Sets data projection exposes a function from its wrapper.
+The actual whole callable becomes one point of its full owner without replacing
+its packet or suppliers. A different admission domain uses the registered actual
+comparison; same-endpoint reuse retains the original constituents and context.
+
+Validation separates the outer point domain from the function's internal Hom,
+checks function-valued graph outputs against that complete Hom, and preserves
+the independently declared scalar input. Caller-depth endpoint constraints
+retain the selected Hom dictionary before application construction. The exact
+helper extraction removes a compiler obstruction at the unchanged budget.
+
+Both compilation stages, the focused control and five unchanged controls pass
+with stable guards. The focused opaque-endpoint negative supplies the two
+independently retained endpoint associations required by the public contract;
+its payload, expected type and rejection assertion are unchanged. All earlier
+failed source/fixture versions remain preserved. The exact passing fixture is
+part of the engineering aggregate. Final combined RX09/whole-map execution,
+the coherent API/build tuple and independent pure interpretation review remain
+required; no mathematical acceptance is inferred from this source integration.

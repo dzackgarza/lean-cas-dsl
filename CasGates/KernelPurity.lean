@@ -6,27 +6,43 @@ module
 
 import all CasCatalogue
 import all CasCatalogue.Acceptance
-import all CasCatalogue.BinderReaderProbes
+import all CasCatalogue.CarrierProjectionProbes
+import all CasCatalogue.ComputationalActionContextProbes
+import all CasCatalogue.ComputationalData
 import all CasCatalogue.CodecConditionProbes
 import all CasCatalogue.ContextualSubsetProbes
 import all CasCatalogue.ConstructionData
+import all CasCatalogue.ConstrainedPoint
+import all CasCatalogue.CategoryContext
+import all CasCatalogue.CellAction
+import all CasCatalogue.DirectConstruction
+import all CasCatalogue.DeclaredAdmission
+import all CasCatalogue.SelectedLift
+import all CasCatalogue.ReindexAction
+import all CasCatalogue.StructuredProjection
+import all CasCatalogue.ObjectPresentation
 import all CasCatalogue.ConstructionDataProbes
 import all CasCatalogue.ConstructionLegReaderProbes
 import all CasCatalogue.ElementData
 import all CasCatalogue.ElementDataProbes
 import all CasCatalogue.EvidencePresentationProbes
+import all CasCatalogue.EvidencePresentation
 import all CasCatalogue.EquationData
 import all CasCatalogue.EquationDataProbes
 import all CasCatalogue.FunctorActionData
 import all CasCatalogue.FunctorActionDataProbes
+import all CasCatalogue.FibreParameterProbes
+import all CasCatalogue.FileItems
 import all CasCatalogue.ImageFormProbes
 import all CasCatalogue.LiftedSubobjectData
 import all CasCatalogue.LiftedSubobjectDataProbes
+import all CasCatalogue.NamedFieldContextProbes
 import all CasCatalogue.PresentationReaderProbes
 import all CasCatalogue.ProofIdentityProbes
-import all CasCatalogue.SelectedCarrierProbes
+import all CasCatalogue.ProofRefinement
+import all CasCatalogue.ProofRefinementProbes
+import all CasCatalogue.SelectedContextOrderProbes
 import all CasCatalogue.ParameterStructureProbes
-import all CasCatalogue.StructuredReconstructionProbes
 import all CasCatalogue.StructuredParameterProbes
 import all CasCatalogue.AcceptanceSyntax
 import all CasCatalogue.Admission
@@ -35,12 +51,18 @@ import all CasCatalogue.CellSyntax
 import all CasCatalogue.Codec
 import all CasCatalogue.Decide
 import all CasCatalogue.Language
+import all CasCatalogue.InterpretationFailure
 import all CasCatalogue.Realize
+import all CasCatalogue.Realize.RuntimeSupport
 import all CasCatalogue.QuestionProbes
+import all CasCatalogue.QuestionIdentity
+import all CasCatalogue.QuestionComparison
 import all CasCatalogue.StructuredResult
 import all CasCatalogue.StructuredResultProbes
 import all CasCatalogue.Resolve
 import all CasCatalogue.ResolveSyntax
+import all CasCatalogue.ResolutionFailureProbes
+import all CasCatalogue.RuntimeRequestProbes
 import all CasCatalogue.Semantic
 import all CasCatalogue.TestSuite
 import all CasCatalogue.TermGraphProbes
@@ -51,6 +73,7 @@ import all CasContract.Port
 import all CasContract.Registration
 import all CasCatalogue.Registry
 public meta import Lean
+public meta import CasContract.Port
 
 /-!
 # The kernel carries no mathematics (`specs/architecture.md`, "What must be impossible")
@@ -109,6 +132,22 @@ meta def allowedModules : List Name :=
    `LeanCategories.Catalogue.Lift,
    `LeanCategories.Catalogue.Semantics.Foundation.Catalogue,
    `CasCatalogue, `CasContract]
+
+/-- These exact schema declarations connect symbolic categories to their independently
+registered realizations. The fibre witness's parameter and the registered family transport,
+total category and reindexing functor retain the selected family when the consumer aligns
+endpoints or applies its declared action. Their source modules also contain
+domain-specific helpers, so allowing that whole module would admit more than this
+categorical interface. -/
+meta def allowedInterfaceConstants : List Name :=
+  [``CasCatalogue.CategoryRealization, ``CasCatalogue.CategoryRealization.familyFibre,
+   ``CasCatalogue.CategoryFamilyFibreWitness, ``CasCatalogue.CategoryFamilyFibreWitness.parameter,
+   ``CasCatalogue.CategoryFamilyRealization.transport,
+   ``CasCatalogue.CategoryFamilyRealization.totalCat,
+   ``CasCatalogue.CategoryFamilyRealization.reindexFunctor,
+   ``CasCatalogue.FunctorRealization, ``CasCatalogue.FunctorRealization.sourceRealization,
+   ``CasCatalogue.FunctorRealization.targetRealization,
+   ``CasCatalogue.ClassifierRealization.forgetfulRealization]
 
 /-- Lean's tactic machinery: proof search is the domain's (LC-18), run only by `evidenceRunner`. -/
 meta def tacticModules : List Name := [`Lean.Elab.Tactic, `Lean.Meta.Tactic]
@@ -205,13 +244,8 @@ meta def declarationViolations (env : Environment) (d m : Name) (info : Constant
         found := found.push s!"{d} ({m}) uses {c} of {cm}: only {evidenceRunner} runs a proof \
           procedure, and only a domain's registered evidence"
       continue
-    -- These two acceptance fixtures elaborate upstream mathematical examples. Their
-    -- generated declarations observe those examples, rather than implement kernel
-    -- mathematics. Keep all execution, evaluation and tactic restrictions above; do
-    -- not exempt new modules by naming convention.
-    let observationModule := m == `CasCatalogue.BinderReaderProbes ||
-      m == `CasCatalogue.StructuredReconstructionProbes
-    unless observationModule || allowedModules.any (·.isPrefixOf cm) do
+    unless allowedInterfaceConstants.contains c ||
+        allowedModules.any (·.isPrefixOf cm) do
       found := found.push s!"{d} ({m}) refers to {c} of {cm}: the kernel carries no mathematics"
   for n in literals do
     if tacticKinds.contains n || tacticSyntax.contains n then
@@ -224,8 +258,9 @@ meta def violations (env : Environment) : IO (Array String) := do
   let mut found : Array String := #[]
   -- Every kernel module is checked.
   let imported := env.header.moduleNames
-  for (dir, root) in [("CasCatalogue", `CasCatalogue),
-      (".lake/packages/cas_leaf_contracts/CasContract", `CasContract)] do
+  let contractDirectory ← CasCatalogue.Backend.packageDir CasCatalogue.Backend.contractPackage
+  for (dir, root) in [(System.FilePath.mk "CasCatalogue", `CasCatalogue),
+      (contractDirectory / "CasContract", `CasContract)] do
     for m in ← moduleFiles dir root do
       unless imported.contains m do
         found := found.push s!"{m} is a kernel module not imported by CasGates.KernelPurity"
