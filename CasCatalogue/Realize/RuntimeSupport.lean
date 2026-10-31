@@ -11672,6 +11672,28 @@ private def observeIntrinsicAssemblyBodyWith
   unless original == wire.fragment do
     throwStratum .unavailable "the intrinsic assembly changed its original positioned child data"
   let pendingPointInterface ← pendingIntrinsicPointInterface? wire assembly
+  -- An element extraction selects its descriptor from this exact point's
+  -- current target receipt. It is a dependent field of that point, whereas
+  -- ordinary map witnesses compare independently selected object occurrences.
+  -- Authenticate the producer's relation before observing any child; formal
+  -- equality alone cannot replace either captured endpoint or its suppliers.
+  let extractedTarget ← match assembly.result, assembly.template with
+    | .value _, .ctor "element" #[.wire .retained selected,
+        .ctor "point" #[.wire .map point]] => do
+      if assembly.maps.isEmpty then pure none else do
+        let #[fields] := assembly.maps
+          | throwStratum .unavailable "the element extraction changed its original point relation"
+        unless sameCompleteWireContext fields.callable point do
+          throwStratum .unavailable "the element extraction changed its original point occurrence"
+        let some (source, target) ← retainedCallableEndpoints? point fields.context
+          | throwStratum .unavailable "the element extraction lost its current original point endpoints"
+        let selectedTarget ← forwardRetainedValue target selected.value
+        unless sameCompleteWireContext fields.source source &&
+            sameCompleteWireContext fields.target target &&
+            sameCompleteWireContext selectedTarget selected do
+          throwStratum .unavailable "the element extraction changed its complete selected target occurrence"
+        pure (some selected.value)
+    | _, _ => pure none
   -- A literal point's typed owner slot licenses refreshing its point receipt.
   -- A matching packet tag or historical PointOrigin is insufficient.
   let literalPointData ← match assembly.template with
@@ -11940,6 +11962,28 @@ private def observeIntrinsicAssemblyBodyWith
       throwStratum .malformed
         m!"an intrinsic callable field changed its complete endpoint occurrence or presentation; {details.compress}"
   let maps ← assembly.maps.mapIdxM fun index fields => do
+    if extractedTarget.isSome then
+      -- This witness records the point's own endpoint fields. Read their new
+      -- occurrences only from that same observed point, including native point
+      -- interfaces and anonymous endpoint references. Independent map witnesses
+      -- below still require their separately observed objects to agree exactly.
+      let callable ← observe .map fields.callable
+      if sameCompleteWireContext callable fields.callable then return fields
+      let context := callable.categoryContext.getD fields.context
+      discard <| framingContext (some fields.context) (some context)
+      let (callable, source, target) ←
+        if let some (source, target) ← retainedCallableEndpoints? callable context then
+          pure (callable, source, target)
+        else do
+          let (source, target) ← readEndpoints callable context
+          let callable ← retainCallableEndpoints callable source target context
+          pure (callable, source, target)
+      discard <| framingContext (some context) source.categoryContext
+      discard <| framingContext (some context) target.categoryContext
+      discard <| forwardRetainedValue source fields.source.value
+      discard <| forwardRetainedValue target fields.target.value
+      CategoryContext.checkMorphism context callable.value source.value target.value
+      return { fields with context, source, target, callable }
     let source ← observe .object fields.source
     let target ← observe .object fields.target
     let callable ← observe .map fields.callable
@@ -11971,6 +12015,12 @@ private def observeIntrinsicAssemblyBodyWith
   -- The map-field witness ties this refresh to the original producer's slots;
   -- a matching packet shape alone cannot discard a wrapper or a point role.
   let refreshTemplate : TermElabM ActionDataTemplate := do
+    if let some selected := extractedTarget then
+      let #[fields] := maps
+        | throwError "the observed element extraction lost its original point relation"
+      let target ← forwardRetainedValue fields.target selected
+      return .ctor "element"
+        #[.wire .retained target, .ctor "point" #[.wire .map fields.callable]]
     let .map context := assembly.result | pure template
     let .ctor "typedMap" #[.wire .object actualSource, .wire .object actualTarget,
         .wire .map actual] := template | pure template
@@ -12861,6 +12911,15 @@ structure ProspectiveInvocationData where
   selection : Option SelectedStructuredInvocation := none
   liftStages : Array (LiftStageExecution.Input Wire × LiftStageExecution.Result Wire) := #[]
 
+/-- A frozen root of the existing retained context. These views carry no
+execution authority and do not reconstruct the retained graph. -/
+inductive ProspectiveReservationRoot where
+  | json (data : Json)
+  | wire (wire : Wire)
+  | template (template : ActionDataTemplate)
+  | invocation (selected : CapturedInvocationInterface)
+  | snapshot (snapshot : WireSnapshot)
+
 /-- This private table describes possible output slots only. It owns no backend,
 session, service handle, validation receipt, or completed computational result. -/
 structure ProspectiveData where
@@ -12869,129 +12928,187 @@ structure ProspectiveData where
   invocations : Array (Nat × ProspectiveInvocationData) := #[]
   activeInvocations : Array Nat := #[]
   objects : ComputationalData.InterfaceObjects := #[]
-  reserved : Array Json := #[]
+  reserved : Array ProspectiveReservationRoot := #[]
   nextReference : Nat := 0
+
+namespace ProspectiveReservation
+
+/-- One inventory of immediate retained children. It preserves the original
+field order; JSON children are its array elements or object values only. -/
+def children : ProspectiveReservationRoot → Array ProspectiveReservationRoot
+  | .json (.arr values) => values.map .json
+  | .json (.obj fields) => fields.valuesArray.map .json
+  | .json _ => #[]
+  | .snapshot source => #[.wire (retainedSnapshotWire source)]
+  | .template template =>
+    match template with
+    | .literal data => #[.json data.json]
+    | .wire _ wire => #[.wire wire]
+    | .pointCallable _ _ _ wire => #[.wire wire]
+    | .inventoryMap _ source target original => #[original, source, target].map .wire
+    | .retained child | .logical child | .project _ child => #[.template child]
+    | .object fields => fields.map (fun (_, child) => .template child)
+    | .ctor _ children | .array children => children.map .template
+  | .wire wire =>
+    #[.json wire.json] ++
+      (wire.liftExecution.toArray.flatMap fun execution =>
+        (execution.actions ++ execution.parameters.map Json.arr ++ execution.sources ++ execution.bases ++
+          execution.outputs.flatMap id ++ execution.sourceImages ++ execution.comparisonImages).map .json) ++
+      wire.productComponents.map .wire ++
+      wire.proofSources.toArray.map .snapshot ++
+      (wire.morphismFraming.toArray.flatMap fun frame =>
+        (#[frame.input, frame.source, frame.target] ++
+          frame.comparisons.toArray.flatMap (fun (source, target) => source.toArray ++ target.toArray)).map
+            .wire) ++
+      (wire.actionRecipe.toArray.flatMap fun recipe =>
+        #[.wire recipe.original, .template recipe.descriptor] ++
+          recipe.endpoints.toArray.flatMap (fun (a, b) => #[.wire a, .wire b]) ++
+          recipe.imageEndpoints.toArray.flatMap (fun (a, b) => #[.wire a, .wire b])) ++
+      (wire.intrinsicAssembly.toArray.flatMap fun assembly =>
+        #[.template assembly.template] ++
+          assembly.maps.flatMap (fun fields =>
+            #[fields.source, fields.target, fields.callable].map .wire) ++
+          assembly.equalObjects.flatMap (fun (a, b) => #[.wire a, .wire b])) ++
+      (wire.capturedInvocation.toArray.map fun captured => .invocation captured.interface) ++
+      (wire.callableEndpoints.toArray.flatMap fun endpoints =>
+        #[.wire endpoints.source, .wire endpoints.target]) ++
+      (wire.pointOrigin.toArray.flatMap fun origin =>
+        #[.wire origin.source, .wire origin.target] ++
+          (match origin.recipe with
+            | .element owner inputs => (#[owner] ++ inputs).map .wire
+            | .product _ _ first second _ _ => #[first, second].map .wire
+            | .alias original => #[.wire original])) ++
+      (wire.endpointPresentation.toArray.flatMap fun presentation =>
+        #[.json presentation.forward, .json presentation.backward] ++
+          presentation.maps.toArray.flatMap (fun (a, b) => #[.wire a, .wire b]) ++
+          presentation.namedRefinement.toArray.flatMap (fun origin =>
+            #[.wire origin.source] ++
+              (origin.templates ++ origin.descriptors).map .template)) ++
+      (wire.pointDataInterface.toArray.flatMap fun point =>
+        #[.json point.domainData.json, .json point.targetData.json])
+  | .invocation selected =>
+    match selected with
+    | .intrinsic selected => #[.json selected.fragment.json, .template selected.template] ++
+        selected.maps.flatMap (fun fields =>
+          #[fields.source, fields.target, fields.callable].map .wire) ++
+        selected.equalObjects.flatMap (fun (a, b) => #[.wire a, .wire b])
+    | .directLift selected => #[.json selected.fragment.json] ++
+        selected.operands.map (fun operand => .wire operand.wire)
+    | .liftField selected => #[.json selected.fragment.json, .wire selected.parent]
+    | .liftFactor selected => #[.json selected.fragment.json] ++
+        selected.operands.map (fun operand => .wire operand.wire)
+    | .routed selected => #[.json selected.fragment.json] ++
+        (#[selected.original] ++ selected.boundaries.map (·.receiver)).map .wire ++
+        #[.template selected.descriptor] ++
+        (selected.boundaries.flatMap (·.descriptors)).map .template ++
+        (selected.boundaries.flatMap (·.parameters)).map
+          (fun parameter => .template parameter.template)
+    | .structured selected => #[.json selected.fragment.json] ++
+        selected.operands.map (fun operand => .wire operand.wire) ++
+        (selected.sourceInputs ++ selected.imageInputs).flatMap (fun input =>
+          input.unchangedGraph.toArray.map (fun data => .json data.json))
+    | .prescribed selected => #[.json selected.fragment.json] ++
+        (#[selected.original, selected.base] ++ selected.sources ++ selected.images).map .wire ++
+        selected.parameters.flatMap (fun fields => fields.map .template) ++
+        selected.actions.map .template
+    | .recordProjection selected => #[.json selected.fragment.json, .wire selected.parent] ++
+        selected.endpoints.toArray.flatMap (fun (source, target) => #[.wire source, .wire target])
+    | .projection selected => #[.json selected.fragment.json, .wire selected.parent] ++
+        selected.endpoints.toArray.flatMap (fun (source, target) => #[.wire source, .wire target]) ++
+        selected.legData.toArray.map (fun data => .json data.json)
+    | .callable selected => #[.json selected.fragment.json, .template selected.descriptor] ++
+        selected.parameters.map .template ++
+        selected.declarationParameters.flatMap (fun parameter => parameter.templates.map .template) ++
+        #[selected.source, selected.target, selected.argument].map .wire ++
+        selected.operationRequest.toArray.flatMap (fun request =>
+          #[.json request.argumentData.json, .json request.targetData] ++
+          #[request.original, request.owner, request.argument, request.argumentDomain,
+            request.domainWire, request.sourceWire, request.targetWire, request.input].map .wire ++
+          #[.template request.argumentTemplate] ++
+          request.argumentDependencies.map .wire ++
+          request.parameterOccurrences.flatMap (fun parameter =>
+            parameter.data.map (fun data => .json data.json) ++ parameter.templates.map .template ++
+              parameter.dependencies.map .wire))
+
+/-- The original Array collectors emit each whole JSON root, including repeated
+roots. Only Boolean membership descends inside a JSON value. -/
+partial def expand (root : ProspectiveReservationRoot) : Array Json :=
+  match root with
+  | .json data => #[data]
+  | _ => (children root).flatMap expand
+
+abbrev Memo (m : Type → Type) := ProspectiveReservationRoot → (Unit → m Bool) → m Bool
+
+/-- This exact membership predicate is shared by the reference and cached
+runners. It neither decodes a constructor nor validates a computational result. -/
+partial def contains {m : Type → Type} [Monad m] [Inhabited (m Bool)]
+    (memo : Memo m) (needle : Json) (root : ProspectiveReservationRoot) : m Bool :=
+  memo root fun _ => do
+    if let .json data := root then
+      if needle == data then return true
+    (children root).anyM (contains memo needle)
+
+def containsMany {m : Type → Type} [Monad m] [Inhabited (m Bool)]
+    (memo : Memo m) (needle : Json) (roots : Array ProspectiveReservationRoot) : m Bool :=
+  roots.anyM (contains memo needle)
+
+/-- Each key retains its original immutable payload. The table is local to one
+fixed needle, and a result is recorded only after its predicate has completed. -/
+private unsafe structure Cache where
+  wires : PtrMap Wire Bool := mkPtrMap 64
+  templates : PtrMap ActionDataTemplate Bool := mkPtrMap 64
+  invocations : PtrMap CapturedInvocationInterface Bool := mkPtrMap 16
+  snapshots : PtrMap WireSnapshot Bool := mkPtrMap 16
+  data : PtrMap Json Bool := mkPtrMap 64
+
+private unsafe instance : Inhabited Cache := ⟨{}⟩
+
+private unsafe def remember (root : ProspectiveReservationRoot)
+    (next : Unit → StateM Cache Bool) : StateM Cache Bool := do
+  let cache ← get
+  let previous := match root with
+    | .wire wire => cache.wires.find? wire
+    | .template template => cache.templates.find? template
+    | .invocation selected => cache.invocations.find? selected
+    | .snapshot source => cache.snapshots.find? source
+    | .json data => cache.data.find? data
+  if let some result := previous then return result
+  let result ← next ()
+  modify fun cache => match root with
+    | .wire wire => { cache with wires := cache.wires.insert wire result }
+    | .template template => { cache with templates := cache.templates.insert template result }
+    | .invocation selected => { cache with invocations := cache.invocations.insert selected result }
+    | .snapshot source => { cache with snapshots := cache.snapshots.insert source result }
+    | .json data => { cache with data := cache.data.insert data result }
+  return result
+
+private unsafe def containsCached (needle : Json) (roots : Array ProspectiveReservationRoot) : Bool :=
+  (containsMany (m := StateM Cache) remember needle roots).run' {}
+
+end ProspectiveReservation
 
 /-- Equality here reserves an identifier; it never selects a child or interprets
 a data constructor. Actual result references cannot collide with private ones. -/
-partial def containsProspectiveJson (needle : Json) (data : Json) : Bool :=
-  needle == data || match data with
-    | .arr values => values.any (containsProspectiveJson needle)
-    | .obj fields => fields.any fun _ value => containsProspectiveJson needle value
-    | _ => false
+def containsProspectiveJson (needle : Json) (data : Json) : Bool :=
+  ProspectiveReservation.contains (m := Id) (fun _ next => next ()) needle (.json data)
 
-mutual
-
-partial def prospectiveReservedTemplate (template : ActionDataTemplate) : Array Json :=
-  match template with
-  | .literal data => #[data.json]
-  | .wire _ wire => prospectiveReservedWire wire
-  | .pointCallable _ _ _ wire => prospectiveReservedWire wire
-  | .inventoryMap _ source target original =>
-      #[original, source, target].flatMap prospectiveReservedWire
-  | .retained child | .logical child | .project _ child => prospectiveReservedTemplate child
-  | .object fields => fields.flatMap (fun (_, child) => prospectiveReservedTemplate child)
-  | .ctor _ children | .array children => children.flatMap prospectiveReservedTemplate
+def prospectiveReservedTemplate (template : ActionDataTemplate) : Array Json :=
+  ProspectiveReservation.expand (.template template)
 
 /-- Reserve bytes from complete producer-owned context, including fields which
 a projection may later expose. This traversal observes and dispatches nothing. -/
-partial def prospectiveReservedWire (wire : Wire) : Array Json :=
-  #[wire.json] ++
-    (wire.liftExecution.toArray.flatMap fun execution =>
-      execution.actions ++ execution.parameters.map Json.arr ++ execution.sources ++ execution.bases ++
-        execution.outputs.flatMap id ++ execution.sourceImages ++ execution.comparisonImages) ++
-    wire.productComponents.flatMap prospectiveReservedWire ++
-    wire.proofSources.toArray.flatMap (fun source => prospectiveReservedWire (retainedSnapshotWire source)) ++
-    (wire.morphismFraming.toArray.flatMap fun frame =>
-      (#[frame.input, frame.source, frame.target] ++
-        frame.comparisons.toArray.flatMap (fun (source, target) => source.toArray ++ target.toArray)).flatMap
-          prospectiveReservedWire) ++
-    (wire.actionRecipe.toArray.flatMap fun recipe =>
-      prospectiveReservedWire recipe.original ++ prospectiveReservedTemplate recipe.descriptor ++
-        recipe.endpoints.toArray.flatMap (fun (a, b) =>
-          prospectiveReservedWire a ++ prospectiveReservedWire b) ++
-        recipe.imageEndpoints.toArray.flatMap (fun (a, b) =>
-          prospectiveReservedWire a ++ prospectiveReservedWire b)) ++
-    (wire.intrinsicAssembly.toArray.flatMap fun assembly =>
-      prospectiveReservedTemplate assembly.template ++
-        assembly.maps.flatMap (fun fields =>
-          #[fields.source, fields.target, fields.callable].flatMap prospectiveReservedWire) ++
-        assembly.equalObjects.flatMap (fun (a, b) =>
-          prospectiveReservedWire a ++ prospectiveReservedWire b)) ++
-    (wire.capturedInvocation.toArray.flatMap fun captured =>
-      prospectiveReservedInvocation captured.interface) ++
-    (wire.callableEndpoints.toArray.flatMap fun endpoints =>
-      prospectiveReservedWire endpoints.source ++ prospectiveReservedWire endpoints.target) ++
-    (wire.pointOrigin.toArray.flatMap fun origin =>
-      prospectiveReservedWire origin.source ++ prospectiveReservedWire origin.target ++
-        (match origin.recipe with
-          | .element owner inputs => (#[owner] ++ inputs).flatMap prospectiveReservedWire
-          | .product _ _ first second _ _ => #[first, second].flatMap prospectiveReservedWire
-          | .alias original => prospectiveReservedWire original)) ++
-    (wire.endpointPresentation.toArray.flatMap fun presentation =>
-      #[presentation.forward, presentation.backward] ++
-        presentation.maps.toArray.flatMap (fun (a, b) =>
-          prospectiveReservedWire a ++ prospectiveReservedWire b) ++
-        presentation.namedRefinement.toArray.flatMap (fun origin =>
-          prospectiveReservedWire origin.source ++
-            (origin.templates ++ origin.descriptors).flatMap prospectiveReservedTemplate)) ++
-    (wire.pointDataInterface.toArray.flatMap fun point =>
-      #[point.domainData.json, point.targetData.json])
+def prospectiveReservedWire (wire : Wire) : Array Json :=
+  ProspectiveReservation.expand (.wire wire)
 
-partial def prospectiveReservedInvocation (selected : CapturedInvocationInterface) : Array Json :=
-  match selected with
-  | .intrinsic selected => #[selected.fragment.json] ++
-      prospectiveReservedTemplate selected.template ++
-      selected.maps.flatMap (fun fields =>
-        #[fields.source, fields.target, fields.callable].flatMap prospectiveReservedWire) ++
-      selected.equalObjects.flatMap (fun (a, b) =>
-        prospectiveReservedWire a ++ prospectiveReservedWire b)
-  | .directLift selected => #[selected.fragment.json] ++
-      selected.operands.flatMap (fun operand => prospectiveReservedWire operand.wire)
-  | .liftField selected => #[selected.fragment.json] ++ prospectiveReservedWire selected.parent
-  | .liftFactor selected => #[selected.fragment.json] ++
-      selected.operands.flatMap (fun operand => prospectiveReservedWire operand.wire)
-  | .routed selected => #[selected.fragment.json] ++
-      (#[selected.original] ++ selected.boundaries.map (·.receiver)).flatMap
-        prospectiveReservedWire ++
-      prospectiveReservedTemplate selected.descriptor ++
-      (selected.boundaries.flatMap (·.descriptors)).flatMap
-        prospectiveReservedTemplate ++
-      (selected.boundaries.flatMap (·.parameters)).flatMap
-        (fun parameter => prospectiveReservedTemplate parameter.template)
-  | .structured selected => #[selected.fragment.json] ++
-      selected.operands.flatMap (fun operand => prospectiveReservedWire operand.wire) ++
-      (selected.sourceInputs ++ selected.imageInputs).flatMap (fun input =>
-        input.unchangedGraph.toArray.map (·.json))
-  | .prescribed selected => #[selected.fragment.json] ++
-      (#[selected.original, selected.base] ++ selected.sources ++ selected.images).flatMap
-        prospectiveReservedWire ++
-      selected.parameters.flatMap (fun fields => fields.flatMap prospectiveReservedTemplate) ++
-      selected.actions.flatMap prospectiveReservedTemplate
-  | .recordProjection selected => #[selected.fragment.json] ++ prospectiveReservedWire selected.parent ++
-      selected.endpoints.toArray.flatMap (fun (source, target) =>
-        prospectiveReservedWire source ++ prospectiveReservedWire target)
-  | .projection selected => #[selected.fragment.json] ++ prospectiveReservedWire selected.parent ++
-      selected.endpoints.toArray.flatMap (fun (source, target) =>
-        prospectiveReservedWire source ++ prospectiveReservedWire target) ++
-      selected.legData.toArray.map (·.json)
-  | .callable selected => #[selected.fragment.json] ++
-      prospectiveReservedTemplate selected.descriptor ++
-      selected.parameters.flatMap prospectiveReservedTemplate ++
-      selected.declarationParameters.flatMap (fun parameter =>
-        parameter.templates.flatMap prospectiveReservedTemplate) ++
-      #[selected.source, selected.target, selected.argument].flatMap prospectiveReservedWire ++
-      selected.operationRequest.toArray.flatMap (fun request =>
-        #[request.argumentData.json, request.targetData] ++
-        #[request.original, request.owner, request.argument, request.argumentDomain,
-          request.domainWire, request.sourceWire, request.targetWire, request.input].flatMap prospectiveReservedWire ++
-        prospectiveReservedTemplate request.argumentTemplate ++
-        request.argumentDependencies.flatMap prospectiveReservedWire ++
-        request.parameterOccurrences.flatMap (fun parameter =>
-          parameter.data.map (·.json) ++ parameter.templates.flatMap prospectiveReservedTemplate ++
-            parameter.dependencies.flatMap prospectiveReservedWire))
+def prospectiveReservedInvocation (selected : CapturedInvocationInterface) : Array Json :=
+  ProspectiveReservation.expand (.invocation selected)
 
-end
+/-- Query the frozen original roots without materializing repeated graph paths.
+The runtime cache changes only traversal; the reference returns the same Bool. -/
+@[implemented_by ProspectiveReservation.containsCached]
+def prospectiveReservedContains (needle : Json) (roots : Array ProspectiveReservationRoot) : Bool :=
+  ProspectiveReservation.containsMany (m := Id) (fun _ next => next ()) needle roots
+
 
 def ProspectiveData.containsFuture (state : ProspectiveData) (data : Json) : Bool :=
   state.objects.any fun (reference, _) => containsProspectiveJson reference data
@@ -13017,7 +13134,7 @@ def prospectiveActionValue (reader : ProspectiveReader) (key : ProspectiveAction
     return ← forwardRetainedValue previous template.value
   let state ← reader.state.get
   let mut index := state.nextReference
-  while state.reserved.any (containsProspectiveJson (Backend.resultRef index)) do
+  while prospectiveReservedContains (Backend.resultRef index) state.reserved do
     index := index + 1
   let reference := Backend.resultRef index
   reader.state.modify fun state => { state with
@@ -13047,7 +13164,7 @@ def prospectiveDatum (reader : ProspectiveReader) (formal : Expr) :
     TermElabM DataOwnership.Data := do
   let state ← reader.state.get
   let mut index := state.nextReference
-  while state.reserved.any (containsProspectiveJson (Backend.resultRef index)) do
+  while prospectiveReservedContains (Backend.resultRef index) state.reserved do
     index := index + 1
   let reference := Backend.resultRef index
   reader.state.modify fun state => { state with
@@ -15283,22 +15400,53 @@ def realizeFreshWith
         throwError "the closed parameter lost its independently selected point and carrier"
       discard <| Semantic.recordNamedObject selected (some trace)
       let pointWire ← realize h trace "the closed computational parameter" point
-      let selectedWire ← if ← withoutModifyingState (withTransparency .all <|
+      let (pointWire, selectedWire, maps) ← if ← withoutModifyingState (withTransparency .all <|
           isDefEq (← inferType selected) (← inferType target) <&&>
-            isDefEq selected target) then
+            isDefEq selected target) then do
         -- The actual complete point already fixes this exact endpoint. Its public
         -- endpoint frame also works when a dependent structured parameter has no
         -- separately named presentation. A different structure on the same carrier
         -- still needs its own selected descriptor below.
-        realizeCallableEndpoint h trace pointWire selected false
-      else realize h trace "the selected parameter structure" selected
+        let signature ← inferType pointWire.value
+        let signature ← if signature.isAppOf ``Quiver.Hom then pure signature else whnfR signature
+        let some (domain, _) := Language.homEnds? signature
+          | throwError "the closed parameter lost its complete point signature"
+        let some sets := state.categories.find? (·.id == CategoryId.sets)
+          | throwError "the closed parameter lost its selected data category"
+        let selectedContext ← CategoryContext.ofNamed sets domain
+        let some context ← framingContext pointWire.categoryContext (some selectedContext)
+          | throwError "the closed parameter lost its complete selected point context"
+        let (pointWire, sourceWire, targetWire) ←
+          if let some (sourceWire, targetWire) ← retainedCallableEndpoints? pointWire context then
+            pure (pointWire, sourceWire, targetWire)
+          else do
+            let sourceWire ← realizeCallableEndpoint h trace pointWire domain true (some context)
+            let targetWire ← realizeCallableEndpoint h trace pointWire target false (some context)
+            -- A pending invocation owns an immutable canonical input. Keep it
+            -- as the exact child of a transparent map view before recording a
+            -- missing endpoint receipt; do not add metadata to that producer.
+            let pointWire ← if pointWire.completedData then pure pointWire else do
+              let endpointView := { pointWire with
+                categoryContext := some context,
+                morphismFraming := none, actionRecipe := none, intrinsicAssembly := none,
+                callableEndpoints := none, pointOrigin := none }
+              retainIntrinsicAssembly endpointView .map context (.wire .map pointWire)
+                (endpointRoles := (.retained, .retained))
+            let pointWire ← retainCallableEndpoints pointWire sourceWire targetWire context
+            pure (pointWire, sourceWire, targetWire)
+        let selectedWire ← forwardRetainedValue targetWire selected
+        pure (pointWire, selectedWire,
+          #[{ context, source := sourceWire, target := targetWire, callable := pointWire }])
+      else do
+        let selectedWire ← realize h trace "the selected parameter structure" selected
+        pure (pointWire, selectedWire, #[])
       let template : ActionDataTemplate := .ctor "element"
         #[.wire .retained selectedWire, .ctor "point" #[.wire .map pointWire]]
       let (json, dependencies) ← renderCapturedActionData template
       let result : Wire := {
         form := .element selectedWire.form
         payload := (← combinedRecipePayload e json dependencies) }
-      return ← retainIntrinsicResultAssembly result (.value (← inferType e)) template
+      return ← retainIntrinsicResultAssembly result (.value (← inferType e)) template maps
   | .elementNumeral _ target selected | .operationApply _ _ _ target selected =>
       if let .operationApply _ _ operands _ _ := node then
         for operand in operands do

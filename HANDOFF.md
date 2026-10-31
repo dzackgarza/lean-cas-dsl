@@ -7,6 +7,43 @@ own the work order. #66 owns complete mathematical interpretation; #69 owns comp
 #24 owns integration and independent acceptance. #23/#82 review construction requirements
 and exact mathematical inputs alongside that work.
 
+## Recovery checkpoint — 2026-10-31 (Asia/Taipei)
+
+The execution workspace was lost during the full original ten-question RX-LIFT
+run. Its complete report was not recovered, and that run is not a verification
+result. The restored local checkout was at `910f599`; its four uncommitted
+integration files remain untouched. This recovery starts from the published
+PR #67 head `87d92011c6a3f1134fdcfa209067883f41cf2f0d` in a separate checkout.
+
+Two changes have been recovered from their authors' exact retained source:
+the element extraction's original point/target authentication and descriptor
+refresh, and private prospective-reference reservation over the original shared
+context. The complete occurrence probe matches historical SHA-256
+`573fcfb35a10d9d490510b5ea67fbdfef63fb9b9b8d9340c351415b2aaacce97`;
+the complete reservation probe matches
+`47f5d28848ab07abb0b60ed7328ecba65c23e2d56e8d0dff1d8ba400b6de41af`.
+The reservation traversal retains the original field order and duplicate roots,
+uses a completed-result cache local to one fixed identifier query, and changes
+neither computational ownership nor dispatch.
+
+This is a **red, source-only checkpoint**. It is not a byte-for-byte recovery of
+the lost `08e1d3f` tree: its intervening positioned scope, consumer-interface,
+reader and final operation-retention changes still require recovery or fresh
+implementation and validation. No pre-loss build or runtime result validates
+this newly assembled source combination. The original first-two run at the
+lost checkpoint completed within its unchanged budgets but still reported the
+complete selected-descriptor rejection; it established no mathematical hold.
+
+The saved Lean artifacts have been retrieved for reuse. The compiler and
+selected dependency checkouts are being restored. The previously selected CAS
+engine executable is absent, so engine-dependent runs remain blocked pending
+an available existing runtime; this session does not install or recreate it.
+Continue the current #66/#69 construction, required combined consumer/native
+build, fixed readings and computations, connected workflows and notebook, then
+the independent frozen-candidate assessment. #83 remains closed, and permanent
+assertions, original imports/bindings/order and the shared 200000-heartbeat
+budget remain unchanged.
+
 ## Current computation: preserve complete callable values — 2026-10-31 Asia/Taipei
 
 The active work remains the original first RX-LIFT construction under #66/#69.

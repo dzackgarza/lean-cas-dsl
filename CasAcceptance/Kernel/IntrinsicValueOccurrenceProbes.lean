@@ -130,6 +130,15 @@ run_elab do
       throwError "the scalar value lost its actual opaque callable or supplying session"
     unless actual.value == scalar && actual.categoryContext.isNone do
       throwError "the scalar result changed its formal value or invented a category context"
+    let some actualAssembly ← retainedIntrinsicValueAssembly? actual
+      | throwError "the observed scalar lost its value producer"
+    let .ctor "element" #[.wire .retained _, .ctor "point" #[.wire .map actualPoint]] :=
+      actualAssembly.template
+      | throwError "the observed scalar changed its original point extraction"
+    let (_, actualPointTarget) ← capturedMapEndpoints h trace actualPoint pointContext true
+    let descriptor ← checkedFragment (actual.fragment.project #[.field "args", .index 0])
+    unless descriptor == actualPointTarget.fragment do
+      throwError "the scalar descriptor differs from its original point's actual complete target"
 
     let mappedPoint ← realizeArrowObservation h trace complete
     let .ok outer := Backend.TypedMap.decode mappedPoint.json
@@ -146,6 +155,182 @@ run_elab do
     unless reused.fragment == actual.fragment && (← calls.get).size == 2 do
       throwError "reusing the scalar value changed an occurrence or repeated computation"
   finally h.stop
+
+-- An unnamed endpoint can be retained only as a reference to its original
+-- pending callable. It has no standalone object action to observe. Exercise
+-- the intrinsic boundary with an independently supplied complete callable,
+-- including a transparent wrapper and distinct exact endpoint suppliers.
+run_elab do
+  let some sets := (← registryState).categories.find? (·.id == CategoryId.sets)
+    | throwError "the reference extraction control lost its data category"
+  let trace ← Trace.new
+  let h ← Harness.empty
+  let one ← Language.globalPointSource.run {}
+  let target ← elabTermAndSynthesize (← `(ℕ)) none
+  let context ← CategoryContext.ofNamed sets one
+  let formal ← Semantic.hom
+    (← `(TypeCat.ofHom (fun (_ : $(← exprToSyntax one)) => (0 : ℕ)))) one target
+  let pendingData : DataOwnership.Data := {
+    json := node "opaqueData" #[toJson "pending original point"]
+    ownership := DataOwnership.capture
+      (node "opaqueData" #[toJson "pending original point"]) ("reference-original", 61) }
+  let pending : Wire := {
+    form := .canonicalMorphism sets, payload := (← recipePayload formal pendingData),
+    categoryContext := some context }
+  let source ← callableEndpointReference pending one true (some context)
+  let endpoint ← callableEndpointReference pending target false (some context)
+  unless endpoint.intrinsicAssembly.isNone && endpoint.actionRecipe.isNone &&
+      (Backend.MorphismEndpoint.decode endpoint.json).isOk do
+    throwError "the reference extraction control gained an independent object producer"
+  let pending ← retainCallableEndpoints pending source endpoint context
+  let selected : Language.Value := .object target sets none none none
+  let scalar ← (Language.typedParameter target (.element formal selected)).run { trace := some trace }
+  let some (.elementValue retainedPoint _ _) ← trace.node? scalar
+    | throwError "the reference extraction control lost its original scalar producer"
+  let pending ← forwardRetainedValue pending retainedPoint
+  h.results.modify (·.insert retainedPoint pending)
+  let value ← realizeUnobserved h trace "the reference-origin scalar" scalar
+  let some originalAssembly ← retainedIntrinsicValueAssembly? value
+    | throwError "the reference-origin scalar lost its complete value interface"
+  let actualSource : Wire := {
+    form := .diagrams sets, payload := .computed one
+      (.owned "reference-source" 62 (node "opaqueData" #[toJson "actual source"])),
+    categoryContext := some context, objectObserved := true }
+  let actualTarget : Wire := {
+    form := .diagrams sets, payload := .computed target
+      (.owned "reference-target" 63 (node "opaqueData" #[toJson "actual target"])),
+    categoryContext := some context, objectObserved := true }
+  let callableData : DataOwnership.Data := {
+    json := node "opaqueData" #[toJson "actual point"]
+    ownership := DataOwnership.capture
+      (node "opaqueData" #[toJson "actual point"]) ("reference-callable", 64) }
+  let supplied ← scopedNode "typedMap" #[actualSource.fragment, actualTarget.fragment, callableData]
+  let supplied ← scopedNode "valueData" #[supplied]
+  let actualPoint : Wire := {
+    form := .canonicalMorphism sets, payload := (← scopedPayload retainedPoint supplied),
+    categoryContext := some context, callableObserved := true }
+  let targetAlias ← elabTermAndSynthesize (← `(id (ℕ : Type))) none
+  let aliasTarget ← forwardRetainedValue actualTarget targetAlias
+  let poisoned := { actualTarget with
+    payload := .computed target (.owned "different-target" 65 actualTarget.json) }
+  let poisonedPoint := { actualPoint with payload := (← recipePayload retainedPoint pendingData) }
+  h.results.modify (·.insert target poisoned |>.insert retainedPoint poisonedPoint)
+  for hasReceipt in #[false, true] do
+    let actualPoint ← if hasReceipt then
+      retainCallableEndpoints actualPoint actualSource aliasTarget context
+      else pure actualPoint
+    let observations ← IO.mkRef (0 : Nat)
+    let observe := fun (role : ActionDataRole) (input : Wire) => do
+      match role with
+      | .retained => pure input
+      | .map =>
+          if input.completedData then pure input else do
+            unless sameCompleteWireContext input pending do
+              throwError "the extraction observed a different pending point occurrence"
+            observations.modify (· + 1)
+            pure actualPoint
+      | _ => throwError "the extraction independently observed an endpoint-reference object"
+    let read := fun (input : Wire) (selected : CategoryContext) =>
+      capturedMapEndpoints h trace input selected true
+    let actual ← observeCurrentIntrinsicAssemblyWith observe read h value
+    let descriptor ← checkedFragment (actual.fragment.project #[.field "args", .index 0])
+    let pointData ← checkedFragment
+      (actual.fragment.project #[.field "args", .index 1, .field "args", .index 0])
+    unless descriptor == actualTarget.fragment && pointData == actualPoint.fragment &&
+        (← observations.get) == 1 && actual.categoryContext.isNone &&
+        !actual.completedData && actual.value == scalar do
+      throwError "the extraction lost its current target, exact point, suppliers or value role"
+    let again ← observeCurrentIntrinsicAssemblyWith observe read h actual
+    unless sameCompleteWireContext again actual && (← observations.get) == 1 do
+      throwError "the reference-origin extraction did not reuse its exact current point interface"
+    let #[fields] := originalAssembly.maps
+      | throwError "the reference-origin producer lost its exact endpoint relationship"
+    let movedData : DataOwnership.Data := {
+      json := fields.target.json
+      ownership := DataOwnership.capture fields.target.json ("different-original-target", 66) }
+    let wrongEndpoint := { fields.target with
+      payload := (← recipePayload fields.target.value movedData) }
+    unless wrongEndpoint.json == fields.target.json &&
+        wrongEndpoint.completedData == fields.target.completedData &&
+        wrongEndpoint.ownership != fields.target.ownership do
+      throwError "the changed-supplier control altered data or completion instead of only ownership"
+    let changed := { value with
+      intrinsicAssembly := some { originalAssembly with
+        maps := #[{ fields with target := wrongEndpoint }] } }
+    let rejected ← try
+      discard <| observeCurrentIntrinsicAssemblyWith observe read h changed
+      pure false
+    catch error =>
+      if CasCatalogue.Exception.stratum? error != some .unavailable then throw error
+      pure true
+    unless rejected && (← observations.get) == 1 do
+      throwError "the extraction accepted a moved supplier or observed its invalid original relation"
+  -- Captured pending producers without a receipt retain their immutable input
+  -- below the extraction's transparent view. Check the ordinary canonical
+  -- invocation entry rather than accepting a copied invocation identifier.
+  let aliasHarness ← Harness.empty
+  let bare := { pending with callableEndpoints := none, intrinsicAssembly := none }
+  let bare ← retainIntrinsicAssembly bare .map context (.literal bare.fragment)
+  let some bareAssembly ← retainedIntrinsicAssembly? bare .map
+    | throwError "the pending invocation control lost its own producer"
+  let captured ← retainCapturedInvocation aliasHarness bare (.intrinsic bareAssembly)
+  aliasHarness.results.modify (·.insert retainedPoint captured)
+  let aliasValue ← realizeUnobserved aliasHarness trace "the scalar of a pending invocation" scalar
+  let some aliasAssembly ← retainedIntrinsicValueAssembly? aliasValue
+    | throwError "the pending invocation extraction lost its value interface"
+  let .ctor "element" #[_, .ctor "point" #[.wire .map endpointView]] := aliasAssembly.template
+    | throwError "the pending invocation extraction lost its original point"
+  let some viewAssembly ← retainedIntrinsicAssembly? endpointView .map
+    | throwError "the missing endpoint receipt was added to the canonical invocation"
+  let .wire .map child := viewAssembly.template
+    | throwError "the missing endpoint receipt did not retain the original complete child"
+  unless sameCompleteWireContext child captured && endpointView.fragment == captured.fragment &&
+      endpointView.capturedInvocation.isNone && (← retainedCallableEndpoints? endpointView context).isSome &&
+      child.callableEndpoints.isNone do
+    throwError "the endpoint view changed its pending producer or failed to retain its own receipt"
+  let some invocation ← retainedCapturedInvocation? child
+    | throwError "the transparent endpoint view lost its child's pending owner"
+  discard <| capturedInvocationFrame aliasHarness child invocation
+
+-- A separately selected structure on the scalar carrier retains its own
+-- descriptor. A point endpoint reference cannot stand in for that structure.
+run_elab do
+  let .ok ring := Parser.runParserCategory (← getEnv) `cas_term "ℤ in Rings"
+    | throwError "the structured extraction control ring did not parse"
+  let .ok literal := Parser.runParserCategory (← getEnv) `cas_term "1 in R"
+    | throwError "the structured extraction control point did not parse"
+  let scope : Language.Scope := ({} : Language.Scope).insert `R ring
+  let trace ← Trace.new
+  let original ← (Language.eval scope literal).run { trace := some trace }
+  let expected ← elabTermAndSynthesize (← `(ℤ)) none
+  let scalar ← (Language.typedParameter expected original).run { trace := some trace }
+  let some (.elementValue point target selected) ← trace.node? scalar
+    | throwError "the structured extraction lost its selected object"
+  if ← withoutModifyingState (withTransparency .all <|
+      isDefEq (← inferType selected) (← inferType target)) then
+    throwError "the structured extraction control has only a carrier selection"
+  let some sets := (← registryState).categories.find? (·.id == CategoryId.sets)
+    | throwError "the structured extraction control lost its data category"
+  let packet := node "opaqueData" #[toJson "selected ring point"]
+  let supplied : Wire := {
+    form := .canonicalMorphism sets,
+    payload := .computed point (.owned "structured-extraction" 67 packet) }
+  let h ← Harness.empty
+  h.results.modify (·.insert point supplied)
+  let value ← realizeUnobserved h trace "the structured scalar" scalar
+  let selectedWire ← realizeUnobserved h trace "the independently selected structure" selected
+  let actual ← observeCurrentIntrinsicAssemblyWith
+    (fun role input => do
+      unless role == .retained || role == .map do
+        throwError "the structured extraction observed an independent carrier descriptor"
+      pure input)
+    (fun _ _ => throwError "the structured extraction requested a replacement carrier endpoint") h value
+  let descriptor ← checkedFragment (actual.fragment.project #[.field "args", .index 0])
+  let pointData ← checkedFragment
+    (actual.fragment.project #[.field "args", .index 1, .field "args", .index 0])
+  unless descriptor == selectedWire.fragment && pointData == supplied.fragment &&
+      actual.value == scalar && actual.categoryContext.isNone do
+    throwError "the scalar extraction replaced its selected structure with a carrier endpoint"
 
 -- The extracted value itself can inhabit a complete structured Hom. This is
 -- distinct from using the outer point as a map out of the global-point source.

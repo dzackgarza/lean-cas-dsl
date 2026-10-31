@@ -3786,21 +3786,20 @@ constraints will be used by ordinary registration admission. -/
 partial def prepareProspectiveReader (h inspect : Harness) (trace : Trace)
     (owner : Wire) (inputs : Array Wire := #[]) : TermElabM ProspectiveReader := do
   let receipts ← h.actions.get
-  let reserved := prospectiveReservedWire owner ++ inputs.flatMap prospectiveReservedWire ++
-    (← h.serviceOperands.get).flatMap prospectiveReservedWire ++
-    (← h.results.get).toArray.flatMap (fun (_, wire) => prospectiveReservedWire wire) ++
-    receipts.flatMap (fun receipt => #[Json.arr receipt.parameters] ++
-      (#[receipt.input, receipt.result] ++ receipt.parameterInputs ++ receipt.imageEndpoints).flatMap
-        prospectiveReservedWire)
+  let reserved : Array ProspectiveReservationRoot := #[.wire owner] ++ inputs.map .wire ++
+    (← h.serviceOperands.get).map .wire ++
+    (← h.results.get).toArray.map (fun (_, wire) => .wire wire) ++
+    receipts.flatMap (fun receipt => #[.json (Json.arr receipt.parameters)] ++
+      (#[receipt.input, receipt.result] ++ receipt.parameterInputs ++ receipt.imageEndpoints).map .wire)
   let reserved := reserved ++ (← h.invocations.get).flatMap fun record =>
-    prospectiveReservedWire record.input ++ prospectiveReservedInvocation record.captured.interface ++
-      record.result.toArray.flatMap prospectiveReservedWire ++
-      record.recordFields.toArray.flatMap (fun fields => fields.values.flatMap prospectiveReservedWire)
+    #[.wire record.input, .invocation record.captured.interface] ++
+      record.result.toArray.map .wire ++
+      record.recordFields.toArray.flatMap (fun fields => fields.values.map .wire)
   let mut declaredLiterals : Array Json := #[]
   for record in ← h.invocations.get do
     if let .routed selected := record.captured.interface then
       declaredLiterals := declaredLiterals ++ (← routedReservedProjectionData selected)
-  let reserved := reserved ++ declaredLiterals
+  let reserved := reserved ++ declaredLiterals.map .json
   let state ← IO.mkRef ({ reserved } : ProspectiveData)
   let reader : ProspectiveReader := {
     live := h, inspect, trace, state
@@ -3844,7 +3843,7 @@ partial def routedInvocationRegistrations (h : Harness) (trace : Trace) (wire : 
     (#[selected.original] ++ selected.boundaries.map (·.receiver))
   let literals ← routedReservedProjectionData selected
   reader.state.modify fun state => { state with
-    reserved := state.reserved ++ prospectiveReservedInvocation (.routed selected) ++ literals,
+    reserved := state.reserved ++ #[.invocation (.routed selected)] ++ literals.map .json,
     activeInvocations := h.invocationStack }
   let (boundary, registration, _) ← prospectiveRoutedSelectionWith reader selected
   return (boundary, registration)
