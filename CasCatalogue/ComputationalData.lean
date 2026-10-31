@@ -3494,9 +3494,11 @@ partial def admissionInterface (objects : InterfaceObjects) (entry : ObjectEntry
     | return .error "the registered admission has no original data binder"
   unless target.headBeta.getAppFn.constName? == some entry.declaration do
     return .error "the admission does not belong to the selected published object"
-  let mut fixedTarget := fixedTarget.consumeMData.headBeta
+  -- Inspect administrative wrappers without replacing the independently fixed
+  -- result used by the complete signature and ordered parameter checks below.
+  let mut fixedTarget := Trace.unanchor fixedTarget.consumeMData.headBeta
   while fixedTarget.isAppOfArity ``id 2 do
-    fixedTarget := fixedTarget.appArg!.consumeMData.headBeta
+    fixedTarget := Trace.unanchor fixedTarget.appArg!.consumeMData.headBeta
   unless fixedTarget.getAppFn.constName? == some entry.declaration do
     return .error "the admission changes the independently selected named object"
   unless ← withTransparency .all <| isDefEq result expected do

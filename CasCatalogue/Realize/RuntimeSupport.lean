@@ -15124,7 +15124,7 @@ def realizeFreshWith
       let selected ← realizeEndpoint h trace "the admitted point selected target" selected
       let datumContext ← completedCallableContext datum source target
       let template : ActionDataTemplate := .ctor "admittedPoint"
-        #[.literal { json := toJson id.raw }, .retained (.array parameterTemplates),
+        #[.literal { json := toJson id.raw }, .array parameterTemplates,
           .wire .object source, .wire .object target, .wire .object selected,
           .wire .map datum]
       let (json, dependencies) ← renderCapturedActionData template

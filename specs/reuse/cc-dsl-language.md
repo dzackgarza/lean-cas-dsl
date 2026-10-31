@@ -1239,6 +1239,19 @@ were recovered after a workspace replacement. Earlier prototype passes do not
 substitute for compiling and running the original production controls against
 the recovered source. Protected questions, expected answers and budgets are unchanged.
 
+## Retain the original admission producer — 2026-10-31
+
+`Language.admit` creates a new interpreted producer. It now keeps the handle
+returned by `Trace.recordProduced` for the checked admission and any original
+terminal comparison composite, then uses `Trace.aliasProduced` after the unchanged
+`homIn`. The original declaration, evidence, ordered parameters, categories and
+endpoints remain exact. The outward expected-type wrapper therefore retains the
+address required by the existing canonical invocation owner. The passing public
+admission control checks distinct equal-formal producers and stable reuse of
+each complete result; the original first RX-LIFT preparation also passes. The
+[realizer reuse record](cc-realizer-first.md#original-admission-parameters-and-producer-retention--2026-10-31)
+records the causal packet comparison, focused receipts and remaining engine gate.
+
 ## Private complete snapshots and bounded profiling (2026-10-29)
 
 ### Preserve an existing producer when recording a fixed-parameter view

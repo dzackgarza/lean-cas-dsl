@@ -8047,7 +8047,7 @@ partial def admit (D : Value) (v : Value) (proofs : Array Value := #[]) : M Valu
   unless ← isTypeCorrect admitted do
     throwStratum .invalid m!"the admission of {entry.name} is outside its declared signature"
   let parameters ← (explicit.filter (· < xi)).mapM fun i => instantiateMVars args[i]!
-  Trace.record (← read).trace admitted
+  let admitted ← Trace.recordProduced (← read).trace admitted
     (.admittedPoint entry.id category.id parameters original originalCategory
       originalSource originalTarget)
   let source ← instantiateMVars admissionSource
@@ -8057,11 +8057,10 @@ partial def admit (D : Value) (v : Value) (proofs : Array Value := #[]) : M Valu
     let composite ← mkAppM ``CategoryTheory.CategoryStruct.comp #[comparison, admitted]
     unless ← isTypeCorrect composite do
       throwStratum .invalid m!"the admission's terminal comparison has incompatible endpoints"
-    Trace.record (← read).trace composite
+    Trace.recordProduced (← read).trace composite
       (.morphismComposition category.id comparison admitted one source d)
-    pure composite
   let hom ← homIn (← quoteExpr point) one d category
-  Trace.alias (← read).trace point hom
+  let hom ← Trace.aliasProduced (← read).trace point hom
   return .element hom D
 
 /-- Compare a declaration and every ordered argument before its result can unfold.

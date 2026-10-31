@@ -1,5 +1,14 @@
 # Journal
 
+## 2026-10-31 — Observe original admission parameters and retain their producer
+
+The original RX-LIFT packet retained parameter recipes after its selected target had advanced to actual owned data.
+Admission observation now traverses the original typed children while preserving their inert roles and all complete-interface checks.
+Declaration-head inspection recognizes producer wrappers; the public reader retains the admission's produced handle through its Hom view.
+Eight focused controls pass with unchanged inputs, including distinct equal admissions, exact reuse and supplier rejection.
+The original first question prepares with all 22 bindings and 104 nodes at the unchanged budget; full engine replay remains required.
+The preceding full consumer run is red in 40 modules. No mathematical source, permanent assertion, leaf or budget changes; V1 remains open.
+
 ## 2026-10-31 — Compare shared retained contexts once per complete node pair
 
 The unchanged first RX-LIFT computation exhausted its original budget while

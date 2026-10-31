@@ -15,6 +15,77 @@ Corpus (`<lean-categories>/scripts/formalization_corpus.py search`), 2026-09-29.
 - Composition of the catalogue's functors, and of commuting squares between them, is Mathlib's
   (`Functor.comp`, pasting of `CatCommSq`s).
 
+## Original admission parameters and producer retention — 2026-10-31
+
+### Queries and existing owners
+
+The selected formalization corpus was searched for `"mapM" "parameters"` and
+`"traverse" "dependent"` with successful responses. Their broad hits supplied no
+replacement for this existing runtime boundary. Source inspection reuses
+`capturedParameterData`, `ActionDataTemplate`, `mapActionTemplateWires`,
+`ComputationalData.admissionInterface`, `Trace.recordProduced`,
+`Trace.aliasProduced` and the existing canonical invocation owner. The existing
+published admission, its evidence procedure and complete declared telescope
+remain mathematical authority; no mathematical declaration or leaf is authored.
+
+### Exact failure and correction
+
+The committed `b483b815` candidate's original first RX-LIFT run
+[41207361077](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/41207361077)
+reported `unavailable` at `lift.bilin_module.restrict#obj`, dispatch 20:
+`element's complete scalar target differs from the complete selected descriptor`.
+Its public request has an element target exactly equal to the nested admission's
+selected target. The admission's first parameter also agrees. Its second and
+third parameters still contain original action recipes where the selected target
+contains the actual owned replies from dispatches 0 and 14. This is an ordered
+packet inconsistency, not an identification or correctness claim from a leaf.
+
+The admission now traverses its parameter array through the original captured
+child roles. The enclosing array no longer suppresses all observation with a
+retained wrapper. Each child's own retained wrapper, retained role or literal
+remains unchanged. The independently selected target advances through its
+existing typed slot, with the original formal, category, parameter order,
+complete endpoint and supplier checks intact. No JSON search, replacement or
+expression-cache reselection supplies a parameter.
+
+`admissionInterface` removes administrative producer wrappers only while
+inspecting the fixed target's declaration head. Its complete result and ordered
+parameter checks still consume the original expected interface. `Language.admit`
+retains the existing produced handles for the checked admission, any original
+terminal comparison composite, and the final checked Hom view. This prevents
+ordinary observation from rebuilding an unaddressed admission and allocating
+fresh outer operand handles.
+
+### Engineering validation boundary
+
+The appended registered-map control uses the public admission and existing
+arbitrary functor protocol. It requires actual owned parameter data to agree
+with both ordered target slots, retains the original action input despite an
+equal-formal cache replacement, preserves inert child roles, and rejects changed
+parameter count, context or suppliers before callbacks or invocation allocation.
+Two equal formal admissions must own distinct preparations; each must reuse its
+own complete result and handles, while sharing the one exact parameter action.
+Both reject reuse after the actual supplier is unavailable.
+
+`admission-parameter-regression-v6` passes all eight focused targets in
+35.910 seconds with unchanged input hashes (log SHA-256
+`18c15cbe482bab89e18b675070aba6406ede2a0eb61045a2d16ac3eb69614088`).
+The targets are RegisteredMapAdmission, AdmissionBoundary, WholeFunctionFraming,
+IntrinsicObservationReuse, ProducerOccurrence, SourceParameterBinding,
+CompleteCallableObservation and CompleteContextSharing. The prior v5 run rebuilt
+Language, ComputationalData, RuntimeSupport and Realize and passed its actual
+controls; its overall exit 1 was a misspelled, nonexistent producer-control
+module name, corrected in v6. Source review found no blocking defect.
+
+`admission-original-first-prepare-v1` also exits 0 in 13.457 seconds with unchanged
+input hashes. The original first RX-LIFT question retains 22 bindings and 104
+trace nodes; preparation takes 6580 ms and 73,728,748 raw heartbeat ticks at the
+unchanged 200000 setting. This prepares only the original question. It does not
+execute an engine or establish a hold, and the next full run must still fit
+preparation and evaluation within their original shared budget. The original
+engine computation, full integration, mathematical readings and independent
+acceptance remain separate requirements.
+
 ## Reconstructed operation operands and reservation — 2026-10-31
 
 `prepareOperationObservation` reuses `operationPresentationOperandClosure` and

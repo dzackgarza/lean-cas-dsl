@@ -45,9 +45,11 @@ the independent frozen-candidate assessment. #83 remains closed, and permanent
 assertions, original imports/bindings/order and the shared 200000-heartbeat
 budget remain unchanged.
 
-The recovered source checkpoint is now published as
-`f2c6cdef0c3335578b1616eb98abef17246f7a63`, tree
-`c72d1c8e4687262246576da745809882722adc05`, identical to local `50d13a3`.
+The reconstructed source checkpoint is published as
+`b483b815537a0ceddf11a2e61c5333376717ccc7`, tree
+`3363b4fe1056aa42fd18cb3e9ad03db36c8f587e`, identical to local `89debd5`.
+The admission repair below is the next source unit; publication of this record
+does not establish its engine outcome or complete V1.
 The GitHub branch and ordinary fetched Git tree both confirm that publication.
 All 14 dependency checkouts and the official Lean 4.33.0 distribution are now
 restored. The saved 57,485 build artifacts match their recorded bytes, modes and
@@ -78,10 +80,16 @@ differential cases), ProspectiveReservationProbes, IntrinsicValueOccurrenceProbe
 ReaderContextContinuityProbes and DeclaredParameterEndpointProbes.
 OperationOwnerExecutionProbes remains separately red: unavailable underlying-functor
 registration, descriptor construction executing its owner, and the new control's
-missing genuine framed-request precondition. Full consumer/native builds, fresh
-reading exports, original computations, connected workflows/notebook and independent
-frozen trials remain unverified on this reconstruction. The local engine interpreter
-is still absent; the configured CI engine setup is available for its own runs.
+missing genuine framed-request precondition. The full `integrated-consumers-v1`
+run subsequently exits 1 after 1174.698 seconds with unchanged inputs: 40 modules
+fail with 120 reported errors. That is a red integration result, not an unrun
+check. The log SHA-256 is
+`9a05dbdb42c8075d1ccd5ae446c9a55b7889a4d0bf5071d2fb5faaa8d7ee0623`.
+Some failures expose production reader/runtime defects and others require
+engineering fixtures to use the current capture APIs; none is waived. Native
+builds, fresh reading exports, original computations, connected workflows/notebook
+and independent frozen trials remain required. The local engine interpreter is
+still absent; the configured CI engine setup is available for its own runs.
 
 The earlier `f2c6cd` source-only checkpoint's
 [CI run 41204753915](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/41204753915)
@@ -96,6 +104,49 @@ The manifest records that same contract selection; the other 13 package revision
 are unchanged. Latest leaf main is `0030cccf`; the original diagnostic remains
 frozen at `a1d72cfa`. Recording this experiment does not replace the latest-main
 delivery requirement or activate any acceptance baseline.
+
+### Original admission packet and producer repair — 2026-10-31 UTC
+
+The `b483b815` candidate's [run 41207361077](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/41207361077)
+compiled production and ran the original first RX-LIFT question. It reported
+`unavailable`: `element's complete scalar target differs from the complete selected
+descriptor`. All 22 preceding bindings, 104 trace nodes and the original shared
+200000-heartbeat budget remain. Preparation and evaluation used 64,356,019 and
+122,351,096 raw ticks, respectively; 21 dispatches were recorded. Later full
+checks were skipped after this unresolved first computation, and the final
+candidate record separately failed because required downstream products were absent.
+
+Literal public-packet comparison isolates the mismatch at dispatch 20's
+`lift.bilin_module.restrict#obj`: the element descriptor and admission's selected
+target agree, but the second and third ordered parameters still contain action recipes where
+the target contains the owned replies from dispatches 0 and 14. The first
+parameter agrees. The repair observes the original typed parameter children
+without an enclosing retained-array suppression, preserving each child's own
+retained or literal role. Declaration-head inspection recognizes administrative
+producer wrappers without changing full interface checks. The public admission
+reader also retains its produced handle through the checked Hom view; ordinary
+observation then reuses its exact canonical result and operand handles.
+
+`admission-parameter-regression-v6` passes all eight focused targets in 35.910
+seconds with unchanged input hashes. It includes two equal public admissions
+with distinct preparations, exact per-producer reuse, one original parameter
+action, unchanged inert children and rejecting context/parameter/supplier controls.
+The prior v5 compiled the production closure and passed its real controls, but
+exited 1 because one requested target name did not exist; v6 corrects that name.
+`admission-original-first-prepare-v1` passes in 13.457 seconds with unchanged inputs:
+22 original bindings, 104 trace nodes, 6580 ms and 73,728,748 raw preparation ticks.
+This is preparation only. The next configured CI run must execute the original
+question with the same shared preparation/evaluation budget. Neither this source
+unit nor its engineering controls establish a mathematical hold or B0 acceptance.
+
+The 2026-10-31 14:42:43 UTC integration resolution confirms unchanged latest mains:
+mathematics `3f8aedfd`, contract `33a514c2`, notebook `4c6c2a77`, leaves `0030cccf`.
+The original diagnostic still uses its frozen leaf `a1d72cfa`; no local engine is
+installed and no leaf implementation or test is inspected. The reuse record
+[documents the original inputs and validation](specs/reuse/cc-realizer-first.md#original-admission-parameters-and-producer-retention--2026-10-31).
+Full integration, fixed readings/computations, connected workflows/notebook and
+independent frozen assessment remain open. Unapplied reader/fixture proposals
+are not production fixes or passing results.
 
 ### Owner actions and execution dependencies
 
