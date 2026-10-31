@@ -111,7 +111,7 @@ run_cmd liftTermElabM do
   let exactTerm ← elabTermAndSynthesize exact[0]! none
   unless ← Lean.Meta.isDefEq exactTerm coefficient do
     throwError "an already typed selected parameter was replaced"
-  let recovered ← (recognize state seriesHandle sets).run {}
+  let recovered ← (recognize state seriesHandle sets).run { sourceTrace := some trace }
   let .object _ _ (some (_, #[.object _ parameterCategory (some (parameterEntry, _)) _ _])) _ _ := recovered
     | throwError "structured constructor parameter lost its registered origin"
   unless parameterCategory.id == commutative.id && parameterEntry.id == selectedEntry.id do
@@ -125,8 +125,17 @@ run_cmd liftTermElabM do
   let trace ← Trace.new
   let plain ← (object state "ℂ" #[] (some sets)).run { trace := some trace }
   let selected ← (object state "ℂ" #[] (some rings)).run { trace := some trace }
-  let .object _ _ (some (selectedEntry, _)) _ _ := selected
+  let .object selectedHandle _ (some (selectedEntry, _)) _ _ := selected
     | throwError "structural parameter probe lost its selected origin"
+  let some selectedNode@(.object selectedId _) ← trace.node? selectedHandle
+    | throwError "the selected structural source lost its original object record"
+  unless selectedId == selectedEntry.id do
+    throwError "the selected structural source changed its registered object"
+  Trace.checkProducerRecord selectedHandle selectedNode
+  let some selectedAnchor := Trace.producerAnchor? selectedHandle
+    | throwError "the selected structural source lost its own producer key"
+  unless selectedAnchor.formal.getAppFn.constName? == some selectedEntry.declaration do
+    throwError "the selected structural source changed its literal declaration"
   let some sum := state.morphisms.find? (·.name == "∑")
     | throwError "structural parameter probe has no registered family"
   let domain ← (object state "Fin" #[.nat 2] (some sets)).run {}
@@ -134,7 +143,7 @@ run_cmd liftTermElabM do
   let transported := (← trace.get).toArray.any fun (_, node) => match node with
     | .retainedRoute sourceCategory targetCategory route applications receiver =>
         sourceCategory == rings.id && targetCategory != rings.id && !route.isEmpty &&
-          applications.size == route.size && receiver.getAppFn.constName? == some selectedEntry.declaration
+          applications.size == route.size && receiver.equal selectedHandle
     | _ => false
   unless transported do
     throwError "structural parameter route or exact source provenance was erased"

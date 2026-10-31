@@ -12,6 +12,25 @@ oracle, alter the selected formal object, or assert a backend answer. -/
 private def node (tag : String) (arguments : Array Json) : Json :=
   Json.mkObj [("ctor", toJson tag), ("args", Json.arr arguments)]
 
+/-- Inspect one authenticated literal declaration application. Execution keeps the
+original addressed object; neither the requested value nor its parameters are reduced. -/
+private def originalObjectApplication (trace : Trace) (entry : ObjectEntry)
+    (value : Expr) : TermElabM Expr := do
+  let some retained@(.object id parameters) ← trace.node? value
+    | throwError "the family inspection lost its original object record"
+  unless id == entry.id do
+    throwError "the family inspection changed its registered object"
+  Trace.checkProducerRecord value retained
+  let some anchor := Trace.producerAnchor? value
+    | throwError "the family inspection lost its own producer key"
+  unless anchor.formal.getAppFn.constName? == some entry.declaration do
+    throwError "the family inspection changed its literal declaration"
+  let arguments ← Semantic.namedDeclarationParameters entry.declaration anchor.formal
+  unless arguments.size == parameters.size &&
+      (arguments.zip parameters).all (fun (actual, original) => actual.equal original) do
+    throwError "the family inspection changed its exact ordered parameters"
+  return anchor.formal
+
 run_elab do
   let state ← registryState
   let trace ← Trace.new
@@ -24,6 +43,8 @@ run_elab do
     | throwError "the existing map family is absent"
   for modulus in #[5, 7] do
     let coefficients ← Semantic.object coefficientRow #[← exprToSyntax (mkNatLit modulus)] (some trace)
+    -- Inspect the declaration application; execution retains the original anchored object.
+    let coefficientApplication ← originalObjectApplication trace coefficientRow coefficients
     let formalMap ← instantiateMVars (← elabTermAndSynthesize
       (← `(CasCatalogue.Algebra.LinearAlgebra.matrixLinearMap 2
         $(← exprToSyntax coefficients)
@@ -32,9 +53,9 @@ run_elab do
     let some (source, _) := Language.homEnds? (← inferType formalMap)
       | throwError "the original map lost its complete source"
     let scalar := source.getAppArgs[0]!
-    let some recovered ← completeObjectFamilyApplication? ringRow.declaration scalar coefficients
+    let some recovered ← completeObjectFamilyApplication? ringRow.declaration scalar coefficientApplication
       | throwError "the original published family lost its complete parameters"
-    unless recovered.getAppArgs == coefficients.getAppArgs do
+    unless recovered.getAppArgs == coefficientApplication.getAppArgs do
       throwError "whole-family recovery replaced the original parameter expressions"
     let scalarData := node ringRow.id.raw #[toJson modulus]
     unless (← parameterData trace scalar) == scalarData do
@@ -56,22 +77,25 @@ run_elab do
     | throwError "missing finite-set family"
   let coefficients ← Semantic.object coefficientRow #[← `(5)] (some trace)
   let other ← Semantic.object coefficientRow #[← `(7)] (some trace)
+  -- The helper inspects literal registered applications, including in negative controls.
+  let coefficientApplication ← originalObjectApplication trace coefficientRow coefficients
+  let otherApplication ← originalObjectApplication trace coefficientRow other
   let action ← Semantic.edgeFunctor state (.functor FunctorId.commutativeRingsRings)
   let scalar ← whnfR (← Semantic.objOf action coefficients)
   let carrier ← mkAppM ``CommRingCat.carrier #[coefficients]
   let finite ← Semantic.object finRow #[← `(5)] none
   unless ← withTransparency .all <| isDefEq carrier finite do
     throwError "the equal-carrier control no longer separates an accidental point match"
-  if (← completeObjectFamilyApplication? finRow.declaration carrier coefficients).isSome then
+  if (← completeObjectFamilyApplication? finRow.declaration carrier coefficientApplication).isSome then
     throwError "agreement at one carrier selected an unrelated finite-set family"
-  if (← completeObjectFamilyApplication? ringRow.declaration scalar other).isSome then
+  if (← completeObjectFamilyApplication? ringRow.declaration scalar otherApplication).isSome then
     throwError "a source absent from the original expression supplied its parameters"
   let pair ← mkAppM ``Prod.mk #[coefficients, other]
   let selected ← mkAppM ``Prod.fst #[pair]
   let selectedPair ← whnfR (← Semantic.objOf action selected)
-  unless (← completeObjectFamilyApplication? ringRow.declaration selectedPair coefficients).isSome do
+  unless (← completeObjectFamilyApplication? ringRow.declaration selectedPair coefficientApplication).isSome do
     throwError "the exact contributing occurrence was lost inside the full object"
-  if (← completeObjectFamilyApplication? ringRow.declaration selectedPair other).isSome then
+  if (← completeObjectFamilyApplication? ringRow.declaration selectedPair otherApplication).isSome then
     throwError "an unrelated occurrence supplied parameters by a match at one value"
 
 run_elab do

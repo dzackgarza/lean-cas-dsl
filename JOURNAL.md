@@ -1,5 +1,54 @@
 # Journal
 
+## 2026-10-31 — Exercise contextual Hom ownership through public receive and capture
+
+The contextual-Hom fixture now receives its three owned packets from actual
+protocol calls and captures original endpoints through the public API.
+Its portable graph remains unowned; all original full-Hom, category-dictionary,
+ownership-path and swapped-endpoint guards pass, followed by missing/expired
+owner negatives. The module builds in 4.2 seconds with unchanged guarded inputs.
+The complete deferred-service and mixed-ownership modules also pass in 18.405
+seconds after a checked type view elaborates their original zero-valued maps.
+That separate fixture correction preserves every payload/owner/position and
+original target check. The created-projection fixture also passes its complete
+module in 5.799 seconds after its original leg and field expectations include
+the current complete-map frames, with exact schema binder and full-Hom checks.
+Original packet/index/owner/value, reuse, composition and supplier-expiry
+predicates remain. The service fixtures' legacy observation flags remain a
+separate obligation. No mathematical assertion, runtime ownership predicate,
+source import or budget is changed.
+
+## 2026-10-31 — Preserve question displays and original parameter occurrences
+
+The original false-question control now retains its complete machine/display
+identity pair: only pretty-printer copies use the existing allocation-independent
+producer view. Machine encoding, type inference and execution keep original terms.
+The typed parameter reader retains an authenticated original source instead of
+allocating an equal named source, but only with exact ordered supplied parameters.
+A new control distinguishes two actual equal-formal parameter producers and
+requires the supplied B through reconstruction while preserving the original A.
+Language, Realize and source/order controls compile; the complete QuestionProbes
+run now has only the two later instance/route failures. The guarded combined run
+takes 652.017 seconds with unchanged inputs. No accepted question baseline,
+mathematical assertion or budget is changed; full integration and independent
+meaning assessment remain open.
+
+## 2026-10-31 — Retain explicitly selected derived numeral contexts
+
+The numeral reader skipped an explicitly selected derived object and fell back
+to treating its Ring and Semiring views as independent contextual owners.
+A sibling of the existing selected-object branch now obtains every owner
+through the original complete context and declared transport, retaining the
+selected value and the full point-agreement checks. Original independent-owner
+controls remain unchanged; additive derived-owner controls reject independent
+context-only sources in both orders. Language and the complete ContextParameter,
+ContextualNumeralOwner, ForwardNumeralIndependentOwner and RoutedComposition
+controls pass in 164.373 seconds with unchanged inputs and original budgets.
+Related engineering fixtures now authenticate exact producer records and actual
+typed method parameters through existing public APIs. The original unavailable
+RX-LIFT computation, remaining reader failures and full integration stay open;
+no mathematical, permanent-assertion, leaf or budget changes are accepted here.
+
 ## 2026-10-31 — Exercise staged points and anonymous endpoints with live suppliers
 
 Two engineering fixtures no longer fabricate opaque owners in empty harnesses.
@@ -7,6 +56,7 @@ The staged-numeral control keeps its original reader-generated realization, exac
 The complete-named-data control keeps its first four blocks, separates the explicitly named identity from an actual anonymous reply, and retains the anonymous endpoint predicate at the original projection entry point.
 Both now reject ownership use in a foreign harness and after the real supplier stops, without assigning producer receipts or observation flags.
 Guarded local runs pass in 6.795 and 7.201 seconds with unchanged inputs; source review found no blocking scope defect.
+Publication `3d8ba66f` has the identical tested tree; its candidate CI reproduces the unavailable original lift in 198,067,179 total ticks, with unchanged source tuples and no broader-stage success.
 No production, mathematical, permanent-assertion, leaf or budget changes; the first RX-LIFT assertion and full integration remain unresolved.
 
 ## 2026-10-31 — Validate checked proof targets and reuse exact producer checks

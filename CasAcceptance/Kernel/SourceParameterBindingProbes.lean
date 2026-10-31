@@ -56,3 +56,72 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
     if Exception.interpretationKind error == .ambiguous then pure true else throw error
   unless ambiguous do
     throwError "a projected carrier silently selected one of two complete owners"
+
+/- A retained named family can be reused only at its original parameter occurrences.
+The supplied parameter B is definitionally equal to A but is a different producer;
+ordinary reconstruction must retain B instead of reusing the family built from A. -/
+run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
+  let state ← registryState
+  let sets ← categoryNamed state "Sets"
+  let rings ← categoryNamed state "Rings"
+  let some commutative := state.categories.find? (·.id == CategoryId.commutativeRings)
+    | throwError "the parameter-occurrence control has no registered coefficient category"
+  let some sum := state.morphisms.find? (·.name == "∑")
+    | throwError "the parameter-occurrence control has no registered typed route"
+  let trace ← Trace.new
+  let first ← (object state "ℚ" #[] (some commutative)).run { trace := some trace }
+  let second ← (object state "ℚ" #[] (some commutative)).run { trace := some trace }
+  let .object firstHandle _ (some (firstEntry, _)) _ _ := first
+    | throwError "the first supplied coefficient has no original named binding"
+  let .object secondHandle _ (some (secondEntry, _)) _ _ := second
+    | throwError "the second supplied coefficient has no original named binding"
+  let some firstNode@(.object firstId _) ← trace.node? firstHandle
+    | throwError "the first supplied coefficient has no real producer record"
+  let some secondNode@(.object secondId _) ← trace.node? secondHandle
+    | throwError "the second supplied coefficient has no real producer record"
+  Trace.checkProducerRecord firstHandle firstNode
+  Trace.checkProducerRecord secondHandle secondNode
+  unless (Trace.producerAnchor? firstHandle).isSome &&
+      (Trace.producerAnchor? secondHandle).isSome &&
+      firstId == firstEntry.id && secondId == secondEntry.id && firstId == secondId &&
+      !(firstHandle.equal secondHandle) &&
+      (← withTransparency .all <| isDefEq (← inferType firstHandle) (← inferType secondHandle)) &&
+      (← withTransparency .all <| isDefEq firstHandle secondHandle) do
+    throwError "the source control does not distinguish equal-formal parameter producers"
+  let original ← (object state "Poly" #[first] (some rings)).run { trace := some trace }
+  let .object originalHandle category (some (entry, _)) selected viewData := original
+    | throwError "the source control has no retained named polynomial family"
+  let some originalNode@(.object originalId #[originalParameter]) ← trace.node? originalHandle
+    | throwError "the original named family has no real parameterized producer record"
+  Trace.checkProducerRecord originalHandle originalNode
+  unless originalId == entry.id && originalParameter.equal firstHandle do
+    throwError "the original named family does not retain parameter producer A"
+  let supplied := Value.object originalHandle category (some (entry, #[second])) selected viewData
+  let domain ← (object state "Fin" #[.nat 2] (some sets)).run {}
+  let terms ← (typedParamTerms sum.declaration #[domain, supplied]).run { trace := some trace }
+  unless terms.size == 2 do
+    throwError "the original typed family route changed its explicit parameter positions"
+  let actual ← elabTermAndSynthesize terms[1]! none
+  let some routed@(.retainedRoute sourceCategory targetCategory route applications receiver) ←
+      trace.node? actual
+    | throwError "the supplied parameter has no actual retained structural route"
+  Trace.checkProducerRecord actual routed
+  unless sourceCategory == rings.id && targetCategory != rings.id &&
+      !route.isEmpty && applications.size == route.size &&
+      !(receiver.equal originalHandle) do
+    throwError "a family built from A replaced construction from supplied producer B"
+  let some rebuilt@(.object rebuiltId #[rebuiltParameter]) ← trace.node? receiver
+    | throwError "the fallback construction has no actual named source record"
+  Trace.checkProducerRecord receiver rebuilt
+  let rebuiltParameters ← Semantic.namedDeclarationParameters entry.declaration receiver
+  unless rebuiltId == entry.id && rebuiltParameter.equal secondHandle &&
+      rebuiltParameters.size == 1 && rebuiltParameters[0]!.equal secondHandle do
+    throwError "the reconstructed source erased supplied parameter producer B"
+  let some preserved@(.object preservedId #[preservedParameter]) ← trace.node? originalHandle
+    | throwError "the fallback construction replaced the original source record"
+  Trace.checkProducerRecord originalHandle preserved
+  unless preservedId == originalId && preservedParameter.equal firstHandle do
+    throwError "the fallback construction changed original parameter producer A"
+  let entries ← (← trace.get).toArray.mapM fun (value, node) => do
+    return (← instantiateMVars value, ← node.mapTermsM instantiateMVars)
+  Trace.checkProducedEntries entries #[firstHandle, secondHandle, originalHandle, actual]

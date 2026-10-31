@@ -36,7 +36,22 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
   if ← QuestionIdentity.equivalentNode node empty then
     throwError "independent comparison erased the method's accepted comparisons"
   let encoded ← snapshot #[(value, node)]
-  if encoded == (← snapshot #[(value, empty)]) then
+  let snapshotOperation (serialized : String) : TermElabM (Array Json) := do
+    let .ok document := Json.parse serialized
+      | throwError "the counterfactual operation snapshot is not JSON"
+    let .ok roots := (document.getObjVal? "roots").bind (·.getArr?)
+      | throwError "the counterfactual operation snapshot has no records"
+    let .ok row := roots[0]!.getArr?
+      | throwError "the counterfactual operation record changed its shape"
+    let .ok operation := row[1]!.getArr?
+      | throwError "the counterfactual operation fields are absent"
+    return operation
+  -- Counterfactual records get their own complete producer keys. The actual
+  -- method value and its original record above remain unchanged.
+  let emptyTrace ← Trace.new
+  let emptyValue ← Trace.recordProduced (some emptyTrace) (Trace.unanchor value) empty
+  let emptyEncoded ← snapshot #[(emptyValue, empty)]
+  if encoded == emptyEncoded then
     throwError "the operation snapshot erased the method's accepted comparisons"
   let .ok document := Json.parse encoded | throwError "the operation snapshot is not JSON"
   let .ok roots := (document.getObjVal? "roots").bind (·.getArr?)
@@ -51,6 +66,13 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
     let .ok fields := record.getArr? | throwError "a comparison record is incomplete"
     unless fields.size == 2 && fields[0]! == OperationAgreement.encodeRouteComparison context do
       throwError "a comparison lost its constructor or whiskering context"
+  -- A fresh key also embeds its node description. Inspect the serialized node
+  -- field itself, so a root-key difference cannot satisfy this comparison check.
+  let emptyOperation ← snapshotOperation emptyEncoded
+  let .ok emptyComparisons := emptyOperation[4]!.getArr?
+    | throwError "the empty comparison field is absent"
+  unless emptyComparisons.isEmpty && emptyOperation != operation do
+    throwError "the serialized operation did not retain its empty comparison field"
   let first := retained[0]!
   let changedContext := { first.1 with
     after := first.1.after.push (.functor ⟨"probe.changed_comparison_context"⟩) }
@@ -58,8 +80,28 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
   let altered := Node.method id route original changed application
   if ← QuestionIdentity.equivalentNode node altered then
     throwError "independent comparison erased a changed whiskering context"
-  if encoded == (← snapshot #[(value, altered)]) then
+  let alteredTrace ← Trace.new
+  let alteredValue ← Trace.recordProduced (some alteredTrace) (Trace.unanchor value) altered
+  let alteredEncoded ← snapshot #[(alteredValue, altered)]
+  if encoded == alteredEncoded then
     throwError "the snapshot erased a changed whiskering context"
+  let alteredOperation ← snapshotOperation alteredEncoded
+  let .ok alteredComparisons := alteredOperation[4]!.getArr?
+    | throwError "the altered comparison field is absent"
+  unless alteredComparisons.size == changed.size && alteredOperation != operation do
+    throwError "the serialized operation erased its altered comparison field"
+  for ((context, _), record) in changed.zip alteredComparisons do
+    let .ok fields := record.getArr?
+      | throwError "an altered comparison record is incomplete"
+    unless fields.size == 2 && fields[0]! == OperationAgreement.encodeRouteComparison context do
+      throwError "an altered comparison lost its exact constructor or whiskering context"
+  for candidate in #[empty, altered] do
+    let rejected ← try
+      discard <| snapshot #[(value, candidate)]
+      pure false
+    catch _ => pure true
+    unless rejected do
+      throwError "the original producer key accepted an altered comparison record"
   for candidate in #[#[], changed, retained.set! 0 (first.1, mkNatLit 0)] do
     let rejected ← try
       Semantic.checkRecordedRouteComparisons resolution.comparisonWitnesses expected candidate

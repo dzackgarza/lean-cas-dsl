@@ -25,13 +25,18 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
       (transportedStructureWithAction expected value (some sets.id)).run context
     let (freshImage, freshApplications) ←
       (checkedRouteAction state groups.id sets.id route receiver expected).run {}
-    unless image == freshImage && applications == freshApplications &&
+    -- Compare beneath this one authenticated producer wrapper, retaining its
+    -- original image, exact edge applications and full record for the checks below.
+    let some anchor := Trace.producerAnchor? image
+      | throwError "the selected route lost its own complete producer key"
+    unless anchor.formal == freshImage && applications == freshApplications &&
         (← inferType image) == (← inferType freshImage) && (← isTypeCorrect image) do
       throwError "retaining a local route trial changed its complete checked construction"
     unless image.hasFVar == openReceiver && closedReadingTerm image == !openReceiver do
       throwError "the route control lost its genuinely open or closed receiver"
     let some (.retainedRoute source target recorded actual original) ← trace.node? image
       | throwError "the selected route lost its actual provenance"
+    Trace.checkProducerRecord image (.retainedRoute source target recorded actual original)
     unless source == groups.id && target == sets.id && recorded == route &&
         actual == applications && original == receiver do
       throwError "the selected route changed its full receiver or edge applications"

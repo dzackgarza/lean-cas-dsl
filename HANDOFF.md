@@ -259,6 +259,73 @@ and 7.201 seconds respectively. Production source, permanent assertions and
 budgets are unchanged. These are two repaired engineering consumers, not a
 fresh full integration result or a resolution of the original unavailable lift.
 
+That fixture unit is published as `3d8ba66f357e8ccfb90f397567e404ce3e15d3b7`,
+tree `5d64a93d9b76eb7b0f5aad852ec461194b605168`, identical to local `7f05e45d`
+by API and ordinary Git fetch. [Candidate run 41223668225](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/41223668225)
+passes the cached production build and engine setup, then reproduces the
+original unavailable result at dispatch 20 with 21 recorded dispatches. All
+22 bindings, 104 nodes and the 200000 setting remain. Preparation again uses
+68,359,636 ticks; execution uses 129,707,370, totaling 198,067,179. All source
+guards remain unchanged. Public request differences from the parent are only
+literal opaque-token strings, without normalization; the 38 audited internal
+field equalities still hold. Broader stages remain skipped, not passed.
+
+### Current engineering consumer repairs — 2026-10-31 UTC
+
+The complete ContextParameter control exposed an explicitly selected derived
+source being skipped by the numeral reader. The new sibling branch transports
+every applicable owner through that original complete context and retains the
+selected expression. Context-only independently supplied Ring/Semiring owners
+remain ambiguous in either order. Original controls are preserved and the new
+derived-owner controls are additive. The coordinated Language and four-consumer
+build passes in 164.373 seconds with unchanged inputs and original budgets.
+
+Current fixture migrations also pass EndpointData, MethodComparisonRetention,
+ClosedRouteTrial, NamedRefinementPresentation, WholeFamilyParameterData and
+RoutedCompositionEngineering. They authenticate original producers, use fresh
+keys for deliberate counterfactual records, select the actual published method
+row and compare its actual typed parameter roles. No mathematical assertion or
+runtime ownership predicate was weakened. These are targeted results, not a
+fresh full integration run.
+
+QuestionProbes still exposes separate reader failures. A bounded original-block
+observation confirms a correctly refuted claim and equal machine identity, but
+display differences caused by producer allocation ordinals. The renderer now
+uses the existing pure occurrence-independent view only for copies passed to
+the pretty-printer. The source-retention repair authenticates the original
+named source and requires exact ordered parameter provenance; independently
+supplied equal-formal parameters retain the ordinary construction path.
+Language and Realize compile, the original question-pair and source-occurrence
+controls pass, and the additive A/B supplier control passes. The coordinated
+652.017-second run has unchanged inputs and only the later roots-instance and
+differential-route errors. ProducerOccurrence reuses its unchanged cached
+artifact. Binder evidence and differential ambiguity remain under bounded
+diagnosis. No new original-engine outcome or acceptance is claimed for this
+source combination.
+
+The original first RX-LIFT preparation still passes its 22-binding, 104-node
+and 200000-budget guards. A bounded original-route diagnostic completes in
+12.717 seconds with unchanged inputs: preparation uses 68,545,231 ticks and
+additional checks use 311,077. Both numeral owners are strictly equal to their
+original retained-route receivers. All three captured actions agree with their
+registered applications; complete category joins, final carrier images and
+original full point types agree. The report is SHA-256
+`7378e5ee38e4c53241991742da909f8f9c23d022ceeab760b56998f330a159d9`.
+No formal mismatch is established by these checks. Actual runtime occurrence
+capture remains a separate unobserved boundary; no opaque token is assigned to
+a prepared expression, and the original computation remains unavailable.
+
+ContextualHom now passes with actual received endpoint/callable packets, all
+original full-dictionary guards and added missing/expired-owner negatives.
+DeferredService and MixedDataOwnership pass after a checked type view elaborates
+their original constant map. Bounded CreatedProjection observations show exact
+formal values, complete types and owners, with the public complete-map envelope
+around the original leg/field packets. Its expectations now include both
+original endpoints; field maps authenticate the schema's apex binder and full
+Hom. The full module passes in 5.799 seconds with unchanged inputs, including
+field reuse, composition and missing/expired-supplier negatives. This repairs
+the engineering fixture; it supplies no mathematical answer or RX-LIFT outcome.
+
 ### Owner actions and execution dependencies
 
 `git push origin HEAD:refs/heads/work/kernel-v1-20261023` failed with
@@ -3077,6 +3144,9 @@ Deliver the working system and its runnable examples, not another assessment or 
 
 ## Noticed, not worked
 
+- DeferredServiceProbes and MixedDataOwnershipProbes still manually set legacy
+  `callableObserved` fields in their later assembled-map fixtures; the constant
+  type correction does not migrate those fields to public callable capture.
 - `retainPreparedOperationArgument` changes a pending product point's payload when
   `framed = none` and the supplied data differ, but does not attach the validated
   supplied template or refresh the old assembly. The product reconstruction is
@@ -3114,8 +3184,8 @@ Deliver the working system and its runnable examples, not another assessment or 
 - Ordinary method trace keys still use the raw result expression; accepted
   aliases can overwrite an earlier method occurrence. The complete retained
   application record does not itself repair this key collision.
-- The `8d357f9` custodian review still produces no verdict: run `41220259900`,
-  job `124593146786`, reports `REVIEW NOT COMPLETED (inputs unavailable)` because
+- The `3d8ba66f` custodian review still produces no verdict: run `41224642481`,
+  job `124606146144`, reports `REVIEW NOT COMPLETED (inputs unavailable)` because
   the private base checkout's `rev-parse FETCH_HEAD^{commit}` exits 128. The same
   failure occurred on parent `cb2239c` in run `41218348173`, job `124587506022`,
   before this publication, and was previously recorded for `f3545ac`. No verdict

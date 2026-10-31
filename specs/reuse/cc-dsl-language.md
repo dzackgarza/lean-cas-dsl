@@ -1,5 +1,181 @@
 # Reuse record: `cc-dsl-language`
 
+## Preserve an authenticated original parameter source — 2026-10-31
+
+The complete selected-route QuestionProbes block records the original
+ringComplexes source as producer 152, then finds a Rings-to-AddCommMonoid route
+whose receiver is a new producer 153 of that same declaration. Strict receiver
+equality fails; declaration-head equality would conceal the lost occurrence.
+The existing `typedParameter` applicability trial already constructs the full
+declared source without writing a trace. Its commitment path unnecessarily
+constructs another source instead of retaining the authenticated input.
+
+Reuse that existing applicability witness, `readingTrace?`, the accepted
+registry rows, `Trace.checkProducerRecord`, `CategoryContext.ofNamed` and
+`Semantic.namedDeclarationParameters`. The exact original object is eligible
+only when its record, complete accepted declaration/category, full type and
+value, and ordered recorded parameters agree. Ordered supplied parameters must
+also be strictly `Expr.equal`; definitional equality alone cannot identify two
+independently supplied producer occurrences. If exact parameter provenance is
+not established, preserve the ordinary construction from the supplied Values.
+Every source candidate, route class, comparison, refinement alternative and
+full-source ambiguity check remains. The successful declaration-inspection
+corpus query below supplies no replacement for these existing owners.
+
+Independent review caught that the first proposal checked the final parameter
+relationship only by definitional equality. That version is held and was never
+integrated. The corrected V2 patch is SHA-256
+`9dfabba326b4bcec46c4a19dd0fd17da147f987832796abfa7eed7a7cd578296`.
+Its first coordinated run fails compilation in 84.525 seconds with unchanged
+inputs: the two saved-state checks need the existing ReaderT-aware
+`parameterTrial`, and the optional result/fallback need explicit type and
+statement layout. The V3 integration correction changes only those monad/layout
+boundaries. Its next 80.878-second compile identifies the remaining early-return
+scope: an annotated bind does not delimit the nested optional action's returns.
+V4 uses an explicitly typed local `M (Option Expr)` action and an ordinary
+fallback result. A separate selected-runtime syntax control verifies that both
+branches continue through subsequent checks (2.126 seconds, unchanged inputs).
+The reviewed additive source control keeps the entire old file prefix and uses
+actual equal-formal parameter producers A/B; the supplied B must survive the
+ordinary fallback, while the original A record stays intact. Original receiver
+and supplied-parameter controls now pass in the coordinated
+`question-source-and-display-v3` run. Language and Realize compile; the complete
+SourceParameterBinding module including the additive control builds in 7.8
+seconds, and SelectedContextOrder in 2.0 seconds. ProducerOccurrence reuses its
+unchanged cached artifact. The 652.017-second guarded run has unchanged inputs
+and exactly two remaining QuestionProbes errors: roots instance acquisition
+and differential structural ambiguity. Its log is SHA-256
+`5cdcfdec3829c52bee87934f36be92727b611be020029f8254d4497c8319c28b`.
+Source reuse can change raw trace inventory and strict exported bytes;
+no unchanged node count, accepted meaning migration or replacement baseline is
+inferred from this source review.
+
+## Render producer occurrences without changing the question — 2026-10-31
+
+The complete original first `QuestionProbes` control correctly reports the
+false assertion as `wrong`, but its retained identity pair differs between two
+reads. A bounded observation confirms equal 32818-byte machine identities and
+unequal 251517/251923-byte displays, first differing at byte 27. The question
+retains 47 trace nodes. The report is SHA-256
+`8a49f7c1e6224289bb145d9cc712faf0d2653c91994992942460b7929cf8e4ac`.
+
+Successful corpus queries for `"ppExpr" "replace"` (46 files, 372 matches) and
+`"delab" "mdata"` (44 files, 501 matches) find generic renderer and expression
+traversal examples; none replaces the existing local owner. Reuse the pure
+`Trace.withoutOccurrences` rendering view at the four `ppExpr` arguments in
+`showQuestion` and `claimQuestion`. Only display copies replace allocation
+ordinals; the original terms, full selected fields, formal values, type
+inference, trace, machine table encoding and execution remain unchanged.
+No global delaborator or pretty-printer setting changes. The full original
+identity-pair assertion remains the verification boundary.
+
+Independent source review confirms those four display-only boundaries and the
+existing TestSuite/permanence consumers. Readable proposition bytes change;
+this is not a new protected-question baseline or a claim of general renderer
+stability. The exact patch is SHA-256
+`caa8120499d29fc3f7db5693001776656c6e0ccabf100fd2d76b8658bb3d3568`.
+Coordinated compilation succeeds and the entire original first QuestionProbes
+command now passes, including the full retained identity-pair predicate. The
+selected-route command also passes after the separately reviewed source repair.
+The two later reader errors keep the complete module red; no full integration
+or independently assessed interpretation migration is claimed.
+
+### Remaining closed-instance visibility diagnosis
+
+Successful corpus searches for `"synthInstance" "withoutModifyingState"`
+(2 files, 10 matches) and `"Meta.transform" "synthInstance"` (7 files, 19
+matches) provide generic API examples, not a replacement for this repository's
+checked presentation owners. The existing `synthesizeInstances`,
+`evidencePresentation`, `closedTypePresentation` and `establish` determine the
+candidate acquisition boundary. Failure-only diagnostics must establish the
+actual binder kind, successful view and complete original-type match before a
+repair is integrated. A recursive producer-head inspection is not justified
+for parameterEquivalence: every original source alternative must survive.
+
+## Explicit complete derived numeral owners — 2026-10-31
+
+The original first `ContextParameterProbes` block supplies an anonymous
+`derivedObject` with the complete commutative-ring context. Its unchanged
+`toElement (.nat 2)` call fails as ambiguous. A failure-only diagnostic preserves
+that whole block, its 200000 budget and original exception. The syntax-corrected
+diagnostic completes in 8.441 seconds with unchanged inputs and confirms that
+the carrier still explicitly selects the same original derived value and
+retains it as context. The report is SHA-256
+`76a074442a3c7918a8ad56c7944b636d1e6677bdfa25eab0534011adc0356e61`.
+
+The original direct selected-owner branch accepts only `.object`; it skips
+this explicit `.derivedObject`. The contextual fallback then obtains Ring and
+Semiring views of that one selected source and correctly refuses to identify
+those different full owner types. All four diagnosed candidates give the same
+complete point, but that equality cannot merge independently supplied owners.
+The correction belongs at the direct selected-context dispatch boundary, not
+in the contextual ambiguity predicate or a new row priority.
+
+The successful `"OfNat" "ConcreteCategory"` corpus query is recorded below.
+The published Ring/Semiring numeral families and their structural actions remain
+the mathematical owners. Reuse `objectContext`, `contextualNumeralRows`,
+`transportedStructure`, `numeralIn` and the existing direct selected-point
+agreement checks. Any derived owner must be obtained through its complete
+original context and actual declared action, with that original selected value
+retained. The independent Ring/Semiring-owner and context-only Sets-view
+ambiguity controls remain unchanged. The production change adds only a sibling
+branch for the explicitly selected derived value after the unchanged ordinary
+selected-object branch. Every inherited owner is transported through the
+original full context; the original selected expression and result context are
+retained. An additive control in `ContextualNumeralOwnerProbes` checks directly
+selected derived Ring/Semiring sources and context-only independent derived
+owners in both orders. Their old control block remains byte-identical.
+The coordinated `derived-selected-owner-language-v1` run passes Language,
+the complete ContextParameter, original and additive ContextualNumeralOwner,
+ForwardNumeralIndependentOwner, and RoutedCompositionEngineering controls in
+164.373 seconds with unchanged inputs. Its log is SHA-256
+`ca16ca4e4cd49072d41b0588f90cdc6e86791898ecac92ce15f6605952cff353`.
+The original budgets and independent-owner rejection predicates remain. These
+are engineering results, not mathematical acceptance or a full integration run.
+
+## Engineering consumers of authenticated producers — 2026-10-31
+
+The current combined production source reproduces six selected consumer
+failures in 21.106 seconds with unchanged inputs. Four stop at reserved local
+identifiers, registration-record syntax or an obsolete implicit monad lift.
+Their migrations only rename those locals, fix the record syntax and explicitly
+lift the same ordered public `Semantic.edgeFunctor` calls. Mathematical strings,
+assertions, negatives, imports, budgets and execution order remain unchanged.
+
+The other two consume the existing producer API incorrectly. The method
+comparison control replaces a node under its original authenticated key; the
+route control compares a traced wrapper directly with an untraced construction.
+The correction reuses `Trace.recordProduced`, `Trace.producerAnchor?`,
+`Trace.checkProducerRecord`, `QuestionIdentity` and the original snapshot
+serializer. Existing corpus queries and exact-key owners in the proof-boundary
+record below apply; no mathematical declaration or production rule is added.
+
+Counterfactual comparison records receive their own complete producer keys.
+The control checks their serialized comparison fields independently of the key,
+retains all original comparison/context predicates, and additionally requires
+changed records under the old key to fail. The route control compares exactly
+one authenticated wrapper's formal construction and separately validates the
+entire original retained-route record, with the original receiver, application,
+full-type and genuinely open/closed guards unchanged. Coordinated validation of
+these updates passes both producer controls and the named-refinement control.
+One further reserved `map` local was renamed, after which EndpointData also
+passes. The now-readable context-parameter and routed-composition blocks expose
+separate numeral-owner and method-selection failures; neither is waived.
+
+The next source inspection reuses the existing `Semantic.namedDeclarationParameters`
+and exact producer-record validators. Successful corpus searches for
+`"getAppArgs" "binderInfo"` (36 files, 291 matches) and
+`"OfNat" "ConcreteCategory"` (15 files, 176 matches) supply no replacement for
+these existing boundaries. A whole-family fixture helper inspects exactly one
+authenticated original object wrapper, retaining its declared row and strictly
+ordered original parameters. Only that literal inspection receives the inner
+application; actual scalar/map/endpoint execution and all carrier-coincidence,
+absent-source and unrelated-pair negatives keep their original inputs.
+Question recognition receives the exact trace that constructed its source, and
+the route control checks that original producer occurrence rather than searching
+through wrappers by a declaration head. The reproduced QuestionProbes failures
+outside those two blocks remain separate, and full integration remains open.
+
 ## Checked proof boundaries and exact producer validation reuse — 2026-10-31
 
 ### Queries and existing owners

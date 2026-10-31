@@ -13,7 +13,58 @@ answer. Public result validation remains a separate boundary. -/
 open Lean Meta Elab Term CategoryTheory
 open CasCatalogue CasCatalogue.Language CasCatalogue.Realize
 
-run_elab do
+meta section
+
+/-- Actual opaque packets are received from the existing protocol-only process.
+No mathematical registration or computation is introduced by these controls. -/
+private def withFramingSession (backend operation : String)
+    (action : Harness → TermElabM Unit) : TermElabM Unit := do
+  let root : System.FilePath := (← IO.getEnv "CAS_OWNERSHIP_PROTOCOL_DIR").getD
+    ("CasAcceptance" / "Strata" : System.FilePath).toString
+  let harness ← Harness.ofManifest root {
+    backends := #[{
+      name := backend
+      command := "python3"
+      args := #["probe_owned_callable.py", operation] }]
+    registrations := #[] }
+  try action harness
+  finally harness.stop
+
+/-- Receive a real response before retaining its live supplier. The returned
+ownership table comes only from the public receive boundary. -/
+private def receiveFramingData (harness : Harness) (backend operation : String)
+    (arguments : Array Json) : TermElabM ComputationData := do
+  let .ok session ← harness.connection backend
+    | throwError "the framing fixture's ownership process did not start"
+  let request := Json.mkObj [("ctor", toJson operation), ("args", Json.arr arguments)]
+  let .ok answer ← Backend.call session.connection operation request
+    | throwError "the framing fixture did not receive its actual opaque packet"
+  match Backend.ComputationalValue.decode answer with
+  | .ok (.opaque _) => pure ()
+  | _ => throwError "the framing fixture did not receive an anonymous packet"
+  let received ← receiveComputationalData harness backend operation answer
+  let .scoped data := received
+    | throwError "the framing fixture lost its returned packet's scoped supplier"
+  checkDataOwners harness data
+  return received
+
+/-- These ownership checks follow the original framing assertions, while each
+actual packet is still live and then after its producing session has stopped. -/
+private def checkFramingOwnership (harness : Harness) (data : DataOwnership.Data) :
+    TermElabM Unit := do
+  checkDataOwners harness data
+  let unavailable (active : Harness) : TermElabM Bool := do
+    try
+      checkDataOwners active data
+      return false
+    catch error => return Exception.stratum? error == some .unavailable
+  unless ← unavailable (← Harness.empty) do
+    throwError "the framed data became available outside its actual owning session"
+  harness.stop
+  unless ← unavailable harness do
+    throwError "the framed data survived expiry of its actual owning session"
+
+run_elab withFramingSession "hom-framing" "hom-framing-field" fun harness => do
   let state ← registryState
   let source ← elabTermAndSynthesize (← `(ModuleCat.of ℤ (ℤ × ℤ))) none
   let target ← elabTermAndSynthesize (← `(ModuleCat.of ℤ ℤ)) none
@@ -30,21 +81,26 @@ run_elab do
   unless ← withTransparency .all <|
       isDefEq recoveredSource source <&&> isDefEq recoveredTarget target do
     throwError "the selected Hom interface changed one complete endpoint"
-  let data := fun token => Json.mkObj [("ctor", "opaqueData"),
-    ("args", Json.arr #[toJson (token : String)])]
+  let sourceData ← receiveFramingData harness "hom-framing" "hom-framing-field"
+    #[toJson ("actual source" : String)]
+  let targetData ← receiveFramingData harness "hom-framing" "hom-framing-field"
+    #[toJson ("actual target" : String)]
   let sourceWire : Wire := {
     form := .diagrams category
-    payload := .computed source (.owned "hom-framing" 419 (data "actual source"))
+    payload := .computed source sourceData
     categoryContext := some context }
   let targetWire : Wire := {
     form := .diagrams category
-    payload := .computed target (.owned "hom-framing" 419 (data "actual target"))
+    payload := .computed target targetData
     categoryContext := some context }
   let graph : Wire := {
     form := .canonicalMorphism category
     payload := .computed actual (.inline (Json.arr #[])) }
+  -- The producer supplies these independently checked complete endpoints before
+  -- framing. A reduced Hom and its returned packet do not recover them from a
+  -- later expression-keyed cache.
+  let graph ← retainCallableEndpoints graph sourceWire targetWire context
   let trace ← Trace.new
-  let harness ← Harness.empty
   harness.results.modify fun cache =>
     ((cache.insert source sourceWire).insert target targetWire).insert actual graph
   let (framed, dependencies) ← frameMorphismFragment harness trace source target graph (some context)
@@ -77,12 +133,13 @@ run_elab do
   catch _ => pure true
   unless wrongPresentation do
     throwError "an already framed Hom bypassed its complete selected endpoint check"
+  checkFramingOwnership harness combined.fragment
 
 /- A reflection-only boundary fixture from Mathlib's existing SingleObj
 instances. Their object and Hom types reduce to the same types, but the natural
 numbers' multiplicative and additive category dictionaries differ. These local
 contexts register no semantic row and prescribe no computational answer. -/
-run_elab do
+run_elab withFramingSession "context-framing" "context-framing-callable" fun harness => do
   let state ← registryState
   let some category := state.categories.find? (·.id == CategoryId.sets)
     | throwError "the framing fixture has no form metadata"
@@ -102,10 +159,19 @@ run_elab do
     form := .diagrams category
     payload := .ordinary endpoint (toJson "retained endpoint")
     categoryContext := some retained }
+  -- This initial slot has not captured an endpoint occurrence. Its cache
+  -- compatibility is checked separately from the completed producer below.
+  let pending : Wire := {
+    form := .canonicalMorphism category
+    payload := .ordinary value (Json.arr #[])
+    categoryContext := some retained }
+  let inputData ← receiveFramingData harness "context-framing" "context-framing-callable"
+    #[Json.arr #[]]
   let input : Wire := {
     form := .canonicalMorphism category
-    payload := .computed value (.owned "context-framing" 421 (Json.arr #[]))
+    payload := .computed value inputData
     categoryContext := some retained }
+  let input ← retainCallableEndpoints input endpointWire endpointWire retained
   let reject (label : String) (action : TermElabM Unit) : TermElabM Unit := do
     let rejected ← try
       action
@@ -115,10 +181,9 @@ run_elab do
     unless rejected do
       throwError "{label} replaced a complete retained category dictionary"
   let trace ← Trace.new
-  let harness ← Harness.empty
   harness.results.modify (·.insert endpoint endpointWire)
-  for framed in #[false, true] do
-    let wire := { input with morphismFramed := framed }
+  let framed ← presentMorphism input endpointWire endpointWire (some retained)
+  for wire in #[input, framed] do
     reject "whole-map presentation" do
       discard <| presentMorphism wire endpointWire endpointWire (some different)
     reject "map-data framing" do
@@ -135,10 +200,16 @@ run_elab do
   harness.results.modify (·.insert endpoint
     { endpointWire with categoryContext := some different })
   reject "cached callable endpoint" do
-    discard <| realizeCallableEndpoint harness trace input endpoint true (some retained)
+    discard <| realizeCallableEndpoint harness trace pending endpoint true (some retained)
+  let retainedEndpoint ← realizeCallableEndpoint harness trace input endpoint true (some retained)
+  unless sameCompleteWireContext retainedEndpoint endpointWire do
+    throwError "a later cache entry replaced the completed callable's original endpoint occurrence"
   let unknown ← mkFreshExprMVar (← inferType retained.bundle)
   reject "incomplete selected context" do
     discard <| presentMorphism input endpointWire endpointWire
       (some { retained with bundle := unknown })
   unless (← instantiateMVars unknown).isMVar do
     throwError "framing inferred missing category data from a retained context"
+  checkFramingOwnership harness input.fragment
+
+end

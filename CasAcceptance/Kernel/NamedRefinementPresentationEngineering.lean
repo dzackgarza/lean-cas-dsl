@@ -45,7 +45,8 @@ run_elab do
       throwError "the existing method no longer exercises a named refinement prefix"
     let harness ← Harness.ofManifest "." {
       backends := #[{ name := "named-refinement-engineering", command := "unused" }]
-      registrations := #[{ operation := id.raw, input := base.id.raw,
+      registrations := #[{
+        operation := id.raw, input := base.id.raw
         backend := "named-refinement-engineering" }] }
     unless harness.rejected.isEmpty && harness.admitted.size == 1 do
       throwError "the existing canonical-base registration was not admitted"
@@ -103,9 +104,9 @@ run_elab do
     unless (← harness.actions.get).isEmpty && (← harness.connections.get).isEmpty &&
         (← harness.replies.get).isEmpty do
       throwError "prospective canonical-base selection executed an action or method"
-    let alias ← mkAppM ``id #[presented.receiver.value]
+    let aliasValue ← mkAppM ``id #[presented.receiver.value]
     let changed := { presented.receiver with
-      payload := forwardPayload presented.receiver alias presented.receiver.json }
+      payload := forwardPayload presented.receiver aliasValue presented.receiver.json }
     unless ← unavailable (do
         discard <| materializeNamedRefinementWith (fun _ wire => pure wire) trace changed origin) do
       throwError "a historical producer authorized another definitionally equal occurrence"
@@ -115,7 +116,7 @@ run_elab do
     unless ← unavailable (do
         discard <| materializeNamedRefinementWith (fun _ wire => pure wire) trace changedData origin) do
       throwError "a historical producer authorized a different representation packet"
-    let forwarded ← forwardRetainedValue presented.receiver alias
+    let forwarded ← forwardRetainedValue presented.receiver aliasValue
     let some forwardedOrigin ← currentNamedRefinementOrigin? forwarded
       | throwError "a checked transparent alias lost its named producer"
     let refreshed ← materializeNamedRefinementWith (fun _ wire => pure wire)
@@ -156,7 +157,8 @@ run_elab do
   let actualSource ← makeSource second
   unless source.owner? == first.owner? && !source.actualData do
     throwError "the pending constructor lost its independent actual parameter supplier"
-  let applications ← refinement.route.mapM (Semantic.edgeFunctor state)
+  let applications ← refinement.route.mapM fun edge =>
+    (liftM (Semantic.edgeFunctor state edge) : TermElabM Expr)
   let presented ← transport trace source refinement.route
     (applications := some applications)
   let some origin ← currentNamedRefinementOrigin? presented

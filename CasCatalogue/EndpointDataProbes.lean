@@ -51,24 +51,24 @@ run_elab do
   let .error _ ← check first same { json := node reversal.id.raw #[toJson (3 : Nat)] }
     | throwError "a named callable changed its actual complete endpoint interface"
 
-  let opaque := fun (token : String) (session : Nat) => Id.run do
+  let ownedOpaque := fun (token : String) (session : Nat) => Id.run do
     let json := node "opaqueData" #[toJson token]
     return ({ json, ownership := DataOwnership.capture json ("endpoint-probe", session) }
       : DataOwnership.Data)
-  if let .error message ← check first second (opaque "whole map" 1) then
+  if let .error message ← check first second (ownedOpaque "whole map" 1) then
     throwError "a complete opaque callable was restricted to graph data: {message}"
   let ownedFirst : ComputationalData.DataEndpointSlot := {
-    first with data := opaque "same spelling" 2 }
+    first with data := ownedOpaque "same spelling" 2 }
   let ownedSecond : ComputationalData.DataEndpointSlot := {
-    second with data := opaque "same spelling" 3 }
-  let map := opaque "owned whole map" 4
+    second with data := ownedOpaque "same spelling" 3 }
+  let ownedMap := ownedOpaque "owned whole map" 4
   let .ok packet := DataOwnership.Data.ctor "typedMap"
-      #[ownedFirst.data, ownedSecond.data, map]
+      #[ownedFirst.data, ownedSecond.data, ownedMap]
     | throwError "the complete owned callable control has malformed ownership"
   if let .error message ← check ownedFirst ownedSecond packet then
     throwError "distinct owned endpoint positions were merged: {message}"
   let .ok swapped := DataOwnership.Data.ctor "typedMap"
-      #[ownedSecond.data, ownedFirst.data, map]
+      #[ownedSecond.data, ownedFirst.data, ownedMap]
     | throwError "the ownership-negative control has malformed coverage"
   let .error _ ← check ownedFirst ownedSecond swapped
     | throwError "equal opaque bytes replaced the exact endpoint suppliers"

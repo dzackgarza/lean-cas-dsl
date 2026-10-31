@@ -144,9 +144,22 @@ run_elab do
       let target ← Semantic.object finite #[← `(3)] (some trace)
       let empty ← Harness.empty
       let portableTarget ← realize empty trace "the independent portable endpoint" target
-      let formalMap ← instantiateMVars (← elabTermAndSynthesize
-        (← `(TypeCat.ofHom (fun (_ : $(← exprToSyntax original.value)) =>
-          (0 : $(← exprToSyntax target))))) none)
+      -- Expose only the closed type for the existing numeral's instance search.
+      -- The point and map still inhabit the original addressed endpoint.
+      let targetView ← closedTypePresentation target
+      let pointValue ← instantiateMVars (← elabTermAndSynthesize
+        (← `((0 : $(← exprToSyntax targetView)))) none)
+      unless !pointValue.hasMVar && !pointValue.hasLevelMVar &&
+          !pointValue.hasFVar && !pointValue.hasLooseBVars &&
+          (← isTypeCorrect pointValue) &&
+          (← withTransparency .all <| isDefEq (← inferType pointValue) target) do
+        throwError "the constant-map fixture changed its complete original target"
+      let function ← withLocalDeclD `point original.value fun point =>
+        mkLambdaFVars #[point] pointValue
+      let formalMap ← instantiateMVars (← mkAppOptM ``TypeCat.ofHom
+        #[some original.value, some target, some function])
+      CategoryContext.checkMorphism (← CategoryContext.ofNamed sets original.value)
+        formalMap original.value target
       -- This portable table is an arbitrary protocol field. No control evaluates
       -- it or compares a computed mathematical answer with it.
       let callable ← requireData (DataOwnership.Data.portable

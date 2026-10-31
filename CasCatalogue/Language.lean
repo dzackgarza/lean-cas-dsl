@@ -1534,6 +1534,9 @@ partial def typedParameter (expected : Expr) (value : Value)
     | some rows => rows expected state.categories
     | none => state.categories.filterM (parameterCategoryCompatible expected)
   let mut routeCandidates : Array (ObjectEntry × Route) := #[]
+  -- Keep the existing no-trace applicability term only as a local validation
+  -- witness. Commitment of an authenticated original must retain its producer.
+  let mut declaredOrigin? : Option Expr := none
   for source in sources do
     let some sourceCategory := state.categories.find? (·.id == source.category) | continue
     -- Reachability depends only on the registered category expressions. A source with no
@@ -1552,6 +1555,7 @@ partial def typedParameter (expected : Expr) (value : Value)
       catch error =>
         if Exception.interpretationKind error == .invalid then return none else throw error
     let some sourceTerm := sourceTerm? | continue
+    if source.id == origin.id then declaredOrigin? := some sourceTerm
     for route in possibleRoutes do
       let applicable ← parameterCompatible do
         let image ← if route.steps.isEmpty then pure sourceTerm else
@@ -1581,8 +1585,63 @@ partial def typedParameter (expected : Expr) (value : Value)
             throwSemanticAmbiguity m!"several registered comparisons determine a parameter route"
           let #[candidate] := cls.sources
             | throwSemanticAmbiguity m!"a parameter has no unique registered source route"
-          let selected ← Semantic.object candidate.1
-            (← typedParamTerms candidate.1.declaration parameters) (← read).trace
+          let retainedSource : M (Option Expr) := do
+            if candidate.1.id != origin.id then return none
+            let some trace ← readingTrace? | return none
+            let some original@(.object recordedId recordedParams) ← trace.node? direct
+              | return none
+            let some accepted := state.objects.find? (·.id == candidate.1.id)
+              | throwError "the retained parameter source has no accepted named object"
+            unless recordedId == accepted.id &&
+                candidate.1.declaration == accepted.declaration &&
+                candidate.1.category == accepted.category do
+              throwError "the retained parameter source changed its accepted object binding"
+            let some sourceCategory := state.categories.find? (·.id == accepted.category)
+              | throwError "the retained parameter source has no accepted category"
+            let .object _ retainedCategory .. := value | unreachable!
+            unless retainedCategory.id == sourceCategory.id &&
+                retainedCategory.declaration == sourceCategory.declaration &&
+                retainedCategory.expression.syntacticEq sourceCategory.expression do
+              throwError "the retained parameter source changed its selected category declaration"
+            let some declared := declaredOrigin?
+              | throwError "the retained parameter source lost its original applicability witness"
+            unless !direct.hasMVar && !direct.hasLevelMVar &&
+                !declared.hasMVar && !declared.hasLevelMVar do
+              throwError "the retained parameter source has incomplete declared parameters"
+            Trace.checkProducerRecord direct original
+            unless (Trace.producerAnchor? direct).isSome || (← isTypeCorrect direct) do
+              throwError "the retained named parameter source is not completely typed"
+            let selectedContext ← CategoryContext.ofNamed sourceCategory direct
+            unless ← parameterTrial <| withTransparency .all <|
+                isDefEq selectedContext.bundle sourceContext.bundle <&&>
+                isDefEq (← inferType direct) (← inferType declared) <&&>
+                isDefEq direct declared do
+              throwError "the retained parameter source differs from its complete declared value"
+            let actualParams ← Semantic.namedDeclarationParameters accepted.declaration direct
+            let declaredParams ← Semantic.namedDeclarationParameters accepted.declaration declared
+            unless actualParams.size == recordedParams.size &&
+                (actualParams.zip recordedParams).all (fun (actual, recorded) =>
+                  actual.equal recorded) do
+              throwError "the retained parameter source changed an original declaration parameter"
+            unless actualParams.size == declaredParams.size do
+              throwError "the retained parameter source changed its declared parameter arity"
+            -- Equal formal values do not identify independently supplied producers.
+            -- Reuse only when every declared argument is the original exact argument;
+            -- otherwise retain the existing construction from the supplied Values.
+            unless (actualParams.zip declaredParams).all (fun (actual, supplied) =>
+                actual.equal supplied) do return none
+            for (actual, expectedParameter) in actualParams.zip declaredParams do
+              unless ← parameterTrial <| withTransparency .all <|
+                  isDefEq (← inferType actual) (← inferType expectedParameter) <&&>
+                  isDefEq actual expectedParameter do
+                throwError "the retained parameter source differs at a complete declared parameter"
+            return some direct
+          let retained ← retainedSource
+          let selected ← match retained with
+            | some original => pure original
+            | none => do
+                let supplied ← typedParamTerms candidate.1.declaration parameters
+                pure (← Semantic.object candidate.1 supplied (← read).trace)
           discard <| Semantic.validateRouteComparisons state cls.comparisonWitnesses (some selected)
           pure (candidate, selected)
         | _ => throwSemanticAmbiguity m!"a selected source has unresolved parameter routes"
@@ -7538,6 +7597,35 @@ partial def toElement (v : Value) (X : Value) : M Value := do
             let expected ← mkAppM ``CategoryTheory.Bundled.α #[family]
             let actual ← if owner == selectedCategory.id then pure selected else
               transportedStructure expected chosen (some owner)
+            unless ← isDefEq (← inferType actual) expected do
+              throwStratum .invalid m!"the selected numeral owner has a different full type"
+            let rows := state.numerals.filter (·.over == some owner)
+            let some point ← numeralIn { state with numerals := rows } k one carrier #[(owner, actual)]
+              | throwStratum .invalid m!"the selected numeral owner has a different carrier"
+            return point
+          if let some point := point? then points := points.push point
+        if let some numeral := points[0]? then
+          for point in points do
+            unless ← withTransparency .all <| isDefEq point numeral do
+              throwSemanticAmbiguity m!"several registered structural numerals give different points"
+          let point ← homIn (← quoteExpr numeral) one carrier category
+          Trace.record (← read).trace point (.elementNumeral k carrier selected)
+          let hom ← staged point
+          return .element hom X
+      -- A directly selected derived structure supplies the same full owner choice.
+      -- Candidate rows alone grant no structure: every owner is transported from
+      -- the original complete category bundle and its actual accepted action.
+      if let .object carrier _ _ (some chosen@(.derivedObject selected _ _)) _ := X then
+        let owners := ((← contextualNumeralRows state chosen).filterMap
+          (·.over)).toList.eraseDups.toArray
+        let one ← semanticObject (← oneObject)
+        let mut points : Array Expr := #[]
+        for owner in owners do
+          let some ownerCategory := state.categories.find? (·.id == owner) | continue
+          let point? ← optionalReading do
+            let family ← instantiateFresh ownerCategory.declaration
+            let expected ← mkAppM ``CategoryTheory.Bundled.α #[family]
+            let actual ← transportedStructure expected chosen (some owner)
             unless ← isDefEq (← inferType actual) expected do
               throwStratum .invalid m!"the selected numeral owner has a different full type"
             let rows := state.numerals.filter (·.over == some owner)

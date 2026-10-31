@@ -64,6 +64,77 @@ The liveness negatives consume `checkDataOwners`; they do not claim that endpoin
 projection itself performs that later ownership check. No separate wrong-Hom
 negative is added or claimed by this fixture migration.
 
+## Received Hom and creation fields in engineering fixtures — 2026-10-31
+
+The existing live-process and full-Hom corpus queries above apply. Reuse
+`Backend.call`, `receiveComputationalData`, `retainCallableEndpoints`,
+`presentMorphism`, `scopedNode`, `constructionPayload` and
+`captureIntrinsicIdentity`; no protocol implementation or mathematical row is
+added. ContextualHom's three owned packets now come from actual protocol
+responses. Its portable graph remains unowned, and every original full-Hom,
+ownership-path, swapped-endpoint and complete-dictionary predicate remains.
+The pending callable still rejects a conflicting cache; a completed callable
+instead keeps its original captured endpoint. Public presentation replaces the
+manually assigned framing flag.
+
+CreatedProjection receives an actual opaque field at every original port and
+assembles their precise scopes through the public cone/createdCone builders.
+The complete original diagram, construction validation, indexed projections,
+reuse and subsequent composition stay. Its identity comes from the original
+returned endpoint through the intrinsic identity capture API, with the original
+packet guard retained. Both modules additionally reject a missing owning
+harness and an expired supplier, after their original assertions. Independent
+source reviews found no blocking API/layout or guard-preservation defect.
+The coordinated 27.061-second run has unchanged inputs: ContextualHom passes
+in 4.2 seconds, while CreatedProjection reaches its original combined
+packet/index/owner/formal-value guard and fails. Bounded observations show that
+the exact formal value, complete type and original supplier agree: the leg and
+map-valued fields now have the public `TypedMap` envelope. Their original
+constructionLeg/constructionField children remain byte-exact. The fixture now
+compares the full frame, including the original inserted apex for the leg and
+the schema's exact apex binder for field maps. It checks that binder's domain
+role and the full original morphism before constructing the expected field
+frame. The later composition keeps the original identity packet inside its
+complete endpoint frame. No observed output chooses expected data, and no
+runtime observation flag is assigned. The complete module, including reuse,
+composition and missing/expired-supplier negatives, passes in 5.799 seconds
+with unchanged inputs (`created-projection-complete-frame-v2`).
+
+The separate DeferredService and MixedDataOwnership constant-map quotations
+fail instance search for zero at an addressed finite type. Their fixture repair
+reuses `closedTypePresentation` only to elaborate the same numeral, checks it
+against the complete original target, then supplies the original source and
+target explicitly to `TypeCat.ofHom` and checks the full morphism. Original
+payloads, owners, positions, dispatches, assertions and budgets remain. After
+correcting the typed-term quotation's parentheses, both complete modules pass
+in 18.405 seconds with unchanged inputs (`service-constant-map-type-view-v2`).
+Their later legacy capture fields remain separate unresolved fixture obligations.
+
+## Declared kernel method engineering selection — 2026-10-31
+
+The existing two-action `RoutedCompositionEngineering` fixture selects the
+declared `meth.kernel` method at its complete public metadata, rather than
+assuming that one functor has only one method name. The accepted catalogue also
+exposes `ker` as `meth.arrow_ker`; public resolution selects a requested name
+before route checks. The fixture still requires exactly one `meth.kernel` row,
+its `kernel` name, original functor, full owner expression, object shape and
+return-to-source flag. Its original Arrow action, full schema selector, dependent
+parameter positions, fused ambient occurrence and supplier assertions remain
+unchanged. This is fixture selection, not a new runtime priority rule.
+The coordinated run passes this selection and reaches the dependent-parameter
+guard. A bounded original-source diagnostic then confirms three distinct slots:
+the prefix's scalar and value parameters are types, while the method's parameter
+is a bundled Ring. Equating their expected types was an invalid fixture
+assumption, not evidence of slot collapse. The correction retains all three
+original positions and checks their actual declared types and arguments. It
+extracts the Ring from the original prefix target and compares its full
+dictionary with the explicit original `CommRing.toRing` application and the
+actual method Ring. Both complete action-boundary bundles remain checked. It
+constructs no Ring from a bare carrier or global instance; all later fused-result,
+ambient, stage and supplier checks stay unchanged. The corrected complete
+control passes in `derived-selected-owner-language-v1`, together with the
+Language and numeral-owner controls, in 164.373 seconds with unchanged inputs.
+
 ## Original admission parameters and producer retention — 2026-10-31
 
 ### Queries and existing owners

@@ -6439,10 +6439,15 @@ partial def instantiateQuestion : Question → TermElabM Question
   | .conjunction left right => return .conjunction (← instantiateQuestion left) (← instantiateQuestion right)
   | .negation question => return .negation (← instantiateQuestion question)
 
+/-- A human display uses the same allocation-independent producer view as the
+identity serializer. Only copies passed to the renderer lose occurrence ordinals;
+original terms, inferred types, selected fields and machine identity remain intact. -/
 partial def showQuestion : Question → TermElabM String
-  | .proposition term => return s!"{← ppExpr term}"
+  | .proposition term => return s!"{← ppExpr (Trace.withoutOccurrences term)}"
   | .judgement relation terms route declarations _ => do
-      let terms ← terms.mapM fun term => return s!"({← ppExpr term} : {← ppExpr (← inferType term)})"
+      let terms ← terms.mapM fun term =>
+        return s!"({← ppExpr (Trace.withoutOccurrences term)} : \
+          {← ppExpr (Trace.withoutOccurrences (← inferType term))})"
       return s!"{relation} [{String.intercalate ", " terms.toList}] via {route.toList}; declarations {declarations.toList}"
   | .conjunction left right => return s!"({← showQuestion left}) and ({← showQuestion right})"
   | .negation question => return s!"not ({← showQuestion question})"
@@ -6492,7 +6497,7 @@ where
     let root ← table.encode e
     let type ← table.encode type
     return (s!"{kind}:{← table.finish (Json.arr #[toJson root, toJson type])}",
-      s!"{kind}: {← ppExpr e}")
+      s!"{kind}: {← ppExpr (Trace.withoutOccurrences e)}")
 
 /-- The complete typed request consumed by execution. Its claim and selected operation
 records are prepared and validated together, independently of audit serialization. -/

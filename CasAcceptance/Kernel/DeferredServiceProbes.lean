@@ -127,9 +127,22 @@ run_elab do
     let target ← Semantic.object finite #[← `(3)] (some trace)
     let empty ← Harness.empty
     let targetWire ← realize empty trace "the different target" target
-    let formalMap ← instantiateMVars (← elabTermAndSynthesize
-      (← `(TypeCat.ofHom (fun (_ : $(← exprToSyntax original.value)) =>
-        (0 : $(← exprToSyntax target))))) none)
+    -- Expose only the closed type for the existing numeral's instance search.
+    -- The point and map still inhabit the original addressed endpoint.
+    let targetView ← closedTypePresentation target
+    let pointValue ← instantiateMVars (← elabTermAndSynthesize
+      (← `((0 : $(← exprToSyntax targetView)))) none)
+    unless !pointValue.hasMVar && !pointValue.hasLevelMVar &&
+        !pointValue.hasFVar && !pointValue.hasLooseBVars &&
+        (← isTypeCorrect pointValue) &&
+        (← withTransparency .all <| isDefEq (← inferType pointValue) target) do
+      throwError "the constant-map fixture changed its complete original target"
+    let function ← withLocalDeclD `point original.value fun point =>
+      mkLambdaFVars #[point] pointValue
+    let formalMap ← instantiateMVars (← mkAppOptM ``TypeCat.ofHom
+      #[some original.value, some target, some function])
+    CategoryContext.checkMorphism (← CategoryContext.ofNamed sets original.value)
+      formalMap original.value target
     let mapData := Backend.TypedMap.encode {
       source := child.result.json, target := targetWire.json
       callable := node "identity" #[child.result.json, targetWire.json] }

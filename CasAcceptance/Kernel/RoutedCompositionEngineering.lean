@@ -27,8 +27,14 @@ run_elab do
   let state ← registryState
   let some kernel := state.functor? ⟨"fun.arrows_modules.kernel"⟩
     | throwError "the composition control requires the existing module-kernel declaration"
-  let #[method] := state.methods.filter (·.functor == kernel.id)
+  -- This control selects the declared `kernel` method. Other public methods
+  -- may share its functor without changing this original selected operation.
+  let #[method] := state.methods.filter (·.id.raw == "meth.kernel")
     | throwError "the composition control requires its unique existing method"
+  unless method.name == "kernel" && method.functor == kernel.id &&
+      method.owner.syntacticEq kernel.source && method.shape == .object &&
+      method.returnsToSource do
+    throwError "the composition control changed its declared kernel method metadata"
   let receiver ← elabTermAndSynthesize (← `(
     LeanCategories.Modules.Bilinear.Valued.BilinModuleCat.ofBilinMap
       (0 : LinearMap.BilinMap ℤ ℤ ℤ))) none
@@ -57,9 +63,62 @@ run_elab do
     | throwError "the full composition omitted the prefix's original ring position"
   let some second := (plan.parameters.filter (·.actionIndex == 1))[0]?
     | throwError "the full composition omitted the method's original ring position"
-  unless first.actionIndex != second.actionIndex && first.dataIndex == 0 && second.dataIndex == 0 &&
+  -- The prefix declares scalar and value TYPES; the kernel declares a bundled
+  -- Ring. Inspect their original full actions, including the supplied dictionary,
+  -- instead of equating those differently typed declaration parameters.
+  let some arrowAction := (state.constructor? ConstructorId.arrow).bind (·.functorialAction)
+    | throwError "the parameter control lost the original Arrow action declaration"
+  let some (_, #[innerAction]) ← DeclaredApplication.complete? arrowAction
+      (← Semantic.asFunctor prefixAction) true
+    | throwError "the parameter control lost the complete original Arrow action"
+  let some forgetting := state.functor? FunctorId.bilinModuleForget
+    | throwError "the parameter control lost the original forgetting declaration"
+  let some (prefixDeclaration, #[scalarType, valueType]) ←
+      DeclaredApplication.complete? forgetting.declaration (← Semantic.asFunctor innerAction) true
+    | throwError "the parameter control lost the prefix's complete declared inputs"
+  let #[originalScalar, commutativeDictionary, originalValue, _, _] := prefixDeclaration.getAppArgs
+    | throwError "the parameter control changed the prefix's full dependent telescope"
+  unless originalScalar.equal scalarType && originalValue.equal valueType do
+    throwError "the parameter control changed the original explicit argument positions"
+  let some (_, #[kernelRing]) ← DeclaredApplication.complete? kernel.declaration
+      (← Semantic.asFunctor action) true
+    | throwError "the parameter control lost the kernel's complete Ring argument"
+  let #[modules] := state.categories.filter (fun category =>
+      category.expression.syntacticEq forgetting.target)
+    | throwError "the parameter control lost the prefix's complete declared target category"
+  let (_, moduleTarget) ← functorCategoryBundles (← Semantic.asFunctor innerAction)
+  let some (_, #[targetRing]) ← DeclaredApplication.complete? modules.declaration moduleTarget
+    | throwError "the parameter control lost the Ring supplied by the actual module target"
+  let ringDictionary ← mkAppOptM ``CommRing.toRing
+    #[some scalarType, some commutativeDictionary]
+  let targetDictionary ← mkAppOptM ``RingCat.ring #[some targetRing]
+  let targetCarrier ← mkAppOptM ``RingCat.carrier #[some targetRing]
+  let (_, prefixTarget) ← functorCategoryBundles (← Semantic.asFunctor prefixAction)
+  let (methodSource, _) ← functorCategoryBundles (← Semantic.asFunctor action)
+  unless ← withoutModifyingState (withTransparency .all <|
+      isDefEq (← inferType targetRing) (← inferType kernelRing) <&&>
+        isDefEq targetRing kernelRing <&&>
+        isDefEq (← inferType targetDictionary) (← inferType ringDictionary) <&&>
+        isDefEq targetDictionary ringDictionary <&&>
+        isDefEq targetCarrier scalarType <&&>
+        isDefEq (← inferType prefixTarget) (← inferType methodSource) <&&>
+        isDefEq prefixTarget methodSource) do
+    throwError "the dependent actions changed their original full Ring or category dictionary"
+  let #[valueParameter] := plan.parameters.filter (fun parameter =>
+      parameter.actionIndex == 0 && parameter.dataIndex == 1)
+    | throwError "the prefix lost its distinct original value-type parameter occurrence"
+  unless plan.parameters.size == 3 && first.actionIndex == 0 && second.actionIndex == 1 &&
+      first.actionIndex != second.actionIndex && first.dataIndex == 0 && second.dataIndex == 0 &&
+      first.declarationIndex == 0 && second.declarationIndex == 0 &&
+      valueParameter.declarationIndex == 2 &&
+      first.formal.equal scalarType && valueParameter.formal.equal valueType &&
+      second.formal.equal kernelRing &&
       (← withoutModifyingState (withTransparency .all <|
-        isDefEq first.expectedType second.expectedType <&&> isDefEq first.formal second.formal)) do
+        isDefEq first.expectedType (← inferType scalarType) <&&>
+          isDefEq valueParameter.expectedType (← inferType valueType) <&&>
+          isDefEq second.expectedType (← inferType kernelRing) <&&>
+          isDefEq first.expectedType valueParameter.expectedType <&&>
+          isDefEq first.formal valueParameter.formal)) do
     throwError "the dependent composition collapsed two equal-valued parameter occurrences"
   let sourcePath ← withLocalDeclD `prefixResult (← inferType transported) fun symbolic => do
     let field ← mkAppM ``CategoryTheory.Arrow.left #[symbolic]
@@ -78,28 +137,28 @@ run_elab do
     throwError "the returned ambient changed its selected prefix output field"
   unless plan.stages.size == 2 do
     throwError "the composition control lost an independently compiled action boundary"
-  let prefix ← plan.stage 0
+  let prefixStage ← plan.stage 0
   let finalStage ← plan.stage 1
-  unless prefix.edge == edge && finalStage.actionIndex == 1 &&
-      prefix.completions.size == prefix.slots.size do
+  unless prefixStage.edge == edge && finalStage.actionIndex == 1 &&
+      prefixStage.completions.size == prefixStage.slots.size do
     throwError "the completion table changed its original action or slot ordinals"
-  let some output := prefix.slots[prefix.output]?
+  let some output := prefixStage.slots[prefixStage.output]?
     | throwError "the prefix completion lost its complete public result"
   let .record .arrow #[sourceIndex, targetIndex, mapIndex] := output.node
     | throwError "the existing Arrow action lost its public three-field codec"
   unless sourceIndex != targetIndex && sourceIndex < mapIndex && targetIndex < mapIndex do
     throwError "the intermediate map merged its distinct declared image endpoint positions"
-  let some sourceField := prefix.slots[sourceIndex]?
+  let some sourceField := prefixStage.slots[sourceIndex]?
     | throwError "the prefix completion lost its source image field"
-  let some targetField := prefix.slots[targetIndex]?
+  let some targetField := prefixStage.slots[targetIndex]?
     | throwError "the prefix completion lost its target image field"
-  let some mapField := prefix.slots[mapIndex]?
+  let some mapField := prefixStage.slots[mapIndex]?
     | throwError "the prefix completion lost its map image field"
   unless ← withoutModifyingState (withTransparency .all <|
       isDefEq sourceField.formal targetField.formal) do
     throwError "the endpoint occurrence control no longer exercises equal closed formal values"
   let actionAt (index : Nat) : TermElabM RoutedResultPlan.FieldCompletionAction := do
-    let some completion := prefix.completions[index]?
+    let some completion := prefixStage.completions[index]?
       | throwError "the intermediate field has no aligned completion position"
     let .action selected := completion
       | throwError "the intermediate field lost its complete accepted object or map action"
@@ -140,7 +199,7 @@ run_elab do
   unless (plan.producedPaths 0 targetField.replyPath).isEmpty &&
       (plan.producedPaths 0 mapField.replyPath).isEmpty do
     throwError "the partial-completion control no longer requires missing target and callable fields"
-  unless prefix.projectionActions.any (fun selected =>
-      selected.parentSlot == prefix.output && selected.fieldSlot == sourceIndex) do
+  unless prefixStage.projectionActions.any (fun selected =>
+      selected.parentSlot == prefixStage.output && selected.fieldSlot == sourceIndex) do
     throwError "the intermediate boundary lost its selected public projection comparison"
   logInfo "PASS: dependent route stages preserve exact fused suppliers and positional completion actions"

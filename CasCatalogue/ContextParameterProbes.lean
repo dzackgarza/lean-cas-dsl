@@ -29,10 +29,10 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
   unless !actual.hasMVar && !actual.hasLevelMVar && (← isTypeCorrect actual) &&
       (← withTransparency .all <| isDefEq (← inferType actual) expected) do
     throwError "an unnamed source context did not form its declared structural parameter"
-  let view ← (structuredParameterView derived actual rings).run context
-  unless (sourceParameterValues view).any (·.sameSource derived) do
+  let parameterView ← (structuredParameterView derived actual rings).run context
+  unless (sourceParameterValues parameterView).any (·.sameSource derived) do
     throwError "the structural parameter discarded its original complete source context"
-  let .object _ _ _ _ (some (_, retained, route, _, applications)) := view
+  let .object _ _ _ _ (some (_, retained, route, _, applications)) := parameterView
     | throwError "the structural parameter lost its complete retained action"
   unless !route.isEmpty && route.size == applications.size &&
       (sourceParameterValues retained).any (·.sameSource derived) do
