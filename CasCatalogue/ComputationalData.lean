@@ -611,7 +611,13 @@ def validate (scope : InterfaceScope) (data : Json) : Except String Unit := do
     if paths.contains binding.path then
       throw "one computational position has two independently selected interfaces"
     paths := paths.push binding.path
-    let actual ← scope.data.project binding.path
+    -- The immutable parent was checked once above. Reuse that coverage while
+    -- retaining the original absent-path and selected-fragment checks.
+    let some json := DataOwnership.get? scope.data.json binding.path
+      | throw s!"the computational projection selects an absent position at {reprStr binding.path}"
+    let actual : DataOwnership.Data := {
+      json, ownership := DataOwnership.project binding.path scope.data.ownership }
+    actual.validate
     unless actual == binding.fragment do
       throw "a positioned computational interface changed its packet or exact suppliers"
 
@@ -649,16 +655,32 @@ def actual? (scope : Option InterfaceScope) : Option InterfaceScope := do
 complete validation rejects overlapping views and all changed child suppliers. -/
 def assemble (data : DataOwnership.Data)
     (children : Array (DataOwnership.Path × InterfaceScope)) : Except String InterfaceScope := do
+  let mut checkedParent := false
+  let mut bindings := #[]
   for (path, child) in children do
     child.validate child.data.json
-    let selected ← data.project path
+    -- Preserve validation order: the first child is checked before the parent.
+    -- Later children project this same immutable, already checked packet.
+    if !checkedParent then
+      data.validate
+      checkedParent := true
+    let some json := DataOwnership.get? data.json path
+      | throw s!"the computational projection selects an absent position at {reprStr path}"
+    let selected : DataOwnership.Data := {
+      json, ownership := DataOwnership.project path data.ownership }
+    selected.validate
     unless selected == child.data do
       throw "a positioned child scope changed its complete packet or exact suppliers"
-  let bindings := children.foldl (fun bindings (path, child) =>
-    bindings ++ child.bindings.map (fun binding => { binding with path := path ++ binding.path })) #[]
-  let scope := { data, bindings : InterfaceScope }
-  scope.validate data.json
-  return scope
+    bindings := bindings ++ child.bindings.map (fun binding => { binding with path := path ++ binding.path })
+  if !checkedParent then data.validate
+  -- Child validation plus exact projection already checks every fragment and
+  -- supplier. The remaining assembled invariant is uniqueness of full paths.
+  let mut paths : Array DataOwnership.Path := #[]
+  for binding in bindings do
+    if paths.contains binding.path then
+      throw "one computational position has two independently selected interfaces"
+    paths := paths.push binding.path
+  return { data, bindings }
 
 def bind (scope : InterfaceScope) (formal expectedType : Expr) (role : InterfaceRole)
     (representation : Option (Expr × Expr) := none) :
@@ -743,6 +765,36 @@ def interfaceScopeType (scope : Option InterfaceScope) (data : Json) (expected :
   return .ok selected
 
 
+/-- Read a complete callable-valued point type through definition aliases only.
+A retained full Hom keeps its original category dictionary. A nondependent
+function has the ordinary Sets Hom; no structured record projection is used. -/
+partial def declaredCallableType? (type : Expr) (seen : Array Expr := #[]) :
+    TermElabM (Option Expr) := do
+  let type := (← instantiateMVars type).consumeMData.headBeta
+  if type.hasMVar || type.hasLevelMVar || type.hasFVar || type.hasLooseBVars ||
+      seen.contains type then return none
+  if (Language.homEnds? type).isSome then return some type
+  if let .forallE _ source target _ := type then
+    if target.hasLooseBVars then return none
+    return some (← mkAppM ``Quiver.Hom #[source, target])
+  let some unfolded ← unfoldDefinition? type | return none
+  declaredCallableType? unfolded (seen.push type)
+
+
+/-- A declared callable value can fill a whole-map slot at this already
+selected context. Its full Hom fixes the original dictionary and endpoints;
+no structured carrier projection or returned packet selects a category. -/
+def checkDeclaredCallableContext (context : CategoryContext) (type : Expr) :
+    TermElabM (Except String Unit) := do
+  let some declared ← declaredCallableType? type
+    | return .error "a callable value has no independently declared complete Hom"
+  let some (source, target) := Language.homEnds? declared
+    | return .error "a callable value lost its independently declared endpoints"
+  unless ← withoutModifyingState (withTransparency .all <|
+      isDefEq declared (← CategoryContext.hom context source target)) do
+    return .error "a callable value changed its complete selected category dictionary"
+  return .ok ()
+
 /-- Check same-category codec positions against the map producer's full selected
 context. A neutral public literal has no additional retained context; a typed
 child cannot supply another category merely because its carrier or Hom agrees.
@@ -756,6 +808,11 @@ def checkScopedCategorySlots (parent : Option InterfaceBinding)
     let .ok selected ← interfaceScopeBinding scope data
       | return .error "a declared callable child changed its positioned interface"
     if let some selected := selected then
+      if morphism then
+        if let .value := selected.role then
+          if let .error message ← checkDeclaredCallableContext expected selected.expectedType then
+            return .error message
+          continue
       let actual ← match morphism, selected.role with
         | true, .map context | false, .object context => pure (some context)
         | _, _ => pure none
@@ -1196,22 +1253,6 @@ partial def graphDomainKeys (objects : InterfaceObjects)
     if let .error message ← validatePoint schema point then return .error message
     seen := seen.push point
   return .ok points
-
-/-- Read a complete callable-valued point type through definition aliases only.
-A retained full Hom keeps its original category dictionary. A nondependent
-function has the ordinary Sets Hom; no structured record projection is used. -/
-partial def declaredCallableType? (type : Expr) (seen : Array Expr := #[]) :
-    TermElabM (Option Expr) := do
-  let type := (← instantiateMVars type).consumeMData.headBeta
-  if type.hasMVar || type.hasLevelMVar || type.hasFVar || type.hasLooseBVars ||
-      seen.contains type then return none
-  if (Language.homEnds? type).isSome then return some type
-  if let .forallE _ source target _ := type then
-    if target.hasLooseBVars then return none
-    return some (← mkAppM ``Quiver.Hom #[source, target])
-  let some unfolded ← unfoldDefinition? type | return none
-  declaredCallableType? unfolded (seen.push type)
-
 
 /-- Preserve the full independently fixed category dictionary when a recursive
 call changes only the two endpoint slots of an already declared Hom. -/
@@ -3854,7 +3895,14 @@ partial def validatePlannedPort (plan : StructuredResult.DataPlan)
     (port : StructuredResult.DataPort) (seen : Array Json) (data : Json)
     (externalDescriptor : Nat → Option Json)
     (endpointKeys : Json → TermElabM (Except String (Option (Array Json))))
-    (outerObjects : InterfaceObjects := #[]) : TermElabM (Except String Unit) := do
+    (outerObjects : InterfaceObjects := #[]) (scope : Option InterfaceScope := none) :
+    TermElabM (Except String Unit) := do
+  let .ok binding ← interfaceScopeType scope data port.expectedType
+    | return .error "a positioned construction port changed its complete selected interface"
+  if port.domainBinder.isSome || port.codomainBinder.isSome then
+    if let some binding := binding then
+      if let .object _ := binding.role then
+        return .error "a positioned construction object is not a whole callable"
   let resolve : Nat → Option Json := fun binder =>
     (plan.actualData? binder seen).orElse fun _ => externalDescriptor binder
   let declared : InterfaceObjects := plan.binders.filterMap fun binding => do
@@ -3875,11 +3923,11 @@ partial def validatePlannedPort (plan : StructuredResult.DataPlan)
       | return .error "the typed callable has no actual computational domain descriptor"
     let some target := port.codomainBinder.bind resolve
       | return .error "the typed callable has no actual computational codomain descriptor"
-    return ← validateEndpointPort port.formalField source target data objects
+    return ← validateEndpointPort port.formalField source target data objects scope
   let graph := if let .ok ("finiteGraph", #[_, actual]) := envelope unwrapped then actual else unwrapped
   -- Ordinary scalar/list ports have no callable endpoint roles.
   unless graph.getArr?.isOk && (port.domainBinder.isSome || port.codomainBinder.isSome) do
-    return ← validatePort port.formalField port.expectedType data objects
+    return ← validatePort port.formalField port.expectedType data objects (scope := scope)
   let some domainBinder := port.domainBinder
     | return .error "the callable graph has no retained computational domain role"
   let some domainDescriptor := resolve domainBinder
@@ -4534,7 +4582,11 @@ point is supplied independently and is never reconstructed from the answer.
 Symbolic fields remain computational claims, including a different expression
 for the same requested result; opaque owners are checked by the live consumer. -/
 def validateElementAt (selected : Expr) (selectedData : Json) (formalPoint : Expr)
-    (answer : Json) : TermElabM (Except String Unit) := do
+    (answer : Json) (scope : Option InterfaceScope := none) :
+    TermElabM (Except String Unit) := do
+  if let some scope := scope then
+    if let .error message := scope.validate answer then return .error message
+  let openedScope := InterfaceScope.valuePayload? scope
   if selected.hasMVar || selected.hasLevelMVar then
     throwError "the selected element interface has unresolved formal parameters"
   let data ← match valuePayload answer with
@@ -4546,7 +4598,7 @@ def validateElementAt (selected : Expr) (selectedData : Json) (formalPoint : Exp
     unless point.target == selectedData do
       return .error "the constrained point differs from the exact selected target"
     return ← withoutModifyingState <|
-      validateCallableAt #[(selectedData, selected)] (← inferType formalPoint) data
+      validateCallableAt #[(selectedData, selected)] (← inferType formalPoint) data openedScope
   if (data.getObjValAs? String "ctor").toOption == some "element" then
     let .ok (_, #[descriptor, expression]) := envelope data
       | return .error "an element requires its exact selected object and expression"
@@ -4561,6 +4613,7 @@ def validateElementAt (selected : Expr) (selectedData : Json) (formalPoint : Exp
       | none => pure pointType
     return ← withoutModifyingState <|
       validateElementExpressionAt #[(selectedData, selected)] selected carrier expression
-  validatePort formalPoint (← inferType formalPoint) answer
+        (scope := InterfaceScope.arg? openedScope 1)
+  validatePort formalPoint (← inferType formalPoint) answer (scope := scope)
 
 end CasCatalogue.ComputationalData

@@ -546,6 +546,17 @@ def Trace.record (trace? : Option Trace) (value : Expr) (node : Node) : IO Unit 
           attempted: {node.producerDescription.1.take 1000}"
   | none => pure ()
 
+/-- A service's selected application adds records to its original receiver's
+trace in a fresh local scope. Exact keys retain their existing conflict check;
+neither source trace is mutated and equal expressions are not searched. -/
+def Trace.merge (original selected : Trace) : IO Trace := do
+  let result ← Trace.new
+  for (value, node) in (← original.get).toArray do
+    Trace.record (some result) value node
+  for (value, node) in (← selected.get).toArray do
+    Trace.record (some result) value node
+  return result
+
 /-- Record a producer before another equal mathematical value can occupy its key.
 The node is independently fixed first. Building its descriptor visits only its finite
 ordered fields and shares their existing expression DAG; the new occurrence cannot

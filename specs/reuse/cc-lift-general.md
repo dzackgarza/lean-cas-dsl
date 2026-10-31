@@ -1,5 +1,26 @@
 # Reuse record: `cc-lift-general`
 
+### Reconstructed positioned lift/service scopes — 2026-10-31
+
+Existing `InterfaceScope`, `LiftStageExecution`, `LiftedSubobjectData` and
+`ServiceRequest.Prepared` own this repair. Exact source/base fields, parameters,
+prior outputs and supplier bindings retain their original packet positions.
+Optional scoped completion carries the captured producer template through the
+ordinary port/map validators. Fresh reply data is not assigned the requested
+interface merely to pass validation. The original service-reference check before
+substitution remains, including complete Hom and native-point roles; data-only
+compatibility callers claim no new live ownership.
+
+The declared-Hom adapter refreshes endpoints from its exact observed `typedMap`
+value child after checking the complete selected Hom. Pure scope validation
+checks an immutable parent once while retaining child order, exact projections,
+supplier checks, path uniqueness and first-error order. No mathematical row or
+lifting law is added. Lower validators/service modules compile. Fresh
+`reconstructed-controls-v2` passes all seven PositionedLiftServiceScopeProbes blocks,
+including the 384 validator and 1160 assembly differential cases, declared-Hom
+roles, reference retention and conflicting trace entries. These are current-source
+engineering results; the original mathematical computations remain required.
+
 ### Deferred universal-service preparation (2026-10-25)
 
 The corpus queries `MonoLiftComputation` and `LimitCone` were attempted through

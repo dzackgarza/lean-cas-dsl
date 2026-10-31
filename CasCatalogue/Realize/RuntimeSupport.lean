@@ -71,13 +71,6 @@ inductive ComputationScope where
   /-- Relative to the complete `Wire.json`, including its retained input diagram. -/
   | scoped (ownership : DataOwnership.Table)
 
-/-- The returned packet and its exact suppliers travel together through nested
-service completion. `backend` retains the raw observation interface's supplier
-summary for diagnostics; it never assigns ownership to completed data. -/
-structure ComputationalReply where
-  data : DataOwnership.Data
-  backend : String
-
 inductive WirePayload where
   | ordinary (value : Expr) (json : Json)
   | computed (value : Expr) (data : ComputationData)
@@ -757,6 +750,17 @@ structure ReplyExecution where
   original : Json
   completed : Option (Json × String) := none
   completedOwnership : DataOwnership.Table := #[]
+
+/-- The returned packet and its exact suppliers travel together through nested
+service completion. `backend` retains the raw observation interface's supplier
+summary for diagnostics; it never assigns ownership to completed data. -/
+structure ComputationalReply where
+  data : DataOwnership.Data
+  backend : String
+  /-- Exact typed children of a completed local service expression. A raw
+  backend reply has neither a selected result root nor an invented producer. -/
+  scope : Option ComputationalData.InterfaceScope := none
+  template : Option ActionDataTemplate := none
 
 structure ServiceNodeExecution where
   operation : String
@@ -4492,16 +4496,27 @@ def transportImage (trace : Trace) (w : Wire) (route : Array EdgeRef)
   let mut result := w
   for index in [:route.size] do
     let step := route[index]!
-    let some edge := (state.edgesFrom expression).find? (·.ref == step)
-      | throwError "the reconstructed image route disagrees with its retained category"
-    let target := imageCategory? state edge.target
+    let edgeTarget ← match applications with
+      | some _ => do
+        let some source := state.selectedEdgeSource? step
+          | throwError "the selected image action lost its accepted source category"
+        unless source.syntacticEq expression do
+          throwError "the selected image action disagrees with its retained source category"
+        let some target := state.selectedEdgeTarget? step
+          | throwError "the selected image action lost its accepted target category"
+        pure target
+      | none => do
+        let some edge := (state.edgesFrom expression).find? (·.ref == step)
+          | throwError "the reconstructed image route disagrees with its retained category"
+        pure edge.target
+    let target := imageCategory? state edgeTarget
     let U ← match applications with
       | some retained => pure retained[index]!
       | none => Semantic.edgeFunctor state step
     if let .proofRefinement _ classifier _ := result.form then
       if step == .classifierForget classifier then
         result ← proofRefinementBase trace result U
-        expression := edge.target
+        expression := edgeTarget
         continue
     let value ← Semantic.objOf U result.value
     let (sourceBundle, targetBundle) ← functorCategoryBundles (← Semantic.asFunctor U)
@@ -4512,6 +4527,7 @@ def transportImage (trace : Trace) (w : Wire) (route : Array EdgeRef)
     let U ← instantiateMVars U
     if U.hasMVar || U.hasLevelMVar || U.hasFVar || U.hasLooseBVars then
       throwError "the retained structural edge application is not closed"
+    checkExecutableEdgeAction state step (← Semantic.asFunctor U)
     let captured ← capture?.mapM (fun capture => capture step U)
     let (descriptor, dependencies) ← match captured with
       | some template => renderCapturedActionData template
@@ -4529,9 +4545,9 @@ def transportImage (trace : Trace) (w : Wire) (route : Array EdgeRef)
     result := { result with
       form := match target with
         | some target => imageForm state step target
-        | none => .contextual edge.target result.form
+        | none => .contextual edgeTarget result.form
       categoryContext := some {
-        expression := edge.target, bundle := (← instantiateMVars targetBundle) }
+        expression := edgeTarget, bundle := (← instantiateMVars targetBundle) }
       objectIso := objectIso
       endpointPresentation := endpointPresentation
       objectObserved := completed
@@ -4544,7 +4560,7 @@ def transportImage (trace : Trace) (w : Wire) (route : Array EdgeRef)
       if !completed then
         result ← retainActionInput false step U original result descriptor
       result ← retainMappedEndpointPresentation (.edge step) U original result descriptor
-    expression := edge.target
+    expression := edgeTarget
   return result
 
 /-- A named constructor keeps the declaration's ordered parameter occurrences.
@@ -5238,7 +5254,7 @@ partial def decodeElementData (trace : Trace) (category : NamedCategoryEntry) (j
         | return .error "the element's selected category is not registered"
       pure (selected, selectedCategory)
   let (selected, selectedCategory) := selected
-  let selectedValue ← (Language.recognize state selected selectedCategory).run {}
+  let selectedValue ← (Language.recognize state selected selectedCategory).run { sourceTrace := some trace }
   let carrier ← (Language.carrierObject selectedValue).run {}
   let target ← (Language.semanticObject carrier).run {}
   let decoders : ElementData.Decoders := {
@@ -5441,7 +5457,7 @@ partial def decodeArrowData (trace : Trace) (category : NamedCategoryEntry) (jso
         | .error message => pure (.error message)
         | .ok (entry, selected) =>
           let some selectedCategory := state.categories.find? (·.id == entry.category) | unreachable!
-          let selectedValue ← (Language.recognize state selected selectedCategory).run {}
+          let selectedValue ← (Language.recognize state selected selectedCategory).run { sourceTrace := some trace }
           pure (.ok (selected, selectedCategory, selectedValue))
       let .ok (selected, _, selectedValue) := selectedData
         | return .error "the terminal target has no complete accepted structured descriptor"
@@ -5474,7 +5490,7 @@ partial def decodeArrowData (trace : Trace) (category : NamedCategoryEntry) (jso
       let .ok (sourceEntry, source) ← decodeObject trace sourceJson
         | return .error "the original point structure does not decode"
       let some sourceCategory := state.categories.find? (·.id == sourceEntry.category) | unreachable!
-      let sourceValue ← (Language.recognize state source sourceCategory).run {}
+      let sourceValue ← (Language.recognize state source sourceCategory).run { sourceTrace := some trace }
       let baseSource : Json → Option Json := fun json => Id.run do
         let mut current := json
         for _ in [:64] do
@@ -6053,70 +6069,6 @@ def liftServiceInputPositions (path : DataOwnership.Path) (wire : Wire) :
           positions := positions.push (path ++ localPath, endpoint)
   return positions
 
-def observeLiftStageFieldWithInputs (h : Harness) (input : LiftStageExecution.Input Wire)
-    (requestValue : Expr) (form : Form) (dependencies : Array Wire)
-    (staticInputPaths : Option (Array (DataOwnership.Path × Nat)))
-    (field : LiftStageExecution.Field Wire) : TermElabM Wire := do
-  if field.index == 0 then
-    if let some image := input.sourceImage? then
-      let sourceImage ← if input.originalArrow then
-          checkedFragment (image.fragment.project #[.field "args", .index 0])
-        else pure image.fragment
-      if let .error message ← LiftedSubobjectData.validateSourceImageBase
-          input.selection sourceImage.json input.base.json then
-        throwStratum .malformed m!"the selected lift changed its actual image ambient: {message}"
-  let dependencies := dependencies ++ #[input.original, input.source, input.base, input.baseObject] ++
-    input.sourceImage?.toArray ++ input.sourceImageObject?.toArray ++
-    field.preceding ++ field.comparisonImage?.toArray
-  let serviceInputPaths ← staticInputPaths.mapM fun static => do
-    let mut positions :=
-      (← liftServiceInputPositions #[.field "args", .index 2] input.original) ++
-      (← liftServiceInputPositions #[.field "args", .index 3] input.base)
-    for (output, index) in field.preceding.zipIdx do
-      positions := positions ++
-        (← liftServiceInputPositions #[.field "args", .index 4, .index index] output)
-    if let some image := input.sourceImage? then
-      positions := positions ++ (← liftServiceInputPositions #[.field "sourceImage"] image)
-      if let some comparison := field.comparisonImage? then
-        positions := positions ++
-          (← liftServiceInputPositions #[.field "comparisonImage"] comparison)
-    return static ++ (← retainServiceInputPaths h field.request positions)
-  let request : Wire := {
-    form, payload := (← recipePayload requestValue field.request),
-    serviceInputPaths,
-    serviceHandles := (← retainServiceOperands h dependencies) ++ dependencies.flatMap (·.serviceHandles) }
-  let operation := input.selection.entry.fieldAddress field.field
-  let reply ← sendData h operation request
-  let outputs := (field.preceding.map (·.json)).push reply.data.json
-  let comparison := LiftedSubobjectData.ComparisonImageRole.ofMetadata
-    input.sourceImage?.isSome (if input.sourceImage?.isSome then field.comparisonImage?.map (·.json) else none)
-  if let .error message ← LiftedSubobjectData.validateSelectionPrefixWith input.selection
-      input.action.json input.source.json input.base.json outputs comparison then
-    malformed reply.backend operation reply.data.json message
-  let output ← liftOperand field.formal field.context form reply.data (field.index != 0) true
-  let output := { output with
-    serviceHandles := request.serviceHandles
-    morphismFramed := field.index != 0 }
-  match field.endpoints with
-  | none => return output
-  | some (source, target) =>
-      let sourceData ← checkedFragment (reply.data.project #[.field "args", .index 0])
-      let targetData ← checkedFragment (reply.data.project #[.field "args", .index 1])
-      let endpoint := fun (role : LiftStageExecution.EndpointRole Wire) (data : DataOwnership.Data) => do
-        match role with
-        | .retained expected => liftEndpointOperand expected field.context data
-        | .produced formal =>
-            let endpoint ← liftOperand formal field.context form data false true
-            return { endpoint with serviceHandles := request.serviceHandles }
-      let source ← endpoint source sourceData
-      let target ← endpoint target targetData
-      retainCallableEndpoints output source target field.context
-
-def observeLiftStageField (h : Harness) (input : LiftStageExecution.Input Wire)
-    (requestValue : Expr) (form : Form) (dependencies : Array Wire)
-    (field : LiftStageExecution.Field Wire) : TermElabM Wire :=
-  observeLiftStageFieldWithInputs h input requestValue form dependencies none field
-
 /-- Exact source/base roles for a prescribed stage are supplied by its formal
 component, including both full constructed category dictionaries. -/
 def prescribedLiftViews (component : LiftedSubobjectData.Component) (source base : Wire)
@@ -6186,90 +6138,6 @@ def retainLiftStageHandles (h : Harness) (input : LiftStageExecution.Input Wire)
   return {
     action := handles[0]!, source := handles[1]!, sourceImage := handles[2]!, base := handles[3]!,
     baseObject := handles[4]!, comparisonImage := handles[5]!, outputs := handles.extract 6 10 }
-
-/-- Preserve the scoped legacy recipe entry point, using the shared typed field
-fold in reverse route order. Production with retained actual action images uses
-`executePrescribedRetainedWith`. The selected plan and every descriptor owner
-remain fixed before dispatch; no reply supplies a semantic term or lift law. -/
-def executePrescribedLiftData (h : Harness) (trace : Trace) (plan : LiftedSubobjectData.Plan)
-    (source base : Wire) (parameters : Array (Array DataOwnership.Data × Array Wire))
-    (encoder? : Option ScopedActionEncoder := none) : TermElabM DataOwnership.Data := do
-  unless parameters.size == plan.components.size do
-    throwError "the prescribed lift lost its complete selected evidence parameters"
-  let .ok _ := LiftedSubobjectData.subobjectFields base.json
-    | throwStratum .malformed "the lift base omitted its complete apex, ambient and inclusion"
-  let state ← registryState
-  let mut sources : Array DataOwnership.Data := #[]
-  let mut actions : Array DataOwnership.Data := #[]
-  let mut actionDependencies : Array (Array Wire) := #[]
-  let mut currentSource := source.fragment
-  for component in plan.components do
-    let some row := state.lifts.find? (·.id == component.lift)
-      | throwError "the fixed lift plan lost its registered row"
-    let .constructMap _ inner := row.edge
-      | throwError "the fixed lift plan lost its selected inner action"
-    let (action, dependencies) ← encodeAction trace encoder? inner component.action
-    sources := sources.push currentSource
-    actions := actions.push action
-    actionDependencies := actionDependencies.push dependencies
-    let .ok next := LiftedSubobjectData.mapArrowData action.json currentSource.json
-      | throwStratum .malformed "the prescribed lift source omitted complete Arrow fields"
-    let left ← checkedFragment (currentSource.project #[.field "args", .index 0])
-    let right ← checkedFragment (currentSource.project #[.field "args", .index 1])
-    let arrow ← checkedFragment (currentSource.project #[.field "args", .index 2])
-    currentSource ← scopedNode "arrow" #[
-      ← scopedNode "functorAction" #[action, left],
-      ← scopedNode "functorAction" #[action, right],
-      ← scopedNode "map" #[action, arrow]]
-    unless currentSource.json == next do
-      throwError "the scoped source transport changed its public Arrow encoding"
-  let mut currentBase := base.fragment
-  let mut steps := Array.replicate plan.components.size ({ json := Json.null } : DataOwnership.Data)
-  for index in (List.range plan.components.size).reverse do
-    let some component := plan.components[index]?
-      | throwError "the fixed route lost a required computation component"
-    let some row := state.lifts.find? (·.id == component.lift)
-      | throwError "the fixed lift plan lost its public computation row"
-    let some form := state.liftInputForm? row.inputAddress
-      | throwError "the public lift request has no unique registered source context"
-    let parameterData := DataOwnership.Data.array parameters[index]!.1
-    let (sourceView, baseView) ← prescribedLiftViews component source base sources[index]! currentBase
-    let sourceView := if index == 0 then source else sourceView
-    let baseView := if index + 1 == plan.components.size then base else baseView
-    let some (baseObjectFormal, _) := Language.homEnds? (← inferType component.selection.inclusion)
-      | throwError "the selected lift lost its complete base inclusion type"
-    let sourceObject ← liftOperand component.selection.source
-      (← SelectedLift.context component.selection) form
-      (← checkedFragment (sources[index]!.project #[.field "args", .index 0]))
-    let baseObject ← liftOperand baseObjectFormal (← SelectedLift.context component.selection true) form
-      (← checkedFragment (currentBase.project #[.field "args", .index 0]))
-    let stage : LiftStageExecution.Input Wire := {
-      selection := component.selection, originalArrow := true,
-      action := actions[index]!, parameters := parameterData,
-      original := sourceView, source := sourceObject, base := baseView, baseObject }
-    let dependencies := #[source, base, sourceView, baseView] ++ parameters[index]!.2 ++
-      (actionDependencies.extract 0 (index + 1)).flatMap id
-    let result ← LiftStageExecution.fold Wire.fragment stage
-      (fun object => do
-        let formal ← Semantic.objOf component.action object.value
-        let context ← SelectedLift.context component.selection true
-        let data ← scopedNode "functorAction" #[actions[index]!, object.fragment]
-        return some {
-          form := contextualForm state context form,
-          payload := (← combinedRecipePayload formal data (#[object] ++ dependencies)),
-          categoryContext := some context })
-      (observeLiftStageField h stage component.receiver form dependencies)
-      liftStageEndpoints
-    steps := steps.set! index result.step
-    let .ok next := LiftedSubobjectData.nextBase sources[index]!.json (result.outputs.map (·.json))
-      | throwError "the completed lift omitted its actual next object or inclusion"
-    let some inclusion := result.outputs[1]?
-      | throwError "the completed lift omitted its actual inclusion output"
-    currentBase ← retagLiftMap "subobject" inclusion.fragment
-    unless currentBase.json == next do
-      throwError "the scoped next base changed its complete original defining map"
-  scopedNode "liftedSubobject" #[base.fragment, source.fragment,
-    { json := toJson (plan.components.map (·.lift.raw)) }, DataOwnership.Data.array steps]
 
 /-- Validate computational object fields without proving construction laws. In particular,
 subobject data carries its inclusion at the declared endpoints but is not promoted to a Lean
@@ -8019,6 +7887,235 @@ def callableTemplateValidationScope (context : CategoryContext) (formal : Expr)
   unless scope.data == data do
     throwStratum .unavailable "the local callable template changed a declared field or supplier"
   bindValidationScope scope formal (.map context)
+
+/-- A completed service expression contributes exactly its retained child
+positions. The literal fallback keeps a fresh reply neutral until validation. -/
+def replyValidationScope (reply : ComputationalReply) :
+    TermElabM ComputationalData.InterfaceScope := do
+  let scope ← match reply.scope, reply.template with
+    | some scope, _ => pure scope
+    | none, some template => templateValidationScope template (mapView := .logical)
+    | none, none => pure { data := reply.data }
+  unless scope.data == reply.data do
+    throwStratum .malformed "the completed reply changed its positioned packet or suppliers"
+  discard <| checkedFragment (scope.validate reply.data.json)
+  return scope
+
+/-- Preserve the already validated service expression as this result's producer.
+Opening a value envelope projects the same exact template, including suppliers;
+no result root is installed before the caller's ordinary validator accepts it. -/
+def replyProducerTemplate (reply : ComputationalReply) (selected : DataOwnership.Data) :
+    TermElabM (Option ActionDataTemplate) := do
+  let some original := reply.template | return none
+  let (data, _) ← renderCapturedActionData original
+  unless data == reply.data do
+    throwStratum .malformed "the completed reply lost its exact original producer template"
+  let template ← if selected == data then pure original else do
+    let .ok ("valueData", #[_]) := ComputationalData.envelope data.json
+      | throwStratum .malformed "the completed reply changed its producer's declared data position"
+    let opened ← checkedFragment (data.project #[.field "args", .index 0])
+    unless selected == opened do
+      throwStratum .malformed "the completed reply changed its opened producer packet or supplier"
+    pure (ActionDataTemplate.project #[.field "args", .index 0] original)
+  return some template
+
+def retainReplyProducer (reply : ComputationalReply) (wire : Wire)
+    (result : IntrinsicResultInterface) : TermElabM Wire := do
+  let some template ← replyProducerTemplate reply wire.fragment | return wire
+  retainIntrinsicResultAssembly wire result template
+
+/-- Keep every stage role at its public request position. Descriptor and evidence
+slots retain the producer templates already captured by the selected invocation;
+whole original records and prior outputs keep their complete current Wires. -/
+def liftStageValidationTemplate (input : LiftStageExecution.Input Wire)
+    (outputs : Array Wire) (tag : String)
+    (staticTemplates : Option (ActionDataTemplate × ActionDataTemplate) := none)
+    (comparisonImage? : Option Wire := none) : ActionDataTemplate :=
+  .object (#[
+    ("ctor", .literal { json := toJson tag }),
+    ("parameters", staticTemplates.map Prod.snd |>.getD (.literal input.parameters)),
+    ("args", .array #[.literal { json := toJson input.selection.entry.id.raw },
+      staticTemplates.map Prod.fst |>.getD (.literal input.action),
+      .wire .object input.original, .wire .object input.base,
+      .array (outputs.mapIdx fun index output =>
+        .logical (.retained (.wire (if index == 0 then .object else .map) output)))])] ++
+    input.sourceImage?.toArray.map (fun image =>
+      ("sourceImage", ActionDataTemplate.logical (.retained (.wire .object image)))) ++
+    (if input.sourceImage?.isSome then comparisonImage?.toArray else #[]).map
+      (fun image => ("comparisonImage", ActionDataTemplate.logical (.retained (.wire .object image)))))
+
+def observeLiftStageFieldWithScope (h : Harness) (input : LiftStageExecution.Input Wire)
+    (requestValue : Expr) (form : Form) (dependencies : Array Wire)
+    (staticInputPaths : Option (Array (DataOwnership.Path × Nat)))
+    (staticTemplates : Option (ActionDataTemplate × ActionDataTemplate))
+    (field : LiftStageExecution.Field Wire) : TermElabM Wire := do
+  if field.index == 0 then
+    if let some image := input.sourceImage? then
+      let sourceImage ← if input.originalArrow then
+          checkedFragment (image.fragment.project #[.field "args", .index 0])
+        else pure image.fragment
+      let imageScope ← match input.sourceImageObject? with
+        | some object => pure (some (← wireValidationScope .object object (mapView := .logical)))
+        | none => do
+          let scope ← wireValidationScope .object image (mapView := .logical)
+          pure (if input.originalArrow then ComputationalData.InterfaceScope.arg? (some scope) 0
+            else some scope)
+      if let .error message ← LiftedSubobjectData.validateSourceImageBase
+          input.selection sourceImage.json input.base.json
+          (some (← wireValidationScope .object input.base (mapView := .logical))) imageScope then
+        throwStratum .malformed m!"the selected lift changed its actual image ambient: {message}"
+  let dependencies := dependencies ++ #[input.original, input.source, input.base, input.baseObject] ++
+    input.sourceImage?.toArray ++ input.sourceImageObject?.toArray ++
+    field.preceding ++ field.comparisonImage?.toArray
+  let serviceInputPaths ← staticInputPaths.mapM fun static => do
+    let mut positions :=
+      (← liftServiceInputPositions #[.field "args", .index 2] input.original) ++
+      (← liftServiceInputPositions #[.field "args", .index 3] input.base)
+    for (output, index) in field.preceding.zipIdx do
+      positions := positions ++
+        (← liftServiceInputPositions #[.field "args", .index 4, .index index] output)
+    if let some image := input.sourceImage? then
+      positions := positions ++ (← liftServiceInputPositions #[.field "sourceImage"] image)
+      if let some comparison := field.comparisonImage? then
+        positions := positions ++
+          (← liftServiceInputPositions #[.field "comparisonImage"] comparison)
+    return static ++ (← retainServiceInputPaths h field.request positions)
+  let request : Wire := {
+    form, payload := (← recipePayload requestValue field.request),
+    serviceInputPaths,
+    serviceHandles := (← retainServiceOperands h dependencies) ++ dependencies.flatMap (·.serviceHandles) }
+  let operation := input.selection.entry.fieldAddress field.field
+  let reply ← sendData h operation request
+  let requestTemplate := liftStageValidationTemplate input field.preceding
+    (if input.originalArrow then "liftInput" else "monoLiftInput") staticTemplates field.comparisonImage?
+  let requestScope ← templateValidationScope requestTemplate (mapView := .logical)
+  unless requestScope.data == field.request do
+    throwError "the selected lift scope changed its exact original request fields or suppliers"
+  let replyScope ← replyValidationScope reply
+  let scope ← checkedFragment (LiftedSubobjectData.appendSelectionReplyScope requestScope replyScope)
+  let outputs := (field.preceding.map (·.json)).push reply.data.json
+  let comparison := LiftedSubobjectData.ComparisonImageRole.ofMetadata
+    input.sourceImage?.isSome (if input.sourceImage?.isSome then field.comparisonImage?.map (·.json) else none)
+  if let .error message ← LiftedSubobjectData.validateSelectionPrefixWith input.selection
+      input.action.json input.source.json input.base.json outputs comparison
+      (some scope) input.originalArrow then
+    malformed reply.backend operation reply.data.json message
+  let output ← liftOperand field.formal field.context form reply.data (field.index != 0) true
+  let output := { output with
+    serviceHandles := request.serviceHandles
+    morphismFramed := field.index != 0 }
+  let output ← retainReplyProducer reply output
+    (if field.index == 0 then .object field.context else .map field.context)
+  match field.endpoints with
+  | none => return output
+  | some (source, target) =>
+      let sourceData ← checkedFragment (reply.data.project #[.field "args", .index 0])
+      let targetData ← checkedFragment (reply.data.project #[.field "args", .index 1])
+      let endpoint := fun (role : LiftStageExecution.EndpointRole Wire) (data : DataOwnership.Data) => do
+        match role with
+        | .retained expected => liftEndpointOperand expected field.context data
+        | .produced formal =>
+            let endpoint ← liftOperand formal field.context form data false true
+            return { endpoint with serviceHandles := request.serviceHandles }
+      let source ← endpoint source sourceData
+      let target ← endpoint target targetData
+      retainCallableEndpoints output source target field.context
+
+/-- Compatibility entry point for callers without captured descriptor templates. -/
+def observeLiftStageFieldWithInputs (h : Harness) (input : LiftStageExecution.Input Wire)
+    (requestValue : Expr) (form : Form) (dependencies : Array Wire)
+    (staticInputPaths : Option (Array (DataOwnership.Path × Nat)))
+    (field : LiftStageExecution.Field Wire) : TermElabM Wire :=
+  observeLiftStageFieldWithScope h input requestValue form dependencies staticInputPaths none field
+
+def observeLiftStageField (h : Harness) (input : LiftStageExecution.Input Wire)
+    (requestValue : Expr) (form : Form) (dependencies : Array Wire)
+    (field : LiftStageExecution.Field Wire) : TermElabM Wire :=
+  observeLiftStageFieldWithInputs h input requestValue form dependencies none field
+
+/-- Preserve the scoped legacy recipe entry point, using the shared typed field
+fold in reverse route order. Production with retained actual action images uses
+`executePrescribedRetainedWith`. The selected plan and every descriptor owner
+remain fixed before dispatch; no reply supplies a semantic term or lift law. -/
+def executePrescribedLiftData (h : Harness) (trace : Trace) (plan : LiftedSubobjectData.Plan)
+    (source base : Wire) (parameters : Array (Array DataOwnership.Data × Array Wire))
+    (encoder? : Option ScopedActionEncoder := none) : TermElabM DataOwnership.Data := do
+  unless parameters.size == plan.components.size do
+    throwError "the prescribed lift lost its complete selected evidence parameters"
+  let .ok _ := LiftedSubobjectData.subobjectFields base.json
+    | throwStratum .malformed "the lift base omitted its complete apex, ambient and inclusion"
+  let state ← registryState
+  let mut sources : Array DataOwnership.Data := #[]
+  let mut actions : Array DataOwnership.Data := #[]
+  let mut actionDependencies : Array (Array Wire) := #[]
+  let mut currentSource := source.fragment
+  for component in plan.components do
+    let some row := state.lifts.find? (·.id == component.lift)
+      | throwError "the fixed lift plan lost its registered row"
+    let .constructMap _ inner := row.edge
+      | throwError "the fixed lift plan lost its selected inner action"
+    let (action, dependencies) ← encodeAction trace encoder? inner component.action
+    sources := sources.push currentSource
+    actions := actions.push action
+    actionDependencies := actionDependencies.push dependencies
+    let .ok next := LiftedSubobjectData.mapArrowData action.json currentSource.json
+      | throwStratum .malformed "the prescribed lift source omitted complete Arrow fields"
+    let left ← checkedFragment (currentSource.project #[.field "args", .index 0])
+    let right ← checkedFragment (currentSource.project #[.field "args", .index 1])
+    let arrow ← checkedFragment (currentSource.project #[.field "args", .index 2])
+    currentSource ← scopedNode "arrow" #[
+      ← scopedNode "functorAction" #[action, left],
+      ← scopedNode "functorAction" #[action, right],
+      ← scopedNode "map" #[action, arrow]]
+    unless currentSource.json == next do
+      throwError "the scoped source transport changed its public Arrow encoding"
+  let mut currentBase := base.fragment
+  let mut steps := Array.replicate plan.components.size ({ json := Json.null } : DataOwnership.Data)
+  for index in (List.range plan.components.size).reverse do
+    let some component := plan.components[index]?
+      | throwError "the fixed route lost a required computation component"
+    let some row := state.lifts.find? (·.id == component.lift)
+      | throwError "the fixed lift plan lost its public computation row"
+    let some form := state.liftInputForm? row.inputAddress
+      | throwError "the public lift request has no unique registered source context"
+    let parameterData := DataOwnership.Data.array parameters[index]!.1
+    let (sourceView, baseView) ← prescribedLiftViews component source base sources[index]! currentBase
+    let sourceView := if index == 0 then source else sourceView
+    let baseView := if index + 1 == plan.components.size then base else baseView
+    let some (baseObjectFormal, _) := Language.homEnds? (← inferType component.selection.inclusion)
+      | throwError "the selected lift lost its complete base inclusion type"
+    let sourceObject ← liftOperand component.selection.source
+      (← SelectedLift.context component.selection) form
+      (← checkedFragment (sources[index]!.project #[.field "args", .index 0]))
+    let baseObject ← liftOperand baseObjectFormal (← SelectedLift.context component.selection true) form
+      (← checkedFragment (currentBase.project #[.field "args", .index 0]))
+    let stage : LiftStageExecution.Input Wire := {
+      selection := component.selection, originalArrow := true,
+      action := actions[index]!, parameters := parameterData,
+      original := sourceView, source := sourceObject, base := baseView, baseObject }
+    let dependencies := #[source, base, sourceView, baseView] ++ parameters[index]!.2 ++
+      (actionDependencies.extract 0 (index + 1)).flatMap id
+    let result ← LiftStageExecution.fold Wire.fragment stage
+      (fun object => do
+        let formal ← Semantic.objOf component.action object.value
+        let context ← SelectedLift.context component.selection true
+        let data ← scopedNode "functorAction" #[actions[index]!, object.fragment]
+        return some {
+          form := contextualForm state context form,
+          payload := (← combinedRecipePayload formal data (#[object] ++ dependencies)),
+          categoryContext := some context })
+      (observeLiftStageField h stage component.receiver form dependencies)
+      liftStageEndpoints
+    steps := steps.set! index result.step
+    let .ok next := LiftedSubobjectData.nextBase sources[index]!.json (result.outputs.map (·.json))
+      | throwError "the completed lift omitted its actual next object or inclusion"
+    let some inclusion := result.outputs[1]?
+      | throwError "the completed lift omitted its actual inclusion output"
+    currentBase ← retagLiftMap "subobject" inclusion.fragment
+    unless currentBase.json == next do
+      throwError "the scoped next base changed its complete original defining map"
+  scopedNode "liftedSubobject" #[base.fragment, source.fragment,
+    { json := toJson (plan.components.map (·.lift.raw)) }, DataOwnership.Data.array steps]
 
 /-- A field's producer determines whether it already owns a validated
 computational interface. Newly returned bytes remain neutral until validation. -/
@@ -10141,6 +10238,7 @@ structure DirectLiftInputs where
   actionValue : Wire
   dependencies : Array Wire
   staticInputPaths : Array (DataOwnership.Path × Nat)
+  staticTemplates : ActionDataTemplate × ActionDataTemplate
 
 def directLiftInputs (h : Harness) (selected : SelectedDirectLiftInvocation)
     (returned : Array Wire) : TermElabM DirectLiftInputs := do
@@ -10208,6 +10306,7 @@ def directLiftInputs (h : Harness) (selected : SelectedDirectLiftInvocation)
     form := form
     actionValue := actionValue
     staticInputPaths := staticInputPaths
+    staticTemplates := (descriptor, .array parameterTemplates)
     dependencies := returned ++ #[baseSource, baseTarget, baseOperand, actionValue] ++
       actionWires ++ renderedParameters.flatMap (·.2) }
 
@@ -12096,11 +12195,30 @@ private def observeIntrinsicAssemblyBodyWith
       sameProductComponents wire.productComponents originalChildren then
     result := { result with productComponents := actionTemplateInputs template }
   if let .map context := assembly.result then
+    let declaredValueEndpoints (child : Wire) : TermElabM (Option (Wire × Wire)) := do
+      if same then return none
+      let .ctor "valueData" #[.wire .parameter original] := assembly.template
+        | return none
+      let some (.value expectedType) ← retainedValueResultInterface? original
+        | return none
+      let some declared ← ComputationalData.declaredCallableType? expectedType
+        | return none
+      let (source, target) ← contextualMorphismEndpoints context wire.value
+      unless ← withoutModifyingState (withTransparency .all <|
+          isDefEq declared (← CategoryContext.hom context source target) <&&>
+            isDefEq original.value wire.value <&&> isDefEq child.value wire.value) do
+        throwStratum .unavailable "the declared callable adapter changed its original full value interface"
+      let some actual := ComputationalData.recordPayload? child.fragment | return none
+      unless (Backend.TypedMap.decode actual.json).isOk do return none
+      -- This exact observed value child owns the complete returned frame;
+      -- independent observations of the old endpoint recipes cannot replace it.
+      some <$> readEndpoints child context
     let forwardedEndpoints ← match actionTemplateExecution template with
       | .wire .map child =>
           if same || !isAlias then pure none else some <$> readEndpoints child context
       | .pointCallable _ _ _ point =>
           if same then pure none else some <$> readEndpoints point context
+      | .ctor "valueData" #[.wire .parameter child] => declaredValueEndpoints child
       | _ => pure none
     match forwardedEndpoints with
     | some (source, target) =>

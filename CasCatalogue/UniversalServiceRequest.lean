@@ -121,7 +121,16 @@ def materializedLimit (row : LimitEntry) (diagram presentation : Expr)
       return (← StructuredResult.complete row diagram request (.direct answer) presentation
         (fun answer => StructuredResult.validatePlannedData plan answer
           (fun port seen data => ComputationalData.validatePlannedPort plan port seen data
-            external ComputationalData.endpointKeys))).map some }
+            external ComputationalData.endpointKeys))).map some
+    completeScoped := some fun answer scope => do
+      let .ok answer := ComputationalData.valuePayload answer
+        | return .error "the universal result has a malformed computational value envelope"
+      let scope := ComputationalData.InterfaceScope.valuePayload? scope
+      return (← StructuredResult.complete row diagram request (.direct answer) presentation
+        (fun answer => StructuredResult.validatePlannedData plan answer
+          (fun port seen data => ComputationalData.validatePlannedPort plan port seen data
+            external ComputationalData.endpointKeys
+            (scope := ComputationalData.InterfaceScope.arg? scope port.index)))).map some }
 
 
 /-- Prepare a registered complete (co)limit from its published diagram telescope.
@@ -174,6 +183,7 @@ structure Selection where
   actionOwnership : DataOwnership.Table := #[]
   parameterOwnership : DataOwnership.Table := #[]
   inputPaths : Array (DataOwnership.Path × Operand) := #[]
+  scope : Option ComputationalData.InterfaceScope := none
 
 /-- Metadata occurrences keep the suppliers of their exact typed operands. -/
 def Selection.imageOwnership (selected : Selection) : DataOwnership.Table :=
@@ -181,6 +191,30 @@ def Selection.imageOwnership (selected : Selection) : DataOwnership.Table :=
       ((selected.sourceImage?.map (·.ownership)).getD #[]) ++
     DataOwnership.prefix #[.field "comparisonImage"]
       ((selected.comparisonImage?.map (·.ownership)).getD #[])
+
+/-- Scope the normalized public lift packet at the preparer's original typed
+operand positions. Descriptor parameters, source, base, earlier outputs and
+actual images remain separate even when their packet spellings coincide. -/
+def selectionValidationScope (decoder : Decoder) (selected : Selection)
+    (originalArrow : Bool) : TermElabM (Option ComputationalData.InterfaceScope) := do
+  let children ← selected.inputPaths.filterMapM fun (path, operand) => do
+    return (← decoder.validationScope operand).map fun scope => (path, scope)
+  if children.isEmpty then return none
+  let invocation : Backend.LiftInput := {
+    originalArrow, lift := selected.plan.entry.id.raw, action := selected.action
+    source := selected.original.data, base := selected.base.data
+    outputs := selected.outputs.map (·.data), parameters := selected.parameters
+    sourceImage? := selected.sourceImage?.map (·.data)
+    comparisonImage? := selected.comparisonImage?.map (·.data) }
+  let data : DataOwnership.Data := {
+    json := invocation.encode
+    ownership := selected.imageOwnership ++
+      DataOwnership.prefix #[.field "parameters"] selected.parameterOwnership ++
+      argsOwnership #[#[], selected.actionOwnership, selected.original.ownership,
+        selected.base.ownership, operandArrayOwnership selected.outputs] }
+  match ComputationalData.InterfaceScope.assemble data children with
+  | .ok scope => return some scope
+  | .error message => throwStratum .malformed message
 
 /-- Instantiate only the registered evidence family. Monicity is projected from
 the independently typed formal subobject, never decoded from a packet field. -/
@@ -231,7 +265,8 @@ def selection (decoder : Decoder) (entry : LiftEntry) (parameters : Array Json)
   let sourceImageObject? ← sourceImage?.mapM fun image => do
     if originalArrow then decoder.project image "source" none else pure image
   if let some image := sourceImageObject? then
-    if let .error message ← LiftedSubobjectData.validateSourceImageBase plan image.data base.data then
+    if let .error message ← LiftedSubobjectData.validateSourceImageBase plan image.data base.data
+        (← decoder.validationScope base) (← decoder.validationScope image) then
       throwStratum .malformed m!"the service lift changes its actual image ambient: {message}"
   let mut actual := #[]
   for (data, index) in outputs.zipIdx do
@@ -248,13 +283,7 @@ def selection (decoder : Decoder) (entry : LiftEntry) (parameters : Array Json)
   let dependencies := declared.operands ++ selected.dependencies ++
     #[original, source, base, baseObject, inclusion] ++ actual ++
     sourceImage?.toArray ++ sourceImageObject?.toArray ++ comparisonImage?.toArray
-  if !actual.isEmpty then
-    if let .error message ← LiftedSubobjectData.validateSelectionPrefixWith plan
-        selected.descriptor source.data base.data (actual.map (·.data))
-        (LiftedSubobjectData.ComparisonImageRole.ofMetadata sourceImage?.isSome
-          (comparisonImage?.map (·.data))) then
-      throwStratum .malformed m!"the service lift changes its preceding complete output data: {message}"
-  return {
+  let result : Selection := {
     plan, action := selected.descriptor, parameters := declared.operands.map (·.data)
     original, source, base, baseObject, outputs := actual, dependencies,
     sourceImage?, comparisonImage?
@@ -267,6 +296,14 @@ def selection (decoder : Decoder) (entry : LiftEntry) (parameters : Array Json)
       prefixInputPaths #[.field "args", .index 4] (operandArrayInputPaths actual) ++
       sourceImage?.toArray.map (fun operand => (#[.field "sourceImage"], operand)) ++
       comparisonImage?.toArray.map (fun operand => (#[.field "comparisonImage"], operand)) }
+  let scope ← selectionValidationScope decoder result originalArrow
+  if !actual.isEmpty then
+    if let .error message ← LiftedSubobjectData.validateSelectionPrefixWith plan
+        selected.descriptor source.data base.data (actual.map (·.data))
+        (LiftedSubobjectData.ComparisonImageRole.ofMetadata sourceImage?.isSome
+          (comparisonImage?.map (·.data))) scope originalArrow then
+      throwStratum .malformed m!"the service lift changes its preceding complete output data: {message}"
+  return { result with scope }
 
 /-- Parse only fixed framing before resolving data slots. A whole typed source,
 base or preceding output can itself be a scoped reference. -/
@@ -328,7 +365,18 @@ def liftField (decoder : Decoder) (entry : LiftEntry) (field : LiftField)
       return (← LiftedSubobjectData.validateSelectionPrefixWith selected.plan selected.action
         selected.source.data selected.base.data (invocation.outputs.push answer)
         (LiftedSubobjectData.ComparisonImageRole.ofMetadata invocation.sourceImage?.isSome
-          invocation.comparisonImage?)).map fun _ => none }
+          invocation.comparisonImage?)).map fun _ => none
+    completeScoped := some fun answer replyScope => do
+      let scope ← match selected.scope with
+        | none => pure (.ok none)
+        | some request =>
+          pure ((LiftedSubobjectData.appendSelectionReplyScope request
+            (replyScope.getD { data := { json := answer } })).map some)
+      let .ok scope := scope | return scope.map fun _ => none
+      return (← LiftedSubobjectData.validateSelectionPrefixWith selected.plan selected.action
+        selected.source.data selected.base.data (invocation.outputs.push answer)
+        (LiftedSubobjectData.ComparisonImageRole.ofMetadata invocation.sourceImage?.isSome
+          invocation.comparisonImage?) scope originalArrow).map fun _ => none }
 
 def liftFactor (decoder : Decoder) (entry : LiftEntry) (input : Form)
     (template : Json) : TermElabM Prepared := do
@@ -391,7 +439,10 @@ def liftFactor (decoder : Decoder) (entry : LiftEntry) (input : Form)
     resultContext := some context, callableResult := true
     callableInterface := some .framed
     complete := fun answer => do
-      return (← LiftedSubobjectData.validateMap formal domain.data invocation.outputs[0]! answer).map fun _ => none }
+      return (← LiftedSubobjectData.validateMap formal domain.data invocation.outputs[0]! answer).map fun _ => none
+    completeScoped := some fun answer scope => do
+      return (← LiftedSubobjectData.validateMap formal domain.data invocation.outputs[0]! answer
+        (scope := scope) (context? := some context)).map fun _ => none }
 
 /-- Only the owned universal/lift families are handled here. No shape, category,
 backend name or computational answer selects a different mathematical operation. -/

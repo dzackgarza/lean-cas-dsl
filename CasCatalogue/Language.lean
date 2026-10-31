@@ -2073,6 +2073,19 @@ def synthesizeInstances (args : Array Expr) (infos : Array BinderInfo) : TermEla
     if type.hasMVar then continue
     if let some inst ← synthInstance? type then
       discard <| isDefEq a inst
+    else
+      -- The full selected carrier can be hidden by a closed type projection.
+      -- Reuse the existing definitional type view without changing any supplied
+      -- dictionary or proposition, then check the result at the original type.
+      if type.hasLevelMVar then continue
+      let visible ← closedTypePresentation type
+      if visible == type then continue
+      if let some inst ← synthInstance? visible then
+        let inst ← instantiateMVars inst
+        unless !inst.hasMVar && !inst.hasLevelMVar && (← isTypeCorrect inst) &&
+            (← withTransparency .all <| isDefEq (← inferType inst) type) do
+          throwError "instance visibility changed the complete declared parameter type"
+        discard <| isDefEq a inst
 
 /-- The heads whose unfolding is the categorical and representational plumbing the kernel builds
 values with (composites, identities, `ofHom`, limit presentations and their mediators, the
@@ -3381,13 +3394,14 @@ partial def structuredField (receiver : Value) (name : String) (index : Option N
       let (value, resultContext, morphism) ← plan.field name
       if value == object then return some receiver
       let endpoint := fun field value => do
-        unless value == object do
-          Trace.record (← read).trace value (.structuredProjection object field none)
+        let value ← if value == object then pure value else
+          Trace.recordProduced (← read).trace value (.structuredProjection object field none)
         objectInContext value plan.base #[receiver]
       let endpoints ← if morphism then
         pure (some (← endpoint "source" plan.source, ← endpoint "target" plan.target))
         else pure none
-      Trace.record (← read).trace value (.structuredProjection object name none)
+      let value ← Trace.recordProduced (← read).trace value
+        (.structuredProjection object name none)
       if let some endpoints := endpoints then
         return some (← morphismInContext value plan.source plan.target resultContext endpoints)
       return some (← objectInContext value resultContext #[receiver])
@@ -3396,7 +3410,8 @@ partial def structuredField (receiver : Value) (name : String) (index : Option N
   if name == "obj" then return some receiver
   let port ← plan.selectPort index
   let value ← StructuredProjection.retainPortValue object port.formalField port.index
-  Trace.record (← read).trace value (.structuredProjection object "field" (some port.index))
+  let value ← Trace.recordProduced (← read).trace value
+    (.structuredProjection object "field" (some port.index))
   if let some (source, target) := homEnds? port.expectedType then
     CategoryContext.checkMorphism context value source target
     let endpoint := fun value => do
@@ -4375,12 +4390,25 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
         | .object handle selectedCategory .. =>
             handle == x && selectedCategory.id == category.id
         | _ => false
-      if let some original := originals[0]? then
-        unless originals.all (·.sameSelection original) do
+      -- A partial wrapper still asserts its category declaration. Validate
+      -- that retained field before completing only its missing binding data.
+      unless originals.all (fun value => match value with
+          | .object _ retainedCategory .. => retainedCategory.declaration == category.declaration
+          | _ => false) do
+        throwSemanticAmbiguity m!"the original named object has a different retained category declaration"
+      -- An endpoint wrapper may retain only the exact producer handle and
+      -- additional context. Complete its missing binding from the authenticated
+      -- object record; it does not compete with a supplied complete selection.
+      let complete := originals.filter fun value => match value with
+        | .object _ _ none none _ => false
+        | _ => true
+      if let some original := complete[0]? then
+        unless complete.all (·.sameSelection original) do
           throwSemanticAmbiguity m!"the original named object has distinct retained selections"
         return retainObjectContext original originals
-      return ← recognizeObjectApplication state entry category parameters known fixedParameters
+      let original ← recognizeObjectApplication state entry category parameters known fixedParameters
         (some x)
+      return retainObjectContext original originals
   if !x.hasMVar then
     let mut matchedValues : Array Value := #[]
     let declared := state.objects.filter (fun row =>
@@ -6673,7 +6701,7 @@ partial def selectedBinder (scope : Scope) (name : String) (parameters : Array S
         | some (.admittedPoint _ _ _ original _ _ _) => pure original
         | _ => pure admitted
     | none => pure admitted
-  Trace.record (← read).trace result
+  let result ← Trace.recordProduced (← read).trace result
     (.binder row.id application.explicit declaredDomain original admitted)
   if asElement then return ← restage (.element result targetValue)
   let (_, _, _, _, domainValue, _) ← morphismContext family
@@ -6820,9 +6848,21 @@ partial def binder (scope : Scope) (token : String) (boundName : Name)
   let row ← match rows with
   | #[row] => pure row
   | _ => do
+    let context ← read
+    let fullTrace ← readingTrace?
     let mut candidates := #[]
     for row in rows do
-      if ← parameterCompatible (do
+      -- Each complete candidate keeps every original producer readable and
+      -- owns all speculative trace/cache writes for the entire binder reading.
+      let trialTrace ← match fullTrace with
+        | some trace => IO.mkRef (← trace.get)
+        | none => Trace.new
+      let trialClosedTerms ← context.closedTerms.mapM fun cache => do IO.mkRef (← cache.get)
+      let trialCarrierReadings ← context.carrierReadings.mapM fun cache => do IO.mkRef (← cache.get)
+      if ← parameterCompatible (withReader (fun context =>
+          { context with
+            trace := some trialTrace, sourceTrace := none
+            closedTerms := trialClosedTerms, carrierReadings := trialCarrierReadings }) do
           discard <| binderReading scope row boundName arguments body ambient? sharedArgument?
           pure true) then
         candidates := candidates.push row
@@ -6838,14 +6878,14 @@ partial def binder (scope : Scope) (token : String) (boundName : Name)
     (callableAddress := some row.id.raw)
   let .morphism body domain _ _ _ := bodyMap | unreachable!
   let .element admittedMap _ := admitted | unreachable!
-  let .element resultMap _ := result | unreachable!
+  let .element resultMap resultTarget := result | unreachable!
   let infos ← forallTelescopeReducing (← getConstInfo row.operation).type fun xs _ =>
     xs.mapM (·.fvarId!.getBinderInfo)
   let parameters := (operation.getAppArgs.zip infos).filterMap fun (p, info) =>
     if info.isExplicit then some p else none
-  Trace.record (← read).trace resultMap
+  let resultMap ← Trace.recordProduced (← read).trace resultMap
     (.binder row.id parameters domain body admittedMap)
-  return result
+  return .element resultMap resultTarget
 
 /-- `{a₀, a₁, …, ...}`: the image of `k ↦ a₀ + d k` on `ℕ`, `d = a₁ - a₀`. -/
 partial def progression (scope : Scope) (xs : Array Syntax) : M Value := do
@@ -7422,7 +7462,7 @@ partial def anonymousAdmissionPoint (k : Nat) (X : Value) : M (Option Value) := 
 an inherited nullary operation. The named refinement fixes the complete numeral owner;
 the token alone may not replace its value with the unit of another structural view. -/
 partial def registeredNamedNumeral (k : Nat) (X : Value) : M (Option Value) := do
-  let .object x category (some (entry, params)) _ _ := X | return none
+  let .object x category (some (entry, _)) _ _ := X | return none
   -- An admitted domain obtains its point through its declared inclusion and evidence.
   if entry.admission.isSome then return none
   let state ← registryState
@@ -7447,17 +7487,26 @@ partial def registeredNamedNumeral (k : Nat) (X : Value) : M (Option Value) := d
           let some (_, actual) := refinements.find? (·.1 == over) | pure X
           let some sourceCategory := state.categories.find? (·.id == over) | pure X
           let selected ← structuredParameterView X actual sourceCategory
-          let .object _ _ _ _ originalView := X | unreachable!
-          pure (Value.object x category (some (entry, params)) (some selected) originalView)
+          let carrier ← carrierObject selected
+          let .object target targetCategory .. := carrier | unreachable!
+          unless targetCategory.id == category.id &&
+              targetCategory.declaration == category.declaration &&
+              (← withTransparency .all <| isDefEq (← inferType target) (← inferType x) <&&>
+                isDefEq target x) do
+            throwStratum .invalid "the selected numeral owner changed the complete named target"
+          -- The selected carrier has its own producer. Keep the named target's
+          -- original binding and every context payload as retained inputs.
+          pure (retainObjectContext carrier #[X])
       | none => pure X
     | none => pure X
   let .object oneHandle .. ← oneObject | unreachable!
-  let point ← homIn (← quoteExpr numeral) oneHandle x category
+  let target ← semanticObject X
+  let point ← homIn (← quoteExpr numeral) oneHandle target category
   let chosen := match X with
     | .object _ _ _ (some selected) _ => selected
     | _ => X
-  Trace.record (← read).trace point
-    (.elementNumeral k (← semanticObject X) (← semanticObject chosen))
+  let point ← Trace.recordProduced (← read).trace point
+    (.elementNumeral k target (← semanticObject chosen))
   let hom ← staged point
   return some (.element hom X)
 

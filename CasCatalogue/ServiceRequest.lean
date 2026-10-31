@@ -87,6 +87,10 @@ structure Decoder where
   project : Operand → String → Option Nat → TermElabM Operand
   condition : Expr → TermElabM Expr
   declaration : Name → Array Json → TermElabM Declaration
+  /-- Inert typed positions from this exact operand occurrence. Data-only
+  compatibility decoders keep ordinary framing without claiming live suppliers. -/
+  validationScope : Operand → TermElabM (Option ComputationalData.InterfaceScope) :=
+    fun _ => pure none
 
 /-- A public data descriptor's already checked formal value and resolved typed
 operands. Runtime ownership comes exclusively from the exact operand handles. -/
@@ -182,9 +186,21 @@ structure Prepared where
   references are replaced. The callback checks a reference at a formal data field. -/
   validateTemplate : Option ((Expr → Json → TermElabM Unit) → Json → TermElabM Unit) := none
   complete : Json → TermElabM (Except String (Option StructuredResult.Result))
+  /-- Completion receives only already retained reference positions. A fresh
+  reply has no root binding until the ordinary complete validator accepts it. -/
+  completeScoped : Option (Json → Option ComputationalData.InterfaceScope →
+    TermElabM (Except String (Option StructuredResult.Result))) := none
 
 def Prepared.fragment (prepared : Prepared) : DataOwnership.Data :=
   { json := prepared.request, ownership := prepared.requestOwnership }
+
+/-- Keep historical data-only callers while the runtime carries exact scopes. -/
+def Prepared.completeAt (prepared : Prepared) (answer : Json)
+    (scope : Option ComputationalData.InterfaceScope := none) :
+    TermElabM (Except String (Option StructuredResult.Result)) :=
+  match prepared.completeScoped with
+  | some complete => complete answer scope
+  | none => prepared.complete answer
 
 /-- Compose in the actual selected category dictionary, including constructed
 categories without a global typeclass instance. -/

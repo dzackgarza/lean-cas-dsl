@@ -15,6 +15,27 @@ Corpus (`<lean-categories>/scripts/formalization_corpus.py search`), 2026-09-29.
 - Composition of the catalogue's functors, and of commuting squares between them, is Mathlib's
   (`Functor.comp`, pasting of `CatCommSq`s).
 
+## Reconstructed operation operands and reservation — 2026-10-31
+
+`prepareOperationObservation` reuses `operationPresentationOperandClosure` and
+`retainOperationPresentationOperands` to retain the final original receiver,
+callable, argument, endpoint, parameter and framing-dependency occurrences before
+`retainServiceInputPaths` allocates packet positions. The one-layer service
+decoder therefore sees the complete original inventory, not an inventory made
+complete by those later path allocations. Exact category, product-field, supplier
+and occurrence guards remain. The operation-owner controls are still red,
+including the new genuine-framed-request precondition; source inspection is not
+their passing result.
+
+Action/callable endpoint observation retains explicit original endpoint slots.
+A changed declared-Hom value adapter reads the returned frame of its exact
+observed child rather than independently advancing old endpoint recipes.
+Prospective reservation retains original field order and duplicate roots; its
+private cache records a Boolean only after membership completes and exists only
+for one fixed identifier query. It selects no computation and dispatches nothing.
+RuntimeSupport and Realize compile, and ProspectiveReservationProbes passes;
+full consumers and original engine computations remain separate obligations.
+
 ## Selected producers and complete presentation reuse — 2026-10-27
 
 Source searches inspected `Trace.record`, every `Trace.alias` consumer,

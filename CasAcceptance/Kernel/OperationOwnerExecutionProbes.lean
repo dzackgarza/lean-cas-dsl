@@ -161,5 +161,79 @@ run_elab do
     checkActualOwner harness trace calls operation owner actual
   finally harness.stop
 
+
+-- A request position may allocate a handle that did not exist in the original
+-- operand table. That future allocation must never repair an original missing
+-- dependency. Both preparations below use the same public operation and the
+-- same retained inputs; only the original recipe's invalid handle is changed.
+run_elab do
+  let trace ← Trace.new
+  let (source, _, operation) ← selectedOwner trace
+  discard <| (eval {} (← parse "(x ↦ x + x) in A → A")).run
+    { trace := some trace, bound := [(`A, source)] }
+  let operations := (← trace.get).toArray.filterMap fun (formal, node) => match node with
+    | .operationApply id parameters _ _ _ =>
+        if id == operation.id then some (formal, parameters) else none
+    | _ => none
+  let #[(formal, parameters)] := operations
+    | throwError "the missing-operand control lost its existing operation occurrence"
+  let (harness, _) ← harnessFor operation
+  try
+    let recipe ← realizeUnobserved harness trace "the original missing-operand control" formal
+    let originalOperands ← harness.serviceOperands.get
+    let originalTrace ← trace.get
+    let fork : IO Harness := do
+      return { harness with
+        connections := ← IO.mkRef (← harness.connections.get)
+        results := ← IO.mkRef (← harness.results.get)
+        actions := ← IO.mkRef (← harness.actions.get)
+        replies := ← IO.mkRef (← harness.replies.get)
+        services := ← IO.mkRef (← harness.services.get)
+        derivations := ← IO.mkRef (← harness.derivations.get)
+        portFailures := ← IO.mkRef (← harness.portFailures.get)
+        serviceOperands := ← IO.mkRef originalOperands
+        invocations := ← IO.mkRef (← harness.invocations.get)
+        dispatches := some (← IO.mkRef #[]) }
+    let positive ← fork
+    let positiveTrace ← IO.mkRef originalTrace
+    let prepared ← prepareOperationObservation positive positiveTrace recipe operation.id parameters
+    let some paths := prepared.input.serviceInputPaths
+      | throwError "the valid operation lost its explicit request positions"
+    let arrowPath : DataOwnership.Path := #[.field "args", .index 2]
+    let targetPath : DataOwnership.Path := #[.field "args", .index 5]
+    let some (_, arrowHandle) := paths.find? (·.1 == arrowPath)
+      | throwError "the valid operation lost its whole callable position"
+    let some (_, targetHandle) := paths.find? (·.1 == targetPath)
+      | throwError "the valid operation lost its exact target position"
+    let preparedOperands ← positive.serviceOperands.get
+    let some arrow := preparedOperands[arrowHandle]?
+      | throwError "the valid operation lost its whole callable occurrence"
+    let some target := preparedOperands[targetHandle]?
+      | throwError "the valid operation lost its target occurrence"
+    unless arrow.morphismFramed &&
+        sameCompleteWireContext target prepared.targetWire &&
+        (← checkedFragment (prepared.input.fragment.project targetPath)) == target.fragment &&
+        targetHandle >= originalOperands.size do
+      throwError "the missing-operand control requires a genuine framed request and fresh complete target"
+    let negative ← fork
+    let negativeTrace ← IO.mkRef originalTrace
+    let changed := { recipe with serviceHandles := recipe.serviceHandles.push targetHandle }
+    let rejected ← try
+      discard <| prepareOperationObservation negative negativeTrace changed operation.id parameters
+      pure false
+    catch error =>
+      let message ← error.toMessageData.toString
+      if (message.splitOn "the operation presentation lost an exact operand occurrence").length > 1 then
+        pure true
+      else throw error
+    unless rejected do
+      throwError "a fresh operation input path repaired an originally missing operand handle"
+    for scope in #[positive, negative] do
+      let some calls := scope.dispatches | unreachable!
+      unless (← calls.get).isEmpty && (← scope.actions.get).isEmpty &&
+          (← scope.connections.get).isEmpty do
+        throwError "operand-inventory preparation executed an unselected owner action"
+  finally harness.stop
+
 end
 end CasCatalogue.OperationOwnerExecutionProbes

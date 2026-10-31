@@ -119,3 +119,45 @@ run_elab do
     unless !selectedSources.isEmpty && sources.size == selectedSources.size &&
         (sources.zip selectedSources).all (fun (left, right) => left.sameSource right) do
       throwError "a nearer multiplication binding reopened unrelated named refinements").run {}
+
+/- Partial views complete only missing binding metadata. Their exact retained
+category declaration and all complete selected structures remain checked. -/
+run_elab do
+  let state ← registryState
+  let some rings := state.categories.find? (·.id == CategoryId.rings)
+    | throwError "the partial-view control has no registered ring category"
+  let some sets := state.categories.find? (·.id == CategoryId.sets)
+    | throwError "the partial-view control has no second registered category"
+  unless rings.declaration != sets.declaration do
+    throwError "the category-declaration negative does not distinguish its declarations"
+  let trace ← Trace.new
+  (show M Unit from do
+    let original ← object state "ℤ" #[] (some rings)
+    let .object handle category (some binding) none viewData := original
+      | throwError "the partial-view control lost its complete named binding"
+    let some node@(.object ..) ← trace.node? handle
+      | throwError "the partial-view control has no actual named producer"
+    Trace.checkProducerRecord handle node
+    let marker := Value.nat 37
+    let partialView := retainObjectContext (.object handle category none none none) #[marker]
+    let restored ← recognize state handle category #[partialView, original]
+    unless restored.sameSelection original &&
+        (sourceParameterValues restored).any (·.sameSource partialView) &&
+        (sourceParameterValues restored).any (·.sameSource marker) do
+      throwError "a correct partial view lost its complete binding or retained context"
+    let completed ← recognize state handle category #[partialView]
+    unless completed.sameSelection original &&
+        (sourceParameterValues completed).any (·.sameSource partialView) do
+      throwError "an isolated partial view did not recover its authenticated binding"
+    let wrongCategory := { category with declaration := sets.declaration }
+    let malformed := retainObjectContext (.object handle wrongCategory none none none) #[marker]
+    let differentSelection := Value.object handle category (some binding) (some original) viewData
+    for known in #[#[original, malformed], #[malformed], #[original, differentSelection]] do
+      let rejected ← try
+        discard <| recognize state handle category known
+        pure false
+      catch error =>
+        if CasCatalogue.Exception.isSemanticAmbiguity error then pure true else throw error
+      unless rejected do
+        throwError "partial-view completion erased a conflicting retained declaration or selection"
+    ).run { trace := some trace }

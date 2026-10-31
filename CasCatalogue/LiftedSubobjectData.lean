@@ -262,11 +262,74 @@ def mapArrowData (action source : Json) : Except String Json := do
   return Json.mkObj [("ctor", "arrow"),
     ("args", Json.arr #[image args[0]!, image args[1]!, mapped])]
 
+/-- A value declared at a complete Hom keeps that original data role. Its
+caller may consume the same value as a callable only at that independently
+selected full dictionary; a scalar or structured carrier is not such a view. -/
+def checkReplyCallableValueScope (context : CategoryContext)
+    (binding : ComputationalData.InterfaceBinding) : TermElabM (Except String Unit) :=
+  ComputationalData.checkDeclaredCallableContext context binding.expectedType
+
+/-- The expected role comes from the selected lift, while retained references
+keep their own full category and exact position. Fresh literal roots stay
+unbound. Only transparent and same-category callable fields inherit this check;
+ordinary codec validation still owns all other constructors and dependent slots. -/
+partial def checkReplyScopeContext (context : CategoryContext) (morphism : Bool)
+    (data : Json) (scope : Option ComputationalData.InterfaceScope) :
+    TermElabM (Except String Unit) := do
+  let .ok binding ← ComputationalData.interfaceScopeBinding scope data
+    | return .error "a lift reply reference changed its positioned data or suppliers"
+  if let some binding := binding then
+    if morphism then
+      if let .value := binding.role then
+        return ← checkReplyCallableValueScope context binding
+    let selected := match morphism, binding.role with
+      | false, .object selected | true, .map selected => some selected
+      | _, _ => none
+    let some selected := selected
+      | return .error "a lift reply reference changed its independently selected object or map role"
+    unless selected.expression.syntacticEq context.expression do
+      return .error "a lift reply reference changed its complete selected category expression"
+    unless ← withoutModifyingState (withTransparency .all <|
+        isDefEq selected.bundle context.bundle) do
+      return .error "a lift reply reference changed its complete selected category dictionary"
+  let .ok (tag, args) := ComputationalData.envelope data | return .ok ()
+  match tag, args with
+  | "valueData", #[child] =>
+    checkReplyScopeContext context morphism child
+      (ComputationalData.InterfaceScope.body? scope #[.field "args", .index 0])
+  | "typedMap", #[source, target, callable] =>
+    if !morphism then return .ok ()
+    for (index, child) in #[(0, source), (1, target)] do
+      if let .error message ← checkReplyScopeContext context false child
+          (ComputationalData.InterfaceScope.arg? scope index) then return .error message
+    checkReplyScopeContext context true callable
+      (ComputationalData.InterfaceScope.body? scope #[.field "args", .index 2])
+  | "compose", #[first, second] =>
+    if !morphism then return .ok ()
+    for (index, child) in #[(0, first), (1, second)] do
+      if let .error message ← checkReplyScopeContext context true child
+          (ComputationalData.InterfaceScope.arg? scope index) then return .error message
+    return .ok ()
+  | "identity", #[source, target] | "zero", #[source, target] =>
+    if !morphism then return .ok ()
+    for (index, child) in #[(0, source), (1, target)] do
+      if let .error message ← checkReplyScopeContext context false child
+          (ComputationalData.InterfaceScope.arg? scope index) then return .error message
+    return .ok ()
+  | "finiteData", #[descriptor, _] =>
+    if morphism then return .ok ()
+    checkReplyScopeContext context false descriptor (ComputationalData.InterfaceScope.arg? scope 0)
+  | _, _ => return .ok ()
+
 /-- A map carries its actual endpoints; a well-framed wrong map is still just data. -/
 def validateMap (formal : Expr) (source target data : Json)
     (objects : ComputationalData.InterfaceObjects := #[])
-    (scope : Option ComputationalData.InterfaceScope := none) :
+    (scope : Option ComputationalData.InterfaceScope := none)
+    (context? : Option CategoryContext := none) :
     TermElabM (Except String Unit) := do
+  if let some context := context? then
+    if let .error message ← checkReplyScopeContext context true data scope then
+      return .error message
   let .ok args := fields "typedMap" 3 data
     | return .error "a lift map requires its actual source, target and callable data"
   unless args[0]! == source && args[1]! == target do
@@ -305,18 +368,72 @@ def ComparisonImageRole.ofMetadata (hasSourceImage : Bool)
   | some image => .selected image
   | none => if hasSourceImage then .forwardResult else .recipe
 
+/-- Append one reply at the request's next ordered output position. Existing
+bindings keep their exact original fragments; only explicitly retained reply
+children contribute new bindings. The newly assembled reply root is never bound
+to the requested result merely to make its validation succeed. -/
+def appendSelectionReplyScope (request reply : ComputationalData.InterfaceScope) :
+    Except String ComputationalData.InterfaceScope := do
+  request.validate request.data.json
+  reply.validate reply.data.json
+  let args ← (request.data.json.getObjVal? "args").bind (·.getArr?)
+  unless args.size == 5 do throw "the positioned lift request lost its ordered input fields"
+  let outputs ← args[4]!.getArr?
+  let path := #[DataOwnership.Step.field "args", .index 4, .index outputs.size]
+  let data : DataOwnership.Data := {
+    json := request.data.json.setObjVal! "args"
+      (Json.arr (args.set! 4 (Json.arr (outputs.push reply.data.json))))
+    ownership := request.data.ownership ++ DataOwnership.prefix path reply.data.ownership }
+  let result : ComputationalData.InterfaceScope := {
+    data
+    bindings := request.bindings ++ reply.bindings.map (fun binding =>
+      { binding with path := path ++ binding.path }) }
+  result.validate data.json
+  return result
+
 /-- Validate all four outputs at the actual source object, without manufacturing
 an Arrow. A forward-produced source is checked at its independently fixed object
 interface; its complete map still has the retained base object as its target. -/
 def validateSelectionPrefixWith (selection : SelectedLift.Plan) (action source base : Json)
-    (outputs : Array Json) (comparison : ComparisonImageRole) :
-    TermElabM (Except String Unit) := do
+    (outputs : Array Json) (comparison : ComparisonImageRole)
+    (scope : Option ComputationalData.InterfaceScope := none)
+    (originalArrow : Bool := false) : TermElabM (Except String Unit) := do
+  if let some scope := scope then
+    if let .error message := scope.validate scope.data.json then return .error message
+  let actionScope := ComputationalData.InterfaceScope.arg? scope 1
+  let originalScope := ComputationalData.InterfaceScope.arg? scope 2
+  let sourceScope := if originalArrow then ComputationalData.InterfaceScope.arg? originalScope 0
+    else originalScope
+  let baseScope := ComputationalData.InterfaceScope.arg? scope 3
+  let outputScope := fun index => ComputationalData.InterfaceScope.index?
+    (ComputationalData.InterfaceScope.arg? scope 4) index
+  let sourceContext ← SelectedLift.context selection
+  let targetContext ← SelectedLift.context selection true
+  if originalArrow && originalScope.isSome then
+    let #[constructor] := (← registryState).constructors.filter
+        (·.semantics == `CasCatalogue.Constructors.arrow)
+      | return .error "the selected lift lost its complete original Arrow constructor"
+    let context ← CategoryContext.construct sourceContext constructor.id
+    if let some original := originalScope then
+      if let .error message ← checkReplyScopeContext context false original.data.json
+          originalScope then return .error message
+  if baseScope.isSome then
+    let #[constructor] := (← registryState).constructors.filter
+        (·.semantics == `CasCatalogue.Constructors.subobjects)
+      | return .error "the selected lift lost its complete subobject constructor"
+    let context ← CategoryContext.construct targetContext constructor.id
+    if let .error message ← checkReplyScopeContext context false base baseScope then
+      return .error message
+  if let .error message ← checkReplyScopeContext sourceContext false source sourceScope then
+    return .error message
   unless !outputs.isEmpty && outputs.size <= 4 && selection.ports.size == 4 do
     return .error "a lift requires an ordered prefix of its four public outputs"
   let .ok baseFields := subobjectFields base
     | return .error "the lift base omitted its complete actual subobject data"
+  if let .error message ← checkReplyScopeContext sourceContext false outputs[0]! (outputScope 0) then
+    return .error message
   let .ok () ← ComputationalData.validatePort selection.ports[0]!
-      (← inferType selection.ports[0]!) outputs[0]!
+      (← inferType selection.ports[0]!) outputs[0]! (scope := outputScope 0)
     | return .error "the lift object output has malformed framing"
   let selectedImage : Except String (Option Json) := match comparison with
     | .recipe => .ok none
@@ -326,11 +443,18 @@ def validateSelectionPrefixWith (selection : SelectedLift.Plan) (action source b
           (fields "typedMap" 3 outputs[2]!).map fun forward => some forward[0]!
   let .ok comparisonImage? := selectedImage
     | return .error "the forward comparison omitted its complete returned image endpoint"
+  let comparisonScope := match comparison with
+    | .forwardResult => ComputationalData.InterfaceScope.arg? (outputScope 2) 0
+    | .selected _ => ComputationalData.InterfaceScope.at? scope #[.field "comparisonImage"]
+    | .recipe => none
   if let some image := comparisonImage? then
-    if let .error message ← ComputationalData.validateAction selection.action action then
-      return .error message
+    if let .error message ← ComputationalData.validateAction selection.action action
+        (scope := actionScope) then return .error message
     let formal ← Semantic.objOf selection.action selection.ports[0]!
-    if let .error message ← ComputationalData.validatePort formal (← inferType formal) image then
+    if let .error message ← checkReplyScopeContext targetContext false image comparisonScope then
+      return .error message
+    if let .error message ← ComputationalData.validatePort formal (← inferType formal) image
+        (scope := comparisonScope) then
       return .error s!"the selected comparison image has malformed framing: {message}"
   let mapped := comparisonImage?.getD <| Json.mkObj [("ctor", "functorAction"),
     ("args", Json.arr #[action, outputs[0]!])]
@@ -341,7 +465,9 @@ def validateSelectionPrefixWith (selection : SelectedLift.Plan) (action source b
     let (domain, codomain) := if index == 1 then (outputs[0]!, source)
       else if index == 2 then (mappedEndpoint, baseEndpoint)
       else (baseEndpoint, mappedEndpoint)
-    match ← validateMap selection.ports[index]! domain codomain outputs[index]! with
+    let context := if index == 1 then sourceContext else targetContext
+    match ← validateMap selection.ports[index]! domain codomain outputs[index]!
+        (scope := outputScope index) (context? := some context) with
     | .error message => return .error message
     | .ok () => pure ()
     if index == 2 then
@@ -354,18 +480,21 @@ def validateSelectionPrefixWith (selection : SelectedLift.Plan) (action source b
 /-- Compatibility entry point: an omitted image preserves the explicit historical
 recipe contract. New field-produced images use `validateSelectionPrefixWith`. -/
 def validateSelectionPrefix (selection : SelectedLift.Plan) (action source base : Json)
-    (outputs : Array Json) (comparisonImage? : Option Json := none) :
-    TermElabM (Except String Unit) :=
+    (outputs : Array Json) (comparisonImage? : Option Json := none)
+    (scope : Option ComputationalData.InterfaceScope := none)
+    (originalArrow : Bool := false) : TermElabM (Except String Unit) :=
   validateSelectionPrefixWith selection action source base outputs
-    (ComparisonImageRole.ofMetadata false comparisonImage?)
+    (ComparisonImageRole.ofMetadata false comparisonImage?) scope originalArrow
 
 /-- Prescribed lift execution additionally retains the entire original Arrow. -/
 def validatePrefix (component : Component) (action source base : Json)
-    (outputs : Array Json) (comparisonImage? : Option Json := none) :
+    (outputs : Array Json) (comparisonImage? : Option Json := none)
+    (scope : Option ComputationalData.InterfaceScope := none) :
     TermElabM (Except String Unit) := do
   let .ok sourceFields := fields "arrow" 3 source
     | return .error "the lift source omitted its complete original Arrow data"
   validateSelectionPrefix component.selection action sourceFields[0]! base outputs comparisonImage?
+    scope true
 
 /-- Advance with this step's actual object and defining map, not the original base packet. -/
 def nextBase (source : Json) (outputs : Array Json) : Except String Json := do
@@ -381,7 +510,8 @@ tokens and `valueData` wrappers are not interchangeable with a formal recipe.
 Without request data this checks only the independently selected slot interfaces;
 it does not establish equality to requests that this decoder has not received. -/
 def validateParameters (selection : SelectedLift.Plan) (step : Json)
-    (requested? : Option (Array Json)) : TermElabM (Except String Unit) := do
+    (requested? : Option (Array Json))
+    (scope : Option ComputationalData.InterfaceScope := none) : TermElabM (Except String Unit) := do
   let .ok parameters := (step.getObjVal? "parameters").bind (·.getArr?)
     | return .error "a completed lift step requires its ordered selected evidence parameters"
   let fixed ← DirectConstruction.dataArguments selection.parameters
@@ -390,21 +520,44 @@ def validateParameters (selection : SelectedLift.Plan) (step : Json)
   if let some requested := requested? then
     unless parameters == requested do
       return .error "a completed lift step changes its actual ordered request parameters"
-  for (parameter, data) in fixed.zip parameters do
-    if let .error message ← ComputationalData.validatePort parameter (← inferType parameter) data then
+  for ((parameter, data), index) in (fixed.zip parameters).zipIdx do
+    let parameterScope := ComputationalData.InterfaceScope.index?
+      (ComputationalData.InterfaceScope.at? scope #[.field "parameters"]) index
+    if let .error message ← ComputationalData.validatePort parameter (← inferType parameter) data
+        (scope := parameterScope) then
       return .error message
   return .ok ()
 
 /-- The complete base inclusion uses the supplied actual image as its ambient.
 This checks computational endpoints at the already selected inclusion; it does
 not assert an equation between an action's implementation and its formal meaning. -/
-def validateSourceImageBase (selection : SelectedLift.Plan) (image base : Json) :
+def validateSourceImageBase (selection : SelectedLift.Plan) (image base : Json)
+    (scope : Option ComputationalData.InterfaceScope := none)
+    (imageScope : Option ComputationalData.InterfaceScope := none) :
     TermElabM (Except String Unit) := do
   let .ok baseFields := subobjectFields base
     | return .error "the lift base omitted its complete actual subobject data"
   let actual := Backend.TypedMap.encode {
     source := baseFields[0]!, target := baseFields[1]!, callable := baseFields[2]! }
-  validateMap selection.inclusion baseFields[0]! image actual
+  let context ← SelectedLift.context selection true
+  if let .error message ← checkReplyScopeContext context false image imageScope then
+    return .error message
+  let actualScope ← match scope with
+    | none => pure (.ok none)
+    | some scope => do
+      let work : Except String (Option ComputationalData.InterfaceScope) := do
+        scope.validate base
+        let fields ← (Array.range 3).mapM fun index =>
+          scope.data.project #[.field "args", .index index]
+        let data ← DataOwnership.Data.ctor "typedMap" fields
+        let children := (Array.range 3).filterMap fun index => do
+          let child ← ComputationalData.InterfaceScope.arg? (some scope) index
+          return (#[.field "args", .index index], child)
+        return some (← ComputationalData.InterfaceScope.assemble data children)
+      pure work
+  let .ok actualScope := actualScope | return actualScope.map fun _ => ()
+  validateMap selection.inclusion baseFields[0]! image actual (scope := actualScope)
+    (context? := some context)
 
 /-- Execution compares every retained request role with its original runtime
 data. A metadata-bearing formal-reference packet checks only fixed interfaces
@@ -423,11 +576,14 @@ interfaces. A reduced base object need not remember a forgetful action's source.
 Only the fixed plan supplies these formal interfaces; descriptors supply no
 mathematical identity, action, inverse or construction law. -/
 def sourceInterfaces (prepared : Plan) (steps : Array Json) (source : Json)
-    (runtime? : Option (Array StageInputs) := none) :
+    (runtime? : Option (Array StageInputs) := none)
+    (scope : Option ComputationalData.InterfaceScope := none) :
     TermElabM (Except String ComputationalData.InterfaceObjects) := do
   let mut current := source
   let mut objects : ComputationalData.InterfaceObjects := #[]
   for ((component, stepData), index) in (prepared.components.zip steps).zipIdx do
+    let stepScope := ComputationalData.InterfaceScope.index?
+      (ComputationalData.InterfaceScope.arg? scope 3) index
     let .ok step := fields "liftStep" 5 stepData
       | return .error "a component omits its selected action, source, base or outputs"
     let .ok images := Backend.LiftImages.decode stepData 4
@@ -439,7 +595,8 @@ def sourceInterfaces (prepared : Plan) (steps : Array Json) (source : Json)
         return .error message
     unless step[2]! == current do
       return .error "a component changes the original or preceding actual transported source"
-    if let .error message ← ComputationalData.validateAction component.action step[1]! then
+    if let .error message ← ComputationalData.validateAction component.action step[1]!
+        (scope := ComputationalData.InterfaceScope.arg? stepScope 1) then
       return .error message
     let .ok endpoints := fields "arrow" 3 current
       | return .error "a component has incomplete source Arrow data"
@@ -457,9 +614,13 @@ def sourceInterfaces (prepared : Plan) (steps : Array Json) (source : Json)
       | return .error "a component image omitted its complete transported Arrow data"
     if images.sourceImage?.isSome then
       if let .error message ← ComputationalData.validatePort component.transportedSource
-          (← inferType component.transportedSource) transported (objects ++ sourceObjects) then
+          (← inferType component.transportedSource) transported (objects ++ sourceObjects)
+          (scope := ComputationalData.InterfaceScope.at? stepScope #[.field "sourceImage"]) then
         return .error s!"a component image changed its fixed complete Arrow interface: {message}"
-      if let .error message ← validateSourceImageBase component.selection imageEndpoints[0]! step[3]! then
+      if let .error message ← validateSourceImageBase component.selection imageEndpoints[0]! step[3]!
+          (ComputationalData.InterfaceScope.arg? stepScope 3)
+          (ComputationalData.InterfaceScope.arg?
+            (ComputationalData.InterfaceScope.at? stepScope #[.field "sourceImage"]) 0) then
         return .error message
     for (projection, index) in #[(``CategoryTheory.Arrow.left, 0),
         (``CategoryTheory.Arrow.right, 1)] do
@@ -522,10 +683,13 @@ def decodeIn (expected : Expr) (sourceExpression : CategoryExpr)
     (validateBase : NamedCategoryEntry → Expr → Json → ComputationalData.InterfaceObjects →
       TermElabM (Except String Unit))
     (requestParameters? : Option (Array (Array Json))) (prepared? : Option Plan := none)
-    (runtime? : Option (Array StageInputs) := none) :
+    (runtime? : Option (Array StageInputs) := none)
+    (scope : Option ComputationalData.InterfaceScope := none) :
     TermElabM (Option (Except String Packet)) := do
   unless (json.getObjValAs? String "ctor").toOption == some "liftedSubobject" do return none
   let work : TermElabM (Except String Packet) := do
+    if let some scope := scope then
+      if let .error message := scope.validate json then return .error message
     let .ok args := fields "liftedSubobject" 4 json
       | return .error "a completed lift requires base, source, exact ids and every component output"
     let .ok ids := args[2]!.getArr? | return .error "the lift ids are absent"
@@ -549,7 +713,7 @@ def decodeIn (expected : Expr) (sourceExpression : CategoryExpr)
     if let some runtime := runtime? then
       unless runtime.size == steps.size do
         return .error "the retained runtime inputs omit a prescribed stage"
-    let .ok objects ← sourceInterfaces prepared steps args[1]! runtime?
+    let .ok objects ← sourceInterfaces prepared steps args[1]! runtime? scope
       | return .error "the completed packet changes its retained original source or selected action"
     if let .error message ← validateBase prepared.baseCategory fixedBase args[0]! objects then
       return .error s!"the computational base changed its complete fixed context: {message}"
@@ -558,18 +722,21 @@ def decodeIn (expected : Expr) (sourceExpression : CategoryExpr)
     for index in (List.range steps.size).reverse do
       let some component := prepared.components[index]?
         | return .error "the completed route lost a fixed component"
+      let stepScope := ComputationalData.InterfaceScope.index?
+        (ComputationalData.InterfaceScope.arg? scope 3) index
       let .ok step := fields "liftStep" 5 steps[index]!
         | return .error "a component omits its selected action, source, base or outputs"
       let .ok images := Backend.LiftImages.decode steps[index]! 4
         | return .error "a completed component has incomplete actual image metadata"
       if let .error message ← validateParameters component.selection steps[index]!
-          (requestParameters?.map (·[index]!)) then
+          (requestParameters?.map (·[index]!)) stepScope then
         return .error message
       unless step[0]!.getStr?.toOption == some component.lift.raw && step[3]! == base do
         return .error "a component changes the exact reverse-route base or selected lift"
       if index == 0 && step[2]! != args[1]! then
         return .error "the final component changes the complete original source"
-      match ← ComputationalData.validateAction component.action step[1]! with
+      match ← ComputationalData.validateAction component.action step[1]!
+          (scope := ComputationalData.InterfaceScope.arg? stepScope 1) with
       | .error message => return .error message
       | .ok () => pure ()
       if index + 1 < steps.size then
@@ -584,7 +751,7 @@ def decodeIn (expected : Expr) (sourceExpression : CategoryExpr)
           return .error "a component changes the preceding actual transported source"
       let .ok data := step[4]!.getArr? | return .error "a component has no ordered outputs"
       unless data.size == 4 do return .error "a completed component omits a public output"
-      match ← validatePrefix component step[1]! step[2]! base data images.comparisonImage? with
+      match ← validatePrefix component step[1]! step[2]! base data images.comparisonImage? stepScope with
       | .error message => return .error message
       | .ok () => pure ()
       let .ok next := nextBase step[2]! data | return .error "the component cannot advance"
@@ -599,12 +766,13 @@ def decode (expected : Expr) (sourceCategory : NamedCategoryEntry)
     (validateBase : NamedCategoryEntry → Expr → Json → ComputationalData.InterfaceObjects →
       TermElabM (Except String Unit))
     (requestParameters? : Option (Array (Array Json))) (prepared? : Option Plan := none)
-    (runtime? : Option (Array StageInputs) := none) :
+    (runtime? : Option (Array StageInputs) := none)
+    (scope : Option ComputationalData.InterfaceScope := none) :
     TermElabM (Option (Except String Packet)) := do
   unless (json.getObjValAs? String "ctor").toOption == some "liftedSubobject" do return none
   unless ← withTransparency .all <| isDefEq (← categoryCarrierInstance sourceCategory) expected do
     return some (.error "the named lift context changes its complete selected result parameters")
   decodeIn expected sourceCategory.expression fixedSource prescribed fixedBase json
-    validateSource validateBase requestParameters? prepared? runtime?
+    validateSource validateBase requestParameters? prepared? runtime? scope
 
 end CasCatalogue.LiftedSubobjectData

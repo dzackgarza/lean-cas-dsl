@@ -1,5 +1,26 @@
 # Reuse record: `cc-dsl-language`
 
+## Reconstructed partial named-object views — 2026-10-31
+
+Local source inspection reuses `Trace.checkProducerRecord`, `recognize`,
+`recognizeObjectApplication`, `Value.sameSelection` and `retainObjectContext`.
+A view of the exact authenticated handle with neither origin nor selected value
+may lack binding data, but still asserts its category declaration. `recognize`
+checks that declaration before completing only the missing binding. Supplied
+complete selections must still agree through the unchanged selection predicate;
+all original context is retained. A conflicting declaration or complete origin
+is not converted into a partial view.
+
+Structured projections, binders and selected numeral carriers retain their own
+`Trace.recordProduced` handles. Candidate binder readings copy the existing
+trace and caches; closed-type instance visibility still checks the original full
+type. These are new reconstructions, not recovered historical byte identities.
+Codec and Language compile in the current recovery logs. Fresh
+`reconstructed-controls-v2` passes ReaderContextContinuityProbes, including the
+partial-view and conflicting-declaration controls, and DeclaredParameterEndpointProbes.
+The complete unchanged consumer family and original mathematical questions still
+require fresh runs.
+
 ## Selected V1 Lean reuse and import placement (2026-10-28)
 
 **Decision:** keep the existing catalogue-controlled DSL and delegate ordinary dependent

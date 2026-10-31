@@ -569,8 +569,9 @@ partial def observePrescribedInvocation (h : Harness) (trace : Trace)
   let lifts := plan.components.map (·.lift)
   let retainedBase := plan.fixedBase
   let resultExpression := selected.context.expression
-  let parameters ← selected.parameters.mapM fun templates => do
-    let fields ← templates.mapM (mapActionTemplateWires (observeActionDataWire active trace))
+  let parameterTemplates ← selected.parameters.mapM fun templates =>
+    templates.mapM (mapActionTemplateWires (observeActionDataWire active trace))
+  let parameters ← parameterTemplates.mapM fun fields => do
     let values ← fields.mapM renderCapturedActionData
     return (values.map Prod.fst, values.flatMap Prod.snd)
   let actionTemplates ← selected.actions.mapM
@@ -585,10 +586,16 @@ partial def observePrescribedInvocation (h : Harness) (trace : Trace)
   let reader ← actualRetainedRecordReader active trace (actualRoutedKnownField active trace)
   let run ← executePrescribedRetainedWith reader plan original base sources images parameters actions
     (fun _ _ => pure none)
-    (fun _ input dependencies field => do
+    (fun index input dependencies field => do
       let some form := state.liftInputForm? input.selection.entry.inputAddress
         | throwError "the selected lift lost its public input form"
-      observeLiftStageField active input input.original.value form dependencies field)
+      let some descriptor := actionTemplates[index]?
+        | throwError "the selected lift lost its original action template position"
+      let some parameters := parameterTemplates[index]?
+        | throwError "the selected lift lost its original evidence template positions"
+      let static := (descriptor, ActionDataTemplate.array parameters)
+      observeLiftStageFieldWithScope active input input.original.value form dependencies
+        none (some static) field)
   let runtime ← run.stages.mapM fun (input, result) => do
     let .ok parameters := input.parameters.json.getArr?
       | throwError "the retained lift parameters lost their ordered array"
@@ -600,12 +607,29 @@ partial def observePrescribedInvocation (h : Harness) (trace : Trace)
       comparisonImage := result.comparisonImage.json : LiftedSubobjectData.StageInputs }
   let lifted := run.packet
   let liftedJson := lifted.json
+  let stageTemplates ← run.stages.zipIdx.mapM fun ((input, result), index) => do
+    let some descriptor := actionTemplates[index]?
+      | throwError "the completed stage lost its original action template position"
+    let some parameters := parameterTemplates[index]?
+      | throwError "the completed stage lost its original evidence template positions"
+    return liftStageValidationTemplate input result.outputs "liftStep"
+      (some (descriptor, .array parameters)) (some result.comparisonImage)
+  let resultTemplate : ActionDataTemplate := .ctor "liftedSubobject" #[
+    .wire .object base, .wire .object original,
+    .literal { json := toJson (plan.components.map (·.lift.raw)) }, .array stageTemplates]
+  let resultScope ← templateValidationScope resultTemplate (mapView := .logical)
+  unless resultScope.data == lifted do
+    throwError "the prescribed result scope changed an original stage packet or supplier"
   let some checked ← LiftedSubobjectData.decodeIn (← inferType e) resultExpression
       receiver lifts retainedBase liftedJson
-      (fun _ formal data => do ComputationalData.validatePort formal (← inferType formal) data)
+      (fun _ formal data => do
+        ComputationalData.validatePort formal (← inferType formal) data
+          (scope := ComputationalData.InterfaceScope.arg? (some resultScope) 1))
       (fun _ formal data objects => do
-        ComputationalData.validatePort formal (← inferType formal) data objects)
+        ComputationalData.validatePort formal (← inferType formal) data objects
+          (scope := ComputationalData.InterfaceScope.arg? (some resultScope) 0))
       (some (parameters.map (fun data => data.1.map (·.json)))) (some plan) (some runtime)
+      (some resultScope)
     | throwError "the prescribed method has no complete computational lift packet"
   let packet ← match checked with
     | .ok packet => pure packet
@@ -642,12 +666,13 @@ partial def observePrescribedInvocation (h : Harness) (trace : Trace)
   let context := selected.context
   unless context.expression.syntacticEq resultExpression do
     throwError "the completed method changed its accepted constructed result category"
-  return {
+  let result : Wire := {
     form := match CategoryContext.named? state resultExpression with
       | some category => .subobject category
       | none => .contextual resultExpression original.form
     payload, liftExecution := some execution, categoryContext := some context
     serviceHandles := handles }
+  retainIntrinsicResultAssembly result (.object context) resultTemplate
 
 /-- Surface interpretation enters the same captured lifecycle as public service
 preparation. All original inputs are fixed before the selected method is observed. -/
@@ -3118,8 +3143,10 @@ partial def completeRetainedLiftFactor (h : Harness) (trace : Trace)
     let reply ← sendData active operation input
     let some object := stage.outputs[0]?
       | throwError "the factor result lost its selected lift object endpoint"
+    let replyScope ← replyValidationScope reply
     if let .error message ← LiftedSubobjectData.validateMap step.factor
-        domain.json object.json reply.data.json then
+        domain.json object.json reply.data.json (scope := some replyScope)
+        (context? := some sourceContext) then
       malformed reply.backend operation reply.data.json message
     let sourceData ← checkedFragment (reply.data.project #[.field "args", .index 0])
     let targetData ← checkedFragment (reply.data.project #[.field "args", .index 1])
@@ -3127,6 +3154,7 @@ partial def completeRetainedLiftFactor (h : Harness) (trace : Trace)
     let actualTarget ← liftEndpointOperand object sourceContext targetData
     let output ← liftOperand step.factor sourceContext coneWire.form reply.data true true
     let output := { output with morphismFramed := true }
+    let output ← retainReplyProducer reply output (.map sourceContext)
     let output ← retainCallableEndpoints output actualSource actualTarget sourceContext
     currentBase := { output with serviceHandles := handles }
     currentDomain := actualSource
@@ -3756,16 +3784,34 @@ partial def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wi
     else pure (callable, #[])
   let invocation ← pointInvocationData id.raw parameterData callable.fragment
     domainWire.fragment sourceWire.fragment targetWire.fragment argumentData
+  -- These are the original rendered parameter and argument positions. A whole
+  -- callable or endpoint keeps its final selected Wire; equal packets do not
+  -- choose an occurrence, and framing does not substitute its former inputs.
+  let parameterInputs ← actionTemplateInputPaths
+    (.array (parameterOccurrences.flatMap (·.templates)))
+  let argumentInputs ← actionTemplateInputPaths argumentTemplate
+  let positions :=
+    parameterInputs.map (fun (path, input) => (#[.field "args", .index 1] ++ path, input)) ++
+    #[(#[.field "args", .index 2], callable),
+      (#[.field "args", .index 3], domainWire),
+      (#[.field "args", .index 4], sourceWire),
+      (#[.field "args", .index 5], targetWire)] ++
+    argumentInputs.map (fun (path, input) => (#[.field "args", .index 6] ++ path, input))
   let operands := #[wire, receiverWire, callable, argumentWire, domainWire, sourceWire, targetWire] ++
     parameterWires ++ endpoints ++ callableDependencies
   let handles ← if frameCallable then do
-      let (_, handles) ← normalizeOperationProducts h dataContext operands parameterWires (← reader.objects)
-      pure handles
+      let retainedOperands ← h.serviceOperands.get
+      for operand in operands do
+        for original in ← operationPresentationOperandClosure retainedOperands operand do
+          unless original.productComponents.isEmpty || original.productComponents.size == 2 do
+            throwError "the product presentation changed its complete ordered component inventory"
+      retainOperationPresentationOperands h operands
     else retainServiceOperands h operands
+  let serviceInputPaths ← retainServiceInputPaths h invocation positions
   let input : Wire := {
     form := receiverWire.form
     payload := (← combinedRecipePayload formal invocation operands)
-    serviceHandles := handles }
+    serviceHandles := handles, serviceInputPaths := some serviceInputPaths }
   return {
     original := wire
     operation := id
@@ -4065,8 +4111,8 @@ partial def resumeCapturedInvocation (h : Harness) (trace : Trace)
       let prepared ← directLiftInputs h selected frame.returned
       let result ← LiftStageExecution.fold Wire.fragment prepared.input
         (fun _ => pure none)
-        (observeLiftStageFieldWithInputs h prepared.input selected.formal prepared.form
-          prepared.dependencies (some prepared.staticInputPaths))
+        (observeLiftStageFieldWithScope h prepared.input selected.formal prepared.form
+          prepared.dependencies (some prepared.staticInputPaths) (some prepared.staticTemplates))
         liftStageEndpoints
       directLiftResult h selected prepared result
   | .liftField selected =>
@@ -5207,7 +5253,9 @@ partial def serviceDecoder (scope : ServiceScope) : TermElabM ServiceRequest.Dec
   endpoint := serviceEndpoint scope
   project := serviceProject scope
   condition := serviceCondition scope
-  declaration := serviceDeclaration scope }
+  declaration := serviceDeclaration scope
+  validationScope := fun operand => do
+    return some (← wireValidationScope .parameter (← serviceWire scope operand) (mapView := .logical)) }
 
 partial def serviceEndpoint (scope : ServiceScope) (operand : ServiceRequest.Operand)
     (source : Bool) : TermElabM ServiceRequest.Operand := do
@@ -5573,6 +5621,53 @@ partial def checkServiceTemplateFraming (template : Json) : TermElabM Unit := do
     for argument in arguments do checkServiceTemplateFraming argument
   | _ => pure ()
 
+/-- Resolve references only through their exact local handles, preserving the
+complete original Wire as a retained typed child. Literal envelopes contribute
+no fresh result binding. This template owns both data assembly and validation. -/
+partial def serviceResultTemplate (scope : ServiceScope) (template : Json) :
+    TermElabM ActionDataTemplate := do
+  match Backend.inputRefPath? template with
+  | .error message => throwStratum .malformed message
+  | .ok (some _) =>
+    let some wire ← serviceRetained scope template
+      | throwStratum .malformed "a final input reference is outside its exact request scope"
+    return .logical (.retained (.wire .parameter wire))
+  | .ok none => pure ()
+  match Backend.resultRefIndex? template with
+  | .error message => throwStratum .malformed message
+  | .ok (some index) =>
+    let some wire := scope.references[index]?
+      | throwStratum .malformed "a final result reference is outside its completed local scope"
+    checkServiceOwner scope.harness wire
+    return .logical (.retained (.wire .parameter wire))
+  | .ok none => pure ()
+  if (template.getObjValAs? String "ctor").toOption == some "opaqueData" then
+    let some (.ok session) := (← scope.harness.connections.get)[scope.backend]?
+      | throwStratum .unavailable "a deferred result's supplying session is unavailable"
+    return .literal (DataOwnership.Data.capture template (scope.backend, session.identity))
+  match template with
+  | .arr values => return .array (← values.mapM (serviceResultTemplate scope))
+  | .obj fields =>
+    let mut actual := #[]
+    for (key, value) in fields.toList do
+      actual := actual.push (key, ← serviceResultTemplate scope value)
+    return .object actual
+  | _ => return .literal { json := template }
+
+/-- The existing completion validator receives exact positioned references.
+A whole retained object or map keeps its own complete category; a newly returned
+literal does not acquire the requested root interface before this check. -/
+def validateServiceResultScope (prepared : ServiceRequest.Prepared)
+    (scope : ComputationalData.InterfaceScope) :
+    TermElabM (Except String (Option StructuredResult.Result)) := do
+  if let .error message := scope.validate scope.data.json then return .error message
+  if !prepared.pointResult then
+    if let some context := prepared.resultContext then
+      if prepared.objectResult || prepared.callableResult then
+        if let .error message ← LiftedSubobjectData.checkReplyScopeContext context
+            prepared.callableResult scope.data.json (some scope) then return .error message
+  prepared.completeAt scope.data.json (some scope)
+
 /-- Validate every reference at a pre-existing complete formal data port before
 substituting actual packets. The referenced value need not equal the caller's
 formal result: a well-framed wrong computation stays available for checking. -/
@@ -5607,44 +5702,21 @@ partial def validateServiceResultTemplate (scope : ServiceScope)
   else
     validate prepared.result template
 
-/-- Substitute only already checked references. Ownership follows actual opaque
-packets; the entire DAG remains retained separately even when this result is portable. -/
+/-- Observational compatibility wrapper. Production retains this same expression
+as a typed producer after ordinary completion has accepted its untrusted data. -/
 partial def assembleServiceResult (scope : ServiceScope) (template : Json) :
     TermElabM DataOwnership.Data := do
-  match Backend.inputRefPath? template with
-  | .error message => throwStratum .malformed message
-  | .ok (some _) =>
-    let some wire ← serviceRetained scope template
-      | throwStratum .malformed "a final input reference is outside its exact request scope"
-    return wire.fragment
-  | .ok none => pure ()
-  match Backend.resultRefIndex? template with
-  | .error message => throwStratum .malformed message
-  | .ok (some index) =>
-    let some wire := scope.references[index]?
-      | throwStratum .malformed "a final result reference is outside its completed local scope"
-    checkServiceOwner scope.harness wire
-    return wire.fragment
-  | .ok none => pure ()
-  if (template.getObjValAs? String "ctor").toOption == some "opaqueData" then
-    let some (.ok session) := (← scope.harness.connections.get)[scope.backend]?
-      | throwStratum .unavailable "a deferred result's supplying session is unavailable"
-    return DataOwnership.Data.capture template (scope.backend, session.identity)
-  match template with
-  | .arr values =>
-    return DataOwnership.Data.array (← values.mapM (assembleServiceResult scope))
-  | .obj fields =>
-    let mut actual := []
-    for (key, value) in fields.toList do
-      actual := actual ++ [(key, ← assembleServiceResult scope value)]
-    checkedFragment (DataOwnership.Data.object actual)
-  | _ => return { json := template }
+  return (← renderCapturedActionData (← serviceResultTemplate scope template)).1
 
 /-- A service node uses the same dispatch, action execution, completion and
 semantic method/property paths as an ordinary computation. Its occurrence handles
 are kept independently of the expression-indexed ordinary result cache. -/
 partial def executeServiceRequest (scope : ServiceScope) (operation : String) (input : Form)
     (prepared : ServiceRequest.Prepared) : TermElabM ServiceNodeExecution := do
+  let trace ← match prepared.trace with
+    | none => pure scope.trace
+    | some selected => Trace.merge scope.trace selected
+  let scope := { scope with trace }
   let h := scope.harness
   checkServiceCallableInterface prepared
   let endpointWires ← match prepared.callableEndpointOperands with
@@ -5698,7 +5770,7 @@ partial def executeServiceRequest (scope : ServiceScope) (operation : String) (i
         (requestInputPaths := requestInputPaths)
     | none =>
       if let some method := prepared.method then do
-        let trace := prepared.trace.getD scope.trace
+        let trace := scope.trace
         let original ← serviceWire scope method.receiver
         let parameters : Array RoutedParameterInput ← method.parameters.mapM fun parameter => do
           return {
@@ -5708,7 +5780,8 @@ partial def executeServiceRequest (scope : ServiceScope) (operation : String) (i
           prepared.result method.id method.route method.receiver.value method.comparisons
           method.application method.lifts original (some parameters)
         realizeObjectObservation h trace result
-      else if let some trace := prepared.trace then do
+      else if prepared.trace.isSome then do
+        let trace := scope.trace
         let #[original] := dependencies
           | throwError "the semantic service request lost its unique original receiver"
         let results ← IO.mkRef (({} : Std.HashMap Expr Wire).insert original.value original)
@@ -5722,7 +5795,8 @@ partial def executeServiceRequest (scope : ServiceScope) (operation : String) (i
         let reply ← sendData h operation request (completeRequest := true)
         let answer := reply.data.json
         let backend := reply.backend
-        let completed ← match ← prepared.complete answer with
+        let replyScope ← replyValidationScope reply
+        let completed ← match ← validateServiceResultScope prepared replyScope with
           | .ok completed => pure completed
           | .error message => malformed backend operation answer message
         match completed with
@@ -5736,14 +5810,35 @@ partial def executeServiceRequest (scope : ServiceScope) (operation : String) (i
             | .direct _ => pure answer
             | .created lift _ _ =>
               scopedNode "createdCone" #[{ json := toJson lift }, request.fragment, answer]
-          pure { template with payload := (← constructionPayload template.form completed
-            request.fragment packet), objectObserved := true }
+          let received := { template with
+            payload := (← constructionPayload template.form completed request.fragment packet)
+            objectObserved := true }
+          let some answerTemplate ← replyProducerTemplate reply answer | pure received
+          let packetTemplate := match completed.packet with
+            | .direct _ => answerTemplate
+            | .created lift _ _ => ActionDataTemplate.ctor "createdCone"
+                #[.literal { json := toJson lift }, .literal request.fragment, answerTemplate]
+          let producer : ActionDataTemplate := .ctor "constructionApex" #[
+            .literal { json := toJson received.form.id }, .literal request.fragment, packetTemplate]
+          let some context := prepared.resultContext
+            | throwError "the completed service construction lost its full selected category"
+          retainIntrinsicResultAssembly received (.object context) producer
         | none =>
           let data ← receiveReplyData h operation reply true
           let received : Wire := { template with
             payload := .computed prepared.result data
             objectObserved := prepared.objectResult, callableObserved := prepared.callableResult }
-          retainServiceCallableResult prepared received endpointWires
+          let received ← retainServiceCallableResult prepared received endpointWires
+          let result ← if prepared.objectResult then do
+              let some context := prepared.resultContext
+                | throwError "the service object lost its complete result context"
+              pure (IntrinsicResultInterface.object context)
+            else if prepared.callableResult || prepared.pointResult then do
+              let some context := prepared.resultContext
+                | throwError "the service callable lost its complete result context"
+              pure (IntrinsicResultInterface.map context)
+            else pure (.value (← inferType received.value))
+          retainReplyProducer reply received result
   checkServiceOwner h result
   return { operation, input := input.id, request, dependencies, result }
 
@@ -5785,9 +5880,11 @@ partial def completeServiceReply (h : Harness) (trace : Trace)
     h.services.modify fun records => records.modify index fun record => { record with nodes }
     scope := { scope with references := scope.references.push node.result }
   validateServiceResultTemplate scope outer program.result
-  let result ← assembleServiceResult scope program.result
+  let template ← serviceResultTemplate scope program.result
+  let resultScope ← templateValidationScope template (mapView := .logical)
+  let result := resultScope.data
   checkDataOwners h result
-  if let .error message ← outer.complete result.json then
+  if let .error message ← validateServiceResultScope outer resultScope then
     throwStratum .malformed m!"the completed deferred reply changes its original result interface: {message}"
   let owner := match DataOwnership.owners result.ownership with
     | #[owner] => some owner
@@ -5796,7 +5893,9 @@ partial def completeServiceReply (h : Harness) (trace : Trace)
     { record with
       nodes, result := result.json, owner, ownership := result.ownership
       completed := true }
-  return { data := result, backend := owner.map Prod.fst |>.getD backend }
+  return {
+    data := result, backend := owner.map Prod.fst |>.getD backend
+    scope := some resultScope, template := some template }
 
 /-- Retain only full category contexts supplied by the original typed operands.
 An equal carrier or another registry object's declaration supplies no context. -/
@@ -5904,7 +6003,9 @@ partial def executeDerivedRequest (h : Harness) (trace : Trace)
         else if prepared.objectResult then realizeObjectObservation active privateTrace result
         else pure result
       checkServiceOwner active result
-      if let .error message ← prepared.complete result.json then
+      let producer : ActionDataTemplate := .logical (.retained (.wire .parameter result))
+      let resultScope ← templateValidationScope producer (mapView := .logical)
+      if let .error message ← validateServiceResultScope prepared resultScope then
         throwStratum .malformed m!"the completed derivation changes its original result interface: {message}"
       let retained := { result with
         payload := forwardPayload result expansion.original result.json
@@ -5914,7 +6015,9 @@ partial def executeDerivedRequest (h : Harness) (trace : Trace)
       let owner := match DataOwnership.owners result.ownership with
         | #[owner] => some owner
         | _ => none
-      return { data := result.fragment, backend := owner.map Prod.fst |>.getD scope.backend }
+      return {
+        data := result.fragment, backend := owner.map Prod.fst |>.getD scope.backend
+        scope := some resultScope, template := some producer }
     catch error =>
       unless !Exception.hasConflictingStrata error &&
           Exception.stratum? error == some .noImplementation &&

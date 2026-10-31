@@ -26,23 +26,90 @@ The reservation traversal retains the original field order and duplicate roots,
 uses a completed-result cache local to one fixed identifier query, and changes
 neither computational ownership nor dispatch.
 
-This is a **red, source-only checkpoint**. It is not a byte-for-byte recovery of
-the lost `08e1d3f` tree: its intervening positioned scope, consumer-interface,
-reader and final operation-retention changes still require recovery or fresh
-implementation and validation. No pre-loss build or runtime result validates
+The published recovery checkpoint is **red and source-only**. It is not a
+byte-for-byte recovery of the lost `08e1d3f` tree. The current reader, positioned
+lift/service scopes and final operation-retention changes are new reconstructions
+over that checkpoint, with fresh validation recorded below. No pre-loss result validates
 this newly assembled source combination. The original first-two run at the
 lost checkpoint completed within its unchanged budgets but still reported the
 complete selected-descriptor rejection; it established no mathematical hold.
 
-The saved Lean artifacts have been retrieved for reuse. The compiler and
-selected dependency checkouts are being restored. The previously selected CAS
-engine executable is absent, so engine-dependent runs remain blocked pending
-an available existing runtime; this session does not install or recreate it.
+The saved Lean artifacts, compiler and selected dependency checkouts have been
+restored; old artifacts require current-source incremental validation. The selected CAS
+engine executable is absent locally. The configured candidate CI has an existing
+engine setup and reaches the original runtime question; this session does not
+install or recreate a local engine.
 Continue the current #66/#69 construction, required combined consumer/native
 build, fixed readings and computations, connected workflows and notebook, then
 the independent frozen-candidate assessment. #83 remains closed, and permanent
 assertions, original imports/bindings/order and the shared 200000-heartbeat
 budget remain unchanged.
+
+The recovered source checkpoint is now published as
+`f2c6cdef0c3335578b1616eb98abef17246f7a63`, tree
+`c72d1c8e4687262246576da745809882722adc05`, identical to local `50d13a3`.
+The GitHub branch and ordinary fetched Git tree both confirm that publication.
+All 14 dependency checkouts and the official Lean 4.33.0 distribution are now
+restored. The saved 57,485 build artifacts match their recorded bytes, modes and
+modification times. The selected latest-main mathematics, contract and notebook
+remain `3f8aedfd`, `33a514c2` and `4c6c2a77`; old artifacts still require ordinary
+incremental validation against the current source.
+
+### Reconstructed source and actual validation — 2026-10-31 Asia/Taipei
+
+The reconstruction retains partial named-object views only after checking their
+category declaration; complete selections still use `Value.sameSelection`. It
+carries exact positioned inputs through lift/service completion, retains the
+final operation operand inventory before allocating input paths, and observes
+callable endpoints through their original typed children. Prospective identifier
+reservation caches only completed membership results for one fixed query.
+The owning records are [reader reuse](specs/reuse/cc-dsl-language.md),
+[lift reuse](specs/reuse/cc-lift-general.md) and
+[realizer reuse](specs/reuse/cc-realizer-first.md).
+
+Fresh compiler logs verify Codec, Language, ComputationalData, LiftedSubobjectData
+and the service-request modules. `core-reconstruction-v7` compiled RuntimeSupport;
+`core-reconstruction-v8` compiled Realize and passed ProspectiveReservationProbes.
+The v8 receipt exits **1**, with its input hashes unchanged. After fixture-only
+syntax and type corrections, `reconstructed-controls-v2` passes all 3820 build
+jobs in 15.488 seconds, with unchanged input hashes. Its five targets are
+PositionedLiftServiceScopeProbes (including 384 validator and 1160 assembly
+differential cases), ProspectiveReservationProbes, IntrinsicValueOccurrenceProbes,
+ReaderContextContinuityProbes and DeclaredParameterEndpointProbes.
+OperationOwnerExecutionProbes remains separately red: unavailable underlying-functor
+registration, descriptor construction executing its owner, and the new control's
+missing genuine framed-request precondition. Full consumer/native builds, fresh
+reading exports, original computations, connected workflows/notebook and independent
+frozen trials remain unverified on this reconstruction. The local engine interpreter
+is still absent; the configured CI engine setup is available for its own runs.
+
+The earlier `f2c6cd` source-only checkpoint's
+[CI run 41204753915](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/41204753915)
+reached the original first RX-LIFT question with all 22 preceding bindings and
+the unchanged 200000-heartbeat budget, then reported `malformed` at the
+actual-image ambient-graph check. That result validates neither the current
+reconstruction nor a mathematical hold.
+
+The integration-boundary resolution at 2026-10-31 13:44:16 UTC confirms the
+selected mathematics `3f8aedfd`, contract `33a514c2` and notebook `4c6c2a77` mains.
+The manifest records that same contract selection; the other 13 package revisions
+are unchanged. Latest leaf main is `0030cccf`; the original diagnostic remains
+frozen at `a1d72cfa`. Recording this experiment does not replace the latest-main
+delivery requirement or activate any acceptance baseline.
+
+### Owner actions and execution dependencies
+
+`git push origin HEAD:refs/heads/work/kernel-v1-20261023` failed with
+`fatal: could not read Username for 'https://github.com': No such device or address`.
+The already selected GitHub connection subsequently published the exact committed
+tree with a non-forced, expected-head update; source publication is resolved.
+The initial focused build exited before compilation with
+`error: could not detect the configuration of the Lake installation`.
+The identical restored Lean binary reports `failed to locate application` in the
+default sandbox and succeeds in the approved escalated execution mode. The exact
+wrapper's `env lean --print-prefix` succeeds there without any toolchain change.
+Use that mode for the coordinated build. The engine interpreter remains absent;
+only its dependent computations are blocked.
 
 ## Current computation: preserve complete callable values — 2026-10-31 Asia/Taipei
 

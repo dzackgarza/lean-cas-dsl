@@ -13,6 +13,7 @@ public import CasAcceptance.Kernel.DataOwnershipProbes
 public import CasAcceptance.Kernel.WholeOperationObservationProbes
 public import CasAcceptance.Kernel.WholeFunctionFramingProbes
 public import CasAcceptance.Kernel.ProspectiveReservationProbes
+public import CasAcceptance.Kernel.PositionedLiftServiceScopeProbes
 public import CasAcceptance.Kernel.FunctorActionExecutionProbes
 public import CasAcceptance.Kernel.DerivedActionExecutionProbes
 public import CasAcceptance.Kernel.DeferredServiceProbes

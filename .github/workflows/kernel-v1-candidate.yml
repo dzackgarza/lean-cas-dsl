@@ -172,6 +172,8 @@ jobs:
               CasAcceptance.Kernel.IntrinsicObservationReuseProbes \
               CasAcceptance.Kernel.CompleteContextSharingProbes \
               CasAcceptance.Kernel.IntrinsicValueOccurrenceProbes \
+              CasAcceptance.Kernel.ProspectiveReservationProbes \
+              CasAcceptance.Kernel.PositionedLiftServiceScopeProbes \
               CasAcceptance.Kernel.ActionOccurrenceProbes \
               CasAcceptance.Kernel.CompleteCallableObservationProbes \
               CasAcceptance.Kernel.ReturnedCallableEndpointProbes \

@@ -136,7 +136,10 @@ def prepareCallable (decoder : Decoder) (operation : Operation) (input : Form)
     callableEndpointOperands := some (domain, targetData)
     complete := fun answer => do
       return (← ComputationalData.validateEndpointPort result domain.data targetData.data answer).map
-        (fun _ => none) }
+        (fun _ => none)
+    completeScoped := some fun answer scope => do
+      return (← ComputationalData.validateEndpointPort result domain.data targetData.data answer
+        (scope := scope)).map (fun _ => none) }
 
 def prepareCell (decoder : Decoder) (entry : CellEntry)
     (constructors : Array ConstructorId) (input : Form) (template : Json) :
@@ -363,6 +366,13 @@ def preparePresentation (decoder : Decoder) (entry : PresentationComparisonEntry
       let checked ← if closedPoint then
         ComputationalData.validateElementAt target targetData.data result answer
         else ComputationalData.validateEndpointPort result domainData.data targetData.data answer
+      return checked.map (fun _ => none)
+    completeScoped := some fun answer scope => do
+      let checked ← if closedPoint then
+        ComputationalData.validateElementAt target targetData.data result answer scope
+        else
+          ComputationalData.validateEndpointPort result domainData.data targetData.data answer
+            (scope := scope)
       return checked.map (fun _ => none) }
 
 /-- These families reuse the published complete request and existing formal

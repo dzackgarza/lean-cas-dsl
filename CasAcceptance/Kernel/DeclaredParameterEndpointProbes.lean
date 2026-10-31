@@ -20,35 +20,52 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
     throwError "the quoted lexical control has no macro scope"
   let first ← parse "ℤ in Rings"
   let second ← parse "ℚ in Rings"
-  let plain : Language.Scope := ({} : Language.Scope).insert `M first
-  let expectedFirst ← (eval {} first).run {}
-  let expectedSecond ← (eval {} second).run {}
-  let actual ← (eval plain quoted).run {}
-  unless actual.sameSource expectedFirst do
-    throwError "a quoted reference did not retain its complete file binding"
-  unless ← (namesObject plain quoted).run {} do
-    throwError "quoted file lookup and object recognition disagree"
-  let exact := plain.insert identifier.getId second
-  let actual ← (eval exact quoted).run {}
-  unless actual.sameSource expectedSecond do
-    throwError "an exact scoped file binding lost precedence over its written name"
+  -- All unbound references belong to one reading and retain its exact producer.
   let cache ← IO.mkRef ({} : Std.HashMap String Value)
   let trace ← Trace.new
+  let context : Ctx := { trace := some trace, closedTerms := some cache }
+  -- A fresh reading allocates a fresh occurrence. Compare its complete retained
+  -- Value, removing only that administrative ordinal from every typed field.
+  let sameReading := fun (left right : Value) => do
+    let terms ← IO.mkRef ({} : Std.HashMap ExprStructEq Nat)
+    let encode : Expr → TermElabM Nat := fun term => do
+      let key : ExprStructEq := ⟨Trace.withoutOccurrences term⟩
+      let known ← terms.get
+      if let some index := known[key]? then return index
+      let index := known.size
+      terms.set (known.insert key index)
+      return index
+    return (← encodeParameterViewValue encode left) ==
+      (← encodeParameterViewValue encode right)
+  let plain : Language.Scope := ({} : Language.Scope).insert `M first
+  let expectedFirst ← (eval {} first).run context
+  let expectedSecond ← (eval {} second).run context
+  if ← sameReading expectedFirst expectedSecond then
+    throwError "the lexical controls lost their distinct complete selected objects"
+  let actual ← (eval plain quoted).run context
+  unless actual.sameSource expectedFirst do
+    throwError "a quoted reference did not retain its complete file binding"
+  unless ← (namesObject plain quoted).run context do
+    throwError "quoted file lookup and object recognition disagree"
+  let exact := plain.insert identifier.getId second
+  let actual ← (eval exact quoted).run context
+  unless actual.sameSource expectedSecond do
+    throwError "an exact scoped file binding lost precedence over its written name"
   let plainReference ← parse "M"
-  let plainValue ← (eval exact plainReference).run
-    { trace := some trace, closedTerms := some cache }
-  let quotedValue ← (eval exact quoted).run { trace := some trace, closedTerms := some cache }
+  let plainValue ← (eval exact plainReference).run context
+  let quotedValue ← (eval exact quoted).run context
   unless plainValue.sameSource expectedFirst && quotedValue.sameSource expectedSecond do
     throwError "closed reading reuse identified distinct lexical file bindings"
-  let actual ← (eval exact quoted).run { bound := [(identifier.getId, expectedFirst)] }
+  let actual ← (eval exact quoted).run { context with bound := [(identifier.getId, expectedFirst)] }
   unless actual.sameSource expectedFirst do
     throwError "a file binding captured an exact lexical stage binding"
   let other ← withFreshMacroScope `(cas_term| M)
   let `(cas_term| $otherIdentifier:ident) := other | unreachable!
   unless otherIdentifier.getId != identifier.getId do
     throwError "the independent lexical control scopes coincide"
-  let actual ← (eval plain quoted).run { bound := [(otherIdentifier.getId, expectedSecond)] }
-  unless actual.sameSource expectedFirst do
+  let actual ← (eval plain quoted).run
+    { context with bound := [(otherIdentifier.getId, expectedSecond)] }
+  unless ← sameReading actual expectedFirst do
     throwError "different lexical macro scopes captured one another"
 
 run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
@@ -78,7 +95,13 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
       actual.owner? == supplied.owner? && actual.value == value &&
       pointData == Json.mkObj [("ctor", "point"), ("args", Json.arr #[packet])] do
     throwError "the endpoint frame changed the direction, actual packet, owner or formal parameter"
-  -- A separately supplied complete target takes precedence and participates in ownership.
+  -- An independently supplied target belongs to this exact point through its
+  -- retained endpoint receipt, and participates in ownership. A global expression
+  -- cache entry is not an endpoint field of that callable occurrence.
+  let some (domain, _) := Language.homEnds? (← inferType point)
+    | throwError "the endpoint reuse control lost its complete point signature"
+  let context ← CategoryContext.ofNamed sets domain
+  let sourceWire ← callableEndpointReference supplied domain true (some context)
   let actualTarget := Json.mkObj [("ctor", "opaqueData"), ("args", Json.arr #["actual target"])]
   for separate in #[false, true] do
     let harness ← Harness.empty
@@ -87,7 +110,14 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
       payload := .computed selected
         (.owned (if separate then "actual-target" else "actual-parameter")
           (if separate then 44 else 43) actualTarget) }
-    harness.results.modify fun cache => (cache.insert point supplied).insert selected targetWire
+    let retainedPoint ← retainCallableEndpoints supplied sourceWire targetWire context
+    let unrelatedTarget := { targetWire with
+      payload := .computed selected (.owned "unrelated-target" 46 actualTarget) }
+    unless unrelatedTarget.json == targetWire.json &&
+        unrelatedTarget.fragment != targetWire.fragment do
+      throwError "the endpoint cache control lost its distinct actual supplier"
+    harness.results.modify fun cache =>
+      (cache.insert point retainedPoint).insert selected unrelatedTarget
     let actual ← realize harness trace "the actual selected target" value
     let .ok ("element", #[selectedData, _]) := ComputationalData.envelope actual.json
       | throwError "the independently supplied target lost its element frame"

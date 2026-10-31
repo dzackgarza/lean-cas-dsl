@@ -27,21 +27,23 @@ def checkClosed (value : Expr) : TermElabM Expr := do
     throwStratum .malformed "the service request has incompatible complete parameter types"
   return value
 
-def completePort (formal : Expr) (dependencies : Array Operand) (answer : Json) :
+def completePort (formal : Expr) (dependencies : Array Operand) (answer : Json)
+    (scope : Option ComputationalData.InterfaceScope := none) :
     TermElabM (Except String (Option StructuredResult.Result)) := do
   return (← ComputationalData.validatePort formal (← inferType formal) answer
-    (dependencies.map fun operand => (operand.data, operand.value))).map fun _ => none
+    (dependencies.map fun operand => (operand.data, operand.value)) (scope := scope)).map fun _ => none
 
 def completeMap (formal : Expr) (source target : Json)
-    (dependencies : Array Operand) (answer : Json) :
+    (dependencies : Array Operand) (answer : Json)
+    (scope : Option ComputationalData.InterfaceScope := none) :
     TermElabM (Except String (Option StructuredResult.Result)) := do
   let some (domain, endpoint) := Language.homEnds? (← inferType formal)
     | throwError "the prepared callable lost its complete original Hom type"
   if ← withTransparency .all <| isDefEq domain (← ServiceRequest.closedElementDomain) then
     return (← ComputationalData.validateElementAt endpoint target
-      (← ServiceRequest.pointResultValue formal) answer).map fun _ => none
+      (← ServiceRequest.pointResultValue formal) answer scope).map fun _ => none
   return (← ComputationalData.validateEndpointPort formal source target answer
-    (dependencies.map fun operand => (operand.data, operand.value))).map fun _ => none
+    (dependencies.map fun operand => (operand.data, operand.value)) scope).map fun _ => none
 
 structure SelectedAction where
   value : Expr
@@ -210,7 +212,8 @@ def objectAction (decoder : Decoder) (operation : Operation) (input : Form)
     resultForm := formFor (← registryState) target input
     dependencies, resultContext := some target, objectResult := true
     action := some (.object selected.value original parameters selected.dependencies)
-    complete := completePort formal dependencies }
+    complete := fun answer => completePort formal dependencies answer
+    completeScoped := some fun answer scope => completePort formal dependencies answer scope }
 
 def mapAction (decoder : Decoder) (operation : Operation) (input : Form)
     (template : Json) : TermElabM Prepared := do
@@ -294,7 +297,9 @@ def mapAction (decoder : Decoder) (operation : Operation) (input : Form)
     action := if whole then some (.wholeMap selected.value source target original
       selected.descriptor parameters selected.dependencies imageSourceData imageTargetData)
       else none
-    complete := completeMap formal domain.data imageTargetData.data dependencies }
+    complete := fun answer => completeMap formal domain.data imageTargetData.data dependencies answer
+    completeScoped := some fun answer scope =>
+      completeMap formal domain.data imageTargetData.data dependencies answer scope }
 
 def callable (decoder : Decoder) (operation : Operation) (input : Form)
     (template : Json) : TermElabM Prepared := do
@@ -351,7 +356,9 @@ def callable (decoder : Decoder) (operation : Operation) (input : Form)
     callableEndpointOperands := some (domain, targetData)
     pointResult := (← withoutModifyingState <| withTransparency .all <|
       isDefEq domain.value (← ServiceRequest.closedElementDomain))
-    complete := completeMap formal domain.data targetData.data dependencies }
+    complete := fun answer => completeMap formal domain.data targetData.data dependencies answer
+    completeScoped := some fun answer scope =>
+      completeMap formal domain.data targetData.data dependencies answer scope }
 
 /-- A method's selected actions retain each explicit data operand in declaration
 order. Decoding never uses the receiver to reconstruct omitted parameters. -/
@@ -453,7 +460,8 @@ def methodRequest (decoder : Decoder) (entry : MethodEntry) (input : Form)
       comparisons := comparisons
       application := application
       parameters := parameters },
-    complete := completePort result dependencies }
+    complete := fun answer => completePort result dependencies answer
+    completeScoped := some fun answer scope => completePort result dependencies answer scope }
 
 /-- Service methods use the shared selected-application lifecycle. Property
 requests keep their existing decision interface. -/
