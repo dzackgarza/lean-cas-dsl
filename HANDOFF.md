@@ -148,6 +148,66 @@ Full integration, fixed readings/computations, connected workflows/notebook and
 independent frozen assessment remain open. Unapplied reader/fixture proposals
 are not production fixes or passing results.
 
+The repair was published as `cb2239cc1c95b431f30f011982a1c49acf7e34c6`, tree
+`22d486b33e7619b327d008f8e3062072bbe7295f`, identical to local `61c1ed5` and
+verified by API readback and ordinary fetch. Its [candidate run 41212636125](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/41212636125)
+compiles production but reports `internal`: a deterministic `isDefEq` timeout at
+the unchanged shared 200000 budget. Preparation uses 72,641,147 raw ticks and
+evaluation 127,461,903, totaling 200,103,286; 20 dispatches complete, through the
+original second tuple-cons call. The next lift request is not dispatched, so
+this run does not establish that the earlier packet inconsistency is resolved
+in the original construction. The source tuple is unchanged before and after.
+Its engineering artifact SHA-256 is
+`a0186de9cb9647d5d7e5067e3e095bb7e18d726e30a4a4c7291d54aca1c1a57e`.
+Continue the first original construction; no budget is raised.
+
+### Checked proof closure and exact validation reuse — 2026-10-31 UTC
+
+The current source reuses a completed producer-record validation only for the
+exact closed raw expression, descriptor and ordered structural fields within
+one closure call. Open or mutable syntax retains the original full path. Every
+original association and reference is checked in its original order. The full
+record predicate and question-identity representation are unchanged.
+
+The same closure visitor checks exact producer prefixes before proof boundaries,
+including metadata/application spines, then traverses the full original
+proposition of a type-correct proof. It no longer mistakes numeral copies inside
+the checked implementation for executable producer references. The unchanged
+limit fixture exposed this defect; Type-valued data, retained record fields and
+all roots keep their full checks. New controls include malformed proofs,
+changed propositions, scoped binders, hidden producer prefixes, alpha-equivalent
+but structurally different fields and duplicate-entry order.
+
+`producer-closure-production-v1` passes in 688.295 seconds with unchanged inputs,
+rebuilding Trace, Language, ComputationalData, RuntimeSupport and Realize and
+passing ProducerProofBoundary, ProofIdentity and ProducerOccurrence controls.
+Its log SHA-256 is
+`27fc6bd250668c1295c82459a3da2b6f44ff7135cfb06b04967386e9bdde2e8b`.
+`producer-closure-consumers-v1` passes all eight targets in 58.115 seconds,
+including the unchanged ElementData limit and complete admission/callable/context
+controls. `producer-closure-original-first-prepare-v1` passes in 10.754 seconds:
+all 22 original bindings, 104 trace nodes, 5940 ms and 69,447,230 preparation ticks
+at the unchanged 200000 setting. This is preparation only. The shadow comparison
+on the same saved state measures 9,692,243 closure ticks before the repair and
+5,378,098 after it; no engine outcome is inferred from that saving.
+
+Fourteen fixed-label profiling wrappers compile around existing runtime
+boundaries. Ordinary execution leaves profiling disabled. After a failed
+original first report, CI runs a separate opt-in profiled first diagnostic with
+the same source and budget, then still fails regardless of its outcome. The
+original report remains the gate. Independent source review, YAML/shell syntax,
+no-leaves, permanent-assertion and reuse-record checks pass. The next engine run
+must still execute the original construction; full V1 remains open.
+
+The 2026-10-31 16:18:01 UTC integration resolution confirms unchanged latest mains:
+mathematics `3f8aedfd`, contract `33a514c2`, notebook `4c6c2a77`, leaves `0030cccf`.
+The original diagnostic retains frozen leaf `a1d72cfa`; no local engine is
+installed and no leaf implementation or test is inspected. A further CategoryContext duplicate
+bundle-check proposal remains scratch-only and unmeasured. Deferred reader and
+fixture proposals remain unapplied. The owning [reader](specs/reuse/cc-dsl-language.md#checked-proof-boundaries-and-exact-producer-validation-reuse--2026-10-31)
+and [realizer](specs/reuse/cc-realizer-first.md#fixed-label-runtime-profiling-of-the-original-construction--2026-10-31)
+records state the exact scope and remaining checks.
+
 ### Owner actions and execution dependencies
 
 `git push origin HEAD:refs/heads/work/kernel-v1-20261023` failed with

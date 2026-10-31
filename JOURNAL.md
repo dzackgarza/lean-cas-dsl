@@ -1,12 +1,22 @@
 # Journal
 
+## 2026-10-31 — Validate checked proof targets and reuse exact producer checks
+
+The original limit fixture's checked proof implementation contains numeral copies of producer addresses absent from its full original proposition.
+Producer closure now validates exact addresses before proof boundaries and traverses each checked proof's original proposition in its actual binder context.
+A local successful-check cache uses the exact closed expression, complete descriptor and ordered structural fields, preserving the original predicate and rejection order.
+Production and eleven focused engineering control modules pass with unchanged inputs, including the original limit, proof identity, admission reuse and ownership controls.
+The original first RX-LIFT question prepares with all 22 bindings and 104 nodes in 69,447,230 ticks at its unchanged budget; shared engine execution remains required.
+Fixed-label runtime profiling is opt-in, and its separate diagnostic cannot replace or promote a failed original CI result.
+No mathematical input, permanent assertion, leaf or budget changes. Full integration and independent assessment remain open.
+
 ## 2026-10-31 — Observe original admission parameters and retain their producer
 
 The original RX-LIFT packet retained parameter recipes after its selected target had advanced to actual owned data.
 Admission observation now traverses the original typed children while preserving their inert roles and all complete-interface checks.
 Declaration-head inspection recognizes producer wrappers; the public reader retains the admission's produced handle through its Hom view.
 Eight focused controls pass with unchanged inputs, including distinct equal admissions, exact reuse and supplier rejection.
-The original first question prepares with all 22 bindings and 104 nodes at the unchanged budget; full engine replay remains required.
+The original first question prepares with all 22 bindings and 104 nodes; its next engine replay exhausts the unchanged shared budget after 20 dispatches.
 The preceding full consumer run is red in 40 modules. No mathematical source, permanent assertion, leaf or budget changes; V1 remains open.
 
 ## 2026-10-31 — Compare shared retained contexts once per complete node pair

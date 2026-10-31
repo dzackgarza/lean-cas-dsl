@@ -1074,7 +1074,7 @@ partial def capturedEdgeData (h : Harness) (trace : Trace) (edge : EdgeRef)
 owners. The ordinary parameter demand policy remains distinct from a whole-map
 observation; inert element/admission context is not scanned for action tags. -/
 partial def observeActionDataWire (h : Harness) (trace : Trace)
-    (role : ActionDataRole) (wire : Wire) : TermElabM Wire := do
+    (role : ActionDataRole) (wire : Wire) : TermElabM Wire := do profileitM Exception "cas action data observation" (← getOptions) do
   if !h.demandObjectActions then return wire
   match role with
   | .retained => return wire
@@ -1357,7 +1357,7 @@ partial def capturePointCallable (h : Harness) (trace : Trace) (input : Wire)
 The invocation owner retains that exact input; it does not authenticate a second
 copy of the same assembly before observing its canonical preparation. -/
 partial def observeCurrentIntrinsicAssembly (h : Harness) (trace : Trace) (wire : Wire)
-    (registeredOnly : Bool := false) : TermElabM Wire := do
+    (registeredOnly : Bool := false) : TermElabM Wire := do profileitM Exception "cas current intrinsic observation" (← getOptions) do
   let h := { h with demandObjectActions := true }
   if !registeredOnly then
     if let some prepared ← currentIntrinsicInvocationReference? h trace wire then
@@ -1601,7 +1601,7 @@ partial def executeMapRoute (h : Harness) (trace : Trace) (original : Wire)
 /-- Execute only a current producer-owned step. Complete result dictionaries,
 fragments and suppliers are checked before any selected parameter is observed. -/
 partial def observeActionRecipe (h : Harness) (trace : Trace) (wire : Wire)
-    (recipe : ActionRecipe) : TermElabM Wire := do
+    (recipe : ActionRecipe) : TermElabM Wire := do profileitM Exception "cas action recipe observation" (← getOptions) do
   checkActionRecipe wire recipe
   let h := { h with demandObjectActions := true }
   checkDataOwners h wire.fragment
@@ -3981,7 +3981,7 @@ partial def executeOperationObservation (h : Harness) (request : OperationObserv
 The reference carries its immutable original input and interface together; no
 second caller-supplied body participates in execution or completion. -/
 partial def observePreparedInvocation (h : Harness) (trace : Trace)
-    (prepared : PreparedInvocation) : TermElabM Wire := do
+    (prepared : PreparedInvocation) : TermElabM Wire := do profileitM Exception "cas prepared invocation observation" (← getOptions) do
   let records ← h.invocations.get
   let selected := (records.zipIdx).filter fun (record, _) =>
     record.prepared.same prepared
@@ -4055,7 +4055,7 @@ partial def observeCapturedInvocation (h : Harness) (trace : Trace) (wire : Wire
 requests validate their complete result against the immutable canonical input. -/
 partial def completeCapturedInvocation (h : Harness) (position : Nat)
     (record : InvocationExecution) (result : Wire)
-    (recordFields : Option RetainedResultFields := none) : TermElabM Wire := do
+    (recordFields : Option RetainedResultFields := none) : TermElabM Wire := do profileitM Exception "cas invocation completion" (← getOptions) do
   unless ← withoutModifyingState (withTransparency .all <|
       isDefEq (← inferType result.value) (← inferType record.input.value) <&&>
         isDefEq result.value record.input.value) do
@@ -4103,7 +4103,7 @@ partial def capturedInvocationFrame (h : Harness) (wire : Wire)
 /-- Resume a fixed selected plan after all of its exact operand positions
 returned. This function has no expression reader or dependency observation. -/
 partial def resumeCapturedInvocation (h : Harness) (trace : Trace)
-    (frame : InvocationFrame) : TermElabM Wire := do
+    (frame : InvocationFrame) : TermElabM Wire := do profileitM Exception "cas staged invocation resume" (← getOptions) do
   unless frame.returned.size == frame.operands.size do
     throwError "a selected invocation resumed before all required operands returned"
   match frame.record.captured.interface with
@@ -4150,7 +4150,7 @@ return fills that position only after type, context and owner validation. Field
 requests keep this caller frame until their prepared reply validators return;
 neither a reply nor an alternate result cache can manufacture completion. -/
 partial def demandCapturedInvocation (h : Harness) (trace : Trace) (wire : Wire)
-    (captured : CapturedInvocation) : TermElabM Wire := do
+    (captured : CapturedInvocation) : TermElabM Wire := do profileitM Exception "cas staged invocation demand" (← getOptions) do
   let first ← capturedInvocationFrame h wire captured
   if let some result := first.record.result then
     checkCapturedResultInterface result first.record.captured.interface.result
@@ -4285,7 +4285,7 @@ rebuilt from the observed children through the ordinary checked realization path
 retaining their exact endpoint frames, declared actions and session dependencies. -/
 partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire)
     (registeredOnly : Bool := false) :
-    TermElabM Wire := do
+    TermElabM Wire := do profileitM Exception "cas whole map observation" (← getOptions) do
   if let some framing := wire.morphismFraming then
     let reader : CallablePreparationReader := {
       observe := fun context input => do

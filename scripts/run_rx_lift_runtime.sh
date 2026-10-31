@@ -9,6 +9,7 @@ usage() {
   printf 'Set CAS_LEAVES to the diagnostic manifest and optionally CAS_LAKE to a Lake executable/wrapper.\n'
   printf 'The default runs all ten original first-stage questions; a selection runs its complete prefix.\n'
   printf 'Preparation/execution timing is in REPORT_JSON; report-write timing is logged as JSON on stderr.\n'
+  printf 'CAS_RX_PROFILE=1 additionally enables Lean profiling; the original shared heartbeat budget is unchanged.\n'
 }
 if [[ $# -eq 1 && ( "$1" == --help || "$1" == -h ) ]]; then
   usage
@@ -48,5 +49,9 @@ else
 fi
 export CAS_READER_INPUT="${_cas_rx_root}/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"
 export LEAN_NUM_THREADS=1
+_cas_rx_profile=()
+if [[ "${CAS_RX_PROFILE:-0}" == 1 ]]; then
+  _cas_rx_profile=(-Dprofiler=true)
+fi
 cd "${_cas_rx_root}"
-exec "${_cas_rx_lake}" env lean "${_cas_rx_root}/scripts/probes/rx_lift_runtime.lean"
+exec "${_cas_rx_lake}" env lean "${_cas_rx_profile[@]}" "${_cas_rx_root}/scripts/probes/rx_lift_runtime.lean"

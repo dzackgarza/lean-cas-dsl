@@ -139,7 +139,7 @@ jobs:
               env CAS_LAKE="$runtime/lake.sh" \
               CAS_LEAVES="$runtime/rx-lift-leaves/diagnostics/extensions-20261024/leaves.json" \
               bash scripts/run_rx_lift_runtime.sh "$report" "${through[@]}"
-            python3 - "$report" <<'PY'
+            if python3 - "$report" <<'PY'
           import json, sys
           report = json.load(open(sys.argv[1]))
           rows = report["observations"]
@@ -149,6 +149,22 @@ jobs:
           if len(rows) != len(report["selected"]) or any(row["kind"] != "holds" for row in rows):
               raise SystemExit("The unchanged RX-LIFT construction remains unresolved; see its original outcome.")
           PY
+            then
+              continue
+            fi
+            # The failed original outcome remains the gate. An optional second
+            # diagnostic uses the same source, imports, bindings and budget;
+            # profiling output never replaces the original result.
+            if [[ "$selection" == first ]]; then
+              if ! python3 scripts/ci_kernel_candidate.py run --name rx-lift-first-profiled -- \
+                env CAS_LAKE="$runtime/lake.sh" CAS_RX_PROFILE=1 \
+                CAS_LEAVES="$runtime/rx-lift-leaves/diagnostics/extensions-20261024/leaves.json" \
+                bash scripts/run_rx_lift_runtime.sh "$runtime/evidence/rx-lift-first-profiled.json" first
+              then
+                echo "The additional profiling diagnostic failed; the original construction remains unresolved." >&2
+              fi
+            fi
+            exit 1
           done
       - name: Build the complete current consumer family
         run: |
@@ -202,6 +218,7 @@ jobs:
               CasAcceptance.Kernel.SelectedLiftInputContextProbes \
               CasAcceptance.Kernel.CompositeLiftProbes CasCatalogue.LiftedSubobjectDataProbes \
               CasCatalogue.ProducerOccurrenceProbes \
+              CasCatalogue.ProducerProofBoundaryProbes \
               CasAcceptance.Kernel.NamedRefinementPresentationEngineering \
               CasAcceptance.Kernel.InventoryPresentationReuseProbes \
               CasAcceptance.Kernel.InheritedComponentContextProbes \

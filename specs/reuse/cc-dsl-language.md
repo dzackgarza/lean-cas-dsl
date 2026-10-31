@@ -1,5 +1,79 @@
 # Reuse record: `cc-dsl-language`
 
+## Checked proof boundaries and exact producer validation reuse — 2026-10-31
+
+### Queries and existing owners
+
+The selected formalization corpus queries `"isProof" "inferType"` and
+`"abstract" "fvar"` returned existing proof classification and binder operations
+(including Mathlib's Choose and Explode tactics); no replacement mathematics is
+needed. The additional `"ExprStructEq" "HashSet"` search returned four files and
+15 matches, including `Mathlib/Tactic/DepRewrite.lean` and
+`Mathlib/Tactic/Translate/Expr.lean`. The `"isTypeCorrect" "cache"` search returned
+two files and 38 matches, in Lean-blaster and SciLean. These searches identify
+existing structural-expression cache and type-checking mechanisms, not a
+ready-made validator for this repository's complete producer records.
+
+Lean's `Meta.isProof`, `Meta.isTypeCorrect`, `Meta.inferType`, `Expr.abstract` and
+scoped local declarations own proof typing and binder contexts. `ExprStructEq`
+and `Std.HashSet` own exact syntax keys. This kernel's unchanged
+`Trace.checkProducerRecord` owns the complete selected record predicate;
+`QuestionIdentity` retains its independent complete question representation.
+
+### New code and the original failure
+
+The unchanged limit fixture `assert lim_{t → ∞} 1/t = 0` contains four numeral
+copies of producer ordinals inside a checked proof implementation. The bounded
+ancestor diagnostic checks the original inferred proposition completely: 830
+nodes and 15 producer markers, with none missing. Its sampled implementation
+contains four absent copies, none in that proposition. The old closure visitor
+incorrectly treats these proof implementation copies as executable addresses.
+
+`Trace.checkProducedEntries` now checks each exact original producer reference
+and record before considering a proof boundary. Syntax-only application and
+metadata spines retain the original four-argument producer prefix. Only a
+type-correct proof can leave its implementation untraversed; the full inferred
+original proposition is abstracted over the actual opened context and traversed.
+Type-valued unique witnesses remain data. Original entries, their ordered fields
+and every root remain checked. The contextual visited set retains raw syntax,
+binder types and let values; no expression, selected record or question key is
+rewritten, normalized or reselected.
+
+A second local set reuses only a completed successful `checkProducerRecord` call
+with the exact raw `ExprStructEq`, descriptor string and ordered structural
+fields. It applies only when the value and every field have no expression or
+universe metavariables, free variables or loose bound variables. Every original
+association and encountered reference still invokes the wrapper in the original
+order. `Expr` map membership and `Node` equality cannot authorize this reuse:
+their alpha-equivalence can hide an ordered-field mismatch. Failed checks never
+populate the set, and all open or mutable syntax takes the original full path.
+
+### Engineering evidence and remaining integration
+
+The frozen V5 shadow controls pass in 6.022 seconds with unchanged repository and
+dependency inputs. They retain the earlier proof/data, malformed-proof,
+proposition, binder, metadata-spine and complete-record negatives, and add
+alpha-equivalent but structurally different roots and both duplicate-entry
+orders. An invalid original association hidden by a later map insertion still
+fails its original ordered-field check.
+
+The original RX preparation retains 22 bindings, 104 nodes and the 200000 budget.
+On its same prepared input, with elaborator state restored between measurements,
+the old closure costs 9,692,243 raw ticks; proof-aware traversal without the cache
+costs 9,994,745; the exact cache costs 5,378,098. All three complete. The original
+limit's V5 closure completes in 2,373,022 ticks; the old checker rejects, so its
+partial traversal is not a speed baseline. These are local engineering
+measurements, not shared-budget engine execution or mathematical acceptance.
+The coordinated `producer-closure-production-v1` build passes in 688.295 seconds,
+including the new ProducerProofBoundary and unchanged ProofIdentity and
+ProducerOccurrence modules. The eight-target `producer-closure-consumers-v1`
+passes in 58.115 seconds, including the original ElementData limit and full
+admission/ownership controls. Both runs preserve all input hashes. The original
+first preparation then passes in 10.754 seconds with 22 bindings, 104 nodes,
+5940 ms and 69,447,230 raw preparation ticks. Its source and 200000 setting are
+unchanged. Full shared-budget engine execution still has to establish the
+original outcome; these results do not accept a mathematical release or V1.
+
 ## Reconstructed partial named-object views — 2026-10-31
 
 Local source inspection reuses `Trace.checkProducerRecord`, `recognize`,

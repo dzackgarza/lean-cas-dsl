@@ -86,6 +86,48 @@ preparation and evaluation within their original shared budget. The original
 engine computation, full integration, mathematical readings and independent
 acceptance remain separate requirements.
 
+The published `cb2239c` repair's subsequent original engine run
+[41212636125](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/41212636125)
+compiles production, then exhausts the unchanged shared budget at `isDefEq`
+before its next lift dispatch. It retains 22 bindings, 104 trace nodes and
+20 dispatches: preparation 72,641,147 raw ticks, evaluation 127,461,903.
+This is an internal timeout, not a malformed packet or a mathematical result.
+The first original construction remains the active obligation.
+
+## Fixed-label runtime profiling of the original construction — 2026-10-31
+
+The actual `cb2239c` first-question report exhausts the shared budget at
+`isDefEq` after 20 dispatches, before the next lift request. The exact producer
+validation reuse is owned by [the reader record](cc-dsl-language.md#checked-proof-boundaries-and-exact-producer-validation-reuse--2026-10-31).
+The runtime diagnostic reuses the selected official Lean
+`Lean/Util/Profile.lean` `profileitM` adapter. Its specified action and exception
+behavior are unchanged; `profiler` defaults to false. No new profiling library,
+operation, result cache or mathematical rule is introduced.
+
+Fourteen fixed labels surround existing complete observation, forwarding,
+invocation and lift-input boundaries in `RuntimeSupport` and `Realize`. Removing
+exactly those wrappers recovers both previous source files byte-for-byte. There
+are no expression-derived labels, heartbeat resets, reordered guards or changed
+returns. The options lookup and adapter still have overhead when disabled;
+source review does not establish zero cost or identify the runtime hotspot.
+
+`CAS_RX_PROFILE=1` adds only `-Dprofiler=true` to the existing original-source
+driver. The ordinary first report remains the CI gate. Only after that report
+fails validation does CI run a separately named profiled first diagnostic with
+the same input, original 22 bindings, harness scope and 200000 budget, then exit
+1 regardless of that diagnostic's outcome. A passing first report continues to
+the existing full run. An initial process failure still aborts normally. The
+profiled log, report and provenance cannot replace the original failure.
+
+Independent static review verifies exact wrapper removal, invocation behavior,
+YAML parsing and shell syntax. The current-source production run compiles
+RuntimeSupport and Realize successfully, and the follow-up complete admission,
+callable and context controls pass with unchanged inputs. The original
+preparation takes 69,447,230 ticks after the separate exact producer-validation
+repair. Actual engine results remain required; fixed short labels do not impose
+a total log-line cap, and no runtime performance or acceptance conclusion
+follows from instrumentation.
+
 ## Reconstructed operation operands and reservation — 2026-10-31
 
 `prepareOperationObservation` reuses `operationPresentationOperandClosure` and

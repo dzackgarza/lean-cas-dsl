@@ -591,9 +591,10 @@ def Trace.checkProducerRecord (value : Expr) (node : Node) : Meta.MetaM Unit := 
     throwError "the producer anchor is outside its original complete type"
 
 /-- Validate references from the prepared claim and every retained record against
-the actual trace. The descriptor is checked at its selected node; a string cannot
-substitute for that node. Exact-expression visitation shares repeated DAG subterms. -/
-def Trace.checkProducedEntries (entries : Array (Expr × Node))
+the actual trace. Raw producer keys are checked before a proof boundary. A checked
+proof retains its full original proposition, while its implementation is not an
+executable producer graph. Contextual DAG keys retain binder types and let values. -/
+partial def Trace.checkProducedEntries (entries : Array (Expr × Node))
     (roots : Array Expr := #[]) : Meta.MetaM Unit := do
   let mut recorded : Std.HashMap Expr Node := {}
   for (value, node) in entries do
@@ -602,26 +603,99 @@ def Trace.checkProducedEntries (entries : Array (Expr × Node))
         throwError "distinct selected producers share one executable trace key"
     recorded := recorded.insert value node
   let complete := recorded
-  let visited ← IO.mkRef ({} : Std.HashSet ExprStructEq)
-  let rec visit (value : Expr) : Meta.MetaM Unit := do
-    let key : ExprStructEq := ⟨value⟩
+  -- Reuse only a completed check of this exact closed expression and exact
+  -- selected record. Expr-keyed trace lookup and Node BEq are not cache evidence:
+  -- they may identify alpha-equivalent fields that checkProducerRecord rejects.
+  let checkedRecords ← IO.mkRef ({} : Std.HashSet
+    (ExprStructEq × String × Array ExprStructEq))
+  let closedSyntax (value : Expr) : Bool :=
+    !value.hasMVar && !value.hasLevelMVar && !value.hasFVar && !value.hasLooseBVars
+  let checkRecord (value : Expr) (node : Node) : Meta.MetaM Unit := do
+    if !closedSyntax value ||
+        !value.consumeMData.isAppOfArity ``Trace.producerResult 4 then
+      Trace.checkProducerRecord value node
+      return
+    let (description, fields) := node.producerDescription
+    unless fields.all closedSyntax do
+      Trace.checkProducerRecord value node
+      return
+    let key : ExprStructEq × String × Array ExprStructEq :=
+      (⟨value⟩, description, fields.map fun field => (⟨field⟩ : ExprStructEq))
+    if (← checkedRecords.get).contains key then return
+    Trace.checkProducerRecord value node
+    checkedRecords.modify (·.insert key)
+  -- Find an existing exact producer prefix through syntax-only application and
+  -- metadata spines. Keep the original subterm as its trace key; do not normalize
+  -- a let, function wrapper, argument, or the producer's ordered fields.
+  let rec originalProducerPrefix? (raw opened : Expr) : Option (Expr × Expr) :=
+    if raw.isAppOfArity ``Trace.producerResult 4 then
+      some (raw, opened)
+    else
+      match raw, opened with
+      | .app fn _, .app openedFn _ => originalProducerPrefix? fn openedFn
+      | .mdata _ body, .mdata _ openedBody => originalProducerPrefix? body openedBody
+      | _, _ => none
+  let visited ← IO.mkRef ({} : Std.HashSet
+    (ExprStructEq × Array (Expr × Option Expr)))
+  let rec visit (raw opened : Expr) (bound : Array FVarId)
+      (context : Array (Expr × Option Expr)) : Meta.MetaM Unit := do
+    let key : ExprStructEq × Array (Expr × Option Expr) :=
+      (⟨raw⟩, if raw.hasFVar || raw.hasLooseBVars then context else #[])
     if (← visited.get).contains key then return
     visited.modify (·.insert key)
-    if value.isAppOfArity ``Trace.producerResult 4 then
-      let some node := complete[value]?
+    -- Metadata must not hide a direct producer reference at a proof root.
+    if let (.mdata _ child, .mdata _ openedChild) := (raw, opened) then
+      visit child openedChild bound context
+      return
+    let producer := raw.isAppOfArity ``Trace.producerResult 4
+    if producer then
+      let some node := complete[raw]?
         | throwError "a selected producer reference is outside its complete trace"
-      Trace.checkProducerRecord value node
-    match value with
-    | .app fn argument => visit fn *> visit argument
-    | .lam _ type body _ | .forallE _ type body _ => visit type *> visit body
-    | .letE _ type value body _ => visit type *> visit value *> visit body
-    | .mdata _ body | .proj _ _ body => visit body
-    | _ => pure ()
+      checkRecord raw node
+    -- Metadata within an application spine cannot hide the original producer
+    -- prefix, including when the full application is a proof.
+    unless producer do
+      if let some (selectedPrefix, openedPrefix) := originalProducerPrefix? raw opened then
+        visit selectedPrefix openedPrefix bound context
+    if ← Meta.isProof opened then
+      -- A public Expr-taking API cannot treat proof-looking syntax as checked.
+      -- A direct producer has already passed its exact raw-value/record check.
+      unless producer || (← Meta.isTypeCorrect opened) do
+        throwError "a producer proof boundary contains an ill-typed proof"
+      let proposition ← Lean.instantiateMVars (← Meta.inferType opened)
+      let rawProposition := proposition.abstract (bound.map Expr.fvar)
+      visit rawProposition proposition bound context
+      return
+    match raw, opened with
+    | .app fn argument, .app openedFn openedArgument =>
+        visit fn openedFn bound context *> visit argument openedArgument bound context
+    | .lam _ type body info, .lam _ openedType openedBody _ => do
+        visit type openedType bound context
+        Meta.withLocalDecl .anonymous info openedType fun binder =>
+          visit body (openedBody.instantiate1 binder) (bound.push binder.fvarId!)
+            (context.push (type, none))
+    | .forallE _ type body info, .forallE _ openedType openedBody _ => do
+        visit type openedType bound context
+        Meta.withLocalDecl .anonymous info openedType fun binder =>
+          visit body (openedBody.instantiate1 binder) (bound.push binder.fvarId!)
+            (context.push (type, none))
+    | .letE _ type value body _, .letE _ openedType openedValue openedBody _ => do
+        visit type openedType bound context
+        visit value openedValue bound context
+        Meta.withLetDecl .anonymous openedType openedValue fun binder =>
+          visit body (openedBody.instantiate1 binder) (bound.push binder.fvarId!)
+            (context.push (type, some value))
+    | .proj _ _ value, .proj _ _ openedValue => visit value openedValue bound context
+    | .bvar index, .fvar id =>
+        unless index < bound.size && bound[bound.size - 1 - index]! == id do
+          throwError "producer validation changed a bound variable's typed context"
+    | .bvar _, _ => throwError "producer validation encountered an unopened bound variable"
+    | _, _ => pure ()
   for (value, node) in entries do
-    Trace.checkProducerRecord value node
-    visit value
-    for field in node.producerDescription.2 do visit field
-  for root in roots do visit root
+    checkRecord value node
+    visit value value #[] #[]
+    for field in node.producerDescription.2 do visit field field #[] #[]
+  for root in roots do visit root root #[] #[]
 
 /-- Administrative duplication does not add a mathematical operation. Coalesce only
 exact term-and-record duplicates after removing occurrence ordinals, before any proof

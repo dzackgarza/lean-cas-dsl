@@ -2209,7 +2209,7 @@ def currentNamedRefinementOrigin? (wire : Wire) : TermElabM (Option NamedRefinem
     throwStratum .unavailable "historical named representation data cannot refresh another occurrence"
   return some origin
 
-def forwardRetainedValue (source : Wire) (formal : Expr) : TermElabM Wire := do
+def forwardRetainedValue (source : Wire) (formal : Expr) : TermElabM Wire := do profileitM Exception "cas retained value forwarding" (← getOptions) do
   if source.value == formal then return source
   unless ← withoutModifyingState (withTransparency .all <|
       isDefEq (← inferType source.value) (← inferType formal) <&&>
@@ -2627,7 +2627,7 @@ Only its checked administrative anchor can recover a preparation, and its
 complete original input graph must still agree. Unanchored synthetic assemblies
 and already captured producers keep their own existing observation path. -/
 def currentIntrinsicInvocationReference? (h : Harness) (trace : Trace) (wire : Wire) :
-    TermElabM (Option PreparedInvocation) := private_decl% (do
+    TermElabM (Option PreparedInvocation) := private_decl% (do profileitM Exception "cas intrinsic owner lookup" (← getOptions) do
   if wire.capturedInvocation.isSome then return none
   let some _ := Trace.producerAnchor? wire.value | return none
   let some node ← trace.node? wire.value
@@ -7948,7 +7948,7 @@ def observeLiftStageFieldWithScope (h : Harness) (input : LiftStageExecution.Inp
     (requestValue : Expr) (form : Form) (dependencies : Array Wire)
     (staticInputPaths : Option (Array (DataOwnership.Path × Nat)))
     (staticTemplates : Option (ActionDataTemplate × ActionDataTemplate))
-    (field : LiftStageExecution.Field Wire) : TermElabM Wire := do
+    (field : LiftStageExecution.Field Wire) : TermElabM Wire := do profileitM Exception "cas lift field observation" (← getOptions) do
   if field.index == 0 then
     if let some image := input.sourceImage? then
       let sourceImage ← if input.originalArrow then
@@ -10213,7 +10213,7 @@ def invocationOperand (role : ActionDataRole) (wire : Wire) : TermElabM Invocati
   return { formal := wire.value, expectedType := ← inferType wire.value, role, wire }
 
 def checkInvocationOperand (selected : InvocationOperand) (returned : Wire) :
-    TermElabM Wire := do
+    TermElabM Wire := do profileitM Exception "cas invocation operand validation" (← getOptions) do
   unless ← withoutModifyingState (withTransparency .all <|
       isDefEq (← inferType returned.value) selected.expectedType <&&>
         isDefEq returned.value selected.formal) do
@@ -10241,7 +10241,7 @@ structure DirectLiftInputs where
   staticTemplates : ActionDataTemplate × ActionDataTemplate
 
 def directLiftInputs (h : Harness) (selected : SelectedDirectLiftInvocation)
-    (returned : Array Wire) : TermElabM DirectLiftInputs := do
+    (returned : Array Wire) : TermElabM DirectLiftInputs := do profileitM Exception "cas direct lift inputs" (← getOptions) do
   unless selected.operands.size == returned.size do
     throwError "the direct lift lost an ordered dependency return"
   let returned ← (selected.operands.zip returned).mapM fun (operand, value) =>
@@ -11766,7 +11766,7 @@ current entry reads the assembly directly from its sole Wire input. -/
 private def observeIntrinsicAssemblyBodyWith
     (observeChild : ActionDataRole → Wire → TermElabM Wire)
     (readEndpoints : Wire → CategoryContext → TermElabM (Wire × Wire))
-    (h : Harness) (wire : Wire) (assembly : IntrinsicAssembly) : TermElabM Wire := do
+    (h : Harness) (wire : Wire) (assembly : IntrinsicAssembly) : TermElabM Wire := do profileitM Exception "cas intrinsic assembly observation" (← getOptions) do
   let (original, _) ← renderCapturedActionData assembly.template
   unless original == wire.fragment do
     throwStratum .unavailable "the intrinsic assembly changed its original positioned child data"
