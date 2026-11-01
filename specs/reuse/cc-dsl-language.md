@@ -1,5 +1,85 @@
 # Reuse record: `cc-dsl-language`
 
+## Preserve exact reading context through closed parameters — 2026-11-01
+
+### Queries and existing owners
+
+The existing formalization-corpus queries below and local searches for
+`completeParameterObjects`, `recognize`, `Trace.producerAnchor?`,
+`Trace.checkProducerRecord`, `Trace.recordProduced`, `sameSource`,
+`contextualNumeralRows`, `suppliedFamilyWitnesses`, `synthesizeInstances` and
+`subsetLiteral` identify the existing owners. Lean's full instance types and
+ordinary collection notation own literal construction. Accepted catalogue rows
+own all mathematical objects, families, numerals, comparisons and operations.
+This work adds no mathematics, row, proof rule or carrier-based identification.
+
+### Reused mechanisms
+
+The final original dependent-reader failure occurs at the zero read from the
+selected formed-pairing result. The complete scoped capture contains 30 ring
+numeral candidates and one semiring candidate. The latter is supplied by the
+actual pairing argument p319, which still has its authenticated integer-ring
+producer record but appears as a Value without origin, selection or view data.
+A separate raw snapshot of the original failed request places that exact Value
+at the pairing target and subsequent result context. The selected value object's
+original coefficient p289 remains independent; equality of their formal values
+must not identify those occurrences.
+
+`completeParameterObjects` previously called existing named-object recognition
+only for a raw registered declaration head. An authenticated producer's executable
+head is its administrative anchor, so that gate fabricated an anonymous witness
+at the unchanged parameter expression. Extend only this bounded gate: an exact
+existing anchored `.object` record must authenticate, select an accepted row in
+the uniquely checked category, and pass through the existing complete `recognize`
+path. It preserves the original parameter handle, full named binding and known
+context. Arbitrary parameters do not acquire a new structural search. All numeral
+eligibility, full-owner/application comparisons and independent-witness checks stay.
+The additive original A/B guard verifies that completing two definitionally equal
+parameters retains both original Values and both producer records.
+
+The other exposed reader boundaries reuse the same source discipline. A local
+`applyOperation` refinement cache is keyed by the exact complete closed source
+and accepted refinement row and lives for that one application only. Carrier/prefix
+and dependent source filtering still precede candidate comparison. Additional
+parameter-equivalence and direct component/presentation occurrences use
+`Trace.recordProduced`, retaining every existing source and complete result instead
+of overwriting a producer key. Empty-route context wrappers consult only their
+explicit complete source for a numeral row. Independent owners remain independent.
+
+Subset literals keep the original notation, literal type and every original point.
+They acquire only the full `EmptyCollection`, `Singleton` and `Insert` instances
+actually used by that notation through the existing ordinary-first checked
+`synthesizeInstances`; successful dictionaries become local `letI` values. No
+Finset-specific constructor, scalar-carrier substitution or alternate literal is
+introduced. Unresolved notation still reports its original instance failure.
+
+Named-family reuse traverses only the actual operand's explicitly retained source
+context. It does not discover families through constructor parameters or another
+family's target. The already selected full declaration application, ordered explicit
+parameters, source occurrence, original producer, full Hom and endpoints must all
+agree. Additional controls retain wrong-source rejection and ambiguity between
+independently produced families.
+
+### Verification and diagnostic scope
+
+Language build 9 passes. The full unchanged DependentReaderProbes passes in
+296.372 seconds under its original options, bindings, assertions and budgets;
+its full source SHA remains `dc3e9365c83fa7dbd36d50ed4e714d82fc46c0478f98b4866f71f27bb6ec76cb`.
+All nine source/parameter/presentation/numeral/family preservation targets pass
+together in 114.296 seconds, including the additive A/B guard and both independent
+numeral-owner suites. Inputs stayed unchanged during each run. The original
+differential assertion separately passes at the claim-reading boundary; full
+QuestionProbes, execution and repository-wide acceptance still require their runs.
+
+Failure-only diagnostics serialize the actual raw expression DAG and explicitly
+state their scope and omitted recursive Value/trace fields. The existing bounds
+remain: 8192 expression nodes, depth 2048, atom limit 65536, output cap 8 MiB,
+128 numeral candidates, 16384 encoder visits, and 1024 records per candidate.
+An incomplete capture says so and never changes the original exception. Operation
+comparison logging records the original candidate/source indexes and rejection
+phase without recomputing eligibility. Diagnostic captures and failed observer
+attempts are not acceptance results.
+
 ## Complete instance acquisition and dependent route applicability — 2026-11-01
 
 The existing instance-search corpus queries below and local searches for
@@ -21,11 +101,13 @@ rule for comparing routes or objects; commitment repeats the original checks.
 The added engineering controls retain ambiguity for an unrestricted predicate
 and reject reopening a route excluded by the original carrier selection.
 
-The original roots request now passes in the combined consumer run. Differential
-reading advances from structural-route ambiguity to an operation-family ambiguity
-and is still red. Opt-in `trace.CasCatalogue.operationAmbiguity` reports the exact
-retained candidates/comparisons only at that existing failure boundary; it does
-not change candidate discovery, comparison, resource limits or classification.
+At the initial checkpoint, roots passed and differential reading advanced from
+structural-route ambiguity to operation-family ambiguity. The later exact-source
+refinement reuse above makes the unchanged differential claim-reading boundary pass;
+full QuestionProbes remains pending fresh runtime imports at this checkpoint.
+Opt-in `trace.CasCatalogue.operationAmbiguity` reports bounded actual retained
+candidates/comparisons at the existing failure boundary. It does not change
+candidate discovery, comparison, resource limits or classification.
 
 ## Preserve complete constructor context and additional producers — 2026-11-01
 

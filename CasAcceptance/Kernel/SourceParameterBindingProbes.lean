@@ -88,6 +88,16 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
       (← withTransparency .all <| isDefEq (← inferType firstHandle) (← inferType secondHandle)) &&
       (← withTransparency .all <| isDefEq firstHandle secondHandle) do
     throwError "the source control does not distinguish equal-formal parameter producers"
+  -- Completing actual declaration parameters keeps both original named producers,
+  -- including the one already supplied in context, with their independent handles.
+  let completed ← (completeParameterObjects #[firstHandle, secondHandle] #[first]).run
+    { trace := some trace }
+  unless completed.size == 2 && completed.any (·.sameSource first) &&
+      completed.any (·.sameSource second) do
+    throwError "complete declaration parameters lost their independent named producer values"
+  unless (← trace.node? firstHandle) == some firstNode &&
+      (← trace.node? secondHandle) == some secondNode do
+    throwError "completing declaration parameters changed an original producer record"
   let original ← (object state "Poly" #[first] (some rings)).run { trace := some trace }
   let .object originalHandle category (some (entry, _)) selected viewData := original
     | throwError "the source control has no retained named polynomial family"

@@ -108,6 +108,41 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
         (← isDefEq domain (← (semanticObject source).run context)) &&
         (← isDefEq codomain (← (semanticObject target).run context)) do
       throwError "member-family application changed its original domain or selected target"
+    -- Additional provenance guards reuse this original owner, source, target and family.
+    let #[retainedFamily] := suppliedFamilyWitnesses [source]
+      | throwError "the selected source did not retain its one complete original family"
+    let .morphism originalHom originalSource originalTarget originalCategory
+        (some (originalSourceValue, originalTargetValue)) := retainedFamily
+      | throwError "the retained family lost its complete endpoints"
+    unless !originalSourceValue.sameSelection target do
+      throwError "the original family guard does not distinguish its source and target selections"
+    let wrongSource := retainObjectContext target #[retainedFamily]
+    unless (suppliedFamilyWitnesses [wrongSource]).isEmpty do
+      throwError "a family attached to another source selected its independently fixed target"
+    let nestedTarget := retainObjectContext originalTargetValue #[retainedFamily]
+    let outerFamily := Value.morphism originalHom originalSource originalTarget originalCategory
+      (some (originalSourceValue, nestedTarget))
+    let outerSource := retainObjectContext originalSourceValue #[outerFamily]
+    let #[actualOuter] := suppliedFamilyWitnesses [outerSource]
+      | throwError "family lookup descended through another family's target"
+    unless actualOuter.sameSource outerFamily do
+      throwError "the source's actual family was replaced by a target-context witness"
+    let anotherHom ← (retainNamedMorphism pairing originalHom).run { trace := some trace }
+    unless !(anotherHom.equal originalHom) do
+      throwError "the independent accepted family call lost its distinct producer"
+    let anotherFamily := Value.morphism anotherHom originalSource originalTarget originalCategory
+      (some (originalSourceValue, originalTargetValue))
+    let ambiguousSource := retainObjectContext originalSourceValue #[retainedFamily, anotherFamily]
+    let (checkedCategory, checkedApplication, _) ←
+      (invariantApplication pairing selected).run { trace := some trace }
+    let ambiguous ← try
+      discard <| (retainedSelectedFamily? pairing selected checkedCategory checkedApplication
+        #[.element point ambiguousSource]).run { trace := some trace }
+      pure false
+    catch error =>
+      if Exception.interpretationKind error == .ambiguous then pure true else throw error
+    unless ambiguous do
+      throwError "two independently retained complete family producers lost their ambiguity"
 
 /- A closed map cannot hide open context in comparison applications or judged questions. -/
 run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do

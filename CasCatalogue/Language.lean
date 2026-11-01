@@ -135,6 +135,8 @@ open Lean Meta Elab Term
 namespace CasCatalogue.Language
 
 initialize registerTraceClass `CasCatalogue.operationAmbiguity
+initialize registerTraceClass `CasCatalogue.producerCollision
+initialize registerTraceClass `CasCatalogue.numeralAmbiguity
 
 declare_syntax_cat cas_term
 syntax:max num : cas_term
@@ -717,6 +719,10 @@ structure Ctx where
 /-- The language's evaluation monad: elaboration in a reading. -/
 abbrev M := ReaderT Ctx TermElabM
 
+/-- One operation search retains each newly selected refinement of an exact
+original source. Independent calls and different source occurrences stay distinct. -/
+abbrev OperationRefinementCache := IO.Ref (Array (Value × ObjectId × Value))
+
 /-- Read the exact original producer records together with any current local
 records. A nested trial may inspect this snapshot without publishing new nodes. -/
 def readingTrace? : M (Option Trace) := do
@@ -733,6 +739,118 @@ def readingTrace? : M (Option Trace) := do
 def profileReader {α : Type} (name : String) (action : M α) : M α := do
   let opts ← getOptions
   if profiler.get opts then profileitM Exception s!"cas {name}" opts action else action
+
+namespace FailureDiagnostics
+
+/-- Limits apply only to opt-in reporting after the original failure. -/
+def maxNodes : Nat := 8192
+def maxDepth : Nat := 2048
+def maxAtomChars : Nat := 65536
+def maxOutputBytes : Nat := 8388608
+
+def boundedAtom (atom : String) : IO String := do
+  if atom.length > maxAtomChars then
+    throw <| IO.userError s!"diagnostic-limit: atom has {atom.length} characters (limit {maxAtomChars})"
+  return atom
+
+/-- A raw expression DAG retains exact binder names, metadata, occurrence ordinals,
+and every field. It does not normalize or rebuild a selected reader value. -/
+partial def encodeExpressionAt (indices : IO.Ref (Std.HashMap ExprStructEq Nat))
+    (records : IO.Ref (Array Json)) (expression : Expr) (depth : Nat) : IO Nat := do
+  let key : ExprStructEq := ⟨expression⟩
+  if let some index := (← indices.get).get? key then return index
+  let index := (← records.get).size
+  if index >= maxNodes then
+    throw <| IO.userError s!"diagnostic-limit: expression nodes reached {index} (limit {maxNodes})"
+  if depth > maxDepth then
+    throw <| IO.userError s!"diagnostic-limit: expression depth reached {depth} (limit {maxDepth})"
+  indices.modify (·.insert key index)
+  records.modify (·.push Json.null)
+  let encode := fun child => encodeExpressionAt indices records child (depth + 1)
+  let data ← match expression with
+    | .bvar id => pure ("bvar", #[toJson id])
+    | .fvar id => pure ("fvar", #[toJson (← boundedAtom (reprStr id))])
+    | .mvar id => pure ("mvar", #[toJson (← boundedAtom (reprStr id))])
+    | .sort level => pure ("sort", #[toJson (← boundedAtom (reprStr level))])
+    | .const name levels =>
+        pure ("const", #[toJson (← boundedAtom (reprStr name)),
+          toJson (← boundedAtom (reprStr levels))])
+    | .app function argument =>
+        pure ("app", #[toJson (← encode function), toJson (← encode argument)])
+    | .lam name type body info =>
+        pure ("lam", #[toJson (← boundedAtom (reprStr name)), toJson (← encode type),
+          toJson (← encode body), toJson (reprStr info)])
+    | .forallE name type body info =>
+        pure ("forallE", #[toJson (← boundedAtom (reprStr name)), toJson (← encode type),
+          toJson (← encode body), toJson (reprStr info)])
+    | .letE name type value body nonDependent =>
+        pure ("letE", #[toJson (← boundedAtom (reprStr name)), toJson (← encode type),
+          toJson (← encode value), toJson (← encode body), toJson nonDependent])
+    | .lit literal => do
+        if let .strVal text := literal then discard <| boundedAtom text
+        pure ("lit", #[toJson (← boundedAtom (reprStr literal))])
+    | .mdata metadata body =>
+        pure ("mdata", #[toJson (← boundedAtom (reprStr metadata)), toJson (← encode body)])
+    | .proj name field record =>
+        pure ("proj", #[toJson (← boundedAtom (reprStr name)), toJson field,
+          toJson (← encode record)])
+  records.modify (·.set! index (Json.mkObj [
+    ("index", toJson index), ("constructor", toJson data.1), ("data", Json.arr data.2)]))
+  return index
+
+def encodeExpression (indices : IO.Ref (Std.HashMap ExprStructEq Nat))
+    (records : IO.Ref (Array Json)) (expression : Expr) : IO Nat :=
+  encodeExpressionAt indices records expression 0
+
+/-- Original node skeleton and every original ordered field share one expression table. -/
+def encodeNode (encode : Expr → IO Nat) (node : Node) : IO Json := do
+  let (description, fields) := node.producerDescription
+  discard <| boundedAtom description
+  if fields.size > maxNodes then
+    throw <| IO.userError s!"diagnostic-limit: node has {fields.size} ordered fields (limit {maxNodes})"
+  return Json.mkObj [("description", toJson description),
+    ("orderedFields", toJson (← fields.mapM encode))]
+
+/-- A limit failure emits no partial graph as complete evidence. -/
+def finish (records : IO.Ref (Array Json)) (roots : Json) : IO String := do
+  let payload := (Json.mkObj [("complete", toJson true), ("roots", roots),
+    ("expressions", toJson (← records.get))]).compress
+  if payload.utf8ByteSize > maxOutputBytes then
+    throw <| IO.userError s!"diagnostic-limit: output has {payload.utf8ByteSize} bytes (limit {maxOutputBytes})"
+  return payload
+
+end FailureDiagnostics
+
+/-- Opt-in failure observation at an existing producer-record boundary. This
+shares exact raw expression nodes without normalizing occurrences or printing trees. -/
+def observeProducerConflict (site : String) (trace? : Option Trace) (key : Expr)
+    (attempted? : Option Node) (source? : Option Expr := none) : M Unit := do
+  unless ← isTracingEnabledFor `CasCatalogue.producerCollision do return
+  let previous? ← match trace? with
+    | some recorder => pure ((← recorder.get)[key]?)
+    | none => pure none
+  let sourceNode? ← match trace?, source? with
+    | some recorder, some source => pure ((← recorder.get)[source]?)
+    | _, _ => pure none
+  let attempted? := attempted?.or sourceNode?
+  let indices ← IO.mkRef ({} : Std.HashMap ExprStructEq Nat)
+  let expressions ← IO.mkRef (#[] : Array Json)
+  let encode := FailureDiagnostics.encodeExpression indices expressions
+  let encodeNode := FailureDiagnostics.encodeNode encode
+  let payload ← try
+      let keyIndex ← encode key
+      let sourceIndex ← liftM (source?.mapM encode)
+      let retained ← liftM (previous?.mapM encodeNode)
+      let attempted ← liftM (attempted?.mapM encodeNode)
+      FailureDiagnostics.finish expressions (Json.mkObj [
+        ("site", toJson site), ("key", toJson keyIndex),
+        ("source", toJson sourceIndex),
+        ("retained", toJson retained), ("attempted", toJson attempted)])
+    catch observationError =>
+      pure <| (Json.mkObj [("complete", toJson false), ("site", toJson site),
+        ("nodesReserved", toJson (← expressions.get).size),
+        ("reason", toJson (← observationError.toMessageData.toString))]).compress
+  trace[CasCatalogue.producerCollision] "{payload}"
 
 /-- The morphism `f : a ⟶ b` of `category`, elaborated there. -/
 def homIn (f : Term) (a b : Expr) (_category : NamedCategoryEntry) : M Expr :=
@@ -2056,7 +2174,7 @@ def setOf (state : RegistryState) (entry : ObjectEntry) : TermElabM ObjectEntry 
 /-- Each witness keeps its own direct numeral family. A named source without
 one retains the literal choice of its declared set refinement. This selects
 only rows: the original full source still closes each owner and actual action. -/
-def contextualNumeralRows (state : RegistryState) (supplied : Value) : M (Array NumeralEntry) := do
+partial def contextualNumeralRows (state : RegistryState) (supplied : Value) : M (Array NumeralEntry) := do
   let selected := match supplied with
     | .object _ _ _ (some selected) _ => selected
     | _ => supplied
@@ -2068,6 +2186,20 @@ def contextualNumeralRows (state : RegistryState) (supplied : Value) : M (Array 
     row.over.any fun category => state.categories.any fun entry =>
       entry.id == category && entry.expression.syntacticEq expression
   unless direct.isEmpty do return direct
+  -- An anonymous checked view keeps the literal choice of its actual complete
+  -- source. An empty route does not create a second, unrestricted owner search.
+  -- Only this retained source is inspected; other witnesses remain independent.
+  if origin.isNone then
+    if let .object actual category _ _ (some (_, source, route, _, applications)) := selected then
+      if let .object original sourceCategory .. := source then
+        if route.isEmpty && applications.isEmpty && category.id == sourceCategory.id &&
+            category.expression.syntacticEq sourceCategory.expression &&
+            !actual.hasMVar && !actual.hasLevelMVar &&
+            !original.hasMVar && !original.hasLevelMVar &&
+            (← parameterTrial (withTransparency .all <|
+              isDefEq (← inferType actual) (← inferType original) <&&>
+                isDefEq actual original)) then
+          return ← contextualNumeralRows state source
   let some (entry, _) := origin | return state.numerals
   if entry.admission.isSome then return state.numerals
   let some base ← optionalReading (liftM <| setOf state entry) | return state.numerals
@@ -3738,7 +3870,14 @@ partial def structuredParameterView (original : Value) (actual : Expr)
     let (origin, selected) := match original with
       | .object _ _ origin selected _ => (origin, selected)
       | _ => (none, none)
-    Trace.alias (← read).trace handle actual
+    try
+      Trace.alias (← read).trace handle actual
+    catch error =>
+      try
+        observeProducerConflict "structuredParameterView.original-context-alias"
+          (← read).trace actual none (some handle)
+      catch _ => pure ()
+      throw error
     return .object actual category origin selected
       (some (#[original], original, #[], #[], #[]))
   let chosen := match original with
@@ -3749,7 +3888,14 @@ partial def structuredParameterView (original : Value) (actual : Expr)
         (← isTypeCorrect actual) &&
         (← isDefEq (← inferType handle) (← inferType actual)) &&
         (← withTransparency .all <| isDefEq handle actual) then
-      Trace.alias (← read).trace handle actual
+      try
+        Trace.alias (← read).trace handle actual
+      catch error =>
+        try
+          observeProducerConflict "structuredParameterView.selected-context-alias"
+            (← read).trace actual none (some handle)
+        catch _ => pure ()
+        throw error
       return .object actual category origin selected
         (some (#[original], chosen, #[], #[], #[]))
   let recorder : Trace ← match ← readingTrace? with
@@ -4053,7 +4199,15 @@ partial def suppliedFieldWitnesses (state : RegistryState) (entry : MorphismEntr
         else
           let evidence ← coalesceSelectedParameterViews actualType actual views
           let (_, _, _, presentations, _) := evidence
-          Trace.record (← read).trace actual (.parameterEquivalence actualType actual presentations)
+          let attempted := Node.parameterEquivalence actualType actual presentations
+          try
+            Trace.record (← read).trace actual attempted
+          catch error =>
+            try
+              observeProducerConflict "suppliedFieldWitnesses.parameter-equivalence"
+                (← read).trace actual (some attempted)
+            catch _ => pure ()
+            throw error
           witnesses := witnesses.push (.object actual category none none (some evidence))
       return witnesses
     unless head == entry.declaration || state.morphisms.any (·.declaration == head) do
@@ -4462,10 +4616,23 @@ partial def selectedParameterFromWitnesses (state : RegistryState) (actual : Exp
     structuredParameterView original actual parameterCategory
   let evidence ← coalesceSelectedParameterViews (← inferType actual) actual views
   let (_, _, _, alternatives, _) := evidence
-  unless alternatives.isEmpty do
-    Trace.record (← read).trace actual
-      (.parameterEquivalence (← inferType actual) actual alternatives)
-  return some (.object actual parameterCategory none none (some evidence))
+  -- A new checked presentation does not replace the original actual producer.
+  -- Exact recovery remains idempotent; distinct evidence gets a fresh wrapper
+  -- whose representative is that complete original child, with every alternative.
+  let retained ← if alternatives.isEmpty then pure actual else do
+    let node := Node.parameterEquivalence (← inferType actual) actual alternatives
+    let trace? := (← read).trace
+    let previous? ← match trace? with
+      | some trace => pure ((← trace.get)[actual]?)
+      | none => pure none
+    match previous? with
+    | some previous =>
+        if previous == node then pure actual
+        else Trace.recordProduced trace? actual node
+    | none =>
+        Trace.record trace? actual node
+        pure actual
+  return some (.object retained parameterCategory none none (some evidence))
 
 /-- Recognize a retained complete object or its actual registered declaration application.
 A carrier expression alone does not select a named presentation. -/
@@ -4558,8 +4725,15 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
       let evidence ← coalesceSelectedParameterViews (← inferType x) x matchedValues
       let (_, _, _, alternatives, _) := evidence
       unless alternatives.isEmpty do
-        Trace.record (← read).trace x
-          (.parameterEquivalence (← inferType x) x alternatives)
+        let attempted := Node.parameterEquivalence (← inferType x) x alternatives
+        try
+          Trace.record (← read).trace x attempted
+        catch error =>
+          try
+            observeProducerConflict "recognize.nonsets-multiview-equivalence"
+              (← read).trace x (some attempted)
+          catch _ => pure ()
+          throw error
       return .object x category none none (some evidence)
     if category.id == CategoryId.sets && matchedValues.size > 1 then
       -- A declared operation fixes complete structure parameters before its
@@ -4639,8 +4813,15 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
         let evidence ← coalesceSelectedParameterViews (← inferType actual) actual views
         let (_, _, _, alternatives, _) := evidence
         unless alternatives.isEmpty do
-          Trace.record (← read).trace actual
-            (.parameterEquivalence (← inferType actual) actual alternatives)
+          let attempted := Node.parameterEquivalence (← inferType actual) actual alternatives
+          try
+            Trace.record (← read).trace actual attempted
+          catch error =>
+            try
+              observeProducerConflict "recognize.common-full-source-equivalence"
+                (← read).trace actual (some attempted)
+            catch _ => pure ()
+            throw error
         let carrier ← carrierObject (.object actual selectedCategory none none (some evidence))
         unless ← withTransparency .all <| isDefEq (← semanticObject carrier) x do
           throwStratum .invalid m!"the common full source has a different endpoint"
@@ -5833,13 +6014,15 @@ partial def presentationMapValue (value : Value) (entry : PresentationComparison
     let argument ← toElement value sourceCarrier
     let result ← applyTo (← quoteExpr mapped) #[argument] targetCarrier
     let .element argumentMap _ := argument | unreachable!
-    let .element resultMap _ := result | unreachable!
+    let .element resultMap resultTarget := result | unreachable!
     let parameters := (iso.getAppArgs.zip infos).filterMap fun (argument, info) =>
       if info.isExplicit then some argument else none
-    Trace.record (← read).trace resultMap
+    -- The accepted presentation is a new producer over the original composite;
+    -- keep that composite's complete record at its original execution key.
+    let selected ← Trace.recordProduced (← read).trace resultMap
       (.presentationApply entry.id parameters inverse
         (← semanticObject sourceValue) (← semanticObject targetValue) argumentMap)
-    return result
+    return .element selected resultTarget
 
 partial def generatorIndex (applied : Expr) (i : Nat) : M Term := do
   let .forallE _ expected _ info ← whnfR (← inferType applied)
@@ -6477,9 +6660,23 @@ partial def completeParameterObjects (parameters : Array Expr)
         -- An actual registered declaration application already owns its identity.
         -- Retain that identity before adding a new anonymous parameter witness;
         -- every originally supplied context remains in `known` unchanged.
+        -- The actual producer record fixes a named object's row even when its
+        -- executable head is the administrative anchor. Authenticate that exact
+        -- occurrence before ordinary recognition retains its binding and context.
+        let retainedObject : Option ObjectId ← match ← readingTrace? with
+          | some trace =>
+              if (Trace.producerAnchor? parameter).isSome then
+                match ← trace.node? parameter with
+                | some node@(.object id _) =>
+                    Trace.checkProducerRecord parameter node
+                    pure (some id)
+                | _ => pure none
+              else pure none
+          | none => pure none
         let named ← if state.objects.any (fun entry =>
             entry.category == parameterCategory.id &&
-              some entry.declaration == parameter.getAppFn.constName?) then
+              (retainedObject == some entry.id ||
+                some entry.declaration == parameter.getAppFn.constName?)) then
             optionalReading (recognize state parameter parameterCategory known parameters)
           else pure none
         -- `Semantic.objOf` supplies the actual action expression. Keep its source
@@ -6500,9 +6697,96 @@ partial def completeParameterObjects (parameters : Array Expr)
     | _ => throwSemanticAmbiguity "a complete declared parameter has several object categories"
   return known
 
+/-- A family witness belongs to the exact source object whose explicit context
+retains it. Context-only wrappers may preserve that selection; constructor
+parameters and other families' endpoints do not supply a selected family. -/
+partial def suppliedFamilyWitnesses (pending : List Value) (seen : Array Value := #[])
+    (found : Array Value := #[]) : Array Value := Id.run do
+  let current :: rest := pending | return found
+  if seen.any (·.sameSource current) then
+    return suppliedFamilyWitnesses rest seen found
+  let known : Array Value := match current with
+    | .object _ _ _ selected data =>
+        selected.toArray ++
+          (data.map fun (originals, source, _, _, _) => Array.push originals source).getD #[]
+    | .derivedObject _ _ known => known
+    | _ => #[]
+  let mut pending := rest
+  let mut found := found
+  for witness in known do
+    match witness with
+    | .morphism _ _ _ _ (some (source, _)) =>
+        if source.sameSelection current && !found.any (·.sameSource witness) then
+          found := found.push witness
+    | .object .. | .derivedObject .. =>
+        if witness.sameSelection current then pending := witness :: pending
+    | _ => pure ()
+  return suppliedFamilyWitnesses pending (seen.push current) found
+
+/-- Reuse only a complete named family explicitly retained by the actual operand
+context. The admitted full application and every original producer argument must
+match; equal carriers and independently constructed sources are not a lookup key. -/
+partial def retainedSelectedFamily? (entry : MorphismEntry) (receiver : Value)
+    (category : NamedCategoryEntry) (application : Expr) (supplied : Array Value) :
+    M (Option Value) := do
+  if supplied.isEmpty then return none
+  let objects := supplied.filterMap fun
+    | .element _ object => some object
+    | object@(.object ..) | object@(.derivedObject ..) => some object
+    | _ => none
+  let candidates := suppliedFamilyWitnesses objects.toList
+  if candidates.isEmpty then return none
+  let some trace ← readingTrace? | return none
+  let parameters ← explicitArguments entry.declaration application
+  let mut applicable : Array Value := #[]
+  for candidate in candidates do
+    let .morphism hom source target actualCategory (some (first, second)) := candidate
+      | continue
+    unless actualCategory.id == category.id &&
+        actualCategory.declaration == category.declaration &&
+        actualCategory.expression.syntacticEq category.expression do continue
+    unless (sourceParameterValues first).any (·.sameSource receiver) do continue
+    let some node@(.namedMorphism id retainedParameters) ← trace.node? hom | continue
+    unless id == entry.id && retainedParameters.size == parameters.size &&
+        (retainedParameters.zip parameters).all (fun (a, b) => a.equal b) do continue
+    unless (Trace.producerAnchor? hom).isSome do continue
+    let mut original := Trace.unanchor hom.consumeMData
+    while original.isAppOfArity ``id 2 do
+      original := Trace.unanchor original.appArg!.consumeMData
+    unless original.isAppOfArity ``Trace.operationResult 3 do continue
+    let .lit (.strVal address) := original.getAppArgs[0]! | continue
+    unless address == entry.id.raw do continue
+    while original.isAppOfArity ``id 2 ||
+        original.isAppOfArity ``Trace.operationResult 3 do
+      original := Trace.unanchor original.appArg!.consumeMData
+    unless original.equal application do continue
+    Trace.checkProducerRecord hom node
+    let valid ← parameterCompatible do
+      if #[hom, source, target].any (fun term => term.hasMVar || term.hasLevelMVar) then
+        return false
+      let context ← CategoryContext.ofNamed category source
+      CategoryContext.checkMorphism context hom source target
+      unless ← withTransparency .all <|
+          isDefEq (← inferType hom) (← inferType application) do return false
+      unless ← withTransparency .all <|
+          isDefEq (← semanticObject first) source <&&>
+          isDefEq (← semanticObject second) target do return false
+      return true
+    unless valid do continue
+    unless applicable.any (·.sameSource candidate) do
+      applicable := applicable.push candidate
+  match applicable with
+  | #[] => return none
+  | #[family] => return some family
+  | _ =>
+      throwSemanticAmbiguity "several retained complete families match this exact selected application"
+
 /-- Read the selected complete family, retaining its declared parameters and endpoint contexts. -/
-partial def invariantOf (entry : MorphismEntry) (A : Value) : M Value := do
+partial def invariantOf (entry : MorphismEntry) (A : Value)
+    (supplied : Array Value := #[]) : M Value := do
   let (category, family, parameters) ← invariantApplication entry A
+  if let some retained ← retainedSelectedFamily? entry A category family supplied then
+    return retained
   let known ← completeParameterObjects parameters #[A]
   let .object one _ _ _ _ ← oneObject | unreachable!
   let some (source, _) := homEnds? (← inferType family)
@@ -6529,7 +6813,13 @@ partial def invariantOf (entry : MorphismEntry) (A : Value) : M Value := do
       (.morphismComposition category.id comparison family one source target)
     Trace.alias (← read).trace composite hom
     return .element (← staged hom) T
-  return .morphism family source target category (some (← endpoint source, T))
+  let S ← endpoint source
+  -- Keep this actual selected family beside its source, so an operand made from
+  -- that endpoint retains the independently fixed result owner. The witness uses
+  -- the unaugmented source, making this a finite retained context, not a cycle.
+  let original := Value.morphism family source target category (some (S, T))
+  return .morphism family source target category
+    (some (retainObjectContext S #[original], T))
 
 /-- Member-family declarations compete by their complete dependent applications;
 their order in the registry does not choose a meaning. -/
@@ -6724,7 +7014,7 @@ partial def callWith (scope : Scope) (t : Syntax) (name : String) (args : Array 
     | v@(.element ..) | v@(.nat _) =>
         applyFamily entry.declaration category (#[v] ++ operands) (callableAddress := some entry.id.raw)
     | receiver@(.object ..) =>
-        let .morphism family _ _ _ (some (_, target)) ← invariantOf entry receiver
+        let .morphism family _ _ _ (some (_, target)) ← invariantOf entry receiver operands
           | throwStratum .invalid m!"the selected object's family does not take operands"
         -- The complete selected family has already checked this result object.
         -- Keep its original owner and full endpoint through the ordinary application
@@ -7510,6 +7800,133 @@ partial def contextualNumeral (k : Nat) (X : Value) : M (Option Value) := do
   for (_, otherOwner, otherNumeral, _, _, _) in candidates do
     unless ← parameterTrial (withTransparency .all <|
         isDefEq (← inferType owner) (← inferType otherOwner) <&&> isDefEq owner otherOwner) do
+      if ← isTracingEnabledFor `CasCatalogue.numeralAmbiguity then
+        let indices ← IO.mkRef ({} : Std.HashMap ExprStructEq Nat)
+        let expressions ← IO.mkRef (#[] : Array Json)
+        let visits ← IO.mkRef 0
+        try
+          unless candidates.size ≤ 128 do
+            throwError "numeral diagnostic candidate limit reached"
+          let encodeIO : Expr → IO Nat := fun expression => do
+            let count ← visits.get
+            unless count < 16384 do
+              throw <| IO.userError "numeral diagnostic field-visit limit reached"
+            visits.set (count + 1)
+            FailureDiagnostics.encodeExpression indices expressions expression
+          let encode : Expr → TermElabM Nat := fun expression => liftM (encodeIO expression)
+          -- This failure-only payload is deliberately shallow. Complete raw owner,
+          -- type, application, and point expressions share the existing bounded DAG;
+          -- recursive Value contexts and trace maps are explicitly outside its scope.
+          let atom : String → TermElabM String := fun text =>
+            liftM (FailureDiagnostics.boundedAtom text)
+          let categoryIdentity : NamedCategoryEntry → TermElabM Json := fun category => do
+            return Json.mkObj [("id", toJson category.id.raw),
+              ("declaration", toJson (← atom category.declaration.toString)),
+              ("expression", toJson (← atom (reprStr category.expression)))]
+          let identity : Value → TermElabM Json := fun value => do
+            match value with
+            | .object handle category origin _ _ =>
+                let origin ← match origin with
+                  | none => pure Json.null
+                  | some (entry, parameters) => pure (Json.mkObj [
+                      ("row", toJson entry.id.raw),
+                      ("declaration", toJson (← atom entry.declaration.toString)),
+                      ("parameterCount", toJson parameters.size)])
+                return Json.mkObj [("kind", toJson "object"),
+                  ("handle", toJson (← encode handle)),
+                  ("category", ← categoryIdentity category), ("origin", origin)]
+            | .morphism hom source target category endpoints =>
+                return Json.mkObj [("kind", toJson "morphism"),
+                  ("handle", toJson (← encode hom)),
+                  ("source", toJson (← encode source)), ("target", toJson (← encode target)),
+                  ("category", ← categoryIdentity category),
+                  ("hasEndpointContexts", toJson endpoints.isSome)]
+            | .derivedObject handle context known =>
+                return Json.mkObj [("kind", toJson "derived object"),
+                  ("handle", toJson (← encode handle)),
+                  ("categoryExpression", toJson (← atom (reprStr context.expression))),
+                  ("categoryBundle", toJson (← encode context.bundle)),
+                  ("knownCount", toJson known.size)]
+            | .derivedMorphism hom source target context _ =>
+                return Json.mkObj [("kind", toJson "derived morphism"),
+                  ("handle", toJson (← encode hom)),
+                  ("source", toJson (← encode source)), ("target", toJson (← encode target)),
+                  ("categoryExpression", toJson (← atom (reprStr context.expression))),
+                  ("categoryBundle", toJson (← encode context.bundle))]
+            | .element hom _ => return Json.mkObj [
+                ("kind", toJson "element"), ("handle", toJson (← encode hom))]
+            | .answer answer | .judged _ answer => return Json.mkObj [
+                ("kind", toJson "answer"), ("handle", toJson (← encode answer))]
+            | .nat n => return Json.mkObj [("kind", toJson "nat"), ("value", toJson n)]
+            | .literal name => return Json.mkObj [
+                ("kind", toJson "literal"), ("name", toJson (← atom name.toString))]
+            | .formalProof _ => return Json.mkObj [("kind", toJson "proof artifact")]
+            | .homSet .. => return Json.mkObj [("kind", toJson "hom set")]
+          let direct : Value → TermElabM Json := fun value => do
+            let data ← match value with
+              | .object _ _ _ _ (some (originals, source, route, alternatives, applications)) =>
+                  pure (Json.mkObj [("sourceIdentity", ← identity source),
+                    ("route", toJson (← route.mapM fun edge => atom (reprStr edge))),
+                    ("applications", Json.arr (← applications.mapM fun (edge, terms) => do
+                      return Json.arr #[toJson (← atom (reprStr edge)),
+                        toJson (← terms.mapM encode)])),
+                    ("originalCount", toJson originals.size),
+                    ("alternativeCount", toJson alternatives.size)])
+              | _ => pure Json.null
+            return Json.mkObj [("identity", ← identity value), ("view", data)]
+          let shallow : Value → TermElabM Json := fun value => do
+            let selected ← match value with
+              | .object _ _ _ (some selected) _ => direct selected
+              | _ => pure Json.null
+            let elementObject ← match value with
+              | .element _ object => direct object
+              | _ => pure Json.null
+            return Json.mkObj [("direct", ← direct value),
+              ("selected", selected), ("elementObject", elementObject)]
+          let target ← shallow X
+          let targetType ← liftM
+            (withoutModifyingState (inferType carrier) : TermElabM Expr)
+          let encodedCandidates ← candidates.mapM fun
+              (supplied, actual, number, point, source, records) => do
+            unless records.size ≤ 1024 do
+              throwError "numeral diagnostic trace-record limit reached"
+            let actualType ← liftM
+              (withoutModifyingState (inferType actual) : TermElabM Expr)
+            let head := number.getAppFn.constName?
+            -- Metadata lookup only: the original complete application fixes the head.
+            -- No owner acquisition, eligibility search, or comparison is repeated.
+            let numeralRows := state.numerals.filter fun row => head == some row.declaration
+            let rowData ← liftM (numeralRows.mapM fun (row : NumeralEntry) => do
+              return Json.mkObj [("id", toJson row.id.raw),
+                ("declaration", toJson (← atom row.declaration.toString)),
+                ("over", toJson (row.over.map fun (category : CategoryId) => category.raw))])
+            let headName ← liftM (head.mapM fun name => atom name.toString)
+            return Json.mkObj [("supplied", ← shallow supplied),
+              ("owner", toJson (← encode actual)), ("ownerType", toJson (← encode actualType)),
+              ("application", toJson (← encode number)), ("point", toJson (← encode point)),
+              ("applicationHead", toJson headName),
+              ("numeralRowsForApplicationHead", Json.arr rowData),
+              ("source", ← shallow source), ("traceRecordCount", toJson records.size)]
+          let output ← FailureDiagnostics.finish expressions (Json.mkObj [
+            ("scope", toJson "contextualNumeral.owner-ambiguity.shallow.v1"),
+            ("completeness", toJson "complete only for the explicitly encoded shallow fields and their exact raw expression DAG"),
+            ("omitted", toJson #["recursive Value contexts and constructor parameters",
+              "viewData original witnesses and presentation alternatives",
+              "recursive selected, source, element, and endpoint contexts",
+              "per-candidate trace maps", "proof syntax and judgement contents"]),
+            ("numeral", toJson k), ("target", target),
+            ("targetCarrier", toJson (← encode carrier)),
+            ("targetCarrierType", toJson (← encode targetType)),
+            ("candidateCount", toJson candidates.size),
+            ("candidates", Json.arr encodedCandidates)])
+          trace[CasCatalogue.numeralAmbiguity] "{output}"
+        catch diagnosticError =>
+          let reason := ((← diagnosticError.toMessageData.toString).take 512).toString
+          trace[CasCatalogue.numeralAmbiguity]
+            "{(Json.mkObj [("complete", toJson false), ("reason", toJson reason),
+              ("scope", toJson "contextualNumeral.owner-ambiguity.shallow.v1"),
+              ("candidateCount", toJson candidates.size),
+              ("expressionCount", toJson (← expressions.get).size)]).compress}"
       throwSemanticAmbiguity m!"several complete numeral owners determine this coordinate"
     unless ← sameOperationApplication numeral otherNumeral do
       throwSemanticAmbiguity m!"several full numeral applications determine this coordinate"
@@ -8278,22 +8695,23 @@ partial def retainedOperationBinding (state : RegistryState) (retained : Array V
 structure or structural view fixes its own source. A named unstructured set may use only
 its declared refinements; an anonymous coordinate uses its supplied constructor context. -/
 partial def collectOperationSourceValues (state : RegistryState) (pending : List Value)
-    (seen sources : Array Value) (demanded : Option (CategoryExpr × String) := none) :
+    (seen sources : Array Value) (demanded : Option (CategoryExpr × String) := none)
+    (refinements? : Option OperationRefinementCache := none) :
     M (Array Value) := do
   let current :: rest := pending | return sources
   if seen.any (·.sameSource current) then
-    return ← collectOperationSourceValues state rest seen sources demanded
+    return ← collectOperationSourceValues state rest seen sources demanded refinements?
   let seen := seen.push current
   match current with
   | .object _ _ _ (some selected) _ =>
-      collectOperationSourceValues state (selected :: rest) seen sources demanded
+      collectOperationSourceValues state (selected :: rest) seen sources demanded refinements?
   | .object _ category _ _ _ =>
       if category.id != CategoryId.sets then
-        return ← collectOperationSourceValues state rest seen (sources.push current) demanded
+        return ← collectOperationSourceValues state rest seen (sources.push current) demanded refinements?
       let .object _ _ origin _ data := current | unreachable!
       if let some (_, source, route, _, _) := data then
         if !route.isEmpty then
-          return ← collectOperationSourceValues state (source :: rest) seen sources demanded
+          return ← collectOperationSourceValues state (source :: rest) seen sources demanded refinements?
       if let some (origin, parameters) := origin then
         if let some (originals, source, _, _, _) := data then
           let named ← Semantic.object origin
@@ -8302,7 +8720,7 @@ partial def collectOperationSourceValues (state : RegistryState) (pending : List
             (originals.toList ++ [source])
           if ← retainedOperationBinding state retained demanded then
             return ← collectOperationSourceValues state (retained.toList ++ rest)
-              seen sources demanded
+              seen sources demanded refinements?
         let mut refinements : Array Value := #[]
         for entry in state.objects.filter (refinesObject state · origin.id) do
           let some category := state.categories.find? (·.id == entry.category) | continue
@@ -8313,31 +8731,43 @@ partial def collectOperationSourceValues (state : RegistryState) (pending : List
             let routes ← routesBetween state category.expression target
             unless routes.any (state.toSemanticState.isFirstOperationBindingRoute surfaceName) do
               continue
-          let candidate ← optionalReading do
-            let value ← Semantic.object entry (← typedParamTerms entry.declaration parameters)
-              (← read).trace
-            unless !value.hasMVar && !value.hasLevelMVar && (← isTypeCorrect value) do
-              throwStratum .invalid m!"an operation refinement is not completely determined"
-            return Value.object value category (some (entry, parameters)) none none
-          if let some value := candidate then refinements := refinements.push value
-        return ← collectOperationSourceValues state rest seen (sources ++ refinements) demanded
+          let cached ← match refinements? with
+            | some cache => pure ((← cache.get).find? fun (source, id, _) =>
+                id == entry.id && source.sameSource current)
+            | none => pure none
+          let candidate ← match cached with
+            | some (_, _, value) => pure (some value)
+            | none => optionalReading do
+                let value ← Semantic.object entry (← typedParamTerms entry.declaration parameters)
+                  (← read).trace
+                unless !value.hasMVar && !value.hasLevelMVar && (← isTypeCorrect value) do
+                  throwStratum .invalid m!"an operation refinement is not completely determined"
+                return Value.object value category (some (entry, parameters)) none none
+          if let some value := candidate then
+            if cached.isNone && current.closedReading && value.closedReading then
+              if let some cache := refinements? then
+                cache.modify (·.push (current, entry.id, value))
+            refinements := refinements.push value
+        return ← collectOperationSourceValues state rest seen (sources ++ refinements) demanded refinements?
       if let some (originals, source, _, _, _) := data then
         return ← collectOperationSourceValues state
-          (originals.toList ++ (source :: rest)) seen sources demanded
-      collectOperationSourceValues state rest seen (sources.push current) demanded
-  | .derivedObject .. => collectOperationSourceValues state rest seen (sources.push current) demanded
-  | .element _ object => collectOperationSourceValues state (object :: rest) seen sources demanded
-  | _ => collectOperationSourceValues state rest seen sources demanded
+          (originals.toList ++ (source :: rest)) seen sources demanded refinements?
+      collectOperationSourceValues state rest seen (sources.push current) demanded refinements?
+  | .derivedObject .. => collectOperationSourceValues state rest seen (sources.push current) demanded refinements?
+  | .element _ object => collectOperationSourceValues state (object :: rest) seen sources demanded refinements?
+  | _ => collectOperationSourceValues state rest seen sources demanded refinements?
 
 partial def operationSourceValues (receiver : Value)
-    (demanded : Option (CategoryExpr × String) := none) : M (Array Value) := do
-  collectOperationSourceValues (← registryState) [receiver] #[] #[] demanded
+    (demanded : Option (CategoryExpr × String) := none)
+    (refinements? : Option OperationRefinementCache := none) : M (Array Value) := do
+  collectOperationSourceValues (← registryState) [receiver] #[] #[] demanded refinements?
 
 /-- The complete owner images at the first binding on each structural path. The
 upstream registry fixes where name lookup stops; its accepted comparison cells still
 govern route coherence. No carrier equality or category ordering selects a binding. -/
 partial def operationOwnerCandidates (surfaceName : String) (owner : CategoryId)
-    (receiver : Value) : M (Array (Value × OperationSource)) := do
+    (receiver : Value) (refinements? : Option OperationRefinementCache := none) :
+    M (Array (Value × OperationSource)) := do
   let state ← registryState
   let some ownerCategory := state.categories.find? (·.id == owner)
     | throwStratum .invalid m!"the operation's owner category is not registered"
@@ -8345,7 +8775,7 @@ partial def operationOwnerCandidates (surfaceName : String) (owner : CategoryId)
     ⟨{ source := ownerCategory.expression, target := ownerCategory.expression, steps := #[] }⟩
   let mut views : Array (Value × OperationSource) := #[]
   for source in (← operationSourceValues receiver
-      (some (ownerCategory.expression, surfaceName))) do
+      (some (ownerCategory.expression, surfaceName)) refinements?) do
     let sourceContext ← objectContext source
     let original ← semanticObject source
     let routes := (← routesBetween state sourceContext.expression ownerCategory.expression).filter
@@ -8456,14 +8886,15 @@ receiver fixes that whole owner; retained constructor parameters may not replace
 different structure on the same carrier. Anonymous declaration-owned coordinates may still
 obtain their owner from their complete supplied context. -/
 partial def selectedOperationApplicationsWithOwners (declaration : Name) (owner : CategoryId)
-    (receiver : Value) (numerals : Array Nat) (surfaceName : Option String := none) :
+    (receiver : Value) (numerals : Array Nat) (surfaceName : Option String := none)
+    (refinements? : Option OperationRefinementCache := none) :
     M (Array (Expr × Array OperationSource × Array Value)) := do
   let constant ← mkConstWithFreshMVarLevels declaration
   let (args, infos, _) ← forallMetaTelescopeReducing (← inferType constant)
   let ownerSlot := args.size - 1 - numerals.size
   let sources : Array (Value × Option OperationSource) ← match surfaceName with
     | some name => do
-        let selected ← operationOwnerCandidates name owner receiver
+        let selected ← operationOwnerCandidates name owner receiver refinements?
         pure (selected.map fun (value, source) => (value, some source))
     | none => do
         let values := match receiver with
@@ -8549,6 +8980,7 @@ partial def applyOperation (name : String) (elements : Array Value) (X : Value)
   let some sets := state.categories.find? (·.id == CategoryId.sets)
     | throwStratum .invalid m!"an element operation has no registered category of sets"
   let mut applicable : Array (OperationCandidate × Value × Std.HashMap Expr Node) := #[]
+  let refinements : OperationRefinementCache ← IO.mkRef #[]
   for operation in state.operations.filter (fun operation =>
       operation.name == name && operation.arity == elements.size &&
         operation.numerals == extra.size) do
@@ -8558,7 +8990,7 @@ partial def applyOperation (name : String) (elements : Array Value) (X : Value)
         | some row => object state row.name #[] none
         | none => throwStratum .invalid m!"an operation's result object is not registered"
     for (application, sources, owners) in (← selectedOperationApplicationsWithOwners operation.declaration
-        operation.category receiver numerals (some name)) do
+        operation.category receiver numerals (some name) (some refinements)) do
       let candidate? ← try parameterTrial do
         let recorder ← Trace.new
         let value ← withReader (fun context => { context with trace := some recorder }) do
@@ -8597,8 +9029,31 @@ partial def applyOperation (name : String) (elements : Array Value) (X : Value)
         if reached[comparison.left]! || reached[comparison.right]! then
           reached := (reached.set! comparison.left true).set! comparison.right true
     unless reached.all id do
-      trace[CasCatalogue.operationAmbiguity]
-        "candidates: {reprStr candidates}\ncomparisons: {reprStr comparisons}"
+      if ← isTracingEnabledFor `CasCatalogue.operationAmbiguity then
+        let indices ← IO.mkRef ({} : Std.HashMap ExprStructEq Nat)
+        let expressions ← IO.mkRef (#[] : Array Json)
+        try
+          unless candidates.size ≤ 128 && comparisons.size ≤ 1024 do
+            throwError "operation diagnostic candidate/comparison limit reached"
+          let encode : Expr → TermElabM Nat := fun expression =>
+            liftM (FailureDiagnostics.encodeExpression indices expressions expression)
+          let encodedCandidates ← liftM (candidates.mapM (OperationAgreement.encodeCandidate encode))
+          -- This is the existing snapshot comparison field order, with raw DAG references.
+          let encodedComparisons ← comparisons.mapM fun comparison => do
+            return Json.arr #[toJson comparison.left, toJson comparison.right,
+              toJson comparison.leftSource, toJson comparison.rightSource,
+              toJson (← liftM (comparison.parameters.mapM encode)), toJson (← encode comparison.leftFamily),
+              toJson (← encode comparison.rightFamily), toJson (← encode comparison.leftType),
+              toJson (← encode comparison.rightType), toJson (← encode comparison.identity)]
+          let output ← FailureDiagnostics.finish expressions (Json.mkObj [
+            ("candidates", Json.arr encodedCandidates), ("comparisons", Json.arr encodedComparisons)])
+          trace[CasCatalogue.operationAmbiguity] "{output}"
+        catch diagnosticError =>
+          let reason := ((← diagnosticError.toMessageData.toString).take 512).toString
+          trace[CasCatalogue.operationAmbiguity]
+            "{(Json.mkObj [("complete", toJson false), ("reason", toJson reason),
+              ("candidateCount", toJson candidates.size),
+              ("expressionCount", toJson (← expressions.get).size)]).compress}"
       throwSemanticAmbiguity m!"several complete registered operations `{name}` take these declared inputs"
     OperationAgreement.validate representative.result 0 candidates comparisons
   if let some trace := (← read).trace then
@@ -8908,8 +9363,9 @@ partial def directComponentPresentation? (X : Value)
   let views := #[selected] ++ ordered.map (·.2.1)
   let evidence ← coalesceSelectedParameterViews expected wrapper views
   let (_, _, _, alternatives, _) := evidence
-  Trace.record (← read).trace wrapper (.parameterEquivalence expected actual alternatives)
-  let source := Value.object wrapper category none none (some evidence)
+  let retained ← Trace.recordProduced (← read).trace wrapper
+    (.parameterEquivalence expected actual alternatives)
+  let source := Value.object retained category none none (some evidence)
   let .object _ _ origin .. := representative.2.2.1 | unreachable!
   return some (.object carrier sets origin (some source) data)
 
@@ -9493,23 +9949,43 @@ partial def subsetLiteral (form : SubsetLiteralEntry) (xs : Array Syntax)
   let (mvars, infos, type) ← forallMetaTelescopeReducing (← inferType denotation)
   unless ← isDefEq type expected do
     throwStratum .invalid m!"the literal form {form.id.raw} does not land in {p}"
+  synthesizeInstances mvars infos
   for (m, info) in mvars.zip infos do
-    if info.isInstImplicit && (← instantiateMVars m).isMVar then
-      match ← trySynthInstance (← instantiateMVars (← inferType m)) with
-      | .some inst => discard <| isDefEq m inst
-      | _ => return none
+    if info.isInstImplicit && (← instantiateMVars m).isMVar then return none
   let some literalMVar ← mvars.findM? fun m => do
       return (← instantiateMVars m).isMVar && (← instantiateMVars (← inferType m)).isAppOf form.type
     | throwStratum .invalid m!"the literal form {form.id.raw} takes no literal of {form.type}"
   let literalType ← instantiateMVars (← inferType literalMVar)
-  let elements ← xs.zipIdx.mapM fun (x, i) => do
+  let elements : Array Term ← xs.zipIdx.mapM fun (x, i) => do
     let .element h _ ← coerceTo (← readElement x i) X
       | throwStratum .invalid m!"`{shown x}` is not an element of {← semanticObject X}"
     `(CategoryTheory.ConcreteCategory.hom (C := Type) $(← quoteExpr h)
       $(← quoteExpr (← globalPoint)))
-  let literal ← if elements.isEmpty then `((∅ : $(← quoteExpr literalType)))
+  let mut literalSyntax : Term ← if elements.isEmpty then `((∅ : $(← quoteExpr literalType)))
     else `(({$elements:term,*} : $(← quoteExpr literalType)))
-  let literal ← instantiateMVars (← elabTermEnsuringType literal literalType)
+  -- The coordinate's original producer may have a different visible type from
+  -- the independently fixed literal owner. Acquire only the classes used by this
+  -- notation at those complete types, retaining its original terms and owner.
+  let withInstance (term : Term) (type : Expr) : M Term := do
+    let selectedInstance ← mkFreshExprMVar type
+    synthesizeInstances #[selectedInstance] #[BinderInfo.instImplicit]
+    let selectedInstance ← instantiateMVars selectedInstance
+    -- Preserve ordinary notation failure when no checked instance is available;
+    -- this does not select the fallback construction of a different set literal.
+    if selectedInstance.hasMVar || selectedInstance.hasLevelMVar then return term
+    unless (← isTypeCorrect selectedInstance) &&
+        (← withTransparency .all <| isDefEq (← inferType selectedInstance) type) do
+      throwError "a literal notation instance changed its complete declared type"
+    `(letI : $(← quoteExpr type) := $(← quoteExpr selectedInstance); $term)
+  if elements.isEmpty then
+    literalSyntax ← withInstance literalSyntax (← mkAppM ``EmptyCollection #[literalType])
+  else
+    for (element, index) in elements.zipIdx.reverse do
+      let actual ← elabTermAndSynthesize element none
+      let actualType ← instantiateMVars (← inferType actual)
+      let declaration := if index + 1 == elements.size then ``Singleton else ``Insert
+      literalSyntax ← withInstance literalSyntax (← mkAppM declaration #[actualType, literalType])
+  let literal ← instantiateMVars (← elabTermEnsuringType literalSyntax literalType)
   synthesizeSyntheticMVarsNoPostponing
   unless ← isDefEq literalMVar literal do
     throwStratum .invalid m!"`{shown (mkNullNode xs)}` is not a literal of {form.id.raw}"

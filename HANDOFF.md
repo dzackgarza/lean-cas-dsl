@@ -9,75 +9,134 @@ and exact mathematical inputs alongside that work.
 
 ## Resumed existing-container work — 2026-11-01 UTC
 
-The failed conversation was resumed from current GitHub and preserved local source.
-PR #67 already published the complete projection-data repair and the original
-source-occurrence/identity-display repairs at `8c57018d795a39198d3356816d29565610de9512`.
-The older checkout's unpublished files were preserved before inspection; their
-substantive content is already in that published tree. Its all-ref bundle and
-working/index patches remain in the execution workspace's recovery directory.
-Continue the existing `work/kernel-v1-20261023` branch. The owner explicitly
-requires this existing execution container and GitHub, with no Jupyter or separate
-sandbox. No alternative execution environment was launched.
+The existing work was recovered from current GitHub and both local checkouts before
+editing. The complete projection-data repair and original source-occurrence/identity
+repairs were already published at `8c57018d795a39198d3356816d29565610de9512`.
+The older checkout's substantive unpublished content is preserved and already present
+in that tree. Recovery bundles, working/index patches and untracked-file archives
+remain outside the repository. Continue `work/kernel-v1-20261023` and draft PR #67.
+The owner requires this existing execution container and GitHub; no Jupyter or
+separate execution environment was launched.
 
-The session-boundary selection is mathematics `fc6d3d69`, contract `f0431beb`
-and notebook `f3e73ed4`; the manifest now records those actual selected mains.
-The original frozen leaf specimen remains `a1d72cfa`. Its history diverges from
-current leaf main `8b181d7`; neither is silently substituted for the other.
-Lean 4.33.0, the existing package selection and recovered artifacts have undergone
-ordinary local incremental validation. The selected Sage/passagemath and GAP
-engines are available in this same container. The persistent standard
-`lean-lsp-mcp` server is active; scratch-only diagnostics use an explicitly
-recorded focused compiler fallback because the server rejects files outside a
-Lean project. No heartbeat budget, original question, import or binding changed.
+Publication recovered through the GitHub tree/commit/ref operations. Published
+`ca9b82037d0b1a65f6050b4a1e330734db9ec305` has exactly the verified local
+`7282fa94f4dce3c0a10cc75f4014141f93115793` tree
+`97994cfc9c6b767b2116adf25bf5953292eb6398`. GitHub commit/ref readback and native
+fetch agree. The local branch was aligned only after exact tree equality, with a
+recovery branch and byte-identical preservation of every remaining working change.
+Native `git push` still reports `could not read Username for 'https://github.com':
+terminal prompts disabled`; it is no longer a publication blocker because the
+connected GitHub write path works. No branch was forced, merged or deployed.
 
-Fresh baseline QuestionProbes reproduced exactly the roots-instance and
-differential-route failures. The first reader repair preserves ordinary instance
-search and its type-only view, then tries the existing checked field presentation
-only after those searches fail. Its candidate must inhabit the full original
-instance type. Route alternatives now satisfy the existing complete dependent
-source equation before ambiguity classification, after the original carrier-route
-prefix preference. The original commit checks still run; excluded routes cannot
-be reopened. Two additive engineering negatives protect that ordering and genuine
-ambiguity. The first combined run took 1295.489 seconds and exited 1: roots now
-passes, but differential reading reaches a later disconnected operation-comparison
-graph. SourceParameterBinding (including the A/B producer control),
-ReaderContextContinuity, CreatedProjectionData, ContextParameter,
-SelectedContextOrder and ProducerProofBoundary pass. ParameterStructure,
-StructuredParameter, EvidencePresentation and QuestionProbes fail; those failures
-are not waived or classified from stale historical results.
+The selected environment remains mathematics `fc6d3d69`, contract `f0431beb`,
+notebook `f3e73ed4`, Lean 4.33.0, and the recorded Sage/passagemath and GAP engines.
+The original frozen diagnostic leaf is `a1d72cfa`; current leaf main `8b181d7`
+is a different history and is not silently substituted. Focused checks reuse this
+selection. Persistent Lean diagnostics verified the initial reader repair; later
+focused compiler fallbacks record exact source/artifact/configuration guards.
+A restricted invocation of the installed Lake binary failed before compilation
+with `could not detect the configuration of the Lake installation`; the same
+existing-container command works with its previously used execution permission.
+No original question, binding, import or heartbeat budget was increased.
 
-Exact failure-only diagnostics locate the coefficient failure in lost constructor
-context: the original coefficient expression survives, but its retained source
-Value is discarded by source recognition. Passing the already supplied original
-Value into that recognition boundary recovers the identical complete coefficient
-Value and the original constants arrow without relaxing any identity-view gate.
-The structured-parameter branch separately attempts to overwrite its original
-object producer with an equivalence producer; it now allocates and returns the
-additional producer through `Trace.recordProduced`. The evidence fixture's setup
-uses the existing registered `globalPoint` instead of assuming its retained
-terminal source admits a concrete `OfNat 0`; every original positive, rejection,
-type and option-restoration assertion remains. These source edits have completed
-persistent Lean diagnostics with no errors. The full focused build of all three
-affected fixtures passes (3788 jobs, 209.123 seconds, unchanged guarded inputs),
-including their original reverse-recovery, missing-witness, different-coefficient,
-nonunit and complete-type controls. This does not complete the still-red
-differential reading or the full consumer gate.
+### Reader repairs and completed local checks
 
-The original published RX-LIFT failure remains unresolved. Public-protocol replay
-reproduces dispatch 21's complete scalar-target rejection, including against the
-separately authored public-contract repair. Such replay is diagnostic only and
-does not replace the original question or count as an acceptance result. All
-broader final-candidate readings, computations, native tools, workflows/notebook
-and independent frozen assessment remain required.
+The initial full configured 70-target consumer run on the published checkpoint
+exited 1 after 3180.146 seconds, with 37 errors in 22 modules. That is a failed
+baseline, not a final-candidate pass. Roots instance acquisition had advanced;
+differential reading and the dependent reader still exposed additional defects.
 
-Publication is currently blocked by actual access failures: native `git push`
-cannot read a GitHub username, and connector blob/ref writes return no result.
-Read-only GitHub requests succeed, while the attempted immutable objects and
-intended new leaf branch remain absent. Local leaf repair commits `e8a49e6` and
-`dce7276` are preserved but are not published or accepted. Do not infer acceptance
-from their engineering checks. The existing custodian review also still lacks its
-required independently fetched input and verdict; PR #70 owns that controller
-repair. Neither blocker authorizes an author-generated acceptance verdict.
+The current reader preserves complete original Values and producer occurrences:
+
+- Ordinary instance search remains first. Checked field/type presentation is only
+  a final acquisition view, and every candidate must inhabit the original full type.
+  Dependent route applicability is filtered after the existing carrier-prefix choice.
+- Repeated refinement of one exact closed operand within one `applyOperation` call
+  reuses its checked Value. Different sources and later calls do not share this cache.
+- Additional parameter equivalences, direct component presentations and presentation
+  compositions use distinct authenticated producers rather than overwriting an
+  already owned expression. Every original endpoint, ordered argument and comparison
+  remains in the retained records.
+- Anonymous empty-route views retain the numeral choice of their explicit original
+  source. Independently supplied owners still compete under the original full checks.
+  Subset notation uses its original points and literal type, with checked full-type
+  `EmptyCollection`, `Singleton` and `Insert` instances only where the notation uses them.
+- A retained named family is reused only from the exact operand's supplied source
+  context, with its full application, parameters, endpoints and producer authenticated.
+  Another family target or definitionally equal replacement source cannot provide it.
+- `completeParameterObjects` now recognizes an exact existing anchored object record
+  through the existing checked recognition path. Its former raw-declaration-head gate
+  wrapped the original `formed_pairing` parameter as an anonymous object and lost its
+  named context. The original failure-only capture linked that same producer through
+  the pairing target and returned value. No numeral eligibility or owner comparison
+  was relaxed, and the separate original coefficient occurrence stays separate.
+
+The full unchanged `CasAcceptance.DependentReaderProbes` now **passes**: exit 0,
+296.372 seconds, peak RSS 3,019,848 KiB, no plain or coded Lean errors. Its original
+file SHA remains `dc3e9365c83fa7dbd36d50ed4e714d82fc46c0478f98b4866f71f27bb6ec76cb`.
+Every original command, including the final bilinear zero, subset literals,
+dependent let-chain and matrix numeral, ran with its original scopes and budgets.
+Language build 9 passes (193.156 seconds). The nine complete preservation targets
+also pass together (114.296 seconds): SourceParameterBinding, ParameterStructure,
+StructuredParameter, EvidencePresentation, DeclaredProductContext,
+PresentationReader, ContextualNumeralOwner, ForwardNumeralIndependentOwner and
+ClosedBindingReading. Additive A/B and source-family controls preserve the original
+control bytes and confirm distinct producer retention and genuine ambiguity.
+All these runs kept their guarded inputs unchanged.
+
+The original differential assertion and all its preceding bindings pass at the
+claim-reading boundary (30.958 seconds); this is not yet a full QuestionProbes pass.
+Full QuestionProbes requires the next fresh Realize build. Bounded failure diagnostics
+are opt-in, preserve all caps, and do not change successful reading. One source-path
+observer timed out without a payload; that failed diagnostic is retained separately.
+The successful raw observer used a separate bounded post-failure scope and rethrew
+the original ambiguity. Only the later unchanged whole-module run is a reader pass.
+
+### Remaining execution, publication and acceptance work
+
+The working tree also retains reviewed execution and engineering-fixture repairs
+for complete callable endpoints, original raw graph inputs, canonical action reuse,
+structured receiver prerequisite completion, original supplier liveness, and legacy
+operand closure. Their RuntimeSupport/Realize build and complete original runtime
+controls are still **unrun** at this checkpoint. Preserve those unpublished edits;
+do not count the reader results as their validation. Original mathematical assertions
+and full construction packets, indexes, endpoint occurrences and owner checks remain
+required. The full 70-target consumer set, native tools and axiom audit must run again
+on the final unchanged code.
+
+The original RX-LIFT computation remains **unresolved**. Its last complete original
+first-question measurement (local `7282fa9`, original frozen `a1d72cfa`) reaches
+`lift.bilin_module.restrict#obj` at dispatch 21 and reports `ValueError: element's
+complete scalar target differs from the complete selected descriptor`. It used all
+22 bindings, six imports, one original shared session and the original 200000 budget
+(198062134 raw ticks total); no passing mathematical result was obtained. Later
+public-request replay also returns that same error with independently authored public
+contract checkpoints through local leaf `4cba1f3`. Replay and leaf self-checks are not
+acceptance evidence. Root has not read leaf implementation or tests; those authors
+received only the public contract and their own source. Their full-history bundles
+are preserved, and publication remains separate from mathematical acceptance.
+
+Publication triggered Controller source checks run `41327044410`. The unchanged
+`custodian/test_execution.py:42` failed because its closed container remained
+inspectable. Both tested files are identical in the candidate, CI base and merge.
+The source repair acknowledges inert creation, carries one original deadline through
+start/attach, and removes only the actual acknowledged ID under the original bounded
+cleanup allowance. Unknown cleanup remains an explicit failure; a never-started
+candidate has no exit status. Eleven host-only regressions passed, including an
+old-source delayed-creation reproduction, bounded output and unmasked cleanup failures;
+the two result-shape controls passed again after their final narrow correction.
+These used fixed native Python children, not Docker. The original live-container
+assertions and resource limits are unchanged and that test remains **unrun locally**.
+This is controller construction source, not installation of a trusted evaluator.
+
+The protected independent review still has no accepted verdict. Its last reviewed
+failure was missing fetched input (`rev-parse FETCH_HEAD^{commit}: exit 128`) and
+absent verdict files; PR #70 owns that separate input-retrieval correction and remains
+unmerged. All 153 permanent readings and independent meaning assessment, 134 fixed
+positive questions, RX01–RX10 and RX-LIFT, four real-engine workflows with 17 connected
+assertions, actual notebook execution, fresh API/examples, and frozen independent
+extension/preservation checks remain required. Do not fabricate a published identity,
+question baseline, protected verdict or completion claim to bypass a failed prerequisite.
 
 ## Recovery checkpoint — 2026-10-31 (Asia/Taipei)
 

@@ -22,6 +22,8 @@ open Lean Meta Elab Term
 
 namespace CasCatalogue.OperationAgreement
 
+initialize registerTraceClass `CasCatalogue.operationComparison
+
 def closed (value : Expr) : Bool :=
   !value.hasMVar && !value.hasLevelMVar && !value.hasFVar && !value.hasLooseBVars
 
@@ -587,7 +589,9 @@ instantiation and compare every ordered argument with both original applications
 def compareSources (state : RegistryState) (left right : OperationCandidate)
     (leftSource rightSource : OperationSource) :
     TermElabM (Option OperationFamilyComparison) := withoutModifyingState do
-  unless ← sameSource leftSource rightSource do return none
+  unless ← sameSource leftSource rightSource do
+    trace[CasCatalogue.operationComparison] "rejected phase=sameSource"
+    return none
   let some leftEntry := state.operations.find? (·.id == left.operation)
     | throwStratum .invalid "an operation comparison names an absent left binding"
   let some rightEntry := state.operations.find? (·.id == right.operation)
@@ -596,7 +600,10 @@ def compareSources (state : RegistryState) (left right : OperationCandidate)
       some <$> universalPlan state leftSource.context.expression leftEntry rightEntry
         leftSource.route rightSource.route
     catch error =>
-      if Exception.interpretationKind error == .invalid then pure none else throw error
+      if Exception.interpretationKind error == .invalid then
+        trace[CasCatalogue.operationComparison] "rejected phase=universalPlan"
+        pure none
+      else throw error
   let some plan := plan | return none
   let leftFamily := plan.left
   let rightFamily := plan.right
@@ -604,16 +611,24 @@ def compareSources (state : RegistryState) (left right : OperationCandidate)
   let rightType ← inferType rightFamily
   unless closed leftType && closed rightType &&
       (← withTransparency .all <| isDefEq leftType rightType <&&>
-        isDefEq leftFamily rightFamily) do return none
+        isDefEq leftFamily rightFamily) do
+    trace[CasCatalogue.operationComparison] "rejected phase=closedUniversalFamilyAgreement"
+    return none
   let equality ← mkEq leftFamily rightFamily
   let identity ← mkEqRefl leftFamily
-  unless closed identity && (← kernelAcceptsFamily equality identity) do return none
+  unless closed identity && (← kernelAcceptsFamily equality identity) do
+    trace[CasCatalogue.operationComparison] "rejected phase=checkedUniversalEquality"
+    return none
   let parameters ← try
       some <$> instantiatePlan plan leftEntry rightEntry leftSource rightSource
         left.application right.application
     catch error =>
-      if Exception.interpretationKind error == .invalid then pure none else throw error
+      if Exception.interpretationKind error == .invalid then
+        trace[CasCatalogue.operationComparison] "rejected phase=instantiatePlan"
+        pure none
+      else throw error
   let some parameters := parameters | return none
+  trace[CasCatalogue.operationComparison] "accepted phase=completeComparison"
   return some {
     left := 0, right := 0, leftSource := 0, rightSource := 0, parameters
     leftFamily, rightFamily, leftType, rightType, identity }
@@ -627,6 +642,8 @@ def compare (leftIndex rightIndex : Nat) (left right : OperationCandidate) :
     for rightSourceIndex in [:right.sources.size] do
       let some leftSource := left.sources[leftSourceIndex]? | unreachable!
       let some rightSource := right.sources[rightSourceIndex]? | unreachable!
+      trace[CasCatalogue.operationComparison]
+        "pair candidates={leftIndex},{rightIndex} sources={leftSourceIndex},{rightSourceIndex} operations={left.operation.raw},{right.operation.raw}"
       if let some comparison ← compareSources state left right leftSource rightSource then
         return some { comparison with
           left := leftIndex, right := rightIndex
