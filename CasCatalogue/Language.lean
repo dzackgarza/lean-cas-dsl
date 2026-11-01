@@ -134,6 +134,8 @@ open Lean Meta Elab Term
 
 namespace CasCatalogue.Language
 
+initialize registerTraceClass `CasCatalogue.operationAmbiguity
+
 declare_syntax_cat cas_term
 syntax:max num : cas_term
 /-- A decimal `1.4142`: the fraction `14142/10⁴`. -/
@@ -1320,9 +1322,13 @@ partial def typedParamTerms (declaration : Name) (values : Array Value) : M (Arr
   return terms
 
 /-- Transport one already selected structured object at a declared object type. Every candidate
-is an actual registered structural composite, and only admitted comparisons identify routes. -/
+is an actual registered structural composite, and only admitted comparisons identify routes.
+An additional source constraint filters the selected route pool before classification; it cannot
+reopen a route excluded by the original carrier selection. -/
 partial def transportedStructureWithAction (expected : Expr) (value : Value)
-    (demandedCategory : Option CategoryId := none) : M (Expr × Array EdgeRef × Array Expr) := do
+    (demandedCategory : Option CategoryId := none)
+    (routeApplicable? : Option (Expr → M Bool) := none) :
+    M (Expr × Array EdgeRef × Array Expr) := do
   let receiver ← semanticObject value
   let sourceContext ← objectContext value
   let state ← registryState
@@ -1350,6 +1356,17 @@ partial def transportedStructureWithAction (expected : Expr) (value : Value)
           route.refs.size ≤ carrierRoute.size &&
             decide (route.refs = carrierRoute.extract 0 route.refs.size)
         if prefixes.isEmpty then candidates else prefixes
+  let classifiedCandidates ← match routeApplicable? with
+    | none => pure classifiedCandidates
+    | some applicable => classifiedCandidates.filterM fun (_, route, retained) =>
+        parameterCompatible do
+          let image ← match retained with
+            | some (image, _) => pure image
+            | none => do
+                let (action, _, _) ← contextualRouteFunctor state sourceContext route
+                Semantic.objOf action receiver
+          unless ← isDefEq (← inferType image) expected do return false
+          applicable image
   letI : Inhabited (NamedCategoryEntry × Route × Option (Expr × Array Expr)) :=
     ⟨(default,
       { source := sourceContext.expression, target := sourceContext.expression, steps := #[] }, none)⟩
@@ -1375,8 +1392,9 @@ partial def transportedStructureWithAction (expected : Expr) (value : Value)
     return (image, route.refs, applications)
 
 partial def transportedStructure (expected : Expr) (value : Value)
-    (demandedCategory : Option CategoryId := none) : M Expr := do
-  return (← transportedStructureWithAction expected value demandedCategory).1
+    (demandedCategory : Option CategoryId := none)
+    (routeApplicable? : Option (Expr → M Bool) := none) : M Expr := do
+  return (← transportedStructureWithAction expected value demandedCategory routeApplicable?).1
 
 /-- A closed declaration parameter remains closed when read in a binder. Recover
 only the exact global point retained behind the registered terminal precomposition;
@@ -1418,9 +1436,13 @@ partial def closedParameterPoint (point target : Expr) : M Expr := do
     throwStratum .invalid "the staged element parameter changed its complete composition"
   return original
 
+/-- Read a complete parameter. An optional source constraint applies to alternative structural
+route images before ambiguity is judged. Direct values still undergo the caller's complete
+parameter and source checks; this predicate never supplies a structure from a bare carrier. -/
 partial def typedParameter (expected : Expr) (value : Value)
     (categoryRows? : Option (Expr → Array NamedCategoryEntry →
-      M (Array NamedCategoryEntry)) := none) : M Expr := do
+      M (Array NamedCategoryEntry)) := none)
+    (routeApplicable? : Option (Expr → M Bool) := none) : M Expr := do
   if let .formalProof proofSyntax := value then
     unless ← isProp expected do
       throwStratum .invalid "an explicit proof supplies a proposition-valued parameter only"
@@ -1514,15 +1536,16 @@ partial def typedParameter (expected : Expr) (value : Value)
           let (image, _) ← checkedContextRouteResult sourceContext selected direct expected
             (← Semantic.objOf action direct) applications
           pure image
-      | none => transportedStructure expected value (some CategoryId.sets)
+      | none => transportedStructure expected value (some CategoryId.sets) routeApplicable?
     let image ← instantiateMVars image
     unless !image.hasMVar && !image.hasLevelMVar && (← isTypeCorrect image) &&
         (← isDefEq (← inferType image) expected) do
       throwStratum .invalid m!"the selected object's actual carrier is outside its declared type"
     return image
-  if let some chosen := selected then return ← typedParameter expected chosen categoryRows?
+  if let some chosen := selected then
+    return ← typedParameter expected chosen categoryRows? routeApplicable?
   let some (origin, parameters) := origin?
-    | return ← transportedStructure expected value
+    | return ← transportedStructure expected value none routeApplicable?
   let state ← registryState
   -- An explicitly selected structure supplies its own outgoing routes. An unstructured named
   -- set may acquire only structures whose registered refinement ancestry reaches that exact row.
@@ -1537,6 +1560,7 @@ partial def typedParameter (expected : Expr) (value : Value)
   -- Keep the existing no-trace applicability term only as a local validation
   -- witness. Commitment of an authenticated original must retain its producer.
   let mut declaredOrigin? : Option Expr := none
+  let mut declaredSources : Array (ObjectId × Expr) := #[]
   for source in sources do
     let some sourceCategory := state.categories.find? (·.id == source.category) | continue
     -- Reachability depends only on the registered category expressions. A source with no
@@ -1556,6 +1580,8 @@ partial def typedParameter (expected : Expr) (value : Value)
         if Exception.interpretationKind error == .invalid then return none else throw error
     let some sourceTerm := sourceTerm? | continue
     if source.id == origin.id then declaredOrigin? := some sourceTerm
+    if routeApplicable?.isSome then
+      declaredSources := declaredSources.push (source.id, sourceTerm)
     for route in possibleRoutes do
       let applicable ← parameterCompatible do
         let image ← if route.steps.isEmpty then pure sourceTerm else
@@ -1567,6 +1593,15 @@ partial def typedParameter (expected : Expr) (value : Value)
       route.refs.size ≤ carrierRoute.size &&
         decide (route.refs = carrierRoute.extract 0 route.refs.size)
   let candidates := if declaredPrefixes.isEmpty then routeCandidates else declaredPrefixes
+  let candidates ← match routeApplicable? with
+    | none => pure candidates
+    | some applicable => candidates.filterM fun (source, route) => parameterCompatible do
+        let some (_, sourceTerm) := declaredSources.find? (·.1 == source.id)
+          | throwError "the constrained parameter route lost its declared source"
+        let image ← if route.steps.isEmpty then pure sourceTerm else
+          Semantic.objOf (← Semantic.routeFunctor state route.refs) sourceTerm
+        unless ← isDefEq (← inferType image) expected do return false
+        applicable image
   letI : Inhabited (ObjectEntry × Route) :=
     ⟨(origin, { source := sourceContext.expression, target := sourceContext.expression, steps := #[] })⟩
   do
@@ -2133,13 +2168,18 @@ def synthesizeInstances (args : Array Expr) (infos : Array BinderInfo) : TermEla
     if let some inst ← synthInstance? type then
       discard <| isDefEq a inst
     else
-      -- The full selected carrier can be hidden by a closed type projection.
-      -- Reuse the existing definitional type view without changing any supplied
-      -- dictionary or proposition, then check the result at the original type.
+      -- Preserve the ordinary type view first. A supplied object's stored
+      -- dictionaries may also hide an existing instance; expose only the checked
+      -- fields for this last acquisition attempt, keeping every original argument.
       if type.hasLevelMVar then continue
-      let visible ← closedTypePresentation type
-      if visible == type then continue
-      if let some inst ← synthInstance? visible then
+      let visible ← withoutModifyingState <| closedTypePresentation type
+      let mut candidate? ← if visible == type then pure none else synthInstance? visible
+      if candidate?.isNone then
+        let fields ← withoutModifyingState do
+          closedTypePresentation (← evidencePresentation (← registryState) type)
+        if fields != type && fields != visible then
+          candidate? ← synthInstance? fields
+      if let some inst := candidate? then
         let inst ← instantiateMVars inst
         unless !inst.hasMVar && !inst.hasLevelMVar && (← isTypeCorrect inst) &&
             (← withTransparency .all <| isDefEq (← inferType inst) type) do
@@ -3772,7 +3812,7 @@ partial def structuredParameterView (original : Value) (actual : Expr)
       | none => do
           let some sourceCategory := CategoryContext.named? state sourceContext.expression
             | throwStratum .invalid "the complete structural source value was not retained"
-          recognize state receiver sourceCategory
+          recognize state receiver sourceCategory #[original]
     unless route.size == fullApplications.size do
       throwStratum .invalid m!"a structural view lost its exact ordered edge applications"
     let applications := route.zip (fullApplications.map Expr.getAppArgs)
@@ -5062,10 +5102,10 @@ partial def registeredStructuredParameter (expected : Expr) (operand : Value) : 
       source := entry.id, sourceCategory := entry.category, targetCategory := entry.category
       params, route := #[], applications := #[], carrierRoute, identifications
       object, image := object, identity }
-  unless presentations.isEmpty do
-    Trace.record (← read).trace representative
+  let selected ← if presentations.isEmpty then pure representative else
+    Trace.recordProduced (← read).trace representative
       (.parameterEquivalence expected representative presentations)
-  return some representative
+  return some selected
 
 /-- Infer a missing map from registered declarations and the categorical identity at fixed
 endpoints. An identity competes with named maps; it is not a default for an arbitrary endomap. -/
@@ -5197,10 +5237,20 @@ partial def bindSourceParameter (parameter : Expr) (actual : Value)
     let unknownArgument ← instantiateMVars (mkMVar id)
     unless unknownArgument.isMVar do continue
     let expected ← instantiateMVars (← inferType unknownArgument)
+    -- A structural route is applicable only when its already complete image can
+    -- satisfy this original dependent source equation. Filter before classifying
+    -- alternatives, and repeat the same checks when committing the chosen value.
+    let routeApplicable? : Option (Expr → M Bool) := some fun candidate => do
+      let candidate ← instantiateMVars candidate
+      if candidate.hasMVar || candidate.hasLevelMVar || !(← isTypeCorrect candidate) then
+        return false
+      unless ← isDefEq unknownArgument candidate do return false
+      isDefEq parameter actualTerm
     if let some owner := owner? then
       let candidate? ← parameterTrial do
         try
-          let candidate ← instantiateMVars (← typedParameter expected owner)
+          let candidate ← instantiateMVars
+            (← typedParameter expected owner (routeApplicable? := routeApplicable?))
           if candidate.hasMVar || candidate.hasLevelMVar || !(← isTypeCorrect candidate) then
             return none
           unless ← isDefEq unknownArgument candidate <&&> isDefEq parameter actualTerm do
@@ -5212,7 +5262,8 @@ partial def bindSourceParameter (parameter : Expr) (actual : Value)
         unless ← isDefEq unknownArgument candidate <&&> isDefEq parameter actualTerm do return false
         -- Replay the already selected complete transport in this caller's recorder.
         -- A family trial owns that recorder until its whole application is accepted.
-        let retained ← instantiateMVars (← typedParameter (← instantiateMVars expected) owner)
+        let retained ← instantiateMVars (← typedParameter (← instantiateMVars expected) owner
+          (routeApplicable? := routeApplicable?))
         unless ← withTransparency .all <| isDefEq retained candidate do
           throwStratum .invalid "the retained point source changed its complete parameter"
         Trace.alias (← read).trace retained candidate
@@ -5224,12 +5275,14 @@ partial def bindSourceParameter (parameter : Expr) (actual : Value)
           | .object handle .. | .morphism handle .. | .element handle .. =>
               if ← isDefEq (← inferType handle) expected then pure (some handle)
               else
-                try pure (some (← typedParameter expected value))
+                try pure (some (← typedParameter expected value
+                  (routeApplicable? := routeApplicable?)))
                 catch error =>
                   if CasCatalogue.Exception.interpretationKind error == .invalid then pure none
                   else throw error
           | .nat _ =>
-              try pure (some (← typedParameter expected value))
+              try pure (some (← typedParameter expected value
+                (routeApplicable? := routeApplicable?)))
               catch error =>
                 if CasCatalogue.Exception.interpretationKind error == .invalid then pure none else throw error
           | _ => pure none
@@ -5248,7 +5301,8 @@ partial def bindSourceParameter (parameter : Expr) (actual : Value)
     if witnesses.isEmpty then
       let candidate? ← parameterTrial do
         try
-          let candidate ← instantiateMVars (← typedParameter expected actual)
+          let candidate ← instantiateMVars
+            (← typedParameter expected actual (routeApplicable? := routeApplicable?))
           if candidate.hasMVar || candidate.hasLevelMVar || !(← isTypeCorrect candidate) then
             return none
           unless ← isDefEq unknownArgument candidate <&&> isDefEq parameter actualTerm do return none
@@ -8543,6 +8597,8 @@ partial def applyOperation (name : String) (elements : Array Value) (X : Value)
         if reached[comparison.left]! || reached[comparison.right]! then
           reached := (reached.set! comparison.left true).set! comparison.right true
     unless reached.all id do
+      trace[CasCatalogue.operationAmbiguity]
+        "candidates: {reprStr candidates}\ncomparisons: {reprStr comparisons}"
       throwSemanticAmbiguity m!"several complete registered operations `{name}` take these declared inputs"
     OperationAgreement.validate representative.result 0 candidates comparisons
   if let some trace := (← read).trace then

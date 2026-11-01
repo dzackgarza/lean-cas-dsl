@@ -7,6 +7,78 @@ own the work order. #66 owns complete mathematical interpretation; #69 owns comp
 #24 owns integration and independent acceptance. #23/#82 review construction requirements
 and exact mathematical inputs alongside that work.
 
+## Resumed existing-container work — 2026-11-01 UTC
+
+The failed conversation was resumed from current GitHub and preserved local source.
+PR #67 already published the complete projection-data repair and the original
+source-occurrence/identity-display repairs at `8c57018d795a39198d3356816d29565610de9512`.
+The older checkout's unpublished files were preserved before inspection; their
+substantive content is already in that published tree. Its all-ref bundle and
+working/index patches remain in the execution workspace's recovery directory.
+Continue the existing `work/kernel-v1-20261023` branch. The owner explicitly
+requires this existing execution container and GitHub, with no Jupyter or separate
+sandbox. No alternative execution environment was launched.
+
+The session-boundary selection is mathematics `fc6d3d69`, contract `f0431beb`
+and notebook `f3e73ed4`; the manifest now records those actual selected mains.
+The original frozen leaf specimen remains `a1d72cfa`. Its history diverges from
+current leaf main `8b181d7`; neither is silently substituted for the other.
+Lean 4.33.0, the existing package selection and recovered artifacts have undergone
+ordinary local incremental validation. The selected Sage/passagemath and GAP
+engines are available in this same container. The persistent standard
+`lean-lsp-mcp` server is active; scratch-only diagnostics use an explicitly
+recorded focused compiler fallback because the server rejects files outside a
+Lean project. No heartbeat budget, original question, import or binding changed.
+
+Fresh baseline QuestionProbes reproduced exactly the roots-instance and
+differential-route failures. The first reader repair preserves ordinary instance
+search and its type-only view, then tries the existing checked field presentation
+only after those searches fail. Its candidate must inhabit the full original
+instance type. Route alternatives now satisfy the existing complete dependent
+source equation before ambiguity classification, after the original carrier-route
+prefix preference. The original commit checks still run; excluded routes cannot
+be reopened. Two additive engineering negatives protect that ordering and genuine
+ambiguity. The first combined run took 1295.489 seconds and exited 1: roots now
+passes, but differential reading reaches a later disconnected operation-comparison
+graph. SourceParameterBinding (including the A/B producer control),
+ReaderContextContinuity, CreatedProjectionData, ContextParameter,
+SelectedContextOrder and ProducerProofBoundary pass. ParameterStructure,
+StructuredParameter, EvidencePresentation and QuestionProbes fail; those failures
+are not waived or classified from stale historical results.
+
+Exact failure-only diagnostics locate the coefficient failure in lost constructor
+context: the original coefficient expression survives, but its retained source
+Value is discarded by source recognition. Passing the already supplied original
+Value into that recognition boundary recovers the identical complete coefficient
+Value and the original constants arrow without relaxing any identity-view gate.
+The structured-parameter branch separately attempts to overwrite its original
+object producer with an equivalence producer; it now allocates and returns the
+additional producer through `Trace.recordProduced`. The evidence fixture's setup
+uses the existing registered `globalPoint` instead of assuming its retained
+terminal source admits a concrete `OfNat 0`; every original positive, rejection,
+type and option-restoration assertion remains. These source edits have completed
+persistent Lean diagnostics with no errors. The full focused build of all three
+affected fixtures passes (3788 jobs, 209.123 seconds, unchanged guarded inputs),
+including their original reverse-recovery, missing-witness, different-coefficient,
+nonunit and complete-type controls. This does not complete the still-red
+differential reading or the full consumer gate.
+
+The original published RX-LIFT failure remains unresolved. Public-protocol replay
+reproduces dispatch 21's complete scalar-target rejection, including against the
+separately authored public-contract repair. Such replay is diagnostic only and
+does not replace the original question or count as an acceptance result. All
+broader final-candidate readings, computations, native tools, workflows/notebook
+and independent frozen assessment remain required.
+
+Publication is currently blocked by actual access failures: native `git push`
+cannot read a GitHub username, and connector blob/ref writes return no result.
+Read-only GitHub requests succeed, while the attempted immutable objects and
+intended new leaf branch remain absent. Local leaf repair commits `e8a49e6` and
+`dce7276` are preserved but are not published or accepted. Do not infer acceptance
+from their engineering checks. The existing custodian review also still lacks its
+required independently fetched input and verdict; PR #70 owns that controller
+repair. Neither blocker authorizes an author-generated acceptance verdict.
+
 ## Recovery checkpoint — 2026-10-31 (Asia/Taipei)
 
 The execution workspace was lost during the full original ten-question RX-LIFT

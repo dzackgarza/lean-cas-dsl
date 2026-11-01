@@ -32,7 +32,8 @@ run_cmd liftTermElabM <| withOptions (fun options =>
       let .element point _ ← (toElement (.nat numeral) target).run {}
         | throwError "the selected numeral lost its point"
       let value ← elabTermAndSynthesize
-        (← `(CategoryTheory.ConcreteCategory.hom (C := Type) $(← exprToSyntax point) 0)) none
+        (← `(CategoryTheory.ConcreteCategory.hom (C := Type) $(← exprToSyntax point)
+          $(← exprToSyntax (← globalPoint.run {})))) none
       let value ← normalizedValue (← instantiateMVars value)
       let declaration ← mkConstWithFreshMVarLevels admission
       let application := mkAppN declaration #[monoid, value]

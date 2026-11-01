@@ -60,6 +60,17 @@ run_cmd liftTermElabM do
     unless ← withTransparency .all <| isDefEq (← (semanticObject left).run {})
         (← (semanticObject right).run {}) do
       throwError "the distinct-structure probe did not compare a shared carrier"
+    -- A source equation cannot reopen a route excluded by the original declared
+    -- carrier prefix, even when that other route has the same carrier.
+    let rejected ← try
+      discard <| (typedParameter expected rawCarrier
+        (routeApplicable? := some fun image =>
+          withTransparency .all <| isDefEq image additiveMonoid)).run {}
+      pure false
+    catch error =>
+      if (← Outcome.ofException error).kind == "invalid" then pure true else throw error
+    unless rejected do
+      throwError "a source constraint reopened an excluded structural route"
     checked := true
   unless checked do throwError "no accepted equivalent-source structure was checked"
 
@@ -117,6 +128,14 @@ run_cmd liftTermElabM do
     else throw error
   unless ambiguous do
     throwError "the bare residue set's distinct monoid structures were collapsed"
+  let stillAmbiguous ← try
+    discard <| (typedParameter expected (.object carrier sets origin none none)
+      (routeApplicable? := some fun _ => pure true)).run {}
+    pure false
+  catch error =>
+    if (← Outcome.ofException error).kind == "ambiguous" then pure true else throw error
+  unless stillAmbiguous do
+    throwError "an unrestricted source constraint hid genuine structural ambiguity"
 
 /- Constants use the target's independently selected parameter. A point in its witnessed
 weaker carrier view may be supplied without recovering that parameter's structure. -/

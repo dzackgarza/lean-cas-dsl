@@ -1,5 +1,65 @@
 # Reuse record: `cc-dsl-language`
 
+## Complete instance acquisition and dependent route applicability — 2026-11-01
+
+The existing instance-search corpus queries below and local searches for
+`synthesizeInstances`, `evidencePresentation`, `closedTypePresentation`,
+`bindSourceParameter` and `parameterCompatible` identify the existing owners.
+Failure-only inspection of the original roots request finds the original closed
+`IsDomain` binder: ordinary synthesis and the type-only view fail, while the
+existing field/type presentation finds a closed instance whose complete type is
+definitionally equal to the original target. Keep ordinary and type-only search
+first, then use this last checked acquisition view. No argument, source producer,
+trace, predicate or selected dictionary is replaced by the presentation.
+
+`bindSourceParameter` already checks both its unknown argument and the entire
+dependent source equation after acquiring a candidate. Reuse that same predicate
+to filter alternative structural images before route classification. Apply it
+after the existing declared-carrier prefix selection, so a failed source equation
+cannot reopen an excluded route. It is an isolated applicability trial, not a new
+rule for comparing routes or objects; commitment repeats the original checks.
+The added engineering controls retain ambiguity for an unrestricted predicate
+and reject reopening a route excluded by the original carrier selection.
+
+The original roots request now passes in the combined consumer run. Differential
+reading advances from structural-route ambiguity to an operation-family ambiguity
+and is still red. Opt-in `trace.CasCatalogue.operationAmbiguity` reports the exact
+retained candidates/comparisons only at that existing failure boundary; it does
+not change candidate discovery, comparison, resource limits or classification.
+
+## Preserve complete constructor context and additional producers — 2026-11-01
+
+Local searches for `structuredParameterView`, `recognizeObjectApplication`,
+`selectedParameterFromWitnesses`, `retainedCarrierRoute`, `registeredStructuredParameter`
+and `Trace.recordProduced` locate the existing ownership boundaries. The original
+constants fixture's failure-only diagnostic preserves every import, assertion and
+budget. Original and failed coefficients are the exact same expression, but the
+failed coefficient has lost its origin/selected/view data. The existing identity
+check correctly rejects its absent retained carrier route. Passing `#[original]`
+to source recognition preserves the identical complete original coefficient Value,
+the source producer, target, route and applications. The isolated check then
+obtains the original declared constants arrow at its original endpoints. No
+identity, prefix, origin or endpoint guard is weakened.
+
+`registeredStructuredParameter` already records every accepted raw constructor.
+Its additional multi-presentation equivalence must therefore be a fresh producer,
+not a conflicting `Trace.record` at one constructor's key. Reuse
+`Trace.recordProduced` and retain its returned handle; keep every constructor
+record, ordered parameter, complete presentation, identity proof and singleton
+branch unchanged. The existing structured-parameter probe verifies the complete
+returned type and both original presentations.
+
+The evidence-presentation engineering fixture applies a point at the existing
+registered `globalPoint`, as production extraction already does. This replaces
+only a stale concrete-terminal setup assumption. Its original admission,
+positive evidence, zero refusal, full original-type checks and caller-option
+checks remain unchanged. These edits have completed persistent source diagnostics.
+The full ParameterStructure, StructuredParameter and EvidencePresentation fixtures
+pass together (3788 jobs, 209.123 seconds, unchanged guarded source inputs),
+including their original protected negatives. Broader consumers and computations
+remain required. No mathematical assertion or new mathematical declaration is
+authored here.
+
 ## Preserve an authenticated original parameter source — 2026-10-31
 
 The complete selected-route QuestionProbes block records the original
