@@ -1,5 +1,74 @@
 # Reuse record: `cc-dsl-language`
 
+## Preserve full-object presentation producer occurrences — 2026-11-01
+
+### Existing owners and scope
+
+Local searches for `recognize`, `coalesceSelectedParameterViews`,
+`identityCarrierView`, `carrierObject`, `Trace.record`, `Trace.recordProduced`,
+`Trace.checkProducerRecord` and `Trace.checkProducedEntries` locate the existing
+owners. This repair applies the already implemented fixed-parameter recording
+discipline to two separately reproduced callers: non-Sets multiple views and
+multiple maximal views of one common full source. It adds no mathematical object,
+category, functor, identity proof rule, registration, backend call or cache.
+
+### Preservation argument
+
+All discovery and complete-source checks occur before recording. The non-Sets
+branch coalesces the retained views against the original object's full inferred
+type. The common-source branch retains the existing declared forward-carrier
+relations, maximal-source selection, category agreement and complete type/value
+comparisons before coalescing its views. The original complete-source ambiguity
+checks remain in force.
+Neither branch derives a full structure or an identity from equal carriers.
+
+The resulting `Node.parameterEquivalence` retains the original representative,
+its complete inferred type, and the original ordered checked alternatives. The
+repair consults only that representative's exact key in the same writable trace:
+
+| State at that key | Existing mechanism reused | Preserved relation |
+|---|---|---|
+| Matching complete node under the existing record comparison | Return the existing handle | The existing record and address remain unchanged. |
+| A different producer record | `Trace.recordProduced` | A fresh typed producer retains the original representative and every ordered evidence child; the original record remains. |
+| No record | `Trace.record`, then return the representative | The original self-record behavior remains, including its exact address on repeated recognition. |
+
+Empty alternatives leave the original handle unchanged. The lookup does not use
+`Trace.node?` wrapper recovery, an inherited source recorder, normalization,
+carrier equality or computational bytes. Record comparison determines placement;
+it introduces no completed-validation cache. The original strict producer-anchor,
+ordered-field, complete-type and trace-reference checks remain in their owners.
+
+The outward non-Sets Value now uses the returned producer handle while retaining
+its original category and entire coalesced evidence tuple. The common-source Value
+does likewise before the existing `carrierObject` conversion. That conversion
+still replays the original view evidence and checks its complete endpoint against
+the original requested carrier. The source Values, selected source, routes,
+applications, alternatives and full identity targets are preserved. The existing
+early alias path and separate fixed-parameter branch are unchanged.
+
+### Verification and remaining native consumers
+
+Language `26a85a0a` passes complete LSP diagnostics and the native target build in
+148.531 seconds (`language-occurrence-native-build.json`). Four additive scratch
+cases pass in 9.683 seconds with unchanged source/artifact guards and no errors
+(`language-occurrence-post-repair-current-1.json`). Each branch is exercised with
+an occupied original producer and with an unrecorded representative followed by
+an exact repeat. Checks preserve every original trace entry, authenticate the
+complete produced trace, retain exact source/action/evidence children, validate
+the original full identity propositions with Lean's kernel, and continue to
+reject a direct conflicting raw record.
+
+Those checks are appended to `ContextParameterProbes` at `09021bd4`: the original
+7,011-byte prefix and all three original command scopes remain byte-identical,
+with four additional scopes and no option or heartbeat increases. Complete
+whole-file LSP execution passes in 21.404 seconds. The complete native file and
+coherent Realize/routed/composite/product preservation controls pass together in
+101.054 seconds with unchanged guards (`reader-occurrence-runtime-controls.json`).
+The original RX-LIFT first question still reports an unavailable backend scalar-
+descriptor result at dispatch 21 on this reader/runtime source. These focused
+checks do not establish that computation, full integration or independent
+mathematical acceptance.
+
 ## Preserve exact reading context through closed parameters — 2026-11-01
 
 ### Queries and existing owners
@@ -1677,9 +1746,11 @@ The outward value uses the new handle; its evidence source, complete route appli
 ordered alternatives and original literal action receiver remain exact children. Carrier
 conversion replays that original evidence and checks the complete result before using the
 outward handle. All category, full-type, prefix/result, endpoint and ambiguity checks remain.
-The two adjacent analogous branches remain unworked rather than receiving an unexercised
-blanket rewrite. `ReaderFamilyParameterProbes` and `ProducerOccurrenceProbes` are the existing
-verification boundaries; source inspection is not a passing runtime result.
+At that fixed-parameter checkpoint the two adjacent analogous branches remained unworked.
+Their later separate reproductions and bounded repair are recorded above under
+"Preserve full-object presentation producer occurrences". `ReaderFamilyParameterProbes` and
+`ProducerOccurrenceProbes` remain the original fixed-parameter verification boundaries;
+source inspection alone is not a passing runtime result.
 
 ### Existing snapshot and performance work
 

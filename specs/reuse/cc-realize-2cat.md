@@ -755,8 +755,11 @@ ProductComparisonActionsProbes, and the additive two-layout producer-preservatio
 control pass together (138.814 seconds; `factor-context-runtime-and-controls.json`).
 The complete unchanged DeferredServiceProbes and MixedDataOwnershipProbes also
 pass (15.613 and 8.908 seconds; `original-service-controls-current-1.json`). These
-receipts preserve the current source and artifact guards. The separate Language
-occurrence proposal remains unapplied and uncompiled.
+receipts preserve their recorded source and artifact guards. The separate Language
+occurrence repair now has native build and four-case preservation evidence; its
+complete appended probe and coherent reader/runtime native checks also pass
+(101.054 seconds; `reader-occurrence-runtime-controls.json`).
+See the current `cc-dsl-language` reuse record for its scope and preservation argument.
 
 These arguments and focused results concern preservation by the kernel's
 composition mechanisms. The latest original RX-LIFT first question still reports

@@ -4724,17 +4724,29 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
       -- Retain every checked presentation of that same full object.
       let evidence ← coalesceSelectedParameterViews (← inferType x) x matchedValues
       let (_, _, _, alternatives, _) := evidence
-      unless alternatives.isEmpty do
+      -- Keep an exact recovered record; an additional presentation retains the
+      -- original full object as a child at its own producer address.
+      let retained ← if alternatives.isEmpty then pure x else do
         let attempted := Node.parameterEquivalence (← inferType x) x alternatives
+        let trace? := (← read).trace
+        let previous? ← match trace? with
+          | some trace => pure ((← trace.get)[x]?)
+          | none => pure none
         try
-          Trace.record (← read).trace x attempted
+          match previous? with
+          | some previous =>
+              if previous == attempted then pure x
+              else Trace.recordProduced trace? x attempted
+          | none =>
+              Trace.record trace? x attempted
+              pure x
         catch error =>
           try
             observeProducerConflict "recognize.nonsets-multiview-equivalence"
               (← read).trace x (some attempted)
           catch _ => pure ()
           throw error
-      return .object x category none none (some evidence)
+      return .object retained category none none (some evidence)
     if category.id == CategoryId.sets && matchedValues.size > 1 then
       -- A declared operation fixes complete structure parameters before its
       -- endpoints are read. Compare those full values, never just their carriers.
@@ -4812,17 +4824,29 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
           views := views.push selected
         let evidence ← coalesceSelectedParameterViews (← inferType actual) actual views
         let (_, _, _, alternatives, _) := evidence
-        unless alternatives.isEmpty do
+        -- The common source remains the literal representative of the checked
+        -- presentation; its existing producer is never overwritten.
+        let retained ← if alternatives.isEmpty then pure actual else do
           let attempted := Node.parameterEquivalence (← inferType actual) actual alternatives
+          let trace? := (← read).trace
+          let previous? ← match trace? with
+            | some trace => pure ((← trace.get)[actual]?)
+            | none => pure none
           try
-            Trace.record (← read).trace actual attempted
+            match previous? with
+            | some previous =>
+                if previous == attempted then pure actual
+                else Trace.recordProduced trace? actual attempted
+            | none =>
+                Trace.record trace? actual attempted
+                pure actual
           catch error =>
             try
               observeProducerConflict "recognize.common-full-source-equivalence"
                 (← read).trace actual (some attempted)
             catch _ => pure ()
             throw error
-        let carrier ← carrierObject (.object actual selectedCategory none none (some evidence))
+        let carrier ← carrierObject (.object retained selectedCategory none none (some evidence))
         unless ← withTransparency .all <| isDefEq (← semanticObject carrier) x do
           throwStratum .invalid m!"the common full source has a different endpoint"
         return carrier

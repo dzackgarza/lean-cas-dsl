@@ -143,8 +143,8 @@ run_elab withFixture fun base calls => do
   let peer : Registration := {
     operation := named.registration.operation, input := categoryInput,
     backend := named.registration.backend }
-  let admission := (← registryState).admit {
-    backends := base.backends, registrations := #[peer] }
+  let admission := (← registryState).admit ({
+    backends := base.backends, registrations := #[peer] })
   unless admission.rejected.isEmpty && admission.admitted.size == 1 &&
       named.registration.input != peer.input do
     throwError "the existing method has no distinct admitted category-wide peer"

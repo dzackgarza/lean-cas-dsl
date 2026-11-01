@@ -28,7 +28,10 @@ Native `git push` still reports `could not read Username for 'https://github.com
 terminal prompts disabled`; it is no longer a publication blocker because the
 connected GitHub write path works. No branch was forced, merged or deployed. The subsequent reader/controller
 checkpoint is published at `d5cfcae279fdadc096169eac21b6bb9e54fae1ce`; GitHub
-ref readback and native fetch agree. The runtime changes below follow that source.
+ref readback and native fetch agree. The subsequent runtime producer-preservation
+checkpoint is published at `573cc9a07c6a85ea288d2a35140e408be5efe498`, tree
+`514e109abacc21431978e9f478df88921271a266`. The reader occurrence work below
+extends that checkpoint.
 
 The selected environment remains mathematics `fc6d3d69`, contract `f0431beb`,
 notebook `f3e73ed4`, Lean 4.33.0, and the recorded Sage/passagemath and GAP engines.
@@ -123,33 +126,77 @@ two Python test methods for existing-environment preparation. Preparation checks
 selection and source stability and archives old receipts; fresh gates still own
 their results (`runtime-checkpoint-static-controls.json`).
 
-Two `Language.recognize` occurrence defects remain open. The non-Sets multiple-view
-and common-full-source branches attempt a distinct parameter-equivalence producer
-at an already owned trace key. Both are reproduced with accepted interfaces on
-unchanged Language `387581c4` (exit 1, 6.357 seconds;
-`language-occurrence-current-1.json`). A guarded patch proposes exact-record reuse,
-a fresh producer for a distinct record, and preservation of an unrecorded
-self-record. It is not applied or compiled in this checkpoint. The strict trace
-validator, early alias path and separate fixed-parameter branch remain unchanged.
+Two further `Language.recognize` occurrence defects were reproduced with accepted
+interfaces on Language `387581c4` (exit 1, 6.357 seconds;
+`language-occurrence-current-1.json`). The applied repair at `26a85a0a` gives an
+additional non-Sets or common-full-source parameter-equivalence record its own
+producer when the original key is already owned. A matching existing record keeps
+its handle; an unrecorded representative keeps its original self-record. Complete
+source selection and coalescing precede this address decision. The original
+source/action children, full identity targets, category and carrier checks, strict
+trace validators, early alias path and separate fixed-parameter branch remain.
+
+Complete Language LSP diagnostics pass, and the native Language build passes in
+148.531 seconds with unchanged guards (`language-occurrence-native-build.json`).
+All four scratch cases pass natively in 9.683 seconds with unchanged guarded
+inputs and no errors (`language-occurrence-post-repair-current-1.json`): both
+occupied-key branches and both unrecorded-self/repeated-recovery branches. They
+check the complete retained trace, original records and ordered evidence, kernel
+acceptance of the full identity targets, and continued refusal of a raw overwrite.
+
+The corresponding `ContextParameterProbes` addition is applied at `09021bd4`.
+Its original 7,011 bytes and three command scopes are preserved exactly; four
+new scopes add the same preservation checks without new options or larger
+budgets. The complete seven-scope file passes LSP execution in 21.404 seconds.
+The coherent native build now passes in 101.054 seconds with unchanged guards
+(`reader-occurrence-runtime-controls.json`). It includes the complete seven-scope
+ContextParameterProbes, Realize, RoutedStructuredReceiverAdmissionProbes, the
+original composite/product controls and the additive prepared-product control.
+This uses Language `26a85a0a`, Realize `dd892559` and RuntimeSupport `d45d42b3`.
+
+`RoutedStructuredReceiverAdmissionProbes` at `a20493e8` only parenthesizes the
+argument to the existing public registry `.admit ({...})` method call. The
+unchanged seal scanner now reports zero hits; no proof tactic, assertion, budget
+or protected file changes. The complete routed probe passes in that native build.
+Its editor run reached a missing default protocol-helper path; the configured
+native run uses the existing explicit `CAS_LEAF_CONTRACT_PATH` and succeeds.
 
 The original RX-LIFT computation remains **unresolved**. The latest complete first
-question run uses public leaf candidate `b33961bfe7df`, all 22 preceding bindings,
+question run uses public leaf candidate `b4eb4e986442`, all 22 preceding bindings,
 six imports, the original shared session and the original 200000 heartbeat budget.
 It stops at dispatch 21, `lift.bilin_module.restrict#obj`, with `ValueError:
 element's complete scalar target differs from the complete selected descriptor`.
-It uses 197272967 raw ticks (68439716 preparation, 128833078 execution), leaving
-2727033 before the unfinished lift and assertion. Receipt
-`rx-lift-b339-first-measurement.json` guards Realize `df456b52`, RuntimeSupport
-`d45d42b3` and Language `387581c4`; it precedes the later factor-context change.
+It uses 197272719 raw ticks (68439716 preparation, 128832830 execution), leaving
+2727281 before the unfinished lift and assertion. Receipt
+`rx-lift-b4eb-first-measurement.json` records 60.654 seconds, unchanged guards,
+Realize `dd892559`, RuntimeSupport `d45d42b3` and Language `26a85a0a`.
 Its process exit 0 records diagnostic completion, not a passing assertion.
 
-The public packet audit finds no change to the 21 dispatches modulo fresh opaque
+The earlier public packet audit at `b33961b` finds no change to the 21 dispatches modulo fresh opaque
 tokens, and the retained Hom, whole-function, nested-frame and supplier checks
 pass. Opaque implementation contents remain outside that audit. The existing
 profile suggests repeated action-recipe observation before completed-action reuse
 as a measurement candidate; it does not establish a measured saving or actual
 budget exhaustion. No kernel contributor inspected leaf implementation or self-tests, and no
 downstream result was supplied to the independent leaf author.
+
+The independent public-only leaf follow-up closed its bounded finding on clean
+native commit `b4eb4e986442cbacfce88b11c14c1af14a9ac459`, tree
+`6f0dda7ec80a066e47491a336793d4dd3a9ee7eb`; its current native exercise reports
+179 primary and three stopped-owner requests. Both public manifests are unchanged
+(96 extension registrations and 19 V1 registrations). All ten native commits
+since frozen `a1d72cfa`, earlier snapshots and the final candidate are preserved.
+These public engineering receipts supply no mathematical acceptance result.
+
+Leaf publication is blocked by transport in both independent leaf-agent sessions:
+even the unchanged public manifest times out at 45 seconds, while the identical
+primary-session public-manifest call returns its expected hash. Normal native Git
+lacks credentials and `gh` is unavailable. There was no approval rejection, and
+no leaf commit or branch/ref update completed. `leaf-publication-metadata.json`
+records the complete ten-commit/tree sequence without implementation content.
+The existing role boundary still applies; a working primary credential does not
+authorize a kernel agent to write leaf source. The local diagnostic does not
+claim a published leaf identity.
 
 These are focused engineering results. The full 70-target consumer set, native
 tools and axiom audit must run on the final unchanged published tuple. Original
@@ -168,9 +215,16 @@ These used fixed native Python children, not Docker. The original live-container
 assertions and resource limits are unchanged and that test remains **unrun locally**.
 This is controller construction source, not installation of a trusted evaluator.
 
-The protected independent review still has no accepted verdict. Its last reviewed
-failure was missing fetched input (`rev-parse FETCH_HEAD^{commit}: exit 128`) and
-absent verdict files; PR #70 owns that separate input-retrieval correction and remains
+At published runtime checkpoint `573cc9a0`, Controller source checks run
+`41350169680`, job `124978430899`, now **passes**. The complete CI log confirms
+the unchanged original `custodian/test_execution.py`, all seven unittest groups,
+and the full transition fixtures complete successfully. This supplies the live-CI
+result at that checkpoint; it does not install or independently accept an evaluator.
+
+The protected independent review still has no accepted verdict. Run `41350167413`
+again reports `REVIEW NOT COMPLETED (inputs unavailable)`: the base checkout's
+`rev-parse FETCH_HEAD^{commit}` exits 128 and verdict files are absent. PR #70 owns
+that separate input-retrieval correction and remains
 unmerged. All 153 permanent readings and independent meaning assessment, 134 fixed
 positive questions, RX01–RX10 and RX-LIFT, four real-engine workflows with 17 connected
 assertions, actual notebook execution, fresh API/examples, and frozen independent
@@ -3321,10 +3375,11 @@ Deliver the working system and its runnable examples, not another assessment or 
   packet retains its validated template as a fresh intrinsic producer, complete
   normalized endpoints and original child dependencies. Both layouts and later
   service consumption pass the additive native control recorded above.
-- `recognize`'s non-Sets multiple-view and common-full-source producer-key failures
-  are reproduced. The guarded occurrence proposal remains unapplied and uncompiled;
-  its exact source and reproduction are recorded in the current checkpoint above.
-  The integer-coordinate collision exercises the separate fixed-parameter branch.
+- The two reproduced non-Sets/common-full-source producer-key failures have an
+  applied Language repair and passing four-case native preservation checks. The
+  complete appended ContextParameterProbes native run and coherent reader/runtime
+  controls now pass as recorded above. The separate fixed-parameter
+  branch and early alias path are unchanged.
 - Earlier focused failures remain evidence at their recorded source revisions.
   Read the current checkpoint above for the newer product, composite and service
   results; these passes do not establish the remaining consumers or acceptance.
