@@ -4,6 +4,9 @@ module
 import CasCatalogue.Realize
 meta import CasCatalogue.Realize
 
+import CasAcceptance.Kernel.SelectedOwnerFixture
+meta import CasAcceptance.Kernel.SelectedOwnerFixture
+
 open Lean Meta Elab Term CasCatalogue CasCatalogue.Language CasCatalogue.Realize
 
 /-! An arbitrary opaque process reply tests dispatch and reuse only. No expected
@@ -42,11 +45,13 @@ run_elab do
   let root : System.FilePath := (← IO.getEnv "CAS_OWNERSHIP_PROTOCOL_DIR").getD
     ("CasAcceptance" / "Strata" : System.FilePath).toString
   let events ← IO.mkRef #[]
-  let harness ← Harness.ofManifest root { backends := #[program], registrations := #[registration] }
-  let harness := { harness with dispatches := some events }
+  let setup ← CasAcceptance.SelectedOwnerFixture.harness
+    root program registration events entry selected
+  let harness := setup.operationHarness
   unless harness.rejected.isEmpty && harness.admitted.size == 1 do
     throwError "the alternative's public generic registration was not admitted"
   try
+    let completedOwner ← CasAcceptance.SelectedOwnerFixture.completeOwner setup trace
     let recipe ← realize harness trace "the checked operation class" formal
     unless recipe.callableObserved do
       throwError "ordinary evaluation did not demand the installed operation's actual result"
@@ -68,8 +73,9 @@ run_elab do
       throwError "reusing the complete class result recomputed its formal recipe"
     let some retained ← trace.node? formal
       | throwError "execution discarded the original complete semantic class"
-    unless reprStr retained == reprStr classNode do
+    unless CasAcceptance.SelectedOwnerFixture.sameOriginalNode retained classNode do
       throwError "computational registration changed the interpreted operation class"
+    CasAcceptance.SelectedOwnerFixture.checkOwnerReuse setup completedOwner
   finally
     harness.stop
   let canonical : Registration := {
@@ -121,9 +127,11 @@ run_elab do
   let root : System.FilePath := (← IO.getEnv "CAS_OWNERSHIP_PROTOCOL_DIR").getD
     ("CasAcceptance" / "Strata" : System.FilePath).toString
   let events ← IO.mkRef #[]
-  let harness ← Harness.ofManifest root { backends := #[program], registrations := #[registration] }
-  let harness := { harness with dispatches := some events }
+  let setup ← CasAcceptance.SelectedOwnerFixture.harness
+    root program registration events entry selected
+  let harness := setup.operationHarness
   try
+    let completedOwner ← CasAcceptance.SelectedOwnerFixture.completeOwner setup trace
     let actual ← realize harness trace "the subsequent installed operation" formal
     unless actual.value == formal && actual.callableObserved && actual.owner?.isSome &&
         (← events.get).size == 2 do
@@ -132,5 +140,6 @@ run_elab do
     unless reused.json == actual.json && reused.owner? == actual.owner? &&
         (← events.get).size == 2 do
       throwError "the subsequent actual result lost its session or was recomputed"
+    CasAcceptance.SelectedOwnerFixture.checkOwnerReuse setup completedOwner
   finally
     harness.stop

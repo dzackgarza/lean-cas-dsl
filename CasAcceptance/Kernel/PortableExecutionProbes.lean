@@ -23,7 +23,7 @@ run_elab do
     | throwError "the portable-reply probe lost its unique declared operation"
   let observations ← IO.mkRef #[]
   let harness ← Harness.load (some ("CasAcceptance" / "Strata" / "registration_wrong.json"))
-  let harness := { harness with dispatches := some observations }
+  let harness := { harness with dispatches := some observations, demandObjectActions := true }
   try
     let first ← realize harness trace "the first actual portable answer" formal
     let .computed actual (.inline data) := first.payload

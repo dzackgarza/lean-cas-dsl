@@ -175,7 +175,11 @@ run_elab do
   let apexJson := fields[0]!
   let wire := fun (tag : String) (args : Array Json) => Json.mkObj [("ctor", toJson tag), ("args", Json.arr args)]
   let trace ← CasCatalogue.Trace.new
-  let original : Wire := { form := .limitApex row, payload := .computed apex (.owned "engineering-owner" 17 packet) }
+  let diagramData := wire "pair" #[← parameterData trace left, ← parameterData trace right]
+  let complete := fun answer => wire "constructionApex" #[toJson row.id.raw, diagramData, answer]
+  let original : Wire := {
+    form := .limitApex row
+    payload := .computed apex (.owned "engineering-owner" 17 (complete packet)) }
   let check := fun input => do
     let actual ← computationalApexReceiver trace input
     unless actual.form.id == "obj.sets.fin" && actual.json == apexJson &&
@@ -191,7 +195,7 @@ run_elab do
       wire "finiteData" #[descriptor "obj.sets.fin"],
       wire "finiteData" #[wire "finiteData" #[descriptor "obj.sets.fin", Json.arr #[]], Json.arr #[]]] do
     let candidate := { original with payload := .computed apex (.owned "engineering-owner" 17
-      (wire "cone" (fields.set! 0 wrong))) }
+      (complete (wire "cone" (fields.set! 0 wrong)))) }
     let actual ← computationalApexReceiver trace candidate
     unless actual.form.id == candidate.form.id && actual.json == candidate.json &&
         actual.value == candidate.value && actual.owner? == candidate.owner? do

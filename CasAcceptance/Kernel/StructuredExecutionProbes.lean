@@ -2,7 +2,9 @@
 module
 
 import CasCatalogue.Realize
+import CasAcceptance.Kernel.ProtocolFixtureData
 meta import CasCatalogue.Realize
+meta import CasAcceptance.Kernel.ProtocolFixtureData
 
 /-! Engineering checks of complete public field and family-transport interfaces.
 The opaque fields exercise ownership and framing; they claim no mathematical answers. -/
@@ -66,44 +68,74 @@ run_elab do
       (.direct data) plan.presentation (fun data => StructuredResult.validateData
         plan.row plan.diagram plan.presentation data ComputationalData.validatePort)
     | throwError "the complete engineering packet failed its independent framing"
-  let harness ← Realize.Harness.empty
-  harness.results.modify (·.insert object {
-    form := .limitApex plan.row
-    payload := .construction result (.owned "structured-probe" 37)
-    categoryContext := some context })
-  let objectValue ← (eval {} (← parse "K.obj()")).run
-    { trace := some trace, bound := [(`K, receiver)] }
-  unless ← isDefEq object (← valueTerm objectValue) do
-    throwError "ordinary obj() changed the complete constructed apex"
-  let selected ← (eval {} (← parse "K.hom()")).run
-    { trace := some trace, bound := [(`K, receiver)] }
-  let hom ← valueTerm selected
-  let port ← plan.selectPort none
-  let firstKey ← StructuredProjection.retainPortValue object port.formalField 0
-  let secondKey ← StructuredProjection.retainPortValue object port.formalField 1
-  unless firstKey != secondKey && (← withTransparency .all <| isDefEq firstKey secondKey) do
-    throwError "equal formal fields erased their distinct retained data-port addresses"
-  unless ← withTransparency .all <| isDefEq hom port.formalField do
-    throwError "ordinary hom() changed its unique declared morphism port"
-  let wire ← Realize.realize harness trace "the ordinary defining map" hom
-  unless wire.owner? == some ("structured-probe", 37) do
-    throwError "the ordinary defining map discarded its original owning session"
-  let .ok ("constructionField", #[id, _, packet, index]) := ComputationalData.envelope wire.json
-    | throwError "the ordinary field lost its complete construction packet"
-  unless id.getStr? == .ok plan.row.id.raw && packet == result.json &&
-      index.getNat? == .ok port.index do
-    throwError "the ordinary field changed its construction or exact port address"
-  let explicit ← (eval {} (← parse s!"K.field({port.index})")).run
-    { trace := some trace, bound := [(`K, receiver)] }
-  unless ← withTransparency .all <| isDefEq (← valueTerm explicit) hom do
-    throwError "explicit data-port selection changed its actual formal field"
-  let refused ← try
-    discard <| (eval {} (← parse s!"K.field({ports.ports.size})")).run
+  let original : Realize.Wire := {
+    form := .limitApex plan.row, payload := .construction result .portable
+    categoryContext := some context }
+  CasAcceptance.Kernel.ProtocolFixtureData.withData "structured-probe"
+      "structured-fixture-data" original.json fun harness received owner => do
+    harness.results.modify (·.insert object { original with
+      payload := .construction result (.scoped received.ownership) })
+    let objectValue ← (eval {} (← parse "K.obj()")).run
       { trace := some trace, bound := [(`K, receiver)] }
-    pure false
-  catch error =>
-    if Exception.interpretationKind error == .invalid then pure true else throw error
-  unless refused do throwError "an out-of-range declared structured field was admitted"
+    unless ← isDefEq object (← valueTerm objectValue) do
+      throwError "ordinary obj() changed the complete constructed apex"
+    let selected ← (eval {} (← parse "K.hom()")).run
+      { trace := some trace, bound := [(`K, receiver)] }
+    let hom ← valueTerm selected
+    let port ← plan.selectPort none
+    let firstKey ← StructuredProjection.retainPortValue object port.formalField 0
+    let secondKey ← StructuredProjection.retainPortValue object port.formalField 1
+    unless firstKey != secondKey && (← withTransparency .all <| isDefEq firstKey secondKey) do
+      throwError "equal formal fields erased their distinct retained data-port addresses"
+    unless ← withTransparency .all <| isDefEq hom port.formalField do
+      throwError "ordinary hom() changed its unique declared morphism port"
+    let wire ← Realize.realize harness trace "the ordinary defining map" hom
+    unless wire.owner? == some owner do
+      throwError "the ordinary defining map discarded its original owning session"
+    let some apexBinder := ports.apexBinder
+      | throwError "the original construction lost its apex binder"
+    let some apexBinding := ports.binders[apexBinder]?
+      | throwError "the original construction lost its apex binding"
+    let some apexIndex := apexBinding.port
+      | throwError "the original construction apex is not a returned field"
+    let some apexPort := ports.ports[apexIndex]?
+      | throwError "the original construction lost its apex port"
+    unless port.domainBinder == some apexBinder do
+      throwError "the original defining map changed its exact apex binder"
+    let some (_, target) := homEnds? port.expectedType
+      | throwError "the original defining map lost its complete Hom"
+    CategoryContext.checkMorphism context hom apexPort.formalField target
+    let node := fun (tag : String) (args : Array Json) =>
+      Json.mkObj [("ctor", toJson tag), ("args", Json.arr args)]
+    let expectedTarget := node "obj.groups.symmetric" #[toJson (3 : Nat)]
+    if let .error message ← ComputationalData.validatePort target (← inferType target) expectedTarget then
+      throwError "the original sign-map target changed its accepted public descriptor: {message}"
+    let expectedField := node "constructionField"
+      #[toJson plan.row.id.raw, result.diagramJson, result.json, toJson port.index]
+    let expected := Backend.TypedMap.encode {
+      source := node "constructionField"
+        #[toJson plan.row.id.raw, result.diagramJson, result.json, toJson apexPort.index]
+      target := expectedTarget, callable := expectedField }
+    unless wire.json == expected do
+      throwError "the ordinary field changed its complete endpoint frame or original construction"
+    let .ok frame := Backend.TypedMap.decode wire.json
+      | throwError "the ordinary field lost its complete endpoint frame"
+    let .ok ("constructionField", #[id, _, packet, index]) := ComputationalData.envelope frame.callable
+      | throwError "the ordinary field lost its complete construction packet"
+    unless id.getStr? == .ok plan.row.id.raw && packet == result.json &&
+        index.getNat? == .ok port.index do
+      throwError "the ordinary field changed its construction or exact port address"
+    let explicit ← (eval {} (← parse s!"K.field({port.index})")).run
+      { trace := some trace, bound := [(`K, receiver)] }
+    unless ← withTransparency .all <| isDefEq (← valueTerm explicit) hom do
+      throwError "explicit data-port selection changed its actual formal field"
+    let refused ← try
+      discard <| (eval {} (← parse s!"K.field({ports.ports.size})")).run
+        { trace := some trace, bound := [(`K, receiver)] }
+      pure false
+    catch error =>
+      if Exception.interpretationKind error == .invalid then pure true else throw error
+    unless refused do throwError "an out-of-range declared structured field was admitted"
 
 run_elab do
   let trace ← Trace.new
@@ -215,12 +247,14 @@ run_elab do
   let expected ← Semantic.objOf action object
   let identity ← mkAppM ``CategoryTheory.CategoryStruct.id #[object]
   let expectedMap ← Semantic.mapOf action identity
+  let mut selectedValues := #[]
   for (written, formal) in #[(s!"view X along «{classifier.raw}»()", expected),
       (s!"map id(X) along «{classifier.raw}»()", expectedMap)] do
     let selected ← (eval {} (← parse written)).run
       { trace := some trace, bound := [(`X, receiver)] }
     unless ← withTransparency .all <| isDefEq (← valueTerm selected) formal do
       throwError "the exact classifier selector changed its accepted action"
+    selectedValues := selectedValues.push (← valueTerm selected)
   let some category := CategoryContext.named? (← registryState) context.expression
     | throwError "the accepted proof refinement category is absent"
   let harness ← Realize.Harness.empty
@@ -228,7 +262,7 @@ run_elab do
     form := .diagrams category
     payload := .computed object (.owned "classifier-probe" 43 (opaqueField "complete classified object"))
     categoryContext := some context })
-  for formal in #[expected, expectedMap] do
+  for formal in selectedValues do
     let wire ← Realize.realize harness trace "the complete selected classifier action" formal
     unless wire.owner? == some ("classifier-probe", 43) do
       throwError "a classifier action discarded its original complete object's owner"

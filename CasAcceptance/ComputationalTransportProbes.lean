@@ -2,15 +2,18 @@
 module
 
 import CasCatalogue.Realize
+import CasAcceptance.Kernel.ProtocolFixtureData
 import LeanCategories.Catalogue.Semantics
 meta import CasCatalogue.Realize
+meta import CasAcceptance.Kernel.ProtocolFixtureData
 meta import LeanCategories.Catalogue.Semantics
 
 open Lean Meta Elab Term CasCatalogue
 
 /-! Engineering regressions for retained computational dependencies and structural projections.
 The returned fields below exercise framing and data flow. They establish no mathematical
-correctness, construction law, or acceptance answer. No backend process is started. -/
+correctness, construction law, or acceptance answer. The existing protocol-only
+fixture supplies the unchanged packets when a live owner is required. -/
 
 -- A complete cone may expose its actual apex, but an intervening action must survive intact.
 run_elab do
@@ -94,25 +97,28 @@ run_elab do
     let complete := node spelling fields
     if let .error message ← ComputationalData.validatePort fixed (← inferType fixed) complete then
       throwError "a complete typed quotient packet was rejected: {message}"
-    let trace ← Trace.new
-    let harness ← Realize.Harness.empty
-    let input : Realize.Wire := {
-      form := .functorImage cokernel sourceCategory.id
-      payload := .computed fixed (.owned "transport-probe" 11 complete) }
-    harness.results.modify (·.insert fixed input)
-    for (name, expected) in #[("projection", node "arrow" fields), ("codomain", fields[1]!)] do
-      let (value, _) ← Semantic.method name fixed sourceCategory (some trace)
-      let actual ← Realize.realize harness trace "a complete quotient's defining projection" value
-      unless actual.json == expected && actual.value == value &&
-          actual.owner? == input.owner? do
-        throwError "the quotient method changed actual defining data, formal value or owner"
-      if name == "projection" then
-        let hom ← mkAppM ``CategoryTheory.Arrow.hom #[value]
-        Trace.record (some trace) hom (.arrowProjection value)
-        let projected ← Realize.realize harness trace "the returned quotient's actual map" hom
-        unless projected.json == fields[2]! && projected.value == hom &&
-            projected.owner? == input.owner? do
-          throwError "successive quotient projection lost its actual callable or owner"
+    CasAcceptance.Kernel.ProtocolFixtureData.withData "transport-probe"
+        "quotient-fixture-data" complete fun harness received _ => do
+      let harness := { harness with demandObjectActions := true }
+      let trace ← Trace.new
+      let input : Realize.Wire := {
+        form := .functorImage cokernel sourceCategory.id
+        payload := .computed fixed (.scoped received)
+        categoryContext := some (← CategoryContext.ofNamed sourceCategory fixed) }
+      harness.results.modify (·.insert fixed input)
+      for (name, expected) in #[("projection", node "arrow" fields), ("codomain", fields[1]!)] do
+        let (value, _) ← Semantic.method name fixed sourceCategory (some trace)
+        let actual ← Realize.realize harness trace "a complete quotient's defining projection" value
+        unless actual.json == expected && actual.value == value &&
+            actual.owner? == input.owner? do
+          throwError "the quotient method changed actual defining data, formal value or owner"
+        if name == "projection" then
+          let hom ← mkAppM ``CategoryTheory.Arrow.hom #[value]
+          Trace.record (some trace) hom (.arrowProjection value)
+          let projected ← Realize.realize harness trace "the returned quotient's actual map" hom
+          unless projected.json == fields[2]! && projected.value == hom &&
+              projected.owner? == input.owner? do
+            throwError "successive quotient projection lost its actual callable or owner"
 
 -- Composition consumes two opaque callables as data and retains their common session.
 run_elab do
@@ -134,8 +140,13 @@ run_elab do
     (entries.insert first firstWire).insert second secondWire)
   Trace.record (some trace) value (.morphismComposition sets.id first second object object object)
   let actual ← Realize.realize harness trace "the composed opaque callables" value
+  let complete := fun (original : Realize.Wire) =>
+    Json.mkObj [("ctor", toJson "typedMap"), ("args", Json.arr #[
+      Backend.MorphismEndpoint.encode { callable := original.json, source := true },
+      Backend.MorphismEndpoint.encode { callable := original.json, source := false },
+      original.json])]
   let expected := Json.mkObj [("ctor", toJson "compose"),
-    ("args", Json.arr #[firstWire.json, secondWire.json])]
+    ("args", Json.arr #[complete firstWire, complete secondWire])]
   unless actual.json == expected && actual.value == value &&
       actual.owner? == firstWire.owner? do
     throwError "composition changed an opaque callable, formal value or owner"
@@ -223,7 +234,6 @@ run_elab do
 run_elab do
   let state ← registryState
   let trace ← Trace.new
-  let harness ← Realize.Harness.empty
   let some groups := state.categories.find? (·.id == CategoryId.groups)
     | throwError "the existing group category is unavailable"
   let some units := state.objects.find? (·.id.raw == "obj.groups.units")
@@ -241,34 +251,40 @@ run_elab do
   let composite ← mkAppM ``CategoryTheory.CategoryStruct.comp #[first, second]
   let node (tag : String) (args : Array Json) :=
     Json.mkObj [("ctor", toJson tag), ("args", Json.arr args)]
-  let mut endpoints := #[]
-  for (object, label) in #[(source, "source monoid"), (middle, "intermediate monoid"),
-      (target, "target monoid")] do
-    let descriptor := node units.id.raw #[node "opaqueData" #[toJson label]]
-    if let .error message ← ComputationalData.validatePort object (← inferType object) descriptor then
-      throwError "the endpoint is not a complete typed group descriptor: {message}"
-    let endpoint : Realize.Wire := {
-      form := .object units
-      payload := .computed object (.owned "transport-probe" 61 descriptor) }
-    harness.results.modify (·.insert object endpoint)
-    endpoints := endpoints.push endpoint
   -- Arbitrary graph entries test framing only, not group-map correctness.
   let firstGraph := Json.arr #[Json.arr #[toJson (0 : Nat), toJson (1 : Nat)]]
   let secondGraph := Json.arr #[Json.arr #[toJson (1 : Nat), toJson (2 : Nat)]]
-  for (formal, data) in #[(first, firstGraph), (second, secondGraph)] do
-    harness.results.modify (·.insert formal {
-      form := .canonicalMorphism groups, payload := .computed formal (.inline data) })
-  Trace.record (some trace) composite
-    (.morphismComposition groups.id first second source middle target)
-  let actual ← Realize.realize harness trace "the graphs at complete structured endpoints" composite
-  let #[sourceEndpoint, middleEndpoint, targetEndpoint] := endpoints
-    | throwError "the framing probe lost an endpoint"
-  let expected := node "compose" #[
-    node "typedMap" #[sourceEndpoint.json, middleEndpoint.json, firstGraph],
-    node "typedMap" #[middleEndpoint.json, targetEndpoint.json, secondGraph]]
-  unless actual.json == expected && actual.value == composite &&
-      actual.owner? == middleEndpoint.owner? do
-    throwError "graph composition lost an exact structured endpoint or its owning session"
+  let endpointPackets := #["source monoid", "intermediate monoid", "target monoid"].map
+    fun label => node units.id.raw #[node "opaqueData" #[toJson label]]
+  let originalData := Json.arr #[Json.arr endpointPackets, firstGraph, secondGraph]
+  CasAcceptance.Kernel.ProtocolFixtureData.withData "transport-probe"
+      "graph-fixture-data" originalData fun harness received _ => do
+    let mut endpoints := #[]
+    for ((object, label), index) in (#[(source, "source monoid"), (middle, "intermediate monoid"),
+        (target, "target monoid")]).zipIdx do
+      let descriptor := node units.id.raw #[node "opaqueData" #[toJson label]]
+      if let .error message ← ComputationalData.validatePort object (← inferType object) descriptor then
+        throwError "the endpoint is not a complete typed group descriptor: {message}"
+      let endpoint : Realize.Wire := {
+        form := .object units
+        payload := .computed object (.scoped
+          (← Realize.checkedFragment (received.project #[.index 0, .index index]))) }
+      harness.results.modify (·.insert object endpoint)
+      endpoints := endpoints.push endpoint
+    for (formal, data) in #[(first, firstGraph), (second, secondGraph)] do
+      harness.results.modify (·.insert formal {
+        form := .canonicalMorphism groups, payload := .computed formal (.inline data) })
+    Trace.record (some trace) composite
+      (.morphismComposition groups.id first second source middle target)
+    let actual ← Realize.realize harness trace "the graphs at complete structured endpoints" composite
+    let #[sourceEndpoint, middleEndpoint, targetEndpoint] := endpoints
+      | throwError "the framing probe lost an endpoint"
+    let expected := node "compose" #[
+      node "typedMap" #[sourceEndpoint.json, middleEndpoint.json, firstGraph],
+      node "typedMap" #[middleEndpoint.json, targetEndpoint.json, secondGraph]]
+    unless actual.json == expected && actual.value == composite &&
+        actual.owner? == middleEndpoint.owner? do
+      throwError "graph composition lost an exact structured endpoint or its owning session"
 
 -- A named arrow used by a later invocation remains a descriptor even when its own-form
 -- registration is installed. Only explicit whole-arrow observation selects that registration.

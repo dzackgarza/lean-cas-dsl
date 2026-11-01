@@ -30,10 +30,7 @@ structure ArrowPlan where
 /-- Recognize only the accepted Arrow and subobject constructor interfaces. The
 complete typed category, including its parameters and dictionary, fixes every field. -/
 def arrow? (receiver : Expr) (context : CategoryContext) : TermElabM (Option ArrowPlan) := do
-  let .construct constructor #[.category base] := context.expression | return none
   let state ← registryState
-  let some row := state.constructor? constructor | return none
-  unless row.signature == #[ConstructorArgKind.category] do return none
   CategoryContext.checkObject context receiver
   let receiverType ← interfaceType (← inferType receiver)
   let subobject := receiverType.isAppOf ``CategoryTheory.ObjectProperty.FullSubcategory
@@ -46,7 +43,30 @@ def arrow? (receiver : Expr) (context : CategoryContext) : TermElabM (Option Arr
     return none
   let bundle ← mkAppOptM ``CategoryTheory.Cat.of
     #[some type.getAppArgs[0]!, some type.getAppArgs[1]!]
-  let base ← CategoryContext.presented { expression := base, bundle }
+  let base ← match context.expression with
+    | .construct constructor #[.category expression] => do
+      let some row := state.constructor? constructor | return none
+      unless row.signature == #[ConstructorArgKind.category] do return none
+      CategoryContext.presented { expression, bundle }
+    | _ => do
+      -- An accepted atomic category can itself be a full subcategory of Arrow.
+      -- Recover its base by the complete category bundle, including the original
+      -- dictionary; a coinciding carrier cannot select an accepted category.
+      let mut candidates : Array CategoryContext := #[]
+      for row in state.categories do
+        let selected ← withoutModifyingState do
+          let accepted ← instantiateFresh row.declaration
+          unless ← withoutModifyingState (withTransparency .all <| isDefEq accepted bundle) do
+            CategoryContext.exposeStructureParameters accepted
+          unless ← withTransparency .all <| isDefEq accepted bundle do return none
+          let accepted ← instantiateMVars accepted
+          if accepted.hasMVar || accepted.hasLevelMVar then return none
+          return some ({ expression := row.expression, bundle := accepted } : CategoryContext)
+        if let some selected := selected then candidates := candidates.push selected
+      let #[selected] := candidates
+        | if candidates.isEmpty then return none
+          else throwSemanticAmbiguity "the complete Arrow base has several accepted category presentations"
+      pure selected
   let #[arrowConstructor] := state.constructors.filter
       (·.semantics == `CasCatalogue.Constructors.arrow)
     | throwSemanticAmbiguity "the accepted Arrow constructor is absent or ambiguous"

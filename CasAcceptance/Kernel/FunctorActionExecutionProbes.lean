@@ -285,12 +285,14 @@ run_elab do
   let harness := { harness with demandObjectActions := true }
   try
     let first ← executeObjectEdge harness trace (.functor entry.id) action source
-    let selected ← CellAction.select cell #[] #[] false source.value
-    let (domain, codomain) ← CellAction.objects selected source.value
-    let formal ← CellAction.component selected source.value
-    Trace.record (some trace) domain (.cellEndpoint cell.id #[] #[] false false source.value)
-    Trace.record (some trace) codomain (.cellEndpoint cell.id #[] #[] false true source.value)
-    Trace.record (some trace) formal (.cellComponent cell.id #[] #[] false source.value)
+    let some sourceContext := source.categoryContext
+      | throwError "the original source lost its complete category"
+    let receiverValue ← (objectInContext source.value sourceContext).run { trace := some trace }
+    let .ok receiverSyntax := Parser.runParserCategory (← getEnv) `cas_term "originalSource"
+      | throwError "the original component source did not parse"
+    let selected ← (Language.selectedCell {} cell.id.raw #[] receiverSyntax #[] false).run
+      { trace := some trace, bound := [(`originalSource, receiverValue)] }
+    let (formal, _, _, _, _, _) ← (morphismContext selected).run {}
     let descriptor ← realize harness trace "the registered original source callable" formal
     let original ← realizeArrowObservation harness trace descriptor
     let some owner := original.owner? | throwError "the source callable did not retain its actual owner"
@@ -347,6 +349,7 @@ run_elab do
     form := .canonicalMorphism modules
     payload := .ordinary formal (dataNode "identity" #[sourceWire.json, sourceWire.json])
     categoryContext := some context }
+  let original ← retainCallableEndpoints original sourceWire sourceWire context
   let (harness, calls) ← harnessFor entry #["--opaque-objects", "--bare-maps"]
   try
     let image ← executeObjectEdge harness trace (.functor entry.id) action sourceWire

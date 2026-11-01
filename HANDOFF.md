@@ -18,7 +18,7 @@ remain outside the repository. Continue `work/kernel-v1-20261023` and draft PR #
 The owner requires this existing execution container and GitHub; no Jupyter or
 separate execution environment was launched.
 
-Publication recovered through the GitHub tree/commit/ref operations. Published
+The earlier recovery publication used GitHub tree/commit/ref operations. Published
 `ca9b82037d0b1a65f6050b4a1e330734db9ec305` has exactly the verified local
 `7282fa94f4dce3c0a10cc75f4014141f93115793` tree
 `97994cfc9c6b767b2116adf25bf5953292eb6398`. GitHub commit/ref readback and native
@@ -26,7 +26,9 @@ fetch agree. The local branch was aligned only after exact tree equality, with a
 recovery branch and byte-identical preservation of every remaining working change.
 Native `git push` still reports `could not read Username for 'https://github.com':
 terminal prompts disabled`; it is no longer a publication blocker because the
-connected GitHub write path works. No branch was forced, merged or deployed.
+connected GitHub write path works. No branch was forced, merged or deployed. The subsequent reader/controller
+checkpoint is published at `d5cfcae279fdadc096169eac21b6bb9e54fae1ce`; GitHub
+ref readback and native fetch agree. The runtime changes below follow that source.
 
 The selected environment remains mathematics `fc6d3d69`, contract `f0431beb`,
 notebook `f3e73ed4`, Lean 4.33.0, and the recorded Sage/passagemath and GAP engines.
@@ -86,7 +88,8 @@ All these runs kept their guarded inputs unchanged.
 
 The original differential assertion and all its preceding bindings pass at the
 claim-reading boundary (30.958 seconds); this is not yet a full QuestionProbes pass.
-Full QuestionProbes requires the next fresh Realize build. Bounded failure diagnostics
+The focused Realize build now passes; a fresh full QuestionProbes result remains
+required. Bounded failure diagnostics
 are opt-in, preserve all caps, and do not change successful reading. One source-path
 observer timed out without a payload; that failed diagnostic is retained separately.
 The successful raw observer used a separate bounded post-failure scope and rethrew
@@ -94,27 +97,63 @@ the original ambiguity. Only the later unchanged whole-module run is a reader pa
 
 ### Remaining execution, publication and acceptance work
 
-The working tree also retains reviewed execution and engineering-fixture repairs
-for complete callable endpoints, original raw graph inputs, canonical action reuse,
-structured receiver prerequisite completion, original supplier liveness, and legacy
-operand closure. Their RuntimeSupport/Realize build and complete original runtime
-controls are still **unrun** at this checkpoint. Preserve those unpublished edits;
-do not count the reader results as their validation. Original mathematical assertions
-and full construction packets, indexes, endpoint occurrences and owner checks remain
-required. The full 70-target consumer set, native tools and axiom audit must run again
-on the final unchanged code.
+This runtime checkpoint retains complete callable endpoint occurrences, original
+construction packets and raw graph inputs, canonical action receipts, structured
+receiver prerequisites, supplier liveness and closed operand dependencies. Later
+lift and factor stages use checked context views of their original complete
+objects and maps. Changed prepared-product packets receive a fresh producer from
+the validated child template, retaining the original whole point and exact child
+occurrences. Original mathematical assertions and resource budgets remain fixed.
 
-The original RX-LIFT computation remains **unresolved**. Its last complete original
-first-question measurement (local `7282fa9`, original frozen `a1d72cfa`) reaches
-`lift.bilin_module.restrict#obj` at dispatch 21 and reports `ValueError: element's
-complete scalar target differs from the complete selected descriptor`. It used all
-22 bindings, six imports, one original shared session and the original 200000 budget
-(198062134 raw ticks total); no passing mathematical result was obtained. Later
-public-request replay also returns that same error with independently authored public
-contract checkpoints through local leaf `4cba1f3`. Replay and leaf self-checks are not
-acceptance evidence. Root has not read leaf implementation or tests; those authors
-received only the public contract and their own source. Their full-history bundles
-are preserved, and publication remains separate from mathematical acceptance.
+The native build of `CasCatalogue.Realize`, the original
+`CompositeLiftProbes` and `ProductComparisonActionsProbes`, and the additive
+`PreparedProductProducerPreservationProbes` passes: exit 0, 138.814 seconds.
+The additive control exercises both array and typed-map/mediator layouts, current
+assemblies and endpoints, and later service consumption at the exact child
+positions. Receipt `factor-context-runtime-and-controls.json` records unchanged
+inputs at Realize `dd892559`, RuntimeSupport `d45d42b3`, Language `387581c4`.
+
+The complete unchanged `DeferredServiceProbes` and `MixedDataOwnershipProbes`
+also pass as native direct consumers: exit 0 in 15.613 and 8.908 seconds,
+respectively, with no errors. All 45 guarded source, artifact, setup and script
+paths remain unchanged (`original-service-controls-current-1.json`). These
+results justify no migration of those original fixtures. The checkpoint's static
+no-leaf boundary, permanent-acceptance preservation and reuse-record checks pass, as do the
+two Python test methods for existing-environment preparation. Preparation checks
+selection and source stability and archives old receipts; fresh gates still own
+their results (`runtime-checkpoint-static-controls.json`).
+
+Two `Language.recognize` occurrence defects remain open. The non-Sets multiple-view
+and common-full-source branches attempt a distinct parameter-equivalence producer
+at an already owned trace key. Both are reproduced with accepted interfaces on
+unchanged Language `387581c4` (exit 1, 6.357 seconds;
+`language-occurrence-current-1.json`). A guarded patch proposes exact-record reuse,
+a fresh producer for a distinct record, and preservation of an unrecorded
+self-record. It is not applied or compiled in this checkpoint. The strict trace
+validator, early alias path and separate fixed-parameter branch remain unchanged.
+
+The original RX-LIFT computation remains **unresolved**. The latest complete first
+question run uses public leaf candidate `b33961bfe7df`, all 22 preceding bindings,
+six imports, the original shared session and the original 200000 heartbeat budget.
+It stops at dispatch 21, `lift.bilin_module.restrict#obj`, with `ValueError:
+element's complete scalar target differs from the complete selected descriptor`.
+It uses 197272967 raw ticks (68439716 preparation, 128833078 execution), leaving
+2727033 before the unfinished lift and assertion. Receipt
+`rx-lift-b339-first-measurement.json` guards Realize `df456b52`, RuntimeSupport
+`d45d42b3` and Language `387581c4`; it precedes the later factor-context change.
+Its process exit 0 records diagnostic completion, not a passing assertion.
+
+The public packet audit finds no change to the 21 dispatches modulo fresh opaque
+tokens, and the retained Hom, whole-function, nested-frame and supplier checks
+pass. Opaque implementation contents remain outside that audit. The existing
+profile suggests repeated action-recipe observation before completed-action reuse
+as a measurement candidate; it does not establish a measured saving or actual
+budget exhaustion. No kernel contributor inspected leaf implementation or self-tests, and no
+downstream result was supplied to the independent leaf author.
+
+These are focused engineering results. The full 70-target consumer set, native
+tools and axiom audit must run on the final unchanged published tuple. Original
+RX-LIFT, subsequent mathematical use and independent acceptance remain required.
 
 Publication triggered Controller source checks run `41327044410`. The unchanged
 `custodian/test_execution.py:42` failed because its closed container remained
@@ -3275,24 +3314,20 @@ Deliver the working system and its runnable examples, not another assessment or 
 
 ## Noticed, not worked
 
-- DeferredServiceProbes and MixedDataOwnershipProbes still manually set legacy
-  `callableObserved` fields in their later assembled-map fixtures; the constant
-  type correction does not migrate those fields to public callable capture.
-- `retainPreparedOperationArgument` changes a pending product point's payload when
-  `framed = none` and the supplied data differ, but does not attach the validated
-  supplied template or refresh the old assembly. The product reconstruction is
-  its sole caller without a complete framed Wire. This static retention defect
-  still needs its own focused reproduction; it is distinct from the current
-  producer-51 failure, whose original value assembly remains current.
-- `recognize`'s non-Sets multiple-view and common-full-source branches can still attach
-  parameter-equivalence records to already owned keys. They remain unchanged; a repair must
-  preserve exact-record idempotence, unrecorded self-record behavior and original source/action
-  children. The integer-coordinate collision exercises the separate fixed-parameter branch.
-- Current focused controls retain visible failures in named-presentation data/action capture,
-  inventory endpoint receipts, whole-function nonidentity restaging and reader producer-key
-  collisions, as recorded above. Their failures are not accepted or hidden by passing family,
-  source-binding and intrinsic-occurrence controls; repair them when the required construction
-  or its preservation depends on those paths.
+- The original DeferredServiceProbes and MixedDataOwnershipProbes now pass unchanged
+  on the current runtime, as recorded above. Their legacy fixture fields alone
+  justify no migration; preserve the original controls.
+- The prepared-product producer defect is reproduced and repaired. The changed
+  packet retains its validated template as a fresh intrinsic producer, complete
+  normalized endpoints and original child dependencies. Both layouts and later
+  service consumption pass the additive native control recorded above.
+- `recognize`'s non-Sets multiple-view and common-full-source producer-key failures
+  are reproduced. The guarded occurrence proposal remains unapplied and uncompiled;
+  its exact source and reproduction are recorded in the current checkpoint above.
+  The integer-coordinate collision exercises the separate fixed-parameter branch.
+- Earlier focused failures remain evidence at their recorded source revisions.
+  Read the current checkpoint above for the newer product, composite and service
+  results; these passes do not establish the remaining consumers or acceptance.
 - `operationProductRow` still rejects creation-lift resolutions, and
   `operationProductCone` requires the selected apex to be definitionally the
   operation's literal `Prod` domain. The supplied direct Sets cone satisfies

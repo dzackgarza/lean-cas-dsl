@@ -168,6 +168,147 @@ def prepare(root, runtime, baseline):
     print(json.dumps({'prepared': initial, 'packages': str(runtime / 'packages.json')}), flush=True)
 
 
+def existing_wrapper_selection(root, overrides_path, wrapper):
+    """Accept the two emitted wrapper forms, with their exact source selection."""
+    lines = [line.strip() for line in wrapper.read_text().splitlines()
+             if line.strip() and not line.lstrip().startswith('#')]
+    if len(lines) not in {3, 4} or lines[0] != 'set -euo pipefail':
+        raise SystemExit('Existing Lake wrapper is not a supported source-bound wrapper')
+    prefix = None
+    if len(lines) == 4:
+        line = lines[1]
+        if not line.startswith('export PATH=') or not line.endswith(':"$PATH"'):
+            raise SystemExit('Existing Lake wrapper has an unsupported PATH declaration')
+        parts = shlex.split(line[len('export PATH='):-len(':"$PATH"')])
+        if len(parts) != 1 or ':' in parts[0] or not Path(parts[0]).is_absolute() \
+                or not Path(parts[0]).is_dir() \
+                or line != 'export PATH=' + shlex.quote(parts[0]) + ':"$PATH"':
+            raise SystemExit('Existing Lake wrapper must select a literal installed toolchain path')
+        prefix = parts[0]
+    command = shlex.split(lines[-1])
+    if len(command) != 4 or command[0] != 'exec' or Path(command[1]).name != 'lake' \
+            or not (command[1] == 'lake' or Path(command[1]).is_absolute()):
+        raise SystemExit('Existing Lake wrapper must invoke the selected Lake directly')
+    expected = 'exec ' + shlex.quote(command[1]) + ' --packages=' + \
+        shlex.quote(str(overrides_path)) + ' "$@"'
+    if lines[-2] != 'cd -- ' + shlex.quote(str(root)) or lines[-1] != expected:
+        raise SystemExit('Existing Lake wrapper selects a different checkout or package overrides')
+    return {'root': str(root), 'overrides': str(overrides_path),
+            'lake': command[1], 'pathPrefix': prefix}
+
+
+def prepare_existing(root, runtime, baseline):
+    """Bind a fresh verification run to the already installed exact source tuple.
+
+    Validation precedes archival. No dependency, build product, wrapper or engine
+    is replaced, and no previous stage receipt is reused for this candidate.
+    """
+    manifest_path = root / 'lake-manifest.json'
+    overrides_path = runtime / 'packages.json'
+    wrapper = runtime / 'lake.sh'
+    initial = {'kernel': state(root)}
+    if initial['kernel']['workingTree']:
+        raise SystemExit('Candidate checkout is not clean')
+    configuration = {
+        'manifest': record(manifest_path), 'toolchain': record(root / 'lean-toolchain'),
+        'overrides': record(overrides_path), 'helper': record(__file__),
+        'wrapper': record(wrapper), 'githubRun': os.environ.get('GITHUB_RUN_ID'),
+        'githubAttempt': os.environ.get('GITHUB_RUN_ATTEMPT'),
+        'preparation': 'Existing installed runtime; all stages require fresh execution'}
+    manifest = json.loads(manifest_path.read_text())
+    overrides = json.loads(overrides_path.read_text())
+    changed = git(root, 'diff', '--name-status', baseline, 'HEAD', '--',
+                  'tests/acceptance', 'CasAcceptance/Permanent')
+    if changed:
+        raise SystemExit('Protected assertions or their independent input records changed:\n' + changed)
+    if overrides.get('schemaVersion') != '1.2.0':
+        raise SystemExit('Existing overrides have an unsupported schema')
+    rows, selected = manifest['packages'], overrides['packages']
+    names = [row['name'] for row in rows]
+    selected_names = [row['name'] for row in selected]
+    if len(set(names)) != len(names) or len(set(selected_names)) != len(selected_names) \
+            or set(names) != set(selected_names):
+        raise SystemExit('Existing overrides must select every committed package exactly once')
+    by_name = {row['name']: row for row in selected}
+    aliases = {'lean_categories': 'mathematics', 'cas_leaf_contracts': 'contract',
+               'mathlib': 'mathlib', '«nbdsl-worker»': 'notebook'}
+    roots = {'kernel': str(root)}
+    for row in rows:
+        name, revision = row['name'], row['rev']
+        if row['type'] != 'git' or Path(name).name != name or name in {'.', '..'} \
+                or not re.fullmatch('[0-9a-f]{40}', revision):
+            raise SystemExit('Manifest must select safe package names and exact Git commits')
+        override = by_name[name]
+        fields = ['inherited', 'scope', 'configFile', 'manifestFile']
+        expected = {'name': name, 'dir': override.get('dir'), 'type': 'path',
+                    **{key: row[key] for key in fields}}
+        if override != expected or not isinstance(override['dir'], str):
+            raise SystemExit('Existing override differs from its committed declaration: ' + name)
+        directory = Path(override['dir'])
+        if not directory.is_absolute():
+            raise SystemExit('Existing package directories must be absolute: ' + name)
+        directory = directory.resolve(strict=True)
+        repository = Path(git(directory, 'rev-parse', '--show-toplevel')).resolve()
+        subdir = Path(row.get('subDir') or '.')
+        if subdir.is_absolute() or '..' in subdir.parts \
+                or (repository / subdir).resolve() != directory:
+            raise SystemExit('Existing package differs from its committed subdirectory: ' + name)
+        for key in ['configFile', 'manifestFile']:
+            relative = Path(row[key])
+            if relative.is_absolute() or '..' in relative.parts:
+                raise SystemExit('Selected package file escapes its directory: ' + name)
+            if not (directory / relative).is_file():
+                raise SystemExit('Selected package file is absent: ' + name + '/' + str(relative))
+        current = state(repository)
+        if current['commit'] != revision or current['workingTree']:
+            raise SystemExit('Existing dependency is dirty or differs from its committed revision: ' + name)
+        owner = aliases.get(name, 'dependency:' + name)
+        if owner in roots:
+            raise SystemExit('Selected source names are not unique: ' + owner)
+        roots[owner], initial[owner] = str(repository), current
+    evidence = runtime / 'evidence'
+    if any(evidence.resolve().is_relative_to(Path(path)) for path in roots.values()):
+        raise SystemExit('Verification evidence must be outside every selected source checkout')
+    selection = existing_wrapper_selection(root, overrides_path, wrapper)
+    toolchain = (root / 'lean-toolchain').read_text().strip()
+    selected_version = re.fullmatch(r'leanprover/lean4:v([0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.]+)?)', toolchain)
+    if not selected_version:
+        raise SystemExit('Reuse preparation requires an exact Lean release toolchain')
+    versions = {}
+    for name, arguments in [('lean', ['env', 'lean', '--version']), ('lake', ['env', 'lake', '--version'])]:
+        output = subprocess.check_output(['bash', str(wrapper), *arguments], cwd=root, text=True).strip()
+        if not re.search(r'(?:Lean|version) (?:version )?' + re.escape(selected_version[1]) +
+                         r'(?=[,\s)])', output):
+            raise SystemExit('Installed ' + name + ' does not match lean-toolchain: ' + output)
+        versions[name] = output
+    if any(state(Path(path)) != initial[name] for name, path in roots.items()) \
+            or any(record(configuration[name]['path']) != configuration[name]
+                   for name in ['manifest', 'toolchain', 'overrides', 'helper', 'wrapper']):
+        raise SystemExit('Selected source or configuration changed during reuse preparation')
+    archive = runtime / 'evidence-archive' / (stamp().replace(':', '-') + '-' + str(time.time_ns()))
+    preserved = [path for path in [evidence, runtime / 'cache-extraction-originals'] if path.exists()]
+    if preserved:
+        archive.mkdir(parents=True)
+        for path in preserved:
+            path.rename(archive / path.name)
+    evidence.mkdir(parents=True)
+    write(evidence / 'protected-inputs.json', {
+        'baseline': git(root, 'rev-parse', baseline), 'changed': changed,
+        'scope': ['tests/acceptance', 'CasAcceptance/Permanent'],
+        'meaning': 'Preservation check against the received V1 checkpoint; no admission or migration'})
+    write(evidence / 'source-roots.json', roots)
+    write(evidence / 'source-tuple-before.json', initial)
+    write(evidence / 'configuration.json', configuration)
+    write(evidence / 'reuse-preparation.json', {
+        'preparedUtc': stamp(), 'versions': versions, 'wrapperSelection': selection,
+        'archivedEvidence': str(archive) if preserved else None,
+        'preservedRuntime': str(runtime), 'sourceTuple': initial})
+    shutil.copyfile(overrides_path, evidence / 'packages.json')
+    shutil.copyfile(wrapper, evidence / 'lake.sh')
+    print(json.dumps({'prepared': initial, 'packages': str(overrides_path),
+                      'archivedEvidence': str(archive) if preserved else None}), flush=True)
+
+
 def run(root, runtime, name, command):
     evidence = runtime / 'evidence'
     log = evidence / (name + '.log')
@@ -945,6 +1086,8 @@ def main():
     commands = parser.add_subparsers(dest='phase', required=True)
     preparation = commands.add_parser('prepare')
     preparation.add_argument('--protected-base', required=True)
+    preparation.add_argument('--reuse-existing', action='store_true',
+                             help='validate and preserve the installed runtime; archive prior evidence')
     commands.add_parser('cache')
     execution = commands.add_parser('run')
     execution.add_argument('--name', required=True)
@@ -967,7 +1110,10 @@ def main():
     args = parser.parse_args()
     root, runtime = args.root.resolve(), args.runtime.resolve()
     if args.phase == 'prepare':
-        prepare(root, runtime, args.protected_base)
+        if args.reuse_existing:
+            prepare_existing(root, runtime, args.protected_base)
+        else:
+            prepare(root, runtime, args.protected_base)
     elif args.phase == 'cache':
         cache(root, runtime)
     elif args.phase == 'run':

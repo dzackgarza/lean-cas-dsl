@@ -2,6 +2,7 @@ module
 
 public import CasAcceptance.Kernel.BinderReaderProbes
 public import CasAcceptance.Kernel.AdmissionBoundaryProbes
+public import CasAcceptance.Kernel.RoutedStructuredReceiverAdmissionProbes
 public import CasAcceptance.Kernel.ApexReceiverContextProbes
 public import CasAcceptance.Kernel.AnonymousApexProbes
 public import CasAcceptance.Kernel.ConstrainedPointProbes
@@ -28,6 +29,7 @@ public import CasAcceptance.Kernel.RecordProjectionBoundaryProbes
 public import CasAcceptance.Kernel.ObjectPresentationProbes
 public import CasAcceptance.Kernel.ProductPointFramingProbes
 public import CasAcceptance.Kernel.ProductComparisonActionsProbes
+public import CasAcceptance.Kernel.PreparedProductProducerPreservationProbes
 public import CasAcceptance.Kernel.ComputedPointFramingProbes
 public import CasAcceptance.Kernel.ContextualNumeralOwnerProbes
 public import CasAcceptance.Kernel.ForwardNumeralIndependentOwnerProbes

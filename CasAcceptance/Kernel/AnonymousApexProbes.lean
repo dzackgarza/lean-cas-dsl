@@ -2,9 +2,11 @@
 module
 
 import CasCatalogue.Realize
+import CasAcceptance.Kernel.ProtocolFixtureData
 import LeanCategories.Catalogue.Semantics.Limits.Registration
 import LeanCategories.Catalogue.Semantics.Limits.Lifts
 meta import CasCatalogue.Realize
+meta import CasAcceptance.Kernel.ProtocolFixtureData
 meta import LeanCategories.Catalogue.Semantics.Limits.Registration
 meta import LeanCategories.Catalogue.Semantics.Limits.Lifts
 
@@ -92,5 +94,57 @@ run_elab do
   let sourceData := node "cospan" #[sourceArrow, sourceArrow]
   let packet := node "createdCone" #[toJson LiftId.finiteSetsPullbacks.raw, sourceData, answer]
   let complete := node "constructionApex" #[toJson pullback.id.raw, sourceData, packet]
-  for parentOwner in #[none, owner] do
-    check sourceApex (.createdApex pullback finite.category) complete actualApex parentOwner none
+  let some creation := state.lifts.find? (·.id == LiftId.finiteSetsPullbacks)
+    | throwError "the original creating action is unavailable"
+  let action ← Semantic.asFunctor (← Semantic.edgeFunctor state creation.edge)
+  let expectedImage ← Semantic.objOf action sourceApex
+  let action ← instantiateMVars action
+  let some targetCategory := state.categories.find? (·.id == pullback.category)
+    | throwError "the original creating action lost its target category"
+  let expectedContext ← CategoryContext.ofNamed targetCategory expectedImage
+  let operation := match creation.edge with
+    | .functor id => id.raw
+    | edge => edgeActionAddress edge
+  let inputAddress ← match creation.edge with
+    | .functor id =>
+      let some entry := state.functor? id
+        | throwError "the original creating functor is unavailable"
+      pure entry.inputAddress
+    | edge => pure (edgeActionInputAddress edge)
+  CasAcceptance.Kernel.ProtocolFixtureData.withData "anonymous-image-fixture" operation actualApex
+    (fun harness returned _ => do
+      unless harness.rejected.isEmpty && harness.admitted.size == 1 do
+        throwError "the original creating action's complete request was not admitted"
+      for parentOwner in #[none, owner] do
+        let payload := match parentOwner with
+          | none => Realize.WirePayload.computed sourceApex (.inline complete)
+          | some (backend, session) => .computed sourceApex (.owned backend session complete)
+        let input : Realize.Wire := { form := .createdApex pullback finite.category, payload }
+        let retained ← Realize.computationalApexReceiver trace input
+        unless retained.value == input.value && retained.fragment == input.fragment &&
+            retained.form.id == input.form.id && retained.form.category == input.form.category &&
+            retained.owner? == input.owner? do
+          throwError "created apex receiver changed its original complete source occurrence"
+        unless retained.payload matches .computed .. do
+          throwError "a portable computed apex became ordinary formal input"
+        let actual ← Realize.executeObjectEdge harness trace creation.edge action retained
+        let some actualContext := actual.categoryContext
+          | throwError "the created apex image lost its complete target category"
+        unless actual.value == expectedImage && actual.json == actualApex &&
+            actual.fragment == returned && actual.owner?.isNone &&
+            actual.form.category == pullback.category &&
+            actualContext.expression.syntacticEq expectedContext.expression &&
+            (← withTransparency .all <| isDefEq actualContext.bundle expectedContext.bundle) do
+          throwError "anonymous apex dispatch changed its complete data, formal request or ownership"
+        let receipts := (← harness.actions.get).filter fun receipt =>
+          receipt.operation == operation && receipt.action == action &&
+            receipt.input.value == input.value && receipt.input.fragment == input.fragment
+        let #[receipt] := receipts
+          | throwError "the creating action lost its exact original source packet"
+        unless receipt.input.form.id == input.form.id &&
+            receipt.input.form.category == input.form.category &&
+            receipt.input.owner? == input.owner? && receipt.result.fragment == returned do
+          throwError "the creating action replaced its source occurrence or a supplier"
+        unless actual.payload matches .computed .. do
+          throwError "a portable computed apex became ordinary formal input")
+    #[{ operation, input := inputAddress, backend := "anonymous-image-fixture" }]

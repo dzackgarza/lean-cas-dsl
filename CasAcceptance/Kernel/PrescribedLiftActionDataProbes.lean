@@ -110,6 +110,16 @@ run_elab do
     let baseWire : Realize.Wire := {
       form := .subobject prepared.baseCategory
       payload := Realize.computedPayload base baseData owner }
+    -- Supply the complete source/base dictionaries from the already selected plan.
+    -- Retain these same original Wires, data, suppliers and completion state.
+    let (sourceView, baseView) ← Realize.prescribedLiftViews component sourceWire baseWire
+      sourceWire.fragment baseWire.fragment
+    let some sourceContext := sourceView.categoryContext
+      | throwError "the selected prescribed source lost its complete category"
+    let some baseContext := baseView.categoryContext
+      | throwError "the selected prescribed base lost its complete category"
+    let sourceWire ← Realize.captureDeclaredObjectInput sourceWire sourceContext
+    let baseWire ← Realize.captureDeclaredObjectInput baseWire baseContext
     logInfo "prescribed lift: original positive raw interface"
     let (packet, returnedOwner) ← Realize.executePrescribedLift harness trace prepared
       sourceWire baseWire parameters (some (Realize.realizedEdgeDescriptor harness trace))

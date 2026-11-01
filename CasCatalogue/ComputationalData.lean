@@ -1,6 +1,7 @@
 /- Copyright (c) 2026 Dzack Garza. Released under Apache 2.0 license. -/
 module
 public import CasCatalogue.Semantic
+public import CasCatalogue.DeclaredApplication
 public import CasCatalogue.ObjectPresentation
 public import CasCatalogue.Language
 public import CasCatalogue.OperationAgreement
@@ -2461,14 +2462,6 @@ partial def declarationPorts (declaration : Name) (formal expected : Expr)
     if let .error message := scope.validate (Json.arr args) then return .error message
   let constant ← mkConstWithFreshMVarLevels declaration
   let (fields, infos, conclusion) ← forallMetaTelescopeReducing (← inferType constant)
-  unless ← isDefEq conclusion expected do
-    return .error "the computational descriptor has a different declared result type"
-  let mut ports := #[]
-  for (field, info) in fields.zip infos do
-    let type ← instantiateMVars (← inferType field)
-    if info.isExplicit && !(← isProp type) then ports := ports.push field
-  unless ports.size == args.size do
-    return .error "the computational descriptor omitted or added declaration parameters"
   -- Recover parameter context from the fixed public declaration, never from
   -- computational fields or a replacement canonical construction.
   if let some application := formal.find? fun term =>
@@ -2487,10 +2480,29 @@ partial def declarationPorts (declaration : Name) (formal expected : Expr)
       if parameters.any (fun parameter => parameter.hasMVar || parameter.hasLevelMVar) then
         return none
       return some parameters
+    let recovered ← match recovered with
+      | some parameters => pure (some parameters)
+      | none => do
+        -- The fixed whole value may determine a bundled argument through its
+        -- projections. Reuse the complete checked declaration recovery; no data
+        -- field, named-object search or replacement construction supplies it.
+        let some (application, _) ← DeclaredApplication.complete? declaration formal
+          | pure none
+        pure (some application.getAppArgs)
     if let some parameters := recovered then
+      unless parameters.size == fields.size do
+        return .error "the fixed public declaration changed its complete parameter inventory"
       for (field, parameter) in fields.zip parameters do
         unless ← isDefEq field parameter do
           return .error "the fixed public declaration has inconsistent parameter types"
+  unless ← isDefEq conclusion expected do
+    return .error "the computational descriptor has a different declared result type"
+  let mut ports := #[]
+  for (field, info) in fields.zip infos do
+    let type ← instantiateMVars (← inferType field)
+    if info.isExplicit && !(← isProp type) then ports := ports.push field
+  unless ports.size == args.size do
+    return .error "the computational descriptor omitted or added declaration parameters"
   for index in [:ports.size] do
     let data := args[index]!
     let field ← instantiateMVars ports[index]!
@@ -3248,16 +3260,12 @@ partial def constructionInputs (context : ConstructionInterface) (plan : Structu
     external := external.push (binder.index, data)
   return .ok external
 
-/-- Check every actual returned field at the registered dependent data plan.
-Earlier returned objects determine the computational endpoint representations;
-the independent diagram fixes external endpoint types. No field supplies a law. -/
-partial def validateConstructionData (objects : InterfaceObjects) (context : ConstructionInterface) :
+/-- Validate the whole returned packet at an independently selected port plan
+and its original external binder positions. The caller supplies these positions
+from its retained producer; data never select a construction or a formal field. -/
+partial def validateConstructionPacket (objects : InterfaceObjects)
+    (plan : StructuredResult.DataPlan) (answer : Json) (external : Array (Nat × Json)) :
     TermElabM (Except String Unit) := do
-  let some answer := context.answer | return .ok ()
-  let .ok plan ← StructuredResult.dataPlan context.row context.dataDiagram context.dataPresentation
-    | return .error "the construction has no complete independently fixed data-port schema"
-  let .ok external ← constructionInputs context plan objects
-    | return .error "the construction lost its independent complete input roles"
   let externalDescriptor := fun binder => (external.find? (·.1 == binder)).map (·.2)
   StructuredResult.validatePlannedData plan answer fun port seen data => do
     let actual := (valuePayload data).toOption.getD data
@@ -3281,6 +3289,18 @@ partial def validateConstructionData (objects : InterfaceObjects) (context : Con
           return .error "a construction callable changes a complete fixed diagram endpoint"
       return ← validateEndpointPort port.formalField typed.source typed.target typed.callable retained
     validatePlannedPort plan port seen data externalDescriptor endpointKeys objects
+
+/-- Check every actual returned field at the registered dependent data plan.
+Earlier returned objects determine the computational endpoint representations;
+the independent diagram fixes external endpoint types. No field supplies a law. -/
+partial def validateConstructionData (objects : InterfaceObjects) (context : ConstructionInterface) :
+    TermElabM (Except String Unit) := do
+  let some answer := context.answer | return .ok ()
+  let .ok plan ← StructuredResult.dataPlan context.row context.dataDiagram context.dataPresentation
+    | return .error "the construction has no complete independently fixed data-port schema"
+  let .ok external ← constructionInputs context plan objects
+    | return .error "the construction lost its independent complete input roles"
+  validateConstructionPacket objects plan answer external
 
 /-- A defining-map descriptor is checked as a projection of the entire accepted
 construction interface. Its computational packet is validated but never used to

@@ -82,6 +82,9 @@ run_elab do
     let .ok backwardMap := Backend.TypedMap.decode presentation.backward
       | throwError "the backward action omitted its full declared endpoints"
     let semanticData ← scopedNode "objectProduct" #[semanticWire.fragment, identityChild.fragment]
+    let semanticDomain ← product semanticWire identityChild
+    unless semanticDomain.fragment == semanticData do
+      throwError "the original generalized maps changed their complete semantic domain"
     unless forwardMap.source == semanticData.json && forwardMap.target == original.json &&
         backwardMap.source == original.json && backwardMap.target == semanticData.json do
       throwError "a product direction reused the other direction's endpoint diagram"
@@ -114,6 +117,7 @@ run_elab do
       form := .canonicalMorphism sets,
       payload := (← scopedPayload identity (owned "unchanged generalized callable")),
       categoryContext := some context }
+    let point ← retainCallableEndpoints point semanticDomain semanticDomain context
     let framed ← presentMorphism point normalized normalized (some context)
     let again ← presentMorphism framed normalized normalized (some context)
     unless framed.value == point.value && framed.fragment == again.fragment do
@@ -134,21 +138,87 @@ run_elab do
       form := .canonicalMorphism sets,
       payload := (← scopedPayload semanticLegs.second (owned "original second generalized point")),
       categoryContext := some context }
+    let firstPoint ← retainCallableEndpoints firstPoint semanticDomain semanticWire context
+    let secondPoint ← retainCallableEndpoints secondPoint semanticDomain identityChild context
+    let (firstNormalized, _) ← normalizeOperationProducts harness context #[first] #[]
+    let #[firstNormalized] := firstNormalized | unreachable!
+    -- The new mediator owns a semantic endpoint envelope around each exact
+    -- original whole map, before its new comparison frame is assembled. This
+    -- fresh typed constructor retains the completed raw child; it neither
+    -- clears that child's flags nor claims an unobserved comparison completed.
+    let semanticInput (point source target : Wire) : TermElabM Wire := do
+      let some endpoints ← retainedCallableEndpoints? point context
+        | throwError "the new mediator lost an original whole-map interface"
+      unless sameCompleteWireContext endpoints.1 source &&
+          sameCompleteWireContext endpoints.2 target do
+        throwError "the new mediator replaced an original semantic endpoint"
+      let template : ActionDataTemplate := .ctor "typedMap"
+        #[.wire .retained source, .wire .retained target, .retained (.wire .map point)]
+      let (data, inputs) ← renderCapturedActionData template
+      let result : Wire := {
+        form := point.form, payload := (← combinedRecipePayload point.value data inputs),
+        categoryContext := some context }
+      let result ← retainIntrinsicAssembly result .map context template
+        #[{ context, source, target, callable := point }] #[] (.retained, .retained)
+      retainCallableEndpoints result source target context
+    let firstSemantic ← semanticInput firstPoint semanticDomain semanticWire
+    let secondSemantic ← semanticInput secondPoint semanticDomain identityChild
+    let firstInput ← presentMorphism firstSemantic normalized firstNormalized (some context)
+    let secondInput ← presentMorphism secondSemantic normalized identityChild (some context)
+    unless firstPoint.completedData && secondPoint.completedData &&
+        !firstSemantic.completedData && !secondSemantic.completedData &&
+        !firstInput.completedData && !secondInput.completedData &&
+        firstInput.morphismFraming.any (fun origin =>
+          sameCompleteWireContext origin.input firstSemantic) &&
+        secondInput.morphismFraming.any (fun origin =>
+          sameCompleteWireContext origin.input secondSemantic) do
+      throwError "the pending product frames replaced their original completed maps"
+    for (semantic, original, source, target) in
+        #[(firstSemantic, firstPoint, semanticDomain, semanticWire),
+          (secondSemantic, secondPoint, semanticDomain, identityChild)] do
+      let some selected ← retainedIntrinsicAssembly? semantic .map
+        | throwError "the semantic envelope lost its original typed producer"
+      let .ctor "typedMap" #[.wire .retained selectedSource, .wire .retained selectedTarget,
+          .retained (.wire .map child)] := selected.template
+        | throwError "the semantic envelope changed its exact original child position"
+      let some endpoints ← retainedCallableEndpoints? semantic context
+        | throwError "the semantic envelope lost its original complete endpoints"
+      unless sameCompleteWireContext child original && sameRetainedServiceHandles child original &&
+          sameCompleteWireContext selectedSource source && sameCompleteWireContext selectedTarget target &&
+          sameCompleteWireContext endpoints.1 source && sameCompleteWireContext endpoints.2 target &&
+          selected.endpointRoles == (.retained, .retained) &&
+          (← checkedFragment (semantic.fragment.project #[.field "args", .index 2])) == original.fragment do
+        throwError "the semantic envelope changed an original map, supplier, or endpoint occurrence"
     let fan ← mkAppM ``CategoryTheory.Limits.BinaryFan.mk #[firstPoint.value, secondPoint.value]
     let originalMediator ← mkAppM ``CategoryTheory.Limits.IsLimit.lift
       #[← mkAppM ``CategoryTheory.Limits.LimitCone.isLimit #[semanticLegs.presentation], fan]
-    let originalData ← scopedNode "mediator" #[firstPoint.fragment, secondPoint.fragment]
+    -- This is a new mediator of the two pending frames, with their exact
+    -- original whole-map children retained. It is not a completed packet
+    -- relabeled as an operation recipe.
+    let template := ActionDataTemplate.ctor "mediator"
+      #[.wire .map firstInput, .wire .map secondInput]
+    let (originalData, inputs) ← renderCapturedActionData template
     let mediator : Wire := {
       form := .canonicalMorphism sets,
-      payload := (← combinedPayload originalMediator originalData #[firstPoint, secondPoint]),
+      payload := (← combinedRecipePayload originalMediator originalData inputs),
       categoryContext := some context }
+    let mediator ← retainPointOrigin mediator context normalized normalized
+      (.product semanticLegs.presentation original.value firstInput secondInput
+        #[.field "args", .index 0] #[.field "args", .index 1])
+    let #[firstTarget, secondTarget] := normalized.productComponents
+      | throwError "the current product producer lost its original ordered target context"
+    let mediator ← retainIntrinsicAssembly mediator .map context template
+      #[{ context, source := normalized, target := firstNormalized, callable := firstInput },
+        { context, source := normalized, target := identityChild, callable := secondInput }]
+      #[(normalized, normalized), (normalized, normalized),
+        (firstTarget, firstNormalized), (secondTarget, identityChild)]
     Trace.record (some trace) originalMediator
       (.productMediator sets.id semanticLegs.presentation original.value firstPoint.value secondPoint.value)
     let saved ← harness.results.get
     harness.results.modify fun results => results.insert original.value original
       |>.insert first.value first |>.insert identityChild.value identityChild
       |>.insert firstPoint.value firstPoint |>.insert secondPoint.value secondPoint
-    let prepared ← prepareOperationPointArgument harness trace context mediator original original
+    let prepared ← prepareOperationPointArgument harness trace context mediator normalized normalized
       normalized normalized mediator.fragment #[]
     let .ok actualArgument := Backend.TypedMap.decode prepared.data.json
       | throwError "the generalized argument omitted its normalized complete endpoints"
@@ -187,8 +257,6 @@ run_elab do
         .field "args", .index 0, .field "args", .index 1, .field "args", .index 2])
     unless retainedFirst == firstPoint.fragment do
       throwError "generalized framing changed the original point supplier"
-    let (firstNormalized, _) ← normalizeOperationProducts harness context #[first] #[]
-    let #[firstNormalized] := firstNormalized | unreachable!
     let already ← presentMorphism firstPoint normalized firstNormalized (some context)
     harness.results.modify fun results => results.insert original.value normalized
       |>.insert first.value firstNormalized
@@ -229,7 +297,16 @@ run_elab do
     let snapshot : WireSnapshot := {
       form := oldFrame.form, payload := oldFrame.payload
       presentationIsos := oldFrame.presentationIsos, objectIso := oldFrame.objectIso
+      callableObserved := oldFrame.callableObserved, objectObserved := oldFrame.objectObserved
+      liftExecution := oldFrame.liftExecution, endpointPresentation := oldFrame.endpointPresentation
       categoryContext := oldFrame.categoryContext
+      constructionInputs := oldFrame.constructionInputs
+      constructionInputOwnership := oldFrame.constructionInputOwnership
+      serviceHandles := oldFrame.serviceHandles, serviceInputPaths := oldFrame.serviceInputPaths
+      pointDataInterface := oldFrame.pointDataInterface, productComponents := oldFrame.productComponents
+      actionRecipe := oldFrame.actionRecipe, intrinsicAssembly := oldFrame.intrinsicAssembly
+      capturedInvocation := oldFrame.capturedInvocation, callableEndpoints := oldFrame.callableEndpoints
+      pointOrigin := oldFrame.pointOrigin
       morphismFramed := oldFrame.morphismFramed, morphismFraming := oldFrame.morphismFraming }
     unless sameCompleteWireContext (retainedSnapshotWire snapshot) oldFrame do
       throwError "snapshot retention changed the complete original framing provenance"
@@ -256,8 +333,22 @@ run_elab do
     let plain : Wire := {
       form := .canonicalMorphism sets,
       payload := (← scopedPayload plainIdentity plainData), categoryContext := some context }
-    let unchanged ← prepareOperationPointArgument harness trace context plain identityChild identityChild
-      identityChild identityChild plain.fragment #[]
+    let plain ← retainCallableEndpoints plain identityChild identityChild context
+    -- Completed data keep their own interface. The pending-point entry must
+    -- still refuse this exact input before the complete-map API consumes it.
+    let refused ← try
+      discard <| prepareOperationPointArgument harness trace context plain identityChild identityChild
+        identityChild identityChild plain.fragment #[]
+      pure false
+    catch error => pure (Exception.stratum? error == some .noImplementation)
+    unless refused do throwError "completed map data were reinterpreted as a pending point recipe"
+    let reader : CallablePreparationReader := {
+      observe := fun selected wire => capturePointCallable harness trace wire selected }
+    let frame ← prepareMorphismFrameWith reader context plain identityChild identityChild
+    unless frame.wire.fragment == plain.fragment && Expr.equal frame.wire.value plain.value do
+      throwError "the complete unchanged map acquired different data or a different formal value"
+    let unchanged ← retainPreparedOperationArgument harness context plain plain.fragment
+      (.wire .map plain) frame.actual #[plain, identityChild] (some plain)
     let scope : ServiceScope := {
       harness, trace, known := unchanged.dependencies, references := #[],
       operands := ← IO.mkRef #[], backend := "product-comparison-fixture" }

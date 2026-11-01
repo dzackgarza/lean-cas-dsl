@@ -697,3 +697,70 @@ typed constructor. No additional observation, cache search, selected identity or
 is introduced. These original records and the surviving full-context guard own the preservation
 argument; matching a public packet tag alone supplies no provenance. The production build,
 original numeral scan, existing preservation controls and unchanged runtime remain required.
+
+
+## Complete retained producers at lift and product boundaries (2026-11-01)
+
+The current repairs reuse `CategoryContext`, `framingContext`, the existing
+intrinsic assembly and callable endpoint records, and the already accepted
+product limit. They add no mathematical definition, category instance, functor,
+comparison, universal-property claim, or leaf operation.
+
+An initial map endpoint can lack its declared category context. At that initial
+boundary, `capturedMapEndpoints` uses `captureDeclaredObjectInput` with the map's
+own retained context. It does not replace an already selected context with a
+later caller's alias. Object validity and equality of the complete category
+bundles are checked before attaching the missing declaration.
+
+A later lift can independently select another expression for the same complete
+category bundle. `captureObjectContextView` and `captureMapContextView` form new
+intrinsic producers over the exact original whole children. The original role,
+full dictionary, formal object or Hom, endpoint occurrences, packet, and supplier
+positions are checked first. The old producer records remain on those children;
+current invocation, point-origin, action, and framing receipts are not copied to
+the new views. Endpoint-presentation maps receive checked context views of their
+own. `directLiftInputs` retains these new stage-local object views for both the
+base object and source image. Strict selected-expression checks on stage inputs
+and reply references remain unchanged.
+
+`completeRetainedLiftFactor` applies those same checked context-view constructors
+to each stage's original cone, generalized domain and supplied base map. The mapped
+cone is viewed in the next selected stage's source context before its complete
+callable frame is captured. Full-bundle, formal-map, endpoint and supplier checks
+remain in force; the views retain the original action and children. The existing
+factor fixture now consumes the exact `Trace.recordProduced` handle, matching the
+ordinary Language caller, for execution and reuse. Its original factor, request,
+expiry and foreign-owner assertions are unchanged.
+
+The known endpoint positions in a map's validation scope use that map's complete
+selected context. This local interface binding does not rewrite the endpoint
+Wire. A completed child map is refreshed through its own original context;
+the existing exact endpoint, packet and supplier comparisons must then authorize
+reuse. Thus a caller alias neither creates a duplicate whole-map frame nor
+identifies different complete dictionaries or endpoint occurrences.
+
+Recursive product preparation verifies the original point, ordered factors,
+accepted product presentation, normalized component maps, and complete comparison
+composite before rendering its new packet. The prepared product now receives a
+fresh intrinsic map assembly from that exact validated child template and a
+current receipt for its complete normalized endpoints. The original whole point
+and its invocation/provenance remain explicit dependencies, alongside the exact
+prepared child occurrences. A changed packet cannot retain the old product's
+assembly, point origin or invocation as its current producer. The common retention
+helper rejects such a changed packet unless its caller supplies the new complete
+producer. Array and mediator representations follow this same argument.
+
+At this checkpoint, native Realize, the original CompositeLiftProbes and
+ProductComparisonActionsProbes, and the additive two-layout producer-preservation
+control pass together (138.814 seconds; `factor-context-runtime-and-controls.json`).
+The complete unchanged DeferredServiceProbes and MixedDataOwnershipProbes also
+pass (15.613 and 8.908 seconds; `original-service-controls-current-1.json`). These
+receipts preserve the current source and artifact guards. The separate Language
+occurrence proposal remains unapplied and uncompiled.
+
+These arguments and focused results concern preservation by the kernel's
+composition mechanisms. The latest original RX-LIFT first question still reports
+an unavailable backend scalar-descriptor result at dispatch 21; it supplies no
+passing mathematical result. Full candidate integration, subsequent mathematical
+use and independent assessment remain required; backend data do not certify their
+own mathematical correctness.

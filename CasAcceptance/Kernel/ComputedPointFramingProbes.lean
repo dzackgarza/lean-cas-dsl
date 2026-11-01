@@ -4,6 +4,9 @@ module
 import CasCatalogue.Realize
 import LeanCategories.Catalogue.Semantics
 meta import CasCatalogue.Realize
+
+import CasAcceptance.Kernel.SelectedOwnerFixture
+meta import CasAcceptance.Kernel.SelectedOwnerFixture
 meta import LeanCategories.Catalogue.Semantics
 
 open Lean Meta Elab Term CasCatalogue CasCatalogue.Language CasCatalogue.Realize
@@ -109,17 +112,19 @@ run_elab do
   let root : System.FilePath := (← IO.getEnv "CAS_OWNERSHIP_PROTOCOL_DIR").getD
     ("CasAcceptance" / "Strata" : System.FilePath).toString
   let events ← IO.mkRef #[]
-  let harness ← Harness.ofManifest root {
-    backends := #[{
-      name := "point-forwarding"
-      command := "python3"
-      args := #["probe_owned_callable.py", "--materialize-invocation", selected.operation.raw] }]
-    registrations := #[{
-      operation := selected.operation.raw
-      input := entry.category.raw
-      backend := "point-forwarding" }] }
-  let harness := { harness with dispatches := some events }
+  let program : BackendProgram := {
+    name := "point-forwarding"
+    command := "python3"
+    args := #["probe_owned_callable.py", "--materialize-invocation", selected.operation.raw] }
+  let registration : Registration := {
+    operation := selected.operation.raw
+    input := entry.category.raw
+    backend := program.name }
+  let setup ← CasAcceptance.SelectedOwnerFixture.harness
+    root program registration events entry selected
+  let harness := setup.operationHarness
   try
+    let completedOwner ← CasAcceptance.SelectedOwnerFixture.completeOwner setup trace
     let recipe ← realizeUnobserved harness trace "the original checked point recipe" formal
     let actual ← realizeArrowObservation harness trace recipe
     let some retained := actual.pointDataInterface
@@ -139,6 +144,7 @@ run_elab do
       #[.field "args", .index 2, .field "args", .index 1, .index 0, .index 1])
     unless value == actual.fragment do
       throwError "the forwarded callable lost the actual completed point or its owner"
+    CasAcceptance.SelectedOwnerFixture.checkOwnerReuse setup completedOwner
     logInfo "PASS: operation-equivalence observation retains the completed point role, exact endpoints and live supplier"
   finally
     harness.stop
