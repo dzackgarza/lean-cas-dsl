@@ -1,7 +1,350 @@
 # Contributing
 
 [`specs/architecture.md`](specs/architecture.md) is the contract every contribution conforms to.
-This file says where each kind of contribution goes.
+This file states the behavioural policies for contributions and where each kind of contribution goes.
+
+## Behavioural contribution policies
+
+**Agents may change the means of solving a task, but may not change the obligation
+they are solving.** These policies govern how contributors choose work, conduct
+research, divide responsibilities, interpret evidence, and decide to stop. They
+apply before a substitute task becomes the work order.
+
+They operate within the repository's separation of authors and acceptance
+authority. Repair the implementation and interfaces owned by the assigned role;
+record missing upstream mathematics against the existing obligation without
+authoring or commissioning it downstream. Counterevidence reopens agent-selected
+implementation assumptions, never authorizes candidate output to revise admitted
+mathematics or acceptance assertions.
+
+### Preserve the requested obligation
+
+Researching, decomposing, delegating, implementing, testing, or reporting a task
+must preserve its required outcome, relevant domain, semantic distinctions,
+constraints, and standard of evidence.
+
+An agent may revise its implementation, hypotheses, and order of work. It may not
+replace the requested outcome with an easier example, a local proxy, a different
+context, a supporting artifact, or a weaker acceptance condition.
+
+Difficulty, uncertainty, an inconvenient implementation, and successful
+intermediate checks do not authorize changing the obligation. They determine what
+work remains necessary.
+
+The agent must also avoid adding completion prerequisites that are neither
+requested nor necessary to satisfy the actual task. Necessary consequences of the
+requirements and demonstrated environmental constraints count; preferred
+infrastructure and self-authored plans do not acquire that status merely by being
+written down.
+
+An accurate description of incomplete work does not discharge the remaining
+obligation.
+
+**An agent can report every limitation honestly and still substitute the task
+through its subsequent choices.** Repeatedly saying "this is only an intermediate
+result" does not help if the agent continues producing intermediate results
+without completing their required integration.
+
+"Preserve the obligation" must not mean "maximize it." The authoritative target is
+the actual requested capability and its necessary consequences, not every stronger
+property an agent can imagine.
+
+### 1. Decompose the work without losing the parent obligation
+
+A subtask may be narrower than the requested outcome. Its success claim must
+remain equally narrow.
+
+Choose subordinate work because its result contributes to a necessary subsequent
+step. After it succeeds, perform that step while the work remains authorized and
+feasible.
+
+The agent responsible for the parent task retains responsibility for composition
+and integration. Completion of all delegated components does not establish
+completion of the parent task unless their combined operation satisfies the
+original requirement.
+
+Checkpoints, partial implementations, and handoffs preserve progress; they do not
+transfer away unresolved responsibility or create a requirement for another user
+instruction to continue.
+
+A small implementation slice can be the correct next action. The failure occurs
+when its convenient success condition becomes the effective definition of the
+whole task. For example, "make this reader probe pass" can be a necessary step
+toward correct composition. It cannot become the standing replacement for "make
+selected constructions compose correctly."
+
+The same applies to delegation within the permitted roles. Separately completed
+components can leave the required connection between them absent. The parent
+agent must resolve that connection without crossing authorship or input
+boundaries.
+
+**Required response to a violation:** restore the missing requirement to the
+active work, connect the partial result to its actual consumer, and complete the
+omitted integration. Adding a truthful "remaining work" paragraph is insufficient.
+
+### 2. Research the required responsibility before choosing the implementation boundary
+
+Frame the research question in terms of the capability required by the user's
+workflow. Do not treat the incumbent's modules, helper functions, intermediate
+representations, or accumulated responsibilities as requirements.
+
+Compare existing capabilities, reference implementations, and the incumbent
+against that contract. A reusable component need only own the responsibility
+under consideration; it need not implement the entire application.
+
+Establish the concrete gap requiring bespoke code before assigning that
+responsibility to bespoke code.
+
+Survey the complete required workflow before choosing a local work unit. Resolve
+uncertainties that could invalidate the architecture before investing heavily in
+components that depend on those assumptions.
+
+For lean-cas-dsl, searching for a library that implements the current reader's
+entire combination of registry lookup, provenance recovery, endpoint recognition,
+and runtime ownership already accepts that combination as the correct
+responsibility. The more useful questions concern the constituent obligations:
+dependent term formation, binding and substitution, typed composition,
+preservation of selected constructions, and reuse of actual results.
+
+Long-horizon planning means examining what happens to a construction **through
+its required downstream uses**, before committing to a representation that only
+handles its initial formation.
+
+The relevant cost includes the consumers, repeated reconstruction, future repairs
+within the required feature set, and verification burden. The smallest immediate
+diff does not necessarily minimize that cost.
+
+**Required response to a violation:** reformulate the question around the
+required capability, inspect the relevant existing implementations, and perform
+the smallest meaningful experiment that resolves the consequential uncertainty.
+
+This does not require an exhaustive literature survey or a predetermined rewrite.
+Research should support an engineering decision and then lead into implementation.
+
+### 3. Preserve established information and repair the boundary that loses it
+
+Before introducing inference, retries, metadata searches, duplicated state, or
+repair logic, determine whether the required information was already established
+earlier in the workflow.
+
+If a project-owned boundary discarded information needed by a required consumer,
+repair that boundary and its consumers so they preserve the established value,
+choice, relationship, or dependency.
+
+Do not treat successful reconstruction as equivalent to preservation of the
+original selection or result.
+
+When a defect exposes a shared invariant, investigate all affected paths within
+the required scope. The currently failing example does not define the scope of
+the invariant.
+
+**A representation can have every field populated and still discard the selected
+identity or relationship that downstream computation needs.** Investigate where
+the information was lost before deciding that the missing information needs an
+inference mechanism.
+
+Ask where the selected construction's endpoints, dependencies, owners, and
+actual results cease to determine subsequent computation. Adding another
+recognizer at the point of failure can make the example work while preserving
+the cause of the next failure.
+
+Once several branches are known to implement the same broken
+producer-preservation rule, "only one currently has a reproduction" identifies
+unfinished investigative work. It does not establish that the other branches
+are outside the obligation.
+
+**Required response to a violation:** correct the responsible producer or
+interface within the assigned layer, cover the actual affected consumers, and
+verify the original chain of use.
+
+The scope remains bounded by the real requirement. This does not demand
+retaining irrelevant information, protecting hypothetical future consumers, or
+changing unrelated code. An abstraction can omit information when the required
+downstream uses do not need it, or when it remains available through an explicit
+reference.
+
+### 4. Contrary evidence must reopen the responsible implementation decision
+
+Treat agent-selected architectures, plans, estimates, and explanations as
+revisable hypotheses.
+
+A decision record does not establish the truth of its premises. When evidence
+contradicts a premise required by the chosen design, investigate and revise that
+premise before extending mechanisms that depend on it.
+
+Validation must be allowed to establish that the chosen implementation is
+unsuitable. Do not restrict it to confirming the choice while excluding the
+requirement that justified choosing it.
+
+Preserve the user's requirements while reconsidering the means chosen to satisfy
+them.
+
+Do not turn "test whether this representation is sufficient" into "this
+representation is settled; every subsequent failure must be repaired within it."
+
+Distinguish a local implementation defect from evidence against an architectural
+assumption. A typo does not require reopening the architecture. A required
+consumer repeatedly needing information that the completed representation was
+supposed to preserve bears directly on that representation's adequacy.
+
+Recognizing that machinery should be eliminated must not regress into improving
+or centralizing that machinery while retaining the cause of its existence.
+
+**Required response to a violation:** identify the smallest responsible
+assumption, inspect or exercise the boundary that can settle it, and revise the
+implementation accordingly. Update the plan to reflect the result.
+
+This does not introduce periodic architecture ceremonies or automatic rewrite
+thresholds. The trigger is relevant contradictory evidence.
+
+### 5. Evidence must establish the property being claimed
+
+Evaluate evidence against the original obligation before accepting a success
+claim.
+
+A test must not manually supply the state, relationship, execution, or lifecycle
+whose establishment it claims to verify.
+
+Helper correctness, copied identifiers, successful typechecking, an API call,
+and a green status establish only the properties they actually exercise.
+
+When the task requires transferring a responsibility, verify that the receiving
+component performs that responsibility and that the superseded implementation
+no longer performs it for the transferred use.
+
+Ask: **Could this evidence remain unchanged if the required capability were
+absent?**
+
+If fabricated owner tags are copied successfully even when no real supplier
+session exists, that evidence does not establish preservation of actual
+supplier-owned data.
+
+If the reader still performs ordinary argument construction and instance
+synthesis, calling Lean's elaborator afterward does not by itself establish that
+the responsibility has moved to Lean.
+
+If a proposition is proved without invoking the required computational
+implementation, that proof does not establish the requested execution.
+
+These are different failures because the original obligations differ. Preserve
+that specificity; do not impose one universal testing ritual on every task.
+
+**Required response to a violation:** exercise or inspect the missing capability
+at the relevant boundary and obtain evidence for the actual claim. A test can
+legitimately establish unrelated setup state; it cannot supply the very property
+whose establishment is under examination.
+
+Where the requested change concerns architecture, source inspection and
+responsibility tracing may be necessary alongside behavioural tests. A few
+successful outputs cannot establish that a prohibited reconstruction path has
+been removed.
+
+Engineering checks establish their stated engineering properties. Mathematical
+correctness and acceptance remain governed by the permanent, independently
+authored acceptance suite and its authority; this policy does not turn source
+inspection, a kernel probe, or a leaf's claim into mathematical acceptance.
+
+### 6. Verify decision-critical inherited claims against primary evidence
+
+A statement in an agent report, issue, review, handoff, or generated document is
+a claim, not independent verification.
+
+Before using such a claim to determine scope, architecture, ownership, or
+acceptance, inspect the primary evidence supporting that decision at the relevant
+source state, using the inputs permitted to the assigned role.
+
+Reuse previously verified evidence when its assumptions and source state remain
+applicable. Cross-references provide access to evidence; they do not create
+corroboration.
+
+When a decision-critical claim is falsified, reconsider the decisions that
+depended on it, not merely the sentence containing the error.
+
+This applies to claims about behaviour, architecture, requirements, and completed
+verification, as well as dependency names, namespaces, API shapes, and
+conventions. Check the implementation before using an assertion about it to
+decide what to build, omit, or accept.
+
+**Required response to a violation:** remove the unsupported premise from the
+active decision, inspect the relevant implementation or evidence, and reconsider
+the choices whose justification depended on it.
+
+This does not require reproducing every inherited experiment. It targets claims
+that materially determine what the agent builds, omits, or accepts. The objective
+is reliable decisions, not repeated verification for its own sake.
+
+### 7. Supporting work must return to the substantive task
+
+Supporting work is justified by an actual dependency of the requested outcome.
+
+Once that dependency is sufficiently satisfied, use the resulting capability and
+resume the substantive task.
+
+Do not promote desirable properties of tooling, infrastructure, research,
+documentation, or verification into new completion requirements.
+
+When an engineering choice has been delegated, resolve the uncertainty through
+investigation and engineering. Do not convert it into a request for approval
+merely because the choice is consequential or unfamiliar.
+
+Before declaring work blocked, establish the specific unavailable input, denied
+operation, or user-owned decision that prevents it. Continue work that does not
+depend on that obstacle.
+
+Obtaining sufficiently useful local compilation and runtime feedback should
+cause the agent to resume implementation. Persistence across replacement of the
+environment is a separate property. It cannot become a prerequisite without an
+actual requirement or demonstrated blocking failure.
+
+During an implementation assignment, discovering and describing the remaining
+engineering work does not release the agent from doing it. A completed research
+report can satisfy a research assignment; it cannot satisfy the implementation
+assignment that the research was meant to support.
+
+**Required response to a violation:** remove the invented prerequisite, use the
+adequate available mechanism, and perform the next necessary substantive step.
+Actual permissions, role boundaries, and independent acceptance operations
+remain binding.
+
+### Establish which choices are user requirements
+
+Preserve actual user requirements and source-backed product contracts. Do not
+infer that an internal mechanism is user-mandated merely because it is unusual,
+specific, documented, or already implemented. Distinguish required behaviour
+from the agent-selected means of producing it. Investigate uncertain provenance
+without removing required behaviour.
+
+**The shape of an implementation does not establish who required it.** Protect
+the user's features and constraints while scrutinizing the architecture agents
+invented around them.
+
+### Apply approval requirements to the active assignment
+
+A review-only assignment does not authorize implementation. An implementation
+assignment retains the authorization already granted. Loading a review skill,
+finding an architectural defect, or revising an agent-authored plan does not
+create a new approval requirement for work within that authorization. Interpret
+"continue" in the context of the active assignment.
+
+Do not turn an analysis safeguard into a transfer of delegated engineering work
+back to the user.
+
+### Apply the policies through the next substantive action
+
+| Situation | Required next action |
+| --- | --- |
+| One branch passes, but adjacent branches share the broken invariant | Investigate and complete the affected invariant. |
+| No dependency matches the entire incumbent design | Compare the constituent responsibilities against existing capabilities. |
+| A required consumer contradicts the chosen architecture's premise | Reconsider the responsible implementation assumption. |
+| A test supplies the ownership or state it claims the system establishes | Exercise the real establishment and subsequent use of that state. |
+| A report labels a consequential technical claim "verified" | Inspect its primary evidence before relying on it. |
+| Tooling now supports the required experiment | Run the experiment and resume substantive implementation. |
+| A partial result is accurately described | Use it to complete the remaining authorized work. |
+
+**The enforcement consequence is continuation of the original work:** when
+substitution is detected, correct the active task, repair the missing capability
+or evidence, and proceed. A new checklist, diagnosis, disclaimer, or compliance
+statement does not satisfy these policies.
 
 ## Which repository?
 
