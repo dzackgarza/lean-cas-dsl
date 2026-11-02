@@ -17,7 +17,7 @@ def retrieve(repository, reference, expected, destination):
         return subprocess.run(['git', '-c', 'core.hooksPath=/dev/null', '-C', str(destination), *args],
                               env=environment, check=True, capture_output=True).stdout
     git('init', '--quiet')
-    git('fetch', '--quiet', '--no-tags', '--', repository, reference)
+    git('fetch', '--quiet', '--no-tags', '--update-shallow', '--', repository, reference)
     actual = git('rev-parse', 'FETCH_HEAD^{commit}').decode().strip()
     if actual != expected:
         raise ValueError('candidate reference moved from event SHA')
