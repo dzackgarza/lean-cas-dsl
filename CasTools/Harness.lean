@@ -12,7 +12,7 @@ public import Lean.Elab.Frontend
 /-!
 # The harness: the suite over a leaves manifest (`specs/architecture.md`, "Acceptance")
 
-`cas-harness [--suite DIR] [--report FILE] [--manifest FILE] [--inventory FILE]`
+`cas-harness [--suite DIR] [--report FILE] [--manifest FILE] [--inventory FILE] [--import MODULE]`
 imports, into a fresh environment,
 the catalogue and the language, and runs every file of the suite (`tests/acceptance` by default)
 with `#cas_tests`, through the registrations of the manifest `FILE` (by default the installed
@@ -36,6 +36,7 @@ structure Options where
   report : Option String := none
   manifest : Option String := none
   inventory : String := "CasAcceptance/Permanent/admitted.json"
+  imports : Array Name := #[]
   computationOnly : Bool := false
 
 /-- The suite command the harness elaborates. -/
@@ -71,11 +72,18 @@ def main (args : List String) : IO UInt32 := do
     | "--report" :: file :: more => o := { o with report := some file }; rest := more
     | "--inventory" :: file :: more => o := { o with inventory := file }; rest := more
     | "--manifest" :: file :: more => o := { o with manifest := some file }; rest := more
+    | "--import" :: moduleName :: more =>
+        if moduleName.isEmpty || (moduleName.splitOn ".").any String.isEmpty then
+          IO.eprintln "cas-harness: --import requires a nonempty qualified module name"
+          return 2
+        let moduleName := moduleName.toName
+        unless o.imports.contains moduleName do o := { o with imports := o.imports.push moduleName }
+        rest := more
     | "--computation-only" :: more => o := { o with computationOnly := true }; rest := more
     | arg :: _ =>
         IO.eprintln s!"cas-harness: unknown argument {arg}\n\
           usage: cas-harness [--suite DIR] [--report FILE] [--manifest FILE] \
-          [--inventory FILE] [--computation-only]"
+          [--inventory FILE] [--computation-only] [--import MODULE]"
         return 2
     | [] => pure ()
   -- Start this invocation with no report from a previous run.
@@ -83,7 +91,9 @@ def main (args : List String) : IO UInt32 := do
   try
     initSearchPath (← findSysroot)
     unsafe Lean.enableInitializersExecution
-    let env ← importModules #[{ module := `CasCatalogue.TestSuite }] {} (loadExts := true)
+    let imports := #[{ module := `CasCatalogue.TestSuite : Import }] ++
+      o.imports.map (fun moduleName => { module := moduleName : Import })
+    let env ← importModules imports {} (loadExts := true)
     let inputCtx := Parser.mkInputContext (command o) "<cas-harness>"
     let state ← IO.processCommands inputCtx {} (Command.mkState env {} {})
     let messages := state.commandState.messages

@@ -1,7 +1,9 @@
 module
 
 import CasCatalogue.Realize
+import CasCatalogue.QuestionComparison
 meta import CasCatalogue.Realize
+meta import CasCatalogue.QuestionComparison
 
 open Lean Meta Elab Command Term
 open CasCatalogue CasCatalogue.Language CasCatalogue.Realize
@@ -52,12 +54,29 @@ run_cmd liftTermElabM do
   let identity (question : Question) := claimQuestion (.judged question (mkConst ``True) (some true) "probe")
   unless (← identity questionA).1 == (← identity questionB).1 do
     throwError "complete question retained admission proof syntax"
+  unless ← QuestionIdentity.equivalentQuestion questionA questionB do
+    throwError "independent question comparison retained admission proof syntax"
+  let firstType ← inferType first
+  let preparedQuestion : Question :=
+    .judgement "membership" #[first] #[] #[``Nat] #[firstType]
+  unless ← QuestionIdentity.equivalentQuestion questionA preparedQuestion do
+    throwError "independently inferred operand types differ from a correctly prepared question"
+  for recordedTypes in #[#[Lean.mkConst ``Nat], #[firstType, firstType]] do
+    let malformed : Question := .judgement "membership" #[first] #[] #[``Nat] recordedTypes
+    let rejected ← try
+        discard <| QuestionIdentity.equivalentQuestion questionA malformed
+        pure false
+      catch _ => pure true
+    unless rejected do
+      throwError "question comparison trusted an incomplete or incorrect recorded type list"
   for different in #[Question.judgement "typing" #[first] #[] #[``Nat],
       Question.judgement "membership" #[first] #[``Nat.succ] #[``Nat],
       Question.judgement "membership" #[first] #[] #[``Int],
       Question.conjunction questionA questionA, Question.negation questionA] do
     unless (← identity questionA).1 != (← identity different).1 do
       throwError "relation, route, form or logical structure was erased"
+    if ← QuestionIdentity.equivalentQuestion questionA different then
+      throwError "independent question comparison erased its relation, route, form or logic"
   -- Identity preparation must not replace the expression that evaluation receives.
   let claim := Claim.judged questionA (mkConst ``True) (some true) "probe"
   let prepared : TypedQuestion := {
@@ -69,3 +88,24 @@ run_cmd liftTermElabM do
     | throwError "execution replaced the prepared claim"
   unless actual == first && actual != second do
     throwError "identity normalization rewrote selected execution data"
+  -- The reference comparison traverses paired typed expressions. It does not
+  -- share the serializer or its binder-context encoding and cannot accept a
+  -- candidate by comparing its own generated JSON with itself.
+  for (left, right) in #[(first, second), (dependentA, dependentB), (premiseA, premiseB)] do
+    unless ← QuestionIdentity.equivalent left right do
+      throwError "the independent typed comparison retained incidental proof syntax"
+    unless (← QuestionIdentity.equivalent left right) ==
+        ((← termIdentity left) == (← termIdentity right)) do
+      throwError "the serializer disagrees with independent typed comparison"
+  for (left, right) in #[(first, other), (scopedA, scopedB), (proofA, proofB),
+      (mapA, mapB), (dictionaryA, dictionaryB)] do
+    if ← QuestionIdentity.equivalent left right then
+      throwError "the independent comparison erased selected computational or proposition data"
+    unless (← QuestionIdentity.equivalent left right) ==
+        ((← termIdentity left) == (← termIdentity right)) do
+      throwError "distinct typed questions collided in the identity serialization"
+  let table ← TermTable.new
+  let root ← table.encode dependentA
+  discard <| table.encode scopedB
+  unless (← table.rootIdentity root) == (← termIdentity dependentA) do
+    throwError "sharing another contextual term changed an existing question root"

@@ -7,6 +7,7 @@ module
 public import CasCatalogue.Acceptance
 public meta import CasCatalogue.Acceptance
 public meta import CasContract.Failure
+public meta import CasCatalogue.InterpretationFailure
 
 public section
 
@@ -43,6 +44,7 @@ meta def checkAccept (stx : Syntax) (admit : Bool) : CommandElabM Status := do
       pure Status.holds
     -- not a reading fallback: a computational failure is recorded as its stratum (gap), anything else rethrown
     catch e =>
+      if Exception.hasConflictingStrata e then throw e
       match Exception.stratum? e with
       | some .noImplementation | some .ambiguousRealization =>
           if realized then throw e

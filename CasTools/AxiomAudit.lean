@@ -8,7 +8,7 @@ public import CasCatalogue
 public import CasAcceptance
 public import CasAcceptance.ReindexExecutionProbes
 public import CasAcceptance.StructuredComparisonProbes
-public import CasCatalogue.BinderReaderProbes
+public import CasAcceptance.Kernel
 public import CasCatalogue.CodecConditionProbes
 public import CasCatalogue.ConstructionData
 public import CasCatalogue.ConstructionDataProbes
@@ -23,9 +23,8 @@ public import CasCatalogue.ImageFormProbes
 public import CasCatalogue.LiftedSubobjectData
 public import CasCatalogue.LiftedSubobjectDataProbes
 public import CasCatalogue.PresentationReaderProbes
-public import CasCatalogue.SelectedCarrierProbes
+public import CasAcceptance.Kernel.SelectedCarrierProbes
 public import CasCatalogue.ParameterStructureProbes
-public import CasCatalogue.StructuredReconstructionProbes
 public import Lean.Util.CollectAxioms
 
 @[expose] public section

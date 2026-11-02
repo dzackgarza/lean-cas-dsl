@@ -56,8 +56,33 @@ run_cmd liftTermElabM do
   | .error (.missingLift _ _ step) =>
       unless step == arrowForget do
         throwError "the missing lift names the wrong step: {step.label}"
+  | .error (.missingReturn _ requirements) =>
+      let some (_, steps) := requirements.find? (·.1.route.refs == #[arrowForget])
+        | throwError "the missing return report discarded the direct carrier route"
+      unless steps == #[arrowForget] do
+        throwError "the missing direct return names the wrong steps"
+      unless requirements.all (fun (_, missing) => !missing.isEmpty) do
+        throwError "a complete return was reported as missing"
   | .ok r => throwError "the kernel resolved without a lift: {state.renderResolution r}"
   | .error e => throwError "unexpected: {e.render state}"
+  -- Availability of return data cannot identify mathematically unrelated forward routes.
+  let withoutComparison := { state with
+    cells := state.cells.filter (·.id.raw != "cell.bilin_module.carrier_routes") }
+  match withoutComparison.resolveMethod arrowsBilin "kernel" with
+  | .error (.ambiguous _ _) => pure ()
+  | _ => throwError "a unique return implementation replaced the required forward comparison"
+  -- The unique complete return chain is independent of every registry row ordering.
+  let reordered := { state with
+    methods := state.methods.reverse, functors := state.functors.reverse
+    classifiers := state.classifiers.reverse, constructors := state.constructors.reverse
+    cells := state.cells.reverse, lifts := state.lifts.reverse }
+  match reordered.resolveMethod arrowsBilin "kernel" with
+  | .ok r =>
+      unless r.route.refs == #[arrowForget] &&
+          r.lifts.map (·.raw) == #["lift.bilin_module.restrict"] &&
+          r.comparisonWitnesses.any (·.cell.raw == "cell.bilin_module.carrier_routes") do
+        throwError "registry order changed the complete return or lost its comparison"
+  | .error e => throwError e.render reordered
   -- A lift row is accepted only for the step it lifts along.
   let rejects (entry : RegistryEntry) : MetaM Bool := do
     try validateRegistryEntryDeclaration entry; pure false
@@ -75,5 +100,25 @@ run_cmd liftTermElabM do
     throwError "a non-lift was accepted as a lift"
   for lift in state.lifts do
     if ← rejects (.lift lift) then throwError "registered lift {lift.id.raw} fails re-validation"
+  -- Two separately registered complete lift chains are not identified by a comparison of
+  -- forward functors, even when both lift rows satisfy the same accepted typed interface.
+  let some original := state.lifts.find? (·.id.raw == "lift.bilin_module.restrict")
+    | throwError "the formed-module restriction is absent"
+  let alternative := { original with id := ⟨"lift.probe.alternative_restriction"⟩ }
+  if ← rejects (.lift alternative) then throwError "the independent typed lift was rejected"
+  let competing := { state with lifts := state.lifts.push alternative }
+  let reorderedCompeting := { competing with
+    lifts := competing.lifts.reverse
+    functors := competing.functors.reverse
+    cells := competing.cells.reverse }
+  for candidate in #[competing, reorderedCompeting] do
+    match candidate.resolveMethod arrowsBilin "kernel" with
+    | .error (.ambiguousReturn _ constructions) =>
+        unless constructions.size == 2 &&
+            constructions.all (·.route.refs == #[arrowForget]) &&
+            constructions.any (·.lifts == #[original.id]) &&
+            constructions.any (·.lifts == #[alternative.id]) do
+          throwError "the complete-return ambiguity discarded a registered chain"
+    | _ => throwError "competing complete returns were selected by registry order"
 
 end CasCatalogue.LiftProbes

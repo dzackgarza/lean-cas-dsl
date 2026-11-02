@@ -50,15 +50,34 @@ def label (ctor : Name) : String :=
   | n => n.toString
 
 /-- The natural number a closed term is. -/
-def nat? (e : Expr) : MetaM (Option Nat) := (evalNat e).run
+def nat? (e : Expr) : MetaM (Option Nat) := do
+  if let some n ← (evalNat e).run then return some n
+  -- A closed numeral reached through casts and bundled maps (`Nat.castRingHom ℕ 2`) unfolds
+  -- definitionally to its literal.
+  let e ← withTransparency .all <| whnf e
+  if let some n := e.rawNatLit? then return some n
+  (evalNat e).run
 
 /-- Synthesize at the actual carrier beneath accepted projection definitions. This changes
 only definitional presentation, never supplies a new instance. -/
 def dataInstance (type : Expr) : MetaM (Option Expr) := do
   if let some value := (← trySynthInstance type).toOption then return some value
-  let args ← type.getAppArgs.mapM fun arg => withTransparency .all <| whnf arg
-  let normalized := mkAppN type.getAppFn args
-  return (← trySynthInstance normalized).toOption
+  -- Type heads can be hidden below another type constructor. Expose only
+  -- closed non-proposition types, preserving data arguments and dictionaries.
+  let normalized ← Meta.transform type (post := fun term => do
+    if term.hasMVar || term.hasLevelMVar || term.hasFVar || term.hasLooseBVars then
+      return .continue
+    unless (← isType term) && !(← isProp term) do return .continue
+    let visible ← withTransparency .all <| whnf term
+    if visible == term then return .continue
+    return .visit visible) (skipConstInApp := true)
+  if normalized == type then return none
+  let some value := (← trySynthInstance normalized).toOption | return none
+  let value ← instantiateMVars value
+  unless !value.hasMVar && !value.hasLevelMVar && (← isTypeCorrect value) &&
+      (← withTransparency .all <| isDefEq (← inferType value) type) do
+    return none
+  return some value
 
 /-- Enumerate a finite domain from its independently synthesized `Fintype` instance. -/
 def finiteDomain (type : Expr) : MetaM (Option (Array Expr)) := do
@@ -424,7 +443,7 @@ partial def decodeAt (type : Expr) (j : Json)
     for input in inputs do
       let mut matchCount := 0
       for (key, _) in entries do
-        if (← Decide.decisionProof (← mkEq input key)).isSome then matchCount := matchCount + 1
+        if (← conditionProof (← mkEq input key)).isSome then matchCount := matchCount + 1
       unless matchCount == 1 do return .error "a function graph omits or repeats a domain element"
     return ← withLocalDecl name binderInfo domain fun x => do
       if entries.isEmpty then
@@ -433,10 +452,15 @@ partial def decodeAt (type : Expr) (j : Json)
           | return .error "the kernel does not establish that the function domain is empty"
         let value ← mkAppOptM ``False.elim #[some body, some (mkApp proof x)]
         return .ok (← mkLambdaFVars #[x] value)
+      let some independentDecidableEq ← dataInstance (← mkAppM ``DecidableEq #[domain])
+        | return .error "a finite function domain has no computable equality"
       let (_, fallback) := entries.back!
       let mut value := fallback
       for (key, output) in entries.reverse do
-        value ← mkAppM ``ite #[← mkEq x key, output, value]
+        let equation ← mkEq x key
+        let decision := mkApp2 independentDecidableEq x key
+        value ← mkAppOptM ``ite
+          #[some body, some equation, some decision, some output, some value]
       return .ok (← mkLambdaFVars #[x] value)
   if type.isConstOf ``Nat then
     return match j.getNat? with

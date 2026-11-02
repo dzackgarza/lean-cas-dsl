@@ -6,6 +6,7 @@ module
 
 public import CasGates.KernelPurity
 public meta import CasGates.KernelPurity
+public import LeanCategories.Catalogue.FamilyFibration
 public import Mathlib.LinearAlgebra.Matrix.Determinant.Basic
 public import Mathlib.CategoryTheory.Category.Basic
 public meta import Lean
@@ -43,6 +44,14 @@ unsafe def evaluates (n : Name) : MetaM Nat := evalConst Nat n
 def evaluatesTerm : Name := ``Lean.Meta.evalExpr
 /-- Categorical plumbing: accepted. -/
 def plumbing : Name := ``CategoryTheory.CategoryStruct.comp
+/-- The exact registered family interface is categorical plumbing. -/
+def familyPlumbing : Array Name :=
+  #[``CasCatalogue.CategoryFamilyRealization.transport,
+    ``CasCatalogue.CategoryFamilyRealization.totalCat,
+    ``CasCatalogue.CategoryFamilyRealization.reindexFunctor]
+/-- A domain-specific helper in the same source module remains outside the kernel. -/
+def domainTransport : Name :=
+  ``CasCatalogue.CategoryFamilyRealization.canonicalDiscreteCommRingTransport
 
 end CasGates.KernelPurityProbes
 
@@ -58,10 +67,13 @@ run_cmd do
       (``CasGates.KernelPurityProbes.tacticSource, "writes tactic syntax"),
       (``CasGates.KernelPurityProbes.runsTactic, "runs a proof procedure"),
       (``CasGates.KernelPurityProbes.evaluates, "runs a proof procedure"),
-      (``CasGates.KernelPurityProbes.evaluatesTerm, "evaluates a term")] do
+      (``CasGates.KernelPurityProbes.evaluatesTerm, "evaluates a term"),
+      (``CasGates.KernelPurityProbes.domainTransport, "carries no mathematics")] do
     let found := check d
     unless found.any (fun v => (v.splitOn fragment).length > 1) do
       throwError "the kernel-purity gate accepts {d} ({fragment} expected): {found}"
-  let found := check ``CasGates.KernelPurityProbes.plumbing
-  unless found.isEmpty do
-    throwError "the kernel-purity gate refuses categorical plumbing: {found}"
+  for declaration in #[``CasGates.KernelPurityProbes.plumbing,
+      ``CasGates.KernelPurityProbes.familyPlumbing] do
+    let found := check declaration
+    unless found.isEmpty do
+      throwError "the kernel-purity gate refuses categorical plumbing: {found}"

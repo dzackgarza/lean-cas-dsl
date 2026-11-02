@@ -219,7 +219,7 @@ build: _integration-intent track-main
     @python3 scripts/check_no_leaves.py
     @python3 scripts/check_reuse_records.py
     @python3 scripts/check_acceptance_permanent.py
-    @lake build CasCatalogue CasGates CasAcceptance CasTools CasDsl CasDslTests cas-registry-export cas-axiom-audit cas-harness
+    @lake build CasCatalogue CasGates CasAcceptance CasAcceptance.Kernel CasTools CasDsl CasDslTests cas-registry-export cas-axiom-audit cas-harness cas-question-export
 
 # Run the acceptance suite over a leaves manifest (default: the installed leaves', through
 # `CAS_LEAVES` or `.lake/packages/cas_leaves`); writes every result to .tmp/harness.json. Gaps are

@@ -9,7 +9,7 @@ open Lean Elab Command Term
 open CasCatalogue CasCatalogue.Language CasCatalogue.Realize
 
 /- Reader mechanics only: these probes do not admit mathematical assertions or meanings. -/
-run_cmd liftTermElabM do
+run_cmd withoutModifyingEnv <| liftTermElabM do
   let ask (text : String) : TermElabM TypedQuestion := do
     let .ok parsed :=  Parser.runParserCategory (← getEnv) `cas_stmt text
       | throwError "probe did not parse: {text}"
@@ -60,7 +60,25 @@ run_cmd liftTermElabM do
   unless outcome.kind == "wrong" && retained == some failed.identity do
     throwError "a refuted assertion changed its question or reported semantic invalidity"
 
-run_cmd liftTermElabM do
+run_cmd withoutModifyingEnv <| liftTermElabM do
+  for (stratum, expected) in #[(Stratum.invalid, InterpretationFailureKind.invalid),
+      (.semanticAmbiguity, .ambiguous), (.noImplementation, .internal),
+      (.ambiguousRealization, .internal), (.unavailable, .internal), (.malformed, .internal)] do
+    let failed : TermElabM Unit := throwStratum stratum "stage-classification probe"
+    let actual ← tryCatchRuntimeEx (failed *> pure InterpretationFailureKind.internal)
+      fun error => pure (Exception.interpretationKind error)
+    unless actual == expected do
+      throwError "the interpretation boundary accepted a failure belonging to another stage"
+  let legacy : TermElabM Unit := throwSemanticAmbiguity "legacy reader ambiguity"
+  let legacyKind ← tryCatchRuntimeEx (legacy *> pure InterpretationFailureKind.internal)
+    fun error => pure (Exception.interpretationKind error)
+  unless legacyKind == .ambiguous do
+    throwError "the reader's original ambiguity tag was lost"
+  let internal : TermElabM Unit := throwError "unclassified interpreter failure"
+  let internalKind ← tryCatchRuntimeEx (internal *> pure InterpretationFailureKind.invalid)
+    fun error => pure (Exception.interpretationKind error)
+  unless internalKind == .internal do
+    throwError "an unclassified exception was promoted to mathematical invalidity"
   let simulated : TermElabM ExecutionOutcome :=
     throwStratum .invalid "a computational exception cannot judge mathematical validity"
   let outcome ← tryCatchRuntimeEx simulated executionFailure
@@ -72,7 +90,7 @@ run_cmd liftTermElabM do
     throwError "execution erased the decoder's malformed-output stratum"
 
 -- Typed constructor mechanics retain the canonical registered commutative coefficient object.
-run_cmd liftTermElabM do
+run_cmd withoutModifyingEnv <| liftTermElabM do
   let state ← registryState
   let sets ← categoryNamed state "Sets"
   let some commutative := state.categories.find? (·.id == CategoryId.commutativeRings)
@@ -93,22 +111,31 @@ run_cmd liftTermElabM do
   let exactTerm ← elabTermAndSynthesize exact[0]! none
   unless ← Lean.Meta.isDefEq exactTerm coefficient do
     throwError "an already typed selected parameter was replaced"
-  let recovered ← (recognize state seriesHandle sets).run {}
+  let recovered ← (recognize state seriesHandle sets).run { sourceTrace := some trace }
   let .object _ _ (some (_, #[.object _ parameterCategory (some (parameterEntry, _)) _ _])) _ _ := recovered
     | throwError "structured constructor parameter lost its registered origin"
   unless parameterCategory.id == commutative.id && parameterEntry.id == selectedEntry.id do
     throwError "structured constructor recognition changed the coefficient category or origin"
 
 -- Selected routes survive; identical complete incoming structures retain both presentations.
-run_cmd liftTermElabM do
+run_cmd withoutModifyingEnv <| liftTermElabM do
   let state ← registryState
   let sets ← categoryNamed state "Sets"
   let rings ← categoryNamed state "Rings"
   let trace ← Trace.new
   let plain ← (object state "ℂ" #[] (some sets)).run { trace := some trace }
   let selected ← (object state "ℂ" #[] (some rings)).run { trace := some trace }
-  let .object _ _ (some (selectedEntry, _)) _ _ := selected
+  let .object selectedHandle _ (some (selectedEntry, _)) _ _ := selected
     | throwError "structural parameter probe lost its selected origin"
+  let some selectedNode@(.object selectedId _) ← trace.node? selectedHandle
+    | throwError "the selected structural source lost its original object record"
+  unless selectedId == selectedEntry.id do
+    throwError "the selected structural source changed its registered object"
+  Trace.checkProducerRecord selectedHandle selectedNode
+  let some selectedAnchor := Trace.producerAnchor? selectedHandle
+    | throwError "the selected structural source lost its own producer key"
+  unless selectedAnchor.formal.getAppFn.constName? == some selectedEntry.declaration do
+    throwError "the selected structural source changed its literal declaration"
   let some sum := state.morphisms.find? (·.name == "∑")
     | throwError "structural parameter probe has no registered family"
   let domain ← (object state "Fin" #[.nat 2] (some sets)).run {}
@@ -116,7 +143,7 @@ run_cmd liftTermElabM do
   let transported := (← trace.get).toArray.any fun (_, node) => match node with
     | .retainedRoute sourceCategory targetCategory route applications receiver =>
         sourceCategory == rings.id && targetCategory != rings.id && !route.isEmpty &&
-          applications.size == route.size && receiver.getAppFn.constName? == some selectedEntry.declaration
+          applications.size == route.size && receiver.equal selectedHandle
     | _ => false
   unless transported do
     throwError "structural parameter route or exact source provenance was erased"
@@ -151,7 +178,7 @@ run_cmd liftTermElabM do
   unless rejected do
     throwError "carrier coincidence supplied an unregistered parameter structure"
 
-run_cmd liftTermElabM do
+run_cmd withoutModifyingEnv <| liftTermElabM do
   let parameterVar ← Lean.Meta.mkFreshExprMVar (some (Lean.mkConst ``Nat))
   let unified ← (parameterTrial (Lean.Meta.isDefEq parameterVar (Lean.mkNatLit 3))).run {}
   unless unified && (← instantiateMVars parameterVar) == parameterVar do
@@ -170,7 +197,7 @@ run_cmd liftTermElabM do
   unless internal do throwError "an interpreter exception became inapplicability"
 
 -- A partially applied object family is a function, never an admitted object value.
-run_cmd liftTermElabM do
+run_cmd withoutModifyingEnv <| liftTermElabM do
   let state ← registryState
   let rejected ← try
     discard <| (object state "Fin" #[] none).run {}
@@ -180,7 +207,7 @@ run_cmd liftTermElabM do
     throwError "an unresolved object-family parameter was admitted as object data"
 
 /- A failed declaration remains in scope; later occurrences cannot become free variables. -/
-run_cmd liftTermElabM do
+run_cmd withoutModifyingEnv <| liftTermElabM do
   let harness ← Harness.empty
   let .ok binding := Parser.runParserCategory (← getEnv) `cas_stmt "let F := Fin(3,4)"
     | throwError "failed-binding probe did not parse"

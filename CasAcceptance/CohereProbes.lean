@@ -78,11 +78,19 @@ run_cmd liftTermElabM do
           candidates.any (·.route.refs == additiveMonoid) do
         throwError "removing the comparison lost one of the three unresolved routes"
   | _ => throwError "the ring diamond resolved without its registered comparison"
-  -- A single route needs no comparison: the formed-module route carries none.
+  -- A single route needs no comparison: the method's own set category has no prefix.
+  let some sets := state.categories.find? (·.id == CategoryId.sets)
+    | throwError "cat.sets is not registered"
+  match state.resolveMethod sets.expression "cardinality" with
+  | .ok r => unless r.route.refs.isEmpty && r.comparisons.isEmpty do
+      throwError "the method's own category acquired a route or comparison"
+  | .error e => throwError e.render state
+  -- Formed modules now have two published carrier routes. Preserve their comparison.
   let some bilin := state.categories.find? (·.id.raw == "cat.bilin_module")
     | throwError "cat.bilin_module is not registered"
   match state.resolveMethod bilin.expression "cardinality" with
-  | .ok r => unless r.comparisons.isEmpty do throwError "a unique route carries a comparison"
+  | .ok r => unless r.comparisons.any (·.raw == "cell.bilin_module.carrier_routes") do
+      throwError "the formed-module carrier routes lost their registered comparison"
   | .error e => throwError e.render state
   -- The complete route is fixed by the directed chain, independently of storage order.
   let runsOn (s : RegistryState) : MetaM (Array EdgeRef) :=

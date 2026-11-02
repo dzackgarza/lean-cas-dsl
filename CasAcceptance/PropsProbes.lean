@@ -74,10 +74,25 @@ run_cmd liftTermElabM do
   let trace ← (Trace.new : IO _)
   let Z ← Semantic.object integers #[] (some trace)
   let holds ← Semantic.property "is_finite" Z sets (some trace)
-  unless holds.isAppOf ``CasCatalogue.Classifier.Holds do
-    throwError "the property is not `Classifier.Holds`"
-  let some (.property id route _) ← (trace.node? holds : IO _)
+  let some retained ← (trace.node? holds : IO _)
     | throwError "the property is not recorded"
+  Trace.checkProducerRecord holds retained
+  unless (Trace.unanchor holds).isAppOf ``CasCatalogue.Classifier.Holds do
+    throwError "the property is not `Classifier.Holds`"
+  let .property id route receiver comparisons := retained
+    | throwError "the property is not recorded"
+  unless receiver.equal Z do
+    throwError "the property changed its original source occurrence"
+  let .ok resolution := state.resolveProperty sets.expression "is_finite"
+    | throwError "the original property resolution is absent"
+  let witnesses ← Semantic.validatePropertyResolutionComparisons state resolution (some Z)
+  Semantic.checkRecordedRouteComparisons resolution.comparisonWitnesses witnesses comparisons
+  let classifier ← classifierInstance resolution.classifier
+  let expected ← Term.elabTermAndSynthesize (← `(CasCatalogue.Classifier.Holds
+    $(← Term.exprToSyntax classifier) $(← Term.exprToSyntax Z))) none
+  unless ← withoutModifyingState (withTransparency .all <|
+      isDefEq (← inferType holds) (← inferType expected) <&&> isDefEq holds expected) do
+    throwError "the property changed its complete original classifier proposition"
   unless id.raw == "prop.is_finite" && route.isEmpty do
     throwError "recorded as {id.raw} after {route.size} steps"
   let failure (check : MetaM Unit) : MetaM (Option String) := do

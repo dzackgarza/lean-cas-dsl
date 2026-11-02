@@ -258,6 +258,10 @@ structure RegistryManifestConstructor where
   id : String
   signature : Array String
   semantics : String
+  functorialAction : Option String := none
+  comparisonAction : Option String := none
+  identityComparison : Option String := none
+  compositionComparison : Option String := none
   deriving BEq, Repr, ToJson
 
 structure RegistryManifestMethod where
@@ -285,6 +289,8 @@ structure RegistryManifestLimit where
   shape : String
   declaration : String
   colimit : Bool
+  standardization : Option String := none
+  dataConstructor : Option String := none
   deriving BEq, Repr, ToJson
 
 structure RegistryManifestObject where
@@ -428,6 +434,10 @@ private def registryManifest (state : RegistryState) : RegistryManifest :=
       evidence := e.evidence.toString }
     constructors := (state.constructors.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
       id := e.id.raw, semantics := e.semantics.toString,
+      functorialAction := e.functorialAction.map (·.toString),
+      comparisonAction := e.comparisonAction.map (·.toString),
+      identityComparison := e.identityComparison.map (·.toString),
+      compositionComparison := e.compositionComparison.map (·.toString),
       signature := e.signature.map fun
         | .category => "category"
         | .object => "object"
@@ -454,7 +464,9 @@ private def registryManifest (state : RegistryState) : RegistryManifest :=
       invertible := e.invertible }
     limits := (state.limits.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
       id := e.id.raw, category := e.category.raw, shape := e.shape,
-      declaration := e.declaration.toString, colimit := e.colimit }
+      declaration := e.declaration.toString, colimit := e.colimit,
+      standardization := e.standardization.map (·.toString),
+      dataConstructor := e.dataConstructor.map (·.toString) }
     adjunctions := (state.adjunctions.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
       id := e.id.raw, left := e.left.raw, right := e.right.raw,
       declaration := e.declaration.toString }

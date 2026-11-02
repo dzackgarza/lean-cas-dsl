@@ -1,0 +1,503 @@
+/- Copyright (c) 2026 Dzack Garza. Released under Apache 2.0 license. -/
+module
+
+public import CasCatalogue.ServiceRequest
+public import CasCatalogue.FunctorActionData
+public import CasCatalogue.DeclaredApplication
+
+@[expose] public section
+open Lean Meta Elab Term
+
+namespace CasCatalogue.SimpleServiceRequest
+open ServiceRequest
+
+def node (tag : String) (arguments : Array Json) : Json :=
+  Json.mkObj [("ctor", toJson tag), ("args", Json.arr arguments)]
+
+def sameValue (actual expected : Expr) (what : String) : TermElabM Unit := do
+  unless ← withoutModifyingState <| withTransparency .all <|
+      isDefEq (← inferType actual) (← inferType expected) <&&> isDefEq actual expected do
+    throwStratum .malformed m!"the service request changes its complete selected {what}"
+
+def checkClosed (value : Expr) : TermElabM Expr := do
+  let value ← instantiateMVars value
+  if value.hasMVar || value.hasLevelMVar || value.hasFVar || value.hasLooseBVars then
+    throwStratum .malformed "the service request omitted a complete formal parameter"
+  unless ← isTypeCorrect value do
+    throwStratum .malformed "the service request has incompatible complete parameter types"
+  return value
+
+def completePort (formal : Expr) (dependencies : Array Operand) (answer : Json)
+    (scope : Option ComputationalData.InterfaceScope := none) :
+    TermElabM (Except String (Option StructuredResult.Result)) := do
+  return (← ComputationalData.validatePort formal (← inferType formal) answer
+    (dependencies.map fun operand => (operand.data, operand.value)) (scope := scope)).map fun _ => none
+
+def completeMap (formal : Expr) (source target : Json)
+    (dependencies : Array Operand) (answer : Json)
+    (scope : Option ComputationalData.InterfaceScope := none) :
+    TermElabM (Except String (Option StructuredResult.Result)) := do
+  let some (domain, endpoint) := Language.homEnds? (← inferType formal)
+    | throwError "the prepared callable lost its complete original Hom type"
+  if ← withTransparency .all <| isDefEq domain (← ServiceRequest.closedElementDomain) then
+    return (← ComputationalData.validateElementAt endpoint target
+      (← ServiceRequest.pointResultValue formal) answer scope).map fun _ => none
+  return (← ComputationalData.validateEndpointPort formal source target answer
+    (dependencies.map fun operand => (operand.data, operand.value)) scope).map fun _ => none
+
+structure SelectedAction where
+  value : Expr
+  source : Option CategoryExpr
+  target : CategoryExpr
+  descriptor : Json
+  parameters : Array Json
+  dependencies : Array Operand
+  declarations : Array DirectConstruction.Application
+  /-- Relative to the complete action descriptor and its invocation parameter array. -/
+  descriptorOwnership : DataOwnership.Table := #[]
+  parameterOwnership : DataOwnership.Table := #[]
+  descriptorInputPaths : Array (DataOwnership.Path × Operand) := #[]
+  parameterInputPaths : Array (DataOwnership.Path × Operand) := #[]
+
+/-- The descriptor names an existing complete action, including its literal
+nested constructor applications. Only typed operands instantiate declarations. -/
+partial def action (decoder : Decoder) (descriptor : Json) : TermElabM SelectedAction := do
+  let state ← registryState
+  let .ok (tag, arguments) := ComputationalData.envelope descriptor
+    | throwStratum .malformed "the service action requires its complete public descriptor"
+  if let some entry := state.functors.find? (·.id.raw == tag) then
+    let selected ← decoder.declaration entry.declaration arguments
+    let parameters := selected.operands.map (·.data)
+    let parameterOwnership := operandArrayOwnership selected.operands
+    return {
+      value := (← Semantic.asFunctor selected.application.value)
+      source := some entry.source, target := entry.target
+      descriptor := node tag parameters, parameters
+      dependencies := selected.operands, declarations := #[selected.application]
+      descriptorOwnership := DataOwnership.prefix #[.field "args"] parameterOwnership
+      parameterOwnership
+      descriptorInputPaths := prefixInputPaths #[.field "args"]
+        (operandArrayInputPaths selected.operands)
+      parameterInputPaths := operandArrayInputPaths selected.operands }
+  if let some entry := state.constructions.find? (·.id.raw == tag) then
+    let selected ← decoder.declaration entry.declaration arguments
+    let parameters := selected.operands.map (·.data)
+    let parameterOwnership := operandArrayOwnership selected.operands
+    return {
+      value := (← Semantic.asFunctor selected.application.value)
+      source := none, target := entry.target
+      descriptor := node tag parameters, parameters
+      dependencies := selected.operands, declarations := #[selected.application]
+      descriptorOwnership := DataOwnership.prefix #[.field "args"] parameterOwnership
+      parameterOwnership
+      descriptorInputPaths := prefixInputPaths #[.field "args"]
+        (operandArrayInputPaths selected.operands)
+      parameterInputPaths := operandArrayInputPaths selected.operands }
+  if tag == "classifierForget" then
+    let #[id, parameters] := arguments
+      | throwStratum .malformed "the classifier action lost its ordered parameters"
+    let .ok id := id.getStr?
+      | throwStratum .malformed "the classifier identifier must be a string"
+    let .ok parameters := parameters.getArr?
+      | throwStratum .malformed "classifier parameters must be an ordered array"
+    let some entry := state.classifiers.find? (·.id.raw == id)
+      | throwStratum .malformed "the classifier action is not mathematically published"
+    let selected ← decoder.declaration entry.declaration parameters
+    let mut classifier := selected.application.value
+    let type ← whnfR (← inferType classifier)
+    if type.isAppOf ``LeanCategories.PropertyClassifier then
+      classifier ← mkAppM ``LeanCategories.PropertyClassifier.toClassifier #[classifier]
+    else if type.isAppOf ``LeanCategories.StructureClassifier then
+      classifier ← mkAppM ``LeanCategories.StructureClassifier.toClassifier #[classifier]
+    let value ← Semantic.asFunctor (← mkAppM ``LeanCategories.Classifier.forget #[classifier])
+    let parameters := selected.operands.map (·.data)
+    let descriptor := node tag #[toJson id, Json.arr parameters]
+    let descriptorOwnership := argsOwnership #[#[], operandArrayOwnership selected.operands]
+    let descriptorInputPaths := prefixInputPaths #[.field "args", .index 1]
+      (operandArrayInputPaths selected.operands)
+    return {
+      value, source := some (.classifierTotal entry.id), target := entry.host
+      descriptor, parameters := #[descriptor]
+      dependencies := selected.operands, declarations := #[selected.application]
+      descriptorOwnership, parameterOwnership := arrayOwnership #[descriptorOwnership]
+      descriptorInputPaths
+      parameterInputPaths := prefixInputPaths #[.index 0] descriptorInputPaths }
+  if tag == "constructorMap" then
+    let #[id, inner] := arguments
+      | throwStratum .malformed "the constructor action lost its complete inner action"
+    let .ok id := id.getStr?
+      | throwStratum .malformed "the constructor identifier must be a string"
+    let some entry := state.constructor? ⟨id⟩
+      | throwStratum .malformed "the constructor is not mathematically published"
+    let some declaration := entry.functorialAction
+      | throwStratum .malformed "the constructor has no published action on functors"
+    let inner ← action decoder inner
+    let descriptor := node tag #[toJson id, inner.descriptor]
+    let descriptorOwnership := argsOwnership #[#[], inner.descriptorOwnership]
+    let descriptorInputPaths := prefixInputPaths #[.field "args", .index 1]
+      inner.descriptorInputPaths
+    let some source := inner.source
+      | throwStratum .malformed "the nested action has no published structural source schema"
+    return {
+      value := (← Semantic.applyConstructorFunctor declaration inner.value)
+      source := some (.construct entry.id #[.category source])
+      target := .construct entry.id #[.category inner.target]
+      descriptor, parameters := #[descriptor]
+      dependencies := inner.dependencies, declarations := inner.declarations
+      descriptorOwnership, parameterOwnership := arrayOwnership #[descriptorOwnership]
+      descriptorInputPaths
+      parameterInputPaths := prefixInputPaths #[.index 0] descriptorInputPaths }
+  throwStratum .malformed "the service action does not name a published functor projection"
+
+def closeAction (selected : SelectedAction) : TermElabM SelectedAction := do
+  for declaration in selected.declarations do discard <| DirectConstruction.close declaration
+  return { selected with value := (← checkClosed selected.value) }
+
+/-- The complete public action grammar determines its existing recursive identity. -/
+partial def actionIdentity (descriptor : Json) : TermElabM Json := do
+  let .ok (tag, arguments) := ComputationalData.envelope descriptor
+    | throwStratum .malformed "the derived service action descriptor is malformed"
+  match tag, arguments with
+  | "classifierForget", #[.str id, _] =>
+    pure (Json.mkObj [("classifierForget", toJson id)])
+  | "constructorMap", #[.str id, inner] =>
+    pure (Json.mkObj [("constructorMap", Json.arr #[toJson id, ← actionIdentity inner])])
+  | _, _ => pure (Json.mkObj [("functor", toJson tag)])
+
+def selectedDescriptor (operation : Operation) (parameters : Array Json) :
+    TermElabM Json := do
+  match operation with
+  | .functor entry | .functorMap entry => pure (node entry.id.raw parameters)
+  | .construction entry _ => pure (node entry.id.raw parameters)
+  | .edgeAction edge _ =>
+    let #[descriptor] := parameters
+      | throwStratum .malformed "the derived service action requires one complete action descriptor"
+    unless (← actionIdentity descriptor) == edgeImageDescriptor edge do
+      throwStratum .malformed "the derived service operation changes its registered action identity"
+    return descriptor
+  | _ => throwError "this request is not an object or map action"
+
+def objectAction (decoder : Decoder) (operation : Operation) (input : Form)
+    (template : Json) : TermElabM Prepared := do
+  let .ok invocation := Backend.ConstructionInvocation.decode operation.id template
+    | throwStratum .malformed "the service object action has an incomplete construction invocation"
+  let selected ← action decoder (← selectedDescriptor operation invocation.parameters)
+  let (sourceBundle, _) ← functorCategoryBundles selected.value
+  let original ← decoder.argument (← mkAppM ``CategoryTheory.Bundled.α #[sourceBundle])
+    invocation.receiver
+  let formal ← Semantic.objOf selected.value original.value
+  let selected ← closeAction selected
+  let formal ← checkClosed formal
+  let (_, targetBundle) ← functorCategoryBundles selected.value
+  let target : CategoryContext := { expression := selected.target, bundle := targetBundle }
+  let parameters := match operation with
+    | .edgeAction .. => #[selected.descriptor]
+    | _ => selected.parameters
+  let parameterOwnership := match operation with
+    | .edgeAction .. => arrayOwnership #[selected.descriptorOwnership]
+    | _ => selected.parameterOwnership
+  let parameterInputPaths := match operation with
+    | .edgeAction .. => prefixInputPaths #[.index 0] selected.descriptorInputPaths
+    | _ => selected.parameterInputPaths
+  let request := Backend.ConstructionInvocation.encode {
+    construction := operation.id, parameters, receiver := original.data }
+  let requestOwnership := DataOwnership.prefix #[.field "args"] parameterOwnership ++
+    DataOwnership.prefix #[.field "receiver"] original.ownership
+  let dependencies := selected.dependencies.push original
+  return {
+    requestValue := original.value, request, requestOwnership, result := formal
+    inputPaths := prefixInputPaths #[.field "args"] parameterInputPaths ++
+      #[(#[.field "receiver"], original)]
+    familyApplication := selected.declarations[0]?.map (·.value)
+    resultForm := formFor (← registryState) target input
+    dependencies, resultContext := some target, objectResult := true
+    action := some (.object selected.value original parameters selected.dependencies)
+    complete := fun answer => completePort formal dependencies answer
+    completeScoped := some fun answer scope => completePort formal dependencies answer scope }
+
+def mapAction (decoder : Decoder) (operation : Operation) (input : Form)
+    (template : Json) : TermElabM Prepared := do
+  let .ok invocation := Backend.PointInvocation.decode template
+    | throwStratum .malformed "the service map action requires its complete point invocation"
+  unless invocation.operation == operation.id do
+    throwStratum .malformed "the service map invocation changes its operation identifier"
+  let descriptor ← selectedDescriptor operation invocation.parameters
+  let .ok ("map", #[declared, originalTemplate]) :=
+      ComputationalData.envelope invocation.arrow
+    | throwStratum .malformed "the service map action lost its action and original typed map"
+  unless declared == descriptor do
+    throwStratum .malformed "the service map action differs from its complete selected parameters"
+  let selected ← action decoder descriptor
+  let original ← decoder.arrow originalTemplate
+  let .ok _ := Backend.TypedMap.decode original.data
+    | throwStratum .malformed "the service map action requires the complete original typedMap"
+  let formalMap ← Semantic.mapOf selected.value original.value
+  let selected ← closeAction selected
+  let formalMap ← checkClosed formalMap
+  let (sourceBundle, targetBundle) ← functorCategoryBundles selected.value
+  let some sourceExpression := selected.source <|> original.context.map (·.expression) <|>
+      (original.form.bind (← registryState).formExpression?)
+    | throwStratum .malformed "the construction map omitted its complete original source context"
+  let source : CategoryContext := { expression := sourceExpression, bundle := sourceBundle }
+  let target : CategoryContext := { expression := selected.target, bundle := targetBundle }
+  let some (imageSource, imageTarget) := Language.homEnds? (← inferType formalMap)
+    | throwStratum .malformed "the complete mapped action has no independently fixed Hom type"
+  CategoryContext.checkMorphism target formalMap imageSource imageTarget
+  let imageSourceData ← decoder.argument (← inferType imageSource) invocation.source
+  let imageTargetData ← decoder.argument (← inferType imageTarget) invocation.target
+  sameValue imageSourceData.value imageSource "image source"
+  sameValue imageTargetData.value imageTarget "image target"
+  let domain ← decoder.argument (← inferType imageSource) invocation.domain
+  CategoryContext.checkObject target domain.value
+  let argument ← decoder.argument (← CategoryContext.hom target domain.value imageSource)
+    invocation.argument
+  let formal ← checkClosed (← ServiceRequest.compose target domain.value imageSource imageTarget
+    argument.value formalMap)
+  let parameters := match operation with
+    | .edgeAction .. => #[selected.descriptor]
+    | _ => selected.parameters
+  let parameterOwnership := match operation with
+    | .edgeAction .. => arrayOwnership #[selected.descriptorOwnership]
+    | _ => selected.parameterOwnership
+  let parameterInputPaths := match operation with
+    | .edgeAction .. => prefixInputPaths #[.index 0] selected.descriptorInputPaths
+    | _ => selected.parameterInputPaths
+  let arrow := node "map" #[selected.descriptor, original.data]
+  let arrowOwnership := argsOwnership #[selected.descriptorOwnership, original.ownership]
+  let request := Backend.PointInvocation.encode {
+    operation := operation.id, parameters, arrow
+    domain := domain.data, source := imageSourceData.data, target := imageTargetData.data
+    argument := argument.data }
+  let requestOwnership := argsOwnership #[#[], parameterOwnership, arrowOwnership,
+    domain.ownership, imageSourceData.ownership, imageTargetData.ownership, argument.ownership]
+  let dependencies := selected.dependencies ++
+    #[original, domain, imageSourceData, imageTargetData, argument]
+  let whole := domain.data == imageSourceData.data &&
+    domain.ownership == imageSourceData.ownership &&
+    argument.data == node "identity" #[imageSourceData.data, imageSourceData.data] &&
+    argument.ownership == argsOwnership #[imageSourceData.ownership, imageSourceData.ownership]
+  return {
+    requestValue := formal, request, requestOwnership, result := formal
+    inputPaths := prefixInputPaths #[.field "args", .index 1] parameterInputPaths ++
+      prefixInputPaths #[.field "args", .index 2, .field "args", .index 0]
+        selected.descriptorInputPaths ++
+      #[(#[.field "args", .index 2, .field "args", .index 1], original),
+        (#[.field "args", .index 3], domain),
+        (#[.field "args", .index 4], imageSourceData),
+        (#[.field "args", .index 5], imageTargetData),
+        (#[.field "args", .index 6], argument)]
+    familyApplication := selected.declarations[0]?.map (·.value)
+    resultForm := formFor (← registryState) target input true
+    dependencies, resultContext := some target, callableResult := true
+    callableInterface := some (.endpoints domain.value imageTargetData.value
+      domain.fragment imageTargetData.fragment)
+    callableEndpointOperands := some (domain, imageTargetData)
+    pointResult := (← withoutModifyingState <| withTransparency .all <|
+      isDefEq domain.value (← ServiceRequest.closedElementDomain))
+    action := if whole then some (.wholeMap selected.value source target original
+      selected.descriptor parameters selected.dependencies imageSourceData imageTargetData)
+      else none
+    complete := fun answer => completeMap formal domain.data imageTargetData.data dependencies answer
+    completeScoped := some fun answer scope =>
+      completeMap formal domain.data imageTargetData.data dependencies answer scope }
+
+def callable (decoder : Decoder) (operation : Operation) (input : Form)
+    (template : Json) : TermElabM Prepared := do
+  let state ← registryState
+  let some (declaration, categoryId) := state.callable? operation.id
+    | throwStratum .malformed "the service callable has no published declaration"
+  let .ok invocation := Backend.PointInvocation.decode template
+    | throwStratum .malformed "the service callable requires its complete point invocation"
+  unless invocation.operation == operation.id do
+    throwStratum .malformed "the service point invocation changes its published operation"
+  let application ← decoder.declaration declaration invocation.parameters
+  let applicationValue ← DirectConstruction.close application.application
+  let formalArrow ← checkClosed applicationValue.value
+  let some (source, target) := Language.homEnds? (← inferType formalArrow)
+    | throwStratum .malformed "the service callable lost its complete published Hom type"
+  let dataCategory := match operation with
+    | .operation _ => CategoryId.sets
+    | _ => categoryId
+  let some category := state.categories.find? (·.id == dataCategory)
+    | throwError "the published callable's complete data category is absent"
+  let context ← CategoryContext.ofNamed category source
+  CategoryContext.checkMorphism context formalArrow source target
+  let sourceData ← decoder.argument (← inferType source) invocation.source
+  let targetData ← decoder.argument (← inferType target) invocation.target
+  sameValue sourceData.value source "callable source"
+  sameValue targetData.value target "callable target"
+  let arrow ← decoder.argument (← inferType formalArrow) invocation.arrow
+  sameValue arrow.value formalArrow "callable declaration"
+  let domain ← decoder.argument (← inferType source) invocation.domain
+  CategoryContext.checkObject context domain.value
+  let argument ← decoder.argument (← CategoryContext.hom context domain.value source)
+    invocation.argument
+  let formal ← checkClosed (← ServiceRequest.compose context domain.value source target
+    argument.value formalArrow)
+  let request := Backend.PointInvocation.encode {
+    operation := operation.id, parameters := application.operands.map (·.data)
+    arrow := arrow.data, domain := domain.data, source := sourceData.data
+    target := targetData.data, argument := argument.data }
+  let requestOwnership := argsOwnership #[#[], operandArrayOwnership application.operands,
+    arrow.ownership, domain.ownership, sourceData.ownership, targetData.ownership, argument.ownership]
+  let dependencies := application.operands ++ #[sourceData, targetData, arrow, domain, argument]
+  return {
+    requestValue := formal, request, requestOwnership, result := formal
+    inputPaths := prefixInputPaths #[.field "args", .index 1]
+      (operandArrayInputPaths application.operands) ++
+      #[(#[.field "args", .index 2], arrow), (#[.field "args", .index 3], domain),
+        (#[.field "args", .index 4], sourceData), (#[.field "args", .index 5], targetData),
+        (#[.field "args", .index 6], argument)]
+    familyApplication := some formalArrow
+    resultForm := formFor state context input true
+    dependencies, resultContext := some context, callableResult := true
+    callableInterface := some (.endpoints domain.value targetData.value
+      domain.fragment targetData.fragment)
+    callableEndpointOperands := some (domain, targetData)
+    pointResult := (← withoutModifyingState <| withTransparency .all <|
+      isDefEq domain.value (← ServiceRequest.closedElementDomain))
+    complete := fun answer => completeMap formal domain.data targetData.data dependencies answer
+    completeScoped := some fun answer scope =>
+      completeMap formal domain.data targetData.data dependencies answer scope }
+
+/-- A method's selected actions retain each explicit data operand in declaration
+order. Decoding never uses the receiver to reconstruct omitted parameters. -/
+def methodRequest (decoder : Decoder) (entry : MethodEntry) (input : Form)
+    (expression : CategoryExpr) (template : Json) : TermElabM Prepared := do
+  let state ← registryState
+  let trace ← Trace.new
+  let full := (template.getObjValAs? String "ctor").toOption == some entry.id.raw ||
+    (template.getObjVal? "receiver").isOk
+  let (original, selected) ← if full then do
+      let .ok invocation := Backend.ConstructionInvocation.decodeMethod
+          entry.id.raw entry.functor.raw template
+        | throwStratum .malformed "the method service request has an incomplete selected invocation"
+      let original ← decoder.object invocation.receiver
+      let selected ← invocation.parameters.mapM (action decoder)
+      pure (original, selected)
+    else do
+      pure (← decoder.object template, #[])
+  let resolution ← match state.resolveMethod expression entry.name #[] with
+    | .ok resolution => pure resolution
+    | .error error => throwResolutionError state error
+  unless resolution.method.id == entry.id do
+    throwStratum .malformed "the method service request changes its independently selected method"
+  if full then
+    unless selected.size == resolution.route.refs.size + 1 do
+      throwStratum .malformed "the method request omitted or added a selected action"
+    let expected := resolution.route.refs.push (.functor entry.functor)
+    for (actual, edge) in selected.zip expected do
+      unless (← actionIdentity actual.descriptor) == edgeImageDescriptor edge do
+        throwStratum .malformed "the method request changes its complete ordered action identities"
+    let mut previous := original.context.map (·.bundle)
+    for (actual, index) in selected.zipIdx do
+      let (source, target) ← functorCategoryBundles actual.value
+      let source ← if index == resolution.route.refs.size then
+          Semantic.methodOwnerBundle state resolution.method source
+        else pure source
+      if let some preceding := previous then
+        unless ← withTransparency .all <| isDefEq preceding source do
+          throwStratum .malformed "the method request changes a complete selected category boundary"
+      if index == 0 then
+        unless ← withTransparency .all <|
+            isDefEq (← inferType original.value) (← mkAppM ``CategoryTheory.Bundled.α #[source]) do
+          throwStratum .malformed "the method request changes its complete receiver type"
+      previous := some target
+  let (result, context) ← Semantic.methodIn entry.name original.value expression (some trace)
+    (if full then some (selected.map (·.value)) else none)
+  let some node ← trace.node? result
+    | throwError "the prepared method lost its retained interpretation"
+  let selected ← selected.mapM closeAction
+  let result ← checkClosed result
+  let (route, lifts, comparisons, application) ← match node with
+    | .method id route receiver comparisons application =>
+      unless id == entry.id do throwError "the prepared method changed its registered identity"
+      sameValue receiver original.value "method receiver"
+      pure (route, #[], comparisons, ← application.instantiateMVars)
+    | .methodWithLifts id route lifts receiver comparisons application =>
+      unless id == entry.id do throwError "the prepared method changed its registered identity"
+      sameValue receiver original.value "method receiver"
+      pure (route, lifts, comparisons, ← application.instantiateMVars)
+    | _ => throwError "the prepared method lost its complete selected application"
+  let mut parameters : Array MethodParameter := #[]
+  if full then
+    for (action, actionIndex) in selected.zipIdx do
+      for (operand, dataIndex) in action.dependencies.zipIdx do
+        parameters := parameters.push { actionIndex, dataIndex, operand }
+  else
+    unless route.isEmpty do
+      throwStratum .malformed "raw method input cannot omit residual action descriptors"
+    let some functor := state.functor? entry.functor
+      | throwError "the prepared method lost its registered functor"
+    let some (_, arguments) ← DeclaredApplication.complete? functor.declaration application.application true
+      | throwError "the prepared method lost its complete declaration application"
+    unless (← DirectConstruction.dataArguments arguments).isEmpty do
+      throwStratum .malformed "raw method input cannot omit explicit computational parameters"
+  let dependencies := selected.flatMap (·.dependencies) |>.push original
+  let request := if full then Backend.ConstructionInvocation.encode {
+      construction := entry.id.raw, parameters := selected.map (·.descriptor), receiver := original.data }
+    else original.data
+  let requestOwnership := if full then
+      DataOwnership.prefix #[.field "args"]
+        (arrayOwnership (selected.map (·.descriptorOwnership))) ++
+      DataOwnership.prefix #[.field "receiver"] original.ownership
+    else original.ownership
+  let inputPaths := if full then
+      (selected.mapIdx fun index action =>
+        prefixInputPaths #[.field "args", .index index] action.descriptorInputPaths).flatten ++
+      #[(#[.field "receiver"], original)]
+    else #[(#[], original)]
+  return {
+    requestValue := original.value, request, requestOwnership, inputPaths, result,
+    familyApplication := some application.application,
+    resultForm := formFor state context input,
+    dependencies, resultContext := some context, objectResult := true, trace := some trace,
+    method := some {
+      id := entry.id
+      route := route
+      lifts := lifts
+      receiver := original
+      comparisons := comparisons
+      application := application
+      parameters := parameters },
+    complete := fun answer => completePort result dependencies answer
+    completeScoped := some fun answer scope => completePort result dependencies answer scope }
+
+/-- Service methods use the shared selected-application lifecycle. Property
+requests keep their existing decision interface. -/
+def semanticRequest (decoder : Decoder) (operation : Operation) (input : Form)
+    (template : Json) : TermElabM Prepared := do
+  let state ← registryState
+  let some expression := state.formExpression? input
+    | throwStratum .malformed "the service receiver has no published source-category expression"
+  match operation with
+  | .method entry => methodRequest decoder entry input expression template
+  | .property entry =>
+    let original ← decoder.object template
+    let trace ← Trace.new
+    let result ← Semantic.propertyIn entry.name original.value expression (some trace)
+    let result ← checkClosed result
+    return {
+      requestValue := original.value, request := original.data, result,
+      requestOwnership := original.ownership,
+      inputPaths := #[(#[], original)],
+      resultForm := input, dependencies := #[original],
+      trace := some trace, decisionResult := true,
+      complete := fun answer => do
+        return (← Codec.decode (mkApp (mkConst ``Option [0]) (mkConst ``Bool)) answer).map
+          fun _ => none }
+  | _ => throwError "this request is not a published method or property"
+
+def prepare? (decoder : Decoder) (operation : Operation) (input : Form)
+    (template : Json) : TermElabM (Option Prepared) := do
+  match operation with
+  | .functor _ | .construction _ false | .edgeAction _ false =>
+    return some (← objectAction decoder operation input template)
+  | .functorMap _ | .construction _ true | .edgeAction _ true =>
+    return some (← mapAction decoder operation input template)
+  | .operation _ | .morphism _ | .application _ | .binder _ =>
+    return some (← callable decoder operation input template)
+  | .method _ | .property _ => return some (← semanticRequest decoder operation input template)
+  | _ => return none
+
+end CasCatalogue.SimpleServiceRequest

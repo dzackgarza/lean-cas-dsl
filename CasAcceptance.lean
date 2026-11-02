@@ -9,6 +9,11 @@ public import CasAcceptance.CellProbes
 public import CasAcceptance.ClosureProbes
 public import CasAcceptance.ColimitProbes
 public import CasAcceptance.CohereProbes
+public import CasAcceptance.ComputationalContractProbes
+public import CasAcceptance.ComputationalReuseProbes
+public import CasAcceptance.ComputationalTransportProbes
+public import CasAcceptance.ConstructorComparisonProbes
+public import CasAcceptance.DependentReaderProbes
 public import CasAcceptance.FibrationRegistryProbes
 public import CasAcceptance.ImmediateProbes
 public import CasAcceptance.LiftLimitProbes
@@ -22,3 +27,5 @@ public import CasAcceptance.StructuredComparisonProbes
 public import CasAcceptance.SemanticProjectionProbes
 public import CasAcceptance.ResolveProbes
 public import CasAcceptance.Standard
+public import CasAcceptance.Kernel.BinderReaderProbes
+public import CasAcceptance.Kernel.StructuredReconstructionProbes

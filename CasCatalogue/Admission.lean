@@ -45,11 +45,67 @@ semantic row: the declaration and its dependent signature remain the object's me
 def ObjectEntry.applicationAddress (entry : ObjectEntry) : String :=
   entry.id.raw ++ "#application"
 
+/-- The four computational fields already published by `MonoLiftComputation`. -/
+inductive LiftField where
+  | obj | hom | forward | backward
+  deriving BEq, Repr
+
+def LiftField.all : Array LiftField := #[.obj, .hom, .forward, .backward]
+
+def LiftField.label : LiftField → String
+  | .obj => "obj" | .hom => "hom" | .forward => "forward" | .backward => "backward"
+
+def LiftField.declaration : LiftField → Name
+  | .obj => ``CasCatalogue.MonoLiftComputation.obj
+  | .hom => ``CasCatalogue.MonoLiftComputation.hom
+  | .forward => ``CasCatalogue.MonoLiftComputation.forward
+  | .backward => ``CasCatalogue.MonoLiftComputation.backward
+
+def LiftEntry.inputAddress (entry : LiftEntry) : String := entry.id.raw ++ "#input"
+
+def LiftEntry.fieldAddress (entry : LiftEntry) (field : LiftField) : String :=
+  entry.id.raw ++ "#" ++ field.label
+
+def LiftEntry.factorAddress (entry : LiftEntry) : String := entry.id.raw ++ "#factor"
+
+def ConstructionEntry.inputAddress (entry : ConstructionEntry) : String :=
+  entry.id.raw ++ "#input"
+
+def ConstructionEntry.mapAddress (entry : ConstructionEntry) : String :=
+  entry.id.raw ++ "#map"
+
+/-- The complete object/map request of the existing selected functor. These
+addresses expose its two projections; they add no mathematical row. -/
+def FunctorEntry.inputAddress (entry : FunctorEntry) : String := entry.id.raw ++ "#input"
+
+def FunctorEntry.mapAddress (entry : FunctorEntry) : String := entry.id.raw ++ "#map"
+
+def FunctorEntry.cartesianAddress (entry : FunctorEntry) : String :=
+  entry.id.raw ++ "#cartesian"
+
+/-- A constructed component has the actual constructor path in its public address. -/
+def CellEntry.componentAddress (entry : CellEntry) (constructors : Array ConstructorId := #[]) : String :=
+  if constructors.isEmpty then entry.id.raw ++ "#component"
+  else "component:" ++ (Json.arr #[toJson entry.id.raw, toJson (constructors.map (·.raw))]).compress
+
 /-- A form the kernel encodes: values of a registered literal type, morphisms of a registered
 category given by their graphs, a registered named object at its parameters, or the diagrams of a
 registered category (the input of its registered limits), encoded in the forms of their objects
 and arrows. -/
 inductive Form
+  /-- Local typed context over an existing complete input address. It introduces no
+  named category row or additional computational data constructor. -/
+  | contextual (expression : CategoryExpr) (origin : Form)
+  /-- Internal proof-only total-category context. Its checked forgetful prefix restores the
+  original registered form; it introduces no leaf input descriptor. -/
+  | proofRefinement (category : NamedCategoryEntry) (classifier : ClassifierId) (base : Form)
+  | liftInput (entry : LiftEntry) (category : CategoryId)
+  | constructionInput (entry : ConstructionEntry) (category : CategoryId)
+  | constructionImage (entry : ConstructionEntry) (category : CategoryId)
+  | functorInput (entry : FunctorEntry) (category : CategoryId)
+  | edgeActionInput (edge : EdgeRef) (category : CategoryId)
+  | cellComponent (entry : CellEntry) (constructors : Array ConstructorId) (category : CategoryId)
+  | cartesian (entry : FunctorEntry) (category : CategoryId)
   | literal (entry : LiteralEntry)
   | graph (entry : GraphLiteralEntry)
   /-- The finite subsets of a power object's sets, as literals of its registered subset-literal
@@ -79,6 +135,8 @@ inductive Form
   | subobject (entry : NamedCategoryEntry)
   /-- A registered comparison arrow, with its source category resolved from its object row. -/
   | presentation (entry : PresentationComparisonEntry) (category : CategoryId)
+  /-- The category-wide complete representation. Limits consume diagrams at this
+  address; other admitted operations consume complete values of the category. -/
   | diagrams (entry : NamedCategoryEntry)
 
 /-- A stable structural-edge descriptor, independent of pretty-printing and declaration parameters.
@@ -93,9 +151,28 @@ def edgeImageDescriptor : EdgeRef → Json
 def edgeImageId (edge : EdgeRef) (category : CategoryId) : String :=
   "image:" ++ (Json.arr #[toJson category.raw, edgeImageDescriptor edge]).compress
 
+/-- Derived executable projections use the complete registered edge identity.
+Bare FunctorEntry edges keep their existing public identifiers instead. -/
+def edgeActionAddress (edge : EdgeRef) : String :=
+  "action:" ++ (edgeImageDescriptor edge).compress
+
+def edgeActionMapAddress (edge : EdgeRef) : String := edgeActionAddress edge ++ "#map"
+
+def edgeActionInputAddress (edge : EdgeRef) : String := edgeActionAddress edge ++ "#input"
+
 /-- The form's id: a literal, graph-literal, subset-literal or object row's; for diagrams, their
 category's. -/
 def Form.id : Form → String
+  | .contextual _ origin => origin.id
+  | .proofRefinement category classifier base =>
+      s!"proof-refinement:{category.id.raw}:{classifier.raw}:{base.id}"
+  | .liftInput entry _ => entry.inputAddress
+  | .constructionInput entry _ => entry.inputAddress
+  | .constructionImage entry _ => entry.id.raw
+  | .functorInput entry _ => entry.inputAddress
+  | .edgeActionInput edge _ => edgeActionInputAddress edge
+  | .cellComponent entry constructors _ => entry.componentAddress constructors
+  | .cartesian entry _ => entry.cartesianAddress
   | .literal entry => entry.id.raw
   | .graph entry => entry.id.raw
   | .subset entry _ => entry.id.raw
@@ -116,6 +193,16 @@ def Form.id : Form → String
   | .diagrams entry => entry.id.raw
 
 def Form.category : Form → CategoryId
+  -- No mathematical category identity is claimed by this unregistered sentinel.
+  -- Context-aware consumers use `namedCategory?` / `formExpression?` below.
+  | .contextual .. => ⟨""⟩
+  | .proofRefinement category _ _ => category.id
+  | .liftInput _ category => category
+  | .constructionInput _ category | .constructionImage _ category => category
+  | .functorInput _ category => category
+  | .edgeActionInput _ category => category
+  | .cellComponent _ _ category => category
+  | .cartesian _ category => category
   | .literal entry => entry.category
   | .graph entry => entry.category
   | .subset _ category => category
@@ -134,6 +221,22 @@ def Form.category : Form → CategoryId
   | .subobject entry => entry.id
   | .presentation _ category => category
   | .diagrams entry => entry.id
+
+/-- Only actual named schemas have a category identity. -/
+def Form.namedCategory? (form : Form) : Option CategoryId :=
+  match form with
+  | .contextual .. => none
+  | .element source => source.namedCategory?
+  | _ => some form.category
+
+/-- Derived contexts participate in the same expression-based resolution as named ones. -/
+def RegistryState.formExpression? (state : RegistryState) (form : Form) : Option CategoryExpr :=
+  match form with
+  | .contextual expression _ => some expression
+  | .element source => state.formExpression? source
+  | _ => do
+      let id ← form.namedCategory?
+      return (← state.categories.find? (·.id == id)).expression
 
 /-- The category of the power object `id`: that of its family `𝒫`. -/
 def RegistryState.powerObjectCategory? (state : RegistryState) (id : PowerObjectId) :
@@ -175,7 +278,125 @@ def RegistryState.edgeImageForm? (state : RegistryState) (id : String) : Option 
   let #[edge] := candidates | none
   some (.edgeImage edge.ref target)
 
+/-- The declared source of a selected action, whether or not it is structural. -/
+def RegistryState.selectedEdgeSource? (state : RegistryState) : EdgeRef → Option CategoryExpr
+  | .functor id => (state.functor? id).map (·.source)
+  | .classifierForget id => some (.classifierTotal id)
+  | .constructMap id inner =>
+      (state.selectedEdgeSource? inner).map fun source => .construct id #[.category source]
+
+def RegistryState.selectedEdgeTarget? (state : RegistryState) : EdgeRef → Option CategoryExpr
+  | .functor id => (state.functor? id).map (·.target)
+  | .classifierForget id => (state.classifier? id).map (·.host)
+  | .constructMap id inner =>
+      (state.selectedEdgeTarget? inner).map fun target => .construct id #[.category target]
+
+/-- Decode only registered action identities, checking every constructor's
+published action on functors. Complete parameters belong to each invocation. -/
+partial def RegistryState.actionIdentityEdge? (state : RegistryState) (json : Json) :
+    Option EdgeRef := do
+  if let .ok id := json.getObjValAs? String "functor" then
+    return .functor (← state.functors.find? (·.id.raw == id)).id
+  if let .ok id := json.getObjValAs? String "classifierForget" then
+    return .classifierForget (← state.classifiers.find? (·.id.raw == id)).id
+  let .ok (.arr #[.str id, inner]) := json.getObjVal? "constructorMap" | none
+  let entry ← state.constructors.find? (·.id.raw == id)
+  guard entry.functorialAction.isSome
+  return .constructMap entry.id (← state.actionIdentityEdge? inner)
+
+/-- Canonical derived object-action address. A bare functor root and alternate
+JSON spellings are not aliases of existing published operations. -/
+def RegistryState.actionEdge? (state : RegistryState) (address : String) : Option EdgeRef := do
+  guard (address.startsWith "action:")
+  let .ok identity := Json.parse (address.drop 7).toString | none
+  let edge ← state.actionIdentityEdge? identity
+  if let .functor _ := edge then none else do
+    guard (edgeActionAddress edge == address)
+    return edge
+
+def RegistryState.edgeActionInputForm? (state : RegistryState) (address : String) :
+    Option Form := do
+  guard (address.endsWith "#input")
+  let edge ← state.actionEdge? (address.dropEnd 6).toString
+  let source ← state.selectedEdgeSource? edge
+  if let #[category] := state.categories.filter (·.expression.syntacticEq source) then
+    return .edgeActionInput edge category.id
+  return .contextual source (.edgeActionInput edge ⟨""⟩)
+
+/-- A public lift request retains its declared source, independently of inheritance. -/
+def RegistryState.liftInputForm? (state : RegistryState) (id : String) : Option Form := do
+  let entry ← state.lifts.find? (fun row =>
+    row.inputAddress == id && row.kind == .subobjects && row.computation.isSome)
+  let expression ← state.selectedEdgeSource? entry.edge
+  let candidates := state.categories.filter (·.expression.syntacticEq expression)
+  let source : Option NamedCategoryEntry := match candidates with
+    | #[source] => some source
+    | _ => do
+      let .construct _ #[.category base] := expression | none
+      let #[source] := state.categories.filter (·.expression.syntacticEq base) | none
+      some source
+  return match source with
+    | some source => .liftInput entry source.id
+    | none => .contextual expression (.liftInput entry ⟨""⟩)
+
+def RegistryState.constructionForm? (state : RegistryState) (id : String) : Option Form := do
+  let entry ← state.constructions.find? fun row =>
+    row.id.raw == id || row.inputAddress == id
+  if let #[target] := state.categories.filter (·.expression.syntacticEq entry.target) then
+    return if id == entry.inputAddress then .constructionInput entry target.id
+      else .constructionImage entry target.id
+  return .contextual entry.target (if id == entry.inputAddress then
+    .constructionInput entry ⟨""⟩ else .constructionImage entry ⟨""⟩)
+
+def RegistryState.functorInputForm? (state : RegistryState) (id : String) : Option Form := do
+  let entry ← state.functors.find? (fun row => row.inputAddress == id)
+  if let #[source] := state.categories.filter (·.expression.syntacticEq entry.source) then
+    return .functorInput entry source.id
+  return .contextual entry.source (.functorInput entry ⟨""⟩)
+
+def RegistryState.component? (state : RegistryState) (id : String) :
+    Option (CellEntry × Array ConstructorId) := do
+  if let some entry := state.cells.find? (fun row => row.componentAddress == id) then
+    return (entry, #[])
+  unless id.startsWith "component:" do none
+  let .ok (.arr #[.str cell, .arr constructors]) := Json.parse (id.drop 10).toString | none
+  let entry ← state.cells.find? (·.id.raw == cell)
+  unless entry.invertible && !constructors.isEmpty do none
+  let constructors ← constructors.mapM fun value => do
+    let .ok name := value.getStr? | none
+    let row ← state.constructors.find? (·.id.raw == name)
+    guard row.comparisonAction.isSome
+    pure row.id
+  guard (entry.componentAddress constructors == id)
+  return (entry, constructors)
+
+def RegistryState.componentForm? (state : RegistryState) (id : String) : Option Form := do
+  let (entry, constructors) ← state.component? id
+  let target := constructors.foldr (fun constructor target =>
+    CategoryExpr.construct constructor #[.category target]) entry.target
+  if let #[category] := state.categories.filter (·.expression.syntacticEq target) then
+    return .cellComponent entry constructors category.id
+  return .contextual target (.cellComponent entry constructors ⟨""⟩)
+
+def RegistryState.cartesian? (state : RegistryState) (id : String) : Option FunctorEntry :=
+  state.functors.find? fun entry => entry.cartesianAddress == id &&
+    (entry.expression.registrationKind matches .familyReindex ..)
+
+def RegistryState.cartesianForm? (state : RegistryState) (id : String) : Option Form := do
+  let entry ← state.cartesian? id
+  let .familyReindex family := entry.expression.registrationKind | none
+  let expression := CategoryExpr.familyTotal family
+  if let #[category] := state.categories.filter (·.expression.syntacticEq expression) then
+    return .cartesian entry category.id
+  return .contextual expression (.cartesian entry ⟨""⟩)
+
 def RegistryState.form? (state : RegistryState) (id : String) : Option Form :=
+  state.liftInputForm? id <|>
+  state.constructionForm? id <|>
+  state.functorInputForm? id <|>
+  state.edgeActionInputForm? id <|>
+  state.componentForm? id <|>
+  state.cartesianForm? id <|>
   (state.literals.find? (·.id.raw == id) |>.map .literal) <|>
   (state.graphLiterals.find? (·.id.raw == id) |>.map .graph) <|>
   (state.subsetLiterals.find? (·.id.raw == id) |>.bind fun entry =>
@@ -212,6 +433,11 @@ def RegistryState.form? (state : RegistryState) (id : String) : Option Form :=
 
 /-- A catalogue operation a registration may compute. -/
 inductive Operation
+  | liftField (entry : LiftEntry) (field : LiftField)
+  | liftFactor (entry : LiftEntry)
+  | construction (entry : ConstructionEntry) (map : Bool)
+  | cellComponent (entry : CellEntry) (constructors : Array ConstructorId)
+  | cartesian (entry : FunctorEntry)
   | method (entry : MethodEntry)
   | property (entry : PropertyEntry)
   | limit (entry : LimitEntry)
@@ -220,9 +446,16 @@ inductive Operation
   | application (entry : ObjectEntry)
   | binder (entry : BinderEntry)
   | functor (entry : FunctorEntry)
+  | functorMap (entry : FunctorEntry)
+  | edgeAction (edge : EdgeRef) (map : Bool)
   | presentation (entry : PresentationComparisonEntry)
 
 def Operation.id : Operation → String
+  | .liftField entry field => entry.fieldAddress field
+  | .liftFactor entry => entry.factorAddress
+  | .construction entry map => if map then entry.mapAddress else entry.id.raw
+  | .cellComponent entry constructors => entry.componentAddress constructors
+  | .cartesian entry => entry.cartesianAddress
   | .method entry => entry.id.raw
   | .property entry => entry.id.raw
   | .limit entry => entry.id.raw
@@ -231,10 +464,22 @@ def Operation.id : Operation → String
   | .application entry => entry.applicationAddress
   | .binder entry => entry.id.raw
   | .functor entry => entry.id.raw
+  | .functorMap entry => entry.mapAddress
+  | .edgeAction edge map => if map then edgeActionMapAddress edge else edgeActionAddress edge
   | .presentation entry => entry.id.raw
 
 /-- The operation `id` names. -/
 def RegistryState.operation? (state : RegistryState) (id : String) : Option Operation :=
+  (state.lifts.findSome? (fun entry => do
+    if entry.kind != .subobjects || entry.computation.isNone then none else
+      if entry.factorAddress == id then return .liftFactor entry
+      let field ← LiftField.all.find? (fun field => entry.fieldAddress field == id)
+      return .liftField entry field)) <|>
+  (state.constructions.findSome? fun entry =>
+    if entry.id.raw == id then some (.construction entry false)
+    else if entry.mapAddress == id then some (.construction entry true) else none) <|>
+  ((state.component? id).map fun (entry, constructors) => .cellComponent entry constructors) <|>
+  ((state.cartesian? id).map .cartesian) <|>
   (state.methods.find? (·.id.raw == id) |>.map .method) <|>
   (state.properties.find? (·.id.raw == id) |>.map .property) <|>
   (state.limits.find? (·.id.raw == id) |>.map .limit) <|>
@@ -244,6 +489,11 @@ def RegistryState.operation? (state : RegistryState) (id : String) : Option Oper
       entry.applicationAddress == id) |>.map .application) <|>
   (state.binders.find? (·.id.raw == id) |>.map .binder) <|>
   (state.functors.find? (·.id.raw == id) |>.map .functor) <|>
+  (state.functors.find? (fun entry => entry.mapAddress == id) |>.map .functorMap) <|>
+  ((state.actionEdge? id).map (fun edge => .edgeAction edge false)) <|>
+  (if id.endsWith "#map" then
+    (state.actionEdge? (id.dropEnd 4).toString).map (fun edge => .edgeAction edge true)
+   else none) <|>
   (state.presentations.find? (·.id.raw == id) |>.map .presentation)
 
 /-- The actual public callable declaration and category at a concrete address. Consumers
@@ -287,7 +537,69 @@ along the route is computed as that one (`transport`), so a registration on it w
 selected, and is not admitted. -/
 def RegistryState.rejects (state : RegistryState) (operation : Operation) (form : Form) :
     Option String :=
-  if let .presentation entry := operation then
+  if let .cartesian input _ := form then
+    match operation with
+    | .cartesian entry => if entry.id == input.id then none else
+        some s!"{operation.id} requires its own complete cartesian-map request"
+    | _ => some s!"{operation.id} is not this accepted cartesian map"
+  else if let .functorInput input _ := form then
+    match operation with
+    | .functor entry | .functorMap entry => if entry.id == input.id then none else
+        some s!"{operation.id} requires its own complete selected functor request"
+    | _ => some s!"{operation.id} is not this registered functor action"
+  else if let .contextual _ (.functorInput input _) := form then
+    match operation with
+    | .functor entry | .functorMap entry => if entry.id == input.id then none else
+        some s!"{operation.id} requires its own complete selected functor request"
+    | _ => some s!"{operation.id} is not this registered functor action"
+  else if let .edgeActionInput input _ := form then
+    match operation with
+    | .edgeAction edge _ => if edge == input then none else
+        some s!"{operation.id} requires its own complete selected edge action request"
+    | _ => some s!"{operation.id} is not this registered edge action"
+  else if let .contextual _ (.edgeActionInput input _) := form then
+    match operation with
+    | .edgeAction edge _ => if edge == input then none else
+        some s!"{operation.id} requires its own complete selected edge action request"
+    | _ => some s!"{operation.id} is not this registered edge action"
+  else if let .contextual _ (.cartesian input _) := form then
+    match operation with
+    | .cartesian entry => if entry.id == input.id then none else
+        some s!"{operation.id} requires its own complete cartesian-map request"
+    | _ => some s!"{operation.id} is not this accepted cartesian map"
+  else if let .contextual _ (.cellComponent input constructors _) := form then
+    match operation with
+    | .cellComponent entry selected =>
+        if entry.id == input.id && constructors == selected then none else
+          some s!"{operation.id} requires its own complete selected cell component"
+    | _ => some s!"{operation.id} is not this accepted cell component"
+  else if let .contextual _ (.liftInput input _) := form then
+    match operation with
+    | .liftField entry _ | .liftFactor entry => if entry.id == input.id then none else
+        some s!"{operation.id} requires its own published lift request"
+    | _ => some s!"{operation.id} is not a published field of this lift"
+  else if let .contextual _ (.constructionInput input _) := form then
+    match operation with
+    | .construction entry _ => if entry.id == input.id then none else
+        some s!"{operation.id} requires its own complete construction request"
+    | _ => some s!"{operation.id} is not this registered construction"
+  else if let .liftInput input _ := form then
+    match operation with
+    | .liftField entry _ | .liftFactor entry => if entry.id == input.id then none else
+        some s!"{operation.id} requires its own published lift request"
+    | _ => some s!"{operation.id} is not a published field of this lift"
+  else if let .constructionInput input _ := form then
+    match operation with
+    | .construction entry _ => if entry.id == input.id then none else
+        some s!"{operation.id} requires its own complete construction request"
+    | _ => some s!"{operation.id} is not this registered construction"
+  else if let .cellComponent input constructors _ := form then
+    match operation with
+    | .cellComponent entry selected =>
+        if entry.id == input.id && constructors == selected then none else
+          some s!"{operation.id} requires its own complete selected cell component"
+    | _ => some s!"{operation.id} is not this accepted cell component"
+  else if let .presentation entry := operation then
     let rec endpoint (object : ObjectEntry) (fuel : Nat) : Bool :=
       if object.id == entry.source || object.id == entry.target then true else
         match fuel, object.refines with
@@ -297,6 +609,9 @@ def RegistryState.rejects (state : RegistryState) (operation : Operation) (form 
             | none => false
         | _, _ => false
     match form with
+    | .presentation input _ =>
+        if input.id == entry.id then none
+        else some s!"{entry.id.raw} requires its own complete comparison request"
     | .object object | .generator object | .element (.object object) =>
         if endpoint object (state.objects.size + 1) then none
         else some s!"{entry.id.raw} requires its registered source or target endpoint"
@@ -336,18 +651,18 @@ def RegistryState.rejects (state : RegistryState) (operation : Operation) (form 
     let notResolved := some s!"{operation.id} does not apply to the values of {form.id}"
     match operation with
     | .method entry =>
-        match state.categories.find? (·.id == form.category) with
-        | some category =>
-            match state.resolveMethod category.expression entry.name #[] with
+        match state.formExpression? form with
+        | some expression =>
+            match state.resolveMethod expression entry.name #[] with
             | .ok resolution =>
                 if resolution.method.id == entry.id then movedAlong resolution.route.refs
                 else notResolved
             | .error _ => notResolved
         | none => notResolved
     | .property entry =>
-        match state.categories.find? (·.id == form.category) with
-        | some category =>
-            match state.resolveProperty category.expression entry.name #[] with
+        match state.formExpression? form with
+        | some expression =>
+            match state.resolveProperty expression entry.name #[] with
             | .ok resolution =>
                 if resolution.property.id == entry.id then movedAlong resolution.route.refs
                 else notResolved
@@ -363,13 +678,32 @@ def RegistryState.rejects (state : RegistryState) (operation : Operation) (form 
     | .morphism entry => if entry.category == form.category then none else notResolved
     | .application entry => if entry.category == form.category then none else notResolved
     | .binder entry => if entry.category == form.category then none else notResolved
-    | .presentation _ => notResolved
+    | .cellComponent entry constructors =>
+        let target := constructors.foldr (fun constructor target =>
+          CategoryExpr.construct constructor #[.category target]) entry.target
+        match state.formExpression? form with
+        | some actual => if actual.syntacticEq target then none else notResolved
+        | none => notResolved
+    | .cartesian entry =>
+        match entry.expression.registrationKind with
+        | .familyReindex family =>
+            match state.formExpression? form with
+            | some actual =>
+                if actual.syntacticEq (.familyTotal family) then none else notResolved
+            | none => notResolved
+        | _ => notResolved
+    | .presentation _ | .liftField .. | .liftFactor .. | .construction .. |
+        .functorMap _ | .edgeAction .. => notResolved
     | .functor entry =>
         match form with
-        | .arrow category =>
-            if category.expression.syntacticEq entry.source then none else notResolved
-        | .subobject category =>
-            if category.expression.syntacticEq entry.source then none else notResolved
+        | .contextual expression _ =>
+            if expression.syntacticEq entry.source then none else notResolved
+        | .arrow category | .subobject category | .diagrams category =>
+            if category.expression.syntacticEq entry.source then none else
+              match category.expression, entry.source with
+              | .familyApp sourceFamily _, .familyApp targetFamily _ =>
+                  if sourceFamily == targetFamily then none else notResolved
+              | _, _ => notResolved
         | .object object =>
             match state.categories.find? (·.id == object.category) with
             | some category => if category.expression.syntacticEq entry.source then none else
@@ -378,7 +712,7 @@ def RegistryState.rejects (state : RegistryState) (operation : Operation) (form 
                     if sourceFamily == targetFamily then none else notResolved
                 | _, _ => notResolved
             | none => notResolved
-        | .functorImage _ categoryId =>
+        | .functorImage _ categoryId | .constructionImage _ categoryId =>
             match state.categories.find? (·.id == categoryId) with
             | some category => if category.expression.syntacticEq entry.source then none else
                 match category.expression, entry.source with
@@ -409,6 +743,70 @@ def RegistryState.rejects (state : RegistryState) (operation : Operation) (form 
 /-- Whether `operation` applies to the values of `form`. -/
 def RegistryState.accepts (state : RegistryState) (operation : Operation) (form : Form) : Bool :=
   (state.rejects operation form).isNone
+
+/-- Every admitted input address applicable to this complete representation.
+Category-wide registrations cover newly registered objects, functor images and
+computed apices in that exact category, using the same public data grammar.
+No route is invented here: dispatch receives the value after its selected
+structural transport. Exact and category-wide addresses are peers, so an
+overlap remains an ambiguity rather than an implicit specialization rule. -/
+def RegistryState.inputAddresses (state : RegistryState) (operation : Operation)
+    (form : Form) : Array String := Id.run do
+  let mut addresses := #[form.id]
+  unless state.accepts operation form do return addresses
+  let some generic := state.form? form.category.raw | return addresses
+  unless state.accepts operation generic do return addresses
+  unless addresses.contains generic.id do addresses := addresses.push generic.id
+  return addresses
+
+/-- A complete point invocation also inhabits its callable's published request
+form. The caller has already checked the original operation address and complete
+invocation fields. An ordinary object or an unapplied descriptor does not gain
+this alternative; every applicable registration still has equal standing. -/
+def RegistryState.pointInputAddresses (state : RegistryState) (operation : Operation)
+    (source : Form) : Array String := Id.run do
+  let mut addresses := state.inputAddresses operation source
+  let request : Option Form := match operation with
+    | .morphism entry => some (.namedMorphism entry)
+    | .application entry => some (.application entry)
+    | .binder entry => some (.binder entry)
+    | .construction entry _ => state.constructionForm? entry.inputAddress
+    | .functorMap entry => state.functorInputForm? entry.inputAddress
+    | .edgeAction edge true => state.edgeActionInputForm? (edgeActionInputAddress edge)
+    | .cellComponent entry constructors => state.componentForm? (entry.componentAddress constructors)
+    | .cartesian entry => state.cartesianForm? entry.cartesianAddress
+    | _ => none
+  if let some request := request then
+    if state.accepts operation request && !addresses.contains request.id then
+      addresses := addresses.push request.id
+  return addresses
+
+/-- A complete object-action frame also inhabits its selected functor's own
+request address. Existing source-form registrations remain equal peers. -/
+def RegistryState.objectActionInputAddresses (state : RegistryState) (operation : Operation)
+    (source : Form) : Array String := Id.run do
+  let mut addresses := state.inputAddresses operation source
+  let request := match operation with
+    | .functor entry => state.functorInputForm? entry.inputAddress
+    | .construction entry false => state.constructionForm? entry.inputAddress
+    | .edgeAction edge false => state.edgeActionInputForm? (edgeActionInputAddress edge)
+    | _ => none
+  if let some request := request then
+    if state.accepts operation request && !addresses.contains request.id then
+      addresses := addresses.push request.id
+  return addresses
+
+/-- A complete comparison invocation also inhabits that exact comparison's
+published request form. The caller has checked the presentationApply framing
+and independently selected comparison; endpoint registrations remain peers. -/
+def RegistryState.presentationInputAddresses (state : RegistryState) (operation : Operation)
+    (source : Form) : Array String := Id.run do
+  let mut addresses := state.inputAddresses operation source
+  let .presentation entry := operation | return addresses
+  let some request@(.presentation input _) := state.form? entry.id.raw | return addresses
+  unless input.id == entry.id && state.accepts operation request do return addresses
+  unless addresses.contains request.id do addresses := addresses.push request.id
+  return addresses
 
 /-- An admitted registration, with the rows it resolved to. -/
 structure Admitted where
