@@ -6389,7 +6389,11 @@ def evaluatedDecides (evaluations : Array Name) (p : Expr) : TermElabM Bool := d
   let attempt : TermElabM Bool := do
     let goal ← mkFreshExprMVar p .syntheticOpaque
     let presented ← evaluationProofPresentation p
-    let first ← goal.mvarId!.replaceTargetDefEq presented
+    -- Retain the original proposition's proof checkpoint with core expression construction.
+    let first ← if Expr.equal p presented then pure goal.mvarId! else do
+      let presentedGoal ← mkFreshExprMVar presented .syntheticOpaque
+      goal.mvarId!.assign (← mkExpectedTypeHint presentedGoal p)
+      pure presentedGoal.mvarId!
     let mut remaining := [first]
     for evaluation in evaluations do
       let [current] := remaining | return false

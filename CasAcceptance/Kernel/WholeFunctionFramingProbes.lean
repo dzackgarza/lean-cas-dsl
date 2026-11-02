@@ -254,10 +254,43 @@ run_elab do
   let reverse ← mkAppM ``CategoryTheory.Iso.symm #[comparison]
   let presentation := fun inverse => packet "presentation"
     #[comparisonRow.id.raw, Json.arr #[], toJson (inverse : Bool)]
-  let presentedDomain : Wire := { domainData with
+  -- Capture the registered comparison at these original endpoint occurrences,
+  -- just as a selected callable producer does before later framing consumes it.
+  let comparisonContext ← CategoryContext.ofNamed sets declaredDomain
+  -- The original bare comparison packets do not supply their actual endpoint interface.
+  let packetOnlyDomain : Wire := { domainData with
     payload := (← combinedPayload declaredDomain oneData.fragment #[domainData, oneData])
     endpointPresentation := some {
       comparison := reverse, forward := presentation true, backward := presentation false } }
+  let some packetOnlyPresentation := packetOnlyDomain.endpointPresentation | unreachable!
+  let rejectedPacketOnly ← try
+    discard <| endpointPresentationMaps packetOnlyDomain comparisonContext packetOnlyPresentation
+    pure false
+  catch error =>
+    if !Exception.hasConflictingStrata error &&
+        Exception.stratum? error == some .noImplementation then pure true else throw error
+  unless rejectedPacketOnly do
+    throwError "bare comparison packets supplied their missing original endpoint interface"
+  let captureComparison := fun (inverse : Bool) (source target : Wire) => do
+    let formal ← Semantic.presentationArrow comparisonRow comparison inverse (some trace)
+    let descriptor : ActionDataTemplate := .ctor "presentation"
+      #[.literal { json := toJson comparisonRow.id.raw }, .array #[],
+        .literal { json := toJson inverse }]
+    let (data, dependencies) ← renderCapturedActionData descriptor
+    let comparisonWire : Wire := {
+      form := .presentation comparisonRow sets.id
+      payload := (← combinedRecipePayload formal data dependencies)
+      categoryContext := some comparisonContext }
+    captureSelectedCallable harness trace comparisonWire comparisonRow.id.raw comparison
+      #[] descriptor #[] (some comparisonContext)
+      (some ({ wire := source, origin := .retained }, { wire := target, origin := .retained }))
+      (some inverse)
+  let forward ← captureComparison true domainData oneData
+  let backward ← captureComparison false oneData domainData
+  let presentedDomain : Wire := { domainData with
+    payload := (← combinedPayload declaredDomain oneData.fragment #[domainData, oneData]) }
+  let presentedDomain ← retainEndpointPresentationMaps presentedDomain comparisonContext
+    reverse forward backward
   harness.results.modify (·.insert declaredDomain presentedDomain)
   let restaged ← wholeCallablePoint harness trace rawWire inputSource inputTarget
     declaredDomain rawContext inputOwner

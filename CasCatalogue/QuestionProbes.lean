@@ -9,7 +9,7 @@ open Lean Elab Command Term
 open CasCatalogue CasCatalogue.Language CasCatalogue.Realize
 
 /- Reader mechanics only: these probes do not admit mathematical assertions or meanings. -/
-run_cmd liftTermElabM do
+run_cmd withoutModifyingEnv <| liftTermElabM do
   let ask (text : String) : TermElabM TypedQuestion := do
     let .ok parsed :=  Parser.runParserCategory (← getEnv) `cas_stmt text
       | throwError "probe did not parse: {text}"
@@ -60,7 +60,7 @@ run_cmd liftTermElabM do
   unless outcome.kind == "wrong" && retained == some failed.identity do
     throwError "a refuted assertion changed its question or reported semantic invalidity"
 
-run_cmd liftTermElabM do
+run_cmd withoutModifyingEnv <| liftTermElabM do
   for (stratum, expected) in #[(Stratum.invalid, InterpretationFailureKind.invalid),
       (.semanticAmbiguity, .ambiguous), (.noImplementation, .internal),
       (.ambiguousRealization, .internal), (.unavailable, .internal), (.malformed, .internal)] do
@@ -90,7 +90,7 @@ run_cmd liftTermElabM do
     throwError "execution erased the decoder's malformed-output stratum"
 
 -- Typed constructor mechanics retain the canonical registered commutative coefficient object.
-run_cmd liftTermElabM do
+run_cmd withoutModifyingEnv <| liftTermElabM do
   let state ← registryState
   let sets ← categoryNamed state "Sets"
   let some commutative := state.categories.find? (·.id == CategoryId.commutativeRings)
@@ -118,7 +118,7 @@ run_cmd liftTermElabM do
     throwError "structured constructor recognition changed the coefficient category or origin"
 
 -- Selected routes survive; identical complete incoming structures retain both presentations.
-run_cmd liftTermElabM do
+run_cmd withoutModifyingEnv <| liftTermElabM do
   let state ← registryState
   let sets ← categoryNamed state "Sets"
   let rings ← categoryNamed state "Rings"
@@ -178,7 +178,7 @@ run_cmd liftTermElabM do
   unless rejected do
     throwError "carrier coincidence supplied an unregistered parameter structure"
 
-run_cmd liftTermElabM do
+run_cmd withoutModifyingEnv <| liftTermElabM do
   let parameterVar ← Lean.Meta.mkFreshExprMVar (some (Lean.mkConst ``Nat))
   let unified ← (parameterTrial (Lean.Meta.isDefEq parameterVar (Lean.mkNatLit 3))).run {}
   unless unified && (← instantiateMVars parameterVar) == parameterVar do
@@ -197,7 +197,7 @@ run_cmd liftTermElabM do
   unless internal do throwError "an interpreter exception became inapplicability"
 
 -- A partially applied object family is a function, never an admitted object value.
-run_cmd liftTermElabM do
+run_cmd withoutModifyingEnv <| liftTermElabM do
   let state ← registryState
   let rejected ← try
     discard <| (object state "Fin" #[] none).run {}
@@ -207,7 +207,7 @@ run_cmd liftTermElabM do
     throwError "an unresolved object-family parameter was admitted as object data"
 
 /- A failed declaration remains in scope; later occurrences cannot become free variables. -/
-run_cmd liftTermElabM do
+run_cmd withoutModifyingEnv <| liftTermElabM do
   let harness ← Harness.empty
   let .ok binding := Parser.runParserCategory (← getEnv) `cas_stmt "let F := Fin(3,4)"
     | throwError "failed-binding probe did not parse"

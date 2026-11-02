@@ -1,5 +1,31 @@
 # Journal
 
+## 2026-11-01 — Restore purity and capture complete comparison endpoints
+
+The complete 70-target run at published `92916e1a` failed exactly KernelPurity
+and WholeFunctionFramingProbes in 2028.411 seconds with unchanged source. The
+purity repair uses core StateM result projection and proof-goal construction,
+isolates seven original question-probe environments, and includes four omitted
+catalogue probe modules under the unchanged gate. Three newly exposed fixture
+selectors use their same unique public registry names. The framing fixture now
+captures both original comparison endpoint occurrences; an additive negative
+retains the old bare-packet setup and requires its existing NoImplementation.
+All original assertions, types, producer checks and resource budgets remain.
+
+Completed diagnostics and fresh native checks pass: RuntimeSupport 634.467 seconds,
+Realize 61.560 seconds, QuestionProbes/WholeFunctionFramingProbes 77.861 seconds,
+and ContextParameterProbes/full KernelPurity 258.064 seconds. Every measured run
+kept its source/configuration guards unchanged. Fresh kernel-only source reviews
+found no concrete defect and retain the exact path-coverage qualification.
+
+These close the two diagnosed consumer failures, not V1 or mathematical acceptance.
+The original RX-LIFT question remains unavailable on the immutable c8a7048 leaf,
+within its fixed budget; a bounded original-context producer observation supports
+further causal review. Full integration, fixed computations and independent
+acceptance remain required. The existing extension trials retain their fixed
+questions after refreezing. The current handoff records the role-boundary incidents
+and publication dependency factually; it supplies no independent conduct verdict.
+
 ## 2026-10-31 — Exercise contextual Hom ownership through public receive and capture
 
 The contextual-Hom fixture now receives its three owned packets from actual

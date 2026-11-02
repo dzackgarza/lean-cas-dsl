@@ -767,3 +767,66 @@ an unavailable backend scalar-descriptor result at dispatch 21; it supplies no
 passing mathematical result. Full candidate integration, subsequent mathematical
 use and independent assessment remain required; backend data do not certify their
 own mathematical correctness.
+
+
+## Core dependencies and original comparison interfaces (2026-11-01)
+
+The complete 70-target run at `92916e1a` failed only KernelPurity and
+WholeFunctionFramingProbes, in 2028.411 seconds with an unchanged source tuple.
+The production purity repair reuses Lean's core StateM runner and expected-type
+hint constructor. `StateT.run` applies the unchanged state program; first-field
+projection on its Id result removes the synthesized Functor required by `run'`.
+All fifteen runners keep their original initial state, comparisons, completed
+cache entries and reference implementations.
+
+`evaluatedDecides` retains the fresh goal at original `p`. A distinct presentation
+gets a synthetic-opaque goal in the same local context and an `@id p` checkpoint
+from core `mkExpectedTypeHint`. The registered evaluator loop, residue checks,
+metavariable/sorry rejection and final `kernelAccepts p proof` remain unchanged.
+The selected Lean 4.33 `replaceTargetDefEq` used the same expected-type checkpoint
+and performed no additional definitional-equality proof. It also instantiated
+targets before its syntactic-equality fast path; the local setup can therefore
+retain an extra administrative goal. Source review does not establish equal
+heartbeat consumption; original-budget executions remain required.
+
+Four omitted catalogue modules are added to the existing purity import census.
+All gate predicates and allowed/restricted lists remain unchanged. Seven original
+QuestionProbes blocks gain `withoutModifyingEnv`, which restores only their
+complete command's environment and preserves errors; all eleven original command
+bodies and limits remain unchanged. Generated mathematical equation declarations
+therefore do not become definitions exported by those kernel probes.
+
+The whole-function positive fixture now captures the two registered presentation
+arrows at the original domainData/oneData occurrences with `captureSelectedCallable`
+and `retainEndpointPresentationMaps`. It supplies actual pending producer records,
+not completed-result flags or expression-cache substitutes. The old bare-packet
+Wire is retained in an additive negative requiring the existing unconflicted
+`NoImplementation`; it is not inserted into shared harness state. The corrected
+positive uses retained maps, so it does not claim successful packet-only recovery.
+Original whole-function, inventory, supplier and dictionary assertions remain.
+
+The expanded purity audit then exposed three declaration-name references in the
+newly included ContextParameterProbes helpers. The selectors now consume the
+existing unique public category names. The selected upstream registration maps
+those names to the exact original rows, and its validator rejects duplicate names.
+Original full types still come from the original handles; every assertion,
+producer comparison, command wrapper, scope and budget remains unchanged.
+
+Fresh kernel-only source reviews found no concrete defect in these scoped changes.
+RuntimeSupport completes diagnostics and its native artifact build (634.467 seconds),
+followed by Realize diagnostics/build (61.560 seconds). The complete original
+QuestionProbes and WholeFunctionFramingProbes, with the additive interface negative,
+pass after diagnostics (77.861 seconds combined). ContextParameterProbes completes
+diagnostics/build and the full unchanged KernelPurity gate passes (258.064 seconds
+combined). All native receipts retain unchanged source/configuration guards.
+The complete consumer run and subsequent integration are separate remaining checks.
+No subject-specific mathematics, semantic row, leaf operation, permanent assertion,
+protected reading or resource budget is authored here.
+
+The original first RX-LIFT computation at this production source and immutable
+leaf c8a7048a7f2b remains unavailable at the same public scalar-descriptor boundary,
+within its original budget. The complete raw producer observation retains the
+original question and 22 bindings; it performs no leaf execution. Its semantic
+owner/source investigation must establish an actual generic defect before another
+production change. Neither unequal data descriptors nor a successful leaf-owned
+source review establishes a mathematical answer or authorizes identity coalescing.

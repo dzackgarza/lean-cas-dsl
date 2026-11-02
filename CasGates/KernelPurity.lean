@@ -5,6 +5,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 import all CasCatalogue
+import all CasCatalogue.ContextParameterProbes
+import all CasCatalogue.EndpointDataProbes
+import all CasCatalogue.ProducerOccurrenceProbes
+import all CasCatalogue.ProducerProofBoundaryProbes
 import all CasCatalogue.Acceptance
 import all CasCatalogue.CarrierProjectionProbes
 import all CasCatalogue.ComputationalActionContextProbes

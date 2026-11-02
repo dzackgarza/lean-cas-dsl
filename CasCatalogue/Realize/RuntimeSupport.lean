@@ -1438,46 +1438,46 @@ private unsafe def remember (left right : Wire) (next : StateM Cache Bool) : Sta
   return result
 
 private unsafe def operandCached (left right : Wire) : Bool :=
-  (operand (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+  ((operand (m := StateM Cache) remember left right).run (mkPtrMap 64)).1
 
 private unsafe def pointCached (left right : Option PointOrigin) : Bool :=
-  (point (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+  ((point (m := StateM Cache) remember left right).run (mkPtrMap 64)).1
 
 private unsafe def endpointMapsCached (left right : Option (Wire × Wire)) : Bool :=
-  (endpointMaps (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+  ((endpointMaps (m := StateM Cache) remember left right).run (mkPtrMap 64)).1
 
 private unsafe def namedOriginCached (left right : Option NamedRefinementOrigin) : Bool :=
-  (namedOrigin (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+  ((namedOrigin (m := StateM Cache) remember left right).run (mkPtrMap 64)).1
 
 private unsafe def framingCached (left right : Option MorphismFraming) : Bool :=
-  (framing (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+  ((framing (m := StateM Cache) remember left right).run (mkPtrMap 64)).1
 
 private unsafe def templateCached (left right : ActionDataTemplate) : Bool :=
-  (template (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+  ((template (m := StateM Cache) remember left right).run (mkPtrMap 64)).1
 
 private unsafe def actionCached (left right : Option ActionRecipe) : Bool :=
-  (action (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+  ((action (m := StateM Cache) remember left right).run (mkPtrMap 64)).1
 
 private unsafe def endpointsCached (left right : Option CallableEndpoints) : Bool :=
-  (endpoints (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+  ((endpoints (m := StateM Cache) remember left right).run (mkPtrMap 64)).1
 
 private unsafe def intrinsicCached (left right : Option IntrinsicAssembly) : Bool :=
-  (intrinsic (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+  ((intrinsic (m := StateM Cache) remember left right).run (mkPtrMap 64)).1
 
 private unsafe def parameterCached (left right : SelectedCallableParameter) : Bool :=
-  (parameter (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+  ((parameter (m := StateM Cache) remember left right).run (mkPtrMap 64)).1
 
 private unsafe def operationCached (left right : OperationObservation) : Bool :=
-  (operation (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+  ((operation (m := StateM Cache) remember left right).run (mkPtrMap 64)).1
 
 private unsafe def selectedCached (left right : Option SelectedCallableInvocation) : Bool :=
-  (selected (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+  ((selected (m := StateM Cache) remember left right).run (mkPtrMap 64)).1
 
 private unsafe def productsCached (left right : Array Wire) : Bool :=
-  (products (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+  ((products (m := StateM Cache) remember left right).run (mkPtrMap 64)).1
 
 private unsafe def wireCached (left right : Wire) : Bool :=
-  (wire (m := StateM Cache) remember left right).run' (mkPtrMap 64)
+  ((wire (m := StateM Cache) remember left right).run (mkPtrMap 64)).1
 
 end CompleteContextComparison
 
@@ -13322,7 +13322,7 @@ private unsafe def remember (root : ProspectiveReservationRoot)
   return result
 
 private unsafe def containsCached (needle : Json) (roots : Array ProspectiveReservationRoot) : Bool :=
-  (containsMany (m := StateM Cache) remember needle roots).run' {}
+  ((containsMany (m := StateM Cache) remember needle roots).run {}).1
 
 end ProspectiveReservation
 

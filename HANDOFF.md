@@ -177,15 +177,16 @@ tokens, and the retained Hom, whole-function, nested-frame and supplier checks
 pass. Opaque implementation contents remain outside that audit. The existing
 profile suggests repeated action-recipe observation before completed-action reuse
 as a measurement candidate; it does not establish a measured saving or actual
-budget exhaustion. No kernel contributor inspected leaf implementation or self-tests, and no
-downstream result was supplied to the independent leaf author.
+budget exhaustion. That public packet audit used no leaf implementation or self-tests as
+evidence. The later incidental agent-inventory exposure is recorded below. No downstream
+result was supplied to the independent leaf author.
 
-The independent public-only leaf follow-up closed its bounded finding on clean
+The earlier independent public-only leaf follow-up closed its bounded finding on clean
 native commit `b4eb4e986442cbacfce88b11c14c1af14a9ac459`, tree
 `6f0dda7ec80a066e47491a336793d4dd3a9ee7eb`; its current native exercise reports
 179 primary and three stopped-owner requests. Both public manifests are unchanged
-(96 extension registrations and 19 V1 registrations). All ten native commits
-since frozen `a1d72cfa`, earlier snapshots and the final candidate are preserved.
+(96 extension registrations and 19 V1 registrations). Those ten native commits
+since frozen `a1d72cfa`, their earlier snapshots and that candidate are preserved.
 These public engineering receipts supply no mathematical acceptance result.
 
 Leaf publication is blocked by transport in both independent leaf-agent sessions:
@@ -198,9 +199,153 @@ The existing role boundary still applies; a working primary credential does not
 authorize a kernel agent to write leaf source. The local diagnostic does not
 claim a published leaf identity.
 
-These are focused engineering results. The full 70-target consumer set, native
-tools and axiom audit must run on the final unchanged published tuple. Original
-RX-LIFT, subsequent mathematical use and independent acceptance remain required.
+### Completed consumer run and scoped purity/framing repairs
+
+The reader occurrence and public method-call syntax checkpoint is published at
+`92916e1a067b5406bcd77b9238a1103ef1a34624`, tree
+`570e8e2fce03dde4c265106019a79122baf7389e`. Its complete configured 70-target
+consumer run exited 1 in 2028.411 seconds (2026-11-01 21:54:00–22:27:49 UTC),
+with `sourceTupleChanged: false`. The required-target failure summary names only
+`CasGates.KernelPurity` and `CasAcceptance.Kernel.WholeFunctionFramingProbes`.
+The earlier 22-module and 40-module failures are historical outcomes. The full
+command and producer tuple remain in `consumers-provenance.json`; the preserved
+670256-byte log has SHA-256
+`31c7216efa6188d77c037928e52369fbf37cb19f0595f2e28ea6e8aea38d40aa`.
+
+The scoped purity repair adds the four missing catalogue imports without changing
+the gate's predicates or allowed/restricted sets. Fifteen StateM runners now take
+`(program.run initial).1`, removing their accidental Mathlib Traversable instance
+references while preserving all comparisons, cache keys, traversals and completed
+insertions. `evaluatedDecides` constructs the original expected-type checkpoint
+with core metavariable operations; its final kernel check still checks the
+assembled proof against the original proposition. Seven previously unisolated
+QuestionProbes commands now use `withoutModifyingEnv`; all eleven original
+command bodies and budgets remain intact, and errors are not suppressed.
+
+The whole-function fixture captures both registered comparison arrows at their
+original endpoint occurrences and retains them through the existing APIs. This
+changes the positive setup from packet-only recovery to captured comparison maps;
+it is not identical path coverage. An additive negative reconstructs the exact
+old bare-packet Wire and requires the existing unconflicted `NoImplementation`
+without inserting that incomplete value into the shared harness. All original
+positive, inventory, supplier and complete-dictionary assertions remain unchanged.
+No mathematical source, permanent assertion, expected answer, protected question
+record, registration or resource budget changes.
+
+The first completed expanded purity audit cleared the production and question-probe
+findings, then exposed three mathematical declaration references in two newly
+included ContextParameterProbes helpers. Their category selectors now use the
+same unique public registry names, `Rings` and `CommutativeRings`. The selected
+mathematical registration and its duplicate-name validator establish the same
+rows. Original missing-fixture guards, full types inferred from the original
+handles, all seven commands, producer comparisons and budgets are unchanged.
+
+Fresh kernel-only source reviews found no concrete defect and explicitly
+qualified the framing-path change and possible extra administrative proof goal.
+All six changed Lean modules now have completed diagnostic feedback and their
+required native execution. RuntimeSupport diagnostics and its artifact build pass
+(634.467 seconds; 5480044 KiB peak child RSS). Realize diagnostics and its fresh
+artifact build pass (61.560 seconds). The complete QuestionProbes and
+WholeFunctionFramingProbes pass after diagnostics (77.861 seconds combined),
+including every original assertion and the additive bare-packet rejection.
+ContextParameterProbes completes diagnostics and its native build; the unchanged
+full KernelPurity audit then passes with all four new imports (258.064 seconds
+combined, including 239 seconds for the gate). Every measured invocation retains
+its original source/configuration guards. Receipts are
+`purity-runtime-support-build-1.json`, `purity-realize-build-1.json`,
+`purity-framing-probes-build-1.json` and `purity-context-and-gate-build-1.json`.
+These are focused results, not a new complete-consumer pass.
+
+The latest original first RX-LIFT run uses immutable leaf `c8a7048a7f2b`, current
+Realize `3c281038` and RuntimeSupport `9462233e`, and unchanged Language `26a85a0a`.
+All 22 original bindings, six imports, one shared session and the 200000 budget
+remain. It is still unavailable at dispatch 21 with the scalar-descriptor
+ValueError, at 197262471 raw ticks (68439716 preparation, 128822582 execution);
+it does not exhaust heartbeats. The diagnostic process exits 0 in 55.835 seconds
+with unchanged guards (`rx-lift-c8-first-measurement.json`), not a passing assertion.
+Because both the kernel and leaf selections differ from the earlier b4 run, this
+is not an isolated causal before/after comparison of either repair.
+
+A fresh kernel-only public-packet review could not establish owner substitution
+from unequal carrier descriptors alone. Its subsequent bounded original-context
+observer prepares the same first question and captures all 104 original producers
+and 2158 raw expression nodes, with no leaf or question execution and no canonical
+audit export. Preparation retains the original 200000 cap; the separate diagnostic
+scope uses the existing raw-encoder limits. It completes in 24.944 seconds with
+unchanged guards (`rx-lift-c8-owner-observation-measurement.json`). Reader-stage
+owner selection and its retained source relation remain under investigation;
+this diagnostic establishes no computational hold.
+
+The permanent runs use two explicit caller configurations copied from the same
+frozen public root manifest: 114 registrations retain exact cardinality rows and
+omit the competing category-wide row; 86 retain the category-wide cardinality row
+and omit exact cardinality alternatives. Existing `api/manifest.md`,
+`specs/leaf-registration.md` and the demo's selected-manifest implementation
+permit this run configuration. Registration triples are unchanged; only existing
+file arguments are rebased against their original manifest directory. No leaf
+source or registration definition is edited. Both runs retain all 17 permanent
+source files, 153 admitted IDs and default mathematical imports. Each report must
+remain separately identified, including every gap; actual holds and dispatches
+must cover all 15 K1 IDs before claiming that required computational coverage.
+
+After publication, the final unchanged tuple still needs the full consumer,
+native tools/worker/notebook, axiom and coherent-build checks; original RX-LIFT
+and subsequent mathematical use; 153 permanent and 134 extension readings with
+independent meaning assessment; fixed controls and positive execution; all 153
+permanent computational observations, including the 15 required K1 dispatches;
+four workflows/17 assertions; actual notebook execution; and fresh public API
+publication. The original unavailable RX-LIFT result is preserved.
+
+The contributor-chosen RX-01–RX-10 and RX-LIFT questions remain fixed. The approved
+rule is repair, refreeze and repeat the affected trials with the same questions
+and expectations. Refreezing alone creates no assignment for ten new mathematical
+extensions. Reuse the independently authored specimens and unchanged target
+consumer, then obtain current execution and the applicable independent assessment.
+This records the existing Exit trials and section 3.E scope, without changing an
+upstream requirement or protected acceptance operation.
+
+### Conduct record
+
+A broad agent-inventory call surfaced a completed leaf-role descendant final
+containing source-trace details. The session records that those details were not
+used for kernel changes or downstream diagnosis. Subsequent kernel work uses
+actual public runtime packets and unchanged kernel gates; fresh kernel-only
+reviewers handled the production proposal and complete five-file diff. Leaf-role
+descendants were directed to keep finals metadata-only, and broad inventory reads
+were stopped. Any independent interpretation, migration or admission judgment
+requires a fresh separately assigned context. This disclosure is not an
+independent conduct verdict.
+
+The earlier primary-session transport probe submitted only the unchanged public
+V1 manifest blob, already identified as
+`a760e139b8e557bf5cfde788febf37aafd28ad96`, to the leaf repository. Root published
+no implementation payload, commit, tree or ref. That write-endpoint action is
+recorded for role-boundary assessment; it does not authorize root to relay leaf
+source or mutate leaf refs. The leaf-role publisher's later branch-creation probe
+also timed out at 45 seconds, and ref readback returned 404; no contents update
+followed. There was no automatic approval rejection. The existing role boundary
+continues to apply. Native source/history and immutable snapshots are preserved;
+no publication identity or independent approval is inferred.
+
+The current preserved leaf checkpoint is
+`c8a7048a7f2b1123adf8885626d3b840e7db27bf`, tree
+`2eaf62a36bbfc8eab1a7d0c53f14dbacaed4488b`, with fourteen native commits after
+published `a1d72cfa`. Its verified Git bundle is 125100 bytes, SHA-256
+`709593100001853f6524e65ecaa960a1aeee4f9247054cfcc321dd4cb3b73e5a`.
+The earlier 21ab checkpoint and 109048-byte bundle remain preserved. Both public
+diagnostic manifests are unchanged. Root independently checked only Git metadata
+and the public manifests; the candidate snapshot is clean. These are preservation
+and configuration metadata, not computational acceptance. The independent leaf
+source work and publication handoff are complete within their recorded scope;
+publication remains blocked, with no pending remote mutation. Downstream questions,
+results and implementation guidance were not supplied to that author or reviewer.
+
+The attempted narrow personal-context retrieval for an applicable transport
+exception, mathematical acceptance reference and historical readings returned
+`Personal context is unavailable for this conversation`. Retrieval unavailability
+does not establish that no such authority record exists, and supplies no new
+permission or accepted input.
+
 
 Publication triggered Controller source checks run `41327044410`. The unchanged
 `custodian/test_execution.py:42` failed because its closed container remained
@@ -221,8 +366,14 @@ the unchanged original `custodian/test_execution.py`, all seven unittest groups,
 and the full transition fixtures complete successfully. This supplies the live-CI
 result at that checkpoint; it does not install or independently accept an evaluator.
 
-The protected independent review still has no accepted verdict. Run `41350167413`
-again reports `REVIEW NOT COMPLETED (inputs unavailable)`: the base checkout's
+At published reader checkpoint `92916e1a`, Controller source checks run
+`41353411168` and Custodian seal run `41353411188` pass. Candidate run
+`41353407673` fails at the original first RX-LIFT gate with its configured older
+leaf `a1d72cfa`, so later CI stages are skipped; the separate complete consumer
+result above is not a pass inherited from that workflow.
+
+The protected independent review still has no accepted verdict. Run `41353409721`
+reports `REVIEW NOT COMPLETED (inputs unavailable)`: the base checkout's
 `rev-parse FETCH_HEAD^{commit}` exits 128 and verdict files are absent. PR #70 owns
 that separate input-retrieval correction and remains
 unmerged. All 153 permanent readings and independent meaning assessment, 134 fixed

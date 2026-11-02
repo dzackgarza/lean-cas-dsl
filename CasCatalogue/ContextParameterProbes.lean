@@ -151,10 +151,10 @@ private def validateCompleteTrace (trace : Trace) (roots : Array Expr) : TermEla
 
 private def checkEquivalentSources (carriers : Bool) : TermElabM Unit := do
   let state ← registryState
-  let some rings := state.categories.find? (·.id == CategoryId.rings)
+  let some rings := state.categories.find? (·.name == "Rings")
     | throwError "the existing Rings category is absent"
   let some commutative := state.categories.find?
-      (·.declaration == `LeanCategories.Algebra.CommutativeRings)
+      (·.name == "CommutativeRings")
     | throwError "the existing commutative-ring category is absent"
   let some sets := state.categories.find? (·.id == CategoryId.sets)
     | throwError "the existing Sets category is absent"
@@ -275,7 +275,7 @@ private def checkSelfRecovery (carriers : Bool) : TermElabM Unit := do
   let rings ← categoryNamed state "Rings"
   let sets ← categoryNamed state "Sets"
   let some commutative := state.categories.find?
-      (·.declaration == `LeanCategories.Algebra.CommutativeRings)
+      (·.name == "CommutativeRings")
     | throwError "the accepted commutative-ring category is absent"
   let trace ← Trace.new
   let context : Ctx := { trace := some trace }
