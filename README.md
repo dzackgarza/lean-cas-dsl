@@ -28,13 +28,12 @@ and its answer either meets the assertion or does not.
 ## Architecture
 
 [`specs/architecture.md`](specs/architecture.md) is the contract. It covers:
+
 - who owns what;
 - the one-way workflow;
 - the payload at each boundary;
 - the invariants and trust boundaries;
 - the states the leaf API must make impossible.
-
-In short:
 
 | Silo | Owns |
 | --- | --- |
@@ -47,62 +46,32 @@ In short:
 | notebook (`CasDsl`) | Surface syntax only |
 
 Semantic availability and computability are separate. An operation that applies but has no
-realization is a `NoImplementation` gap, and never a missing method. The requirements are in
-[`specs/computational-core.md`](specs/computational-core.md), and the execution order is in
-[`specs/computational-core-plan.md`](specs/computational-core-plan.md). The semantic registry
+realization is a `NoImplementation` gap, and never a missing method. The semantic contract is described in
+[`specs/computational-core.md`](specs/computational-core.md), with technical scope and verification
+notes in [`specs/computational-core-plan.md`](specs/computational-core-plan.md). The roadmap and
+delivery order are in [issue #10](https://github.com/dzackgarza/lean-cas-dsl/issues/10). The semantic registry
 is `lean-categories`' (`LeanCategories.Catalogue`); this repository reads it at `main` and writes
 no semantic row.
 
-## Current milestone: kernel ready before substantial leaves
+## Project status
 
-The [kernel-MVP gate](specs/computational-core-plan.md#kernel-mvp-proved-readiness-for-substantial-leaf-development)
-is **proved readiness for sustained independent leaf work**, not increasing
-the number of implemented backend methods. The kernel must generically
-interpret every admitted mathematical question and formed request in the
-declared B0 extension language; propagate operations compositionally;
-execute structural actions, comparisons, refinements and complete result
-lifts; and publish all required request/reply encodings before leaves
-depend on them. A missing implementation is acceptable only if adding
-an ordinary registration can fill it *without changing the kernel,
-contract or upstream mathematics*.
-
-A frozen kernel/contract must pass independently chosen extension trials
-for every supported mechanism, including new object/old operation,
-new operation/old object, nonidentity transport, structured results and
-bad or absent leaves, **without patches**. Only small independent
-diagnostic specimen leaves run before this gate. Broad leaf implementation
-starts after it. The gate does not eliminate the complete real-backend
-execution and independently accepted assertions required for full B0.
-
-As of the 2026-10-29 documentation reconciliation, this gate has **not** been established; the
-[construction handoff](HANDOFF.md) and the
-[plan's evidence section](specs/computational-core-plan.md#kernel-mvp-proved-readiness-for-substantial-leaf-development)
-record the unresolved work. Do not treat a compiling kernel, a falling
-request-gap count, or a new leaf registration as milestone completion.
+The source inspected for the 2026-11-02 documentation update does not establish completed
+kernel readiness or V1 acceptance. [HANDOFF.md](HANDOFF.md) identifies the inspected revisions
+and their evidence. Current milestone requirements and decisions are in the issues below.
 
 ### Where to continue
 
-[Issue #10](https://github.com/dzackgarza/lean-cas-dsl/issues/10) gives the current order:
-interpret and compute the existing structured construction with its selected nonidentity
-comparison and subsequent defining-map use; establish preservation under the claimed
-mathematical operations and public-only unchanged-consumer use before extending coverage;
-finish #24's full independent acceptance. #66 and #69 work together on the existing first
-RX-LIFT construction; build its actual dependencies and replace/remove its defective paths
-before completing the remaining corpus. Do not first repair the whole legacy implementation.
-The full combined build and acceptance remain delivery requirements. #23/#82 review the
-exact construction requirements alongside implementation; unrelated upstream work does not block it.
-Research issues #71–#81 are consolidated historical guidance, not parallel work queues.
+- [#10](https://github.com/dzackgarza/lean-cas-dsl/issues/10): roadmap, priorities and delivery order.
+- [#85](https://github.com/dzackgarza/lean-cas-dsl/issues/85): replacement decision and required outcome.
+- [#66](https://github.com/dzackgarza/lean-cas-dsl/issues/66) and
+  [#69](https://github.com/dzackgarza/lean-cas-dsl/issues/69): implementation work.
+- [#24](https://github.com/dzackgarza/lean-cas-dsl/issues/24): independent acceptance.
 
-The implementation sources are selected: [Lean application/binder reuse](specs/reuse/cc-dsl-language.md),
-[the retained-plan owner and bounded PolyFun transition adaptation](specs/reuse/cc-realize-2cat.md),
-and [the existing mathematical forms](specs/reuse/cc-forms-general.md).
-#24 integrates the already-authored rational lift/factor leaf package through the public
-contract. These are implementation tasks, not another import-versus-rewrite decision phase.
-
-The candidate's diagnostic manifest still selects pending mathematical work from
-[lean-categories #93/#94](https://github.com/dzackgarza/lean-categories/pull/93).
-The [handoff](HANDOFF.md) distinguishes that source from current main and records the
-integration dependency. Source existence on a branch is not latest-main delivery or acceptance.
+Repository documentation describes the source, interfaces, policies and verification commands.
+Update it to reflect issue decisions; it does not supersede them or maintain a separate work order.
+See [CONTRIBUTING.md](CONTRIBUTING.md#behavioural-contribution-policies) for contribution policies
+and [Construction and verification](specs/computational-core-plan.md#construction-and-verification)
+for the documented development loop.
 
 ## Layout
 
@@ -125,8 +94,8 @@ Requires [elan](https://github.com/leanprover/elan), `uv` and `just`.
 
 ```bash
 just setup    # Mathlib cache, venv, casdsl kernelspec
-just build    # the gate: the static checks, then the kernel, acceptance, tools and notebook
-just test-ci  # the gate, then the demo notebook through the live kernel
+B0_INTEGRATION=1 just build  # the integration gate: static checks, kernel, acceptance, tools and notebook
+B0_INTEGRATION=1 just test-ci  # the gate, then the demo notebook through the live kernel
 just harness path/to/leaves.json   # the suite over a leaves manifest, to .tmp/harness.json
 just acceptance base.json          # the suite here, compared with a base run assertion by assertion
 ```
