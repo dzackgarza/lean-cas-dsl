@@ -6,6 +6,9 @@ import tempfile
 import unittest
 
 
+from issue_test_fixture import install, POINTER, assignment
+install()
+
 class DependencyInvocationTest(unittest.TestCase):
     def test_launcher_reads_advancing_main_without_changing_protected_inputs(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -19,7 +22,7 @@ class DependencyInvocationTest(unittest.TestCase):
             git('config', 'user.name', 'fixture')
             git('config', 'user.email', 'fixture@example.test')
             (repo / 'specs').mkdir()
-            (repo / 'specs/computational-core-plan.md').write_text('`b0-authority`')
+            (repo / 'specs/computational-core-plan.md').write_text(POINTER)
             (repo / 'meaning').write_text('original mathematics')
             git('add', '.')
             git('commit', '-qm', 'original')
@@ -28,7 +31,7 @@ class DependencyInvocationTest(unittest.TestCase):
                       'accepted': {name: {'repository': str(repo), 'url': str(repo), 'commit': original}
                                    for name in ('mathematics', 'contract', 'acceptance')},
                       'reviewer_public_key': str(root / 'unused'), 'reviewer_fingerprint': 'unused',
-                      'assignments': {'b0-authority': 'acceptance'}, 'obligation': 'b0-authority',
+                      'assignments': {'b0-authority': assignment('acceptance')}, 'obligation': 'b0-authority',
                       'source_repository': str(repo)}
             path = root / 'config.json'
             path.write_text(json.dumps(config))
@@ -66,13 +69,13 @@ class DependencyInvocationTest(unittest.TestCase):
             artifact = repo / 'public.json'
             artifact.write_text('{"operations": []}')
             (repo / 'specs').mkdir()
-            (repo / 'specs/computational-core-plan.md').write_text('`b0-authority`')
+            (repo / 'specs/computational-core-plan.md').write_text(POINTER)
             git('add', 'specs')
             git('commit', '-qm', 'requirement')
             original = git('rev-parse', 'HEAD')
             config = {'requirements': {'repository': str(repo), 'commit': original},
                       'reviewer_public_key': str(repo / 'unused'), 'reviewer_fingerprint': 'unused',
-                      'assignments': {'b0-authority': 'leaf'}, 'obligation': 'b0-authority',
+                      'assignments': {'b0-authority': assignment('leaf')}, 'obligation': 'b0-authority',
                       'source_repository': str(repo), 'accepted': {
                 'mathematics': {'repository': str(repo), 'url': str(repo), 'commit': original},
                 'contract': {'repository': str(repo), 'url': str(repo), 'commit': original},
@@ -117,7 +120,7 @@ class ScopedDependencyTest(unittest.TestCase):
                     'path': 'public.json', 'sha256': hashlib.sha256(b'{"operation": "declared"}').hexdigest(),
                     'provenance': {'mathematics': self.original_math, 'contract': self.original_contract}}},
             'reviewer_public_key': str(self.root/'unused'), 'reviewer_fingerprint': 'unused',
-            'assignments': {'b0-authority': 'formalization'}, 'obligation': 'b0-authority',
+            'assignments': {'b0-authority': assignment('formalization')}, 'obligation': 'b0-authority',
             'source_repository': str(self.math)}
 
     def git(self, repo, *args):
@@ -131,7 +134,7 @@ class ScopedDependencyTest(unittest.TestCase):
         self.git(repo, 'config', 'user.name', 'fixture')
         self.git(repo, 'config', 'user.email', 'fixture@example.test')
         (repo/'specs').mkdir()
-        (repo/'specs/computational-core-plan.md').write_text('`b0-authority`')
+        (repo/'specs/computational-core-plan.md').write_text(POINTER)
         (repo/'meaning').write_text(name+' original')
         (repo/'public.json').write_text('{"operation": "declared"}')
         self.git(repo, 'add', '.')
@@ -139,7 +142,7 @@ class ScopedDependencyTest(unittest.TestCase):
         return repo
 
     def invoke(self, role, input_name, path):
-        self.config['assignments']['b0-authority'] = role
+        self.config['assignments']['b0-authority'] = assignment(role)
         config = self.root/'launch.json'
         config.write_text(json.dumps(self.config))
         request = {'id': 1, 'method': 'tools/call', 'params': {'name': 'read_assigned_input',

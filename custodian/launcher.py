@@ -11,7 +11,7 @@ import json
 import sys
 import subprocess
 from pathlib import Path
-from controller import Controller, Revision, configured_input, ROLE_INPUTS, git
+from controller import assignment_spec, Controller, Revision, configured_input, ROLE_INPUTS, git
 from dependencies import resolve_dependencies
 
 
@@ -203,7 +203,7 @@ def main():
     parser.add_argument('--configuration', type=Path, required=True)
     args = parser.parse_args()
     config = json.loads(args.configuration.read_text())
-    role=config['assignments'][config['obligation']]
+    role, _ = assignment_spec(config['assignments'], config['obligation'])
     config = resolve_dependencies(config, ROLE_INPUTS[role])
     if role=='leaf' and 'public_metadata' in config['accepted']:
         public=config['accepted']['public_metadata']
