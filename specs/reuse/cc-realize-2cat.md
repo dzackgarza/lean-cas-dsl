@@ -121,6 +121,12 @@ For the unchanged first RX-LIFT, actual X1 crosses to hom; X1 and its inclusion 
 
 The runtime handler consumes prepared dependencies, dispatches, receives/validates and publishes actual bindings, and preserves the existing failure distinctions. Its executable dependencies exclude semantic reconstruction callbacks, including service/derived entrances. Lazy demand, adequate fused realization, fresh evaluation and declared restoration remain separate. Public later-use sessions retain their owners across calls; the old one-shot #cas harness, stopped per command, cannot implement that lifetime. #68 specifies the actual public-session adapter, and #24 retains independent completion.
 
+### Native notebook inspection and recovery
+
+[#69's source-verified notebook boundary](https://github.com/dzackgarza/lean-cas-dsl/issues/69#native-notebook-query-and-recovery-boundary) resolves an additional effect entrance: current worker inspection elaborates whole cells, and the frontend can initialize/replay a worker or missing prefix. The selected bounded change is a proposed explicit session policy for CAS kernels plus environment-only mode on the existing inspect operation. It reuses the worker's committed-environment Query.inspect, checks protocol compatibility before sending source, and performs no CAS execution or recovery while answering queries. Native CAS execution uses non-ledgered calls and explicit fresh/restored state; missing predecessor state is unavailable until explicit reexecution or valid complete restoration. The current replay behavior remains available for separately configured notebooks with pure definitions.
+
+[#68](https://github.com/dzackgarza/lean-cas-dsl/issues/68) separately specifies the public facade's open/use/close adapter, one Environment-backed result authority, resource-only liveness/reservations, snapshot-fork freshness and stale-owner checks. Its current WorkerClient execution/lifecycle APIs suffice; the new native inspection mode and frontend configuration are not claimed present. [#24](https://github.com/dzackgarza/lean-cas-dsl/issues/24) retains real notebook verification of these boundaries with the unchanged mathematical workflows. This source research does not claim a live reproduction or runtime acceptance.
+
 ### Fixed-interface validation and reconstruction
 
 Untrusted answers still require decoding and checks for shape, complete dependent fields,
