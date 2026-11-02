@@ -1,5 +1,8 @@
 # Computational core: scope and work references
 
+The [shared positive specification in #10](https://github.com/dzackgarza/lean-cas-dsl/issues/10#specification-and-fundamental-invariants) fixes the invariants from which its implementation tasks are derived. [The requirements record](computational-core.md#replacement-specification-and-fundamental-invariants) mirrors that contract. The 2026-11-02 audit supplies concrete source/API decisions and exact completion witnesses in the owning issues, including work after V1; this file does not establish another queue.
+
+
 ## Work tracking
 
 Current instructions and decisions are in the issues. This file records scope and technical

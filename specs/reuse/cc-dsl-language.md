@@ -79,10 +79,7 @@ apex; it need not know the returned data before execution. What is fixed before 
 the dependency and mathematical interface, not the backend's eventual answer. Actual data
 and its lifetime information fill those prescribed positions.
 
-The concrete computation representation has not been validated by this record. Its fit
-includes the continuation's use of actual results. Existing `Value`/trace structures and
-external packages need assessment against that responsibility. A datatype containing legacy
-recognition callbacks would retain the reconstruction boundary.
+[#66](https://github.com/dzackgarza/lean-cas-dsl/issues/66) now records the completed source/API decision: ordinary `Term.elabTermEnsuringType` or `elabAppArgs` in the selected context, `withoutErrToSorry`, synthetic completion without postponing, instantiated metavariables and a complete type/closure check. [Lean4.33 synthetic completion](https://github.com/leanprover/lean4/blob/v4.33.0/src/Lean/Elab/SyntheticMVars.lean#L611-L680) supplies the actual API. The application lowerer targets #69's cslib PFunctor.FreeM/PolyFun dependent response interface. Its immutable templates and pure continuations retain exact actual references; saved elaboration/registry callbacks cannot complete missing meaning. These are source-researched choices, not a claim that the replacement has compiled or executed.
 
 ### Existing sources and limits of reuse
 
@@ -95,11 +92,7 @@ recognition callbacks would retain the reconstruction boundary.
 | Catalogue selection and complete contexts | [`Semantic`](https://github.com/dzackgarza/lean-cas-dsl/blob/b35ab54e1d87b99b5d91d5cc7efda8748b3377f1/CasCatalogue/Semantic.lean), [`CategoryContext`](https://github.com/dzackgarza/lean-cas-dsl/blob/b35ab54e1d87b99b5d91d5cc7efda8748b3377f1/CasCatalogue/CategoryContext.lean) | Reuse operations that consume exact accepted declarations and structures. Preserve their mathematical responsibility; current wrappers, copies and reconstruction paths may be replaced. |
 | Question identity and explicit export | [`QuestionIdentity`](https://github.com/dzackgarza/lean-cas-dsl/blob/b35ab54e1d87b99b5d91d5cc7efda8748b3377f1/CasCatalogue/QuestionIdentity.lean), [`Trace`](https://github.com/dzackgarza/lean-cas-dsl/blob/b35ab54e1d87b99b5d91d5cc7efda8748b3377f1/CasCatalogue/Trace.lean) | Preserve complete question meaning, operand positions and contextual identity. Existing comparison and interning code is reusable where it represents those facts without making old producer wrappers authoritative. Ordinary execution need not serialize unused audit output, but preparation validation and complete requested exports remain required. |
 
-These versions identify inspected APIs and mechanisms. They are not delivery pins or evidence
-of compatibility for an unimplemented combination. Actual imports, dependency/toolchain fit
-and any adaptation remain implementation evidence to establish. Computation representation
-candidates and their limits are in [`cc-realize-2cat`](cc-realize-2cat.md); the old searches
-do not establish a package choice or a blanket local-rewrite decision.
+These versions identify inspected APIs, not a successful integrated delivery. The representation/import choice and exact compatible sources are now resolved in [`cc-realize-2cat`](cc-realize-2cat.md) and #69. The actual combined build and unchanged mathematical continuation remain required implementation evidence. [#10's shared invariants](https://github.com/dzackgarza/lean-cas-dsl/issues/10#specification-and-fundamental-invariants) distinguish this engineering choice from the meaning and correctness obligations it must serve.
 
 ### Mathematical distinctions relevant to reuse
 

@@ -19,6 +19,10 @@ keeps one selected dependency tuple during repeated diagnostics and before/after
 A changed selection requires rebuilding its consumers and rerunning the comparison.
 Historical pins and release tuples introduce no separate delivery target or pinning step.
 
+## Shared replacement specification
+
+The positive contract is maintained in [#10's specification and fundamental invariants](https://github.com/dzackgarza/lean-cas-dsl/issues/10#specification-and-fundamental-invariants) and recorded in [the computational-core specification](computational-core.md#replacement-specification-and-fundamental-invariants). It fixes selected meaning, complete dependent preparation, substitution, actual result/map association, declared demand, session lifetime, single authority for each fact, uniform public use and independent completion evidence. #66/#69's researched implementation choices serve those requirements. A schema-valid result is not a mathematical correctness judgment.
+
 ## Ownership
 
 | Silo | Owns | Owns nothing of |
