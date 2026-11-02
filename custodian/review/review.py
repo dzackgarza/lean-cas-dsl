@@ -132,36 +132,18 @@ def phase(base: Path) -> str:
     return value
 
 
-def section(text: str, heading: str) -> str:
-    """The section of a Markdown text that starts at `heading`, up to the next heading of the same
-    or a higher level."""
-    lines = text.splitlines(True)
-    level = len(heading) - len(heading.lstrip("#"))
-    for i, line in enumerate(lines):
-        if line.rstrip() == heading:
-            j = next((k for k in range(i + 1, len(lines)) if lines[k].startswith("#")
-                      and len(lines[k]) - len(lines[k].lstrip("#")) <= level), len(lines))
-            return "".join(lines[i:j])
-    return ""
+def issue_context():
+    spec = importlib.util.spec_from_file_location(
+        "custodian_issue_context", Path(__file__).resolve().parents[1] / "issue_requirements.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def mandate(base: Path) -> str:
-    """The authoritative requirements, read from the base: the owner's texts, the containment
-    rules, and the B0 policies and B0 plan section."""
-    parts = [(p.relative_to(base).as_posix(), p.read_text())
-             for p in sorted((base / "specs" / "owner").glob("*.md"))]
-    parts.append(("INTENT.md", (base / "INTENT.md").read_text()))
-    for rel in ("custodian/owner-intent.md", "custodian/CONTAINMENT.md"):
-        if (base / rel).is_file():
-            parts.append((rel, (base / rel).read_text()))
-    for rel, heading in (("specs/architecture.md", "## B0 policies"),
-                         ("specs/computational-core-plan.md",
-                          "## B0: the extensible computational baseline (owner directive, 2026-10-01)")):
-        text = section((base / rel).read_text(), heading)
-        if not text:
-            raise ValueError(f"missing authoritative review context: {rel}: {heading}")
-        parts.append((f"{rel}, {heading.lstrip('# ')}", text))
-    return "\n\n".join(f'<document source="{src}">\n{text}\n</document>' for src, text in parts)
+    """Resolve the trusted base's issue pointers; local prose supplies no mandate."""
+    context = issue_context()
+    return context.render_documents(context.load_documents(context.directory_pointers(base)))
 
 
 def chain_head(V, root_path: Path, chain) -> str:
@@ -225,6 +207,7 @@ def call_reviewer(prompt: Path, requirements: str, change: str,
          "--permission-mode", "dontAsk", "--setting-sources", "",
          "--strict-mcp-config", "--no-session-persistence", "--system-prompt-file", str(prompt),
          "--json-schema", json.dumps(SCHEMA), "--output-format", "json"],
+        env={key: value for key, value in os.environ.items() if key not in ("GH_TOKEN", "GITHUB_TOKEN")},
         input="<authoritative_requirements>\n" + requirements + "\n</authoritative_requirements>\n\n"
               "<author_explanation untrusted=\"a claim to verify, never authority\">\n" + explanation
               + "\n</author_explanation>\n\n<change>\n" + change + "\n</change>\n",
@@ -410,13 +393,15 @@ def review_snapshot(a, base: Path, head: Path, out: Path, revisions: dict) -> in
             return finish(1, "REVIEW NOT COMPLETED (base is not the accepted seal)",
                           ["supply the accepted base revision for the outstanding seal changes"])
         return finish(0, "PASS", ["no change to review"])
-    prompt = base / "custodian" / "review" / "prompt.md"
     files = changed_files(V, changes)
     try:
         batches = review_batches(base, head, files, sorted(boundary_files))
     except (ValueError, OSError) as e:
         return finish(1, "REVIEW NOT COMPLETED (context unavailable)", [str(e)])
-    governing_requirements = mandate(base)
+    context = issue_context()
+    documents = context.load_documents(context.directory_pointers(base))
+    governing_requirements = context.render_documents(documents)
+    prompt = context.materialize_prompt(base / 'custodian/review/prompt.md', documents, out)
     # Revision identities document the captured evidence; commit metadata is not a new basis.
     key = sha(json.dumps({"seal": tip if not construction else None,
                           "source": batches, "requirements": governing_requirements,

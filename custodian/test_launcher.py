@@ -6,6 +6,9 @@ import unittest
 from controller import Controller, Revision, ExternalArtifact
 from launcher import RoleServer
 
+from issue_test_fixture import install, POINTER, assignment
+install()
+
 class LauncherTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -16,7 +19,7 @@ class LauncherTest(unittest.TestCase):
         self.shell('git','-C',str(self.repo),'config','user.name','test')
         self.shell('git','-C',str(self.repo),'config','user.email','test@example.test')
         for path in ('INTENT.md','specs/architecture.md','specs/computational-core-plan.md','specs/owner/convergence-process.md'):
-            p=self.repo/path;p.parent.mkdir(parents=True,exist_ok=True);p.write_text('`b0-authority` full fixed requirements')
+            p=self.repo/path;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(POINTER)
         self.commit()
         self.revision=Revision(self.repo,self.shell('git','-C',str(self.repo),'rev-parse','HEAD'))
     def tearDown(self): self.tmp.cleanup()
@@ -25,7 +28,7 @@ class LauncherTest(unittest.TestCase):
         self.shell('git','-C',str(self.repo),'add','.')
         self.shell('git','-c','core.hooksPath=/dev/null','-C',str(self.repo),'commit','-qm','source')
     def server(self,role):
-        c=Controller(self.revision,dict.fromkeys(('mathematics','contract','acceptance','public_metadata'),self.revision),self.root/'unused-key','unused-fingerprint',{'b0-authority':role})
+        c=Controller(self.revision,dict.fromkeys(('mathematics','contract','acceptance','public_metadata'),self.revision),self.root/'unused-key','unused-fingerprint',{'b0-authority':assignment(role)})
         return RoleServer(c,'b0-authority',self.repo)
     def test_authority_operations_absent_for_every_role(self):
         for role in ('kernel','formalization','acceptance','leaf'):
@@ -64,7 +67,7 @@ class LauncherTest(unittest.TestCase):
         import hashlib
         artifact=self.root/'external-public.json';artifact.write_text('{"operation":"declared"}')
         public=ExternalArtifact.load(self.revision,artifact,hashlib.sha256(artifact.read_bytes()).hexdigest(),{'mathematics':self.revision.commit,'contract':self.revision.commit})
-        c=Controller(self.revision,{'contract':self.revision,'public_metadata':public},self.root/'unused-key','unused',{'b0-authority':'leaf'})
+        c=Controller(self.revision,{'contract':self.revision,'public_metadata':public},self.root/'unused-key','unused',{'b0-authority':assignment('leaf')})
         server=RoleServer(c,'b0-authority',self.repo)
         self.assertEqual(set(server.inputs),{'contract','public_metadata'})
         artifact.write_text('changed after dispatch')
@@ -123,7 +126,7 @@ class LauncherTest(unittest.TestCase):
         cfg={'requirements':{'repository':str(self.repo),'commit':self.revision.commit},
              'accepted':{name:{'repository':str(self.repo),'commit':self.revision.commit} for name in ('mathematics','contract','acceptance')},
              'reviewer_public_key':str(self.root/'unused-key'),'reviewer_fingerprint':'unused',
-             'assignments':{'b0-authority':'acceptance'},'obligation':'b0-authority','source_repository':str(self.repo)}
+             'assignments':{'b0-authority':assignment('acceptance')},'obligation':'b0-authority','source_repository':str(self.repo)}
         for name in ('mathematics', 'contract'):
             cfg['accepted'][name]['url'] = str(self.repo)
         config=self.root/'launch.json';config.write_text(json.dumps(cfg))

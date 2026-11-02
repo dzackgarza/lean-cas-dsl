@@ -13,6 +13,7 @@ on:
       - "specs/owner/**"
       - "custodian/**"
 permissions:
+  issues: read # resolve the governing issue discussions
   contents: write # the rejection log branch only
   pull-requests: write # the verdict comment
 concurrency:
@@ -80,6 +81,7 @@ jobs:
       - name: Review
         id: review
         env:
+          GH_TOKEN: ${{ github.token }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           CUSTODIAN_REVIEW_KEY: ${{ secrets.CUSTODIAN_REVIEW_KEY }}
         run: |

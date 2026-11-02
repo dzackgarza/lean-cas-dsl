@@ -10,6 +10,9 @@ from controller import Controller, Revision, canonical
 from apply_assessment import assemble
 from verify_publication import verify
 
+from issue_test_fixture import install, POINTER, assignment
+install()
+
 class AssessmentTest(unittest.TestCase):
     def test_complete_assessment_cache_and_protected_publication_draft(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -17,7 +20,7 @@ class AssessmentTest(unittest.TestCase):
             def run(*args,**kw):return subprocess.run(args,check=True,capture_output=True,text=True,**kw).stdout.strip()
             run('git','init','-q','-b','main',str(repo));run('git','-C',str(repo),'remote','add','origin',str(repo));run('git','-C',str(repo),'config','user.name','fixture');run('git','-C',str(repo),'config','user.email','fixture@example.test')
             for path in ('SPEC.md','INTENT.md','specs/architecture.md','specs/computational-core-plan.md','specs/owner/convergence-process.md','tests/acceptance/question.txt'):
-                p=repo/path;p.parent.mkdir(parents=True,exist_ok=True);p.write_text('`b0-authority` fixed fixture requirements\n')
+                p=repo/path;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(POINTER)
             run('git','-C',str(repo),'add','.');run('git','-C',str(repo),'commit','-qm','base');base=run('git','-C',str(repo),'rev-parse','HEAD')
             (repo/'current-mathematics.txt').write_text('new source dependency main')
             run('git','-C',str(repo),'add','current-mathematics.txt');run('git','-C',str(repo),'commit','-qm','advance dependency main')
@@ -27,7 +30,7 @@ class AssessmentTest(unittest.TestCase):
             run('git','-C',str(repo),'add','.');run('git','-C',str(repo),'commit','-qm','proposal');candidate=run('git','-C',str(repo),'rev-parse','HEAD')
             key=root/'test-review-key';run('ssh-keygen','-q','-t','ed25519','-N','','-f',str(key));fingerprint=run('ssh-keygen','-lf',str(key)+'.pub').split()[1]
             remote=root/'history.git';run('git','init','--bare','-q',str(remote));run('git','init','-q',str(history));run('git','-C',str(history),'remote','add','origin',str(remote))
-            cfg={'requirements':{'repository':str(repo),'commit':base},'accepted':{name:{'repository':str(repo),'commit':base} for name in ('mathematics','contract','acceptance')},'reviewer_public_key':str(key)+'.pub','reviewer_fingerprint':fingerprint,'assignments':{'b0-authority':'acceptance'},'obligation':'b0-authority','review_component':'acceptance','rejections':{'repository':str(history),'ref':'custodian/rejections'}}
+            cfg={'requirements':{'repository':str(repo),'commit':base},'accepted':{name:{'repository':str(repo),'commit':base} for name in ('mathematics','contract','acceptance')},'reviewer_public_key':str(key)+'.pub','reviewer_fingerprint':fingerprint,'assignments':{'b0-authority':assignment('acceptance')},'obligation':'b0-authority','review_component':'acceptance','rejections':{'repository':str(history),'ref':'custodian/rejections'}}
             for name in ('mathematics', 'contract'):
                 cfg['accepted'][name]['url'] = str(repo)
             artifact=root/'public-metadata.json';artifact.write_text('immutable fixture public metadata')
