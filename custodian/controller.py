@@ -11,6 +11,7 @@ import json
 import subprocess
 import os
 import re
+from issue_requirements import load_documents, load_sources, source_reference, revision_pointers, render_documents
 
 
 def git(repo, *args):
@@ -144,10 +145,26 @@ ROLE_INPUTS = {'formalization': ('mathematics',),
                'leaf': ('contract','public_metadata')}
 
 
+def assignment_spec(assignments, obligation):
+    entry = assignments[obligation]
+    if not isinstance(entry, dict) or not entry.get('sources'):
+        raise ValueError('assignment ' + obligation + ' requires its independently supplied role and issue/comment sources')
+    role, sources = entry.get('role'), entry['sources']
+    if role not in ROLE_INPUTS:
+        raise ValueError('unknown author role')
+    if not isinstance(sources, list) or any(not isinstance(source, str) for source in sources):
+        raise ValueError('assignment sources must be explicit issue/comment URLs')
+    for source in sources:
+        source_reference(source)
+    return role, sources
+
+
 class Controller:
     def __init__(self, requirements: Revision, accepted: dict, reviewer_key: Path,
                  reviewer_fingerprint: str, assignments: dict):
         self.requirements = requirements
+        self.requirement_documents = None
+        self.assignment_documents = {}
         self.accepted = dict(accepted)
         self.reviewer_key = reviewer_key
         self.reviewer_fingerprint = reviewer_fingerprint
@@ -155,14 +172,16 @@ class Controller:
         # Launcher-supplied protected dispatch, inaccessible through Worker.
         self.assignments = dict(assignments)
 
+    def assigned_requirement(self, obligation):
+        role, sources = assignment_spec(self.assignments, obligation)
+        if obligation not in self.assignment_documents:
+            self.assignment_documents[obligation] = load_sources(sources)
+        return role, self.assignment_documents[obligation]
+
     def assign(self, obligation):
-        # Role and objective are determined by the protected plan, never worker prose.
-        plan = self.requirements.read('specs/computational-core-plan.md')
-        if ('`' + obligation + '`').encode() not in plan:
-            raise ValueError('objective absent from governing plan')
-        role = self.assignments[obligation]
-        if role not in ('kernel', 'formalization', 'acceptance', 'leaf'):
-            raise ValueError('unknown author role')
+        # The protected dispatch supplies this role's independent issue sources.
+        # Review-wide kernel/acceptance discussions never become a worker brief.
+        role, documents = self.assigned_requirement(obligation)
         if role=='leaf':
             public=self.accepted.get('public_metadata')
             if public is None:raise ValueError('leaf dispatch missing released public metadata input')
@@ -173,27 +192,23 @@ class Controller:
                 if 'mathematics' in self.accepted and provenance.get('mathematics')!=self.accepted['mathematics'].commit:
                     raise ValueError('leaf public metadata is not the accepted mathematical tuple')
         permitted = ROLE_INPUTS[role]
-        return Worker(Assignment(obligation, role, plan,
+        return Worker(Assignment(obligation, role, render_documents(documents).encode(),
                       tuple((name, self.accepted[name]) for name in permitted)))
 
     def request(self, obligation, base, candidate):
         # All patches and full source come from the same immutable tuple.
-        if ('`' + obligation + '`').encode() not in self.requirements.read('specs/computational-core-plan.md'):
-            raise ValueError('objective absent from governing plan')
+        role, sources = assignment_spec(self.assignments, obligation)
+        _, assigned_documents = self.assigned_requirement(obligation)
         for name, revision in base.items():
             if name not in self.accepted or revision != self.accepted[name]:
                 raise ValueError('base is not the supplied accepted input')
         if set(base) != set(candidate) or set(base) != set(self.accepted):
             raise ValueError('incomplete revision tuple')
-        documents = {}
-        for path in self.requirements.files():
-            if path in ('AGENTS.md','INTENT.md','SPEC.md', 'specs/architecture.md', 'specs/computational-core-plan.md') or path.startswith('specs/owner/'):
-                documents[path] = self.requirements.read(path).decode()
-        required = {'INTENT.md','SPEC.md','specs/architecture.md','specs/computational-core-plan.md',
-                    'specs/owner/convergence-process.md'}
-        if not required.issubset(documents) or any(not documents[p].strip() for p in required):
-            raise ValueError('missing authoritative review context')
-        payload = {'obligation': obligation, 'requirements_revision': self.requirements.commit,
+        if self.requirement_documents is None:
+            self.requirement_documents = load_documents(revision_pointers(self.requirements))
+        documents = {**self.requirement_documents, **assigned_documents}
+        payload = {'obligation': obligation, 'assignment': {'role': role, 'sources': sources},
+                   'requirements_revision': self.requirements.commit,
                    'requirements': documents, 'base': {}, 'candidate': {}, 'artifacts': {}, 'source': {}, 'patches': {}}
         for name in sorted(candidate):
             a, b = base[name], candidate[name]

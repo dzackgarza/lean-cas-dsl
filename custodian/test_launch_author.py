@@ -5,6 +5,8 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from issue_test_fixture import install, assignment
+install()
 
 class AuthorLaunchTest(unittest.TestCase):
     def test_only_role_mcp_and_independent_assignment(self):
@@ -13,7 +15,7 @@ class AuthorLaunchTest(unittest.TestCase):
             fake=binary/'claude'
             fake.write_text('#!/usr/bin/env python3\nimport json,pathlib,sys,os\na=sys.argv[1:]; m=json.loads(pathlib.Path(a[a.index("--mcp-config")+1]).read_text()); pathlib.Path('+repr(str(capture))+').write_text(json.dumps({"args":a,"mcp":m,"assignment":sys.stdin.read(),"cwd":os.getcwd()}))\n')
             fake.chmod(0o755)
-            config=root/'config.json';config.write_text(json.dumps({'source_repository':str(root/'source'),'independently_supplied_assignment':'fixture independently supplied requirement'}))
+            config=root/'config.json';config.write_text(json.dumps({'source_repository':str(root/'source'),'obligation':'test-task','assignments':{'test-task':assignment('kernel')}}))
             env=dict(os.environ,PATH=str(binary)+os.pathsep+os.environ['PATH'])
             command=['python3',str(Path(__file__).with_name('launch_author.py')),'--configuration',str(config)]
             subprocess.run(command,env=env,check=True,capture_output=True)
@@ -21,7 +23,8 @@ class AuthorLaunchTest(unittest.TestCase):
             self.assertIn('--restricted',args);self.assertIn('--strict-mcp-config',args)
             self.assertEqual(args[args.index('--tools')+1],'')
             self.assertEqual(args[args.index('--setting-sources')+1],'')
-            self.assertEqual(value['assignment'],'fixture independently supplied requirement')
+            self.assertIn('fixture independently supplied requirement',value['assignment'])
+            self.assertIn('issues/24#issuecomment-100',value['assignment'])
             self.assertEqual(list(value['mcp']['mcpServers']),['role_source'])
             allowed=args[args.index('--allowedTools')+1].split(',')
             self.assertEqual(set(allowed),{'mcp__role_source__'+x for x in ('read_assigned_input','read_source','list_source','write_source','submit_source')})

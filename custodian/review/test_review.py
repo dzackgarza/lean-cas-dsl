@@ -21,6 +21,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from issue_test_fixture import install
+install()
+
 class ReviewLoopTest(unittest.TestCase):
     def test_prepared_signed_review_loop(self):
         source = Path(__file__).resolve().parents[2]
@@ -461,7 +465,11 @@ def run_fixture(arguments):
     R.BATCH_LIMIT = limit
 
     fresh("construction")
-    (S / "base" / "specs" / "architecture.md").unlink()
+    context = R.issue_context()
+    for relative in context.POINTER_PATHS:
+        (S / 'base' / relative).unlink(missing_ok=True)
+    for pointer in (S / 'base/specs/owner').glob('*.md'):
+        pointer.unlink()
     commit(S / "base")
     shutil.rmtree(S / "head")
     copy_repository(S / "base", S / "head")

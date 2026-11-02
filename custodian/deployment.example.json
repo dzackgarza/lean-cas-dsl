@@ -24,7 +24,12 @@
   "reviewer_public_key": "deployment/custodian/reviewer.pub",
   "reviewer_fingerprint": "CONFIGURE_EXISTING_INDEPENDENT_REVIEW_FINGERPRINT",
   "assignments": {
-    "b0-authority": "acceptance"
+    "b0-authority": {
+      "role": "acceptance",
+      "sources": [
+        "SUPPLY_INDEPENDENTLY_APPROVED_ISSUE_OR_COMMENT_URL"
+      ]
+    }
   },
   "obligation": "b0-authority",
   "review_component": "acceptance",
@@ -37,6 +42,5 @@
     "url": "https://github.com/dzackgarza/lean-cas-dsl",
     "repository": "inputs/rejections",
     "ref": "custodian/rejections"
-  },
-  "independently_supplied_assignment": "Supply the independently approved acceptance requirement from its owning protected requirement revision."
+  }
 }

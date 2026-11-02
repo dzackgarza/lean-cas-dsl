@@ -10,6 +10,9 @@ C = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = C
 spec.loader.exec_module(C)
 
+from issue_test_fixture import install, POINTER, assignment
+install()
+
 class ControllerTest(unittest.TestCase):
     def test_full_snapshot_and_independent_admission(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -24,14 +27,14 @@ class ControllerTest(unittest.TestCase):
             for p in ('SPEC.md','INTENT.md', 'specs/architecture.md', 'specs/computational-core-plan.md', 'specs/owner/convergence-process.md', 'tests/acceptance/question.json'):
                 f = repo / p
                 f.parent.mkdir(parents=True, exist_ok=True)
-                f.write_text('`b0-authority` fixed requirement\n')
+                f.write_text(POINTER)
             run('git', '-C', str(repo), 'add', '.')
             run('git', '-C', str(repo), 'commit', '-qm', 'base')
             base = C.Revision(repo, run('git', '-C', str(repo), 'rev-parse', 'HEAD'))
             key = root / 'key'
             run('ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(key))
             fpr = run('ssh-keygen', '-lf', str(key) + '.pub').split()[1]
-            controller = C.Controller(base, {'mathematics': base, 'contract': base, 'acceptance': base}, Path(str(key)+'.pub'), fpr, {'b0-authority': 'acceptance'})
+            controller = C.Controller(base, {'mathematics': base, 'contract': base, 'acceptance': base}, Path(str(key)+'.pub'), fpr, {'b0-authority': assignment('acceptance')})
             worker = controller.assign('b0-authority')
             self.assertFalse(hasattr(worker, 'advance'))
             self.assertFalse(hasattr(worker, 'assign'))
@@ -43,7 +46,7 @@ class ControllerTest(unittest.TestCase):
             self.assertEqual(request['base']['acceptance'], base.commit)
             self.assertEqual(request['candidate']['acceptance'], candidate.commit)
             self.assertIn('INTENT.md', request['source']['acceptance'])
-            self.assertIn('SPEC.md', request['requirements'])
+            self.assertIn('https://github.com/dzackgarza/lean-cas-dsl/issues/24', request['requirements'])
             decision = root / 'decision.json'
             import json
             decision.write_text(json.dumps({'request_id': request['request_id'], 'outcome': 'no_blocking_finding', 'findings': []}))

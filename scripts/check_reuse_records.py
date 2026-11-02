@@ -1,27 +1,27 @@
 #!/usr/bin/env python3
-"""Gate: the plan's **Next** node, and every node delivered from 2026-09-30 on, has a reuse record
-`specs/reuse/<node>.md` with non-empty `## Queries` and `## Owner` sections (corpus search before
-code; AGENTS.md "Search before authoring"). Fails the build otherwise."""
-import re, sys, pathlib
-root = pathlib.Path(__file__).resolve().parent.parent
-plan = (root / "specs/computational-core-plan.md").read_text()
+"""Check that the roadmap and reuse records point to their owning issues.
+
+This validates navigation only. Research evidence and work decisions live in the
+issues; this check does not assess research quality or certify completion.
+"""
+import importlib.util
+from pathlib import Path
+import sys
+
+root = Path(__file__).resolve().parent.parent
+spec = importlib.util.spec_from_file_location('issue_context', root / 'custodian/issue_requirements.py')
+context = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(context)
+records = sorted((root / 'specs/reuse').glob('*.md'))
+paths = [root / 'specs/computational-core-plan.md', *records]
 bad = []
-for line in plan.splitlines():
-    m = re.match(r"^\| `([a-z0-9-]+)` \| (.*)", line)
-    if not m:
-        continue
-    node, rest = m.groups()
-    d = re.search(r"\*\*Delivered (\d{4}-\d{2}-\d{2})", rest)
-    if "**Next.**" not in rest and not (d and d.group(1) >= "2026-09-30"):
-        continue
-    rec = root / "specs/reuse" / f"{node}.md"
-    if not rec.exists():
-        bad.append(f"{node}: no specs/reuse/{node}.md"); continue
-    text = rec.read_text()
-    for sec in ("Queries", "Owner"):
-        body = re.search(rf"^## {sec}\n(.*?)(?=^## |\Z)", text, re.M | re.S)
-        if not body or not body.group(1).strip():
-            bad.append(f"{node}: empty ## {sec} in specs/reuse/{node}.md")
+if not records:
+    bad.append('no reuse pointers found in specs/reuse')
+for path in paths:
+    if not path.is_file() or not context.issue_numbers(path.read_text()):
+        bad.append(str(path.relative_to(root)) + ': missing owning issue pointer')
 if bad:
-    print("reuse records missing (search the formalization corpus before writing code):")
-    print("\n".join("  " + b for b in bad)); sys.exit(1)
+    print('issue pointers missing:', file=sys.stderr)
+    print('\n'.join('  ' + item for item in bad), file=sys.stderr)
+    raise SystemExit(1)
+print(f'Checked {len(paths)} roadmap and reuse issue pointers.')
