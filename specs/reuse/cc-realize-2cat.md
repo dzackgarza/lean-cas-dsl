@@ -1,178 +1,169 @@
 # Reuse record: `cc-realize-2cat`
 
-## Queries
-The corpus queries of [`cc-cells.md`](cc-cells.md) (same layer), 2026-09-29.
-Additional searches on 2026-10-20: `presentation element structural encoding` and
-`selected object computational form`. The returned algebraic-element storage and
-unrelated implementation matches provide no owner for this kernel wire protocol.
+## Engineering notes for the work issues
+
+The current architectural direction is recorded in
+[#85](https://github.com/dzackgarza/lean-cas-dsl/issues/85). Interpretation work is in
+[#66](https://github.com/dzackgarza/lean-cas-dsl/issues/66), execution work in
+[#69](https://github.com/dzackgarza/lean-cas-dsl/issues/69), and the delivery sequence and
+acceptance obligations in [#10](https://github.com/dzackgarza/lean-cas-dsl/issues/10).
+This file records technical analysis and reuse evidence for those issues, alongside
+[`cc-dsl-language`](cc-dsl-language.md). It does not set a separate work order or change
+their instructions.
+
+The boundary described in #85 preserves a selected construction, its typed dependencies,
+actual returned data and later use together. A canonical execution store alone would leave
+the reconstruction pipeline intact if its reader, lowering or completion paths continued
+to infer omitted mathematical structure.
 
 ## Owner
-Mathlib: `Functor` for the catalogue's functors, `CatCommSq` and its pasting for commuting squares
-between them, `Cat` as a strict bicategory. Presentation forms and what each denotes are
-`lean-categories`'.
 
-## New code: adaptation at the kernel boundary
-The kernel's composition of a route's steps over the declared presentation forms. A leaf supplies
-no category of handles, no denotation and no square: it registers opaque computations against
-each step's declared type.
+`lean-categories` owns the selected mathematical constructions, presentation denotations,
+functors, comparisons, lifts and their ordinary or higher laws. Mathlib supplies ordinary
+categorical APIs, including `Functor`, commuting squares and their pasting, and `Cat` as a
+strict bicategory. These do not replace higher data required by CC-HIGHER or justify an
+otherwise unsupported strict reduction.
 
-An element's computational form retains the entire form of its independently
-selected object, including a registered functor or structural-edge image. Its
-registration identity and category are those of that supplied form; no carrier
-lookup selects a replacement named object. The element envelope carries the full
-selected descriptor and retains its computational ownership. This is protocol
-composition over the existing formal point and route, not new mathematics.
+The kernel owns computational lowering, request/reply interfaces, dependency execution and
+validation of untrusted returned data. A leaf supplies an opaque computation for an already
+declared operation and form. It supplies no mathematical denotation, universal property,
+comparison proof or evidence of its own correctness. Independent permanent acceptance
+judges its answers.
 
-## Selected V1 implementation and reuse (2026-10-28)
+## Queries
 
-**Decision:** adapt the existing selected-plan evaluator and its invocation owner. Adapt
-PolyFun's caller/handler entry, suspension and return algorithm into that owner; keep the
-existing mathematical plan builders, completion validators, lift fold and public dispatcher.
-Use encapsulated checked records and opaque operand/output references to the complete selected
-interfaces. The implementation removes the migrated construction's recursive scheduling,
-expression/packet recovery and competing completion writes. It does not introduce another
-program store, a new semantic calculus or a native-value foundation migration.
+The September 29 queries in [`cc-cells.md`](cc-cells.md) and October 20 searches for
+`presentation element structural encoding` and `selected object computational form`
+are preserved in the
+[immutable pre-replacement record](https://github.com/dzackgarza/lean-cas-dsl/blob/0cee529c343fbe1c5f7a5f1326d4b805cc8fed44/specs/reuse/cc-realize-2cat.md).
+The recorded results did not supply this kernel's wire protocol. They do not justify
+retaining a protocol that needs to infer omitted mathematical structure.
+The [PR #67 execution record](https://github.com/dzackgarza/lean-cas-dsl/blob/b35ab54e1d87b99b5d91d5cc7efda8748b3377f1/specs/reuse/cc-realize-2cat.md)
+preserves subsequent investigations, controls and recorded engineering evidence.
 
-This settles the implementation choice left open by the
-[#79 disposition](https://github.com/dzackgarza/lean-cas-dsl/issues/79#issuecomment-6476550921)
-and #80's reuse checklist. The first fixed mathematical computation validates the chosen
-implementation; it is not another import-versus-rewrite survey. Mathematical acceptance,
-independent public use and the complete V1 inventory remain #10/#66/#69/#24. The ordinary
-categorical APIs named above do not replace the higher data required by #82/CC-HIGHER.
+The broader sources are the
+[#79 library survey](https://github.com/dzackgarza/lean-cas-dsl/issues/79#issuecomment-6475309126),
+[cross-repository source research](cross-repository-execution-prior-art.md), and
+[#85 prior-art assessment](https://github.com/dzackgarza/lean-cas-dsl/issues/85#issuecomment-6570686947).
+These contain historical implementation assessments as well as source findings. Their
+candidate mechanisms are examined below for fit to the boundary in #85, without assuming
+the old invocation owner or a package disposition.
 
-### Existing source to import, retain and adapt
+## New code: execution of a complete dependent computation
 
-The runtime source anchor is kernel candidate
-[`d0dfd405c6e10ec08ee68a024df4bc6b7d316e4b`](https://github.com/dzackgarza/lean-cas-dsl/tree/d0dfd405c6e10ec08ee68a024df4bc6b7d316e4b).
-Later documentation changes are not a runtime result. These are existing kernel modules,
-not proposed external package dependencies.
+This engineering analysis develops the boundary in #85 and the dependent computation and
+result-use obligations in #66/#69.
 
-| Responsibility | Selected source and symbols | Import and adaptation placement |
+The replacement carries the formal selected application and its executable description
+together. Ordinary term formation uses Lean elaboration as recorded in
+[`cc-dsl-language`](cc-dsl-language.md). Mathematical route, structure, comparison, admission
+and lifting choices remain explicit inputs. Dependency scheduling cannot choose or repair
+those choices.
+
+A completed description fixes each operand occurrence, dependency, dependent result field,
+and required operation on that field. For a construction returning an apex and inclusion,
+the inclusion's source is the same returned apex, and a later factor lands in that apex.
+Those bindings are prescribed before the answer exists. Completion validates and binds the
+actual supplied fields in those positions; it does not infer a selected construction from
+their encodings. The associated accepted formal cone and its laws remain distinct from
+the untrusted computational packet.
+
+Composition must preserve this association through projection, substitution, comparison,
+reindexing, lifting and later public calls. Reusing a result, evaluating a definition at its
+use and deliberately executing a new occurrence are distinct. Equal Lean expressions or
+equal JSON are not sufficient to identify actual producers. Administrative allocation
+differences must not alter the mathematical question. A new execution supplies its own
+dependent maps, or an accepted comparison and actual transport connect the results.
+
+The concrete representation and executor have not been validated by this record. Relevant
+fit questions include whether an existing dependent computation representation supports the
+required interfaces and what, if anything, needs local adaptation. `InvocationExecution`,
+current plan types, free-monad encodings and storage choices are implementation candidates.
+Encapsulated construction and completion can prevent inconsistent copies from becoming
+competing sources for the same result.
+
+Lazy demand, adequate fused realizations, admitted portable/opaque presentations and actual
+supplier/session checks are compatible with this boundary. A fused realization need not dispatch every formal
+primitive. Formal functoriality does not prove arbitrary backend calls pure, repeatable or
+correct. An opaque reference obtains callable behavior only through the declared public
+operation or admitted bridge; a label change supplies no morphism action.
+
+### Existing implementation evidence and reusable responsibilities
+
+The candidate source anchor is
+[`b35ab54`](https://github.com/dzackgarza/lean-cas-dsl/tree/b35ab54e1d87b99b5d91d5cc7efda8748b3377f1).
+It supplies evidence and possible reusable components, not an accepted architecture.
+
+| Responsibility | Existing source | Preservation property and reuse limit |
 | --- | --- | --- |
-| Complete selected request and canonical result | [`Realize.lean`](https://github.com/dzackgarza/lean-cas-dsl/blob/d0dfd405c6e10ec08ee68a024df4bc6b7d316e4b/CasCatalogue/Realize.lean#L401-L688): `SelectedCallableInvocation`, `SelectedStructuredInvocation`, `SelectedStructuredProjection`, `SelectedRecordProjection`, `SelectedRoutedInvocation`, `SelectedPrescribedInvocation`, `CapturedInvocationInterface`, `InvocationExecution` | Adapt these records and `Harness.invocations` inside `CasCatalogue.Realize`. Selected dependencies and output positions refer to the canonical owner. Encapsulate construction, completion and output access; a copied `Wire` cannot install different completion data. |
-| Registration and completion | [`retainCapturedInvocation`](https://github.com/dzackgarza/lean-cas-dsl/blob/d0dfd405c6e10ec08ee68a024df4bc6b7d316e4b/CasCatalogue/Realize.lean#L2246-L2289) and [`observeCapturedInvocation`](https://github.com/dzackgarza/lean-cas-dsl/blob/d0dfd405c6e10ec08ee68a024df4bc6b7d316e4b/CasCatalogue/Realize.lean#L18045-L18101) | Preserve original-input, cycle, result-interface and owner checks. Adapt this owner into the demand/resume driver below. `Harness.invocations` remains the authority; `Harness.results` cannot select or replace operands/results for a migrated computation. No second execution store is added. |
-| Field positions, intermediate stages and comparisons | [`RoutedResultPlan.lean`](https://github.com/dzackgarza/lean-cas-dsl/blob/d0dfd405c6e10ec08ee68a024df4bc6b7d316e4b/CasCatalogue/RoutedResultPlan.lean): `Plan`, `IntermediateStage`, `Slot`, `ProjectionActionPlan`, `Plan.stage`, `Plan.projectionAction` | Keep `import CasCatalogue.RoutedResultPlan` in the execution implementation. Its selected positions and schemas supply suspended-frame dependencies; do not build another graph that restates them. |
-| Formal construction and returned fields | [`StructuredResult.lean`](https://github.com/dzackgarza/lean-cas-dsl/blob/d0dfd405c6e10ec08ee68a024df4bc6b7d316e4b/CasCatalogue/StructuredResult.lean): `DataPlan`, `dataPlan`, `Result`, `complete` | Keep `import CasCatalogue.StructuredResult`. Reuse its formal/computational distinction and field validation. It imports `Semantic`, `Admission` and `Codec`, not `Realize`. |
-| Prepared public requests | [`ServiceRequest.lean`](https://github.com/dzackgarza/lean-cas-dsl/blob/d0dfd405c6e10ec08ee68a024df4bc6b7d316e4b/CasCatalogue/ServiceRequest.lean#L137-L173): `Operand`, `Prepared`; [`UniversalServiceRequest.lean`](https://github.com/dzackgarza/lean-cas-dsl/blob/d0dfd405c6e10ec08ee68a024df4bc6b7d316e4b/CasCatalogue/UniversalServiceRequest.lean#L273-L365): `materializedLimit`, `liftField`, `liftFactor` | Keep the existing service-module imports. Preserve their completion checks and staged preparation; constrain inconsistent result-kind combinations at checked construction. A later callable/service request fixes its interface at its own preparation boundary. |
-| Selected lift and its four actual outputs | [`SelectedLift.lean`](https://github.com/dzackgarza/lean-cas-dsl/blob/d0dfd405c6e10ec08ee68a024df4bc6b7d316e4b/CasCatalogue/SelectedLift.lean): `Plan`, `select`, `factors`; [`LiftStageExecution.lean`](https://github.com/dzackgarza/lean-cas-dsl/blob/d0dfd405c6e10ec08ee68a024df4bc6b7d316e4b/CasCatalogue/LiftStageExecution.lean#L16-L132): `Input`, `Field`, `Result`, `fold` | Keep `import CasCatalogue.LiftStageExecution`, which already imports `LiftedSubobjectData` and `DataOwnership`. Use the existing field order and endpoint roles with retained operands. Do not port a second four-field loop. |
-| Supplied construction in later factors | `Realize.selectedLiftExecution`, `retainedLiftStage`, `executeRetainedLiftFactor`; the routed-method helper `executePrescribedRetainedWith`; `UniversalServiceRequest.liftFactor` | Adapt the direct selected-lift/factor path first. The subsequent factor receives the actual selected stage, outputs, inclusion and comparisons through the canonical owner. Adapt the routed prescribed-method helper when covering that use; it is not the direct selected-lift entry point. Remove each migrated recovery branch rather than regenerate its construction. |
-| Actual selected comparison components | [`CellAction.lean`](https://github.com/dzackgarza/lean-cas-dsl/blob/d0dfd405c6e10ec08ee68a024df4bc6b7d316e4b/CasCatalogue/CellAction.lean): `assemble`, `select`, `component`, `componentIso`, `objects`, `maps` | Keep `import CasCatalogue.CellAction`, with its `DirectConstruction` and `CategoryContext` inputs. Consume the accepted upstream comparison declarations; no route quotient or order-based choice replaces their components. |
-| Computational prerequisite closure | [`ComputationDerivation.lean`](https://github.com/dzackgarza/lean-cas-dsl/blob/d0dfd405c6e10ec08ee68a024df4bc6b7d316e4b/CasCatalogue/ComputationDerivation.lean#L30-L47): `grounded`, `instantiate`, existing compiler and recursion guard | Keep `import CasCatalogue.ComputationDerivation` and its existing `LeanCategories.Catalogue.Registry.Computation` input. Preserve realized-form admission and failure distinctions; do not introduce a cost optimizer for this replacement. |
-| Owners, framing and external effects | [`DataOwnership.lean`](https://github.com/dzackgarza/lean-cas-dsl/blob/d0dfd405c6e10ec08ee68a024df4bc6b7d316e4b/CasCatalogue/DataOwnership.lean): `Data`, `validate`, `project`, `array`, `object`; `Realize.checkDataOwners`, [`sendData`](https://github.com/dzackgarza/lean-cas-dsl/blob/d0dfd405c6e10ec08ee68a024df4bc6b7d316e4b/CasCatalogue/Realize.lean#L2506-L2591); `CasContract.Port` | Keep the current kernel/contract imports. Backend invocation stays behind `sendData`; its received reply is untrusted until the prepared completion checks run. Preserve inline and opaque alternatives and positioned multi-owner data. |
+| Formal construction versus computational answer | [`StructuredResult.Result`](https://github.com/dzackgarza/lean-cas-dsl/blob/b35ab54e1d87b99b5d91d5cc7efda8748b3377f1/CasCatalogue/StructuredResult.lean#L92-L118) | Preserve the independent formal construction and the untrusted packet. The reply does not supply universality or an identification with the formal apex. The record layout may change. |
+| Dependent field positions and input roles | [`StructuredResult.DataPlan`](https://github.com/dzackgarza/lean-cas-dsl/blob/b35ab54e1d87b99b5d91d5cc7efda8748b3377f1/CasCatalogue/StructuredResult.lean#L128-L162) and [`validatePlannedData`](https://github.com/dzackgarza/lean-cas-dsl/blob/b35ab54e1d87b99b5d91d5cc7efda8748b3377f1/CasCatalogue/StructuredResult.lean#L329-L349) | Preserve dependent constructor roles before formal equality can merge distinct inputs and returned fields. Reuse validation against a fixed schema where it fits; current reflective preparation and callers are subject to replacement. |
+| Routed fields, selected lift and ordered outputs | [`RoutedResultPlan`](https://github.com/dzackgarza/lean-cas-dsl/blob/b35ab54e1d87b99b5d91d5cc7efda8748b3377f1/CasCatalogue/RoutedResultPlan.lean), [`SelectedLift`](https://github.com/dzackgarza/lean-cas-dsl/blob/b35ab54e1d87b99b5d91d5cc7efda8748b3377f1/CasCatalogue/SelectedLift.lean), [`LiftStageExecution`](https://github.com/dzackgarza/lean-cas-dsl/blob/b35ab54e1d87b99b5d91d5cc7efda8748b3377f1/CasCatalogue/LiftStageExecution.lean) | Preserve the complete chosen lift, field dependencies, comparisons and factor use. Assess each operation against direct result references; do not retain the current plan representation or fold merely because it exists. |
+| Explicit comparison action | [`CellAction`](https://github.com/dzackgarza/lean-cas-dsl/blob/b35ab54e1d87b99b5d91d5cc7efda8748b3377f1/CasCatalogue/CellAction.lean) | Preserve actual components, orientation, endpoints and required compatibility. A route quotient, carrier equality or order-based representative cannot replace the supplied action. |
+| Public and derived requests | [`ServiceRequest`](https://github.com/dzackgarza/lean-cas-dsl/blob/b35ab54e1d87b99b5d91d5cc7efda8748b3377f1/CasCatalogue/ServiceRequest.lean), [`UniversalServiceRequest`](https://github.com/dzackgarza/lean-cas-dsl/blob/b35ab54e1d87b99b5d91d5cc7efda8748b3377f1/CasCatalogue/UniversalServiceRequest.lean), [`ComputationDerivation.compileAt`](https://github.com/dzackgarza/lean-cas-dsl/blob/b35ab54e1d87b99b5d91d5cc7efda8748b3377f1/CasCatalogue/ComputationDerivation.lean#L307) | Transfer these entrances to the same complete lowering boundary. Preserve their public meaning, admission and failure behavior. A prepared service or instruction that calls legacy recognition is not the replacement. |
+| External data, owners and lifetime | [`DataOwnership`](https://github.com/dzackgarza/lean-cas-dsl/blob/b35ab54e1d87b99b5d91d5cc7efda8748b3377f1/CasCatalogue/DataOwnership.lean), [`StagedNumeralDataProbes`](https://github.com/dzackgarza/lean-cas-dsl/blob/b35ab54e1d87b99b5d91d5cc7efda8748b3377f1/CasAcceptance/Kernel/StagedNumeralDataProbes.lean#L59-L126), [`ContextualHomFramingProbes`](https://github.com/dzackgarza/lean-cas-dsl/blob/b35ab54e1d87b99b5d91d5cc7efda8748b3377f1/CasAcceptance/Kernel/ContextualHomFramingProbes.lean) | Preserve validation at actual receive/capture and use boundaries, positioned multi-owner data, exact endpoints and rejection in foreign or expired sessions. Do not replace those controls with fabricated ownership metadata. |
+| Distinct occurrences and stable question meaning | [`ProducerOccurrenceProbes`](https://github.com/dzackgarza/lean-cas-dsl/blob/b35ab54e1d87b99b5d91d5cc7efda8748b3377f1/CasCatalogue/ProducerOccurrenceProbes.lean#L29-L179) | Preserve selected producer/operand distinctions and independence from anonymous allocation history. Migrate the controls to replacement references; producer wrappers inside Lean expressions are not a required representation. |
 
-The first fixed RX-LIFT computation enters through the
-[direct `.selectedLift` branch](https://github.com/dzackgarza/lean-cas-dsl/blob/d0dfd405c6e10ec08ee68a024df4bc6b7d316e4b/CasCatalogue/Realize.lean#L13370-L13376),
-which calls `SelectedLift.select` and then `selectedLiftExecution`. This direct path is not
-already one of the six `CapturedInvocationInterface` variants; `SelectedPrescribedInvocation`
-is the routed-method protocol. Add a checked direct-lift case to the same invocation owner,
-carrying the selected `SelectedLift.Plan` and operand references. Assemble its existing
-`LiftStageExecution.Input` from those retained dependencies when they are available; preserve
-the four-field fold and completion checks. This extends the selected owner, not its stores.
+### External source research and its limits
 
-Implement the owner/driver adaptation in `Realize.lean` first, using its existing imports.
-Moving a coherent group into a smaller module is ordinary packaging work, not a prerequisite
-or another architectural decision. Such a split preserves the import direction: lower-level
-plans and service preparers do not import the top-level evaluator. The source/input policy
-for own-organization dependencies is unchanged; diagnostic source anchors are not permanent
-delivery pins.
+These are candidates for particular responsibilities. The sources do not prove their fit
+to this kernel's dependent mathematical context, actual result interface or complete
+acceptance. In particular, support for sequencing alone does not establish preservation of
+a complete dependent construction and its later use.
 
-### Source adaptation: PolyFun's suspension and return algorithm
-
-Use PolyFun commit
-[`b13c074410a955407886cb3fe27e59130aeac090`](https://github.com/Verified-zkEVM/PolyFun/tree/b13c074410a955407886cb3fe27e59130aeac090),
-[`PolyFun/PFunctor/Free/HandlerMachine.lean`](https://github.com/Verified-zkEVM/PolyFun/blob/b13c074410a955407886cb3fe27e59130aeac090/PolyFun/PFunctor/Free/HandlerMachine.lean#L38-L82):
-`Phase` (39–42), `runPrefix` (67–77), `result` (80–82).
-
-Adapt its three nonterminal transitions into the existing invocation owner:
-
-1. A demand for a selected dependency suspends the caller with its exact next operand/output
-   position and enters that dependency.
-2. A validated dependency return fills that position and resumes the suspended selected plan.
-3. An external request uses the existing prepared interface and `sendData`, retaining the
-   suspended caller until the reply has passed completion validation.
-
-The suspended frame retains the selected invocation, required operand/output references and
-the next position of its existing plan. It is not a new `FreeM` tree or an arbitrary closure
-that can rediscover the selected input. Keep the existing cycle and session checks. Completed
-data are exposed only through canonical completion; an unvalidated handler return is not a
-completed kernel result. Failure exits preserve the existing strata and never resume with
-default data. Later public service requests still prepare at their appropriate stage.
-
-Retain demand-driven execution. The dependencies are those of the selected realization;
-an adequate fused realization remains permitted and does not invent primitive dispatches.
-The adaptation does not copy PolyFun's counters, fuel interface or an additional program
-store. Its original theorem about polynomial-program interpretation does not prove this
-adaptation, the preservation of a selected mathematical construction, or a leaf's answers.
-Retain source attribution when adapting the algorithm.
-
-For the first fixed RX-LIFT computation, transfer the recursive operand demands in
-[`selectedLiftExecution`](https://github.com/dzackgarza/lean-cas-dsl/blob/d0dfd405c6e10ec08ee68a024df4bc6b7d316e4b/CasCatalogue/Realize.lean#L17008-L17071)
-and [`executeRetainedLiftFactor`](https://github.com/dzackgarza/lean-cas-dsl/blob/d0dfd405c6e10ec08ee68a024df4bc6b7d316e4b/CasCatalogue/Realize.lean#L17078-L17210)
-from their `realizeEndpoint`/`realizeUnobserved` and observation callbacks to the common
-demand/resume driver. Preserve the existing selected plan, retained endpoint checks,
-`LiftStageExecution.fold` and prepared completion validation; remove this path's competing
-operand recovery and completion writes. Calling its old recursive orchestration unchanged
-under a new case does not implement the adaptation.
-
-When extending coverage to the existing universal-limit construction, replace the recursive
-`observeObject`/`observeMap` scheduling in
-[`observeStructuredInvocationWith`](https://github.com/dzackgarza/lean-cas-dsl/blob/d0dfd405c6e10ec08ee68a024df4bc6b7d316e4b/CasCatalogue/Realize.lean#L9901-L10032)
-and its migrated parent/endpoint recovery through that same owner. This remains required
-for universal-limit coverage; it is not a prerequisite to the first direct lift/factor trial.
-Wrapping that observer unchanged likewise fails. Existing plan builders and validators
-remain; dependency demand, result adoption and resumption have one common owner.
-
-### External source dispositions
-
-| Source and revision | V1 disposition | Responsibility and limit |
+| Source | Relevant mechanism | Limit and concrete fit question |
 | --- | --- | --- |
-| PolyFun `b13c0744`, `PolyFun/PFunctor/Free/HandlerMachine.lean`, `Phase/runPrefix/result` | **Adapt the transition algorithm locally; no package import.** | Use the three transitions above against the existing selected plans and invocation owner. This is the selected scheduling replacement, not a second evaluator representation. |
-| Same PolyFun revision, [`PolyFun/PFunctor/Handler/Stateful.lean`](https://github.com/Verified-zkEVM/PolyFun/blob/b13c074410a955407886cb3fe27e59130aeac090/PolyFun/PFunctor/Handler/Stateful.lean#L55-L91), `Handler.Stateful.run/run_liftBind`; [`PolyFun/PFunctor/Free/Cursor/Occurrence.lean`](https://github.com/Verified-zkEVM/PolyFun/blob/b13c074410a955407886cb3fe27e59130aeac090/PolyFun/PFunctor/Free/Cursor/Occurrence.lean#L40-L49), `Occurrence/Completion/completeWith/complete`; [`PolyFun/IPFunctor/Free/Basic.lean`](https://github.com/Verified-zkEVM/PolyFun/blob/b13c074410a955407886cb3fe27e59130aeac090/PolyFun/IPFunctor/Free/Basic.lean#L11-L24), `IPFunctor.FreeM` | **Reference only; no additional V1 port.** | These are real stateful, retained-occurrence and indexed-computation mechanisms. The kernel already supplies its persistent owner and lift fold. Porting another storage/program layer would duplicate those responsibilities. |
-| cslib `1e12b4a15de5a5ad9dfe271074872a2df4c1adbc`, [`Cslib/Foundations/Control/Monad/Free.lean`](https://github.com/leanprover/cslib/blob/1e12b4a15de5a5ad9dfe271074872a2df4c1adbc/Cslib/Foundations/Control/Monad/Free.lean), `Cslib.FreeM/liftM`; [`Cslib/Foundations/Data/PFunctor/Free.lean`](https://github.com/leanprover/cslib/blob/1e12b4a15de5a5ad9dfe271074872a2df4c1adbc/Cslib/Foundations/Data/PFunctor/Free.lean), `PFunctor.FreeM/liftM` | **Reference only; no package import or local free-monad port for V1.** | Reusable sequencing laws do not provide this kernel's complete selected interfaces, persistent result association or ownership validation. The selected-plan representation already exists. |
-| CAP_project `fb48c41`, [`CAP/gap/MethodRecord.gi`](https://github.com/homalg-project/CAP_project/blob/fb48c41/CAP/gap/MethodRecord.gi#L285-L361), `KernelEmbeddingWithGivenKernelObject/KernelLiftWithGivenKernelObject`; [`CAP/gap/DerivedMethods.gi`](https://github.com/homalg-project/CAP_project/blob/fb48c41/CAP/gap/DerivedMethods.gi#L184-L193) | **Adapt the supplied-construction interface discipline; no GAP code imported into the kernel.** | Later factors consume the supplied construction and its associated inclusion. Apply this through the existing retained-stage and `UniversalServiceRequest.liftFactor` paths; do not reconstruct a fresh construction from its defining arrow. This does not assert a kernel universal property in a category where the accepted input supplies none. |
-| Same CAP revision, [`CAP/gap/Derivations.gi`](https://github.com/homalg-project/CAP_project/blob/fb48c41/CAP/gap/Derivations.gi#L387-L453), `OperationWeightUsingDerivation/TryToTriggerDerivation` | **Reference only; defer cost optimization.** | Keep existing `ComputationDerivation.grounded` and realization selection. Do not port registration-position ties as mathematical coherence. CAP's [CanCompute-in-filter check](https://github.com/homalg-project/CAP_project/blob/fb48c41/CAP/gap/Derivations.gi#L53-L55) is a warning, not the kernel's semantic boundary. |
-| Lean `v4.33.0`, [`src/Lean/LocalContext.lean`](https://github.com/leanprover/lean4/blob/v4.33.0/src/Lean/LocalContext.lean), [`src/Lean/Meta/Basic.lean`](https://github.com/leanprover/lean4/blob/v4.33.0/src/Lean/Meta/Basic.lean#L1905-L1927), `withLetDecl/mkLetFVars` | **Use existing APIs for scoped elaboration in #66.** | Preserve or close the local context; `withLetDecl` restores it on return. An escaping `FVarId`, normalized RHS or ordinary lexical binding does not become persistent computational result identity or replace definition-at-use semantics. |
-| GATlab/Catlab sources recorded in [cross-repository prior art](cross-repository-execution-prior-art.md) | **Reference only for this replacement.** | Keep the existing catalogue selection, `CategoryContext` and component machinery. No Julia dependency or second mathematical registry is introduced. |
-| `lean4-itree`, `debruijn-ssa`, `lean-mlir` candidates in the [library survey](https://github.com/dzackgarza/lean-cas-dsl/issues/79#issuecomment-6475309126) | **Defer dependencies and ports beyond this V1 work.** | Coinductive traces and a general SSA/compiler IR are not required to replace this selected construction's finite dependency scheduling and retained data. They are not unfinished prerequisites. |
+| [GATlab: models as values and indexed dependent types](https://algebraicjulia.github.io/GATlab.jl/stable/concepts/catlab_differences/) | Pass the selected model/context and morphism indices explicitly; bare morphism data need not determine its endpoints. | Preserve these associations through the selected Lean construction. This supports the boundary design, not importing a second mathematical registry or assuming that a runtime model establishes the project's formal laws. |
+| [Aldor manual §7.4: dependent results](https://www.aldor.org/docs/HTML/chap7.html) | Return a computed domain together with values over that domain and operations for subsequent use. | The computation fixes the dependency while the concrete result context is produced at runtime. Do not require all result indices in advance or replace the returned context with a separately reconstructed one. |
+| [ConCat: Compiling to categories](https://conal.net/papers/compiling-to-categories/) | Transform already typed host programs into categorical interpretations through the existing compiler. | Reuse host term formation and preserve its meaning through lowering. The simply typed cartesian-closed setting does not establish this project's dependent, higher or untrusted-backend interpretation; those obligations still need their construction-specific argument. |
+| PolyFun [`HandlerMachine.Phase/runPrefix/result`](https://github.com/Verified-zkEVM/PolyFun/blob/b13c074410a955407886cb3fe27e59130aeac090/PolyFun/PFunctor/Free/HandlerMachine.lean#L38-L82) | Caller/handler entry, suspension and return. | Can dependency return resume a typed continuation with the actual complete result, without a callback into the old reader or reconstruction? Its source theorem does not prove the adaptation or backend correctness. The machine is an option, not a required local port. |
+| PolyFun [`Handler.Stateful`](https://github.com/Verified-zkEVM/PolyFun/blob/b13c074410a955407886cb3fe27e59130aeac090/PolyFun/PFunctor/Handler/Stateful.lean#L55-L91), [`Occurrence/Completion`](https://github.com/Verified-zkEVM/PolyFun/blob/b13c074410a955407886cb3fe27e59130aeac090/PolyFun/PFunctor/Free/Cursor/Occurrence.lean#L40-L49), [`IPFunctor.FreeM`](https://github.com/Verified-zkEVM/PolyFun/blob/b13c074410a955407886cb3fe27e59130aeac090/PolyFun/IPFunctor/Free/Basic.lean#L11-L24) | Stateful interpretation, retained occurrences and indexed computation. | Assess whether indices and continuations preserve dependent result fields and selected structures. The existence of a kernel store does not justify rejecting a better representation; introducing duplicate authorities would still be a defect. |
+| cslib [`Cslib.FreeM/liftM`](https://github.com/leanprover/cslib/blob/1e12b4a15de5a5ad9dfe271074872a2df4c1adbc/Cslib/Foundations/Control/Monad/Free.lean), [`PFunctor.FreeM/liftM`](https://github.com/leanprover/cslib/blob/1e12b4a15de5a5ad9dfe271074872a2df4c1adbc/Cslib/Foundations/Data/PFunctor/Free.lean) | Existing sequencing representations and laws. | Determine the dependency and result-interface structure supported and the adaptation needed. Sequencing laws alone supply neither mathematical selection nor ownership validation. A package decision requires actual API and toolchain evidence. |
+| CAP [`KernelEmbeddingWithGivenKernelObject/KernelLiftWithGivenKernelObject`](https://github.com/homalg-project/CAP_project/blob/fb48c41/CAP/gap/MethodRecord.gi#L285-L361) and [`DerivedMethods`](https://github.com/homalg-project/CAP_project/blob/fb48c41/CAP/gap/DerivedMethods.gi#L184-L193) | Subsequent maps consume a supplied construction. | Preserve this association in the actual typed result and its continuation. The API discipline is useful evidence; CAP does not prove this kernel's laws or authorize a universal property absent from the accepted construction. |
+| CAP [`Derivations`](https://github.com/homalg-project/CAP_project/blob/fb48c41/CAP/gap/Derivations.gi#L387-L453) | Computational prerequisite closure and derivation selection. | Executable dependencies and cost-based realization selection differ from mathematical route selection. Registration order does not supply coherence. |
+| Lean [`LocalContext`](https://github.com/leanprover/lean4/blob/v4.33.0/src/Lean/LocalContext.lean) and [`withLetDecl`](https://github.com/leanprover/lean4/blob/v4.33.0/src/Lean/Meta/Basic.lean#L1905-L1927) | Scoped terms and closure during elaboration. | Reuse for formal contexts. An escaping local identifier or normalized expression does not retain an actual computational result occurrence. |
+| GATlab/Catlab, interaction-tree and compiler representations in the [source research](cross-repository-execution-prior-art.md) and [library survey](https://github.com/dzackgarza/lean-cas-dsl/issues/79#issuecomment-6475309126) | Typed syntax, interpretation, effects and explicit dependencies. | Use a candidate for a concrete responsibility it satisfies without adding a second mathematical registry. The research does not select a language migration, coinductive runtime or general compiler project as a prerequisite. |
 
-The inspected cslib toolchain is `v4.36.0-rc1`; PolyFun's
+The earlier inspection recorded cslib at Lean `v4.36.0-rc1`, PolyFun's
 [package configuration](https://github.com/Verified-zkEVM/PolyFun/blob/b13c074410a955407886cb3fe27e59130aeac090/lakefile.toml#L31-L40)
-uses Mathlib and cslib `v4.35.0`, while this kernel source uses Lean `v4.33.0`. This kernel
-replacement adds none of these packages and performs no toolchain upgrade for this adaptation. This is a settled
-scope/dependency decision, not a claim that every historical version or bounded port is
-incompatible. The concrete algorithm above is adapted at the current toolchain.
+with Mathlib/cslib `v4.35.0`, and the kernel source at `v4.33.0`. These are compatibility
+questions for those inspected revisions, not proof that every usable version or bounded
+adaptation is incompatible. Actual import/adaptation, attribution, dependency closure and
+build results would establish compatibility for a chosen use. This research does not by
+itself establish a package choice, a mandatory PolyFun port or a toolchain migration.
 
-### Required deletions and evidence
+### Fixed-interface validation and reconstruction
 
-For the first fixed #69 computation, the integrated replacement removes:
+Untrusted answers still require decoding and checks for shape, complete dependent fields,
+declared endpoints, resource/lifetime restrictions, owners and session compatibility.
+Validation consumes the already selected schema and bindings. It does not choose the
+mathematical result from registry candidates or treat decoding as proof of the answer,
+universality or a comparison. Invalid input, ambiguity, missing implementation, unavailable
+execution, malformed data, wrong answer and internal failure have distinct meanings;
+timeout is not a semantic rejection.
 
-- Recursive dependency scheduling and competing recovery/completion in the direct
-  `selectedLiftExecution`/`executeRetainedLiftFactor` path and its migrated projections.
-  Preserve `LiftStageExecution.fold`; the common driver owns demand and resumption.
-- Retrieval of already selected operands from unanchored expression keys in `realize`,
-  `realizeUnobserved` and migrated observation branches, and selection of an owned result
-  by JSON equality in `serviceRetained`. Keep genuinely admitted portable-value decoding
-  and the exact public reference path.
-- The migrated raw trace overwrite following produced-route preparation in
-  `Language.typedParameter`; selected aliases retain the original producer association.
-- Copied completion state and alternate writes for that construction, including recovery
-  through the legacy `executePrescribedLift`/`legacyLiftRecovery` compatibility adapter.
-  Its remaining unmigrated callers are not silently removed or treated as already covered.
+The current
+[`realizeFreshWith` recovery branches](https://github.com/dzackgarza/lean-cas-dsl/blob/b35ab54e1d87b99b5d91d5cc7efda8748b3377f1/CasCatalogue/Realize/RuntimeSupport.lean#L14620-L14679)
+and [`recordCompleteUniversalObject`](https://github.com/dzackgarza/lean-cas-dsl/blob/b35ab54e1d87b99b5d91d5cc7efda8748b3377f1/CasCatalogue/Realize/RuntimeSupport.lean#L3648-L3705)
+show the boundary to remove: execution searches expressions and registry entries to restore
+a selected action or construction, then checks its reconstruction. Retaining these behind
+a canonical store, renamed instruction or wrapped callback fails the replacement.
 
-The universal-limit extension subsequently removes its competing scheduling in
-`observeStructuredInvocationWith` through the same driver. That later deletion is required
-for that construction, not an additional prerequisite to the first lift/factor result.
+Recovery of selected inputs or results by unanchored expression/packet matching, alternate
+completion paths and copied contexts used to repair a missing interface are further forms
+of that mechanism. Keeping them as fallbacks would leave the boundary incomplete. Necessary
+validation has a different input: the already fixed interface and its dependent bindings.
+A genuinely staged new public request may elaborate at its own complete preparation
+boundary; it does not need to repair an incomplete existing request during execution.
+The same distinction applies at notebook/DSL, public-service and derived-computation entrances.
 
-The current `observeCapturedInvocation` and `LiftStageExecution.fold` are reused because
-they already carry the exact validation and ordered-output responsibilities. The removed
-paths are what allowed those facts to be recovered or copied differently elsewhere. This
-is the expected saving; no runtime speedup, day estimate or passing build is inferred from
-source inspection. Preserve hostile controls at the surviving boundary rather than retaining
-an obsolete helper solely for its probe.
+### Evidence linked from the work issues
 
-Record the implemented adaptation, actual import list, removed responsibilities and focused
-build/execution results here. Keep the fixed first-stage RX-LIFT questions, comparison and
-factor use, compositional argument and independent public-only trial in #69; complete #24's
-unchanged inventories afterwards. A renamed observer, another store or a scalar answer
-without the defining maps fails the existing trial. No compilation, compatibility or
-mathematical acceptance is claimed by this planning record.
+Implementation evidence for [#66](https://github.com/dzackgarza/lean-cas-dsl/issues/66) and
+[#69](https://github.com/dzackgarza/lean-cas-dsl/issues/69) can identify the actual typed
+interface, reuse and dependency decisions, removed recovery paths, validation boundary,
+and preservation of supplied results through later use. Execution results and their
+acceptance scope belong with those work issues and
+[#10](https://github.com/dzackgarza/lean-cas-dsl/issues/10). Historical source records remain
+available through the links above; neither they nor this analysis establish a current
+compilation, performance or acceptance verdict.

@@ -8,7 +8,10 @@ family applications). Neither issue is reopened or superseded: #53 fixes *what a
 is*, #54 fixes *how category-valued constructions are typed*, and this
 document fixes *how data moves*, *what a backend leaf may contribute*, and *what the Lean
 side must own so that a badly written backend cannot deform the public mathematics*.
-The execution order is in [computational-core-plan.md](computational-core-plan.md); the
+The current roadmap and work order are in [#10](https://github.com/dzackgarza/lean-cas-dsl/issues/10)
+and its assigned issues; [computational-core-plan.md](computational-core-plan.md) records
+scope and supporting references. This document records the requirements and must reflect
+the decisions in those issues, including the [#85 replacement](https://github.com/dzackgarza/lean-cas-dsl/issues/85). The
 mathematical denotations remain in [FOUNDATIONS.md Part IX](https://github.com/dzackgarza/lean-categories/blob/main/FOUNDATIONS.md#part-ix-mathematical-semantics-of-the-computational-language).
 
 **Grounding.** [`INTENT.md`](../INTENT.md) governs this document. `dzackgarza/sage-categories`
@@ -168,13 +171,30 @@ The existing work record identifies the inspected source/revision, the specific 
 it supplies, and whether it is imported, ported/adapted or rejected, with compatibility and
 boundary reasons. An unavailable index or unsuccessful query is not evidence that no
 implementation exists. A software reference does not determine mathematical meaning, the
-trust boundary or acceptance. Current program/lifecycle work has already selected the
-sources in `cc-realize-2cat`: the existing selected-plan owner, a bounded adaptation of
-PolyFun's suspension/return transitions, CAP's supplied-construction discipline, and no new
-external evaluator dependency. `cc-dsl-language` selects the existing Lean APIs for #66.
-Implement those decisions and establish actual compatibility; the archived #79/#80 surveys
-do not assign another source-selection task. No new index service, per-type gate or bulk
-retrospective rewrite is a prerequisite.
+trust boundary or acceptance.
+
+For the [#85 replacement](https://github.com/dzackgarza/lean-cas-dsl/issues/85), research the
+complete responsibility from selected mathematical construction through ordinary Lean
+elaboration, dependent computational lowering, execution and subsequent use of the actual
+result. The [reader](reuse/cc-dsl-language.md) and [evaluation](reuse/cc-realize-2cat.md)
+reuse records own those findings. The prior prescription to retain the existing reader and
+selected-plan owner, use only a bounded local PolyFun adaptation, and validate rather than
+reconsider that choice is superseded. Existing records, validators and algorithms survive
+only where their responsibility and source-grounded fit are established.
+
+Use Lean's ordinary term machinery and retain explicit mathematical choices. The selected
+construction must determine its complete typed application, dependencies and dependent
+result interface; a later stage must not recover that interface by recognizing expressions
+or searching runtime metadata. A result may supply concrete data only at execution, while
+its relationships to later fields and operations are already declared. Runtime validation
+checks that interface without proving an untrusted answer correct.
+
+The existing source surveys supply leads rather than a complete compatible dependency or
+a reason to freeze the incumbent architecture. Resolve actual API/toolchain/semantic-fit
+questions through the original first construction and continuation. Do not replace that
+work with a package-adoption project, a survey without an implementation decision or an
+assumption that existing ownership establishes adequacy. No new index service, per-type
+gate or bulk retrospective rewrite is a prerequisite.
 
 Only the **glue** between found results, and the **residue** that no indexed source
 supplies, is written by hand. The searches, their hits, and the reason each hit does or
@@ -853,6 +873,21 @@ machinery and engine values kept private ([`lean-cas-dsl-leaves` AGENTS.md](http
 over existing backends"). That is writing guidance for an engineering review, and following it
 earns no trust.
 
+The owner clarification of 2026-10-25 additionally requires a leaf-facing computational service.
+A handler may construct and compute through any already published mathematical interface,
+without selecting a backend or knowing whether a realization is installed. The runtime may use
+callbacks or typed deferred computation requests, but it owns their admission and execution.
+Registered object constructors, functor object/map actions and ordinary operations compose through
+that same service. Selected presentation comparisons, actual defining maps, image endpoints and
+separately owned dependencies remain attached to their actual data. A source leaf's private object
+must not become a representation language that unrelated target consumers must implement.
+
+Optional direct imports or shared implementation code between leaves are permitted. They change
+neither the mathematical API nor the kernel's obligations. A single-owner wire payload
+and a synchronous request/reply server do not by themselves satisfy this service requirement.
+Completing ordinary action dispatch and a frozen two-leaf composition is necessary evidence but
+does not close the broader constructor-centric execution obligation.
+
 ---
 
 ## 6. Division of ownership between the two Lean repositories
@@ -959,17 +994,20 @@ rediscover them.
 
 ---
 
-## 9. Decisions and exact remaining mathematical inputs
+## 9. Recorded decisions and exact mathematical inputs
 
-The older blanket incorporation of [upstream #53 §16](https://github.com/dzackgarza/lean-categories/issues/53)
-is replaced by the dispositions below. That historical list contains implementation choices,
-user-interface questions and a now-incompatible trusted-backend premise; it is not ten
-unresolved mathematical prerequisites. Nothing here changes that upstream issue or authors
-its mathematics.
+The table below records how the linked work issues treat the questions in
+[upstream #53 §16](https://github.com/dzackgarza/lean-categories/issues/53).
+That historical list contains implementation choices, user-interface questions and a
+now-incompatible trusted-backend premise; it is not ten unresolved mathematical
+prerequisites. Current decisions and work remain in [#10](https://github.com/dzackgarza/lean-cas-dsl/issues/10),
+[#66](https://github.com/dzackgarza/lean-cas-dsl/issues/66),
+[#69](https://github.com/dzackgarza/lean-cas-dsl/issues/69) and their linked issues.
+This reference neither overrides those instructions nor changes the upstream mathematics.
 
-| Earlier question | Operative disposition here |
+| Earlier question | Recorded disposition and work issue |
 | --- | --- |
-| Retained-result lifetime / backend caching | #69's selected-plan invocation owner retains required outputs and maps; CC-MEMO distinguishes optional lookup storage and fresh execution. This is implementation work, not an unresolved mathematical choice or permission to discard selected data. |
+| Retained-result lifetime / backend caching | The replacement execution boundary retains the actual selected outputs, dependent maps and owners; CC-MEMO distinguishes optional lookup storage and fresh execution. This is implementation work, not an unresolved mathematical choice or permission to discard selected data. |
 | Reindexing encoded as a constructor or atomic functor | An implementation choice under #66, constrained by the accepted fibration, variance, selected base map and coherence in CC-FIB. Neither encoding may infer transport from two family endpoints. The actual mathematical transport is upstream. |
 | #53.16.1: atomic method target or checked composite | CC-ROUTE already permits a registered operation or composite. Preserve its complete declared meaning and comparisons; no new semantic generator is required merely to register a fused computation. |
 | #53.16.2–3: constructor and receiver-schema encodings | Internal implementation choices under #66/CC-CALC. They cannot replace the accepted categories, dependent interfaces or their denotations. |

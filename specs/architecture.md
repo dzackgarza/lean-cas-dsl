@@ -1,21 +1,23 @@
 # Architecture contract
 
-This file owns the separation of concerns among `lean-categories`, `lean-cas-dsl`, leaves and
-`research`: who owns which fact, the one-way workflow between them, the payload at each
-boundary, the invariants, the trust boundaries, and the states that must be impossible. Every
-other document and plan node here conforms to it. The requirements (`specs/computational-core.md`)
-and the plan (`specs/computational-core-plan.md`) refine it and never override it. The owner's
-discussion of 2026-09-29 is the source.
+This file documents the separation of concerns, mathematical associations, payloads and
+trust boundaries specified by the project's decisions. Current work instructions are in
+[#10](https://github.com/dzackgarza/lean-cas-dsl/issues/10), with the replacement direction in
+[#85](https://github.com/dzackgarza/lean-cas-dsl/issues/85) and implementation/acceptance in
+#66, #69 and #24. Repository descriptions must reflect those decisions; they cannot
+override them or maintain an independent work order.
 
 The governing rule: **every fact has exactly one owner, and downstream layers may consume it but
 may not reinterpret it.**
 
 **Owner ruling (2026-10-10):** every repository consumes its own-organisation
 dependencies (`lean-categories`, `lean-cas-dsl-leaf-contracts`,
-`lean-cas-dsl-leaves`, `lean-jupyter-kernel`) at latest `main`. Every build and
-harness run updates those dependencies first. References below to pins, accepted
-release tuples or re-pinning mean latest `main`; they introduce no pinning step.
-The revisions actually consumed are recorded with execution results.
+`lean-cas-dsl-leaves`, `lean-jupyter-kernel`) at latest `main`. Resolve those inputs
+for integrated delivery and record the revisions actually consumed. The later
+[#83 local feedback sequence](https://github.com/dzackgarza/lean-cas-dsl/blob/b35ab54e1d87b99b5d91d5cc7efda8748b3377f1/specs/computational-core-plan.md#running-checks)
+keeps one selected dependency tuple during repeated diagnostics and before/after comparisons.
+A changed selection requires rebuilding its consumers and rerunning the comparison.
+Historical pins and release tuples introduce no separate delivery target or pinning step.
 
 ## Ownership
 
@@ -72,6 +74,10 @@ layers in context is blind to neither, so the layers have distinct authors (owne
 | **Acceptance agent** (a subagent) | Acceptance assertions in `tests/acceptance/`, and any correction of one | Kernel, contract, leaves. It reads the released mathematics and the language's surface, never an implementation |
 | **Leaf agent** (a subagent) | Leaves, in `lean-cas-dsl-leaves` or elsewhere | Mathematics, contract, kernel, tests. It reads the released contract and catalogue only |
 
+The 2026-10-23 V1 assignment authorizes delegation of kernel construction within the
+orchestrator's construction role. Delegation does not confer mathematical or acceptance
+authority, or relax the distinct-author and permitted-input rules below.
+
 * No agent authors in two rows. The launcher supplies each author only that role's independently
   assigned requirement and permitted inputs (policy 1). The kernel author does not choose or
   rewrite another role's assignment.
@@ -99,7 +105,7 @@ non-documentation changes; `lean-categories`' totality gate runs in its own buil
 | Boundary | Payload | The consumer may | The consumer must never |
 | --- | --- | --- | --- |
 | `lean-categories` → `lean-cas-dsl` | Pinned, proof-carrying categories, functors, classifiers, typed constructors and families, operations, coherences, stable identities | Derive syntax metadata, semantic closure and method availability | Re-declare ownership, add semantic edges, weaken types |
-| kernel → realization layer | The exact operation or normalized composite, its typed domain and codomain, its declared input forms | Select an implementation | Infer mathematics from implementation availability |
+| kernel → realization layer | The selected typed computation: exact operation/composite, dependent parameters and operands, explicit structures/routes/comparisons, executable dependencies, result interface and continuation | Execute the prepared computation and validate returned data against its prescribed interface | Rediscover its mathematical meaning or select mathematics from implementation availability |
 | leaf → runtime | A registration against an operation's declared type, and the answers its implementation returns | Run it, and read each answer into the declared result form or reject it as malformed | Believe anything the leaf says (a denotation, proof, identification, evidence, status or self-test); add categories, methods, classifiers, placements or aliases |
 | runtime → language | Computational data in the declared result form for the independently fixed operation, or a computational failure | Present or subsequently use that data at its declared interface; report the actual failure | Promote a backend answer to an authoritative semantic identification or proof |
 | semantics → acceptance | Mathematical operations and formal types | Write permanent black-box assertions | Read leaf internals to decide expected behaviour |
@@ -109,6 +115,39 @@ non-documentation changes; `lean-categories`' totality gate runs in its own buil
 
 Constructor applications and family parameters are typed mathematical data, never strings such as
 `"Modules(QQ)"`. Otherwise a backend's spelling can leak into semantic identity.
+
+**Owner clarification (2026-10-25): constructor services and implementation irrelevance.**
+The one-way boundary governs mathematical authority and evidence, not the direction of runtime
+calls. A leaf may request any published constructor or computation through the kernel without
+choosing or knowing its implementation. The kernel checks the declared interface, composes the
+required actions and retains the actual result, selected comparisons, maps and dependencies.
+Callbacks or typed deferred computation requests may implement this service. Missing computation
+or a representation bridge remains a computational failure and cannot change mathematical
+availability. A deferred request is executed by the shared runtime before its target consumer
+needs the result; it does not require that consumer to interpret another category's recipe.
+
+Leaves may import other leaves or share private code for implementation convenience. Those
+dependencies are optional, have no semantic standing and impose no new obligations on another
+implementation. The kernel depends on published interfaces and returned computations, not the
+internal dependency graph. Freezing an independent target leaf is an interoperability test,
+not a prohibition on lateral imports or sufficient evidence for the complete service boundary.
+
+Published constructors are the interoperability interface: a producer can construct an image
+using an existing target-category presentation instead of exporting its private native object.
+Object and morphism actions retain the actual selected comparison and image endpoints; a
+computational choice or construction request supplies no proof that the original operation was
+computed correctly. Independent fixed mathematical verification and all existing authority
+boundaries remain unchanged.
+
+The owner's [issue 69 Addendum IV](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6402830212)
+identifies the earlier `sage-categories` and `research` repairs, CAP's derived-method
+machinery, GATlab's explicit models, and the existing Catlab/`homotopy-core`
+adapters as source inputs. The [source-based reuse record](https://github.com/dzackgarza/lean-cas-dsl/blob/b35ab54e1d87b99b5d91d5cc7efda8748b3377f1/specs/reuse/cross-repository-execution-prior-art.md)
+distinguishes implemented mechanisms, historical tests and remaining integrated
+obligations. Their ownership, retention and dependency lessons inform reuse through the
+accepted Lean declarations; they prescribe neither an implementation nor a separate work
+order. Do not add another semantic graph or transplant the older projects' leaf import
+restrictions.
 
 ## Categorical realization and complete construction data (2026-10-29)
 
@@ -198,45 +237,96 @@ non-increasing well-founded measure does not establish a finite reachable enclos
 CC-COHERE allows distinct selected structures and unresolved ambiguity; it does not
 force every structural cycle to be identity.
 
-### Supporting implementation obligations
+### Replacement of the interpretation pipeline
 
-The [verbatim evaluator assessment](reuse/kernel-evaluation-machine-assessment.md) remains
-unchanged as provenance. The selected V1 implementation is recorded in
-[cc-realize-2cat](reuse/cc-realize-2cat.md): the existing checked selected-plan owner, with
-PolyFun's specified suspension/return algorithm adapted into its driver and CAP's
-supplied-construction discipline for later factors. Encapsulated checked records and opaque
-operand/output references retain complete interfaces. The kernel does not import a new
-FreeM/PolyFun package or add a second program store. #66 uses the public Lean application
-and binder APIs identified in [cc-dsl-language](reuse/cc-dsl-language.md), after mathematical
-selection. These source choices are made; #69/#66 implement and validate them. Their
-state transitions organize execution but do not define the mathematical construction or
-replace its acceptance criteria.
+**Current implementation direction, 2026-11-02, #85:** replace the pipeline that forgets
+selected mathematical structure and reconstructs it from expressions, registry entries,
+packets and runtime context. The replacement begins at interpretation and ordinary
+application formation; it is broader than the execution store or driver.
+The [source analysis](https://github.com/dzackgarza/lean-cas-dsl/issues/85#issuecomment-6570584402)
+and [prior-art analysis](https://github.com/dzackgarza/lean-cas-dsl/issues/85#issuecomment-6570686947)
+supply the concrete mechanism and research inputs.
+
+The selected construction determines its complete typed application, computational
+dependencies, dependent result interface and continuation. Lean's elaborator performs
+ordinary term formation in the selected context. Catalogue choices of mathematical
+structure, route, admission and comparison remain explicit. Elaboration does not choose
+between distinct mathematical structures merely because their carriers unify.
+
+| Boundary | Required behavior |
+| --- | --- |
+| Selection → Lean elaboration | Supply the chosen declaration, dependent context, structures, domain hypotheses, routes and comparison components. Lean forms and checks the ordinary application, binders, substitution and projections. |
+| Elaboration → executable description | Preserve the formal request, exact supplied/computed operands, dependent result fields and required operations together. A downstream consumer does not recognize the formal expression again to recover this information. |
+| Execution → result completion | Bind actual returned data to the already prescribed dependent fields and validate the untrusted reply against that interface, including endpoints and owners. Interface conformance supplies no proof that the answer is correct or universal. |
+| Completed result → continuation | Use the actual returned construction, defining maps, comparisons and computational owners through explicit references. Equal expressions or packets do not identify distinct occurrences. |
+| New staged request → preparation | Prepare its complete selected interface at its own boundary. Later request formation does not excuse reconstructing information already selected for an existing request. |
+
+Completeness concerns the declared relationships, operations and continuation. It does
+not require the concrete data of every dependent result before execution. A computation may
+return an apex together with an inclusion whose source is that returned apex and a
+continuation that uses it. Binding that result instantiates a declared dependency; it does
+not infer the role of the inclusion from the reply or search for a matching formal object.
+
+Use this boundary for notebook/DSL requests, public service requests and derived
+computations. Ordinary application is not delegated to Lean by calling an elaborator only
+after the old reader has reconstructed the telescope, arguments and mathematical interface.
+Likewise a typed wrapper, new program datatype or callback that invokes the old observer,
+endpoint recognizer or catalogue-recovery path retains the old mechanism.
+
+### Reuse and removal
+
+#85 rejects the October 28–29 implementation direction that protected the reader,
+selected-plan/InvocationExecution owner, completion validators and lift fold, and confined
+PolyFun adaptation to that owner. #66/#69 record the replacement work. The [reader reuse record](reuse/cc-dsl-language.md) and
+[evaluation reuse record](reuse/cc-realize-2cat.md) now assess capabilities against the whole
+replacement boundary. The [verbatim evaluator assessment](reuse/kernel-evaluation-machine-assessment.md)
+remains historical provenance. Its proposed source choices are not constraints on the
+replacement.
+
+Choose retained components or external dependencies from source-grounded fit to the first
+complete construction and its continuation. Existing adequacy is a reason to reuse a
+component; its current ownership of a defective boundary is not. This direction does not
+preselect another mathematical AST, program package or blanket no-package policy. Checked
+dependent functions, records or an inspectable indexed program are implementation choices.
+Whichever is used must retain the actual associations and make the required operations
+executable without hidden semantic recovery.
+
+Transfer complete production uses and remove their superseded interpretation,
+reconstruction and competing completion paths in forward commits. Do not leave a legacy
+fallback for a transferred use or keep a recovery API solely for engineering fixtures.
+Move the fixtures' required observations to the real replacement boundary. The existing
+candidate and history preserve evidence; implementation preservation is determined by the
+required responsibility. An incomplete compiled interface is corrected at its producer.
 
 Keep the actual produced result, selected components, complete endpoints and owners
 associated through subsequent use. A normalized expression is not an execution occurrence.
-Use of a retained result, evaluation of a definition at its use and deliberate fresh replay
-remain distinct. Required selected data and its dependent maps are not disposable lookup
-storage. A new choice requires new dependent data or the accepted comparison and actual
-transport. A lost owned result is unavailable unless justified reconstruction preserves the
-required data (CC-MEMO).
+Retained use, evaluation of a definition at its use and deliberate fresh execution remain
+distinct. Required selected data and its dependent maps are not disposable lookup storage.
+A new choice needs new dependent data or the accepted comparison and actual transport.
+A lost owned result reports unavailability; any permitted replay must meet CC-MEMO's
+preservation conditions and must not retain maps belonging to a different returned result.
 
-The public interface supports the admitted portable and owned alternatives and the
+The public interface supports all admitted portable and owned alternatives and the
 published operations or bridges required for their later use. Preserve lazy demand and
-adequate direct realizations of a whole selected composite; mathematical functoriality
-does not demand every primitive dispatch, identical effects or repeatability of arbitrary
-backends. Unexecuted intermediates acquire no fabricated results.
+adequate direct realizations of a whole selected composite. Mathematical functoriality does
+not require every primitive dispatch and does not establish purity, repeatability or
+correctness of arbitrary backends. Unexecuted intermediates acquire no fabricated results.
 
-Remove the replaced recursive interpretations and expression/packet recovery or completion
-bypasses in a compiling substitution. Cite the actual checks enforcing the mathematical
-associations and preserve failure distinctions, session/replay controls and dependent
-application context. A wrapper around an unchanged observer is insufficient. Pure updates,
-elaboration/validation and backend effects may be separated as an implementation choice.
-Measure the focused build/execution costs and removed or transferred work. Source counts,
-software state names and categorical vocabulary do not establish completion.
+Keep schema, endpoint, comparison, ownership/session, failure and resource checks at their
+appropriate boundary. They validate the selected description and actual supplied data.
+They do not reopen mathematical selection or repair missing producer meaning by scanning
+expressions or the registry. This is not a blanket ban on Expr, runtime validation or
+metaprogramming.
 
-#24's full independent acceptance and the evidence model remain unchanged. #71's proposed
-certificate-primary model is unadopted. No global quotient/computad, linter package, protected
-deletion manifest, line cap or new governance system is a prerequisite.
+### Work and evidence
+
+[#10](https://github.com/dzackgarza/lean-cas-dsl/issues/10) carries delivery order;
+[#66](https://github.com/dzackgarza/lean-cas-dsl/issues/66) and
+[#69](https://github.com/dzackgarza/lean-cas-dsl/issues/69) carry implementation;
+[#24](https://github.com/dzackgarza/lean-cas-dsl/issues/24) carries independent acceptance.
+This document describes the boundaries those issues require. It neither assigns another
+sequence nor accepts an implementation. The [reuse records](reuse/) contain source findings
+and fit limitations, with implementation evidence linked from the work issues.
 
 ## Invariants
 
@@ -507,12 +597,12 @@ the fixed requirements and independent acceptance:
 | Hole | Why it contains nothing | Mechanism needed (owner's authority) |
 | --- | --- | --- |
 | The orchestrator writes every gate: `CasGates/KernelPurity.lean` (allowlist, the `establish` exemption, which matches any declaration whose name starts with it, blind to names built from strings), `scripts/check_*.py`, `.github/workflows/` | The gate and the code it judges change in one commit. On 2026-09-30 a red CI check was deleted and replaced by a CI job that has never run | An independently accepted evaluator revision judges the candidate without candidate credentials. A gate author may submit replacements but cannot activate them; CODEOWNERS alone establishes no such restriction |
-| The orchestrator owns `lean-categories`' registry validator (`LeanCategories/Catalogue/Registry/*`) — superseded: schemas and validators are upstream mathematical authority (policy 1) | The same agent writes the kernel and decides which mathematics the kernel may receive. On 2026-10-01 it wrote the binder row schema and loosened `validateInclusion` so that a row its kernel needed would be admitted (the plan, B0, "Disposition of outstanding work") | Independent upstream assessment of validators as mathematics; the owner decides requirement or authority changes, not every implementation repair |
+| The orchestrator owns `lean-categories`' registry validator (`LeanCategories/Catalogue/Registry/*`) — superseded: schemas and validators are upstream mathematical authority (policy 1) | The same agent writes the kernel and decides which mathematics the kernel may receive. On 2026-10-01 it wrote the binder row schema and loosened `validateInclusion` so that a row its kernel needed would be admitted ([historical plan](https://github.com/dzackgarza/lean-cas-dsl/blob/0cee529c343fbe1c5f7a5f1326d4b805cc8fed44/specs/computational-core-plan.md#disposition-of-outstanding-work)) | Independent upstream assessment of validators as mathematics; the owner decides requirement or authority changes, not every implementation repair |
 | Roles are not enforced: the trailer gate is retired, and a declared role proves nothing | Any author can write any layer it has a credential for | Assigned role inputs and permitted operations bind author conduct, including with shared credentials (owner ruling, 2026-10-10); violations are recorded and repaired. Authoritative acceptance remains independently protected (`b0-authority`) |
 | Re-admission is keyed on `AGENT_ROLE=acceptance`, an environment variable | Anyone can set it | Only the independently controlled acceptance operation advances admitted records; no caller-set role or record hash authorizes it |
 | `check_kernel_totality.py` accepts a `catch` marked "not a reading fallback: …" | The exemption is a label the writer writes about itself. On 2026-10-01 the orchestrator marked two of its own catches to pass the gate, one of which collapsed every failure of a division into "invalid" (rejected by the custodian review of #58) | Withdrawn (policy 2); the obligation is carried by the outcome model (`cc-failure-strata`) |
 | The orchestrator chooses pins (`scripts/repin.sh`) and marks plan nodes "Delivered" | Acceptance is self-declared | Acceptance recorded by an independent reviewer at a fixed revision |
-| The orchestrator writes the subagents' prompts | The prompt carries implementation needs upstream. On 2026-09-30 the formalization prompt for membership evidence described the goal shapes the kernel produces, and supplied the orchestrator's own test cases. On 2026-10-01 it happened again, for the binder rows: the prompts carried kernel goals copied from failing statements and the orchestrator's choices of rows and obligations (the plan, B0, "Disposition of outstanding work") | The kernel worker does not use a credential or tool to write upstream or commission its authors; upstream requirements come independently from the protected requirement revision (policy 1; owner ruling, 2026-10-10; the plan, "Authority configuration") |
+| The orchestrator writes the subagents' prompts | The prompt carries implementation needs upstream. On 2026-09-30 the formalization prompt for membership evidence described the goal shapes the kernel produces, and supplied the orchestrator's own test cases. On 2026-10-01 it happened again, for the binder rows: the prompts carried kernel goals copied from failing statements and the orchestrator's choices of rows and obligations ([historical plan](https://github.com/dzackgarza/lean-cas-dsl/blob/0cee529c343fbe1c5f7a5f1326d4b805cc8fed44/specs/computational-core-plan.md#disposition-of-outstanding-work)) | The kernel worker does not use a credential or tool to write upstream or commission its authors; upstream requirements come independently from the protected requirement revision (policy 1; owner ruling, 2026-10-10; [authors and authority](#authors-one-role-per-agent)) |
 | Permanent tests protect text, not meaning: `check_acceptance_permanent.py` hashes an assertion's text and its bindings, while the orchestrator owns the language that interprets the text | The meaning of an unchanged assertion changes with the kernel, a parser repair, or a re-pin | The protected object is the full mathematical question fixed at admission. Proof/serialization changes use an independently assessed meaning-preserving comparison or migration; genuine mathematical changes require upstream correction (`gov-meaning-permanence`) |
 | The proposed mechanisms themselves: a verbatim prompt quotes a requirement the orchestrator can first rewrite; CODEOWNERS enforces nothing without branch protection (none of the four repositories' working branches is protected, and the DSL has no ruleset); a protected check can still enforce the wrong contract | Each mechanism moves the discretion without removing it | Workers may propose construction-source changes; authoritative replacement requires independent acceptance. Requirement and reserved-authority changes belong to their owner. Verify actual controls and bypass paths rather than infer protection from files |
 | Probes may construct registry state directly (the presentation probe pushes a realizer into the state unvalidated) | The probe bypasses the validation it is testing | Probes register only through the public write path |
@@ -540,8 +630,11 @@ The current phase is construction of B0, including its working development,
 integration, review, and acceptance mechanisms. It is not operation under an
 already accepted B0 substrate.
 
-Kernel construction sessions select and verify work only by the
-[kernel construction procedure](computational-core-plan.md#kernel-construction-procedure-owner-instruction-2026-10-21).
+Kernel construction follows the current instructions in
+[#10](https://github.com/dzackgarza/lean-cas-dsl/issues/10),
+[#66](https://github.com/dzackgarza/lean-cas-dsl/issues/66) and
+[#69](https://github.com/dzackgarza/lean-cas-dsl/issues/69), applying #85.
+An old repository procedure does not override those instructions.
 
 A successful compile does not discharge the unchanged positive assertion and its same-candidate
 protected negatives.
@@ -589,8 +682,9 @@ its execution. Do not request the same authorization again.
 Owner replacement text, 2026-10-02, for the earlier Policies 1–8. It states what workers can
 submit, what they can read or modify, what the controller can schedule, and which transitions can
 establish acceptance. It is the specification of the constrained construction, not a claim that
-these mechanisms are already implemented; their implementation is the plan's construction
-directives A–D. Earlier citations map as follows: policy 2 → 2 and the worker directive (AGENTS.md);
+these mechanisms are already implemented. Current assignments and status belong in
+[#10](https://github.com/dzackgarza/lean-cas-dsl/issues/10) and its linked work issues.
+Earlier citations map as follows: policy 2 → 2 and the worker directive (AGENTS.md);
 Policy 2 → 1; Policies 3, 4, 8 → 5; Policy 5 → 2; Policy 6 → 3; Policy 7 → 6.
 
 #### 1. Authority is attached to operations, not to agents' descriptions of themselves
@@ -598,7 +692,7 @@ Policy 2 → 1; Policies 3, 4, 8 → 5; Policy 5 → 2; Policy 6 → 3; Policy 7
 **A worker receives only the operations required to produce its assigned deliverable. It does not
 receive general authority and instructions about how to restrain it.**
 
-Directive A must constrain the existing launcher and connector to these role-specific capabilities;
+The launcher and connector must enforce these role-specific capabilities;
 the table specifies the required interface, not a verified deployment:
 
 | Worker | Permitted inputs | Permitted output | Operations absent from its interface |
@@ -627,12 +721,13 @@ suggested mathematical repair, or rewritten "mathematical requirement."
 Upstream assignments and priorities come from the upstream requirement queue. A kernel worker
 cannot select an upstream task, change its priority, replace its brief, or restart its author with
 different instructions. Otherwise even an apparently harmless requirement selector remains a
-steering channel. The upstream rows fixed in the kernel construction procedure's work list are
-part of that queue: a kernel session dispatches such a row verbatim and selects nothing.
+steering channel. Existing upstream rows retain their independently assigned requirements;
+the launcher obtains and dispatches those requirements from their authority. A downstream
+diagnostic cannot choose or rewrite the assignment.
 
 The B0 mathematical work is already authorized by the fixed requirements. Removing downstream
 commissioning must not create a new requirement that the owner manually redispatch every existing
-obligation. The launcher schedules those obligations from the existing plan.
+obligation. The launcher schedules the existing obligations from their independently assigned work issues.
 
 **Required removal:** delete the permission to turn a downstream failure into an upstream brief by
 restating it "as mathematics." Retain downstream diagnostics for downstream investigation. Any
@@ -650,7 +745,7 @@ Workers may propose changes to the kernel, controller, evaluator, workflow, or d
 the approved B0 mandate. A proposed change does not replace the requirement revision, acceptance
 corpus, evaluator revision, or accepted semantic release used to judge it.
 
-Directive A must make the authoritative references and runner provide this separation; where the
+The authoritative references and runner must provide this separation; where the
 required isolation or reference protection is unavailable or unverified, record that deployment
 operation as an implementation dependency rather than claim it is enforced:
 - A construction checkout contains candidate code and proposed document changes.
@@ -787,8 +882,8 @@ dependency invalidates the affected observations until they have been re-establi
 combination. It does not erase unrelated evidence, and it does not permit combining incompatible
 successes.
 
-The plan's status section becomes a view of these existing results and independent decisions, not
-another editable ledger.
+Any status recorded in repository documentation summarizes these existing results and
+independent decisions; it does not create another editable ledger or work order.
 
 This implements the existing requirement that every row close only on its full acceptance at the
 integration tuple. It does not reduce B0 to the assertions currently easy to execute.
@@ -798,8 +893,9 @@ integration tuple. It does not reduce B0 to the assertions currently easy to exe
 **A worker cannot manufacture its next task from the most convenient failure, check, or writable
 file.**
 
-The existing plan supplies the objectives, their actual dependencies, and their priority. The
-controller selects an available obligation from that plan and retains it across continuations.
+The active roadmap in [#10](https://github.com/dzackgarza/lean-cas-dsl/issues/10) and its
+assigned work issues supply the objectives, their actual dependencies, and their priority.
+The controller selects an available obligation from those instructions and retains it across continuations.
 Source checkpoints do not release the assignment. Neither commit count nor a green local check
 selects the successor.
 
@@ -837,8 +933,8 @@ This eliminates both sides of the research failure: repairing temporary architec
 tests, and continuing a source-only prohibition after its condition had ended.
 
 The controller author cannot add new objectives, change priorities, or enlarge the acceptance
-denominator through a work-selection patch. Such a patch implements the fixed plan; it does not
-author a new plan.
+denominator through a work-selection patch. Such a patch implements the work directed in
+the issues; it does not change that work order.
 
 #### 6. Review consumes one complete snapshot and produces an actionable, revisable judgment
 

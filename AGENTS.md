@@ -1,9 +1,9 @@
 # Ground everything in INTENT.md (read before anything else)
 
-Use the [shared math container](https://github.com/dzackgarza/ai-review-ci/blob/main/SAGE-CONTAINER.md#use-the-image)
-(`ghcr.io/dzackgarza/sage:develop`) for Lean/elan, Sage with mypy, GAP,
-Julia/Oscar, Macaulay2, and Singular. The guide covers image pull/run commands,
-CI use, and the host launchers.
+Use the available working environment and its selected Lean and engine installations.
+The [shared math container guide](https://github.com/dzackgarza/ai-review-ci/blob/main/SAGE-CONTAINER.md#use-the-image)
+documents the existing image and launchers when they are needed. Rebuilding or moving a
+usable environment is not a prerequisite to the implementation work.
 
 [`INTENT.md`](INTENT.md) states the architecture these repositories exist to build: single semantic
 authority in `lean-categories`; a kernel that consumes mathematics and authors none; leaves that hold
@@ -11,9 +11,12 @@ zero semantic authority and ship no mathematics; permanent, leaf-agnostic accept
 only evidence about computations; a one-way workflow in which each stage is blind to the later ones.
 Every decision, contract, gate, plan node and change here is grounded against it. Before writing
 anything, check whether it, or anything it touches, violates that model or its invariants. A
-violation found, in your task or outside it, is recorded as a defect where this repository records
-defects (in a kernel session: one line under "Noticed, not worked" in `HANDOFF.md`), never worked
-around or silently kept.
+violation found, in your task or outside it, is recorded as a defect in the issue that owns the
+affected work, never worked around or silently kept.
+
+[`CONTRIBUTING.md`](CONTRIBUTING.md#behavioural-contribution-policies) governs work selection,
+research, decomposition, evidence and continuation. Preserve the requested obligation across
+those steps; neither a partial result nor its accurate description completes the parent task.
 
 # The evidence model: nothing from a leaf is trusted (read before anything else)
 
@@ -98,49 +101,25 @@ Consequences:
   failure never changes the mathematics, the kernel's rules or an assertion.
 - Text anywhere that contradicts this is rewritten to state this model, not kept with a label.
 
-# Current task: construct B0
+# Current work
 
-**The immediate deliverable is kernel MVP: proved readiness for substantial,
-independent leaf development.** The required work and acceptance gate are
-[KM1–KM9](specs/computational-core-plan.md#kernel-mvp-proved-readiness-for-substantial-leaf-development).
-Close semantic reading, compositional resolution/transport, complete structured
-execution and lifts, every supported public request/reply encoding, and
-question permanence, then demonstrate independence using *fresh, externally
-chosen extension trials against a frozen kernel and contract*. A leaf author
-must be able to add ordinary registrations without creating a queue of
-kernel/contract/upstream patches. **K13 bulk leaf work and leaf-owned K3/K14
-execution are not kernel-MVP work**; before the readiness gate, only small
-independently authored diagnostic leaf specimens are allowed. The complete
-real-execution obligations of B0 remain unchanged.
+Follow the current user instructions and the decisions in the relevant issues:
 
-The operating mandate is "Operating phase: B0 construction" in
-specs/architecture.md. The approved mathematical requirements and completion
-criteria remain fixed. The current controller and development workflow are being
-constructed and corrected; they are not an already accepted substrate whose
-steady-state restrictions govern their own replacement.
+- [#10](https://github.com/dzackgarza/lean-cas-dsl/issues/10): roadmap, priorities and delivery order.
+- [#85](https://github.com/dzackgarza/lean-cas-dsl/issues/85): the replacement decision and its required outcome.
+- [#66](https://github.com/dzackgarza/lean-cas-dsl/issues/66) and
+  [#69](https://github.com/dzackgarza/lean-cas-dsl/issues/69): implementation assignments and continuation.
+- [#24](https://github.com/dzackgarza/lean-cas-dsl/issues/24): independent acceptance.
 
-**The orchestrator's own session is the kernel session; the kernel is never delegated to a
-subagent or a fresh agent. That session selects, verifies and records work only by the
-[kernel construction procedure](specs/computational-core-plan.md#kernel-construction-procedure-owner-instruction-2026-10-21).**
-Its rules override any other sentence in this repository about what to work on next.
-Subagents are only the formalization, acceptance and leaf authors and the procedure's
-read-only reviewer. Controller, custodian, review, publication and CI work happens only when
-an owner instruction names it.
+These issues contain the current work orders and requirement decisions. Repository documentation
+describes policies, interfaces, source and verification; update it to reflect issue decisions.
+It does not supply a separate queue or supersede those decisions.
 
-Proceed with the approved B0 work without requesting repeated owner approval.
-In a controller session this includes corrections to custodian code, reviewer prompts,
-gates, build targets and integration wiring within the approved design.
+# Implementation authority
 
-Do not stop construction because:
-- the new instructions have not reached main;
-- the old custodian rejects its authorized replacement;
-- a documentation commit cannot yet be published;
-- an unrelated check fails on the existing base;
-- a controller implementation session started with stale instructions.
-
-Write the refused operation and its exact error under "Owner actions" in `HANDOFF.md` and
-continue the available substantive work. Do not count unfinished work as complete.
-
+Make changes through **forward commits**, preserving existing history and unrelated user work.
+Proceed within the assigned mandate without requesting authorization already given. Record an
+unavailable operation and its exact error, and continue the substantive work that remains available.
 A successful compile by itself does not discharge the unchanged positive assertion and its
 same-candidate protected negatives.
 
@@ -149,9 +128,9 @@ makes it durable; recording, merging, or signing it does not create its authorit
 An assistant proposal is not an owner instruction. A question is not automatically
 a new rule.
 
-Update the existing owning documentation directly. Routine recording does not
-create a documentation PR, approval request, plan node, separate build, or waiting
-period. Preserve unrelated working-tree changes and use ordinary commits.
+Record work and requirement decisions in their owning issues, and update affected documentation.
+Routine recording does not create a documentation PR, approval request, plan node, separate build,
+or waiting period. Preserve unrelated working-tree changes and use ordinary commits.
 
 Send material instruction corrections to every active session performing the
 affected work. Do not wait for a merge or restart to correct its task brief.
@@ -189,22 +168,25 @@ the hour.
 
 Consequences, binding on every agent and first of all the orchestrator:
 - **Chat is not a place where anything is recorded or understood.** An owner's decision given
-  there governs at once, and is still written into its owning document so the next agent has it.
+  there governs at once. Record work decisions in their owning issues and update affected
+  documentation so the next agent has the current instruction.
   Saying "understood", restating a correction, or describing what you will do achieves nothing.
   It is not compliance.
   It is a substitute for compliance, and treating it as one is a violation of this rule.
-- **A rule that must outlive the chat goes to the document that owns it**, replacing inconsistent
-  wording there (architecture.md, policy 2). An owner's explicit decision is authoritative when
-  given, not when committed; an owner's question is answered, and is not by itself an instruction;
+- **A decision that must outlive the chat goes to its existing owner:** work, priority and
+  requirement decisions belong in their issues; stable policies and technical descriptions belong
+  in the corresponding documents, updated to reflect those decisions. An owner's explicit decision
+  is authoritative when given, not when committed; an owner's question is answered, and is not by
+  itself an instruction;
   your own proposal is not an owner decision (policy 2). An ordinary defect yields a code
   correction and a test, not a new policy, plan node or documentation pull request. Recording a
-  decision or updating a description is an ordinary commit, not an approval transaction; a branch,
-  pull request, review or signature is used only where it performs a needed decision or validation
-  (policy 2).
+  decision or updating a description uses ordinary issue updates and commits, without creating an
+  approval transaction; a branch, pull request, review or signature is used only where it performs
+  a needed decision or validation (policy 2).
 - **Session task lists, memory files and summaries are chat.** They are also lost.
 - **The worker directive (owner replacement, 2026-10-02; architecture.md, "The policies").**
   - The assigned obligation and accepted input revisions are supplied by the controller from the
-    governing plan. They are not reconstructed from a session summary, a recent failure, or the
+    assigned issue. They are not reconstructed from a session summary, a recent failure, or the
     worker's previous claims.
   - Complete the assigned generic mechanism against its full acceptance. Source checkpoints
     preserve work; they do not complete the assignment or authorize selection of an easier
@@ -221,20 +203,19 @@ Consequences, binding on every agent and first of all the orchestrator:
   - An unavailable operation blocks only consumers of its missing input. Continue the assigned
     substantive work that remains executable; the controller selects another existing obligation
     only when the actual dependency requires it.
-  - Record explicit owner decisions in their existing owning documents without changing unrelated
-    instructions. Do not treat a question, an assistant proposal, or publication of a document as
-    a new grant of authority.
+  - Record explicit work decisions in their owning issues and update affected documentation
+    without changing unrelated instructions. Do not treat a question, an assistant proposal, or
+    publication of a document as a new grant of authority.
   - Completion, accepted releases, and independent approval are outputs of the protected
     acceptance operations. They are not fields the worker may set.
 
-  The persistence requirements above stand: chat acknowledgments and session summaries do not
-  preserve corrections. The new controller consumes durable authoritative state so that rereading
-  it is not the only defense against recurrence.
-- **Chat carries only concrete items for the owner: an action to take, or a decision to make.**
-  State each directly: what, where, the exact steps. No narration of process, of what you can or
-  cannot do, or of environment internals; when the owner must perform an operation you could not,
-  give the steps, not the reason it failed. Process narration is not recorded anywhere;
-  [`JOURNAL.md`](JOURNAL.md) receives one entry per closed work-list item (procedure, rule 9).
+  A handoff preserves actual source and evidence and links the issue that owns continuation;
+  it does not create a new prerequisite or release the agent from continuing authorized work.
+- **Reports identify the actual result and remaining work.** Distinguish completed implementation,
+  engineering checks and independent acceptance. State an unavailable operation and its exact
+  error when it blocks work. Use [`JOURNAL.md`](JOURNAL.md) for substantive implementation
+  records and `HANDOFF.md` for source and evidence pointers; neither assigns work or acts as an
+  acceptance mechanism.
 - **The orchestrator is inside the threat model.** It drifts, exempts itself, and builds
   backdoors into the gates it writes, as any agent does. See `specs/architecture.md`, "The
   orchestrator is inside the threat model", for the holes known now. Do not widen them.
@@ -247,6 +228,9 @@ You are either the **orchestrator** or a subagent with exactly one role
   leaf contract and, in a controller session during B0 construction, the custodian's controller
   (`custodian/`). The
   launcher assigns the other roles from their independently approved requirements.
+- A kernel implementation delegate works within the assigned kernel/contract scope and has no
+  independent mathematical or acceptance authority. Delegation does not remove the parent
+  agent's responsibility for integration and completion.
 - The formalization subagent writes `lean-categories` only.
 - The acceptance subagent writes `tests/acceptance/` only.
 - The leaf subagent writes leaves only.
@@ -254,12 +238,10 @@ You are either the **orchestrator** or a subagent with exactly one role
 No agent writes in two of those roles. `b0-authority` must enforce that separation through
 permitted inputs and operations, not a label an author declares about itself. Until the actual
 configuration is verified, this is an implementation obligation, not a claim of containment.
-Information flows formalization → tests → implementation, never back. A kernel session selects work only by the
-[kernel construction procedure](specs/computational-core-plan.md#kernel-construction-procedure-owner-instruction-2026-10-21).
-The B0 acceptance table of [the plan](specs/computational-core-plan.md) fixes the obligations,
-and dependencies are actual: a governance node blocks only the work whose correctness or authorized
-acceptance depends on it, and a blocked item names that dependency (policy 5). An approved
-objective delegates its implementation; owner escalation is for a change of requirement or
+Information flows formalization → tests → implementation, never back. The assigned issues supply
+the obligations. Dependencies are actual: a governance node blocks only the work whose correctness
+or authorized acceptance depends on it, and a blocked item names that dependency (policy 5).
+An approved objective delegates its implementation; owner escalation is for a change of requirement or
 authority only (policy 2). Review is independent, informed and correctable (policy 6).
 
 **Owner ruling (2026-10-10).** This separation is a rule about what each agent is permitted to do, not a technical gate on what it is able to do. An agent may hold a credential or tool capable of more (for example the shared GitHub token); it does not use it to write outside its role, and acceptance does not wait on removing such capability. A breach of the rule is a defect in the agent's conduct, recorded and repaired, not an argument that `b0-authority` is unreachable.
@@ -276,7 +258,17 @@ prerequisite. Independently protected acceptance operations remain separate from
 
 # Architecture contract (read first)
 
-**Owner ruling (2026-10-10): every repository consumes its own-organisation dependencies (`lean-categories`, `lean-cas-dsl-leaf-contracts`, `lean-cas-dsl-leaves`, `lean-jupyter-kernel`) at their latest `main`. There are no pins, accepted release tuples or re-pin steps; every build and harness run updates those requires to the latest `main` first. Where a spec in this repository speaks of a pinned or released revision, read it as the latest `main`.**
+**Own-organization delivery consumes the latest `main`** of `lean-categories`,
+`lean-cas-dsl-leaf-contracts`, `lean-cas-dsl-leaves` and `lean-jupyter-kernel`. Resolve that
+selection explicitly for integration and record the revisions actually loaded. A diagnostic
+branch or historical source anchor is not a permanent delivery pin or an accepted release.
+
+The local-development clarification in [#83](https://github.com/dzackgarza/lean-cas-dsl/issues/83)
+preserves one dependency selection across
+repeated diagnostics and a before/after comparison. Do not refresh dependencies between those
+observations or before every local build. Refresh explicitly outside the comparison, then
+rebuild affected imports and re-establish the relevant results at that selection. Final
+delivery still requires the latest-main combination and its independent acceptance.
 
 [`specs/architecture.md`](specs/architecture.md) owns the separation of concerns:
 - `lean-categories` owns all mathematics;
@@ -338,12 +330,11 @@ Every plan node and edit conforms to it. In practice it forbids the following.
   (architecture.md, policy 3): a timeout or exception is never `invalid`. Never collapse one kind
   into another. Never turn a gap into a fallback, a default or a nearby answer.
 
-# Where the work is (read second)
+# Repository boundaries
 
-About 90% of the work is formalizing the mathematical API in `lean-categories`: categories,
-objects, elements and methods, the last usually as functors, with surface names. That is where the
-API is designed. Next comes the permanent test suite here, written in the DSL. Leaves are
-mechanical, external, long-tail work.
+Missing mathematics is an upstream dependency of its actual consumers. The kernel consumes the
+accepted mathematical API and independently fixed questions.
+
 - Never write or extend a leaf to make a test pass, and never chase a realization of a specific
   operation as progress.
 - The leaves live in `lean-cas-dsl-leaves` and the leaf contract in `lean-cas-dsl-leaf-contracts`
@@ -357,17 +348,20 @@ mechanical, external, long-tail work.
 - The contract is the kernel's: develop it with the kernel and integrate the compatible source.
   The leaves and this repository build against its latest `main`.
 
-# Search before authoring (gate-enforced)
+# Search before choosing an implementation boundary
 
-Before writing any Lean definition for a plan node, search the formalization corpus
-(`python <lean-categories>/scripts/formalization_corpus.py search '<query>'`, several spellings;
-it indexes Mathlib, infinity-cosmos, agda-categories and more) and write
-`specs/reuse/<node>.md` with `## Queries`, `## Owner` (the existing declarations that own the
-mathematics), and `## New code` (only what no dependency supplies). `just build` runs
-`scripts/check_reuse_records.py` and fails when the plan's **Next** node, or a node delivered from
-2026-09-30 on, has no such record. Categories, functors, natural transformations, whiskering,
-pasting, adjunctions and limits are Mathlib's (`Cat` is a strict bicategory; `CatCommSq`,
-`TwoSquare`); never write a second calculus of them. Failure of record: `cc-cells`, 2026-09-29.
+Follow CC-REUSE and CONTRIBUTING's behavioural policies. Frame the question around the required
+capability and its downstream uses, then inspect Lean, installed dependencies and relevant
+reference implementations. Searching for a library that reproduces the current reader's entire
+combination of responsibilities does not establish a need for bespoke code. Ordinary term
+formation, binding and substitution must use Lean's elaborator and term machinery; mathematical
+selection and comparisons remain explicit.
+
+Mathematical definitions and proofs retain their upstream ownership and formalization-corpus
+research requirements. Record consequential reuse decisions and concrete contract gaps in the
+existing owning reuse files. Do not introduce a new node or research artifact for each repair.
+Categories, functors, natural transformations, whiskering, pasting, adjunctions and limits retain
+their accepted mathematical owners; the kernel does not author a second calculus of them.
 
 # Scratch and worktrees stay outside the repository
 
@@ -379,19 +373,27 @@ saved harness executables, logs and worktrees with full Lake package copies left
 
 # Builds and checks
 
-Which check to run, and when, is the procedure's "Running checks". The commands:
-- In a kernel session, `lake build TARGET` in the worktree builds one Lean target with no time
-  limit and no dependency refresh. `just focus`, `just probe`, `just bench-question` and
-  `just bench-reading` refresh dependencies or impose diagnostic limits; a kernel session uses
-  them only inside the procedure's rule-4 performance work.
-- The whole-candidate build and the whole suite run in CI (the Gates workflow), whose suite
-  report is the burndown queue. A kernel session runs neither locally: plain local `just build`
-  refuses to start, and `B0_INTEGRATION=1 just build` is CI's. A compile does not execute the
-  suite and discharges no assertion.
-- Locally, `cas-harness` runs only with `--suite` and `--inventory` over an item's IDs; its
-  report and CI's are the only evidence an item uses.
+Follow [Construction and verification](specs/computational-core-plan.md#construction-and-verification).
+Obtain completed Lean diagnostics for the actual edit, build the changed module when a consumer
+needs a fresh artifact, then run the relevant original question through the production path.
+Use the available persistent Lean server or targeted compiler/build commands. Reuse unchanged
+artifacts and keep dependency selection fixed within the comparison.
 
-Do not raise heartbeats or weaken an assertion to shorten feedback.
+Preserve the original question, prerequisite bindings, imports, shared execution context and
+budgets. A reduced diagnostic can locate a defect; it cannot replace the required original
+computation. Retain the relevant ambiguity, distinct-producer, comparison, ownership and
+hostile-reply controls required by the assigned issue.
+Do not raise heartbeats, fabricate the state under test, or weaken an assertion to obtain a pass.
+
+Local feedback does not wait for publication or CI. Source checkpoints may be red when stated
+accurately; they do not complete the obligation. Full combined compilation, public interfaces,
+notebook execution, required real-engine workflows and independent acceptance remain delivery
+requirements. An existing useful compiler/runtime loop is sufficient to resume implementation;
+no new persistent workspace, recovery demonstration or tooling programme is required.
+
+For documentation-only changes, inspect the affected text, links and consistency; do not run a
+Lean build. Engineering checks and source inspection establish only their actual properties,
+not independent mathematical acceptance.
 
 <!-- agent-memory:start -->
 # Agent memory
@@ -402,7 +404,7 @@ Project memory key: `projects/github.com__dzackgarza__lean-cas-dsl/index`.
 
 Repository `.agents` and `.hermes` paths are symlinks to the same vault-owned project directory.
 
-Before changing architecture, search both project and global memory:
+When the existing vault is available, search project and global memory for relevant history:
 
 ```bash
 agent-memory search --scope both "<task or subsystem>"
@@ -418,7 +420,9 @@ agent-memory add --scope project --type context --title <title> --content <conte
 agent-memory add --scope project --type reference --title <title> --content <content>
 ```
 
-Plan work is card-backed. Create and update plan cards with `agent-memory plan add` and `agent-memory plan update`, not `agent-memory add --type plan`.
+The assigned issues contain the current work decisions. Memory is supplementary context;
+an unavailable vault or an absent plan card does not block authorized work or create another
+planning deliverable. Verify decision-critical historical claims against their primary sources.
 
 Use `agent-memory retrieve <key>`, `agent-memory update <key>`, and `agent-memory delete <key>` for memory CRUD.
 

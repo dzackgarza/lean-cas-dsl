@@ -380,7 +380,7 @@ bind the kernel, the language and every leaf. Their consequences here:
   partial map. What LC-14 forbids in the kernel is semantic: reading a term outside its
   operation's domain, a fallback reading, a default for something that does not exist. The
   seal's ratchet on new `partial def` anywhere in this repository, and `custodian/FINDINGS.md`
-  item 13, conflate the two; the ratchet is corrected as an ordinary independently reviewed change (the plan, B0, "Gates"; architecture.md, policies 2 and 6).
+  item 13, conflate the two; the ratchet is corrected as an ordinary independently reviewed change ([architecture.md](specs/architecture.md#the-policies), policies 2 and 6).
 - A numeral is the image of the map out of the initial object of its object's category; where
   there is none, it is not a numeral of that object (LC-15).
 - A leaf computes on an input form that `lean-categories` and the kernel define for the
@@ -426,7 +426,9 @@ The leaves are not part of this repository; the dependency that remains is a def
 
 ## Documentation and construction work
 
-An already-issued decision is recorded in the existing document that owns it.
+Current work orders and decisions are recorded in the issues that own the work.
+Repository documentation reflects and links those decisions; it does not supply a
+competing work order.
 Recording the decision is ordinary maintenance, not a new approval transaction.
 
 A documentation-only correction is an ordinary commit. It needs no dedicated PR,
@@ -569,44 +571,54 @@ satisfy an obligation requiring execution.
 
 ## Gate
 
-A kernel construction session chooses its checks by the
-[kernel construction procedure](specs/computational-core-plan.md#kernel-construction-procedure-owner-instruction-2026-10-21),
-"Running checks". The commands below are how to run them; none of them selects work.
+A kernel construction session chooses its checks by
+[Construction and verification](specs/computational-core-plan.md#construction-and-verification).
+The commands below supply different kinds of evidence; none of them selects work or replaces
+the original required computation.
 
 Run what the change touches:
+
 - **Kernel, language, probes, tools during development:**
-  `just focus CasCatalogue.Language` builds one target and its dependencies, measuring elapsed time
-  and peak memory. Substitute the changed target. A run reaching 60 seconds automatically profiles
-  that source; `just focus CasCatalogue/Language.lean profile` requests a profile directly. The
-  direct profile is diagnostic, while the targeted build establishes current imported dependencies.
-  When a downstream probe needs a fresh import, focus that exact probe next. Each
-  invocation fetches own-organisation latest `main`; it runs `lake update` only if a resolved
-  revision changed. Logs stay in `/tmp`. If a focused run reaches 60 seconds, use its profile to
-  choose a smaller check of the required invariant before another broad check. Caching,
-  compiler-boundary and elaboration changes are made only inside the procedure's rule-4
-  performance work. Verify the specific invariant
-  with the unchanged admitted assertion or a targeted probe. A faster check reports only that
-  invariant, not acceptance. Each focused command has a 120-second limit; timeout is failure, not
-  proof that the target compiled. Increase `B0_FOCUS_BUDGET_SECONDS` only for a diagnosed target
-  when the build or profile log explains why more time is needed; making every finite required
-  build fit the default limit is not a prerequisite to B0. A build budget above 120 seconds
-  requires a completed profile tagged for that target and diagnosed mode. If the next change rests
-  on an uncertain declaration type, registry row, or branch result, first run a minimal import-only
-  reproducer from `/tmp` with `just probe /tmp/NAME.lean`; its 60-second default limit forces a
-  smaller question before another slow compile. A probe cannot establish a current source build.
-  For another edit to the same diagnosed hotspot, set `B0_PRIOR_PROFILE_LOG` to its completed
-  profile and run `just focus TARGET diagnosed`; the focused build still runs under its time
-  limit, while the redundant automatic profile is skipped. Profile again when the cost moves.
-- **Reader or encoder performance work (procedure, rule 4, only):** `just bench-question matrices.kernel` and
+  Obtain completed diagnostics for the edited source, then build the artifacts the next consumer
+  actually loads. With the selected dependency manifest, `lake build TARGET` builds the named
+  target and its affected dependencies without requesting a latest-main refresh. Keep one
+  dependency selection across the local feedback loop and before/after comparisons; record the
+  actual revisions and manifest identity. Refresh deliberately outside those comparisons and
+  establish the affected artifacts again. Delivery still requires the current latest-main
+  dependency policy. Run the original production request with its complete bindings and order,
+  imports, shared session, parameters, comparisons and budget, together with the relevant
+  protected controls. A reduced probe can locate a fault; it cannot replace that request.
+
+  The existing `just focus CasCatalogue.Language` wrapper builds one target and its dependencies,
+  measuring elapsed time and peak memory. Substitute the needed target. Each invocation fetches
+  own-organisation latest `main` and runs `lake update` if a resolved revision changed, so it is
+  not a fixed-selection local check. Use it only when that refresh fits the intended check;
+  use completed diagnostics and the targeted `lake build` for iterations that must retain the
+  selection. Logs stay in `/tmp`. A run reaching 60 seconds automatically profiles its source;
+  `just focus CasCatalogue/Language.lean profile` requests a diagnostic profile directly.
+  Each focused command has a 120-second default limit; timeout establishes neither compilation
+  nor runtime success. The wrapper accepts `B0_FOCUS_BUDGET_SECONDS`; a build budget above
+  120 seconds requires a completed profile tagged for that target and diagnosed mode. With
+  `B0_PRIOR_PROFILE_LOG` naming that profile, `just focus TARGET diagnosed` retains the focused
+  build limit and skips redundant automatic profiling. These are the wrapper's current controls,
+  not prerequisites for the replacement or a requirement that every build fit its default limit.
+
+  `just probe /tmp/NAME.lean` runs an import-only diagnostic with a 60-second default limit. It
+  can check an uncertain declaration or a focused invariant but cannot establish a current source
+  build or complete execution. Its timeout does not authorize narrowing the original obligation.
+  Choose diagnostics and performance work by the construction they unblock, and return to the
+  original computation after resolving the diagnosed problem.
+- **Performance measurements:** `just bench-question matrices.kernel` and
   `just bench-question subspaces.kernel` measure the unchanged admitted questions through the
-  production reader, recording dependency revisions, per-binding and phase timings, and peak
-  memory. The 180-second default
-  limit can be changed with `B0_BENCH_BUDGET_SECONDS` after inspecting the log. Compare full
+  current production reader, recording dependency revisions, per-binding and phase timings, and
+  peak memory. Check the selected command's dependency-refresh behavior before using it in a
+  comparison; keep both measured runs on the same actual selection. The 180-second default
+  limit can be changed with `B0_BENCH_BUDGET_SECONDS`. Compare full
   identities with an independent baseline and run the relevant protected negatives before
   claiming behavior preservation; benchmark timings are engineering data, not correctness evidence.
-  For reader iterations, `just bench-reading subspaces.kernel` imports only the reader and
-  reports the semantic claim's time, trace size, and closed-term count. Use it before rebuilding
-  the realization layer; it cannot establish complete identity or execution behavior.
+  `just bench-reading subspaces.kernel` imports only the current reader and reports the semantic
+  claim's time, trace size, and closed-term count. It can isolate reader cost but cannot establish
+  complete identity or execution behavior, and is not a prerequisite to replacing that path.
 - **Clean integration candidate:** `B0_INTEGRATION=1 just build` runs the repository checks (no
   leaves, reuse records, permanent acceptance) and compiles the kernel, gates, acceptance probes,
   tools and notebook package. Plain local `just build` refuses to start; CI runs it directly.
@@ -619,8 +631,9 @@ Run what the change touches:
   completion, which is judged against the fixed B0 requirements at one revision tuple.
 - **Reviewer controller:** `python3 custodian/review/test_review.py` on a scratch copy (its usage
   line).
-- **Workflow provenance:** the [plan's Running checks section](specs/computational-core-plan.md#running-checks)
-  distinguishes Gates on `main`/`b0/**` from the committed-tuple V1 candidate workflow.
+- **Workflow provenance:** follow
+  [Construction and verification](specs/computational-core-plan.md#construction-and-verification)
+  when interpreting Gates on `main`/`b0/**` and the committed-tuple V1 candidate workflow.
   Main's inspected Gates file has no Sage/GAP setup; the candidate branch adds it to its
   Gates definition, while the V1 candidate workflow installs its declared engines. Inspect
   the actual workflow revision and stage/report; failed compilation can prevent execution/export,
