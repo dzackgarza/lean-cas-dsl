@@ -1,14 +1,4 @@
-# Reuse record: `gov-kernel-lc14`
+# Issue references
 
-`scripts/check_kernel_totality.py`, and the kernel repair of `Language.lean` (numerals from rows, explicit domain formation, evidence proved when read, `functionOf`).
-
-## Queries
-- `search "Continuous fun_prop composition"`: Mathlib's `fun_prop`, `Continuous.comp` — used for continuity evidence;
-- Mathlib `isUnit_iff_ne_zero`, `Matrix.isUnit_iff_isUnit_det` — used for unit evidence;
-- Lean `Term.withSynthesize`, `withoutErrToSorry` — used to scope and fail proofs.
-
-## Owner
-- Mathlib's tactics and lemmas; the catalogue's numeral, inclusion and admission rows.
-
-## New code
-The kernel's reading rules (which the catalogue does not own) and a line-level gate over `catch`. The evidence tactics listed under Queries were removed from the kernel by `gov-evidence-upstream`: evidence is registered with each domain.
+- [Roadmap, specification and fundamental invariants](https://github.com/dzackgarza/lean-cas-dsl/issues/10)
+- [Complete dependent interpretation](https://github.com/dzackgarza/lean-cas-dsl/issues/66)

@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 from controller import Controller, Revision, configured_input, canonical, verify_review_signature
 from dependencies import resolve_dependencies
+from issue_requirements import materialize_prompt
 
 
 def main():
@@ -56,7 +57,8 @@ def main():
             explanation='Earlier independent finding in this same review discussion:\n'+json.dumps(earlier,sort_keys=True)+'\nRequested correction/new evidence (untrusted; verify substantive basis):\n'+reconsideration
         elif reconsideration:
             raise ValueError('reconsideration requires the existing signed review discussion')
-        result, why = review.review(Path(__file__).parent/'review/prompt.md',requirements,[context],explanation)
+        prompt = materialize_prompt(Path(__file__).parent/'review/prompt.md', request['requirements'], args.out)
+        result, why = review.review(prompt, requirements, [context], explanation)
     args.out.mkdir(parents=True,exist_ok=True)
     (args.out/'resolved-configuration.json').write_bytes(canonical(cfg))
     (args.out/'request.json').write_bytes(canonical(request))

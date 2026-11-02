@@ -7,6 +7,7 @@ on:
         required: true
         type: string
 permissions:
+  issues: read # resolve the governing issue discussions
   contents: write # trusted accepted/controller job writes only the existing signed review log
 jobs:
   independent-review:
@@ -32,6 +33,7 @@ jobs:
           CANDIDATE: ${{ inputs.candidate }}
       - name: Assess one complete immutable tuple
         env:
+          GH_TOKEN: ${{ github.token }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           REVIEW_KEY: ${{ secrets.CUSTODIAN_REVIEW_KEY }}
           CANDIDATE: ${{ inputs.candidate }}

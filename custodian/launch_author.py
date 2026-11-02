@@ -12,6 +12,8 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from controller import assignment_spec
+from issue_requirements import load_sources, render_documents
 
 
 def main():
@@ -20,8 +22,10 @@ def main():
     args=parser.parse_args()
     config=args.configuration.resolve()
     cfg=json.loads(config.read_text())
-    if not cfg.get('independently_supplied_assignment'):
-        raise ValueError('missing launcher-supplied independent task requirement')
+    if 'assignments' not in cfg or 'obligation' not in cfg:
+        raise ValueError('missing independently supplied obligation and issue/comment assignment')
+    _, sources = assignment_spec(cfg['assignments'], cfg['obligation'])
+    requirement = render_documents(load_sources(sources))
     source=Path(cfg['source_repository']).resolve()
     # RoleServer prepares/checks source when its MCP server starts; cwd itself need
     # not exist yet, so author has no ambient source process before capability setup.
@@ -36,7 +40,7 @@ def main():
                                '--permission-mode','dontAsk','--setting-sources','',
                                '--strict-mcp-config','--mcp-config',str(mcp),
                                '--no-session-persistence','--output-format','json'],
-                              input=cfg['independently_supplied_assignment'],text=True,
+                              input=requirement,text=True,
                               cwd=tmp)
     return result.returncode
 

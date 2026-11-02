@@ -17,6 +17,7 @@ jobs:
           python-version: '3.12'
       - name: Run source, hostile authority and full review transition fixtures
         run: |
+          python3 custodian/test_issue_requirements.py
           python3 custodian/test_controller.py
           python3 custodian/test_launcher.py
           python3 custodian/test_launch_author.py
