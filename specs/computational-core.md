@@ -1,6 +1,6 @@
 # Computational core: Lean-owned semantics over untrusted realization engines
 
-**Status.** Requirements specification under [architecture.md](architecture.md), which controls where they differ; recorded 2026-09-28 from the owner's directive
+**Status.** Requirements record, read with [architecture.md](architecture.md) and subordinate to the current owning issue decisions; first recorded 2026-09-28 from the owner's directive
 of that date. It extends [#53](https://github.com/dzackgarza/lean-categories/issues/53)
 (functorial method resolution) and
 [#54](https://github.com/dzackgarza/lean-categories/issues/54) (typed constructors and
@@ -54,6 +54,82 @@ arbitrarily messy Sage / GAP / Julia / OSCAR code         (backends)
 ```
 
 The upper layers protect the user from the bottom one.
+
+---
+
+## Replacement specification and fundamental invariants
+
+Recorded from [#10's specification and fundamental invariants](https://github.com/dzackgarza/lean-cas-dsl/issues/10#specification-and-fundamental-invariants), 2026-11-02. The issue and its assigned work remain authoritative; this section records their shared positive contract and introduces no separate work queue.
+
+**Required user outcome.** A user states a mathematical question with its selected structures and comparisons, obtains the required computation, and uses its actual returned objects, morphisms and defining maps in subsequent mathematics. Independent contributors supply realizations through the published interface. Notebook, public-service and derived computations preserve that same question and result association.
+
+This is the positive specification for #85's replacement. It refines the existing CC-* requirements and the fixed mathematical/acceptance instructions in the owning issues. The architectural implementation serves this specification; replacing an implementation does not replace the obligation. Repository specifications record the same contract and link here. Library choices and source-removal plans follow below and in #66/#69.
+
+The [spec-driven-development reference](https://github.com/github/spec-kit/blob/main/spec-driven.md) motivates separating required behavior from its implementation plan and tracing decisions to those requirements. Here, existing independently authored mathematical assertions remain authoritative; implementation-generated checks cannot redefine their questions or expected answers.
+
+### The object being preserved
+
+Write the already selected formal judgment as `J = (Γ; S ⊢ t : A)`. Here:
+
+- `Γ` is the complete dependent context, including generalized-point domains and local hypotheses.
+- `S` contains the selected category/fibre/base, structures and instance dictionaries, operation, route, comparison and required coherent data.
+- `t : A` is the ordinary Lean term and its full selected dependent type.
+- `O_J` is the required observation or subsequent mathematical use, with the independently specified relation/assertion `R_J`.
+
+These are specification symbols, not a new runtime syntax or a claim that an arbitrary mathematical type is decoded from JSON. Accepted mathematics defines the judgment and its laws. Lean elaborates its ordinary term formation. Lowering preserves its computational input/result dependencies.
+
+A completed description `P(J)` contains the closed selected judgment, exact operand occurrences, executable dependencies, dependent result interface and continuation. Its result can depend on data that will only be known at runtime. Completeness means those dependency functions and permitted actions are fixed, not that all values or branches have been evaluated.
+
+A ready result `r : Reply(q)` is a checked computational view for one prepared request `q`. It carries actual received data and scoped references. Structural validity `Valid_J(r)` and the mathematical assertion `R_J(O_J(r))` are separate: **the former does not imply the latter**. The independent evidence rules continue to govern computed answers.
+
+### Invariants every permitted transition must preserve
+
+1. **Selected meaning is stable — CC-CALC, CC-SEP, CC-RESOLVE.** Interpretation determines `J` from the selected mathematics and supplied context before computational availability chooses a realization. Changing installed leaves, provider ordering, caches or process state can change availability/performance, but not `Γ`, `S`, `t : A` or the requested relation. If the mathematical selection remains ambiguous, the request remains ambiguous. An execution failure cannot become a mathematical-invalidity judgment.
+
+2. **Preparation is complete — CC-TRUE, CC-CLOSURE, CC-DECODE.** Every executable request and future result field has a declared role, selected parameters, input dependencies, result-family dependencies and permitted next operations. Ordinary term formation completes Lean synthesis and closes its local telescope; unresolved terms, escaping locals and error placeholders cannot be published as a prepared success. Execution consumes that complete description. A new staged public request has its own preparation boundary. No phase supplies missing mathematical selection for an already prepared request by examining expressions, returned bytes or runtime metadata.
+
+3. **Dependent substitution preserves the whole selected judgment — CC-CALC, CC-FIB, CC-HIGHER.** For every admissible typed substitution `σ : Δ → Γ`, substitute the context, term, type, selected structures/hypotheses, result dependencies and continuation together. Lowering then instantiating and instantiating then lowering agree for the prescribed observations through the selected comparison and required coherence. This agreement concerns their selected meaning and dependencies; it does not assert equality of outputs from arbitrary untrusted runs. Binder introduction/application, functor composition, reindexing and defining-map projection obey this same obligation. Definitional equality is required only where the mathematics specifies it; a weak or higher comparison is retained with its actual boundary. An unchanged carrier alone cannot establish substitution or transport.
+
+4. **Returned dependent data refers to the actual returned construction — CC-UNIV, CC-LIFT, CC-COHERE.** For the first RX-LIFT, whose selected `MonoLift` interface lifts `i0 : K → U(X)`, the returned data binds an actual `X1`, its actual image `U(X1)`, `i1 : X1 → X` and the selected comparison maps `α1 : U(X1) → K`, `β1 : K → U(X1)`. A later factor into `X1` consumes those same bindings. The interface may return the image and comparison together, or supply them through a declared dependency; it cannot recover their association from a matching type, expression or packet. Any replacement construction carries its own dependent maps or the accepted comparison and actual transport needed to reuse the old data. The equations and universal property remain upstream laws; labeling received bytes with these fields does not prove them. Other constructions retain exactly their declared maps and coherence.
+
+5. **Demand and dispatch follow the declared dependencies — CC-ACTION, CC-TRANSPORT, CC-MEMO.** A demanded field receives the actual completed inputs on which its selected interface depends. Those inputs cross the public contract, including required earlier outputs and source/comparison images. Undemanded fields can remain deferred. Repeated demand for a retained occurrence reuses its completed data; concurrent demand joins the same pending occurrence. A selected fused realization may execute the complete composite with its own adequate dependencies, preserving the original mathematical composite and comparison. Execution evidence records only calls that occurred.
+
+6. **Identity and lifecycle remain explicit — CC-MEMO, CC-DECODE.** An alias denotes the same actual result/field binding. A deliberately fresh computation has a new occurrence and its own dependent results, even if its formal expression or bytes match another. Completion associates one validated reply with its prescribed request/field and actual supplying owner. Ownership covers every opaque position and the relevant session/generation; use checks that owner is still valid. Closing or losing a session invalidates its owned references, including references retained in an older notebook snapshot. A successful source replay cannot revive them. Restoring an execution must restore its required data and valid declared ownership; otherwise the operation is explicitly fresh or unavailable. A public result promised for subsequent calls must have a session whose lifetime supports that use.
+
+7. **One authority supplies each fact — CC-SEP, CC-MEMO, CC-DECODE.** The prepared interface fixes meaning and dependency structure; the actual receive/completion transition fixes computational result bindings; the live resource owner fixes process availability. Immutable views, snapshots and indexes can refer to these facts but cannot supply competing completion setters, independently reconstructed contexts or alternate ownership claims. A failed or interrupted operation publishes no fabricated successful result. An at-most-once completion association is not a promise of exactly-once external side effects.
+
+8. **The public boundary is uniform and inspectable — CC-ADAPTER, CC-ROUTE, CC-CLOSURE.** Notebook/DSL preparation, public-service preparation, derived computations and permitted replay use the same completed interface. A compiled continuation can project returned fields and instantiate previously fixed dependency functions. All of its selected templates and captures are inspectable; it has no hidden capability to rediscover mathematical structure or a producer. New constructions supported by the published generic interface supply their declarations/computations without construction-specific kernel recognition. The required frozen public-only extension trial determines whether that interface is adequate.
+
+9. **Evidence retains its actual meaning — CC-LAWS, CC-DECIDE.** Accepted formal laws establish the mathematical construction. The lowering/composition argument establishes preservation of the selected judgment and associations. Framing/type/ownership checks establish the computational interface. Dispatch establishes an attempted computation. Independent assertions assess the answers and required subsequent uses. These implications do not run backwards. Unsupported shape, exhausted inspection, missing implementation/bridge, malformed reply, unavailable/stale owner, internal failure and well-formed wrong answer retain the distinctions already required by the public contract.
+
+10. **Completion uses the original denominator — #24 and #19–#22.** Every fixed mathematical question and required next use has an observation at the actual source/dependency/runtime tuple, including visible failure or not-reached stages. Required source/API inventory rows are accounted for separately from mathematical computations and joined by explicit correspondences. A registration, source declaration, report row, helper test or passing subset cannot stand in for the whole obligation. Existing budgets, independent authorship, protected controls and zero-accommodation conditions remain fixed.
+
+### Transition contract
+
+| Transition | Required input | What it establishes |
+| --- | --- | --- |
+| Select and elaborate | Original question, accepted declarations, full context and explicit choices | The complete selected judgment, or the existing precise semantic diagnostic. |
+| Lower | That judgment, exact operand bindings and declared public computation interfaces | A closed executable description with dependent fields/continuations; no unresolved mathematical reconstruction obligation. |
+| Demand/dispatch | A prepared field and its required actual inputs | The actual selected attempt, or a precise unavailable/failure outcome. |
+| Receive/complete | Matching reply, prescribed result interface and current owner/session | One checked binding of actual returned data; no theorem that the answer is correct. |
+| Project/compose/use | Actual bindings, declared operation and required comparison | A subsequent request using those exact dependencies, or a new complete public preparation when genuinely staged. |
+| Close/restart/replay | Declared session and restoration/freshness policy | Resource release and invalidation, valid restoration, or an explicitly new computation; never implicit reassociation of old maps. |
+| Assess/report | The unchanged independent question, observations and actual execution evidence | The governing acceptance outcome for that tuple; no alteration of the question or required inventory. |
+
+### Required witnesses and task traceability
+
+| Existing work | Invariants exercised | Concrete completion witness |
+| --- | --- | --- |
+| #66 and #69 first replacement | Selected meaning, complete preparation, substitution, actual dependent data, uniform boundary | The unchanged first RX-LIFT with nonidentity comparison, retained inclusion and nonzero factorization, plus the separate existing binder control; transferred recovery paths are removed. |
+| #23 and #82 | Selected structures, hypotheses, coherent comparison and precise input ownership | The source-grounded consumer/declaration correspondence and actual admissible boundary required by each promised construction; ordinary examples do not certify a higher fragment. |
+| #24 | All of the above under independent use | Every fixed reading, computation, protected control, real-engine workflow, notebook observation and prescribed frozen extension trial on the delivered tuple. |
+| #84 | Evidence freshness and unchanged budgets | A complete useful edit/check/refresh/runtime loop on one fixed input tuple, with the original question executed against the changed artifacts. |
+| #19–#22 | Complete denominators and preserved mathematical correspondence | Full retained B0 computations and versioned source accounting, with actual maps/later use and execution evidence. |
+| #3, #34 | Complete public input, actual group/map result and real process ownership | Required GAP computation/use and real interpreter/leaf handshake/computation for the advertised forms. |
+| #68 and #8 | Uniform public session, later use and truthful visibility | Actual client computation followed by use of its returned reference; actual notebook verbosity sequence without changing mathematical results. |
+| #13 | Genuine evidence and original demand scope | Every question and subsequent use from the actual researcher-led session through the public client. |
+
+These witnesses are the existing obligations, not a newly authored acceptance suite. For each implementation change, identify the invariant it establishes, its real enforcing boundary and the original witness that exercises it. When a counterexample appears, repair that boundary and the affected plan; weaken a requirement only through the authority that owns the requirement. The implementation sequence below derives from this contract, so time allocations and convenient intermediate artifacts cannot redefine completion.
 
 ---
 
@@ -189,12 +265,7 @@ or searching runtime metadata. A result may supply concrete data only at executi
 its relationships to later fields and operations are already declared. Runtime validation
 checks that interface without proving an untrusted answer correct.
 
-The existing source surveys supply leads rather than a complete compatible dependency or
-a reason to freeze the incumbent architecture. Resolve actual API/toolchain/semantic-fit
-questions through the original first construction and continuation. Do not replace that
-work with a package-adoption project, a survey without an implementation decision or an
-assumption that existing ownership establishes adequacy. No new index service, per-type
-gate or bulk retrospective rewrite is a prerequisite.
+The 2026-11-02 source research in [#66](https://github.com/dzackgarza/lean-cas-dsl/issues/66) and [#69](https://github.com/dzackgarza/lean-cas-dsl/issues/69) resolves the ordinary elaboration and dependent sequencing choices: Lean's ordinary completed term elaboration, cslib PFunctor.FreeM and PolyFun's compatible v4.33.0 stateful handler/cursor APIs. The [technical reuse record](reuse/cc-realize-2cat.md) records their exact source fit and limits. Combined compilation, the original first construction/continuation and independent public use remain implementation evidence. A concrete incompatible required use can correct the implementation decision; the existence of incumbent code cannot replace that evidence. No new index service, per-type gate, environment or package-adoption project precedes the computation.
 
 Only the **glue** between found results, and the **residue** that no indexed source
 supplies, is written by hand. The searches, their hits, and the reason each hit does or
@@ -287,10 +358,7 @@ a new kernel datatype or a demand to enumerate an infinite tower.
 
 A homotopy 2-category is a derived 2-dimensional view of a higher presentation, not
 a lossless replacement for its mapping \(\infty\)-categories. Nevertheless particular
-constructions can be controlled by 2-dimensional data. For quasi-categorical
-adjunctions, Riehl–Verity prove coherent extension and homotopical uniqueness
-([*Homotopy coherent adjunctions and the formal theory of monads*,
-§§4.3–4.4](https://arxiv.org/abs/1310.8279)).
+constructions can be controlled by 2-dimensional data. For quasi-categorical adjunctions, [Riehl–Verity](https://emilyriehl.github.io/files/adjunctions.pdf) prove extension and uniqueness for specified boundaries. Theorem 4.3.11 preserves a selected unit, counit and one triangle witness; Remark 4.3.12 does not guarantee simultaneous preservation of an arbitrary chosen pair of triangle witnesses. Theorems 4.4.11 and 4.4.18 give contractibility over a counit and a left adjoint respectively. [#82](https://github.com/dzackgarza/lean-cas-dsl/issues/82) records the exact source and input distinction.
 That theorem can justify the corresponding use when its actual hypotheses and
 comparison are supplied upstream. It does not identify arbitrary parallel cells or
 supply a general extension theorem for every boundary. Thus neither “a homotopy
