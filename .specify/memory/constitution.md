@@ -4,9 +4,80 @@
 
 ## Core Principles
 
-The [authority and scope](#authority-and-scope), [obligation classes](#obligation-classes) and
-[formal contract and notation](#formal-contract-and-notation) below govern the interpretation of
-every principle.
+C0 states the product and its guiding commitments. C1–C13 and C15 specify its mathematical,
+computational and user-facing invariants. The [authority and scope](#authority-and-scope),
+[obligation classes](#obligation-classes) and [formal contract](#formal-contract-and-notation)
+below fix their interpretation. Contributor obligations and their concrete enforcement belong to
+Governance; they remain binding without being substituted for the product definition.
+
+### C0. A growing categorical language for mathematical research
+
+lean-cas-dsl must provide a usable computer-algebra language in which a mathematician defines
+objects, states propositions, constructs and composes maps, performs calculations, and uses the
+resulting mathematical objects in subsequent work. Its interfaces and compositions come from
+independently formalized categorical mathematics. Computational providers realize the operations
+specified by that mathematics. The product must support ordinary mathematical notebook and
+research work through a coherent mathematical context, familiar notation and readable results.
+
+Its defining improvement is **how mathematical capabilities grow**. Within the accepted
+extension mechanisms, a new mathematical construction supplies its genuinely new formal data and
+immediate relationships. The generic
+language mechanism derives the applicable interfaces and compositions. A new generic operation
+reaches existing objects to which it applies without editing their old implementations.
+Computational growth supplies implementations of these independently defined obligations.
+Neither direction of growth may require maintaining a second mathematical hierarchy downstream
+or repeatedly repairing the same consequence in each leaf. The supported mechanisms must cover
+the independently required mathematical scope; declaring a smaller fragment does not meet that
+obligation.
+
+The following commitments define the product through implementation changes:
+
+- **Mathematical structure determines what can be asked.** An object has every interface
+  warranted by its accepted constructions and hypotheses, including simultaneous structures
+  and parameterized families. Operations are stated at their actual mathematical generality.
+  Installing, removing or breaking a computational provider cannot change those meanings,
+  interfaces or domains. C1, C3, C4 and C6 specify these obligations.
+- **Objects, maps and selected structure remain first-class.** A result can include a subobject,
+  a family, a quotient, a map, a chosen presentation or a universal construction. Its required
+  defining maps, parameters, actions and comparisons must remain usable in subsequent
+  constructions. The intended higher categorical scope and admitted infinite objects cannot
+  be replaced by the representational limits of a particular runtime. C5, C7 and C8 specify
+  the required preservation and admissible reductions.
+- **The public language expresses substantial connected mathematics.** Its independently fixed
+  contract includes definitions and propositions; exact arithmetic and explicitly qualified
+  approximation; sets, comprehensions and infinite descriptions; typed functions and
+  morphisms; polynomial and linear algebra; relative differentials, primitives, limits and
+  series; and composition of the resulting constructions. These are mathematical capabilities,
+  not a permanently closed catalogue of examples or an assertion that every possible question
+  is decidable. C6, C11 and C15 preserve their required scope and semantics.
+- **Execution answers a previously fixed mathematical question.** Formal definitions and laws,
+  their correct interpretation, and correctness of a computed answer are distinct obligations.
+  A computational leaf can return a wrong value but cannot redefine what the value was meant
+  to compute, which laws apply, or what counts as the correct answer. Its data are computational
+  claims rather than new mathematical axioms. C1, C2 and C9–C10 fix this trust boundary.
+- **Research workflows must actually work through composition.** A result is an input to the
+  next calculation, with the same selected mathematics and the promised usable interface.
+  The delivered system must execute the complete independently required workflows, including
+  later uses, required mixed-provider compositions and independent extensions. A declaration
+  catalogue, an isolated demonstration or a correct report of missing computation does not
+  deliver such a workflow. C8 and C11–C13 specify the positive requirements.
+- **The ordinary interaction speaks mathematics.** Users must be able to discover applicable
+  operations, work in mathematical notation, read mathematical answers and inspect their
+  assumptions, chosen presentations and actual computational provenance. Ordinary expressions
+  must not require backend names or private implementation vocabulary. C3 and C15 specify
+  this user-facing contract.
+
+For example, the requirement for an orthogonal group or stabilizer is its complete applicable
+mathematical interface, including a later-added generic operation. The requirement for a
+constructed kernel includes the selected ambient data and defining map needed by subsequent
+uses. The original primitive-calculation workflow requires the specified family of primitives,
+followed by restriction by an initial-value condition and use of the chosen result. These
+examples identify the general obligations; special-casing their displayed specimens does not
+satisfy them.
+
+**Source basis:** [first public product definition][S46]; [original mathematical SPEC][S16];
+[owner's growth and trust requirements][S3]; [fundamental-model chapter, §§1–9][S5];
+[higher mathematical foundations][S12]; [mathematical generality][S27].
 
 ### C1. All mathematical authority is independently categorical
 
@@ -28,6 +99,13 @@ independently owned mathematics. An implementation index is engineering data; a 
 presentation/capability ontology with independent mathematical standing is prohibited. Genuine
 basis and generator data are mathematical structures, not exceptions handed to a backend to
 define.
+
+Computations are requests to evaluate independently defined constructions or invariants, or to
+solve lift or section problems, in this same mathematical diagram and on their specified
+domains. Their prescribed answers have the mathematical codomains and selected structure fixed
+there. Computational provenance or evidence does not by itself create a separate mathematical
+codomain; whether a provider realizes the prescribed answer remains a separate correctness
+obligation.
 
 This constrains semantic authority, not the number of data structures. Compiler representations,
 indexes and derived views are permissible when their interpretation remains fixed by the same
@@ -55,31 +133,13 @@ a downstream kernel must discover an execution model. Concrete invocation, encod
 selection are engineering responsibilities. Supplying those mechanisms must not become authority
 to redefine the abstract obligation.
 
-Independence concerns actual authorship and inputs. Mathematical work is assigned from
-mathematical requirements and sources; acceptance is authored from accepted mathematics and the
-public language; implementations work against the released computational contract. A downstream
-diagnostic, generated goal or desired test outcome cannot be repackaged as the independent
-mathematical assignment. Moving an implementation-shaped definition to another repository does
-not make it independent.
-
-Authors are separated by layer: kernel/contract construction, mathematical formalization,
-acceptance assertions and computational leaves have separate authors. Each contributor must
-remain within the assigned role and permitted inputs. A kernel or leaf worker may record a
-missing accepted mathematical dependency against the existing obligation, but must not author,
-commission or prescribe its upstream repair. A separate agent or repository cannot be used to
-launder that downstream assignment into independent authority.
-
-Formalization authors receive independently assigned mathematical requirements, sources and
-upstream review; acceptance authors receive accepted mathematics, the approved public language
-and independent mathematical sources. Leaf authors receive the released public contract,
-accepted catalogue and backend resources, excluding kernel internals, the acceptance corpus and
-expected answers. An exposed session cannot acquire independence by being told to forget. A
-launcher may continue an already authorized independent assignment, but must not choose or
-rewrite that assignment from downstream needs. These are authorship and input restrictions, not
-a requirement to remove every credential capable of broader access.
+The independent authorship and permitted-input requirements implementing this separation are
+specified under [Governance](#independent-authorship-and-permitted-inputs-c1-c9-c10). They remain
+mandatory; repository separation alone does not establish independence.
 
 **Source basis:** [May ownership record][S1]; [July one-diagram correction][S2]; [September
-owner record][S3]; [October computational-API correction][S4]; [pre-migration author and
+owner record][S3]; [October computational-API correction][S4]; [categorical foundations and computation][S12];
+[pre-migration author and
 repository boundaries][S36]; [maintained permitted-input rules][S9].
 
 ### C2. Implementations cannot choose the obligation they satisfy
@@ -160,7 +220,14 @@ undecidability caveat.
 **Source basis:** [June feasibility reversal][S6]; [original July design][S7]; [September owner
 record][S3]; [maintained resolution obligation][S9]; [preserved resolution acceptance][S44].
 
-### C4. Generic structure determines the public interface
+### C4. Mathematical growth automatically supplies interfaces and compositions
+
+For constructions and operations admitted by the accepted formal interface, every new
+construction must acquire the interfaces that follow from its mathematical structure. Every new
+generic operation must become available on existing applicable objects.
+The new extension supplies its new mathematics or computation; it does not repeat consequences
+already owed by the common formal interpretation. This is the required growth mechanism across
+mathematical domains and providers.
 
 Mathematical applicability, structural propagation and inheritance must be determined by the
 accepted categorical constructions and their exact hypotheses. Per-leaf forwarding, class
@@ -231,6 +298,14 @@ coherence. Sharing a carrier, object label, pair of endpoints or theorem name is
 identify two judgments. Mathematical equality, isomorphism, presentation equivalence, occurrence
 identity and reference identity are different relations.
 
+For an accepted classifier $p:E\to C$, membership of $X\in C$ in the corresponding structured
+category means a specified lift of $X$, equivalently a point of its homotopy fiber, with the
+prescribed comparison data. A statement that the fiber is inhabited cannot replace the actual
+chosen data required by a later use. Simultaneous structures use the homotopy limit of their
+complete specified compatibility diagram, under the foundation's size and existence hypotheses.
+A classifier need not be a fibration; reindexing a classifier does not by itself supply
+transport of each chosen structure along arbitrary morphisms.
+
 For every admissible translation `T` between representations of a judgment, the independent
 meaning must be preserved:
 
@@ -249,6 +324,13 @@ obtained from an invented terminal object or underlying carrier. Parameter chang
 accepted variance, reindexing and comparison data. A noninvertible comparison cannot be used as
 an isomorphism.
 
+A declaration dependent on earlier parameters is interpreted as a section of the corresponding
+mathematical family over its context. The family's base, admitted parameter maps, variance and
+required comparison data are part of its meaning. For example, the regular-module assignment
+$R\mapsto {}_RR$ is a section of the specified module family over its admitted base of rings;
+its codomain varies with $R$. Parameter changes must use the mathematical data supplied for that
+family.
+
 An operation that asks for a choice, such as a generating family, returns a point of its
 independently specified choice fiber. Different valid choices need not be equal. Their actual
 chosen data must be retained for subsequent uses. This is distinct from a question that already
@@ -256,7 +338,8 @@ prescribes a particular basis, comparison or lift: an implementation cannot repl
 with a convenient one and call the question unchanged.
 
 **Source basis:** [May object/presentation distinction][S1]; [July selected fibers and
-cells][S2]; [morphism/matrix correction][S8]; [preserved mathematical constraints][S9].
+cells][S2]; [morphism/matrix correction][S8]; [classifiers and dependent families][S12];
+[preserved mathematical constraints][S9].
 
 ### C6. Domains and ambiguity are mathematical judgments
 
@@ -311,6 +394,15 @@ cell, comparison or lift, a mere existence proposition is insufficient for that 
 strictification, quotient, truncation or “all cycles are identity” assumption may replace the
 required higher information.
 
+The intended foundation retains infinity categories, functors, general natural transformations
+and higher modifications through the appropriate mapping objects. The independent development
+must supply a suitable model or model-independent interface of the intended
+$(\infty,2)$-categorical universe, with explicit size and existence hypotheses and morphism
+conventions for structured categories. Where structure is specified by extensions of
+operation-built diagrams, its full boundaries, selected fillers and their matching compatibility
+belong to the meaning. Existence of the individual fillers does not establish their required
+compatibility.
+
 The intended higher mathematical universe cannot be defined by the limits of an
 ordinary-category or strict two-dimensional execution model. Such a model is a scoped
 interpretation of the intended mathematics, with the required adequacy justification, not a
@@ -328,7 +420,7 @@ interface and selected information.
 **Source basis:** [July higher-foundation correction][S2]; [first FOUNDATIONS][S12]; [later
 higher-scope correction][S13]; [October 29 reduction and subsequent-use requirements][S29].
 
-### C8. Execution and later use refer to the same actual construction
+### C8. Constructed objects and maps remain usable through subsequent mathematics
 
 Execution is directed at the already fixed complete judgment. The actual returned computational
 data and its maps, comparisons, parameters and dependencies remain associated through every
@@ -425,7 +517,12 @@ its definition or intended question is unchanged.
 **Source basis:** [September owner evidence model][S3]; [October evidence distinctions,
 §§2,4–5,9,13][S5]; [Lean reference on proof validity and statement meaning][S15].
 
-### C11. Required positive computation and full scope cannot be made vacuous
+### C11. The delivered language performs complete mathematical research workflows
+
+The delivered system must support the complete mathematical activities required by its accepted
+public-language and computational scope. Definitions, calculations, assertions, structured
+results and subsequent uses must work together in the research environment. Success of a parser,
+a registry, a single engine call or a formal theorem alone cannot replace those activities.
 
 Let **W** be the independently fixed required workload, including the specified observations,
 later uses, extension cases and budgets. Completion requires the original obligations for every
@@ -454,30 +551,23 @@ scope. A successful miniature example cannot redefine that scope.
 **Source basis:** [original mathematical SPEC][S16]; [September convergence requirement][S17];
 [October full-functioning-system obligation][S5]; [current fixed acceptance scope][S18].
 
-### C12. Extension is assessed against a fixed common interface
+### C12. Independent extensions compose through the common mathematical interface
 
-For the prescribed independent-extension trial, freeze the common baseline and existing
-consumer. An independently supplied extension must work through the released public contract and
-accepted mathematics without accommodation edits to the kernel, contract, old consumer or
-expected answers. Independently authorized additive mathematics is distinguished from changing
-the baseline to fit the implementation.
+Independently authored mathematical and computational extensions must interoperate through the
+accepted formal mathematics and released public contract. A construction supplied by a new
+producer must be usable by an existing consumer through that contract, including its required
+maps, selected structures and subsequent operations. A new applicable generic operation must
+reach existing constructions without private knowledge of their implementations.
 
 The invariant is interoperability without private knowledge and generic growth without
 per-domain repair. It is not a requirement that implementations never share private code or a
 CAS session. Conversely, co-location does not excuse a producer that must modify every consumer
 or disclose its private representation to make the construction usable.
 
-After the common baseline is fixed, independent contributors must choose the concrete extensions
-themselves from the required scope, without orchestrator-supplied definitions or expected
-outputs. Trials must exercise the distinct extension mechanisms claimed by the architecture. The
-required structural or compositional argument must establish the generic property; a finite set
-of successful specimens alone does not establish it.
-
-An accommodation edit fails the frozen-baseline trial. Repairing the deficiency requires a new
-candidate, a newly fixed baseline and repetition of the affected independent trials; it cannot
-retroactively convert the old trial into success. Historical phase gates and concrete trial
-inventories remain in their owning work orders, with their actual applicability and full
-obligations preserved.
+The structural or compositional justification must establish the claimed generic property;
+successful specimens alone do not establish it. The prescribed independent extension trials,
+frozen baselines and consequences of accommodation edits remain mandatory under
+[Governance](#independent-extension-evidence-c12).
 
 **Source basis:** [September growth requirement][S3]; [constructor-use clarification][S14];
 [independence/additive-baseline requirement][S18]; [structural justification and independent
@@ -498,25 +588,7 @@ constitutional.
 **Source basis:** [original notebook/pipeline contract][S7]; [actual-question and
 result-preservation requirements][S9]; [later declared lifecycle contract][S19].
 
-### C14. Construction remains replaceable; correctness remains fixed
-
-Authorized construction may replace any implementation component, including a controller or
-reviewer mechanism. A rule intended for an independently accepted finished system is not
-automatically a prerequisite for constructing that system. The controller cannot make itself
-irreplaceable or accept its own replacement.
-
-Implementation freedom does not include changing the mathematical obligation, manufacturing
-independent approval, narrowing completion or turning a downstream failure into an
-implementation-shaped upstream theorem. An unavailable capability blocks the operation that
-needs it; it does not invent a new mathematical requirement or invalidate already authorized
-independent work.
-
-**Source basis:** [October 1 archived review/construction directive][S20]; [October
-means/outcomes distinction][S5]; [October 10 authority ruling][S21]; [later construction
-supersession][S22]. The October 1 document presents owner text with preserved elisions and
-survives on the archived `custodian/controller-b0` lineage, not as a main ancestor.
-
-### C15. The mathematical interface remains usable and its choices inspectable
+### C15. Mathematical notation, discovery and inspection serve research use
 
 Ordinary input and output expose the requested mathematics, with the promised mathematical
 rendering and a usable text form. A user must not need private backend vocabulary or source-code
@@ -558,6 +630,259 @@ convenience is not such a correction.
 interface][S24]; [reported owner interface ruling][S25]; [actual research-use finding][S26];
 [early documentation and choice-disclosure contract][S39]; [original mathematical language
 specification][S16].
+
+## Authority, scope and formal contract
+
+### Authority and scope
+
+This file is the canonical, version-controlled constitution of lean-cas-dsl. It states the
+requirements that every implementation, replacement architecture, contribution and acceptance
+claim must satisfy. Its mandatory rules are expressed by “must”, “must not”, and the quantified
+obligations below.
+
+The owner explicitly requested a permanent repository constitution on 2026-11-04. This is a
+specific exception to the earlier policy that repository documents contain only issue pointers.
+The complete constitution must remain in the repository. It must not be replaced by a pointer,
+omitted during a merge, or removed as part of a documentation migration. Its preservation does
+not depend on the architecture, programming language, process layout or planning tool.
+
+The constitution governs engineering choices; it does not replace independent mathematical
+authority. All mathematical definitions, categorical structures, laws and abstract computational
+obligations must be independently formalized and auditable. The currently designated formal
+mathematical development is **lean-categories**, as assigned in the owner's mathematical authority
+and API-ownership requirements. A change of physical repository layout does not transfer that
+authority to the CAS or a leaf. A downstream implementation or this document's notation cannot
+supply missing mathematics. [S3] [S4]
+
+Implementation plans, work orders, diagnostics, completion evidence and architectural proposals
+remain in their owning GitHub issues. Those records specialize the requirements to an authorized
+task; neither an agent-authored plan nor an existing implementation can amend this constitution.
+Applicable owner instructions retain their authority. A change to a constitutional requirement
+must be recorded explicitly under the amendment rules below.
+
+An explicit owner instruction governs immediately; recording or committing it makes it durable
+rather than creating its authority. An assistant proposal is not an owner instruction, and a
+question is not automatically a new requirement. Existing authorization must be exercised
+without requesting it again. A claimed need for an owner decision must identify the specific
+undecided choice outside that authorization. [S35]
+
+The constitution specifies conformance obligations. It is not a declaration that the existing
+implementation conforms, nor a substitute for the independent formal definitions and proofs
+those obligations require.
+
+### Obligation classes
+
+The constitution contains three different kinds of obligation, whose quantifiers must remain
+distinct:
+
+1. **Semantic and authority safety:** for every provider behavior at the permitted
+   computational interface, including well-formed wrong answers, the mathematical
+   language, selected question and independent assessment authority must remain
+   protected. This guarantee cannot assume that the provider is correct.
+2. **Correct computational composition:** when supplied implementations satisfy
+   the independently fixed prerequisite obligations, the generic mechanism must
+   preserve those obligations through the specified composition and later uses.
+   Composition alone does not establish correctness of a primitive answer.
+3. **Actual delivery:** the designated delivered implementation/provider
+   combination must perform the complete independently required positive workload
+   and extension behavior. A conditional theorem about hypothetical correct
+   providers cannot substitute for those actual outcomes.
+
+Safety requirements govern every permitted operation. Conditional preservation requirements
+govern the supported constructions and their composition. Delivery requirements govern the
+claimed completed product; they are not an invented prerequisite requiring the product to exist
+before authorized construction can proceed. Each obligation retains its full scope.
+
+Implementation-only changes must preserve these requirements across revisions. An independently
+justified mathematical correction changes the accepted specification explicitly; an
+implementation failure cannot make that correction for it. “Permanent” does not make an
+erroneous historical mathematical definition immutable.
+
+The constitution fixes mathematical meaning, authority, required user capabilities and
+completion. A plan chooses representations, algorithms, languages, libraries, processes and
+deployment. Current owner-selected engineering policies remain binding within their scope unless
+explicitly changed; they are listed separately below rather than disguised as mathematical
+necessities.
+
+### Formal contract and notation
+
+Let **M** denote an independently accepted, versioned categorical formalization, **P** the
+independently fixed public mathematical language contract, and **A** the independently authored
+accepted question/expectation corpus. Let **K** be a candidate interpreter/compiler/runtime and
+**L** its computational providers. These are roles, not a prescribed number of repositories or
+processes.
+
+Write `Read(M,P,Γ,q)` for the mathematical readings of question `q` in the fixed mathematical
+context `Γ`. A reading is a complete selected judgment: context, typed operands, categories and
+parameters, selected structures, operation or composite, hypotheses, comparison/coherence data,
+result family and the requested relation or observation. “Complete” means all data on which that
+judgment depends, not a fixed record layout. Write `Req(M,J)` for the independently fixed
+computational obligation associated with judgment `J`; its content is supplied by the
+authoritative definitions and language contract, never by the provider under assessment.
+`Run(K,L,J)` is actual execution and is not identified with a proof of `Req(M,J)`.
+
+The statements below are quantified specification obligations. Their formalization must
+instantiate the symbols using independently accepted definitions and establish the stated
+property of the actual interpretation or computational mechanism. Introducing an unconstrained
+`Correct` or `Realizes` parameter, or assuming the desired property as an axiom, does not
+discharge an obligation. The mathematical authority must fix the statement before the
+implementation is assessed. The formulas in this document are not themselves machine-checked
+proofs about the present code.
+
+## Implementation freedom and existing policies
+
+The articles do not select an AST, interpreter rather than compiler, free-monad encoding, native
+rather than foreign execution, number of processes, wire format, cache or transaction
+implementation, physical repository layout, CAS distribution, or code-size target. Every
+existing implementation component and agent-selected plan remains a candidate for replacement. A
+replacement must satisfy the complete obligations; changing the means does not change the task.
+
+The following existing policies are distinct from the cross-architecture articles. They remain
+applicable within their recorded scope. A proposal changing one must identify the change
+explicitly and retain the constitutional requirements; calling it an implementation detail does
+not silently repeal it.
+
+| Current policy | Requirement and scope | Source |
+| --- | --- | --- |
+| Mathematical and leaf-code separation | New mathematics is formalized independently upstream. A computational leaf does not ship new Lean code. A native kernel does not by itself change that leaf rule; requiring providers to ship Lean modules does. | Original owner message 6 [S3] |
+| Established computational implementations | The existing leaf-writing policy requires glue over established engines and existing research implementations, naming the actual engine and routine, without hand-rolling algorithms as part of that leaf contribution. Reuse supplies computation, not mathematical authority or proof of answers. This does not create a ban on every separately authorized research assignment, but neither general implementation freedom nor the constitution supplies authorization for new algorithm work. | Original owner message 6 [S3]; maintained leaf-writing policy [S36] |
+| Computational evidence | Ordinary opaque results are assessed against independent mathematical expectations. Leaf-supplied claims, certificates, checkers, proofs, denotations, identifications and self-tests must not serve as semantic authority or correctness evidence; the independently authored permanent suite supplies correctness evidence about computed answers. Mandatory proof-producing replies are not current admission requirements. Changing this evidence boundary, including adopting a certificate-primary model, requires an explicit policy amendment; a leaf still cannot define its own correctness criterion. | Owner evidence distinction [S3]; maintained evidence policy [S9] |
+| Independent harness | The independent harness owns acceptance execution. Leaf packages do not import or run that suite; their private tests do not become acceptance evidence. Particular executable names and transport formats remain implementation choices under the assigned work order. | Maintained leaf and acceptance boundary [S36] |
+| Delivery inputs | Own-organization delivery consumes the required latest-main dependencies and records the actual compatible revisions. Fixed diagnostic revision combinations remain valid for controlled comparisons; they do not become independent delivery targets. | Maintained delivery policy [S9] |
+| Authorized computational scope | The complete currently assigned workload, including its connected computations, extension trials, observations and budgets, remains due. The V1 inventory and broader full-B0 obligation are distinct; neither historical counts nor proposed future algorithms silently change the assigned denominator. | V1 acceptance [S18]; full B0 [S30] |
+| B0 authority during construction | The October 10 ruling makes role separation a conduct requirement: B0 acceptance does not wait on removing credentials capable of broader access. This removes that technical gate, not the restrictions on crossing roles or the requirement for independent acceptance. | October 10 ruling [S21]; maintained separation [S9] |
+| Realization selection | At the selected operation/input form, zero eligible registrations yields its declared gap, one yields the selected call, and multiple yield implementation ambiguity. Cheapest, first, priority, installed-order and retry-until-success selection are prohibited. This is separate from mathematical ambiguity. An existing occurrence retains its chosen registration. The prescribed explicit-manifest comparison/replacement experiments and admitted fused realization remain available under their recorded rules. | Selection contract, revised November 3 [S41] |
+| Retry and migration | A failed or consumed occurrence must not be automatically retried, replayed or migrated. An explicit user rerun is a fresh invocation/routing act; returning an existing committed binding or joining the same pending execution is not a new dispatch. A future resume/migration design requires an actual authorized policy change. | July adoption [S42]; November lifecycle contract [S43] |
+| Default mathematical display | Results render mathematically and automatically, using LaTeX when available and a usable text fallback, without an extra display command. Emit once per event; do not stack a second plaintext display under the rendered result. Backend, routing and timing diagnostics are opt-in. Mathematical qualifications required by C15 remain with the result. MIME encoding, renderer architecture and later logging milestones retain their assigned implementation scope. | Rendering [S23]; one-emission ruling [S25]; opt-in diagnostics [S45] |
+| Production-leaf sequencing | The recorded kernel-MVP readiness and independently selected frozen extension trials precede substantial production-leaf work in that development phase. Earlier diagnostic specimens remain limited to their assigned public interface checks; full required acceptance follows. This phase-specific order remains in its owning work plan, rather than becoming an all-time prerequisite for authorized construction or being silently repealed by omission. | Pre-migration phase policy [S36]; preserved exit trials [S44] |
+
+Implementation-specific mechanisms mentioned in these sources do not acquire constitutional
+status by being recorded alongside genuine requirements. Unresolved computational or
+formalization work remains an obligation of its proper authority; its absence cannot authorize
+changing the question or the completion standard.
+
+## Governance
+
+Contributors must read this constitution together with the applicable owning issue before
+selecting an implementation. A plan or proposed replacement must be assessed against all
+applicable articles, including actual later use and complete delivery, rather than only the
+example it makes convenient. Existing review and acceptance evidence must establish the specific
+claims made. This does not create a new approval board, checklist, controller or acceptance
+ceremony.
+
+A conflict with an implementation, roadmap, issue diagnosis or old source snapshot must be
+resolved by correcting the subordinate artifact or by an explicitly authorized requirement
+amendment. An agent's interpretation, CI success, registry entry or chronological recency cannot
+supply that authorization. Authorship and permitted inputs remain separated as required by C1,
+C9 and C10.
+
+An amendment must:
+
+1. Identify the exact article or policy being changed and the requirement-changing
+   authority already granted for that change. Mathematical changes require
+   independent mathematical justification; implementation convenience alone is
+   insufficient.
+2. State the old obligation, the new obligation and the reason, retaining the
+   relevant primary-source or owner-decision reference. A correction of an
+   erroneous encoding must preserve the intended mathematical question.
+3. Update this canonical file, its version and amendment date in the same change.
+   Keep stable article identifiers where their obligations continue; record
+   replacements or removals explicitly rather than silently renumbering them.
+4. Reconcile affected issue specifications and repository pointers so a stale
+   duplicate does not become a competing constitution. Git history and the
+   historical issue record retain the superseded text and its provenance.
+
+Version changes are **major** for incompatible changes to an obligation or authority boundary,
+**minor** for compatible additions or substantive elaboration, and **patch** for editorial
+corrections that leave obligations unchanged. Editorial maintenance does not invent a new
+approval requirement. Existing authorization remains effective.
+
+Merges and migrations must retain the complete current constitution. Conflict resolution must
+not silently select an older version or discard an article. Relocating or removing the canonical
+file requires an explicit owner decision; routine document cleanup or an instruction to keep
+ordinary repo documents as issue pointers does not authorize it.
+
+The following authorship, extension-evidence and contributor obligations retain their normative
+force and stable article identifiers. Their placement here distinguishes how contributors must
+protect and deliver the product from the intrinsic properties of that product. Relocation does
+not repeal, narrow or make optional any of these obligations.
+
+### Independent authorship and permitted inputs (C1, C9, C10)
+
+Independence concerns actual authorship and inputs. Mathematical work is assigned from
+mathematical requirements and sources; acceptance is authored from accepted mathematics and the
+public language; implementations work against the released computational contract. A downstream
+diagnostic, generated goal or desired test outcome cannot be repackaged as the independent
+mathematical assignment. Moving an implementation-shaped definition to another repository does
+not make it independent.
+
+Authors are separated by layer: kernel/contract construction, mathematical formalization,
+acceptance assertions and computational leaves have separate authors. Each contributor must
+remain within the assigned role and permitted inputs. A kernel or leaf worker may record a
+missing accepted mathematical dependency against the existing obligation, but must not author,
+commission or prescribe its upstream repair. A separate agent or repository cannot be used to
+launder that downstream assignment into independent authority.
+
+Formalization authors receive independently assigned mathematical requirements, sources and
+upstream review; acceptance authors receive accepted mathematics, the approved public language
+and independent mathematical sources. Leaf authors receive the released public contract,
+accepted catalogue and backend resources, excluding kernel internals, the acceptance corpus and
+expected answers. An exposed session cannot acquire independence by being told to forget. A
+launcher may continue an already authorized independent assignment, but must not choose or
+rewrite that assignment from downstream needs. These are authorship and input restrictions, not
+a requirement to remove every credential capable of broader access.
+
+These requirements implement the intrinsic separation of mathematical meaning, independent
+assessment and computational realization. They are contribution obligations, not an additional
+mathematical ontology or an execution architecture.
+
+**Source basis:** [pre-migration author and repository boundaries][S36];
+[maintained permitted-input rules][S9].
+
+### Independent extension evidence (C12)
+
+For the prescribed independent-extension trial, freeze the common baseline and existing
+consumer. An independently supplied extension must work through the released public contract and
+accepted mathematics without accommodation edits to the kernel, contract, old consumer or
+expected answers. Independently authorized additive mathematics is distinguished from changing
+the baseline to fit the implementation.
+
+These trials exercise the interoperability and generic-growth requirements stated in C12;
+the structural or compositional justification below remains required.
+
+After the common baseline is fixed, independent contributors must choose the concrete extensions
+themselves from the required scope, without orchestrator-supplied definitions or expected
+outputs. Trials must exercise the distinct extension mechanisms claimed by the architecture. The
+required structural or compositional argument must establish the generic property; a finite set
+of successful specimens alone does not establish it.
+
+An accommodation edit fails the frozen-baseline trial. Repairing the deficiency requires a new
+candidate, a newly fixed baseline and repetition of the affected independent trials; it cannot
+retroactively convert the old trial into success. Historical phase gates and concrete trial
+inventories remain in their owning work orders, with their actual applicability and full
+obligations preserved.
+
+**Source basis:** [September growth requirement][S3]; [constructor-use clarification][S14];
+[independence/additive-baseline requirement][S18]; [structural justification and independent
+selection][S17]; [maintained extension-trial procedure][S38].
+
+### C14. Construction remains replaceable; correctness remains fixed
+
+Authorized construction may replace any implementation component, including a controller or
+reviewer mechanism. A rule intended for an independently accepted finished system is not
+automatically a prerequisite for constructing that system. The controller cannot make itself
+irreplaceable or accept its own replacement.
+
+Implementation freedom does not include changing the mathematical obligation, manufacturing
+independent approval, narrowing completion or turning a downstream failure into an
+implementation-shaped upstream theorem. An unavailable capability blocks the operation that
+needs it; it does not invent a new mathematical requirement or invalidate already authorized
+independent work.
+
+**Source basis:** [October 1 archived review/construction directive][S20]; [October
+means/outcomes distinction][S5]; [October 10 authority ruling][S21]; [later construction
+supersession][S22]. The October 1 document presents owner text with preserved elisions and
+survives on the archived `custodian/controller-b0` lineage, not as a main ancestor.
 
 ### C16. Preserve the assigned task through delegation, supporting work and completion
 
@@ -774,174 +1099,6 @@ skill or revising an agent-authored plan.
 construction and review policies][S9]; [coherent-review and assignment requirements on
 main][S37]; [November 2 authorization policy][S33].
 
-## Authority, scope and formal contract
-
-### Authority and scope
-
-This file is the canonical, version-controlled constitution of lean-cas-dsl. It states the
-requirements that every implementation, replacement architecture, contribution and acceptance
-claim must satisfy. Its mandatory rules are expressed by “must”, “must not”, and the quantified
-obligations below.
-
-The owner explicitly requested a permanent repository constitution on 2026-11-04. This is a
-specific exception to the earlier policy that repository documents contain only issue pointers.
-The complete constitution must remain in the repository. It must not be replaced by a pointer,
-omitted during a merge, or removed as part of a documentation migration. Its preservation does
-not depend on the architecture, programming language, process layout or planning tool.
-
-The constitution governs engineering choices; it does not replace independent mathematical
-authority. All mathematical definitions, categorical structures, laws and abstract computational
-obligations must be independently formalized and auditable, for example in lean-categories. A
-downstream implementation or this document's notation cannot supply missing mathematics.
-
-Implementation plans, work orders, diagnostics, completion evidence and architectural proposals
-remain in their owning GitHub issues. Those records specialize the requirements to an authorized
-task; neither an agent-authored plan nor an existing implementation can amend this constitution.
-Applicable owner instructions retain their authority. A change to a constitutional requirement
-must be recorded explicitly under the amendment rules below.
-
-An explicit owner instruction governs immediately; recording or committing it makes it durable
-rather than creating its authority. An assistant proposal is not an owner instruction, and a
-question is not automatically a new requirement. Existing authorization must be exercised
-without requesting it again. A claimed need for an owner decision must identify the specific
-undecided choice outside that authorization. [S35]
-
-The constitution specifies conformance obligations. It is not a declaration that the existing
-implementation conforms, nor a substitute for the independent formal definitions and proofs
-those obligations require.
-
-### Obligation classes
-
-The constitution contains three different kinds of obligation, whose quantifiers must remain
-distinct:
-
-1. **Semantic and authority safety:** for every provider behavior at the permitted
-   computational interface, including well-formed wrong answers, the mathematical
-   language, selected question and independent assessment authority must remain
-   protected. This guarantee cannot assume that the provider is correct.
-2. **Correct computational composition:** when supplied implementations satisfy
-   the independently fixed prerequisite obligations, the generic mechanism must
-   preserve those obligations through the specified composition and later uses.
-   Composition alone does not establish correctness of a primitive answer.
-3. **Actual delivery:** the designated delivered implementation/provider
-   combination must perform the complete independently required positive workload
-   and extension behavior. A conditional theorem about hypothetical correct
-   providers cannot substitute for those actual outcomes.
-
-Safety requirements govern every permitted operation. Conditional preservation requirements
-govern the supported constructions and their composition. Delivery requirements govern the
-claimed completed product; they are not an invented prerequisite requiring the product to exist
-before authorized construction can proceed. Each obligation retains its full scope.
-
-Implementation-only changes must preserve these requirements across revisions. An independently
-justified mathematical correction changes the accepted specification explicitly; an
-implementation failure cannot make that correction for it. “Permanent” does not make an
-erroneous historical mathematical definition immutable.
-
-The constitution fixes mathematical meaning, authority, required user capabilities and
-completion. A plan chooses representations, algorithms, languages, libraries, processes and
-deployment. Current owner-selected engineering policies remain binding within their scope unless
-explicitly changed; they are listed separately below rather than disguised as mathematical
-necessities.
-
-### Formal contract and notation
-
-Let **M** denote an independently accepted, versioned categorical formalization, **P** the
-independently fixed public mathematical language contract, and **A** the independently authored
-accepted question/expectation corpus. Let **K** be a candidate interpreter/compiler/runtime and
-**L** its computational providers. These are roles, not a prescribed number of repositories or
-processes.
-
-Write `Read(M,P,Γ,q)` for the mathematical readings of question `q` in the fixed mathematical
-context `Γ`. A reading is a complete selected judgment: context, typed operands, categories and
-parameters, selected structures, operation or composite, hypotheses, comparison/coherence data,
-result family and the requested relation or observation. “Complete” means all data on which that
-judgment depends, not a fixed record layout. Write `Req(M,J)` for the independently fixed
-computational obligation associated with judgment `J`; its content is supplied by the
-authoritative definitions and language contract, never by the provider under assessment.
-`Run(K,L,J)` is actual execution and is not identified with a proof of `Req(M,J)`.
-
-The statements below are quantified specification obligations. Their formalization must
-instantiate the symbols using independently accepted definitions and establish the stated
-property of the actual interpretation or computational mechanism. Introducing an unconstrained
-`Correct` or `Realizes` parameter, or assuming the desired property as an axiom, does not
-discharge an obligation. The mathematical authority must fix the statement before the
-implementation is assessed. The formulas in this document are not themselves machine-checked
-proofs about the present code.
-
-## Implementation freedom and existing policies
-
-The articles do not select an AST, interpreter rather than compiler, free-monad encoding, native
-rather than foreign execution, number of processes, wire format, cache or transaction
-implementation, physical repository layout, CAS distribution, or code-size target. Every
-existing implementation component and agent-selected plan remains a candidate for replacement. A
-replacement must satisfy the complete obligations; changing the means does not change the task.
-
-The following existing policies are distinct from the cross-architecture articles. They remain
-applicable within their recorded scope. A proposal changing one must identify the change
-explicitly and retain the constitutional requirements; calling it an implementation detail does
-not silently repeal it.
-
-| Current policy | Requirement and scope | Source |
-| --- | --- | --- |
-| Mathematical and leaf-code separation | New mathematics is formalized independently upstream. A computational leaf does not ship new Lean code. A native kernel does not by itself change that leaf rule; requiring providers to ship Lean modules does. | Original owner message 6 [S3] |
-| Established computational implementations | The existing leaf-writing policy requires glue over established engines and existing research implementations, naming the actual engine and routine, without hand-rolling algorithms as part of that leaf contribution. Reuse supplies computation, not mathematical authority or proof of answers. This does not create a ban on every separately authorized research assignment, but neither general implementation freedom nor the constitution supplies authorization for new algorithm work. | Original owner message 6 [S3]; maintained leaf-writing policy [S36] |
-| Computational evidence | Ordinary opaque results are assessed against independent mathematical expectations. Leaf-supplied claims, certificates, checkers, proofs, denotations, identifications and self-tests must not serve as semantic authority or correctness evidence; the independently authored permanent suite supplies correctness evidence about computed answers. Mandatory proof-producing replies are not current admission requirements. Changing this evidence boundary, including adopting a certificate-primary model, requires an explicit policy amendment; a leaf still cannot define its own correctness criterion. | Owner evidence distinction [S3]; maintained evidence policy [S9] |
-| Independent harness | The independent harness owns acceptance execution. Leaf packages do not import or run that suite; their private tests do not become acceptance evidence. Particular executable names and transport formats remain implementation choices under the assigned work order. | Maintained leaf and acceptance boundary [S36] |
-| Delivery inputs | Own-organization delivery consumes the required latest-main dependencies and records the actual compatible revisions. Fixed diagnostic revision combinations remain valid for controlled comparisons; they do not become independent delivery targets. | Maintained delivery policy [S9] |
-| Authorized computational scope | The complete currently assigned workload, including its connected computations, extension trials, observations and budgets, remains due. The V1 inventory and broader full-B0 obligation are distinct; neither historical counts nor proposed future algorithms silently change the assigned denominator. | V1 acceptance [S18]; full B0 [S30] |
-| B0 authority during construction | The October 10 ruling makes role separation a conduct requirement: B0 acceptance does not wait on removing credentials capable of broader access. This removes that technical gate, not the restrictions on crossing roles or the requirement for independent acceptance. | October 10 ruling [S21]; maintained separation [S9] |
-| Realization selection | At the selected operation/input form, zero eligible registrations yields its declared gap, one yields the selected call, and multiple yield implementation ambiguity. Cheapest, first, priority, installed-order and retry-until-success selection are prohibited. This is separate from mathematical ambiguity. An existing occurrence retains its chosen registration. The prescribed explicit-manifest comparison/replacement experiments and admitted fused realization remain available under their recorded rules. | Selection contract, revised November 3 [S41] |
-| Retry and migration | A failed or consumed occurrence must not be automatically retried, replayed or migrated. An explicit user rerun is a fresh invocation/routing act; returning an existing committed binding or joining the same pending execution is not a new dispatch. A future resume/migration design requires an actual authorized policy change. | July adoption [S42]; November lifecycle contract [S43] |
-| Default mathematical display | Results render mathematically and automatically, using LaTeX when available and a usable text fallback, without an extra display command. Emit once per event; do not stack a second plaintext display under the rendered result. Backend, routing and timing diagnostics are opt-in. Mathematical qualifications required by C15 remain with the result. MIME encoding, renderer architecture and later logging milestones retain their assigned implementation scope. | Rendering [S23]; one-emission ruling [S25]; opt-in diagnostics [S45] |
-| Production-leaf sequencing | The recorded kernel-MVP readiness and independently selected frozen extension trials precede substantial production-leaf work in that development phase. Earlier diagnostic specimens remain limited to their assigned public interface checks; full required acceptance follows. This phase-specific order remains in its owning work plan, rather than becoming an all-time prerequisite for authorized construction or being silently repealed by omission. | Pre-migration phase policy [S36]; preserved exit trials [S44] |
-
-Implementation-specific mechanisms mentioned in these sources do not acquire constitutional
-status by being recorded alongside genuine requirements. Unresolved computational or
-formalization work remains an obligation of its proper authority; its absence cannot authorize
-changing the question or the completion standard.
-
-## Governance
-
-Contributors must read this constitution together with the applicable owning issue before
-selecting an implementation. A plan or proposed replacement must be assessed against all
-applicable articles, including actual later use and complete delivery, rather than only the
-example it makes convenient. Existing review and acceptance evidence must establish the specific
-claims made. This does not create a new approval board, checklist, controller or acceptance
-ceremony.
-
-A conflict with an implementation, roadmap, issue diagnosis or old source snapshot must be
-resolved by correcting the subordinate artifact or by an explicitly authorized requirement
-amendment. An agent's interpretation, CI success, registry entry or chronological recency cannot
-supply that authorization. Authorship and permitted inputs remain separated as required by C1,
-C9 and C10.
-
-An amendment must:
-
-1. Identify the exact article or policy being changed and the requirement-changing
-   authority already granted for that change. Mathematical changes require
-   independent mathematical justification; implementation convenience alone is
-   insufficient.
-2. State the old obligation, the new obligation and the reason, retaining the
-   relevant primary-source or owner-decision reference. A correction of an
-   erroneous encoding must preserve the intended mathematical question.
-3. Update this canonical file, its version and amendment date in the same change.
-   Keep stable article identifiers where their obligations continue; record
-   replacements or removals explicitly rather than silently renumbering them.
-4. Reconcile affected issue specifications and repository pointers so a stale
-   duplicate does not become a competing constitution. Git history and the
-   historical issue record retain the superseded text and its provenance.
-
-Version changes are **major** for incompatible changes to an obligation or authority boundary,
-**minor** for compatible additions or substantive elaboration, and **patch** for editorial
-corrections that leave obligations unchanged. Editorial maintenance does not invent a new
-approval requirement. Existing authorization remains effective.
-
-Merges and migrations must retain the complete current constitution. Conflict resolution must
-not silently select an older version or discard an article. Relocating or removing the canonical
-file requires an explicit owner decision; routine document cleanup or an instruction to keep
-ordinary repo documents as issue pointers does not authorize it.
-
 ### Adoption record
 
 | Version | Date | Change |
@@ -949,6 +1106,7 @@ ordinary repo documents as issue pointers does not authorize it.
 | 1.0.0 | 2026-11-04 | Initial permanent repository constitution, formulated from the recovered requirements and committed at the owner's explicit request. Establishes C1–C15, obligation classes, scoped policies and amendment rules. No replacement execution architecture is selected by this adoption. |
 | 1.1.0 | 2026-11-04 | Restore contribution and early-planning obligations omitted or only partially represented in 1.0.0: C16–C20 cover complete-task responsibility, source-appropriate research and reuse, correction of design assumptions, primary evidence, and informed revisable review. Clarify author separation, faithful mathematical projection, numeral/domain rules, independent extension trials, mathematical documentation and preservation of the complete public-language contract. These are source-backed restorations under the existing constitution-formulation assignment, not a new computational scope or selected architecture. |
 | 1.1.1 | 2026-11-05 | Editorial conformance to the released [Spec Kit constitution workflow](https://github.com/github/spec-kit/blob/34a0d388eac671d656eb05b125ad3ed6056168ed/templates/commands/constitution.md): use the resolved scaffold, group C1–C20 under Core Principles, retain authority and policy sections, present Governance and the prescribed version/date footer, and wrap prose. All substantive obligations, article identifiers, formulas and source references are preserved. |
+| 1.2.0 | 2026-11-05 | Make the intrinsic product explicit in C0: a growing categorical mathematical research language with first-class constructions, generic interface/composition growth, fixed mathematical meaning, actual computational workflows and mathematical interaction. Make the adopted mathematical roles of computations, classifiers, dependent families and higher coherence explicit in C1, C5 and C7. Elaborate C4, C11 and C12 positively; clarify the C8 and C15 titles; name lean-categories as the currently designated independent formal development. Relocate C14, C16–C20 and the detailed C1/C12 contributor procedures under Governance while preserving their obligations and identifiers. This restores the source-backed project definition and distinguishes it from contribution policy; it does not select a runtime architecture, reduce computational scope or amend the mathematical trust boundary. |
 
 ### Provenance
 
@@ -1017,4 +1175,6 @@ evidence of an authorized amendment.
 [S44]: https://github.com/dzackgarza/lean-cas-dsl/issues/24#issuecomment-6574949387
 [S45]: https://github.com/dzackgarza/lean-cas-dsl/issues/8#issuecomment-5126214910
 
-**Version**: 1.1.1 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-05
+[S46]: https://github.com/dzackgarza/lean-cas-dsl/blob/a206552ca315726c5d8cca356cebc65f617d4d7a/README.md
+
+**Version**: 1.2.0 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-05
