@@ -1,5 +1,6 @@
 # lean-cas-dsl
 
+- [Project constitution](.specify/memory/constitution.md)
 - [Roadmap and specification](https://github.com/dzackgarza/lean-cas-dsl/issues/10)
 - [Contribution policies](https://github.com/dzackgarza/lean-cas-dsl/issues/85#issuecomment-6574924066)
 - [Interpretation](https://github.com/dzackgarza/lean-cas-dsl/issues/66)
