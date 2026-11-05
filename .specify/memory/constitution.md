@@ -144,6 +144,26 @@ repository boundaries][S36]; [maintained permitted-input rules][S9].
 
 ### C2. Implementations cannot choose the obligation they satisfy
 
+A leaf has a computational responsibility only. Its registration is a claim to implement an
+already accepted mathematical operation through the prescribed computational interface; its
+outputs are computational claims and data. Registration and interface conformance enable an
+attempted computation, and do not prove that the leaf discharges its mathematical specification.
+
+Leaf authors must not be assigned or supply mathematical definitions or proofs as leaf
+deliverables, including optional proofs. The categories, methods, laws and abstract computational
+obligations are independently formalized in lean-categories. Mathematical proofs belong to that
+independent formalization; generic kernel machinery may discharge already formalized obligations
+automatically without leaf-specific knowledge. A leaf computation presented as a proof is not a
+permitted substitute. Correctness evidence about returned answers belongs to independent
+acceptance; leaf-supplied proofs, certificates, checkers and self-tests cannot supply it.
+
+The leaf interface must expose no authority to create mathematical categories, declare semantic
+membership or inheritance, change an operation's meaning, domain or result type, define
+mathematical value identity, or grant acceptance. A leaf may return the selected data requested
+by an independently specified construction; that supplies a computational candidate for the
+requested structure, not a new rule defining that structure. These are encapsulation requirements
+of the public boundary, as well as restrictions on contributor conduct.
+
 The specification, permitted representation interpretation and correctness relation must be
 fixed independently of the candidate. A provider chooses private data structures and algorithms
 within the released computational contract. The mathematical meaning of their admissible public
@@ -164,10 +184,11 @@ problem. A proof of this statement supplies no relationship to that problem. The
 occurs if a leaf defines its own denotation, checker, comparison or expected result and the
 system accepts that definition as authoritative.
 
-This requirement does not silently replace the historical
-opaque-computation/independent-assessment evidence model with mandatory proof-carrying results.
-Any change to that evidence model must be stated separately. In either model, a supplier's
-self-authored proposition cannot become the standard against which that supplier is judged.
+The evidence model is opaque computation assessed independently against accepted mathematics.
+Proof-producing leaf replies, whether required or optional, are outside the leaf's responsibility.
+Any change to that evidence model requires an explicit amendment; an implementation choice cannot
+make it. A supplier's self-authored proposition cannot become the standard against which that
+supplier is judged.
 
 In particular, the laws in a formal definition do not automatically become proof-producing
 fields of every external reply. The independent API must distinguish mathematical laws from the
@@ -175,8 +196,9 @@ computational data and operations an implementation supplies. Decoding a numeral
 numeral; it does not prove it is the cardinality of the object asked about. Computational
 representations cannot be cast into law-bearing formal structures by assuming the missing proof.
 
-**Source basis:** [September owner record][S3]; [October fundamental-model chapter, §§3–5][S5].
-The logical counterexample above is proved directly.
+**Source basis:** [September owner record][S3]; [October fundamental-model chapter, §§3–5][S5];
+[maintained leaf-interface and evidence boundaries][S9]. The logical counterexample above is
+proved directly.
 
 ### C3. Mathematical meaning is independent of computational availability
 
@@ -746,7 +768,7 @@ not silently repeal it.
 | --- | --- | --- |
 | Mathematical and leaf-code separation | New mathematics is formalized independently upstream. A computational leaf does not ship new Lean code. A native kernel does not by itself change that leaf rule; requiring providers to ship Lean modules does. | Original owner message 6 [S3] |
 | Established computational implementations | The existing leaf-writing policy requires glue over established engines and existing research implementations, naming the actual engine and routine, without hand-rolling algorithms as part of that leaf contribution. Reuse supplies computation, not mathematical authority or proof of answers. This does not create a ban on every separately authorized research assignment, but neither general implementation freedom nor the constitution supplies authorization for new algorithm work. | Original owner message 6 [S3]; maintained leaf-writing policy [S36] |
-| Computational evidence | Ordinary opaque results are assessed against independent mathematical expectations. Leaf-supplied claims, certificates, checkers, proofs, denotations, identifications and self-tests must not serve as semantic authority or correctness evidence; the independently authored permanent suite supplies correctness evidence about computed answers. Mandatory proof-producing replies are not current admission requirements. Changing this evidence boundary, including adopting a certificate-primary model, requires an explicit policy amendment; a leaf still cannot define its own correctness criterion. | Owner evidence distinction [S3]; maintained evidence policy [S9] |
+| Computational evidence | Ordinary opaque results are assessed against independent mathematical expectations. Leaf-supplied claims, certificates, checkers, proofs, denotations, identifications and self-tests must not serve as semantic authority or correctness evidence; the independently authored permanent suite supplies correctness evidence about computed answers. Leaf authors must neither be assigned nor supply mathematical proofs as leaf deliverables, including optional proofs. Changing this evidence boundary, including adopting a certificate-primary model, requires an explicit policy amendment; a leaf still cannot define its own correctness criterion. | Owner evidence distinction [S3]; maintained evidence policy [S9] |
 | Independent harness | The independent harness owns acceptance execution. Leaf packages do not import or run that suite; their private tests do not become acceptance evidence. Particular executable names and transport formats remain implementation choices under the assigned work order. | Maintained leaf and acceptance boundary [S36] |
 | Delivery inputs | Own-organization delivery consumes the required latest-main dependencies and records the actual compatible revisions. Fixed diagnostic revision combinations remain valid for controlled comparisons; they do not become independent delivery targets. | Maintained delivery policy [S9] |
 | Authorized computational scope | The complete currently assigned workload, including its connected computations, extension trials, observations and budgets, remains due. The V1 inventory and broader full-B0 obligation are distinct; neither historical counts nor proposed future algorithms silently change the assigned denominator. | V1 acceptance [S18]; full B0 [S30] |
@@ -1107,6 +1129,7 @@ main][S37]; [November 2 authorization policy][S33].
 | 1.1.0 | 2026-11-04 | Restore contribution and early-planning obligations omitted or only partially represented in 1.0.0: C16–C20 cover complete-task responsibility, source-appropriate research and reuse, correction of design assumptions, primary evidence, and informed revisable review. Clarify author separation, faithful mathematical projection, numeral/domain rules, independent extension trials, mathematical documentation and preservation of the complete public-language contract. These are source-backed restorations under the existing constitution-formulation assignment, not a new computational scope or selected architecture. |
 | 1.1.1 | 2026-11-05 | Editorial conformance to the released [Spec Kit constitution workflow](https://github.com/github/spec-kit/blob/34a0d388eac671d656eb05b125ad3ed6056168ed/templates/commands/constitution.md): use the resolved scaffold, group C1–C20 under Core Principles, retain authority and policy sections, present Governance and the prescribed version/date footer, and wrap prose. All substantive obligations, article identifiers, formulas and source references are preserved. |
 | 1.2.0 | 2026-11-05 | Make the intrinsic product explicit in C0: a growing categorical mathematical research language with first-class constructions, generic interface/composition growth, fixed mathematical meaning, actual computational workflows and mathematical interaction. Make the adopted mathematical roles of computations, classifiers, dependent families and higher coherence explicit in C1, C5 and C7. Elaborate C4, C11 and C12 positively; clarify the C8 and C15 titles; name lean-categories as the currently designated independent formal development. Relocate C14, C16–C20 and the detailed C1/C12 contributor procedures under Governance while preserving their obligations and identifiers. This restores the source-backed project definition and distinguishes it from contribution policy; it does not select a runtime architecture, reduce computational scope or amend the mathematical trust boundary. |
+| 1.2.1 | 2026-11-05 | Clarify the existing separation and encapsulation of responsibilities in C2: leaf registration and output are computational claims against independently fixed obligations; mathematical definitions and proofs are never leaf deliverables, including optional proofs; the public leaf boundary confers no semantic or acceptance authority. Align the computational-evidence policy wording with this prohibition. Independent formalization, generic kernel discharge, independent acceptance and complete actual delivery retain their existing responsibilities. |
 
 ### Provenance
 
@@ -1177,4 +1200,4 @@ evidence of an authorized amendment.
 
 [S46]: https://github.com/dzackgarza/lean-cas-dsl/blob/a206552ca315726c5d8cca356cebc65f617d4d7a/README.md
 
-**Version**: 1.2.0 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-05
+**Version**: 1.2.1 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-05
