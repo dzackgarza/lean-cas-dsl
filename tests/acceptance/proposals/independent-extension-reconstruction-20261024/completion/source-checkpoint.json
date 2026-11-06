@@ -1,0 +1,129 @@
+{
+  "kind": "unadmitted independent-question source completion",
+  "date_utc": "2026-10-24",
+  "worktree_branch": "acceptance/complete-independent-extensions-20261024",
+  "base_revision": "7df8d13226ae6989343ae0aea7a21a9376ad98c9",
+  "source_revision_before_this_record": "80110e30f08eb266b8091654754a1c993ca7fba7",
+  "permitted_edit_root": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion",
+  "mathematical_extension_revision": "766fc2c20c0f293f7e5f3151584534f40f7af806",
+  "current_main_mathematical_interfaces_revision": "9508da173de86670c4e0c8a4632e2df7d2335949",
+  "public_documents": [
+    {
+      "label": "base public surface",
+      "revision": "7df8d13226ae6989343ae0aea7a21a9376ad98c9",
+      "path": "SPEC.md",
+      "sha256": "c8c7f09d1e138aca25c398e7145ad819166ef82549c4067e4ae6690f527db5ce",
+      "read_mode": "git show of SPEC.md only"
+    },
+    {
+      "label": "P07",
+      "revision": "0d546c549f5aa650f90c675706237cf0a7f02056",
+      "path": "SPEC.md",
+      "sha256": "9ffcb18b499b53c5de46c7d31c55ff98e78884e9c8e9be4f7a30c34ba8f0b31c",
+      "read_mode": "git show of SPEC.md only"
+    },
+    {
+      "label": "P08",
+      "revision": "f91870b6009cd0e3cd041488066ea1b898d4689c",
+      "path": "SPEC.md",
+      "sha256": "90ed459aa3ba9b7c2e651b3811eea144f4f56e340fcf7455dc7457a0b9e918fe",
+      "read_mode": "git show of SPEC.md only"
+    }
+  ],
+  "older_declared_ports_snapshot_used_as_current_authority": false,
+  "prior_proposal_files_unchanged_sha256": {
+    "README.md": "e40b205186a704d4a83e1dafd000f7e64cc8fb78dc15016f9dcb4f443e91c511",
+    "observation-controls.md": "22f1222bfef05aa8bfb2a31dae5e9c6d30633e9787780daae86a0ede202c6d85",
+    "provenance.json": "53eb7b9db3b249235a571a730d736224becbf4a91f63204dee6ea3026dd1fbd2",
+    "public-surface-status.md": "63193b0635709f118646aed75ce2450aae653ff48805af9519a2d1956fcc15fd",
+    "questions.md": "0576e805376311b61406999138d4ed886e631d71a1aec27f0d1d16dbbc805cb0",
+    "source-notes.md": "5921ab011434c3caf279e3944f0d9803fe146c29164009bcf8bd11c8429dc03f",
+    "surface-extracts.cas.proposal": "26f584c0e29260c8749897f69e39d56c9595558c37f8228da0d99d7c9a3638ac"
+  },
+  "completion_file_sha256": {
+    "README.md": "d6e19d0e2f2b884885d39a65164a70ab5e5bc2a1d62a925df3c6d5284745146f",
+    "coordinate-presentations.md": "edc778f9fe0d4430ee5d52c0b7f6dcef2a89ca2ba2a1b29120a07c174f406722",
+    "coverage-and-derivations.md": "01575d24a7441ab666402d3f5284dd5b3abd789a5adbd2e3c910cd6582a9f737",
+    "expected-facts.lean": "32ce0128fdad892a33d7b9f9411ae356b1f459c0fc2c80fa9647311ed6384ebc",
+    "rx-lift-prescribed-stages.cas": "a5568912e5869e36c60d9450f3bb3c97e0f43e869f820b1da225d16db940746a",
+    "rx01-selected-orders.cas": "ad6bad0cf74c7c034cc7b9feee9ce1a7a6ad897a157147238417180eee0bc9ea",
+    "rx02-two-subsets.cas": "754bd0daf448bb763a91a34ebc41108605e72c4767a79d29b4dee18e1dfb3b95",
+    "rx03-cyclic-automorphisms.cas": "cad952f8cf3c453e50bd5a616980ca1af0f26d9e3253a02d3b91918e32bf3c59",
+    "rx04-square-bound.cas": "c1afe50098651ec298ccf47c2851918dcbdc72817653ed860f384e88b06d7c7a",
+    "rx05-carrier-diamond.cas": "7fbdbc11d8c7888ff2c55223cd8e1dba4aca1e0175b956fba51b4dc40261fc73",
+    "rx06-reindexing.cas": "81d7092d91cc0f07c6a1349651e8b58704d1f445032817361a23237e5fef1f4d",
+    "rx07-f9-transport.cas": "615a8baa593041a6ec2805b5bc34834ca663c40a67c9915a0b0f4ba85879b631",
+    "rx08-ordinary-kernel.cas": "5bcb0bf768bd231dc93dd81fd4344fd12666145163f1df6327ed6731000ce118",
+    "rx09-constant-one-rejection.cas": "22205f7339e59c092e8fcc85219accb6280fc4943701260bed218372ec2add8f",
+    "rx09-successor-series.cas": "3ec5f7cf7dca51f3e9e8fdbc0e35cfe279ce73938a220168135521f2c52be090",
+    "rx10-fixed-execution-question.cas": "e8d92db593bd59b641fca0038d0d5d145cf8beb86369d51d4092d4eca4d17a85",
+    "selected-lift-requirements.md": "f245c3f7bef6d1f1e978e23e52a475ba78ef073a08c6d99960063340d16f32ab"
+  },
+  "static_source_checks": {
+    "all_changes_are_new_files_under_completion": true,
+    "git_diff_check": "clean",
+    "prior_proposal_bytes_match_base": true,
+    "case_labels_are_unique": true,
+    "case_label_count": 105,
+    "case_counts_by_source": {
+      "rx-lift-prescribed-stages.cas": 26,
+      "rx01-selected-orders.cas": 4,
+      "rx02-two-subsets.cas": 2,
+      "rx03-cyclic-automorphisms.cas": 12,
+      "rx04-square-bound.cas": 7,
+      "rx05-carrier-diamond.cas": 13,
+      "rx06-reindexing.cas": 10,
+      "rx07-f9-transport.cas": 17,
+      "rx08-ordinary-kernel.cas": 7,
+      "rx09-constant-one-rejection.cas": 0,
+      "rx09-successor-series.cas": 6,
+      "rx10-fixed-execution-question.cas": 1
+    },
+    "all_ten_scope_sources_and_multistage_lift_source_present": true,
+    "rx10_fixed_question_has_exactly_one_assertion": true,
+    "rx09_negative_admission_source_has_no_numeric_or_false_assertion": true
+  },
+  "performed": {
+    "source_and_signature_reading": true,
+    "source_whitespace_and_fingerprint_checks": true,
+    "parser": false,
+    "interpreter": false,
+    "build": false,
+    "runtime_or_leaf": false,
+    "acceptance_harness": false,
+    "migration": false,
+    "admission": false
+  },
+  "boundary": {
+    "no_kernel_or_leaf_implementation_source_read": true,
+    "incidental_collaboration_inventory_exposure": true,
+    "disclosure": "The inventory response unexpectedly included a completed engineering report. It was reported immediately; no downstream details or expected values are reproduced or used here. Fixed questions predate the exposure. See README.md.",
+    "separate_source_review_received_history": false,
+    "author_claims_complete_downstream_blindness": false
+  },
+  "remaining_public_interface_questions": [
+    "RX-02: complete invertible input on the existing Fin 5 for the full two-subsets core-functor action, preserving both directions and endpoints.",
+    "RX-03: direct public projection/application of an Aut element as its complete underlying isomorphism arrows for the fixed coordinate and conjugation observations.",
+    "RX-LIFT: existing general ChangeValueLifts.pulledBackIso at the exact mapped paired-cone source, including the whole-map comparison with the actual first returned factor."
+  ],
+  "remaining_interpretation_and_external_observations": [
+    "All concrete sources need interpretation checks at their fixed full types; in particular structured lambdas, generic receiver selection, dependent functor/lift parameters, and whole-domain admission.",
+    "The fixed first-projection lambda must denote exactly LinearMap.fst over the retained canonical rational modules, not a set function or a Vec substitute.",
+    "The four carrier-diamond declaration environments and six fixed-question execution conditions remain independently supplied observations; ownership controls are unchanged.",
+    "Expected-facts.lean is a mathematical source statement file, not a build or acceptance result."
+  ],
+  "coordinate_source_review": {
+    "previous_checkpoint_revision": "05ae5f477935663f14b25b4a8f4d871df4988ffd",
+    "mathematical_source_revision": "766fc2c20c0f293f7e5f3151584534f40f7af806",
+    "note": "coordinate-presentations.md",
+    "cas_sources_and_expected_facts_unchanged": true,
+    "formed_ambient_carrier_module": "ModuleCat.of ℚ (Fin 2 → ℚ)",
+    "vector_set_carrier": "Fin 2 → ℚ",
+    "paired_form_value_module": "ModuleCat.of ℚ (ℚ × ℚ)",
+    "row_map_source": "ModuleCat.of ℚ (Fin 2 → ℚ)",
+    "row_map_target": "ModuleCat.of ℚ ℚ",
+    "additional_vector_to_carrier_comparison_needed": false,
+    "separate_complete_formed_cone_source_comparison_still_required": true,
+    "validation": "Static definitions and declaration signatures only; tuple interpretation remains unverified."
+  }
+}
