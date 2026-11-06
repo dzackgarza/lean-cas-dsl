@@ -4,6 +4,7 @@ public import LeanCategories.Catalogue.Registry.Computation
 public import CasCompiler.Layout
 public import CasRuntime.Value
 public import Cslib.Foundations.Data.PFunctor.Free
+public import CasGates.AxiomAuditRules
 
 @[expose] public section
 
@@ -42,12 +43,35 @@ def SourceProgram.withPrerequisites (program : SourceProgram)
       { index, source := prerequisite, expression := locals[index]! : PrerequisiteSlot }
     action slots (mkAppN source.template locals).headBeta
 
-/-- Exact target or ordered primitive slot of an already checked whole-family program. -/
+/-- A directly registered family, checked before any specialization or provider selection. -/
+structure SourceFamily where
+  private mk ::
+  source : CheckedComputationPrerequisite
+  universeParams : List Name
+
+/-- Resolve the exact public address and retain the entire rigid family.
+Reuse: ComputationRef.declaration, the release AxiomAudit.permitted budget and native context closure. -/
+opaque SourceFamily.forReference (reference : ComputationRef) : MetaM SourceFamily := do
+  let declaration ← reference.declaration (← semanticState)
+  let info ← getConstInfo declaration
+  if info.isUnsafe then throwError "registered source family {declaration} is unsafe"
+  for assumption in ← collectAxioms declaration do
+    unless CasCatalogue.Tools.AxiomAudit.permitted.contains assumption do
+      throwError "registered source family {declaration} depends on {assumption}"
+  let family ← withLCtx {} #[] do
+    let context ← ContextTelescope.capture #[]
+    context.close (mkConst declaration (info.levelParams.map Level.param))
+  return ⟨{ reference, declaration, family := family.expression, familyType := family.type },
+    info.levelParams⟩
+
+/-- Exact registered family, checked derivation target or ordered primitive slot. -/
 inductive ProgramBoundary
+  | registered (family : SourceFamily)
   | target (program : SourceProgram)
   | prerequisite (program : SourceProgram) (index : Fin program.source.prerequisites.size)
 
 def ProgramBoundary.source : ProgramBoundary → CheckedComputationPrerequisite
+  | .registered family => family.source
   | .target program => {
       reference := program.source.entry.target
       declaration := program.source.targetDeclaration
