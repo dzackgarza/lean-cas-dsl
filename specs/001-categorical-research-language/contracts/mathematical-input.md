@@ -1,12 +1,13 @@
-# Mathematical input contract: categorical research language
-
-Canonical content: [Mathematical input contract](https://github.com/dzackgarza/lean-cas-dsl/issues/66#issuecomment-6664276482).
+# Mathematical input and generic interpretation contract
 
 Feature context: `001-categorical-research-language`.
-Workflow: `speckit-plan`, Phase 0 research and Phase 1 design.
 
-Canonical comment body SHA-256 (UTF-8, including its final newline):
-`e68b09235ceb42f0c85137fec6fcbbcff19dbbd06eaeca2e01cdfee313e8fd6f`.
+Current canonical content:
 
-Read the linked issue comment in full before using this artifact.
-This file is a durable pointer under the repository's issue-only documentation policy.
+1. [Base mathematical-input contract](https://github.com/dzackgarza/lean-cas-dsl/issues/66#issuecomment-6664276482).
+2. [Operative interpretation amendment](https://github.com/dzackgarza/lean-cas-dsl/issues/66#issuecomment-6684992506), replacing the named first-use ordering and snapshot-to-extension conclusions and specifying mechanism-by-mechanism proof responsibilities.
+3. [Exact amended task assignments and predecessors](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6685591815).
+
+Read the full linked texts before use. The current-snapshot graph argument remains limited to its actual hypotheses; it is not by itself the required theorem for the independently admitted extension class. The amendment does not narrow that class or transfer mathematical authority to kernel or leaf authors. Unmentioned base provisions remain binding.
+
+This file is a durable pointer; substantive contracts remain issue-owned.

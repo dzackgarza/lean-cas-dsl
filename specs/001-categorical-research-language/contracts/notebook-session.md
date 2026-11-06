@@ -1,12 +1,13 @@
-# Notebook session contract: categorical research language
-
-Canonical content: [Notebook session contract](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6664296914).
+# Native notebook and CAS session contract
 
 Feature context: `001-categorical-research-language`.
-Workflow: `speckit-plan`, Phase 0 research and Phase 1 design.
 
-Canonical comment body SHA-256 (UTF-8, including its final newline):
-`0315a570a3aecc77f63b57060aefe8d13d46075083d670fbdd58b64654c7987e`.
+Current canonical content:
 
-Read the linked issue comment in full before using this artifact.
-This file is a durable pointer under the repository's issue-only documentation policy.
+1. [Base planned notebook contract](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6664296914).
+2. [Operative runtime/model amendment](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6684996781), including the exact staged/committed visibility, commit-status and captured-continuation transitions.
+3. [Amended implementation and lifecycle validation assignments](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6685591815).
+
+Read the full texts together. The amendment replaces only its explicitly identified base sections. Inert inspection, pre-transmission protocol checks, atomic publication, cancellation, snapshot identity and no-replay requirements remain binding. No implementation or notebook acceptance is established by these documents.
+
+This is a durable navigation pointer; substantive content remains in GitHub issues.

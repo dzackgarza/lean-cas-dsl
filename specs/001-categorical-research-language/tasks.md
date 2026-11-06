@@ -2,19 +2,14 @@
 
 Feature context: `001-categorical-research-language`.
 
-Canonical task text and task state are in the owning GitHub issue.
-Read both parts as one document:
+Canonical task definitions and task state are issue-owned. Read all three parts:
 
-- [Part 1: T001-T064, authority boundaries and initial implementation phases](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684546229).
-- [Part 2: T065-T110, dependencies, parallel work and requirement coverage](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684571141).
+1. [Base T001–T064](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684546229).
+2. [Base T065–T110 and requirement coverage](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684571141).
+3. [Operative amendment 1: exact task/predecessor replacements, first-use and early-trial order, suspension/receipt contracts, repair and evidence invalidation](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6685591815).
 
-Generated for `speckit-tasks`, 2026-11-06 (Asia/Taipei).
-Source baseline: `779b42f87c9ae380ac0157598e430b6b177111a7`.
+Apply amendment 1 at its explicitly identified locations before interpreting the base task descriptions or dependency graph. Unmentioned obligations remain binding. Stable IDs remain T001–T110; they are not numerical execution positions. Task completion markers remain in the two base comments and must be interpreted against the amended definitions and current evidence. A failed attempt is not successful discharge.
 
-This is a navigation pointer, not an empty or completed task list.
-Resolve the canonical issue comments before analysis or implementation and
-use their current task markers. Generation establishes no implementation
-or acceptance completion and does not approve the separate architecture
-requirements checklist.
+The amendment links the current interpretation and runtime contracts and supplies the validated 110-node, 375-edge dependency graph, corrected parallel examples and required repair/reentry transitions. Generation and consistency checking establish no application implementation or acceptance completion and do not approve the separate reviewer-owned architecture checklist.
 
-Full work orders remain issue-owned under the repository documentation policy.
+Generated 2026-11-06; amended 2026-11-06 after `speckit-analyze`. This repository file is a navigation pointer, not a second task-state store or a local copy of the work order.

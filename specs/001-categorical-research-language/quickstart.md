@@ -1,12 +1,9 @@
-# Validation quickstart: categorical research language
-
-Canonical content: [Validation quickstart](https://github.com/dzackgarza/lean-cas-dsl/issues/24#issuecomment-6664297919).
+# Validation guide: categorical research language
 
 Feature context: `001-categorical-research-language`.
-Workflow: `speckit-plan`, Phase 0 research and Phase 1 design.
 
-Canonical comment body SHA-256 (UTF-8, including its final newline):
-`6cb19e3a29fb9c351acee948324e8b7fccfc66c2ecf86159cedbffd8331ecd08`.
+Read the [base preparation and protected validation guide](https://github.com/dzackgarza/lean-cas-dsl/issues/24#issuecomment-6664297919) together with the [operative task/order amendment](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6685591815) and [current runtime transitions](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6684996781).
 
-Read the linked issue comment in full before using this artifact.
-This file is a durable pointer under the repository's issue-only documentation policy.
+The amendment corrects prerequisites, places the original early unchanged-consumer trial before scope expansion, and makes failed-trial repair and final evidence invalidation/reentry explicit. Original questions, expected outcomes, source guards, independent authorship, complete denominators and budgets are unchanged. The base commands remain planned integration instructions; this pointer does not assert that the application has been built or assessed.
+
+This file is a durable issue pointer, not a competing local work order.
