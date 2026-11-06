@@ -29,8 +29,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let winners := results.filterMap (·.toOption)
       unless winners.size == 1 do
         throw <| IO.userError "an occurrence reservation did not have exactly one winner"
-      let winner := winners[0]!
-      unless winner.selected == choice && winner.connection == child.generation do
+      let some winner := winners[0]?
+        | throw <| IO.userError "the successful reservation is missing"
+      unless decide (winner.selected = choice) && winner.connection == child.generation do
         throw <| IO.userError "reservation changed the selected realization or connection"
       unless (← ledger.pendingFor first winner.transaction).isSome do
         throw <| IO.userError "the owning transaction lost its pending occurrence"
