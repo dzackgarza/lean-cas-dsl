@@ -55,6 +55,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throwError "the selected limit witness lost its mediator field"
       unless lift.kind == .function && lift.wireIndex == some 0 do
         throwError "the mediator of a data-bearing subsingleton was erased"
+      let callable ← lift.toLayout
+      unless callable.address == #[lift.projection] &&
+          callable.kind.actions.contains .apply do
+        throwError "the mediator lost its projection address or application action"
       let some fac := layout.fields.find? (·.projection == ``CategoryTheory.Limits.IsLimit.fac)
         | throwError "the selected limit witness lost its formal equation"
       unless fac.kind == .proof && fac.wireIndex.isNone &&
