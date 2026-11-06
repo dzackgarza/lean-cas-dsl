@@ -24,7 +24,7 @@ track-main:
     @python3 scripts/resolve_lake_if_needed.py
 
 # Build one Lean target and automatically profile it if slow; mode=profile profiles a source.
-focus target mode="build": track-main
+focus target mode="build":
     #!/usr/bin/env bash
     set -euo pipefail
     target={{quote(target)}}
@@ -217,7 +217,7 @@ build-production:
     @lake build CasCompiler CasRuntime
 
 # Build and statically check a clean integration candidate (CI or B0_INTEGRATION=1).
-build: _integration-intent track-main
+build: _integration-intent
     @python3 -m unittest discover -s scripts -p 'test_*.py'
     @python3 scripts/check_no_leaves.py --self-test
     @python3 scripts/check_no_leaves.py
