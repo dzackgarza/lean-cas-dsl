@@ -3,6 +3,7 @@ module
 public import LeanCategories.Catalogue.Registry.Computation
 public import CasCompiler.Context
 public import Lean.Meta.Structure
+public import Lean.Meta.Coe
 
 @[expose] public section
 
@@ -133,9 +134,13 @@ opaque FieldLayout.toLayout (field : FieldLayout) : MetaM SourceLayout :=
 Arguments are checked source terms; computational candidates enter through the runtime. -/
 opaque SourceLayout.applyIn (function : SourceLayout) (context : OpenContext)
     (arguments : Array ClosedTerm) : MetaM SourceLayout := do
-  unless function.kind == .function do
-    throwError "source application requires a callable interface"
   let expression ← function.source.inContext context
+  let expression ← if (← whnf (← inferType expression)).isForall then
+      pure expression
+    else do
+      let some coerced ← coerceToFunction? expression
+        | throwError "source application requires a callable interface"
+      pure coerced
   let arguments ← arguments.mapM (·.inContext context)
   sourceLayout (← context.close (mkAppN expression arguments)) function.address
 
