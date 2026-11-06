@@ -25,7 +25,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     (family.source.universeParams.map Level.param) context #[] #[input, retained]
   let some first := request.scope[0]? | throwError "the first scope slot is missing"
   let some second := request.scope[1]? | throwError "the second scope slot is missing"
-  unless request.reference == family.source.entry.target && request.scope.size == 2 &&
+  unless request.reference == some family.source.entry.target && request.scope.size == 2 &&
       first.value == second.value do
     throwError "request preparation changed an exact family reference or aliased scope slots"
   unless first.role.source.expression == targetRole.source.expression &&
@@ -40,7 +40,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let slot ← PreparedRequest.forBoundary program occurrence
         (.prerequisite family ⟨index, bound⟩) (family.source.universeParams.map Level.param)
         context #[] #[]
-      unless slot.reference == family.source.prerequisites[index].reference do
+      unless slot.reference == some family.source.prerequisites[index].reference do
         throwError "request preparation changed an ordered primitive reference"
     else throwError "the prerequisite index is outside the checked family"
   let other ← liftM (m := IO) OwnerRegistry.new
@@ -54,7 +54,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
 
 example (request : PreparedRequest) : Type := OperationalSignature.B request
 
-example (request : PreparedRequest) : OperationalProgram (Vector ValueBinding request.outputs.size) :=
+example (request : PreparedRequest) : OperationalProgram (CandidateResponse request.source) :=
   PFunctor.FreeM.lift (P := OperationalSignature) request
 
 run_cmd Lean.Elab.Command.liftTermElabM do
@@ -66,7 +66,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
   let request ← PreparedRequest.forBoundary program occurrence (.registered family)
     (family.universeParams.map Level.param) context #[] #[]
-  unless request.reference == reference && family.source.reference == reference do
+  unless request.reference == some reference && family.source.reference == reference do
     throwError "direct source intake changed the registered primitive address"
   unless ← isDefEq request.source.source.expression family.source.family do
     throwError "direct request preparation changed the published family"
@@ -92,7 +92,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let expected := polymorphic.source.family.instantiateLevelParams polymorphic.universeParams renamed
   unless ← isDefEq specialized.source.source.expression expected do
     throwError "request preparation lost the explicit universe substitution"
-  unless specialized.universeArguments == renamed do
+  unless specialized.universeArguments == some renamed do
     throwError "request preparation lost its original-to-actual universe correspondence"
   let some output := specialized.outputs[0]?
     | throwError "the source functor field is missing"

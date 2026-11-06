@@ -98,6 +98,10 @@ opaque SourceLayout.ofTerm (source : ClosedTerm) : MetaM SourceLayout :=
 opaque FieldLayout.toLayout (field : FieldLayout) : MetaM SourceLayout :=
   sourceLayout field.source field.address
 
+/-- Reopen in the complete current scope while retaining the source projection address. -/
+opaque SourceLayout.inContext (layout : SourceLayout) (context : OpenContext) : MetaM SourceLayout := do
+  sourceLayout (← context.close (← layout.source.inContext context)) layout.address
+
 /-- Prepare ordinary source application in the current complete context.
 Arguments are checked source terms; computational candidates enter through the runtime. -/
 opaque SourceLayout.applyIn (function : SourceLayout) (context : OpenContext)

@@ -137,4 +137,28 @@ def ValueGraph.isAvailable (graph : ValueGraph) (owners : OwnerRegistry)
   if owners.worker != graph.worker then return false
   owners.allAlive node.owners
 
+/-- A computational candidate indexed by its prepared layout, retaining its actual root. -/
+structure CandidateResponse (source : SourceLayout) where
+  private mk ::
+  root : ValueBinding
+
+/-- Check the retained operational shape and bind the prepared source role.
+Source: execution contract v2 §2 and data model §5. Scope, lifecycle and whole-reply admission
+are separate boundaries. Native exports retain lazy field access through their actual root. -/
+opaque CandidateResponse.ofValue (source : SourceLayout) (graph : ValueGraph)
+    (value : ValueBinding) : Except String (CandidateResponse source) := do
+  let node ← graph.require value
+  match source.kind, node.payload.data with
+  | .proof, _ => throw "a source proof has no computational response"
+  | .function, .closure _ _ | .function, .ownedToken _ _ _ => pure ()
+  | .function, _ => throw "the candidate has no retained callable payload"
+  | .record, .product fields =>
+    let expected := source.fields.filter (·.wireIndex.isSome)
+    unless fields.size == expected.size do
+      throw "the candidate record does not match its prepared field arity"
+  | .record, .closure _ _ | .record, .ownedToken _ _ _ => pure ()
+  | .record, _ => throw "the candidate has no retained record interface"
+  | .data, _ | .typeValue, _ => pure ()
+  return ⟨← graph.rebind value source⟩
+
 end CasRuntime

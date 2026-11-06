@@ -25,7 +25,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   withLocalDeclD `extra (mkConst ``Nat) fun extra => do
     let context ← ContextTelescope.capture #[{
       id := ⟨"value-request", 0⟩, role := .parameter, expression := extra }]
-    let projection ← PreparedRequest.forProjection program occurrence context record 1
+    let projectionOccurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+    let projection ← PreparedRequest.forProjection program projectionOccurrence context record 1
     let .project operand field := projection.action
       | throwError "projection preparation changed its action"
     unless operand.value == record.value && field.sourceIndex == 1 && field.wireIndex == some 1 do
@@ -40,7 +41,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless response.root.value == callable.value do
       throwError "response preparation replaced the actual projected field"
     let argument ← context.close (mkNatLit 7)
-    let application ← PreparedRequest.forApplication program occurrence context
+    let applicationOccurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+    let application ← PreparedRequest.forApplication program applicationOccurrence context
       response.root #[argument] #[scalar]
     let .apply retained arguments := application.action
       | throwError "application preparation changed its action"
@@ -64,6 +66,36 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     match CandidateResponse.ofValue projection.source graph scalar with
     | .error _ => pure ()
     | .ok _ => throwError "a portable scalar filled a prepared callable response"
+  let (malformed, incomplete) ← liftM (m := IO) <| graph.stage owners.identities
+    { program, occurrence, role := recordRole } (.product #[scalar])
+  match CandidateResponse.ofValue recordRole malformed incomplete with
+  | .error _ => pure ()
+  | .ok _ => throwError "a candidate record lost a required source field"
+  let finiteRole ← SourceLayout.ofTerm (← empty.close (mkApp (mkConst ``Fin.last) (mkNatLit 7)))
+  let (_, finite) ← liftM (m := IO) <| graph.stage owners.identities
+    { program, occurrence, role := finiteRole } (.product #[scalar])
+  let rejectedProof ← try
+    discard <| PreparedRequest.forProjection program occurrence empty finite 1
+    pure false
+  catch _ => pure true
+  unless rejectedProof do throwError "a source proof field acquired a computational projection"
+  let child ← liftM (m := IO) <| owners.spawn { cmd := "/bin/cat" }
+  try
+    let token ← liftM (m := IO) do
+      child.child.stdin.putStr "retained native record\n"
+      child.child.stdin.flush
+      return (← child.child.stdout.getLine).trimAscii.toString
+    let (nativeGraph, nativeRecord) ← liftM (m := IO) <| graph.stage owners.identities
+      { program, occurrence, role := recordRole } (.ownedExport child token #[])
+    let .ok response := CandidateResponse.ofValue recordRole nativeGraph nativeRecord
+      | throwError "the native record candidate lost its retained root"
+    unless response.root.value == nativeRecord.value do
+      throwError "the native record candidate was rebuilt from fields"
+    let some node := nativeGraph.find response.root.value
+      | throwError "the native record root is missing"
+    unless node.references.isEmpty && node.owners == #[child.generation] do
+      throwError "candidate shape checking changed lazy captures or actual owners"
+  finally liftM (m := IO) <| owners.close child.generation
 
 example (request : PreparedRequest) : OperationalProgram (CandidateResponse request.source) :=
   PFunctor.FreeM.lift (P := OperationalSignature) request
