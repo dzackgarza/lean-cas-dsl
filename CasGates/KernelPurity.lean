@@ -53,6 +53,8 @@ import all CasCompiler.ContextTests
 import all CasCompiler.Program
 import all CasCompiler.ProgramTests
 import all CasRuntime
+import all CasRuntime.Identity
+import all CasRuntime.IdentityTests
 import all CasRuntime.Owner
 import all CasRuntime.OwnerTests
 import all CasContract
