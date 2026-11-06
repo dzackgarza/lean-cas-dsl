@@ -55,3 +55,29 @@ example (request : PreparedRequest) : Type := OperationalSignature.B request
 
 example (request : PreparedRequest) : OperationalProgram (Vector ValueBinding request.outputs.size) :=
   PFunctor.FreeM.lift (P := OperationalSignature) request
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let reference : ComputationRef := .operation ⟨"op.monoids.mul"⟩
+  let family ← SourceFamily.forReference reference
+  let context ← ContextTelescope.capture #[]
+  let owners ← liftM (m := IO) OwnerRegistry.new
+  let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+  let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+  let request ← PreparedRequest.forBoundary program occurrence (.registered family) context #[] #[]
+  unless request.reference == reference && family.source.reference == reference do
+    throwError "direct source intake changed the registered primitive address"
+  unless ← isDefEq request.source.source.expression family.source.family do
+    throwError "direct request preparation changed the published family"
+  unless ← isDefEq (← inferType family.source.family) family.source.familyType do
+    throwError "direct source intake changed the complete family type"
+  if family.source.family.hasFVar || family.source.family.hasExprMVar ||
+      family.source.family.hasLevelMVar || family.source.family.hasLooseBVars then
+    throwError "direct source intake retained an unresolved or free parameter"
+  let info ← getConstInfo family.source.declaration
+  unless family.universeParams == info.levelParams do
+    throwError "direct source intake dropped rigid declaration universes"
+  let rejected ← try
+    discard <| SourceFamily.forReference (.operation ⟨s!"unregistered.{owners.worker}"⟩)
+    pure false
+  catch _ => pure true
+  unless rejected do throwError "direct source intake accepted an unregistered address"
