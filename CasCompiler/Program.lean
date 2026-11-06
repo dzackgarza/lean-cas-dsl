@@ -2,6 +2,8 @@ module
 
 public import LeanCategories.Catalogue.Registry.Computation
 public import CasCompiler.Layout
+public import CasRuntime.Value
+public import Cslib.Foundations.Data.PFunctor.Free
 
 @[expose] public section
 
@@ -39,5 +41,69 @@ def SourceProgram.withPrerequisites (program : SourceProgram)
     let slots := source.prerequisites.mapIdx fun index prerequisite =>
       { index, source := prerequisite, expression := locals[index]! : PrerequisiteSlot }
     action slots (mkAppN source.template locals).headBeta
+
+/-- Exact target or ordered primitive slot of an already checked whole-family program. -/
+inductive ProgramBoundary
+  | target (program : SourceProgram)
+  | prerequisite (program : SourceProgram) (index : Fin program.source.prerequisites.size)
+
+def ProgramBoundary.source : ProgramBoundary → CheckedComputationPrerequisite
+  | .target program => {
+      reference := program.source.entry.target
+      declaration := program.source.targetDeclaration
+      family := program.source.target
+      familyType := program.source.familyType }
+  | .prerequisite program index => program.source.prerequisites[index.val]
+
+/-- Complete source roles and ordered runtime scope, fixed before a computational reply. -/
+structure PreparedRequest where
+  private mk ::
+  program : CasRuntime.RuntimeId .program
+  occurrence : CasRuntime.RuntimeId .occurrence
+  boundary : ProgramBoundary
+  source : SourceLayout
+  scope : Array CasRuntime.ValueBinding
+  outputs : Array SourceLayout
+
+def PreparedRequest.reference (request : PreparedRequest) : ComputationRef :=
+  request.boundary.source.reference
+
+/-- Apply the exact checked source family in the complete current context.
+Result positions retain the source's ordered computational fields and dependent roles.
+Source application reuses Lean's native checks and the existing closed-context transport. -/
+opaque PreparedRequest.forBoundary (program : CasRuntime.RuntimeId .program)
+    (occurrence : CasRuntime.RuntimeId .occurrence) (boundary : ProgramBoundary)
+    (context : OpenContext) (arguments : Array ClosedTerm)
+    (scope : Array CasRuntime.ValueBinding) : MetaM PreparedRequest := do
+  unless program.worker == occurrence.worker do
+    throwError "request preparation mixed worker identities"
+  for binding in scope do
+    unless binding.value.worker == program.worker do
+      throwError "a request scope value belongs to a different worker"
+    discard <| binding.role.source.inContext context
+  let family ← withLCtx {} #[] do
+    let empty ← ContextTelescope.capture #[]
+    empty.close boundary.source.family
+  let source ← if arguments.isEmpty then
+      SourceLayout.ofTerm (← context.close (← family.inContext context))
+    else do
+      let callable ← SourceLayout.ofTerm family
+      callable.applyIn context arguments
+  if source.kind == .proof then
+    throwError "a source proof has no computational response positions"
+  let mut outputs : Array SourceLayout := #[]
+  if source.kind == .record then
+    for field in source.fields do
+      if field.wireIndex.isSome then outputs := outputs.push (← field.toLayout)
+  else outputs := #[source]
+  return ⟨program, occurrence, boundary, source, scope, outputs⟩
+
+/-- Responses are candidate value references with source-prepared structural arity.
+Reference: CSLib 3951377e, Foundations/Data/PFunctor/Free.lean. -/
+def OperationalSignature : PFunctor.{0, 0} :=
+  ⟨PreparedRequest, fun request => Vector CasRuntime.ValueBinding request.outputs.size⟩
+
+/-- CSLib retains dependent continuations for later demands and actual returned references. -/
+abbrev OperationalProgram := OperationalSignature.FreeM
 
 end CasCompiler

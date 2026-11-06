@@ -53,6 +53,7 @@ import all CasCompiler.ContextTests
 import all CasCompiler.Layout
 import all CasCompiler.Program
 import all CasCompiler.ProgramTests
+import all CasCompiler.OperationalTests
 import all CasRuntime
 import all CasRuntime.Identity
 import all CasRuntime.IdentityTests

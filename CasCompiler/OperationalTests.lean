@@ -20,9 +20,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let (graph, input) ← liftM (m := IO) <|
     (ValueGraph.empty owners.identities).stage owners.identities
       { program, occurrence, role := targetRole } (.closure program #[])
-  let .ok alias := graph.rebind input planRole | throwError "the input role could not be retained"
+  let .ok retained := graph.rebind input planRole | throwError "the input role could not be retained"
   let request ← PreparedRequest.forBoundary program occurrence (.target family)
-    context #[] #[input, alias]
+    context #[] #[input, retained]
   let some first := request.scope[0]? | throwError "the first scope slot is missing"
   let some second := request.scope[1]? | throwError "the second scope slot is missing"
   unless request.reference == family.source.entry.target && request.scope.size == 2 &&
@@ -54,4 +54,4 @@ run_cmd Lean.Elab.Command.liftTermElabM do
 example (request : PreparedRequest) : Type := OperationalSignature.B request
 
 example (request : PreparedRequest) : OperationalProgram (Vector ValueBinding request.outputs.size) :=
-  PFunctor.FreeM.lift request
+  PFunctor.FreeM.lift (P := OperationalSignature) request

@@ -40,6 +40,7 @@ meta def allowedModules : List Name :=
    `LeanCategories.Catalogue.Registry, `LeanCategories.Catalogue.Constructors,
    `LeanCategories.Catalogue.Lift,
    `LeanCategories.Catalogue.Semantics.Foundation.Catalogue,
+   `Mathlib.Data.PFunctor.Univariate.Basic, `Cslib.Foundations.Data.PFunctor.Free,
    `CasCatalogue, `CasCompiler, `CasRuntime, `CasContract]
 
 /-- Lean's tactic machinery: proof search is the domain's (LC-18), run only by `evidenceRunner`. -/
