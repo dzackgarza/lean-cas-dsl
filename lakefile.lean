@@ -48,6 +48,9 @@ lean_lib CasDsl where
 lean_lib CasCompiler where
   globs := #[.andSubmodules `CasCompiler]
 
+lean_lib CasRuntime where
+  globs := #[.andSubmodules `CasRuntime]
+
 /-- The core: resolution, propagation, calls and the language, over the leaf contract
 (`cas_leaf_contracts`) and `lean-categories`' semantic registry (`LeanCategories.Catalogue`), which it
 reads at the pin and never writes (`specs/architecture.md`). It keeps `lean-categories`'
