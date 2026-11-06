@@ -67,3 +67,16 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       lift.source.withOpen fun _ expression => do
         unless (← whnf (← inferType expression)).isForall do
           throwError "the retained mediator lost its complete callable type"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let empty ← ContextTelescope.capture #[]
+  let function ← SourceLayout.ofTerm (← empty.close (mkConst ``Fin.last))
+  withLocalDeclD `n (mkConst ``Nat) fun n => do
+    let context ← ContextTelescope.capture #[{
+      id := ⟨"application-test", 0⟩, role := .parameter, expression := n }]
+    let argument ← context.close n
+    let result ← function.applyIn context #[argument]
+    result.source.withOpen fun bindings expression => do
+      let expected := mkApp (mkConst ``Fin) (mkApp (mkConst ``Nat.succ) bindings[0]!.expression)
+      unless ← isDefEq (← inferType expression) expected do
+        throwError "callable application lost its dependent result type"
