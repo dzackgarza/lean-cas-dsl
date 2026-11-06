@@ -218,7 +218,7 @@ _integration-intent:
 
 # Compile the shared compiler and runtime at the committed dependency selection.
 build-production:
-    @lake build CasCompiler:olean CasRuntime:olean
+    @lake build +CasCompiler:olean +CasRuntime:olean
 
 # Build and statically check a clean integration candidate (CI or B0_INTEGRATION=1).
 build: _integration-intent

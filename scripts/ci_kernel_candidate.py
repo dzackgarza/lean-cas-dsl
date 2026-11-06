@@ -80,9 +80,8 @@ def production_artifacts(root):
                 if not path.is_file():
                     continue
                 info = path.stat()
-                item = {'bytes': info.st_size, 'mtimeNs': info.st_mtime_ns}
-                if path.suffix == '.trace':
-                    item['sha256'] = record(path)['sha256']
+                item = {'bytes': info.st_size, 'mtimeNs': info.st_mtime_ns,
+                        'sha256': record(path)['sha256']}
                 outputs[str(path.relative_to(root))] = item
         prefix = '.lake/build/lib/lean/' + relative.as_posix()
         setup = root / '.lake/build/ir' / relative.with_suffix('.setup.json')
