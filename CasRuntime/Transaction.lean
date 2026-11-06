@@ -67,6 +67,9 @@ structure CellTransaction where
   private ledger : OccurrenceLedger
   private state : Std.Mutex CellState
 
+def CellTransaction.owners (transaction : CellTransaction) : OwnerRegistry :=
+  transaction.ledger.owners
+
 opaque CellTransaction.begin (ledger : OccurrenceLedger) : CoreM CellTransaction := do
   let parent ← SessionSnapshot.current
   unless parent.graph.worker == ledger.owners.worker do

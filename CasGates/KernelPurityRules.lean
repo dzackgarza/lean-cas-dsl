@@ -42,6 +42,7 @@ meta def allowedModules : List Name :=
    `LeanCategories.Catalogue.Semantics.Foundation.Catalogue,
    `Mathlib.Data.PFunctor.Univariate.Basic, `Cslib.Foundations.Data.PFunctor.Free,
    `CasGates.AxiomAuditRules,
+   `PolyFun.PFunctor.Handler, `PolyFun.PFunctor.Handler.Stateful,
    `CasCatalogue, `CasCompiler, `CasRuntime, `CasContract]
 
 /-- Lean's tactic machinery: proof search is the domain's (LC-18), run only by `evidenceRunner`. -/
