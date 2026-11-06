@@ -1,10 +1,14 @@
 module
 
 import CasCompiler.Program
+import CasCompiler.Context
 import LeanCategories.Catalogue.Semantics.Algebra.ComputationDerivations
+import Mathlib.CategoryTheory.Limits.IsLimit
 public meta import Lean.Elab.Command
 meta import CasCompiler.Program
+meta import CasCompiler.Context
 meta import LeanCategories.Catalogue.Semantics.Algebra.ComputationDerivations
+meta import Mathlib.CategoryTheory.Limits.IsLimit
 
 open Lean Meta CasCompiler CasCatalogue
 
@@ -32,3 +36,30 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         if previous.contains slot.expression.fvarId! then
           throwError "opening a source program reused a local identity"
       check body
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let info ← getConstInfo ``CategoryTheory.Limits.IsLimit
+  let family := mkConst info.name (info.levelParams.map Level.param)
+  forallTelescope (← inferType family) fun parameters _ => do
+    let type := mkAppN family parameters
+    withLocalDeclD `selectedLimit type fun selected => do
+      let declarations := (← getLCtx).foldl (fun result decl => result.push decl) #[]
+      let bindings := declarations.mapIdx fun index decl =>
+        { id := ⟨"limit-layout", index⟩, role := .parameter,
+          expression := mkFVar decl.fvarId : LocalBinding }
+      let context ← ContextTelescope.capture bindings
+      let layout ← SourceLayout.ofTerm (← context.close selected)
+      unless layout.kind == .record do
+        throwError "the selected limit witness lost its record layout"
+      let some lift := layout.fields.find? (·.projection == ``CategoryTheory.Limits.IsLimit.lift)
+        | throwError "the selected limit witness lost its mediator field"
+      unless lift.kind == .function && lift.wireIndex == some 0 do
+        throwError "the mediator of a data-bearing subsingleton was erased"
+      let some fac := layout.fields.find? (·.projection == ``CategoryTheory.Limits.IsLimit.fac)
+        | throwError "the selected limit witness lost its formal equation"
+      unless fac.kind == .proof && fac.wireIndex.isNone &&
+          fac.precedingDependencies.contains lift.sourceIndex do
+        throwError "the formal equation lost its dependency on the retained mediator"
+      lift.source.withOpen fun _ expression => do
+        unless (← whnf (← inferType expression)).isForall do
+          throwError "the retained mediator lost its complete callable type"
