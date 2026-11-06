@@ -375,6 +375,20 @@ Distinct unresolved mathematical readings remain distinct. Computational conveni
 choose one. A negative semantic judgment requires the grounds prescribed by **M** and **P**; a
 failure to obtain such grounds remains a failure to establish the judgment.
 
+**Competing routes.** When first-binding lookup leaves more than one binding for a surface
+name on an object, the readings agree only by definitional equality of the complete dependent
+operation families, or by an accepted comparison cell, composed with its actual transports,
+that equates those families. Absent such data, the question is mathematically ambiguous and is
+reported as such before execution. No route is selected by owner, route length, registration
+order, implementation priority or search over unregistered theorems. A comparison cell is a
+mathematical claim: it is formalized in **M** by the independent mathematical author, and a
+cell supplied by a kernel, leaf or runtime is not evidence. A declared preferred route is not a
+mathematical claim: it names which surviving binding a surface name denotes for that
+registration, asserts no agreement, is ordinary registration data through the public leaf
+contract, and is recorded with the reading that used it. The lookup completeness obligation of
+C3 concerns enumeration of first-binding routes on the accepted declarations; it does not
+require deciding whether inherited operations agree.
+
 An `unknown` computational outcome is an inability to establish the requested result, not a
 third mathematical truth value or permission to decide a predicate by convention. Session
 assumptions remain explicit hypotheses; introducing a hypothetical mathematical object is not an
@@ -1130,6 +1144,7 @@ main][S37]; [November 2 authorization policy][S33].
 | 1.1.1 | 2026-11-05 | Editorial conformance to the released [Spec Kit constitution workflow](https://github.com/github/spec-kit/blob/34a0d388eac671d656eb05b125ad3ed6056168ed/templates/commands/constitution.md): use the resolved scaffold, group C1–C20 under Core Principles, retain authority and policy sections, present Governance and the prescribed version/date footer, and wrap prose. All substantive obligations, article identifiers, formulas and source references are preserved. |
 | 1.2.0 | 2026-11-05 | Make the intrinsic product explicit in C0: a growing categorical mathematical research language with first-class constructions, generic interface/composition growth, fixed mathematical meaning, actual computational workflows and mathematical interaction. Make the adopted mathematical roles of computations, classifiers, dependent families and higher coherence explicit in C1, C5 and C7. Elaborate C4, C11 and C12 positively; clarify the C8 and C15 titles; name lean-categories as the currently designated independent formal development. Relocate C14, C16–C20 and the detailed C1/C12 contributor procedures under Governance while preserving their obligations and identifiers. This restores the source-backed project definition and distinguishes it from contribution policy; it does not select a runtime architecture, reduce computational scope or amend the mathematical trust boundary. |
 | 1.2.1 | 2026-11-05 | Clarify the existing separation and encapsulation of responsibilities in C2: leaf registration and output are computational claims against independently fixed obligations; mathematical definitions and proofs are never leaf deliverables, including optional proofs; the public leaf boundary confers no semantic or acceptance authority. Align the computational-evidence policy wording with this prohibition. Independent formalization, generic kernel discharge, independent acceptance and complete actual delivery retain their existing responsibilities. |
+| 1.3.0 | 2026-11-06 | Add the competing-routes rule to C6: surviving bindings agree only by definitional equality or an accepted comparison cell formalized in **M**; otherwise the question is ambiguous and reported before execution; no selection by owner, length, order, priority or search; a declared preferred route is registration data that asserts no mathematics; C3 lookup completeness does not require deciding agreement. Reason: the rule was stated only in the lean-categories operation-agreement contract and the #85 policies, and planning artifacts reframed the agreement check as a universal decision procedure (#10 finding G1, #66 comments of 2026-11-06). |
 
 ### Provenance
 
@@ -1200,4 +1215,4 @@ evidence of an authorized amendment.
 
 [S46]: https://github.com/dzackgarza/lean-cas-dsl/blob/a206552ca315726c5d8cca356cebc65f617d4d7a/README.md
 
-**Version**: 1.2.1 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-05
+**Version**: 1.3.0 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-06
