@@ -23,6 +23,10 @@ track-main:
     @python3 scripts/ci_chain.py
     @python3 scripts/resolve_lake_if_needed.py
 
+# Fetch cached artifacts for the named Mathlib modules and their imports.
+cache +modules:
+    @lake exe cache get {{modules}}
+
 # Build one Lean target and automatically profile it if slow; mode=profile profiles a source.
 focus target mode="build":
     #!/usr/bin/env bash
@@ -39,7 +43,7 @@ focus target mode="build":
         echo "Prior profile must be a nonempty readable log: $B0_PRIOR_PROFILE_LOG" >&2
         exit 2
       fi
-      if ! rg -q 'cumulative profiling times:' "$B0_PRIOR_PROFILE_LOG"; then
+    if ! grep -q 'cumulative profiling times:' "$B0_PRIOR_PROFILE_LOG"; then
         echo "Diagnosed build requires B0_PRIOR_PROFILE_LOG from a completed profile." >&2
         exit 2
       fi
@@ -91,7 +95,7 @@ focus target mode="build":
     echo "Focused log: $log"
     if (( result == 0 )); then
       if [[ "$mode" == "profile" ]]; then tail -n 27 "$log"
-      else rg 'Built |Build completed|elapsed_seconds=' "$log" | tail -n 8
+      else grep -E 'Built |Build completed|elapsed_seconds=' "$log" | tail -n 8
       fi
     else
       tail -n 30 "$log"
