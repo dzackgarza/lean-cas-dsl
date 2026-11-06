@@ -51,6 +51,19 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     catch _ => rejected := true
     unless rejected do throwError "a different binding identity replaced a captured definition"
 
+  saved.context.withOpen fun bindings => do
+    withLocalDeclD `later bindings[0]!.expression fun later =>
+      withLetDecl `replacement bindings[0]!.expression later fun replacement => do
+        let changed := bindings.set! 3 { bindings[3]! with id := ⟨"context-test", 5⟩ }
+        let target ← ContextTelescope.capture <| changed.push
+          { id := ⟨"context-test", 4⟩, role := .parameter, expression := later } |>.push
+          { id := ⟨"context-test", 3⟩, role := .definition, expression := replacement }
+        let mut rejected := false
+        try
+          discard <| saved.inContext target
+        catch _ => rejected := true
+        unless rejected do throwError "a captured definition changed under the same binding identity"
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let context ← ContextTelescope.capture #[]
   let unresolved ← mkFreshExprMVar (mkConst ``Nat)

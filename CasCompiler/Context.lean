@@ -126,4 +126,37 @@ def ClosedTerm.withOpen (term : ClosedTerm)
   term.context.withOpen fun bindings =>
     action bindings (term.expression.instantiateRev (bindings.map (·.expression)))
 
+/-- Transport into an existing scope by stable identity, preserving the ordered telescope.
+Lean checks the substituted types and definitions; names and expression matches do not bind locals. -/
+opaque ClosedTerm.inContext (term : ClosedTerm) (target : OpenContext) : MetaM Expr := do
+  let mut available : Std.HashMap BindingId (Nat × LocalBinding) := {}
+  for binding in target.bindings, index in [:target.bindings.size] do
+    available := available.insert binding.id (index, binding)
+  let mut locals : Array Expr := #[]
+  let mut previous : Option Nat := none
+  for entry in term.context.entries do
+    let some (index, binding) := available[entry.id]?
+      | throwError "the target context is missing a captured binding"
+    if let some priorIndex := previous then
+      if index ≤ priorIndex then throwError "the target context changed captured binding order"
+    previous := some index
+    let declaration ← getFVarLocalDecl binding.expression
+    unless binding.role == entry.role && declaration.binderInfo == entry.binderInfo &&
+        declaration.kind == entry.kind && declaration.isNondep == entry.nondep do
+      throwError "the target context changed a captured binding role"
+    unless ← isDefEq declaration.type (entry.type.instantiateRev locals) do
+      throwError "the target context changed a captured binding type"
+    match entry.value, declaration.value? true with
+    | none, none => pure ()
+    | some expected, some actual =>
+      unless ← isDefEq actual (expected.instantiateRev locals) do
+        throwError "the target context changed a captured definition"
+    | _, _ => throwError "the target context changed a captured declaration kind"
+    locals := locals.push binding.expression
+  let expression ← resolve (term.expression.instantiateRev locals)
+  check expression
+  unless ← isDefEq (← inferType expression) (term.type.instantiateRev locals) do
+    throwError "context transport changed the captured result type"
+  return expression
+
 end CasCompiler
