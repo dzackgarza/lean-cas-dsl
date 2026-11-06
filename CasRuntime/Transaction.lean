@@ -89,6 +89,15 @@ opaque CellTransaction.stage (transaction : CellTransaction) (origin : ValueOrig
     set (CellState.active { cell with graph, roots := cell.roots.push binding })
     return binding
 
+/-- Retain an existing visible root for this cell's commit-time owner check.
+Reuse: ValueGraph.requiredOwners and the same active transaction gate as new staging. -/
+opaque CellTransaction.retain (transaction : CellTransaction) (binding : ValueBinding) : IO Unit :=
+  transaction.state.atomically do
+    let .active cell ← get
+      | throw <| IO.userError "the transaction has settled"
+    discard <| IO.ofExcept <| (cell.graph.requiredOwners #[binding]).mapError IO.userError
+    set (CellState.active { cell with roots := cell.roots.push binding })
+
 opaque CellTransaction.emit (transaction : CellTransaction) (event : Json) : IO Unit :=
   transaction.state.atomically do
     let .active cell ← get
