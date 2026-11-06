@@ -1,5 +1,8 @@
+module
+
 import CasCompiler.Context
-import Lean.Elab.Command
+public meta import Lean.Elab.Command
+meta import CasCompiler.Context
 
 open Lean Meta CasCompiler
 

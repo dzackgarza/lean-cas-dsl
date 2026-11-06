@@ -1,6 +1,10 @@
-import Lean.Meta.Basic
-import Lean.Meta.Check
-import Lean.Util.CollectLevelParams
+module
+
+public import Lean.Meta.Basic
+public import Lean.Meta.Check
+public import Lean.Util.CollectLevelParams
+
+@[expose] public section
 
 namespace CasCompiler
 
@@ -62,7 +66,7 @@ private def closeOver (locals : Array Expr) (expression : Expr) : MetaM Expr := 
 /-- Capture every local declaration in order; the caller supplies stable binding identities.
 Uses Lean's abstraction and local-context APIs at v4.33.0, with no expression-based identity.
 Source/reuse record: lean-cas-dsl#66, issuecomment-6693525290. -/
-def ContextTelescope.capture (bindings : Array LocalBinding) : MetaM OpenContext := do
+opaque ContextTelescope.capture (bindings : Array LocalBinding) : MetaM OpenContext := do
   let declarations := (← getLCtx).foldl (fun result decl => result.push decl) #[]
   unless declarations.size == bindings.size do
     throwError "context capture requires a complete ordered binding map"
@@ -84,7 +88,7 @@ def ContextTelescope.capture (bindings : Array LocalBinding) : MetaM OpenContext
   return ⟨⟨entries⟩, bindings⟩
 
 /-- Close a checked term and its full type over the captured ordered telescope. -/
-def OpenContext.close (context : OpenContext) (expression : Expr) : MetaM ClosedTerm := do
+opaque OpenContext.close (context : OpenContext) (expression : Expr) : MetaM ClosedTerm := do
   let expression ← resolve expression
   check expression
   let type ← resolve (← inferType expression)
