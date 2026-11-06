@@ -22,7 +22,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       { program, occurrence, role := targetRole } (.closure program #[])
   let .ok retained := graph.rebind input planRole | throwError "the input role could not be retained"
   let request ← PreparedRequest.forBoundary program occurrence (.target family)
-    context #[] #[input, retained]
+    (family.source.universeParams.map Level.param) context #[] #[input, retained]
   let some first := request.scope[0]? | throwError "the first scope slot is missing"
   let some second := request.scope[1]? | throwError "the second scope slot is missing"
   unless request.reference == family.source.entry.target && request.scope.size == 2 &&
@@ -38,7 +38,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   for index in [:family.source.prerequisites.size] do
     if bound : index < family.source.prerequisites.size then
       let slot ← PreparedRequest.forBoundary program occurrence
-        (.prerequisite family ⟨index, bound⟩) context #[] #[]
+        (.prerequisite family ⟨index, bound⟩) (family.source.universeParams.map Level.param)
+        context #[] #[]
       unless slot.reference == family.source.prerequisites[index].reference do
         throwError "request preparation changed an ordered primitive reference"
     else throwError "the prerequisite index is outside the checked family"
@@ -46,7 +47,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let foreignProgram ← liftM (m := BaseIO) (other.identities.fresh .program)
   let rejected ← try
     discard <| PreparedRequest.forBoundary foreignProgram occurrence (.target family)
-      context #[] #[]
+      (family.source.universeParams.map Level.param) context #[] #[]
     pure false
   catch _ => pure true
   unless rejected do throwError "request preparation mixed worker identities"
@@ -63,7 +64,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let owners ← liftM (m := IO) OwnerRegistry.new
   let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
   let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
-  let request ← PreparedRequest.forBoundary program occurrence (.registered family) context #[] #[]
+  let request ← PreparedRequest.forBoundary program occurrence (.registered family)
+    (family.universeParams.map Level.param) context #[] #[]
   unless request.reference == reference && family.source.reference == reference do
     throwError "direct source intake changed the registered primitive address"
   unless ← isDefEq request.source.source.expression family.source.family do
@@ -81,11 +83,32 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     pure false
   catch _ => pure true
   unless rejected do throwError "direct source intake accepted an unregistered address"
-  let renamed := family.universeParams.map fun name => Level.param (name.str "actual")
-  let specialized ← PreparedRequest.forBoundary program occurrence (.registered family)
+  let polymorphic ← SourceFamily.forReference (.functor FunctorId.ringsMultiplicative)
+  unless !polymorphic.universeParams.isEmpty do
+    throwError "the polymorphic source control has no universe parameter"
+  let renamed := polymorphic.universeParams.map fun name => Level.param (name.str "actual")
+  let specialized ← PreparedRequest.forBoundary program occurrence (.registered polymorphic)
     (universeArguments := renamed) context #[] #[]
-  let expected := family.source.family.instantiateLevelParams family.universeParams renamed
+  let expected := polymorphic.source.family.instantiateLevelParams polymorphic.universeParams renamed
   unless ← isDefEq specialized.source.source.expression expected do
     throwError "request preparation lost the explicit universe substitution"
   unless specialized.universeArguments == renamed do
     throwError "request preparation lost its original-to-actual universe correspondence"
+  let some output := specialized.outputs[0]?
+    | throwError "the source functor field is missing"
+  unless specialized.source.kind == .record && specialized.outputs.size == 1 &&
+      output.address == #[``CategoryTheory.Cat.Hom.toFunctor] do
+    throwError "the record response lost its exact source projection address"
+  let badArity ← try
+    discard <| PreparedRequest.forBoundary program occurrence (.registered polymorphic)
+      (renamed ++ [.zero]) context #[] #[]
+    pure false
+  catch _ => pure true
+  unless badArity do throwError "request preparation accepted the wrong universe arity"
+  let unresolved ← mkFreshLevelMVar
+  let rejectedUniverse ← try
+    discard <| PreparedRequest.forBoundary program occurrence (.registered polymorphic)
+      (polymorphic.universeParams.map fun _ => unresolved) context #[] #[]
+    pure false
+  catch _ => pure true
+  unless rejectedUniverse do throwError "request preparation retained an unresolved universe"

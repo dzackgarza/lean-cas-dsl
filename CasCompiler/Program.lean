@@ -79,12 +79,17 @@ def ProgramBoundary.source : ProgramBoundary → CheckedComputationPrerequisite
       familyType := program.source.familyType }
   | .prerequisite program index => program.source.prerequisites[index.val]
 
+def ProgramBoundary.universeParams : ProgramBoundary → List Name
+  | .registered family => family.universeParams
+  | .target program | .prerequisite program _ => program.source.universeParams
+
 /-- Complete source roles and ordered runtime scope, fixed before a computational reply. -/
 structure PreparedRequest where
   private mk ::
   program : CasRuntime.RuntimeId .program
   occurrence : CasRuntime.RuntimeId .occurrence
   boundary : ProgramBoundary
+  universeArguments : List Level
   source : SourceLayout
   scope : Array CasRuntime.ValueBinding
   outputs : Array SourceLayout
@@ -97,17 +102,24 @@ Result positions retain the source's ordered computational fields and dependent 
 Source application reuses Lean's native checks and the existing closed-context transport. -/
 opaque PreparedRequest.forBoundary (program : CasRuntime.RuntimeId .program)
     (occurrence : CasRuntime.RuntimeId .occurrence) (boundary : ProgramBoundary)
+    (universeArguments : List Level)
     (context : OpenContext) (arguments : Array ClosedTerm)
     (scope : Array CasRuntime.ValueBinding) : MetaM PreparedRequest := do
   unless program.worker == occurrence.worker do
     throwError "request preparation mixed worker identities"
+  unless universeArguments.length == boundary.universeParams.length do
+    throwError "request universe arguments do not match the checked source family"
+  let universeArguments ← universeArguments.mapM instantiateLevelMVars
+  if universeArguments.any (·.hasMVar) then
+    throwError "request preparation requires resolved universe arguments"
   for binding in scope do
     unless binding.value.worker == program.worker do
       throwError "a request scope value belongs to a different worker"
     discard <| binding.role.source.inContext context
   let family ← withLCtx {} #[] do
     let empty ← ContextTelescope.capture #[]
-    empty.close boundary.source.family
+    empty.close (boundary.source.family.instantiateLevelParams
+      boundary.universeParams universeArguments)
   let source ← if arguments.isEmpty then
       SourceLayout.ofTerm (← context.close (← family.inContext context))
     else do
@@ -120,7 +132,7 @@ opaque PreparedRequest.forBoundary (program : CasRuntime.RuntimeId .program)
     for field in source.fields do
       if field.wireIndex.isSome then outputs := outputs.push (← field.toLayout)
   else outputs := #[source]
-  return ⟨program, occurrence, boundary, source, scope, outputs⟩
+  return ⟨program, occurrence, boundary, universeArguments, source, scope, outputs⟩
 
 /-- Responses are candidate value references with source-prepared structural arity.
 Reference: CSLib 3951377e, Foundations/Data/PFunctor/Free.lean. -/
