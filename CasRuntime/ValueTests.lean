@@ -13,7 +13,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let functionRole ← SourceLayout.ofTerm (← context.close (mkConst ``Nat.succ))
   let pair ← mkAppM ``Prod.mk #[mkNatLit 7, mkConst ``Nat.succ]
   let productRole ← SourceLayout.ofTerm (← context.close pair)
-  liftIO do
+  liftM (m := IO) do
     let owners ← OwnerRegistry.new
     let supply := owners.identities
     let program ← supply.fresh .program
@@ -43,8 +43,11 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       throw <| IO.userError "a source proof acquired a computational payload"
     let child ← owners.spawn { cmd := "/bin/cat" }
     try
+      child.child.stdin.putStr "native token\n"
+      child.child.stdin.flush
+      let token := (← child.child.stdout.getLine).trimAscii.toString
       let (ownedGraph, owned) ← graph.stage supply origin
-        (.ownedExport child "native token" #[first])
+        (.ownedExport child token #[first])
       let (closedGraph, closed) ← ownedGraph.stage supply { origin with role := functionRole }
         (.closure program #[owned])
       let (jointGraph, joint) ← closedGraph.stage supply { origin with role := productRole }
