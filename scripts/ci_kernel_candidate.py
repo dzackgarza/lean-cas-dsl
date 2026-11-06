@@ -31,8 +31,7 @@ FIXED_IMPORTS = (
 )
 
 PRODUCTION_MODULES = (
-    'CasCatalogue.ConstrainedPoint', 'CasCatalogue.Language',
-    'CasCatalogue.Realize.RuntimeSupport', 'CasCatalogue.Realize',
+    'CasCompiler', 'CasRuntime',
 )
 
 
@@ -86,9 +85,20 @@ def production_artifacts(root):
                     item['sha256'] = record(path)['sha256']
                 outputs[str(path.relative_to(root))] = item
         prefix = '.lake/build/lib/lean/' + relative.as_posix()
+        setup = root / '.lake/build/ir' / relative.with_suffix('.setup.json')
+        imports = {}
+        if setup.is_file():
+            # Lake records the transitive non-core import artifacts in this file.
+            # https://github.com/leanprover/lean4/blob/v4.33.0/src/Lean/Setup.lean
+            for name, groups in json.loads(setup.read_text())['importArts'].items():
+                imports[name] = [
+                    {**record(path), 'mtimeNs': Path(path).stat().st_mtime_ns}
+                    if Path(path).is_file() else {'path': path, 'missing': True}
+                    for group in groups for path in group]
         result[module] = {
             'oleanAndTracePresent': all(prefix + suffix in outputs for suffix in ['.olean', '.trace']),
-            'outputs': outputs}
+            'importSetupPresent': setup.is_file(),
+            'imports': imports, 'outputs': outputs}
     return result
 
 
@@ -357,6 +367,9 @@ def run(root, runtime, name, command):
         cached['targetsWithUnchangedArtifacts'] = [
             module for module in PRODUCTION_MODULES
             if code == 0 and before == after and artifacts[module]['oleanAndTracePresent']
+            and artifacts[module]['importSetupPresent']
+            and all(not item.get('missing') for items in artifacts[module]['imports'].values()
+                    for item in items)
             and cached['artifactsBefore'][module] == artifacts[module]]
     write(report_path, report)
     if code or before != after:

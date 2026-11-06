@@ -212,6 +212,10 @@ _integration-intent:
       exit 2
     fi
 
+# Compile the shared compiler and runtime at the committed dependency selection.
+build-production:
+    @lake build CasCompiler CasRuntime
+
 # Build and statically check a clean integration candidate (CI or B0_INTEGRATION=1).
 build: _integration-intent track-main
     @python3 -m unittest discover -s scripts -p 'test_*.py'
@@ -219,6 +223,7 @@ build: _integration-intent track-main
     @python3 scripts/check_no_leaves.py
     @python3 scripts/check_reuse_records.py
     @python3 scripts/check_acceptance_permanent.py
+    @just build-production
     @lake build CasCatalogue CasGates CasAcceptance CasTools CasDsl CasDslTests cas-registry-export cas-axiom-audit cas-harness
 
 # Run the acceptance suite over a leaves manifest (default: the installed leaves', through
