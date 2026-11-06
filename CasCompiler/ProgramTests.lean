@@ -64,6 +64,17 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless fac.kind == .proof && fac.wireIndex.isNone &&
           fac.precedingDependencies.contains lift.sourceIndex do
         throwError "the formal equation lost its dependency on the retained mediator"
+      fac.typeFamily.withOpen fun _ family => do
+        lambdaTelescope family fun earlier type => do
+          unless earlier.size == fac.sourceIndex &&
+              type.containsFVar earlier[lift.sourceIndex]!.fvarId! do
+            throwError "the field type lost its preceding-field parameterization"
+      let some uniq := layout.fields.find? (·.projection == ``CategoryTheory.Limits.IsLimit.uniq)
+        | throwError "the selected limit witness lost its uniqueness law"
+      uniq.typeFamily.withOpen fun _ family => do
+        lambdaTelescope family fun earlier _ => do
+          unless earlier.size == uniq.sourceIndex do
+            throwError "the field type dropped an unused preceding formal slot"
       lift.source.withOpen fun _ expression => do
         unless (← whnf (← inferType expression)).isForall do
           throwError "the retained mediator lost its complete callable type"
