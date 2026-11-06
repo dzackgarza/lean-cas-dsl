@@ -113,8 +113,9 @@ meta def moduleFiles (dir : System.FilePath) (root : Name) : IO (Array Name) := 
 /-- The violations of the declaration `d` (with `info`) of the kernel module `m`. -/
 meta def declarationViolations (env : Environment) (d m : Name) (info : ConstantInfo) :
     Array String := Id.run do
+  -- Module indices select stored effective imports (Lean.EnvironmentHeader, v4.33.0).
   let moduleOf (c : Name) : Option Name :=
-    (env.getModuleIdxFor? c).map (env.header.moduleNames[·.toNat]!)
+    (env.getModuleIdxFor? c).map fun index => env.header.modules[index.toNat]!.module
   let tacticKinds := match (Parser.parserExtension.getState env).categories.find? `tactic with
     | some category => category.kinds
     | none => {}
@@ -164,7 +165,7 @@ meta def violations (env : Environment) (roots : List Name) : IO (Array String) 
         found := found.push s!"{m} requires import all for its complete purity audit"
   for (d, info) in env.constants.map₁.toList do
     let some idx := env.getModuleIdxFor? d | continue
-    let m := env.header.moduleNames[idx.toNat]!
+    let m := env.header.modules[idx.toNat]!.module
     unless roots.contains m.getRoot do continue
     found := found ++ declarationViolations env d m info
   return found

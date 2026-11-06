@@ -30,7 +30,7 @@ def audit (roots : List Name) : CommandElabM Unit := do
   let env ← getEnv
   let names := env.constants.toList.filterMap fun (name, _) => do
     let index ← env.getModuleIdxFor? name
-    let owner := env.header.moduleNames[index.toNat]!
+    let owner := env.header.modules[index.toNat]!.module
     if roots.contains owner.getRoot then some name else none
   let mut violations : Array (Name × Array Name) := #[]
   for name in names do
