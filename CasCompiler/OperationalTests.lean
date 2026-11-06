@@ -81,3 +81,11 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     pure false
   catch _ => pure true
   unless rejected do throwError "direct source intake accepted an unregistered address"
+  let renamed := family.universeParams.map fun name => Level.param (name.str "actual")
+  let specialized ← PreparedRequest.forBoundary program occurrence (.registered family)
+    (universeArguments := renamed) context #[] #[]
+  let expected := family.source.family.instantiateLevelParams family.universeParams renamed
+  unless ← isDefEq specialized.source.source.expression expected do
+    throwError "request preparation lost the explicit universe substitution"
+  unless specialized.universeArguments == renamed do
+    throwError "request preparation lost its original-to-actual universe correspondence"
