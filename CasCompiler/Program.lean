@@ -126,4 +126,14 @@ opaque SourceLayout.ofTerm (source : ClosedTerm) : MetaM SourceLayout :=
 opaque FieldLayout.toLayout (field : FieldLayout) : MetaM SourceLayout :=
   sourceLayout field.source field.address
 
+/-- Prepare ordinary source application in the current complete context.
+Arguments are checked source terms; computational candidates enter through the runtime. -/
+opaque SourceLayout.applyIn (function : SourceLayout) (context : OpenContext)
+    (arguments : Array ClosedTerm) : MetaM SourceLayout := do
+  unless function.kind == .function do
+    throwError "source application requires a callable interface"
+  let expression ← function.source.inContext context
+  let arguments ← arguments.mapM (·.inContext context)
+  sourceLayout (← context.close (mkAppN expression arguments)) function.address
+
 end CasCompiler
