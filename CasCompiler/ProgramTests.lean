@@ -20,9 +20,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let previous ← program.withPrerequisites fun slots body => do
       unless slots.size == source.prerequisites.size do
         throwError "source intake changed the prerequisite arity"
-      for slot in slots, index in [:slots.size] do
+      for slot in slots, expected in source.prerequisites, index in [:slots.size] do
         unless slot.index == index &&
-            slot.source.reference == source.prerequisites[index]!.reference do
+            slot.source.reference == expected.reference do
           throwError "source intake changed an exact ordered prerequisite address"
         check slot.expression
       check body
