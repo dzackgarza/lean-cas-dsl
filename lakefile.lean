@@ -45,6 +45,9 @@ lean_lib CasDsl where
   -- so the lib must glob submodules or the kernelspec's olean is never built
   globs := #[.andSubmodules `CasDsl]
 
+lean_lib CasCompiler where
+  globs := #[.andSubmodules `CasCompiler]
+
 /-- The core: resolution, propagation, calls and the language, over the leaf contract
 (`cas_leaf_contracts`) and `lean-categories`' semantic registry (`LeanCategories.Catalogue`), which it
 reads at the pin and never writes (`specs/architecture.md`). It keeps `lean-categories`'
