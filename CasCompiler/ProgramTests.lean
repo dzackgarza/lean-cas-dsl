@@ -91,3 +91,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let expected := mkApp (mkConst ``Fin) (mkApp (mkConst ``Nat.succ) bindings[0]!.expression)
       unless ← isDefEq (← inferType expression) expected do
         throwError "callable application lost its dependent result type"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let context ← ContextTelescope.capture #[]
+  let equivalence ← mkAppM ``Equiv.refl #[mkConst ``Nat]
+  let layout ← SourceLayout.ofTerm (← context.close equivalence)
+  unless layout.kind == .record && !layout.fields.isEmpty do
+    throwError "the callable record lost its retained fields"
+  let result ← layout.applyIn context #[← context.close (mkNatLit 1)]
+  result.source.withOpen fun _ expression => do
+    unless ← isDefEq (← inferType expression) (mkConst ``Nat) do
+      throwError "source application lost the record's accepted function coercion"
