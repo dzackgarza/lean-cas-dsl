@@ -34,6 +34,23 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless dictionary == bindings[1]!.expression do
       throwError "reopened context lost its selected local instance"
 
+  saved.context.withOpen fun bindings => do
+    withLocalDeclD `later bindings[0]!.expression fun later => do
+      let target ← ContextTelescope.capture (bindings.push {
+        id := ⟨"context-test", 4⟩, role := .parameter, expression := later })
+      let imported ← saved.inContext target
+      unless ← isDefEq imported bindings[3]!.expression do
+        throwError "a later context lost the original definition binding"
+
+  saved.context.withOpen fun bindings => do
+    let changed := bindings.set! 3 { bindings[3]! with id := ⟨"context-test", 5⟩ }
+    let target ← ContextTelescope.capture changed
+    let mut rejected := false
+    try
+      discard <| saved.inContext target
+    catch _ => rejected := true
+    unless rejected do throwError "a different binding identity replaced a captured definition"
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let context ← ContextTelescope.capture #[]
   let unresolved ← mkFreshExprMVar (mkConst ``Nat)
