@@ -84,7 +84,7 @@ focus target mode="build":
           lake env lean --profile "$source" 2>&1 | tee "$log" >/dev/null ;;
       build) timeout --signal=TERM --kill-after=5s "${budget}s" \
           /usr/bin/time -f 'elapsed_seconds=%e peak_rss_kib=%M' \
-          lake build "$module" 2>&1 | tee "$log" >/dev/null ;;
+          lake env lake build "$module" 2>&1 | tee "$log" >/dev/null ;;
       *) echo "mode must be profile or build" >&2; exit 2 ;;
     esac
     result=${PIPESTATUS[0]}
@@ -132,7 +132,7 @@ focus target mode="build":
     exit "$result"
 
 # Run a bounded import-only Lean reproducer from /tmp before another slow source edit.
-probe source: track-main
+probe source:
     #!/usr/bin/env bash
     set -euo pipefail
     source={{quote(source)}}
@@ -220,6 +220,10 @@ _integration-intent:
 build-production:
     @lake build +CasCompiler:olean +CasRuntime:olean
 
+# Audit all compiler, runtime and contract declarations against the shared rules.
+audit-production:
+    @lake env lake build +CasGates.Production:olean +CasGates.KernelPurityProbes:olean
+
 # Build and statically check a clean integration candidate (CI or B0_INTEGRATION=1).
 build: _integration-intent
     @python3 -m unittest discover -s scripts -p 'test_*.py'
@@ -228,7 +232,8 @@ build: _integration-intent
     @python3 scripts/check_reuse_records.py
     @python3 scripts/check_acceptance_permanent.py
     @just build-production
-    @lake build CasCatalogue CasGates CasAcceptance CasTools CasDsl CasDslTests cas-registry-export cas-axiom-audit cas-harness
+    @just audit-production
+    @lake env lake build CasCatalogue CasGates CasAcceptance CasTools CasDsl CasDslTests cas-registry-export cas-axiom-audit cas-harness
 
 # Run the acceptance suite over a leaves manifest (default: the installed leaves', through
 # `CAS_LEAVES` or `.lake/packages/cas_leaves`); writes every result to .tmp/harness.json. Gaps are

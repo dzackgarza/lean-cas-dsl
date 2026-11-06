@@ -104,9 +104,10 @@ def production_artifacts(root):
 def write_lake_wrapper(root, runtime):
     """Provide the selected Lake command for both direct and bash callers."""
     wrapper = runtime / 'lake.sh'
+    selection = 'lake --packages=' + shlex.quote(str(runtime / 'packages.json'))
     wrapper.write_text('#!/usr/bin/env bash\nset -euo pipefail\ncd -- ' +
-                       shlex.quote(str(root)) + '\nexec lake --packages=' +
-                       shlex.quote(str(runtime / 'packages.json')) + ' "$@"\n')
+                       shlex.quote(str(root)) + '\nexport LEAN_SRC_PATH="$(' +
+                       selection + ' env printenv LEAN_SRC_PATH)"\nexec ' + selection + ' "$@"\n')
     wrapper.chmod(0o755)
     return wrapper
 
@@ -181,10 +182,10 @@ def existing_wrapper_selection(root, overrides_path, wrapper):
     """Accept the two emitted wrapper forms, with their exact source selection."""
     lines = [line.strip() for line in wrapper.read_text().splitlines()
              if line.strip() and not line.lstrip().startswith('#')]
-    if len(lines) not in {3, 4} or lines[0] != 'set -euo pipefail':
+    if len(lines) not in {4, 5} or lines[0] != 'set -euo pipefail':
         raise SystemExit('Existing Lake wrapper is not a supported source-bound wrapper')
     prefix = None
-    if len(lines) == 4:
+    if len(lines) == 5:
         line = lines[1]
         if not line.startswith('export PATH=') or not line.endswith(':"$PATH"'):
             raise SystemExit('Existing Lake wrapper has an unsupported PATH declaration')
@@ -198,9 +199,11 @@ def existing_wrapper_selection(root, overrides_path, wrapper):
     if len(command) != 4 or command[0] != 'exec' or Path(command[1]).name != 'lake' \
             or not (command[1] == 'lake' or Path(command[1]).is_absolute()):
         raise SystemExit('Existing Lake wrapper must invoke the selected Lake directly')
-    expected = 'exec ' + shlex.quote(command[1]) + ' --packages=' + \
-        shlex.quote(str(overrides_path)) + ' "$@"'
-    if lines[-2] != 'cd -- ' + shlex.quote(str(root)) or lines[-1] != expected:
+    selection = shlex.quote(command[1]) + ' --packages=' + shlex.quote(str(overrides_path))
+    expected = 'exec ' + selection + ' "$@"'
+    sources = 'export LEAN_SRC_PATH="$(' + selection + ' env printenv LEAN_SRC_PATH)"'
+    if lines[-3] != 'cd -- ' + shlex.quote(str(root)) or lines[-2] != sources \
+            or lines[-1] != expected:
         raise SystemExit('Existing Lake wrapper selects a different checkout or package overrides')
     return {'root': str(root), 'overrides': str(overrides_path),
             'lake': command[1], 'pathPrefix': prefix}

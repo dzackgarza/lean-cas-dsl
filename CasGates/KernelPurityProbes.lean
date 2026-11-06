@@ -4,8 +4,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 -/
 module
 
-public import CasGates.KernelPurity
-public meta import CasGates.KernelPurity
+public import CasGates.KernelPurityRules
+public meta import CasGates.KernelPurityRules
 public import Mathlib.LinearAlgebra.Matrix.Determinant.Basic
 public import Mathlib.CategoryTheory.Category.Basic
 public meta import Lean
