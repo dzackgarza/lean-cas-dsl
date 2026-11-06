@@ -1,6 +1,6 @@
 module
 
-public import CasCompiler.Program
+public import CasCompiler.Layout
 public import CasRuntime.Owner
 
 public section
