@@ -69,8 +69,10 @@ opaque OwnerRegistry.isLive (owners : OwnerRegistry) (generation : ConnectionGen
 /-- Check all owners and run a short ledger transition under the owner-retirement lock.
 The action must not wait for engine traffic or reacquire this registry's lock.
 Reference: Lean v4.33.0 Std/Sync/Mutex.lean, `Mutex.atomically`. -/
-opaque OwnerRegistry.atomicallyWhileLive (owners : OwnerRegistry)
-    (generations : Array ConnectionGeneration) (action : BaseIO α) : BaseIO (Option α) :=
+opaque OwnerRegistry.atomicallyWhileLive [Monad m] [MonadLiftT BaseIO m]
+    [MonadLiftT (ST IO.RealWorld) m] [MonadFinally m]
+    (owners : OwnerRegistry) (generations : Array ConnectionGeneration)
+    (action : m α) : m (Option α) :=
   owners.state.atomically do
     let state ← get
     unless generations.all (fun generation =>

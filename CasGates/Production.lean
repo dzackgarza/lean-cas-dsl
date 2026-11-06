@@ -14,6 +14,8 @@ import all CasRuntime.Value
 import all CasRuntime.ValueTests
 import all CasRuntime.Occurrence
 import all CasRuntime.OccurrenceTests
+import all CasRuntime.Transaction
+import all CasRuntime.TransactionTests
 import all CasContract
 import all CasContract.Failure
 import all CasContract.Port
