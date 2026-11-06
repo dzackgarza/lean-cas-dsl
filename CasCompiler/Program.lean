@@ -64,6 +64,7 @@ structure FieldLayout where
   wireIndex : Option Nat
   precedingDependencies : Array Nat
   source : ClosedTerm
+  typeFamily : ClosedTerm
   kind : ComputationalKind
 
 /-- Mechanical layout of a fixed source value, with its complete dependent source type. -/
@@ -110,11 +111,13 @@ private def sourceLayout (source : ClosedTerm) (address : Array Name) : MetaM So
         let fieldType ← inferType locals[index]!
         let dependencies := (Array.range index).filter fun previous =>
           fieldType.containsFVar locals[previous]!.fvarId!
+        let typeFamily ← mkLambdaFVars (locals.extract 0 index) fieldType
+          (usedOnly := false) (usedLetOnly := false)
         let value ← mkProjection expression info.fieldNames[index]!
         let fieldKind ← computationalKind (← inferType value)
         let fieldWireIndex := if fieldKind == .proof then none else some wireIndex
         fields := fields.push ⟨address.push projection, projection, index, fieldWireIndex,
-          dependencies, ← context.close value, fieldKind⟩
+          dependencies, ← context.close value, ← context.close typeFamily, fieldKind⟩
         if fieldKind != .proof then wireIndex := wireIndex + 1
       return ⟨address, source, kind, fields⟩
 
