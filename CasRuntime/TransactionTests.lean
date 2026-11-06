@@ -88,6 +88,47 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let owners ← liftM (m := IO) OwnerRegistry.new
     let ledger ← liftM (m := BaseIO) (OccurrenceLedger.new owners)
     discard <| SessionSnapshot.initialize owners
+    let producer ← CellTransaction.begin ledger
+    let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+    let occurrence ← liftM (m := BaseIO) ledger.allocate
+    let child ← liftM (m := IO) <| owners.spawn { cmd := "/bin/cat" }
+    try
+      let token ← liftM (m := IO) do
+        child.child.stdin.putStr "reused owner token\n"
+        child.child.stdin.flush
+        return (← child.child.stdout.getLine).trimAscii.toString
+      let value ← liftM (m := IO) <| producer.stage
+        { program, occurrence, role } (.ownedExport child token #[])
+      let .ok _ ← producer.commit | throwError "the original owned value could not commit"
+      let consumer ← CellTransaction.begin ledger
+      liftM (m := IO) <| consumer.retain value
+      liftM (m := IO) <| consumer.emit (.str "reused result")
+      liftM (m := IO) <| owners.close child.generation
+      match ← consumer.commit with
+      | .error .staleOwner => pure ()
+      | _ => throwError "commit lost the owner dependency of a reused result"
+      let visible ← SessionSnapshot.current
+      unless visible.outputBatches.size == 1 && (visible.graph.find value.value).isSome do
+        throwError "failed reuse publication changed the prior snapshot"
+      let independent ← CellTransaction.begin ledger
+      let occurrence ← liftM (m := BaseIO) ledger.allocate
+      let portable ← liftM (m := IO) <| independent.stage
+        { program, occurrence, role } (.portable "independent result".toUTF8)
+      let .ok published ← independent.commit
+        | throwError "a dead prior owner blocked an independent portable result"
+      unless (published.graph.find portable.value).isSome do
+        throwError "the independent portable result was not published"
+    finally liftM (m := IO) <| owners.close child.generation
+  finally setEnv original
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let original ← getEnv
+  try
+    let context ← ContextTelescope.capture #[]
+    let role ← SourceLayout.ofTerm (← context.close (mkNatLit 7))
+    let owners ← liftM (m := IO) OwnerRegistry.new
+    let ledger ← liftM (m := BaseIO) (OccurrenceLedger.new owners)
+    discard <| SessionSnapshot.initialize owners
     let first ← CellTransaction.begin ledger
     let second ← CellTransaction.begin ledger
     let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
