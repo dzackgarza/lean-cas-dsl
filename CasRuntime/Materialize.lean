@@ -140,4 +140,12 @@ opaque ImmediateReply.materialize (reply : ImmediateReply) (request : PreparedRe
   let candidate ← request.admitResult draft.view binding
   return (draft, candidate)
 
+/-- Admit and install a complete immediate reply with its exact transaction-local completion.
+Publication remains the whole-cell commit transition. -/
+opaque ImmediateReply.stageCompletion (reply : ImmediateReply) (request : PreparedRequest)
+    (transaction : CellTransaction) (scope : RequestScope) (connection : Connection) :
+    MetaM (Except TransactionFailure CompletionAssociation) := do
+  let (draft, response) ← reply.materialize request transaction scope connection
+  transaction.completeReply draft request response scope reply
+
 end CasRuntime

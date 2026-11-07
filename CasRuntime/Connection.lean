@@ -216,13 +216,37 @@ opaque RequestLease.canCommit (lease : RequestLease) : BaseIO Bool :=
     let some resource := (← get).requests[lease.requestId]? | return false
     return resource.status matches .received
 
-opaque RequestLease.markCommitted (lease : RequestLease) : BaseIO Bool :=
-  lease.wire.state.atomically do
+private partial def commitLeaseGroups [Monad m] [MonadLiftT BaseIO m]
+    [MonadLiftT (ST IO.RealWorld) m] [MonadFinally m]
+    (leases : Array RequestLease) (action : m α) : m (Option α) := do
+  let some first := leases[0]? | return some (← action)
+  let group := leases.filter (·.owner == first.owner)
+  let remaining := leases.filter (·.owner != first.owner)
+  first.wire.state.atomically do
     let state ← get
-    let some resource := state.requests[lease.requestId]? | return false
-    let .received := resource.status | return false
-    set { state with requests := state.requests.insert lease.requestId { status := .committed } }
-    return true
+    unless group.all (fun lease => match state.requests[lease.requestId]? with
+        | some resource => (resource.status matches .received)
+        | none => false) do return none
+    let result ← commitLeaseGroups remaining action
+    if result.isSome then
+      let mut state := state
+      for lease in group do
+        state := { state with requests := state.requests.insert lease.requestId { status := .committed } }
+      set state
+    return result
+
+/-- Promote every received request lease with one publication decision, or promote none.
+Group a connection once and lock connections in generation order to prevent lock cycles.
+Reuse: Lean Std.Mutex.atomically and the existing request-resource states. No engine I/O runs here.
+Lock-order reference: Oracle Multithreaded Programming Guide, Using Locking Hierarchies,
+https://docs.oracle.com/cd/E19455-01/806-5257/sync-ex-3/index.html . -/
+opaque RequestLease.commitAll [Monad m] [MonadLiftT BaseIO m]
+    [MonadLiftT (ST IO.RealWorld) m] [MonadFinally m]
+    (transaction : RuntimeId .transaction) (leases : Array RequestLease) (action : m α) :
+    m (Option α) := do
+  unless leases.all (fun lease => lease.transaction == transaction &&
+      lease.owner.worker == transaction.worker) do return none
+  commitLeaseGroups (leases.qsort fun left right => left.owner.serial < right.owner.serial) action
 
 opaque FramedConnection.cleanupFailures (wire : FramedConnection) : BaseIO (Array (Nat × String)) :=
   wire.state.atomically do

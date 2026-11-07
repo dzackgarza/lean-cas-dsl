@@ -96,6 +96,12 @@ structure ResultRoleMap where
   root : ValueBinding
   private bindings : Std.HashMap RoleId ValueBinding
 
+def InputRoleMap.references (map : InputRoleMap) : Array ValueBinding :=
+  map.bindings.toArray.map (·.2.value)
+
+def ResultRoleMap.references (map : ResultRoleMap) : Array ValueBinding :=
+  map.bindings.toArray.map (·.2)
+
 private def storedResultAt (graph : ValueGraph) (root : ValueBinding) (path : Array Nat) :
     Except String (Option ValueBinding) := do
   let mut value := root

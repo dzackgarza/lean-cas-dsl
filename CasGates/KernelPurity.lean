@@ -102,6 +102,7 @@ import all CasRuntime.Occurrence
 import all CasRuntime.OccurrenceTests
 import all CasRuntime.Transaction
 import all CasRuntime.TransactionTests
+import all CasRuntime.CompletionTests
 import all CasRuntime.Execute
 import all CasRuntime.ExecuteTests
 import all CasRuntime.Scope

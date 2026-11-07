@@ -2,6 +2,8 @@ module
 
 public import CasRuntime.Occurrence
 public import CasRuntime.Connection
+public import CasCompiler.Program
+public import CasRuntime.Reply
 public import Lean.Environment
 public import Lean.CoreM
 
@@ -10,6 +12,29 @@ public section
 namespace CasRuntime
 
 open Lean
+
+/-- Completed native interface admission and its exact invocation provenance.
+References point into the ordinary graph; this record owns no second payload heap. -/
+structure CompletionAssociation where
+  private mk ::
+  request : CasCompiler.PreparedRequest
+  response : CasCompiler.PreparedResponse request
+  inputs : InputRoleMap
+  dispatch : DispatchReservation
+  scope : RuntimeId .scope
+  requestId : Nat
+
+structure StagedCompletion where
+  private mk ::
+  transaction : RuntimeId .transaction
+  private association : CompletionAssociation
+
+structure CommittedReceipt where
+  private mk ::
+  association : CompletionAssociation
+  commit : RuntimeId .commit
+  snapshot : RuntimeId .snapshot
+  outputBatch : RuntimeId .outputBatch
 
 structure OutputBatch where
   private mk ::
@@ -24,6 +49,11 @@ structure SessionSnapshot where
   id : RuntimeId .snapshot
   graph : ValueGraph
   outputBatches : Array OutputBatch
+  private receipts : Std.HashMap (RuntimeId .occurrence) CommittedReceipt
+
+/-- Inert receipt visibility belongs to this exact immutable Environment snapshot. -/
+def SessionSnapshot.receipt (snapshot : SessionSnapshot) (occurrence : RuntimeId .occurrence) :
+    Option CommittedReceipt := snapshot.receipts[occurrence]?
 
 /-- Runtime values are local to this worker and are not exported through .olean files.
 Reference: Lean v4.33.0 Lean/Environment.lean, `registerEnvExtension` and `EnvExtension.setState`. -/
@@ -40,7 +70,7 @@ opaque SessionSnapshot.initialize (owners : OwnerRegistry) : CoreM SessionSnapsh
   if (snapshotExtension.getState environment).isSome then
     throwError "the runtime Environment is already initialized"
   let snapshot : SessionSnapshot :=
-    ⟨← owners.identities.fresh .snapshot, ValueGraph.empty owners.identities, #[]⟩
+    ⟨← owners.identities.fresh .snapshot, ValueGraph.empty owners.identities, #[], {}⟩
   setEnv (snapshotExtension.setState environment (some snapshot))
   return snapshot
 
@@ -52,6 +82,7 @@ private structure ActiveCell where
   reservations : Array DispatchReservation := #[]
   leases : Array RequestLease := #[]
   installedDrafts : Std.HashSet (RuntimeId .draft) := {}
+  completions : Array StagedCompletion := #[]
 
 private inductive CellState
   | active (cell : ActiveCell)
@@ -100,9 +131,30 @@ opaque CellDraft.bindApplication (draft : CellDraft) (origin : ValueOrigin)
 
 inductive TransactionFailure
   | settled | staleSnapshot | staleOwner | pendingCalls | referenceOutsideGraph
-  | staleDraft | emptyDraft
+  | staleDraft | emptyDraft | invalidCompletion
   | reservation (failure : ReservationFailure)
   deriving BEq, Repr
+
+inductive ReuseDecision
+  | ready (binding : ValueBinding)
+  | pending (reservation : DispatchReservation)
+  | unavailable
+
+private def CompletionAssociation.select (association : CompletionAssociation)
+    (graph : ValueGraph) (owners : OwnerRegistry) (role : CasCompiler.RoleId) :
+    BaseIO (Except TransactionFailure ValueBinding) := do
+  unless graph.worker == owners.worker do return .error (.reservation .wrongWorker)
+  let .ok value := association.response.roles.lookup graph role
+    | return .error .referenceOutsideGraph
+  unless ← graph.isAvailable owners value do return .error .staleOwner
+  return .ok value
+
+/-- Reuse a visible committed result at the demanded role's own owner closure. -/
+opaque SessionSnapshot.reuse (snapshot : SessionSnapshot) (owners : OwnerRegistry)
+    (occurrence : RuntimeId .occurrence) (role : CasCompiler.RoleId) :
+    BaseIO (Except TransactionFailure (Option ValueBinding)) := do
+  let some receipt := snapshot.receipt occurrence | return .ok none
+  return (← receipt.association.select snapshot.graph owners role).map some
 
 /-- Active staging is cleared on settlement; only status remains in this object. -/
 structure CellTransaction where
@@ -130,6 +182,20 @@ opaque CellTransaction.view (transaction : CellTransaction) : IO ValueGraph := d
   let some graph ← transaction.activeGraph
     | throw <| IO.userError "the transaction has settled"
   return graph
+
+/-- Visible committed receipt, then this cell's completion, then its exact pending locator.
+Consumed occurrences never recover a result from the resource ledger. -/
+opaque CellTransaction.reuse (transaction : CellTransaction) (occurrence : RuntimeId .occurrence)
+    (role : CasCompiler.RoleId) : BaseIO (Except TransactionFailure ReuseDecision) :=
+  transaction.state.atomically do
+    let .active cell ← get | return .error .settled
+    if let some receipt := cell.parent.receipt occurrence then
+      return (← receipt.association.select cell.graph transaction.owners role).map .ready
+    if let some completion := cell.completions.find? (·.association.request.occurrence == occurrence) then
+      return (← completion.association.select cell.graph transaction.owners role).map .ready
+    if let some pending ← transaction.ledger.pendingFor occurrence transaction.id then
+      return .ok (.pending pending)
+    return .ok .unavailable
 
 /-- Begin a reply delta at the currently visible graph, without exposing any new field. -/
 opaque CellTransaction.draft (transaction : CellTransaction) : IO CellDraft :=
@@ -232,6 +298,52 @@ opaque CellTransaction.commitSend (transaction : CellTransaction)
       set (CellState.active { cell with leases := cell.leases.push lease })
       return .ok ()
 
+/-- Install an admitted whole reply and its transaction-local completion together.
+Reuse: prepared input/result admission, isolated drafts, actual received leases and owner gating.
+The parsed reply and request scope identify the exact transport invocation. -/
+opaque CellTransaction.completeReply (transaction : CellTransaction) (draft : CellDraft)
+    (request : CasCompiler.PreparedRequest) (response : CasCompiler.PreparedResponse request)
+    (scope : RequestScope) (reply : ImmediateReply) : MetaM (Except TransactionFailure CompletionAssociation) := do
+  let inputs ← request.admitInputs draft.view
+  let response ← request.admitResult draft.view response.root
+  discard <| scope.resolveMany scope.reservation draft.view scope.wireId #[]
+  liftM (m := BaseIO) <| transaction.state.atomically do
+    let .active cell ← get | return .error .settled
+    let dispatch := scope.reservation
+    unless reply.scopeId == scope.id && dispatch.transaction == transaction.id &&
+        dispatch.occurrence == request.occurrence && request.program.worker == transaction.id.worker &&
+        draft.transaction == transaction.id && cell.graph.sameRevision draft.base &&
+        !cell.installedDrafts.contains draft.id do return .error .invalidCompletion
+    if cell.completions.any (·.association.request.occurrence == request.occurrence) ||
+        (cell.parent.receipt request.occurrence).isSome then return .error .invalidCompletion
+    unless cell.reservations.any (fun tracked => tracked.occurrence == dispatch.occurrence &&
+        tracked.connection == dispatch.connection && tracked.selected == dispatch.selected) do
+      return .error .invalidCompletion
+    let some lease := cell.leases.find? (fun lease => lease.requestId == reply.requestId &&
+        lease.occurrence == request.occurrence && lease.owner == dispatch.connection)
+      | return .error .invalidCompletion
+    unless ← lease.canCommit do return .error .invalidCompletion
+    let outputs := response.roles.references
+    let .ok dependencies := draft.graph.requiredOwners
+        (draft.roots ++ outputs ++ inputs.references ++ reply.exports.flatMap (·.captures))
+      | return .error .referenceOutsideGraph
+    let dependencies := dependencies ++ dispatch.dependencies
+    let outcome : Option (Except TransactionFailure CompletionAssociation) ← transaction.owners.atomicallyWhileLive
+        (m := Std.AtomicT CellState BaseIO) dependencies do
+      unless ← transaction.ledger.retire dispatch do return .error .invalidCompletion
+      let association : CompletionAssociation :=
+        ⟨request, response, inputs, dispatch, scope.id, reply.requestId⟩
+      let completion : StagedCompletion := ⟨transaction.id, association⟩
+      set (CellState.active { cell with
+        graph := draft.graph
+        roots := cell.roots ++ draft.roots ++ outputs
+        reservations := cell.reservations.filter (·.occurrence != request.occurrence)
+        installedDrafts := cell.installedDrafts.insert draft.id
+        completions := cell.completions.push completion })
+      return .ok association
+    if let some (.ok _) := outcome then scope.retire
+    return outcome.getD (.error .staleOwner)
+
 /-- Abort discards staging and leaves every reserved dispatch right consumed. -/
 opaque CellTransaction.abort (transaction : CellTransaction) : BaseIO Bool :=
   transaction.state.atomically do
@@ -260,19 +372,30 @@ opaque CellTransaction.commit (transaction : CellTransaction) :
       | return .error .referenceOutsideGraph
     let owners := transaction.ledger.owners
     let result ← owners.atomicallyWhileLive (m := Std.AtomicT CellState BaseIO) dependencies do
-      let commit ← owners.identities.fresh .commit
-      let batch : OutputBatch :=
-        ⟨← owners.identities.fresh .outputBatch, commit, transaction.id, cell.events⟩
-      let snapshot : SessionSnapshot := ⟨← owners.identities.fresh .snapshot,
-        cell.graph, cell.parent.outputBatches.push batch⟩
-      set (CellState.committed snapshot.id)
-      return snapshot
+      RequestLease.commitAll transaction.id cell.leases do
+        let commit ← owners.identities.fresh .commit
+        let snapshotId ← owners.identities.fresh .snapshot
+        let batch : OutputBatch :=
+          ⟨← owners.identities.fresh .outputBatch, commit, transaction.id, cell.events⟩
+        let mut receipts := cell.parent.receipts
+        for completion in cell.completions do
+          let association := completion.association
+          receipts := receipts.insert association.request.occurrence
+            ⟨association, commit, snapshotId, batch.id⟩
+        let snapshot : SessionSnapshot :=
+          ⟨snapshotId, cell.graph, cell.parent.outputBatches.push batch, receipts⟩
+        set (CellState.committed snapshot.id)
+        return snapshot
     match result with
     | none =>
       for lease in cell.leases do lease.cancel
       set CellState.aborted
       return .error .staleOwner
-    | some snapshot => return .ok snapshot
+    | some none =>
+      for lease in cell.leases do lease.cancel
+      set CellState.aborted
+      return .error .invalidCompletion
+    | some (some snapshot) => return .ok snapshot
   match outcome with
   | .error failure => return .error failure
   | .ok snapshot =>
