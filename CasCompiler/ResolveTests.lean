@@ -10,7 +10,7 @@ meta import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
 meta import LeanCategories.Catalogue.Semantics.ConstructorRegistration
 meta import LeanCategories.Catalogue.Semantics.Algebra.MonoidOperations
 
-open Lean CasCompiler CasCatalogue
+open Lean Elab Command CasCompiler CasCatalogue
 
 run_cmd do
   let state ← liftCoreM semanticState

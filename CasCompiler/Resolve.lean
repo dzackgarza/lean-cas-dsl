@@ -52,6 +52,7 @@ structure SourceRoutes where
 
 private def sourceRoutes (state : SemanticState) (source : CategoryExpr)
     (targets : Array CategoryExpr) : CoreM SourceRoutes := do
+  Core.checkSystem "source route construction"
   let constructors := (state.constructors.filter (·.functorialAction.isSome)).map (·.id)
   let edges := state.structuralEdges
   let build : StateM (Array SourceSymbol)
@@ -66,6 +67,7 @@ private def sourceRoutes (state : SemanticState) (source : CategoryExpr)
   let ((initial, encodedTargets, rules), symbols) := build.run #[]
   let .ok language := RouteGrammar.compile rules initial encodedTargets
     | throwError "the source registry produced an invalid ground-prefix route system"
+  Core.checkSystem "source route saturation"
   return ⟨state, source, targets, symbols, edges, language⟩
 
 /-- Project one independently supplied owner target from the current accepted source inventory.
@@ -90,6 +92,7 @@ opaque SourceRoutes.reconstruct (routes : SourceRoutes) (trace : RouteGrammar.Wo
   let mut current := routes.source
   let mut refs := #[]
   for occurrence in occurrences do
+    Core.checkSystem "source route reconstruction"
     let some base := routes.edges[occurrence.rule]?
       | throwError "the selected trace lost its original structural edge"
     let mut edge := base
