@@ -163,7 +163,7 @@ opaque observeFile (file : SourceFile) (initial : SourceSession) : TermElabM Obs
             readings := observation.readings.push (unread where_ provenance) }
         continue
       let saved ← saveState
-      let result ← try
+      let result : Except Failure (SourceSession ⊕ Reading) ← try
         let formed ← session.readStatement statement
         match formed with
         | .definition next _ => pure (.ok (Sum.inl next))
