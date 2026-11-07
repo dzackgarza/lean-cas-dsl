@@ -23,8 +23,12 @@ track-main:
     @python3 scripts/ci_chain.py
     @python3 scripts/resolve_lake_if_needed.py
 
+# Fetch cached artifacts for the named Mathlib modules and their imports.
+cache +modules:
+    @lake exe cache get {{modules}}
+
 # Build one Lean target and automatically profile it if slow; mode=profile profiles a source.
-focus target mode="build": track-main
+focus target mode="build":
     #!/usr/bin/env bash
     set -euo pipefail
     target={{quote(target)}}
@@ -39,7 +43,7 @@ focus target mode="build": track-main
         echo "Prior profile must be a nonempty readable log: $B0_PRIOR_PROFILE_LOG" >&2
         exit 2
       fi
-      if ! rg -q 'cumulative profiling times:' "$B0_PRIOR_PROFILE_LOG"; then
+    if ! grep -q 'cumulative profiling times:' "$B0_PRIOR_PROFILE_LOG"; then
         echo "Diagnosed build requires B0_PRIOR_PROFILE_LOG from a completed profile." >&2
         exit 2
       fi
@@ -80,7 +84,7 @@ focus target mode="build": track-main
           lake env lean --profile "$source" 2>&1 | tee "$log" >/dev/null ;;
       build) timeout --signal=TERM --kill-after=5s "${budget}s" \
           /usr/bin/time -f 'elapsed_seconds=%e peak_rss_kib=%M' \
-          lake build "$module" 2>&1 | tee "$log" >/dev/null ;;
+          lake env lake build "$module" 2>&1 | tee "$log" >/dev/null ;;
       *) echo "mode must be profile or build" >&2; exit 2 ;;
     esac
     result=${PIPESTATUS[0]}
@@ -91,7 +95,7 @@ focus target mode="build": track-main
     echo "Focused log: $log"
     if (( result == 0 )); then
       if [[ "$mode" == "profile" ]]; then tail -n 27 "$log"
-      else rg 'Built |Build completed|elapsed_seconds=' "$log" | tail -n 8
+      else grep -E 'Built |Build completed|elapsed_seconds=' "$log" | tail -n 8
       fi
     else
       tail -n 30 "$log"
@@ -128,7 +132,7 @@ focus target mode="build": track-main
     exit "$result"
 
 # Run a bounded import-only Lean reproducer from /tmp before another slow source edit.
-probe source: track-main
+probe source:
     #!/usr/bin/env bash
     set -euo pipefail
     source={{quote(source)}}
@@ -212,14 +216,28 @@ _integration-intent:
       exit 2
     fi
 
+# Compile the shared compiler and runtime at the committed dependency selection.
+build-production:
+    @lake build +CasCompiler:olean +CasRuntime:olean
+
+# Audit all compiler, runtime and contract declarations against the shared rules.
+audit-production:
+    @lake env lake build +CasGates.Production:olean +CasGates.KernelPurityProbes:olean
+
+# Exercise native protocol-v2 SDK traffic against an explicit contract source.
+protocol-v2 contracts:
+    @uv run --project "{{contracts}}" python scripts/test_protocol_v2.py "{{contracts}}"
+
 # Build and statically check a clean integration candidate (CI or B0_INTEGRATION=1).
-build: _integration-intent track-main
+build: _integration-intent
     @python3 -m unittest discover -s scripts -p 'test_*.py'
     @python3 scripts/check_no_leaves.py --self-test
     @python3 scripts/check_no_leaves.py
     @python3 scripts/check_reuse_records.py
     @python3 scripts/check_acceptance_permanent.py
-    @lake build CasCatalogue CasGates CasAcceptance CasTools CasDsl CasDslTests cas-registry-export cas-axiom-audit cas-harness
+    @just build-production
+    @just audit-production
+    @lake env lake build CasCatalogue CasGates CasAcceptance CasTools CasDsl CasDslTests cas-registry-export cas-axiom-audit cas-harness
 
 # Run the acceptance suite over a leaves manifest (default: the installed leaves', through
 # `CAS_LEAVES` or `.lake/packages/cas_leaves`); writes every result to .tmp/harness.json. Gaps are

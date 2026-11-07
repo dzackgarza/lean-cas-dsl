@@ -1,0 +1,9 @@
+-- RX-09 negative input, evaluated separately from all positive .cas files.
+-- Expected outcome: mathematical admission rejection at the final binding.
+-- [M14] integer_constant_one_not_summable and no_constant_one_admission.
+-- It must not reach summation, report a missing implementation, or return 0.
+let R := ℤ in CommutativeRings
+let indices := ℕ in Sets
+let Y := PowerSeries(R) in HausdorffTopologicalMonoids
+let constantOne(n) := 1 in indices → ℤ[[t]]
+let impossibleAdmission := constantOne in Summable(Y, indices)

@@ -1,27 +1,57 @@
-{"version": "1.2.0",
- "packagesDir": "../../.local/share/lean/v4.33.0/packages",
- "packages":
- [{"url": "https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts",
+{
+ "version": "1.2.0",
+ "packagesDir": ".lake/packages",
+ "packages": [
+  {
+   "url": "https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts",
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "3c2159b510db2ca63455530ed0f4c28ba27da2f8",
+   "rev": "14694e8b20a2289b460c07845003b52e2a9a100f",
    "name": "cas_leaf_contracts",
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",
    "inherited": false,
-   "configFile": "lakefile.lean"},
-  {"url": "https://github.com/dzackgarza/lean-categories",
+   "configFile": "lakefile.lean"
+  },
+  {
+   "url": "https://github.com/dzackgarza/lean-categories",
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "eea5c7f3bce7a1d2fdfbd58840c4d4bd75c9a8bc",
+   "rev": "8c35703b104aca1700b9fb40d1af4164ca31a55d",
    "name": "lean_categories",
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",
    "inherited": false,
-   "configFile": "lakefile.toml"},
-  {"url": "https://github.com/leanprover-community/mathlib4",
+   "configFile": "lakefile.toml"
+  },
+  {
+   "url": "https://github.com/Verified-zkEVM/PolyFun",
+   "type": "git",
+   "subDir": null,
+   "scope": "",
+   "rev": "a5895e454254a400774fa396b64d5b968f0933df",
+   "name": "PolyFun",
+   "manifestFile": "lake-manifest.json",
+   "inputRev": "a5895e454254a400774fa396b64d5b968f0933df",
+   "inherited": false,
+   "configFile": "lakefile.toml"
+  },
+  {
+   "url": "https://github.com/leanprover/cslib",
+   "type": "git",
+   "subDir": null,
+   "scope": "",
+   "rev": "3951377e5a3f5772737f11cd62bc5bb6a72f95d1",
+   "name": "cslib",
+   "manifestFile": "lake-manifest.json",
+   "inputRev": "3951377e5a3f5772737f11cd62bc5bb6a72f95d1",
+   "inherited": false,
+   "configFile": "lakefile.toml"
+  },
+  {
+   "url": "https://github.com/leanprover-community/mathlib4",
    "type": "git",
    "subDir": null,
    "scope": "",
@@ -30,18 +60,22 @@
    "manifestFile": "lake-manifest.json",
    "inputRev": "v4.33.0",
    "inherited": false,
-   "configFile": "lakefile.lean"},
-  {"url": "https://github.com/dzackgarza/lean-jupyter-kernel",
+   "configFile": "lakefile.lean"
+  },
+  {
+   "url": "https://github.com/dzackgarza/lean-jupyter-kernel",
    "type": "git",
    "subDir": "worker",
    "scope": "",
-   "rev": "4c6c2a77abcc717513a65ca35723ed428647e1bd",
-   "name": "«nbdsl-worker»",
+   "rev": "f3e73ed400df38f23821a038ec078cfa1d1bfed5",
+   "name": "\u00abnbdsl-worker\u00bb",
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",
    "inherited": false,
-   "configFile": "lakefile.lean"},
-  {"url": "https://github.com/Whysoserioushah/BrauerGroup.git",
+   "configFile": "lakefile.lean"
+  },
+  {
+   "url": "https://github.com/Whysoserioushah/BrauerGroup.git",
    "type": "git",
    "subDir": null,
    "scope": "",
@@ -50,8 +84,10 @@
    "manifestFile": "lake-manifest.json",
    "inputRev": "v4.33.0",
    "inherited": true,
-   "configFile": "lakefile.toml"},
-  {"url": "https://github.com/leanprover-community/plausible",
+   "configFile": "lakefile.toml"
+  },
+  {
+   "url": "https://github.com/leanprover-community/plausible",
    "type": "git",
    "subDir": null,
    "scope": "leanprover-community",
@@ -60,8 +96,10 @@
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",
    "inherited": true,
-   "configFile": "lakefile.toml"},
-  {"url": "https://github.com/leanprover-community/LeanSearchClient",
+   "configFile": "lakefile.toml"
+  },
+  {
+   "url": "https://github.com/leanprover-community/LeanSearchClient",
    "type": "git",
    "subDir": null,
    "scope": "leanprover-community",
@@ -70,8 +108,10 @@
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",
    "inherited": true,
-   "configFile": "lakefile.toml"},
-  {"url": "https://github.com/leanprover-community/import-graph",
+   "configFile": "lakefile.toml"
+  },
+  {
+   "url": "https://github.com/leanprover-community/import-graph",
    "type": "git",
    "subDir": null,
    "scope": "leanprover-community",
@@ -80,8 +120,10 @@
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",
    "inherited": true,
-   "configFile": "lakefile.toml"},
-  {"url": "https://github.com/leanprover-community/ProofWidgets4",
+   "configFile": "lakefile.toml"
+  },
+  {
+   "url": "https://github.com/leanprover-community/ProofWidgets4",
    "type": "git",
    "subDir": null,
    "scope": "leanprover-community",
@@ -90,8 +132,10 @@
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",
    "inherited": true,
-   "configFile": "lakefile.lean"},
-  {"url": "https://github.com/leanprover-community/aesop",
+   "configFile": "lakefile.lean"
+  },
+  {
+   "url": "https://github.com/leanprover-community/aesop",
    "type": "git",
    "subDir": null,
    "scope": "leanprover-community",
@@ -100,8 +144,10 @@
    "manifestFile": "lake-manifest.json",
    "inputRev": "master",
    "inherited": true,
-   "configFile": "lakefile.toml"},
-  {"url": "https://github.com/leanprover-community/quote4",
+   "configFile": "lakefile.toml"
+  },
+  {
+   "url": "https://github.com/leanprover-community/quote4",
    "type": "git",
    "subDir": null,
    "scope": "leanprover-community",
@@ -110,8 +156,10 @@
    "manifestFile": "lake-manifest.json",
    "inputRev": "master",
    "inherited": true,
-   "configFile": "lakefile.toml"},
-  {"url": "https://github.com/leanprover-community/batteries",
+   "configFile": "lakefile.toml"
+  },
+  {
+   "url": "https://github.com/leanprover-community/batteries",
    "type": "git",
    "subDir": null,
    "scope": "leanprover-community",
@@ -120,8 +168,10 @@
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",
    "inherited": true,
-   "configFile": "lakefile.toml"},
-  {"url": "https://github.com/PatrickMassot/checkdecls.git",
+   "configFile": "lakefile.toml"
+  },
+  {
+   "url": "https://github.com/PatrickMassot/checkdecls.git",
    "type": "git",
    "subDir": null,
    "scope": "",
@@ -130,8 +180,10 @@
    "manifestFile": "lake-manifest.json",
    "inputRev": null,
    "inherited": true,
-   "configFile": "lakefile.lean"},
-  {"url": "https://github.com/leanprover/lean4-cli",
+   "configFile": "lakefile.lean"
+  },
+  {
+   "url": "https://github.com/leanprover/lean4-cli",
    "type": "git",
    "subDir": null,
    "scope": "leanprover",
@@ -140,7 +192,10 @@
    "manifestFile": "lake-manifest.json",
    "inputRev": "v4.33.0",
    "inherited": true,
-   "configFile": "lakefile.toml"}],
- "name": "«cas-dsl»",
+   "configFile": "lakefile.toml"
+  }
+ ],
+ "name": "\u00abcas-dsl\u00bb",
  "lakeDir": ".lake",
- "fixedToolchain": false}
+ "fixedToolchain": false
+}
