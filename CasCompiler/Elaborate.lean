@@ -22,16 +22,28 @@ structure SourceSpan where
 private def sourceSpan (stx : Syntax) : CoreM SourceSpan := do
   return ⟨← getFileName, stx.getPos?, stx.getTailPos?⟩
 
+inductive SourceCategoryRole where
+  | object
+  | morphism
+  deriving BEq
+
 /-- The selected symbolic category and its complete native bundle in the original context. -/
 structure SourceCategoryBinding where
   private mk ::
   expression : CasCatalogue.CategoryExpr
   bundle : ClosedTerm
+  role : SourceCategoryRole
+
+/-- A native value's selected category, including whether it is an object or an arrow. -/
+structure NativeSourceCategory where
+  role : SourceCategoryRole
+  expression : CasCatalogue.CategoryExpr
+  bundle : Expr
 
 /-- An elaborated value and any category explicitly selected by the source frontend. -/
 structure NativeSourceJudgement where
   value : Expr
-  category : Option (CasCatalogue.CategoryExpr × Expr)
+  category : Option NativeSourceCategory
 
 /-- A completed checked source expression, with its full telescope and original source span. -/
 structure SourceTerm where
@@ -65,14 +77,21 @@ private def SourceSession.categoryOf (session : SourceSession) (context : OpenCo
 Reuse: native Bundled.α and stable-ID context transport. Category identity is supplied by
 source selection, never inferred from a carrier type. Source: #66, comment 6664276482 §1. -/
 opaque SourceTerm.inCategory (term : SourceTerm) (expression : CasCatalogue.CategoryExpr)
-    (category : SourceTerm) : MetaM SourceTerm := do
+    (category : SourceTerm) (role : SourceCategoryRole := .object) : MetaM SourceTerm := do
   term.source.withOpen fun bindings value => do
     let context ← ContextTelescope.capture bindings
     let categoryValue ← category.source.inContext context
     let carrier ← mkAppM ``CategoryTheory.Bundled.α #[categoryValue]
-    unless ← isDefEq (← inferType value) carrier do
-      throwError "the source value does not inhabit its selected native category"
-  return { term with category := some ⟨expression, category.source⟩ }
+    match role with
+    | .object =>
+      unless ← isDefEq (← inferType value) carrier do
+        throwError "the source value does not inhabit its selected native category"
+    | .morphism =>
+      -- Native identity-map application checks both endpoints in the supplied category.
+      let categoryStructure ← mkAppM ``CategoryTheory.Bundled.str #[categoryValue]
+      let identity ← mkAppOptM ``CategoryTheory.Functor.id #[some carrier, some categoryStructure]
+      discard <| withTransparency .all <| mkAppM ``CategoryTheory.Functor.map #[identity, value]
+  return { term with category := some ⟨expression, category.source, role⟩ }
 
 /-- Source declarations share the worker's monotone identity supply across snapshot branches.
 Reuse: IdentitySupply.fresh and its native atomic counter; only identities live in the supply. -/
@@ -121,10 +140,10 @@ opaque SourceSession.elaborateJudgements (session : SourceSession) (reference : 
         let term : SourceTerm := ⟨source, span, session.categoryOf context expression⟩
         match judgement.category with
         | none => return term
-        | some (symbolic, bundle) =>
-          let category ← context.close (← instantiateMVars bundle)
+        | some selected =>
+          let category ← context.close (← instantiateMVars selected.bundle)
           checkSource category
-          term.inCategory symbolic ⟨category, span, none⟩
+          term.inCategory selected.expression ⟨category, span, none⟩ selected.role
 
 /-- Form ordinary checked native terms through the same complete source boundary. -/
 opaque SourceSession.elaborateMany (session : SourceSession) (reference : Syntax)

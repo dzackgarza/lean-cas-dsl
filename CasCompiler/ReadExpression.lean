@@ -21,7 +21,7 @@ private def sourceAtomName? (source : Syntax) : Option String :=
 -- even when expected-type unification has already assigned a provisional argument.
 -- Reuse: Lean.Elab.App.elabAppArgs and Lean.Meta.mkFreshExprMVar at Lean 4.33.0.
 partial def readExpression
-    (categoryOf : FVarId → TermElabM (Option (CasCatalogue.CategoryExpr × Expr)))
+    (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
     (source : TSyntax `cas_term) (expected : Option Expr)
     (qualification : Option String := none) : TermElabM NativeSourceJudgement :=
   withRef source do
@@ -42,20 +42,30 @@ partial def readExpression
     let (entry, categoryEntry) ← selectObject name category expected
     let (bundle, value) ← objectExpressions entry categoryEntry fun function expected =>
       application function arguments expected
-    return (⟨value, some (categoryEntry.expression, bundle)⟩ : NativeSourceJudgement)
+    return (⟨value, some ⟨.object, categoryEntry.expression, bundle⟩⟩ : NativeSourceJudgement)
   let registered := fun (name : Ident) (arguments : Array (TSyntax `cas_term)) => do
     if let some declaration := (← getLCtx).findFromUserName? name.getId then
       let selected ← categoryOf declaration.fvarId
       let value ← application (mkFVar declaration.fvarId) arguments expected
       return ⟨value, if arguments.isEmpty then selected else none⟩
     object (name.getId.toString (escape := false)) qualification arguments
-  let readView := fun (receiver : TSyntax `cas_term) (id : Ident)
-      (arguments : Array (TSyntax `cas_term)) => do
+  let readFunctorAction := fun (role : SourceCategoryRole) (receiver : TSyntax `cas_term)
+      (id : Ident) (arguments : Array (TSyntax `cas_term)) => do
     let entry ← selectView (id.getId.toString (escape := false))
     let receiver ← readExpression categoryOf receiver none
-    let selected ← viewExpressions entry receiver.category fun constant =>
+    if let some category := receiver.category then
+      unless category.role == role do
+        throwError "the source functor action has a different object or morphism role"
+    let selected ← viewExpressions entry
+        (receiver.category.map fun category => (category.expression, category.bundle)) fun constant =>
       application constant arguments none
-    let image ← functorObject selected.functor receiver.value selected.targetBundle
+    let image ← match role with
+      | .object => functorObject selected.functor receiver.value selected.targetBundle
+      | .morphism => do
+        let function ← mkAppM ``CategoryTheory.Functor.map #[selected.functor]
+        -- AppBuilder protects pre-existing metavariables. Native source application must
+        -- solve the selected declaration's levels at the actual arrow in this context.
+        elabAppArgs function #[] #[Arg.expr receiver.value] none false false
     let (kind, id) := match selected.reference with
       | .inl id => (``CasCatalogue.EdgeRef.functor, id.raw)
       | .inr id => (``CasCatalogue.EdgeRef.classifierForget, id.raw)
@@ -64,13 +74,16 @@ partial def readExpression
     let data := KVMap.empty |>.setName `CasCompiler.view.kind kind
       |>.setString `CasCompiler.view.id id
       |>.setName `CasCompiler.view.declaration selected.declaration
-    return (⟨.mdata data image, some (selected.target, selected.targetBundle)⟩ : NativeSourceJudgement)
+    return (⟨.mdata data image, some ⟨role, selected.target, selected.targetBundle⟩⟩ :
+      NativeSourceJudgement)
   let judgement ← if let some name := sourceAtomName? source then object name qualification #[]
     else match source with
     | `(cas_term| view $receiver:cas_term along $functor:ident) =>
-      readView receiver functor #[]
+      readFunctorAction .object receiver functor #[]
     | `(cas_term| view $receiver:cas_term along $functor:ident($arguments:cas_term,*)) =>
-      readView receiver functor arguments.getElems
+      readFunctorAction .object receiver functor arguments.getElems
+    | `(cas_term| map $receiver:cas_term along $functor:ident($arguments:cas_term,*)) =>
+      readFunctorAction .morphism receiver functor arguments.getElems
     | `(cas_term| ($inner:cas_term)) =>
       readExpression categoryOf inner expected qualification
     | `(cas_term| $number:num) =>
@@ -94,9 +107,9 @@ partial def readExpression
     | _ => throwError "source translation is not implemented for this expression form"
   if let some name := qualification then
     let required ← selectCategory (← CasCatalogue.semanticState) name
-    let some (symbolic, _) := judgement.category
+    let some selected := judgement.category
       | throwError "the retained source value has no selected category"
-    unless symbolic.syntacticEq required.expression do
+    unless selected.expression.syntacticEq required.expression do
       throwError "the retained source value has a different selected category"
   if let some expected := expected then
     unless ← isDefEq (← inferType judgement.value) expected do

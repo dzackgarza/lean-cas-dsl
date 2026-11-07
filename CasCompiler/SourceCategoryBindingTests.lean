@@ -100,6 +100,16 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     category.bundle.withOpen fun _ bundle => do
       unless bundle.containsConst (· == declaration) do
         throwError "a module category lost its actual registered scalar parameter"
+    let bound ← empty.defineTerm `M module
+    let image ← readSource bound s!"view M along «fun.modules.fibre_inclusion»({source})"
+    image.source.withOpen fun bindings value => do
+      let functor := mkApp
+        (Lean.mkConst ``CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration
+          [.zero, .zero]) (Lean.mkConst declaration)
+      let prefunctor ← mkAppM ``CategoryTheory.Functor.toPrefunctor #[functor]
+      let expected ← mkAppM ``Prefunctor.obj #[prefunctor, bindings[0]!.expression]
+      unless (← isDefEq value expected) && value.containsFVar bindings[0]!.expression.fvarId! do
+        throwError "a source view changed its independently typed scalar or actual module"
   let set ← readSource empty "ℚ"
   let bound ← empty.defineTerm `Q set
   for source in #["RegularModule(Q)", "RegularModule(ℚ in Sets)"] do

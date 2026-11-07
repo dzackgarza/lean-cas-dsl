@@ -139,20 +139,58 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let empty ← SourceSession.empty identities
   let domains ← empty.assume `A (← nativeSource "Type")
   let domains ← domains.assume `B (← nativeSource "Type")
-  let functions ← domains.assume `f (← nativeSource "A → B")
+  let functions ← domains.assume `f (← nativeSource "TypeCat.Hom A B")
   let image ← readSource functions "map f along «fun.sets.list»()"
   let some entry := (← semanticState).functor? FunctorId.setsList
     | throwError "the actual map action is absent from the source"
   reference image ``EdgeRef.functor entry.id.raw entry.declaration
+  let some category := image.category
+    | throwError "the source map action lost its selected target category"
+  unless category.role == .morphism && category.expression.syntacticEq entry.target do
+    throwError "the source map action changed its categorical role or target"
   image.source.withOpen fun bindings value => do
     let expected ← mkAppM ``CategoryTheory.Functor.map
       #[Lean.mkConst entry.declaration [.zero], bindings[2]!.expression]
     unless value.containsFVar bindings[2]!.expression.fvarId! && (← isDefEq value expected) do
       throwError "the source map action changed the actual declared functor or input arrow"
   let bound ← functions.defineTerm `mapped image
+  let repeated ← readSource bound "map mapped along «fun.sets.list»()"
+  repeated.source.withOpen fun bindings value => do
+    unless value.containsFVar bindings[3]!.expression.fvarId! do
+      throwError "successive map action replaced the actual bound arrow"
+  let failure : Option Exception ← try
+    discard <| readSource bound "view mapped along «fun.sets.list»()"
+    pure none
+  catch error => pure (some error)
+  let some failure := failure
+    | throwError "an object action accepted a source arrow"
+  unless (← failure.toMessageData.toString).startsWith
+      "the source functor action has a different object or morphism role" do throw failure
   let arguments ← bound.assume `xs (← nativeSource "List A")
   let applied ← readSource arguments "mapped(xs)"
   applied.source.withOpen fun bindings value => do
     unless value.containsFVar bindings[3]!.expression.fvarId! &&
         value.containsFVar bindings[4]!.expression.fvarId! do
       throwError "a mapped callable lost its actual binding or later argument"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let rings ← empty.assume `R (← nativeSource "CommRingCat.{0}")
+  let rings ← rings.assume `S (← nativeSource "CommRingCat.{0}")
+  let arrows ← rings.assume `f (← nativeSource "CommRingCat.Hom R S")
+  let image ← readSource arrows "map f along «fun.commutative_rings.ring»()"
+  let bound ← arrows.defineTerm `q image
+  let some selected := image.category
+    | throwError "the mapped ring arrow lost its selected category"
+  unless selected.role == .morphism do
+    throwError "the mapped ring arrow lost its morphism role"
+  let failure : Option Exception ← try
+    discard <| readSource bound "map q along «fun.commutative_rings.ring»()"
+    pure none
+  catch error => pure (some error)
+  let some failure := failure
+    | throwError "a mapped arrow changed its selected source category"
+  unless (← failure.toMessageData.toString).startsWith
+      "the selected source action has a different complete symbolic source category" do
+    throw failure

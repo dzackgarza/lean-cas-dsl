@@ -22,11 +22,11 @@ opaque SourceSession.read (session : SourceSession) (stx : TSyntax `cas_term)
     (expected : Option ClosedTerm := none) : TermElabM SourceTerm := do
   let #[term] ← session.elaborateJudgements stx fun context => do
     let expected ← expected.mapM (·.inContext context)
-    let categoryOf := fun id => do
+    let categoryOf : FVarId → TermElabM (Option NativeSourceCategory) := fun id => do
       let some binding := context.bindings.find? (·.expression.fvarId! == id)
         | return none
       let some category := session.categoryFor binding.id | return none
-      return some (category.expression, ← category.bundle.inContext context)
+      return some ⟨category.role, category.expression, ← category.bundle.inContext context⟩
     return #[← readExpression categoryOf stx expected]
     | throwError "source reading returned an invalid number of judgements"
   return term
