@@ -39,7 +39,7 @@ partial def readExpression
     elabAppArgs function #[] actual expected false false
   let object := fun (name : String) (category : Option String)
       (arguments : Array (TSyntax `cas_term)) => do
-    let (entry, categoryEntry) ← selectObject name category
+    let (entry, categoryEntry) ← selectObject name category expected
     let (bundle, value) ← objectExpressions entry categoryEntry fun function expected =>
       application function arguments expected
     return (⟨value, some (categoryEntry.expression, bundle)⟩ : NativeSourceJudgement)

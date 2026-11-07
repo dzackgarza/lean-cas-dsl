@@ -25,14 +25,31 @@ opaque selectCategory (state : SemanticState) (name : String) : TermElabM NamedC
   | #[] => throwError "unregistered source category: {name}"
   | _ => throwSemanticAmbiguity m!"source category {name} has several registrations"
 
-opaque selectObject (name : String) (category : Option String) :
+/-- Select a named source row in an explicit category or independently declared parameter type.
+Reuse: native category declaration telescopes, Lean isDefEq and withoutModifyingState.
+Each candidate check has isolated metavariables; lexical bindings bypass this selection. -/
+opaque selectObject (name : String) (category : Option String) (expected : Option Expr := none) :
     TermElabM (ObjectEntry × NamedCategoryEntry) := do
     let state ← semanticState
     let qualified ← category.mapM (selectCategory state)
+    let expected ← expected.mapM fun type => do whnf (← instantiateMVars type)
+    let parameterType := if qualified.isNone then
+        expected.filter (! ·.getAppFn.isMVar)
+      else none
     let entries := state.objects.filter fun entry =>
       entry.name == name && match qualified with
         | some category => entry.category == category.id
-        | none => entry.refines.isNone
+        | none => parameterType.isSome || entry.refines.isNone
+    let entries ← entries.filterM fun entry => do
+      let #[categoryEntry] := state.categories.filter (·.id == entry.category)
+        | throwError "the source object requires one registered category"
+      if let some expected := parameterType then withoutModifyingState do
+        discard <| checkedDeclaration categoryEntry.declaration
+        let family ← mkConstWithFreshMVarLevels categoryEntry.declaration
+        let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
+        let carrier ← mkAppM ``CategoryTheory.Bundled.α #[mkAppN family parameters]
+        isDefEq carrier expected
+      else return true
     let entry ← match entries with
       | #[entry] => pure entry
       | #[] => throwError "unregistered source object: {name}"
