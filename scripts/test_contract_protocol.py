@@ -63,6 +63,10 @@ class ContractProtocol(unittest.TestCase):
         for truncated in (b"1", b"3\n{}"):
             with self.subTest(truncated=truncated), self.assertRaises(EOFError):
                 self.read(truncated)
+        for payload in (b'{"op":"first","op":"second"}', b'{"value":NaN}',
+                        b'{"value":Infinity}', b'{"value":1e999}', b'null'):
+            with self.subTest(payload=payload), self.assertRaises(ValueError):
+                self.read(str(len(payload)).encode() + b"\n" + payload)
 
     def test_serve_preserves_every_supplied_argument(self):
         from scripts.test_protocol_v2 import Peer

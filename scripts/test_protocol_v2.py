@@ -238,6 +238,53 @@ class ProtocolV2(unittest.TestCase):
             packet = {"ctor": "deferredData", "args": [[call], {"ctor": "resultRef", "args": [0]}]}
             self.assertEqual(peer.invoke(request, "echo", packet)["status"], "error")
 
+    def test_native_invocation_preserves_the_selected_callable_and_exact_context(self) -> None:
+        peer = Peer(self)
+        peer.negotiate()
+        token = peer.invoke(0, "stored", "actual-callable")["value"]["args"][0]
+        arrow = {"ctor": "typedMap", "args": ["source", "target",
+                                              {"ctor": "opaqueData", "args": [token]}]}
+        fields = ["operation", [], arrow, "domain", "source", "target", "argument"]
+        context = {"kind": "published", "operation": "operation", "input": "input",
+                   "args": {"ctor": "apply", "args": fields, "proof": "forbidden"}}
+        request = {"protocol": 2, "request_id": 1, "op": "$cas.invoke_export",
+                   "token": token, "scope_id": "one", "context": context}
+        self.assertEqual(peer.send(request)["status"], "error")
+        del context["args"]["proof"]
+        arrow["args"][2] = {"ctor": "opaqueData", "args": ["another-token"]}
+        request.update(request_id=2, scope_id="two")
+        self.assertEqual(peer.send(request)["status"], "error")
+        dependent = {"kind": "dependent", "prepared_role": "prepared", "parameters": [],
+                     "bindings": [{"slot": 1, "value": scope_ref(4)},
+                                  {"slot": 0, "value": scope_ref(5)}],
+                     "arguments": [], "argument_layouts": [], "result_layout": {}}
+        request.update(request_id=3, scope_id="three", context=dependent)
+        self.assertEqual(peer.send(request)["status"], "error")
+        dependent.update(bindings=[], arguments=[scope_ref(0)], argument_layouts=[])
+        request.update(request_id=4, scope_id="four")
+        self.assertEqual(peer.send(request)["status"], "error")
+
+    def test_handshake_rejects_downgrade_and_premature_computation(self) -> None:
+        for hello in (
+            {"op": "hello", "protocol": 1, "contract": "cas-computation/2"},
+            {"op": "hello", "protocol": 2, "contract": "cas-computation/1"},
+            {"op": "hello", "protocol": 2, "contract": "cas-computation/2", "owner": "chosen"},
+            {"protocol": 2, "request_id": 0, "op": "echo", "scope_id": "s", "input": "i", "args": {}},
+        ):
+            with self.subTest(hello=hello):
+                payload = json.dumps(hello).encode()
+                run = subprocess.run(
+                    ["uv", "run", "--frozen", "--project", str(CONTRACTS), "python",
+                     str(ROOT / "scripts/probes/protocol_v2_peer.py")],
+                    input=str(len(payload)).encode() + b"\n" + payload,
+                    capture_output=True, timeout=10,
+                    env=dict(os.environ, PYTHONPATH=str(CONTRACTS / "python")),
+                )
+                self.assertNotEqual(run.returncode, 0)
+                length, body = run.stdout.split(b"\n", 1)
+                self.assertEqual(int(length), len(body))
+                self.assertEqual(json.loads(body)["op"], "ready")
+
 
 if __name__ == "__main__":
     unittest.main()
