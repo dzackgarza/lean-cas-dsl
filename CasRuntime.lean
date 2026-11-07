@@ -9,4 +9,5 @@ public import CasRuntime.Transaction
 public import CasRuntime.Execute
 public import CasRuntime.Scope
 public import CasRuntime.Reply
+public import CasRuntime.Materialize
 public import CasRuntime.Transport

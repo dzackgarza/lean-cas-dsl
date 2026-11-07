@@ -57,6 +57,8 @@ import all CasRuntime.Scope
 import all CasRuntime.ScopeTests
 import all CasRuntime.Reply
 import all CasRuntime.ReplyTests
+import all CasRuntime.Materialize
+import all CasRuntime.MaterializeTests
 import all CasRuntime.ProtocolTests
 import all CasRuntime.Transport
 import all CasRuntime.TransportTests
