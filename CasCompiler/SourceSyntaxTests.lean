@@ -59,7 +59,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let some refined := state.objects.find? fun entry =>
           entry.name == "Fin" && entry.refines.isSome
         | throwError "the source refinement is absent"
-      unless term.source.expression.getAppFn.constName? == some refined.declaration do
+      unless term.source.expression.consumeMData.getAppFn.constName? == some refined.declaration do
         throwError "public source qualification lost its exact refined declaration"
     if index == 4 then
       term.source.withOpen fun bindings expression => do

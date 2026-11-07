@@ -40,7 +40,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         object.value.span.fileName == "named-object.cas" do
       throwError "named object intake lost its complete native scope or original file"
     object.value.source.withOpen fun bindings value => do
-      unless value.getAppFn.constName? == some object.entry.declaration &&
+      unless value.consumeMData.getAppFn.constName? == some object.entry.declaration &&
           value.containsFVar bindings[0]!.expression.fvarId! do
         throwError "named object intake replaced its declaration or actual source parameter"
   let defined ← session.defineTerm `X plain.value

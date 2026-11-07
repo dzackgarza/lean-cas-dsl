@@ -28,9 +28,9 @@ private def reference (term : SourceTerm) (kind : Name) (id : String)
     (declaration : Name) : MetaM Unit := do
   let .mdata data _ := term.source.expression
     | throwError "the source view lost its selected reference"
-  unless data.getName `CasCompiler.view.kind == kind &&
-      data.getString `CasCompiler.view.id == id &&
-      data.getName `CasCompiler.view.declaration == declaration do
+  unless data.getName `CasCompiler.source.kind == kind &&
+      data.getString `CasCompiler.source.id == id &&
+      data.getName `CasCompiler.source.declaration == declaration do
     throwError "the source view changed its selected reference or declaration"
 
 run_cmd Lean.Elab.Command.liftTermElabM do
@@ -270,6 +270,16 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   unless point.source.expression.containsConst
       (· == ``CasCatalogue.Foundation.Morphisms.finPoint) do
     throwError "a source point numeral omitted its independent declared point"
+  let #[entry] := (← semanticState).numerals.filter
+      (·.declaration == ``CasCatalogue.Foundation.Morphisms.finPoint)
+    | throwError "the actual point numeral reference is not unique"
+  let selected := point.source.expression.find? fun value =>
+    match value with
+    | .mdata data _ => data.getName `CasCompiler.source.kind == ``NumeralEntry &&
+        data.getString `CasCompiler.source.id == entry.id.raw &&
+        data.getName `CasCompiler.source.declaration == entry.declaration
+    | _ => false
+  unless selected.isSome do throwError "a source point numeral lost its exact selected reference"
   let rejected ← try
     discard <| readSource empty "rev(3,3)"
     pure false

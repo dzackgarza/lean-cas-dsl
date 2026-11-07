@@ -13,6 +13,7 @@ private inductive NumeralContext where
   | selected (value : Expr)
   | refinement (entry : ObjectEntry)
 
+-- Source rule: CasCatalogue.Language.decideObligation, using native checked decisions.
 private def numeralProof (proposition : Expr) : MetaM (Option Expr) := do
   if proposition.isAppOfArity ``Eq 3 then
     let arguments := proposition.getAppArgs
@@ -67,7 +68,9 @@ private def numeralCandidate (row : NumeralEntry) (context : NumeralContext)
         throwError "a source numeral refinement requires its complete native isomorphism"
       unless ← isDefEq type.getAppArgs[3]! expected do return none
       let some proofIndex ← completePointParameters parameters binders proofs 0 | return none
-      pure (some (mkAppN declaration parameters), some comparison, proofIndex)
+      let object := sourceReference ``ObjectEntry entry.id.raw entry.declaration
+        (mkAppN declaration parameters)
+      pure (some object, some comparison, proofIndex)
   let declaration ← mkConstWithFreshMVarLevels row.declaration
   let (arguments, binders, type) ← forallMetaTelescopeReducing (← inferType declaration)
   unless type.isAppOfArity ``Quiver.Hom 4 do
@@ -132,8 +135,14 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
     return mkNatLit number
   let state ← semanticState
   let domain ← sourceDomain expected
+  let reference ← sourceObjectReference? expected
+  if let some (id, declaration) := reference then
+    unless state.objects.any (fun entry => entry.id == id && entry.declaration == declaration) do
+      throwError "the source numeral's object reference is unavailable in the source inventory"
   let bases := state.objects.filter fun entry =>
-    entry.refines.isNone && domain.getAppFn.constName? == some entry.declaration
+    entry.refines.isNone && match reference with
+      | some (id, declaration) => entry.id == id && entry.declaration == declaration
+      | none => domain.getAppFn.constName? == some entry.declaration
   let mut candidates : Array (NumeralEntry × NumeralContext) := #[]
   for row in state.numerals do
     discard <| checkedDeclaration row.declaration
@@ -193,6 +202,6 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
       else throwSemanticAmbiguity "several declared source point numerals apply in this domain"
   let some value ← numeralCandidate row context number expected proofs
     | throwError "the selected source numeral changed its admitted boundary"
-  return value
+  return sourceReference ``NumeralEntry row.id.raw row.declaration value
 
 end CasCompiler

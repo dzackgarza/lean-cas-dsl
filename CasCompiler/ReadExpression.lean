@@ -50,12 +50,13 @@ partial def readExpression
       return ⟨value, if arguments.isEmpty then selected else none⟩
     let (entry, categoryEntry) ← selectNamed
       (name.getId.toString (escape := false)) qualification expected
-    let parameterCount ← match entry with
-      | .inl _ => pure arguments.size
-      | .inr entry => withoutModifyingState do
-        let info ← checkedDeclaration entry.declaration
-        let (_, binders, _) ← forallMetaTelescopeReducing info.type
-        pure (binders.filter (·.isExplicit)).size
+    let declaration := match entry with
+      | .inl entry => entry.declaration
+      | .inr entry => entry.declaration
+    let parameterCount ← withoutModifyingState do
+      let info ← checkedDeclaration declaration
+      let (_, binders, _) ← forallMetaTelescopeReducing info.type
+      pure (binders.filter (·.isExplicit)).size
     let (bundle, value) ← registeredExpressions entry categoryEntry fun function expected =>
       application function (arguments.take parameterCount) expected
     if parameterCount < arguments.size then
@@ -86,10 +87,8 @@ partial def readExpression
       | .inr id => (``CasCatalogue.EdgeRef.classifierForget, id.raw)
     -- Keep the exact selected reference beside its actual native action for source inspection.
     -- Lean MData preserves these names through closure; native checking uses the retained body.
-    let data := KVMap.empty |>.setName `CasCompiler.view.kind kind
-      |>.setString `CasCompiler.view.id id
-      |>.setName `CasCompiler.view.declaration selected.declaration
-    return (⟨.mdata data image, some ⟨role, selected.target, selected.targetBundle⟩⟩ :
+    return (⟨sourceReference kind id selected.declaration image,
+      some ⟨role, selected.target, selected.targetBundle⟩⟩ :
       NativeSourceJudgement)
   let judgement ← if let some name := sourceAtomName? source then object name qualification #[]
     else match source with
@@ -104,10 +103,19 @@ partial def readExpression
         let state ← CasCatalogue.semanticState
         let supplied ← sourceDomain domain.value
         let required ← sourceDomain expected
+        let suppliedReference ← sourceObjectReference? domain.value
+        let requiredReference ← sourceObjectReference? expected
         let suppliedOwners := state.objects.filter fun entry =>
-          supplied.getAppFn.constName? == some entry.declaration
+          match suppliedReference with
+          | some (id, declaration) => entry.id == id && entry.declaration == declaration
+          | none => supplied.getAppFn.constName? == some entry.declaration
         let requiredOwners := state.objects.filter fun entry =>
-          required.getAppFn.constName? == some entry.declaration
+          match requiredReference with
+          | some (id, declaration) => entry.id == id && entry.declaration == declaration
+          | none => required.getAppFn.constName? == some entry.declaration
+        if suppliedReference.isSome && suppliedOwners.isEmpty ||
+            requiredReference.isSome && requiredOwners.isEmpty then
+          throwError "the numeral domain reference is unavailable in the source inventory"
         if !suppliedOwners.isEmpty && !requiredOwners.isEmpty then
           unless suppliedOwners.any fun left => requiredOwners.any (·.id == left.id) do
             throwError "the supplied numeral domain differs from the consuming source domain"

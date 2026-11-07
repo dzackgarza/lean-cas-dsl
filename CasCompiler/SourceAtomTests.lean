@@ -44,3 +44,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     category.bundle.withOpen fun _ bundle => do
       unless bundle.getAppFn.constName? == some selected.declaration do
         throwError "an atomic source reconstructed a different native category bundle"
+    let bound ← session.defineTerm `X term
+    let .ok retainedSyntax := Parser.runParserCategory (← getEnv) `cas_term "X"
+      | throwError "the source reference alias did not parse"
+    let retained ← bound.read ⟨retainedSyntax⟩
+    retained.source.withOpen fun bindings value => do
+      let some (id, declaration) ← sourceObjectReference? value
+        | throwError "a native source alias lost its original object reference"
+      unless id == entry.id && declaration == entry.declaration &&
+          value == bindings[0]!.expression do
+        throwError "a native source alias changed its selected object or binding"

@@ -84,9 +84,9 @@ Reuse: the source's declaration/category pair, native application and the identi
 opaque registeredExpressions (entry : ObjectEntry ⊕ MorphismEntry)
     (categoryEntry : NamedCategoryEntry)
     (application : Expr → Option Expr → TermElabM Expr) : TermElabM (Expr × Expr) := do
-  let (declaration, role) := match entry with
-    | .inl entry => (entry.declaration, SourceCategoryRole.object)
-    | .inr entry => (entry.declaration, SourceCategoryRole.morphism)
+  let (declaration, role, kind, id) := match entry with
+    | .inl entry => (entry.declaration, SourceCategoryRole.object, ``ObjectEntry, entry.id.raw)
+    | .inr entry => (entry.declaration, SourceCategoryRole.morphism, ``MorphismEntry, entry.id.raw)
   discard <| checkedDeclaration declaration
   discard <| checkedDeclaration categoryEntry.declaration
   let family ← mkConstWithFreshMVarLevels categoryEntry.declaration
@@ -95,6 +95,8 @@ opaque registeredExpressions (entry : ObjectEntry ⊕ MorphismEntry)
   let carrier ← mkAppM ``CategoryTheory.Bundled.α #[category]
   let function ← mkConstWithFreshMVarLevels declaration
   let value ← application function (if role == .object then some carrier else none)
+  unless value.consumeMData.getAppFn.constName? == some declaration do
+    throwError "registered source formation did not retain its actual declaration"
   match role with
   | .object =>
     unless ← isDefEq (← inferType value) carrier do
@@ -103,7 +105,7 @@ opaque registeredExpressions (entry : ObjectEntry ⊕ MorphismEntry)
     let identity ← categoryIdentity category
     let function ← mkAppM ``CategoryTheory.Functor.map #[identity]
     discard <| elabAppArgs function #[] #[Arg.expr value] none false false
-  return (category, value)
+  return (category, sourceReference kind id declaration value)
 
 /-- A direct registered view before closing its complete native expressions. -/
 structure NativeSourceView where
