@@ -80,3 +80,31 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       discard <| ContextTelescope.capture #[]
     catch _ => rejected := true
     unless rejected do throwError "context capture accepted an incomplete binding map"
+
+-- The selected instance environment can exclude or reorder class-typed declarations.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let saved ← withLocalDeclD `α (.sort (Level.succ Level.zero)) fun α => do
+    let type ← mkAppM ``Inhabited #[α]
+    withLocalDeclD `first type fun first =>
+      withLocalDeclD `second type fun second => do
+        let declarations ← getLCtx
+        let bindings : Array LocalBinding := #[
+          { id := ⟨"instance-selection", 0⟩, role := .parameter, expression := α },
+          { id := ⟨"instance-selection", 1⟩, role := .instance, expression := first },
+          { id := ⟨"instance-selection", 2⟩, role := .parameter, expression := second }]
+        let mut saved : Array ClosedTerm := #[]
+        let selections : Array LocalInstances := #[
+          #[{ className := ``Inhabited, fvar := first }],
+          #[{ className := ``Inhabited, fvar := second },
+            { className := ``Inhabited, fvar := first }]]
+        for selected in selections do
+          let source ← withLCtx declarations selected do
+            let context ← ContextTelescope.capture bindings
+            context.close (← synthInstance (← mkAppM ``Inhabited #[α]))
+          saved := saved.push source
+        return saved
+  for source in saved do
+    source.withOpen fun bindings selected => do
+      let current ← synthInstance (← mkAppM ``Inhabited #[bindings[0]!.expression])
+      unless current == selected do
+        throwError "context reopening changed the actual ordered local-instance selection"
