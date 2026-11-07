@@ -31,7 +31,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let objects ← session.assumeTerm `X objectType
     let object ← objects.term (← `(term| $(mkIdent `X):ident))
     let selected ← objects.cellComponent Syntax.missing cell object
-    unless selected.cell.entry.id == id && selected.cell.inverse == inverse &&
+    let .registered entry arguments direction := selected.cell.derivation
+      | throwError "the original source cell lost its registered derivation"
+    unless entry.id == id && direction == inverse && arguments.isEmpty &&
         selected.value.source.context.entries.size == objects.context.entries.size do
       throwError "source cell formation changed its role, direction or complete scope"
     selected.value.source.withOpen fun bindings value => do
@@ -46,15 +48,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let component ← mkAppM ``CategoryTheory.NatTrans.app #[transformation, actualObject]
       unless ← isDefEq value component do
         throwError "source component formation replaced its actual directed action"
-      let declaration := Lean.mkConst selected.cell.entry.declaration levels
-      let original ← if selected.cell.entry.invertible then
+      let declaration := Lean.mkConst entry.declaration levels
+      let original ← if entry.invertible then
           mkAppM (if inverse then ``CategoryTheory.Iso.inv else ``CategoryTheory.Iso.hom)
             #[declaration]
         else pure declaration
       let originalComponent ← mkAppM ``CategoryTheory.NatTrans.app #[original, actualObject]
       unless ← isDefEq value originalComponent do
         throwError "source component formation changed the independently declared component"
-      unless value.getUsedConstants.contains selected.cell.entry.declaration &&
+      unless value.getUsedConstants.contains entry.declaration &&
           value.containsFVar bindings[1]!.expression.fvarId! do
         throwError "source component formation discarded its declaration or generic object"
       checkWithKernel value
@@ -114,3 +116,49 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       pure false
     catch _ => pure true
     unless rejected do throwError "a source comparison changed its independently chosen scalar"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let entry ← selectCategory (← semanticState) "Sets"
+  let levels := (← checkedDeclaration entry.declaration).levelParams.map Level.param
+  let sets ← empty.namedCategory Syntax.missing "Sets" levels #[]
+  let objectType ← empty.elaborate Syntax.missing fun context => do
+    mkAppM ``CategoryTheory.Bundled.α #[← sets.value.source.inContext context]
+  let join ← empty.cell Syntax.missing NaturalTransformationId.listJoin #[] sets
+  let reverse ← empty.cell Syntax.missing NaturalTransformationId.listReverse #[] sets
+  let composite ← empty.composeCells Syntax.missing join reverse
+  let .vertical (.registered first _ _) (.registered second _ _) := composite.derivation
+    | throwError "vertical composition lost its original directed derivations"
+  unless first.id == NaturalTransformationId.listJoin &&
+      second.id == NaturalTransformationId.listReverse do
+    throwError "vertical composition reordered its original source cells"
+  let reversed ← reverse.inverse
+  let invertible ← empty.composeCells Syntax.missing reverse reversed
+  let inverted ← invertible.inverse
+  let objects ← empty.assumeTerm `X objectType
+  let object ← objects.term (← `(term| $(mkIdent `X):ident))
+  for (cell, invert) in #[(composite, false), (inverted, true)] do
+    let component ← objects.cellComponent Syntax.missing cell object
+    component.value.source.withOpen fun bindings value => do
+      let join := Lean.mkConst ``CasCatalogue.Foundation.Lists.listJoinCell levels
+      let reverse := Lean.mkConst ``CasCatalogue.Foundation.Lists.listReverseCell levels
+      let hom ← mkAppM ``CategoryTheory.Iso.hom #[reverse]
+      let inv ← mkAppM ``CategoryTheory.Iso.inv #[reverse]
+      let expected ← if invert then
+          mkAppM ``CategoryTheory.CategoryStruct.comp #[hom, inv]
+        else mkAppM ``CategoryTheory.CategoryStruct.comp #[join, hom]
+      let expected ← mkAppM ``CategoryTheory.NatTrans.app #[expected, bindings[0]!.expression]
+      unless ← isDefEq value expected do
+        throwError "cell composition changed its actual source action or inverse order"
+      checkWithKernel value
+  let invalidOrder ← try
+    discard <| empty.composeCells Syntax.missing reverse join
+    pure false
+  catch _ => pure true
+  unless invalidOrder do throwError "cell composition ignored its complete middle functor"
+  let invalidInverse ← try
+    discard <| composite.inverse
+    pure false
+  catch _ => pure true
+  unless invalidInverse do throwError "a composite acquired an inverse of a noninvertible source cell"
