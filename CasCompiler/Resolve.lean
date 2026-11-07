@@ -4,6 +4,7 @@ public import CasCompiler.RouteGrammar
 public import CasCompiler.Surface
 public import LeanCategories.Catalogue.Registry.Semantic
 public import Mathlib.CategoryTheory.NatIso
+public import Mathlib.CategoryTheory.Whiskering
 
 public section
 
@@ -257,6 +258,49 @@ opaque SourceSession.routeImage (session : SourceSession) (reference : Syntax)
       throwError "the source image does not belong to its complete target category"
     return image
 
+/-- Exact source provenance for an explicitly registered functor or checked structural route. -/
+inductive SourceFunctorDerivation where
+  | registered (entry : FunctorEntry) (parameters : Array SourceTerm)
+  | structural (route : SourceRoute)
+
+/-- A whole native functor with both complete category bundles and original source references. -/
+structure SourceFunctor where
+  private mk ::
+  derivation : SourceFunctorDerivation
+  source : SourceCategory
+  target : SourceCategory
+  functor : SourceTerm
+
+/-- Retain the actual functor already formed by checked source-route interpretation. -/
+opaque SourceRoute.asFunctor (route : SourceRoute) : SourceFunctor :=
+  ⟨.structural route, route.source, route.target, route.functor⟩
+
+/-- Form an explicitly registered functor at its actual native parameters and source bundle.
+Reuse: FunctorEntry, native elabAppArgs and the source registeredFunctorInstance interface.
+Explicit selection admits nonstructural functors without changing structural inheritance. -/
+opaque SourceSession.namedFunctor (session : SourceSession) (reference : Syntax)
+    (id : FunctorId) (parameters : Array SourceTerm) (source : SourceCategory) :
+    TermElabM SourceFunctor := do
+  let #[entry] := (← semanticState).functors.filter (·.id == id)
+    | throwError "explicit source functor selection requires one registered functor"
+  unless entry.source.syntacticEq source.expression do
+    throwError "the registered functor has a different complete symbolic source category"
+  discard <| checkedDeclaration entry.declaration
+  let #[functor, target] ← session.elaborateMany reference fun context => do
+      let arguments ← parameters.mapM fun parameter => do
+        return Arg.expr (← parameter.source.inContext context)
+      let constant ← mkConstWithFreshMVarLevels entry.declaration
+      let value ← elabAppArgs constant #[] arguments none false false
+      let functor ← if (← whnf (← inferType value)).isAppOf ``CategoryTheory.Cat.Hom then
+          mkAppM ``CategoryTheory.Cat.Hom.toFunctor #[value]
+        else pure value
+      let (domain, target) ← functorCategoryBundles functor
+      unless ← isDefEq domain (← source.value.source.inContext context) do
+        throwError "the registered functor has a different complete native source category"
+      return #[functor, target]
+    | throwError "registered functor formation returned an invalid expression family"
+  return ⟨.registered entry parameters, source, ⟨entry.target, target⟩, functor⟩
+
 /-- A whole category declaration, before any of its formal parameters are selected. -/
 structure SourceCategoryFamily where
   private mk ::
@@ -425,11 +469,16 @@ opaque SourceRoutes.finiteOperationConversion (routes : SourceRoutes) (session :
     agreements := agreements.push row
   return some ⟨routes, source, families, agreements⟩
 
+inductive WhiskerSide where
+  | left | right
+  deriving BEq
+
 /-- Source-owned atoms and licensed composition/inversion in their original order. -/
 inductive SourceCellDerivation where
   | registered (entry : CellEntry) (parameters : Array SourceTerm) (inverse : Bool)
   | vertical (first second : SourceCellDerivation)
   | horizontal (first second : SourceCellDerivation)
+  | whisker (side : WhiskerSide) (functor : SourceFunctor) (cell : SourceCellDerivation)
   | inverse (original : SourceCellDerivation)
 
 /-- A whole directed transformation, before selecting any source object for its component. -/
@@ -596,6 +645,57 @@ opaque SourceSession.inverseCell (session : SourceSession) (reference : Syntax)
     | throwError "source inverse formation returned an invalid expression family"
   return ⟨.inverse cell.derivation, cell.source, cell.target,
     transformation, left, right, some isomorphism⟩
+
+/-- Whisker the actual source transformation on the selected side by a retained whole functor.
+Reuse: Functor.whiskerLeft/Right and isoWhiskerLeft/Right at complete native endpoints. -/
+opaque SourceSession.whiskerCell (session : SourceSession) (reference : Syntax)
+    (side : WhiskerSide) (functor : SourceFunctor) (cell : SourceCell) : TermElabM SourceCell := do
+  let (source, target, firstMiddle, secondMiddle) := match side with
+    | .left => (functor.source, cell.target, functor.target, cell.source)
+    | .right => (cell.source, functor.target, cell.target, functor.source)
+  unless firstMiddle.expression.syntacticEq secondMiddle.expression do
+    throwError "whiskering has different complete symbolic middle categories"
+  let terms ← session.elaborateMany reference fun context => do
+    unless ← isDefEq (← firstMiddle.value.source.inContext context)
+        (← secondMiddle.value.source.inContext context) do
+      throwError "whiskering has different complete native middle categories"
+    let functor ← functor.functor.source.inContext context
+    let compose (part : Expr) := match side with
+      | .left => mkFunctorComp functor part
+      | .right => mkFunctorComp part functor
+    let arguments (part : Expr) := match side with
+      | .left => #[functor, part]
+      | .right => #[part, functor]
+    let left ← compose (← cell.left.source.inContext context)
+    let right ← compose (← cell.right.source.inContext context)
+    let operation := match side with
+      | .left => ``CategoryTheory.Functor.whiskerLeft
+      | .right => ``CategoryTheory.Functor.whiskerRight
+    let transformation ← mkAppM operation
+      (arguments (← cell.transformation.source.inContext context))
+    let expected ← mkAppM ``CategoryTheory.NatTrans #[left, right]
+    unless ← isDefEq (← inferType transformation) expected do
+      throwError "whiskering has different complete native functor endpoints"
+    match cell.isomorphism with
+    | none => return #[transformation, left, right]
+    | some original =>
+      let operation := match side with
+        | .left => ``CategoryTheory.Functor.isoWhiskerLeft
+        | .right => ``CategoryTheory.Functor.isoWhiskerRight
+      let isomorphism ← mkAppM operation (arguments (← original.source.inContext context))
+      let expected ← mkAppM ``CategoryTheory.Iso #[left, right]
+      unless ← isDefEq (← inferType isomorphism) expected <&&>
+          isDefEq (← mkAppM ``CategoryTheory.Iso.hom #[isomorphism]) transformation do
+        throwError "the whiskered isomorphism does not witness its complete directed transformation"
+      return #[transformation, left, right, isomorphism]
+  match terms with
+  | #[transformation, left, right] =>
+    return ⟨.whisker side functor cell.derivation, source, target,
+      transformation, left, right, none⟩
+  | #[transformation, left, right, isomorphism] =>
+    return ⟨.whisker side functor cell.derivation, source, target,
+      transformation, left, right, some isomorphism⟩
+  | _ => throwError "whiskering returned an invalid expression family"
 
 /-- A checked component retains the entire original directed source cell. -/
 structure SourceCellComponent where
