@@ -20,13 +20,13 @@ structure ContainerSlot where
   path : Array InputPathStep
   binding : ValueBinding
 
-/-- Literal packet structure plus exact typed positions, with source-ordered action slots. -/
+/-- Literal packet structure, typed substitution slots and retained field/callable bindings. -/
 structure ValueContainer where
   private mk ::
   template : Json
   slots : Array ContainerSlot
-  fields : Array Nat
-  callable : Option Nat
+  fields : Array ValueBinding
+  callable : Option ValueBinding
 
 /-- Replace only a previously located JSON position.
 Reference: Lean.Json array/object operations and CasContract.Port's InputPathStep grammar. -/
@@ -56,7 +56,7 @@ private partial def checkLiteral (json : Json) : Except String Unit := do
   | _ => pure ()
 
 private def makeContainer (template : Json) (slots : Array ContainerSlot)
-    (fields : Array Nat) (callable : Option Nat) : Except String ValueContainer := do
+    (fields : Array ValueBinding) (callable : Option ValueBinding) : Except String ValueContainer := do
   let mut paths : Array (List InputPathStep) := #[]
   let mut template := template
   for slot in slots do
@@ -66,13 +66,9 @@ private def makeContainer (template : Json) (slots : Array ContainerSlot)
     template ← replacePosition template path .null
     paths := paths.push path
   checkLiteral template
-  let mut selected : Std.HashSet Nat := {}
-  for index in fields do
-    unless index < slots.size do throw "a container field slot is outside its reference table"
-    if selected.contains index then throw "a container field slot is repeated"
-    selected := selected.insert index
-  if let some index := callable then
-    unless index < slots.size do throw "the container callable slot is outside its reference table"
+  if let some binding := callable then
+    unless binding.role.kind == .function do
+      throw "the container callable has no prepared function interface"
   return ⟨template, slots, fields, callable⟩
 
 /-- Substitute freshly encoded references without rebuilding literal data from a source term. -/
@@ -102,7 +98,7 @@ def ValuePayload.portable (bytes : ByteArray) : ValuePayload := ⟨.portable byt
 def ValuePayload.product (fields : Array ValueBinding) : ValuePayload := ⟨.product fields⟩
 
 opaque ValuePayload.container (template : Json) (slots : Array ContainerSlot)
-    (fields : Array Nat) (callable : Option Nat) : Except String ValuePayload := do
+    (fields : Array ValueBinding) (callable : Option ValueBinding) : Except String ValuePayload := do
   return ⟨.container (← makeContainer template slots fields callable)⟩
 
 def ValuePayload.closure (program : RuntimeId .program)
@@ -128,7 +124,8 @@ structure ValueNode where
 private def ValueData.references : ValueData → Array ValueBinding
   | .portable _ => #[]
   | .product fields => fields
-  | .container value => value.slots.map (·.binding)
+  | .container value => value.slots.map (·.binding) ++ value.fields ++
+      match value.callable with | none => #[] | some binding => #[binding]
   | .closure _ captures | .ownedToken _ _ captures => captures
 
 def ValueNode.references (node : ValueNode) : Array ValueBinding := node.payload.data.references
@@ -187,15 +184,14 @@ opaque ValueGraph.project (graph : ValueGraph) (binding : ValueBinding) (index :
       | throw "the projection is outside the retained product"
     return field
   | .container value =>
-    let some slot := value.fields[index]?
+    let some field := value.fields[index]?
       | throw "the projection is outside the retained container"
-    let some field := value.slots[slot]?
-      | throw "the retained container has an invalid field slot"
-    return field.binding
+    return field
   | _ => throw "the retained payload has no stored product fields"
 
 /-- Follow stored callable slots to actual code/token data, retaining the complete outer value.
-The append-only graph supplies existing references; no source expression reconstructs a callable. -/
+The append-only graph supplies existing references; no source expression reconstructs a callable.
+Reuse: ValueGraph.require and Lean v4.33.0 Std.HashSet for exact reference traversal. -/
 private partial def storedCallable (graph : ValueGraph) (binding : ValueBinding)
     (visited : Std.HashSet (RuntimeId .value)) : Except String ValueBinding := do
   if visited.contains binding.value then throw "the retained callable references form a cycle"
@@ -203,11 +199,8 @@ private partial def storedCallable (graph : ValueGraph) (binding : ValueBinding)
   match node.payload.data with
   | .closure .. | .ownedToken .. => return binding
   | .container value =>
-    let some index := value.callable | throw "the container has no stored callable slot"
-    let some slot := value.slots[index]? | throw "the container callable slot is missing"
-    unless slot.binding.role.kind == .function do
-      throw "the container callable slot has no prepared function interface"
-    storedCallable graph slot.binding (visited.insert binding.value)
+    let some callable := value.callable | throw "the container has no stored callable"
+    storedCallable graph callable (visited.insert binding.value)
   | .portable _ | .product _ => throw "the retained payload has no callable code or token"
 
 opaque ValueGraph.callable (graph : ValueGraph) (binding : ValueBinding) :

@@ -64,6 +64,7 @@ import all CasRuntime.Connection
 import all CasRuntime.Deadline
 import all CasRuntime.Value
 import all CasRuntime.ValueTests
+import all CasRuntime.ContainerTests
 import all CasRuntime.Occurrence
 import all CasRuntime.OccurrenceTests
 import all CasRuntime.Transaction
