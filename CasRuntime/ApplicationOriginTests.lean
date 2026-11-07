@@ -180,7 +180,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
                   let .ok (some retained) := environment.lookup resultBinding.id
                     | throwError "the later source binding lost the actual lazy result"
                   let fieldOccurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
-                  let projection ← PreparedRequest.forProjection program fieldOccurrence current retained 1 parameters
+                  let projection ← PreparedRequest.forProjection program fieldOccurrence current graph retained 1 parameters
                   let (projected, point) ← liftM (m := IO) <|
                     graph.stage owners.identities projection.origin (.product #[number])
                   let .ok dependencies := projected.requiredOwners #[point]

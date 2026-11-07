@@ -60,16 +60,17 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let .ok _ ← producer.commit | throwError "the stored record could not commit"
       liftM (m := IO) <| owners.close child.generation
       let consumer ← CellTransaction.begin ledger
+      let graph ← liftM (m := IO) consumer.view
       let first ← liftM (m := BaseIO) ledger.allocate
       let second ← liftM (m := BaseIO) ledger.allocate
-      let left ← PreparedRequest.forProjection program first context record 0 #[]
-      let again ← PreparedRequest.forProjection program second context record 0 #[]
+      let left ← PreparedRequest.forProjection program first context graph record 0 #[]
+      let again ← PreparedRequest.forProjection program second context graph record 0 #[]
       let packetOccurrence ← liftM (m := BaseIO) ledger.allocate
       let packetProjection ←
-        PreparedRequest.forProjection program packetOccurrence context packetRecord 0 #[]
+        PreparedRequest.forProjection program packetOccurrence context graph packetRecord 0 #[]
       let associatedOccurrence ← liftM (m := BaseIO) ledger.allocate
       let associatedProjection ←
-        PreparedRequest.forProjection program associatedOccurrence context associated 0 #[]
+        PreparedRequest.forProjection program associatedOccurrence context graph associated 0 #[]
       let code : OperationalProgram (Array ValueBinding) := do
         let a ← PFunctor.FreeM.lift (P := OperationalSignature) left
         let b ← PFunctor.FreeM.lift (P := OperationalSignature) again
@@ -87,7 +88,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "the successful projection cell was not committed"
       let failed ← CellTransaction.begin ledger
       let third ← liftM (m := BaseIO) ledger.allocate
-      let right ← PreparedRequest.forProjection program third context associated 1 #[]
+      let right ← PreparedRequest.forProjection program third context graph associated 1 #[]
       let denied ← do
         try
           discard <| Execute.run unavailableExecutor

@@ -26,7 +26,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let context ← ContextTelescope.capture #[{
       id := ⟨"value-request", 0⟩, role := .parameter, expression := extra }]
     let projectionOccurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
-    let projection ← PreparedRequest.forProjection program projectionOccurrence context record 1 #[]
+    let projection ← PreparedRequest.forProjection program projectionOccurrence context graph record 1 #[]
     let .project operand field := projection.action
       | throwError "projection preparation changed its action"
     unless operand.value == record.value && field.sourceIndex == 1 && field.wireIndex == some 1 do
@@ -62,7 +62,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let some node := produced.find result.value
       | throwError "the prepared application origin could not stage its result"
     unless node.origin.role.source.context.entries.size == 1 &&
-        node.references.map (·.value) == #[scalar.value, callable.value, scalar.value] do
+        node.references.map (·.value) == #[scalar.value, scalar.value, callable.value, scalar.value] do
       throwError "staging a prepared result discarded its complete producing context"
     let some preparedRecord := application.record
       | throwError "the dependent application did not prepare its complete result record"
@@ -87,7 +87,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     catch _ => pure true
     unless rejected do throwError "application accepted a value without a retained callable interface"
     let rejectedField ← try
-      discard <| PreparedRequest.forProjection program occurrence context record 2 #[]
+      discard <| PreparedRequest.forProjection program occurrence context graph record 2 #[]
       pure false
     catch _ => pure true
     unless rejectedField do throwError "projection accepted a field outside the source layout"
@@ -100,10 +100,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   | .error _ => pure ()
   | .ok _ => throwError "a candidate record lost a required source field"
   let finiteRole ← SourceLayout.ofTerm (← empty.close (mkApp (mkConst ``Fin.last) (mkNatLit 7)))
-  let (_, finite) ← liftM (m := IO) <| graph.stage owners.identities
+  let (finiteGraph, finite) ← liftM (m := IO) <| graph.stage owners.identities
     { program, occurrence, role := finiteRole, parameters := #[] } (.product #[scalar])
   let rejectedProof ← try
-    discard <| PreparedRequest.forProjection program occurrence empty finite 1 #[]
+    discard <| PreparedRequest.forProjection program occurrence empty finiteGraph finite 1 #[]
     pure false
   catch _ => pure true
   unless rejectedProof do throwError "a source proof field acquired a computational projection"

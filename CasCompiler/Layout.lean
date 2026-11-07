@@ -261,23 +261,35 @@ private partial def fieldDependencies (type actual : Expr) (path : List Name)
       fieldDependencies (← inferType selected) actual rest context arguments
         shapeContext shapeArguments
 
-/-- Select this exact source result or nested field's native dependency planes.
-Preceding result fields stay abstract; their actual dependencies belong to RecordPrefix.
-The actual source projection is checked in the complete context. Runtime data enter no type. -/
-opaque ApplicationLayout.dependenciesFor (layout : ApplicationLayout) (source : SourceLayout) :
-    MetaM ResultDependencies := do
-  unless layout.result.address.toList.isPrefixOf source.address.toList do
+/-- Check a descendant source role in its complete current context.
+Stable source transport retains the parent across later bindings and lexical shadowing. -/
+opaque SourceLayout.projectionPathTo (parent source : SourceLayout) : MetaM (Array Name) := do
+  unless parent.address.toList.isPrefixOf source.address.toList do
     throwError "the source role is outside the prepared application result"
-  let path := source.address.extract layout.result.address.size source.address.size
+  let path := source.address.extract parent.address.size source.address.size
+  source.source.withOpen fun bindings expression => do
+    let context ← ContextTelescope.capture bindings
+    let expected ← projectSource (← parent.source.inContext context) path
+    unless ← isDefEq expected expression do
+      throwError "the source role is not its prepared application result projection"
+    return path
+
+/-- Native dependency slots at a relative projection path in the original application.
+Preceding fields stay abstract. Both dependency planes keep their original source ordering. -/
+opaque ApplicationLayout.dependenciesAt (layout : ApplicationLayout) (path : Array Name) :
+    MetaM ResultDependencies :=
   layout.result.source.withOpen fun bindings expression => do
     let context ← ContextTelescope.capture bindings
-    let expected ← projectSource expression path
-    unless ← isDefEq expected (← source.source.inContext context) do
-      throwError "the source role is not its prepared application result projection"
+    discard <| projectSource expression path
     let family ← layout.resultTypeFamily.inContext context
     lambdaTelescope family fun arguments type => do
       unless arguments.size == layout.arguments.size do
         throwError "the application result family lost a formal argument"
       fieldDependencies type expression path.toList (bindings.map (·.expression)) arguments #[] #[]
+
+/-- Select an exact source descendant while preserving the original dependency planes. -/
+opaque ApplicationLayout.dependenciesFor (layout : ApplicationLayout) (source : SourceLayout) :
+    MetaM ResultDependencies := do
+  layout.dependenciesAt (← layout.result.projectionPathTo source)
 
 end CasCompiler

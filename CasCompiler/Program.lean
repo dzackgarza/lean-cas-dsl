@@ -115,8 +115,8 @@ Reuse: native ApplicationLayout projection dependencies and RuntimeEnvironment.o
 opaque PreparedRequest.originFor (request : PreparedRequest) (source : SourceLayout) :
     MetaM CasRuntime.ValueOrigin := do
   let origin ← request.environment.origin request.program request.occurrence source
-  let application ← request.origin.application.mapM (·.forSource source)
-  return { origin with application }
+  let application ← request.origin.application.mapM (·.forSource request.source source)
+  return { origin with application, access := request.origin.access }
 
 private def prepareRequest (program : CasRuntime.RuntimeId .program)
     (occurrence : CasRuntime.RuntimeId .occurrence) (action : PreparedAction)
@@ -135,7 +135,7 @@ private def prepareRequest (program : CasRuntime.RuntimeId .program)
   let origin ← environment.origin program occurrence source
   let origin ← if let some layout := application then do
       let callable := match action with | .apply callable .. => some callable | _ => none
-      let .ok application := CasRuntime.ApplicationOrigin.ofArguments layout arguments callable
+      let .ok application := CasRuntime.ApplicationOrigin.ofArguments layout environment.values arguments callable
         | throwError "the prepared application has an incompatible actual argument table"
       pure { origin with application := some application }
     else do
@@ -202,6 +202,7 @@ opaque PreparedRequest.forBoundary (program : CasRuntime.RuntimeId .program)
 /-- Prepare the exact source field of the retained operand in the complete current scope. -/
 opaque PreparedRequest.forProjection (program : CasRuntime.RuntimeId .program)
     (occurrence : CasRuntime.RuntimeId .occurrence) (context : OpenContext)
+    (graph : CasRuntime.ValueGraph)
     (operand : CasRuntime.ValueBinding) (index : Nat)
     (parameters : Array CasRuntime.RuntimeParameter) : MetaM PreparedRequest := do
   let some field := operand.role.fields[index]?
@@ -210,7 +211,15 @@ opaque PreparedRequest.forProjection (program : CasRuntime.RuntimeId .program)
     throwError "a source proof field has no computational projection"
   let source ← (← field.toLayout).inContext context
   let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters
-  prepareRequest program occurrence (.project operand field) source context #[operand] environment none #[]
+  discard <| environment.checkResult graph operand.role operand
+  let .ok original := graph.applicationOrigin operand
+    | throwError "the projected operand is outside the visible graph"
+  let application ← original.mapM (·.forProjection field.projection)
+  let request ← prepareRequest program occurrence (.project operand field) source context
+    #[operand] environment none #[]
+  return { request with
+    origin := { request.origin with application, access := some operand }
+    application := application.map (·.layout) }
 
 /-- Apply the retained function with complete formal arguments and indexed actual operands.
 Source coercions are lowered before this boundary. Source-only positions remain explicit empty

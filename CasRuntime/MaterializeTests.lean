@@ -376,8 +376,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless ← liftM (m := BaseIO) (reusedDraft.view.isAvailable owners reusedNumber) do
         throwError "the reused numeric field acquired its parent application's unrelated owner"
       let projectionOccurrence ← liftM (m := BaseIO) ledger.allocate
+      let activeGraph ← liftM (m := IO) transaction.view
       let projection ← PreparedRequest.forProjection program projectionOccurrence context
-        reused.root 0 #[]
+        activeGraph reused.root 0 #[]
       let storedOnly : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
         fun _ _ => throwError "a stored field projection invoked external execution"
       let projected ← Execute.run storedOnly

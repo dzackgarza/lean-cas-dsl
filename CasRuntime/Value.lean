@@ -26,6 +26,7 @@ structure ApplicationAssociation where
   program : RuntimeId .program
   occurrence : RuntimeId .occurrence
   layout : ApplicationLayout
+  path : Array Name
   dependencies : Array Nat
   contextDependencies : Array Nat
 
@@ -39,8 +40,9 @@ inductive ValueBinding where
       (association : RecordAssociation) (field : FieldLayout)
       (preceding : Array (Option ValueBinding))
   | private inApplication (binding : ValueBinding) (role : SourceLayout)
-      (association : ApplicationAssociation) (parameters arguments : Array (Option ValueBinding))
-      (callable : Option ValueBinding) (fields : Array ValueBinding)
+      (association : ApplicationAssociation)
+      (parameters applicationParameters arguments : Array (Option ValueBinding))
+      (callable access : Option ValueBinding) (fields : Array ValueBinding)
 
 def ValueBinding.value : ValueBinding → RuntimeId .value
   | .direct value _ => value
@@ -77,15 +79,17 @@ structure ApplicationInstantiation where
   private mk ::
   association : ApplicationAssociation
   parameters : Array (Option ValueBinding)
+  applicationParameters : Array (Option ValueBinding)
   arguments : Array (Option ValueBinding)
   callable : Option ValueBinding
+  access : Option ValueBinding
 
 /-- Retain every consuming application in order, including earlier views of an aliased node. -/
 def ValueBinding.applications : ValueBinding → Array ApplicationInstantiation
   | .direct .. => #[]
   | .atRole binding _ | .inField _ binding .. => binding.applications
-  | .inApplication binding _ association parameters arguments callable _ =>
-    binding.applications.push ⟨association, parameters, arguments, callable⟩
+  | .inApplication binding _ association parameters applicationParameters arguments callable access _ =>
+    binding.applications.push ⟨association, parameters, applicationParameters, arguments, callable, access⟩
 
 /-- Field and application identities share one ordered role chain on the same actual node. -/
 def ValueBinding.associationIds : ValueBinding → Array (RuntimeId .association)
@@ -207,7 +211,9 @@ opaque ValuePayload.ownedExport (connection : Connection) (token : String)
 structure ApplicationOrigin where
   private mk ::
   layout : ApplicationLayout
+  parameters : Array (Option ValueBinding)
   arguments : Array (Option ValueBinding)
+  path : Array Name
   dependencies : Array Nat
   contextDependencies : Array Nat
   callable : Option ValueBinding
@@ -215,21 +221,43 @@ structure ApplicationOrigin where
 /-- Keep all formal slots and actual references; proof slots have no payload.
 Reuse: ApplicationLayout's native telescope and existing ValueBinding identities. -/
 opaque ApplicationOrigin.ofArguments (layout : ApplicationLayout)
-    (arguments : Array (Option ValueBinding)) (callable : Option ValueBinding) :
+    (parameters arguments : Array (Option ValueBinding)) (callable : Option ValueBinding) :
     Except String ApplicationOrigin := do
+  unless parameters.size == layout.result.source.context.entries.size do
+    throw "application provenance requires its complete original context table"
   unless arguments.size == layout.arguments.size do
     throw "application provenance requires the complete argument table"
   for argument in arguments, prepared in layout.arguments do
     if prepared.wireIndex.isNone && argument.isSome then
       throw "a formal proof has no application provenance payload"
-  return ⟨layout, arguments, layout.resultDependencies, layout.resultContextDependencies, callable⟩
+  return ⟨layout, parameters, arguments, #[], layout.resultDependencies,
+    layout.resultContextDependencies, callable⟩
 
 /-- Keep the original arguments while selecting this source field's own dependencies. -/
-opaque ApplicationOrigin.forSource (origin : ApplicationOrigin) (source : SourceLayout) :
+opaque ApplicationOrigin.forSource (origin : ApplicationOrigin) (parent source : SourceLayout) :
     MetaM ApplicationOrigin := do
-  let dependencies ← origin.layout.dependenciesFor source
-  return ⟨origin.layout, origin.arguments, dependencies.arguments, dependencies.context,
-    origin.callable⟩
+  let path := origin.path ++ (← parent.projectionPathTo source)
+  let dependencies ← origin.layout.dependenciesAt path
+  return { origin with
+    path
+    dependencies := dependencies.arguments
+    contextDependencies := dependencies.context }
+
+/-- Continue the same source application through an actual record's native field.
+The stored result identity licenses access through later source bindings; no source replay occurs. -/
+opaque ApplicationOrigin.forProjection (origin : ApplicationOrigin) (projection : Name) :
+    MetaM ApplicationOrigin := do
+  let path := origin.path.push projection
+  let dependencies ← origin.layout.dependenciesAt path
+  return { origin with
+    path
+    dependencies := dependencies.arguments
+    contextDependencies := dependencies.context }
+
+private def ApplicationInstantiation.origin (value : ApplicationInstantiation) : ApplicationOrigin :=
+  ⟨value.association.layout, value.applicationParameters, value.arguments,
+    value.association.path, value.association.dependencies, value.association.contextDependencies,
+    value.callable⟩
 
 structure ValueOrigin where
   occurrence : RuntimeId .occurrence
@@ -237,13 +265,16 @@ structure ValueOrigin where
   role : SourceLayout
   parameters : Array (Option ValueBinding)
   application : Option ApplicationOrigin := none
+  access : Option ValueBinding := none
 
 /-- Visibility keeps the complete context, stored callable and argument reference planes. -/
 def ValueOrigin.references (origin : ValueOrigin) : Array ValueBinding :=
   origin.parameters.filterMap id ++
+    (match origin.access with | none => #[] | some value => #[value]) ++
     match origin.application with
     | none => #[]
     | some application =>
+      application.parameters.filterMap id ++
       (match application.callable with | none => #[] | some callable => #[callable]) ++
         application.arguments.filterMap id
 
@@ -306,7 +337,7 @@ private partial def ValueGraph.checkBinding (graph : ValueGraph) (binding : Valu
     for previous in preceding do
       if let some previous := previous then visited ← graph.checkBinding previous visited
     return visited
-  | .inApplication underlying _ association parameters arguments callable fields =>
+  | .inApplication underlying _ association parameters applicationParameters arguments callable access fields =>
     if visited.contains association.id then return visited
     unless graph.associations.contains association.id do
       throw "the application association is outside the visible graph"
@@ -314,8 +345,10 @@ private partial def ValueGraph.checkBinding (graph : ValueGraph) (binding : Valu
         association.occurrence.worker == graph.worker do
       throw "the application association belongs to a different worker"
     let mut visited ← graph.checkBinding underlying (visited.insert association.id)
-    let references := parameters.filterMap id ++ arguments.filterMap id ++
-      (match callable with | none => #[] | some value => #[value]) ++ fields
+    let references := parameters.filterMap id ++ applicationParameters.filterMap id ++
+      arguments.filterMap id ++
+      (match callable with | none => #[] | some value => #[value]) ++
+      (match access with | none => #[] | some value => #[value]) ++ fields
     for reference in references do visited ← graph.checkBinding reference visited
     return visited
 
@@ -325,6 +358,13 @@ private def ValueGraph.require (graph : ValueGraph) (binding : ValueBinding) :
   let some node := graph.find binding.value
     | throw "the value reference is outside the visible graph"
   return node
+
+/-- Read source application provenance only from the visible binding and its immutable node. -/
+opaque ValueGraph.applicationOrigin (graph : ValueGraph) (binding : ValueBinding) :
+    Except String (Option ApplicationOrigin) := do
+  let node ← graph.require binding
+  if let some application := binding.applications.back? then return some application.origin
+  return node.origin.application
 
 private structure BindingOwners where
   instantiations : Std.HashSet (RuntimeId .association) := {}
@@ -357,11 +397,11 @@ private partial def ValueGraph.bindingOwners (graph : ValueGraph) (binding : Val
       if let some previous := previous then
         state ← graph.bindingOwners previous state
     return state
-  | .inApplication underlying _ association parameters arguments _ fields =>
+  | .inApplication underlying _ association _ applicationParameters arguments _ _ fields =>
     if state.instantiations.contains association.id then return state
     let mut state ← graph.bindingOwners underlying
       { state with instantiations := state.instantiations.insert association.id }
-    let dependencies := (← selectedReferences association.contextDependencies parameters) ++
+    let dependencies := (← selectedReferences association.contextDependencies applicationParameters) ++
       (← selectedReferences association.dependencies arguments) ++ fields
     for dependency in dependencies do state ← graph.bindingOwners dependency state
     return state
@@ -385,7 +425,7 @@ opaque ValueGraph.rebind (graph : ValueGraph) (binding : ValueBinding) (role : S
 private def ValueBinding.applicationFields : ValueBinding → Option (Array ValueBinding)
   | .direct .. => none
   | .atRole binding _ | .inField _ binding .. => binding.applicationFields
-  | .inApplication _ _ _ _ _ _ fields => some fields
+  | .inApplication _ _ _ _ _ _ _ _ fields => some fields
 
 /-- Projection selects the retained field view, independently of unrelated field owners. -/
 opaque ValueGraph.project (graph : ValueGraph) (binding : ValueBinding) (index : Nat) :
@@ -436,11 +476,11 @@ opaque ValueGraph.stage (graph : ValueGraph) (supply : IdentitySupply)
   discard <| IO.ofExcept <|
     (graph.requiredOwners origin.references).mapError IO.userError
   let mut dependencies := payload.data.references
-  let contextDependencies := match origin.application with
-    | none => origin.role.contextDependencies
-    | some application => application.contextDependencies
+  let (contextDependencies, contextParameters) := match origin.application with
+    | none => (origin.role.contextDependencies, origin.parameters)
+    | some application => (application.contextDependencies, application.parameters)
   dependencies := dependencies ++ (← IO.ofExcept <|
-    (selectedReferences contextDependencies origin.parameters).mapError IO.userError)
+    (selectedReferences contextDependencies contextParameters).mapError IO.userError)
   if let some application := origin.application then
     dependencies := dependencies ++ (← IO.ofExcept <|
       (selectedReferences application.dependencies application.arguments).mapError IO.userError)
@@ -529,10 +569,10 @@ opaque ValueGraph.bindApplication (graph : ValueGraph) (supply : IdentitySupply)
   discard <| IO.ofExcept <|
     (graph.requiredOwners (origin.references ++ fields)).mapError IO.userError
   let association : ApplicationAssociation := ⟨← supply.fresh .association,
-    origin.program, origin.occurrence, application.layout, application.dependencies,
+    origin.program, origin.occurrence, application.layout, application.path, application.dependencies,
     application.contextDependencies⟩
   let binding := ValueBinding.inApplication candidate.root origin.role association
-    origin.parameters application.arguments application.callable fields
+    origin.parameters application.parameters application.arguments application.callable origin.access fields
   let revision ← supply.fresh .revision
   let graph := { graph with
     associations := graph.associations.insert association.id
