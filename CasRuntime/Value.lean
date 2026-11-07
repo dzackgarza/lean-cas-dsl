@@ -79,7 +79,7 @@ private def replacePosition (json : Json) (path : List InputPathStep) (replaceme
 
 /-- A retained literal cannot carry ambient reference or native-token authority.
 Reference: CasContract.Port.validateResultRefs and the runtime immediate-control JSON walk. -/
-private partial def checkLiteral (json : Json) : Except String Unit := do
+partial def checkLiteral (json : Json) : Except String Unit := do
   if let .ok tag := json.getObjValAs? String "ctor" then
     if #["scopeRef", "inputRef", "resultRef", "opaqueData", "deferredData"].contains tag then
       throw "the container has an unbound reference, native token or deferred control"
