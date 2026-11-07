@@ -106,4 +106,33 @@ opaque SourceSession.equalityCongruence (session : SourceSession) (reference : S
     | throwError "source equality congruence returned an invalid evidence family"
   return ⟨.congruence function evidence.derivation, left, right, proposition, proof⟩
 
+/-- A native dependent transport retains the exact motive, source value and equality derivation. -/
+structure SourceSubstitution where
+  private mk ::
+  equality : SourceEquality
+  motive : SourceTerm
+  input : SourceTerm
+  value : SourceTerm
+
+/-- Transport the actual source value along the licensed equality at its complete dependent type.
+Reuse: Lean congrArg and Eq.mp; no object, value or dependent index is chosen by conversion. -/
+opaque SourceSession.equalitySubstitution (session : SourceSession) (reference : Syntax)
+    (motive : SourceTerm) (equality : SourceEquality) (input : SourceTerm) :
+    TermElabM SourceSubstitution := do
+  let typeEquality ← session.equalityCongruence reference motive equality
+  let value ← session.elaborate reference fun context => do
+    let source ← typeEquality.left.source.inContext context
+    let target ← typeEquality.right.source.inContext context
+    discard <| getLevel source
+    discard <| getLevel target
+    let original ← input.source.inContext context
+    unless ← isDefEq (← inferType original) source do
+      throwError "equality substitution has a different complete native source value type"
+    let value ← mkAppM ``Eq.mp #[← typeEquality.proof.source.inContext context, original]
+    unless ← isDefEq (← inferType value) target do
+      throwError "equality substitution has a different complete native target value type"
+    checkWithKernel (← mkExpectedTypeHint value target)
+    return value
+  return ⟨equality, motive, input, value⟩
+
 end CasCompiler
