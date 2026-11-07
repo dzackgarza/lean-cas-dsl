@@ -24,7 +24,8 @@ private meta def sourceFiles (suite : System.FilePath) : IO (Array System.FilePa
 private meta def provenance : CommandElabM Json := do
   let env ← getEnv
   let imports := env.header.imports.map (·.module)
-  let observed := #[`CasCompiler.Read, `LeanCategories.Catalogue, `CasContract.Port] ++ imports
+  let observed := #[`CasCompiler.Read, `LeanCategories.Catalogue, `CasContract.Port,
+    `CasTools.QuestionObservation] ++ imports
   let modules ← observed.mapM fun name => do
     unless env.header.modules.any (·.module == name) do
       throwError "the question observer did not load required module {name}"

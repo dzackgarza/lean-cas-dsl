@@ -640,6 +640,7 @@ def export_gate(root, runtime, published):
                record(build_path), record(reader_path), record(reader_run_path)]
     modules = {}
     for name in ['CasCatalogue.Admission', 'CasCatalogue.Realize', 'CasTools.QuestionExport',
+                 'CasCompiler.Read', 'CasTools.QuestionObservation',
                  'CasContract.Port', 'LeanCategories.Catalogue', *FIXED_IMPORTS]:
         owner = ('mathematics' if name.startswith('LeanCategories.') else
                  'contract' if name.startswith('CasContract.') else 'kernel')
@@ -771,8 +772,11 @@ def check_question_export(readings, failures, expected, imports, gate, control=F
         selected_imports += [module for module in imports for _ in range(2)]
         if provenance.get('imports') != selected_imports or not provenance.get('leanVersion'):
             problems.append('production import scope or Lean provenance changed')
+        if provenance.get('reader') != 'CasCompiler.SourceSession.readStatement':
+            problems.append('reading export did not name the native source reader')
         module_files = provenance.get('moduleFiles', [])
-        observed = ['CasCatalogue.Realize', 'LeanCategories.Catalogue', 'CasContract.Port',
+        observed = ['CasCompiler.Read', 'LeanCategories.Catalogue', 'CasContract.Port',
+                    'CasTools.QuestionObservation',
                     *selected_imports]
         if [item.get('module') for item in module_files] != observed:
             problems.append('loaded module provenance is incomplete')
