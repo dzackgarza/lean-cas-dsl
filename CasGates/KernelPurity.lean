@@ -94,6 +94,7 @@ import all CasRuntime.ContainerTests
 import all CasRuntime.RecordTests
 import all CasRuntime.Environment
 import all CasRuntime.EnvironmentTests
+import all CasRuntime.ApplicationOriginTests
 import all CasRuntime.EnvironmentExecutionTests
 import all CasRuntime.Occurrence
 import all CasRuntime.OccurrenceTests

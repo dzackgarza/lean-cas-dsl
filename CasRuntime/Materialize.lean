@@ -13,7 +13,7 @@ open Lean Meta CasCompiler CasCatalogue.Backend
 
 private def stageResult (request : PreparedRequest) (source : SourceLayout)
     (draft : CellDraft) (payload : ValuePayload) : MetaM (CellDraft × ValueBinding) := do
-  let origin ← request.environment.origin request.program request.occurrence source
+  let origin ← request.originFor source
   let (draft, binding) ← liftM (m := IO) <| draft.stage origin payload
   let candidate ← request.environment.checkResult draft.view source binding
   return (draft, candidate.root)

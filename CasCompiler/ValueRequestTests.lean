@@ -62,7 +62,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let some node := produced.find result.value
       | throwError "the prepared application origin could not stage its result"
     unless node.origin.role.source.context.entries.size == 1 &&
-        node.references.map (·.value) == #[scalar.value] do
+        node.references.map (·.value) == #[scalar.value, callable.value, scalar.value] do
       throwError "staging a prepared result discarded its complete producing context"
     let some preparedRecord := application.record
       | throwError "the dependent application did not prepare its complete result record"

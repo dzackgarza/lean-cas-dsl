@@ -168,6 +168,8 @@ structure ApplicationLayout where
   arguments : Array ArgumentLayout
   resultDependencies : Array Nat
   resultTypeFamily : ClosedTerm
+  result : SourceLayout
+  resultContextDependencies : Array Nat
 
 /-- Prepare the native application and its original callable telescope together.
 Reuse: SourceLayout.applyIn, Lean.forallBoundedTelescope, localDependencies and mkLambdaFVars.
@@ -176,7 +178,8 @@ opaque ApplicationLayout.ofSource (function : SourceLayout) (context : OpenConte
     (arguments : Array ClosedTerm) : MetaM (SourceLayout × ApplicationLayout) := do
   let result ← function.applyIn context arguments
   let actual ← arguments.mapM SourceLayout.ofTerm
-  let type ← inferType (← context.apply function.source #[])
+  let callable ← context.apply function.source #[]
+  let type ← inferType callable
   forallBoundedTelescope type (some arguments.size) fun locals resultType => do
     unless locals.size == arguments.size do
       throwError "application layout requires the complete supplied native argument prefix"
@@ -196,6 +199,85 @@ opaque ApplicationLayout.ofSource (function : SourceLayout) (context : OpenConte
       if !erased then wireIndex := wireIndex + 1
     let dependencies ← localDependencies locals resultType
     let family ← mkLambdaFVars locals resultType (usedOnly := false) (usedLetOnly := false)
-    return (result, ⟨prepared, dependencies, ← context.close family⟩)
+    let contextDependencies ← localDependencies (context.bindings.map (·.expression)) resultType
+    return (result, ⟨prepared, dependencies, ← context.close family, result,
+      contextDependencies⟩)
+
+/-- Native projection metadata selects the original record, including class-valued records.
+Reuse: Lean.ProjectionFunctionInfo, ConstructorVal.induct and Expr.proj at Lean v4.33.0.
+Explicit projections avoid selecting a replacement local class instance. -/
+private def projectSource (expression : Expr) (path : Array Name) : MetaM Expr := do
+  let mut selected := expression
+  for projection in path do
+    let some info := (← getEnv).getProjectionFnInfo? projection
+      | throwError "the application result address contains a nonprojection declaration"
+    let constructor ← getConstInfoCtor info.ctorName
+    selected := mkProj constructor.induct info.i selected
+    check selected
+  return selected
+
+/-- Source-context and argument planes remain distinct from returned record-prefix fields. -/
+structure ResultDependencies where
+  context : Array Nat
+  arguments : Array Nat
+
+/-- Reflect constructor field domains under abstract preceding fields, as sourceLayout does.
+If source arguments determine the record shape, retain that shape's formal dependencies.
+Reference: Lean.forallBoundedTelescope, ConstructorVal and the native FieldLayout algorithm. -/
+private partial def fieldDependencies (type actual : Expr) (path : List Name)
+    (context arguments : Array Expr) (shapeContext shapeArguments : Array Nat) :
+    MetaM ResultDependencies := do
+  match path with
+  | [] =>
+    let contextDependencies ← localDependencies context type
+    let argumentDependencies ← localDependencies arguments type
+    return {
+      context := (Array.range context.size).filter fun index =>
+        shapeContext.contains index || contextDependencies.contains index
+      arguments := (Array.range arguments.size).filter fun index =>
+        shapeArguments.contains index || argumentDependencies.contains index }
+  | projection :: rest =>
+    let some info := (← getEnv).getProjectionFnInfo? projection
+      | throwError "the application result address contains a nonprojection declaration"
+    let constructor ← getConstInfoCtor info.ctorName
+    let reduced ← whnf type
+    let (type, shapeContext, shapeArguments) ←
+      if reduced.getAppFn.constName? == some constructor.induct then
+        pure (reduced, shapeContext, shapeArguments)
+      else do
+        let actualType ← whnf (← inferType actual)
+        unless actualType.getAppFn.constName? == some constructor.induct do
+          throwError "the source field has a different native record interface"
+        pure (actualType, shapeContext ++ (← localDependencies context reduced),
+          shapeArguments ++ (← localDependencies arguments reduced))
+    let .const _ levels := type.getAppFn
+      | throwError "the source field requires its native structure parameters"
+    let applied := mkAppN (mkConst constructor.name levels)
+      (type.getAppArgs.extract 0 constructor.numParams)
+    forallBoundedTelescope (← inferType applied) (some (info.i + 1)) fun fields _ => do
+      let some selected := fields[info.i]?
+        | throwError "the native constructor lost a prepared result field"
+      let actual ← projectSource actual #[projection]
+      fieldDependencies (← inferType selected) actual rest context arguments
+        shapeContext shapeArguments
+
+/-- Select this exact source result or nested field's native dependency planes.
+Preceding result fields stay abstract; their actual dependencies belong to RecordPrefix.
+The actual source projection is checked in the complete context. Runtime data enter no type. -/
+opaque ApplicationLayout.dependenciesFor (layout : ApplicationLayout) (source : SourceLayout) :
+    MetaM ResultDependencies := do
+  unless layout.result.address.toList.isPrefixOf source.address.toList do
+    throwError "the source role is outside the prepared application result"
+  let path := source.address.extract layout.result.address.size source.address.size
+  layout.result.source.withOpen fun bindings expression => do
+    let context ← ContextTelescope.capture bindings
+    let expected ← projectSource expression path
+    unless ← isDefEq expected (← source.source.inContext context) do
+      throwError "the source role is not its prepared application result projection"
+    let family ← layout.resultTypeFamily.inContext context
+    lambdaTelescope family fun arguments type => do
+      unless arguments.size == layout.arguments.size do
+        throwError "the application result family lost a formal argument"
+      fieldDependencies type expression path.toList (bindings.map (·.expression)) arguments #[] #[]
 
 end CasCompiler

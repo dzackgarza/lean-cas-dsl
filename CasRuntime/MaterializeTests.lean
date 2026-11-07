@@ -189,6 +189,54 @@ run_cmd Lean.Elab.Command.liftTermElabM do
               "a scalar literal violates its declared representation constraint" do throw failure
         unless (← liftM (m := IO) transaction.view).sameRevision graph do
           throwError "scalar representation checking installed tentative data"
+      let indexOccurrence ← liftM (m := BaseIO) ledger.allocate
+      let indexRequest ← prepare (mkNatLit 7) indexOccurrence
+      let stored := { selected with registration := { selected.registration with operation := "stored" } }
+      let .ok indexReservation ← liftM (m := BaseIO) <|
+        transaction.reserve indexOccurrence stored wire.connection #[]
+        | throwError "the actual native index control could not reserve"
+      let graph ← liftM (m := IO) transaction.view
+      let indexScope ← liftM (m := IO) <|
+        RequestScope.issue ledger indexReservation graph #[] #[] #[]
+      let .ok indexReply ← liftM (m := IO) <| wire.invokeBefore ledger transaction
+        indexReservation indexScope (.str "native index ownership") 5000
+        | throwError "the SDK did not supply the native index control"
+      let (indexDraft, indexValue) ←
+        indexReply.materialize indexRequest transaction indexScope wire.connection
+      let .ok () ← liftM (m := BaseIO) <| transaction.installDraft indexDraft
+        | throwError "the native index could not enter the active graph"
+      let occurrence ← liftM (m := BaseIO) ledger.allocate
+      let functionRole ← SourceLayout.ofTerm (← context.close (mkConst ``Fin.last))
+      let function ← liftM (m := IO) <| transaction.stage
+        { program, occurrence, role := functionRole, parameters := #[] } (.closure program #[])
+      let graph ← liftM (m := IO) transaction.view
+      let .ok actual := RuntimeArgument.ofValue graph 0 indexValue.root
+        | throwError "the native index is outside its current graph"
+      let request ← PreparedRequest.forApplication program occurrence context function
+        #[← context.close (mkNatLit 7)] #[actual] #[]
+      let .ok reservation ← liftM (m := BaseIO) <|
+        transaction.reserve occurrence selected wire.connection request.scope
+        | throwError "the dependent materialization control could not reserve"
+      let scope ← liftM (m := IO) <|
+        RequestScope.issue ledger reservation graph #[] #[] #[]
+      let .ok reply ← liftM (m := IO) <| wire.invokeBefore ledger transaction reservation scope
+        (toJson (0 : Nat)) 5000
+        | throwError "the dependent scalar packet did not return"
+      let (draft, point) ← reply.materialize request transaction scope wire.connection
+      let .ok number := draft.view.project point.root 0
+        | throwError "the dependent packet lost its numeric field"
+      let some node := draft.view.find point.root.value
+        | throwError "the dependent point is absent from its draft"
+      let some application := node.origin.application
+        | throwError "materialization discarded actual application provenance"
+      unless application.dependencies == #[0] &&
+          (application.arguments[0]?.bind id).map (·.value) == some indexValue.root.value do
+        throwError "materialization changed the actual argument-index association"
+      liftM (m := IO) wire.close
+      if ← liftM (m := BaseIO) (draft.view.isAvailable owners point.root) then
+        throwError "a materialized dependent point survived its actual index owner"
+      unless ← liftM (m := BaseIO) (draft.view.isAvailable owners number) do
+        throwError "a materialized numeric field retained its unrelated index owner"
       discard <| liftM (m := BaseIO) transaction.abort
     finally liftM (m := IO) wire.close
   finally setEnv original

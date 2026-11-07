@@ -10,26 +10,31 @@ open Lean Meta CasCompiler CasRuntime
 run_cmd Lean.Elab.Command.liftTermElabM do
   let empty ← ContextTelescope.capture #[]
   let indexRole ← SourceLayout.ofTerm (← empty.close (mkNatLit 7))
-  let type ← Elab.Term.elabType (← `((n : Nat) → Nat × Fin (n + 1)))
-  let type ← instantiateMVars type
+  let type ← Elab.Term.elabTermAndSynthesize
+    (← `((n : Nat) → Nat × Fin (n + 1))) (some (mkSort (.succ .zero)))
   let owners ← liftM (m := IO) OwnerRegistry.new
   let owner ← liftM (m := IO) <| owners.spawn { cmd := "/bin/cat" }
+  let codeOwner ← liftM (m := IO) <| owners.spawn { cmd := "/bin/cat" }
   try
     let token ← liftM (m := IO) do
       owner.child.stdin.putStr "actual argument index\n"
       owner.child.stdin.flush
       return (← owner.child.stdout.getLine).trimAscii.toString
+    let codeToken ← liftM (m := IO) do
+      codeOwner.child.stdin.putStr "actual callable code\n"
+      codeOwner.child.stdin.flush
+      return (← codeOwner.child.stdout.getLine).trimAscii.toString
     let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
     let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
-    let older := ValueGraph.empty owners.identities
-    let (graph, index) ← liftM (m := IO) <| older.stage owners.identities
-      { program, occurrence, role := indexRole, parameters := #[] } (.ownedExport owner token #[])
     withLocalDeclD `f type fun f => do
       let context ← ContextTelescope.capture #[{
         id := ⟨"application-origin", 0⟩, role := .parameter, expression := f }]
       let role ← SourceLayout.ofTerm (← context.close f)
-      let (graph, callable) ← liftM (m := IO) <| graph.stage owners.identities
-        { program, occurrence, role, parameters := #[none] } (.closure program #[])
+      let (older, callable) ← liftM (m := IO) <|
+        (ValueGraph.empty owners.identities).stage owners.identities
+        { program, occurrence, role, parameters := #[none] } (.ownedExport codeOwner codeToken #[])
+      let (graph, index) ← liftM (m := IO) <| older.stage owners.identities
+        { program, occurrence, role := indexRole, parameters := #[] } (.ownedExport owner token #[])
       let .ok argument := RuntimeArgument.ofValue graph 0 index
         | throwError "the actual source index is outside its graph"
       let request ← PreparedRequest.forApplication program occurrence context callable
@@ -42,6 +47,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let independent ← request.originFor first.layout
       let dependent ← request.originFor second.layout
       let nested ← request.originFor valueField.layout
+      let unrelated ← SourceLayout.ofTerm (← context.close (mkNatLit 1))
+      let failure : Option Exception ← try
+        discard <| request.originFor unrelated
+        pure none
+      catch error => pure (some error)
+      let some failure := failure | throwError "result provenance accepted an unrelated source role"
+      unless (← failure.toMessageData.toString).startsWith
+          "the source role is not its prepared application result projection" do throw failure
       let some whole := request.origin.application
         | throwError "the prepared result lost its actual application provenance"
       let some left := independent.application
@@ -52,6 +65,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throwError "the nested result lost its application table"
       unless whole.arguments.size == 1 &&
           (whole.arguments[0]?.bind id).map (·.value) == some index.value &&
+          whole.callable.map (·.value) == some callable.value &&
           whole.dependencies == #[0] && right.dependencies == #[0] &&
           left.dependencies.isEmpty && inner.dependencies.isEmpty do
         throwError "result provenance changed an actual argument or a field's native dependencies"
@@ -70,10 +84,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let (graph, result) ← liftM (m := IO) <|
         graph.stage owners.identities request.origin (.product #[leftValue, rightValue])
       let some node := graph.find leftValue.value | throwError "the independent result is absent"
-      unless node.references.map (·.value) == #[index.value] && node.owners.isEmpty do
+      unless node.references.map (·.value) == #[callable.value, index.value] && node.owners.isEmpty do
         throwError "an independent field lost argument visibility or acquired an unrelated owner"
       unless ← liftM (m := BaseIO) (graph.isAvailable owners result) do
         throwError "a result with a live argument index is unavailable"
+      liftM (m := IO) <| owners.close codeOwner.generation
+      unless ← liftM (m := BaseIO) (graph.isAvailable owners result) do
+        throwError "completed portable data retained the supplying callable's unrelated owner"
       liftM (m := IO) <| owners.close owner.generation
       for value in #[rightValue, result] do
         if ← liftM (m := BaseIO) (graph.isAvailable owners value) then
@@ -81,4 +98,6 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       for value in #[leftValue, innerValue] do
         unless ← liftM (m := BaseIO) (graph.isAvailable owners value) do
           throwError "a field independent of the argument index lost its usable value"
-  finally liftM (m := IO) <| owners.close owner.generation
+  finally
+    liftM (m := IO) <| owners.close owner.generation
+    liftM (m := IO) <| owners.close codeOwner.generation

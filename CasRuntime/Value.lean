@@ -150,11 +150,49 @@ opaque ValuePayload.ownedExport (connection : Connection) (token : String)
     (captures : Array ValueBinding) : ValuePayload :=
   ⟨.ownedToken connection.generation token captures⟩
 
+/-- Actual argument references and this result role's native formal dependency slots. -/
+structure ApplicationOrigin where
+  private mk ::
+  layout : ApplicationLayout
+  arguments : Array (Option ValueBinding)
+  dependencies : Array Nat
+  contextDependencies : Array Nat
+  callable : Option ValueBinding
+
+/-- Keep all formal slots and actual references; proof slots have no payload.
+Reuse: ApplicationLayout's native telescope and existing ValueBinding identities. -/
+opaque ApplicationOrigin.ofArguments (layout : ApplicationLayout)
+    (arguments : Array (Option ValueBinding)) (callable : Option ValueBinding) :
+    Except String ApplicationOrigin := do
+  unless arguments.size == layout.arguments.size do
+    throw "application provenance requires the complete argument table"
+  for argument in arguments, prepared in layout.arguments do
+    if prepared.wireIndex.isNone && argument.isSome then
+      throw "a formal proof has no application provenance payload"
+  return ⟨layout, arguments, layout.resultDependencies, layout.resultContextDependencies, callable⟩
+
+/-- Keep the original arguments while selecting this source field's own dependencies. -/
+opaque ApplicationOrigin.forSource (origin : ApplicationOrigin) (source : SourceLayout) :
+    MetaM ApplicationOrigin := do
+  let dependencies ← origin.layout.dependenciesFor source
+  return ⟨origin.layout, origin.arguments, dependencies.arguments, dependencies.context,
+    origin.callable⟩
+
 structure ValueOrigin where
   occurrence : RuntimeId .occurrence
   program : RuntimeId .program
   role : SourceLayout
   parameters : Array (Option ValueBinding)
+  application : Option ApplicationOrigin := none
+
+/-- Visibility keeps the complete context, stored callable and argument reference planes. -/
+def ValueOrigin.references (origin : ValueOrigin) : Array ValueBinding :=
+  origin.parameters.filterMap id ++
+    match origin.application with
+    | none => #[]
+    | some application =>
+      (match application.callable with | none => #[] | some callable => #[callable]) ++
+        application.arguments.filterMap id
 
 /-- A tentative immutable node; whole-reply admission and receipt publication are separate. -/
 structure ValueNode where
@@ -172,7 +210,7 @@ private def ValueData.references : ValueData → Array ValueBinding
   | .closure _ captures | .ownedToken _ _ captures => captures
 
 def ValueNode.references (node : ValueNode) : Array ValueBinding :=
-  node.origin.parameters.filterMap (fun value => value) ++ node.payload.data.references
+  node.origin.references ++ node.payload.data.references
 
 /-- Persistent storage uses Lean's immutable HashMap; the live ledger holds no copy.
 Reference: Lean v4.33.0 Std/Data/HashMap/Basic.lean, `HashMap.insert` and `getElem?`. -/
@@ -313,12 +351,20 @@ opaque ValueGraph.stage (graph : ValueGraph) (supply : IdentitySupply)
   unless origin.parameters.size == origin.role.source.context.entries.size do
     throw <| IO.userError "value staging requires the complete producing context table"
   discard <| IO.ofExcept <|
-    (graph.requiredOwners (origin.parameters.filterMap id)).mapError IO.userError
+    (graph.requiredOwners origin.references).mapError IO.userError
   let mut dependencies := payload.data.references
-  for index in origin.role.contextDependencies do
+  let contextDependencies := match origin.application with
+    | none => origin.role.contextDependencies
+    | some application => application.contextDependencies
+  for index in contextDependencies do
     let some parameter := origin.parameters[index]?
       | throw <| IO.userError "a producing type dependency is outside its context table"
     if let some parameter := parameter then dependencies := dependencies.push parameter
+  if let some application := origin.application then
+    for index in application.dependencies do
+      let some argument := application.arguments[index]?
+        | throw <| IO.userError "a producing type dependency is outside its argument table"
+      if let some argument := argument then dependencies := dependencies.push argument
   let mut owners ← IO.ofExcept <|
     (graph.requiredOwners dependencies).mapError IO.userError
   match payload.data with
