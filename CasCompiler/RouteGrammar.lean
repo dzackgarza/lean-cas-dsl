@@ -276,10 +276,11 @@ private partial def finiteWords (grammar : TraceGrammar) : Option (Array Word) :
           changed := true
   return some (languages.getD grammar.start #[])
 
-/-- The complete finite raw trace set; none means a proved productive growing cycle.
+/-- The complete finite raw trace set; none denotes a productive growing cycle.
 Reuse: finite_words in the published reference and #66 comment 6693871042 §3.
 Silent recursion alone does not establish an infinite trace language. -/
-opaque TraceGrammar.finiteWords (grammar : TraceGrammar) : Option (Array Word) := finiteWords grammar
+opaque TraceGrammar.finiteWords (grammar : TraceGrammar) : Option (Array Word) :=
+  CasCompiler.RouteGrammar.finiteWords grammar
 
 private partial def intersects (grammar : TraceGrammar) (states : Nat)
     (accept : Nat → Bool) (step : Nat → Nat → Nat) : Bool := Id.run do
