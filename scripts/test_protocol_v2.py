@@ -12,8 +12,22 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CONTRACTS = ROOT.parent / "lean-cas-dsl-leaf-contracts"
 type JsonValue = None | bool | int | float | str | list[JsonValue] | dict[str, JsonValue]
+
+
+def contract_root() -> Path:
+    if __name__ == "__main__" and len(sys.argv) > 1 and not sys.argv[1].startswith("-"):
+        return Path(sys.argv.pop(1)).resolve(strict=True)
+    if selected := os.environ.get("CAS_LEAF_CONTRACT_PATH"):
+        return Path(selected).resolve(strict=True)
+    manifest = json.loads((ROOT / "lake-manifest.json").read_text())
+    package = next(row for row in manifest["packages"] if row["name"] == "cas_leaf_contracts")
+    if package["type"] == "path":
+        return (ROOT / package["dir"]).resolve(strict=True)
+    return (ROOT / manifest["packagesDir"] / package["name"] / (package["subDir"] or "")).resolve(strict=True)
+
+
+CONTRACTS = contract_root()
 
 
 def scope_ref(slot: int) -> dict[str, JsonValue]:
@@ -21,9 +35,9 @@ def scope_ref(slot: int) -> dict[str, JsonValue]:
 
 
 class Peer:
-    def __init__(self, test: unittest.TestCase):
+    def __init__(self, test: unittest.TestCase, contracts: Path = CONTRACTS) -> None:
         self.test = test
-        environment = dict(os.environ, PYTHONPATH=str(CONTRACTS / "python"))
+        environment = dict(os.environ, PYTHONPATH=str(contracts / "python"))
         self.process = subprocess.Popen(
             [sys.executable, str(ROOT / "scripts/probes/protocol_v2_peer.py")],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -207,6 +221,21 @@ class ProtocolV2(unittest.TestCase):
                            "scope_id": "fresh", "continuation": suspended["continuation"],
                            "captures": [], "results": [scope_ref(0)]})
         self.assertEqual(reply["status"], "error")
+
+    def test_control_records_reject_authority_and_incomplete_graph_calls(self) -> None:
+        peer = Peer(self)
+        peer.negotiate()
+        frame = {"protocol": 2, "request_id": 0, "op": "echo", "input": "traffic#input",
+                 "scope_id": "scope", "args": {}, "owner": "replacement"}
+        self.assertEqual(peer.send(frame)["status"], "error")
+        for request, call in enumerate([
+            {"op": "$cas.project", "input": "forbidden", "args": {"value": scope_ref(0), "field": 0}},
+            {"op": "$cas.apply", "args": {"value": 0, "arguments": []}},
+            {"op": "$cas.project", "args": {"value": scope_ref(0), "field": False}},
+            {"op": "traffic", "input": "traffic#input", "args": {"ctor": "resultRef", "args": [0]}},
+        ], start=1):
+            packet = {"ctor": "deferredData", "args": [[call], {"ctor": "resultRef", "args": [0]}]}
+            self.assertEqual(peer.invoke(request, "echo", packet)["status"], "error")
 
 
 if __name__ == "__main__":

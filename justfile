@@ -224,6 +224,10 @@ build-production:
 audit-production:
     @lake env lake build +CasGates.Production:olean +CasGates.KernelPurityProbes:olean
 
+# Exercise native protocol-v2 SDK traffic against an explicit contract source.
+protocol-v2 contracts:
+    @uv run --project "{{contracts}}" python scripts/test_protocol_v2.py "{{contracts}}"
+
 # Build and statically check a clean integration candidate (CI or B0_INTEGRATION=1).
 build: _integration-intent
     @python3 -m unittest discover -s scripts -p 'test_*.py'

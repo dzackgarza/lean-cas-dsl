@@ -5,7 +5,8 @@ from __future__ import annotations
 from collections.abc import Generator
 import json
 
-from cas_session import JsonValue, Proxy, Suspension, export, proxy, serve, suspend
+from cas_session import JsonValue, Proxy, Suspension, export, proxy, suspend
+from cas_port import serve
 
 
 def echo(arguments: JsonValue) -> JsonValue:
