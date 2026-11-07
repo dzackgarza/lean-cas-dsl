@@ -90,7 +90,8 @@ opaque SourceSession.readStatement (session : SourceSession) (stx : TSyntax `cas
       "source implementation requests require their prepared computational obligation"
   | `(cas_stmt| assert $body:cas_term) =>
     return .question (← session.readQuestion body)
-  | _ => CasCatalogue.throwUnsupportedSource
+  | _ =>
+    CasCatalogue.throwUnsupportedSource
       "source translation is not implemented for this statement form"
 
 end CasCompiler

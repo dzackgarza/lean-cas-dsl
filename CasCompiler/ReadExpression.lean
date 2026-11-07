@@ -154,7 +154,8 @@ partial def readExpression
     | `(cas_term| $function:cas_term($arguments:cas_term,*)) => do
       let function ← readExpression categoryOf function none
       pure ⟨← application function.value arguments.getElems expected, none⟩
-    | _ => CasCatalogue.throwUnsupportedSource
+    | _ =>
+      CasCatalogue.throwUnsupportedSource
         "source translation is not implemented for this expression form"
   if let some name := qualification then
     let required ← selectCategory (← CasCatalogue.semanticState) name
