@@ -11,6 +11,8 @@ import all CasCompiler.ParseTests
 import all CasCompiler.ProofTests
 import all CasCompiler.Elaborate
 import all CasCompiler.ElaborateTests
+import all CasCompiler.Surface
+import all CasCompiler.SurfaceTests
 import all CasCompiler.Layout
 import all CasCompiler.Program
 import all CasCompiler.ProgramTests

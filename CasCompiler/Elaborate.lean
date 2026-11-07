@@ -66,15 +66,24 @@ private def checkSource (source : ClosedTerm) : MetaM Unit := do
 /-- Form a checked source term directly in the complete native scope.
 Reuse: ContextTelescope.withOpen, native synthesis and OpenContext.close. Public frontend
 adapters supply native expressions; source terms never pass through a syntax replay table. -/
-opaque SourceSession.elaborate (session : SourceSession) (reference : Syntax)
-    (build : OpenContext → TermElabM Expr) : TermElabM SourceTerm :=
+opaque SourceSession.elaborateMany (session : SourceSession) (reference : Syntax)
+    (build : OpenContext → TermElabM (Array Expr)) : TermElabM (Array SourceTerm) :=
   withRef reference <| withoutErrToSorry <| withoutAutoBoundImplicit do
     session.context.withOpen fun bindings => do
       let context ← ContextTelescope.capture bindings
-      let expression ← instantiateMVars (← withSynthesize <| build context)
-      let source ← context.close expression
-      checkSource source
-      return ⟨source, ← sourceSpan reference⟩
+      let expressions ← withSynthesize <| build context
+      let span ← sourceSpan reference
+      expressions.mapM fun expression => do
+        let source ← context.close (← instantiateMVars expression)
+        checkSource source
+        return ⟨source, span⟩
+
+opaque SourceSession.elaborate (session : SourceSession) (reference : Syntax)
+    (build : OpenContext → TermElabM Expr) : TermElabM SourceTerm := do
+  let #[source] ← session.elaborateMany reference fun context => do
+      return #[← build context]
+    | throwError "source formation returned an invalid number of expressions"
+  return source
 
 /-- Elaborate in the complete native context and publish only a resolved checked expression.
 Reuse: Lean 4.33.0 Term.elabTermEnsuringType, withSynthesize and native context reopening.
@@ -118,6 +127,20 @@ opaque SourceSession.proof (session : SourceSession) (stx : TSyntax `cas_term)
     | throwError "source evidence requires an explicit proof term"
   session.term evidence (some obligation)
 
+private def assumeIn (session : SourceSession) (context : OpenContext) (name : Name)
+    (type : Expr) (span : SourceSpan) (binderInfo : BinderInfo) : MetaM SourceSession := do
+  discard <| getLevel type
+  let role ← if binderInfo == .instImplicit then do
+      unless (← isClass? type).isSome do
+        throwError "a selected-instance source binder must have a class type"
+      pure BindingRole.instance
+    else if ← isProp type then pure BindingRole.hypothesis
+    else pure BindingRole.parameter
+  let id ← session.freshBinding
+  withLocalDecl name binderInfo type fun expression => do
+    let context ← ContextTelescope.capture (context.bindings.push { id, role, expression })
+    return ⟨session.identities, context.telescope, session.spans.push span⟩
+
 /-- Add one native parameter, hypothesis or selected instance with a fresh stable source ID.
 Reuse: Lean.elabType and Meta.withLocalDecl, including native local-instance registration. -/
 opaque SourceSession.assume (session : SourceSession) (name : Name) (stx : Term)
@@ -128,17 +151,15 @@ opaque SourceSession.assume (session : SourceSession) (name : Name) (stx : Term)
       let type ← instantiateMVars (← withSynthesize <| elabType stx)
       let source ← context.close type
       checkSource source
-      let role ← if binderInfo == .instImplicit then do
-          unless (← isClass? type).isSome do
-            throwError "a selected-instance source binder must have a class type"
-          pure BindingRole.instance
-        else if ← isProp type then pure BindingRole.hypothesis
-        else pure BindingRole.parameter
-      let id ← session.freshBinding
-      withLocalDecl name binderInfo type fun expression => do
-        let context ← ContextTelescope.capture (bindings.push { id, role, expression })
-        return ⟨session.identities, context.telescope,
-          session.spans.push (← sourceSpan stx)⟩
+      assumeIn session context name type (← sourceSpan stx) binderInfo
+
+/-- Bind a retained source type through native context transport and native sort checking.
+Reuse: ClosedTerm.inContext, Meta.getLevel and the ordinary native binder capture. -/
+opaque SourceSession.assumeTerm (session : SourceSession) (name : Name) (type : SourceTerm)
+    (binderInfo : BinderInfo := .default) : MetaM SourceSession :=
+  session.context.withOpen fun bindings => do
+    let context ← ContextTelescope.capture bindings
+    assumeIn session context name (← type.source.inContext context) type.span binderInfo
 
 /-- Retain an elaborated definition as a native let declaration for all subsequent source use.
 Reuse: Term.elabTermEnsuringType and Meta.withLetDecl; no expansion/replay table is stored. -/
