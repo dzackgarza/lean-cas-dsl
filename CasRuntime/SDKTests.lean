@@ -78,6 +78,67 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throwError "the same supplying SDK connection was unavailable after cleanup"
       unless response.value == .str "after cleanup" && response.requestId > reply.requestId do
         throwError "cleanup changed later traffic or reused its transport identity"
+      let storedOccurrence ← liftM (m := BaseIO) ledger.allocate
+      let .ok storedReservation ← liftM (m := BaseIO) <| later.reserve storedOccurrence
+          { selected with registration := { selected.registration with operation := "stored" } }
+          wire.connection #[]
+        | throwError "the native callable producer could not reserve"
+      let graph ← liftM (m := IO) later.view
+      let storedScope ← liftM (m := IO) <|
+        RequestScope.issue ledger storedReservation graph #[] #[] #[]
+      let .ok produced ← liftM (m := IO) <| wire.invokeBefore ledger later storedReservation
+          storedScope (.str "actual retained handler") 5000
+        | throwError "the actual SDK did not return its stored callable"
+      let some exported := produced.exports[0]?
+        | throwError "the native callable has no actual SDK export declaration"
+      let callableRole ← SourceLayout.ofTerm (← context.close (mkConst ``Nat.succ))
+      let callable ← liftM (m := IO) <| later.stage
+        { program, occurrence := storedOccurrence, role := callableRole, parameters := #[] }
+        (.ownedExport wire.connection exported.token exported.captures)
+      let operand ← liftM (m := IO) <| later.stage
+        { program, occurrence := storedOccurrence, role := layout, parameters := #[] }
+        (.portable "7".toUTF8)
+      let nativeOccurrence ← liftM (m := BaseIO) ledger.allocate
+      let .ok other ← liftM (m := IO) <| FramedConnection.start owners "selected-backend" {
+          cmd := (contract / ".venv/bin/python").toString
+          args := #[(root / "scripts/probes/protocol_v2_peer.py").toString]
+          env := #[("PYTHONPATH", some (contract / "python").toString)] } 5000
+        | throwError "the distinct native-owner control did not negotiate"
+      try
+        match ← liftM (m := BaseIO) <|
+            later.reserveExport nativeOccurrence callable other.connection #[operand] with
+        | .error (.reservation .wrongConnection) => pure ()
+        | _ => throwError "a matching backend name redirected a retained native export"
+      finally liftM (m := IO) other.close
+      let .ok native ← liftM (m := BaseIO) <|
+          later.reserveExport nativeOccurrence callable wire.connection #[operand]
+        | throwError "the retained native export could not reserve on its actual owner"
+      unless native.selected == .native callable.value exported.token &&
+          native.connection == exported.owner do
+        throwError "native reservation replaced its actual code, token or supplying owner"
+      let graph ← liftM (m := IO) later.view
+      let nativeScope ← liftM (m := IO) <|
+        RequestScope.issue ledger native graph #[operand] #[] #[]
+      let invocation := Json.mkObj [
+        ("kind", .str "dependent"), ("prepared_role", .str "native-transport-control"),
+        ("parameters", .arr #[]), ("bindings", .arr #[]),
+        ("arguments", .arr #[(ScopedReference.scope 0).encode]),
+        ("argument_layouts", .arr #[Json.mkObj [("kind", .str "data")]]),
+        ("result_layout", Json.mkObj [("kind", .str "data")])]
+      let .ok invoked ← liftM (m := IO) <|
+          wire.invokeBefore ledger later native nativeScope invocation 5000
+        | throwError "native transport did not invoke the actual retained SDK handler"
+      unless (invoked.value.getObjValAs? String "stored").toOption ==
+          some "actual retained handler" do
+        throwError "native invocation selected a different stored handler"
+      let .ok encodedContext := invoked.value.getObjValAs? String "context"
+        | throwError "the stored native handler did not receive its invocation context"
+      unless (Json.parse encodedContext).toOption == some invocation do
+        throwError "native transport changed the complete invocation context"
+      match ← liftM (m := BaseIO) <|
+          later.reserveExport nativeOccurrence callable wire.connection #[operand] with
+      | .error (.reservation .consumed) => pure ()
+      | _ => throwError "a native invocation acquired a second dispatch right"
       discard <| liftM (m := BaseIO) later.abort
     finally liftM (m := IO) wire.close
   finally setEnv environment
