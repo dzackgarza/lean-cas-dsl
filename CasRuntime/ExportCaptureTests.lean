@@ -41,9 +41,11 @@ run_cmd Lean.Elab.Command.liftTermElabM <| liftM (m := MetaM) do
       let graph ← liftM (m := IO) transaction.view
       let scope ← liftM (m := IO) <| RequestScope.issue ledger reserved graph #[]
         #[{ path := #[.field "first"], binding := first },
-          { path := #[.field "second"], binding := second }] #[]
+          { path := #[.field "second"], binding := second },
+          { path := #[.field "unretained"], binding := first }] #[]
       let .ok produced ← liftM (m := IO) <| wire.invokeBefore ledger transaction reserved scope
-          (Json.mkObj [("first", toJson (7 : Nat)), ("second", toJson (7 : Nat))]) 5000
+          (Json.mkObj [("first", toJson (7 : Nat)), ("second", toJson (7 : Nat)),
+            ("unretained", toJson (7 : Nat))]) 5000
         | throwError "the SDK did not produce its captured callable"
       let some exported := produced.exports[0]?
         | throwError "the captured callable has no export declaration"

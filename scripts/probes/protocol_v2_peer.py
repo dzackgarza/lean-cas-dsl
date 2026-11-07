@@ -33,11 +33,23 @@ def stored(arguments: JsonValue) -> JsonValue:
 
 def captured(arguments: JsonValue) -> JsonValue:
     from cas_port import input_ref
+    from contextvars import copy_context
 
     first = proxy(input_ref(["first"]))
     second = proxy(input_ref(["second"]))
+    unretained = proxy(input_ref(["unretained"]))
+    previous = copy_context()
 
     def invoke(context: JsonValue) -> JsonValue:
+        nonlocal previous
+        for read in [lambda: previous.run(first.reference), unretained.reference]:
+            try:
+                read()
+            except ValueError:
+                pass
+            else:
+                raise ValueError("a prior frame or undeclared capture retained authority")
+        previous = copy_context()
         assert isinstance(context, dict)
         arguments = context["arguments"]
         assert isinstance(arguments, list)
