@@ -88,3 +88,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     pure false
   catch _ => pure true
   unless rejected do throwError "direct source application accepted a mistyped dependent argument"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let initial ← SourceSession.empty "source-branches"
+  let left ← initial.assume `left (← nativeSyntax "Nat")
+  let right ← initial.assume `right (← nativeSyntax "Nat")
+  let captured ← left.term (← nativeSyntax "left")
+  let rejected ← try
+    discard <| right.defineTerm `imported captured
+    pure false
+  catch _ => pure true
+  unless rejected do
+    throwError "a restored source prefix reused an independent declaration identity"
