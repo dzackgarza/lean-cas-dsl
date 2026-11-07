@@ -63,7 +63,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let packetOccurrence ← liftM (m := BaseIO) ledger.allocate
       let packetProjection ← PreparedRequest.forProjection program packetOccurrence context packetRecord 0
       let associatedOccurrence ← liftM (m := BaseIO) ledger.allocate
-      let associatedProjection ← PreparedRequest.forProjection program associatedOccurrence context associated 0
+      let associatedProjection ←
+        PreparedRequest.forProjection program associatedOccurrence context associated 0
       let code : OperationalProgram (Array ValueBinding) := do
         let a ← PFunctor.FreeM.lift (P := OperationalSignature) left
         let b ← PFunctor.FreeM.lift (P := OperationalSignature) again

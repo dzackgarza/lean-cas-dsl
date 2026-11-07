@@ -388,8 +388,8 @@ opaque RecordPrefix.bind (record : RecordPrefix) (graph : ValueGraph) (value : V
     | throw <| IO.userError "the complete record has no further computational field"
   let candidate ← IO.ofExcept <|
     (CandidateResponse.ofValue prepared.layout graph value).mapError IO.userError
-  let binding := ValueBinding.inField (← record.identities.fresh .association) candidate.root prepared.layout
-    record.association prepared.field record.selections
+  let binding := ValueBinding.inField (← record.identities.fresh .association)
+    candidate.root prepared.layout record.association prepared.field record.selections
   discard <| IO.ofExcept <| (graph.requiredOwners #[binding]).mapError IO.userError
   return (({ record with selections := record.selections.push (some binding) }).skipProofs, binding)
 

@@ -58,7 +58,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throw <| IO.userError "record binding or projection replaced an actual node"
       let some association := second.instantiations.back?
         | throw <| IO.userError "the dependent field lost its runtime instantiation"
-      unless association.field.sourceIndex == 1 && association.field.precedingDependencies == #[0] &&
+      unless association.field.sourceIndex == 1 &&
+          association.field.precedingDependencies == #[0] &&
           association.preceding.size == 1 &&
           (association.preceding[0]?.bind id).map (·.value) == some width.value &&
           association.id.worker == supply.worker do
@@ -74,7 +75,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throw <| IO.userError "the data field after a proof lost its instantiation"
       unless proofContext.field.sourceIndex == 1 && proofContext.preceding.size == 1 &&
           proofContext.preceding[0]?.map (·.isNone) == some true do
-        throw <| IO.userError "an erased proof displaced a later data field's formal source position"
+        throw <| IO.userError
+          "an erased proof displaced a later data field's formal source position"
       let again ← RecordPrefix.begin supply program occurrence recordLayout
       let (again, _) ← again.bind graph width
       let (again, reused) ← again.bind graph second
@@ -85,7 +87,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throw <| IO.userError "the reused field lost its new consuming association"
       unless reused.value == second.value && projectedAgain.value == second.value &&
           projectedAgain.instantiations.size == reused.instantiations.size &&
-          reused.instantiations.size > second.instantiations.size && againRoot.value != root.value &&
+          reused.instantiations.size > second.instantiations.size &&
+          againRoot.value != root.value &&
           reusedAssociation.id != association.id &&
           reusedAssociation.association.id != association.association.id do
         throw <| IO.userError "reuse merged two record associations or discarded earlier provenance"
@@ -119,7 +122,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         retained := next
       let .ok captured := graph.requiredOwners #[retained]
         | throw <| IO.userError "shared prefix traversal lost a retained reference"
-      unless captured.isEmpty && retained.value == number.value && retained.instantiations.size == 64 do
+      unless captured.isEmpty && retained.value == number.value &&
+          retained.instantiations.size == 64 do
         throw <| IO.userError "shared prefix traversal changed identity, roles or owner independence"
       owners.close child.generation
       if ← graph.isAvailable owners selected then
