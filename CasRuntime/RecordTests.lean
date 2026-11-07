@@ -59,7 +59,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throw <| IO.userError "the dependent field lost its runtime instantiation"
       unless association.field.sourceIndex == 1 && association.field.precedingDependencies == #[0] &&
           association.preceding.size == 1 &&
-          (association.preceding[0]?.bind id).map (·.value) == some width.value do
+          (association.preceding[0]?.bind id).map (·.value) == some width.value &&
+          association.id.worker == supply.worker do
         throw <| IO.userError "the dependent field uses a reconstructed or incomplete prefix"
       let some erased := numeral.instantiations.back?
         | throw <| IO.userError "the finite record lost its field instantiation"
@@ -85,6 +86,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless reused.value == second.value && projectedAgain.value == second.value &&
           projectedAgain.instantiations.size == reused.instantiations.size &&
           reused.instantiations.size > second.instantiations.size && againRoot.value != root.value &&
+          reusedAssociation.id != association.id &&
           reusedAssociation.association.id != association.association.id do
         throw <| IO.userError "reuse merged two record associations or discarded earlier provenance"
       let some original := graph.find second.value
