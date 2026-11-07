@@ -1,8 +1,10 @@
 module
 
 import CasRuntime.Transport
+import CasRuntime.Encode
 public meta import Lean.Elab.Command
 meta import CasRuntime.Transport
+meta import CasRuntime.Encode
 
 open Lean Meta CasCompiler CasRuntime CasCatalogue.Backend
 
@@ -51,22 +53,32 @@ run_cmd Lean.Elab.Command.liftTermElabM <| liftM (m := MetaM) do
       let callable ← liftM (m := IO) <| transaction.stage
         { program, occurrence, role := function, parameters := #[] }
         (.ownedExport wire.connection exported.token exported.captures)
+      let operand ← liftM (m := IO) <| transaction.stage
+        { program, occurrence, role := function, parameters := #[] } (.closure program #[])
       liftM (m := BaseIO) scope.retire
       for _ in [:2] do
         let invocation ← liftM (m := BaseIO) ledger.allocate
         let .ok reserved ← liftM (m := BaseIO) <|
-            transaction.reserveExport invocation callable wire.connection #[]
+            transaction.reserveExport invocation callable wire.connection #[operand]
           | throwError "a retained capture invocation could not reserve"
         let graph ← liftM (m := IO) transaction.view
-        let scope ← liftM (m := IO) <| RequestScope.issue ledger reserved graph #[] #[] #[]
+        let .ok encoded := graph.encodeExportInputs wire.connection.generation callable
+            #[{ path := #[.field "arguments", .index 0], binding := operand }]
+          | throwError "the captured invocation could not encode its argument"
+        unless encoded.values == #[(ScopedReference.scope 2).encode] &&
+            encoded.slots.map (·.value) == #[operand.value] do
+          throwError "the invocation argument overlaps the stored capture prefix"
+        let scope ← liftM (m := IO) <|
+          RequestScope.issue ledger reserved graph encoded.slots encoded.inputs #[]
         let arguments := Json.mkObj [
           ("kind", .str "dependent"), ("prepared_role", .str "capture-control"),
-          ("parameters", .arr #[]), ("bindings", .arr #[]), ("arguments", .arr #[]),
-          ("argument_layouts", .arr #[]), ("result_layout", Json.mkObj [("kind", .str "data")])]
+          ("parameters", .arr #[]), ("bindings", .arr #[]), ("arguments", .arr encoded.values),
+          ("argument_layouts", .arr #[Json.mkObj [("kind", .str "function")]]),
+          ("result_layout", Json.mkObj [("kind", .str "data")])]
         let .ok reply ← liftM (m := IO) <|
             wire.invokeBefore ledger transaction reserved scope arguments 5000
           | throwError "the captured SDK callable did not run in its fresh capture frame"
-        unless reply.references.map (·.binding.value) == #[second.value, first.value] do
+        unless reply.references.map (·.binding.value) == #[second.value, first.value, operand.value] do
           throwError "the capture frame changed the original proxy correspondence"
         liftM (m := BaseIO) scope.retire
       discard <| liftM (m := BaseIO) transaction.abort

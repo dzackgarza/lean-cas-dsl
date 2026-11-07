@@ -38,7 +38,10 @@ def captured(arguments: JsonValue) -> JsonValue:
     second = proxy(input_ref(["second"]))
 
     def invoke(context: JsonValue) -> JsonValue:
-        return [second.reference(), first.reference()]
+        assert isinstance(context, dict)
+        arguments = context["arguments"]
+        assert isinstance(arguments, list)
+        return [second.reference(), first.reference(), proxy(arguments[0]).reference()]
 
     return export(invoke, [first, second])
 
