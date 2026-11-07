@@ -77,3 +77,21 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let source ← inspect bound point
       unless (← ScalarLiteral.check source (toJson (3 : Nat))) == .notScalar do
         throwError "scalar validation specialized a rigid source index from returned data"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let source ← literalSource (← `(((1 : Rat) / 2)))
+  let original ← getEnv
+  try
+    let info ← getConstInfo ``Classical.propDecidable
+    let name := `ScalarLiteralUnsafeDecision
+    addDecl <| .defnDecl {
+      name, levelParams := info.levelParams, type := info.type
+      value := mkConst info.name (info.levelParams.map Level.param)
+      hints := .abbrev, safety := .unsafe }
+    addInstance name .local 100000
+    resetSynthInstanceCache
+    reject source (.arr #[toJson (1 : Int), toJson (3 : Nat)])
+      "source declaration ScalarLiteralUnsafeDecision is unsafe"
+  finally
+    setEnv original
+    resetSynthInstanceCache
