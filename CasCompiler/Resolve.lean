@@ -424,26 +424,24 @@ opaque SourceRoutes.finiteOperationConversion (routes : SourceRoutes) (session :
     agreements := agreements.push row
   return some ⟨routes, source, families, agreements⟩
 
-/-- An actual registered cell action, retaining its complete directed transformation. -/
-structure SourceCellComponent where
+/-- An actual registered cell, before selecting any source object for its component. -/
+structure SourceCell where
   private mk ::
   entry : CellEntry
   inverse : Bool
   parameters : Array SourceTerm
   source : SourceCategory
   target : SourceCategory
-  object : SourceTerm
   transformation : SourceTerm
   left : SourceTerm
   right : SourceTerm
-  value : SourceTerm
 
-/-- Form the actual directed component of a source-owned cell at a checked native object.
-Reuse: CellEntry, SemanticState.cellEndpoints, Iso.hom/inv and NatTrans.app.
+/-- Form the whole directed transformation of a source-owned cell in the complete context.
+Reuse: CellEntry, SemanticState.cellEndpoints and Iso.hom/inv.
 The source row and full native functor/category structures fix the endpoints and direction. -/
-opaque SourceSession.cellComponent (session : SourceSession) (reference : Syntax)
+opaque SourceSession.cell (session : SourceSession) (reference : Syntax)
     (id : NaturalTransformationId) (parameters : Array SourceTerm) (source : SourceCategory)
-    (object : SourceTerm) (inverse : Bool := false) : TermElabM SourceCellComponent := do
+    (inverse : Bool := false) : TermElabM SourceCell := do
   let state ← semanticState
   let #[entry] := state.cells.filter (·.id == id)
     | throwError "a source cell component requires one registered cell"
@@ -453,7 +451,7 @@ opaque SourceSession.cellComponent (session : SourceSession) (reference : Syntax
     throwError "the source cell has no registered inverse"
   discard <| checkedDeclaration entry.declaration
   for ref in entry.left ++ entry.right do checkEdgeDeclarations state ref
-  let #[transformation, left, right, target, value] ← session.elaborateMany reference
+  let #[transformation, left, right, target] ← session.elaborateMany reference
       fun context => do
     let category ← source.value.source.inContext context
     let arguments ← parameters.mapM fun parameter => do
@@ -474,14 +472,30 @@ opaque SourceSession.cellComponent (session : SourceSession) (reference : Syntax
     let expected ← mkAppM ``CategoryTheory.NatTrans #[left, right]
     unless ← isDefEq (← inferType transformation) expected do
       throwError "the source cell has different complete native functor endpoints"
+    return #[transformation, left, right, leftTarget]
+    | throwError "source cell formation returned an invalid expression family"
+  return ⟨entry, inverse, parameters, source, ⟨entry.target, target⟩,
+    transformation, left, right⟩
+
+/-- A checked component retains the entire original directed source cell. -/
+structure SourceCellComponent where
+  private mk ::
+  cell : SourceCell
+  object : SourceTerm
+  value : SourceTerm
+
+/-- Apply the retained whole transformation at the exact checked native source object.
+Reuse: NatTrans.app and stable-ID context transport; no declaration is reconstructed. -/
+opaque SourceSession.cellComponent (session : SourceSession) (reference : Syntax)
+    (cell : SourceCell) (object : SourceTerm) : TermElabM SourceCellComponent := do
+  let value ← session.elaborate reference fun context => do
+    let category ← cell.source.value.source.inContext context
     let object ← object.source.inContext context
     let carrier ← mkAppM ``CategoryTheory.Bundled.α #[category]
     unless ← isDefEq (← inferType object) carrier do
       throwError "the source cell object has a different complete native category"
-    let value ← mkAppM ``CategoryTheory.NatTrans.app #[transformation, object]
-    return #[transformation, left, right, leftTarget, value]
-    | throwError "source cell formation returned an invalid expression family"
-  return ⟨entry, inverse, parameters, source, ⟨entry.target, target⟩, object,
-    transformation, left, right, value⟩
+    let transformation ← cell.transformation.source.inContext context
+    mkAppM ``CategoryTheory.NatTrans.app #[transformation, object]
+  return ⟨cell, object, value⟩
 
 end CasCompiler
