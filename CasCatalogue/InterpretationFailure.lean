@@ -23,4 +23,13 @@ def throwSemanticAmbiguity {m : Type → Type} {α : Type} [Monad m] [MonadError
 def Exception.isSemanticAmbiguity (error : Exception) : Bool :=
   error.toMessageData.hasTag (· == `CasCatalogue.throwSemanticAmbiguity)
 
+/-- A source form whose translation is unfinished, distinct from invalid mathematics.
+Reuse: Lean's tagged MessageData, as for semantic ambiguity above. -/
+def throwUnsupportedSource {m : Type → Type} {α : Type} [Monad m] [MonadError m]
+    (message : MessageData) : m α :=
+  throwError (MessageData.tagged `CasCatalogue.throwUnsupportedSource message)
+
+def Exception.isUnsupportedSource (error : Exception) : Bool :=
+  error.toMessageData.hasTag (· == `CasCatalogue.throwUnsupportedSource)
+
 end CasCatalogue
