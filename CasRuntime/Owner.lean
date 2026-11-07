@@ -94,6 +94,16 @@ opaque OwnerRegistry.close (owners : OwnerRegistry) (generation : ConnectionGene
     let child := state.live[generation.serial]?
     set { state with live := state.live.erase generation.serial }
     return child
-  if let some child := child then child.kill
+  if let some child := child then
+    try child.kill
+    catch error =>
+      -- Linux ESRCH means that termination has already completed. Lean's wait task
+      -- can reap the child between registry revocation and this signal.
+      -- References: Lean v4.33.0 src/runtime/process.cpp, lean_io_process_child_kill;
+      -- Linux include/uapi/asm-generic/errno-base.h, ESRCH.
+      match error with
+      | .noSuchThing _ code _ =>
+        if code == 3 then pure () else throw error
+      | _ => throw error
 
 end CasRuntime
