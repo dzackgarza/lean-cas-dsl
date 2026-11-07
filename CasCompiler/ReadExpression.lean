@@ -100,25 +100,7 @@ partial def readExpression
         throwError "source numeral evidence requires a domain object"
       discard <| getLevel domain.value
       if let some expected := expected then
-        let state ← CasCatalogue.semanticState
-        let supplied ← sourceDomain domain.value
-        let required ← sourceDomain expected
-        let suppliedReference ← sourceObjectReference? domain.value
-        let requiredReference ← sourceObjectReference? expected
-        let suppliedOwners := state.objects.filter fun entry =>
-          match suppliedReference with
-          | some (id, declaration) => entry.id == id && entry.declaration == declaration
-          | none => supplied.getAppFn.constName? == some entry.declaration
-        let requiredOwners := state.objects.filter fun entry =>
-          match requiredReference with
-          | some (id, declaration) => entry.id == id && entry.declaration == declaration
-          | none => required.getAppFn.constName? == some entry.declaration
-        if suppliedReference.isSome && suppliedOwners.isEmpty ||
-            requiredReference.isSome && requiredOwners.isEmpty then
-          throwError "the numeral domain reference is unavailable in the source inventory"
-        if !suppliedOwners.isEmpty && !requiredOwners.isEmpty then
-          unless suppliedOwners.any fun left => requiredOwners.any (·.id == left.id) do
-            throwError "the supplied numeral domain differs from the consuming source domain"
+        checkRegisteredDomains domain.value expected
       let proofs ← evidence.getElems.mapM fun evidence => do
         let `(cas_term| proof($body:term)) := evidence
           | throwError "source numeral evidence requires the explicit proof wrapper"

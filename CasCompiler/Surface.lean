@@ -11,6 +11,35 @@ namespace CasCompiler
 
 open Lean Meta Elab Term CasCatalogue
 
+private def registeredDomain (value : Expr) : MetaM (Expr × Array ObjectEntry) := do
+  let state ← semanticState
+  let domain ← sourceDomain value
+  let reference ← sourceObjectReference? value
+  let owners := state.objects.filter fun entry => match reference with
+    | some (id, declaration) => entry.id == id && entry.declaration == declaration
+    | none => domain.getAppFn.constName? == some entry.declaration
+  if reference.isSome && owners.isEmpty then
+    throwError "the source domain reference is unavailable in the source inventory"
+  return (domain, owners)
+
+/-- Compare registered source identities before native carrier conversion.
+Where both endpoints name registered objects, their exact row and actual declaration
+parameters must agree. Native carrier equality cannot supply a cross-domain comparison.
+Reuse: ObjectEntry, sourceObjectReference? and the original native definition bindings. -/
+opaque checkRegisteredDomains (left right : Expr) : MetaM Unit := do
+  let (left, leftOwners) ← registeredDomain left
+  let (right, rightOwners) ← registeredDomain right
+  if leftOwners.isEmpty || rightOwners.isEmpty then return
+  unless leftOwners.any fun first => rightOwners.any (·.id == first.id) do
+    throwError "the source values have different registered domains"
+  let leftParameters := left.getAppArgs
+  let rightParameters := right.getAppArgs
+  unless leftParameters.size == rightParameters.size do
+    throwError "the source domains have different complete declaration parameters"
+  for left in leftParameters, right in rightParameters do
+    unless ← isDefEq left right do
+      throwError "the source domains have different complete declaration parameters"
+
 /-- Exact registered source selection and its applied native category and value. -/
 structure SourceObject where
   private mk ::

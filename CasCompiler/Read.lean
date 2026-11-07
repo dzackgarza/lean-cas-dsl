@@ -47,6 +47,7 @@ private partial def questionExpression
   | `(cas_term| $left:cas_term is $right:cas_term) => do
     let left ← readExpression categoryOf left none
     let right ← readExpression categoryOf right (some (← inferType left.value))
+    checkRegisteredDomains (← inferType left.value) (← inferType right.value)
     if let some first := left.category then
       if let some second := right.category then
         unless first.role == second.role && first.expression.syntacticEq second.expression &&
