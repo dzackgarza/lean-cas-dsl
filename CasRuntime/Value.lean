@@ -182,7 +182,8 @@ def ValueGraph.find (graph : ValueGraph) (id : RuntimeId .value) : Option ValueN
   graph.nodes[id]?
 
 /-- Visit immutable instantiation identities, retaining distinct roles on aliased nodes.
-Reuse: Std.HashSet and the same worker-monotone identities as runtime nodes. -/
+Reference: Lean v4.33.0 Lean/Util/ForEachExpr.lean, memoized traversal of shared DAGs.
+Reuse: Std.HashSet with worker-issued identities in place of expression keys. -/
 private partial def ValueGraph.checkBinding (graph : ValueGraph) (binding : ValueBinding)
     (visited : Std.HashSet (RuntimeId .association)) :
     Except String (Std.HashSet (RuntimeId .association)) := do
