@@ -17,9 +17,11 @@ private def levels (name : String) : TermElabM (List Level) := do
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let session ← SourceSession.empty identities
-  for (categoryName, operationName, minimumBinders) in
-      #[ ("Rings", "·", 1), ("Rings", "^", 2), ("Modules", "+", 2)] do
-    let category ← session.categoryFamily Syntax.missing categoryName (← levels categoryName)
+  let cases : Array (String × String × List Level × Nat) := #[
+    ("Rings", "·", [.zero], 1), ("Rings", "^", [.zero], 2),
+    ("Modules", "•", [.param `u, .param `u], 2)]
+  for (categoryName, operationName, universes, minimumBinders) in cases do
+    let category ← session.categoryFamily Syntax.missing categoryName universes
     let routes ← SourceRoutes.forOperation category.expression operationName
     let families ← routes.operationFamilies session Syntax.missing #[] category
     unless families.size == 1 do throwError "the actual initial operation binding is not retained"
@@ -37,6 +39,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           for parameter in parameters do
             unless body.containsFVar parameter.fvarId! do
               throwError "whole-family preparation discarded an actual rigid source parameter"
+  for (categoryName, operationName) in #[("Rings", "·"), ("Modules", "•")] do
+    let category ← session.categoryFamily Syntax.missing categoryName (← levels categoryName)
+    let routes ← SourceRoutes.forOperation category.expression operationName
+    let rejected ← try
+      discard <| routes.operationFamilies session Syntax.missing #[] category
+      pure false
+    catch _ => pure true
+    unless rejected do
+      throwError "operation preparation silently specialized an incompatible rigid universe"
   let modules ← session.categoryFamily Syntax.missing "Modules" (← levels "Modules")
   let state ← semanticState
   let some constructor := state.constructors.find? (·.functorialAction.isSome)
