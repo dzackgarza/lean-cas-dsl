@@ -163,3 +163,50 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "malformed execution published an output batch"
     finally liftM (m := IO) <| owners.close child.generation
   finally setEnv original
+
+-- Stateful execution checks the actual result's native type before retaining it.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let original ← getEnv
+  try
+    let context ← ContextTelescope.capture #[]
+    let scalarRole ← SourceLayout.ofTerm (← context.close (mkNatLit 7))
+    let callableRole ← SourceLayout.ofTerm (← context.close (mkConst ``Nat.succ))
+    let booleanRole ← SourceLayout.ofTerm (← context.close (mkConst ``Bool.true))
+    let owners ← liftM (m := IO) OwnerRegistry.new
+    let ledger ← liftM (m := BaseIO) (OccurrenceLedger.new owners)
+    discard <| SessionSnapshot.initialize owners
+    let producer ← CellTransaction.begin ledger
+    let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+    let occurrence ← liftM (m := BaseIO) ledger.allocate
+    let scalar ← liftM (m := IO) <| producer.stage
+      { program, occurrence, role := scalarRole, parameters := #[] } (.portable "7".toUTF8)
+    let callable ← liftM (m := IO) <| producer.stage
+      { program, occurrence, role := callableRole, parameters := #[] } (.closure program #[])
+    let boolean ← liftM (m := IO) <| producer.stage
+      { program, occurrence, role := booleanRole, parameters := #[] } (.portable "true".toUTF8)
+    let .ok base ← producer.commit | throwError "the native execution inputs could not commit"
+    let transaction ← CellTransaction.begin ledger
+    let invocation ← liftM (m := BaseIO) ledger.allocate
+    let .ok argument := RuntimeArgument.ofValue base.graph 0 scalar
+      | throwError "the actual native execution argument is absent"
+    let request ← PreparedRequest.forApplication program invocation context callable
+      #[← context.close (mkNatLit 7)] #[argument] #[]
+    let executor : PFunctor.Handler.Stateful IO CellTransaction OperationalSignature :=
+      fun request transaction => do
+        let graph ← transaction.view
+        let candidate ← IO.ofExcept <|
+          (CandidateResponse.ofValue request.source graph boolean).mapError IO.userError
+        return (candidate, transaction)
+    let failure : Option String ← try
+      discard <| liftM (m := IO) <| Execute.run executor
+        (PFunctor.FreeM.lift (P := OperationalSignature) request) transaction
+      pure none
+    catch error => pure (some (← error.toMessageData.toString))
+    let some failure := failure
+      | throwError "stateful execution retained a result with a different native type"
+    unless failure.endsWith "the producing runtime value has an incompatible complete source type" do
+      throwError "native execution failed at a different boundary: {failure}"
+    unless (← liftM (m := BaseIO) transaction.activeGraph).isNone &&
+        (← SessionSnapshot.current).id == base.id do
+      throwError "native result rejection retained a publishable transaction or changed the Environment"
+  finally setEnv original
