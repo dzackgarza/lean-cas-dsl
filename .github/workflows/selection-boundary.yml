@@ -8,7 +8,6 @@ on:
     paths:
       - 'CasCompiler/**'
       - 'CasCompiler.lean'
-      - 'CasContract/**'
       - 'lake-manifest.json'
       - '.github/workflows/selection-boundary.yml'
   workflow_dispatch:
@@ -24,18 +23,8 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-      - name: Retain exact tested source
-        run: |
-          git rev-parse HEAD > "$RUNNER_TEMP/selection-source-sha.txt"
-          git archive --format=tar HEAD | gzip > "$RUNNER_TEMP/selection-source.tar.gz"
-      - name: Publish tested source provenance
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: selection-source-${{ github.sha }}
-          path: |
-            ${{ runner.temp }}/selection-source-sha.txt
-            ${{ runner.temp }}/selection-source.tar.gz
-          retention-days: 3
+      - name: Record exact tested source
+        run: git rev-parse HEAD > "$RUNNER_TEMP/selection-source-sha.txt"
       - name: Install locked Lean toolchain and restore Mathlib
         uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596
         with:
@@ -49,28 +38,85 @@ jobs:
         run: |
           set -o pipefail
           lake build +CasCompiler.SelectionBoundaryTests +CasCompiler.OperationFamilyTests +CasCompiler.ComparisonTests 2>&1 | tee "$RUNNER_TEMP/selection-native.log"
-      - name: Package public locked native test inputs
+      - name: Package public locked native inputs in bounded parts
         if: always() && github.event_name == 'push'
         shell: bash
         run: |
           set -euo pipefail
-          tar -I 'zstd -T2 -3' -cf "$RUNNER_TEMP/selection-lake.tar.zst" .lake
-          tar -I 'zstd -T2 -3' -C "$HOME/.elan/toolchains" -cf "$RUNNER_TEMP/selection-toolchain.tar.zst" leanprover--lean4---v4.33.0
-          sha256sum "$RUNNER_TEMP/selection-lake.tar.zst" "$RUNNER_TEMP/selection-toolchain.tar.zst" > "$RUNNER_TEMP/selection-input-sha256.txt"
-      - name: Transfer locked inputs for own-container tests
+          tar -I 'zstd -T2 -3' -cf - .lake -C "$HOME/.elan/toolchains" leanprover--lean4---v4.33.0 | split -d -b 400M - "$RUNNER_TEMP/native.part"
+          sha256sum "$RUNNER_TEMP"/native.part* > "$RUNNER_TEMP/native-parts-sha256.txt"
+          test "$(find "$RUNNER_TEMP" -maxdepth 1 -name 'native.part*' | wc -l)" -le 10
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always() && github.event_name == 'push'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: selection-locked-native-${{ github.sha }}
-          path: |
-            ${{ runner.temp }}/selection-lake.tar.zst
-            ${{ runner.temp }}/selection-toolchain.tar.zst
-            ${{ runner.temp }}/selection-input-sha256.txt
-            ${{ runner.temp }}/selection-source-sha.txt
+          name: native-00-${{ github.sha }}
+          path: ${{ runner.temp }}/native.part00
           compression-level: 0
           retention-days: 1
-          if-no-files-found: error
-      - name: Publish native build evidence
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always() && github.event_name == 'push'
+        with:
+          name: native-01-${{ github.sha }}
+          path: ${{ runner.temp }}/native.part01
+          compression-level: 0
+          retention-days: 1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always() && github.event_name == 'push'
+        with:
+          name: native-02-${{ github.sha }}
+          path: ${{ runner.temp }}/native.part02
+          compression-level: 0
+          retention-days: 1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always() && github.event_name == 'push'
+        with:
+          name: native-03-${{ github.sha }}
+          path: ${{ runner.temp }}/native.part03
+          compression-level: 0
+          retention-days: 1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always() && github.event_name == 'push'
+        with:
+          name: native-04-${{ github.sha }}
+          path: ${{ runner.temp }}/native.part04
+          compression-level: 0
+          retention-days: 1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always() && github.event_name == 'push'
+        with:
+          name: native-05-${{ github.sha }}
+          path: ${{ runner.temp }}/native.part05
+          compression-level: 0
+          retention-days: 1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always() && github.event_name == 'push'
+        with:
+          name: native-06-${{ github.sha }}
+          path: ${{ runner.temp }}/native.part06
+          compression-level: 0
+          retention-days: 1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always() && github.event_name == 'push'
+        with:
+          name: native-07-${{ github.sha }}
+          path: ${{ runner.temp }}/native.part07
+          compression-level: 0
+          retention-days: 1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always() && github.event_name == 'push'
+        with:
+          name: native-08-${{ github.sha }}
+          path: ${{ runner.temp }}/native.part08
+          compression-level: 0
+          retention-days: 1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always() && github.event_name == 'push'
+        with:
+          name: native-09-${{ github.sha }}
+          path: ${{ runner.temp }}/native.part09
+          compression-level: 0
+          retention-days: 1
+      - name: Publish native evidence and part digests
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
@@ -78,5 +124,6 @@ jobs:
           path: |
             ${{ runner.temp }}/selection-source-sha.txt
             ${{ runner.temp }}/selection-native.log
+            ${{ runner.temp }}/native-parts-sha256.txt
           if-no-files-found: error
           retention-days: 7
