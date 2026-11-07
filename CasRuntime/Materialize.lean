@@ -77,7 +77,8 @@ private partial def materializeValue (reply : ImmediateReply) (request : Prepare
   | .data | .typeValue =>
     let slots := reply.references.filterMap fun reference =>
       if path.toList.isPrefixOf reference.path.toList then
-        some ({ path := reference.path.extract path.size reference.path.size,
+        some ({
+          path := reference.path.extract path.size reference.path.size
           binding := reference.binding } : ContainerSlot)
       else none
     let .ok payload := ValuePayload.container value slots #[] none
