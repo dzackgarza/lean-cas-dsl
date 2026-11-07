@@ -74,7 +74,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     for right in inheritedFamilies do
       let some agreement ← session.operationConversion Syntax.missing left right
         | throwError "the actual whole multiplicative operation families lost conversion evidence"
-      agreement.proof.source.withOpen fun context proof => do
+      agreement.proof.source.withOpen fun bindings proof => do
+        let context ← ContextTelescope.capture bindings
         let goal ← agreement.proposition.source.inContext context
         unless ← isDefEq (← inferType proof) goal do
           throwError "the retained agreement proof has a different complete proposition"
