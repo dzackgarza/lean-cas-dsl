@@ -126,3 +126,42 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     catch _ => pure true
     unless rejected do
       throwError "source equality inference acquired authority from a nonequality binding"
+  let motiveType ← assumptions.elaborate Syntax.missing fun context => do
+    mkArrow (← inferType (← A.source.inContext context)) (mkSort (.succ (.param `transport)))
+  let typed ← assumptions.assumeTerm `P motiveType
+  let P ← typed.term (← `(term| $(mkIdent `P):ident))
+  let inputType ← typed.elaborate Syntax.missing fun context => do
+    return mkApp (← P.source.inContext context) (← A.source.inContext context)
+  let typed ← typed.assumeTerm `value inputType
+  let value ← typed.term (← `(term| $(mkIdent `value):ident))
+  let transported ← typed.equalitySubstitution Syntax.missing P ab value
+  unless transported.input.source.expression == value.source.expression &&
+      transported.motive.source.expression == P.source.expression &&
+      transported.value.source.universeParams.contains `transport do
+    throwError "source substitution discarded its actual input, motive or rigid data universe"
+  transported.value.source.withOpen fun bindings expression => do
+    let context ← ContextTelescope.capture bindings
+    let motive ← P.source.inContext context
+    let target := mkApp motive (← B.source.inContext context)
+    let original ← value.source.inContext context
+    let equality ← mkAppM ``congrArg #[motive, ← ab.proof.source.inContext context]
+    let expected ← mkAppM ``Eq.mp #[equality, original]
+    unless ← isDefEq (← inferType expression) target <&&> isDefEq expression expected do
+      throwError "source substitution changed its original dependent transport program"
+    unless expression.containsFVar original.fvarId! do
+      throwError "source substitution replaced the actual original data value"
+    checkWithKernel expression
+  let reused ← typed.defineTerm `transported transported.value
+  let reusedValue ← reused.term (← `(term| $(mkIdent `transported):ident))
+  unless reusedValue.source.expression == mkBVar 0 do
+    throwError "later source use replayed the substitution instead of retaining its definition"
+  let wrongType ← typed.elaborate Syntax.missing fun context => do
+    return mkApp (← P.source.inContext context) (← C.source.inContext context)
+  let wrongScope ← typed.assumeTerm `wrong wrongType
+  let wrong ← wrongScope.term (← `(term| $(mkIdent `wrong):ident))
+  let rejected ← try
+    discard <| wrongScope.equalitySubstitution Syntax.missing P ab wrong
+    pure false
+  catch _ => pure true
+  unless rejected do
+    throwError "source substitution identified independently rigid dependent input types"
