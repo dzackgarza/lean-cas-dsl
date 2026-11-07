@@ -15,8 +15,8 @@ inductive Status
   deriving BEq, Repr
 
 private def constraintProof (condition : Expr) : MetaM (Option Expr) := do
-  let some instance ← synthInstance? (← mkAppM ``Decidable #[condition]) | return none
-  for declaration in (← zetaReduce instance).getUsedConstants do
+  let some decisionInstance ← synthInstance? (← mkAppM ``Decidable #[condition]) | return none
+  for declaration in (← zetaReduce decisionInstance).getUsedConstants do
     discard <| checkedDeclaration declaration
   let decision ← withTransparency .all <| whnf (← mkDecide condition)
   if decision.isConstOf ``Bool.false then

@@ -88,6 +88,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       name, levelParams := info.levelParams, type := info.type
       value := mkConst info.name (info.levelParams.map Level.param)
       hints := .abbrev, safety := .unsafe }
+    setReducibilityStatus name .instanceReducible
     addInstance name .local 100000
     resetSynthInstanceCache
     reject source (.arr #[toJson (1 : Int), toJson (3 : Nat)])
