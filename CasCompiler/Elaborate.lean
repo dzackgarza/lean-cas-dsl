@@ -79,11 +79,15 @@ opaque SourceSession.assume (session : SourceSession) (name : Name) (stx : Term)
   withRef stx <| withoutErrToSorry <| withoutAutoBoundImplicit do
     session.context.withOpen fun bindings => do
       let context ← ContextTelescope.capture bindings
-      let type ← instantiateMVars (← elabType stx)
+      let type ← instantiateMVars (← withSynthesize <| elabType stx)
       let source ← context.close type
       checkSource source
-      let role ← if ← isProp type then pure BindingRole.hypothesis
-        else pure (if binderInfo == .instImplicit then .instance else .parameter)
+      let role ← if binderInfo == .instImplicit then do
+          unless (← isClass? type).isSome do
+            throwError "a selected-instance source binder must have a class type"
+          pure BindingRole.instance
+        else if ← isProp type then pure BindingRole.hypothesis
+        else pure BindingRole.parameter
       let id : BindingId := ⟨session.identity, session.nextBinding⟩
       withLocalDecl name binderInfo type fun expression => do
         let context ← ContextTelescope.capture (bindings.push { id, role, expression })
@@ -97,7 +101,7 @@ opaque SourceSession.define (session : SourceSession) (name : Name) (stx : Term)
   withRef stx <| withoutErrToSorry <| withoutAutoBoundImplicit do
     session.context.withOpen fun bindings => do
       let context ← ContextTelescope.capture bindings
-      let expected ← annotation.mapM elabType
+      let expected ← annotation.mapM fun stx => withSynthesize <| elabType stx
       let expression ← elabTermAndSynthesize stx expected
       let source ← context.close expression
       checkSource source
