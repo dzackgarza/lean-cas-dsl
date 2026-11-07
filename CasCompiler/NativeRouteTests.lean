@@ -68,8 +68,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       throwError "the empty route changed the selected category structure"
   let objectType ← session.elaborate reference.raw fun context => do
     mkAppM ``CategoryTheory.Bundled.α #[← modules.value.source.inContext context]
-  let objects ← session.assumeTerm `X objectType
-  let object ← objects.term (← native "X")
+  let objects ← session.assumeTerm `R objectType
+  let object ← objects.term (← native "R")
   let image ← file.withContext <| objects.routeImage reference.raw selected object
   unless image.source.context.entries.size == 3 do
     throwError "the source image discarded the actual object binding"

@@ -19,6 +19,7 @@ import all CasCompiler.RouteGrammar
 import all CasCompiler.RouteGrammarTests
 import all CasCompiler.Resolve
 import all CasCompiler.ResolveTests
+import all CasCompiler.NativeRouteTests
 import all CasCompiler.Layout
 import all CasCompiler.Program
 import all CasCompiler.ProgramTests
