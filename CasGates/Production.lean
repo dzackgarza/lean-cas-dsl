@@ -3,6 +3,10 @@ module
 import all CasCompiler
 import all CasCompiler.Context
 import all CasCompiler.ContextTests
+import all CasCompiler.Syntax
+import all CasCompiler.Parse
+import all CasCompiler.ParseTests
+import all CasCompiler.ProofTests
 import all CasCompiler.Elaborate
 import all CasCompiler.ElaborateTests
 import all CasCompiler.Layout

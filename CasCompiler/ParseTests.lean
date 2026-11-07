@@ -70,3 +70,18 @@ run_cmd do
     pure false
   catch _ => pure true
   unless rejected do throwError "malformed trailing source was accepted as a complete file"
+
+-- A mathematical rejection input remains intact past the syntax boundary.
+run_cmd do
+  let path := "tests/acceptance/proposals/independent-extension-reconstruction-20261024/" ++
+    "completion/rx09-constant-one-rejection.cas"
+  let text ← IO.FS.readFile path
+  let source ← liftCoreM <| SourceFile.parse path text
+  unless source.items.size == 5 && source.context.inputString == text do
+    throwError "parsing changed the complete source-negative binding context"
+  let some last := source.items[source.items.size - 1]?
+    | throwError "the source-negative admission request is absent"
+  let `(cas_item| let $name:ident := $_:cas_term) := last.raw
+    | throwError "the source-negative admission request changed syntax"
+  unless name.getId == `impossibleAdmission do
+    throwError "the original source-negative admission identity changed"
