@@ -36,6 +36,7 @@ inductive ReservationFailure
 
 private inductive OccurrenceStatus
   | fresh
+  | abandoned
   | pending (reservation : DispatchReservation)
   | sent (reservation : DispatchReservation)
   | consumed (reservation : DispatchReservation)
@@ -79,7 +80,7 @@ private def reserveTarget (ledger : OccurrenceLedger) (id : RuntimeId .occurrenc
         ⟨id, transaction, selected, connection.generation, dependencies⟩
       set (state.insert id (.pending reservation))
       return .ok reservation
-    | some (.pending _) | some (.sent _) | some (.consumed _) => return .error .consumed
+    | some .abandoned | some (.pending _) | some (.sent _) | some (.consumed _) => return .error .consumed
   match result with
   | some reserved => return reserved
   | none => return .error .staleOwner
@@ -105,6 +106,17 @@ opaque OccurrenceLedger.reserveExport (ledger : OccurrenceLedger) (id : RuntimeI
   unless owner == connection.generation do return .error .wrongConnection
   reserveTarget ledger id transaction (.native code.value token) connection graph
     (arguments.push callable)
+
+/-- Inspect coordination state; only the atomic reservation can authorize dispatch. -/
+opaque OccurrenceLedger.isFresh (ledger : OccurrenceLedger) (id : RuntimeId .occurrence) :
+    BaseIO Bool := ledger.state.atomically do
+  return (← get)[id]? matches some .fresh
+
+/-- A failed claimed producer cannot acquire a new dispatch right after rollback. -/
+opaque OccurrenceLedger.abandon (ledger : OccurrenceLedger) (id : RuntimeId .occurrence) :
+    BaseIO Unit := ledger.state.atomically do
+  let state ← get
+  if state[id]? matches some .fresh then set (state.insert id .abandoned)
 
 /-- Return only the locator belonging to this exact active transaction. -/
 opaque OccurrenceLedger.pendingFor (ledger : OccurrenceLedger) (id : RuntimeId .occurrence)
@@ -133,7 +145,7 @@ opaque OccurrenceLedger.commitSend (ledger : OccurrenceLedger)
         return .error .consumed
       set (state.insert reservation.occurrence (.sent active))
       return .ok ()
-    | .fresh | .sent _ | .consumed _ => return .error .consumed
+    | .fresh | .abandoned | .sent _ | .consumed _ => return .error .consumed
   return result.getD (.error .staleOwner)
 
 /-- Retire once. The consumed tombstone remains outside all semantic snapshots. -/
@@ -144,7 +156,7 @@ opaque OccurrenceLedger.retire (ledger : OccurrenceLedger) (reservation : Dispat
     let some status := state[reservation.occurrence]? | return false
     let active ← match status with
       | .pending active | .sent active => pure active
-      | .fresh | .consumed _ => return false
+      | .fresh | .abandoned | .consumed _ => return false
     unless active.transaction == reservation.transaction &&
         active.connection == reservation.connection && active.selected == reservation.selected do
       return false

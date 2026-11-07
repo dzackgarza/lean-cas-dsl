@@ -27,7 +27,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let graph ← liftM (m := IO) transaction.view
     let .ok argument := RuntimeArgument.ofValue graph 0 number
       | throwError "the admitted argument is outside its graph"
-    let request ← PreparedRequest.forApplication program occurrence context callable
+    let request ← PreparedRequest.forApplication owners.identities program occurrence context callable
       #[← context.close (mkNatLit 7), ← context.close (mkNatLit 7)] #[argument] #[]
     let executor : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
       fun _ _ => throwError "an incomplete role map reached effect execution"
@@ -98,14 +98,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let graph ← liftM (m := IO) consumer.view
       let first ← liftM (m := BaseIO) ledger.allocate
       let second ← liftM (m := BaseIO) ledger.allocate
-      let left ← PreparedRequest.forProjection program first context graph record 0 #[]
-      let again ← PreparedRequest.forProjection program second context graph record 0 #[]
+      let left ← PreparedRequest.forProjection owners.identities program first context graph record 0 #[]
+      let again ← PreparedRequest.forProjection owners.identities program second context graph record 0 #[]
       let packetOccurrence ← liftM (m := BaseIO) ledger.allocate
       let packetProjection ←
-        PreparedRequest.forProjection program packetOccurrence context graph packetRecord 0 #[]
+        PreparedRequest.forProjection owners.identities program packetOccurrence context graph packetRecord 0 #[]
       let associatedOccurrence ← liftM (m := BaseIO) ledger.allocate
       let associatedProjection ←
-        PreparedRequest.forProjection program associatedOccurrence context graph associated 0 #[]
+        PreparedRequest.forProjection owners.identities program associatedOccurrence context graph associated 0 #[]
       let code : OperationalProgram (Array ValueBinding) := do
         let a ← PFunctor.FreeM.lift (P := OperationalSignature) left
         let b ← PFunctor.FreeM.lift (P := OperationalSignature) again
@@ -123,7 +123,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "the successful projection cell was not committed"
       let failed ← CellTransaction.begin ledger
       let third ← liftM (m := BaseIO) ledger.allocate
-      let right ← PreparedRequest.forProjection program third context graph associated 1 #[]
+      let right ← PreparedRequest.forProjection owners.identities program third context graph associated 1 #[]
       let denied ← do
         try
           discard <| Execute.run unavailableExecutor
@@ -168,7 +168,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let .ok actualArgument :=
           RuntimeArgument.ofValue (← SessionSnapshot.current).graph 0 scalar
         | throwError "the actual execution argument is outside the committed graph"
-      let request ← PreparedRequest.forApplication program invocation context callable
+      let request ← PreparedRequest.forApplication owners.identities program invocation context callable
         #[← context.close (mkNatLit 7)] #[actualArgument] #[]
       let selected : DispatchIdentity := {
         manifestDigest := "resource-test-manifest"
@@ -229,7 +229,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let invocation ← liftM (m := BaseIO) ledger.allocate
     let .ok argument := RuntimeArgument.ofValue base.graph 0 scalar
       | throwError "the actual native execution argument is absent"
-    let request ← PreparedRequest.forApplication program invocation context callable
+    let request ← PreparedRequest.forApplication owners.identities program invocation context callable
       #[← context.close (mkNatLit 7)] #[argument] #[]
     let executor : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
       fun request transaction => do
@@ -279,7 +279,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let graph ← liftM (m := IO) transaction.view
     let .ok argument := RuntimeArgument.ofValue graph 0 scalar
       | throwError "the record execution argument is absent"
-    let request ← PreparedRequest.forApplication program occurrence context retained
+    let request ← PreparedRequest.forApplication owners.identities program occurrence context retained
       #[← context.close (mkNatLit 7)] #[argument] #[]
     let beforeResults := graph
     let valid ← liftM (m := IO) <| transaction.stage
@@ -306,7 +306,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless fieldRoles.size == 2 && fieldRoles[0]? != fieldRoles[1]? do
       throwError "aliased result fields lost their distinct source roles"
     let next ← liftM (m := BaseIO) ledger.allocate
-    let other ← PreparedRequest.forApplication program next context retained
+    let other ← PreparedRequest.forApplication owners.identities program next context retained
       #[← context.close (mkNatLit 7)] #[argument] #[]
     let some foreignRole := other.roles.results[0]?
       | throwError "the other result telescope has no root"
@@ -328,7 +328,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let nestedValid ← liftM (m := IO) <| transaction.stage
       { program, occurrence, role := nestedRole, parameters := #[] } (.product #[valid, valid])
     let nestedOccurrence ← liftM (m := BaseIO) ledger.allocate
-    let nestedTelescope ← RoleTelescope.ofRequest program nestedOccurrence context none nestedRole #[]
+    let nestedTelescope ← RoleTelescope.ofRequest owners.identities program nestedOccurrence context none nestedRole #[]
     let graph ← liftM (m := IO) transaction.view
     let nestedMap ← ResultRoleMap.admit nestedTelescope request.environment graph nestedValid
     unless nestedTelescope.results.size == 7 do

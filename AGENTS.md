@@ -7,6 +7,7 @@ documentation policy. Preserve its complete text through merges and migrations.
 Plans, work orders, implementation decisions and evidence remain in their owning
 issues; changes to constitutional requirements follow its amendment rules.
 
+- [Current Spec Kit feature and canonical artifact index](specs/001-categorical-research-language/plan.md)
 - [Work, specification and invariants](https://github.com/dzackgarza/lean-cas-dsl/issues/10)
 - [Architecture, ownership and evidence](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6574949858)
 - [Contribution policies](https://github.com/dzackgarza/lean-cas-dsl/issues/85#issuecomment-6574924066)

@@ -8,8 +8,52 @@ meta import CasRuntime.Transport
 
 open Lean Meta CasCompiler CasRuntime CasCatalogue.Backend
 
+private def perform (ledger : OccurrenceLedger) (program : RuntimeId .program)
+    (selected : DispatchIdentity) (transaction : CellTransaction) (peer : FramedConnection) :
+    MetaM CompletionAssociation := do
+  let owners := ledger.owners
+  let context ← ContextTelescope.capture #[]
+  let occurrence ← liftM (m := BaseIO) ledger.allocate
+  let scalar ← SourceLayout.ofTerm (← context.close (mkNatLit 7))
+  let value ← liftM (m := IO) <| transaction.stage
+    { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
+  let identity ← mkAppOptM ``id #[some (mkConst ``Nat)]
+  let function ← SourceLayout.ofTerm (← context.close identity)
+  let callable ← liftM (m := IO) <| transaction.stage
+    { program, occurrence, role := function, parameters := #[] } (.closure program #[])
+  let graph ← liftM (m := IO) transaction.view
+  let .ok actual := RuntimeArgument.ofValue graph 0 value
+    | throwError "the completion input is absent"
+  let request ← PreparedRequest.forApplication owners.identities program occurrence context callable
+    #[scalar.source] #[actual] #[]
+  discard <| request.admitInputs graph
+  let .ok reservation ← liftM (m := BaseIO) <|
+    transaction.reserve occurrence selected peer.connection #[value]
+    | throwError "the completion invocation could not reserve"
+  let scope ← liftM (m := IO) <| RequestScope.issue ledger reservation graph #[value] #[] #[]
+  let some role := request.roles.results[0]?
+    | throwError "the pending request has no result role"
+  match ← liftM (m := BaseIO) <| transaction.reuse occurrence role.role.id with
+  | .ok (.pending pending) =>
+    unless pending.occurrence == reservation.occurrence && pending.connection == reservation.connection do
+      throwError "pending reuse changed its exact invocation locator"
+  | _ => throwError "pending reuse lost the actual reserved invocation"
+  let .ok reply ← liftM (m := IO) <| peer.invokeBefore ledger transaction reservation scope
+    (ScopedReference.scope 0).encode 5000
+    | throwError "the completion invocation did not return"
+  let .ok completion ← reply.stageCompletion request transaction scope peer.connection
+    | throwError "the admitted reply did not stage its completion"
+  let duplicate : Option Exception ← try
+    discard <| reply.stageCompletion request transaction scope peer.connection
+    pure none
+  catch error => pure (some error)
+  let some duplicate := duplicate
+    | throwError "a completed reply retained its old request authority"
+  unless (← duplicate.toMessageData.toString).endsWith "the request scope has retired" do throw duplicate
+  return completion
+
 -- Actual SDK frames enter admission, same-cell reuse and whole-cell publication.
-run_cmd Lean.Elab.Command.liftTermElabM do
+run_cmd Lean.Elab.Command.liftTermElabM <| liftM (m := MetaM) do
   let original ← getEnv
   try
     let contract ← liftM (m := IO) <| packageDir contractPackage
@@ -34,50 +78,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let selected : DispatchIdentity := {
         manifestDigest := "completion-manifest", profileDigest := "completion-profile"
         registration := { operation := "echo", input := "completion#input", backend := wire.backend } }
-      let perform (transaction : CellTransaction) (peer : FramedConnection) : MetaM CompletionAssociation := do
-        let occurrence ← liftM (m := BaseIO) ledger.allocate
-        let scalar ← SourceLayout.ofTerm (← context.close (mkNatLit 7))
-        let value ← liftM (m := IO) <| transaction.stage
-          { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
-        let identity ← mkAppOptM ``id #[some (mkConst ``Nat)]
-        let function ← SourceLayout.ofTerm (← context.close identity)
-        let callable ← liftM (m := IO) <| transaction.stage
-          { program, occurrence, role := function, parameters := #[] } (.closure program #[])
-        let graph ← liftM (m := IO) transaction.view
-        let .ok actual := RuntimeArgument.ofValue graph 0 value
-          | throwError "the completion input is absent"
-        let request ← PreparedRequest.forApplication program occurrence context callable
-          #[scalar.source] #[actual] #[]
-        discard <| request.admitInputs graph
-        let .ok reservation ← liftM (m := BaseIO) <|
-          transaction.reserve occurrence selected peer.connection #[value]
-          | throwError "the completion invocation could not reserve"
-        let scope ← liftM (m := IO) <| RequestScope.issue ledger reservation graph #[value] #[] #[]
-        let some role := request.roles.results[0]?
-          | throwError "the pending request has no result role"
-        match ← liftM (m := BaseIO) <| transaction.reuse occurrence role.role.id with
-        | .ok (.pending pending) =>
-          unless pending.occurrence == reservation.occurrence &&
-              pending.connection == reservation.connection do
-            throwError "pending reuse changed its exact invocation locator"
-        | _ => throwError "pending reuse lost the actual reserved invocation"
-        let .ok reply ← liftM (m := IO) <| peer.invokeBefore ledger transaction reservation scope
-          (ScopedReference.scope 0).encode 5000
-          | throwError "the completion invocation did not return"
-        let .ok completion ← reply.stageCompletion request transaction scope peer.connection
-          | throwError "the admitted reply did not stage its completion"
-        let duplicate : Option Exception ← try
-          discard <| reply.stageCompletion request transaction scope peer.connection
-          pure none
-        catch error => pure (some error)
-        let some duplicate := duplicate
-          | throwError "a completed reply retained its old request authority"
-        unless (← duplicate.toMessageData.toString).endsWith "the request scope has retired" do throw duplicate
-        return completion
       let transaction ← CellTransaction.begin ledger
-      let first ← perform transaction wire
-      let second ← perform transaction otherWire
-      let third ← perform transaction wire
+      let first ← perform ledger program selected transaction wire
+      let second ← perform ledger program selected transaction otherWire
+      let third ← perform ledger program selected transaction wire
       let nativeOccurrence ← liftM (m := BaseIO) ledger.allocate
       let function ← SourceLayout.ofTerm (← context.close (mkConst ``Nat.succ))
       let argument ← liftM (m := IO) <| transaction.stage
@@ -89,7 +93,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let graph ← liftM (m := IO) transaction.view
       let .ok actual := RuntimeArgument.ofValue graph 0 argument
         | throwError "the native completion argument is absent"
-      let nativeRequest ← PreparedRequest.forApplication program nativeOccurrence context callable
+      let nativeRequest ← PreparedRequest.forApplication owners.identities program nativeOccurrence context callable
         #[function.source] #[actual] #[]
       discard <| nativeRequest.admitInputs graph
       let .ok nativeReservation ← liftM (m := BaseIO) <| transaction.reserve nativeOccurrence
@@ -105,6 +109,20 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throwError "the native completion did not admit"
       let some firstRole := first.request.roles.results[0]?
         | throwError "the completed result has no root role"
+      let .apply oldCallable oldArguments supplied := first.request.action
+        | throwError "the completion control lost its prepared application"
+      let graph ← liftM (m := IO) transaction.view
+      let #[some value] := supplied
+        | throwError "the identity completion lost its prescribed argument"
+      let .ok actual := RuntimeArgument.ofValue graph 0 value
+        | throwError "the original completion input is outside its graph"
+      let rebuilt ← PreparedRequest.forApplication owners.identities program first.request.occurrence context
+        oldCallable oldArguments #[actual] #[]
+      let some rebuiltRole := rebuilt.roles.results[0]?
+        | throwError "the rebuilt request has no root role"
+      match ← liftM (m := BaseIO) <| transaction.reuse first.request.occurrence rebuiltRole.role.id with
+      | .error .referenceOutsideGraph => pure ()
+      | _ => throwError "a rebuilt request recovered a different preparation's completion"
       match ← liftM (m := BaseIO) <| transaction.reuse first.request.occurrence firstRole.role.id with
       | .ok (.ready binding) =>
         unless binding.value == first.response.root.value do
@@ -148,7 +166,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       discard <| liftM (m := BaseIO) restored.abort
       setEnv committedEnvironment
       let aborted ← CellTransaction.begin ledger
-      let tentative ← perform aborted wire
+      let tentative ← perform ledger program selected aborted wire
       discard <| liftM (m := BaseIO) aborted.abort
       if (← SessionSnapshot.current).receipt tentative.request.occurrence |>.isSome then
         throwError "abort published a staged completion"
@@ -156,7 +174,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       | none => pure ()
       | some _ => throwError "a settled completion remained pending in the ledger"
       let raced ← CellTransaction.begin ledger
-      let racingCompletion ← perform raced otherWire
+      let racingCompletion ← perform ledger program selected raced otherWire
       let beforeRace ← SessionSnapshot.current
       let cancellation ← liftM (m := IO) <| IO.asTask (prio := .dedicated) do
         return ← raced.abort

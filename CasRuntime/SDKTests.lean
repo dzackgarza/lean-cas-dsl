@@ -110,7 +110,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let graph ← liftM (m := IO) later.view
       let .ok actual := RuntimeArgument.ofValue graph 0 operand
         | throwError "the native source argument is outside its graph"
-      let nativeRequest ← PreparedRequest.forApplication program nativeOccurrence context retainedCallable
+      let nativeRequest ← PreparedRequest.forApplication owners.identities program nativeOccurrence context retainedCallable
         #[← context.close (mkNatLit 7)] #[actual] #[]
       let nativeInputs ← nativeRequest.admitInputs graph
       let nativeArguments ← IO.ofExcept <| (nativeInputs.arguments graph).mapError IO.userError
