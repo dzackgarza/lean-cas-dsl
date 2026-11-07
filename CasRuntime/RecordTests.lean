@@ -53,7 +53,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throw <| IO.userError "the dependent field lost its runtime instantiation"
       unless association.field.sourceIndex == 1 && association.field.precedingDependencies == #[0] &&
           association.preceding.size == 1 &&
-          association.preceding[0]?.flatten.map (·.value) == some width.value do
+          (association.preceding[0]?.bind id).map (·.value) == some width.value do
         throw <| IO.userError "the dependent field uses a reconstructed or incomplete prefix"
       let some erased := numeral.instantiations.back?
         | throw <| IO.userError "the finite record lost its field instantiation"
