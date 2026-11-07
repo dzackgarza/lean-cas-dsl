@@ -3,10 +3,12 @@ module
 import CasCompiler.Resolve
 import LeanCategories.Catalogue.Semantics.Foundation.Lists
 import LeanCategories.Catalogue.Semantics.Modules.CatalogueRegistration
+import LeanCategories.Catalogue.Semantics.Algebra.Ports
 public meta import Lean.Elab.Command
 meta import CasCompiler.Resolve
 meta import LeanCategories.Catalogue.Semantics.Foundation.Lists
 meta import LeanCategories.Catalogue.Semantics.Modules.CatalogueRegistration
+meta import LeanCategories.Catalogue.Semantics.Algebra.Ports
 
 open Lean Meta Elab Term CasCompiler CasCatalogue
 
@@ -129,4 +131,23 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless value.containsFVar scalar.fvarId! && value.containsFVar object.fvarId! &&
         !value.containsFVar bindings[1]!.expression.fvarId! do
       throwError "parameterized whiskering rebound its original scalar after source shadowing"
+    checkWithKernel value
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let rings ← empty.namedCategory Syntax.missing "Rings" [.param `u] #[]
+  let selected ← empty.namedFunctor Syntax.missing FunctorId.ringsMultiplicative #[] rings
+  selected.functor.source.withOpen fun bindings value => do
+    let context ← ContextTelescope.capture bindings
+    let original := Lean.mkConst ``CasCatalogue.Algebra.Ports.ringsMultiplicative [.param `u]
+    unless (← whnf (← inferType original)).isAppOf ``CategoryTheory.Cat.Hom do
+      throwError "the source Cat.Hom functor control no longer exercises its native interface"
+    let expected ← mkAppM ``CategoryTheory.Cat.Hom.toFunctor #[original]
+    unless ← isDefEq value expected do
+      throwError "registered Cat.Hom formation replaced the original source functor"
+    let (source, target) ← functorCategoryBundles value
+    unless ← isDefEq source (← rings.value.source.inContext context) <&&>
+        isDefEq target (← selected.target.value.source.inContext context) do
+      throwError "registered Cat.Hom formation changed a complete native category bundle"
     checkWithKernel value
