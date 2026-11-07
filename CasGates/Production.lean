@@ -25,6 +25,7 @@ import all CasRuntime.Scope
 import all CasRuntime.ScopeTests
 import all CasRuntime.Reply
 import all CasRuntime.ReplyTests
+import all CasRuntime.ProtocolTests
 import all CasContract
 import all CasContract.Failure
 import all CasContract.Port

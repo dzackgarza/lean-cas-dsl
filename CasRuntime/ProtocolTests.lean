@@ -3,6 +3,7 @@ module
 import CasRuntime.Owner
 import CasContract.Port
 public meta import Lean.Elab.Command
+meta import CasRuntime.Owner
 meta import CasContract.Port
 
 open Lean CasRuntime CasCatalogue.Backend
@@ -68,5 +69,6 @@ run_cmd Lean.Elab.Command.liftIO do
         ("contract", .str "cas-computation/2")],
       Json.mkObj [("op", .str "hello"), ("protocol", toJson (2 : Nat)),
         ("contract", .str "cas-computation/2"), ("owner", .str "claimed")]] do
-    unless (checkHelloV2 packet).isError do
-      throw <| IO.userError "a malformed hello passed protocol validation"
+    match checkHelloV2 packet with
+    | .error _ => pure ()
+    | .ok () => throw <| IO.userError "a malformed hello passed protocol validation"
