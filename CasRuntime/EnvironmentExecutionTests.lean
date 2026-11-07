@@ -41,7 +41,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       withLocalDeclD `unused (← inferType (mkConst ``Nat.succ)) fun unused => do
         let id : BindingId := ⟨"execution-context", 0⟩
         let context ← ContextTelescope.capture #[{ id, role := .parameter, expression := unused }]
-        let parameters : Array RuntimeParameter := #[{ source := id, value := callable }]
+        let graph ← liftM (m := IO) pending.view
+        let .ok parameter := RuntimeParameter.ofValue graph id callable
+          | throwError "the actual staged context value is missing"
+        let parameters := #[parameter]
         let occurrence ← liftM (m := BaseIO) ledger.allocate
         let request ← PreparedRequest.forProjection program occurrence context pair 0 parameters
         let older ← CellTransaction.begin ledger
@@ -50,8 +53,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             discard <| Execute.run noExternalRegistration
               (PFunctor.FreeM.lift (P := OperationalSignature) request) older
             pure false
-          catch error => pure <| error.toString.endsWith
-            "the value reference is outside the visible graph"
+          catch error => do
+            let message := error.toString
+            pure (message.endsWith "the value reference is outside the visible graph")
         unless rejected do
           throwError "a source/runtime table recovered a value absent from the transaction graph"
         unless (← liftM (m := BaseIO) older.activeGraph).isNone &&

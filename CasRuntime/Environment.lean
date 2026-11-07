@@ -10,8 +10,19 @@ open Lean Meta CasCompiler
 
 /-- An actual value associated with an explicitly identified source binder. -/
 structure RuntimeParameter where
+  private mk ::
   source : BindingId
   value : ValueBinding
+  private origin : ValueOrigin
+
+/-- Read the actual producing provenance from the caller's visible immutable graph.
+Reuse: ValueGraph.requiredOwners and ValueGraph.find; no payload copy enters this table. -/
+opaque RuntimeParameter.ofValue (graph : ValueGraph) (source : BindingId) (value : ValueBinding) :
+    Except String RuntimeParameter := do
+  discard <| graph.requiredOwners #[value]
+  let some node := graph.find value.value
+    | throw "the runtime parameter is outside the visible graph"
+  return ⟨source, value, node.origin⟩
 
 /-- The complete semantic telescope and its separate ordered runtime-binding table.
 Formal-only entries retain their source definitions, hypotheses and selected instances.
@@ -32,7 +43,7 @@ def RuntimeEnvironment.lookup (environment : RuntimeEnvironment) (source : Bindi
   throw "the runtime binding identity is outside its source telescope"
 
 /-- Associate existing nodes by stable source identity and native source type.
-This checks the complete formal type, not a nominal computational kind or display name.
+This checks both current and producing source types, not a coarse kind or display name.
 Reuse: ClosedTerm.inContext and Lean.Meta.isDefEq. No payload is decoded into a source term.
 Dependent runtime qualifiers and whole-reply admission remain separate checks. -/
 opaque RuntimeEnvironment.capture (worker : String) (context : OpenContext)
@@ -52,6 +63,9 @@ opaque RuntimeEnvironment.capture (worker : String) (context : OpenContext)
     let original ← parameter.value.role.source.inContext context
     unless ← isDefEq (← inferType original) expected do
       throwError "the runtime value has an incompatible complete source type"
+    let producing ← parameter.origin.role.source.inContext context
+    unless ← isDefEq (← inferType producing) expected do
+      throwError "the producing runtime value has an incompatible complete source type"
     supplied := supplied.insert parameter.source parameter.value
   let values := context.bindings.map fun binding => supplied[binding.id]?
   return ⟨worker, context.telescope, values⟩

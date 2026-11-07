@@ -41,9 +41,11 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless response.root.value == callable.value do
       throwError "response preparation replaced the actual projected field"
     let argument ← context.close (mkNatLit 7)
+    let .ok parameter := RuntimeParameter.ofValue graph ⟨"value-request", 0⟩ scalar
+      | throwError "the actual source parameter is outside its graph"
     let applicationOccurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
     let application ← PreparedRequest.forApplication program applicationOccurrence context
-      response.root #[argument] #[scalar] #[{ source := ⟨"value-request", 0⟩, value := scalar }]
+      response.root #[argument] #[scalar] #[parameter]
     let .ok (some supplied) := application.environment.lookup ⟨"value-request", 0⟩
       | throwError "the prepared application lost a supplied source binding"
     unless supplied.value == scalar.value && application.environment.values.size == 1 do

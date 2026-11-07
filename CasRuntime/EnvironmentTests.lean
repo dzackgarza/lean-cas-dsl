@@ -33,10 +33,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
               { id := ⟨"runtime-context", 3⟩, role := .definition, expression := k },
               { id := ⟨"runtime-context", 4⟩, role := .instance, expression := chosen }]
             let context ← ContextTelescope.capture bindings
+            let parameter (source : BindingId) (value : ValueBinding) : MetaM RuntimeParameter := do
+              let .ok result := RuntimeParameter.ofValue graph source value
+                | throwError "the actual parameter is outside its graph"
+              return result
             let supplied : Array RuntimeParameter := #[
-              { source := bindings[1]!.id, value := number },
-              { source := bindings[0]!.id, value := number },
-              { source := bindings[3]!.id, value := number }]
+              ← parameter bindings[1]!.id number,
+              ← parameter bindings[0]!.id number,
+              ← parameter bindings[3]!.id number]
             let environment ← RuntimeEnvironment.capture owners.worker context supplied
             unless environment.values.size == bindings.size &&
                 environment.references.map (·.value) == #[number.value, number.value, number.value] do
@@ -56,12 +60,11 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             | .error _ => pure ()
             | .ok _ => throwError "runtime lookup accepted a source identity outside its telescope"
             let invalid : Array (Array RuntimeParameter) := #[
-                #[{ source := bindings[1]!.id, value := number },
-                  { source := bindings[1]!.id, value := number }],
-                #[{ source := ⟨"absent", 0⟩, value := number }],
-                #[{ source := bindings[2]!.id, value := number }],
-                #[{ source := bindings[0]!.id, value := truthData }],
-                #[{ source := bindings[0]!.id, value := relabelled }]]
+                #[← parameter bindings[1]!.id number, ← parameter bindings[1]!.id number],
+                #[← parameter ⟨"absent", 0⟩ number],
+                #[← parameter bindings[2]!.id number],
+                #[← parameter bindings[0]!.id truthData],
+                #[← parameter bindings[0]!.id relabelled]]
             for parameters in invalid do
               let rejected ← try
                 discard <| RuntimeEnvironment.capture owners.worker context parameters
