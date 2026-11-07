@@ -133,3 +133,26 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   image.source.withOpen fun bindings value => do
     unless value.containsFVar bindings[0]!.expression.fvarId! do
       throwError "the explicit source context replaced its actual formal object"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let domains ← empty.assume `A (← nativeSource "Type")
+  let domains ← domains.assume `B (← nativeSource "Type")
+  let functions ← domains.assume `f (← nativeSource "A → B")
+  let image ← readSource functions "map f along «fun.sets.list»()"
+  let some entry := (← semanticState).functor? FunctorId.setsList
+    | throwError "the actual map action is absent from the source"
+  reference image ``EdgeRef.functor entry.id.raw entry.declaration
+  image.source.withOpen fun bindings value => do
+    let expected ← mkAppM ``CategoryTheory.Functor.map
+      #[Lean.mkConst entry.declaration [.zero], bindings[2]!.expression]
+    unless value.containsFVar bindings[2]!.expression.fvarId! && (← isDefEq value expected) do
+      throwError "the source map action changed the actual declared functor or input arrow"
+  let bound ← functions.defineTerm `mapped image
+  let arguments ← bound.assume `xs (← nativeSource "List A")
+  let applied ← readSource arguments "mapped(xs)"
+  applied.source.withOpen fun bindings value => do
+    unless value.containsFVar bindings[3]!.expression.fvarId! &&
+        value.containsFVar bindings[4]!.expression.fvarId! do
+      throwError "a mapped callable lost its actual binding or later argument"
