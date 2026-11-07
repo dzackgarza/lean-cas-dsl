@@ -42,8 +42,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
               ← parameter bindings[0]!.id number,
               ← parameter bindings[3]!.id number]
             let environment ← RuntimeEnvironment.capture owners.worker context supplied
+            let expected := #[number.value, number.value, number.value]
             unless environment.values.size == bindings.size &&
-                environment.references.map (·.value) == #[number.value, number.value, number.value] do
+                environment.references.map (·.value) == expected do
               throwError "runtime association changed the full source order or merged source slots"
             for index in #[0, 1, 3] do
               let .ok (some value) := environment.lookup bindings[index]!.id

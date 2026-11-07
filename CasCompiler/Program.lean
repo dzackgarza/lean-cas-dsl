@@ -176,7 +176,8 @@ actual callable before this boundary. Complete formal arguments remain separate 
 opaque PreparedRequest.forApplication (program : CasRuntime.RuntimeId .program)
     (occurrence : CasRuntime.RuntimeId .occurrence) (context : OpenContext)
     (callable : CasRuntime.ValueBinding) (arguments : Array ClosedTerm)
-    (argumentScope : Array CasRuntime.ValueBinding) (parameters : Array CasRuntime.RuntimeParameter) :
+    (argumentScope : Array CasRuntime.ValueBinding)
+    (parameters : Array CasRuntime.RuntimeParameter) :
     MetaM PreparedRequest := do
   unless callable.role.kind == .function do
     throwError "the retained value has no prepared callable interface"
