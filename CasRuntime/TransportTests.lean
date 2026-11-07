@@ -239,6 +239,12 @@ run_cmd Lean.Elab.Command.liftTermElabM do
 
 run_cmd Lean.Elab.Command.liftIO do
   let owners ← OwnerRegistry.new
+  for _ in [:64] do
+    match ← FramedConnection.start owners "early-exit" { cmd := "/usr/bin/true" } 5000 with
+    | .error (.unavailable backend reason) =>
+      unless backend == "early-exit" && reason == "incompatible_protocol: no valid ready frame" do
+        throw <| IO.userError "an early process exit lost its explicit startup outcome"
+    | _ => throw <| IO.userError "an exited process became an executable v2 connection"
   match ← FramedConnection.start owners "silent-peer" { cmd := "/bin/cat" } 20 with
   | .error (.unavailable backend reason) =>
     unless backend == "silent-peer" && reason == "incompatible_protocol: deadline" do
