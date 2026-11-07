@@ -2,9 +2,11 @@ module
 
 import CasCompiler.Resolve
 import LeanCategories.Catalogue.Semantics.Foundation.Lists
+import LeanCategories.Catalogue.Semantics.Modules.CatalogueRegistration
 public meta import Lean.Elab.Command
 meta import CasCompiler.Resolve
 meta import LeanCategories.Catalogue.Semantics.Foundation.Lists
+meta import LeanCategories.Catalogue.Semantics.Modules.CatalogueRegistration
 
 open Lean Meta Elab Term CasCompiler CasCatalogue
 
@@ -85,3 +87,45 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       pure false
     catch _ => pure true
     unless rejected do throwError "whiskering specialized incompatible rigid category universes"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let rings ← empty.namedCategory Syntax.missing "Rings" [.param `u] #[]
+  let ringType ← empty.elaborate Syntax.missing fun context => do
+    mkAppM ``CategoryTheory.Bundled.α #[← rings.value.source.inContext context]
+  let parameters ← empty.assumeTerm `R ringType
+  let ring ← parameters.term (← `(term| $(mkIdent `R):ident))
+  let modules ← parameters.namedCategory Syntax.missing "Modules" [.param `u, .param `w] #[ring]
+  let inclusion ← parameters.namedFunctor Syntax.missing FunctorId.modulesFibreInclusion
+    #[ring] modules
+  let cell ← parameters.cell Syntax.missing ⟨"cell.modules.additive_group_carrier"⟩
+    #[] inclusion.target
+  let whiskered ← parameters.whiskerCell Syntax.missing .left inclusion cell
+  for universe in #[`u, `w] do
+    unless inclusion.functor.source.universeParams.contains universe &&
+        whiskered.transformation.source.universeParams.contains universe do
+      throwError "parameterized whiskering discarded an independent rigid source universe"
+  let objectType ← parameters.elaborate Syntax.missing fun context => do
+    mkAppM ``CategoryTheory.Bundled.α #[← modules.value.source.inContext context]
+  let shadowed ← parameters.assumeTerm `R ringType
+  let objects ← shadowed.assumeTerm `M objectType
+  let object ← objects.term (← `(term| $(mkIdent `M):ident))
+  let component ← objects.cellComponent Syntax.missing whiskered object
+  component.value.source.withOpen fun bindings value => do
+    let scalar := bindings[0]!.expression
+    let object := bindings[2]!.expression
+    let F ← mkAppM
+      ``CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration #[scalar]
+    let iso := Lean.mkConst
+      ``CasCatalogue.Modules.CatalogueRegistration.modulesAdditiveGroupCarrierComparison
+      [.param `u, .param `w]
+    let hom ← mkAppM ``CategoryTheory.Iso.hom #[iso]
+    let transformation ← mkAppM ``CategoryTheory.Functor.whiskerLeft #[F, hom]
+    let expected ← mkAppM ``CategoryTheory.NatTrans.app #[transformation, object]
+    unless ← isDefEq value expected do
+      throwError "parameterized whiskering changed its actual scalar or source comparison"
+    unless value.containsFVar scalar.fvarId! && value.containsFVar object.fvarId! &&
+        !value.containsFVar bindings[1]!.expression.fvarId! do
+      throwError "parameterized whiskering rebound its original scalar after source shadowing"
+    checkWithKernel value
