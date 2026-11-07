@@ -54,6 +54,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           (actual[1]?.bind id).map (·.value) == some rightValue.value &&
           request.scope.map (·.value) == #[callable.value, leftValue.value, rightValue.value] do
         throwError "callable preparation changed the complete source argument order or actual values"
+      for source in arguments, value in actual do
+        let some value := value | throwError "a supplied source operand is absent"
+        unless (← value.role.source.inContext context) == (← source.inContext context) do
+          throwError "callable preparation changed the native consuming source argument"
       let .ok rightAlias := RuntimeParameter.ofValue graph bindings[1]!.id leftValue
         | throwError "the aliased source parameter is absent"
       let aliased ← PreparedRequest.forApplication program occurrence context callable arguments
