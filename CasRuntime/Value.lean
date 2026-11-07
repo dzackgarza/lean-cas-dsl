@@ -22,9 +22,9 @@ structure RecordAssociation where
 The recursive data keep earlier associations when an existing node fills another role.
 Source: the data model's ResultBinding and dependency-ordered DataInterface contract. -/
 inductive ValueBinding where
-  private | direct (value : RuntimeId .value) (role : SourceLayout)
-  private | atRole (binding : ValueBinding) (role : SourceLayout)
-  private | inField (binding : ValueBinding) (role : SourceLayout)
+  | private direct (value : RuntimeId .value) (role : SourceLayout)
+  | private atRole (binding : ValueBinding) (role : SourceLayout)
+  | private inField (binding : ValueBinding) (role : SourceLayout)
       (association : RecordAssociation) (field : FieldLayout)
       (preceding : Array (Option ValueBinding))
 
