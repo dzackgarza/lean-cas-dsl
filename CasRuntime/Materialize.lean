@@ -67,8 +67,9 @@ private partial def materializeValue (reply : ImmediateReply) (request : Prepare
       let (next, binding) ← materializeValue reply request connection supply prepared.layout
         position.2 (path ++ position.1) draft
       draft := next
-      let (next, binding) ← liftM (m := IO) <| record.bind draft.view binding
-      record := next
+      let (nextDraft, nextRecord, binding) ← liftM (m := IO) <| draft.bindField record binding
+      draft := nextDraft
+      record := nextRecord
       slots := slots.push { path := position.1, binding }
       selected := selected.push binding
     let .ok _ := record.finish

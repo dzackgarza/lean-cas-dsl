@@ -163,8 +163,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             let pairLayout ← RecordLayout.ofSource (← SourceLayout.ofTerm (← context.close pair))
             let record ← liftM (m := IO) <|
               RecordPrefix.begin owners.identities program occurrence pairLayout
-            let (record, firstRole) ← liftM (m := IO) <| record.bind graph number
-            let (_, secondRole) ← liftM (m := IO) <| record.bind graph number
+            let (graph, record, firstRole) ← liftM (m := IO) <| record.bind graph number
+            let (graph, _, secondRole) ← liftM (m := IO) <| record.bind graph number
             let .ok firstParameter := RuntimeParameter.ofValue graph bindings[0]!.id firstRole
               | throwError "the original dependent index role is absent"
             let .ok secondParameter := RuntimeParameter.ofValue graph bindings[0]!.id secondRole
@@ -228,17 +228,17 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
         let record ← liftM (m := IO) <|
           RecordPrefix.begin owners.identities program occurrence finite
-        let (record, _) ← liftM (m := IO) <| record.bind graph firstIndex
+        let (graph, record, _) ← liftM (m := IO) <| record.bind graph firstIndex
         let .ok payload := record.finish | throwError "the finite value interface is incomplete"
         let (graph, value) ← liftM (m := IO) <| graph.stage owners.identities
           { program, occurrence, role := finite.source, parameters := #[none, none, none] } payload
         let record ← liftM (m := IO) <|
           RecordPrefix.begin owners.identities program occurrence layout
-        let (record, originalIndex) ← liftM (m := IO) <| record.bind graph firstIndex
-        let (_, projectedValue) ← liftM (m := IO) <| record.bind graph value
+        let (graph, record, originalIndex) ← liftM (m := IO) <| record.bind graph firstIndex
+        let (graph, _, projectedValue) ← liftM (m := IO) <| record.bind graph value
         let record ← liftM (m := IO) <|
           RecordPrefix.begin owners.identities program occurrence layout
-        let (_, changedIndex) ← liftM (m := IO) <| record.bind graph secondIndex
+        let (graph, _, changedIndex) ← liftM (m := IO) <| record.bind graph secondIndex
         let parameter (id : BindingId) (value : ValueBinding) : MetaM RuntimeParameter := do
           let .ok parameter := RuntimeParameter.ofValue graph id value
             | throwError "the actual consuming field is absent"
@@ -273,10 +273,12 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           throw failure
         let reused ← liftM (m := IO) <|
           RecordPrefix.begin owners.identities program occurrence layout
-        let (reused, reusedIndex) ← liftM (m := IO) <| reused.bind graph originalIndex
-        let (_, reusedValue) ← liftM (m := IO) <| reused.bind graph projectedValue
+        let (graph, reused, reusedIndex) ← liftM (m := IO) <| reused.bind graph originalIndex
+        let (graph, _, reusedValue) ← liftM (m := IO) <| reused.bind graph projectedValue
+        let .ok reusedParameter := RuntimeParameter.ofValue graph bindings[1]!.id reusedIndex
+          | throwError "the reused actual index role is absent"
         let reusedEnvironment ← RuntimeEnvironment.capture owners.worker context
-          #[← parameter bindings[1]!.id reusedIndex]
+          #[reusedParameter]
         let reusedResult ← reusedEnvironment.checkResult graph expected reusedValue
         unless reusedResult.root.value == projectedValue.value &&
             reusedResult.root.instantiations.size == projectedValue.instantiations.size + 1 do

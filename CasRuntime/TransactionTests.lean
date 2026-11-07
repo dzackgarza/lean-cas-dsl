@@ -11,6 +11,49 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   try
     let context ← ContextTelescope.capture #[]
     let role ← SourceLayout.ofTerm (← context.close (mkNatLit 7))
+    let pair ← mkAppM ``Prod.mk #[mkNatLit 7, mkNatLit 7]
+    let layout ← RecordLayout.ofSource (← SourceLayout.ofTerm (← context.close pair))
+    let owners ← liftM (m := IO) OwnerRegistry.new
+    let ledger ← liftM (m := BaseIO) (OccurrenceLedger.new owners)
+    discard <| SessionSnapshot.initialize owners
+    let transaction ← CellTransaction.begin ledger
+    let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+    let occurrence ← liftM (m := BaseIO) ledger.allocate
+    let value ← liftM (m := IO) <| transaction.stage
+      { program, occurrence, role, parameters := #[] } (.portable "7".toUTF8)
+    let older ← liftM (m := IO) transaction.view
+    let fields ← liftM (m := IO) <| RecordPrefix.begin owners.identities program occurrence layout
+    let draft ← liftM (m := IO) transaction.draft
+    let (left, _, selected) ← liftM (m := IO) <| draft.bindField fields value
+    let (right, _, other) ← liftM (m := IO) <| draft.bindField fields value
+    unless selected.value == value.value && other.value == value.value &&
+        !left.view.sameRevision older && !left.view.sameRevision right.view do
+      throwError "association-only drafts changed nodes or shared a graph revision"
+    if (older.requiredOwners #[selected]).isOk then
+      throwError "an isolated association entered its base graph"
+    let .ok () ← liftM (m := BaseIO) <| transaction.installDraft left
+      | throwError "the isolated association could not install"
+    match ← liftM (m := BaseIO) (transaction.installDraft right) with
+    | .error .staleDraft => pure ()
+    | _ => throwError "a sibling association draft replaced an intervening graph revision"
+    let active ← liftM (m := IO) transaction.view
+    let .ok _ := active.requiredOwners #[selected]
+      | throwError "the installed association is absent from its active graph"
+    if (active.requiredOwners #[other]).isOk then
+      throwError "the active graph recovered an uninstalled sibling association"
+    let .ok published ← transaction.commit
+      | throwError "the association-only delta could not commit"
+    let .ok _ := published.graph.requiredOwners #[selected]
+      | throwError "commit lost the installed association"
+    if (published.graph.requiredOwners #[other]).isOk then
+      throwError "commit published an uninstalled association"
+  finally setEnv original
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let original ← getEnv
+  try
+    let context ← ContextTelescope.capture #[]
+    let role ← SourceLayout.ofTerm (← context.close (mkNatLit 7))
     let owners ← liftM (m := IO) OwnerRegistry.new
     let ledger ← liftM (m := BaseIO) (OccurrenceLedger.new owners)
     discard <| SessionSnapshot.initialize owners

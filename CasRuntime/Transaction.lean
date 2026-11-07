@@ -84,6 +84,13 @@ opaque CellDraft.stage (draft : CellDraft) (origin : ValueOrigin) (payload : Val
   let (graph, binding) ← draft.graph.stage draft.identities origin payload
   return ({ draft with graph, roots := draft.roots.push binding }, binding)
 
+/-- Register a field role only in this isolated reply delta.
+Reuse: RecordPrefix.bind and the draft's immutable graph extension. -/
+opaque CellDraft.bindField (draft : CellDraft) (record : RecordPrefix) (value : ValueBinding) :
+    IO (CellDraft × RecordPrefix × ValueBinding) := do
+  let (graph, record, binding) ← record.bind draft.graph value
+  return ({ draft with graph, roots := draft.roots.push binding }, record, binding)
+
 inductive TransactionFailure
   | settled | staleSnapshot | staleOwner | pendingCalls | referenceOutsideGraph
   | staleDraft | emptyDraft

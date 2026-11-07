@@ -11,6 +11,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let role ← SourceLayout.ofTerm (← context.close (mkNatLit 7))
   let pair ← mkAppM ``Prod.mk #[mkNatLit 7, mkNatLit 7]
   let record ← SourceLayout.ofTerm (← context.close pair)
+  let recordLayout ← RecordLayout.ofSource record
   let some field := record.fields[0]? | throwError "the source field control is missing"
   let fieldRole ← field.toLayout
   liftM (m := IO) do
@@ -52,6 +53,19 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let captures ← scope.capture reservation graph scope.wireId #[.scope 0, .scope 1]
       unless captures.size == 2 do
         throw <| IO.userError "capture validation merged distinct scope addresses"
+      let fields ← RecordPrefix.begin owners.identities program producerOccurrence recordLayout
+      let (extended, _, associated) ← fields.bind graph original
+      let fieldScope ← RequestScope.issue ledger reservation extended #[associated] #[] #[]
+      let visible ← fieldScope.resolveMany reservation extended fieldScope.wireId #[.scope 0]
+      unless visible.map (·.value) == #[original.value] do
+        throw <| IO.userError "the field scope replaced its original node"
+      let outsideAssociation ← try
+        discard <| fieldScope.resolveMany reservation graph fieldScope.wireId #[.scope 0]
+        pure false
+      catch _ => pure true
+      unless outsideAssociation do
+        throw <| IO.userError "scope metadata recovered a field association outside its snapshot"
+      fieldScope.retire
       let badRefs := #[ScopedReference.scope 2, .input #[.field "argument", .index 0], .result 1]
       for reference in badRefs do
         let rejected ← try

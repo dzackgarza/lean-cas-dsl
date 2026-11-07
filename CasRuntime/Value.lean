@@ -218,12 +218,13 @@ structure ValueGraph where
   private mk ::
   worker : String
   private nodes : Std.HashMap (RuntimeId .value) ValueNode
-  private revision : Option (RuntimeId .value)
+  private associations : Std.HashSet (RuntimeId .association)
+  private revision : Option (RuntimeId .revision)
 
-def ValueGraph.empty (supply : IdentitySupply) : ValueGraph := ⟨supply.worker, {}, none⟩
+def ValueGraph.empty (supply : IdentitySupply) : ValueGraph := ⟨supply.worker, {}, {}, none⟩
 
-/-- Each append has a fresh node identity, so an append-only graph has an exact revision.
-Reference: the existing IdentitySupply monotone allocation and persistent HashMap insertion. -/
+/-- Every value or association append has a fresh revision.
+Reference: IdentitySupply monotone allocation and persistent HashMap/HashSet insertion. -/
 def ValueGraph.sameRevision (left right : ValueGraph) : Bool :=
   left.worker == right.worker && left.revision == right.revision
 
@@ -243,6 +244,8 @@ private partial def ValueGraph.checkBinding (graph : ValueGraph) (binding : Valu
   | .atRole underlying _ => graph.checkBinding underlying visited
   | .inField id underlying _ association field preceding =>
     if visited.contains id then return visited
+    unless graph.associations.contains id do
+      throw "the field association is outside the visible graph"
     unless id.worker == graph.worker && association.id.worker == graph.worker &&
         field.sourceIndex == preceding.size do
       throw "the field association has a foreign worker or incomplete source prefix"
@@ -378,7 +381,10 @@ opaque ValueGraph.stage (graph : ValueGraph) (supply : IdentitySupply)
   | .portable _ | .product _ | .container _ => pure ()
   let id ← supply.fresh .value
   let node : ValueNode := ⟨id, origin, payload, owners⟩
-  return (⟨graph.worker, graph.nodes.insert id node, some id⟩, .direct id origin.role)
+  let revision ← supply.fresh .revision
+  return ({ graph with
+    nodes := graph.nodes.insert id node
+    revision := some revision }, .direct id origin.role)
 
 /-- Availability reads current liveness without rewriting the immutable payload. -/
 def ValueGraph.isAvailable (graph : ValueGraph) (owners : OwnerRegistry)
@@ -445,16 +451,22 @@ opaque RecordPrefix.begin (supply : IdentitySupply) (program : RuntimeId .progra
 Visibility checks include the whole prefix; owner requirements follow the declared dependencies.
 Reuse: CandidateResponse's operational shape check and ValueGraph reference validation. -/
 opaque RecordPrefix.bind (record : RecordPrefix) (graph : ValueGraph) (value : ValueBinding) :
-    IO (RecordPrefix × ValueBinding) := do
+    IO (ValueGraph × RecordPrefix × ValueBinding) := do
   let record := record.skipProofs
   let some prepared := record.association.layout.fields[record.selections.size]?
     | throw <| IO.userError "the complete record has no further computational field"
   let candidate ← IO.ofExcept <|
     (CandidateResponse.ofValue prepared.layout graph value).mapError IO.userError
-  let binding := ValueBinding.inField (← record.identities.fresh .association)
+  let id ← record.identities.fresh .association
+  let binding := ValueBinding.inField id
     candidate.root prepared.layout record.association prepared.field record.selections
+  let revision ← record.identities.fresh .revision
+  let graph := { graph with
+    associations := graph.associations.insert id
+    revision := some revision }
   discard <| IO.ofExcept <| (graph.requiredOwners #[binding]).mapError IO.userError
-  return (({ record with selections := record.selections.push (some binding) }).skipProofs, binding)
+  return (graph, ({ record with selections := record.selections.push (some binding) }).skipProofs,
+    binding)
 
 /-- Finish only a complete ordered record; no component is installed in a transaction here. -/
 opaque RecordPrefix.finish (record : RecordPrefix) : Except String ValuePayload := do

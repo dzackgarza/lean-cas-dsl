@@ -39,13 +39,16 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let (graph, number) ← empty.stage supply { origin with role := scalarLayout }
         (.portable "8".toUTF8)
       let finite ← RecordPrefix.begin supply program occurrence pointLayout
-      let (finite, numeral) ← finite.bind graph number
+      let (registered, finite, numeral) ← finite.bind graph number
       match graph.requiredOwners #[numeral] with
       | .error _ => pure ()
       | .ok _ =>
         throw <| IO.userError "an older graph recovered a later field association over an existing node"
+      unless numeral.value == number.value && !registered.sameRevision graph do
+        throw <| IO.userError "a field association changed its node or retained the old revision"
+      discard <| IO.ofExcept <| (registered.requiredOwners #[numeral]).mapError IO.userError
       let finitePayload ← IO.ofExcept <| finite.finish.mapError IO.userError
-      let (withoutWidth, finiteRoot) ← graph.stage supply
+      let (withoutWidth, finiteRoot) ← registered.stage supply
         { origin with role := pointLayout.source } finitePayload
       let (graph, width) ← withoutWidth.stage supply { origin with role := scalarLayout }
         (.ownedExport child token #[])
@@ -53,8 +56,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       match record.finish with
       | .error _ => pure ()
       | .ok _ => throw <| IO.userError "an incomplete dependent record became a complete payload"
-      let (record, first) ← record.bind graph width
-      let (record, second) ← record.bind graph finiteRoot
+      let (graph, record, first) ← record.bind graph width
+      let (graph, record, second) ← record.bind graph finiteRoot
       let payload ← IO.ofExcept <| record.finish.mapError IO.userError
       let (graph, root) ← graph.stage supply origin payload
       let selected ← IO.ofExcept <| (graph.project root 1).mapError IO.userError
@@ -73,7 +76,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless erased.field.sourceIndex == 0 && erased.preceding.isEmpty do
         throw <| IO.userError "proof erasure changed computational field positions"
       let proofRecord ← RecordPrefix.begin supply program occurrence proofLayout
-      let (proofRecord, dataField) ← proofRecord.bind graph number
+      let (graph, proofRecord, dataField) ← proofRecord.bind graph number
       discard <| IO.ofExcept <| proofRecord.finish.mapError IO.userError
       let some proofContext := dataField.instantiations.back?
         | throw <| IO.userError "the data field after a proof lost its instantiation"
@@ -82,8 +85,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throw <| IO.userError
           "an erased proof displaced a later data field's formal source position"
       let again ← RecordPrefix.begin supply program occurrence recordLayout
-      let (again, _) ← again.bind graph width
-      let (again, reused) ← again.bind graph second
+      let (graph, again, _) ← again.bind graph width
+      let (graph, again, reused) ← again.bind graph second
       let againPayload ← IO.ofExcept <| again.finish.mapError IO.userError
       let (graph, againRoot) ← graph.stage supply origin againPayload
       let projectedAgain ← IO.ofExcept <| (graph.project againRoot 1).mapError IO.userError
@@ -108,10 +111,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless dependencies == #[child.generation] do
         throw <| IO.userError "a dependent portable field lost its actual prefix owner"
       let fork ← RecordPrefix.begin supply program occurrence recordLayout
-      let (left, _) ← fork.bind graph width
-      let (_, leftField) ← left.bind graph finiteRoot
-      let (right, _) ← fork.bind graph number
-      let (_, rightField) ← right.bind graph finiteRoot
+      let (graph, left, _) ← fork.bind graph width
+      let (graph, _, leftField) ← left.bind graph finiteRoot
+      let (graph, right, _) ← fork.bind graph number
+      let (graph, _, rightField) ← right.bind graph finiteRoot
       let .ok combined := graph.requiredOwners #[rightField, leftField]
         | throw <| IO.userError "a branched record lost a valid source scope"
       let .ok independent := graph.requiredOwners #[rightField]
@@ -119,10 +122,12 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless combined == #[child.generation] && independent.isEmpty do
         throw <| IO.userError "role traversal merged aliased nodes in different record branches"
       let mut retained := number
+      let mut graph := graph
       for _ in [:64] do
         let chain ← RecordPrefix.begin supply program occurrence pairLayout
-        let (chain, _) ← chain.bind graph retained
-        let (_, next) ← chain.bind graph retained
+        let (nextGraph, chain, _) ← chain.bind graph retained
+        let (nextGraph, _, next) ← chain.bind nextGraph retained
+        graph := nextGraph
         retained := next
       let .ok captured := graph.requiredOwners #[retained]
         | throw <| IO.userError "shared prefix traversal lost a retained reference"

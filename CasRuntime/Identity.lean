@@ -9,7 +9,7 @@ namespace CasRuntime
 
 inductive IdentityKind
   | connection | program | occurrence | value | transaction | snapshot | commit | outputBatch | scope
-  | association | sourceBinding | draft
+  | association | sourceBinding | draft | revision
 
 /-- Identity kinds share a serial supply but remain distinct Lean types. -/
 structure RuntimeId (kind : IdentityKind) where

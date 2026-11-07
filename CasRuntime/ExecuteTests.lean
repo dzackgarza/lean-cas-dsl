@@ -40,12 +40,16 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let record ← liftM (m := IO) <| producer.stage
         { program, occurrence, role := recordRole, parameters := #[] } (.product #[scalar, callable])
       let associated ← liftM (m := IO) do
-        let graph ← producer.view
+        let draft ← producer.draft
         let fields ← RecordPrefix.begin owners.identities program occurrence preparedRecord
-        let (fields, _) ← fields.bind graph scalar
-        let (fields, _) ← fields.bind graph callable
+        let (draft, fields, _) ← draft.bindField fields scalar
+        let (draft, fields, _) ← draft.bindField fields callable
         let payload ← IO.ofExcept <| fields.finish.mapError IO.userError
-        producer.stage { program, occurrence, role := recordRole, parameters := #[] } payload
+        let (draft, binding) ← draft.stage
+          { program, occurrence, role := recordRole, parameters := #[] } payload
+        let .ok () ← producer.installDraft draft
+          | throw <| IO.userError "the associated record draft could not install"
+        return binding
       let packet ← IO.ofExcept <| (ValuePayload.container
         (Json.mkObj [("args", .arr #[.null, .null]), ("description", .str "retained packet")])
         #[{ path := #[.field "args", .index 0], binding := scalar },
