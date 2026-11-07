@@ -11,6 +11,7 @@ open Lean Meta Elab Term
 /-- Actual source equality atoms and the licensed generic logical inference steps. -/
 inductive SourceEqualityDerivation where
   | hypothesis (binding : BindingId)
+  | hypothesisApplication (binding : BindingId) (arguments : Array SourceTerm)
   | operationConversion (evidence : SourceOperationAgreement)
   | operationRefinement (evidence : SourceOperationRefinement)
   | symmetry (original : SourceEqualityDerivation)
@@ -63,6 +64,27 @@ opaque SourceSession.equalityAssumption (session : SourceSession) (reference : S
       equalityExpressions left right original.expression
     | throwError "source equality assumption returned an invalid evidence family"
   return ⟨.hypothesis binding, left, right, proposition, proof⟩
+
+/-- Apply an actual quantified source hypothesis to its complete ordered dependent arguments.
+Reuse: OpenContext.apply and Lean's native application/kernel checking; the original formal
+hypothesis supplies the rule, while every parameter and proof argument remains explicit. -/
+opaque SourceSession.equalityHypothesis (session : SourceSession) (reference : Syntax)
+    (binding : BindingId) (arguments : Array SourceTerm) : TermElabM SourceEquality := do
+  let #[left, right, proposition, proof] ← session.elaborateMany reference fun context => do
+      let some original := context.bindings.find? (·.id == binding)
+        | throwError "the source equality hypothesis is outside the complete current context"
+      unless original.role == .hypothesis do
+        throwError "source equality application requires an actual formal hypothesis"
+      let proof ← context.apply (← context.close original.expression) (arguments.map (·.source))
+      check proof
+      let type ← whnfR (← inferType proof)
+      unless type.isAppOfArity ``Eq 3 do
+        throwError "the applied source hypothesis is not a native equality proposition"
+      let #[_, left, right] := type.getAppArgs
+        | throwError "the applied source hypothesis has an invalid native equality interface"
+      equalityExpressions left right proof
+    | throwError "source equality application returned an invalid evidence family"
+  return ⟨.hypothesisApplication binding arguments, left, right, proposition, proof⟩
 
 /-- Apply native equality symmetry in the full current source context.
 Reuse: Lean Eq.symm, exact expected-type checking and synchronous kernel checking. -/
