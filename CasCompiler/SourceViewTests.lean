@@ -194,3 +194,32 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   unless (← failure.toMessageData.toString).startsWith
       "the selected source action has a different complete symbolic source category" do
     throw failure
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let domains ← empty.assume `A (← nativeSource "Type")
+  let domains ← domains.assume `B (← nativeSource "Type")
+  let domains ← domains.assume `C (← nativeSource "Type")
+  let arrows ← domains.assume `f (← nativeSource "TypeCat.Hom A B")
+  let arrows ← arrows.assume `g (← nativeSource "TypeCat.Hom B C")
+  let f ← readSource arrows "map f along «fun.sets.list»()"
+  let bound ← arrows.defineTerm `fL f
+  let g ← readSource bound "map g along «fun.sets.list»()"
+  let bound ← bound.defineTerm `gL g
+  let composite ← readSource bound "gL ∘ fL"
+  let some category := composite.category
+    | throwError "source composition lost its selected category"
+  unless category.role == .morphism do
+    throwError "source composition lost its morphism role"
+  composite.source.withOpen fun bindings value => do
+    let expected ← mkAppM ``CategoryTheory.CategoryStruct.comp
+      #[bindings[5]!.expression, bindings[6]!.expression]
+    unless (← isDefEq value expected) && value.containsFVar bindings[5]!.expression.fvarId! &&
+        value.containsFVar bindings[6]!.expression.fvarId! do
+      throwError "source composition changed its actual arrow occurrences or order"
+  let rejected ← try
+    discard <| readSource bound "fL ∘ gL"
+    pure false
+  catch _ => pure true
+  unless rejected do throwError "source composition accepted different middle objects"
