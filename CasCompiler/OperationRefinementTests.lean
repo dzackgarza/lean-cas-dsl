@@ -47,8 +47,11 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let strict ← SourceRoutes.forOperation category.expression "<"
   let #[strictFamily] ← strict.operationFamilies session Syntax.missing #[] category
     | throwError "the actual strict-order source binding is absent"
-  let rejected ← try
+  let failure : Option Exception ← try
     discard <| session.operationRefinement Syntax.missing strictFamily
-    pure false
-  catch _ => pure true
-  unless rejected do throwError "an operation acquired an unregistered restriction equality"
+    pure none
+  catch error => pure (some error)
+  let some failure := failure
+    | throwError "an operation acquired an unregistered restriction equality"
+  unless (← failure.toMessageData.toString).startsWith
+      "the source operation has no registered restriction equality" do throw failure

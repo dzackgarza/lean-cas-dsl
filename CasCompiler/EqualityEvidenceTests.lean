@@ -8,6 +8,14 @@ meta import LeanCategories.Catalogue.Semantics.Foundation.PowerSets
 
 open Lean Meta Elab Term CasCompiler CasCatalogue
 
+private def expectFailure (expected : String) (action : TermElabM α) : TermElabM Unit := do
+  let failure : Option Exception ← try
+    discard action
+    pure none
+  catch error => pure (some error)
+  let some failure := failure | throwError "source equality inference accepted invalid premises"
+  unless (← failure.toMessageData.toString).startsWith expected do throw failure
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let empty ← SourceSession.empty identities
@@ -61,12 +69,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       throwError "source equality congruence changed its original function or source proof role"
     checkWithKernel (← mkExpectedTypeHint proof expected)
   let other ← functions.equalityCongruence Syntax.missing G symmetric
-  let rejected ← try
+  expectFailure
+      "source equality transitivity has different complete native intermediate terms" do
     discard <| functions.equalityTransitivity Syntax.missing congruent other
-    pure false
-  catch _ => pure true
-  unless rejected do
-    throwError "equality transitivity identified independently rigid intermediate functions"
   let familyType ← functions.elaborate Syntax.missing fun context => do
     inferType (← family.term.source.inContext context)
   let families ← functions.assumeTerm `A familyType
@@ -119,13 +124,12 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     | throwError "the original True hypothesis control is absent"
   let some function := functions.context.entries[1]?
     | throwError "the original function parameter control is absent"
-  for id in #[truth.id, function.id] do
-    let rejected ← try
+  let invalidHypotheses := #[
+    (truth.id, "the source hypothesis is not a native equality proposition"),
+    (function.id, "source equality assumption requires an actual formal hypothesis")]
+  for (id, expected) in invalidHypotheses do
+    expectFailure expected do
       discard <| assumptions.equalityAssumption Syntax.missing id
-      pure false
-    catch _ => pure true
-    unless rejected do
-      throwError "source equality inference acquired authority from a nonequality binding"
   let motiveType ← assumptions.elaborate Syntax.missing fun context => do
     mkArrow (← inferType (← A.source.inContext context)) (mkSort (.succ (.param `transport)))
   let typed ← assumptions.assumeTerm `P motiveType
@@ -159,9 +163,5 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     return mkApp (← P.source.inContext context) (← C.source.inContext context)
   let wrongScope ← typed.assumeTerm `wrong wrongType
   let wrong ← wrongScope.term (← `(term| $(mkIdent `wrong):ident))
-  let rejected ← try
+  expectFailure "equality substitution has a different complete native source value type" do
     discard <| wrongScope.equalitySubstitution Syntax.missing P ab wrong
-    pure false
-  catch _ => pure true
-  unless rejected do
-    throwError "source substitution identified independently rigid dependent input types"
