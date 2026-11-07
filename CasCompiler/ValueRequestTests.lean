@@ -26,7 +26,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let context ← ContextTelescope.capture #[{
       id := ⟨"value-request", 0⟩, role := .parameter, expression := extra }]
     let projectionOccurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
-    let projection ← PreparedRequest.forProjection program projectionOccurrence context graph record 1 #[]
+    let projection ← PreparedRequest.forProjection owners.identities program projectionOccurrence context graph record 1 #[]
     let .project operand field := projection.action
       | throwError "projection preparation changed its action"
     unless operand.value == record.value && field.sourceIndex == 1 && field.wireIndex == some 1 do
@@ -46,7 +46,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let applicationOccurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
     let .ok actualArgument := RuntimeArgument.ofValue graph 0 scalar
       | throwError "the actual callable argument is outside its graph"
-    let application ← PreparedRequest.forApplication program applicationOccurrence context
+    let application ← PreparedRequest.forApplication owners.identities program applicationOccurrence context
       response.root #[argument] #[actualArgument] #[parameter]
     let .ok (some supplied) := application.environment.lookup ⟨"value-request", 0⟩
       | throwError "the prepared application lost a supplied source binding"
@@ -81,13 +81,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           (mkApp (mkConst ``Fin) (mkNatLit 8)) do
         throwError "application preparation lost its dependent result type"
     let rejected ← try
-      discard <| PreparedRequest.forApplication program occurrence context record
+      discard <| PreparedRequest.forApplication owners.identities program occurrence context record
         #[argument] #[actualArgument] #[]
       pure false
     catch _ => pure true
     unless rejected do throwError "application accepted a value without a retained callable interface"
     let rejectedField ← try
-      discard <| PreparedRequest.forProjection program occurrence context graph record 2 #[]
+      discard <| PreparedRequest.forProjection owners.identities program occurrence context graph record 2 #[]
       pure false
     catch _ => pure true
     unless rejectedField do throwError "projection accepted a field outside the source layout"
@@ -103,7 +103,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let (finiteGraph, finite) ← liftM (m := IO) <| graph.stage owners.identities
     { program, occurrence, role := finiteRole, parameters := #[] } (.product #[scalar])
   let rejectedProof ← try
-    discard <| PreparedRequest.forProjection program occurrence empty finiteGraph finite 1 #[]
+    discard <| PreparedRequest.forProjection owners.identities program occurrence empty finiteGraph finite 1 #[]
     pure false
   catch _ => pure true
   unless rejectedProof do throwError "a source proof field acquired a computational projection"

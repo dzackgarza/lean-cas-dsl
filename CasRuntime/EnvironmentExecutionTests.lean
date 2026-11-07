@@ -46,7 +46,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           | throwError "the actual staged context value is missing"
         let parameters := #[parameter]
         let occurrence ← liftM (m := BaseIO) ledger.allocate
-        let request ← PreparedRequest.forProjection program occurrence context graph pair 0 parameters
+        let request ← PreparedRequest.forProjection owners.identities program occurrence context graph pair 0 parameters
         let older ← CellTransaction.begin ledger
         let rejected ← do
           try
@@ -67,7 +67,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         liftM (m := IO) <| owners.close child.generation
         let consumer ← CellTransaction.begin ledger
         let next ← liftM (m := BaseIO) ledger.allocate
-        let request ← PreparedRequest.forProjection program next context graph pair 0 parameters
+        let request ← PreparedRequest.forProjection owners.identities program next context graph pair 0 parameters
         let .ok (some retained) := request.environment.lookup id
           | throwError "the complete context lost its unused actual callable"
         unless retained.value == callable.value do

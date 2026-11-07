@@ -45,7 +45,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           | throwError "the actual application argument is absent"
         return argument
       let arguments := #[← context.close left, ← context.close right]
-      let request ← PreparedRequest.forApplication program occurrence context callable arguments
+      let request ← PreparedRequest.forApplication owners.identities program occurrence context callable arguments
         #[← argument 1 rightValue, ← argument 0 leftValue] parameters
       let .apply original formal actual := request.action
         | throwError "the application lost its original prepared action"
@@ -60,7 +60,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           throwError "callable preparation changed the native consuming source argument"
       let .ok rightAlias := RuntimeParameter.ofValue graph bindings[1]!.id leftValue
         | throwError "the aliased source parameter is absent"
-      let aliased ← PreparedRequest.forApplication program occurrence context callable arguments
+      let aliased ← PreparedRequest.forApplication owners.identities program occurrence context callable arguments
         #[← argument 1 leftValue, ← argument 0 leftValue] #[leftParameter, rightAlias]
       let .apply _ formal actual := aliased.action
         | throwError "aliased argument preparation changed its action"
@@ -70,19 +70,19 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           aliased.scope.map (·.value) == #[callable.value, leftValue.value, leftValue.value] do
         throwError "callable preparation merged aliased values in distinct source arguments"
       reject "the source argument has no retained runtime binding" do
-        discard <| PreparedRequest.forApplication program occurrence context callable arguments
+        discard <| PreparedRequest.forApplication owners.identities program occurrence context callable arguments
           #[← argument 0 leftValue] #[rightParameter]
       reject "the runtime argument does not retain its specified source value" do
-        discard <| PreparedRequest.forApplication program occurrence context callable arguments
+        discard <| PreparedRequest.forApplication owners.identities program occurrence context callable arguments
           #[← argument 0 rightValue, ← argument 1 leftValue] parameters
       reject "a callable source argument has duplicate runtime bindings" do
-        discard <| PreparedRequest.forApplication program occurrence context callable arguments
+        discard <| PreparedRequest.forApplication owners.identities program occurrence context callable arguments
           #[← argument 0 leftValue, ← argument 0 leftValue] parameters
       reject "a runtime argument is outside the complete callable argument list" do
-        discard <| PreparedRequest.forApplication program occurrence context callable arguments
+        discard <| PreparedRequest.forApplication owners.identities program occurrence context callable arguments
           #[← argument 2 leftValue] parameters
       reject "the runtime argument does not retain its specified source value" do
-        discard <| PreparedRequest.forApplication program occurrence context callable
+        discard <| PreparedRequest.forApplication owners.identities program occurrence context callable
           #[← context.close (mkNatLit 2), ← context.close (mkNatLit 3)]
           #[← argument 0 rightValue, ← argument 1 leftValue] parameters
       let function ← Elab.Term.elabTermAndSynthesize (← `(fun (_h : True) (n : Nat) => n)) none
@@ -91,7 +91,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         { program, occurrence, role := layout, parameters := #[some leftValue, some rightValue] }
         (.closure program #[])
       let formal := #[← context.close (mkConst ``True.intro), ← context.close left]
-      let request ← PreparedRequest.forApplication program occurrence context function formal
+      let request ← PreparedRequest.forApplication owners.identities program occurrence context function formal
         #[← argument 1 leftValue] parameters
       let some layout := request.application
         | throwError "proof-bearing application lost its complete source argument layout"
@@ -120,7 +120,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let .ok suppliedProof := RuntimeArgument.ofValue graph 0 leftValue
         | throwError "the proof-position rejection control is absent"
       reject "a formal proof argument has no runtime value binding" do
-        discard <| PreparedRequest.forApplication program occurrence context function formal
+        discard <| PreparedRequest.forApplication owners.identities program occurrence context function formal
           #[suppliedProof, ← argument 1 leftValue] parameters
 
 -- A source callable and its let alias retain their own native application heads.
@@ -152,7 +152,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             (← callable.role.source.inContext context) == binding.expression do
           throwError "runtime capture changed the native source callable binding"
         let arguments := #[← context.close (mkNatLit 2), ← context.close (mkNatLit 3)]
-        let request ← PreparedRequest.forApplication program occurrence context callable arguments
+        let request ← PreparedRequest.forApplication owners.identities program occurrence context callable arguments
           #[] parameters
         let application ← request.source.source.inContext context
         unless application.getAppFn == binding.expression do
@@ -176,7 +176,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let (_, callable) ← liftM (m := IO) <|
       (ValueGraph.empty owners.identities).stage owners.identities
         { program, occurrence, role, parameters := #[none] } (.closure program #[])
-    let request ← PreparedRequest.forApplication program occurrence context callable
+    let request ← PreparedRequest.forApplication owners.identities program occurrence context callable
       #[← context.close (mkNatLit 7), ← context.close point] #[] #[]
     let some layout := request.application
       | throwError "application preparation lost its native argument telescope"
@@ -191,7 +191,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         unless arguments.size == 2 && result.isAppOf ``Fin &&
             result.appArg! == arguments[0]! do
           throwError "application preparation changed its complete native result-type family"
-    let partialRequest ← PreparedRequest.forApplication program occurrence context callable
+    let partialRequest ← PreparedRequest.forApplication owners.identities program occurrence context callable
       #[← context.close (mkNatLit 7)] #[] #[]
     let some partialLayout := partialRequest.application
       | throwError "partial application lost its native argument telescope"
@@ -221,7 +221,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let .ok right := RuntimeArgument.ofValue graph 1 second
     | throwError "the second equal-term input is absent"
   let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
-  let request ← PreparedRequest.forApplication program occurrence context callable
+  let request ← PreparedRequest.forApplication owners.identities program occurrence context callable
     #[scalar, scalar] #[right, left] #[]
   let admitted ← request.admitInputs graph
   let some firstRole := request.roles.arguments[0]?
@@ -241,7 +241,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let .ok aliasedArgument := RuntimeArgument.ofValue graph 1 first
     | throwError "the explicit input alias is absent"
   let next ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
-  let aliases ← PreparedRequest.forApplication program next context callable
+  let aliases ← PreparedRequest.forApplication owners.identities program next context callable
     #[scalar, scalar] #[left, aliasedArgument] #[]
   let aliasMap ← aliases.admitInputs graph
   let .ok values := aliasMap.arguments graph

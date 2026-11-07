@@ -120,13 +120,14 @@ opaque PreparedRequest.originFor (request : PreparedRequest) (source : SourceLay
   let application ← request.origin.application.mapM (·.forSource request.source source)
   return { origin with application, access := request.origin.access }
 
-private def prepareRequest (program : CasRuntime.RuntimeId .program)
+private def prepareRequest (identities : CasRuntime.IdentitySupply)
+    (program : CasRuntime.RuntimeId .program)
     (occurrence : CasRuntime.RuntimeId .occurrence) (action : PreparedAction)
     (source : SourceLayout) (context : OpenContext) (scope : Array CasRuntime.ValueBinding)
     (environment : CasRuntime.RuntimeEnvironment) (application : Option ApplicationLayout)
     (arguments : Array (Option CasRuntime.ValueBinding)) :
     MetaM PreparedRequest := do
-  unless program.worker == occurrence.worker do
+  unless identities.worker == program.worker && program.worker == occurrence.worker do
     throwError "request preparation mixed worker identities"
   for binding in scope do
     unless binding.value.worker == program.worker do
@@ -152,7 +153,7 @@ private def prepareRequest (program : CasRuntime.RuntimeId .program)
     for prepared in record.fields do
       if prepared.field.wireIndex.isSome then outputs := outputs.push prepared.layout
   else outputs := #[source]
-  let roles ← RoleTelescope.ofRequest program occurrence context application source
+  let roles ← RoleTelescope.ofRequest identities program occurrence context application source
     (scope.map (·.role))
   return ⟨program, occurrence, action, source, scope, outputs, record, environment, origin,
     application, roles⟩
@@ -188,7 +189,8 @@ private def prepareArguments (environment : CasRuntime.RuntimeEnvironment)
 Result positions retain the source's ordered computational fields and dependent roles.
 Indexed actual operands use the same checked provenance table as retained callables.
 Source application reuses Lean's native checks and the existing closed-context transport. -/
-opaque PreparedRequest.forBoundary (program : CasRuntime.RuntimeId .program)
+opaque PreparedRequest.forBoundary (identities : CasRuntime.IdentitySupply)
+    (program : CasRuntime.RuntimeId .program)
     (occurrence : CasRuntime.RuntimeId .occurrence) (boundary : ProgramBoundary)
     (universeArguments : List Level)
     (context : OpenContext) (arguments : Array ClosedTerm)
@@ -212,11 +214,12 @@ opaque PreparedRequest.forBoundary (program : CasRuntime.RuntimeId .program)
       pure (source, some application)
   let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters
   let values ← prepareArguments environment arguments actual
-  prepareRequest program occurrence (.primitive boundary universeArguments) source context
+  prepareRequest identities program occurrence (.primitive boundary universeArguments) source context
     (values.filterMap id ++ scope) environment application values
 
 /-- Prepare the exact source field of the retained operand in the complete current scope. -/
-opaque PreparedRequest.forProjection (program : CasRuntime.RuntimeId .program)
+opaque PreparedRequest.forProjection (identities : CasRuntime.IdentitySupply)
+    (program : CasRuntime.RuntimeId .program)
     (occurrence : CasRuntime.RuntimeId .occurrence) (context : OpenContext)
     (graph : CasRuntime.ValueGraph)
     (operand : CasRuntime.ValueBinding) (index : Nat)
@@ -231,7 +234,7 @@ opaque PreparedRequest.forProjection (program : CasRuntime.RuntimeId .program)
   let .ok original := graph.applicationOrigin operand
     | throwError "the projected operand is outside the visible graph"
   let application ← original.mapM (·.forProjection field.projection)
-  let request ← prepareRequest program occurrence (.project operand field) source context
+  let request ← prepareRequest identities program occurrence (.project operand field) source context
     #[operand] environment none #[]
   return { request with
     origin := { request.origin with application, access := some operand }
@@ -241,7 +244,8 @@ opaque PreparedRequest.forProjection (program : CasRuntime.RuntimeId .program)
 Source coercions are lowered before this boundary. Preparation retains empty slots for source
 inspection; effect admission requires every computational operand. Each supplied operand is
 checked against that exact argument and retained in source order. -/
-opaque PreparedRequest.forApplication (program : CasRuntime.RuntimeId .program)
+opaque PreparedRequest.forApplication (identities : CasRuntime.IdentitySupply)
+    (program : CasRuntime.RuntimeId .program)
     (occurrence : CasRuntime.RuntimeId .occurrence) (context : OpenContext)
     (callable : CasRuntime.ValueBinding) (arguments : Array ClosedTerm)
     (actual : Array CasRuntime.RuntimeArgument)
@@ -253,7 +257,7 @@ opaque PreparedRequest.forApplication (program : CasRuntime.RuntimeId .program)
   let (source, application) ← ApplicationLayout.ofSource callable.role context arguments
   let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters
   let values ← prepareArguments environment arguments actual
-  prepareRequest program occurrence (.apply callable arguments values) source context
+  prepareRequest identities program occurrence (.apply callable arguments values) source context
     (#[callable] ++ values.filterMap id) environment (some application) values
 
 /-- A checked returned interface with scoped bindings for subsequent computational demands. -/

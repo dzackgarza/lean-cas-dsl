@@ -37,7 +37,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         { program, occurrence, role := indexRole, parameters := #[] } (.ownedExport owner token #[])
       let .ok argument := RuntimeArgument.ofValue graph 0 index
         | throwError "the actual source index is outside its graph"
-      let request ← PreparedRequest.forApplication program occurrence context callable
+      let request ← PreparedRequest.forApplication owners.identities program occurrence context callable
         #[← context.close (mkNatLit 7)] #[argument] #[]
       let some record := request.record | throwError "the source result record is absent"
       let some first := record.fields[0]? | throwError "the independent source field is absent"
@@ -148,7 +148,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           | throwError "the original context value is outside its graph"
         let .ok argument := RuntimeArgument.ofValue graph 0 index
           | throwError "the original argument value is outside its graph"
-        let request ← PreparedRequest.forApplication program occurrence context callable
+        let request ← PreparedRequest.forApplication owners.identities program occurrence context callable
           #[← context.close (mkNatLit 7)] #[argument] #[parameter]
         let (graph, parent) ← liftM (m := IO) <| graph.stage owners.identities request.origin
           (.ownedExport accessOwner (← liftM (m := IO) <| token accessOwner "lazy record") #[])
@@ -180,7 +180,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
                   let .ok (some retained) := environment.lookup resultBinding.id
                     | throwError "the later source binding lost the actual lazy result"
                   let fieldOccurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
-                  let projection ← PreparedRequest.forProjection program fieldOccurrence current graph retained 1 parameters
+                  let projection ← PreparedRequest.forProjection owners.identities program fieldOccurrence current graph retained 1 parameters
                   let origin ← projection.originFor projection.source
                   let some application := origin.application
                     | throwError "the projected result lost its originating application"
@@ -203,7 +203,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
                       !dependencies.contains extraOwner.generation do
                     throwError "lazy projection lost its original application context or argument dependencies"
                   let nestedOccurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
-                  let nested ← PreparedRequest.forProjection program nestedOccurrence current
+                  let nested ← PreparedRequest.forProjection owners.identities program nestedOccurrence current
                     projected point 0 parameters
                   let innerOrigin ← nested.originFor nested.source
                   let some inner := innerOrigin.application

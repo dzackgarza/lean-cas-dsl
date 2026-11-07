@@ -37,7 +37,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         let layout ← SourceLayout.ofTerm identity
         let callable ← liftM (m := IO) <| transaction.stage
           { program, occurrence, role := layout, parameters := #[] } (.closure program #[])
-        PreparedRequest.forApplication program occurrence context callable
+        PreparedRequest.forApplication owners.identities program occurrence context callable
           #[← context.close type, ← context.close term] #[] #[]
       let nativeOccurrence ← liftM (m := BaseIO) ledger.allocate
       let nativeRequest ← prepare (mkConst ``Nat.succ) nativeOccurrence
@@ -162,7 +162,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let graph ← liftM (m := IO) transaction.view
       let .ok actualAlias := RuntimeArgument.ofValue graph 0 selectedField
         | throwError "the existing scalar input is outside its graph"
-      let aliasRequest ← PreparedRequest.forApplication program aliasOccurrence context identity
+      let aliasRequest ← PreparedRequest.forApplication owners.identities program aliasOccurrence context identity
         #[selectedRole.layout.source] #[actualAlias] #[]
       let .ok aliasReservation ← liftM (m := BaseIO) <|
         transaction.reserve aliasOccurrence selected wire.connection #[selectedField]
@@ -274,7 +274,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let graph ← liftM (m := IO) transaction.view
       let .ok actual := RuntimeArgument.ofValue graph 0 indexValue.root
         | throwError "the native index is outside its current graph"
-      let request ← PreparedRequest.forApplication program occurrence context function
+      let request ← PreparedRequest.forApplication owners.identities program occurrence context function
         #[← context.close (mkNatLit 7)] #[actual] #[]
       let .ok reservation ← liftM (m := BaseIO) <|
         transaction.reserve occurrence selected wire.connection request.scope
@@ -299,7 +299,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let plain ← liftM (m := IO) <| transaction.stage
         { program, occurrence, role := request.source, parameters := #[] } (.product #[number])
       let reuseOccurrence ← liftM (m := BaseIO) ledger.allocate
-      let reuseRequest ← PreparedRequest.forApplication program reuseOccurrence context function
+      let reuseRequest ← PreparedRequest.forApplication owners.identities program reuseOccurrence context function
         #[← context.close (mkNatLit 7)] #[actual] #[]
       let graph ← liftM (m := IO) transaction.view
       let .ok baselineOwners := graph.requiredOwners #[plain]
@@ -347,7 +347,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let .ok () ← liftM (m := BaseIO) <| transaction.installDraft reusedDraft
         | throwError "the reused application draft could not install"
       let chainedOccurrence ← liftM (m := BaseIO) ledger.allocate
-      let chainedRequest ← PreparedRequest.forApplication program chainedOccurrence context function
+      let chainedRequest ← PreparedRequest.forApplication owners.identities program chainedOccurrence context function
         #[← context.close (mkNatLit 7)] #[actual] #[]
       let chainedGraph ← liftM (m := IO) transaction.view
       let .ok chainedReservation ← liftM (m := BaseIO) <| transaction.reserve chainedOccurrence
@@ -400,7 +400,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "the reused numeric field acquired its parent application's unrelated owner"
       let projectionOccurrence ← liftM (m := BaseIO) ledger.allocate
       let activeGraph ← liftM (m := IO) transaction.view
-      let projection ← PreparedRequest.forProjection program projectionOccurrence context
+      let projection ← PreparedRequest.forProjection owners.identities program projectionOccurrence context
         activeGraph reused.root 0 #[]
       let storedOnly : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
         fun _ _ => throwError "a stored field projection invoked external execution"

@@ -17,10 +17,12 @@ inductive RoleAddress
   | capture (position : Nat)
   deriving BEq, Hashable, Repr
 
+/-- A retained preparation remains distinct from another build of the same source occurrence. -/
 structure RoleScope where
   private mk ::
   program : RuntimeId .program
   occurrence : RuntimeId .occurrence
+  preparation : RuntimeId .preparation
   deriving BEq, Hashable, Repr
 
 structure RoleId where
@@ -103,12 +105,13 @@ private partial def resultRoles (scope : RoleScope) (application : Option Applic
 /-- Derive identities from source binder positions, field paths and capture positions.
 Reuse: checked Layout families, ContextTelescope, native dependency closure and worker identities.
 Source: lean-cas-dsl#66, scoped computational-role telescope and total demanded-role map. -/
-opaque RoleTelescope.ofRequest (program : RuntimeId .program) (occurrence : RuntimeId .occurrence)
+opaque RoleTelescope.ofRequest (identities : IdentitySupply)
+    (program : RuntimeId .program) (occurrence : RuntimeId .occurrence)
     (context : OpenContext) (application : Option ApplicationLayout) (source : SourceLayout)
     (captures : Array SourceLayout) : MetaM RoleTelescope := do
-  unless program.worker == occurrence.worker do
+  unless identities.worker == program.worker && program.worker == occurrence.worker do
     throwError "a computational role scope mixed worker identities"
-  let scope : RoleScope := ⟨program, occurrence⟩
+  let scope : RoleScope := ⟨program, occurrence, ← identities.fresh .preparation⟩
   let mut contextRoles : Array ComputationalRole := #[]
   for binding in context.bindings do
     let term ← context.close binding.expression

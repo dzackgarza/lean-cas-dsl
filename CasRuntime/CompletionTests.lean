@@ -46,7 +46,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         let graph ← liftM (m := IO) transaction.view
         let .ok actual := RuntimeArgument.ofValue graph 0 value
           | throwError "the completion input is absent"
-        let request ← PreparedRequest.forApplication program occurrence context callable
+        let request ← PreparedRequest.forApplication owners.identities program occurrence context callable
           #[scalar.source] #[actual] #[]
         discard <| request.admitInputs graph
         let .ok reservation ← liftM (m := BaseIO) <|
@@ -89,7 +89,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let graph ← liftM (m := IO) transaction.view
       let .ok actual := RuntimeArgument.ofValue graph 0 argument
         | throwError "the native completion argument is absent"
-      let nativeRequest ← PreparedRequest.forApplication program nativeOccurrence context callable
+      let nativeRequest ← PreparedRequest.forApplication owners.identities program nativeOccurrence context callable
         #[function.source] #[actual] #[]
       discard <| nativeRequest.admitInputs graph
       let .ok nativeReservation ← liftM (m := BaseIO) <| transaction.reserve nativeOccurrence
@@ -108,14 +108,12 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let .apply oldCallable oldArguments supplied := first.request.action
         | throwError "the completion control lost its prepared application"
       let graph ← liftM (m := IO) transaction.view
-      let mut actuals := #[]
-      for value in supplied, index in [:supplied.size] do
-        let some value := value | throwError "the completion control has an absent input"
-        let .ok actual := RuntimeArgument.ofValue graph index value
-          | throwError "the original completion input is outside its graph"
-        actuals := actuals.push actual
-      let rebuilt ← PreparedRequest.forApplication program first.request.occurrence context
-        oldCallable oldArguments actuals #[]
+      let #[some value] := supplied
+        | throwError "the identity completion lost its prescribed argument"
+      let .ok actual := RuntimeArgument.ofValue graph 0 value
+        | throwError "the original completion input is outside its graph"
+      let rebuilt ← PreparedRequest.forApplication owners.identities program first.request.occurrence context
+        oldCallable oldArguments #[actual] #[]
       let some rebuiltRole := rebuilt.roles.results[0]?
         | throwError "the rebuilt request has no root role"
       match ← liftM (m := BaseIO) <| transaction.reuse first.request.occurrence rebuiltRole.role.id with
