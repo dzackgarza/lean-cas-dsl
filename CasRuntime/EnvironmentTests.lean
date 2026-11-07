@@ -244,8 +244,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             | throwError "the actual consuming field is absent"
           return parameter
         let actual ← parameter bindings[2]!.id projectedValue
-        discard <| RuntimeEnvironment.capture owners.worker context
+        let captured ← RuntimeEnvironment.capture owners.worker context
           #[actual, ← parameter bindings[1]!.id originalIndex]
+        let .ok argument := RuntimeArgument.ofValue graph 0 projectedValue
+          | throwError "the dependent source operand is absent"
+        let retained ← captured.checkArgument (← context.close point) argument
+        unless retained.value == projectedValue.value &&
+            retained.instantiations.map (·.id) == projectedValue.instantiations.map (·.id) &&
+            (← retained.role.source.inContext context) == point do
+          throwError "source operand preparation changed its node, field roles or native binder"
         let environment ← RuntimeEnvironment.capture owners.worker context
           #[← parameter bindings[1]!.id originalIndex]
         let expected ← SourceLayout.ofTerm (← context.close point)

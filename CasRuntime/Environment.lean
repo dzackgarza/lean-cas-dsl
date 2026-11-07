@@ -168,7 +168,10 @@ opaque RuntimeEnvironment.checkArgument (environment : RuntimeEnvironment) (sour
       let original ← argument.value.role.source.inContext context
       unless ← isDefEq original specified do
         throwError "the runtime argument does not retain its specified source value"
-    return argument.value
+    let role ← SourceLayout.ofTerm (← context.close specified)
+    let .ok value := argument.value.withRole role
+      | throwError "the source argument has no computational runtime role"
+    return value
 
 /-- Check a retained candidate at the prepared result's complete native type and actual indexes.
 Reuse: the source-binding type/dependency checks and CandidateResponse's operational shape check.
