@@ -264,6 +264,16 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         unless (← failure.toMessageData.toString).startsWith
             "the runtime value has a different consuming dependent reference" do
           throw failure
+        let reused ← liftM (m := IO) <|
+          RecordPrefix.begin owners.identities program occurrence layout
+        let (reused, reusedIndex) ← liftM (m := IO) <| reused.bind graph originalIndex
+        let (_, reusedValue) ← liftM (m := IO) <| reused.bind graph projectedValue
+        let reusedEnvironment ← RuntimeEnvironment.capture owners.worker context
+          #[← parameter bindings[1]!.id reusedIndex]
+        let reusedResult ← reusedEnvironment.checkResult graph expected reusedValue
+        unless reusedResult.root.value == projectedValue.value &&
+            reusedResult.root.instantiations.size == projectedValue.instantiations.size + 1 do
+          throwError "dependent record reuse lost its actual value or original consuming roles"
         let invalid := #[
           (#[actual, ← parameter bindings[1]!.id changedIndex],
             "the runtime value has a different consuming dependent reference"),
