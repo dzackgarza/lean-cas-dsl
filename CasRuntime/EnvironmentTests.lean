@@ -244,8 +244,24 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             | throwError "the actual consuming field is absent"
           return parameter
         let actual ← parameter bindings[2]!.id projectedValue
-        discard <| RuntimeEnvironment.capture owners.worker context
+        let environment ← RuntimeEnvironment.capture owners.worker context
           #[actual, ← parameter bindings[1]!.id originalIndex]
+        let expected ← SourceLayout.ofTerm (← context.close point)
+        let candidate ← environment.checkResult graph expected projectedValue
+        unless candidate.root.value == projectedValue.value &&
+            candidate.root.instantiations.map (·.id) == projectedValue.instantiations.map (·.id) do
+          throwError "prepared result checking changed its actual node or dependent field role"
+        let changed ← RuntimeEnvironment.capture owners.worker context
+          #[← parameter bindings[1]!.id changedIndex]
+        let failure : Option Exception ← try
+          discard <| changed.checkResult graph expected projectedValue
+          pure none
+        catch error => pure (some error)
+        let some failure := failure
+          | throwError "prepared result checking changed its actual dependent index"
+        unless (← failure.toMessageData.toString).startsWith
+            "the runtime value has a different consuming dependent reference" do
+          throw failure
         let invalid := #[
           (#[actual, ← parameter bindings[1]!.id changedIndex],
             "the runtime value has a different consuming dependent reference"),
