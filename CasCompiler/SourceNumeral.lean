@@ -141,20 +141,22 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
     | some owner =>
       let #[category] := state.categories.filter (·.id == owner)
         | throwError "the source numeral requires one registered structural category"
-      for declaration in ← getLCtx do
-        unless expected.containsFVar declaration.fvarId do continue
-        if let some selected ← categoryOf declaration.fvarId then
-          if selected.role == .object && selected.expression.syntacticEq category.expression then
-            discard <| checkedDeclaration category.declaration
-            let family ← mkConstWithFreshMVarLevels category.declaration
-            let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
-            unless ← isDefEq selected.bundle (mkAppN family parameters) do
-              throwError "the source numeral has a different complete structural category"
-            candidates := candidates.push (row, .selected (mkFVar declaration.fvarId))
+      if bases.isEmpty then
+        for declaration in ← getLCtx do
+          unless expected.containsFVar declaration.fvarId do continue
+          if let some selected ← categoryOf declaration.fvarId then
+            if selected.role == .object && selected.expression.syntacticEq category.expression then
+              discard <| checkedDeclaration category.declaration
+              let family ← mkConstWithFreshMVarLevels category.declaration
+              let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
+              unless ← isDefEq selected.bundle (mkAppN family parameters) do
+                throwError "the source numeral has a different complete structural category"
+              candidates := candidates.push (row, .selected (mkFVar declaration.fvarId))
       for entry in state.objects.filter (·.category == owner) do
-        if let some value := expected.find? fun value =>
-            value.getAppFn.constName? == some entry.declaration then
-          candidates := candidates.push (row, .selected value)
+        if bases.isEmpty then
+          if let some value := expected.find? fun value =>
+              value.getAppFn.constName? == some entry.declaration then
+            candidates := candidates.push (row, .selected value)
         if let some refinement := entry.refines then
           if bases.any (·.id == refinement.base) then
             candidates := candidates.push (row, .refinement entry)
