@@ -50,6 +50,18 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       | throwError "the prepared application lost a supplied source binding"
     unless supplied.value == scalar.value && application.environment.values.size == 1 do
       throwError "the prepared runtime environment changed its source/value correspondence"
+    unless application.origin.program == program &&
+        application.origin.occurrence == applicationOccurrence &&
+        application.origin.parameters.size == 1 &&
+        (application.origin.parameters[0]?.bind id).map (·.value) == some scalar.value do
+      throwError "the prepared result origin lost its actual producing context"
+    let (produced, result) ← liftM (m := IO) <| graph.stage owners.identities application.origin
+      (.portable "candidate field data".toUTF8)
+    let some node := produced.find result.value
+      | throwError "the prepared application origin could not stage its result"
+    unless node.origin.role.source.context.entries.size == 1 &&
+        node.references.map (·.value) == #[scalar.value] do
+      throwError "staging a prepared result discarded its complete producing context"
     let some preparedRecord := application.record
       | throwError "the dependent application did not prepare its complete result record"
     unless preparedRecord.fields.size == 2 &&

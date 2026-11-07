@@ -100,6 +100,7 @@ structure PreparedRequest where
   outputs : Array SourceLayout
   record : Option RecordLayout
   environment : CasRuntime.RuntimeEnvironment
+  origin : CasRuntime.ValueOrigin
 
 def PreparedRequest.reference (request : PreparedRequest) : Option ComputationRef :=
   match request.action with
@@ -125,6 +126,7 @@ private def prepareRequest (program : CasRuntime.RuntimeId .program)
   if source.kind == .proof then
     throwError "a source proof has no computational response positions"
   let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters
+  let origin ← environment.origin program occurrence source
   let mut outputs : Array SourceLayout := #[]
   let record ← if source.kind == .record then
       pure (some (← RecordLayout.ofSource source))
@@ -133,7 +135,7 @@ private def prepareRequest (program : CasRuntime.RuntimeId .program)
     for prepared in record.fields do
       if prepared.field.wireIndex.isSome then outputs := outputs.push prepared.layout
   else outputs := #[source]
-  return ⟨program, occurrence, action, source, scope, outputs, record, environment⟩
+  return ⟨program, occurrence, action, source, scope, outputs, record, environment, origin⟩
 
 /-- Apply the exact checked source family in the complete current context.
 Result positions retain the source's ordered computational fields and dependent roles.
