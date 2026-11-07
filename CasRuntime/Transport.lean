@@ -118,4 +118,28 @@ opaque FramedConnection.invoke (wire : FramedConnection) (ledger : OccurrenceLed
       return .error error
   finally wire.release
 
+/-- A waiter deadline detaches from the exact existing worker; it never restarts a request.
+The IO worker retains its permit/reader or queued permit claim and observes transaction abort.
+Reuse: Lean IO.waitAny and the same timer pattern as native negotiation. -/
+opaque FramedConnection.invokeBefore (wire : FramedConnection) (ledger : OccurrenceLedger)
+    (transaction : CellTransaction) (reservation : DispatchReservation) (scope : RequestScope)
+    (arguments : Json) (timeoutMs : UInt32) : IO (Except PortError ImmediateReply) := do
+  if timeoutMs == 0 then
+    let draining ← wire.isDraining
+    discard <| wire.cancel transaction reservation
+    scope.retire
+    return .error (.unavailable wire.backend (if draining then "busy_draining" else "deadline"))
+  let worker ← IO.asTask (prio := .dedicated) <|
+    wire.invoke ledger transaction reservation scope arguments
+  let deadline ← BaseIO.asTask (prio := .dedicated) do
+    IO.sleep timeoutMs
+    return (none : Option (Except IO.Error (Except PortError ImmediateReply)))
+  match ← IO.waitAny [worker.map some, deadline] with
+  | some result => IO.ofExcept result
+  | none =>
+    let draining ← wire.isDraining
+    discard <| wire.cancel transaction reservation
+    scope.retire
+    return .error (.unavailable wire.backend (if draining then "busy_draining" else "deadline"))
+
 end CasRuntime
