@@ -439,7 +439,7 @@ structure SourceCell where
   transformation : SourceTerm
   left : SourceTerm
   right : SourceTerm
-  opposite : Option SourceTerm
+  isomorphism : Option SourceTerm
 
 /-- Form the whole directed transformation of a source-owned cell in the complete context.
 Reuse: CellEntry, SemanticState.cellEndpoints and Iso.hom/inv.
@@ -478,24 +478,24 @@ opaque SourceSession.cell (session : SourceSession) (reference : Syntax)
     unless ← isDefEq (← inferType transformation) expected do
       throwError "the source cell has different complete native functor endpoints"
     if entry.invertible then
-      let opposite ← mkAppM
-        (if inverse then ``CategoryTheory.Iso.hom else ``CategoryTheory.Iso.inv) #[cell]
-      let expected ← mkAppM ``CategoryTheory.NatTrans #[right, left]
-      unless ← isDefEq (← inferType opposite) expected do
-        throwError "the source inverse has different complete native functor endpoints"
-      return #[transformation, left, right, leftTarget, opposite]
+      let isomorphism ← if inverse then mkAppM ``CategoryTheory.Iso.symm #[cell] else pure cell
+      let expected ← mkAppM ``CategoryTheory.Iso #[left, right]
+      unless ← isDefEq (← inferType isomorphism) expected <&&>
+          isDefEq (← mkAppM ``CategoryTheory.Iso.hom #[isomorphism]) transformation do
+        throwError "the source isomorphism does not witness its complete directed transformation"
+      return #[transformation, left, right, leftTarget, isomorphism]
     return #[transformation, left, right, leftTarget]
   match terms with
   | #[transformation, left, right, target] =>
     return ⟨.registered entry parameters inverse, source, ⟨entry.target, target⟩,
       transformation, left, right, none⟩
-  | #[transformation, left, right, target, opposite] =>
+  | #[transformation, left, right, target, isomorphism] =>
     return ⟨.registered entry parameters inverse, source, ⟨entry.target, target⟩,
-      transformation, left, right, some opposite⟩
+      transformation, left, right, some isomorphism⟩
   | _ => throwError "source cell formation returned an invalid expression family"
 
 /-- Compose whole native transformations at the same complete intermediate functor.
-Reuse: Mathlib's CategoryStruct.comp on natural transformations; inverse order is reversed.
+Reuse: Mathlib's CategoryStruct.comp on natural transformations and Iso.trans on isomorphisms.
 Original source derivations and all data-bearing components remain attached to the program. -/
 opaque SourceSession.composeCells (session : SourceSession) (reference : Syntax)
     (first second : SourceCell) : TermElabM SourceCell := do
@@ -519,36 +519,42 @@ opaque SourceSession.composeCells (session : SourceSession) (reference : Syntax)
     let expected ← mkAppM ``CategoryTheory.NatTrans #[left, right]
     unless ← isDefEq (← inferType transformation) expected do
       throwError "cell composition has different complete native endpoints"
-    match first.opposite, second.opposite with
-    | some firstOpposite, some secondOpposite =>
-      let opposite ← mkAppM ``CategoryTheory.CategoryStruct.comp
-        #[← secondOpposite.source.inContext context, ← firstOpposite.source.inContext context]
-      let expected ← mkAppM ``CategoryTheory.NatTrans #[right, left]
-      unless ← isDefEq (← inferType opposite) expected do
-        throwError "inverse cell composition has different complete native endpoints"
-      return #[transformation, opposite]
+    match first.isomorphism, second.isomorphism with
+    | some firstIso, some secondIso =>
+      let isomorphism ← mkAppM ``CategoryTheory.Iso.trans
+        #[← firstIso.source.inContext context, ← secondIso.source.inContext context]
+      let expected ← mkAppM ``CategoryTheory.Iso #[left, right]
+      unless ← isDefEq (← inferType isomorphism) expected <&&>
+          isDefEq (← mkAppM ``CategoryTheory.Iso.hom #[isomorphism]) transformation do
+        throwError "the composite isomorphism does not witness its complete directed transformation"
+      return #[transformation, isomorphism]
     | _, _ => return #[transformation]
   match terms with
   | #[transformation] =>
     return ⟨.vertical first.derivation second.derivation, first.source, first.target,
       transformation, first.left, second.right, none⟩
-  | #[transformation, opposite] =>
+  | #[transformation, isomorphism] =>
     return ⟨.vertical first.derivation second.derivation, first.source, first.target,
-      transformation, first.left, second.right, some opposite⟩
+      transformation, first.left, second.right, some isomorphism⟩
   | _ => throwError "cell composition returned an invalid expression family"
 
 /-- Reverse a retained source-authorized invertible transformation in the full current scope.
-Reuse: the checked opposite map supplied by the original source or licensed composition. -/
+Reuse: Iso.symm and Iso.hom on the actual retained native isomorphism. -/
 opaque SourceSession.inverseCell (session : SourceSession) (reference : Syntax)
     (cell : SourceCell) : TermElabM SourceCell := do
-  let some opposite := cell.opposite | throwError "the source transformation has no inverse"
-  let #[transformation, opposite, left, right] ← session.elaborateMany reference
+  let some original := cell.isomorphism | throwError "the source transformation has no inverse"
+  let #[transformation, isomorphism, left, right] ← session.elaborateMany reference
       fun context => do
-    return #[← opposite.source.inContext context, ← cell.transformation.source.inContext context,
-      ← cell.right.source.inContext context, ← cell.left.source.inContext context]
+    let isomorphism ← mkAppM ``CategoryTheory.Iso.symm #[← original.source.inContext context]
+    let left ← cell.right.source.inContext context
+    let right ← cell.left.source.inContext context
+    let expected ← mkAppM ``CategoryTheory.Iso #[left, right]
+    unless ← isDefEq (← inferType isomorphism) expected do
+      throwError "the inverse isomorphism has different complete native endpoints"
+    return #[← mkAppM ``CategoryTheory.Iso.hom #[isomorphism], isomorphism, left, right]
     | throwError "source inverse formation returned an invalid expression family"
   return ⟨.inverse cell.derivation, cell.source, cell.target,
-    transformation, left, right, some opposite⟩
+    transformation, left, right, some isomorphism⟩
 
 /-- A checked component retains the entire original directed source cell. -/
 structure SourceCellComponent where
