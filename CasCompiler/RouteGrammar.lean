@@ -218,6 +218,69 @@ private partial def shortestTrace (grammar : TraceGrammar) : Option Word := Id.r
 /-- A diagnostic least trace. It confers no mathematical preference among source readings. -/
 opaque TraceGrammar.shortest (grammar : TraceGrammar) : Option Word := shortestTrace grammar
 
+private partial def reachable (graph : Std.HashMap Summary (Array Summary))
+    (source : Summary) : Array Summary := Id.run do
+  let mut work := #[source]
+  let mut cursor := 0
+  while cursor < work.size do
+    for target in graph.getD work[cursor]! #[] do work := pushUnique work target
+    cursor := cursor + 1
+  return work
+
+private partial def finiteWords (grammar : TraceGrammar) : Option (Array Word) := Id.run do
+  let mut productive : Std.HashSet Summary := {}
+  let mut nonempty : Std.HashSet Summary := {}
+  let mut changed := true
+  while changed do
+    changed := false
+    for (lhs, alternatives) in grammar.productions do
+      for alternative in alternatives do
+        unless alternative.children.all productive.contains do continue
+        unless productive.contains lhs do
+          productive := productive.insert lhs
+          changed := true
+        if (alternative.emit.isSome || alternative.children.any nonempty.contains) &&
+            !nonempty.contains lhs then
+          nonempty := nonempty.insert lhs
+          changed := true
+  let mut graph : Std.HashMap Summary (Array Summary) := {}
+  let mut growing : Array (Summary × Summary) := #[]
+  for (lhs, alternatives) in grammar.productions do
+    for alternative in alternatives do
+      unless alternative.children.all productive.contains do continue
+      for index in [:alternative.children.size] do
+        let child := alternative.children[index]!
+        graph := graph.insert lhs (pushUnique (graph.getD lhs #[]) child)
+        let grows := alternative.emit.isSome ||
+          (alternative.children.mapIdx fun sibling other =>
+            sibling != index && nonempty.contains other).any id
+        if grows then growing := pushUnique growing (lhs, child)
+  let live := reachable graph grammar.start
+  for (source, target) in growing do
+    if live.contains source && (reachable graph target).contains source then return none
+  let mut languages : Std.HashMap Summary (Array Word) := {}
+  changed := true
+  while changed do
+    changed := false
+    for lhs in live do
+      for alternative in grammar.productions.getD lhs #[] do
+        unless alternative.children.all productive.contains do continue
+        let mut words := #[alternative.emit.toArray]
+        for child in alternative.children do
+          words := words.flatMap fun leading =>
+            (languages.getD child #[]).map (leading ++ ·)
+        let previous := languages.getD lhs #[]
+        let next := words.foldl pushUnique previous
+        if next.size != previous.size then
+          languages := languages.insert lhs next
+          changed := true
+  return some (languages.getD grammar.start #[])
+
+/-- The complete finite raw trace set; none means a proved productive growing cycle.
+Reuse: finite_words in the published reference and #66 comment 6693871042 §3.
+Silent recursion alone does not establish an infinite trace language. -/
+opaque TraceGrammar.finiteWords (grammar : TraceGrammar) : Option (Array Word) := finiteWords grammar
+
 private partial def intersects (grammar : TraceGrammar) (states : Nat)
     (accept : Nat → Bool) (step : Nat → Nat → Nat) : Bool := Id.run do
   let mut relations : Std.HashMap Summary (Array (Nat × Nat)) := {}
