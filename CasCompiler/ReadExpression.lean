@@ -1,0 +1,80 @@
+module
+
+public import CasCompiler.Surface
+public import Lean.Elab.App
+
+public section
+
+namespace CasCompiler
+
+open Lean Meta Elab Term
+
+-- Native application determines argument types before the original source is read once.
+-- A final application uses the actual expressions, preserving lexical binding occurrences
+-- even when expected-type unification has already assigned a provisional argument.
+-- Reuse: Lean.Elab.App.elabAppArgs and Lean.Meta.mkFreshExprMVar at Lean 4.33.0.
+partial def readExpression
+    (categoryOf : FVarId → TermElabM (Option (CasCatalogue.CategoryExpr × Expr)))
+    (source : TSyntax `cas_term) (expected : Option Expr) : TermElabM NativeSourceJudgement :=
+  withRef source do
+  let application := fun (function : Expr) (arguments : Array (TSyntax `cas_term))
+      (expected : Option Expr) => do
+    let holes ← arguments.mapM fun _ => mkFreshExprMVar none
+    discard <| elabAppArgs function #[] (holes.map Arg.expr) expected false false
+    let mut actual := #[]
+    for argument in arguments, hole in holes do
+      let type ← instantiateMVars (← inferType hole)
+      let value ← readExpression categoryOf argument (some type)
+      unless ← isDefEq hole value.value do
+        throwErrorAt argument "the source argument does not match its dependent native type"
+      actual := actual.push (Arg.expr value.value)
+    elabAppArgs function #[] actual expected false false
+  let registered := fun (name : Ident) (category : Option String)
+      (arguments : Array (TSyntax `cas_term)) => do
+    if let some declaration := (← getLCtx).findFromUserName? name.getId then
+      let selected ← categoryOf declaration.fvarId
+      if let some name := category then
+        let required ← selectCategory (← CasCatalogue.semanticState) name
+        let some (symbolic, _) := selected
+          | throwError "the retained source value has no selected category"
+        unless symbolic.syntacticEq required.expression do
+          throwError "the retained source value has a different selected category"
+      let value ← application (mkFVar declaration.fvarId) arguments expected
+      return ⟨value, if arguments.isEmpty then selected else none⟩
+    let (entry, categoryEntry) ← selectObject name.getId.toString category
+    -- Keep the exact category formed by the same object application, including its parameters.
+    let (bundle, value) ← objectExpressions entry categoryEntry fun function expected =>
+      application function arguments expected
+    return ⟨value, some (categoryEntry.expression, bundle)⟩
+  let judgement ←
+    match source with
+    | `(cas_term| ($inner:cas_term)) =>
+      readExpression categoryOf inner expected
+    | `(cas_term| $number:num) =>
+      unless expected.isSome do
+        throwError "a source numeral requires its independently declared parameter type"
+      pure ⟨← elabTermEnsuringType (← `(term| $number:num)) expected, none⟩
+    | `(cas_term| $name:ident) =>
+      if let some declaration := (← getLCtx).findFromUserName? name.getId then
+        pure ⟨mkFVar declaration.fvarId, ← categoryOf declaration.fvarId⟩
+      else registered name none #[]
+    | `(cas_term| $name:ident($arguments:cas_term,*)) =>
+      registered name none arguments.getElems
+    | `(cas_term| $name:ident($arguments:cas_term,*) in $category:ident) =>
+      registered name (some category.getId.toString) arguments.getElems
+    | `(cas_term| $name:ident in $category:ident) =>
+      registered name (some category.getId.toString) #[]
+    | `(cas_term| ($function:cas_term)($arguments:cas_term,*)) => do
+      let function ← readExpression categoryOf function none
+      pure ⟨← application function.value arguments.getElems expected, none⟩
+    | `(cas_term| $function:cas_term($arguments:cas_term,*)) => do
+      let function ← readExpression categoryOf function none
+      pure ⟨← application function.value arguments.getElems expected, none⟩
+    | _ => throwError "source translation is not implemented for this expression form"
+  if let some expected := expected then
+    unless ← isDefEq (← inferType judgement.value) expected do
+      throwError "the source expression does not have its independently declared parameter type"
+  return judgement
+
+end CasCompiler
+

@@ -4,6 +4,7 @@ public import CasCompiler.Context
 public import CasCompiler.Declaration
 public import CasCompiler.Syntax
 public import CasRuntime.Identity
+public import LeanCategories.Catalogue.Syntax
 public import Lean.Elab.Term
 public import Lean.Elab.SyntheticMVars
 
@@ -21,11 +22,23 @@ structure SourceSpan where
 private def sourceSpan (stx : Syntax) : CoreM SourceSpan := do
   return ⟨← getFileName, stx.getPos?, stx.getTailPos?⟩
 
+/-- The selected symbolic category and its complete native bundle in the original context. -/
+structure SourceCategoryBinding where
+  private mk ::
+  expression : CasCatalogue.CategoryExpr
+  bundle : ClosedTerm
+
+/-- An elaborated value and any category explicitly selected by the source frontend. -/
+structure NativeSourceJudgement where
+  value : Expr
+  category : Option (CasCatalogue.CategoryExpr × Expr)
+
 /-- A completed checked source expression, with its full telescope and original source span. -/
 structure SourceTerm where
   private mk ::
   source : ClosedTerm
   span : SourceSpan
+  category : Option SourceCategoryBinding
 
 /-- Persistent source declarations. Later terms reopen their checked native declarations.
 Source: mathematical-input contract §1 and data-model contract §2, lean-cas-dsl#66.
@@ -35,6 +48,31 @@ structure SourceSession where
   private identities : CasRuntime.IdentitySupply
   context : ContextTelescope
   spans : Array SourceSpan
+  private categories : Array (Option SourceCategoryBinding)
+
+def SourceSession.categoryFor (session : SourceSession) (id : BindingId) :
+    Option SourceCategoryBinding := do
+  let index ← session.context.entries.findIdx? (·.id == id)
+  session.categories[index]?.bind fun category => category
+
+private def SourceSession.categoryOf (session : SourceSession) (context : OpenContext)
+    (expression : Expr) : Option SourceCategoryBinding := do
+  let .fvar binderId := expression | none
+  let binding ← context.bindings.find? (·.expression.fvarId! == binderId)
+  session.categoryFor binding.id
+
+/-- Attach only a supplied category bundle, checked at the complete retained source type.
+Reuse: native Bundled.α and stable-ID context transport. Category identity is supplied by
+source selection, never inferred from a carrier type. Source: #66, comment 6664276482 §1. -/
+opaque SourceTerm.inCategory (term : SourceTerm) (expression : CasCatalogue.CategoryExpr)
+    (category : SourceTerm) : MetaM SourceTerm := do
+  term.source.withOpen fun bindings value => do
+    let context ← ContextTelescope.capture bindings
+    let categoryValue ← category.source.inContext context
+    let carrier ← mkAppM ``CategoryTheory.Bundled.α #[categoryValue]
+    unless ← isDefEq (← inferType value) carrier do
+      throwError "the source value does not inhabit its selected native category"
+  return { term with category := some ⟨expression, category.source⟩ }
 
 /-- Source declarations share the worker's monotone identity supply across snapshot branches.
 Reuse: IdentitySupply.fresh and its native atomic counter; only identities live in the supply. -/
@@ -43,17 +81,19 @@ private def SourceSession.freshBinding (session : SourceSession) : BaseIO Bindin
   return ⟨id.worker, id.serial⟩
 
 private def defineIn (session : SourceSession) (context : OpenContext) (name : Name)
-    (expression : Expr) (span : SourceSpan) : MetaM SourceSession := do
+    (expression : Expr) (span : SourceSpan) (category : Option SourceCategoryBinding) :
+    MetaM SourceSession := do
   let type ← inferType expression
   let id ← session.freshBinding
   withLetDecl name type expression fun expression => do
     let context ← ContextTelescope.capture
       (context.bindings.push { id, role := .definition, expression })
-    return ⟨session.identities, context.telescope, session.spans.push span⟩
+    return ⟨session.identities, context.telescope, session.spans.push span,
+      session.categories.push category⟩
 
 opaque SourceSession.empty (identities : CasRuntime.IdentitySupply) : MetaM SourceSession := do
   let context ← withLCtx {} #[] <| ContextTelescope.capture #[]
-  return ⟨identities, context.telescope, #[]⟩
+  return ⟨identities, context.telescope, #[], #[]⟩
 
 /-- Apply the release's safety and axiom policy to the newly completed source term and type.
 Reuse: Lean.collectAxioms and the existing source-family intake policy in Program.lean.
@@ -66,17 +106,31 @@ private def checkSource (source : ClosedTerm) : MetaM Unit := do
 /-- Form a checked source term directly in the complete native scope.
 Reuse: ContextTelescope.withOpen, native synthesis and OpenContext.close. Public frontend
 adapters supply native expressions; source terms never pass through a syntax replay table. -/
-opaque SourceSession.elaborateMany (session : SourceSession) (reference : Syntax)
-    (build : OpenContext → TermElabM (Array Expr)) : TermElabM (Array SourceTerm) :=
+opaque SourceSession.elaborateJudgements (session : SourceSession) (reference : Syntax)
+    (build : OpenContext → TermElabM (Array NativeSourceJudgement)) :
+    TermElabM (Array SourceTerm) :=
   withRef reference <| withoutErrToSorry <| withoutAutoBoundImplicit do
     session.context.withOpen fun bindings => do
       let context ← ContextTelescope.capture bindings
       let expressions ← withSynthesize <| build context
       let span ← sourceSpan reference
-      expressions.mapM fun expression => do
+      expressions.mapM fun judgement => do
+        let expression ← instantiateMVars judgement.value
         let source ← context.close (← instantiateMVars expression)
         checkSource source
-        return ⟨source, span⟩
+        let term : SourceTerm := ⟨source, span, session.categoryOf context expression⟩
+        match judgement.category with
+        | none => return term
+        | some (symbolic, bundle) =>
+          let category ← context.close (← instantiateMVars bundle)
+          checkSource category
+          term.inCategory symbolic ⟨category, span, none⟩
+
+/-- Form ordinary checked native terms through the same complete source boundary. -/
+opaque SourceSession.elaborateMany (session : SourceSession) (reference : Syntax)
+    (build : OpenContext → TermElabM (Array Expr)) : TermElabM (Array SourceTerm) :=
+  session.elaborateJudgements reference fun context => do
+    return (← build context).map fun value => ⟨value, none⟩
 
 opaque SourceSession.elaborate (session : SourceSession) (reference : Syntax)
     (build : OpenContext → TermElabM Expr) : TermElabM SourceTerm := do
@@ -139,7 +193,8 @@ private def assumeIn (session : SourceSession) (context : OpenContext) (name : N
   let id ← session.freshBinding
   withLocalDecl name binderInfo type fun expression => do
     let context ← ContextTelescope.capture (context.bindings.push { id, role, expression })
-    return ⟨session.identities, context.telescope, session.spans.push span⟩
+    return ⟨session.identities, context.telescope, session.spans.push span,
+      session.categories.push none⟩
 
 /-- Add one native parameter, hypothesis or selected instance with a fresh stable source ID.
 Reuse: Lean.elabType and Meta.withLocalDecl, including native local-instance registration. -/
@@ -173,6 +228,7 @@ opaque SourceSession.define (session : SourceSession) (name : Name) (stx : Term)
       let source ← context.close expression
       checkSource source
       defineIn session context name expression (← sourceSpan stx)
+        (session.categoryOf context expression)
 
 /-- Bind an already checked source value by native context transport and a fresh declaration.
 Reuse: ClosedTerm.inContext and the same native let capture as ordinary source definitions. -/
@@ -180,7 +236,7 @@ opaque SourceSession.defineTerm (session : SourceSession) (name : Name) (term : 
     MetaM SourceSession :=
   session.context.withOpen fun bindings => do
     let context ← ContextTelescope.capture bindings
-    defineIn session context name (← term.source.inContext context) term.span
+    defineIn session context name (← term.source.inContext context) term.span term.category
 
 /-- Form ordinary native application from retained checked function and argument sources.
 Reuse: OpenContext.apply, also used by SourceLayout.applyIn, with complete argument order. -/
