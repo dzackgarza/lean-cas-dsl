@@ -22,6 +22,8 @@ import all CasCompiler.ResolveTests
 import all CasCompiler.NativeRouteTests
 import all CasCompiler.OperationFamilyTests
 import all CasCompiler.OperationRefinementTests
+import all CasCompiler.Equality
+import all CasCompiler.EqualityEvidenceTests
 import all CasCompiler.ComparisonTests
 import all CasCompiler.WhiskeringTests
 import all CasCompiler.ConstructorComparisonTests

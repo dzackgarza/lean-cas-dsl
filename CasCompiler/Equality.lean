@@ -10,6 +10,7 @@ open Lean Meta Elab Term
 
 /-- Actual source equality atoms and the licensed generic logical inference steps. -/
 inductive SourceEqualityDerivation where
+  | hypothesis (binding : BindingId)
   | operationConversion (evidence : SourceOperationAgreement)
   | operationRefinement (evidence : SourceOperationRefinement)
   | symmetry (original : SourceEqualityDerivation)
@@ -31,7 +32,8 @@ opaque SourceOperationAgreement.asEquality (evidence : SourceOperationAgreement)
     evidence.proposition, evidence.proof⟩
 
 /-- Retain the actual registered source restriction equality and both whole family terms. -/
-opaque SourceOperationRefinement.asEquality (evidence : SourceOperationRefinement) : SourceEquality :=
+opaque SourceOperationRefinement.asEquality (evidence : SourceOperationRefinement) :
+    SourceEquality :=
   ⟨.operationRefinement evidence, evidence.original.term, evidence.term,
     evidence.proposition, evidence.proof⟩
 
@@ -43,6 +45,24 @@ private def equalityExpressions (left right proof : Expr) : MetaM (Array Expr) :
     throwError "the source equality proof has a different complete native proposition"
   checkWithKernel (← mkExpectedTypeHint proof proposition)
   return #[left, right, proposition, proof]
+
+/-- Use an actual equality hypothesis from the complete source context, by stable binding ID.
+Reuse: ContextTelescope's formal roles and native local proof typing; the hypothesis stays rigid. -/
+opaque SourceSession.equalityAssumption (session : SourceSession) (reference : Syntax)
+    (binding : BindingId) : TermElabM SourceEquality := do
+  let #[left, right, proposition, proof] ← session.elaborateMany reference fun context => do
+      let some original := context.bindings.find? (·.id == binding)
+        | throwError "the source equality hypothesis is outside the complete current context"
+      unless original.role == .hypothesis do
+        throwError "source equality assumption requires an actual formal hypothesis"
+      let type ← whnfR (← inferType original.expression)
+      unless type.isAppOfArity ``Eq 3 do
+        throwError "the source hypothesis is not a native equality proposition"
+      let #[_, left, right] := type.getAppArgs
+        | throwError "the source hypothesis has an invalid native equality interface"
+      equalityExpressions left right original.expression
+    | throwError "source equality assumption returned an invalid evidence family"
+  return ⟨.hypothesis binding, left, right, proposition, proof⟩
 
 /-- Apply native equality symmetry in the full current source context.
 Reuse: Lean Eq.symm, exact expected-type checking and synchronous kernel checking. -/

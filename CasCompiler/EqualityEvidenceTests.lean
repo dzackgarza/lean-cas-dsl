@@ -78,11 +78,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let AB ← families.elaborate Syntax.missing fun context => do
     mkEq (← A.source.inContext context) (← B.source.inContext context)
   let assumptions ← families.assumeTerm `ab AB
-  let abId := assumptions.context.entries.back!.id
+  let some originalAB := assumptions.context.entries.back?
+    | throwError "the original source equality hypothesis binding is absent"
+  let abId := originalAB.id
   let BC ← assumptions.elaborate Syntax.missing fun context => do
     mkEq (← B.source.inContext context) (← C.source.inContext context)
   let assumptions ← assumptions.assumeTerm `bc BC
-  let bcId := assumptions.context.entries.back!.id
+  let some originalBC := assumptions.context.entries.back?
+    | throwError "the second source equality hypothesis binding is absent"
+  let bcId := originalBC.id
   let ab ← assumptions.equalityAssumption Syntax.missing abId
   let bc ← assumptions.equalityAssumption Syntax.missing bcId
   let chain ← assumptions.equalityTransitivity Syntax.missing ab bc
@@ -111,7 +115,11 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         unless proof.containsFVar originalBC.expression.fvarId! do
           throwError "source transitivity discarded its second actual proof premise"
       checkWithKernel (← mkExpectedTypeHint proof expected)
-  for id in #[session.context.entries[0]!.id, functions.context.entries[1]!.id] do
+  let some truth := session.context.entries[0]?
+    | throwError "the original True hypothesis control is absent"
+  let some function := functions.context.entries[1]?
+    | throwError "the original function parameter control is absent"
+  for id in #[truth.id, function.id] do
     let rejected ← try
       discard <| assumptions.equalityAssumption Syntax.missing id
       pure false
