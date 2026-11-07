@@ -93,6 +93,11 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let formal := #[← context.close (mkConst ``True.intro), ← context.close left]
       let request ← PreparedRequest.forApplication program occurrence context function formal
         #[← argument 1 leftValue] parameters
+      let some layout := request.application
+        | throwError "proof-bearing application lost its complete source argument layout"
+      unless layout.arguments.map (·.wireIndex) == #[none, some 0] &&
+          layout.arguments[0]?.map (·.source.kind) == some .proof do
+        throwError "formal proof erasure changed the native application's wire positions"
       let .apply _ _ actual := request.action
         | throwError "proof erasure changed the application action"
       unless actual.size == 2 && (actual[0]?.bind id).isNone &&
@@ -142,3 +147,40 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throwError "the original callable node is absent"
       unless (← node.origin.role.source.inContext context) == mkConst ``Nat.add do
         throwError "source association changed the original callable producer"
+
+-- Formal argument dependency survives substitution of a closed source index.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  withLocalDeclD `point (mkApp (mkConst ``Fin) (mkNatLit 7)) fun point => do
+    let context ← ContextTelescope.capture #[{
+      id := ⟨"application-dependencies", 0⟩, role := .parameter, expression := point }]
+    let function ← Elab.Term.elabTermAndSynthesize
+      (← `(fun (n : Nat) (x : Fin n) => x)) none
+    let role ← SourceLayout.ofTerm (← context.close function)
+    let owners ← liftM (m := IO) OwnerRegistry.new
+    let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+    let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+    let (_, callable) ← liftM (m := IO) <|
+      (ValueGraph.empty owners.identities).stage owners.identities
+        { program, occurrence, role, parameters := #[none] } (.closure program #[])
+    let request ← PreparedRequest.forApplication program occurrence context callable
+      #[← context.close (mkNatLit 7), ← context.close point] #[] #[]
+    let some layout := request.application
+      | throwError "application preparation lost its native argument telescope"
+    unless request.source.contextDependencies.isEmpty && layout.arguments.size == 2 &&
+        layout.arguments[0]?.map (·.precedingDependencies) == some #[] &&
+        layout.arguments[1]?.map (·.precedingDependencies) == some #[0] &&
+        layout.arguments.map (·.wireIndex) == #[some 0, some 1] &&
+        layout.resultDependencies == #[0] do
+      throwError "source index substitution erased an actual argument's dependent role"
+    layout.resultTypeFamily.withOpen fun _ family =>
+      lambdaTelescope family fun arguments result => do
+        unless arguments.size == 2 && result.isAppOf ``Fin &&
+            result.appArg! == arguments[0]! do
+          throwError "application preparation changed its complete native result-type family"
+    let partialRequest ← PreparedRequest.forApplication program occurrence context callable
+      #[← context.close (mkNatLit 7)] #[] #[]
+    let some partialLayout := partialRequest.application
+      | throwError "partial application lost its native argument telescope"
+    unless partialRequest.source.kind == .function && partialLayout.arguments.size == 1 &&
+        partialLayout.resultDependencies == #[0] do
+      throwError "partial application erased a retained argument from its remaining function type"
