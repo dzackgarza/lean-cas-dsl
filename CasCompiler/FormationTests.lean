@@ -64,3 +64,26 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       pure ((text.splitOn message).length > 1)
     unless rejected do
       throwError "whole declaration safety was not checked before universe specialization"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let empty ← SourceSession.empty "dependent-source-application"
+  let parameters ← empty.assume `n (← nativeSyntax "Nat")
+  let session ← parameters.assume `point (← nativeSyntax "Fin n")
+  let function ← session.term (← nativeSyntax "fun (k : Nat) (i : Fin k) => i")
+  let width ← session.term (← nativeSyntax "n")
+  let point ← session.term (← nativeSyntax "point")
+  let reference ← nativeSyntax "point"
+  let applied ← session.apply reference.raw function #[width, point]
+  applied.source.withOpen fun bindings expression => do
+    unless ← isDefEq (← inferType expression) (mkApp (Lean.mkConst ``Fin) bindings[0]!.expression) do
+      throwError "direct source application changed the dependent result type"
+    unless ← isDefEq expression bindings[1]!.expression do
+      throwError "direct source application changed its actual source argument"
+  let defined ← session.defineTerm `result applied
+  unless defined.context.entries.size == 3 do
+    throwError "a dependent source application discarded its complete parameter scope"
+  let rejected ← try
+    discard <| session.apply reference.raw function #[width, width]
+    pure false
+  catch _ => pure true
+  unless rejected do throwError "direct source application accepted a mistyped dependent argument"
