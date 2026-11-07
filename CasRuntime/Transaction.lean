@@ -1,6 +1,7 @@
 module
 
 public import CasRuntime.Occurrence
+public import CasRuntime.Connection
 public import Lean.Environment
 public import Lean.CoreM
 
@@ -49,6 +50,7 @@ private structure ActiveCell where
   roots : Array ValueBinding := #[]
   events : Array Json := #[]
   reservations : Array DispatchReservation := #[]
+  leases : Array RequestLease := #[]
 
 private inductive CellState
   | active (cell : ActiveCell)
@@ -97,11 +99,15 @@ opaque CellTransaction.begin (ledger : OccurrenceLedger) : CoreM CellTransaction
   let id ← ledger.owners.identities.fresh .transaction
   return ⟨id, ledger, ← Std.Mutex.new (.active { parent, graph := parent.graph })⟩
 
-opaque CellTransaction.view (transaction : CellTransaction) : IO ValueGraph :=
+opaque CellTransaction.activeGraph (transaction : CellTransaction) : BaseIO (Option ValueGraph) :=
   transaction.state.atomically do
-    let .active cell ← get
-      | throw <| IO.userError "the transaction has settled"
-    return cell.graph
+    let .active cell ← get | return none
+    return some cell.graph
+
+opaque CellTransaction.view (transaction : CellTransaction) : IO ValueGraph := do
+  let some graph ← transaction.activeGraph
+    | throw <| IO.userError "the transaction has settled"
+  return graph
 
 /-- Begin a reply delta at the currently visible graph, without exposing any new field. -/
 opaque CellTransaction.draft (transaction : CellTransaction) : IO CellDraft :=
@@ -165,12 +171,33 @@ opaque CellTransaction.reserve (transaction : CellTransaction) (occurrence : Run
       set (CellState.active { cell with reservations := cell.reservations.push reservation })
       return .ok reservation
 
+/-- Arbitrate the one-use send decision against whole-cell abort before any engine write.
+Reuse: the reserve lock order, active-cell gate and occurrence send commitment. -/
+opaque CellTransaction.commitSend (transaction : CellTransaction)
+    (reservation : DispatchReservation) (lease : RequestLease) :
+    BaseIO (Except TransactionFailure Unit) :=
+  transaction.state.atomically do
+    let .active cell ← get | return .error .settled
+    unless reservation.transaction == transaction.id && lease.transaction == transaction.id &&
+        lease.occurrence == reservation.occurrence && lease.owner == reservation.connection &&
+        cell.reservations.any (fun tracked =>
+        tracked.occurrence == reservation.occurrence && tracked.connection == reservation.connection &&
+        decide (tracked.selected = reservation.selected)) do
+      return .error (.reservation .unknownOccurrence)
+    match ← transaction.ledger.commitSend reservation with
+    | .error failure => return .error (.reservation failure)
+    | .ok () =>
+      unless ← lease.markSent do return .error (.reservation .consumed)
+      set (CellState.active { cell with leases := cell.leases.push lease })
+      return .ok ()
+
 /-- Abort discards staging and leaves every reserved dispatch right consumed. -/
 opaque CellTransaction.abort (transaction : CellTransaction) : BaseIO Bool :=
   transaction.state.atomically do
     let .active cell ← get | return false
     for reservation in cell.reservations do
       discard <| transaction.ledger.retire reservation
+    for lease in cell.leases do lease.cancel
     set CellState.aborted
     return true
 
@@ -201,6 +228,7 @@ opaque CellTransaction.commit (transaction : CellTransaction) :
       return snapshot
     match result with
     | none =>
+      for lease in cell.leases do lease.cancel
       set CellState.aborted
       return .error .staleOwner
     | some snapshot => return .ok snapshot

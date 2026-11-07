@@ -55,7 +55,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let arguments : IO.Process.SpawnArgs := {
       cmd := "/usr/bin/python3", args := #["-c", framingPeer, "valid"]
       env := #[("PYTHONPATH", some (contract / "python").toString)] }
-    let .ok wire ← liftM (m := IO) <| FramedConnection.start owners "configured-backend" arguments
+    let .ok wire ← liftM (m := IO) <| FramedConnection.start owners "configured-backend" arguments 5000
       | throwError "the actual framing peer could not negotiate"
     try
       let selected : DispatchIdentity := {
