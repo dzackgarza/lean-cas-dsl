@@ -147,3 +147,18 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       pure false
     catch _ => pure true
     unless rejected do throwError "source statements accepted an ill-typed definition or question"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let points ← empty.assume `i (← nativeTerm "CasCatalogue.Foundation.Objects.fin 3")
+  let session ← points.assume `j (← nativeTerm "CasCatalogue.Foundation.Objects.integersMod 3")
+  let source ← SourceFile.parse "point-domain-equality.cas" "assert i = j"
+  let `(cas_item| $statement:cas_stmt) := source.items[0]!
+    | throwError "the point domain comparison did not parse"
+  let rejected ← try
+    discard <| source.withContext (session.readStatement statement)
+    pure false
+  catch _ => pure true
+  unless rejected do
+    throwError "source equality identified distinct point domains by their native representations"
