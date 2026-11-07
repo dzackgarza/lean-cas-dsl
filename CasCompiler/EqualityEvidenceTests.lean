@@ -103,8 +103,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let quantified ← assumptions.assumeTerm `congruent quantifiedType
   let some originalQuantified := quantified.context.entries.back?
     | throwError "the quantified equality hypothesis is absent"
+  let quantified ← quantified.assume `congruent (← `(True))
   let instantiated ← quantified.equalityHypothesis Syntax.missing originalQuantified.id
     #[A, B, ab.proof]
+  let .hypothesisApplication retained arguments := instantiated.derivation
+    | throwError "quantified equality inference lost its source application derivation"
+  unless retained == originalQuantified.id &&
+      arguments.map (·.source.expression) == #[A, B, ab.proof].map (·.source.expression) &&
+      instantiated.proof.source.context.entries.size == quantified.context.entries.size do
+    throwError "quantified equality inference changed its original arguments or complete scope"
   instantiated.proof.source.withOpen fun bindings proof => do
     let context ← ContextTelescope.capture bindings
     let function ← F.source.inContext context
