@@ -405,10 +405,43 @@ private partial def withRigidArguments (arguments : Array Expr) (infos : Array B
 /-- Exact source binding and route, with the entire generic morphism family. -/
 structure SourceOperationFamily where
   private mk ::
+  private state : SemanticState
   source : SourceCategoryFamily
   route : Route
   binding : OperationEntry
   term : SourceTerm
+
+private def operationTerm (state : SemanticState) (session : SourceSession) (reference : Syntax)
+    (source : SourceCategoryFamily) (route : Route) (binding : OperationEntry) :
+    TermElabM SourceTerm := do
+  unless source.expression.syntacticEq route.source do
+    throwError "the operation family has a different complete symbolic source"
+  for ref in route.refs do checkEdgeDeclarations state ref
+  discard <| checkedDeclaration binding.declaration
+  session.elaborate reference fun context => do
+    let categoryFamily ← source.family.source.inContext context
+    forallTelescopeReducing (← inferType categoryFamily) fun parameters _ => do
+      let category := mkAppN categoryFamily parameters
+      let (functor, _) ← nativeRouteFunctor state route category
+      let carrier ← mkAppM ``CategoryTheory.Bundled.α #[category]
+      withLocalDeclD `sourceObject carrier fun object => do
+        let prefunctor ← mkAppM ``CategoryTheory.Functor.toPrefunctor #[functor]
+        let image ← mkAppM ``Prefunctor.obj #[prefunctor, object]
+        let constant ← mkConstWithFreshMVarLevels binding.declaration
+        let (arguments, infos, result) ← forallMetaTelescopeReducing (← inferType constant)
+        unless arguments.size > binding.numerals do
+          throwError "the whole source operation has no object parameter"
+        unless (← whnfR result).isAppOf ``Quiver.Hom do
+          throwError "the source operation does not retain its whole morphism result"
+        let objectIndex := arguments.size - 1 - binding.numerals
+        unless ← isDefEq (← inferType arguments[objectIndex]!) (← inferType image) <&&>
+            isDefEq arguments[objectIndex]! image do
+          throwError "the source operation has a different complete routed object"
+        withRigidArguments arguments infos 0 objectIndex fun prefixParameters => do
+          withRigidArguments arguments infos (objectIndex + 1) arguments.size
+              fun suffixParameters => do
+            let body ← instantiateMVars (mkAppN constant arguments)
+            mkLambdaFVars (parameters ++ prefixParameters ++ #[object] ++ suffixParameters) body
 
 /-- Form every binding at an explicitly selected first-hit target before choosing objects/operands.
 Reuse: validateOperation's native object/numeral telescope boundary and native abstraction.
@@ -421,39 +454,78 @@ opaque SourceRoutes.operationFamilies (routes : SourceRoutes) (session : SourceS
   unless routes.source.syntacticEq source.expression do
     throwError "the whole category family differs from the exact symbolic route source"
   let route ← routes.reconstruct trace
-  for ref in route.refs do checkEdgeDeclarations routes.state ref
   let bindings := routes.targets.filterMap fun
     | .operation category binding =>
       if category.expression.syntacticEq route.target then some binding else none
     | _ => none
   if bindings.isEmpty then throwError "the selected source target lost its operation binding"
   bindings.mapM fun binding => do
-    discard <| checkedDeclaration binding.declaration
-    let term ← session.elaborate reference fun context => do
-      let categoryFamily ← source.family.source.inContext context
-      forallTelescopeReducing (← inferType categoryFamily) fun parameters _ => do
-        let category := mkAppN categoryFamily parameters
-        let (functor, _) ← nativeRouteFunctor routes.state route category
-        let carrier ← mkAppM ``CategoryTheory.Bundled.α #[category]
-        withLocalDeclD `sourceObject carrier fun object => do
-          let prefunctor ← mkAppM ``CategoryTheory.Functor.toPrefunctor #[functor]
-          let image ← mkAppM ``Prefunctor.obj #[prefunctor, object]
-          let constant ← mkConstWithFreshMVarLevels binding.declaration
-          let (arguments, infos, result) ← forallMetaTelescopeReducing (← inferType constant)
-          unless arguments.size > binding.numerals do
-            throwError "the whole source operation has no object parameter"
-          unless (← whnfR result).isAppOf ``Quiver.Hom do
-            throwError "the source operation does not retain its whole morphism result"
-          let objectIndex := arguments.size - 1 - binding.numerals
-          unless ← isDefEq (← inferType arguments[objectIndex]!) (← inferType image) <&&>
-              isDefEq arguments[objectIndex]! image do
-            throwError "the source operation has a different complete routed object"
-          withRigidArguments arguments infos 0 objectIndex fun prefixParameters => do
-            withRigidArguments arguments infos (objectIndex + 1) arguments.size
-                fun suffixParameters => do
-              let body ← instantiateMVars (mkAppN constant arguments)
-              mkLambdaFVars (parameters ++ prefixParameters ++ #[object] ++ suffixParameters) body
-    return ⟨source, route, binding, term⟩
+    let term ← operationTerm routes.state session reference source route binding
+    return ⟨routes.state, source, route, binding, term⟩
+
+/-- A declared operation restriction, retaining its first-hit binding and full general family. -/
+structure SourceOperationRefinement where
+  private mk ::
+  original : SourceOperationFamily
+  base : OperationEntry
+  route : Route
+  term : SourceTerm
+  proposition : SourceTerm
+  proof : SourceTerm
+
+/-- Lift the actual registered restriction equality to the whole rigid operation family.
+Reuse: OperationRefinement, validateOperation's full declaration-argument interface and funext.
+The original first-hit reading is retained; the general family is reached by its declared route. -/
+opaque SourceSession.operationRefinement (session : SourceSession) (reference : Syntax)
+    (family : SourceOperationFamily) : TermElabM SourceOperationRefinement := do
+  let some refinement := family.binding.refines
+    | throwError "the source operation has no registered restriction equality"
+  let state := family.state
+  let #[base] := state.operations.filter (·.id == refinement.base)
+    | throwError "the source restriction requires one registered general operation"
+  let #[owner] := state.categories.filter (·.id == family.binding.category)
+    | throwError "the source restriction has no unique original owner category"
+  let #[baseOwner] := state.categories.filter (·.id == base.category)
+    | throwError "the source restriction has no unique general owner category"
+  unless family.route.target.syntacticEq owner.expression do
+    throwError "the source restriction has a different complete original owner"
+  let some steps := state.routeEdges? owner.expression baseOwner.expression refinement.route
+    | throwError "the source restriction lost its actual structural route"
+  discard <| checkedDeclaration refinement.identification
+  let route : Route := { source := family.route.source, target := baseOwner.expression,
+    steps := family.route.steps ++ steps }
+  let term ← operationTerm state session reference family.source route base
+  let #[proposition, proof] ← session.elaborateMany reference fun context => do
+      let left ← family.term.source.inContext context
+      let right ← term.source.inContext context
+      unless ← isDefEq (← inferType left) (← inferType right) do
+        throwError "the source restriction has a different complete operation family type"
+      let proposition ← mkEq left right
+      let proof ← lambdaTelescope left fun parameters body => do
+        unless body.getAppFn.constName? == some family.binding.declaration do
+          throwError "the retained operation family lost its original source declaration"
+        let constant ← mkConstWithFreshMVarLevels refinement.identification
+        let (arguments, _, _) ← forallMetaTelescopeReducing (← inferType constant)
+        let originalArguments := body.getAppArgs
+        unless arguments.size == originalArguments.size do
+          throwError "the source restriction equality has different complete declaration parameters"
+        for argument in arguments, original in originalArguments do
+          unless ← isDefEq (← inferType argument) (← inferType original) <&&>
+              isDefEq argument original do
+            throwError "the source restriction equality changes a rigid declaration parameter"
+        let mut proof ← instantiateMVars (mkAppN constant arguments)
+        let expected ← mkEq body (mkAppN right parameters).headBeta
+        unless ← isDefEq (← inferType proof) expected do
+          throwError "the source restriction equality has a different complete morphism equation"
+        for parameter in parameters.reverse do
+          proof ← mkAppM ``funext #[← mkLambdaFVars #[parameter] proof]
+        return proof
+      unless ← isDefEq (← inferType proof) proposition do
+        throwError "the restriction evidence has a different complete operation family equation"
+      checkWithKernel (← mkExpectedTypeHint proof proposition)
+      return #[proposition, proof]
+    | throwError "source operation restriction returned an invalid evidence family"
+  return ⟨family, base, route, term, proposition, proof⟩
 
 /-- A checked equality of entire native operation families with both original derivations. -/
 structure SourceOperationAgreement where
