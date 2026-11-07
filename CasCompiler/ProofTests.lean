@@ -29,7 +29,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let input := "-- source evidence\n\nlet evidence := proof(h)\n"
   let file ← SourceFile.parse "formal-evidence.cas" input
   let some item := file.items[0]? | throwError "the original evidence declaration is absent"
-  let `(cas_item| let $_:ident := $evidence:cas_term) := item
+  let `(cas_item| let $_:ident := $evidence:cas_term) := item.raw
     | throwError "the original evidence declaration changed syntax"
   let checked ← file.withContext <| session.proof evidence obligation.source
   unless checked.source.expression == mkBVar 0 && checked.source.type == mkBVar 1 &&
@@ -47,7 +47,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       discard <| session.proof (← suppliedProof text) obligation.source
       pure false
     catch _ => pure true
-    unless rejected do throwError "source evidence bypassed its wrapper or actual obligation"
+    unless rejected do throwError "source evidence bypassed its wrapper or actual obligation: {text}"
   let dataType ← session.term (← nativeSyntax "Nat")
   let rejected ← try
     discard <| session.proof (← suppliedProof "proof(7)") dataType.source

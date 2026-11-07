@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.Context
+public import CasCompiler.Syntax
 public import CasGates.AxiomAuditRules
 public import Lean.Elab.Term
 public import Lean.Elab.SyntheticMVars
@@ -55,11 +56,13 @@ private def checkSource (source : ClosedTerm) : MetaM Unit := do
 /-- Elaborate in the complete native context and publish only a resolved checked expression.
 Reuse: Lean 4.33.0 Term.elabTermAndSynthesize, withoutErrToSorry and native context reopening.
 Source syntax is consumed here; persistent definitions store their checked values. -/
-opaque SourceSession.term (session : SourceSession) (stx : Term) : TermElabM SourceTerm :=
+opaque SourceSession.term (session : SourceSession) (stx : Term)
+    (expected : Option ClosedTerm := none) : TermElabM SourceTerm :=
   withRef stx <| withoutErrToSorry <| withoutAutoBoundImplicit do
     session.context.withOpen fun bindings => do
       let context ← ContextTelescope.capture bindings
-      let expression ← elabTermAndSynthesize stx none
+      let expected ← expected.mapM (·.inContext context)
+      let expression ← elabTermAndSynthesize stx expected
       let source ← context.close expression
       checkSource source
       return ⟨source, ← sourceSpan stx⟩
@@ -71,6 +74,18 @@ opaque SourceSession.proposition (session : SourceSession) (stx : Term) :
   term.source.withOpen fun _ expression => do
     unless ← isProp expression do throwError "a source proposition must have type Prop"
   return term
+
+/-- Check an explicitly supplied source proof at an independently prepared proposition.
+Reuse: native expected-type elaboration and stable-ID context transport. The source hypothesis
+and proof remain formal; this operation accepts no computational response as evidence. -/
+opaque SourceSession.proof (session : SourceSession) (stx : TSyntax `cas_term)
+    (obligation : ClosedTerm) : TermElabM SourceTerm := withRef stx do
+  obligation.withOpen fun _ proposition => do
+    unless ← isProp proposition do
+      throwError "a formal proof requires a source proposition"
+  let `(cas_term| proof($evidence:term)) := stx
+    | throwError "source evidence requires an explicit proof term"
+  session.term evidence (some obligation)
 
 /-- Add one native parameter, hypothesis or selected instance with a fresh stable source ID.
 Reuse: Lean.elabType and Meta.withLocalDecl, including native local-instance registration. -/

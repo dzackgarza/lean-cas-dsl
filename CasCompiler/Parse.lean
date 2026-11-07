@@ -53,4 +53,11 @@ opaque SourceFile.parse (fileName input : String) : CoreM SourceFile := do
     items.map fun item => ⟨originalPositions context.fileMap original.fileMap item.raw⟩
   return ⟨original, items⟩
 
+/-- Elaborate parsed syntax against its original file map and diagnostic source identity.
+Reuse: Lean's Core.Context reader, as in Lean/Elab/DocString.lean. -/
+def SourceFile.withContext [Monad m] [MonadWithReaderOf Core.Context m]
+    (source : SourceFile) (action : m α) : m α :=
+  withTheReader Core.Context (fun context =>
+    { context with fileName := source.context.fileName, fileMap := source.context.fileMap }) action
+
 end CasCompiler
