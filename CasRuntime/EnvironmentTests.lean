@@ -246,13 +246,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         let actual ← parameter bindings[2]!.id projectedValue
         discard <| RuntimeEnvironment.capture owners.worker context
           #[actual, ← parameter bindings[1]!.id originalIndex]
-        let failure : Option Exception ← try
-          discard <| RuntimeEnvironment.capture owners.worker context
-            #[actual, ← parameter bindings[1]!.id changedIndex]
-          pure none
-        catch error => pure (some error)
-        let some failure := failure
-          | throwError "runtime association changed the actual preceding field of a dependent role"
-        unless (← failure.toMessageData.toString).startsWith
-            "the runtime value has a different consuming dependent reference" do
-          throw failure
+        let invalid := #[
+          (#[actual, ← parameter bindings[1]!.id changedIndex],
+            "the runtime value has a different consuming dependent reference"),
+          (#[actual], "the runtime value is missing a consuming dependent reference")]
+        for (parameters, expected) in invalid do
+          let failure : Option Exception ← try
+            discard <| RuntimeEnvironment.capture owners.worker context parameters
+            pure none
+          catch error => pure (some error)
+          let some failure := failure
+            | throwError "runtime association lost the actual preceding field of a dependent role"
+          unless (← failure.toMessageData.toString).startsWith expected do throw failure
