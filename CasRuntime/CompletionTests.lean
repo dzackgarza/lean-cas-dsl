@@ -105,6 +105,22 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throwError "the native completion did not admit"
       let some firstRole := first.request.roles.results[0]?
         | throwError "the completed result has no root role"
+      let .apply oldCallable oldArguments supplied := first.request.action
+        | throwError "the completion control lost its prepared application"
+      let graph ← liftM (m := IO) transaction.view
+      let mut actuals := #[]
+      for value in supplied, index in [:supplied.size] do
+        let some value := value | throwError "the completion control has an absent input"
+        let .ok actual := RuntimeArgument.ofValue graph index value
+          | throwError "the original completion input is outside its graph"
+        actuals := actuals.push actual
+      let rebuilt ← PreparedRequest.forApplication program first.request.occurrence context
+        oldCallable oldArguments actuals #[]
+      let some rebuiltRole := rebuilt.roles.results[0]?
+        | throwError "the rebuilt request has no root role"
+      match ← liftM (m := BaseIO) <| transaction.reuse first.request.occurrence rebuiltRole.role.id with
+      | .error .referenceOutsideGraph => pure ()
+      | _ => throwError "a rebuilt request recovered a different preparation's completion"
       match ← liftM (m := BaseIO) <| transaction.reuse first.request.occurrence firstRole.role.id with
       | .ok (.ready binding) =>
         unless binding.value == first.response.root.value do
