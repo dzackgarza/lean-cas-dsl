@@ -57,7 +57,8 @@ opaque FramedConnection.start (owners : OwnerRegistry) (backend : String)
     (arguments : IO.Process.SpawnArgs) (timeoutMs : UInt32) :
     IO (Except PortError FramedConnection) := do
   if timeoutMs == 0 then return .error (.unavailable backend "incompatible_protocol: deadline")
-  let connection ← owners.spawn arguments
+  let connection ← try owners.spawn arguments
+    catch error => return .error (.unavailable backend s!"startup: {error}")
   let negotiation ← IO.asTask (prio := .dedicated) <|
     negotiateV2 backend connection.child.stdin connection.child.stdout
   let deadline ← BaseIO.asTask (prio := .dedicated) do
@@ -92,25 +93,36 @@ opaque FramedConnection.release (wire : FramedConnection) : BaseIO Unit := do
 def FramedConnection.isBusy (wire : FramedConnection) : BaseIO Bool := do
   return (← wire.permit.availablePermits) == 0
 
+opaque FramedConnection.hasOutstanding (wire : FramedConnection) : BaseIO Bool :=
+  wire.state.atomically do
+    if (← get).closed then return false
+    return (← get).requests.any fun _ resource => match resource.status with
+      | .sent | .draining => true
+      | _ => false
+
 opaque FramedConnection.isDraining (wire : FramedConnection) : BaseIO Bool :=
   wire.state.atomically do
+    if (← get).closed then return false
     return (← get).requests.any fun _ resource => match resource.status with
       | .draining | .discardQueued | .discarding => true
       | _ => false
 
 /-- Allocate under the held frame permit. IDs remain consumed even if dispatch later fails. -/
 opaque FramedConnection.beginRequest (wire : FramedConnection)
-    (transaction : RuntimeId .transaction) (occurrence : RuntimeId .occurrence) : IO RequestLease :=
+    (transaction : RuntimeId .transaction) (occurrence : RuntimeId .occurrence) :
+    IO (Except PortError RequestLease) :=
   wire.state.atomically do
     let state ← get
-    unless !state.closed && state.active.isNone &&
+    if state.closed then return .error (.unavailable wire.backend "stale_owner")
+    unless state.active.isNone &&
         transaction.worker == wire.connection.generation.worker &&
         occurrence.worker == wire.connection.generation.worker do
       throw <| IO.userError "the connection cannot allocate this request"
     let id := state.nextRequest
-    set { state with nextRequest := id + 1, active := some id,
+    set { state with
+      nextRequest := id + 1, active := some id,
       requests := state.requests.insert id { status := .allocated } }
-    return ⟨id, transaction, occurrence, wire⟩
+    return .ok ⟨id, transaction, occurrence, wire⟩
 
 opaque RequestLease.markSent (lease : RequestLease) : BaseIO Bool :=
   lease.wire.state.atomically do
@@ -184,6 +196,10 @@ opaque RequestLease.cancel (lease : RequestLease) : BaseIO Unit :=
   lease.wire.state.atomically do
     let state ← get
     let some resource := state.requests[lease.requestId]? | return
+    if state.closed then
+      set { state with requests := state.requests.insert lease.requestId {
+        status := .discardFailed "connection_lost" } }
+      return
     match resource.status with
     | .sent =>
       set { state with requests := state.requests.insert lease.requestId { resource with status := .draining } }

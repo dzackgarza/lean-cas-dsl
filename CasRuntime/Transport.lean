@@ -42,6 +42,7 @@ opaque FramedConnection.invoke (wire : FramedConnection) (ledger : OccurrenceLed
     (arguments : Json) : IO (Except PortError ImmediateReply) := do
   let unavailable := fun reason => PortError.unavailable wire.backend reason
   unless reservation.connection == wire.connection.generation &&
+      reservation.selected.registration.backend == wire.backend &&
       reservation.transaction == transaction.id && sameInvocation scope.reservation reservation do
     return .error (unavailable "request_identity_mismatch")
   let some pending ← ledger.pendingFor reservation.occurrence transaction.id
@@ -50,15 +51,23 @@ opaque FramedConnection.invoke (wire : FramedConnection) (ledger : OccurrenceLed
     return .error (unavailable "request_identity_mismatch")
   wire.acquire
   try
+    unless ← ledger.owners.isLive wire.connection.generation do
+      return .error (unavailable "stale_owner")
     let some graph ← transaction.activeGraph
       | return .error (unavailable "cancelled")
     try discard <| scope.resolveMany reservation graph scope.wireId #[]
     catch error => return .error (.protocol error.toString)
-    let lease ← wire.beginRequest transaction.id reservation.occurrence
+    let lease ← match ← wire.beginRequest transaction.id reservation.occurrence with
+      | .ok lease => pure lease
+      | .error error => return .error error
     match ← transaction.commitSend reservation lease with
     | .error failure =>
       lease.abandon
-      return .error (unavailable (if failure == .settled then "cancelled" else "reserved_without_receipt"))
+      match failure with
+      | .settled => return .error (unavailable "cancelled")
+      | .reservation .consumed => return .error (unavailable "reserved_without_receipt")
+      | .reservation .staleOwner => return .error (unavailable "stale_owner")
+      | _ => throw <| IO.userError "internal: the prepared send lost its transaction association"
     | .ok () => pure ()
     let operation := reservation.selected.registration.operation
     try
@@ -89,7 +98,8 @@ opaque FramedConnection.invoke (wire : FramedConnection) (ledger : OccurrenceLed
       return .error (unavailable "cancelled")
     let some current ← transaction.activeGraph
       | scope.retire; return .error (unavailable "cancelled")
-    let result ← if (frame.getObjValAs? String "status").toOption == some "ok" then
+    let result : Except PortError ImmediateReply ←
+      if (frame.getObjValAs? String "status").toOption == some "ok" then
         try
           pure (.ok (← ImmediateReply.parseControl scope reservation current scope.wireId lease.requestId frame))
         catch error => pure (.error (.protocol error.toString))

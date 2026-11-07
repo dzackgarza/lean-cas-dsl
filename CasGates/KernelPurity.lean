@@ -60,6 +60,7 @@ import all CasRuntime.Identity
 import all CasRuntime.IdentityTests
 import all CasRuntime.Owner
 import all CasRuntime.OwnerTests
+import all CasRuntime.Connection
 import all CasRuntime.Value
 import all CasRuntime.ValueTests
 import all CasRuntime.Occurrence
@@ -73,6 +74,8 @@ import all CasRuntime.ScopeTests
 import all CasRuntime.Reply
 import all CasRuntime.ReplyTests
 import all CasRuntime.ProtocolTests
+import all CasRuntime.Transport
+import all CasRuntime.TransportTests
 import all CasContract
 import all CasContract.Failure
 import all CasContract.Port
