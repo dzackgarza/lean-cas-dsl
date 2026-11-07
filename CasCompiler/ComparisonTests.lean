@@ -133,9 +133,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   unless first.id == NaturalTransformationId.listJoin &&
       second.id == NaturalTransformationId.listReverse do
     throwError "vertical composition reordered its original source cells"
-  let reversed ← reverse.inverse
+  let reversed ← empty.inverseCell Syntax.missing reverse
   let invertible ← empty.composeCells Syntax.missing reverse reversed
-  let inverted ← invertible.inverse
+  let inverted ← empty.inverseCell Syntax.missing invertible
   let objects ← empty.assumeTerm `X objectType
   let object ← objects.term (← `(term| $(mkIdent `X):ident))
   for (cell, invert) in #[(composite, false), (inverted, true)] do
@@ -158,7 +158,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   catch _ => pure true
   unless invalidOrder do throwError "cell composition ignored its complete middle functor"
   let invalidInverse ← try
-    discard <| composite.inverse
+    discard <| empty.inverseCell Syntax.missing composite
     pure false
   catch _ => pure true
   unless invalidInverse do throwError "a composite acquired an inverse of a noninvertible source cell"
