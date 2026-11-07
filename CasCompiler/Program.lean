@@ -84,6 +84,7 @@ inductive PreparedAction
   | primitive (boundary : ProgramBoundary) (universeArguments : List Level)
   | project (operand : CasRuntime.ValueBinding) (field : FieldLayout)
   | apply (callable : CasRuntime.ValueBinding) (arguments : Array ClosedTerm)
+      (values : Array (Option CasRuntime.ValueBinding))
 
 /-- Complete source roles and ordered runtime scope, fixed before a computational reply. -/
 structure PreparedRequest where
@@ -111,7 +112,7 @@ def PreparedRequest.universeArguments (request : PreparedRequest) : Option (List
 private def prepareRequest (program : CasRuntime.RuntimeId .program)
     (occurrence : CasRuntime.RuntimeId .occurrence) (action : PreparedAction)
     (source : SourceLayout) (context : OpenContext) (scope : Array CasRuntime.ValueBinding)
-    (parameters : Array CasRuntime.RuntimeParameter) :
+    (environment : CasRuntime.RuntimeEnvironment) :
     MetaM PreparedRequest := do
   unless program.worker == occurrence.worker do
     throwError "request preparation mixed worker identities"
@@ -121,7 +122,6 @@ private def prepareRequest (program : CasRuntime.RuntimeId .program)
     discard <| binding.role.source.inContext context
   if source.kind == .proof then
     throwError "a source proof has no computational response positions"
-  let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters
   let origin ← environment.origin program occurrence source
   let mut outputs : Array SourceLayout := #[]
   let record ← if source.kind == .record then
@@ -154,8 +154,9 @@ opaque PreparedRequest.forBoundary (program : CasRuntime.RuntimeId .program)
   let layout ← SourceLayout.ofTerm family
   let source ← if arguments.isEmpty then layout.inContext context
     else layout.applyIn context arguments
+  let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters
   prepareRequest program occurrence (.primitive boundary universeArguments) source context
-    scope parameters
+    scope environment
 
 /-- Prepare the exact source field of the retained operand in the complete current scope. -/
 opaque PreparedRequest.forProjection (program : CasRuntime.RuntimeId .program)
@@ -167,22 +168,33 @@ opaque PreparedRequest.forProjection (program : CasRuntime.RuntimeId .program)
   unless field.wireIndex.isSome do
     throwError "a source proof field has no computational projection"
   let source ← (← field.toLayout).inContext context
-  prepareRequest program occurrence (.project operand field) source context #[operand] parameters
+  let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters
+  prepareRequest program occurrence (.project operand field) source context #[operand] environment
 
-/-- Apply an already retained function interface. Source coercions are lowered to their
-actual callable before this boundary. Complete formal arguments remain separate from scope refs. -/
+/-- Apply the retained function with complete formal arguments and indexed actual operands.
+Source coercions are lowered before this boundary. Source-only positions remain explicit empty
+slots; each supplied operand is checked against that exact argument and retained in source order. -/
 opaque PreparedRequest.forApplication (program : CasRuntime.RuntimeId .program)
     (occurrence : CasRuntime.RuntimeId .occurrence) (context : OpenContext)
     (callable : CasRuntime.ValueBinding) (arguments : Array ClosedTerm)
-    (argumentScope : Array CasRuntime.ValueBinding)
+    (actual : Array CasRuntime.RuntimeArgument)
     (parameters : Array CasRuntime.RuntimeParameter) :
     MetaM PreparedRequest := do
   unless callable.role.kind == .function do
     throwError "the retained value has no prepared callable interface"
   if arguments.isEmpty then throwError "callable application requires a source argument"
   let source ← callable.role.applyIn context arguments
-  prepareRequest program occurrence (.apply callable arguments) source context
-    (#[callable] ++ argumentScope) parameters
+  let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters
+  let mut values : Array (Option CasRuntime.ValueBinding) := Array.replicate arguments.size none
+  for argument in actual do
+    let some specified := arguments[argument.index]?
+      | throwError "a runtime argument is outside the complete callable argument list"
+    if (values[argument.index]?.bind id).isSome then
+      throwError "a callable source argument has duplicate runtime bindings"
+    let value ← environment.checkArgument specified argument
+    values := values.set! argument.index (some value)
+  prepareRequest program occurrence (.apply callable arguments values) source context
+    (#[callable] ++ values.filterMap id) environment
 
 /-- Responses retain actual candidate roots under source-prepared layouts.
 Reference: CSLib 3951377e, Foundations/Data/PFunctor/Free.lean. -/
