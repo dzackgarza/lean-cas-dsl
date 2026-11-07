@@ -3,6 +3,8 @@ module
 import all CasCompiler
 import all CasCompiler.Context
 import all CasCompiler.ContextTests
+import all CasCompiler.Declaration
+import all CasCompiler.FormationTests
 import all CasCompiler.Syntax
 import all CasCompiler.Parse
 import all CasCompiler.ParseTests
