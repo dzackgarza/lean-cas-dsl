@@ -224,7 +224,8 @@ private partial def ValueGraph.bindingOwners (graph : ValueGraph) (binding : Val
     let mut state := { state with values := state.values.insert value }
     for owner in node.owners do
       unless state.generations.contains owner do
-        state := { state with generations := state.generations.insert owner,
+        state := { state with
+          generations := state.generations.insert owner
           owners := state.owners.push owner }
     return state
   | .atRole underlying _ => graph.bindingOwners underlying state
