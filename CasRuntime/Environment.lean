@@ -44,7 +44,8 @@ def RuntimeEnvironment.lookup (environment : RuntimeEnvironment) (source : Bindi
 
 private def sameReference (original current : ValueBinding) : Bool :=
   original.value == current.value &&
-    original.instantiations.map (·.id) == current.instantiations.map (·.id)
+    (original.instantiations.map (·.id)).toList.isPrefixOf
+      (current.instantiations.map (·.id)).toList
 
 private def checkNativeType (context : OpenContext) (expected : Expr)
     (value : ValueBinding) (origin : ValueOrigin) : MetaM Unit := do
@@ -91,6 +92,7 @@ private def checkDependencies (context : OpenContext)
 Check the complete table before comparing each actual producing dependency with its current
 binding. Reuse: ClosedTerm.inContext, Lean.Meta.isDefEq and SourceLayout.contextDependencies.
 Consuming field dependencies use their actual source projections and retained prefix references.
+Later consuming roles may extend the original reference's complete instantiation chain.
 Whole-reply admission remains a separate check. -/
 opaque RuntimeEnvironment.capture (worker : String) (context : OpenContext)
     (parameters : Array RuntimeParameter) : MetaM RuntimeEnvironment := do
