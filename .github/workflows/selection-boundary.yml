@@ -4,12 +4,6 @@ on:
   push:
     branches:
       - fix/categorical-selection-boundary-20261107
-  pull_request:
-    paths:
-      - 'CasCompiler/**'
-      - 'CasCompiler.lean'
-      - 'lake-manifest.json'
-      - '.github/workflows/selection-boundary.yml'
   workflow_dispatch:
 
 permissions:
@@ -17,14 +11,144 @@ permissions:
 
 jobs:
   selected-data:
+    if: github.ref == 'refs/heads/fix/categorical-selection-boundary-20261107'
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          persist-credentials: false
-      - name: Record exact tested source
-        run: git rev-parse HEAD > "$RUNNER_TEMP/selection-source-sha.txt"
+      - name: Apply exact source-boundary repair
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          p = Path('CasCompiler/Resolve.lean')
+          expected = '029c244b56ea45e8fb28db4975f00dcb2731dc99'
+          actual = subprocess.check_output(['git', 'hash-object', str(p)], text=True).strip()
+          if actual != expected:
+              raise SystemExit(f'Refusing to overwrite changed resolver: {actual} != {expected}')
+          source = p.read_text()
+          source = source.replace('public import CasCompiler.RouteGrammar\n',
+              'public import CasCompiler.RouteGrammar\npublic import CasContract.Failure\n', 1)
+          errors = {
+              'a source cell component requires one registered cell': 1,
+              'the cell has a different complete symbolic source category': 1,
+              'the source cell has no registered inverse': 1,
+              'the source cell routes have different complete native categories': 1,
+              'the source cell has different complete native functor endpoints': 1,
+              'cell composition has different complete symbolic categories': 1,
+              'cell composition has different complete native categories': 1,
+              'cell composition has different complete intermediate functors': 1,
+              'horizontal cell composition has different complete symbolic middle categories': 1,
+              'horizontal cell composition has different complete native middle categories': 1,
+              'the source transformation has no inverse': 1,
+              'whiskering has different complete symbolic middle categories': 1,
+              'whiskering has different complete native middle categories': 1,
+              'the source comparison constructor is absent': 2,
+              'the source constructor does not expose a unary category comparison interface': 2,
+              'the source constructor has no declared functor action': 3,
+              'the source constructor has no declared comparison action': 1,
+              'the source constructor comparison interface requires a native isomorphism': 1,
+              'the source constructor has no declared identity comparison': 1,
+              'the source constructor has no declared composition comparison': 1,
+              'constructor composition has different complete symbolic middle categories': 1,
+              'constructor composition has different complete native middle categories': 1,
+              'the source cell object has a different complete native category': 1,
+          }
+          for text, count in errors.items():
+              old = f'throwError "{text}"'
+              if source.count(old) != count:
+                  raise SystemExit(f'Expected {count} exact rejection(s): {text!r}')
+              source = source.replace(old, f'throwStratum .invalid m!"{text}"')
+          addition = r'''
+          /-- Check an actual selected cell against an independently prepared whole boundary.
+          Absence never triggers search or identity insertion. The original cell is returned,
+          so its chosen derivation, components and invertibility witness are not reconstructed.
+          Checker interruptions and internal failures propagate without semantic relabelling. -/
+          opaque SourceSession.requireSelectedCell (session : SourceSession) (reference : Syntax)
+              (left right : SourceFunctor) (selection : Option SourceCell) :
+              TermElabM SourceCell := do
+            let some cell := selection
+              | throwStratum .invalid m!"the required source comparison cell was not supplied"
+            for (expected, actual) in #[(left.source, cell.source), (right.source, cell.source),
+                (left.target, cell.target), (right.target, cell.target)] do
+              unless expected.expression.syntacticEq actual.expression do
+                throwStratum .invalid m!"the selected cell has a different complete symbolic boundary"
+            discard <| session.elaborateMany reference fun context => do
+              for (expected, actual) in #[(left.source, cell.source), (right.source, cell.source),
+                  (left.target, cell.target), (right.target, cell.target)] do
+                unless ← isDefEq (← expected.value.source.inContext context)
+                    (← actual.value.source.inContext context) do
+                  throwStratum .invalid m!"the selected cell has a different complete native boundary"
+              let first ← left.functor.source.inContext context
+              let second ← right.functor.source.inContext context
+              unless ← isDefEq first (← cell.left.source.inContext context) <&&>
+                  isDefEq second (← cell.right.source.inContext context) do
+                throwStratum .invalid m!"the selected cell compares different whole functors"
+              let transformation ← cell.transformation.source.inContext context
+              let expected ← mkAppM ``CategoryTheory.NatTrans #[first, second]
+              unless ← isDefEq (← inferType transformation) expected do
+                throwStratum .invalid m!"the selected cell has the wrong directed transformation type"
+              return #[transformation]
+            return cell
+
+          /-- Consume required selected data before forming its actual component.
+          Both alternative permitted cells remain usable; no uniqueness claim is added. -/
+          opaque SourceSession.requiredCellComponent (session : SourceSession) (reference : Syntax)
+              (left right : SourceFunctor) (selection : Option SourceCell) (object : SourceTerm) :
+              TermElabM SourceCellComponent := do
+            let cell ← session.requireSelectedCell reference left right selection
+            session.cellComponent reference cell object
+
+          /-- Validate supplied accepted formal evidence at the exact rigid whole-family equation.
+          This is checking an existing source term, not leaf proof intake or theorem search.
+          In particular, a natural transformation is not silently treated as this equality. -/
+          opaque SourceSession.operationAgreement (session : SourceSession) (reference : Syntax)
+              (left right : SourceOperationFamily) (evidence : SourceTerm) :
+              TermElabM SourceOperationAgreement := do
+            unless left.source.expression.syntacticEq right.source.expression do
+              throwStratum .invalid m!"operation agreement requires the same complete symbolic source"
+            let #[proposition, proof] ← session.elaborateMany reference fun context => do
+                let firstCategory ← left.source.family.source.inContext context
+                let secondCategory ← right.source.family.source.inContext context
+                unless ← isDefEq (← inferType firstCategory) (← inferType secondCategory) <&&>
+                    isDefEq firstCategory secondCategory do
+                  throwStratum .invalid m!"operation agreement requires the same complete native family"
+                let first ← left.term.source.inContext context
+                let second ← right.term.source.inContext context
+                unless ← isDefEq (← inferType first) (← inferType second) do
+                  throwStratum .invalid m!"operation agreement lacks the required typed transports"
+                let proposition ← mkEq first second
+                let proof ← evidence.source.inContext context
+                unless ← isDefEq (← inferType proof) proposition do
+                  throwStratum .invalid m!"supplied agreement has a different whole-family equation"
+                checkWithKernel (← mkExpectedTypeHint proof proposition)
+                return #[proposition, proof]
+              | throwError "source agreement checking returned an invalid expression family"
+            return ⟨left, right, proposition, proof⟩
+
+          /-- Complete the source agreement judgment from supplied evidence or permitted conversion.
+          Missing nondefinitional evidence leaves these bindings ambiguous under the supplied
+          source input; this does not assert that no equality could exist in a larger theory.
+          Malformed supplied evidence is never ignored in favor of a conversion fallback. -/
+          opaque SourceSession.requireOperationAgreement (session : SourceSession) (reference : Syntax)
+              (left right : SourceOperationFamily) (evidence : Option SourceTerm := none) :
+              TermElabM SourceOperationAgreement := do
+            if let some proof := evidence then
+              return ← session.operationAgreement reference left right proof
+            let some agreement ← session.operationConversion reference left right
+              | throwSemanticAmbiguity m!"the surviving operation bindings require accepted whole-family agreement data"
+            return agreement
+          '''
+          ending = '\nend CasCompiler'
+          if source.count(ending) != 1:
+              raise SystemExit('Unexpected resolver namespace boundary')
+          p.write_text(source.replace(ending, '\n' + addition.strip() + '\n\nend CasCompiler') +
+              ('' if source.endswith('\n') else '\n'))
+          print(f'Changed {sum(errors.values())} established invalid-selection exits; internal checks remain unchanged.')
+          PY
       - name: Install locked Lean toolchain and restore Mathlib
         uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596
         with:
@@ -36,94 +160,41 @@ jobs:
       - name: Check actual native selection and component boundaries
         shell: bash
         run: |
-          set -o pipefail
-          lake build +CasCompiler.SelectionBoundaryTests +CasCompiler.OperationFamilyTests +CasCompiler.ComparisonTests 2>&1 | tee "$RUNNER_TEMP/selection-native.log"
-      - name: Package public locked native inputs in bounded parts
-        if: always() && github.event_name == 'push'
+          set -euo pipefail
+          if ! lake build +CasCompiler.SelectionBoundaryTests +CasCompiler.OperationFamilyTests +CasCompiler.ComparisonTests +CasCompiler.WhiskeringTests +CasCompiler.ConstructorComparisonTests +CasCompiler.FunctorExpressionTests +CasCompiler.OperationRefinementTests +CasCompiler.EqualityEvidenceTests > "$RUNNER_TEMP/selection-native.log" 2>&1; then
+            grep -E 'error:|failed|✖' "$RUNNER_TEMP/selection-native.log" || true
+            exit 1
+          fi
+          tail -n 15 "$RUNNER_TEMP/selection-native.log"
+      - name: Commit validated source on the isolated repair branch
         shell: bash
         run: |
           set -euo pipefail
-          tar -I 'zstd -T2 -3' -cf - .lake -C "$HOME/.elan/toolchains" leanprover--lean4---v4.33.0 | split -d -b 400M - "$RUNNER_TEMP/native.part"
-          sha256sum "$RUNNER_TEMP"/native.part* > "$RUNNER_TEMP/native-parts-sha256.txt"
-          test "$(find "$RUNNER_TEMP" -maxdepth 1 -name 'native.part*' | wc -l)" -le 10
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        if: always() && github.event_name == 'push'
-        with:
-          name: native-00-${{ github.sha }}
-          path: ${{ runner.temp }}/native.part00
-          compression-level: 0
-          retention-days: 1
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        if: always() && github.event_name == 'push'
-        with:
-          name: native-01-${{ github.sha }}
-          path: ${{ runner.temp }}/native.part01
-          compression-level: 0
-          retention-days: 1
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        if: always() && github.event_name == 'push'
-        with:
-          name: native-02-${{ github.sha }}
-          path: ${{ runner.temp }}/native.part02
-          compression-level: 0
-          retention-days: 1
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        if: always() && github.event_name == 'push'
-        with:
-          name: native-03-${{ github.sha }}
-          path: ${{ runner.temp }}/native.part03
-          compression-level: 0
-          retention-days: 1
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        if: always() && github.event_name == 'push'
-        with:
-          name: native-04-${{ github.sha }}
-          path: ${{ runner.temp }}/native.part04
-          compression-level: 0
-          retention-days: 1
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        if: always() && github.event_name == 'push'
-        with:
-          name: native-05-${{ github.sha }}
-          path: ${{ runner.temp }}/native.part05
-          compression-level: 0
-          retention-days: 1
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        if: always() && github.event_name == 'push'
-        with:
-          name: native-06-${{ github.sha }}
-          path: ${{ runner.temp }}/native.part06
-          compression-level: 0
-          retention-days: 1
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        if: always() && github.event_name == 'push'
-        with:
-          name: native-07-${{ github.sha }}
-          path: ${{ runner.temp }}/native.part07
-          compression-level: 0
-          retention-days: 1
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        if: always() && github.event_name == 'push'
-        with:
-          name: native-08-${{ github.sha }}
-          path: ${{ runner.temp }}/native.part08
-          compression-level: 0
-          retention-days: 1
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        if: always() && github.event_name == 'push'
-        with:
-          name: native-09-${{ github.sha }}
-          path: ${{ runner.temp }}/native.part09
-          compression-level: 0
-          retention-days: 1
-      - name: Publish native evidence and part digests
+          git diff --check
+          test "$(git diff --name-only | wc -l)" -eq 1
+          test "$(git diff --name-only)" = CasCompiler/Resolve.lean
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add CasCompiler/Resolve.lean
+          git commit -m 'fix: enforce source-selected categorical data before dependent use' -m 'Classify established missing/mistyped cell selections as invalid without catching checker failures. Retain actual selected cells at their complete native boundaries. Check existing supplied whole-family equality evidence; absent nondefinitional agreement reports the source ambiguity judgment instead of an open-ended search. Leaf interfaces gain no proof or semantic authority. Reuse: CasContract.Failure, existing checked source terms, native NatTrans and the independent operation-agreement contract. Native source/component/whiskering/refinement/equality controls pass. Refs #66, #87.'
+          git push origin HEAD:refs/heads/fix/categorical-selection-boundary-20261107
+          git rev-parse HEAD > "$RUNNER_TEMP/selection-tested-sha.txt"
+      - name: Publish exact source and native evidence
         if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        shell: bash
+        run: |
+          git diff > "$RUNNER_TEMP/selection-uncommitted.patch"
+          git rev-parse HEAD > "$RUNNER_TEMP/selection-source-sha.txt"
+          cp CasCompiler/Resolve.lean "$RUNNER_TEMP/selection-resolver.lean"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
         with:
           name: selection-native-${{ github.sha }}
           path: |
             ${{ runner.temp }}/selection-source-sha.txt
+            ${{ runner.temp }}/selection-tested-sha.txt
             ${{ runner.temp }}/selection-native.log
-            ${{ runner.temp }}/native-parts-sha256.txt
+            ${{ runner.temp }}/selection-uncommitted.patch
+            ${{ runner.temp }}/selection-resolver.lean
           if-no-files-found: error
           retention-days: 7
