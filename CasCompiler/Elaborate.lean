@@ -54,7 +54,7 @@ private def checkSource (source : ClosedTerm) : MetaM Unit := do
         throwError "source declaration {declaration} depends on {assumption}"
 
 /-- Elaborate in the complete native context and publish only a resolved checked expression.
-Reuse: Lean 4.33.0 Term.elabTermAndSynthesize, withoutErrToSorry and native context reopening.
+Reuse: Lean 4.33.0 Term.elabTermEnsuringType, withSynthesize and native context reopening.
 Source syntax is consumed here; persistent definitions store their checked values. -/
 opaque SourceSession.term (session : SourceSession) (stx : Term)
     (expected : Option ClosedTerm := none) : TermElabM SourceTerm :=
@@ -62,7 +62,7 @@ opaque SourceSession.term (session : SourceSession) (stx : Term)
     session.context.withOpen fun bindings => do
       let context ← ContextTelescope.capture bindings
       let expected ← expected.mapM (·.inContext context)
-      let expression ← elabTermAndSynthesize stx expected
+      let expression ← instantiateMVars (← withSynthesize <| elabTermEnsuringType stx expected)
       let source ← context.close expression
       checkSource source
       return ⟨source, ← sourceSpan stx⟩
@@ -110,14 +110,14 @@ opaque SourceSession.assume (session : SourceSession) (name : Name) (stx : Term)
           session.spans.push (← sourceSpan stx)⟩
 
 /-- Retain an elaborated definition as a native let declaration for all subsequent source use.
-Reuse: Term.elabTermAndSynthesize and Meta.withLetDecl; no expansion/replay table is stored. -/
+Reuse: Term.elabTermEnsuringType and Meta.withLetDecl; no expansion/replay table is stored. -/
 opaque SourceSession.define (session : SourceSession) (name : Name) (stx : Term)
     (annotation : Option Term := none) : TermElabM SourceSession :=
   withRef stx <| withoutErrToSorry <| withoutAutoBoundImplicit do
     session.context.withOpen fun bindings => do
       let context ← ContextTelescope.capture bindings
       let expected ← annotation.mapM fun stx => withSynthesize <| elabType stx
-      let expression ← elabTermAndSynthesize stx expected
+      let expression ← instantiateMVars (← withSynthesize <| elabTermEnsuringType stx expected)
       let source ← context.close expression
       checkSource source
       let type ← inferType expression
