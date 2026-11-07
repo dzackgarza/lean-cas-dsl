@@ -42,10 +42,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     "let X := Fin(n)\nlet X := Fin(3)\nlet Y := X\n\
      let Z := (Fin(n) in FiniteSets)\nlet M := RegularModule(R)\n"
   for index in [:file.items.size] do
-    let (name, syntax) ← definition file index
-    let term ← file.withContext <| session.read syntax
+    let (name, stx) ← definition file index
+    let term ← file.withContext <| session.read stx
     unless term.source.context.entries.size == 3 + index &&
-        term.span.fileName == "public-source.cas" && term.span.start == syntax.raw.getPos? do
+        term.span.fileName == "public-source.cas" && term.span.start == stx.raw.getPos? do
       throwError "public source reading lost its complete scope or actual source span"
     if index == 0 then
       term.source.withOpen fun bindings expression => do
@@ -66,10 +66,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           throwError "public source reading discarded its selected scalar object"
     session ← session.defineTerm name.getId term
   for source in #["Fin(h)", "Fin(unregistered_parameter)", "Fin(n) in Rings", "3"] do
-    let .ok syntax := Parser.runParserCategory (← getEnv) `cas_term source
+    let .ok stx := Parser.runParserCategory (← getEnv) `cas_term source
       | throwError "the source rejection control did not parse"
     let rejected ← try
-      discard <| session.read ⟨syntax⟩
+      discard <| session.read ⟨stx⟩
       pure false
     catch _ => pure true
     unless rejected do throwError "public source reading accepted an untyped source argument"
