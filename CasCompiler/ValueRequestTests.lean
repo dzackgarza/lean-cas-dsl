@@ -44,8 +44,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let .ok parameter := RuntimeParameter.ofValue graph ⟨"value-request", 0⟩ scalar
       | throwError "the actual source parameter is outside its graph"
     let applicationOccurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+    let .ok actualArgument := RuntimeArgument.ofValue graph 0 scalar
+      | throwError "the actual callable argument is outside its graph"
     let application ← PreparedRequest.forApplication program applicationOccurrence context
-      response.root #[argument] #[scalar] #[parameter]
+      response.root #[argument] #[actualArgument] #[parameter]
     let .ok (some supplied) := application.environment.lookup ⟨"value-request", 0⟩
       | throwError "the prepared application lost a supplied source binding"
     unless supplied.value == scalar.value && application.environment.values.size == 1 do
@@ -68,9 +70,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         preparedRecord.fields[0]?.map (·.field.wireIndex) == some (some 0) &&
         preparedRecord.fields[1]?.map (·.field.kind) == some .proof do
       throwError "request preparation lost computational or formal proof positions"
-    let .apply retained arguments := application.action
+    let .apply retained arguments values := application.action
       | throwError "application preparation changed its action"
-    unless retained.value == callable.value && arguments.size == 1 &&
+    unless retained.value == callable.value && arguments.size == 1 && values.size == 1 &&
+        (values[0]?.bind id).map (·.value) == some scalar.value &&
         application.scope.size == 2 do
       throwError "application preparation lost its callable or argument scope"
     application.source.source.withOpen fun _ expression => do
@@ -79,7 +82,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "application preparation lost its dependent result type"
     let rejected ← try
       discard <| PreparedRequest.forApplication program occurrence context record
-        #[argument] #[scalar] #[]
+        #[argument] #[actualArgument] #[]
       pure false
     catch _ => pure true
     unless rejected do throwError "application accepted a value without a retained callable interface"

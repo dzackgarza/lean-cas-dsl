@@ -63,7 +63,7 @@ def interpreter
       | .closure _ _ | .ownedToken _ _ _ => executeDemand executor request transaction
       | .portable _ =>
         throw <| IO.userError "malformed: the retained value has no record access interface"
-    | .apply callable _ =>
+    | .apply callable _ _ =>
       discard <| IO.ofExcept <|
         (CandidateResponse.ofValue callable.role graph callable).mapError IO.userError
       executeDemand executor request transaction

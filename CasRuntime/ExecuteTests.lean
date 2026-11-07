@@ -125,8 +125,11 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let .ok _ ← producer.commit | throwError "the control inputs could not commit"
       let consumer ← CellTransaction.begin ledger
       let invocation ← liftM (m := BaseIO) ledger.allocate
+      let .ok actualArgument :=
+          RuntimeArgument.ofValue (← SessionSnapshot.current).graph 0 scalar
+        | throwError "the actual execution argument is outside the committed graph"
       let request ← PreparedRequest.forApplication program invocation context callable
-        #[← context.close (mkNatLit 7)] #[scalar] #[]
+        #[← context.close (mkNatLit 7)] #[actualArgument] #[]
       let selected : DispatchIdentity := {
         manifestDigest := "resource-test-manifest"
         registration := { operation := "resource-test", input := "resource-test", backend := "cat" }
