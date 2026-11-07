@@ -34,7 +34,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let capture := (ScopedReference.scope 1).encode
       let exported := CasCatalogue.Backend.ComputationalValue.encode (.opaque token)
       let declaration := Json.mkObj [("token", .str token), ("captures", .arr #[reference, capture])]
-      let makeFrame := fun id value exports => Json.mkObj [
+      let makeFrame := fun (id : Nat) (value : Json) (exports : Array Json) => Json.mkObj [
         ("request_id", toJson id), ("status", .str "ok"), ("value", value), ("exports", .arr exports)]
       let frame := makeFrame (73 : Nat) (.arr #[reference, exported]) #[declaration]
       let reply ← ImmediateReply.parseControl scope reservation graph scope.wireId 73 frame
@@ -55,6 +55,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           ("token", .str token), ("captures", .arr #[reference, reference])]],
         makeFrame 73 exported #[Json.mkObj [
           ("token", .str token), ("captures", .arr #[]), ("owner", .str "claimed")]],
+        Json.mkObj [("request_id", toJson (73 : Nat)), ("status", .str "ok"),
+          ("value", exported), ("exports", .arr #[declaration]), ("owner", .str "claimed")],
+        makeFrame 73 (Json.mkObj [("ctor", .str "valueData"), ("args", .arr #[.null]),
+          ("resultType", .str "claimed")]) #[],
         makeFrame 73 (ScopedReference.result 0).encode #[],
         makeFrame 73 exported #[Json.mkObj [("token", .str token), ("captures", .arr #[.null])]]]
       for bad in malformed do
@@ -63,6 +67,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           pure false
         catch _ => pure true
         unless rejected do throw <| IO.userError "a malformed reply control was admitted"
+      let wrongScope ← try
+        discard <| ImmediateReply.parseControl scope reservation graph "another scope" 73
+          (makeFrame 73 (.str "portable control") #[])
+        pure false
+      catch _ => pure true
+      unless wrongScope do
+        throw <| IO.userError "a reference-free reply bypassed scope authority"
       unless (← ledger.pendingFor occurrence transaction).isSome &&
           (graph.find input.value).isSome do
         throw <| IO.userError "control validation changed reservation or retained value state"
