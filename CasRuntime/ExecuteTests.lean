@@ -9,8 +9,8 @@ meta import CasContract.Port
 open Lean Meta CasCompiler CasRuntime
 
 private def unavailableExecutor (request : PreparedRequest) (_ : CellTransaction) :
-    IO (CandidateResponse request.source × CellTransaction) :=
-  throw <| IO.userError "unavailable: this control has no external execution registration"
+    MetaM (CandidateResponse request.source × CellTransaction) :=
+  throwError "unavailable: this control has no external execution registration"
 
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
@@ -72,7 +72,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         let c ← PFunctor.FreeM.lift (P := OperationalSignature) packetProjection
         let d ← PFunctor.FreeM.lift (P := OperationalSignature) associatedProjection
         pure #[a.root, b.root, c.root, d.root]
-      let result ← liftM (m := IO) <| Execute.run unavailableExecutor code consumer
+      let result ← Execute.run unavailableExecutor code consumer
       unless result.map (·.value) == #[scalar.value, scalar.value, scalar.value, scalar.value] do
         throwError "stateful execution replaced a stored field node"
       unless result[3]?.map (·.instantiations.size) == some 1 do
@@ -84,12 +84,12 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let failed ← CellTransaction.begin ledger
       let third ← liftM (m := BaseIO) ledger.allocate
       let right ← PreparedRequest.forProjection program third context associated 1 #[]
-      let denied ← liftM (m := IO) do
+      let denied ← do
         try
           discard <| Execute.run unavailableExecutor
             (PFunctor.FreeM.lift (P := OperationalSignature) right) failed
           pure false
-        catch error => pure <| error.toString.endsWith "unavailable: stale_owner"
+        catch error => pure <| (← error.toMessageData.toString).endsWith "unavailable: stale_owner"
       unless denied do throwError "a dead stored field reached execution"
       match ← failed.commit with
       | .error .settled => pure ()
@@ -134,23 +134,23 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         manifestDigest := "resource-test-manifest"
         registration := { operation := "resource-test", input := "resource-test", backend := "cat" }
         profileDigest := "resource-test-profile" }
-      let malformedPeer : PFunctor.Handler.Stateful IO CellTransaction OperationalSignature :=
+      let malformedPeer : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
         fun demand transaction => do
           let .ok _ ← transaction.reserve demand.occurrence selected child demand.scope
-            | throw <| IO.userError "the malformed-peer invocation could not reserve"
+            | throwError "the malformed-peer invocation could not reserve"
           CasCatalogue.Backend.writeFrame child.child.stdin
             (Json.mkObj [("probe", .str "malformed-peer control")])
           let .ok frame ← CasCatalogue.Backend.readFrame child.child.stdout
-            | throw <| IO.userError "the actual peer frame could not be read"
+            | throwError "the actual peer frame could not be read"
           match CasCatalogue.Backend.field frame "status" with
-          | .error _ => throw <| IO.userError "malformed: reply status is missing"
-          | .ok _ => throw <| IO.userError "the malformed peer unexpectedly supplied a status"
-      let rejected ← liftM (m := IO) do
+          | .error _ => throwError "malformed: reply status is missing"
+          | .ok _ => throwError "the malformed peer unexpectedly supplied a status"
+      let rejected ← do
         try
           discard <| Execute.run malformedPeer
             (PFunctor.FreeM.lift (P := OperationalSignature) request) consumer
           pure false
-        catch error => pure <| error.toString.endsWith "malformed: reply status is missing"
+        catch error => pure <| (← error.toMessageData.toString).endsWith "malformed: reply status is missing"
       unless rejected do throwError "malformed peer execution did not fail at the real frame boundary"
       if (← liftM (m := BaseIO) (ledger.pendingFor invocation consumer.id)).isSome then
         throwError "failed execution kept a pending invocation"
@@ -191,14 +191,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       | throwError "the actual native execution argument is absent"
     let request ← PreparedRequest.forApplication program invocation context callable
       #[← context.close (mkNatLit 7)] #[argument] #[]
-    let executor : PFunctor.Handler.Stateful IO CellTransaction OperationalSignature :=
+    let executor : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
       fun request transaction => do
         let graph ← transaction.view
         let candidate ← IO.ofExcept <|
           (CandidateResponse.ofValue request.source graph boolean).mapError IO.userError
         return (candidate, transaction)
     let failure : Option String ← try
-      discard <| liftM (m := IO) <| Execute.run executor
+      discard <| Execute.run executor
         (PFunctor.FreeM.lift (P := OperationalSignature) request) transaction
       pure none
     catch error => pure (some (← error.toMessageData.toString))

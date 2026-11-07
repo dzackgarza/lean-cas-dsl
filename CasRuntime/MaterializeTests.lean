@@ -2,9 +2,11 @@ module
 
 import CasRuntime.Materialize
 import CasRuntime.Transport
+import CasRuntime.Execute
 public meta import Lean.Elab.Command
 meta import CasRuntime.Materialize
 meta import CasRuntime.Transport
+meta import CasRuntime.Execute
 
 open Lean Meta CasCompiler CasRuntime CasCatalogue.Backend
 
@@ -109,15 +111,24 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let .ok aliasReply ← liftM (m := IO) <| wire.invokeBefore ledger transaction
         aliasReservation aliasScope (ScopedReference.scope 0).encode 5000
         | throwError "the returned-reference control did not return"
-      let (aliasDraft, aliasValue) ←
-        aliasReply.materialize aliasRequest transaction aliasScope wire.connection
-      unless aliasValue.root.value == scalar.value && aliasDraft.view.sameRevision graph do
-        throwError "returning a reference allocated a replacement value"
-      let .ok () ← liftM (m := BaseIO) <| transaction.installDraft aliasDraft
-        | throwError "a complete reply containing only an existing reference could not install"
-      match ← liftM (m := BaseIO) <| transaction.installDraft aliasDraft with
-      | .error .staleDraft => pure ()
-      | _ => throwError "a reference-only reply draft installed twice"
+      let retainAlias : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
+        fun demand active => do
+          let (aliasDraft, aliasValue) ←
+            aliasReply.materialize demand active aliasScope wire.connection
+          unless aliasValue.root.value == scalar.value && aliasDraft.view.sameRevision graph do
+            throwError "returning a reference allocated a replacement value"
+          let .ok () ← liftM (m := BaseIO) <| active.installDraft aliasDraft
+            | throwError "a complete reply containing only an existing reference could not install"
+          match ← liftM (m := BaseIO) <| active.installDraft aliasDraft with
+          | .error .staleDraft => pure ()
+          | _ => throwError "a reference-only reply draft installed twice"
+          return (aliasValue, active)
+      let retained ← Execute.run retainAlias
+        (PFunctor.FreeM.lift (P := OperationalSignature) aliasRequest) transaction
+      unless retained.root.value == scalar.value &&
+          (← retained.root.role.source.inContext context) ==
+            (← aliasRequest.source.source.inContext context) do
+        throwError "native execution changed the returned reference or its consuming source role"
       let badOccurrence ← liftM (m := BaseIO) ledger.allocate
       let badRequest ← prepare pair badOccurrence
       let boolRole ← SourceLayout.ofTerm (← context.close (mkConst ``Bool.true))

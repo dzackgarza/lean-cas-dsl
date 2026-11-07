@@ -7,8 +7,8 @@ meta import CasRuntime.Execute
 open Lean Meta CasCompiler CasRuntime
 
 private def noExternalRegistration (request : PreparedRequest) (_ : CellTransaction) :
-    IO (CandidateResponse request.source × CellTransaction) :=
-  throw <| IO.userError "unavailable: no external registration in this source-context control"
+    MetaM (CandidateResponse request.source × CellTransaction) :=
+  throwError "unavailable: no external registration in this source-context control"
 
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
@@ -48,13 +48,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         let occurrence ← liftM (m := BaseIO) ledger.allocate
         let request ← PreparedRequest.forProjection program occurrence context pair 0 parameters
         let older ← CellTransaction.begin ledger
-        let rejected ← liftM (m := IO) do
+        let rejected ← do
           try
             discard <| Execute.run noExternalRegistration
               (PFunctor.FreeM.lift (P := OperationalSignature) request) older
             pure false
           catch error => do
-            let message := error.toString
+            let message ← error.toMessageData.toString
             pure (message.endsWith "the value reference is outside the visible graph")
         unless rejected do
           throwError "a source/runtime table recovered a value absent from the transaction graph"
@@ -72,7 +72,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           | throwError "the complete context lost its unused actual callable"
         unless retained.value == callable.value do
           throwError "source context capture replaced an existing runtime value"
-        let response ← liftM (m := IO) <| Execute.run noExternalRegistration
+        let response ← Execute.run noExternalRegistration
           (PFunctor.FreeM.lift (P := OperationalSignature) request) consumer
         unless response.root.value == scalar.value do
           throwError "an unused dead context owner changed the selected portable field"
