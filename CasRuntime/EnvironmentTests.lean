@@ -15,9 +15,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
   let (graph, number) ← liftM (m := IO) <|
     (ValueGraph.empty owners.identities).stage owners.identities
-      { program, occurrence, role := scalar } (.portable "7".toUTF8)
+      { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
   let (graph, truthData) ← liftM (m := IO) <| graph.stage owners.identities
-    { program, occurrence, role := boolean } (.portable "true".toUTF8)
+    { program, occurrence, role := boolean, parameters := #[] } (.portable "true".toUTF8)
   let .ok relabelled := graph.rebind truthData scalar
     | throwError "the coarse storage role could not be prepared"
   withLocalDeclD `n (mkConst ``Nat) fun n =>
@@ -82,3 +82,69 @@ run_cmd Lean.Elab.Command.liftTermElabM do
               | throwError "a captured runtime reference left its actual graph"
             unless dependencies.isEmpty do
               throwError "runtime association added ownership to portable source parameters"
+
+-- Producing contexts retain every actual association; liveness follows the result type.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let empty ← ContextTelescope.capture #[]
+  let scalar ← SourceLayout.ofTerm (← empty.close (mkNatLit 7))
+  let owners ← liftM (m := IO) OwnerRegistry.new
+  let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+  let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+  let child ← liftM (m := IO) <| owners.spawn { cmd := "/bin/cat" }
+  try
+    let token ← liftM (m := IO) do
+      child.child.stdin.putStr "actual context parameter\n"
+      child.child.stdin.flush
+      return (← child.child.stdout.getLine).trimAscii.toString
+    let older := ValueGraph.empty owners.identities
+    let (graph, number) ← liftM (m := IO) <| older.stage owners.identities
+      { program, occurrence, role := scalar, parameters := #[] }
+      (.ownedExport child token #[])
+    withLocalDeclD `n (mkConst ``Nat) fun n =>
+      withLocalDeclD `unused (mkConst ``Nat) fun unused =>
+        withLetDecl `k (mkConst ``Nat) n fun k =>
+          withLocalDeclD `point (mkApp (mkConst ``Fin) k) fun point => do
+            let bindings : Array LocalBinding := #[
+              { id := ⟨"producing-context", 0⟩, role := .parameter, expression := n },
+              { id := ⟨"producing-context", 1⟩, role := .parameter, expression := unused },
+              { id := ⟨"producing-context", 2⟩, role := .definition, expression := k },
+              { id := ⟨"producing-context", 3⟩, role := .parameter, expression := point }]
+            let context ← ContextTelescope.capture bindings
+            let .ok parameter := RuntimeParameter.ofValue graph bindings[0]!.id number
+              | throwError "the producing parameter is absent from its graph"
+            let environment ← RuntimeEnvironment.capture owners.worker context #[parameter]
+            let dependent ← SourceLayout.ofTerm (← context.close point)
+            let independent ← SourceLayout.ofTerm (← context.close (mkNatLit 0))
+            unless dependent.contextDependencies == #[0, 2] &&
+                independent.contextDependencies.isEmpty do
+              throwError "result-type dependency closure changed a let-bound index or unused binder"
+            let origin ← environment.origin program occurrence dependent
+            let independentOrigin ← environment.origin program occurrence independent
+            unless origin.parameters.size == bindings.size &&
+                (origin.parameters[0]?.bind id).map (·.value) == some number.value &&
+                (origin.parameters[2]?.bind id).isNone do
+              throwError "the producing origin lost its complete separate runtime table"
+            let rejected ← liftM (m := IO) do
+              try
+                discard <| older.stage owners.identities origin (.portable "candidate".toUTF8)
+                pure false
+              catch _ => pure true
+            unless rejected do
+              throwError "staging recovered a producing parameter outside the visible graph"
+            let (graph, indexed) ← liftM (m := IO) <| graph.stage owners.identities origin
+              (.portable "candidate".toUTF8)
+            let (graph, plain) ← liftM (m := IO) <| graph.stage owners.identities independentOrigin
+              (.portable "0".toUTF8)
+            let some plainNode := graph.find plain.value
+              | throwError "the independent node is absent"
+            unless plainNode.references.map (·.value) == #[number.value] &&
+                plainNode.owners.isEmpty do
+              throwError "retaining a full producing context changed independent owner requirements"
+            unless ← liftM (m := BaseIO) (graph.isAvailable owners indexed) do
+              throwError "a live producing parameter made its dependent result unavailable"
+            liftM (m := IO) <| owners.close child.generation
+            if ← liftM (m := BaseIO) (graph.isAvailable owners indexed) then
+              throwError "a dependent result survived loss of its actual index owner"
+            unless ← liftM (m := BaseIO) (graph.isAvailable owners plain) do
+              throwError "an unused producing parameter owner blocked an independent result"
+  finally liftM (m := IO) <| owners.close child.generation

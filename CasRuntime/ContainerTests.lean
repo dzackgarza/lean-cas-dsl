@@ -25,9 +25,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       child.child.stdin.flush
       let token := (← child.child.stdout.getLine).trimAscii.toString
       let (base, scalar) ← (ValueGraph.empty owners.identities).stage owners.identities
-        { program, occurrence := produced, role := scalarRole } (.portable "7".toUTF8)
+        { program, occurrence := produced, role := scalarRole, parameters := #[] } (.portable "7".toUTF8)
       let (base, callable) ← base.stage owners.identities
-        { program, occurrence := produced, role := functionRole } (.ownedExport child token #[])
+        { program, occurrence := produced, role := functionRole, parameters := #[] } (.ownedExport child token #[])
       let firstPath : Array InputPathStep := #[.field "args", .index 0]
       let secondPath : Array InputPathStep := #[.field "args", .index 1, .field "wrapped"]
       let template := Json.mkObj [
@@ -39,7 +39,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let payload ← IO.ofExcept <|
         (ValuePayload.container template slots #[scalar, callable] none).mapError IO.userError
       let (graph, record) ← base.stage owners.identities
-        { program, occurrence := produced, role := recordRole } payload
+        { program, occurrence := produced, role := recordRole, parameters := #[] } payload
       let .ok recordCandidate := CandidateResponse.ofValue recordRole graph record
         | throw <| IO.userError "the retained container lost its complete record shape"
       unless recordCandidate.root.value == record.value do
@@ -85,7 +85,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let incompletePayload ← IO.ofExcept <|
         (ValuePayload.container template slots #[scalar] none).mapError IO.userError
       let (incompleteGraph, incomplete) ← graph.stage owners.identities
-        { program, occurrence := produced, role := recordRole } incompletePayload
+        { program, occurrence := produced, role := recordRole, parameters := #[] } incompletePayload
       match CandidateResponse.ofValue recordRole incompleteGraph incomplete with
       | .error _ => pure ()
       | .ok _ => throw <| IO.userError "an incomplete container filled a complete record interface"
@@ -96,18 +96,18 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         (Json.mkObj [("description", .str "retained callable interface")])
         #[] #[] (some callable)).mapError IO.userError
       let (wrappedGraph, wrapped) ← graph.stage owners.identities
-        { program, occurrence := produced, role := functionRole } callablePayload
+        { program, occurrence := produced, role := functionRole, parameters := #[] } callablePayload
       let .ok candidate := CandidateResponse.ofValue functionRole wrappedGraph wrapped
         | throw <| IO.userError "a stored callable container lost its accepted action"
       let leaf ← IO.ofExcept <| (wrappedGraph.callable candidate.root).mapError IO.userError
       unless leaf.value == callable.value && candidate.root.value == wrapped.value do
         throw <| IO.userError "callable access replaced the stored arrow or actual callable node"
       let (invalidGraph, dataFunction) ← graph.stage owners.identities
-        { program, occurrence := produced, role := functionRole } (.portable "7".toUTF8)
+        { program, occurrence := produced, role := functionRole, parameters := #[] } (.portable "7".toUTF8)
       let invalidCallable ← IO.ofExcept <|
         (ValuePayload.container .null #[] #[] (some dataFunction)).mapError IO.userError
       let (invalidGraph, invalidFunction) ← invalidGraph.stage owners.identities
-        { program, occurrence := produced, role := functionRole } invalidCallable
+        { program, occurrence := produced, role := functionRole, parameters := #[] } invalidCallable
       match CandidateResponse.ofValue functionRole invalidGraph invalidFunction with
       | .error _ => pure ()
       | .ok _ => throw <| IO.userError "a data slot became a retained callable"
@@ -131,12 +131,12 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let otherProgram ← other.identities.fresh .program
       let otherOccurrence ← other.identities.fresh .occurrence
       let (_, foreign) ← (ValueGraph.empty other.identities).stage other.identities
-        { program := otherProgram, occurrence := otherOccurrence, role := scalarRole } (.portable "7".toUTF8)
+        { program := otherProgram, occurrence := otherOccurrence, role := scalarRole, parameters := #[] } (.portable "7".toUTF8)
       let foreignPayload ← IO.ofExcept <|
         (ValuePayload.container .null #[] #[foreign] none).mapError IO.userError
       let rejectedForeign ← try
         discard <| graph.stage owners.identities
-          { program, occurrence := produced, role := scalarRole } foreignPayload
+          { program, occurrence := produced, role := scalarRole, parameters := #[] } foreignPayload
         pure false
       catch _ => pure true
       unless rejectedForeign do

@@ -17,11 +17,11 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
   let (scalars, scalar) ← liftM (m := IO) <|
     (ValueGraph.empty owners.identities).stage owners.identities
-      { program, occurrence, role := scalarRole } (.portable "retained scalar".toUTF8)
+      { program, occurrence, role := scalarRole, parameters := #[] } (.portable "retained scalar".toUTF8)
   let (functions, callable) ← liftM (m := IO) <| scalars.stage owners.identities
-    { program, occurrence, role := callableRole } (.closure program #[])
+    { program, occurrence, role := callableRole, parameters := #[] } (.closure program #[])
   let (graph, record) ← liftM (m := IO) <| functions.stage owners.identities
-    { program, occurrence, role := recordRole } (.product #[scalar, callable])
+    { program, occurrence, role := recordRole, parameters := #[] } (.product #[scalar, callable])
   withLocalDeclD `extra (mkConst ``Nat) fun extra => do
     let context ← ContextTelescope.capture #[{
       id := ⟨"value-request", 0⟩, role := .parameter, expression := extra }]
@@ -80,13 +80,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     | .error _ => pure ()
     | .ok _ => throwError "a portable scalar filled a prepared callable response"
   let (malformed, incomplete) ← liftM (m := IO) <| graph.stage owners.identities
-    { program, occurrence, role := recordRole } (.product #[scalar])
+    { program, occurrence, role := recordRole, parameters := #[] } (.product #[scalar])
   match CandidateResponse.ofValue recordRole malformed incomplete with
   | .error _ => pure ()
   | .ok _ => throwError "a candidate record lost a required source field"
   let finiteRole ← SourceLayout.ofTerm (← empty.close (mkApp (mkConst ``Fin.last) (mkNatLit 7)))
   let (_, finite) ← liftM (m := IO) <| graph.stage owners.identities
-    { program, occurrence, role := finiteRole } (.product #[scalar])
+    { program, occurrence, role := finiteRole, parameters := #[] } (.product #[scalar])
   let rejectedProof ← try
     discard <| PreparedRequest.forProjection program occurrence empty finite 1 #[]
     pure false
@@ -99,7 +99,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       child.child.stdin.flush
       return (← child.child.stdout.getLine).trimAscii.toString
     let (nativeGraph, nativeRecord) ← liftM (m := IO) <| graph.stage owners.identities
-      { program, occurrence, role := recordRole } (.ownedExport child token #[])
+      { program, occurrence, role := recordRole, parameters := #[] } (.ownedExport child token #[])
     let .ok response := CandidateResponse.ofValue recordRole nativeGraph nativeRecord
       | throwError "the native record candidate lost its retained root"
     unless response.root.value == nativeRecord.value do

@@ -28,7 +28,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
     let occurrence ← liftM (m := BaseIO) ledger.allocate
     let scalar ← liftM (m := IO) <| producer.stage
-      { program, occurrence, role := scalarRole } (.portable "stored scalar".toUTF8)
+      { program, occurrence, role := scalarRole, parameters := #[] } (.portable "stored scalar".toUTF8)
     let child ← liftM (m := IO) <| owners.spawn { cmd := "/bin/cat" }
     try
       let token ← liftM (m := IO) do
@@ -36,23 +36,23 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         child.child.stdin.flush
         return (← child.child.stdout.getLine).trimAscii.toString
       let callable ← liftM (m := IO) <| producer.stage
-        { program, occurrence, role := callableRole } (.ownedExport child token #[])
+        { program, occurrence, role := callableRole, parameters := #[] } (.ownedExport child token #[])
       let record ← liftM (m := IO) <| producer.stage
-        { program, occurrence, role := recordRole } (.product #[scalar, callable])
+        { program, occurrence, role := recordRole, parameters := #[] } (.product #[scalar, callable])
       let associated ← liftM (m := IO) do
         let graph ← producer.view
         let fields ← RecordPrefix.begin owners.identities program occurrence preparedRecord
         let (fields, _) ← fields.bind graph scalar
         let (fields, _) ← fields.bind graph callable
         let payload ← IO.ofExcept <| fields.finish.mapError IO.userError
-        producer.stage { program, occurrence, role := recordRole } payload
+        producer.stage { program, occurrence, role := recordRole, parameters := #[] } payload
       let packet ← IO.ofExcept <| (ValuePayload.container
         (Json.mkObj [("args", .arr #[.null, .null]), ("description", .str "retained packet")])
         #[{ path := #[.field "args", .index 0], binding := scalar },
           { path := #[.field "args", .index 1], binding := callable }]
         #[scalar, callable] none).mapError IO.userError
       let packetRecord ← liftM (m := IO) <| producer.stage
-        { program, occurrence, role := recordRole } packet
+        { program, occurrence, role := recordRole, parameters := #[] } packet
       let .ok _ ← producer.commit | throwError "the stored record could not commit"
       liftM (m := IO) <| owners.close child.generation
       let consumer ← CellTransaction.begin ledger
@@ -119,9 +119,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         child.child.stdin.flush
         return (← child.child.stdout.getLine).trimAscii.toString
       let callable ← liftM (m := IO) <| producer.stage
-        { program, occurrence, role := callableRole } (.ownedExport child token #[])
+        { program, occurrence, role := callableRole, parameters := #[] } (.ownedExport child token #[])
       let scalar ← liftM (m := IO) <| producer.stage
-        { program, occurrence, role := scalarRole } (.portable "argument".toUTF8)
+        { program, occurrence, role := scalarRole, parameters := #[] } (.portable "argument".toUTF8)
       let .ok _ ← producer.commit | throwError "the control inputs could not commit"
       let consumer ← CellTransaction.begin ledger
       let invocation ← liftM (m := BaseIO) ledger.allocate

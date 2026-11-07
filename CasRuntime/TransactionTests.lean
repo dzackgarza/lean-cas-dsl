@@ -17,7 +17,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let transaction ← CellTransaction.begin ledger
     let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
     let occurrence ← liftM (m := BaseIO) ledger.allocate
-    let origin : ValueOrigin := { program, occurrence, role }
+    let origin : ValueOrigin := { program, occurrence, role, parameters := #[] }
     let child ← liftM (m := IO) <| owners.spawn { cmd := "/bin/cat" }
     try
       let token ← liftM (m := IO) do

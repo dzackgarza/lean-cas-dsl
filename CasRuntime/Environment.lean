@@ -70,4 +70,17 @@ opaque RuntimeEnvironment.capture (worker : String) (context : OpenContext)
   let values := context.bindings.map fun binding => supplied[binding.id]?
   return ⟨worker, context.telescope, values⟩
 
+/-- Stamp a produced node with its complete ordered actual context references.
+Reuse: SourceLayout.inContext transports the checked role by stable source identities.
+Result-type dependency selection is mechanical source metadata, not candidate decoding. -/
+opaque RuntimeEnvironment.origin (environment : RuntimeEnvironment)
+    (program : RuntimeId .program) (occurrence : RuntimeId .occurrence)
+    (role : SourceLayout) : MetaM ValueOrigin := do
+  unless program.worker == environment.worker && occurrence.worker == environment.worker do
+    throwError "the producing runtime context belongs to a different worker"
+  environment.context.withOpen fun bindings => do
+    let context ← ContextTelescope.capture bindings
+    let role ← role.inContext context
+    return { program, occurrence, role, parameters := environment.values }
+
 end CasRuntime

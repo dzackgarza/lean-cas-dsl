@@ -18,7 +18,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let supply := owners.identities
     let program ← supply.fresh .program
     let occurrence ← supply.fresh .occurrence
-    let origin : ValueOrigin := { program, occurrence, role }
+    let origin : ValueOrigin := { program, occurrence, role, parameters := #[] }
     let empty := ValueGraph.empty supply
     let bytes := "retained bytes".toUTF8
     let (firstGraph, first) ← empty.stage supply origin (.portable bytes)

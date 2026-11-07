@@ -3,6 +3,7 @@ module
 public import CasCompiler.Context
 public import Lean.Meta.Structure
 public import Lean.Meta.Coe
+public import Lean.Util.CollectFVars
 
 @[expose] public section
 
@@ -43,6 +44,22 @@ structure SourceLayout where
   source : ClosedTerm
   kind : ComputationalKind
   fields : Array FieldLayout
+  contextDependencies : Array Nat
+
+/-- Close result-type dependencies through local types and definitions, in source order.
+Reuse: Lean.collectFVars and LocalDecl.value?; the complete telescope stays in source.
+Reference: Lean/Util/CollectFVars.lean and Lean/LocalContext.lean at v4.33.0. -/
+private def contextDependencies (bindings : Array LocalBinding) (type : Expr) : MetaM (Array Nat) := do
+  let mut variables := collectFVars {} type
+  let mut needed : Array Nat := #[]
+  for index in (List.range bindings.size).reverse do
+    let binding := bindings[index]!
+    if variables.fvarSet.contains binding.expression.fvarId! then
+      needed := needed.push index
+      let declaration ← getFVarLocalDecl binding.expression
+      variables := collectFVars variables declaration.type
+      if let some value := declaration.value? true then variables := collectFVars variables value
+  return needed.reverse
 
 private def computationalKind (type : Expr) : MetaM ComputationalKind := do
   if ← isProp type then return .proof
@@ -59,9 +76,11 @@ Only propositions are erased; no subsingleton test enters field selection. -/
 private def sourceLayout (source : ClosedTerm) (address : Array Name) : MetaM SourceLayout :=
   source.withOpen fun bindings expression => do
     let context ← ContextTelescope.capture bindings
-    let type ← whnf (← inferType expression)
+    let originalType ← inferType expression
+    let dependencies ← contextDependencies bindings originalType
+    let type ← whnf originalType
     let kind ← computationalKind type
-    if kind != .record then return ⟨address, source, kind, #[]⟩
+    if kind != .record then return ⟨address, source, kind, #[], dependencies⟩
     let .const name levels := type.getAppFn
       | throwError "record layout requires its source structure declaration"
     let some info := getStructureInfo? (← getEnv) name
@@ -88,7 +107,7 @@ private def sourceLayout (source : ClosedTerm) (address : Array Name) : MetaM So
         fields := fields.push ⟨address.push projection, projection, index, fieldWireIndex,
           dependencies, ← context.close value, ← context.close typeFamily, fieldKind⟩
         if fieldKind != .proof then wireIndex := wireIndex + 1
-      return ⟨address, source, kind, fields⟩
+      return ⟨address, source, kind, fields, dependencies⟩
 
 /-- Derive a fixed-value layout from the checked source, before any provider response. -/
 opaque SourceLayout.ofTerm (source : ClosedTerm) : MetaM SourceLayout :=

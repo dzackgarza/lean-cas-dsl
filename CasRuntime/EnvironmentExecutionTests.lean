@@ -25,9 +25,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let produced ← liftM (m := BaseIO) ledger.allocate
     let producer ← CellTransaction.begin ledger
     let scalar ← liftM (m := IO) <| producer.stage
-      { program, occurrence := produced, role := scalarRole } (.portable "7".toUTF8)
+      { program, occurrence := produced, role := scalarRole, parameters := #[] } (.portable "7".toUTF8)
     let pair ← liftM (m := IO) <| producer.stage
-      { program, occurrence := produced, role := pairRole } (.product #[scalar, scalar])
+      { program, occurrence := produced, role := pairRole, parameters := #[] } (.product #[scalar, scalar])
     let .ok base ← producer.commit | throwError "the source-context inputs could not commit"
     let pending ← CellTransaction.begin ledger
     let child ← liftM (m := IO) <| owners.spawn { cmd := "/bin/cat" }
@@ -37,7 +37,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         child.child.stdin.flush
         return (← child.child.stdout.getLine).trimAscii.toString
       let callable ← liftM (m := IO) <| pending.stage
-        { program, occurrence := produced, role := callableRole } (.ownedExport child token #[])
+        { program, occurrence := produced, role := callableRole, parameters := #[] } (.ownedExport child token #[])
       withLocalDeclD `unused (← inferType (mkConst ``Nat.succ)) fun unused => do
         let id : BindingId := ⟨"execution-context", 0⟩
         let context ← ContextTelescope.capture #[{ id, role := .parameter, expression := unused }]

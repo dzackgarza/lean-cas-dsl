@@ -29,7 +29,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let supply := owners.identities
     let program ← supply.fresh .program
     let occurrence ← supply.fresh .occurrence
-    let origin : ValueOrigin := { program, occurrence, role := layout }
+    let origin : ValueOrigin := { program, occurrence, role := layout, parameters := #[] }
     let child ← owners.spawn { cmd := "/bin/cat" }
     try
       child.child.stdin.putStr "actual width\n"

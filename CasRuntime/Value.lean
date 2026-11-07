@@ -145,6 +145,7 @@ structure ValueOrigin where
   occurrence : RuntimeId .occurrence
   program : RuntimeId .program
   role : SourceLayout
+  parameters : Array (Option ValueBinding)
 
 /-- A tentative immutable node; whole-reply admission and receipt publication are separate. -/
 structure ValueNode where
@@ -161,7 +162,8 @@ private def ValueData.references : ValueData → Array ValueBinding
       match value.callable with | none => #[] | some binding => #[binding]
   | .closure _ captures | .ownedToken _ _ captures => captures
 
-def ValueNode.references (node : ValueNode) : Array ValueBinding := node.payload.data.references
+def ValueNode.references (node : ValueNode) : Array ValueBinding :=
+  node.origin.parameters.filterMap (fun value => value) ++ node.payload.data.references
 
 /-- Persistent storage uses Lean's immutable HashMap; the live ledger holds no copy.
 Reference: Lean v4.33.0 Std/Data/HashMap/Basic.lean, `HashMap.insert` and `getElem?`. -/
@@ -302,8 +304,17 @@ opaque ValueGraph.stage (graph : ValueGraph) (supply : IdentitySupply)
     throw <| IO.userError "value staging belongs to a different worker"
   if origin.role.kind == .proof then
     throw <| IO.userError "a source proof has no computational payload"
+  unless origin.parameters.size == origin.role.source.context.entries.size do
+    throw <| IO.userError "value staging requires the complete producing context table"
+  discard <| IO.ofExcept <|
+    (graph.requiredOwners (origin.parameters.filterMap id)).mapError IO.userError
+  let mut dependencies := payload.data.references
+  for index in origin.role.contextDependencies do
+    let some parameter := origin.parameters[index]?
+      | throw <| IO.userError "a producing type dependency is outside its context table"
+    if let some parameter := parameter then dependencies := dependencies.push parameter
   let mut owners ← IO.ofExcept <|
-    (graph.requiredOwners payload.data.references).mapError IO.userError
+    (graph.requiredOwners dependencies).mapError IO.userError
   match payload.data with
   | .ownedToken owner _ _ =>
     unless owner.worker == graph.worker do

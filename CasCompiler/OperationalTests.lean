@@ -19,7 +19,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
   let (graph, input) ← liftM (m := IO) <|
     (ValueGraph.empty owners.identities).stage owners.identities
-      { program, occurrence, role := targetRole } (.closure program #[])
+      { program, occurrence, role := targetRole, parameters := #[] } (.closure program #[])
   let .ok retained := graph.rebind input planRole | throwError "the input role could not be retained"
   let request ← PreparedRequest.forBoundary program occurrence (.target family)
     (family.source.universeParams.map Level.param) context #[] #[input, retained] #[]
