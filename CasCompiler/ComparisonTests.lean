@@ -145,6 +145,12 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let invertible ← empty.composeCells Syntax.missing reverse reversed
   let inverted ← empty.inverseCell Syntax.missing invertible
   let horizontal ← empty.horizontalCells Syntax.missing join reverse
+  let .horizontal (.registered horizontalFirst _ _) (.registered horizontalSecond _ _) :=
+      horizontal.derivation
+    | throwError "horizontal composition lost its original ordered source derivations"
+  unless horizontalFirst.id == NaturalTransformationId.listJoin &&
+      horizontalSecond.id == NaturalTransformationId.listReverse do
+    throwError "horizontal composition changed its original source cells"
   let horizontalIso ← empty.horizontalCells Syntax.missing reverse reversed
   let horizontalInverse ← empty.inverseCell Syntax.missing horizontalIso
   for (whole, inverse) in #[(invertible, inverted), (horizontalIso, horizontalInverse)] do
@@ -194,6 +200,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     pure false
   catch _ => pure true
   unless invalidOrder do throwError "cell composition ignored its complete middle functor"
+  let otherSets ← empty.namedCategory Syntax.missing "Sets"
+    (levels.map fun _ => .param `otherUniverse) #[]
+  let otherReverse ← empty.cell Syntax.missing NaturalTransformationId.listReverse #[] otherSets
+  let invalidCategory ← try
+    discard <| empty.horizontalCells Syntax.missing reverse otherReverse
+    pure false
+  catch _ => pure true
+  unless invalidCategory do
+    throwError "horizontal composition specialized incompatible rigid category universes"
   for noninvertible in #[composite, horizontal] do
     let invalidInverse ← try
       discard <| empty.inverseCell Syntax.missing noninvertible
