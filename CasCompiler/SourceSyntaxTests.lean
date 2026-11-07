@@ -1,12 +1,12 @@
 module
 
-import CasCompiler.Surface
+import CasCompiler.Read
 import CasCompiler.Parse
 import LeanCategories.Catalogue.Semantics.Foundation.Objects
 import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
 import LeanCategories.Catalogue.Semantics.Modules.CatalogueRegistration
 public meta import Lean.Elab.Command
-meta import CasCompiler.Surface
+meta import CasCompiler.Read
 meta import CasCompiler.Parse
 meta import LeanCategories.Catalogue.Semantics.Foundation.Objects
 meta import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
@@ -19,7 +19,8 @@ private def nativeTerm (text : String) : TermElabM Term := do
     | throwError "the native source parameter did not parse"
   return ⟨stx⟩
 
-private def definition (file : SourceFile) (index : Nat) : TermElabM (Ident × TSyntax `cas_term) := do
+private def definition (file : SourceFile) (index : Nat) :
+    TermElabM (Ident × TSyntax `cas_term) := do
   let some item := file.items[index]? | throwError "the source definition is absent"
   let `(cas_item| let $name:ident := $value:cas_term) := item
     | throwError "the source item is not a definition"

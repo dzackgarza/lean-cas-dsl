@@ -13,6 +13,8 @@ import all CasCompiler.Elaborate
 import all CasCompiler.ElaborateTests
 import all CasCompiler.Surface
 import all CasCompiler.SurfaceTests
+import all CasCompiler.Read
+import all CasCompiler.SourceSyntaxTests
 import all CasCompiler.Layout
 import all CasCompiler.Program
 import all CasCompiler.ProgramTests
