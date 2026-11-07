@@ -101,3 +101,97 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   finally
     liftM (m := IO) <| owners.close owner.generation
     liftM (m := IO) <| owners.close codeOwner.generation
+
+-- Lazy access retains the original application's context across a later source telescope.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let empty ← ContextTelescope.capture #[]
+  let scalar ← SourceLayout.ofTerm (← empty.close (mkNatLit 7))
+  let zero ← SourceLayout.ofTerm (← empty.close (mkNatLit 0))
+  let owners ← liftM (m := IO) OwnerRegistry.new
+  let contextOwner ← liftM (m := IO) <| owners.spawn { cmd := "/bin/cat" }
+  let indexOwner ← liftM (m := IO) <| owners.spawn { cmd := "/bin/cat" }
+  let accessOwner ← liftM (m := IO) <| owners.spawn { cmd := "/bin/cat" }
+  let extraOwner ← liftM (m := IO) <| owners.spawn { cmd := "/bin/cat" }
+  try
+    let token (connection : Connection) (text : String) : IO String := do
+      connection.child.stdin.putStr (text ++ "\n")
+      connection.child.stdin.flush
+      return (← connection.child.stdout.getLine).trimAscii.toString
+    let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+    let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+    let (graph, contextValue) ← liftM (m := IO) <|
+      (ValueGraph.empty owners.identities).stage owners.identities
+        { program, occurrence, role := scalar, parameters := #[] }
+        (.ownedExport contextOwner (← liftM (m := IO) <| token contextOwner "context index") #[])
+    let (graph, index) ← liftM (m := IO) <| graph.stage owners.identities
+      { program, occurrence, role := scalar, parameters := #[] }
+      (.ownedExport indexOwner (← liftM (m := IO) <| token indexOwner "argument index") #[])
+    let (graph, extra) ← liftM (m := IO) <| graph.stage owners.identities
+      { program, occurrence, role := scalar, parameters := #[] }
+      (.ownedExport extraOwner (← liftM (m := IO) <| token extraOwner "unused later binding") #[])
+    let (graph, number) ← liftM (m := IO) <| graph.stage owners.identities
+      { program, occurrence, role := zero, parameters := #[] } (.portable "0".toUTF8)
+    withLocalDeclD `n (mkConst ``Nat) fun n => do
+      let nBinding : LocalBinding := { id := ⟨"lazy-origin", 0⟩, role := .parameter, expression := n }
+      let nContext ← ContextTelescope.capture #[nBinding]
+      let functionType ← withLocalDeclD `k (mkConst ``Nat) fun k => do
+        let bound := mkApp2 (mkConst ``Nat.add) (mkApp2 (mkConst ``Nat.add) n k) (mkNatLit 1)
+        mkForallFVars #[k] (← mkAppM ``Prod #[mkConst ``Nat, mkApp (mkConst ``Fin) bound])
+      let closedFunctionType ← nContext.close functionType
+      withLocalDeclD `f functionType fun f => do
+        let fBinding : LocalBinding := { id := ⟨"lazy-origin", 1⟩, role := .parameter, expression := f }
+        let context ← ContextTelescope.capture #[nBinding, fBinding]
+        let role ← SourceLayout.ofTerm (← context.close f)
+        let (graph, callable) ← liftM (m := IO) <| graph.stage owners.identities
+          { program, occurrence, role, parameters := #[some contextValue, none] } (.closure program #[])
+        let .ok parameter := RuntimeParameter.ofValue graph nBinding.id contextValue
+          | throwError "the original context value is outside its graph"
+        let .ok argument := RuntimeArgument.ofValue graph 0 index
+          | throwError "the original argument value is outside its graph"
+        let request ← PreparedRequest.forApplication program occurrence context callable
+          #[← context.close (mkNatLit 7)] #[argument] #[parameter]
+        let (graph, parent) ← liftM (m := IO) <| graph.stage owners.identities request.origin
+          (.ownedExport accessOwner (← liftM (m := IO) <| token accessOwner "lazy record") #[])
+        let parentType ← inferType (← request.source.source.inContext context)
+        let closedParentType ← context.close parentType
+        withLCtx {} #[] do
+          withLocalDeclD `n (mkConst ``Nat) fun shadow => do
+            let extraBinding : LocalBinding := {
+              id := ⟨"lazy-current", 0⟩, role := .parameter, expression := shadow }
+            withLocalDeclD `n (mkConst ``Nat) fun currentN => do
+              let currentNBinding := { nBinding with expression := currentN }
+              let prefixContext ← ContextTelescope.capture #[extraBinding, currentNBinding]
+              let functionType ← closedFunctionType.inContext prefixContext
+              withLocalDeclD `f functionType fun currentF => do
+                let currentFBinding := { fBinding with expression := currentF }
+                let prefixContext ← ContextTelescope.capture #[extraBinding, currentNBinding, currentFBinding]
+                let parentType ← closedParentType.inContext prefixContext
+                withLocalDeclD `r parentType fun r => do
+                  let resultBinding : LocalBinding := {
+                    id := ⟨"lazy-current", 1⟩, role := .result, expression := r }
+                  let current ← ContextTelescope.capture
+                    #[extraBinding, currentNBinding, currentFBinding, resultBinding]
+                  let .ok extraParameter := RuntimeParameter.ofValue graph extraBinding.id extra
+                    | throwError "the later unrelated context value is absent"
+                  let .ok resultParameter := RuntimeParameter.ofValue graph resultBinding.id parent
+                    | throwError "the lazy result is absent"
+                  let parameters := #[extraParameter, parameter, resultParameter]
+                  let environment ← RuntimeEnvironment.capture owners.worker current parameters
+                  let .ok (some retained) := environment.lookup resultBinding.id
+                    | throwError "the later source binding lost the actual lazy result"
+                  let fieldOccurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+                  let projection ← PreparedRequest.forProjection program fieldOccurrence current retained 1 parameters
+                  let (projected, point) ← liftM (m := IO) <|
+                    graph.stage owners.identities projection.origin (.product #[number])
+                  let .ok dependencies := projected.requiredOwners #[point]
+                    | throwError "the projected result is outside its graph"
+                  unless dependencies.contains contextOwner.generation &&
+                      dependencies.contains indexOwner.generation &&
+                      !dependencies.contains accessOwner.generation &&
+                      !dependencies.contains extraOwner.generation do
+                    throwError "lazy projection lost its original application context or argument dependencies"
+  finally
+    liftM (m := IO) <| owners.close contextOwner.generation
+    liftM (m := IO) <| owners.close indexOwner.generation
+    liftM (m := IO) <| owners.close accessOwner.generation
+    liftM (m := IO) <| owners.close extraOwner.generation
