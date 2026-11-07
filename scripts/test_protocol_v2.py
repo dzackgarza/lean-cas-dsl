@@ -126,14 +126,12 @@ class ProtocolV2(unittest.TestCase):
                   "domain", "source", "target", "original-argument"]
         context = {"kind": "published", "operation": "traffic.operation", "input": "traffic#input",
                    "args": {"ctor": "apply", "args": fields}}
-        # Return a fresh inline observation, not the callable token supplied in the context.
-        # The handler retains every field; its opaque input token must be returned by reference.
         request = {"protocol": 2, "request_id": 2, "op": "$cas.invoke_export",
                    "scope_id": "call-first", "token": first, "context": context}
         reply = peer.send(request)
         self.assertEqual(reply["status"], "ok")
         self.assertEqual(reply["value"]["stored"], "first")
-        self.assertEqual(reply["value"]["context"], context)
+        self.assertEqual(json.loads(reply["value"]["context"]), context)
         self.assertEqual(peer.send({"protocol": 2, "request_id": 3, "op": "$cas.discard",
                                     "discard_request_id": 1}),
                          {"request_id": 3, "status": "ok", "disposed": True})

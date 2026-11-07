@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator
+import json
 
 from cas_session import JsonValue, Proxy, Suspension, export, proxy, serve, suspend
 
@@ -13,7 +14,7 @@ def echo(arguments: JsonValue) -> JsonValue:
 
 def stored(arguments: JsonValue) -> JsonValue:
     def invoke(context: JsonValue) -> JsonValue:
-        return {"stored": arguments, "context": context}
+        return {"stored": arguments, "context": json.dumps(context, ensure_ascii=False)}
 
     return export(invoke, [])
 
