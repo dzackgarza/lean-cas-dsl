@@ -1,8 +1,8 @@
 module
 
 public import CasCompiler.Context
+public import CasCompiler.Declaration
 public import CasCompiler.Syntax
-public import CasGates.AxiomAuditRules
 public import Lean.Elab.Term
 public import Lean.Elab.SyntheticMVars
 
@@ -36,6 +36,15 @@ structure SourceSession where
   context : ContextTelescope
   spans : Array SourceSpan
 
+private def defineIn (session : SourceSession) (context : OpenContext) (name : Name)
+    (expression : Expr) (span : SourceSpan) : MetaM SourceSession := do
+  let type ← inferType expression
+  let id : BindingId := ⟨session.identity, session.nextBinding⟩
+  withLetDecl name type expression fun expression => do
+    let context ← ContextTelescope.capture
+      (context.bindings.push { id, role := .definition, expression })
+    return ⟨session.identity, session.nextBinding + 1, context.telescope, session.spans.push span⟩
+
 opaque SourceSession.empty (identity : String) : MetaM SourceSession := do
   if identity.isEmpty then throwError "a source session requires a stable identity"
   let context ← withLCtx {} #[] <| ContextTelescope.capture #[]
@@ -47,25 +56,42 @@ Earlier declarations were checked when inserted into this private persistent ses
 private def checkSource (source : ClosedTerm) : MetaM Unit := do
   let constants := source.expression.getUsedConstants ++ source.type.getUsedConstants
   for declaration in constants do
-    let info ← getConstInfo declaration
-    if info.isUnsafe then throwError "source declaration {declaration} is unsafe"
-    for assumption in ← collectAxioms declaration do
-      unless CasCatalogue.Tools.AxiomAudit.permitted.contains assumption do
-        throwError "source declaration {declaration} depends on {assumption}"
+    discard <| checkedDeclaration declaration
+
+/-- Form a checked source term directly in the complete native scope.
+Reuse: ContextTelescope.withOpen, native synthesis and OpenContext.close. Public frontend
+adapters supply native expressions; source terms never pass through a syntax replay table. -/
+opaque SourceSession.elaborate (session : SourceSession) (reference : Syntax)
+    (build : OpenContext → TermElabM Expr) : TermElabM SourceTerm :=
+  withRef reference <| withoutErrToSorry <| withoutAutoBoundImplicit do
+    session.context.withOpen fun bindings => do
+      let context ← ContextTelescope.capture bindings
+      let expression ← instantiateMVars (← withSynthesize <| build context)
+      let source ← context.close expression
+      checkSource source
+      return ⟨source, ← sourceSpan reference⟩
 
 /-- Elaborate in the complete native context and publish only a resolved checked expression.
 Reuse: Lean 4.33.0 Term.elabTermEnsuringType, withSynthesize and native context reopening.
 Source syntax is consumed here; persistent definitions store their checked values. -/
 opaque SourceSession.term (session : SourceSession) (stx : Term)
     (expected : Option ClosedTerm := none) : TermElabM SourceTerm :=
-  withRef stx <| withoutErrToSorry <| withoutAutoBoundImplicit do
-    session.context.withOpen fun bindings => do
-      let context ← ContextTelescope.capture bindings
-      let expected ← expected.mapM (·.inContext context)
-      let expression ← instantiateMVars (← withSynthesize <| elabTermEnsuringType stx expected)
-      let source ← context.close expression
-      checkSource source
-      return ⟨source, ← sourceSpan stx⟩
+  session.elaborate stx fun context => do
+    let expected ← expected.mapM (·.inContext context)
+    elabTermEnsuringType stx expected
+
+/-- Intake the whole source declaration before selecting explicit rigid universe arguments.
+Reuse: checkedDeclaration and Lean.mkConst; native checking retains the full family type. -/
+opaque SourceSession.constant (session : SourceSession) (reference : Syntax) (name : Name)
+    (universes : List Level) : TermElabM SourceTerm :=
+  session.elaborate reference fun _ => do
+    let info ← checkedDeclaration name
+    unless universes.length == info.levelParams.length do
+      throwError "source universe arguments do not match the whole declaration"
+    let universes ← universes.mapM instantiateLevelMVars
+    if universes.any (·.hasMVar) then
+      throwError "source declaration intake requires resolved universe arguments"
+    return mkConst name universes
 
 /-- A formal proposition is retained as a question; elaboration does not establish it. -/
 opaque SourceSession.proposition (session : SourceSession) (stx : Term) :
@@ -120,12 +146,14 @@ opaque SourceSession.define (session : SourceSession) (name : Name) (stx : Term)
       let expression ← instantiateMVars (← withSynthesize <| elabTermEnsuringType stx expected)
       let source ← context.close expression
       checkSource source
-      let type ← inferType expression
-      let id : BindingId := ⟨session.identity, session.nextBinding⟩
-      withLetDecl name type expression fun expression => do
-        let context ← ContextTelescope.capture
-          (bindings.push { id, role := .definition, expression })
-        return ⟨session.identity, session.nextBinding + 1, context.telescope,
-          session.spans.push (← sourceSpan stx)⟩
+      defineIn session context name expression (← sourceSpan stx)
+
+/-- Bind an already checked source value by native context transport and a fresh declaration.
+Reuse: ClosedTerm.inContext and the same native let capture as ordinary source definitions. -/
+opaque SourceSession.defineTerm (session : SourceSession) (name : Name) (term : SourceTerm) :
+    MetaM SourceSession :=
+  session.context.withOpen fun bindings => do
+    let context ← ContextTelescope.capture bindings
+    defineIn session context name (← term.source.inContext context) term.span
 
 end CasCompiler

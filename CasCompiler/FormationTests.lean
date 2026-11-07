@@ -52,7 +52,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   unless rejected do throwError "source formation published an unresolved native term"
   let family ← session.constant reference.raw ``id [Level.param `sourceUniverse]
   unless family.source.universeParams.contains `sourceUniverse &&
-      family.source.expression == mkConst ``id [Level.param `sourceUniverse] &&
+      family.source.expression == Lean.mkConst ``id [Level.param `sourceUniverse] &&
       family.source.context.entries.size == 4 do
     throwError "source declaration intake specialized or discarded its complete family context"
   for (declaration, message) in #[(``unsafeCast, "is unsafe"), (``sorryAx, "depends on sorryAx")] do

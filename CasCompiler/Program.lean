@@ -2,10 +2,10 @@ module
 
 public import LeanCategories.Catalogue.Registry.Computation
 public import CasCompiler.Layout
+public import CasCompiler.Declaration
 public import CasRuntime.Value
 public import CasRuntime.Environment
 public import Cslib.Foundations.Data.PFunctor.Free
-public import CasGates.AxiomAuditRules
 
 @[expose] public section
 
@@ -54,11 +54,7 @@ structure SourceFamily where
 Reuse: ComputationRef.declaration, the release AxiomAudit.permitted budget and native context closure. -/
 opaque SourceFamily.forReference (reference : ComputationRef) : MetaM SourceFamily := do
   let declaration ← reference.declaration (← semanticState)
-  let info ← getConstInfo declaration
-  if info.isUnsafe then throwError "registered source family {declaration} is unsafe"
-  for assumption in ← collectAxioms declaration do
-    unless CasCatalogue.Tools.AxiomAudit.permitted.contains assumption do
-      throwError "registered source family {declaration} depends on {assumption}"
+  let info ← checkedDeclaration declaration
   let family ← withLCtx {} #[] do
     let context ← ContextTelescope.capture #[]
     context.close (mkConst declaration (info.levelParams.map Level.param))
