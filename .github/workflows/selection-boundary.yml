@@ -18,182 +18,31 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - name: Apply checked-boundary integration edits
+        with:
+          fetch-depth: 2
+      - name: Apply the exact pinned repair with corrected native indexing
         shell: bash
         run: |
           python3 - <<'PY'
-          from pathlib import Path
           import subprocess
-          expected = {
-              'CasCompiler/Resolve.lean': 'cea4e8e69d14b37972db7630364f9b3709e04b1c',
-              'CasCompiler/SelectionBoundaryTests.lean': '383fa09478bf6ddf6ae60300473e4c7208c0e02e',
-              'CasRuntime/SDKTests.lean': '71fe26cab3abd2e229a4529caa74de2e0b548e8c',
-          }
-          for path, sha in expected.items():
-              actual = subprocess.check_output(['git', 'hash-object', path], text=True).strip()
-              if actual != sha:
-                  raise SystemExit(f'Refusing changed source {path}: {actual} != {sha}')
-          sdk = Path('CasRuntime/SDKTests.lean')
-          text = sdk.read_text()
-          old = 'cmd := "/home/dzack/.local/bin/uv"'
-          if text.count(old) != 1:
-              raise SystemExit('Unexpected SDK provisioner invocation')
-          sdk.write_text(text.replace(old, 'cmd := "uv"'))
-          resolver = Path('CasCompiler/Resolve.lean')
-          source = resolver.read_text()
-          for message in (
-              'operation comparison requires the same complete symbolic source',
-              'operation comparison requires the same complete native category family',
-          ):
-              old = f'throwError "{message}"'
-              if source.count(old) != 1:
-                  raise SystemExit(f'Unexpected operation boundary: {message}')
-              source = source.replace(old, f'throwStratum .invalid m!"{message}"')
-          addition = r'''
-          /-- Consume an explicitly supplied first-binding route, without identifying unselected
-          readings. This input is a mathematical selection, never a provider priority/default. -/
-          opaque SourceRoutes.selectedOperationFamily (routes : SourceRoutes) (session : SourceSession)
-              (reference : Syntax) (source : SourceCategoryFamily)
-              (selection : Option RouteGrammar.Word) : TermElabM SourceOperationFamily := do
-            let .operation _ := routes.query
-              | throwStratum .invalid m!"selected operation use requires an operation-name query"
-            unless routes.source.syntacticEq source.expression do
-              throwStratum .invalid m!"selected operation use has a different complete source"
-            let some trace := selection
-              | throwStratum .invalid m!"the required operation route was not supplied"
-            Core.checkSystem "selected operation route membership"
-            let present := routes.language.grammar.contains trace
-            Core.checkSystem "selected operation route membership"
-            unless present do
-              throwStratum .invalid m!"the selected operation route is not an admitted first-binding route"
-            match ← routes.operationFamilies session reference trace source with
-            | #[family] => return family
-            | #[] => throwStratum .invalid m!"the selected operation route has no binding"
-            | _ => throwSemanticAmbiguity m!"the supplied route does not select a unique operation binding"
-
-          /-- Check every inherited binding in an exactly finite first-hit family, retaining all
-          original derivations. Source-supplied proof slots are checked before missing slots are
-          discharged by permitted conversion, so bad evidence is never hidden by a fallback or
-          an earlier missing comparison. This finite-family API does not decide infinite families
-          or select a representative. Explicit selections use selectedOperationFamily instead. -/
-          opaque SourceRoutes.finiteOperationAgreement (routes : SourceRoutes) (session : SourceSession)
-              (reference : Syntax) (source : SourceCategoryFamily)
-              (evidence : Option (Array (Array (Option SourceTerm))) := none) :
-              TermElabM SourceFiniteOperationAgreement := do
-            let .operation _ := routes.query
-              | throwStratum .invalid m!"finite operation agreement requires an operation-name query"
-            unless routes.source.syntacticEq source.expression do
-              throwStratum .invalid m!"finite operation agreement has a different complete source"
-            Core.checkSystem "finite source agreement extraction"
-            let extracted := routes.language.grammar.finiteWords
-            Core.checkSystem "finite source agreement extraction"
-            let some words := extracted
-              | throwStratum .unavailable m!"this finite-family check cannot decide an infinite route family"
-            let mut families : Array SourceOperationFamily := #[]
-            for word in words do
-              families := families ++ (← routes.operationFamilies session reference word source)
-            if families.isEmpty then
-              throwStratum .invalid m!"the source query has no inherited operation binding"
-            if let some matrix := evidence then
-              unless matrix.size == families.size &&
-                  matrix.all (fun row => row.size == families.size) do
-                throwStratum .invalid m!"the supplied agreement matrix omits or adds operation-family slots"
-            let mut checked : Array (Array (Option SourceOperationAgreement)) := #[]
-            for left in families, i in [:families.size] do
-              let mut row : Array (Option SourceOperationAgreement) := #[]
-              for right in families, j in [:families.size] do
-                Core.checkSystem "supplied whole-operation agreement checking"
-                let supplied : Option SourceTerm := match evidence with
-                  | none => none
-                  | some matrix => matrix[i]![j]!
-                row := row.push (← supplied.mapM (session.operationAgreement reference left right))
-              checked := checked.push row
-            let mut agreements : Array (Array SourceOperationAgreement) := #[]
-            for left in families, i in [:families.size] do
-              let mut row : Array SourceOperationAgreement := #[]
-              for right in families, j in [:families.size] do
-                Core.checkSystem "required whole-operation agreement checking"
-                let agreement ← match checked[i]![j]! with
-                  | some agreement => pure agreement
-                  | none => session.requireOperationAgreement reference left right
-                row := row.push agreement
-              agreements := agreements.push row
-            return ⟨routes, source, families, agreements⟩
-          '''
-          ending = '\nend CasCompiler'
-          if source.count(ending) != 1:
-              raise SystemExit('Unexpected resolver namespace boundary')
-          resolver.write_text(source.replace(ending, '\n' + addition.strip() + '\n\nend CasCompiler'))
-          tests = Path('CasCompiler/SelectionBoundaryTests.lean')
-          tests.write_text(tests.read_text() + r'''
-
-          run_cmd Lean.Elab.Command.liftTermElabM do
-            let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
-            let session ← SourceSession.empty identities
-            let rings ← session.categoryFamily Syntax.missing "Rings" [.zero]
-            let additions ← SourceRoutes.forOperation rings.expression "+"
-            let multiplications ← SourceRoutes.forOperation rings.expression "·"
-            let addition ← additions.selectedOperationFamily session Syntax.missing rings (some #[])
-            let multiplication ← multiplications.selectedOperationFamily session Syntax.missing rings (some #[])
-            expectInvalidSelection do
-              discard <| additions.selectedOperationFamily session Syntax.missing rings none
-            expectSourceAmbiguity do
-              discard <| session.requireOperationAgreement Syntax.missing addition multiplication
-            -- This is an explicitly conditional source context, not a theorem identifying
-            -- ring addition with multiplication and never a hypothesis supplied by a leaf.
-            let equation ← session.elaborate Syntax.missing fun context => do
-              mkEq (← addition.term.source.inContext context)
-                (← multiplication.term.source.inContext context)
-            let conditional ← session.assumeTerm `wholeAgreement equation
-            let assumption ← conditional.term (← `(term| $(mkIdent `wholeAgreement):ident))
-            unless (← conditional.operationConversion Syntax.missing addition multiplication).isNone do
-              throwError "a source hypothesis was mistaken for definitional conversion"
-            let agreement ← conditional.requireOperationAgreement Syntax.missing addition multiplication
-              (some assumption)
-            unless agreement.proof.source.context.entries.size == conditional.context.entries.size do
-              throwError "nondefinitional agreement discarded its actual formal hypothesis"
-            agreement.proof.source.withOpen fun bindings proof => do
-              let context ← ContextTelescope.capture bindings
-              unless ← isDefEq proof (← assumption.source.inContext context) do
-                throwError "nondefinitional agreement replaced the supplied source witness"
-              checkWithKernel proof
-
-            let commutative ← session.categoryFamily Syntax.missing "CommutativeRings" [.zero]
-            let inherited ← SourceRoutes.forOperation commutative.expression "·"
-            let some words := inherited.language.grammar.finiteWords
-              | throwError "the original finite inherited-family control became infinite"
-            for word in words do
-              let selected ← inherited.selectedOperationFamily session Syntax.missing commutative (some word)
-              let original ← inherited.reconstruct word
-              unless selected.route.refs == original.refs do
-                throwError "explicit selection replaced its chosen route by another representative"
-            expectInvalidSelection do
-              discard <| inherited.selectedOperationFamily session Syntax.missing commutative none
-            let complete ← inherited.finiteOperationAgreement session Syntax.missing commutative
-            unless complete.families.size > 0 && complete.agreements.size == complete.families.size do
-              throwError "complete finite agreement omitted an inherited family"
-            for row in complete.agreements do
-              unless row.size == complete.families.size do
-                throwError "complete finite agreement omitted a required comparison slot"
-            let supplied := complete.agreements.map fun row => row.map fun proof => some proof.proof
-            let rechecked ← inherited.finiteOperationAgreement session Syntax.missing commutative
-              (some supplied)
-            unless rechecked.families.size == complete.families.size do
-              throwError "supplied finite evidence changed the retained source readings"
-            expectInvalidSelection do
-              discard <| inherited.finiteOperationAgreement session Syntax.missing commutative (some #[])
-            let unrelated ← session.term (← `(term| True.intro))
-            let malformed := complete.agreements.map fun row => row.map fun _ => some unrelated
-            expectInvalidSelection do
-              discard <| inherited.finiteOperationAgreement session Syntax.missing commutative
-                (some malformed)
-            let absent ← SourceRoutes.forOperation rings.expression "__absent_operation_control"
-            expectInvalidSelection do
-              discard <| absent.finiteOperationAgreement session Syntax.missing rings
-          ''')
-          print('Applied selected-route, complete finite supplied-evidence, and PATH-based SDK fixes.')
+          import textwrap
+          revision = '01c8ec04ca0acaa5bb5e83231e86e6a9f26d0ab2'
+          path = '.github/workflows/selection-boundary.yml'
+          text = subprocess.check_output(['git', 'show', f'{revision}:{path}'], text=True)
+          marker = "          python3 - <<'PY'\n"
+          start = text.index(marker) + len(marker)
+          stop = text.index('\n          PY\n', start)
+          script = textwrap.dedent(text[start:stop])
+          for old, new in [('matrix[i]![j]!', '(matrix[i]!)[j]!'),
+                           ('checked[i]![j]!', '(checked[i]!)[j]!')]:
+              if script.count(old) != 1:
+                  raise SystemExit(f'Unexpected pinned repair occurrence: {old}')
+              script = script.replace(old, new)
+          exec(compile(script, f'{revision}:{path}:guarded-native-edit', 'exec'))
           PY
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
+        with:
+          version: '0.13.7'
       - name: Install locked Lean toolchain and restore Mathlib
         uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596
         with:
@@ -202,19 +51,29 @@ jobs:
           test: 'false'
           lint: 'false'
           use-mathlib-cache: 'true'
-      - name: Provision the frozen SDK before parallel native controls
+      - name: Provision the frozen SDK before native controls
         run: uv sync --frozen --project .lake/packages/cas_leaf_contracts
-      - name: Verify native gates without weakening their original checks
+      - name: Verify the actual source selection controls first
         shell: bash
         run: |
           set -euo pipefail
-          targets=(+CasCompiler.SelectionBoundaryTests +CasCompiler.OperationFamilyTests +CasCompiler.ComparisonTests +CasCompiler.WhiskeringTests +CasCompiler.ConstructorComparisonTests +CasCompiler.FunctorExpressionTests +CasCompiler.OperationRefinementTests +CasCompiler.EqualityEvidenceTests +CasCompiler.NativeRouteTests +CasCompiler.ResolveTests +CasGates.Production)
+          targets=(+CasCompiler.SelectionBoundaryTests +CasCompiler.OperationFamilyTests +CasCompiler.ComparisonTests +CasCompiler.WhiskeringTests +CasCompiler.ConstructorComparisonTests +CasCompiler.FunctorExpressionTests +CasCompiler.OperationRefinementTests +CasCompiler.EqualityEvidenceTests +CasCompiler.NativeRouteTests +CasCompiler.ResolveTests)
           printf '%s\n' "${targets[@]}" > "$RUNNER_TEMP/selection-targets.txt"
           if ! lake build "${targets[@]}" > "$RUNNER_TEMP/selection-native.log" 2>&1; then
             grep -E 'error:|failed|✖' "$RUNNER_TEMP/selection-native.log" || true
             exit 1
           fi
           tail -n 25 "$RUNNER_TEMP/selection-native.log"
+      - name: Verify the unchanged complete production boundary gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' +CasGates.Production >> "$RUNNER_TEMP/selection-targets.txt"
+          if ! lake build +CasGates.Production > "$RUNNER_TEMP/selection-production.log" 2>&1; then
+            grep -E 'error:|failed|✖' "$RUNNER_TEMP/selection-production.log" || true
+            exit 1
+          fi
+          tail -n 25 "$RUNNER_TEMP/selection-production.log"
           python3 scripts/check_no_leaves.py --self-test
           python3 scripts/check_no_leaves.py
           git diff --exit-code -- lake-manifest.json lean-toolchain
@@ -233,9 +92,9 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add CasCompiler/Resolve.lean CasCompiler/SelectionBoundaryTests.lean CasRuntime/SDKTests.lean
-          git commit -m 'fix: separate explicit route use from finite supplied-agreement checking' -m 'Explicit routes remain required data and retain their exact source derivations. Finite implicit agreement retains every original binding and comparison, validates all supplied evidence before generic discharge, and reports source ambiguity without an arbitrary theorem search. Nondefinitional evidence retains its actual formal context. Tests exercise missing data, bad proof slots, actual component action and distinct chosen programs. SDK controls now resolve uv through PATH, with the frozen environment provisioned before parallel native tests; no owner-machine path or suppressed gate. Mathematical sources, protected questions and budgets are unchanged. Refs #66, #87, #89.'
+          git commit -m 'fix: separate explicit route use from finite supplied-agreement checking' -m 'Explicit routes retain their exact source derivations and remain mandatory where requested. Finite implicit agreement retains all original bindings, validates supplied proof slots before generic discharge, and reports source ambiguity without arbitrary theorem search. Nondefinitional evidence retains its actual formal context. Native controls cover missing data, malformed evidence, chosen cell actions and distinct choices; the complete production boundary gate also passes. SDK provisioning resolves uv through PATH, not an owner-machine path. Mathematical sources, protected questions and budgets are unchanged. Refs #66, #87, #89.'
           git push origin HEAD:refs/heads/fix/categorical-selection-boundary-20261107
-      - name: Record exact tested code and any remaining uncommitted diff
+      - name: Record exact tested code and any uncommitted diff
         if: always()
         run: |
           git rev-parse HEAD > "$RUNNER_TEMP/selection-source-sha.txt"
@@ -252,6 +111,7 @@ jobs:
             ${{ runner.temp }}/selection-toolchain.txt
             ${{ runner.temp }}/selection-targets.txt
             ${{ runner.temp }}/selection-native.log
+            ${{ runner.temp }}/selection-production.log
             ${{ runner.temp }}/selection-uncommitted.patch
           if-no-files-found: error
           retention-days: 14
