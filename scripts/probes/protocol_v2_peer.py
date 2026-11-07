@@ -15,7 +15,18 @@ def echo(arguments: JsonValue) -> JsonValue:
 
 def stored(arguments: JsonValue) -> JsonValue:
     def invoke(context: JsonValue) -> JsonValue:
-        return {"stored": arguments, "context": json.dumps(context, ensure_ascii=False)}
+        from cas_port import input_ref
+
+        assert isinstance(context, dict)
+        result: dict[str, JsonValue] = {
+            "stored": arguments, "context": json.dumps(context, ensure_ascii=False)
+        }
+        if context.get("kind") == "dependent":
+            values = context["arguments"]
+            assert isinstance(values, list)
+            if values:
+                result["argument"] = proxy(input_ref(["arguments", 0])).reference()
+        return result
 
     return export(invoke, [])
 

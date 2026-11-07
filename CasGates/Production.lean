@@ -56,6 +56,8 @@ import all CasRuntime.Execute
 import all CasRuntime.ExecuteTests
 import all CasRuntime.Scope
 import all CasRuntime.ScopeTests
+import all CasRuntime.Encode
+import all CasRuntime.EncodeTests
 import all CasRuntime.Reply
 import all CasRuntime.ReplyTests
 import all CasRuntime.Literal

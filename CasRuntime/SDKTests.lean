@@ -1,8 +1,10 @@
 module
 
 import CasRuntime.Transport
+import CasRuntime.Encode
 public meta import Lean.Elab.Command
 meta import CasRuntime.Transport
+meta import CasRuntime.Encode
 
 open Lean Meta CasCompiler CasRuntime CasCatalogue.Backend
 
@@ -122,12 +124,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           native.connection == exported.owner do
         throwError "native reservation replaced its actual code, token or supplying owner"
       let graph ← liftM (m := IO) later.view
+      let .ok encoded := graph.encodeInputs wire.connection.generation #[{
+          path := #[.field "arguments", .index 0], binding := operand }]
+        | throwError "the actual native operand could not encode for its receiving owner"
       let nativeScope ← liftM (m := IO) <|
-        RequestScope.issue ledger native graph #[operand] #[] #[]
+        RequestScope.issue ledger native graph encoded.slots encoded.inputs #[]
       let invocation := Json.mkObj [
         ("kind", .str "dependent"), ("prepared_role", .str "native-transport-control"),
         ("parameters", .arr #[]), ("bindings", .arr #[]),
-        ("arguments", .arr #[(ScopedReference.scope 0).encode]),
+        ("arguments", .arr encoded.values),
         ("argument_layouts", .arr #[Json.mkObj [("kind", .str "data")]]),
         ("result_layout", Json.mkObj [("kind", .str "data")])]
       let .ok invoked ← liftM (m := IO) <|
@@ -140,6 +145,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throwError "the stored native handler did not receive its invocation context"
       unless (Json.parse encodedContext).toOption == some invocation do
         throwError "native transport changed the complete invocation context"
+      unless encoded.values == #[toJson (7 : Nat)] &&
+          invoked.references.map (·.binding.value) == #[operand.value] do
+        throwError "native input encoding changed actual packet data or returned input identity"
       match ← liftM (m := BaseIO) <|
           later.reserveExport nativeOccurrence retainedCallable wire.connection #[operand] with
       | .error (.reservation .consumed) => pure ()

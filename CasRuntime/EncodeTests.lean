@@ -85,10 +85,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let (graph, unbound) ← liftM (m := IO) <| stage graph scalarRole (.portable forbidden.toUTF8)
     let (graph, malformed) ← liftM (m := IO) <| stage graph scalarRole (.portable "not JSON".toUTF8)
     for value in #[unbound, malformed] do
-      unless (graph.encodeInputs localOwner.generation #[{ path, binding := value }]).isError do
+      if (graph.encodeInputs localOwner.generation #[{ path, binding := value }]).isOk then
         throwError "input encoding accepted a malformed or unbound portable packet"
-    unless (graph.encodeInputs localOwner.generation #[
-        { path, binding := number }, { path, binding := remoteCode }]).isError do
+    if (graph.encodeInputs localOwner.generation #[
+        { path, binding := number }, { path, binding := remoteCode }]).isOk then
       throwError "input encoding accepted overlapping complete root authorities"
   finally
     liftM (m := IO) <| owners.close localOwner.generation
