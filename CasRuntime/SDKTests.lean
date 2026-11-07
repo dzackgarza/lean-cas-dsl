@@ -6,7 +6,7 @@ meta import CasRuntime.Transport
 
 open Lean Meta CasCompiler CasRuntime CasCatalogue.Backend
 
-/-- The actual public SDK preserves input references through the native transport.
+/- The actual public SDK preserves input references through the native transport.
 This observes protocol/owner transitions, not a mathematical computation.
 Reuse: the pinned SDK project, OwnerRegistry, FramedConnection and RequestScope. -/
 run_cmd Lean.Elab.Command.liftTermElabM do
