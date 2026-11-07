@@ -282,6 +282,24 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       | throwError "the record execution argument is absent"
     let request ← PreparedRequest.forApplication program occurrence context retained
       #[← context.close (mkNatLit 7)] #[argument] #[]
+    let valid ← liftM (m := IO) <| transaction.stage
+      { program, occurrence, role := recordRole, parameters := #[] } (.product #[scalar, scalar])
+    let graph ← liftM (m := IO) transaction.view
+    let checked ← request.environment.checkResult graph request.source valid
+    unless checked.root.value == valid.value do
+      throwError "stored result admission replaced the valid record"
+    let nestedRole ← SourceLayout.ofTerm (← context.close (← mkAppM ``Prod.mk #[pair, pair]))
+    let nested ← liftM (m := IO) <| transaction.stage
+      { program, occurrence, role := nestedRole, parameters := #[] } (.product #[valid, malformed])
+    let graph ← liftM (m := IO) transaction.view
+    let nestedFailure : Option Exception ← try
+      discard <| request.environment.checkResult graph nestedRole nested
+      pure none
+    catch error => pure (some error)
+    let some nestedFailure := nestedFailure
+      | throwError "result admission retained a mistyped nested field"
+    unless (← nestedFailure.toMessageData.toString).endsWith
+        "the runtime value has an incompatible complete source type" do throw nestedFailure
     let executor : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
       fun request state => do
         let candidate ← IO.ofExcept <|

@@ -175,7 +175,7 @@ opaque RuntimeEnvironment.checkArgument (environment : RuntimeEnvironment) (sour
 /-- Check a retained candidate at the prepared result's complete native type and actual indexes.
 Reuse: the source-binding type/dependency checks and CandidateResponse's operational shape check.
 The graph supplies the immutable producing provenance; liveness and publication are later gates. -/
-opaque RuntimeEnvironment.checkResult (environment : RuntimeEnvironment) (graph : ValueGraph)
+private partial def checkResultValue (environment : RuntimeEnvironment) (graph : ValueGraph)
     (source : SourceLayout) (value : ValueBinding) : MetaM (CandidateResponse source) := do
   unless graph.worker == environment.worker do
     throwError "the prepared result belongs to a different worker"
@@ -190,7 +190,23 @@ opaque RuntimeEnvironment.checkResult (environment : RuntimeEnvironment) (graph 
     checkDependencies context environment.bindingMap expected value node.origin
     let .ok candidate := CandidateResponse.ofValue source graph value
       | throwError "the prepared result has an incompatible computational interface"
+    let stored := match node.payload.data with
+      | .product _ | .container _ => true
+      | _ => false
+    if source.kind == .record && stored then
+      let layout ← RecordLayout.ofSource source
+      for prepared in layout.fields do
+        if let some index := prepared.field.wireIndex then
+          let field ← IO.ofExcept <| (graph.project candidate.root index).mapError IO.userError
+          discard <| checkResultValue environment graph prepared.layout field
     return candidate
+
+/-- Validate the complete stored result through its source-derived native field layouts.
+Reuse: RecordLayout, graph projection and the same native type/dependency check at every node.
+Exported records retain their lazy interface; stored records validate all retained children. -/
+opaque RuntimeEnvironment.checkResult (environment : RuntimeEnvironment) (graph : ValueGraph)
+    (source : SourceLayout) (value : ValueBinding) : MetaM (CandidateResponse source) :=
+  checkResultValue environment graph source value
 
 /-- Stamp a produced node with its complete ordered actual context references.
 Reuse: SourceLayout.inContext transports the checked role by stable source identities.
