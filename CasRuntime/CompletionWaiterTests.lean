@@ -110,40 +110,6 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       match ← liftM (m := IO) cancelledWaiter.wait with
       | .error .settled => pure ()
       | _ => throwError "an aborted producer supplied a completion through its waiter"
-      let failedCell ← CellTransaction.begin ledger
-      let failedOccurrence ← liftM (m := BaseIO) ledger.allocate
-      let failedRequest ← PreparedRequest.forApplication owners.identities program failedOccurrence
-        context callable #[scalar.source] #[actual] #[]
-      let observer : IO.Ref (Option CompletionWaiter) ← liftM (m := IO) <| IO.mkRef none
-      let missing : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
-        fun demand active => do
-          let some rootRole := demand.roles.results[0]?
-            | throwError "the failed producer lost its root role"
-          let .ok waiter ← active.watch demand.occurrence rootRole.role.id
-            | throwError "the failed producer's observer could not attach"
-          observer.set (some waiter)
-          let .ok reserved ← active.reserve demand.occurrence
-            { selected with registration := { selected.registration with operation := "missing-waiter-operation" } }
-            wire.connection #[input]
-            | throwError "the unsupported invocation could not reserve"
-          let graph ← active.view
-          let scope ← RequestScope.issue ledger reserved graph #[input] #[] #[]
-          match ← wire.invokeBefore ledger active reserved scope (toJson (7 : Nat)) 5000 with
-          | .error error => CasCatalogue.throwStratum error.stratum error.render
-          | .ok _ => throwError "the SDK accepted an unimplemented diagnostic operation"
-      let failure : Option Exception ← try
-        discard <| Execute.run missing
-          (PFunctor.FreeM.lift (P := OperationalSignature) failedRequest) failedCell
-        pure none
-      catch error => pure (some error)
-      let some failure := failure | throwError "the unsupported producer returned a value"
-      unless failure.toMessageData.hasTag (· == CasCatalogue.Stratum.noImplementation.tag) do throw failure
-      let some failedWaiter ← liftM (m := IO) observer.get
-        | throwError "the failed producer lost its observer"
-      match ← liftM (m := IO) failedWaiter.wait with
-      | .error .settled => throwError "a producer failure was reported to its waiter as cancellation"
-      | .error _ => pure ()
-      | .ok _ => throwError "a failed producer supplied a mathematical result"
       setEnv prefixEnvironment
       let restored ← CellTransaction.begin ledger
       let failure : Option Exception ← try
