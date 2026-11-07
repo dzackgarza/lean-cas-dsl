@@ -132,4 +132,16 @@ opaque SourceRoutes.reconstruct (routes : SourceRoutes) (trace : RouteGrammar.Wo
   Core.checkSystem "source route validation"
   return route
 
+/-- Reconstruct every finite raw candidate family; none denotes an infinite trace language.
+Each returned route retains and validates its actual source edges and constructor actions. -/
+opaque SourceRoutes.finiteRoutes (routes : SourceRoutes) : CoreM (Option (Array Route)) := do
+  Core.checkSystem "finite source route extraction"
+  let words := routes.language.grammar.finiteWords
+  Core.checkSystem "finite source route saturation"
+  let result ← match words with
+    | none => pure none
+    | some words => return some (← words.mapM routes.reconstruct)
+  Core.checkSystem "finite source route publication"
+  return result
+
 end CasCompiler
