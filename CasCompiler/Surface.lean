@@ -19,14 +19,16 @@ structure SourceObject where
   category : SourceTerm
   value : SourceTerm
 
+opaque selectCategory (state : SemanticState) (name : String) : TermElabM NamedCategoryEntry := do
+  match state.categories.filter (·.name == name) with
+  | #[entry] => pure entry
+  | #[] => throwError "unregistered source category: {name}"
+  | _ => throwSemanticAmbiguity m!"source category {name} has several registrations"
+
 opaque selectObject (name : String) (category : Option String) :
     TermElabM (ObjectEntry × NamedCategoryEntry) := do
     let state ← semanticState
-    let qualified ← category.mapM fun name => do
-      match state.categories.filter (·.name == name) with
-      | #[entry] => pure entry
-      | #[] => throwError "unregistered source category: {name}"
-      | _ => throwSemanticAmbiguity m!"source category {name} has several registrations"
+    let qualified ← category.mapM (selectCategory state)
     let entries := state.objects.filter fun entry =>
       entry.name == name && match qualified with
         | some category => entry.category == category.id

@@ -160,9 +160,7 @@ private def categoryIdentity (category : Expr) : MetaM Expr := do
 Reuse: whole-declaration intake, native application and the actual category structure. -/
 opaque SourceSession.namedCategory (session : SourceSession) (reference : Syntax) (name : String)
     (universes : List Level) (arguments : Array SourceTerm) : TermElabM SourceCategory := do
-  let state ← semanticState
-  let #[entry] := state.categories.filter (·.name == name)
-    | throwError "source category {name} requires one exact registered declaration"
+  let entry ← selectCategory (← semanticState) name
   let constant ← session.constant reference entry.declaration universes
   let value ← session.elaborate reference fun context => do
     let arguments ← arguments.mapM fun argument => do
@@ -171,6 +169,22 @@ opaque SourceSession.namedCategory (session : SourceSession) (reference : Syntax
     discard <| categoryIdentity value
     return value
   return ⟨entry.expression, value⟩
+
+/-- Form an actual registered unary category constructor at the retained category bundle.
+Reuse: the same semantics interface checked by source validateConstructor. -/
+opaque SourceSession.unaryCategory (session : SourceSession) (reference : Syntax)
+    (id : ConstructorId) (argument : SourceCategory) : TermElabM SourceCategory := do
+  let some entry := (← semanticState).constructor? id
+    | throwError "the source category constructor is absent"
+  unless entry.signature == #[.category] do
+    throwError "the selected source constructor does not take one category argument"
+  discard <| checkedDeclaration entry.semantics
+  let value ← session.elaborate reference fun context => do
+    let category ← argument.value.source.inContext context
+    let value ← applyConstructorInterface entry.semantics #[category] #[category]
+    discard <| categoryIdentity value
+    return value
+  return ⟨.construct id #[.category argument.expression], value⟩
 
 /-- Retain the exact category already formed by registered object intake. -/
 opaque SourceObject.sourceCategory (object : SourceObject) : SourceCategory :=
