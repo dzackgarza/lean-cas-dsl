@@ -181,8 +181,20 @@ run_cmd Lean.Elab.Command.liftTermElabM do
                     | throwError "the later source binding lost the actual lazy result"
                   let fieldOccurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
                   let projection ← PreparedRequest.forProjection program fieldOccurrence current graph retained 1 parameters
+                  let origin ← projection.originFor projection.source
+                  let some application := origin.application
+                    | throwError "the projected result lost its originating application"
+                  let some access := origin.access
+                    | throwError "the projected result lost its actual access operand"
+                  unless origin.parameters.size == 4 && application.parameters.size == 2 &&
+                      application.path == #[``Prod.snd] &&
+                      application.contextDependencies == #[0] && application.dependencies == #[0] &&
+                      (application.parameters[0]?.bind id).map (·.value) == some contextValue.value &&
+                      (application.arguments[0]?.bind id).map (·.value) == some index.value &&
+                      access.value == parent.value && (← access.role.source.inContext current) == r do
+                    throwError "projection changed its source planes, path or actual later-bound operand"
                   let (projected, point) ← liftM (m := IO) <|
-                    graph.stage owners.identities projection.origin (.product #[number])
+                    graph.stage owners.identities origin (.product #[number])
                   let .ok dependencies := projected.requiredOwners #[point]
                     | throwError "the projected result is outside its graph"
                   unless dependencies.contains contextOwner.generation &&
@@ -190,6 +202,36 @@ run_cmd Lean.Elab.Command.liftTermElabM do
                       !dependencies.contains accessOwner.generation &&
                       !dependencies.contains extraOwner.generation do
                     throwError "lazy projection lost its original application context or argument dependencies"
+                  let nestedOccurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+                  let nested ← PreparedRequest.forProjection program nestedOccurrence current
+                    projected point 0 parameters
+                  let innerOrigin ← nested.originFor nested.source
+                  let some inner := innerOrigin.application
+                    | throwError "the nested field lost its originating application"
+                  unless inner.path == #[``Prod.snd, ``Fin.val] &&
+                      inner.dependencies.isEmpty && inner.contextDependencies.isEmpty &&
+                      innerOrigin.access.map (·.value) == some point.value do
+                    throwError "nested projection changed its original path or independent role"
+                  let hidden ← liftM (m := IO) do
+                    try
+                      discard <| graph.stage owners.identities innerOrigin (.portable "0".toUTF8)
+                      pure false
+                    catch error =>
+                      pure (error.toString.endsWith "the value reference is outside the visible graph")
+                  unless hidden do
+                    throwError "projection provenance recovered an access operand outside its snapshot"
+                  let (projected, numeric) ← liftM (m := IO) <|
+                    projected.stage owners.identities innerOrigin (.portable "0".toUTF8)
+                  discard <| nested.environment.checkResult projected nested.source numeric
+                  liftM (m := IO) <| owners.close accessOwner.generation
+                  liftM (m := IO) <| owners.close extraOwner.generation
+                  unless ← liftM (m := BaseIO) (projected.isAvailable owners point) do
+                    throwError "a delivered dependent field retained its accessor or unrelated owner"
+                  liftM (m := IO) <| owners.close contextOwner.generation
+                  if ← liftM (m := BaseIO) (projected.isAvailable owners point) then
+                    throwError "a projected dependent field survived its original context owner"
+                  unless ← liftM (m := BaseIO) (projected.isAvailable owners numeric) do
+                    throwError "the delivered numeric field acquired an unrelated source owner"
   finally
     liftM (m := IO) <| owners.close contextOwner.generation
     liftM (m := IO) <| owners.close indexOwner.generation
