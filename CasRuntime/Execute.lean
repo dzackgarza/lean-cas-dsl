@@ -41,7 +41,7 @@ private def reuseResponse (request : PreparedRequest) (transaction : CellTransac
   | .error failure => completionFailure failure
   | .ok (.ready value) => return some (← retainResponse request transaction value)
   | .ok .unavailable => return none
-  | .ok (.pending _) =>
+  | .ok (.pending _) | .ok .running =>
     let waiter ← match ← transaction.watch request.occurrence role.role.id with
       | .error failure => completionFailure failure
       | .ok waiter => pure waiter
@@ -60,6 +60,13 @@ private def executeDemand
     (request : PreparedRequest) (transaction : CellTransaction) :
     MetaM (PreparedResponse request × CellTransaction) := do
   if let some response ← reuseResponse request transaction then return (response, transaction)
+  match ← transaction.claim request.roles.scope with
+  | .error failure => completionFailure failure
+  | .ok .waiter =>
+    let some response ← reuseResponse request transaction
+      | throwError "internal: a claimed occurrence lost its producer"
+    return (response, transaction)
+  | .ok .producer => pure ()
   requireFresh request transaction
   let graph ← transaction.view
   discard <| request.admitInputs graph

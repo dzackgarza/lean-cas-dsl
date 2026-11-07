@@ -85,6 +85,7 @@ private structure ActiveCell where
   installedDrafts : Std.HashSet (RuntimeId .draft) := {}
   completions : Array StagedCompletion := #[]
   readySignals : Std.HashMap (RuntimeId .occurrence) (IO.Promise Unit) := {}
+  claims : Std.HashMap (RuntimeId .occurrence) CasCompiler.RoleScope := {}
 
 private inductive CellState
   | active (cell : ActiveCell)
@@ -140,7 +141,11 @@ inductive TransactionFailure
 inductive ReuseDecision
   | ready (binding : ValueBinding)
   | pending (reservation : DispatchReservation)
+  | running
   | unavailable
+
+inductive DemandClaim
+  | producer | waiter
 
 private def CompletionAssociation.select (association : CompletionAssociation)
     (graph : ValueGraph) (owners : OwnerRegistry) (role : CasCompiler.RoleId) :
@@ -195,9 +200,36 @@ opaque CellTransaction.reuse (transaction : CellTransaction) (occurrence : Runti
       return (← receipt.association.select cell.graph transaction.owners role).map .ready
     if let some completion := cell.completions.find? (·.association.request.occurrence == occurrence) then
       return (← completion.association.select cell.graph transaction.owners role).map .ready
+    if let some claimed := cell.claims[occurrence]? then
+      unless claimed == role.scope do return .error .referenceOutsideGraph
     if let some pending ← transaction.ledger.pendingFor occurrence transaction.id then
       return .ok (.pending pending)
+    if cell.claims.contains occurrence then return .ok .running
     return .ok .unavailable
+
+/-- Claim one producer for the retained preparation before realization reservation.
+Other demands share its signal; this grants no wire-send right and stores no payload. -/
+opaque CellTransaction.claim (transaction : CellTransaction) (scope : CasCompiler.RoleScope) :
+    BaseIO (Except TransactionFailure DemandClaim) := transaction.state.atomically do
+  let .active cell ← get | return .error .settled
+  unless scope.program.worker == transaction.id.worker && scope.occurrence.worker == transaction.id.worker &&
+      scope.preparation.worker == transaction.id.worker do return .error (.reservation .wrongWorker)
+  if let some claimed := cell.claims[scope.occurrence]? then
+    unless claimed == scope do return .error .referenceOutsideGraph
+    return .ok .waiter
+  if let some receipt := cell.parent.receipt scope.occurrence then
+    unless receipt.association.request.roles.scope == scope do return .error .referenceOutsideGraph
+    return .ok .waiter
+  if let some completion := cell.completions.find? (·.association.request.occurrence == scope.occurrence) then
+    unless completion.association.request.roles.scope == scope do return .error .referenceOutsideGraph
+    return .ok .waiter
+  if (← transaction.ledger.pendingFor scope.occurrence transaction.id).isSome then return .ok .waiter
+  unless ← transaction.ledger.isFresh scope.occurrence do return .error (.reservation .consumed)
+  let signal : IO.Promise Unit ← IO.Promise.new
+  set (CellState.active { cell with
+    claims := cell.claims.insert scope.occurrence scope
+    readySignals := cell.readySignals.insert scope.occurrence signal })
+  return .ok .producer
 
 opaque CellTransaction.isFresh (transaction : CellTransaction) (occurrence : RuntimeId .occurrence) :
     BaseIO (Except TransactionFailure Bool) := transaction.state.atomically do
@@ -221,6 +253,8 @@ opaque CellTransaction.watch (transaction : CellTransaction) (occurrence : Runti
     let .active cell ← get | return .error .settled
     unless role.scope.occurrence == occurrence && role.scope.program.worker == transaction.id.worker do
       return .error .referenceOutsideGraph
+    if let some claimed := cell.claims[occurrence]? then
+      unless claimed == role.scope do return .error .referenceOutsideGraph
     let ready ← if (cell.parent.receipt occurrence).isSome ||
         cell.completions.any (·.association.request.occurrence == occurrence) then do
       let signal : IO.Promise Unit ← IO.Promise.new
@@ -244,7 +278,7 @@ opaque CompletionWaiter.wait (waiter : CompletionWaiter) : IO (Except Transactio
   match ← waiter.transaction.reuse waiter.occurrence waiter.role with
   | .error failure => return .error failure
   | .ok (.ready value) => return .ok value
-  | .ok (.pending _) => return .error .invalidCompletion
+  | .ok (.pending _) | .ok .running => return .error .invalidCompletion
   | .ok .unavailable => return .error (.reservation .consumed)
 
 /-- Begin a reply delta at the currently visible graph, without exposing any new field. -/
@@ -311,9 +345,12 @@ opaque CellTransaction.reserve (transaction : CellTransaction) (occurrence : Run
     match ← transaction.ledger.reserve occurrence transaction.id selected connection cell.graph arguments with
     | .error failure => return .error (.reservation failure)
     | .ok reservation =>
+      let signal ← match cell.readySignals[occurrence]? with
+        | some signal => pure signal
+        | none => IO.Promise.new
       set (CellState.active { cell with
         reservations := cell.reservations.push reservation
-        readySignals := cell.readySignals.insert occurrence (← IO.Promise.new) })
+        readySignals := cell.readySignals.insert occurrence signal })
       return .ok reservation
 
 /-- Track a retained native export's actual owner and code under the same abort boundary.
@@ -327,9 +364,12 @@ opaque CellTransaction.reserveExport (transaction : CellTransaction)
         cell.graph arguments with
     | .error failure => return .error (.reservation failure)
     | .ok reservation =>
+      let signal ← match cell.readySignals[occurrence]? with
+        | some signal => pure signal
+        | none => IO.Promise.new
       set (CellState.active { cell with
         reservations := cell.reservations.push reservation
-        readySignals := cell.readySignals.insert occurrence (← IO.Promise.new) })
+        readySignals := cell.readySignals.insert occurrence signal })
       return .ok reservation
 
 /-- Arbitrate the one-use send decision against whole-cell abort before any engine write.
@@ -370,6 +410,8 @@ opaque CellTransaction.completeReply (transaction : CellTransaction) (draft : Ce
         !cell.installedDrafts.contains draft.id do return .error .invalidCompletion
     if cell.completions.any (·.association.request.occurrence == request.occurrence) ||
         (cell.parent.receipt request.occurrence).isSome then return .error .invalidCompletion
+    if let some claimed := cell.claims[request.occurrence]? then
+      unless claimed == request.roles.scope do return .error .invalidCompletion
     unless cell.reservations.any (fun tracked => tracked.occurrence == dispatch.occurrence &&
         tracked.connection == dispatch.connection && tracked.selected == dispatch.selected) do
       return .error .invalidCompletion
@@ -395,7 +437,8 @@ opaque CellTransaction.completeReply (transaction : CellTransaction) (draft : Ce
         reservations := cell.reservations.filter (·.occurrence != request.occurrence)
         installedDrafts := cell.installedDrafts.insert draft.id
         completions := cell.completions.push completion
-        readySignals := cell.readySignals.erase request.occurrence })
+        readySignals := cell.readySignals.erase request.occurrence
+        claims := cell.claims.erase request.occurrence })
       return .ok association
     if let some (.ok _) := outcome then scope.retire
     return outcome.getD (.error .staleOwner)
@@ -404,6 +447,7 @@ opaque CellTransaction.completeReply (transaction : CellTransaction) (draft : Ce
 opaque CellTransaction.abort (transaction : CellTransaction) : BaseIO Bool :=
   transaction.state.atomically do
     let .active cell ← get | return false
+    for claimed in cell.claims.toArray do transaction.ledger.abandon claimed.1
     for reservation in cell.reservations do
       discard <| transaction.ledger.retire reservation
     for lease in cell.leases do lease.cancel
@@ -424,7 +468,7 @@ opaque CellTransaction.commit (transaction : CellTransaction) :
     let some current := current | return .error .staleSnapshot
     unless current.id == cell.parent.id do
       return .error .staleSnapshot
-    unless cell.reservations.isEmpty do return .error .pendingCalls
+    unless cell.reservations.isEmpty && cell.claims.isEmpty do return .error .pendingCalls
     let .ok dependencies := cell.graph.requiredOwners cell.roots
       | return .error .referenceOutsideGraph
     let owners := transaction.ledger.owners
