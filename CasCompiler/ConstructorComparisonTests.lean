@@ -88,6 +88,25 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         let component ← objects.cellComponent Syntax.missing directed object
         component.value.source.withOpen fun bindings value => do
           let context ← ContextTelescope.capture bindings
+          let pairs : Array (SourceFunctor × SourceFunctor) ← match input, retained with
+            | .identity expected, .identity actual => do
+              unless expected.expression.syntacticEq actual.expression &&
+                  (← isDefEq (← expected.value.source.inContext context)
+                    (← actual.value.source.inContext context)) do
+                throwError "constructor coherence changed its original complete category"
+              pure #[]
+            | .composition expectedFirst expectedSecond, .composition actualFirst actualSecond =>
+              pure #[(expectedFirst, actualFirst), (expectedSecond, actualSecond)]
+            | _, _ => throwError "constructor coherence changed its original source law role"
+          for (expected, actual) in pairs do
+            let .registered expectedEntry _ := expected.derivation
+              | throwError "the expected source functor role changed"
+            let .registered actualEntry _ := actual.derivation
+              | throwError "constructor coherence discarded a registered source functor role"
+            unless expectedEntry.id == actualEntry.id &&
+                (← isDefEq (← expected.functor.source.inContext context)
+                  (← actual.functor.source.inContext context)) do
+              throwError "constructor coherence changed an original parameterized source functor"
           let expectedIso ← match input with
             | .identity category =>
               let some law := constructor.identityComparison
@@ -101,9 +120,11 @@ run_cmd Lean.Elab.Command.liftTermElabM do
                 ← first.target.value.source.inContext context,
                 ← second.target.value.source.inContext context]
               applyConstructorInterface law categories
-                #[← first.functor.source.inContext context, ← second.functor.source.inContext context]
+                #[← first.functor.source.inContext context,
+                  ← second.functor.source.inContext context]
           let transformation ← mkAppM
-            (if backwards then ``CategoryTheory.Iso.inv else ``CategoryTheory.Iso.hom) #[expectedIso]
+            (if backwards then ``CategoryTheory.Iso.inv else ``CategoryTheory.Iso.hom)
+            #[expectedIso]
           let expected ← mkAppM ``CategoryTheory.NatTrans.app
             #[transformation, bindings[2]!.expression]
           unless ← isDefEq value expected do
