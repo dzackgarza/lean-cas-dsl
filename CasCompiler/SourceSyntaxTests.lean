@@ -74,3 +74,31 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       pure false
     catch _ => pure true
     unless rejected do throwError "public source reading accepted an untyped source argument"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let dimensions ← empty.assume `n (← nativeTerm "Nat")
+  let elements ← dimensions.assume `i (← nativeTerm "Fin n")
+  let functions ← elements.define `f (← nativeTerm "fun (m : Nat) (j : Fin m) => j")
+  let session ← functions.define `e (← nativeTerm "Equiv.refl (Fin n)")
+  for source in #["f(n, i)", "(f)(n, i)", "e(i)", "(e)(i)"] do
+    let .ok stx := Parser.runParserCategory (← getEnv) `cas_term source
+      | throwError "the callable source control did not parse"
+    let term ← session.read ⟨stx⟩
+    unless term.source.context.entries.size == 4 do
+      throwError "public callable application lost its complete source context"
+    term.source.withOpen fun bindings expression => do
+      let function := if source.startsWith "e" || source.startsWith "(e" then
+        bindings[3]!.expression else bindings[2]!.expression
+      unless expression.containsFVar function.fvarId! &&
+          expression.containsFVar bindings[1]!.expression.fvarId! do
+        throwError "public application replaced its actual callable or argument"
+  let shadowed ← session.define `Fin (← nativeTerm "fun (m : Nat) => m")
+  let .ok qualified := Parser.runParserCategory (← getEnv) `cas_term "Fin(n) in FiniteSets"
+    | throwError "the qualified source shadowing control did not parse"
+  let rejected ← try
+    discard <| shadowed.read ⟨qualified⟩
+    pure false
+  catch _ => pure true
+  unless rejected do throwError "source qualification bypassed a retained lexical binding"
