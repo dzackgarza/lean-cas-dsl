@@ -20,7 +20,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let cases : Array (String × String × Option String) := #[
     ("ℕ", "ℕ", none), ("ℤ", "ℤ", none), ("ℚ", "ℚ", none),
     ("ℝ", "ℝ", none), ("ℂ", "ℂ", none), ("ℕ⁺", "ℕ⁺", none),
-    ("ℙ", "ℙ", none), ("C^∞", "C^∞", none),
+    ("ℙ", "ℙ", none), ("C^∞", "C^∞", none), ("«C^∞»", "C^∞", none),
     ("ℤ in Rings", "ℤ", some "Rings"), ("ℚ in Fields", "ℚ", some "Fields"),
     ("((ℤ)) in Rings", "ℤ", some "Rings"),
     ("(Fin(3)) in FiniteSets", "Fin", some "FiniteSets")]

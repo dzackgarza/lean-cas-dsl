@@ -96,10 +96,12 @@ run_cmd Lean.Elab.Command.liftTermElabM do
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let empty ← SourceSession.empty identities
-  for (text, id) in #[
-      ("view (Fin(3) in FiniteSets) along «clf.sets.finite»()", ClassifierId.setsFinite),
-      ("view (ℚ in Fields) along «clf.commutative_rings.field»()", ClassifierId.commutativeRingsField)] do
-    let image ← readSource empty text
+  for (receiver, id) in #[
+      ("Fin(3) in FiniteSets", ClassifierId.setsFinite),
+      ("ℚ in Fields", ClassifierId.commutativeRingsField)] do
+    let object ← readSource empty receiver
+    let session ← empty.defineTerm `X object
+    let image ← readSource session s!"view X along «{id.raw}»()"
     let some entry := (← semanticState).classifier? id
       | throwError "the selected source classifier is absent"
     reference image ``EdgeRef.classifierForget entry.id.raw entry.declaration
@@ -107,3 +109,27 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       | throwError "the classifier view lost its actual target category"
     unless category.expression.syntacticEq entry.host do
       throwError "the classifier view changed its independently declared host"
+    image.source.withOpen fun bindings value => do
+      let functor ← classifierForgetInstance entry
+      let context ← ContextTelescope.capture bindings
+      let some source := object.category
+        | throwError "the classifier input lost its selected source category"
+      let (domain, _) ← functorCategoryBundles functor
+      unless ← isDefEq domain (← source.bundle.inContext context) do
+        throwError "the independent classifier projection has a different source bundle"
+      let prefunctor ← mkAppM ``CategoryTheory.Functor.toPrefunctor #[functor]
+      let expected ← mkAppM ``Prefunctor.obj #[prefunctor, bindings[0]!.expression]
+      unless value.containsFVar bindings[0]!.expression.fvarId! && (← isDefEq value expected) do
+        throwError "the classifier view changed its actual declared projection or bound object"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let parameters ← empty.assume `X (← nativeSource "Type")
+  let image ← readSource parameters "view X along «fun.sets.list»"
+  let some entry := (← semanticState).functor? FunctorId.setsList
+    | throwError "the explicitly selected source context is absent"
+  reference image ``EdgeRef.functor entry.id.raw entry.declaration
+  image.source.withOpen fun bindings value => do
+    unless value.containsFVar bindings[0]!.expression.fvarId! do
+      throwError "the explicit source context replaced its actual formal object"
