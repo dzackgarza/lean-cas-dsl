@@ -75,7 +75,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let reference ← nativeSyntax "point"
   let applied ← session.apply reference.raw function #[width, point]
   applied.source.withOpen fun bindings expression => do
-    unless ← isDefEq (← inferType expression) (mkApp (Lean.mkConst ``Fin) bindings[0]!.expression) do
+    let expected := mkApp (Lean.mkConst ``Fin) bindings[0]!.expression
+    unless ← isDefEq (← inferType expression) expected do
       throwError "direct source application changed the dependent result type"
     unless ← isDefEq expression bindings[1]!.expression do
       throwError "direct source application changed its actual source argument"

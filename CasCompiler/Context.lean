@@ -2,6 +2,7 @@ module
 
 public import Lean.Meta.Basic
 public import Lean.Meta.Check
+public import Lean.Meta.Coe
 public import Lean.Util.CollectLevelParams
 
 @[expose] public section
@@ -181,5 +182,20 @@ opaque ClosedTerm.inContext (term : ClosedTerm) (target : OpenContext) : MetaM E
   unless ← isDefEq (← inferType expression) (term.type.instantiateRev locals) do
     throwError "context transport changed the captured result type"
   return expression
+
+/-- Apply complete source arguments in the current native scope, including callable coercions.
+Reuse: ClosedTerm.inContext, Lean.Meta.coerceToFunction? and Lean.mkAppN at v4.33.0.
+Callers close the resulting expression through the checked source publication boundary. -/
+opaque OpenContext.apply (context : OpenContext) (function : ClosedTerm)
+    (arguments : Array ClosedTerm) : MetaM Expr := do
+  let expression ← function.inContext context
+  let expression ← if (← whnf (← inferType expression)).isForall then
+      pure expression
+    else do
+      let some coerced ← coerceToFunction? expression
+        | throwError "source application requires a callable interface"
+      pure coerced
+  let arguments ← arguments.mapM (·.inContext context)
+  return mkAppN expression arguments
 
 end CasCompiler

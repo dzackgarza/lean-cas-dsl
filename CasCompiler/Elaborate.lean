@@ -156,4 +156,11 @@ opaque SourceSession.defineTerm (session : SourceSession) (name : Name) (term : 
     let context ← ContextTelescope.capture bindings
     defineIn session context name (← term.source.inContext context) term.span
 
+/-- Form ordinary native application from retained checked function and argument sources.
+Reuse: OpenContext.apply, also used by SourceLayout.applyIn, with complete argument order. -/
+opaque SourceSession.apply (session : SourceSession) (reference : Syntax) (function : SourceTerm)
+    (arguments : Array SourceTerm) : TermElabM SourceTerm :=
+  session.elaborate reference fun context => do
+    context.apply function.source (arguments.map (·.source))
+
 end CasCompiler

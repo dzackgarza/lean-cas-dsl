@@ -2,7 +2,6 @@ module
 
 public import CasCompiler.Context
 public import Lean.Meta.Structure
-public import Lean.Meta.Coe
 public import Lean.Util.CollectFVars
 
 @[expose] public section
@@ -146,14 +145,6 @@ opaque SourceLayout.inContext (layout : SourceLayout) (context : OpenContext) : 
 Arguments are checked source terms; computational candidates enter through the runtime. -/
 opaque SourceLayout.applyIn (function : SourceLayout) (context : OpenContext)
     (arguments : Array ClosedTerm) : MetaM SourceLayout := do
-  let expression ← function.source.inContext context
-  let expression ← if (← whnf (← inferType expression)).isForall then
-      pure expression
-    else do
-      let some coerced ← coerceToFunction? expression
-        | throwError "source application requires a callable interface"
-      pure coerced
-  let arguments ← arguments.mapM (·.inContext context)
-  sourceLayout (← context.close (mkAppN expression arguments)) function.address
+  sourceLayout (← context.close (← context.apply function.source arguments)) function.address
 
 end CasCompiler
