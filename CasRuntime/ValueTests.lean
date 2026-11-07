@@ -74,7 +74,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let otherProgram ← other.identities.fresh .program
     let otherOccurrence ← other.identities.fresh .occurrence
     let (otherGraph, foreign) ← (ValueGraph.empty other.identities).stage other.identities
-      { program := otherProgram, occurrence := otherOccurrence, role } (.portable bytes)
+      { program := otherProgram, occurrence := otherOccurrence, role, parameters := #[] } (.portable bytes)
     let rejected ← try
       discard <| graph.stage supply origin (.product #[foreign])
       pure false

@@ -97,7 +97,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
     let occurrence ← liftM (m := BaseIO) ledger.allocate
     let value ← liftM (m := IO) <| transaction.stage
-      { program, occurrence, role } (.portable "cell payload".toUTF8)
+      { program, occurrence, role, parameters := #[] } (.portable "cell payload".toUTF8)
     liftM (m := IO) <| transaction.emit (.str "cell output")
     let staged ← liftM (m := IO) transaction.view
     unless (staged.find value.value).isSome do
@@ -129,7 +129,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let .ok _ ← liftM (m := BaseIO) <| aborted.reserve pending selected child #[]
         | throwError "the transaction could not reserve its invocation"
       let discarded ← liftM (m := IO) <| aborted.stage
-        { program, occurrence := pending, role } (.portable "discarded payload".toUTF8)
+        { program, occurrence := pending, role, parameters := #[] } (.portable "discarded payload".toUTF8)
       liftM (m := IO) <| aborted.emit (.str "discarded output")
       match ← aborted.commit with
       | .error .pendingCalls => pure ()
@@ -176,7 +176,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         child.child.stdin.flush
         return (← child.child.stdout.getLine).trimAscii.toString
       let value ← liftM (m := IO) <| producer.stage
-        { program, occurrence, role } (.ownedExport child token #[])
+        { program, occurrence, role, parameters := #[] } (.ownedExport child token #[])
       let .ok _ ← producer.commit | throwError "the original owned value could not commit"
       let consumer ← CellTransaction.begin ledger
       liftM (m := IO) <| consumer.retain value
@@ -191,7 +191,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let independent ← CellTransaction.begin ledger
       let occurrence ← liftM (m := BaseIO) ledger.allocate
       let portable ← liftM (m := IO) <| independent.stage
-        { program, occurrence, role } (.portable "independent result".toUTF8)
+        { program, occurrence, role, parameters := #[] } (.portable "independent result".toUTF8)
       let .ok published ← independent.commit
         | throwError "a dead prior owner blocked an independent portable result"
       unless (published.graph.find portable.value).isSome do
@@ -212,10 +212,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
     let firstOccurrence ← liftM (m := BaseIO) ledger.allocate
     let firstValue ← liftM (m := IO) <| first.stage
-      { program, occurrence := firstOccurrence, role } (.portable "first cell".toUTF8)
+      { program, occurrence := firstOccurrence, role, parameters := #[] } (.portable "first cell".toUTF8)
     let secondOccurrence ← liftM (m := BaseIO) ledger.allocate
     let secondValue ← liftM (m := IO) <| second.stage
-      { program, occurrence := secondOccurrence, role } (.portable "second cell".toUTF8)
+      { program, occurrence := secondOccurrence, role, parameters := #[] } (.portable "second cell".toUTF8)
     let .ok _ ← first.commit | throwError "the first cell could not commit"
     match ← second.commit with
     | .error .staleSnapshot => pure ()
@@ -234,7 +234,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         return (← child.child.stdout.getLine).trimAscii.toString
       let occurrence ← liftM (m := BaseIO) ledger.allocate
       let value ← liftM (m := IO) <| owned.stage
-        { program, occurrence, role } (.ownedExport child token #[])
+        { program, occurrence, role, parameters := #[] } (.ownedExport child token #[])
       liftM (m := IO) <| owners.close child.generation
       match ← owned.commit with
       | .error .staleOwner => pure ()

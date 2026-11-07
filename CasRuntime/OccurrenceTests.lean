@@ -69,7 +69,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         let token := (← captureOwner.child.stdout.getLine).trimAscii.toString
         let program ← owners.identities.fresh .program
         let (capturedGraph, captured) ← graph.stage owners.identities
-          { program, occurrence := second, role } (.ownedExport captureOwner token #[])
+          { program, occurrence := second, role, parameters := #[] } (.ownedExport captureOwner token #[])
         let .ok reserved ← ledger.reserve second unrelated choice child capturedGraph #[captured]
           | throw <| IO.userError "the live captured argument could not reserve"
         owners.close captureOwner.generation

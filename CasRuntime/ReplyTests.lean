@@ -16,7 +16,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let produced ← ledger.allocate
     let transaction ← owners.identities.fresh .transaction
     let (graph, input) ← (ValueGraph.empty owners.identities).stage owners.identities
-      { program, occurrence := produced, role } (.portable "retained input".toUTF8)
+      { program, occurrence := produced, role, parameters := #[] } (.portable "retained input".toUTF8)
     let child ← owners.spawn { cmd := "/bin/cat" }
     try
       child.child.stdin.putStr "returned export token\n"

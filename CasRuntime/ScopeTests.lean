@@ -20,7 +20,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let transaction ← owners.identities.fresh .transaction
     let producerOccurrence ← ledger.allocate
     let (graph, original) ← (ValueGraph.empty owners.identities).stage owners.identities
-      { program, occurrence := producerOccurrence, role } (.portable "scope payload".toUTF8)
+      { program, occurrence := producerOccurrence, role, parameters := #[] } (.portable "scope payload".toUTF8)
     let retained ← IO.ofExcept <| (graph.rebind original fieldRole).mapError IO.userError
     let child ← owners.spawn { cmd := "/bin/cat" }
     try
