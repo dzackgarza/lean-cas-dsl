@@ -93,6 +93,29 @@ partial def readExpression
       NativeSourceJudgement)
   let judgement ← if let some name := sourceAtomName? source then object name qualification #[]
     else match source with
+    | `(cas_term| $number:num in $domain:cas_term using ($evidence:cas_term,*)) => do
+      let domain ← readExpression categoryOf domain none
+      let some category := domain.category
+        | throwError "source numeral evidence requires a selected domain object"
+      unless category.role == .object do
+        throwError "source numeral evidence requires a domain object"
+      discard <| getLevel domain.value
+      if let some expected := expected then
+        let state ← CasCatalogue.semanticState
+        let supplied ← sourceDomain domain.value
+        let required ← sourceDomain expected
+        let suppliedOwners := state.objects.filter fun entry =>
+          supplied.getAppFn.constName? == some entry.declaration
+        let requiredOwners := state.objects.filter fun entry =>
+          required.getAppFn.constName? == some entry.declaration
+        if !suppliedOwners.isEmpty && !requiredOwners.isEmpty then
+          unless suppliedOwners.any fun left => requiredOwners.any (·.id == left.id) do
+            throwError "the supplied numeral domain differs from the consuming source domain"
+      let proofs ← evidence.getElems.mapM fun evidence => do
+        let `(cas_term| proof($body:term)) := evidence
+          | throwError "source numeral evidence requires the explicit proof wrapper"
+        pure body
+      pure ⟨← sourceNumeral categoryOf number.getNat domain.value proofs, none⟩
     | `(cas_term| view $receiver:cas_term along $functor:ident) =>
       readFunctorAction .object receiver functor #[]
     | `(cas_term| view $receiver:cas_term along $functor:ident($arguments:cas_term,*)) =>

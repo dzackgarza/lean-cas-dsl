@@ -80,6 +80,13 @@ opaque categoryIdentity (category : Expr) : MetaM Expr := do
   let categoryStructure ← mkAppM ``CategoryTheory.Bundled.str #[category]
   mkAppOptM ``CategoryTheory.Functor.id #[some carrier, some categoryStructure]
 
+/-- Inspect the source head of original native definitions. Uses retain their actual references. -/
+partial def sourceDomain (value : Expr) : MetaM Expr := do
+  let value := value.headBeta.consumeMData
+  if let .fvar id := value then
+    if let some definition := (← id.getDecl).value? then return ← sourceDomain definition
+  return value
+
 /-- Attach only a supplied category bundle, checked at the complete retained source type.
 Reuse: native Bundled.α and stable-ID context transport. Category identity is supplied by
 source selection, never inferred from a carrier type. Source: #66, comment 6664276482 §1. -/

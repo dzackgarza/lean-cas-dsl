@@ -1,7 +1,6 @@
 module
 
 public import CasCompiler.Surface
-import Lean.Meta.Tactic.Assumption
 
 public section
 
@@ -14,17 +13,7 @@ private inductive NumeralContext where
   | selected (value : Expr)
   | refinement (entry : ObjectEntry)
 
--- Inspect original native definitions for their source identity. The returned point still
--- uses the original expected expression, including its lexical references.
-private partial def sourceDomain (value : Expr) : MetaM Expr := do
-  let value := value.headBeta.consumeMData
-  if let .fvar id := value then
-    if let some definition := (← id.getDecl).value? then return ← sourceDomain definition
-  return value
-
 private def numeralProof (proposition : Expr) : MetaM (Option Expr) := do
-  if let some hypothesis ← findLocalDeclWithType? proposition then
-    return some (mkFVar hypothesis)
   if proposition.isAppOfArity ``Eq 3 then
     let arguments := proposition.getAppArgs
     if ← withoutModifyingState <| isDefEq arguments[1]! arguments[2]! then
@@ -36,27 +25,35 @@ private def numeralProof (proposition : Expr) : MetaM (Option Expr) := do
 
 -- Resolve only proof and instance fields, in declaration order. All mathematical data
 -- parameters must already come from the actual domain, literal or selected structure.
-private def completePointParameters (arguments : Array Expr) (binders : Array BinderInfo) :
-    TermElabM Bool := do
+private def completePointParameters (arguments : Array Expr) (binders : Array BinderInfo)
+    (proofs : Array Term) (start : Nat) : TermElabM (Option Nat) := do
+  let mut proofIndex := start
   for argument in arguments, binder in binders do
     unless (← instantiateMVars argument).hasMVar do continue
     let type ← instantiateMVars (← inferType argument)
-    let value ← if binder.isInstImplicit then synthInstance type
-      else if ← isProp type then do
-        let some proof ← numeralProof type | return false
-        pure proof
-      else throwSemanticAmbiguity "the source numeral requires an actual declaration parameter"
-    unless ← isDefEq argument value do return false
-  return true
+    if binder.isInstImplicit then
+      unless ← isDefEq argument (← synthInstance type) do return none
+    else if ← isProp type then
+      let proof ← if proofs.isEmpty then do
+          let some proof ← numeralProof type | return none
+          pure proof
+        else do
+          let some evidence := proofs[proofIndex]?
+            | throwError "the source numeral requires explicit evidence for its domain obligation"
+          proofIndex := proofIndex + 1
+          elabTermEnsuringType evidence (some type)
+      unless ← isDefEq argument proof do return none
+    else throwSemanticAmbiguity "the source numeral requires an actual declaration parameter"
+  return some proofIndex
 
 /-- Form only the source's actual point map, with its actual refinement comparison.
 Reuse: NumeralEntry's last natural parameter and explicit proof obligations;
 ObjectRefinement's checked shared telescope and directed identification. -/
 private def numeralCandidate (row : NumeralEntry) (context : NumeralContext)
-    (number : Nat) (expected : Expr) : TermElabM (Option Expr) := do
-  let (object, comparison) ← match context with
-    | .direct => pure (none, none)
-    | .selected value => pure (some value, none)
+    (number : Nat) (expected : Expr) (proofs : Array Term) : TermElabM (Option Expr) := do
+  let (object, comparison, proofIndex) ← match context with
+    | .direct => pure (none, none, 0)
+    | .selected value => pure (some value, none, 0)
     | .refinement entry => do
       let some refinement := entry.refines
         | throwError "a source numeral refinement has no declared comparison"
@@ -69,8 +66,8 @@ private def numeralCandidate (row : NumeralEntry) (context : NumeralContext)
       unless type.isAppOfArity ``CategoryTheory.Iso 4 do
         throwError "a source numeral refinement requires its complete native isomorphism"
       unless ← isDefEq type.getAppArgs[3]! expected do return none
-      unless ← completePointParameters parameters binders do return none
-      pure (some (mkAppN declaration parameters), some comparison)
+      let some proofIndex ← completePointParameters parameters binders proofs 0 | return none
+      pure (some (mkAppN declaration parameters), some comparison, proofIndex)
   let declaration ← mkConstWithFreshMVarLevels row.declaration
   let (arguments, binders, type) ← forallMetaTelescopeReducing (← inferType declaration)
   unless type.isAppOfArity ``Quiver.Hom 4 do
@@ -100,7 +97,9 @@ private def numeralCandidate (row : NumeralEntry) (context : NumeralContext)
     let proposition ← instantiateMVars (← inferType arguments[index]!)
     unless ← isProp proposition do
       throwError "a registered numeral's trailing obligations must be propositions"
-  unless ← completePointParameters arguments binders do return none
+  let some proofIndex ← completePointParameters arguments binders proofs proofIndex | return none
+  unless proofIndex == proofs.size do
+    throwError "the source numeral has evidence beyond its declared domain obligations"
   let point ← instantiateMVars (mkAppN declaration arguments)
   if point.hasMVar || point.hasLevelMVar then
     throwError "the registered source numeral is not determined at its complete boundary"
@@ -127,8 +126,10 @@ Nat parameters use the kernel's natural literal. Point domains retain their orig
 object identity; refinements require the actual registered object and directed comparison.
 Source: Registry.Entry.NumeralEntry and ObjectRefinement, LC-15; #66 source intake contract. -/
 opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
-    (number : Nat) (expected : Expr) : TermElabM Expr := do
-  if expected.headBeta.isConstOf ``Nat then return mkNatLit number
+    (number : Nat) (expected : Expr) (proofs : Array Term := #[]) : TermElabM Expr := do
+  if expected.headBeta.isConstOf ``Nat then
+    unless proofs.isEmpty do throwError "a natural parameter literal has no domain obligations"
+    return mkNatLit number
   let state ← semanticState
   let domain ← sourceDomain expected
   let bases := state.objects.filter fun entry =>
@@ -183,14 +184,14 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
   let mut admitted := #[]
   for (row, context) in candidates do
     let applicable ← withoutModifyingState do
-      return (← numeralCandidate row context number expected).isSome
+      return (← numeralCandidate row context number expected proofs).isSome
     if applicable then
       admitted := admitted.push (row, context)
   let #[(row, context)] := admitted
     | if admitted.isEmpty then
         throwError "no declared source point numeral was admitted in the supplied domain"
       else throwSemanticAmbiguity "several declared source point numerals apply in this domain"
-  let some value ← numeralCandidate row context number expected
+  let some value ← numeralCandidate row context number expected proofs
     | throwError "the selected source numeral changed its admitted boundary"
   return value
 

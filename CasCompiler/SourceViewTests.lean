@@ -304,11 +304,27 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let hypotheses ← dimensions.assume `h (← nativeSource "2 < n")
   let functions ← hypotheses.define `f
     (← nativeSource "fun (x : CasCatalogue.Foundation.Objects.fin n) => x")
-  let value ← readSource functions "f(2)"
+  let value ← readSource functions "f(2 in Fin(n) using (proof(h)))"
   value.source.withOpen fun bindings value => do
     unless value.containsFVar bindings[0]!.expression.fvarId! &&
         value.containsFVar bindings[1]!.expression.fvarId! do
       throwError "a source point lost its actual dimension or formal domain premise"
+  for source in #[
+      "f(2 in Fin(n) using (proof(True.intro)))",
+      "f(2 in Fin(n) using (proof(h), proof(h)))",
+      "f(2 in Fin(n) using (h))"] do
+    let rejected ← try
+      discard <| readSource functions source
+      pure false
+    catch _ => pure true
+    unless rejected do throwError "source point evidence bypassed its declared proof boundary"
+  let modular ← empty.define `f
+    (← nativeSource "fun (x : CasCatalogue.Foundation.Objects.integersMod 3) => x")
+  let rejected ← try
+    discard <| readSource modular "f(2 in Fin(3) using (proof(by decide)))"
+    pure false
+  catch _ => pure true
+  unless rejected do throwError "explicit point evidence changed the consuming source domain"
 
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
