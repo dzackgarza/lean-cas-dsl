@@ -42,10 +42,15 @@ def RuntimeEnvironment.lookup (environment : RuntimeEnvironment) (source : Bindi
     if entry.id == source then return value
   throw "the runtime binding identity is outside its source telescope"
 
+private def sameReference (original current : ValueBinding) : Bool :=
+  original.value == current.value &&
+    original.instantiations.map (·.id) == current.instantiations.map (·.id)
+
 /-- Associate existing nodes by stable source identity, native type and retained type dependencies.
 Check the complete table before comparing each actual producing dependency with its current
 binding. Reuse: ClosedTerm.inContext, Lean.Meta.isDefEq and SourceLayout.contextDependencies.
-Whole-reply admission and consuming record qualifiers remain separate checks. -/
+Consuming field dependencies use their actual source projections and retained prefix references.
+Whole-reply admission remains a separate check. -/
 opaque RuntimeEnvironment.capture (worker : String) (context : OpenContext)
     (parameters : Array RuntimeParameter) : MetaM RuntimeEnvironment := do
   if worker.isEmpty then throwError "runtime association requires an actual worker identity"
@@ -77,9 +82,28 @@ opaque RuntimeEnvironment.capture (worker : String) (context : OpenContext)
       if let some original := original then
         let some current := supplied[dependency.id]?
           | throwError "the runtime value is missing a retained dependent reference"
-        unless original.value == current.value &&
-            original.instantiations.map (·.id) == current.instantiations.map (·.id) do
+        unless sameReference original current do
           throwError "the runtime value has a different retained dependent reference"
+    let some source := context.bindings.find? (·.id == parameter.source)
+      | throwError "a consuming runtime binding is outside its source telescope"
+    let dependencies ← CasCompiler.contextDependencies context.bindings (← inferType source.expression)
+    for instantiation in parameter.value.instantiations do
+      for index in instantiation.field.precedingDependencies do
+        let some previous := instantiation.preceding[index]?
+          | throwError "a consuming runtime dependency is outside its complete field prefix"
+        if let some original := previous then
+          let some prepared := instantiation.association.layout.fields[index]?
+            | throwError "a consuming runtime dependency is outside its source record"
+          let formal ← prepared.field.source.inContext context
+          for index in dependencies do
+            let some dependency := context.bindings[index]?
+              | throwError "a consuming runtime dependency is outside its current source telescope"
+            if ← isDefEq (← inferType dependency.expression) (← inferType formal) <&&>
+                isDefEq dependency.expression formal then
+              let some current := supplied[dependency.id]?
+                | throwError "the runtime value is missing a consuming dependent reference"
+              unless sameReference original current do
+                throwError "the runtime value has a different consuming dependent reference"
   let values := context.bindings.map fun binding => supplied[binding.id]?
   return ⟨worker, context.telescope, values⟩
 

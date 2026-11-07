@@ -48,7 +48,7 @@ structure SourceLayout where
 /-- Close result-type dependencies through local types and definitions, in source order.
 Reuse: Lean.collectFVars and LocalDecl.value?; the complete telescope stays in source.
 Reference: Lean/Util/CollectFVars.lean and Lean/LocalContext.lean at v4.33.0. -/
-private def contextDependencies (bindings : Array LocalBinding) (type : Expr) : MetaM (Array Nat) := do
+def contextDependencies (bindings : Array LocalBinding) (type : Expr) : MetaM (Array Nat) := do
   let mut variables := collectFVars {} type
   let mut needed : Array Nat := #[]
   for index in (List.range bindings.size).reverse do
