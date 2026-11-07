@@ -8,6 +8,41 @@ meta import CasContract.Port
 
 open Lean Meta CasCompiler CasRuntime
 
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let original ← getEnv
+  try
+    let context ← ContextTelescope.capture #[]
+    let function ← SourceLayout.ofTerm (← context.close (mkConst ``Nat.add))
+    let scalar ← SourceLayout.ofTerm (← context.close (mkNatLit 7))
+    let owners ← liftM (m := IO) OwnerRegistry.new
+    let ledger ← liftM (m := BaseIO) (OccurrenceLedger.new owners)
+    discard <| SessionSnapshot.initialize owners
+    let transaction ← CellTransaction.begin ledger
+    let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+    let occurrence ← liftM (m := BaseIO) ledger.allocate
+    let callable ← liftM (m := IO) <| transaction.stage
+      { program, occurrence, role := function, parameters := #[] } (.closure program #[])
+    let number ← liftM (m := IO) <| transaction.stage
+      { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
+    let graph ← liftM (m := IO) transaction.view
+    let .ok argument := RuntimeArgument.ofValue graph 0 number
+      | throwError "the admitted argument is outside its graph"
+    let request ← PreparedRequest.forApplication program occurrence context callable
+      #[← context.close (mkNatLit 7), ← context.close (mkNatLit 7)] #[argument] #[]
+    let executor : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
+      fun _ _ => throwError "an incomplete role map reached effect execution"
+    let failure : Option Exception ← try
+      discard <| Execute.run executor
+        (PFunctor.FreeM.lift (P := OperationalSignature) request) transaction
+      pure none
+    catch error => pure (some error)
+    let some failure := failure | throwError "an incomplete input role map became executable"
+    unless (← failure.toMessageData.toString).startsWith
+        "a demanded computational argument role has no actual binding" do throw failure
+    unless (← liftM (m := BaseIO) transaction.activeGraph).isNone do
+      throwError "failed role-map admission retained a publishable cell"
+  finally setEnv original
+
 private def unavailableExecutor (request : PreparedRequest) (_ : CellTransaction) :
     MetaM (CandidateResponse request.source × CellTransaction) :=
   throwError "unavailable: this control has no external execution registration"
