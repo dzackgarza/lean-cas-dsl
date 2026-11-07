@@ -133,6 +133,30 @@ run_cmd Lean.Elab.Command.liftTermElabM do
               throwError "staging recovered a producing parameter outside the visible graph"
             let (graph, indexed) ← liftM (m := IO) <| graph.stage owners.identities origin
               (.portable "candidate".toUTF8)
+            let (graph, anotherIndex) ← liftM (m := IO) <| graph.stage owners.identities
+              { program, occurrence, role := scalar, parameters := #[] }
+              (.portable "7".toUTF8)
+            let .ok indexedParameter := RuntimeParameter.ofValue graph bindings[3]!.id indexed
+              | throwError "the actual dependent value is absent"
+            let .ok originalIndex := RuntimeParameter.ofValue graph bindings[0]!.id number
+              | throwError "the original actual index is absent"
+            let .ok changedIndex := RuntimeParameter.ofValue graph bindings[0]!.id anotherIndex
+              | throwError "the other actual index is absent"
+            let retained ← RuntimeEnvironment.capture owners.worker context
+              #[indexedParameter, originalIndex]
+            unless (retained.lookup bindings[3]!.id).toOption.flatten.map (·.value) ==
+                some indexed.value do
+              throwError "dependent runtime association replaced the original result"
+            let failure : Option Exception ← try
+              discard <| RuntimeEnvironment.capture owners.worker context
+                #[indexedParameter, changedIndex]
+              pure none
+            catch error => pure (some error)
+            let some failure := failure
+              | throwError "dependent runtime association accepted another actual index reference"
+            unless (← failure.toMessageData.toString).startsWith
+                "the runtime value has a different retained dependent reference" do
+              throw failure
             let (graph, plain) ← liftM (m := IO) <| graph.stage owners.identities independentOrigin
               (.portable "0".toUTF8)
             let some plainNode := graph.find plain.value
