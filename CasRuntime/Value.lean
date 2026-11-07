@@ -24,19 +24,20 @@ Source: the data model's ResultBinding and dependency-ordered DataInterface cont
 inductive ValueBinding where
   | private direct (value : RuntimeId .value) (role : SourceLayout)
   | private atRole (binding : ValueBinding) (role : SourceLayout)
-  | private inField (binding : ValueBinding) (role : SourceLayout)
+  | private inField (id : RuntimeId .association) (binding : ValueBinding) (role : SourceLayout)
       (association : RecordAssociation) (field : FieldLayout)
       (preceding : Array (Option ValueBinding))
 
 def ValueBinding.value : ValueBinding → RuntimeId .value
   | .direct value _ => value
-  | .atRole binding _ | .inField binding .. => binding.value
+  | .atRole binding _ | .inField _ binding .. => binding.value
 
 def ValueBinding.role : ValueBinding → SourceLayout
-  | .direct _ role | .atRole _ role | .inField _ role .. => role
+  | .direct _ role | .atRole _ role | .inField _ _ role .. => role
 
 structure FieldInstantiation where
   private mk ::
+  id : RuntimeId .association
   association : RecordAssociation
   field : FieldLayout
   preceding : Array (Option ValueBinding)
@@ -45,8 +46,8 @@ structure FieldInstantiation where
 def ValueBinding.instantiations : ValueBinding → Array FieldInstantiation
   | .direct .. => #[]
   | .atRole binding _ => binding.instantiations
-  | .inField binding _ association field preceding =>
-    binding.instantiations.push ⟨association, field, preceding⟩
+  | .inField id binding _ association field preceding =>
+    binding.instantiations.push ⟨id, association, field, preceding⟩
 
 structure ContainerSlot where
   path : Array InputPathStep
@@ -180,54 +181,82 @@ def ValueGraph.sameRevision (left right : ValueGraph) : Bool :=
 def ValueGraph.find (graph : ValueGraph) (id : RuntimeId .value) : Option ValueNode :=
   graph.nodes[id]?
 
-private partial def ValueGraph.require (graph : ValueGraph) (binding : ValueBinding) :
+/-- Visit immutable instantiation identities, retaining distinct roles on aliased nodes.
+Reuse: Std.HashSet and the same worker-monotone identities as runtime nodes. -/
+private partial def ValueGraph.checkBinding (graph : ValueGraph) (binding : ValueBinding)
+    (visited : Std.HashSet (RuntimeId .association)) :
+    Except String (Std.HashSet (RuntimeId .association)) := do
+  match binding with
+  | .direct value _ =>
+    unless (graph.find value).isSome do throw "the value reference is outside the visible graph"
+    return visited
+  | .atRole underlying _ => graph.checkBinding underlying visited
+  | .inField id underlying _ association field preceding =>
+    if visited.contains id then return visited
+    unless id.worker == graph.worker && association.id.worker == graph.worker &&
+        field.sourceIndex == preceding.size do
+      throw "the field association has a foreign worker or incomplete source prefix"
+    let mut visited ← graph.checkBinding underlying (visited.insert id)
+    for previous in preceding do
+      if let some previous := previous then visited ← graph.checkBinding previous visited
+    return visited
+
+private def ValueGraph.require (graph : ValueGraph) (binding : ValueBinding) :
     Except String ValueNode := do
+  discard <| graph.checkBinding binding {}
   let some node := graph.find binding.value
     | throw "the value reference is outside the visible graph"
-  match binding with
-  | .direct .. => pure ()
-  | .atRole underlying _ => discard <| graph.require underlying
-  | .inField underlying _ association field preceding =>
-    unless association.id.worker == graph.worker && field.sourceIndex == preceding.size do
-      throw "the field association has a foreign worker or incomplete source prefix"
-    discard <| graph.require underlying
-    for previous in preceding do
-      if let some previous := previous then discard <| graph.require previous
   return node
 
-private partial def ValueGraph.bindingOwners (graph : ValueGraph) (binding : ValueBinding) :
-    Except String (Array ConnectionGeneration) := do
-  let node ← graph.require binding
+private structure BindingOwners where
+  instantiations : Std.HashSet (RuntimeId .association) := {}
+  values : Std.HashSet (RuntimeId .value) := {}
+  generations : Std.HashSet ConnectionGeneration := {}
+  owners : Array ConnectionGeneration := #[]
+
+private partial def ValueGraph.bindingOwners (graph : ValueGraph) (binding : ValueBinding)
+    (state : BindingOwners) : Except String BindingOwners := do
   match binding with
-  | .direct .. => return node.owners
-  | .atRole underlying _ => graph.bindingOwners underlying
-  | .inField underlying _ _ field preceding =>
-    let mut owners ← graph.bindingOwners underlying
+  | .direct value _ =>
+    if state.values.contains value then return state
+    let some node := graph.find value
+      | throw "the value reference is outside the visible graph"
+    let mut state := { state with values := state.values.insert value }
+    for owner in node.owners do
+      unless state.generations.contains owner do
+        state := { state with generations := state.generations.insert owner,
+          owners := state.owners.push owner }
+    return state
+  | .atRole underlying _ => graph.bindingOwners underlying state
+  | .inField id underlying _ _ field preceding =>
+    if state.instantiations.contains id then return state
+    let mut state ← graph.bindingOwners underlying
+      { state with instantiations := state.instantiations.insert id }
     for index in field.precedingDependencies do
       let some previous := preceding[index]?
         | throw "the dependent field is missing a preceding source position"
       if let some previous := previous then
-        owners := owners ++ (← graph.bindingOwners previous)
-    return owners
+        state ← graph.bindingOwners previous state
+    return state
 
 /-- Derive dependencies from visible nodes, rather than accepting owner claims from a reply. -/
 opaque ValueGraph.requiredOwners (graph : ValueGraph) (bindings : Array ValueBinding) :
     Except String (Array ConnectionGeneration) := do
-  let mut owners : Array ConnectionGeneration := #[]
-  let mut seen : Std.HashSet ConnectionGeneration := {}
+  let mut visible : Std.HashSet (RuntimeId .association) := {}
   for binding in bindings do
-    for owner in ← graph.bindingOwners binding do
-      unless seen.contains owner do
-        seen := seen.insert owner
-        owners := owners.push owner
-  return owners
+    visible ← graph.checkBinding binding visible
+  let mut state : BindingOwners := {}
+  for binding in bindings do state ← graph.bindingOwners binding state
+  return state.owners
 
 /-- Retain the same node under an already prepared consuming role. -/
 opaque ValueGraph.rebind (graph : ValueGraph) (binding : ValueBinding) (role : SourceLayout) :
     Except String ValueBinding := do
   discard <| graph.require binding
   if role.kind == .proof then throw "a source proof has no computational value binding"
-  return .atRole binding role
+  return match binding with
+    | .atRole underlying _ => .atRole underlying role
+    | _ => .atRole binding role
 
 /-- Projection returns the stored field binding, independently of unrelated field owners. -/
 opaque ValueGraph.project (graph : ValueGraph) (binding : ValueBinding) (index : Nat) :
@@ -327,6 +356,7 @@ This is record storage, not a whole-reply admission or correctness witness. -/
 structure RecordPrefix where
   private mk ::
   association : RecordAssociation
+  private identities : IdentitySupply
   private selections : Array (Option ValueBinding)
 
 private def RecordPrefix.skipProofs (record : RecordPrefix) : RecordPrefix := Id.run do
@@ -344,20 +374,21 @@ opaque RecordPrefix.begin (supply : IdentitySupply) (program : RuntimeId .progra
   unless program.worker == supply.worker && occurrence.worker == supply.worker do
     throw <| IO.userError "record preparation belongs to a different worker"
   let association : RecordAssociation := ⟨← supply.fresh .association, program, occurrence, layout⟩
-  return RecordPrefix.skipProofs ⟨association, #[]⟩
+  return RecordPrefix.skipProofs ⟨association, supply, #[]⟩
 
 /-- Bind this same node at the next field and retain every preceding actual selection.
 Visibility checks include the whole prefix; owner requirements follow the declared dependencies.
 Reuse: CandidateResponse's operational shape check and ValueGraph reference validation. -/
 opaque RecordPrefix.bind (record : RecordPrefix) (graph : ValueGraph) (value : ValueBinding) :
-    Except String (RecordPrefix × ValueBinding) := do
+    IO (RecordPrefix × ValueBinding) := do
   let record := record.skipProofs
   let some prepared := record.association.layout.fields[record.selections.size]?
-    | throw "the complete record has no further computational field"
-  let candidate ← CandidateResponse.ofValue prepared.layout graph value
-  let binding := ValueBinding.inField candidate.root prepared.layout
+    | throw <| IO.userError "the complete record has no further computational field"
+  let candidate ← IO.ofExcept <|
+    (CandidateResponse.ofValue prepared.layout graph value).mapError IO.userError
+  let binding := ValueBinding.inField (← record.identities.fresh .association) candidate.root prepared.layout
     record.association prepared.field record.selections
-  discard <| graph.requiredOwners #[binding]
+  discard <| IO.ofExcept <| (graph.requiredOwners #[binding]).mapError IO.userError
   return (({ record with selections := record.selections.push (some binding) }).skipProofs, binding)
 
 /-- Finish only a complete ordered record; no component is installed in a transaction here. -/

@@ -37,8 +37,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let (graph, number) ← empty.stage supply { origin with role := scalarLayout }
         (.portable "8".toUTF8)
       let finite ← RecordPrefix.begin supply program occurrence pointLayout
-      let (finite, numeral) ← IO.ofExcept <|
-        (finite.bind graph number).mapError IO.userError
+      let (finite, numeral) ← finite.bind graph number
       let finitePayload ← IO.ofExcept <| finite.finish.mapError IO.userError
       let (withoutWidth, finiteRoot) ← graph.stage supply
         { origin with role := pointLayout.source } finitePayload
@@ -48,8 +47,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       match record.finish with
       | .error _ => pure ()
       | .ok _ => throw <| IO.userError "an incomplete dependent record became a complete payload"
-      let (record, first) ← IO.ofExcept <| (record.bind graph width).mapError IO.userError
-      let (record, second) ← IO.ofExcept <| (record.bind graph finiteRoot).mapError IO.userError
+      let (record, first) ← record.bind graph width
+      let (record, second) ← record.bind graph finiteRoot
       let payload ← IO.ofExcept <| record.finish.mapError IO.userError
       let (graph, root) ← graph.stage supply origin payload
       let selected ← IO.ofExcept <| (graph.project root 1).mapError IO.userError
@@ -67,8 +66,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless erased.field.sourceIndex == 0 && erased.preceding.isEmpty do
         throw <| IO.userError "proof erasure changed computational field positions"
       let proofRecord ← RecordPrefix.begin supply program occurrence proofLayout
-      let (proofRecord, dataField) ← IO.ofExcept <|
-        (proofRecord.bind graph number).mapError IO.userError
+      let (proofRecord, dataField) ← proofRecord.bind graph number
       discard <| IO.ofExcept <| proofRecord.finish.mapError IO.userError
       let some proofContext := dataField.instantiations.back?
         | throw <| IO.userError "the data field after a proof lost its instantiation"
@@ -76,8 +74,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           proofContext.preceding[0]?.map (·.isNone) == some true do
         throw <| IO.userError "an erased proof displaced a later data field's formal source position"
       let again ← RecordPrefix.begin supply program occurrence recordLayout
-      let (again, _) ← IO.ofExcept <| (again.bind graph width).mapError IO.userError
-      let (again, reused) ← IO.ofExcept <| (again.bind graph second).mapError IO.userError
+      let (again, _) ← again.bind graph width
+      let (again, reused) ← again.bind graph second
       let againPayload ← IO.ofExcept <| again.finish.mapError IO.userError
       let (graph, againRoot) ← graph.stage supply origin againPayload
       let projectedAgain ← IO.ofExcept <| (graph.project againRoot 1).mapError IO.userError
@@ -105,7 +103,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throw <| IO.userError "a dependent field survived loss of a required prefix owner"
       unless ← graph.isAvailable owners numeral do
         throw <| IO.userError "an independent portable field acquired an unrelated owner"
-      match record.bind graph number with
-      | .error _ => pure ()
-      | .ok _ => throw <| IO.userError "a completed record accepted an extra field"
+      let rejected ← try
+        discard <| record.bind graph number
+        pure false
+      catch _ => pure true
+      unless rejected do throw <| IO.userError "a completed record accepted an extra field"
     finally owners.close child.generation
