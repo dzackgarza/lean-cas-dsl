@@ -78,6 +78,7 @@ import all CasRuntime.ReplyTests
 import all CasRuntime.ProtocolTests
 import all CasRuntime.Transport
 import all CasRuntime.TransportTests
+import all CasRuntime.SDKTests
 import all CasContract
 import all CasContract.Failure
 import all CasContract.Port
