@@ -3,10 +3,12 @@ module
 import CasCompiler.Resolve
 import LeanCategories.Catalogue.Semantics.Modules.Operations
 import LeanCategories.Catalogue.Semantics.Algebra.NamedRings
+import LeanCategories.Catalogue.Semantics.Algebra.MonoidOperationAgreement
 public meta import Lean.Elab.Command
 meta import CasCompiler.Resolve
 meta import LeanCategories.Catalogue.Semantics.Modules.Operations
 meta import LeanCategories.Catalogue.Semantics.Algebra.NamedRings
+meta import LeanCategories.Catalogue.Semantics.Algebra.MonoidOperationAgreement
 
 open Lean Meta Elab Term CasCompiler CasCatalogue
 
@@ -48,6 +50,24 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     catch _ => pure true
     unless rejected do
       throwError "operation preparation silently specialized an incompatible rigid universe"
+  let commutative ← session.categoryFamily Syntax.missing "CommutativeRings" [.zero]
+  let inherited ← SourceRoutes.forOperation commutative.expression "·"
+  let some traces := inherited.language.grammar.finiteWords
+    | throwError "the imported finite operation routes became infinite"
+  unless !traces.isEmpty do throwError "the actual inherited operation route control is absent"
+  let mut nonemptyRoute := false
+  for trace in traces do
+    let families ← inherited.operationFamilies session Syntax.missing trace commutative
+    unless !families.isEmpty do throwError "an actual first-hit binding lost its whole family"
+    for family in families do
+      nonemptyRoute := nonemptyRoute || !family.route.steps.isEmpty
+      family.term.source.withOpen fun _ expression => do
+        lambdaTelescope expression fun parameters body => do
+          unless !parameters.isEmpty && parameters.all (·.isFVar) &&
+              body.getUsedConstants.contains family.binding.declaration &&
+              (← whnfR (← inferType body)).isAppOf ``Quiver.Hom do
+            throwError "an inherited operation lost its generic object or original declaration"
+  unless nonemptyRoute do throwError "the operation control did not use its actual structural route"
   let modules ← session.categoryFamily Syntax.missing "Modules" (← levels "Modules")
   let state ← semanticState
   let some constructor := state.constructors.find? (·.functorialAction.isSome)
