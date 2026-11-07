@@ -19,7 +19,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let (graph, truthData) ← liftM (m := IO) <| graph.stage owners.identities
     { program, occurrence, role := boolean } (.portable "true".toUTF8)
   withLocalDeclD `n (mkConst ``Nat) fun n =>
-    withLocalDeclD `m (mkConst ``Nat) fun m =>
+    withLocalDeclD `m (mkConst ``Nat) fun m => do
       withLocalDeclD `h (← mkEq n n) fun h =>
         withLetDecl `k (mkConst ``Nat) n fun k =>
           withLocalDecl `chosen .instImplicit

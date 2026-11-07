@@ -44,6 +44,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let applicationOccurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
     let application ← PreparedRequest.forApplication program applicationOccurrence context
       response.root #[argument] #[scalar]
+    let .ok (some supplied) := application.environment.lookup ⟨"value-request", 0⟩
+      | throwError "the prepared application lost a supplied source binding"
+    unless supplied.value == scalar.value && application.environment.values.size == 1 do
+      throwError "the prepared runtime environment changed its source/value correspondence"
     let some preparedRecord := application.record
       | throwError "the dependent application did not prepare its complete result record"
     unless preparedRecord.fields.size == 2 &&
