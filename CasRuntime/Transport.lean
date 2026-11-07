@@ -107,21 +107,23 @@ opaque FramedConnection.invoke (wire : FramedConnection) (ledger : OccurrenceLed
         invocationFrame reservation scope lease.requestId arguments
     catch error =>
       wire.close
-      discard <| transaction.abort
+      let failure := PortError.disconnected s!"connection_lost_after_send: {error}"
+      discard <| transaction.failPort failure
       scope.retire
-      return .error (.disconnected s!"connection_lost_after_send: {error}")
+      return .error failure
     let frame ← match ← readFrame wire.connection.child.stdout with
       | .ok frame => pure frame
       | .error error =>
         wire.close
-        discard <| transaction.abort
+        discard <| transaction.failPort error
         scope.retire
         return .error error
     unless (frame.getObjValAs? Nat "request_id").toOption == some lease.requestId do
       wire.close
-      discard <| transaction.abort
+      let failure := PortError.protocol "the reply does not answer its exact outstanding request"
+      discard <| transaction.failPort failure
       scope.retire
-      return .error (.protocol "the reply does not answer its exact outstanding request")
+      return .error failure
     unless ← lease.readCompleted do
       lease.discardAfterDrain
       scope.retire
@@ -143,7 +145,7 @@ opaque FramedConnection.invoke (wire : FramedConnection) (ledger : OccurrenceLed
         return .error (unavailable "cancelled")
       return .ok reply
     | .error error =>
-      discard <| transaction.abort
+      discard <| transaction.failPort error
       scope.retire
       return .error error
   finally wire.release
@@ -158,17 +160,19 @@ opaque FramedConnection.invokeBefore (wire : FramedConnection) (ledger : Occurre
     return .error (.unavailable wire.backend "request_identity_mismatch")
   if timeoutMs == 0 then
     let draining ← wire.isDraining
-    discard <| wire.cancel transaction reservation
+    let failure := PortError.unavailable wire.backend (if draining then "busy_draining" else "deadline")
+    discard <| transaction.failPort failure
     scope.retire
-    return .error (.unavailable wire.backend (if draining then "busy_draining" else "deadline"))
+    return .error failure
   let worker ← IO.asTask (prio := .dedicated) <|
     wire.invoke ledger transaction reservation scope arguments
   match ← awaitBefore worker timeoutMs with
   | some result => IO.ofExcept result
   | none =>
     let draining ← wire.isDraining
-    discard <| wire.cancel transaction reservation
+    let failure := PortError.unavailable wire.backend (if draining then "busy_draining" else "deadline")
+    discard <| transaction.failPort failure
     scope.retire
-    return .error (.unavailable wire.backend (if draining then "busy_draining" else "deadline"))
+    return .error failure
 
 end CasRuntime

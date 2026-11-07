@@ -69,10 +69,26 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let some failedWaiter ← liftM (m := IO) observer.get
         | throwError "the failed producer lost its observer"
       match ← liftM (m := IO) failedWaiter.wait with
-      | .error .settled => throwError "a producer failure was reported to its waiter as cancellation"
-      | .error _ => pure ()
+      | .error (.producerError (some tag) message) =>
+        unless tag == CasCatalogue.Stratum.noImplementation.tag &&
+            message.endsWith "the backend has no implementation of missing-waiter-operation" do
+          throwError "the waiter lost its producer's failure stratum or diagnostic"
+      | .error _ => throwError "a producer failure was reported to its waiter as cancellation"
       | .ok _ => throwError "a failed producer supplied a mathematical result"
       unless (← SessionSnapshot.current).id == before.id do
         throwError "a failed producer changed the committed Environment"
+      let unreserved ← CellTransaction.begin ledger
+      let unreservedOccurrence ← liftM (m := BaseIO) ledger.allocate
+      let unreservedRequest ← PreparedRequest.forApplication owners.identities program unreservedOccurrence
+        context callable #[scalar.source] #[actual] #[]
+      let .ok .producer ← liftM (m := BaseIO) <| unreserved.claim unreservedRequest.roles.scope
+        | throwError "the unreserved producer could not claim"
+      discard <| liftM (m := BaseIO) unreserved.abort
+      let retry ← CellTransaction.begin ledger
+      match ← liftM (m := BaseIO) <|
+          retry.reserve unreservedOccurrence selected wire.connection #[input] with
+      | .error (.reservation .consumed) => pure ()
+      | _ => throwError "an aborted unreserved claim regained a dispatch right"
+      discard <| liftM (m := BaseIO) retry.abort
     finally liftM (m := IO) wire.close
   finally setEnv original

@@ -13,7 +13,7 @@ open Lean Meta CasCompiler
 private def requireAvailable (transaction : CellTransaction) (graph : ValueGraph)
     (binding : ValueBinding) : MetaM Unit := do
   unless ← graph.isAvailable transaction.owners binding do
-    throwError "unavailable: stale_owner"
+    CasCatalogue.throwStratum .unavailable "stale_owner"
 
 private def retainResponse (request : PreparedRequest) (transaction : CellTransaction)
     (binding : ValueBinding) : MetaM (PreparedResponse request) := do
@@ -25,10 +25,15 @@ private def retainResponse (request : PreparedRequest) (transaction : CellTransa
 
 private def completionFailure (failure : TransactionFailure) : MetaM α :=
   match failure with
-  | .settled => throwError "unavailable: cancelled"
-  | .staleOwner => throwError "unavailable: stale_owner"
-  | .reservation .consumed => throwError "unavailable: reserved_without_receipt"
-  | .detached => throwError "unavailable: waiter_detached"
+  | .settled => CasCatalogue.throwStratum .unavailable "cancelled"
+  | .staleOwner => CasCatalogue.throwStratum .unavailable "stale_owner"
+  | .reservation .consumed => CasCatalogue.throwStratum .unavailable "reserved_without_receipt"
+  | .detached => CasCatalogue.throwStratum .unavailable "waiter_detached"
+  | .producerError tag message =>
+    throwError (match tag with
+      | some tag => MessageData.tagged tag message
+      | none => message)
+  | .producerInternal id extra => throw (Exception.internal ⟨id⟩ ⟨extra⟩)
   | .referenceOutsideGraph =>
     throwError "internal: the occurrence belongs to a different prepared request"
   | failure => throwError "internal: completion reuse failed: {repr failure}"
@@ -53,7 +58,7 @@ private def requireFresh (request : PreparedRequest) (transaction : CellTransact
   match ← transaction.isFresh request.occurrence with
   | .error failure => completionFailure failure
   | .ok true => pure ()
-  | .ok false => throwError "unavailable: reserved_without_receipt"
+  | .ok false => CasCatalogue.throwStratum .unavailable "reserved_without_receipt"
 
 private def executeDemand
     (executor : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature)
@@ -127,7 +132,12 @@ def run {α : Type}
     let (result, _) ← (interpreter executor).run program transaction
     return result
   catch error =>
-    discard <| transaction.abort
+    let failure : TransactionFailure ← match error with
+      | .error _ message => do
+        pure (.producerError ((CasCatalogue.Exception.stratum? error).map (·.tag))
+          (← message.toString))
+      | .internal id extra => pure (.producerInternal id.idx extra.entries)
+    discard <| transaction.fail failure
     throw error
 
 end CasRuntime.Execute

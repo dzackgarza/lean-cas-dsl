@@ -14,6 +14,14 @@ namespace CasRuntime
 
 open Lean
 
+inductive TransactionFailure
+  | settled | staleSnapshot | staleOwner | pendingCalls | referenceOutsideGraph
+  | staleDraft | emptyDraft | invalidCompletion | detached
+  | reservation (failure : ReservationFailure)
+  | producerError (stratumTag : Option Name) (message : String)
+  | producerInternal (id : Nat) (extra : List (Name × DataValue))
+  deriving BEq, Repr
+
 /-- Completed native interface admission and its exact invocation provenance.
 References point into the ordinary graph; this record owns no second payload heap. -/
 structure CompletionAssociation where
@@ -90,7 +98,11 @@ private structure ActiveCell where
 private inductive CellState
   | active (cell : ActiveCell)
   | committed (snapshot : RuntimeId .snapshot)
-  | aborted
+  | aborted (failure : TransactionFailure)
+
+private def CellState.failure : CellState → TransactionFailure
+  | .aborted failure => failure
+  | _ => .settled
 
 /-- Isolated tentative reply fields, rooted in one exact active graph revision.
 This is storage for validation, not evidence that validation has succeeded. -/
@@ -131,12 +143,6 @@ opaque CellDraft.bindApplication (draft : CellDraft) (origin : ValueOrigin)
     (value : ValueBinding) (fields : Array ValueBinding) : IO (CellDraft × ValueBinding) := do
   let (graph, binding) ← draft.graph.bindApplication draft.identities origin value fields
   return ({ draft with graph, roots := draft.roots.push binding }, binding)
-
-inductive TransactionFailure
-  | settled | staleSnapshot | staleOwner | pendingCalls | referenceOutsideGraph
-  | staleDraft | emptyDraft | invalidCompletion | detached
-  | reservation (failure : ReservationFailure)
-  deriving BEq, Repr
 
 inductive ReuseDecision
   | ready (binding : ValueBinding)
@@ -195,7 +201,8 @@ Consumed occurrences never recover a result from the resource ledger. -/
 opaque CellTransaction.reuse (transaction : CellTransaction) (occurrence : RuntimeId .occurrence)
     (role : CasCompiler.RoleId) : BaseIO (Except TransactionFailure ReuseDecision) :=
   transaction.state.atomically do
-    let .active cell ← get | return .error .settled
+    let state ← get
+    let .active cell := state | return .error state.failure
     if let some receipt := cell.parent.receipt occurrence then
       return (← receipt.association.select cell.graph transaction.owners role).map .ready
     if let some completion := cell.completions.find? (·.association.request.occurrence == occurrence) then
@@ -211,7 +218,8 @@ opaque CellTransaction.reuse (transaction : CellTransaction) (occurrence : Runti
 Other demands share its signal; this grants no wire-send right and stores no payload. -/
 opaque CellTransaction.claim (transaction : CellTransaction) (scope : CasCompiler.RoleScope) :
     BaseIO (Except TransactionFailure DemandClaim) := transaction.state.atomically do
-  let .active cell ← get | return .error .settled
+  let state ← get
+  let .active cell := state | return .error state.failure
   unless scope.program.worker == transaction.id.worker && scope.occurrence.worker == transaction.id.worker &&
       scope.preparation.worker == transaction.id.worker do return .error (.reservation .wrongWorker)
   if let some claimed := cell.claims[scope.occurrence]? then
@@ -233,7 +241,8 @@ opaque CellTransaction.claim (transaction : CellTransaction) (scope : CasCompile
 
 opaque CellTransaction.isFresh (transaction : CellTransaction) (occurrence : RuntimeId .occurrence) :
     BaseIO (Except TransactionFailure Bool) := transaction.state.atomically do
-  let .active _ ← get | return .error .settled
+  let state ← get
+  let .active _ := state | return .error state.failure
   return .ok (← transaction.ledger.isFresh occurrence)
 
 /-- One waiter has its own detach signal. The shared signal contains no completed result data. -/
@@ -250,7 +259,8 @@ Reuse: Lean v4.33.0 Init/System/Promise.lean, Promise.new/resolve/result?. -/
 opaque CellTransaction.watch (transaction : CellTransaction) (occurrence : RuntimeId .occurrence)
     (role : CasCompiler.RoleId) : BaseIO (Except TransactionFailure CompletionWaiter) :=
   transaction.state.atomically do
-    let .active cell ← get | return .error .settled
+    let state ← get
+    let .active cell := state | return .error state.failure
     unless role.scope.occurrence == occurrence && role.scope.program.worker == transaction.id.worker do
       return .error .referenceOutsideGraph
     if let some claimed := cell.claims[occurrence]? then
@@ -443,8 +453,9 @@ opaque CellTransaction.completeReply (transaction : CellTransaction) (draft : Ce
     if let some (.ok _) := outcome then scope.retire
     return outcome.getD (.error .staleOwner)
 
-/-- Abort discards staging and leaves every reserved dispatch right consumed. -/
-opaque CellTransaction.abort (transaction : CellTransaction) : BaseIO Bool :=
+/-- Settle with plain diagnostic/status metadata, dropping every staged value and completion.
+The first settlement wins. Native exception data use Lean's literal KVMap entries, not message callbacks. -/
+opaque CellTransaction.fail (transaction : CellTransaction) (failure : TransactionFailure) : BaseIO Bool :=
   transaction.state.atomically do
     let .active cell ← get | return false
     for claimed in cell.claims.toArray do transaction.ledger.abandon claimed.1
@@ -452,8 +463,17 @@ opaque CellTransaction.abort (transaction : CellTransaction) : BaseIO Bool :=
       discard <| transaction.ledger.retire reservation
     for lease in cell.leases do lease.cancel
     for signal in cell.readySignals.toArray do signal.2.resolve ()
-    set CellState.aborted
+    set (CellState.aborted failure)
     return true
+
+/-- Abort discards staging and leaves every reserved dispatch right consumed. -/
+opaque CellTransaction.abort (transaction : CellTransaction) : BaseIO Bool :=
+  transaction.fail .settled
+
+/-- Preserve the released port classifier when a wire failure settles the producer. -/
+opaque CellTransaction.failPort (transaction : CellTransaction) (failure : CasCatalogue.Backend.PortError) :
+    BaseIO Bool := transaction.fail (.producerError (some failure.stratum.tag)
+      s!"{failure.stratum.label}: {failure.render}")
 
 /-- Publish the graph and output batch in one Environment update.
 The command worker owns the CoreM Environment. Its transaction gate arbitrates commit/abort;
@@ -490,11 +510,11 @@ opaque CellTransaction.commit (transaction : CellTransaction) :
     match result with
     | none =>
       for lease in cell.leases do lease.cancel
-      set CellState.aborted
+      set (CellState.aborted .staleOwner)
       return .error .staleOwner
     | some none =>
       for lease in cell.leases do lease.cancel
-      set CellState.aborted
+      set (CellState.aborted .invalidCompletion)
       return .error .invalidCompletion
     | some (some snapshot) => return .ok snapshot
   match outcome with
