@@ -56,3 +56,24 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let native := CasCatalogue.Backend.ComputationalValue.encode (.opaque "actual-token")
   unless (← ScalarLiteral.check natural native) == .notScalar do
     throwError "scalar validation interpreted a native export as a literal"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let inspect (bound point : Expr) : MetaM SourceLayout := do
+    let declaration ← getFVarLocalDecl bound
+    let context ← ContextTelescope.capture #[
+      { id := ⟨"literal-index", 0⟩,
+        role := if declaration.isLet then .definition else .parameter, expression := bound },
+      { id := ⟨"literal-index", 1⟩, role := .parameter, expression := point }]
+    SourceLayout.ofTerm (← context.close point)
+  withLetDecl `bound (mkConst ``Nat) (mkNatLit 4) fun bound =>
+    withLocalDeclD `point (mkApp (mkConst ``Fin) bound) fun point => do
+      let source ← inspect bound point
+      unless (← ScalarLiteral.check source (toJson (3 : Nat))) == .checked do
+        throwError "scalar validation lost the actual native source let definition"
+      reject source (toJson (4 : Nat))
+        "a scalar literal violates its declared representation constraint"
+  withLocalDeclD `bound (mkConst ``Nat) fun bound =>
+    withLocalDeclD `point (mkApp (mkConst ``Fin) bound) fun point => do
+      let source ← inspect bound point
+      unless (← ScalarLiteral.check source (toJson (3 : Nat))) == .notScalar do
+        throwError "scalar validation specialized a rigid source index from returned data"
