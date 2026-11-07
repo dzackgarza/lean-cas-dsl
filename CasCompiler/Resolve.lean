@@ -39,26 +39,43 @@ private partial def encode (constructors : Array ConstructorId) (category : Cate
     | _ => return #[← symbol (.atom category)]
   | _ => return #[← symbol (.atom category)]
 
+inductive RouteQuery
+  | owner (category : CategoryExpr)
+  | operation (name : String)
+
+inductive RouteTarget
+  | owner (category : CategoryExpr)
+  | operation (category : NamedCategoryEntry) (binding : OperationEntry)
+
+def RouteTarget.category : RouteTarget → CategoryExpr
+  | .owner category => category
+  | .operation category _ => category.expression
+
 /-- Symbolic route family over the exact frozen registry inventory.
 Native dependent operation formation and comparison evidence are separate consumers. -/
 structure SourceRoutes where
   private mk ::
   private state : SemanticState
   source : CategoryExpr
-  targets : Array CategoryExpr
+  query : RouteQuery
+  targets : Array RouteTarget
   private symbols : Array SourceSymbol
   edges : Array StructuralEdge
   language : RouteGrammar.RouteLanguage
 
 private def sourceRoutes (state : SemanticState) (source : CategoryExpr)
-    (targets : Array CategoryExpr) : CoreM SourceRoutes := do
+    (query : RouteQuery) : CoreM SourceRoutes := do
   Core.checkSystem "source route construction"
+  let targets := match query with
+    | .owner category => #[RouteTarget.owner category]
+    | .operation name => state.categories.flatMap fun category =>
+      (state.operationBindings category.expression name).map (RouteTarget.operation category)
   let constructors := (state.constructors.filter (·.functorialAction.isSome)).map (·.id)
   let edges := state.structuralEdges
   let build : StateM (Array SourceSymbol)
       (RouteGrammar.Word × Array RouteGrammar.Word × Array RouteGrammar.PrefixRule) := do
     let initial ← encode constructors source
-    let targets ← targets.mapM (encode constructors)
+    let targets ← targets.mapM (fun target => encode constructors target.category)
     let rules ← edges.mapM fun edge => do
       let lhs ← encode constructors edge.source
       let rhs ← encode constructors edge.target
@@ -68,20 +85,16 @@ private def sourceRoutes (state : SemanticState) (source : CategoryExpr)
   let .ok language := RouteGrammar.compile rules initial encodedTargets
     | throwError "the source registry produced an invalid ground-prefix route system"
   Core.checkSystem "source route saturation"
-  return ⟨state, source, targets, symbols, edges, language⟩
+  return ⟨state, source, query, targets, symbols, edges, language⟩
 
 /-- Project one independently supplied owner target from the current accepted source inventory.
 Reuse: structuralEdges/edgesFrom and the source correspondence in #66 comment 6693871042. -/
 opaque SourceRoutes.forOwner (source owner : CategoryExpr) : CoreM SourceRoutes := do
-  sourceRoutes (← semanticState) source #[owner]
+  sourceRoutes (← semanticState) source (.owner owner)
 
 /-- Bind the surface operation name before any arity filtering, exactly as the source does. -/
 opaque SourceRoutes.forOperation (source : CategoryExpr) (name : String) : CoreM SourceRoutes := do
-  let state ← semanticState
-  let targets := state.categories.filterMap fun category =>
-    if (state.operationBindings category.expression name).isEmpty then none
-    else some category.expression
-  sourceRoutes state source targets
+  sourceRoutes (← semanticState) source (.operation name)
 
 /-- Reconstruct a selected symbolic derivation and validate it against the frozen source.
 Actual edge references and constructor actions remain attached to each source occurrence. -/
@@ -108,10 +121,15 @@ opaque SourceRoutes.reconstruct (routes : SourceRoutes) (trace : RouteGrammar.Wo
       throwError "the reconstructed source route has incompatible complete endpoints"
     refs := refs.push edge.ref
     current := edge.target
-  unless routes.targets.any (·.syntacticEq current) do
+  unless routes.targets.any (·.category.syntacticEq current) do
     throwError "the reconstructed source route lost its exact binding target"
   let some steps := routes.state.routeEdges? routes.source current refs
     | throwError "the reconstructed route does not belong to the retained source inventory"
-  return { source := routes.source, target := current, steps }
+  let route : Route := { source := routes.source, target := current, steps }
+  if let .operation name := routes.query then
+    unless routes.state.isFirstOperationBindingRoute name route do
+      throwError "the reconstructed route does not reach its first actual operation binding"
+  Core.checkSystem "source route validation"
+  return route
 
 end CasCompiler
