@@ -57,6 +57,15 @@ run_cmd Lean.Elab.Command.liftTermElabM <| liftM (m := MetaM) do
         (.ownedExport wire.connection exported.token exported.captures)
       let operand ← liftM (m := IO) <| transaction.stage
         { program, occurrence, role := function, parameters := #[] } (.closure program #[])
+      let graph ← liftM (m := IO) transaction.view
+      let .ok actual := RuntimeArgument.ofValue graph 0 first
+        | throwError "the compiled callable input is outside its graph"
+      let compiled ← PreparedRequest.forApplication owners.identities program occurrence context
+        operand #[scalar.source] #[actual] #[]
+      let (_, ordinary) ← compiled.encodeArguments graph wire.connection.generation
+        #[.field "arguments"]
+      unless ordinary.values == #[toJson (7 : Nat)] && ordinary.slots.isEmpty do
+        throwError "compiled callable arguments acquired a native export capture prefix"
       liftM (m := BaseIO) scope.retire
       for _ in [:2] do
         let invocation ← liftM (m := BaseIO) ledger.allocate
