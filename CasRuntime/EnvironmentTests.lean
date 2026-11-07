@@ -198,3 +198,61 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             unless ← liftM (m := BaseIO) (graph.isAvailable owners plain) do
               throwError "an unused producing parameter owner blocked an independent result"
   finally liftM (m := IO) <| owners.close child.generation
+
+-- A projected dependent role keeps its actual preceding field through source let bindings.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let empty ← ContextTelescope.capture #[]
+  let scalar ← SourceLayout.ofTerm (← empty.close (mkNatLit 7))
+  let family ← withLocalDeclD `n (mkConst ``Nat) fun n =>
+    mkLambdaFVars #[n] (mkApp (mkConst ``Fin) n)
+  let sigma := mkApp2 (mkConst ``Sigma [.zero, .zero]) (mkConst ``Nat) family
+  withLocalDeclD `r sigma fun r => do
+    let width ← mkProjection r `fst
+    let projected ← mkProjection r `snd
+    withLetDecl `n (mkConst ``Nat) width fun n =>
+      withLocalDeclD `point (mkApp (mkConst ``Fin) n) fun point => do
+        let bindings : Array LocalBinding := #[
+          { id := ⟨"consuming-context", 0⟩, role := .result, expression := r },
+          { id := ⟨"consuming-context", 1⟩, role := .definition, expression := n },
+          { id := ⟨"consuming-context", 2⟩, role := .parameter, expression := point }]
+        let context ← ContextTelescope.capture bindings
+        let layout ← RecordLayout.ofSource (← SourceLayout.ofTerm (← context.close r))
+        let finite ← RecordLayout.ofSource (← SourceLayout.ofTerm (← context.close projected))
+        let owners ← liftM (m := IO) OwnerRegistry.new
+        let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+        let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+        let (graph, firstIndex) ← liftM (m := IO) <|
+          (ValueGraph.empty owners.identities).stage owners.identities
+            { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
+        let (graph, secondIndex) ← liftM (m := IO) <| graph.stage owners.identities
+          { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
+        let record ← liftM (m := IO) <|
+          RecordPrefix.begin owners.identities program occurrence finite
+        let (record, _) ← liftM (m := IO) <| record.bind graph firstIndex
+        let .ok payload := record.finish | throwError "the finite value interface is incomplete"
+        let (graph, value) ← liftM (m := IO) <| graph.stage owners.identities
+          { program, occurrence, role := finite.source, parameters := #[none, none, none] } payload
+        let record ← liftM (m := IO) <|
+          RecordPrefix.begin owners.identities program occurrence layout
+        let (record, originalIndex) ← liftM (m := IO) <| record.bind graph firstIndex
+        let (_, projectedValue) ← liftM (m := IO) <| record.bind graph value
+        let record ← liftM (m := IO) <|
+          RecordPrefix.begin owners.identities program occurrence layout
+        let (_, changedIndex) ← liftM (m := IO) <| record.bind graph secondIndex
+        let parameter (id : BindingId) (value : ValueBinding) : MetaM RuntimeParameter := do
+          let .ok parameter := RuntimeParameter.ofValue graph id value
+            | throwError "the actual consuming field is absent"
+          return parameter
+        let actual ← parameter bindings[2]!.id projectedValue
+        discard <| RuntimeEnvironment.capture owners.worker context
+          #[actual, ← parameter bindings[1]!.id originalIndex]
+        let failure : Option Exception ← try
+          discard <| RuntimeEnvironment.capture owners.worker context
+            #[actual, ← parameter bindings[1]!.id changedIndex]
+          pure none
+        catch error => pure (some error)
+        let some failure := failure
+          | throwError "runtime association changed the actual preceding field of a dependent role"
+        unless (← failure.toMessageData.toString).startsWith
+            "the runtime value has a different consuming dependent reference" do
+          throw failure
