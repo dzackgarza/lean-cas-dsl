@@ -142,6 +142,42 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           "the runtime value has an incompatible complete source type" do throw failure
       unless (← liftM (m := IO) transaction.view).sameRevision graph do
         throwError "a rejected later field installed an earlier tentative reply prefix"
+      let rational ← Elab.Term.elabTermAndSynthesize (← `(((1 : Rat) / 2))) none
+      for packet in #[Json.arr #[toJson (-2 : Int), toJson (3 : Nat)],
+          .arr #[toJson (1 : Int), toJson (0 : Nat)],
+          .arr #[toJson (2 : Int), toJson (4 : Nat)]] do
+        let occurrence ← liftM (m := BaseIO) ledger.allocate
+        let request ← prepare rational occurrence
+        let .ok reservation ← liftM (m := BaseIO) <|
+          transaction.reserve occurrence selected wire.connection #[]
+          | throwError "the scalar representation control could not reserve"
+        let graph ← liftM (m := IO) transaction.view
+        let scope ← liftM (m := IO) <|
+          RequestScope.issue ledger reservation graph #[] #[] #[]
+        let .ok reply ← liftM (m := IO) <|
+          wire.invokeBefore ledger transaction reservation scope packet 5000
+          | throwError "the scalar representation control did not return"
+        if packet == Json.arr #[toJson (-2 : Int), toJson (3 : Nat)] then
+          let (draft, result) ← reply.materialize request transaction scope wire.connection
+          let .ok numerator := draft.view.project result.root 0
+            | throwError "the scalar packet lost its actual numerator"
+          let some node := draft.view.find numerator.value
+            | throwError "the scalar numerator is absent from its draft"
+          let .container stored := node.payload.data
+            | throwError "the scalar numerator lost its original literal data"
+          unless stored.template == toJson (-2 : Int) do
+            throwError "scalar validation substituted the source answer for the actual returned data"
+        else
+          let failure : Option Exception ← try
+            discard <| reply.materialize request transaction scope wire.connection
+            pure none
+          catch error => pure (some error)
+          let some failure := failure
+            | throwError "immediate materialization accepted a malformed scalar representation"
+          unless (← failure.toMessageData.toString).startsWith
+              "a scalar literal violates its declared representation constraint" do throw failure
+        unless (← liftM (m := IO) transaction.view).sameRevision graph do
+          throwError "scalar representation checking installed tentative data"
       discard <| liftM (m := BaseIO) transaction.abort
     finally liftM (m := IO) wire.close
   finally setEnv original
