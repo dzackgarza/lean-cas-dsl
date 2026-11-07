@@ -20,7 +20,7 @@ private def expectInvalidSelection (action : TermElabM Unit) : TermElabM Unit :=
   match outcome with
   | none => throwError "a missing or unlicensed required selection was admitted"
   | some error =>
-    unless error.stratum? == some .invalid do
+    unless CasCatalogue.Exception.stratum? error == some Stratum.invalid do
       throwError "the selection boundary lost its invalid stratum: {error.toMessageData}"
 
 run_cmd Lean.Elab.Command.liftTermElabM do
