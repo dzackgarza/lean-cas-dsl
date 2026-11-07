@@ -17,6 +17,11 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let recordLayout ← RecordLayout.ofSource layout
   let pointLayout ← RecordLayout.ofSource (← SourceLayout.ofTerm (← context.close point))
   let scalarLayout ← SourceLayout.ofTerm (← context.close (mkNatLit 8))
+  let proofFamily ← withLocalDeclD `h (mkConst ``True) fun h =>
+    mkLambdaFVars #[h] (mkConst ``Nat) (usedOnly := false)
+  let proofFirst ← mkAppOptM ``PSigma.mk #[some (mkConst ``True), some proofFamily,
+    some (mkConst ``True.intro), some (mkNatLit 8)]
+  let proofLayout ← RecordLayout.ofSource (← SourceLayout.ofTerm (← context.close proofFirst))
   liftM (m := IO) do
     let owners ← OwnerRegistry.new
     let supply := owners.identities
@@ -29,15 +34,16 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       child.child.stdin.flush
       let token := (← child.child.stdout.getLine).trimAscii.toString
       let empty := ValueGraph.empty supply
-      let (graph, width) ← empty.stage supply { origin with role := scalarLayout }
-        (.ownedExport child token #[])
-      let (graph, number) ← graph.stage supply { origin with role := scalarLayout }
+      let (graph, number) ← empty.stage supply { origin with role := scalarLayout }
         (.portable "8".toUTF8)
       let finite ← RecordPrefix.begin supply program occurrence pointLayout
       let (finite, numeral) ← IO.ofExcept <|
         (finite.bind graph number).mapError IO.userError
       let finitePayload ← IO.ofExcept <| finite.finish.mapError IO.userError
-      let (graph, finiteRoot) ← graph.stage supply { origin with role := pointLayout.source } finitePayload
+      let (withoutWidth, finiteRoot) ← graph.stage supply
+        { origin with role := pointLayout.source } finitePayload
+      let (graph, width) ← withoutWidth.stage supply { origin with role := scalarLayout }
+        (.ownedExport child token #[])
       let record ← RecordPrefix.begin supply program occurrence recordLayout
       match record.finish with
       | .error _ => pure ()
@@ -59,18 +65,35 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throw <| IO.userError "the finite record lost its field instantiation"
       unless erased.field.sourceIndex == 0 && erased.preceding.isEmpty do
         throw <| IO.userError "proof erasure changed computational field positions"
+      let proofRecord ← RecordPrefix.begin supply program occurrence proofLayout
+      let (proofRecord, dataField) ← IO.ofExcept <|
+        (proofRecord.bind graph number).mapError IO.userError
+      discard <| IO.ofExcept <| proofRecord.finish.mapError IO.userError
+      let some proofContext := dataField.instantiations.back?
+        | throw <| IO.userError "the data field after a proof lost its instantiation"
+      unless proofContext.field.sourceIndex == 1 && proofContext.preceding.size == 1 &&
+          proofContext.preceding[0]?.map (·.isNone) == some true do
+        throw <| IO.userError "an erased proof displaced a later data field's formal source position"
       let again ← RecordPrefix.begin supply program occurrence recordLayout
       let (again, _) ← IO.ofExcept <| (again.bind graph width).mapError IO.userError
       let (again, reused) ← IO.ofExcept <| (again.bind graph second).mapError IO.userError
+      let againPayload ← IO.ofExcept <| again.finish.mapError IO.userError
+      let (graph, againRoot) ← graph.stage supply origin againPayload
+      let projectedAgain ← IO.ofExcept <| (graph.project againRoot 1).mapError IO.userError
       let some reusedAssociation := reused.instantiations.back?
         | throw <| IO.userError "the reused field lost its new consuming association"
-      unless reused.value == second.value && reused.instantiations.size > second.instantiations.size &&
+      unless reused.value == second.value && projectedAgain.value == second.value &&
+          projectedAgain.instantiations.size == reused.instantiations.size &&
+          reused.instantiations.size > second.instantiations.size && againRoot.value != root.value &&
           reusedAssociation.association.id != association.association.id do
         throw <| IO.userError "reuse merged two record associations or discarded earlier provenance"
       let some original := graph.find second.value
         | throw <| IO.userError "the original producing node is missing"
       unless original.origin.occurrence == occurrence && original.origin.program == program do
         throw <| IO.userError "consuming record roles rewrote producing provenance"
+      match withoutWidth.requiredOwners #[second] with
+      | .error _ => pure ()
+      | .ok _ => throw <| IO.userError "an older graph recovered a field's absent actual prefix"
       let .ok dependencies := graph.requiredOwners #[selected]
         | throw <| IO.userError "the actual dependent prefix is outside the graph"
       unless dependencies == #[child.generation] do
