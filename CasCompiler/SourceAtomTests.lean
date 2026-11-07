@@ -19,7 +19,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     ("ℕ", "ℕ", none), ("ℤ", "ℤ", none), ("ℚ", "ℚ", none),
     ("ℝ", "ℝ", none), ("ℂ", "ℂ", none), ("ℕ⁺", "ℕ⁺", none),
     ("ℙ", "ℙ", none), ("C^∞", "C^∞", none),
-    ("ℤ in Rings", "ℤ", some "Rings"), ("ℚ in Fields", "ℚ", some "Fields")]
+    ("ℤ in Rings", "ℤ", some "Rings"), ("ℚ in Fields", "ℚ", some "Fields"),
+    ("((ℤ)) in Rings", "ℤ", some "Rings"),
+    ("(Fin(3)) in FiniteSets", "Fin", some "FiniteSets")]
   for (text, name, qualification) in cases do
     let .ok stx := Parser.runParserCategory (← getEnv) `cas_term text
       | throwError "a registered source atom did not parse"
