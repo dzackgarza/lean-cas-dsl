@@ -56,3 +56,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     throwError "the observer lost a stage-specific error or the actual blocking definition"
   unless initial.context.entries.size == 3 do
     throwError "source observation mutated its input session"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let initial ← empty.assume `n (← nativeTerm "Nat")
+  let file ← SourceFile.parse "observer-identifiers.cas"
+    "let inventory := Fin(n)\nlet readings := inventory\nlet failures := readings\n\
+     test observer.names \"scope\": assert failures = inventory\n"
+  let observation ← observeFile file initial
+  unless observation.failures.isEmpty && observation.readings.size == 1 &&
+      !observation.readings[0]!.question.isEmpty do
+    throwError "the public observer changed ordinary source binding names"

@@ -208,8 +208,8 @@ private def provenance : CommandElabM Json := do
     ("moduleFiles", toJson modules),
     ("reader", toJson "CasCompiler.SourceSession.readStatement")]
 
-syntax (name := exportQuestions) "#cas_export_questions " str " inventory " str
-  " readings " str " failures " str : command
+syntax (name := exportQuestions) "#cas_export_questions " str &"inventory " str
+  &"readings " str &"failures " str : command
 
 /-- Export each fixed original ID through the native observer, with full failures and actual
 loaded module provenance. Inventory checks establish completeness only; independent assessment
