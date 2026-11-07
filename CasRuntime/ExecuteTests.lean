@@ -20,6 +20,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let callableRole ← SourceLayout.ofTerm (← context.close (mkConst ``Nat.succ))
     let pair ← mkAppM ``Prod.mk #[mkNatLit 7, mkConst ``Nat.succ]
     let recordRole ← SourceLayout.ofTerm (← context.close pair)
+    let preparedRecord ← RecordLayout.ofSource recordRole
     let owners ← liftM (m := IO) OwnerRegistry.new
     let ledger ← liftM (m := BaseIO) (OccurrenceLedger.new owners)
     discard <| SessionSnapshot.initialize owners
@@ -38,6 +39,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         { program, occurrence, role := callableRole } (.ownedExport child token #[])
       let record ← liftM (m := IO) <| producer.stage
         { program, occurrence, role := recordRole } (.product #[scalar, callable])
+      let associated ← liftM (m := IO) do
+        let graph ← producer.view
+        let fields ← RecordPrefix.begin owners.identities program occurrence preparedRecord
+        let (fields, _) ← fields.bind graph scalar
+        let (fields, _) ← fields.bind graph callable
+        let payload ← IO.ofExcept <| fields.finish.mapError IO.userError
+        producer.stage { program, occurrence, role := recordRole } payload
       let packet ← IO.ofExcept <| (ValuePayload.container
         (Json.mkObj [("args", .arr #[.null, .null]), ("description", .str "retained packet")])
         #[{ path := #[.field "args", .index 0], binding := scalar },
@@ -54,21 +62,26 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let again ← PreparedRequest.forProjection program second context record 0
       let packetOccurrence ← liftM (m := BaseIO) ledger.allocate
       let packetProjection ← PreparedRequest.forProjection program packetOccurrence context packetRecord 0
-      let code : OperationalProgram (RuntimeId .value × RuntimeId .value × RuntimeId .value) := do
+      let associatedOccurrence ← liftM (m := BaseIO) ledger.allocate
+      let associatedProjection ← PreparedRequest.forProjection program associatedOccurrence context associated 0
+      let code : OperationalProgram (Array ValueBinding) := do
         let a ← PFunctor.FreeM.lift (P := OperationalSignature) left
         let b ← PFunctor.FreeM.lift (P := OperationalSignature) again
         let c ← PFunctor.FreeM.lift (P := OperationalSignature) packetProjection
-        pure (a.root.value, b.root.value, c.root.value)
+        let d ← PFunctor.FreeM.lift (P := OperationalSignature) associatedProjection
+        pure #[a.root, b.root, c.root, d.root]
       let result ← liftM (m := IO) <| Execute.run unavailableExecutor code consumer
-      unless result.1 == scalar.value && result.2.1 == scalar.value && result.2.2 == scalar.value do
+      unless result.map (·.value) == #[scalar.value, scalar.value, scalar.value, scalar.value] do
         throwError "stateful execution replaced a stored field node"
+      unless result[3]?.map (·.instantiations.size) == some 1 do
+        throwError "stateful execution discarded the projected field's runtime instantiation"
       let .ok published ← consumer.commit
         | throwError "a dead unrelated field blocked the portable projection"
       unless published.outputBatches.size == 2 do
         throwError "the successful projection cell was not committed"
       let failed ← CellTransaction.begin ledger
       let third ← liftM (m := BaseIO) ledger.allocate
-      let right ← PreparedRequest.forProjection program third context record 1
+      let right ← PreparedRequest.forProjection program third context associated 1
       let denied ← liftM (m := IO) do
         try
           discard <| Execute.run unavailableExecutor

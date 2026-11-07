@@ -17,6 +17,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let recordLayout ← RecordLayout.ofSource layout
   let pointLayout ← RecordLayout.ofSource (← SourceLayout.ofTerm (← context.close point))
   let scalarLayout ← SourceLayout.ofTerm (← context.close (mkNatLit 8))
+  let pair ← mkAppM ``Prod.mk #[mkNatLit 8, mkNatLit 8]
+  let pairLayout ← RecordLayout.ofSource (← SourceLayout.ofTerm (← context.close pair))
   let proofFamily ← withLocalDeclD `h (mkConst ``True) fun h =>
     mkLambdaFVars #[h] (mkConst ``Nat) (usedOnly := false)
   let proofFirst ← mkAppOptM ``PSigma.mk #[some (mkConst ``True), some proofFamily,
@@ -98,11 +100,34 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throw <| IO.userError "the actual dependent prefix is outside the graph"
       unless dependencies == #[child.generation] do
         throw <| IO.userError "a dependent portable field lost its actual prefix owner"
+      let fork ← RecordPrefix.begin supply program occurrence recordLayout
+      let (left, _) ← fork.bind graph width
+      let (_, leftField) ← left.bind graph finiteRoot
+      let (right, _) ← fork.bind graph number
+      let (_, rightField) ← right.bind graph finiteRoot
+      let .ok combined := graph.requiredOwners #[rightField, leftField]
+        | throw <| IO.userError "a branched record lost a valid source scope"
+      let .ok independent := graph.requiredOwners #[rightField]
+        | throw <| IO.userError "the independent branch lost its source scope"
+      unless combined == #[child.generation] && independent.isEmpty do
+        throw <| IO.userError "role traversal merged aliased nodes in different record branches"
+      let mut retained := number
+      for _ in [:64] do
+        let chain ← RecordPrefix.begin supply program occurrence pairLayout
+        let (chain, _) ← chain.bind graph retained
+        let (_, next) ← chain.bind graph retained
+        retained := next
+      let .ok captured := graph.requiredOwners #[retained]
+        | throw <| IO.userError "shared prefix traversal lost a retained reference"
+      unless captured.isEmpty && retained.value == number.value && retained.instantiations.size == 64 do
+        throw <| IO.userError "shared prefix traversal changed identity, roles or owner independence"
       owners.close child.generation
       if ← graph.isAvailable owners selected then
         throw <| IO.userError "a dependent field survived loss of a required prefix owner"
       unless ← graph.isAvailable owners numeral do
         throw <| IO.userError "an independent portable field acquired an unrelated owner"
+      unless ← graph.isAvailable owners rightField do
+        throw <| IO.userError "an independent consuming role acquired another branch's owner"
       let rejected ← try
         discard <| record.bind graph number
         pure false
