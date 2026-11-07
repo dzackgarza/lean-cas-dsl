@@ -46,5 +46,10 @@ run_cmd do
   let some owner := state.categories.find? (·.id == binding.category)
     | throwError "the source operation has no registered owner"
   let bound ← liftCoreM <| SourceRoutes.forOperation owner.expression binding.name
+  unless bound.targets.any (fun target => match target with
+      | .operation category selected => category.id == owner.id && selected.id == binding.id &&
+          selected.declaration == binding.declaration && selected.arity == binding.arity
+      | _ => false) do
+    throwError "the route target lost its actual source operation binding"
   unless bound.language.grammar.contains #[] && bound.language.grammar.distinctWordCount == 1 do
     throwError "the source operation name did not bind at its first owner"
