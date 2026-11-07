@@ -256,10 +256,23 @@ opaque PreparedRequest.forApplication (program : CasRuntime.RuntimeId .program)
   prepareRequest program occurrence (.apply callable arguments values) source context
     (#[callable] ++ values.filterMap id) environment (some application) values
 
-/-- Responses retain actual candidate roots under source-prepared layouts.
+/-- A checked returned interface with scoped bindings for subsequent computational demands. -/
+structure PreparedResponse (request : PreparedRequest) where
+  private mk ::
+  roles : CasRuntime.ResultRoleMap
+
+def PreparedResponse.root (response : PreparedResponse request) : CasRuntime.ValueBinding :=
+  response.roles.root
+
+/-- Bind actual returned fields to this request's source-declared result roles. -/
+opaque PreparedRequest.admitResult (request : PreparedRequest) (graph : CasRuntime.ValueGraph)
+    (value : CasRuntime.ValueBinding) : MetaM (PreparedResponse request) := do
+  return ⟨← CasRuntime.ResultRoleMap.admit request.roles request.environment graph value⟩
+
+/-- Responses retain actual roots and their scoped result bindings under source-prepared layouts.
 Reference: CSLib 3951377e, Foundations/Data/PFunctor/Free.lean. -/
 def OperationalSignature : PFunctor.{0, 0} :=
-  ⟨PreparedRequest, fun request => CasRuntime.CandidateResponse request.source⟩
+  ⟨PreparedRequest, PreparedResponse⟩
 
 /-- CSLib retains dependent continuations for later demands and actual returned references. -/
 abbrev OperationalProgram := OperationalSignature.FreeM

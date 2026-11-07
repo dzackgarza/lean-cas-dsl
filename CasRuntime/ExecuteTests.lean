@@ -44,7 +44,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   finally setEnv original
 
 private def unavailableExecutor (request : PreparedRequest) (_ : CellTransaction) :
-    MetaM (CandidateResponse request.source × CellTransaction) :=
+    MetaM (PreparedResponse request × CellTransaction) :=
   throwError "unavailable: this control has no external execution registration"
 
 run_cmd Lean.Elab.Command.liftTermElabM do
@@ -234,8 +234,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let executor : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
       fun request transaction => do
         let graph ← transaction.view
-        let candidate ← IO.ofExcept <|
-          (CandidateResponse.ofValue request.source graph boolean).mapError IO.userError
+        let candidate ← request.admitResult graph boolean
         return (candidate, transaction)
     let failure : Option String ← try
       discard <| Execute.run executor
@@ -244,7 +243,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     catch error => pure (some (← error.toMessageData.toString))
     let some failure := failure
       | throwError "stateful execution retained a result with a different native type"
-    unless failure.endsWith "the producing runtime value has an incompatible complete source type" do
+    unless failure.endsWith "the runtime value has an incompatible complete source type" do
       throwError "native execution failed at a different boundary: {failure}"
     unless (← liftM (m := BaseIO) transaction.activeGraph).isNone &&
         (← SessionSnapshot.current).id == base.id do
@@ -282,6 +281,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       | throwError "the record execution argument is absent"
     let request ← PreparedRequest.forApplication program occurrence context retained
       #[← context.close (mkNatLit 7)] #[argument] #[]
+    let beforeResults := graph
     let valid ← liftM (m := IO) <| transaction.stage
       { program, occurrence, role := recordRole, parameters := #[] } (.product #[scalar, scalar])
     let graph ← liftM (m := IO) transaction.view
@@ -291,6 +291,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let admitted ← request.admitResult graph valid
     unless admitted.root.value == valid.value do
       throwError "result-role admission replaced the actual record"
+    let some rootRole := request.roles.results[0]?
+      | throwError "the result telescope lost its root"
+    if (admitted.roles.lookup beforeResults rootRole.role.id).isOk then
+      throwError "a result role recovered a returned value outside its visible snapshot"
     let mut fieldRoles := #[]
     for declared in request.roles.results do
       if declared.wirePath.isSome && declared.wirePath != some #[] then
@@ -310,7 +314,33 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     | .error message =>
       unless message == "the result role belongs to a different scope" do throwError message
     | .ok _ => throwError "a result role escaped its producing occurrence"
+    let lazyRecord ← liftM (m := IO) <| transaction.stage
+      { program, occurrence, role := recordRole, parameters := #[] } (.closure program #[])
+    let graph ← liftM (m := IO) transaction.view
+    let lazyResult ← request.admitResult graph lazyRecord
+    let some fieldRole := request.roles.results[1]?
+      | throwError "the lazy record has no declared field role"
+    match lazyResult.roles.lookup graph fieldRole.role.id with
+    | .error message =>
+      unless message == "the result role has no materialized binding" do throwError message
+    | .ok _ => throwError "a lazy result declaration supplied an unexecuted field"
     let nestedRole ← SourceLayout.ofTerm (← context.close (← mkAppM ``Prod.mk #[pair, pair]))
+    let nestedValid ← liftM (m := IO) <| transaction.stage
+      { program, occurrence, role := nestedRole, parameters := #[] } (.product #[valid, valid])
+    let nestedOccurrence ← liftM (m := BaseIO) ledger.allocate
+    let nestedTelescope ← RoleTelescope.ofRequest program nestedOccurrence context none nestedRole #[]
+    let graph ← liftM (m := IO) transaction.view
+    let nestedMap ← ResultRoleMap.admit nestedTelescope request.environment graph nestedValid
+    unless nestedTelescope.results.size == 7 do
+      throwError "the result telescope lost nested source field positions"
+    for declared in nestedTelescope.results do
+      let .ok actual := nestedMap.lookup graph declared.role.id
+        | throwError "a stored nested result has no declared role binding"
+      let some path := declared.wirePath
+        | throwError "the data-only nested result acquired a proof position"
+      unless actual.value == (if path.size == 0 then nestedValid.value
+          else if path.size == 1 then valid.value else scalar.value) do
+        throwError "a nested role selected a different actual returned node"
     let nested ← liftM (m := IO) <| transaction.stage
       { program, occurrence, role := nestedRole, parameters := #[] } (.product #[valid, malformed])
     let graph ← liftM (m := IO) transaction.view
@@ -324,8 +354,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         "the runtime value has an incompatible complete source type" do throw nestedFailure
     let executor : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
       fun request state => do
-        let candidate ← IO.ofExcept <|
-          (CandidateResponse.ofValue request.source (← state.view) malformed).mapError IO.userError
+        let candidate ← request.admitResult (← state.view) malformed
         return (candidate, state)
     let failure : Option Exception ← try
       discard <| Execute.run executor

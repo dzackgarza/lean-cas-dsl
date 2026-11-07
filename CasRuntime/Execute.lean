@@ -16,9 +16,9 @@ private def requireAvailable (transaction : CellTransaction) (graph : ValueGraph
     throwError "unavailable: stale_owner"
 
 private def retainResponse (request : PreparedRequest) (transaction : CellTransaction)
-    (binding : ValueBinding) : MetaM (CandidateResponse request.source) := do
+    (binding : ValueBinding) : MetaM (PreparedResponse request) := do
   let graph ← transaction.view
-  let candidate ← request.environment.checkResult graph request.source binding
+  let candidate ← request.admitResult graph binding
   requireAvailable transaction graph candidate.root
   transaction.retain candidate.root
   return candidate
@@ -26,7 +26,7 @@ private def retainResponse (request : PreparedRequest) (transaction : CellTransa
 private def executeDemand
     (executor : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature)
     (request : PreparedRequest) (transaction : CellTransaction) :
-    MetaM (CandidateResponse request.source × CellTransaction) := do
+    MetaM (PreparedResponse request × CellTransaction) := do
   let graph ← transaction.view
   discard <| request.admitInputs graph
   for binding in request.scope do requireAvailable transaction graph binding

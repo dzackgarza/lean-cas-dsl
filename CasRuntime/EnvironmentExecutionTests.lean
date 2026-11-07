@@ -7,7 +7,7 @@ meta import CasRuntime.Execute
 open Lean Meta CasCompiler CasRuntime
 
 private def noExternalRegistration (request : PreparedRequest) (_ : CellTransaction) :
-    MetaM (CandidateResponse request.source × CellTransaction) :=
+    MetaM (PreparedResponse request × CellTransaction) :=
   throwError "unavailable: no external registration in this source-context control"
 
 run_cmd Lean.Elab.Command.liftTermElabM do

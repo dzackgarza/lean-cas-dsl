@@ -125,5 +125,5 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       throwError "candidate shape checking changed lazy captures or actual owners"
   finally liftM (m := IO) <| owners.close child.generation
 
-example (request : PreparedRequest) : OperationalProgram (CandidateResponse request.source) :=
+example (request : PreparedRequest) : OperationalProgram (PreparedResponse request) :=
   PFunctor.FreeM.lift (P := OperationalSignature) request

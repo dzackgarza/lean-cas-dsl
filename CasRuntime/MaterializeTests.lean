@@ -90,6 +90,20 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless first.value == scalar.value && second.value == native.root.value &&
           second.instantiations.size == native.root.instantiations.size + 1 do
         throwError "joint materialization replaced a retained input or its consuming role"
+      for declared in request.roles.results do
+        let .ok actual := response.roles.lookup draft.view declared.role.id
+          | throwError "joint SDK materialization lost a declared result binding"
+        let expected ← match declared.wirePath with
+          | some #[] => pure response.root
+          | some #[0] => pure first
+          | some #[1] => pure second
+          | _ => throwError "the joint SDK result has an unexpected source field path"
+        unless actual.value == expected.value && actual.associationIds == expected.associationIds do
+          throwError "joint result-role admission changed an actual field or its association"
+      let some selectedRole := request.roles.results.find? (·.wirePath == some #[0])
+        | throwError "the joint result has no first field role"
+      let .ok selectedField := response.roles.lookup draft.view selectedRole.role.id
+        | throwError "the selected returned field has no admitted binding"
       if ((← liftM (m := IO) transaction.view).find response.root.value).isSome then
         throwError "joint materialization exposed an uninstalled result"
       let some node := draft.view.find response.root.value
@@ -146,16 +160,16 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         { program, occurrence := aliasOccurrence, role := identityRole, parameters := #[] }
         (.closure program #[])
       let graph ← liftM (m := IO) transaction.view
-      let .ok actualAlias := RuntimeArgument.ofValue graph 0 scalar
+      let .ok actualAlias := RuntimeArgument.ofValue graph 0 selectedField
         | throwError "the existing scalar input is outside its graph"
       let aliasRequest ← PreparedRequest.forApplication program aliasOccurrence context identity
-        #[← context.close (mkNatLit 7)] #[actualAlias] #[]
+        #[selectedRole.layout.source] #[actualAlias] #[]
       let .ok aliasReservation ← liftM (m := BaseIO) <|
-        transaction.reserve aliasOccurrence selected wire.connection #[scalar]
+        transaction.reserve aliasOccurrence selected wire.connection #[selectedField]
         | throwError "the returned-reference control could not reserve"
       let graph ← liftM (m := IO) transaction.view
       let aliasScope ← liftM (m := IO) <|
-        RequestScope.issue ledger aliasReservation graph #[scalar] #[] #[]
+        RequestScope.issue ledger aliasReservation graph #[selectedField] #[] #[]
       let .ok aliasReply ← liftM (m := IO) <| wire.invokeBefore ledger transaction
         aliasReservation aliasScope (ScopedReference.scope 0).encode 5000
         | throwError "the returned-reference control did not return"

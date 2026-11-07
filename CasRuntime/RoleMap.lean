@@ -88,4 +88,53 @@ opaque InputRoleMap.arguments (map : InputRoleMap) (graph : ValueGraph) :
       values := values.push (← map.requireBinding argument.role.id).value
   return values
 
+/-- Actual returned references under the producing request's declared source roles.
+Lazy exported fields stay unbound until their access demand returns an actual value. -/
+structure ResultRoleMap where
+  private mk ::
+  telescope : RoleTelescope
+  root : ValueBinding
+  private bindings : Std.HashMap RoleId ValueBinding
+
+private def storedResultAt (graph : ValueGraph) (root : ValueBinding) (path : Array Nat) :
+    Except String (Option ValueBinding) := do
+  let mut value := root
+  for index in path do
+    let some node := graph.find value.value
+      | throw "a result role is outside the visible graph"
+    match node.payload.data with
+    | .product _ | .container _ => value ← graph.project value index
+    | .closure .. | .ownedToken .. => return none
+    | .portable _ => throw "a result field has no retained record interface"
+  return some value
+
+/-- Check the complete stored interface, then bind each declared materialized result position.
+Reuse: native whole-result admission and exact graph projections. The map owns no payloads. -/
+opaque ResultRoleMap.admit (telescope : RoleTelescope) (environment : RuntimeEnvironment)
+    (graph : ValueGraph) (value : ValueBinding) : MetaM ResultRoleMap := do
+  unless graph.worker == telescope.scope.program.worker do
+    throwError "the result role map belongs to a different worker"
+  let candidate ← environment.checkResult graph telescope.source value
+  let mut bindings : Std.HashMap RoleId ValueBinding := {}
+  for declared in telescope.results do
+    if let some path := declared.wirePath then
+      let actual ← IO.ofExcept <| (storedResultAt graph candidate.root path).mapError IO.userError
+      if let some actual := actual then
+        let actual ← IO.ofExcept <| (graph.rebind actual declared.layout).mapError IO.userError
+        bindings := bindings.insert declared.role.id actual
+  return ⟨telescope, candidate.root, bindings⟩
+
+/-- Only this occurrence's declared result roles can select actual visible returned references. -/
+opaque ResultRoleMap.lookup (map : ResultRoleMap) (graph : ValueGraph) (role : RoleId) :
+    Except String ValueBinding := do
+  unless graph.worker == map.telescope.scope.program.worker do
+    throw "the result role map belongs to a different worker"
+  unless role.scope == map.telescope.scope do
+    throw "the result role belongs to a different scope"
+  discard <| graph.requiredOwners #[map.root]
+  let some value := map.bindings[role]?
+    | throw "the result role has no materialized binding"
+  discard <| graph.requiredOwners #[value]
+  return value
+
 end CasRuntime

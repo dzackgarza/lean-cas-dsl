@@ -127,7 +127,7 @@ Reuse: active RequestScope authority, CellDraft isolation and the source-native 
 This storage step creates neither a completion witness nor a published result. -/
 opaque ImmediateReply.materialize (reply : ImmediateReply) (request : PreparedRequest)
     (transaction : CellTransaction) (scope : RequestScope) (connection : Connection) :
-    MetaM (CellDraft × CandidateResponse request.source) := do
+    MetaM (CellDraft × PreparedResponse request) := do
   unless reply.scopeId == scope.id && scope.reservation.transaction == transaction.id &&
       scope.reservation.occurrence == request.occurrence &&
       scope.reservation.connection == connection.generation do
@@ -137,7 +137,7 @@ opaque ImmediateReply.materialize (reply : ImmediateReply) (request : PreparedRe
     scope.resolveMany scope.reservation draft.view scope.wireId #[]
   let (draft, binding) ← materializeValue reply request connection transaction.owners.identities
     request.source reply.value #[] draft
-  let candidate ← request.environment.checkResult draft.view request.source binding
+  let candidate ← request.admitResult draft.view binding
   return (draft, candidate)
 
 end CasRuntime

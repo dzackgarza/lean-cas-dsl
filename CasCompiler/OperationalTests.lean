@@ -54,7 +54,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
 
 example (request : PreparedRequest) : Type := OperationalSignature.B request
 
-example (request : PreparedRequest) : OperationalProgram (CandidateResponse request.source) :=
+example (request : PreparedRequest) : OperationalProgram (PreparedResponse request) :=
   PFunctor.FreeM.lift (P := OperationalSignature) request
 
 run_cmd Lean.Elab.Command.liftTermElabM do
