@@ -15,12 +15,15 @@ inductive Status
   deriving BEq, Repr
 
 private def constraintProof (condition : Expr) : MetaM (Option Expr) := do
-  let some _ ← synthInstance? (← mkAppM ``Decidable #[condition]) | return none
+  let some instance ← synthInstance? (← mkAppM ``Decidable #[condition]) | return none
+  for declaration in (← zetaReduce instance).getUsedConstants do
+    discard <| checkedDeclaration declaration
   let decision ← withTransparency .all <| whnf (← mkDecide condition)
   if decision.isConstOf ``Bool.false then
     throwError "a scalar literal violates its declared representation constraint"
   unless decision.isConstOf ``Bool.true do return none
   let proof ← mkDecideProof condition
+  for declaration in proof.getUsedConstants do discard <| checkedDeclaration declaration
   checkWithKernel (← mkExpectedTypeHint proof condition)
   return some proof
 
