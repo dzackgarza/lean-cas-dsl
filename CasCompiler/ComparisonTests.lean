@@ -18,7 +18,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     mkAppM ``CategoryTheory.Bundled.α #[← sets.value.source.inContext context]
   let objects ← empty.assumeTerm `X objectType
   let session ← objects.assume `h (← `(True))
-  let object ← session.term (← `(X))
+  let object ← session.term (← `(term| $(mkIdent `X):ident))
   let cases := #[
     (NaturalTransformationId.listUnit, false),
     (NaturalTransformationId.listJoin, false),
@@ -41,6 +41,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let component ← mkAppM ``CategoryTheory.NatTrans.app #[transformation, actualObject]
       unless ← isDefEq value component do
         throwError "source component formation replaced its actual directed action"
+      let declaration ← mkConstWithFreshMVarLevels selected.entry.declaration
+      let original ← if selected.entry.invertible then
+          mkAppM (if inverse then ``CategoryTheory.Iso.inv else ``CategoryTheory.Iso.hom)
+            #[declaration]
+        else pure declaration
+      let originalComponent ← mkAppM ``CategoryTheory.NatTrans.app #[original, actualObject]
+      unless ← isDefEq value originalComponent do
+        throwError "source component formation changed the independently declared component"
       unless value.getUsedConstants.contains selected.entry.declaration &&
           value.containsFVar bindings[0]!.expression.fvarId! do
         throwError "source component formation discarded its declaration or generic object"
