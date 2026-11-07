@@ -22,6 +22,7 @@ import all CasCompiler.ResolveTests
 import all CasCompiler.NativeRouteTests
 import all CasCompiler.OperationFamilyTests
 import all CasCompiler.ComparisonTests
+import all CasCompiler.WhiskeringTests
 import all CasCompiler.Layout
 import all CasCompiler.Program
 import all CasCompiler.ProgramTests

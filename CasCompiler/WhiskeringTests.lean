@@ -102,9 +102,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let cell ← parameters.cell Syntax.missing ⟨"cell.modules.additive_group_carrier"⟩
     #[] inclusion.target
   let whiskered ← parameters.whiskerCell Syntax.missing .left inclusion cell
-  for universe in #[`u, `w] do
-    unless inclusion.functor.source.universeParams.contains universe &&
-        whiskered.transformation.source.universeParams.contains universe do
+  for levelName in #[`u, `w] do
+    unless inclusion.functor.source.universeParams.contains levelName &&
+        whiskered.transformation.source.universeParams.contains levelName do
       throwError "parameterized whiskering discarded an independent rigid source universe"
   let objectType ← parameters.elaborate Syntax.missing fun context => do
     mkAppM ``CategoryTheory.Bundled.α #[← modules.value.source.inContext context]
@@ -115,8 +115,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   component.value.source.withOpen fun bindings value => do
     let scalar := bindings[0]!.expression
     let object := bindings[2]!.expression
-    let F ← mkAppM
-      ``CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration #[scalar]
+    let F := mkApp
+      (Lean.mkConst ``CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration
+        [.param `u, .param `w]) scalar
     let iso := Lean.mkConst
       ``CasCatalogue.Modules.CatalogueRegistration.modulesAdditiveGroupCarrierComparison
       [.param `u, .param `w]
