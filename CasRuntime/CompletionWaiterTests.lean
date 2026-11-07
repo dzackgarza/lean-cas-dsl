@@ -46,13 +46,20 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let selected : DispatchIdentity := {
         manifestDigest := "waiter-manifest", profileDigest := "waiter-profile"
         registration := { operation := "echo", input := "waiter#input", backend := wire.backend } }
-      let .ok reservation ← liftM (m := BaseIO) <|
-        transaction.reserve occurrence selected wire.connection #[input]
-        | throwError "the waiter invocation could not reserve"
+      let .ok .producer ← liftM (m := BaseIO) <| transaction.claim request.roles.scope
+        | throwError "the first demand did not claim its producer"
+      let .ok .waiter ← liftM (m := BaseIO) <| transaction.claim request.roles.scope
+        | throwError "a repeated fresh demand started another producer"
+      match ← liftM (m := BaseIO) <| transaction.reuse occurrence role.role.id with
+      | .ok .running => pure ()
+      | _ => throwError "a claimed producer was invisible before wire reservation"
       let .ok attached ← liftM (m := BaseIO) <| transaction.watch occurrence role.role.id
         | throwError "the first waiter could not attach"
       let .ok detached ← liftM (m := BaseIO) <| transaction.watch occurrence role.role.id
         | throwError "the second waiter could not attach"
+      let .ok reservation ← liftM (m := BaseIO) <|
+        transaction.reserve occurrence selected wire.connection #[input]
+        | throwError "the waiter invocation could not reserve"
       liftM (m := BaseIO) detached.detach
       match ← liftM (m := IO) detached.wait with
       | .error .detached => pure ()
