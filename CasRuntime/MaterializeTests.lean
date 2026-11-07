@@ -98,6 +98,50 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "materialization changed its original packet layout"
       if ((← SessionSnapshot.current).graph.find response.root.value).isSome then
         throwError "materialization published a tentative reply"
+      let aliasOccurrence ← liftM (m := BaseIO) ledger.allocate
+      let aliasRequest ← prepare (mkNatLit 7) aliasOccurrence
+      let .ok aliasReservation ← liftM (m := BaseIO) <|
+        transaction.reserve aliasOccurrence selected wire.connection #[scalar]
+        | throwError "the returned-reference control could not reserve"
+      let graph ← liftM (m := IO) transaction.view
+      let aliasScope ← liftM (m := IO) <|
+        RequestScope.issue ledger aliasReservation graph #[scalar] #[] #[]
+      let .ok aliasReply ← liftM (m := IO) <| wire.invokeBefore ledger transaction
+        aliasReservation aliasScope (ScopedReference.scope 0).encode 5000
+        | throwError "the returned-reference control did not return"
+      let (aliasDraft, aliasValue) ←
+        aliasReply.materialize aliasRequest transaction aliasScope wire.connection
+      unless aliasValue.root.value == scalar.value && aliasDraft.view.sameRevision graph do
+        throwError "returning a reference allocated a replacement value"
+      let .ok () ← liftM (m := BaseIO) <| transaction.installDraft aliasDraft
+        | throwError "a complete reply containing only an existing reference could not install"
+      match ← liftM (m := BaseIO) <| transaction.installDraft aliasDraft with
+      | .error .staleDraft => pure ()
+      | _ => throwError "a reference-only reply draft installed twice"
+      let badOccurrence ← liftM (m := BaseIO) ledger.allocate
+      let badRequest ← prepare pair badOccurrence
+      let boolRole ← SourceLayout.ofTerm (← context.close (mkConst ``Bool.true))
+      let wrong ← liftM (m := IO) <| transaction.stage
+        { program, occurrence := badOccurrence, role := boolRole, parameters := #[] }
+        (.portable "true".toUTF8)
+      let .ok badReservation ← liftM (m := BaseIO) <|
+        transaction.reserve badOccurrence selected wire.connection #[wrong]
+        | throwError "the joint rejection control could not reserve"
+      let graph ← liftM (m := IO) transaction.view
+      let badScope ← liftM (m := IO) <|
+        RequestScope.issue ledger badReservation graph #[wrong] #[] #[]
+      let .ok badReply ← liftM (m := IO) <| wire.invokeBefore ledger transaction
+        badReservation badScope (.arr #[toJson (7 : Nat), (ScopedReference.scope 0).encode]) 5000
+        | throwError "the joint rejection control did not return"
+      let failure : Option Exception ← try
+        discard <| badReply.materialize badRequest transaction badScope wire.connection
+        pure none
+      catch error => pure (some error)
+      let some failure := failure | throwError "joint materialization accepted a mistyped later field"
+      unless (← failure.toMessageData.toString).startsWith
+          "the runtime value has an incompatible complete source type" do throw failure
+      unless (← liftM (m := IO) transaction.view).sameRevision graph do
+        throwError "a rejected later field installed an earlier tentative reply prefix"
       discard <| liftM (m := BaseIO) transaction.abort
     finally liftM (m := IO) wire.close
   finally setEnv original
