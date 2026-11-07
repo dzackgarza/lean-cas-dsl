@@ -84,6 +84,28 @@ partial def readExpression
       readFunctorAction .object receiver functor arguments.getElems
     | `(cas_term| map $receiver:cas_term along $functor:ident($arguments:cas_term,*)) =>
       readFunctorAction .morphism receiver functor arguments.getElems
+    | `(cas_term| $left:cas_term ∘ $right:cas_term) => do
+      let left ← readExpression categoryOf left none
+      let right ← readExpression categoryOf right none
+      let some category := left.category <|> right.category
+        | throwError "source composition requires its selected category"
+      for selected in #[left.category, right.category] do
+        if let some selected := selected then
+          unless selected.role == .morphism do
+            throwError "source composition requires morphisms"
+          unless selected.expression.syntacticEq category.expression &&
+              (← isDefEq selected.bundle category.bundle) do
+            throwError "source composition has different complete selected categories"
+      let carrier ← mkAppM ``CategoryTheory.Bundled.α #[category.bundle]
+      let categoryInstance ← mkAppM ``CategoryTheory.Bundled.str #[category.bundle]
+      let categoryStructure ← mkAppOptM ``CategoryTheory.Category.toCategoryStruct
+        #[some carrier, some categoryInstance]
+      let composition ← mkAppOptM ``CategoryTheory.CategoryStruct.comp
+        #[some carrier, some categoryStructure]
+      -- CategoryStruct.comp takes the earlier arrow first; source writes the later one first.
+      let value ← elabAppArgs composition #[] #[Arg.expr right.value, Arg.expr left.value]
+        expected false false
+      pure ⟨value, some category⟩
     | `(cas_term| ($inner:cas_term)) =>
       readExpression categoryOf inner expected qualification
     | `(cas_term| $number:num) =>
