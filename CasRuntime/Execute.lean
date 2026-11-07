@@ -28,6 +28,7 @@ private def executeDemand
     (request : PreparedRequest) (transaction : CellTransaction) :
     MetaM (CandidateResponse request.source × CellTransaction) := do
   let graph ← transaction.view
+  discard <| request.admitInputs graph
   for binding in request.scope do requireAvailable transaction graph binding
   let (response, state) ← executor request transaction
   unless state.id == transaction.id do

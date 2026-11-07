@@ -2,6 +2,7 @@ module
 
 import all CasCompiler
 import all CasCompiler.Context
+import all CasCompiler.Roles
 import all CasCompiler.ContextTests
 import all CasCompiler.Declaration
 import all CasCompiler.FormationTests
@@ -46,6 +47,7 @@ import all CasRuntime.ValueTests
 import all CasRuntime.ContainerTests
 import all CasRuntime.RecordTests
 import all CasRuntime.Environment
+import all CasRuntime.RoleMap
 import all CasRuntime.EnvironmentTests
 import all CasRuntime.ApplicationOriginTests
 import all CasRuntime.EnvironmentExecutionTests

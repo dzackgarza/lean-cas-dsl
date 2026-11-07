@@ -107,6 +107,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let retainedCallable ← liftM (m := IO) <| later.stage
         { program, occurrence := storedOccurrence, role := callableRole, parameters := #[] } wrapper
       let nativeOccurrence ← liftM (m := BaseIO) ledger.allocate
+      let graph ← liftM (m := IO) later.view
+      let .ok actual := RuntimeArgument.ofValue graph 0 operand
+        | throwError "the native source argument is outside its graph"
+      let nativeRequest ← PreparedRequest.forApplication program nativeOccurrence context retainedCallable
+        #[← context.close (mkNatLit 7)] #[actual] #[]
+      let nativeInputs ← nativeRequest.admitInputs graph
+      let nativeArguments ← IO.ofExcept <| (nativeInputs.arguments graph).mapError IO.userError
       let .ok other ← liftM (m := IO) <| FramedConnection.start owners "selected-backend" {
           cmd := (contract / ".venv/bin/python").toString
           args := #[(root / "scripts/probes/protocol_v2_peer.py").toString]
@@ -114,20 +121,25 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throwError "the distinct native-owner control did not negotiate"
       try
         match ← liftM (m := BaseIO) <|
-            later.reserveExport nativeOccurrence retainedCallable other.connection #[operand] with
+            later.reserveExport nativeOccurrence retainedCallable other.connection nativeArguments with
         | .error (.reservation .wrongConnection) => pure ()
         | _ => throwError "a matching backend name redirected a retained native export"
       finally liftM (m := IO) other.close
       let .ok native ← liftM (m := BaseIO) <|
-          later.reserveExport nativeOccurrence retainedCallable wire.connection #[operand]
+          later.reserveExport nativeOccurrence retainedCallable wire.connection nativeArguments
         | throwError "the retained native export could not reserve on its actual owner"
       unless native.selected == .native callable.value exported.token &&
           native.connection == exported.owner do
         throwError "native reservation replaced its actual code, token or supplying owner"
       let graph ← liftM (m := IO) later.view
-      let .ok encoded := graph.encodeInputs wire.connection.generation #[{
-          path := #[.field "arguments", .index 0], binding := operand }]
-        | throwError "the actual native operand could not encode for its receiving owner"
+      let (admitted, encoded) ← nativeRequest.encodeArguments graph wire.connection.generation
+        #[.field "arguments"]
+      let some role := nativeRequest.roles.arguments[0]?
+        | throwError "the source argument role is absent"
+      let .ok bound := admitted.lookup graph role.role.id
+        | throwError "the native input role lost its admitted binding"
+      unless bound.value.value == operand.value && bound.source == .argument 0 do
+        throwError "native argument encoding changed its source role or actual input"
       let nativeScope ← liftM (m := IO) <|
         RequestScope.issue ledger native graph encoded.slots encoded.inputs #[]
       let invocation := Json.mkObj [

@@ -1,6 +1,7 @@
 module
 
 public import CasRuntime.Scope
+public import CasCompiler.Program
 
 public section
 
@@ -99,3 +100,20 @@ opaque ValueGraph.encodeInputs (graph : ValueGraph) (receiver : ConnectionGenera
   return ⟨values, state.slots, state.inputs⟩
 
 end CasRuntime
+
+namespace CasCompiler
+
+open Lean Meta CasRuntime CasCatalogue.Backend
+
+/-- Encode source-ordered arguments only after the entire declared input map is admitted.
+Reuse: scoped role identities, native input checks and receiver-aware retained-data encoding. -/
+opaque PreparedRequest.encodeArguments (request : PreparedRequest) (graph : ValueGraph)
+    (receiver : ConnectionGeneration) (path : Array InputPathStep) :
+    Lean.MetaM (InputRoleMap × EncodedInputs) := do
+  let admitted ← request.admitInputs graph
+  let arguments ← IO.ofExcept <| (admitted.arguments graph).mapError IO.userError
+  let roots := arguments.mapIdx fun index binding => ({ path := path.push (.index index), binding } : InputPosition)
+  let encoded ← IO.ofExcept <| (graph.encodeInputs receiver roots).mapError IO.userError
+  return (admitted, encoded)
+
+end CasCompiler

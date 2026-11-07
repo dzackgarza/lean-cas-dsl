@@ -5,6 +5,7 @@ public import CasCompiler.Layout
 public import CasCompiler.Declaration
 public import CasRuntime.Value
 public import CasRuntime.Environment
+public import CasRuntime.RoleMap
 public import Cslib.Foundations.Data.PFunctor.Free
 
 @[expose] public section
@@ -99,6 +100,7 @@ structure PreparedRequest where
   environment : CasRuntime.RuntimeEnvironment
   origin : CasRuntime.ValueOrigin
   application : Option ApplicationLayout
+  roles : RoleTelescope
 
 def PreparedRequest.reference (request : PreparedRequest) : Option ComputationRef :=
   match request.action with
@@ -150,8 +152,22 @@ private def prepareRequest (program : CasRuntime.RuntimeId .program)
     for prepared in record.fields do
       if prepared.field.wireIndex.isSome then outputs := outputs.push prepared.layout
   else outputs := #[source]
+  let roles ← RoleTelescope.ofRequest program occurrence context application source record
+    (scope.map (·.role))
   return ⟨program, occurrence, action, source, scope, outputs, record, environment, origin,
-    application⟩
+    application, roles⟩
+
+/-- Check the complete declared input map before execution or wire encoding.
+Preparation may inspect a source telescope before its input producers have supplied values. -/
+opaque PreparedRequest.admitInputs (request : PreparedRequest) (graph : CasRuntime.ValueGraph) :
+    MetaM CasRuntime.InputRoleMap := do
+  let arguments := match request.action with
+    | .apply _ _ values => values
+    | .primitive .. => match request.origin.application with
+      | none => #[]
+      | some application => application.arguments
+    | .project .. => #[]
+  CasRuntime.InputRoleMap.admit request.roles request.environment graph arguments request.scope
 
 /-- Check indexed actual operands against the complete native source argument sequence.
 Reuse: RuntimeEnvironment.checkArgument; primitive and retained applications share this table. -/
@@ -222,8 +238,9 @@ opaque PreparedRequest.forProjection (program : CasRuntime.RuntimeId .program)
     application := application.map (·.layout) }
 
 /-- Apply the retained function with complete formal arguments and indexed actual operands.
-Source coercions are lowered before this boundary. Source-only positions remain explicit empty
-slots; each supplied operand is checked against that exact argument and retained in source order. -/
+Source coercions are lowered before this boundary. Preparation retains empty slots for source
+inspection; effect admission requires every computational operand. Each supplied operand is
+checked against that exact argument and retained in source order. -/
 opaque PreparedRequest.forApplication (program : CasRuntime.RuntimeId .program)
     (occurrence : CasRuntime.RuntimeId .occurrence) (context : OpenContext)
     (callable : CasRuntime.ValueBinding) (arguments : Array ClosedTerm)

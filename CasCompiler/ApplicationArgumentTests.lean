@@ -103,6 +103,20 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless actual.size == 2 && (actual[0]?.bind id).isNone &&
           (actual[1]?.bind id).map (·.value) == some leftValue.value do
         throwError "a formal proof displaced a later actual application argument"
+      let admitted ← request.admitInputs graph
+      let .ok values := admitted.arguments graph
+        | throwError "the proof-bearing input map is incomplete"
+      let some proofRole := request.roles.arguments[0]?
+        | throwError "the source proof role was erased from its telescope"
+      let some valueRole := request.roles.arguments[1]?
+        | throwError "the source data role is absent"
+      let .ok bound := admitted.lookup graph valueRole.role.id
+        | throwError "the source data role lost its actual binding"
+      unless values.map (·.value) == #[leftValue.value] &&
+          valueRole.role.id.address == .argument 1 && bound.source == .argument 1 do
+        throwError "proof erasure changed the admitted source argument position"
+      if (admitted.lookup graph proofRole.role.id).isOk then
+        throwError "a formal proof acquired a computational input binding"
       let .ok suppliedProof := RuntimeArgument.ofValue graph 0 leftValue
         | throwError "the proof-position rejection control is absent"
       reject "a formal proof argument has no runtime value binding" do
@@ -184,3 +198,59 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless partialRequest.source.kind == .function && partialLayout.arguments.size == 1 &&
         partialLayout.resultDependencies == #[0] do
       throwError "partial application erased a retained argument from its remaining function type"
+
+-- Equal source terms and packets retain distinct scoped input roles and actual occurrences.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let context ← ContextTelescope.capture #[]
+  let scalar ← context.close (mkNatLit 7)
+  let role ← SourceLayout.ofTerm scalar
+  let function ← SourceLayout.ofTerm (← context.close (mkConst ``Nat.add))
+  let owners ← liftM (m := IO) OwnerRegistry.new
+  let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+  let firstOccurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+  let secondOccurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+  let (graph, callable) ← liftM (m := IO) <|
+    (ValueGraph.empty owners.identities).stage owners.identities
+      { program, occurrence := firstOccurrence, role := function, parameters := #[] } (.closure program #[])
+  let (older, first) ← liftM (m := IO) <| graph.stage owners.identities
+    { program, occurrence := firstOccurrence, role, parameters := #[] } (.portable "7".toUTF8)
+  let (graph, second) ← liftM (m := IO) <| older.stage owners.identities
+    { program, occurrence := secondOccurrence, role, parameters := #[] } (.portable "7".toUTF8)
+  let .ok left := RuntimeArgument.ofValue graph 0 first
+    | throwError "the first equal-term input is absent"
+  let .ok right := RuntimeArgument.ofValue graph 1 second
+    | throwError "the second equal-term input is absent"
+  let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+  let request ← PreparedRequest.forApplication program occurrence context callable
+    #[scalar, scalar] #[right, left] #[]
+  let admitted ← request.admitInputs graph
+  let some firstRole := request.roles.arguments[0]?
+    | throwError "the first scoped role is absent"
+  let some secondRole := request.roles.arguments[1]?
+    | throwError "the second scoped role is absent"
+  let .ok firstBinding := admitted.lookup graph firstRole.role.id
+    | throwError "the first role lost its input"
+  let .ok secondBinding := admitted.lookup graph secondRole.role.id
+    | throwError "the second role lost its input"
+  unless firstRole.role.source.expression == secondRole.role.source.expression &&
+      firstRole.role.id != secondRole.role.id && first.value != second.value &&
+      firstBinding.value.value == first.value && secondBinding.value.value == second.value do
+    throwError "the role map merged equal source terms or distinct actual occurrences"
+  if (admitted.lookup older firstRole.role.id).isOk then
+    throwError "a role map recovered an input outside its visible snapshot"
+  let .ok aliasedArgument := RuntimeArgument.ofValue graph 1 first
+    | throwError "the explicit input alias is absent"
+  let next ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+  let aliases ← PreparedRequest.forApplication program next context callable
+    #[scalar, scalar] #[left, aliasedArgument] #[]
+  let aliasMap ← aliases.admitInputs graph
+  let .ok values := aliasMap.arguments graph
+    | throwError "explicitly aliased inputs could not be admitted"
+  unless values.map (·.value) == #[first.value, first.value] do
+    throwError "the role map merged explicitly aliased input positions"
+  let some foreignRole := aliases.roles.arguments[0]?
+    | throwError "the other occurrence lost its declared role"
+  match admitted.lookup graph foreignRole.role.id with
+  | .error message =>
+    unless message == "the computational role belongs to a different scope" do throwError message
+  | .ok _ => throwError "equal source roles escaped their computational scope"

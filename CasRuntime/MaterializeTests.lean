@@ -140,7 +140,16 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         (.product #[first, second])
       reuseWhole product
       let aliasOccurrence ← liftM (m := BaseIO) ledger.allocate
-      let aliasRequest ← prepare (mkNatLit 7) aliasOccurrence
+      let identity ← mkAppOptM ``id #[some (mkConst ``Nat)]
+      let identityRole ← SourceLayout.ofTerm (← context.close identity)
+      let identity ← liftM (m := IO) <| transaction.stage
+        { program, occurrence := aliasOccurrence, role := identityRole, parameters := #[] }
+        (.closure program #[])
+      let graph ← liftM (m := IO) transaction.view
+      let .ok actualAlias := RuntimeArgument.ofValue graph 0 scalar
+        | throwError "the existing scalar input is outside its graph"
+      let aliasRequest ← PreparedRequest.forApplication program aliasOccurrence context identity
+        #[← context.close (mkNatLit 7)] #[actualAlias] #[]
       let .ok aliasReservation ← liftM (m := BaseIO) <|
         transaction.reserve aliasOccurrence selected wire.connection #[scalar]
         | throwError "the returned-reference control could not reserve"

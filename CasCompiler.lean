@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.Context
+public import CasCompiler.Roles
 public import CasCompiler.Parse
 public import CasCompiler.Elaborate
 public import CasCompiler.Surface
