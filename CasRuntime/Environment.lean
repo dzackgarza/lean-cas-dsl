@@ -132,7 +132,10 @@ opaque RuntimeEnvironment.capture (worker : String) (context : OpenContext)
     if ← isProp expected then
       throwError "a source proof has no runtime value association"
     checkNativeType context expected parameter.value parameter.origin
-    supplied := supplied.insert parameter.source parameter.value
+    let role ← SourceLayout.ofTerm (← context.close source.expression)
+    let .ok value := parameter.value.withRole role
+      | throwError "the source binder has no computational runtime role"
+    supplied := supplied.insert parameter.source value
   for parameter in parameters do
     let some source := context.bindings.find? (·.id == parameter.source)
       | throwError "a consuming runtime binding is outside its source telescope"

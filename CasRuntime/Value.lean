@@ -35,6 +35,15 @@ def ValueBinding.value : ValueBinding → RuntimeId .value
 def ValueBinding.role : ValueBinding → SourceLayout
   | .direct _ role | .atRole _ role | .inField _ _ role .. => role
 
+/-- Retain the actual node and field associations under a prepared consuming source role.
+Reuse: ValueBinding.atRole, shared by graph rebinding and native environment capture. -/
+opaque ValueBinding.withRole (binding : ValueBinding) (role : SourceLayout) :
+    Except String ValueBinding := do
+  if role.kind == .proof then throw "a source proof has no computational value binding"
+  return match binding with
+    | .atRole underlying _ => .atRole underlying role
+    | _ => .atRole binding role
+
 structure FieldInstantiation where
   private mk ::
   id : RuntimeId .association
@@ -257,10 +266,7 @@ opaque ValueGraph.requiredOwners (graph : ValueGraph) (bindings : Array ValueBin
 opaque ValueGraph.rebind (graph : ValueGraph) (binding : ValueBinding) (role : SourceLayout) :
     Except String ValueBinding := do
   discard <| graph.require binding
-  if role.kind == .proof then throw "a source proof has no computational value binding"
-  return match binding with
-    | .atRole underlying _ => .atRole underlying role
-    | _ => .atRole binding role
+  binding.withRole role
 
 /-- Projection returns the stored field binding, independently of unrelated field owners. -/
 opaque ValueGraph.project (graph : ValueGraph) (binding : ValueBinding) (index : Nat) :
