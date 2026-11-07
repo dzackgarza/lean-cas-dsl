@@ -58,13 +58,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let consumer ← CellTransaction.begin ledger
       let first ← liftM (m := BaseIO) ledger.allocate
       let second ← liftM (m := BaseIO) ledger.allocate
-      let left ← PreparedRequest.forProjection program first context record 0
-      let again ← PreparedRequest.forProjection program second context record 0
+      let left ← PreparedRequest.forProjection program first context record 0 #[]
+      let again ← PreparedRequest.forProjection program second context record 0 #[]
       let packetOccurrence ← liftM (m := BaseIO) ledger.allocate
-      let packetProjection ← PreparedRequest.forProjection program packetOccurrence context packetRecord 0
+      let packetProjection ←
+        PreparedRequest.forProjection program packetOccurrence context packetRecord 0 #[]
       let associatedOccurrence ← liftM (m := BaseIO) ledger.allocate
       let associatedProjection ←
-        PreparedRequest.forProjection program associatedOccurrence context associated 0
+        PreparedRequest.forProjection program associatedOccurrence context associated 0 #[]
       let code : OperationalProgram (Array ValueBinding) := do
         let a ← PFunctor.FreeM.lift (P := OperationalSignature) left
         let b ← PFunctor.FreeM.lift (P := OperationalSignature) again
@@ -82,7 +83,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "the successful projection cell was not committed"
       let failed ← CellTransaction.begin ledger
       let third ← liftM (m := BaseIO) ledger.allocate
-      let right ← PreparedRequest.forProjection program third context associated 1
+      let right ← PreparedRequest.forProjection program third context associated 1 #[]
       let denied ← liftM (m := IO) do
         try
           discard <| Execute.run unavailableExecutor
@@ -125,7 +126,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let consumer ← CellTransaction.begin ledger
       let invocation ← liftM (m := BaseIO) ledger.allocate
       let request ← PreparedRequest.forApplication program invocation context callable
-        #[← context.close (mkNatLit 7)] #[scalar]
+        #[← context.close (mkNatLit 7)] #[scalar] #[]
       let selected : DispatchIdentity := {
         manifestDigest := "resource-test-manifest"
         registration := { operation := "resource-test", input := "resource-test", backend := "cat" }

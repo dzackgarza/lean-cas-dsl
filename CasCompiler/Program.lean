@@ -3,6 +3,7 @@ module
 public import LeanCategories.Catalogue.Registry.Computation
 public import CasCompiler.Layout
 public import CasRuntime.Value
+public import CasRuntime.Environment
 public import Cslib.Foundations.Data.PFunctor.Free
 public import CasGates.AxiomAuditRules
 
@@ -98,6 +99,7 @@ structure PreparedRequest where
   scope : Array CasRuntime.ValueBinding
   outputs : Array SourceLayout
   record : Option RecordLayout
+  environment : CasRuntime.RuntimeEnvironment
 
 def PreparedRequest.reference (request : PreparedRequest) : Option ComputationRef :=
   match request.action with
@@ -111,7 +113,8 @@ def PreparedRequest.universeArguments (request : PreparedRequest) : Option (List
 
 private def prepareRequest (program : CasRuntime.RuntimeId .program)
     (occurrence : CasRuntime.RuntimeId .occurrence) (action : PreparedAction)
-    (source : SourceLayout) (context : OpenContext) (scope : Array CasRuntime.ValueBinding) :
+    (source : SourceLayout) (context : OpenContext) (scope : Array CasRuntime.ValueBinding)
+    (parameters : Array CasRuntime.RuntimeParameter) :
     MetaM PreparedRequest := do
   unless program.worker == occurrence.worker do
     throwError "request preparation mixed worker identities"
@@ -121,6 +124,7 @@ private def prepareRequest (program : CasRuntime.RuntimeId .program)
     discard <| binding.role.source.inContext context
   if source.kind == .proof then
     throwError "a source proof has no computational response positions"
+  let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters
   let mut outputs : Array SourceLayout := #[]
   let record ← if source.kind == .record then
       pure (some (← RecordLayout.ofSource source))
@@ -129,7 +133,7 @@ private def prepareRequest (program : CasRuntime.RuntimeId .program)
     for prepared in record.fields do
       if prepared.field.wireIndex.isSome then outputs := outputs.push prepared.layout
   else outputs := #[source]
-  return ⟨program, occurrence, action, source, scope, outputs, record⟩
+  return ⟨program, occurrence, action, source, scope, outputs, record, environment⟩
 
 /-- Apply the exact checked source family in the complete current context.
 Result positions retain the source's ordered computational fields and dependent roles.
@@ -138,7 +142,8 @@ opaque PreparedRequest.forBoundary (program : CasRuntime.RuntimeId .program)
     (occurrence : CasRuntime.RuntimeId .occurrence) (boundary : ProgramBoundary)
     (universeArguments : List Level)
     (context : OpenContext) (arguments : Array ClosedTerm)
-    (scope : Array CasRuntime.ValueBinding) : MetaM PreparedRequest := do
+    (scope : Array CasRuntime.ValueBinding) (parameters : Array CasRuntime.RuntimeParameter) :
+    MetaM PreparedRequest := do
   unless universeArguments.length == boundary.universeParams.length do
     throwError "request universe arguments do not match the checked source family"
   let universeArguments ← universeArguments.mapM instantiateLevelMVars
@@ -151,31 +156,34 @@ opaque PreparedRequest.forBoundary (program : CasRuntime.RuntimeId .program)
   let layout ← SourceLayout.ofTerm family
   let source ← if arguments.isEmpty then layout.inContext context
     else layout.applyIn context arguments
-  prepareRequest program occurrence (.primitive boundary universeArguments) source context scope
+  prepareRequest program occurrence (.primitive boundary universeArguments) source context
+    scope parameters
 
 /-- Prepare the exact source field of the retained operand in the complete current scope. -/
 opaque PreparedRequest.forProjection (program : CasRuntime.RuntimeId .program)
     (occurrence : CasRuntime.RuntimeId .occurrence) (context : OpenContext)
-    (operand : CasRuntime.ValueBinding) (index : Nat) : MetaM PreparedRequest := do
+    (operand : CasRuntime.ValueBinding) (index : Nat)
+    (parameters : Array CasRuntime.RuntimeParameter) : MetaM PreparedRequest := do
   let some field := operand.role.fields[index]?
     | throwError "the projection is outside the retained source layout"
   unless field.wireIndex.isSome do
     throwError "a source proof field has no computational projection"
   let source ← (← field.toLayout).inContext context
-  prepareRequest program occurrence (.project operand field) source context #[operand]
+  prepareRequest program occurrence (.project operand field) source context #[operand] parameters
 
 /-- Apply an already retained function interface. Source coercions are lowered to their
 actual callable before this boundary. Complete formal arguments remain separate from scope refs. -/
 opaque PreparedRequest.forApplication (program : CasRuntime.RuntimeId .program)
     (occurrence : CasRuntime.RuntimeId .occurrence) (context : OpenContext)
     (callable : CasRuntime.ValueBinding) (arguments : Array ClosedTerm)
-    (argumentScope : Array CasRuntime.ValueBinding) : MetaM PreparedRequest := do
+    (argumentScope : Array CasRuntime.ValueBinding) (parameters : Array CasRuntime.RuntimeParameter) :
+    MetaM PreparedRequest := do
   unless callable.role.kind == .function do
     throwError "the retained value has no prepared callable interface"
   if arguments.isEmpty then throwError "callable application requires a source argument"
   let source ← callable.role.applyIn context arguments
   prepareRequest program occurrence (.apply callable arguments) source context
-    (#[callable] ++ argumentScope)
+    (#[callable] ++ argumentScope) parameters
 
 /-- Responses retain actual candidate roots under source-prepared layouts.
 Reference: CSLib 3951377e, Foundations/Data/PFunctor/Free.lean. -/

@@ -44,10 +44,12 @@ def interpreter
     PFunctor.Handler.Stateful IO CellTransaction OperationalSignature :=
   fun request transaction => do
     unless request.program.worker == transaction.id.worker &&
-        request.occurrence.worker == transaction.id.worker do
+        request.occurrence.worker == transaction.id.worker &&
+        request.environment.worker == transaction.id.worker do
       throw <| IO.userError "internal: execution belongs to a different worker"
     let graph ← transaction.view
-    discard <| IO.ofExcept <| (graph.requiredOwners request.scope).mapError IO.userError
+    discard <| IO.ofExcept <|
+      (graph.requiredOwners (request.scope ++ request.environment.references)).mapError IO.userError
     match request.action with
     | .project operand field =>
       let some node := graph.find operand.value
