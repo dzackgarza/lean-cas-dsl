@@ -2,6 +2,7 @@ module
 
 public import CasRuntime.Value
 public import CasCompiler.Declaration
+public import Lean.Meta.Transform
 
 public section
 
@@ -28,7 +29,7 @@ Grammar reference: CasContract.Port wire encoding and CasCatalogue.Codec.decodeA
 constructor telescopes, native literal expressions, mkDecideProof and synchronous kernel checks.
 Function/type fields have no scalar decoding path; no finite-function or law reconstruction runs. -/
 private partial def decode (asked : Expr) (packet : Json) : MetaM (Option Expr) := do
-  let type ← whnf asked
+  let type ← whnf (← zetaReduce asked)
   if type.hasFVar || type.hasMVar || type.hasLevelMVar || type.isSort || type.isForall then
     return none
   if ← isProp type then return none
