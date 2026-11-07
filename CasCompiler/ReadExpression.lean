@@ -48,9 +48,29 @@ partial def readExpression
       let selected ← categoryOf declaration.fvarId
       let value ← application (mkFVar declaration.fvarId) arguments expected
       return ⟨value, if arguments.isEmpty then selected else none⟩
-    object name.getId.toString qualification arguments
+    object (name.getId.toString (escape := false)) qualification arguments
+  let readView := fun (receiver : TSyntax `cas_term) (id : Ident)
+      (arguments : Array (TSyntax `cas_term)) => do
+    let entry ← selectView (id.getId.toString (escape := false))
+    let receiver ← readExpression categoryOf receiver none
+    let selected ← viewExpressions entry receiver.category fun constant =>
+      application constant arguments none
+    let image ← functorObject selected.functor receiver.value selected.targetBundle
+    let (kind, id) := match selected.reference with
+      | .inl id => (``CasCatalogue.EdgeRef.functor, id.raw)
+      | .inr id => (``CasCatalogue.EdgeRef.classifierForget, id.raw)
+    -- Keep the exact selected reference beside its actual native action for source inspection.
+    -- Lean MData preserves these names through closure; native checking uses the retained body.
+    let data := KVMap.empty |>.setName `CasCompiler.view.kind kind
+      |>.setString `CasCompiler.view.id id
+      |>.setName `CasCompiler.view.declaration selected.declaration
+    return (⟨.mdata data image, some (selected.target, selected.targetBundle)⟩ : NativeSourceJudgement)
   let judgement ← if let some name := sourceAtomName? source then object name qualification #[]
     else match source with
+    | `(cas_term| view $receiver:cas_term along $functor:ident) =>
+      readView receiver functor #[]
+    | `(cas_term| view $receiver:cas_term along $functor:ident($arguments:cas_term,*)) =>
+      readView receiver functor arguments.getElems
     | `(cas_term| ($inner:cas_term)) =>
       readExpression categoryOf inner expected qualification
     | `(cas_term| $number:num) =>
@@ -64,7 +84,7 @@ partial def readExpression
     | `(cas_term| $name:ident($arguments:cas_term,*)) =>
       registered name arguments.getElems
     | `(cas_term| $body:cas_term in $category:ident) =>
-      readExpression categoryOf body expected (some category.getId.toString)
+      readExpression categoryOf body expected (some (category.getId.toString (escape := false)))
     | `(cas_term| ($function:cas_term)($arguments:cas_term,*)) => do
       let function ← readExpression categoryOf function none
       pure ⟨← application function.value arguments.getElems expected, none⟩

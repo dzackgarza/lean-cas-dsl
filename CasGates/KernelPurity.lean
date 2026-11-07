@@ -66,6 +66,7 @@ import all CasCompiler.ReadExpression
 import all CasCompiler.SourceSyntaxTests
 import all CasCompiler.SourceCategoryBindingTests
 import all CasCompiler.SourceAtomTests
+import all CasCompiler.SourceViewTests
 import all CasCompiler.RouteGrammar
 import all CasCompiler.RouteGrammarTests
 import all CasCompiler.Resolve

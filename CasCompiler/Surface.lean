@@ -55,6 +55,71 @@ opaque objectExpressions (entry : ObjectEntry) (categoryEntry : NamedCategoryEnt
     throwError "the source object does not inhabit its registered category"
   return (category, value)
 
+/-- A direct registered view before closing its complete native expressions. -/
+structure NativeSourceView where
+  private mk ::
+  reference : FunctorId ⊕ ClassifierId
+  declaration : Name
+  target : CategoryExpr
+  functor : Expr
+  targetBundle : Expr
+
+/-- Select an actual direct source action by its exact published identity. -/
+opaque selectView (id : String) : TermElabM (FunctorEntry ⊕ ClassifierEntry) := do
+  let state ← semanticState
+  match state.functors.filter (·.id.raw == id), state.classifiers.filter (·.id.raw == id) with
+  | #[entry], #[] => return .inl entry
+  | #[], #[entry] => return .inr entry
+  | #[], #[] => throwError "unregistered source view: {id}"
+  | _, _ => throwSemanticAmbiguity m!"source view {id} has several declared actions"
+
+/-- Apply the selected declaration and retain its complete native functor boundary.
+An existing receiver category stays fixed. Otherwise the explicitly selected action supplies
+its source context, which native object application must check. Explicit functor use admits
+each registered role. Reuse: SourceSession.namedFunctor, classifierForgetInstance and
+functorCategoryBundles; source: #66, comment 6664276482 §4. -/
+opaque viewExpressions (entry : FunctorEntry ⊕ ClassifierEntry)
+    (source : Option (CategoryExpr × Expr))
+    (application : Expr → TermElabM Expr) : TermElabM NativeSourceView := do
+  let (symbolic, target, declaration, reference) := match entry with
+    | .inl entry => (entry.source, entry.target, entry.declaration, Sum.inl entry.id)
+    | .inr entry => (.classifierTotal entry.id, entry.host, entry.declaration, Sum.inr entry.id)
+  if let some (selected, _) := source then
+    unless symbolic.syntacticEq selected do
+      throwError "the selected source action has a different complete symbolic source category"
+  discard <| checkedDeclaration declaration
+  let value ← application (← mkConstWithFreshMVarLevels declaration)
+  let functor ← match entry with
+    | .inl _ =>
+      if (← whnf (← inferType value)).isAppOf ``CategoryTheory.Cat.Hom then
+        mkAppM ``CategoryTheory.Cat.Hom.toFunctor #[value]
+      else pure value
+    | .inr _ => do
+      let type ← whnf (← inferType value)
+      let classifier ← if type.isAppOf ``LeanCategories.PropertyClassifier then
+          mkAppM ``LeanCategories.PropertyClassifier.toClassifier #[value]
+        else if type.isAppOf ``LeanCategories.StructureClassifier then
+          mkAppM ``LeanCategories.StructureClassifier.toClassifier #[value]
+        else if type.isAppOf ``LeanCategories.Classifier then pure value
+        else throwError "the selected classifier requires its complete declaration arguments"
+      mkAppM ``CategoryTheory.Cat.Hom.toFunctor
+        #[← mkAppM ``LeanCategories.Classifier.forget #[classifier]]
+  let (domain, targetBundle) ← functorCategoryBundles functor
+  if let some (_, selected) := source then
+    unless ← isDefEq domain selected do
+      throwError "the selected source action has a different complete native source category"
+  return ⟨reference, declaration, target, functor, targetBundle⟩
+
+/-- Apply the actual native functor to its actual object and check its complete target type.
+Reuse: Functor.toPrefunctor/Prefunctor.obj, shared with the retained source functor API. -/
+opaque functorObject (functor object target : Expr) : MetaM Expr := do
+  let prefunctor ← mkAppM ``CategoryTheory.Functor.toPrefunctor #[functor]
+  let value ← mkAppM ``Prefunctor.obj #[prefunctor, object]
+  let carrier ← mkAppM ``CategoryTheory.Bundled.α #[target]
+  unless ← isDefEq (← inferType value) carrier do
+    throwError "the source image does not belong to its complete native target category"
+  return value
+
 /-- Select a registered source family, then let native application elaborate its arguments.
 Reuse: semanticState and the independently owned declaration telescopes; Lean.elabAppArgs
 accepts retained expressions and synthesizes native implicits and selected instances. -/

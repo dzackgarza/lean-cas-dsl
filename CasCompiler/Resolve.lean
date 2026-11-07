@@ -271,21 +271,13 @@ opaque SourceSession.namedFunctor (session : SourceSession) (reference : Syntax)
     TermElabM SourceFunctor := do
   let #[entry] := (← semanticState).functors.filter (·.id == id)
     | throwError "explicit source functor selection requires one registered functor"
-  unless entry.source.syntacticEq source.expression do
-    throwError "the registered functor has a different complete symbolic source category"
-  discard <| checkedDeclaration entry.declaration
   let #[functor, target] ← session.elaborateMany reference fun context => do
       let arguments ← parameters.mapM fun parameter => do
         return Arg.expr (← parameter.source.inContext context)
-      let constant ← mkConstWithFreshMVarLevels entry.declaration
-      let value ← elabAppArgs constant #[] arguments none false false
-      let functor ← if (← whnf (← inferType value)).isAppOf ``CategoryTheory.Cat.Hom then
-          mkAppM ``CategoryTheory.Cat.Hom.toFunctor #[value]
-        else pure value
-      let (domain, target) ← functorCategoryBundles functor
-      unless ← isDefEq domain (← source.value.source.inContext context) do
-        throwError "the registered functor has a different complete native source category"
-      return #[functor, target]
+      let selected ← viewExpressions (.inl entry)
+        (some (source.expression, ← source.value.source.inContext context)) fun constant =>
+          elabAppArgs constant #[] arguments none false false
+      return #[selected.functor, selected.targetBundle]
     | throwError "registered functor formation returned an invalid expression family"
   return ⟨.registered entry parameters, source, ⟨entry.target, target⟩, functor⟩
 
@@ -351,14 +343,9 @@ opaque SourceSession.functorImage (session : SourceSession) (reference : Syntax)
   let value ← session.elaborate reference fun context => do
     let native ← functor.functor.source.inContext context
     let object ← object.source.inContext context
-    let prefunctor ← mkAppM ``CategoryTheory.Functor.toPrefunctor #[native]
-    let value ← mkAppM ``Prefunctor.obj #[prefunctor, object]
-    let carrier ← mkAppM ``CategoryTheory.Bundled.α
-      #[← functor.target.value.source.inContext context]
-    unless ← isDefEq (← inferType value) carrier do
-      throwError "the source image does not belong to its complete native target category"
-    return value
-  return ⟨functor, object, value⟩
+    functorObject native object (← functor.target.value.source.inContext context)
+  return ⟨functor, object,
+    ← value.inCategory functor.target.expression functor.target.value⟩
 
 /-- A whole category declaration, before any of its formal parameters are selected. -/
 structure SourceCategoryFamily where
