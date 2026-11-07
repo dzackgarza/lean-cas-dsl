@@ -3,11 +3,13 @@ module
 import CasCompiler.Read
 import LeanCategories.Catalogue.Semantics.Foundation.Objects
 import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
+import LeanCategories.Catalogue.Semantics.Algebra.NamedRings
 import LeanCategories.Catalogue.Semantics.Modules.CatalogueRegistration
 public meta import Lean.Elab.Command
 meta import CasCompiler.Read
 meta import LeanCategories.Catalogue.Semantics.Foundation.Objects
 meta import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
+meta import LeanCategories.Catalogue.Semantics.Algebra.NamedRings
 meta import LeanCategories.Catalogue.Semantics.Modules.CatalogueRegistration
 
 open Lean Meta Elab Term CasCompiler
@@ -80,3 +82,33 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let retained ← readSource session "poly"
   unless retained.source.expression == mkBVar 0 do
     throwError "reading a callable name specialized its unapplied native family"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  for (source, declaration) in #[
+      ("ℤ", ``CasCatalogue.Algebra.NamedRings.ringIntegers),
+      ("ℚ", ``CasCatalogue.Algebra.NamedRings.ringRationals)] do
+    let module ← readSource empty s!"RegularModule({source})"
+    let some category := module.category
+      | throwError "a declaration-directed parameter lost the module category"
+    module.source.withOpen fun _ value => do
+      let expected ← mkAppM ``CasCatalogue.Modules.CatalogueRegistration.regularModule
+        #[Lean.mkConst declaration]
+      unless (← isDefEq value expected) && value.containsConst (· == declaration) do
+        throwError "a source parameter changed its independently declared ring"
+    category.bundle.withOpen fun _ bundle => do
+      unless bundle.containsConst (· == declaration) do
+        throwError "a module category lost its actual registered scalar parameter"
+  let set ← readSource empty "ℚ"
+  let bound ← empty.defineTerm `Q set
+  for source in #["RegularModule(Q)", "RegularModule(ℚ in Sets)"] do
+    let failure : Option Exception ← try
+      discard <| readSource bound source
+      pure none
+    catch error => pure (some error)
+    let some failure := failure
+      | throwError "a declared parameter type replaced an existing source category"
+    unless (← failure.toMessageData.toString).startsWith
+        "the source expression does not have its independently declared parameter type" do
+      throw failure
