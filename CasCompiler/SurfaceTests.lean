@@ -58,8 +58,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let some rings := state.categories.find? (·.name == "Rings")
     | throwError "the registered scalar category is absent from the source imports"
   let ringType ← session.elaborate reference.raw fun _ => do
-    discard <| checkedDeclaration rings.declaration
-    let category ← mkConstWithFreshMVarLevels rings.declaration
+    let info ← checkedDeclaration rings.declaration
+    let category := Lean.mkConst rings.declaration (info.levelParams.map Level.param)
     mkAppM ``CategoryTheory.Bundled.α #[category]
   let withRing ← session.assumeTerm `R ringType
   let ring ← withRing.term (← nativeSyntax "R")
