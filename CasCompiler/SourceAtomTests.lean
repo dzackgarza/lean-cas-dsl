@@ -29,7 +29,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       | throwError "a registered source atom did not parse"
     let (entry, selected) ← selectObject name qualification
     let term ← session.read ⟨stx⟩
-    unless term.source.expression.getAppFn.constName? == some entry.declaration do
+    let .mdata data _ := term.source.expression
+      | throwError "a registered source object lost its selected reference"
+    unless data.getName `CasCompiler.source.kind == ``ObjectEntry &&
+        data.getString `CasCompiler.source.id == entry.id.raw &&
+        data.getName `CasCompiler.source.declaration == entry.declaration do
+      throwError "a registered source object changed its exact selected reference"
+    unless term.source.expression.consumeMData.getAppFn.constName? == some entry.declaration do
       throwError "an atomic source changed its independently registered declaration"
     let some category := term.category
       | throwError "an atomic source lost its selected category bundle"

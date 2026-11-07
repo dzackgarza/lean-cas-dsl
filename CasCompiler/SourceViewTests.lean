@@ -229,6 +229,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let empty ← SourceSession.empty identities
   let rings ← empty.assume `R (← nativeSource "CommRingCat.{0}")
   let coefficients ← readSource rings "integerCoefficients(R)"
+  let #[entry] := (← semanticState).morphisms.filter (·.name == "integerCoefficients")
+    | throwError "the actual named morphism reference is not unique"
+  let .mdata data _ := coefficients.source.expression
+    | throwError "a named morphism lost its selected source reference"
+  unless data.getName `CasCompiler.source.kind == ``MorphismEntry &&
+      data.getString `CasCompiler.source.id == entry.id.raw &&
+      data.getName `CasCompiler.source.declaration == entry.declaration do
+    throwError "a named morphism changed its exact selected source reference"
   let some category := coefficients.category
     | throwError "the named morphism lost its selected category"
   unless category.role == .morphism do
