@@ -153,11 +153,6 @@ structure SourceCategory where
   expression : CategoryExpr
   value : SourceTerm
 
-private def categoryIdentity (category : Expr) : MetaM Expr := do
-  let carrier ← mkAppM ``CategoryTheory.Bundled.α #[category]
-  let categoryStructure ← mkAppM ``CategoryTheory.Bundled.str #[category]
-  mkAppOptM ``CategoryTheory.Functor.id #[some carrier, some categoryStructure]
-
 /-- Form the registered category family at actual arguments and explicit rigid universes.
 Reuse: whole-declaration intake, native application and the actual category structure. -/
 opaque SourceSession.namedCategory (session : SourceSession) (reference : Syntax) (name : String)

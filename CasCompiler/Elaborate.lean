@@ -73,6 +73,13 @@ private def SourceSession.categoryOf (session : SourceSession) (context : OpenCo
   let binding ← context.bindings.find? (·.expression.fvarId! == binderId)
   session.categoryFor binding.id
 
+/-- The identity functor of the supplied complete category, with its actual structure.
+Reuse: native Bundled projections and Functor.id, also used by source route interpretation. -/
+opaque categoryIdentity (category : Expr) : MetaM Expr := do
+  let carrier ← mkAppM ``CategoryTheory.Bundled.α #[category]
+  let categoryStructure ← mkAppM ``CategoryTheory.Bundled.str #[category]
+  mkAppOptM ``CategoryTheory.Functor.id #[some carrier, some categoryStructure]
+
 /-- Attach only a supplied category bundle, checked at the complete retained source type.
 Reuse: native Bundled.α and stable-ID context transport. Category identity is supplied by
 source selection, never inferred from a carrier type. Source: #66, comment 6664276482 §1. -/
@@ -88,8 +95,7 @@ opaque SourceTerm.inCategory (term : SourceTerm) (expression : CasCatalogue.Cate
         throwError "the source value does not inhabit its selected native category"
     | .morphism =>
       -- Native identity-map application checks both endpoints in the supplied category.
-      let categoryStructure ← mkAppM ``CategoryTheory.Bundled.str #[categoryValue]
-      let identity ← mkAppOptM ``CategoryTheory.Functor.id #[some carrier, some categoryStructure]
+      let identity ← categoryIdentity categoryValue
       discard <| withTransparency .all <| mkAppM ``CategoryTheory.Functor.map #[identity, value]
   return { term with category := some ⟨expression, category.source, role⟩ }
 

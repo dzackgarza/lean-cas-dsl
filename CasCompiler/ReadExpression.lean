@@ -40,7 +40,7 @@ partial def readExpression
   let object := fun (name : String) (category : Option String)
       (arguments : Array (TSyntax `cas_term)) => do
     let (entry, categoryEntry) ← selectObject name category expected
-    let (bundle, value) ← objectExpressions entry categoryEntry fun function expected =>
+    let (bundle, value) ← registeredExpressions (.inl entry) categoryEntry fun function expected =>
       application function arguments expected
     return (⟨value, some ⟨.object, categoryEntry.expression, bundle⟩⟩ : NativeSourceJudgement)
   let registered := fun (name : Ident) (arguments : Array (TSyntax `cas_term)) => do
@@ -48,7 +48,22 @@ partial def readExpression
       let selected ← categoryOf declaration.fvarId
       let value ← application (mkFVar declaration.fvarId) arguments expected
       return ⟨value, if arguments.isEmpty then selected else none⟩
-    object (name.getId.toString (escape := false)) qualification arguments
+    let (entry, categoryEntry) ← selectNamed
+      (name.getId.toString (escape := false)) qualification expected
+    let parameterCount ← match entry with
+      | .inl _ => pure arguments.size
+      | .inr entry => withoutModifyingState do
+        let info ← checkedDeclaration entry.declaration
+        let (_, binders, _) ← forallMetaTelescopeReducing info.type
+        pure (binders.filter (·.isExplicit)).size
+    let (bundle, value) ← registeredExpressions entry categoryEntry fun function expected =>
+      application function (arguments.take parameterCount) expected
+    if parameterCount < arguments.size then
+      return ⟨← application value (arguments.drop parameterCount) expected, none⟩
+    let role := match entry with
+      | .inl _ => SourceCategoryRole.object
+      | .inr _ => SourceCategoryRole.morphism
+    return ⟨value, some ⟨role, categoryEntry.expression, bundle⟩⟩
   let readFunctorAction := fun (role : SourceCategoryRole) (receiver : TSyntax `cas_term)
       (id : Ident) (arguments : Array (TSyntax `cas_term)) => do
     let entry ← selectView (id.getId.toString (escape := false))

@@ -58,18 +58,51 @@ opaque selectObject (name : String) (category : Option String) (expected : Optio
       | throwError "the source object requires one registered category"
     return (entry, categoryEntry)
 
-opaque objectExpressions (entry : ObjectEntry) (categoryEntry : NamedCategoryEntry)
+/-- Select the exact named source kind; neither kind has priority over the other. -/
+opaque selectNamed (name : String) (category : Option String) (expected : Option Expr) :
+    TermElabM ((ObjectEntry ⊕ MorphismEntry) × NamedCategoryEntry) := do
+  let state ← semanticState
+  let qualified ← category.mapM (selectCategory state)
+  let morphisms := state.morphisms.filter fun entry =>
+    entry.name == name && qualified.all (·.id == entry.category)
+  if morphisms.isEmpty then
+    let (entry, category) ← selectObject name category expected
+    return (.inl entry, category)
+  let objects := state.objects.filter fun entry =>
+    entry.name == name && qualified.all (·.id == entry.category) &&
+      (qualified.isSome || entry.refines.isNone)
+  unless objects.isEmpty do
+    throwSemanticAmbiguity m!"source name {name} requires a category qualification"
+  let #[entry] := morphisms
+    | throwSemanticAmbiguity m!"source name {name} requires a category qualification"
+  let #[categoryEntry] := state.categories.filter (·.id == entry.category)
+    | throwError "the source morphism requires one registered category"
+  return (.inr entry, categoryEntry)
+
+/-- Form the actual registered value and check its declared object or morphism role.
+Reuse: the source's declaration/category pair, native application and the identity functor. -/
+opaque registeredExpressions (entry : ObjectEntry ⊕ MorphismEntry)
+    (categoryEntry : NamedCategoryEntry)
     (application : Expr → Option Expr → TermElabM Expr) : TermElabM (Expr × Expr) := do
-  discard <| checkedDeclaration entry.declaration
+  let (declaration, role) := match entry with
+    | .inl entry => (entry.declaration, SourceCategoryRole.object)
+    | .inr entry => (entry.declaration, SourceCategoryRole.morphism)
+  discard <| checkedDeclaration declaration
   discard <| checkedDeclaration categoryEntry.declaration
   let family ← mkConstWithFreshMVarLevels categoryEntry.declaration
   let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
   let category := mkAppN family parameters
   let carrier ← mkAppM ``CategoryTheory.Bundled.α #[category]
-  let function ← mkConstWithFreshMVarLevels entry.declaration
-  let value ← application function (some carrier)
-  unless ← isDefEq (← inferType value) carrier do
-    throwError "the source object does not inhabit its registered category"
+  let function ← mkConstWithFreshMVarLevels declaration
+  let value ← application function (if role == .object then some carrier else none)
+  match role with
+  | .object =>
+    unless ← isDefEq (← inferType value) carrier do
+      throwError "the source object does not inhabit its registered category"
+  | .morphism =>
+    let identity ← categoryIdentity category
+    let function ← mkAppM ``CategoryTheory.Functor.map #[identity]
+    discard <| elabAppArgs function #[] #[Arg.expr value] none false false
   return (category, value)
 
 /-- A direct registered view before closing its complete native expressions. -/
@@ -151,7 +184,7 @@ opaque SourceSession.namedObject (session : SourceSession) (reference : Syntax) 
     let #[category, value] ← session.elaborateMany reference fun context => do
         let arguments ← arguments.mapM fun argument => do
           return Arg.expr (← argument.source.inContext context)
-        let (category, value) ← objectExpressions entry categoryEntry fun function expected =>
+        let (category, value) ← registeredExpressions (.inl entry) categoryEntry fun function expected =>
           elabAppArgs function #[] arguments expected false false
         return #[category, value]
       | throwError "registered source formation returned an invalid number of expressions"
