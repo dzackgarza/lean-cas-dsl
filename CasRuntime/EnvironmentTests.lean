@@ -144,7 +144,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
               | throwError "the other actual index is absent"
             let retained ← RuntimeEnvironment.capture owners.worker context
               #[indexedParameter, originalIndex]
-            unless (retained.lookup bindings[3]!.id).toOption.flatten.map (·.value) ==
+            unless ((retained.lookup bindings[3]!.id).toOption.bind id).map (·.value) ==
                 some indexed.value do
               throwError "dependent runtime association replaced the original result"
             let failure : Option Exception ← try
