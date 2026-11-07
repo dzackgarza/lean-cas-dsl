@@ -65,30 +65,21 @@ class ContractProtocol(unittest.TestCase):
                 self.read(truncated)
 
     def test_serve_preserves_every_supplied_argument(self):
+        from scripts.test_protocol_v2 import Peer
+
         arguments = (0, False, [], {}, None, "")
-        requests = [
-            {"request_id": index, "op": "probe", "args": value}
-            for index, value in enumerate(arguments)
-        ]
-        requests += [
-            {"request_id": 6, "op": "probe"},
-            {"request_id": 7, "op": "unregistered", "args": {}},
-        ]
-        supplied, received = io.BytesIO(b"".join(map(frame, requests))), io.BytesIO()
-        with patch.object(port.sys, "stdin", SimpleNamespace(buffer=supplied)), \
-                patch.object(port.sys, "stdout", SimpleNamespace(buffer=received)):
-            port.serve("protocol-probe", "0", "0", {"probe": lambda value: value})
-        replies = []
-        with patch.object(port.sys, "stdin", SimpleNamespace(buffer=io.BytesIO(received.getvalue()))):
-            while (reply := port.read_frame()) is not None:
-                replies.append(reply)
-        self.assertEqual(replies[0]["op"], "ready")
+        peer = Peer(self, contract_path.parent.parent)
+        peer.negotiate()
         for index, value in enumerate(arguments):
-            self.assertEqual(replies[index + 1], {"request_id": index, "status": "ok", "value": value})
-            self.assertIs(type(replies[index + 1]["value"]), type(value))
-        self.assertEqual(replies[7]["status"], "error")
-        self.assertEqual(replies[7]["kind"], "ValueError")
-        self.assertEqual(replies[8], {"request_id": 7, "status": "unsupported", "op": "unregistered"})
+            reply = peer.invoke(index, "echo", value)
+            self.assertEqual(reply, {"request_id": index, "status": "ok", "value": value, "exports": []})
+            self.assertIs(type(reply["value"]), type(value))
+        omitted = peer.send({"protocol": 2, "request_id": 6, "op": "echo",
+                             "scope_id": "omitted", "input": "traffic#input"})
+        self.assertEqual(omitted["status"], "error")
+        self.assertEqual(omitted["kind"], "ValidationError")
+        self.assertEqual(peer.invoke(7, "unregistered", {}),
+                         {"request_id": 7, "status": "unsupported", "op": "unregistered"})
 
     def test_typed_maps_keep_both_endpoints_and_callable(self):
         source, target = node("obj.sets.fin", 2), node("obj.sets.fin", 3)

@@ -39,7 +39,8 @@ class Peer:
         self.test = test
         environment = dict(os.environ, PYTHONPATH=str(contracts / "python"))
         self.process = subprocess.Popen(
-            [sys.executable, str(ROOT / "scripts/probes/protocol_v2_peer.py")],
+            ["uv", "run", "--frozen", "--project", str(contracts), "python",
+             str(ROOT / "scripts/probes/protocol_v2_peer.py")],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             env=environment, bufsize=0,
         )
