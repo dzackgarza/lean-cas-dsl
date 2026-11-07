@@ -103,9 +103,9 @@ opaque OpenContext.close (context : OpenContext) (expression : Expr) : MetaM Clo
   return ⟨context.telescope, expression, type, levels.params⟩
 
 /-- Reopen with fresh Lean locals, preserving stable identities, definitions and instances. -/
-def ContextTelescope.withOpen (context : ContextTelescope)
-    (action : Array LocalBinding → MetaM α) : MetaM α := do
-  let rec visit (entries : List ContextEntry) (bindings : Array LocalBinding) : MetaM α := do
+def ContextTelescope.withOpen [Monad m] [MonadControlT MetaM m] (context : ContextTelescope)
+    (action : Array LocalBinding → m α) : m α := do
+  let rec visit (entries : List ContextEntry) (bindings : Array LocalBinding) : m α := do
     match entries with
     | [] => action bindings
     | entry :: rest =>

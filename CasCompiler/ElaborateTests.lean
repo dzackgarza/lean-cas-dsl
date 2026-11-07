@@ -7,9 +7,9 @@ meta import CasCompiler.Elaborate
 open Lean Meta Elab Term CasCompiler
 
 private def sourceSyntax (text : String) : TermElabM Term := do
-  let .ok syntax := Parser.runParserCategory (← getEnv) `term text
+  let .ok stx := Parser.runParserCategory (← getEnv) `term text
     | throwError "the native source control did not parse"
-  return ⟨syntax⟩
+  return ⟨stx⟩
 
 run_cmd Lean.Elab.Command.liftTermElabM do
   let initial ← SourceSession.empty "native-source"
@@ -35,11 +35,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless ← isDefEq first bindings[2]!.expression do
       throwError "a native source definition lost its dependent parameter"
     let second ← mkAppM ``Prod.snd #[expression]
-    let dictionary ← synthInstance (mkApp (mkConst ``Inhabited [Level.succ Level.zero])
-      bindings[0]!.expression)
+    let dictionary ← synthInstance (← mkAppM ``Inhabited #[bindings[0]!.expression])
     unless dictionary == bindings[1]!.expression do
       throwError "native elaboration selected a different local dictionary"
-    let expected ← mkAppM ``Inhabited.default #[bindings[0]!.expression, dictionary]
+    let expected ← mkAppOptM ``Inhabited.default #[some bindings[0]!.expression, some dictionary]
     unless ← isDefEq second expected do
       throwError "native elaboration changed the source-selected default"
   let shadowed ← selected.define `x (← sourceSyntax "y")
