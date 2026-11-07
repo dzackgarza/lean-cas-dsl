@@ -15,6 +15,7 @@ import all CasCompiler.ElaborateTests
 import all CasCompiler.Surface
 import all CasCompiler.SurfaceTests
 import all CasCompiler.Read
+import all CasCompiler.ReadExpression
 import all CasCompiler.SourceSyntaxTests
 import all CasCompiler.SourceCategoryBindingTests
 import all CasCompiler.RouteGrammar
