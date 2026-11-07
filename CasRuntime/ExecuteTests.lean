@@ -250,3 +250,52 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         (← SessionSnapshot.current).id == base.id do
       throwError "native result rejection retained a publishable transaction or changed the Environment"
   finally setEnv original
+
+-- Complete result admission checks the actual stored children under their native field roles.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let original ← getEnv
+  try
+    let context ← ContextTelescope.capture #[]
+    let scalarRole ← SourceLayout.ofTerm (← context.close (mkNatLit 7))
+    let booleanRole ← SourceLayout.ofTerm (← context.close (mkConst ``Bool.true))
+    let pair ← mkAppM ``Prod.mk #[mkNatLit 7, mkNatLit 7]
+    let recordRole ← SourceLayout.ofTerm (← context.close pair)
+    let callable ← withLocalDeclD `n (mkConst ``Nat) fun n => do
+      mkLambdaFVars #[n] (← mkAppM ``Prod.mk #[n, n])
+    let callableRole ← SourceLayout.ofTerm (← context.close callable)
+    let owners ← liftM (m := IO) OwnerRegistry.new
+    let ledger ← liftM (m := BaseIO) (OccurrenceLedger.new owners)
+    discard <| SessionSnapshot.initialize owners
+    let transaction ← CellTransaction.begin ledger
+    let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+    let occurrence ← liftM (m := BaseIO) ledger.allocate
+    let scalar ← liftM (m := IO) <| transaction.stage
+      { program, occurrence, role := scalarRole, parameters := #[] } (.portable "7".toUTF8)
+    let boolean ← liftM (m := IO) <| transaction.stage
+      { program, occurrence, role := booleanRole, parameters := #[] } (.portable "true".toUTF8)
+    let retained ← liftM (m := IO) <| transaction.stage
+      { program, occurrence, role := callableRole, parameters := #[] } (.closure program #[])
+    let malformed ← liftM (m := IO) <| transaction.stage
+      { program, occurrence, role := recordRole, parameters := #[] } (.product #[scalar, boolean])
+    let graph ← liftM (m := IO) transaction.view
+    let .ok argument := RuntimeArgument.ofValue graph 0 scalar
+      | throwError "the record execution argument is absent"
+    let request ← PreparedRequest.forApplication program occurrence context retained
+      #[← context.close (mkNatLit 7)] #[argument] #[]
+    let executor : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
+      fun request state => do
+        let candidate ← IO.ofExcept <|
+          (CandidateResponse.ofValue request.source (← state.view) malformed).mapError IO.userError
+        return (candidate, state)
+    let failure : Option Exception ← try
+      discard <| Execute.run executor
+        (PFunctor.FreeM.lift (P := OperationalSignature) request) transaction
+      pure none
+    catch error => pure (some error)
+    let some failure := failure
+      | throwError "result admission retained a record with a mistyped stored field"
+    unless (← failure.toMessageData.toString).endsWith
+        "the runtime value has an incompatible complete source type" do throw failure
+    unless (← liftM (m := BaseIO) transaction.activeGraph).isNone do
+      throwError "stored field rejection retained a publishable transaction"
+  finally setEnv original
