@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.RouteGrammar
+public import CasContract.Failure
 public import CasCompiler.Surface
 public import LeanCategories.Catalogue.Registry.Semantic
 public import Mathlib.CategoryTheory.NatIso
@@ -320,7 +321,7 @@ opaque SourceSession.constructFunctor (session : SourceSession) (reference : Syn
   unless constructor.signature == #[.category] do
     throwError "the source constructor does not expose a unary category functor interface"
   let some action := constructor.functorialAction
-    | throwError "the source constructor has no declared functor action"
+    | throwStratum .invalid m!"the source constructor has no declared functor action"
   discard <| checkedDeclaration constructor.semantics
   discard <| checkedDeclaration action
   let source ← session.unaryCategory reference id functor.source
@@ -640,11 +641,11 @@ opaque SourceSession.cell (session : SourceSession) (reference : Syntax)
     (inverse : Bool := false) : TermElabM SourceCell := do
   let state ← semanticState
   let #[entry] := state.cells.filter (·.id == id)
-    | throwError "a source cell component requires one registered cell"
+    | throwStratum .invalid m!"a source cell component requires one registered cell"
   unless source.expression.syntacticEq entry.source do
-    throwError "the cell has a different complete symbolic source category"
+    throwStratum .invalid m!"the cell has a different complete symbolic source category"
   if inverse && !entry.invertible then
-    throwError "the source cell has no registered inverse"
+    throwStratum .invalid m!"the source cell has no registered inverse"
   discard <| checkedDeclaration entry.declaration
   for ref in entry.left ++ entry.right do checkEdgeDeclarations state ref
   let terms ← session.elaborateMany reference
@@ -664,10 +665,10 @@ opaque SourceSession.cell (session : SourceSession) (reference : Syntax)
     let (rightSource, rightTarget) ← functorCategoryBundles right
     unless ← isDefEq leftSource category <&&> isDefEq rightSource category <&&>
         isDefEq leftTarget rightTarget do
-      throwError "the source cell routes have different complete native categories"
+      throwStratum .invalid m!"the source cell routes have different complete native categories"
     let expected ← mkAppM ``CategoryTheory.NatTrans #[left, right]
     unless ← isDefEq (← inferType transformation) expected do
-      throwError "the source cell has different complete native functor endpoints"
+      throwStratum .invalid m!"the source cell has different complete native functor endpoints"
     if entry.invertible then
       let isomorphism ← if inverse then mkAppM ``CategoryTheory.Iso.symm #[cell] else pure cell
       let expected ← mkAppM ``CategoryTheory.Iso #[left, right]
@@ -692,16 +693,16 @@ opaque SourceSession.composeCells (session : SourceSession) (reference : Syntax)
     (first second : SourceCell) : TermElabM SourceCell := do
   unless first.source.expression.syntacticEq second.source.expression &&
       first.target.expression.syntacticEq second.target.expression do
-    throwError "cell composition has different complete symbolic categories"
+    throwStratum .invalid m!"cell composition has different complete symbolic categories"
   let terms ← session.elaborateMany reference fun context => do
     unless ← isDefEq (← first.source.value.source.inContext context)
           (← second.source.value.source.inContext context) <&&>
         isDefEq (← first.target.value.source.inContext context)
           (← second.target.value.source.inContext context) do
-      throwError "cell composition has different complete native categories"
+      throwStratum .invalid m!"cell composition has different complete native categories"
     unless ← isDefEq (← first.right.source.inContext context)
         (← second.left.source.inContext context) do
-      throwError "cell composition has different complete intermediate functors"
+      throwStratum .invalid m!"cell composition has different complete intermediate functors"
     let left ← first.left.source.inContext context
     let right ← second.right.source.inContext context
     let transformation ← mkAppM ``CategoryTheory.CategoryStruct.comp
@@ -734,11 +735,11 @@ Reuse: native Functor.comp, NatTrans.hcomp and NatIso.hcomp, including their che
 opaque SourceSession.horizontalCells (session : SourceSession) (reference : Syntax)
     (first second : SourceCell) : TermElabM SourceCell := do
   unless first.target.expression.syntacticEq second.source.expression do
-    throwError "horizontal cell composition has different complete symbolic middle categories"
+    throwStratum .invalid m!"horizontal cell composition has different complete symbolic middle categories"
   let terms ← session.elaborateMany reference fun context => do
     unless ← isDefEq (← first.target.value.source.inContext context)
         (← second.source.value.source.inContext context) do
-      throwError "horizontal cell composition has different complete native middle categories"
+      throwStratum .invalid m!"horizontal cell composition has different complete native middle categories"
     let left ← mkFunctorComp (← first.left.source.inContext context)
       (← second.left.source.inContext context)
     let right ← mkFunctorComp (← first.right.source.inContext context)
@@ -772,7 +773,7 @@ opaque SourceSession.horizontalCells (session : SourceSession) (reference : Synt
 Reuse: Iso.symm and Iso.hom on the actual retained native isomorphism. -/
 opaque SourceSession.inverseCell (session : SourceSession) (reference : Syntax)
     (cell : SourceCell) : TermElabM SourceCell := do
-  let some original := cell.isomorphism | throwError "the source transformation has no inverse"
+  let some original := cell.isomorphism | throwStratum .invalid m!"the source transformation has no inverse"
   let #[transformation, isomorphism, left, right] ← session.elaborateMany reference
       fun context => do
     let isomorphism ← mkAppM ``CategoryTheory.Iso.symm #[← original.source.inContext context]
@@ -794,11 +795,11 @@ opaque SourceSession.whiskerCell (session : SourceSession) (reference : Syntax)
     | .left => (functor.source, cell.target, functor.target, cell.source)
     | .right => (cell.source, functor.target, cell.target, functor.source)
   unless firstMiddle.expression.syntacticEq secondMiddle.expression do
-    throwError "whiskering has different complete symbolic middle categories"
+    throwStratum .invalid m!"whiskering has different complete symbolic middle categories"
   let terms ← session.elaborateMany reference fun context => do
     unless ← isDefEq (← firstMiddle.value.source.inContext context)
         (← secondMiddle.value.source.inContext context) do
-      throwError "whiskering has different complete native middle categories"
+      throwStratum .invalid m!"whiskering has different complete native middle categories"
     let functor ← functor.functor.source.inContext context
     let compose (part : Expr) := match side with
       | .left => mkFunctorComp functor part
@@ -854,15 +855,15 @@ Both the mapped functors and the comparison retain the actual complete category 
 opaque SourceSession.constructCell (session : SourceSession) (reference : Syntax)
     (id : ConstructorId) (cell : SourceCell) : TermElabM SourceCell := do
   let some constructor := (← semanticState).constructor? id
-    | throwError "the source comparison constructor is absent"
+    | throwStratum .invalid m!"the source comparison constructor is absent"
   unless constructor.signature == #[.category] do
-    throwError "the source constructor does not expose a unary category comparison interface"
+    throwStratum .invalid m!"the source constructor does not expose a unary category comparison interface"
   let some action := constructor.functorialAction
-    | throwError "the source constructor has no declared functor action"
+    | throwStratum .invalid m!"the source constructor has no declared functor action"
   let some comparison := constructor.comparisonAction
-    | throwError "the source constructor has no declared comparison action"
+    | throwStratum .invalid m!"the source constructor has no declared comparison action"
   let some original := cell.isomorphism
-    | throwError "the source constructor comparison interface requires a native isomorphism"
+    | throwStratum .invalid m!"the source constructor comparison interface requires a native isomorphism"
   discard <| checkedDeclaration constructor.semantics
   discard <| checkedDeclaration action
   discard <| checkedDeclaration comparison
@@ -889,23 +890,23 @@ complete category/explicit-input interface, with the native source functors reta
 opaque SourceSession.constructorCoherence (session : SourceSession) (reference : Syntax)
     (id : ConstructorId) (input : ConstructorCoherence) : TermElabM SourceCell := do
   let some constructor := (← semanticState).constructor? id
-    | throwError "the source comparison constructor is absent"
+    | throwStratum .invalid m!"the source comparison constructor is absent"
   unless constructor.signature == #[.category] do
-    throwError "the source constructor does not expose a unary category comparison interface"
+    throwStratum .invalid m!"the source constructor does not expose a unary category comparison interface"
   let some action := constructor.functorialAction
-    | throwError "the source constructor has no declared functor action"
+    | throwStratum .invalid m!"the source constructor has no declared functor action"
   let law ← match input with
     | .identity _ => match constructor.identityComparison with
       | some law => pure law
-      | none => throwError "the source constructor has no declared identity comparison"
+      | none => throwStratum .invalid m!"the source constructor has no declared identity comparison"
     | .composition _ _ => match constructor.compositionComparison with
       | some law => pure law
-      | none => throwError "the source constructor has no declared composition comparison"
+      | none => throwStratum .invalid m!"the source constructor has no declared composition comparison"
   let (domain, codomain) ← match input with
     | .identity category => pure (category, category)
     | .composition first second => do
       unless first.target.expression.syntacticEq second.source.expression do
-        throwError "constructor composition has different complete symbolic middle categories"
+        throwStratum .invalid m!"constructor composition has different complete symbolic middle categories"
       pure (first.source, second.target)
   discard <| checkedDeclaration constructor.semantics
   discard <| checkedDeclaration action
@@ -927,7 +928,7 @@ opaque SourceSession.constructorCoherence (session : SourceSession) (reference :
         let D ← first.target.value.source.inContext context
         let E ← second.target.value.source.inContext context
         unless ← isDefEq D (← second.source.value.source.inContext context) do
-          throwError "constructor composition has different complete native middle categories"
+          throwStratum .invalid m!"constructor composition has different complete native middle categories"
         let F ← first.functor.source.inContext context
         let G ← second.functor.source.inContext context
         let left ← applyConstructorInterface action #[C, E] #[← mkFunctorComp F G]
@@ -958,9 +959,88 @@ opaque SourceSession.cellComponent (session : SourceSession) (reference : Syntax
     let object ← object.source.inContext context
     let carrier ← mkAppM ``CategoryTheory.Bundled.α #[category]
     unless ← isDefEq (← inferType object) carrier do
-      throwError "the source cell object has a different complete native category"
+      throwStratum .invalid m!"the source cell object has a different complete native category"
     let transformation ← cell.transformation.source.inContext context
     mkAppM ``CategoryTheory.NatTrans.app #[transformation, object]
   return ⟨cell, object, value⟩
+
+/-- Check an actual selected cell against an independently prepared whole boundary.
+Absence never triggers search or identity insertion. The original cell is returned,
+so its chosen derivation, components and invertibility witness are not reconstructed.
+Checker interruptions and internal failures propagate without semantic relabelling. -/
+opaque SourceSession.requireSelectedCell (session : SourceSession) (reference : Syntax)
+    (left right : SourceFunctor) (selection : Option SourceCell) :
+    TermElabM SourceCell := do
+  let some cell := selection
+    | throwStratum .invalid m!"the required source comparison cell was not supplied"
+  for (expected, actual) in #[(left.source, cell.source), (right.source, cell.source),
+      (left.target, cell.target), (right.target, cell.target)] do
+    unless expected.expression.syntacticEq actual.expression do
+      throwStratum .invalid m!"the selected cell has a different complete symbolic boundary"
+  discard <| session.elaborateMany reference fun context => do
+    for (expected, actual) in #[(left.source, cell.source), (right.source, cell.source),
+        (left.target, cell.target), (right.target, cell.target)] do
+      unless ← isDefEq (← expected.value.source.inContext context)
+          (← actual.value.source.inContext context) do
+        throwStratum .invalid m!"the selected cell has a different complete native boundary"
+    let first ← left.functor.source.inContext context
+    let second ← right.functor.source.inContext context
+    unless ← isDefEq first (← cell.left.source.inContext context) <&&>
+        isDefEq second (← cell.right.source.inContext context) do
+      throwStratum .invalid m!"the selected cell compares different whole functors"
+    let transformation ← cell.transformation.source.inContext context
+    let expected ← mkAppM ``CategoryTheory.NatTrans #[first, second]
+    unless ← isDefEq (← inferType transformation) expected do
+      throwStratum .invalid m!"the selected cell has the wrong directed transformation type"
+    return #[transformation]
+  return cell
+
+/-- Consume required selected data before forming its actual component.
+Both alternative permitted cells remain usable; no uniqueness claim is added. -/
+opaque SourceSession.requiredCellComponent (session : SourceSession) (reference : Syntax)
+    (left right : SourceFunctor) (selection : Option SourceCell) (object : SourceTerm) :
+    TermElabM SourceCellComponent := do
+  let cell ← session.requireSelectedCell reference left right selection
+  session.cellComponent reference cell object
+
+/-- Validate supplied accepted formal evidence at the exact rigid whole-family equation.
+This is checking an existing source term, not leaf proof intake or theorem search.
+In particular, a natural transformation is not silently treated as this equality. -/
+opaque SourceSession.operationAgreement (session : SourceSession) (reference : Syntax)
+    (left right : SourceOperationFamily) (evidence : SourceTerm) :
+    TermElabM SourceOperationAgreement := do
+  unless left.source.expression.syntacticEq right.source.expression do
+    throwStratum .invalid m!"operation agreement requires the same complete symbolic source"
+  let #[proposition, proof] ← session.elaborateMany reference fun context => do
+      let firstCategory ← left.source.family.source.inContext context
+      let secondCategory ← right.source.family.source.inContext context
+      unless ← isDefEq (← inferType firstCategory) (← inferType secondCategory) <&&>
+          isDefEq firstCategory secondCategory do
+        throwStratum .invalid m!"operation agreement requires the same complete native family"
+      let first ← left.term.source.inContext context
+      let second ← right.term.source.inContext context
+      unless ← isDefEq (← inferType first) (← inferType second) do
+        throwStratum .invalid m!"operation agreement lacks the required typed transports"
+      let proposition ← mkEq first second
+      let proof ← evidence.source.inContext context
+      unless ← isDefEq (← inferType proof) proposition do
+        throwStratum .invalid m!"supplied agreement has a different whole-family equation"
+      checkWithKernel (← mkExpectedTypeHint proof proposition)
+      return #[proposition, proof]
+    | throwError "source agreement checking returned an invalid expression family"
+  return ⟨left, right, proposition, proof⟩
+
+/-- Complete the source agreement judgment from supplied evidence or permitted conversion.
+Missing nondefinitional evidence leaves these bindings ambiguous under the supplied
+source input; this does not assert that no equality could exist in a larger theory.
+Malformed supplied evidence is never ignored in favor of a conversion fallback. -/
+opaque SourceSession.requireOperationAgreement (session : SourceSession) (reference : Syntax)
+    (left right : SourceOperationFamily) (evidence : Option SourceTerm := none) :
+    TermElabM SourceOperationAgreement := do
+  if let some proof := evidence then
+    return ← session.operationAgreement reference left right proof
+  let some agreement ← session.operationConversion reference left right
+    | throwSemanticAmbiguity m!"the surviving operation bindings require accepted whole-family agreement data"
+  return agreement
 
 end CasCompiler
