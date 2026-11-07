@@ -51,7 +51,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       throwError "local native encoding lost its token or exact input authority"
     let .ok payload := ValuePayload.container
       (Json.mkObj [("value", .null), ("label", .str "original packet")])
-      #[{ path := #[.field "value"], binding := number }] #[number, remoteCode] none
+      #[{ path := #[.field "value"], binding := number, fieldIndex := some 0 }] #[number, remoteCode] none
       | throwError "the retained container could not form"
     let (graph, container) ← liftM (m := IO) <| stage graph recordRole payload
     let .ok encoded := graph.encodeInputs localOwner.generation #[{ path, binding := container }]

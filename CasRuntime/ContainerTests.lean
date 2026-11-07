@@ -35,7 +35,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         ("args", .arr #[.null, Json.mkObj [("wrapped", .null)]]),
         ("description", .str "retained literal data")]
       let slots : Array ContainerSlot := #[
-        { path := secondPath, binding := callable }, { path := firstPath, binding := scalar }]
+        { path := secondPath, binding := callable, fieldIndex := some 1 },
+        { path := firstPath, binding := scalar, fieldIndex := some 0 }]
       let payload ← IO.ofExcept <|
         (ValuePayload.container template slots #[scalar, callable] none).mapError IO.userError
       let (graph, record) ← base.stage owners.identities
@@ -74,7 +75,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let aliased ← IO.ofExcept <| (graph.rebind scalar aliasRole).mapError IO.userError
       let aliases ← IO.ofExcept <| (ValuePayload.container
         (.arr #[(ScopedReference.scope 0).encode, (ScopedReference.scope 1).encode])
-        #[{ path := #[.index 0], binding := scalar }, { path := #[.index 1], binding := aliased }]
+        #[{ path := #[.index 0], binding := scalar, fieldIndex := some 0 },
+          { path := #[.index 1], binding := aliased, fieldIndex := some 1 }]
         #[scalar, aliased] none).mapError IO.userError
       let .container aliasContainer := aliases.data
         | throw <| IO.userError "the aliased container lost its packet form"
@@ -82,8 +84,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           (aliasContainer.slots.map (·.binding.value)) == #[scalar.value, scalar.value] &&
           (aliasContainer.slots.map (·.binding.role.address)) == #[scalarRole.address, aliasRole.address] do
         throw <| IO.userError "container retention merged aliases, changed their roles or retained ambient authority"
+      let some scalarSlot := slots[1]?
+        | throw <| IO.userError "the scalar reference slot is missing"
       let incompletePayload ← IO.ofExcept <|
-        (ValuePayload.container template slots #[scalar] none).mapError IO.userError
+        (ValuePayload.container template #[scalarSlot] #[scalar] none).mapError IO.userError
       let (incompleteGraph, incomplete) ← graph.stage owners.identities
         { program, occurrence := produced, role := recordRole, parameters := #[] } incompletePayload
       match CandidateResponse.ofValue recordRole incompleteGraph incomplete with
@@ -115,8 +119,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throw <| IO.userError "the native reference slot is missing"
       let malformed := #[
         ValuePayload.container template #[nativeSlot, nativeSlot] #[scalar, callable] none,
-        ValuePayload.container template #[{ path := #[], binding := scalar }, nativeSlot] #[scalar, callable] none,
-        ValuePayload.container template #[{ path := #[.field "missing"], binding := scalar }] #[scalar] none,
+        ValuePayload.container template
+          #[{ path := #[], binding := scalar, fieldIndex := some 0 }, nativeSlot] #[scalar, callable] none,
+        ValuePayload.container template
+          #[{ path := #[.field "missing"], binding := scalar, fieldIndex := none }] #[scalar] none,
+        ValuePayload.container template slots #[scalar] none,
+        ValuePayload.container template #[{ scalarSlot with fieldIndex := some 1 }] #[scalar, callable] none,
+        ValuePayload.container template #[{ scalarSlot with fieldIndex := some 2 }] #[scalar, callable] none,
         ValuePayload.container template slots #[] (some scalar),
         ValuePayload.container (ScopedReference.scope 0).encode #[] #[] none,
         ValuePayload.container (ComputationalValue.encode (.opaque token)) #[] #[] none]

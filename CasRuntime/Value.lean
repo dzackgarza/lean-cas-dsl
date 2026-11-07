@@ -106,6 +106,8 @@ private def selectedReferences (indices : Array Nat) (values : Array (Option Val
 structure ContainerSlot where
   path : Array InputPathStep
   binding : ValueBinding
+  /-- Computational field position, or an independent retained reference. -/
+  fieldIndex : Option Nat
 
 /-- Literal packet structure, typed substitution slots and retained field/callable bindings. -/
 structure ValueContainer where
@@ -147,6 +149,12 @@ private def makeContainer (template : Json) (slots : Array ContainerSlot)
   let mut paths : Array (List InputPathStep) := #[]
   let mut template := template
   for slot in slots do
+    if let some index := slot.fieldIndex then
+      let some field := fields[index]?
+        | throw "the container slot is outside its source field table"
+      unless slot.binding.value == field.value &&
+          slot.binding.associationIds == field.associationIds do
+        throw "the container slot does not retain its declared source field"
     let path := slot.path.toList
     if paths.any (fun previous => previous.isPrefixOf path || path.isPrefixOf previous) then
       throw "container reference positions overlap"
@@ -507,10 +515,10 @@ opaque ValueGraph.bindApplication (graph : ValueGraph) (supply : IdentitySupply)
     (CandidateResponse.ofValue origin.role graph value).mapError IO.userError
   let some node := graph.find candidate.root.value
     | throw <| IO.userError "the application result is outside the visible graph"
-  let stored := match node.payload.data with
-    | .product values => values.size
-    | .container value => value.fields.size
-    | _ => 0
+  let stored := match origin.role.kind, node.payload.data with
+    | .record, .product values => values.size
+    | .record, .container value => value.fields.size
+    | _, _ => 0
   unless fields.size == stored do
     throw <| IO.userError "the application result requires its complete stored field views"
   for field in fields, index in [:fields.size] do

@@ -54,7 +54,10 @@ private partial def encodeAt (graph : ValueGraph) (receiver : ConnectionGenerati
     let mut replacements : Array Json := #[]
     let mut state := state
     for slot in container.slots do
-      let (packet, next) ← encodeAt graph receiver slot.binding (path ++ slot.path) state
+      let actual ← match slot.fieldIndex with
+        | none => pure slot.binding
+        | some index => graph.project binding index
+      let (packet, next) ← encodeAt graph receiver actual (path ++ slot.path) state
       replacements := replacements.push packet
       state := next
     return (← container.fill replacements, state)
@@ -64,7 +67,8 @@ private partial def encodeAt (graph : ValueGraph) (receiver : ConnectionGenerati
       throw "the stored product does not match its complete source data-field interface"
     let mut packets : Array Json := #[]
     let mut state := state
-    for field in fields, index in [:fields.size] do
+    for index in [:fields.size] do
+      let field ← graph.project binding index
       let fieldPath := if fields.size == 1 then path else path.push (.index index)
       let (packet, next) ← encodeAt graph receiver field fieldPath state
       packets := packets.push packet

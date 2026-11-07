@@ -103,7 +103,7 @@ private partial def materializeValue (reply : ImmediateReply) (request : Prepare
       let (nextDraft, nextRecord, binding) ← liftM (m := IO) <| draft.bindField record binding
       draft := nextDraft
       record := nextRecord
-      slots := slots.push { path := position.1, binding }
+      slots := slots.push { path := position.1, binding, fieldIndex := prepared.field.wireIndex }
       selected := selected.push binding
     let .ok _ := record.finish
       | throwError "the materialized record has an incomplete formal field prefix"
@@ -115,7 +115,8 @@ private partial def materializeValue (reply : ImmediateReply) (request : Prepare
       if path.toList.isPrefixOf reference.path.toList then
         some ({
           path := reference.path.extract path.size reference.path.size
-          binding := reference.binding } : ContainerSlot)
+          binding := reference.binding
+          fieldIndex := none } : ContainerSlot)
       else none
     let .ok payload := ValuePayload.container value slots #[] none
       | throwError "the reply has native or control data outside a prepared typed position"

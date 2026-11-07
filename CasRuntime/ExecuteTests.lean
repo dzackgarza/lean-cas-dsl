@@ -52,8 +52,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         return binding
       let packet ← IO.ofExcept <| (ValuePayload.container
         (Json.mkObj [("args", .arr #[.null, .null]), ("description", .str "retained packet")])
-        #[{ path := #[.field "args", .index 0], binding := scalar },
-          { path := #[.field "args", .index 1], binding := callable }]
+        #[{ path := #[.field "args", .index 0], binding := scalar, fieldIndex := some 0 },
+          { path := #[.field "args", .index 1], binding := callable, fieldIndex := some 1 }]
         #[scalar, callable] none).mapError IO.userError
       let packetRecord ← liftM (m := IO) <| producer.stage
         { program, occurrence, role := recordRole, parameters := #[] } packet

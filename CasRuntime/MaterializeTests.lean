@@ -104,30 +104,41 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "materialization published a tentative reply"
       let .ok () ← liftM (m := BaseIO) <| transaction.installDraft draft
         | throwError "the existing joint result could not enter the active graph"
-      let jointOccurrence ← liftM (m := BaseIO) ledger.allocate
-      let jointRequest ← prepare pair jointOccurrence
-      let .ok jointReservation ← liftM (m := BaseIO) <| transaction.reserve jointOccurrence
-        selected wire.connection (jointRequest.scope.push response.root)
-        | throwError "the whole-record reference control could not reserve"
-      let jointGraph ← liftM (m := IO) transaction.view
-      let jointScope ← liftM (m := IO) <| RequestScope.issue ledger jointReservation
-        jointGraph #[response.root] #[] #[]
-      let .ok jointReply ← liftM (m := IO) <| wire.invokeBefore ledger transaction
-        jointReservation jointScope (ScopedReference.scope 0).encode 5000
-        | throwError "the SDK did not return the existing whole record"
-      let (jointDraft, joint) ← jointReply.materialize jointRequest transaction
-        jointScope wire.connection
-      let .ok jointFirst := jointDraft.view.project joint.root 0
-        | throwError "the reused record lost its first consuming field view"
-      let .ok jointSecond := jointDraft.view.project joint.root 1
-        | throwError "the reused record lost its second consuming field view"
-      let argumentPath := #[InputPathStep.field "argument"]
-      let .ok encoded := jointDraft.view.encodeInputs wire.connection.generation
-          #[{ path := argumentPath, binding := joint.root }]
-        | throwError "the reused record could not encode for its next consumer"
-      unless encoded.inputs.map (·.binding.associationIds) ==
-          #[joint.root.associationIds, jointFirst.associationIds, jointSecond.associationIds] do
-        throwError "input encoding discarded a reused record's consuming field associations"
+      let reuseWhole (input : ValueBinding) : MetaM Unit := do
+        let jointOccurrence ← liftM (m := BaseIO) ledger.allocate
+        let jointRequest ← prepare pair jointOccurrence
+        let .ok jointReservation ← liftM (m := BaseIO) <| transaction.reserve jointOccurrence
+          selected wire.connection (jointRequest.scope.push input)
+          | throwError "the whole-record reference control could not reserve"
+        let jointGraph ← liftM (m := IO) transaction.view
+        let argumentPath := #[InputPathStep.field "argument"]
+        let .ok originalPacket := jointGraph.encodeInputs wire.connection.generation
+            #[{ path := argumentPath, binding := input }]
+          | throwError "the existing record could not encode"
+        let jointScope ← liftM (m := IO) <| RequestScope.issue ledger jointReservation
+          jointGraph #[input] #[] #[]
+        let .ok jointReply ← liftM (m := IO) <| wire.invokeBefore ledger transaction
+          jointReservation jointScope (ScopedReference.scope 0).encode 5000
+          | throwError "the SDK did not return the existing whole record"
+        let (jointDraft, joint) ← jointReply.materialize jointRequest transaction
+          jointScope wire.connection
+        let .ok jointFirst := jointDraft.view.project joint.root 0
+          | throwError "the reused record lost its first consuming field view"
+        let .ok jointSecond := jointDraft.view.project joint.root 1
+          | throwError "the reused record lost its second consuming field view"
+        let .ok encoded := jointDraft.view.encodeInputs wire.connection.generation
+            #[{ path := argumentPath, binding := joint.root }]
+          | throwError "the reused record could not encode for its next consumer"
+        unless joint.root.value == input.value && encoded.values == originalPacket.values &&
+            encoded.inputs.map (·.binding.associationIds) ==
+              #[joint.root.associationIds, jointFirst.associationIds, jointSecond.associationIds] do
+          throwError "input encoding changed a reused record or its consuming field associations"
+      reuseWhole response.root
+      let productOccurrence ← liftM (m := BaseIO) ledger.allocate
+      let product ← liftM (m := IO) <| transaction.stage
+        { program, occurrence := productOccurrence, role := request.source, parameters := #[] }
+        (.product #[first, second])
+      reuseWhole product
       let aliasOccurrence ← liftM (m := BaseIO) ledger.allocate
       let aliasRequest ← prepare (mkNatLit 7) aliasOccurrence
       let .ok aliasReservation ← liftM (m := BaseIO) <|
