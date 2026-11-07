@@ -232,11 +232,41 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless application.dependencies == #[0] &&
           (application.arguments[0]?.bind id).map (·.value) == some indexValue.root.value do
         throwError "materialization changed the actual argument-index association"
+      let .ok () ← liftM (m := BaseIO) <| transaction.installDraft draft
+        | throwError "the numeric field could not enter the active graph"
+      let plain ← liftM (m := IO) <| transaction.stage
+        { program, occurrence, role := request.source, parameters := #[] } (.product #[number])
+      let reuseOccurrence ← liftM (m := BaseIO) ledger.allocate
+      let reuseRequest ← PreparedRequest.forApplication program reuseOccurrence context function
+        #[← context.close (mkNatLit 7)] #[actual] #[]
+      let graph ← liftM (m := IO) transaction.view
+      let .ok baselineOwners := graph.requiredOwners #[plain]
+        | throwError "the existing point is outside its graph"
+      unless baselineOwners.isEmpty do
+        throwError "the existing point acquired an unrelated index owner"
+      let .ok reuseReservation ← liftM (m := BaseIO) <|
+        transaction.reserve reuseOccurrence selected wire.connection (reuseRequest.scope.push plain)
+        | throwError "the reused dependent result could not reserve"
+      let reuseScope ← liftM (m := IO) <|
+        RequestScope.issue ledger reuseReservation graph #[plain] #[] #[]
+      let .ok reuseReply ← liftM (m := IO) <| wire.invokeBefore ledger transaction
+        reuseReservation reuseScope (ScopedReference.scope 0).encode 5000
+        | throwError "the SDK did not return the existing dependent result"
+      let (reusedDraft, reused) ←
+        reuseReply.materialize reuseRequest transaction reuseScope wire.connection
+      let .ok reuseOwners := reusedDraft.view.requiredOwners #[reused.root]
+        | throwError "the reused result is outside its isolated graph"
+      unless reused.root.value == plain.value && reuseOwners == #[wire.connection.generation] do
+        throwError "a reused result lost its consuming application's actual index dependency"
       liftM (m := IO) wire.close
       if ← liftM (m := BaseIO) (draft.view.isAvailable owners point.root) then
         throwError "a materialized dependent point survived its actual index owner"
       unless ← liftM (m := BaseIO) (draft.view.isAvailable owners number) do
         throwError "a materialized numeric field retained its unrelated index owner"
+      if ← liftM (m := BaseIO) (reusedDraft.view.isAvailable owners reused.root) then
+        throwError "a reused dependent result survived its consuming index owner"
+      unless ← liftM (m := BaseIO) (graph.isAvailable owners plain) do
+        throwError "a consuming application changed its original result's owner requirements"
       discard <| liftM (m := BaseIO) transaction.abort
     finally liftM (m := IO) wire.close
   finally setEnv original
