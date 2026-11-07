@@ -98,6 +98,27 @@ opaque SourceLayout.ofTerm (source : ClosedTerm) : MetaM SourceLayout :=
 opaque FieldLayout.toLayout (field : FieldLayout) : MetaM SourceLayout :=
   sourceLayout field.source field.address
 
+/-- A source constructor field and its complete prepared value interface. -/
+structure RecordField where
+  private mk ::
+  field : FieldLayout
+  layout : SourceLayout
+
+/-- Prepare every constructor position, including formal proof-only positions.
+Reuse: the source-ordered FieldLayout telescope and FieldLayout.toLayout above.
+Runtime prefix references remain separate from these checked source expressions. -/
+structure RecordLayout where
+  private mk ::
+  source : SourceLayout
+  fields : Array RecordField
+
+opaque RecordLayout.ofSource (source : SourceLayout) : MetaM RecordLayout := do
+  unless source.kind == .record do
+    throwError "record preparation requires a source record interface"
+  let fields ← source.fields.mapM fun field => do
+    return { field, layout := ← field.toLayout : RecordField }
+  return ⟨source, fields⟩
+
 /-- Reopen in the complete current scope while retaining the source projection address. -/
 opaque SourceLayout.inContext (layout : SourceLayout) (context : OpenContext) : MetaM SourceLayout := do
   sourceLayout (← context.close (← layout.source.inContext context)) layout.address
