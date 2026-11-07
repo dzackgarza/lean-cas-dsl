@@ -153,8 +153,8 @@ structure SourceCategory where
 
 private def categoryIdentity (category : Expr) : MetaM Expr := do
   let carrier ← mkAppM ``CategoryTheory.Bundled.α #[category]
-  let structure ← mkAppM ``CategoryTheory.Bundled.str #[category]
-  mkAppOptM ``CategoryTheory.Functor.id #[some carrier, some structure]
+  let categoryStructure ← mkAppM ``CategoryTheory.Bundled.str #[category]
+  mkAppOptM ``CategoryTheory.Functor.id #[some carrier, some categoryStructure]
 
 /-- Form the registered category family at actual arguments and explicit rigid universes.
 Reuse: whole-declaration intake, native application and the actual category structure. -/
@@ -181,10 +181,12 @@ private partial def checkEdgeDeclarations (state : SemanticState) : EdgeRef → 
     let some entry := state.functor? id | throwError "the source functor declaration is absent"
     discard <| checkedDeclaration entry.declaration
   | .classifierForget id => do
-    let some entry := state.classifier? id | throwError "the source classifier declaration is absent"
+    let some entry := state.classifier? id
+      | throwError "the source classifier declaration is absent"
     discard <| checkedDeclaration entry.declaration
   | .constructMap id inner => do
-    let some entry := state.constructor? id | throwError "the source constructor declaration is absent"
+    let some entry := state.constructor? id
+      | throwError "the source constructor declaration is absent"
     let some action := entry.functorialAction
       | throwError "the source constructor has no declared functorial action"
     discard <| checkedDeclaration entry.semantics
