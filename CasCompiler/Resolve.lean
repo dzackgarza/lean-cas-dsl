@@ -492,7 +492,9 @@ opaque SourceSession.operationRefinement (session : SourceSession) (reference : 
   let some steps := state.routeEdges? owner.expression baseOwner.expression refinement.route
     | throwError "the source restriction lost its actual structural route"
   discard <| checkedDeclaration refinement.identification
-  let route : Route := { source := family.route.source, target := baseOwner.expression,
+  let route : Route := {
+    source := family.route.source
+    target := baseOwner.expression
     steps := family.route.steps ++ steps }
   let term ← operationTerm state session reference family.source route base
   let #[proposition, proof] ← session.elaborateMany reference fun context => do
