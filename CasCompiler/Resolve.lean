@@ -1,13 +1,14 @@
 module
 
 public import CasCompiler.RouteGrammar
+public import CasCompiler.Surface
 public import LeanCategories.Catalogue.Registry.Semantic
 
 public section
 
 namespace CasCompiler
 
-open Lean CasCatalogue
+open Lean Meta Elab Term CasCatalogue
 
 private inductive SourceSymbol
   | atom (expression : CategoryExpr)
@@ -143,5 +144,95 @@ opaque SourceRoutes.finiteRoutes (routes : SourceRoutes) : CoreM (Option (Array 
     | some words => return some (← words.mapM routes.reconstruct)
   Core.checkSystem "finite source route publication"
   return result
+
+/-- An exact symbolic source category and its retained native bundle. -/
+structure SourceCategory where
+  private mk ::
+  expression : CategoryExpr
+  value : SourceTerm
+
+private def categoryIdentity (category : Expr) : MetaM Expr := do
+  let carrier ← mkAppM ``CategoryTheory.Bundled.α #[category]
+  let structure ← mkAppM ``CategoryTheory.Bundled.str #[category]
+  mkAppOptM ``CategoryTheory.Functor.id #[some carrier, some structure]
+
+/-- Form the registered category family at actual arguments and explicit rigid universes.
+Reuse: whole-declaration intake, native application and the actual category structure. -/
+opaque SourceSession.namedCategory (session : SourceSession) (reference : Syntax) (name : String)
+    (universes : List Level) (arguments : Array SourceTerm) : TermElabM SourceCategory := do
+  let state ← semanticState
+  let #[entry] := state.categories.filter (·.name == name)
+    | throwError "source category {name} requires one exact registered declaration"
+  let constant ← session.constant reference entry.declaration universes
+  let value ← session.elaborate reference fun context => do
+    let arguments ← arguments.mapM fun argument => do
+      return Arg.expr (← argument.source.inContext context)
+    let value ← elabAppArgs (← constant.source.inContext context) #[] arguments none false false
+    discard <| categoryIdentity value
+    return value
+  return ⟨entry.expression, value⟩
+
+/-- Retain the exact category already formed by registered object intake. -/
+opaque SourceObject.sourceCategory (object : SourceObject) : SourceCategory :=
+  ⟨object.categoryEntry.expression, object.category⟩
+
+private partial def checkEdgeDeclarations (state : SemanticState) : EdgeRef → MetaM Unit
+  | .functor id => do
+    let some entry := state.functor? id | throwError "the source functor declaration is absent"
+    discard <| checkedDeclaration entry.declaration
+  | .classifierForget id => do
+    let some entry := state.classifier? id | throwError "the source classifier declaration is absent"
+    discard <| checkedDeclaration entry.declaration
+  | .constructMap id inner => do
+    let some entry := state.constructor? id | throwError "the source constructor declaration is absent"
+    let some action := entry.functorialAction
+      | throwError "the source constructor has no declared functorial action"
+    discard <| checkedDeclaration entry.semantics
+    discard <| checkedDeclaration action
+    checkEdgeDeclarations state inner
+
+/-- One explicitly selected source derivation and its actual native functor. -/
+structure SourceRoute where
+  private mk ::
+  route : Route
+  source : SourceCategory
+  target : SourceCategory
+  functor : SourceTerm
+
+/-- Interpret the selected route in the complete native context, preserving both bundle fields.
+Reuse: the independent routeFunctor/functorCategoryBundles/applyConstructorInterface APIs.
+This operation selects no representative from a family of mathematical readings. -/
+opaque SourceRoutes.prepareFunctor (routes : SourceRoutes) (session : SourceSession)
+    (reference : Syntax) (trace : RouteGrammar.Word) (source : SourceCategory) :
+    TermElabM SourceRoute := do
+  unless routes.source.syntacticEq source.expression do
+    throwError "the native source category differs from the exact symbolic route source"
+  let route ← routes.reconstruct trace
+  for ref in route.refs do checkEdgeDeclarations routes.state ref
+  let #[functor, target] ← session.elaborateMany reference fun context => do
+      let category ← source.value.source.inContext context
+      let functor ← if route.steps.isEmpty then categoryIdentity category
+        else routes.state.routeFunctor route.refs
+      let (domain, target) ← functorCategoryBundles functor
+      unless ← isDefEq domain category do
+        throwError "the selected functor has a different complete source category"
+      return #[functor, target]
+    | throwError "native route formation returned an invalid number of expressions"
+  return ⟨route, source, ⟨route.target, target⟩, functor⟩
+
+/-- Apply the retained native functor to the actual checked source object.
+Reuse: Functor.toPrefunctor/Prefunctor.obj and stable-ID context transport. -/
+opaque SourceSession.routeImage (session : SourceSession) (reference : Syntax)
+    (route : SourceRoute) (object : SourceTerm) : TermElabM SourceTerm :=
+  session.elaborate reference fun context => do
+    let functor ← route.functor.source.inContext context
+    let object ← object.source.inContext context
+    let functor ← mkAppM ``CategoryTheory.Functor.toPrefunctor #[functor]
+    let image ← mkAppM ``Prefunctor.obj #[functor, object]
+    let target ← route.target.value.source.inContext context
+    let carrier ← mkAppM ``CategoryTheory.Bundled.α #[target]
+    unless ← isDefEq (← inferType image) carrier do
+      throwError "the source image does not belong to its complete target category"
+    return image
 
 end CasCompiler
