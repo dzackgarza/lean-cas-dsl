@@ -99,3 +99,42 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       reject "a formal proof argument has no runtime value binding" do
         discard <| PreparedRequest.forApplication program occurrence context function formal
           #[suppliedProof, ← argument 1 leftValue] parameters
+
+-- A source callable and its let alias retain their own native application heads.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let empty ← ContextTelescope.capture #[]
+  let role ← SourceLayout.ofTerm (← empty.close (mkConst ``Nat.add))
+  let owners ← liftM (m := IO) OwnerRegistry.new
+  let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+  let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+  let (graph, original) ← liftM (m := IO) <|
+    (ValueGraph.empty owners.identities).stage owners.identities
+      { program, occurrence, role, parameters := #[] } (.closure program #[])
+  withLocalDeclD `f (← inferType (mkConst ``Nat.add)) fun f => do
+    withLetDecl `g (← inferType f) f fun g => do
+      let bindings : Array LocalBinding := #[
+        { id := ⟨"callable-source", 0⟩, role := .parameter, expression := f },
+        { id := ⟨"callable-source", 1⟩, role := .definition, expression := g }]
+      let context ← ContextTelescope.capture bindings
+      let mut parameters := #[]
+      for binding in bindings do
+        let .ok parameter := RuntimeParameter.ofValue graph binding.id original
+          | throwError "the source callable parameter is absent"
+        parameters := parameters.push parameter
+      let environment ← RuntimeEnvironment.capture owners.worker context parameters
+      for binding in bindings do
+        let .ok (some callable) := environment.lookup binding.id
+          | throwError "the source callable binding is absent"
+        unless callable.value == original.value &&
+            (← callable.role.source.inContext context) == binding.expression do
+          throwError "runtime capture changed the native source callable binding"
+        let arguments := #[← context.close (mkNatLit 2), ← context.close (mkNatLit 3)]
+        let request ← PreparedRequest.forApplication program occurrence context callable arguments
+          #[] parameters
+        let application ← request.source.source.inContext context
+        unless application.getAppFn == binding.expression do
+          throwError "callable preparation changed the native source application head"
+      let some node := graph.find original.value
+        | throwError "the original callable node is absent"
+      unless (← node.origin.role.source.inContext context) == mkConst ``Nat.add do
+        throwError "source association changed the original callable producer"
