@@ -10,24 +10,25 @@ Read the current issue-owned design in this order:
 4. [Task amendment: predecessors, early trial, repair and evidence reentry](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6685591815).
 5. [G1 replacement: exact extension-closed route representation and source-directed agreement](https://github.com/dzackgarza/lean-cas-dsl/issues/66#issuecomment-6693871042).
 6. [G1 comparison discovery: permitted evidence syntax, fair search, exact checking and extension-uniform positive completeness](https://github.com/dzackgarza/lean-cas-dsl/issues/66#issuecomment-6697729346).
-7. [Completed whole-family coverage and nonvacuous selection design, proofs, integrated reference and task refinements](https://github.com/dzackgarza/lean-cas-dsl/issues/66#issuecomment-6705288299).
+7. [Whole-family coverage and nonvacuous selection design, proofs, integrated reference and task refinements](https://github.com/dzackgarza/lean-cas-dsl/issues/66#issuecomment-6705288299).
+8. [Full-audit correction: native exported-callable capture frames and transport-request identity](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6706802517).
+9. [Full-audit correction: native resolver arguments accompany their first implementation](https://github.com/dzackgarza/lean-cas-dsl/issues/66#issuecomment-6706809520).
+10. [Validation-guide alignment with these corrections](https://github.com/dzackgarza/lean-cas-dsl/issues/24#issuecomment-6706903869).
 
-Items 5–7 replace the snapshot-specific closure and complete the named comparison/coverage/task algorithm descriptions. Item 4's task IDs, predecessor graph and repair transitions remain unchanged. Unmentioned requirements remain binding.
+Items 5–7 replace the snapshot-specific closure and named comparison/coverage algorithms. Item 9 corrects their proof-task allocation: T053–T056 own the native first-use cases; T062 consolidates and extends genuinely later mechanisms. Item 8 supplies the missing export invocation frame and fixes duplicate transport admission. Item 4's task IDs, predecessor graph and repair transitions remain unchanged. Unmentioned requirements remain binding.
 
-Read the [counterexample and its precise hypotheses](https://github.com/dzackgarza/lean-cas-dsl/issues/66#issuecomment-6693321613) and the [architectural alternatives](https://github.com/dzackgarza/lean-cas-dsl/issues/85#issuecomment-6693443847) with the replacement. The adopted design is exact reading representation with source-directed evidence and selection, not a silently restricted projection calculus or a universal-total semantic quotient. A selected member and complete checked coverage are distinct prerequisites; neither a pairwise proof nor vacuous coverage authorizes implicit execution.
-
-The executable references and tests are `scripts/probes/structural_routes_reference.py`, `scripts/probes/test_structural_routes_reference.py`, `scripts/probes/agreement_search_reference.py`, `scripts/probes/test_agreement_search_reference.py`, `scripts/probes/coverage_reference.py`, and `scripts/probes/test_coverage_reference.py`. They are kernel-internal engineering references, not the production Lean adapter, a released leaf proof API, or independent mathematical acceptance.
+Read the [counterexample and its precise hypotheses](https://github.com/dzackgarza/lean-cas-dsl/issues/66#issuecomment-6693321613) and the [architectural alternatives](https://github.com/dzackgarza/lean-cas-dsl/issues/85#issuecomment-6693443847) with the replacement. Exact reading representation, source-directed evidence and selection do not silently restrict the projection calculus or provide a universal-total semantic quotient. Actual selected membership and complete coverage remain separate requirements.
 
 ## Artifact index
 
 | Artifact | Canonical issue-owned content |
 |---|---|
-| `research.md` | [Base research](https://github.com/dzackgarza/lean-cas-dsl/issues/85#issuecomment-6664331639), with the G1 sources, alternatives, route, discovery and coverage arguments above |
-| `data-model.md` | [Base model](https://github.com/dzackgarza/lean-cas-dsl/issues/66#issuecomment-6664275536), with the runtime amendment above |
-| `contracts/mathematical-input.md` | [Base mathematical-input contract](https://github.com/dzackgarza/lean-cas-dsl/issues/66#issuecomment-6664276482), with the interpretation amendment and G1 records above |
-| `contracts/computational-runtime.md` | [Base runtime contract](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6664277464), with the runtime amendment above |
-| `contracts/notebook-session.md` | [Base notebook contract](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6664296914), with the runtime amendment above |
-| `quickstart.md` | [Base validation guide](https://github.com/dzackgarza/lean-cas-dsl/issues/24#issuecomment-6664297919), with the amended task/reentry order above |
-| `tasks.md` | [T001–T064](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684546229), [T065–T110](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684571141), task amendment 1, route §6, discovery §8 and coverage §6 above |
+| `research.md` | [Base research](https://github.com/dzackgarza/lean-cas-dsl/issues/85#issuecomment-6664331639), with the research and full-audit corrections above |
+| `data-model.md` | [Base model](https://github.com/dzackgarza/lean-cas-dsl/issues/66#issuecomment-6664275536), with items 3 and 8 |
+| `contracts/mathematical-input.md` | [Base mathematical-input contract](https://github.com/dzackgarza/lean-cas-dsl/issues/66#issuecomment-6664276482), with items 2 and 5–7 and the first-use correction in item 9 |
+| `contracts/computational-runtime.md` | [Base runtime contract](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6664277464), with items 3 and 8 |
+| `contracts/notebook-session.md` | [Base notebook contract](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6664296914), with items 3 and 8 |
+| `quickstart.md` | [Base validation guide](https://github.com/dzackgarza/lean-cas-dsl/issues/24#issuecomment-6664297919), with items 4 and 8–10 |
+| `tasks.md` | [T001–T064](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684546229), [T065–T110](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684571141), and the operative task refinements above |
 
-The constitution, independently fixed scope, required positive outcomes, comparisons, budgets and author boundaries are unchanged. An unresolved interpretation cannot pass a required positive. Positive-evidence completeness must not be reported as universal-total agreement completeness. Implementation and independent acceptance remain distinct from completed design/remediation. This file is a navigation pointer, not a competing work order.
+The route, discovery and coverage references under `scripts/probes/` and the lifecycle contract model are engineering references, not a released leaf proof API or production acceptance. The constitution, independently fixed scope, required positive outcomes, comparisons, budgets and author boundaries are unchanged. An unresolved interpretation cannot pass a required positive. This file is a navigation pointer, not a competing work order.
