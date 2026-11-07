@@ -44,7 +44,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           #[← iso.source.inContext context]
         let transformation ← mkAppM
           (if backwards then ``CategoryTheory.Iso.inv else ``CategoryTheory.Iso.hom) #[expectedIso]
-        let expected ← mkAppM ``CategoryTheory.NatTrans.app #[transformation, bindings[1]!.expression]
+        let expected ← mkAppM ``CategoryTheory.NatTrans.app
+          #[transformation, bindings[1]!.expression]
         unless ← isDefEq value expected do
           throwError "constructor comparison replaced the source-owned directed component"
         checkWithKernel expectedIso
@@ -53,4 +54,5 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       discard <| session.constructCell Syntax.missing id noninvertible
       pure false
     catch _ => pure true
-    unless rejected do throwError "an isomorphism-only source constructor acquired a new cell action"
+    unless rejected do
+      throwError "an isomorphism-only source constructor acquired a new cell action"

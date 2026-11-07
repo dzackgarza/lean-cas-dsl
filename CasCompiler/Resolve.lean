@@ -479,6 +479,7 @@ inductive SourceCellDerivation where
   | vertical (first second : SourceCellDerivation)
   | horizontal (first second : SourceCellDerivation)
   | whisker (side : WhiskerSide) (functor : SourceFunctor) (cell : SourceCellDerivation)
+  | constructed (constructor : ConstructorEntry) (cell : SourceCellDerivation)
   | inverse (original : SourceCellDerivation)
 
 /-- A whole directed transformation, before selecting any source object for its component. -/
@@ -696,6 +697,49 @@ opaque SourceSession.whiskerCell (session : SourceSession) (reference : Syntax)
     return ⟨.whisker side functor cell.derivation, source, target,
       transformation, left, right, some isomorphism⟩
   | _ => throwError "whiskering returned an invalid expression family"
+
+/-- Apply a registered unary constructor's actual comparison action to a native isomorphism.
+Reuse: ConstructorEntry.comparisonAction and the independent applyConstructorInterface contract.
+Both the mapped functors and the comparison retain the actual complete category parameters. -/
+opaque SourceSession.constructCell (session : SourceSession) (reference : Syntax)
+    (id : ConstructorId) (cell : SourceCell) : TermElabM SourceCell := do
+  let some constructor := (← semanticState).constructor? id
+    | throwError "the source comparison constructor is absent"
+  unless constructor.signature == #[.category] do
+    throwError "the source constructor does not expose a unary category comparison interface"
+  let some action := constructor.functorialAction
+    | throwError "the source constructor has no declared functor action"
+  let some comparison := constructor.comparisonAction
+    | throwError "the source constructor has no declared comparison action"
+  let some original := cell.isomorphism
+    | throwError "the source constructor comparison interface requires a native isomorphism"
+  discard <| checkedDeclaration constructor.semantics
+  discard <| checkedDeclaration action
+  discard <| checkedDeclaration comparison
+  let source ← session.unaryCategory reference id cell.source
+  let target ← session.unaryCategory reference id cell.target
+  let #[transformation, left, right, isomorphism] ← session.elaborateMany reference
+      fun context => do
+    let categories := #[← cell.source.value.source.inContext context,
+      ← cell.target.value.source.inContext context]
+    let left ← applyConstructorInterface action categories #[← cell.left.source.inContext context]
+    let right ← applyConstructorInterface action categories #[← cell.right.source.inContext context]
+    let (leftSource, leftTarget) ← functorCategoryBundles left
+    let (rightSource, rightTarget) ← functorCategoryBundles right
+    let source ← source.value.source.inContext context
+    let target ← target.value.source.inContext context
+    unless ← isDefEq leftSource source <&&> isDefEq leftTarget target <&&>
+        isDefEq rightSource source <&&> isDefEq rightTarget target do
+      throwError "the constructor action has different complete native categories"
+    let isomorphism ← applyConstructorInterface comparison categories
+      #[← original.source.inContext context]
+    let expected ← mkAppM ``CategoryTheory.Iso #[left, right]
+    unless ← isDefEq (← inferType isomorphism) expected do
+      throwError "the constructor comparison has different complete native functor endpoints"
+    return #[← mkAppM ``CategoryTheory.Iso.hom #[isomorphism], left, right, isomorphism]
+    | throwError "constructor comparison returned an invalid expression family"
+  return ⟨.constructed constructor cell.derivation, source, target,
+    transformation, left, right, some isomorphism⟩
 
 /-- A checked component retains the entire original directed source cell. -/
 structure SourceCellComponent where
