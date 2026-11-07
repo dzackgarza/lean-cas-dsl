@@ -44,6 +44,12 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let applicationOccurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
     let application ← PreparedRequest.forApplication program applicationOccurrence context
       response.root #[argument] #[scalar]
+    let some preparedRecord := application.record
+      | throwError "the dependent application did not prepare its complete result record"
+    unless preparedRecord.fields.size == 2 &&
+        preparedRecord.fields[0]?.map (·.field.wireIndex) == some (some 0) &&
+        preparedRecord.fields[1]?.map (·.field.kind) == some .proof do
+      throwError "request preparation lost computational or formal proof positions"
     let .apply retained arguments := application.action
       | throwError "application preparation changed its action"
     unless retained.value == callable.value && arguments.size == 1 &&
