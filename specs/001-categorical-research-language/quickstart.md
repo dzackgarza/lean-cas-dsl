@@ -2,8 +2,10 @@
 
 Feature context: `001-categorical-research-language`.
 
-Read the [base preparation and protected validation guide](https://github.com/dzackgarza/lean-cas-dsl/issues/24#issuecomment-6664297919) together with the [operative task/order amendment](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6685591815) and [current runtime transitions](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6684996781).
+[Current validation entrypoint: source-preserving scenarios, exact outcomes, timing, scheduling and repair](https://github.com/dzackgarza/lean-cas-dsl/issues/24#issuecomment-6708322175).
 
-The amendment corrects prerequisites, places the original early unchanged-consumer trial before scope expansion, and makes failed-trial repair and final evidence invalidation/reentry explicit. Original questions, expected outcomes, source guards, independent authorship, complete denominators and budgets are unchanged. The base commands remain planned integration instructions; this pointer does not assert that the application has been built or assessed.
+It incorporates the [full original preparation and command recipe](https://github.com/dzackgarza/lean-cas-dsl/issues/24#issuecomment-6664297919) and identifies the operative lifecycle/observation refinements. Read its supersession instructions before using the historical command recipe: old resolver assumptions and dated availability reports are not current architecture or evidence.
 
-This file is a durable issue pointer, not a competing local work order.
+Use the [current contracts](plan.md) and [consolidated tasks](tasks.md). The original protected questions, expected outcomes, full continuations, contributor boundaries and budgets remain authoritative. Planned commands and reference-model tests do not establish native execution or acceptance.
+
+This file contains pointers only; it is not a competing local work order.
