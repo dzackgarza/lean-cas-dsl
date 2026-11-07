@@ -473,6 +473,11 @@ inductive WhiskerSide where
   | left | right
   deriving BEq
 
+/-- Actual source arguments of a registered constructor identity or composition comparison. -/
+inductive ConstructorCoherence where
+  | identity (category : SourceCategory)
+  | composition (first second : SourceFunctor)
+
 /-- Source-owned atoms and licensed composition/inversion in their original order. -/
 inductive SourceCellDerivation where
   | registered (entry : CellEntry) (parameters : Array SourceTerm) (inverse : Bool)
@@ -480,6 +485,7 @@ inductive SourceCellDerivation where
   | horizontal (first second : SourceCellDerivation)
   | whisker (side : WhiskerSide) (functor : SourceFunctor) (cell : SourceCellDerivation)
   | constructed (constructor : ConstructorEntry) (cell : SourceCellDerivation)
+  | coherence (constructor : ConstructorEntry) (input : ConstructorCoherence)
   | inverse (original : SourceCellDerivation)
 
 /-- A whole directed transformation, before selecting any source object for its component. -/
@@ -698,6 +704,17 @@ opaque SourceSession.whiskerCell (session : SourceSession) (reference : Syntax)
       transformation, left, right, some isomorphism⟩
   | _ => throwError "whiskering returned an invalid expression family"
 
+private def checkConstructorComparison (source target left right isomorphism : Expr) :
+    MetaM Unit := do
+  let (leftSource, leftTarget) ← functorCategoryBundles left
+  let (rightSource, rightTarget) ← functorCategoryBundles right
+  unless ← isDefEq leftSource source <&&> isDefEq leftTarget target <&&>
+      isDefEq rightSource source <&&> isDefEq rightTarget target do
+    throwError "the constructor action has different complete native categories"
+  let expected ← mkAppM ``CategoryTheory.Iso #[left, right]
+  unless ← isDefEq (← inferType isomorphism) expected do
+    throwError "the constructor comparison has different complete native functor endpoints"
+
 /-- Apply a registered unary constructor's actual comparison action to a native isomorphism.
 Reuse: ConstructorEntry.comparisonAction and the independent applyConstructorInterface contract.
 Both the mapped functors and the comparison retain the actual complete category parameters. -/
@@ -724,21 +741,72 @@ opaque SourceSession.constructCell (session : SourceSession) (reference : Syntax
       ← cell.target.value.source.inContext context]
     let left ← applyConstructorInterface action categories #[← cell.left.source.inContext context]
     let right ← applyConstructorInterface action categories #[← cell.right.source.inContext context]
-    let (leftSource, leftTarget) ← functorCategoryBundles left
-    let (rightSource, rightTarget) ← functorCategoryBundles right
-    let source ← source.value.source.inContext context
-    let target ← target.value.source.inContext context
-    unless ← isDefEq leftSource source <&&> isDefEq leftTarget target <&&>
-        isDefEq rightSource source <&&> isDefEq rightTarget target do
-      throwError "the constructor action has different complete native categories"
     let isomorphism ← applyConstructorInterface comparison categories
       #[← original.source.inContext context]
-    let expected ← mkAppM ``CategoryTheory.Iso #[left, right]
-    unless ← isDefEq (← inferType isomorphism) expected do
-      throwError "the constructor comparison has different complete native functor endpoints"
+    checkConstructorComparison (← source.value.source.inContext context)
+      (← target.value.source.inContext context) left right isomorphism
     return #[← mkAppM ``CategoryTheory.Iso.hom #[isomorphism], left, right, isomorphism]
     | throwError "constructor comparison returned an invalid expression family"
   return ⟨.constructed constructor cell.derivation, source, target,
+    transformation, left, right, some isomorphism⟩
+
+/-- Retain the registered constructor's actual identity/composition coherence isomorphism.
+Reuse: ConstructorEntry.identityComparison/compositionComparison and validateConstructor's
+complete category/explicit-input interface, with the native source functors retained intact. -/
+opaque SourceSession.constructorCoherence (session : SourceSession) (reference : Syntax)
+    (id : ConstructorId) (input : ConstructorCoherence) : TermElabM SourceCell := do
+  let some constructor := (← semanticState).constructor? id
+    | throwError "the source comparison constructor is absent"
+  unless constructor.signature == #[.category] do
+    throwError "the source constructor does not expose a unary category comparison interface"
+  let some action := constructor.functorialAction
+    | throwError "the source constructor has no declared functor action"
+  let law ← match input with
+    | .identity _ => match constructor.identityComparison with
+      | some law => pure law
+      | none => throwError "the source constructor has no declared identity comparison"
+    | .composition _ _ => match constructor.compositionComparison with
+      | some law => pure law
+      | none => throwError "the source constructor has no declared composition comparison"
+  let (domain, codomain) ← match input with
+    | .identity category => pure (category, category)
+    | .composition first second => do
+      unless first.target.expression.syntacticEq second.source.expression do
+        throwError "constructor composition has different complete symbolic middle categories"
+      pure (first.source, second.target)
+  discard <| checkedDeclaration constructor.semantics
+  discard <| checkedDeclaration action
+  discard <| checkedDeclaration law
+  let source ← session.unaryCategory reference id domain
+  let target ← session.unaryCategory reference id codomain
+  let #[transformation, left, right, isomorphism] ← session.elaborateMany reference
+      fun context => do
+    let (left, right, isomorphism) ← match input with
+      | .identity category => do
+        let category ← category.value.source.inContext context
+        let left ← applyConstructorInterface action #[category, category]
+          #[← categoryIdentity category]
+        let right ← categoryIdentity (← source.value.source.inContext context)
+        let isomorphism ← applyConstructorInterface law #[category] #[category]
+        pure (left, right, isomorphism)
+      | .composition first second => do
+        let C ← first.source.value.source.inContext context
+        let D ← first.target.value.source.inContext context
+        let E ← second.target.value.source.inContext context
+        unless ← isDefEq D (← second.source.value.source.inContext context) do
+          throwError "constructor composition has different complete native middle categories"
+        let F ← first.functor.source.inContext context
+        let G ← second.functor.source.inContext context
+        let left ← applyConstructorInterface action #[C, E] #[← mkFunctorComp F G]
+        let right ← mkFunctorComp (← applyConstructorInterface action #[C, D] #[F])
+          (← applyConstructorInterface action #[D, E] #[G])
+        let isomorphism ← applyConstructorInterface law #[C, D, E] #[F, G]
+        pure (left, right, isomorphism)
+    checkConstructorComparison (← source.value.source.inContext context)
+      (← target.value.source.inContext context) left right isomorphism
+    return #[← mkAppM ``CategoryTheory.Iso.hom #[isomorphism], left, right, isomorphism]
+    | throwError "constructor coherence returned an invalid expression family"
+  return ⟨.coherence constructor input, source, target,
     transformation, left, right, some isomorphism⟩
 
 /-- A checked component retains the entire original directed source cell. -/

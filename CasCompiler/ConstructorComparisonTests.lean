@@ -88,7 +88,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         let component ← objects.cellComponent Syntax.missing directed object
         component.value.source.withOpen fun bindings value => do
           let context ← ContextTelescope.capture bindings
-          let expectedIso ← match retained with
+          let expectedIso ← match input with
             | .identity category =>
               let some law := constructor.identityComparison
                 | throwError "the source identity comparison is absent"
