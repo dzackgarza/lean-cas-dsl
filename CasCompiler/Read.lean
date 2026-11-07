@@ -28,7 +28,8 @@ Only original source syntax is embedded; retained expressions never return to sy
       (arguments : Array (TSyntax `cas_term)) => do
     if let some declaration := (← getLCtx).findFromUserName? name.getId then
       if category.isSome then
-        throwError "category qualification of a retained source value requires structural translation"
+        throwError
+          "category qualification of a retained source value requires structural translation"
       return ← sourceApplication (mkFVar declaration.fvarId) arguments expected
     let (entry, categoryEntry) ← selectObject name.getId.toString category
     let (_, value) ← objectExpressions entry categoryEntry (← arguments.mapM sourceArgument)
