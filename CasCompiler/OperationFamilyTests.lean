@@ -68,6 +68,30 @@ run_cmd Lean.Elab.Command.liftTermElabM do
               (← whnfR (← inferType body)).isAppOf ``Quiver.Hom do
             throwError "an inherited operation lost its generic object or original declaration"
   unless nonemptyRoute do throwError "the operation control did not use its actual structural route"
+  let inheritedFamilies ← traces.flatMapM fun trace =>
+    inherited.operationFamilies session Syntax.missing trace commutative
+  for left in inheritedFamilies do
+    for right in inheritedFamilies do
+      let some agreement ← session.operationConversion Syntax.missing left right
+        | throwError "the actual whole multiplicative operation families lost conversion evidence"
+      agreement.proof.source.withOpen fun context proof => do
+        let goal ← agreement.proposition.source.inContext context
+        unless ← isDefEq (← inferType proof) goal do
+          throwError "the retained agreement proof has a different complete proposition"
+        let left ← agreement.left.term.source.inContext context
+        let right ← agreement.right.term.source.inContext context
+        unless ← isDefEq goal (← mkEq left right) do
+          throwError "the agreement proposition discarded its original whole families"
+        checkWithKernel proof
+  let rings ← session.categoryFamily Syntax.missing "Rings" [.zero]
+  let additions ← SourceRoutes.forOperation rings.expression "+"
+  let multiplications ← SourceRoutes.forOperation rings.expression "·"
+  let #[addition] ← additions.operationFamilies session Syntax.missing #[] rings
+    | throwError "the actual ring addition family is absent"
+  let #[multiplication] ← multiplications.operationFamilies session Syntax.missing #[] rings
+    | throwError "the actual ring multiplication family is absent"
+  unless (← session.operationConversion Syntax.missing addition multiplication).isNone do
+    throwError "different whole ring operations received conversion evidence"
   let modules ← session.categoryFamily Syntax.missing "Modules" (← levels "Modules")
   let state ← semanticState
   let some constructor := state.constructors.find? (·.functorialAction.isSome)
