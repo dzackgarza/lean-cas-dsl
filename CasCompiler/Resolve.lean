@@ -3,6 +3,7 @@ module
 public import CasCompiler.RouteGrammar
 public import CasCompiler.Surface
 public import LeanCategories.Catalogue.Registry.Semantic
+public import Mathlib.CategoryTheory.NatIso
 
 public section
 
@@ -428,6 +429,7 @@ opaque SourceRoutes.finiteOperationConversion (routes : SourceRoutes) (session :
 inductive SourceCellDerivation where
   | registered (entry : CellEntry) (parameters : Array SourceTerm) (inverse : Bool)
   | vertical (first second : SourceCellDerivation)
+  | horizontal (first second : SourceCellDerivation)
   | inverse (original : SourceCellDerivation)
 
 /-- A whole directed transformation, before selecting any source object for its component. -/
@@ -537,6 +539,45 @@ opaque SourceSession.composeCells (session : SourceSession) (reference : Syntax)
     return ⟨.vertical first.derivation second.derivation, first.source, first.target,
       transformation, first.left, second.right, some isomorphism⟩
   | _ => throwError "cell composition returned an invalid expression family"
+
+/-- Compose whole cell actions horizontally through the exact complete intermediate category.
+Reuse: native Functor.comp, NatTrans.hcomp and NatIso.hcomp, including their checked laws. -/
+opaque SourceSession.horizontalCells (session : SourceSession) (reference : Syntax)
+    (first second : SourceCell) : TermElabM SourceCell := do
+  unless first.target.expression.syntacticEq second.source.expression do
+    throwError "horizontal cell composition has different complete symbolic middle categories"
+  let terms ← session.elaborateMany reference fun context => do
+    unless ← isDefEq (← first.target.value.source.inContext context)
+        (← second.source.value.source.inContext context) do
+      throwError "horizontal cell composition has different complete native middle categories"
+    let left ← mkFunctorComp (← first.left.source.inContext context)
+      (← second.left.source.inContext context)
+    let right ← mkFunctorComp (← first.right.source.inContext context)
+      (← second.right.source.inContext context)
+    let transformation ← mkAppM ``CategoryTheory.NatTrans.hcomp
+      #[← first.transformation.source.inContext context,
+        ← second.transformation.source.inContext context]
+    let expected ← mkAppM ``CategoryTheory.NatTrans #[left, right]
+    unless ← isDefEq (← inferType transformation) expected do
+      throwError "horizontal cell composition has different complete native endpoints"
+    match first.isomorphism, second.isomorphism with
+    | some firstIso, some secondIso =>
+      let isomorphism ← mkAppM ``CategoryTheory.NatIso.hcomp
+        #[← firstIso.source.inContext context, ← secondIso.source.inContext context]
+      let expected ← mkAppM ``CategoryTheory.Iso #[left, right]
+      unless ← isDefEq (← inferType isomorphism) expected <&&>
+          isDefEq (← mkAppM ``CategoryTheory.Iso.hom #[isomorphism]) transformation do
+        throwError "horizontal isomorphism does not witness its complete directed transformation"
+      return #[transformation, left, right, isomorphism]
+    | _, _ => return #[transformation, left, right]
+  match terms with
+  | #[transformation, left, right] =>
+    return ⟨.horizontal first.derivation second.derivation, first.source, second.target,
+      transformation, left, right, none⟩
+  | #[transformation, left, right, isomorphism] =>
+    return ⟨.horizontal first.derivation second.derivation, first.source, second.target,
+      transformation, left, right, some isomorphism⟩
+  | _ => throwError "horizontal cell composition returned an invalid expression family"
 
 /-- Reverse a retained source-authorized invertible transformation in the full current scope.
 Reuse: Iso.symm and Iso.hom on the actual retained native isomorphism. -/
