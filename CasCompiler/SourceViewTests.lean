@@ -309,3 +309,17 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless value.containsFVar bindings[0]!.expression.fvarId! &&
         value.containsFVar bindings[1]!.expression.fvarId! do
       throwError "a source point lost its actual dimension or formal domain premise"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let scalars ← readSource empty "ZMod(3) in Rings"
+  let rings ← empty.defineTerm `R scalars
+  let functions ← rings.define `f (← nativeSource
+    "fun (x : CasCatalogue.Foundation.Objects.fin (let chosen := R; 3)) => x")
+  let rejected ← try
+    discard <| readSource functions "f(3)"
+    pure false
+  catch _ => pure true
+  unless rejected do
+    throwError "a scalar in a dimension expression replaced the selected finite domain"
