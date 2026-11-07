@@ -26,7 +26,7 @@ inductive ValueBinding where
   private | atRole (binding : ValueBinding) (role : SourceLayout)
   private | inField (binding : ValueBinding) (role : SourceLayout)
       (association : RecordAssociation) (field : FieldLayout)
-      (prefix : Array (Option ValueBinding))
+      (preceding : Array (Option ValueBinding))
 
 def ValueBinding.value : ValueBinding → RuntimeId .value
   | .direct value _ => value
@@ -39,14 +39,14 @@ structure FieldInstantiation where
   private mk ::
   association : RecordAssociation
   field : FieldLayout
-  prefix : Array (Option ValueBinding)
+  preceding : Array (Option ValueBinding)
 
 /-- Source type families are instantiated by these exact references, never decoded Lean terms. -/
 def ValueBinding.instantiations : ValueBinding → Array FieldInstantiation
   | .direct .. => #[]
   | .atRole binding _ => binding.instantiations
-  | .inField binding _ association field prefix =>
-    binding.instantiations.push ⟨association, field, prefix⟩
+  | .inField binding _ association field preceding =>
+    binding.instantiations.push ⟨association, field, preceding⟩
 
 structure ContainerSlot where
   path : Array InputPathStep
@@ -187,11 +187,11 @@ private partial def ValueGraph.require (graph : ValueGraph) (binding : ValueBind
   match binding with
   | .direct .. => pure ()
   | .atRole underlying _ => discard <| graph.require underlying
-  | .inField underlying _ association field prefix =>
-    unless association.id.worker == graph.worker && field.sourceIndex == prefix.size do
+  | .inField underlying _ association field preceding =>
+    unless association.id.worker == graph.worker && field.sourceIndex == preceding.size do
       throw "the field association has a foreign worker or incomplete source prefix"
     discard <| graph.require underlying
-    for previous in prefix do
+    for previous in preceding do
       if let some previous := previous then discard <| graph.require previous
   return node
 
@@ -201,10 +201,10 @@ private partial def ValueGraph.bindingOwners (graph : ValueGraph) (binding : Val
   match binding with
   | .direct .. => return node.owners
   | .atRole underlying _ => graph.bindingOwners underlying
-  | .inField underlying _ _ field prefix =>
+  | .inField underlying _ _ field preceding =>
     let mut owners ← graph.bindingOwners underlying
     for index in field.precedingDependencies do
-      let some previous := prefix[index]?
+      let some previous := preceding[index]?
         | throw "the dependent field is missing a preceding source position"
       if let some previous := previous then
         owners := owners ++ (← graph.bindingOwners previous)
@@ -327,15 +327,15 @@ This is record storage, not a whole-reply admission or correctness witness. -/
 structure RecordPrefix where
   private mk ::
   association : RecordAssociation
-  private prefix : Array (Option ValueBinding)
+  private selections : Array (Option ValueBinding)
 
 private def RecordPrefix.skipProofs (record : RecordPrefix) : RecordPrefix := Id.run do
-  let mut prefix := record.prefix
-  while prefix.size < record.association.layout.fields.size do
-    let some field := record.association.layout.fields[prefix.size]? | break
+  let mut selections := record.selections
+  while selections.size < record.association.layout.fields.size do
+    let some field := record.association.layout.fields[selections.size]? | break
     if field.field.kind != .proof then break
-    prefix := prefix.push none
-  return { record with prefix }
+    selections := selections.push none
+  return { record with selections }
 
 /-- Allocate a fresh association before recording any actual field selections.
 Reuse: the worker IdentitySupply and complete source-prepared RecordLayout. -/
@@ -352,19 +352,19 @@ Reuse: CandidateResponse's operational shape check and ValueGraph reference vali
 opaque RecordPrefix.bind (record : RecordPrefix) (graph : ValueGraph) (value : ValueBinding) :
     Except String (RecordPrefix × ValueBinding) := do
   let record := record.skipProofs
-  let some prepared := record.association.layout.fields[record.prefix.size]?
+  let some prepared := record.association.layout.fields[record.selections.size]?
     | throw "the complete record has no further computational field"
   let candidate ← CandidateResponse.ofValue prepared.layout graph value
   let binding := ValueBinding.inField candidate.root prepared.layout
-    record.association prepared.field record.prefix
+    record.association prepared.field record.selections
   discard <| graph.requiredOwners #[binding]
-  return (({ record with prefix := record.prefix.push (some binding) }).skipProofs, binding)
+  return (({ record with selections := record.selections.push (some binding) }).skipProofs, binding)
 
 /-- Finish only a complete ordered record; no component is installed in a transaction here. -/
 opaque RecordPrefix.finish (record : RecordPrefix) : Except String ValuePayload := do
   let record := record.skipProofs
-  unless record.prefix.size == record.association.layout.fields.size do
+  unless record.selections.size == record.association.layout.fields.size do
     throw "the dependent record is missing a required computational field"
-  return .product (record.prefix.filterMap id)
+  return .product (record.selections.filterMap id)
 
 end CasRuntime

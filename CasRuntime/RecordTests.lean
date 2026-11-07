@@ -33,18 +33,18 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         (.ownedExport child token #[])
       let (graph, number) ← graph.stage supply { origin with role := scalarLayout }
         (.portable "8".toUTF8)
-      let finite ← RecordPrefix.begin supply { origin with role := pointLayout.source } pointLayout
+      let finite ← RecordPrefix.begin supply program occurrence pointLayout
       let (finite, numeral) ← IO.ofExcept <|
         (finite.bind graph number).mapError IO.userError
       let finitePayload ← IO.ofExcept <| finite.finish.mapError IO.userError
       let (graph, finiteRoot) ← graph.stage supply { origin with role := pointLayout.source } finitePayload
-      let prefix ← RecordPrefix.begin supply origin recordLayout
-      match prefix.finish with
+      let record ← RecordPrefix.begin supply program occurrence recordLayout
+      match record.finish with
       | .error _ => pure ()
       | .ok _ => throw <| IO.userError "an incomplete dependent record became a complete payload"
-      let (prefix, first) ← IO.ofExcept <| (prefix.bind graph width).mapError IO.userError
-      let (prefix, second) ← IO.ofExcept <| (prefix.bind graph finiteRoot).mapError IO.userError
-      let payload ← IO.ofExcept <| prefix.finish.mapError IO.userError
+      let (record, first) ← IO.ofExcept <| (record.bind graph width).mapError IO.userError
+      let (record, second) ← IO.ofExcept <| (record.bind graph finiteRoot).mapError IO.userError
+      let payload ← IO.ofExcept <| record.finish.mapError IO.userError
       let (graph, root) ← graph.stage supply origin payload
       let selected ← IO.ofExcept <| (graph.project root 1).mapError IO.userError
       unless selected.value == finiteRoot.value && first.value == width.value do
@@ -52,13 +52,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let some association := second.instantiations.back?
         | throw <| IO.userError "the dependent field lost its runtime instantiation"
       unless association.field.sourceIndex == 1 && association.field.precedingDependencies == #[0] &&
-          association.prefix.size == 1 && association.prefix[0]?.flatten.map (·.value) == some width.value do
+          association.preceding.size == 1 &&
+          association.preceding[0]?.flatten.map (·.value) == some width.value do
         throw <| IO.userError "the dependent field uses a reconstructed or incomplete prefix"
       let some erased := numeral.instantiations.back?
         | throw <| IO.userError "the finite record lost its field instantiation"
-      unless erased.field.sourceIndex == 0 && erased.prefix.isEmpty do
+      unless erased.field.sourceIndex == 0 && erased.preceding.isEmpty do
         throw <| IO.userError "proof erasure changed computational field positions"
-      let again ← RecordPrefix.begin supply origin recordLayout
+      let again ← RecordPrefix.begin supply program occurrence recordLayout
       let (again, _) ← IO.ofExcept <| (again.bind graph width).mapError IO.userError
       let (again, reused) ← IO.ofExcept <| (again.bind graph second).mapError IO.userError
       let some reusedAssociation := reused.instantiations.back?
@@ -79,7 +80,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throw <| IO.userError "a dependent field survived loss of a required prefix owner"
       unless ← graph.isAvailable owners numeral do
         throw <| IO.userError "an independent portable field acquired an unrelated owner"
-      match prefix.bind graph number with
+      match record.bind graph number with
       | .error _ => pure ()
       | .ok _ => throw <| IO.userError "a completed record accepted an extra field"
     finally owners.close child.generation
