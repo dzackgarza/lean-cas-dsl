@@ -59,8 +59,9 @@ private def sourceRoutes (state : SemanticState) (source : CategoryExpr)
     let initial ← encode constructors source
     let targets ← targets.mapM (encode constructors)
     let rules ← edges.mapM fun edge => do
-      return { lhs := ← encode constructors edge.source,
-        rhs := ← encode constructors edge.target : RouteGrammar.PrefixRule }
+      let lhs ← encode constructors edge.source
+      let rhs ← encode constructors edge.target
+      return ({ lhs, rhs } : RouteGrammar.PrefixRule)
     return (initial, targets, rules)
   let ((initial, encodedTargets, rules), symbols) := build.run #[]
   let .ok language := RouteGrammar.compile rules initial encodedTargets
@@ -82,7 +83,8 @@ opaque SourceRoutes.forOperation (source : CategoryExpr) (name : String) : CoreM
 
 /-- Reconstruct a selected symbolic derivation and validate it against the frozen source.
 Actual edge references and constructor actions remain attached to each source occurrence. -/
-opaque SourceRoutes.reconstruct (routes : SourceRoutes) (trace : RouteGrammar.Word) : CoreM Route := do
+opaque SourceRoutes.reconstruct (routes : SourceRoutes) (trace : RouteGrammar.Word) :
+    CoreM Route := do
   let .ok occurrences := routes.language.reconstruct trace
     | throwError "the selected trace is not a first-hit source derivation"
   let mut current := routes.source
