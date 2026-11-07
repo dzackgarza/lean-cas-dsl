@@ -116,6 +116,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       pure false
     catch _ => pure true
     unless rejected do throwError "a source comparison changed its independently chosen scalar"
+    let otherCell ← otherObjects.cell Syntax.missing ⟨"cell.modules.coimage_image"⟩
+      #[otherRing] otherArrows (!inverse)
+    let invalidComposition ← try
+      discard <| otherObjects.composeCells Syntax.missing cell otherCell
+      pure false
+    catch _ => pure true
+    unless invalidComposition do
+      throwError "cell composition identified two independently chosen scalar categories"
 
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
@@ -136,21 +144,25 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let reversed ← empty.inverseCell Syntax.missing reverse
   let invertible ← empty.composeCells Syntax.missing reverse reversed
   let inverted ← empty.inverseCell Syntax.missing invertible
-  let some iso := invertible.isomorphism
-    | throwError "invertible composition lost its actual native isomorphism witness"
-  iso.source.withOpen fun bindings value => do
-    let context ← ContextTelescope.capture bindings
-    let left ← invertible.left.source.inContext context
-    let right ← invertible.right.source.inContext context
-    let expected ← mkAppM ``CategoryTheory.Iso #[left, right]
-    unless ← isDefEq (← inferType value) expected do
-      throwError "the retained isomorphism has different complete native endpoints"
-    let hom ← mkAppM ``CategoryTheory.Iso.hom #[value]
-    let inv ← mkAppM ``CategoryTheory.Iso.inv #[value]
-    unless ← isDefEq hom (← invertible.transformation.source.inContext context) <&&>
-        isDefEq inv (← inverted.transformation.source.inContext context) do
-      throwError "the native isomorphism does not witness the retained directed actions"
-    checkWithKernel value
+  let horizontal ← empty.horizontalCells Syntax.missing join reverse
+  let horizontalIso ← empty.horizontalCells Syntax.missing reverse reversed
+  let horizontalInverse ← empty.inverseCell Syntax.missing horizontalIso
+  for (whole, inverse) in #[(invertible, inverted), (horizontalIso, horizontalInverse)] do
+    let some iso := whole.isomorphism
+      | throwError "invertible composition lost its actual native isomorphism witness"
+    iso.source.withOpen fun bindings value => do
+      let context ← ContextTelescope.capture bindings
+      let left ← whole.left.source.inContext context
+      let right ← whole.right.source.inContext context
+      let expected ← mkAppM ``CategoryTheory.Iso #[left, right]
+      unless ← isDefEq (← inferType value) expected do
+        throwError "the retained isomorphism has different complete native endpoints"
+      let hom ← mkAppM ``CategoryTheory.Iso.hom #[value]
+      let inv ← mkAppM ``CategoryTheory.Iso.inv #[value]
+      unless ← isDefEq hom (← whole.transformation.source.inContext context) <&&>
+          isDefEq inv (← inverse.transformation.source.inContext context) do
+        throwError "the native isomorphism does not witness the retained directed actions"
+      checkWithKernel value
   let objects ← empty.assumeTerm `X objectType
   let object ← objects.term (← `(term| $(mkIdent `X):ident))
   for (cell, invert) in #[(composite, false), (inverted, true)] do
@@ -167,14 +179,25 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless ← isDefEq value expected do
         throwError "cell composition changed its actual source action or inverse order"
       checkWithKernel value
+  let horizontalComponent ← objects.cellComponent Syntax.missing horizontal object
+  horizontalComponent.value.source.withOpen fun bindings value => do
+    let join := Lean.mkConst ``CasCatalogue.Foundation.Lists.listJoinCell levels
+    let reverse := Lean.mkConst ``CasCatalogue.Foundation.Lists.listReverseCell levels
+    let hom ← mkAppM ``CategoryTheory.Iso.hom #[reverse]
+    let expected ← mkAppM ``CategoryTheory.NatTrans.hcomp #[join, hom]
+    let expected ← mkAppM ``CategoryTheory.NatTrans.app #[expected, bindings[0]!.expression]
+    unless ← isDefEq value expected do
+      throwError "horizontal composition changed the original source actions"
+    checkWithKernel value
   let invalidOrder ← try
     discard <| empty.composeCells Syntax.missing reverse join
     pure false
   catch _ => pure true
   unless invalidOrder do throwError "cell composition ignored its complete middle functor"
-  let invalidInverse ← try
-    discard <| empty.inverseCell Syntax.missing composite
-    pure false
-  catch _ => pure true
-  unless invalidInverse do
-    throwError "a composite acquired an inverse of a noninvertible source cell"
+  for noninvertible in #[composite, horizontal] do
+    let invalidInverse ← try
+      discard <| empty.inverseCell Syntax.missing noninvertible
+      pure false
+    catch _ => pure true
+    unless invalidInverse do
+      throwError "a composite acquired an inverse of a noninvertible source cell"
