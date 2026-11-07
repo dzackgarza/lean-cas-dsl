@@ -3,10 +3,12 @@ module
 import CasRuntime.Materialize
 import CasRuntime.Transport
 import CasRuntime.Execute
+import CasRuntime.Encode
 public meta import Lean.Elab.Command
 meta import CasRuntime.Materialize
 meta import CasRuntime.Transport
 meta import CasRuntime.Execute
+meta import CasRuntime.Encode
 
 open Lean Meta CasCompiler CasRuntime CasCatalogue.Backend
 
@@ -100,6 +102,32 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "materialization changed its original packet layout"
       if ((← SessionSnapshot.current).graph.find response.root.value).isSome then
         throwError "materialization published a tentative reply"
+      let .ok () ← liftM (m := BaseIO) <| transaction.installDraft draft
+        | throwError "the existing joint result could not enter the active graph"
+      let jointOccurrence ← liftM (m := BaseIO) ledger.allocate
+      let jointRequest ← prepare pair jointOccurrence
+      let .ok jointReservation ← liftM (m := BaseIO) <| transaction.reserve jointOccurrence
+        selected wire.connection (jointRequest.scope.push response.root)
+        | throwError "the whole-record reference control could not reserve"
+      let jointGraph ← liftM (m := IO) transaction.view
+      let jointScope ← liftM (m := IO) <| RequestScope.issue ledger jointReservation
+        jointGraph #[response.root] #[] #[]
+      let .ok jointReply ← liftM (m := IO) <| wire.invokeBefore ledger transaction
+        jointReservation jointScope (ScopedReference.scope 0).encode 5000
+        | throwError "the SDK did not return the existing whole record"
+      let (jointDraft, joint) ← jointReply.materialize jointRequest transaction
+        jointScope wire.connection
+      let .ok jointFirst := jointDraft.view.project joint.root 0
+        | throwError "the reused record lost its first consuming field view"
+      let .ok jointSecond := jointDraft.view.project joint.root 1
+        | throwError "the reused record lost its second consuming field view"
+      let argumentPath := #[InputPathStep.field "argument"]
+      let .ok encoded := jointDraft.view.encodeInputs wire.connection.generation
+          #[{ path := argumentPath, binding := joint.root }]
+        | throwError "the reused record could not encode for its next consumer"
+      unless encoded.inputs.map (·.binding.associationIds) ==
+          #[joint.root.associationIds, jointFirst.associationIds, jointSecond.associationIds] do
+        throwError "input encoding discarded a reused record's consuming field associations"
       let aliasOccurrence ← liftM (m := BaseIO) ledger.allocate
       let aliasRequest ← prepare (mkNatLit 7) aliasOccurrence
       let .ok aliasReservation ← liftM (m := BaseIO) <|
