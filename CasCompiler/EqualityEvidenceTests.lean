@@ -67,3 +67,54 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   catch _ => pure true
   unless rejected do
     throwError "equality transitivity identified independently rigid intermediate functions"
+  let familyType ← functions.elaborate Syntax.missing fun context => do
+    inferType (← family.term.source.inContext context)
+  let variables ← functions.assumeTerm `A familyType
+  let variables ← variables.assumeTerm `B familyType
+  let variables ← variables.assumeTerm `C familyType
+  let A ← variables.term (← `(term| $(mkIdent `A):ident))
+  let B ← variables.term (← `(term| $(mkIdent `B):ident))
+  let C ← variables.term (← `(term| $(mkIdent `C):ident))
+  let AB ← variables.elaborate Syntax.missing fun context => do
+    mkEq (← A.source.inContext context) (← B.source.inContext context)
+  let assumptions ← variables.assumeTerm `ab AB
+  let abId := assumptions.context.entries.back!.id
+  let BC ← assumptions.elaborate Syntax.missing fun context => do
+    mkEq (← B.source.inContext context) (← C.source.inContext context)
+  let assumptions ← assumptions.assumeTerm `bc BC
+  let bcId := assumptions.context.entries.back!.id
+  let ab ← assumptions.equalityAssumption Syntax.missing abId
+  let bc ← assumptions.equalityAssumption Syntax.missing bcId
+  let chain ← assumptions.equalityTransitivity Syntax.missing ab bc
+  let transformed ← assumptions.equalityCongruence Syntax.missing F ab
+  for (evidence, congruence) in #[(chain, false), (transformed, true)] do
+    unless evidence.proof.source.context.entries.size == assumptions.context.entries.size do
+      throwError "source equality inference discarded an unused formal context binding"
+    evidence.proof.source.withOpen fun bindings proof => do
+      let context ← ContextTelescope.capture bindings
+      let left ← A.source.inContext context
+      let right ← if congruence then B.source.inContext context else C.source.inContext context
+      let expected ← if congruence then do
+          let function ← F.source.inContext context
+          mkEq (mkApp function left) (mkApp function right)
+        else mkEq left right
+      unless ← isDefEq (← inferType proof) expected <&&>
+          isDefEq (← evidence.proposition.source.inContext context) expected do
+        throwError "source equality inference changed its original nondefinitional goal"
+      let some originalAB := bindings.find? (·.id == abId)
+        | throwError "the original source equality hypothesis is absent"
+      unless proof.containsFVar originalAB.expression.fvarId! do
+        throwError "source equality inference discarded its original proof hypothesis"
+      if !congruence then
+        let some originalBC := bindings.find? (·.id == bcId)
+          | throwError "the second original source equality hypothesis is absent"
+        unless proof.containsFVar originalBC.expression.fvarId! do
+          throwError "source transitivity discarded its second actual proof premise"
+      checkWithKernel (← mkExpectedTypeHint proof expected)
+  for id in #[session.context.entries[0]!.id, functions.context.entries[1]!.id] do
+    let rejected ← try
+      discard <| assumptions.equalityAssumption Syntax.missing id
+      pure false
+    catch _ => pure true
+    unless rejected do
+      throwError "source equality inference acquired authority from a nonequality binding"
