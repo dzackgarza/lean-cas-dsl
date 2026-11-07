@@ -291,7 +291,7 @@ private partial def withRigidArguments (arguments : Array Expr) (infos : Array B
     if index >= stop then return ← action rigid
     let argument ← instantiateMVars arguments[index]!
     if !argument.isMVar then return ← visit (index + 1) rigid
-    let declaration ← getMVarDecl argument.mvarId!
+    let declaration ← argument.mvarId!.getDecl
     withLocalDecl declaration.userName infos[index]! (← instantiateMVars declaration.type)
         fun parameter => do
       argument.mvarId!.assign parameter
