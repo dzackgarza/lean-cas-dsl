@@ -1,6 +1,6 @@
 module
 
-public import CasCompiler.Surface
+public import CasCompiler.SourceNumeral
 public import Lean.Elab.App
 
 public section
@@ -124,9 +124,9 @@ partial def readExpression
     | `(cas_term| ($inner:cas_term)) =>
       readExpression categoryOf inner expected qualification
     | `(cas_term| $number:num) =>
-      unless expected.isSome do
-        throwError "a source numeral requires its independently declared parameter type"
-      pure ⟨← elabTermEnsuringType (← `(term| $number:num)) expected, none⟩
+      let some expected := expected
+        | throwError "a source numeral requires its independently declared parameter type"
+      pure ⟨← sourceNumeral categoryOf number.getNat expected, none⟩
     | `(cas_term| $name:ident) =>
       if let some declaration := (← getLCtx).findFromUserName? name.getId then
         pure ⟨mkFVar declaration.fvarId, ← categoryOf declaration.fvarId⟩

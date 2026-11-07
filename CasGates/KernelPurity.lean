@@ -60,6 +60,7 @@ import all CasCompiler.ProofTests
 import all CasCompiler.Elaborate
 import all CasCompiler.ElaborateTests
 import all CasCompiler.Surface
+import all CasCompiler.SourceNumeral
 import all CasCompiler.SurfaceTests
 import all CasCompiler.Read
 import all CasCompiler.ReadExpression

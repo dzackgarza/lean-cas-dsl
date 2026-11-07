@@ -267,3 +267,45 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     pure false
   catch _ => pure true
   unless rejected do throwError "a source point numeral bypassed its declared domain obligation"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  for domain in #["Int", "CasCatalogue.Foundation.Objects.integers",
+      "CasCatalogue.Foundation.Objects.integersMod 3"] do
+    let functions ← empty.define `f (← nativeSource s!"fun (x : {domain}) => x")
+    let value ← readSource functions "f(3)"
+    unless value.source.expression.containsConst
+        (· == ``CasCatalogue.Algebra.NamedRings.ringNumeral) &&
+        !value.source.expression.containsConst
+          (· == ``CasCatalogue.Foundation.Morphisms.finPoint) do
+      throwError "a source numeral changed its actual registered scalar refinement"
+  let scalars ← readSource empty "ℚ in Rings"
+  let rings ← empty.defineTerm `R scalars
+  let functions ← rings.define `f (← nativeSource
+    "fun (x : CasCatalogue.Algebra.NamedRings.underlying R) => x")
+  let value ← readSource functions "f(3)"
+  value.source.withOpen fun bindings value => do
+    unless value.containsFVar bindings[0]!.expression.fvarId! &&
+        value.containsConst (· == ``CasCatalogue.Algebra.NamedRings.ringNumeral) do
+      throwError "a source numeral replaced the actual selected scalar object"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let instances ← empty.assume `customNumeral
+    (← nativeSource "OfNat (CasCatalogue.Foundation.Objects.fin 3) 2") .instImplicit
+  let value ← readSource instances "rev(3,2)"
+  value.source.withOpen fun bindings value => do
+    unless value.containsConst (· == ``CasCatalogue.Foundation.Morphisms.finPoint) &&
+        !value.containsFVar bindings[0]!.expression.fvarId! do
+      throwError "a host numeral instance changed the independent source point"
+  let dimensions ← empty.assume `n (← nativeSource "Nat")
+  let hypotheses ← dimensions.assume `h (← nativeSource "2 < n")
+  let functions ← hypotheses.define `f
+    (← nativeSource "fun (x : CasCatalogue.Foundation.Objects.fin n) => x")
+  let value ← readSource functions "f(2)"
+  value.source.withOpen fun bindings value => do
+    unless value.containsFVar bindings[0]!.expression.fvarId! &&
+        value.containsFVar bindings[1]!.expression.fvarId! do
+      throwError "a source point lost its actual dimension or formal domain premise"
