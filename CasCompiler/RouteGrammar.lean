@@ -183,7 +183,18 @@ private partial def productiveGrammar (transitions : Array Transition) :
       let key : Summary := ⟨rule.source, rule.pop, target⟩
       productions := productions.insert key
         (pushUnique (productions.getD key #[]) ⟨rule.emit, children⟩)
-  return ⟨⟨3, .start, 2⟩, productions⟩
+  let start : Summary := ⟨3, .start, 2⟩
+  let mut work := #[start]
+  let mut cursor := 0
+  let mut reachable : Std.HashMap Summary (Array Production) := {}
+  while cursor < work.size do
+    let key := work[cursor]!
+    let alternatives := productions.getD key #[]
+    reachable := reachable.insert key alternatives
+    for alternative in alternatives do
+      for child in alternative.children do work := pushUnique work child
+    cursor := cursor + 1
+  return (start, reachable)
 
 private partial def shortestTrace (grammar : TraceGrammar) : Option Word := Id.run do
   let mut best : Std.HashMap Summary Word := {}
@@ -195,7 +206,7 @@ private partial def shortestTrace (grammar : TraceGrammar) : Option Word := Id.r
         if alternative.children.any (fun child => !best.contains child) then continue
         let word := alternative.children.foldl (fun result child => result ++ best.getD child #[])
           (alternative.emit.toArray)
-        let improves := match best[lhs]? with
+        let improves : Bool := match best[lhs]? with
           | none => true
           | some old => word.size < old.size ||
               (word.size == old.size && compare word.toList old.toList == .lt)
