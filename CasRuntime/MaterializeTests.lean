@@ -336,6 +336,16 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "a consuming application changed its original result's owner requirements"
       unless ← liftM (m := BaseIO) (reusedDraft.view.isAvailable owners reusedNumber) do
         throwError "the reused numeric field acquired its parent application's unrelated owner"
+      let projectionOccurrence ← liftM (m := BaseIO) ledger.allocate
+      let projection ← PreparedRequest.forProjection program projectionOccurrence context
+        reused.root 0 #[]
+      let storedOnly : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
+        fun _ _ => throwError "a stored field projection invoked external execution"
+      let projected ← Execute.run storedOnly
+        (PFunctor.FreeM.lift (P := OperationalSignature) projection) transaction
+      unless projected.root.value == reusedNumber.value &&
+          projected.root.associationIds == reusedNumber.associationIds do
+        throwError "stateful projection changed the reused field or its consuming associations"
       discard <| liftM (m := BaseIO) transaction.abort
     finally liftM (m := IO) wire.close
   finally setEnv original
