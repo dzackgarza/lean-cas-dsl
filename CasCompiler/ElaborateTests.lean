@@ -85,3 +85,12 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     pure false
   catch _ => pure true
   unless rejected do throwError "a selected-instance binder accepted a nonclass source type"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let session ← SourceSession.empty "annotated-source-definition"
+  let rejected ← try
+    discard <| session.define `value (← sourceSyntax "Nat.zero")
+      (some (← sourceSyntax "Bool"))
+    pure false
+  catch _ => pure true
+  unless rejected do throwError "a source definition ignored its declared type"
