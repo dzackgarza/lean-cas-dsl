@@ -351,4 +351,40 @@ opaque SourceRoutes.operationFamilies (routes : SourceRoutes) (session : SourceS
               mkLambdaFVars (parameters ++ prefixParameters ++ #[object] ++ suffixParameters) body
     return ⟨source, route, binding, term⟩
 
+/-- A checked equality of entire native operation families with both original derivations. -/
+structure SourceOperationAgreement where
+  private mk ::
+  left : SourceOperationFamily
+  right : SourceOperationFamily
+  proposition : SourceTerm
+  proof : SourceTerm
+
+/-- Discharge whole-family agreement by native conversion and checked equality introduction.
+Reuse: the source operation-agreement contract, Lean.mkEq/mkEqRefl and Meta.checkWithKernel.
+An unsuccessful conversion supplies no evidence about other permitted comparisons. -/
+opaque SourceSession.operationConversion (session : SourceSession) (reference : Syntax)
+    (left right : SourceOperationFamily) : TermElabM (Option SourceOperationAgreement) := do
+  unless left.source.expression.syntacticEq right.source.expression do
+    throwError "operation comparison requires the same complete symbolic source"
+  let evidence ← session.elaborateMany reference fun context => do
+    let leftCategory ← left.source.family.source.inContext context
+    let rightCategory ← right.source.family.source.inContext context
+    unless ← isDefEq (← inferType leftCategory) (← inferType rightCategory) <&&>
+        isDefEq leftCategory rightCategory do
+      throwError "operation comparison requires the same complete native category family"
+    let left ← left.term.source.inContext context
+    let right ← right.term.source.inContext context
+    unless ← isDefEq (← inferType left) (← inferType right) <&&> isDefEq left right do
+      return #[]
+    let proposition ← mkEq left right
+    let proof ← mkEqRefl left
+    unless ← isDefEq (← inferType proof) proposition do
+      throwError "conversion evidence has a different complete family equation"
+    checkWithKernel (← mkExpectedTypeHint proof proposition)
+    return #[proposition, proof]
+  match evidence with
+  | #[] => return none
+  | #[proposition, proof] => return some ⟨left, right, proposition, proof⟩
+  | _ => throwError "operation conversion returned an invalid evidence shape"
+
 end CasCompiler
