@@ -215,6 +215,15 @@ structure SourceRoute where
   target : SourceCategory
   functor : SourceTerm
 
+private def nativeRouteFunctor (state : SemanticState) (route : Route) (category : Expr) :
+    MetaM (Expr × Expr) := do
+  let functor ← if route.steps.isEmpty then categoryIdentity category
+    else state.routeFunctor route.refs
+  let (domain, target) ← functorCategoryBundles functor
+  unless ← isDefEq domain category do
+    throwError "the selected functor has a different complete source category"
+  return (functor, target)
+
 /-- Interpret the selected route in the complete native context, preserving both bundle fields.
 Reuse: the independent routeFunctor/functorCategoryBundles/applyConstructorInterface APIs.
 This operation selects no representative from a family of mathematical readings. -/
@@ -227,11 +236,7 @@ opaque SourceRoutes.prepareFunctor (routes : SourceRoutes) (session : SourceSess
   for ref in route.refs do checkEdgeDeclarations routes.state ref
   let #[functor, target] ← session.elaborateMany reference fun context => do
       let category ← source.value.source.inContext context
-      let functor ← if route.steps.isEmpty then categoryIdentity category
-        else routes.state.routeFunctor route.refs
-      let (domain, target) ← functorCategoryBundles functor
-      unless ← isDefEq domain category do
-        throwError "the selected functor has a different complete source category"
+      let (functor, target) ← nativeRouteFunctor routes.state route category
       return #[functor, target]
     | throwError "native route formation returned an invalid number of expressions"
   return ⟨route, source, ⟨route.target, target⟩, functor⟩
@@ -250,5 +255,100 @@ opaque SourceSession.routeImage (session : SourceSession) (reference : Syntax)
     unless ← isDefEq (← inferType image) carrier do
       throwError "the source image does not belong to its complete target category"
     return image
+
+/-- A whole category declaration, before any of its formal parameters are selected. -/
+structure SourceCategoryFamily where
+  private mk ::
+  expression : CategoryExpr
+  family : SourceTerm
+
+/-- Retain the unapplied source declaration at explicit rigid universes. -/
+opaque SourceSession.categoryFamily (session : SourceSession) (reference : Syntax) (name : String)
+    (universes : List Level) : TermElabM SourceCategoryFamily := do
+  let entry ← selectCategory (← semanticState) name
+  return ⟨entry.expression, ← session.constant reference entry.declaration universes⟩
+
+/-- Apply unary semantics under the whole native parameter telescope. -/
+opaque SourceSession.unaryCategoryFamily (session : SourceSession) (reference : Syntax)
+    (id : ConstructorId) (argument : SourceCategoryFamily) : TermElabM SourceCategoryFamily := do
+  let some entry := (← semanticState).constructor? id
+    | throwError "the source category constructor is absent"
+  unless entry.signature == #[.category] do
+    throwError "the selected source constructor does not take one category argument"
+  discard <| checkedDeclaration entry.semantics
+  let family ← session.elaborate reference fun context => do
+    let function ← argument.family.source.inContext context
+    forallTelescopeReducing (← inferType function) fun parameters _ => do
+      let category := mkAppN function parameters
+      let value ← applyConstructorInterface entry.semantics #[category] #[category]
+      discard <| categoryIdentity value
+      mkLambdaFVars parameters value
+  return ⟨.construct id #[.category argument.expression], family⟩
+
+private partial def withRigidArguments (arguments : Array Expr) (infos : Array BinderInfo)
+    (start stop : Nat) (action : Array Expr → MetaM Expr) : MetaM Expr := do
+  let rec visit (index : Nat) (rigid : Array Expr) : MetaM Expr := do
+    if index >= stop then return ← action rigid
+    let argument ← instantiateMVars arguments[index]!
+    if !argument.isMVar then return ← visit (index + 1) rigid
+    let declaration ← getMVarDecl argument.mvarId!
+    withLocalDecl declaration.userName infos[index]! (← instantiateMVars declaration.type)
+        fun parameter => do
+      argument.mvarId!.assign parameter
+      visit (index + 1) (rigid.push parameter)
+  visit start #[]
+
+/-- Exact source binding and route, with the entire generic morphism family. -/
+structure SourceOperationFamily where
+  private mk ::
+  source : SourceCategoryFamily
+  route : Route
+  binding : OperationEntry
+  term : SourceTerm
+
+/-- Form every binding at an explicitly selected first-hit target before choosing objects/operands.
+Reuse: validateOperation's native object/numeral telescope boundary and native abstraction.
+Category parameters and remaining declaration parameters are rigid, never chosen by providers. -/
+opaque SourceRoutes.operationFamilies (routes : SourceRoutes) (session : SourceSession)
+    (reference : Syntax) (trace : RouteGrammar.Word) (source : SourceCategoryFamily) :
+    TermElabM (Array SourceOperationFamily) := do
+  let .operation _ := routes.query
+    | throwError "whole operation preparation requires an operation-name query"
+  unless routes.source.syntacticEq source.expression do
+    throwError "the whole category family differs from the exact symbolic route source"
+  let route ← routes.reconstruct trace
+  for ref in route.refs do checkEdgeDeclarations routes.state ref
+  let bindings := routes.targets.filterMap fun
+    | .operation category binding =>
+      if category.expression.syntacticEq route.target then some binding else none
+    | _ => none
+  if bindings.isEmpty then throwError "the selected source target lost its operation binding"
+  bindings.mapM fun binding => do
+    discard <| checkedDeclaration binding.declaration
+    let term ← session.elaborate reference fun context => do
+      let categoryFamily ← source.family.source.inContext context
+      forallTelescopeReducing (← inferType categoryFamily) fun parameters _ => do
+        let category := mkAppN categoryFamily parameters
+        let (functor, _) ← nativeRouteFunctor routes.state route category
+        let carrier ← mkAppM ``CategoryTheory.Bundled.α #[category]
+        withLocalDeclD `sourceObject carrier fun object => do
+          let prefunctor ← mkAppM ``CategoryTheory.Functor.toPrefunctor #[functor]
+          let image ← mkAppM ``Prefunctor.obj #[prefunctor, object]
+          let constant ← mkConstWithFreshMVarLevels binding.declaration
+          let (arguments, infos, result) ← forallMetaTelescopeReducing (← inferType constant)
+          unless arguments.size > binding.numerals do
+            throwError "the whole source operation has no object parameter"
+          unless (← whnfR result).isAppOf ``Quiver.Hom do
+            throwError "the source operation does not retain its whole morphism result"
+          let objectIndex := arguments.size - 1 - binding.numerals
+          unless ← isDefEq (← inferType arguments[objectIndex]!) (← inferType image) <&&>
+              isDefEq arguments[objectIndex]! image do
+            throwError "the source operation has a different complete routed object"
+          withRigidArguments arguments infos 0 objectIndex fun prefixParameters => do
+            withRigidArguments arguments infos (objectIndex + 1) arguments.size
+                fun suffixParameters => do
+              let body ← instantiateMVars (mkAppN constant arguments)
+              mkLambdaFVars (parameters ++ prefixParameters ++ #[object] ++ suffixParameters) body
+    return ⟨source, route, binding, term⟩
 
 end CasCompiler
