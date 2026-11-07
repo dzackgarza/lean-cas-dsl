@@ -53,11 +53,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             match environment.lookup ⟨"absent", 0⟩ with
             | .error _ => pure ()
             | .ok _ => throwError "runtime lookup accepted a source identity outside its telescope"
-            for parameters : Array RuntimeParameter in #[
-                #[supplied[0]!, supplied[0]!],
+            let invalid : Array (Array RuntimeParameter) := #[
+                #[{ source := bindings[1]!.id, value := number },
+                  { source := bindings[1]!.id, value := number }],
                 #[{ source := ⟨"absent", 0⟩, value := number }],
                 #[{ source := bindings[2]!.id, value := number }],
-                #[{ source := bindings[0]!.id, value := truthData }]] do
+                #[{ source := bindings[0]!.id, value := truthData }]]
+            for parameters in invalid do
               let rejected ← try
                 discard <| RuntimeEnvironment.capture owners.worker context parameters
                 pure false
