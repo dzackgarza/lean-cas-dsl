@@ -9,6 +9,13 @@ namespace CasCompiler
 
 open Lean Meta Elab Term
 
+private def sourceAtomName? (source : Syntax) : Option String :=
+  if source.isOfKind ``CasCatalogue.Language.casAtom ||
+      source.isOfKind ``CasCatalogue.Language.casDomainAtom then
+    -- Lean's alternative-token parser retains a token-kind node around its actual atom.
+    some source[0][0].getAtomVal
+  else none
+
 -- Native application determines argument types before the original source is read once.
 -- A final application uses the actual expressions, preserving lexical binding occurrences
 -- even when expected-type unification has already assigned a provisional argument.
@@ -29,6 +36,12 @@ partial def readExpression
         throwErrorAt argument "the source argument does not match its dependent native type"
       actual := actual.push (Arg.expr value.value)
     elabAppArgs function #[] actual expected false false
+  let object := fun (name : String) (category : Option String)
+      (arguments : Array (TSyntax `cas_term)) => do
+    let (entry, categoryEntry) ← selectObject name category
+    let (bundle, value) ← objectExpressions entry categoryEntry fun function expected =>
+      application function arguments expected
+    return (⟨value, some (categoryEntry.expression, bundle)⟩ : NativeSourceJudgement)
   let registered := fun (name : Ident) (category : Option String)
       (arguments : Array (TSyntax `cas_term)) => do
     if let some declaration := (← getLCtx).findFromUserName? name.getId then
@@ -41,13 +54,9 @@ partial def readExpression
           throwError "the retained source value has a different selected category"
       let value ← application (mkFVar declaration.fvarId) arguments expected
       return ⟨value, if arguments.isEmpty then selected else none⟩
-    let (entry, categoryEntry) ← selectObject name.getId.toString category
-    -- Keep the exact category formed by the same object application, including its parameters.
-    let (bundle, value) ← objectExpressions entry categoryEntry fun function expected =>
-      application function arguments expected
-    return ⟨value, some (categoryEntry.expression, bundle)⟩
-  let judgement ←
-    match source with
+    object name.getId.toString category arguments
+  let judgement ← if let some name := sourceAtomName? source then object name none #[]
+    else match source with
     | `(cas_term| ($inner:cas_term)) =>
       readExpression categoryOf inner expected
     | `(cas_term| $number:num) =>
@@ -64,6 +73,10 @@ partial def readExpression
       registered name (some category.getId.toString) arguments.getElems
     | `(cas_term| $name:ident in $category:ident) =>
       registered name (some category.getId.toString) #[]
+    | `(cas_term| $body:cas_term in $category:ident) =>
+      let some name := sourceAtomName? body
+        | throwError "source qualification requires a retained selection or registered object"
+      object name (some category.getId.toString) #[]
     | `(cas_term| ($function:cas_term)($arguments:cas_term,*)) => do
       let function ← readExpression categoryOf function none
       pure ⟨← application function.value arguments.getElems expected, none⟩
