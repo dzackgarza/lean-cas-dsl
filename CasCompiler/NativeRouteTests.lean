@@ -77,6 +77,27 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless expression.containsFVar bindings[0]!.expression.fvarId! &&
         expression.containsFVar bindings[2]!.expression.fvarId! do
       throwError "the source image replaced its scalar or actual source object"
+  let state ← semanticState
+  let some constructor := state.constructors.find? (·.functorialAction.isSome)
+    | throwError "the actual source supplies no unary action control"
+  let derivedSource ← session.unaryCategory reference.raw constructor.id modules
+  let derivedTarget ← session.unaryCategory reference.raw constructor.id selected.target
+  let derivedRoutes ← SourceRoutes.forOwner derivedSource.expression derivedTarget.expression
+  let some derivedTrace := derivedRoutes.language.grammar.shortest
+    | throwError "the actual source supplies no constructor-image route control"
+  let derived ← derivedRoutes.prepareFunctor session reference.raw derivedTrace derivedSource
+  unless derived.route.refs.any (fun ref => match ref with
+      | .constructMap id _ => id == constructor.id
+      | _ => false) do
+    throwError "the native constructor-image route lost its actual source action"
+  derived.functor.source.withOpen fun bindings expression => do
+    let context ← ContextTelescope.capture bindings
+    let (source, target) ← functorCategoryBundles expression
+    unless ← isDefEq source (← derivedSource.value.source.inContext context) <&&>
+        isDefEq target (← derivedTarget.value.source.inContext context) do
+      throwError "native constructor action changed a complete category parameter"
+    unless expression.containsFVar bindings[0]!.expression.fvarId! do
+      throwError "native constructor action discarded the actual scalar parameter"
   let rejected ← try
     discard <| routes.prepareFunctor session reference.raw trace rings
     pure false
