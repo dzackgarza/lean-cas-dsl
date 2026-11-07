@@ -45,11 +45,11 @@ def references(arguments: JsonValue) -> JsonValue:
 
 
 def deferred(arguments: JsonValue) -> JsonValue:
+    from cas_port import deferred_data, result_ref
+
     value = proxy(arguments)
-    return {"ctor": "deferredData", "args": [
-        [value.project(0), {"op": "$cas.apply", "args": {
-            "value": {"ctor": "resultRef", "args": [0]}, "arguments": []}}],
-        {"ctor": "resultRef", "args": [1]}]}
+    return deferred_data([value.project(0), {"op": "$cas.apply", "args": {
+        "value": result_ref(0), "arguments": []}}], result_ref(1))
 
 
 def hidden(arguments: JsonValue) -> Generator[Suspension, list[Proxy], JsonValue]:
