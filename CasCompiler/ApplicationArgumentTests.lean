@@ -54,6 +54,20 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           (actual[1]?.bind id).map (·.value) == some rightValue.value &&
           request.scope.map (·.value) == #[callable.value, leftValue.value, rightValue.value] do
         throwError "callable preparation changed the complete source argument order or actual values"
+      let .ok rightAlias := RuntimeParameter.ofValue graph bindings[1]!.id leftValue
+        | throwError "the aliased source parameter is absent"
+      let aliased ← PreparedRequest.forApplication program occurrence context callable arguments
+        #[← argument 1 leftValue, ← argument 0 leftValue] #[leftParameter, rightAlias]
+      let .apply _ formal actual := aliased.action
+        | throwError "aliased argument preparation changed its action"
+      unless actual.size == 2 && formal[0]?.map (·.expression) != formal[1]?.map (·.expression) &&
+          (actual[0]?.bind id).map (·.value) == some leftValue.value &&
+          (actual[1]?.bind id).map (·.value) == some leftValue.value &&
+          aliased.scope.map (·.value) == #[callable.value, leftValue.value, leftValue.value] do
+        throwError "callable preparation merged aliased values in distinct source arguments"
+      reject "the source argument has no retained runtime binding" do
+        discard <| PreparedRequest.forApplication program occurrence context callable arguments
+          #[← argument 0 leftValue] #[rightParameter]
       reject "the runtime argument does not retain its specified source value" do
         discard <| PreparedRequest.forApplication program occurrence context callable arguments
           #[← argument 0 rightValue, ← argument 1 leftValue] parameters

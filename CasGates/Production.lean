@@ -31,6 +31,7 @@ import all CasCompiler.FunctorExpressionTests
 import all CasCompiler.Layout
 import all CasCompiler.Program
 import all CasCompiler.ProgramTests
+import all CasCompiler.ApplicationArgumentTests
 import all CasCompiler.OperationalTests
 import all CasCompiler.ValueRequestTests
 import all CasRuntime
