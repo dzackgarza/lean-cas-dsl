@@ -31,6 +31,18 @@ def stored(arguments: JsonValue) -> JsonValue:
     return export(invoke, [])
 
 
+def captured(arguments: JsonValue) -> JsonValue:
+    from cas_port import input_ref
+
+    first = proxy(input_ref(["first"]))
+    second = proxy(input_ref(["second"]))
+
+    def invoke(context: JsonValue) -> JsonValue:
+        return [second.reference(), first.reference()]
+
+    return export(invoke, [first, second])
+
+
 saved: Proxy | None = None
 
 
@@ -78,6 +90,7 @@ def repeated(arguments: JsonValue) -> Generator[Suspension, list[Proxy], JsonVal
 
 
 serve("protocol-peer", "0", {"echo": echo, "stored": stored,
+                              "captured": captured,
                               "adaptive": adaptive, "expired": expired,
                               "references": references, "deferred": deferred,
                               "hidden": hidden, "repeated": repeated})
