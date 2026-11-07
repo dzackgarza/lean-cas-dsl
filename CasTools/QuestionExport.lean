@@ -236,8 +236,8 @@ import metadata. Source: T029 and scripts/ci_kernel_candidate.py's complete-read
       let file ← SourceFile.parse path.toString text
       let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
       observeFile file (← SourceSession.empty identities)
-    observation := { readings := observation.readings ++ next.readings,
-      failures := observation.failures ++ next.failures }
+    observation := { «readings» := observation.readings ++ next.readings,
+      «failures» := observation.failures ++ next.failures }
   let mut actual : Std.HashSet String := {}
   for row in observation.readings do
     if actual.contains row.id then throwError "duplicate original question identity: {row.id}"
