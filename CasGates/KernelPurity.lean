@@ -68,6 +68,8 @@ import all CasRuntime.Transaction
 import all CasRuntime.TransactionTests
 import all CasRuntime.Execute
 import all CasRuntime.ExecuteTests
+import all CasRuntime.Scope
+import all CasRuntime.ScopeTests
 import all CasContract
 import all CasContract.Failure
 import all CasContract.Port

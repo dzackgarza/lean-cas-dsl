@@ -18,12 +18,17 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let ledger ← OccurrenceLedger.new owners
     let program ← owners.identities.fresh .program
     let transaction ← owners.identities.fresh .transaction
-    let occurrence ← ledger.allocate
+    let producerOccurrence ← ledger.allocate
     let (graph, original) ← (ValueGraph.empty owners.identities).stage owners.identities
-      { program, occurrence, role } (.portable "scope payload".toUTF8)
+      { program, occurrence := producerOccurrence, role } (.portable "scope payload".toUTF8)
     let retained ← IO.ofExcept <| (graph.rebind original fieldRole).mapError IO.userError
     let child ← owners.spawn { cmd := "/bin/cat" }
     try
+      child.child.stdin.putStr "scope channel\n"
+      child.child.stdin.flush
+      unless (← child.child.stdout.getLine) == "scope channel\n" do
+        throw <| IO.userError "the scope connection lost its actual channel"
+      let occurrence ← ledger.allocate
       let selected : DispatchIdentity := {
         manifestDigest := "resource-test-manifest"
         registration := { operation := "resource-test", input := "resource-test", backend := "cat" }
@@ -72,8 +77,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless outside do throw <| IO.userError "scope metadata recovered an invisible payload"
       let malformed := Json.mkObj [
         ("ctor", .str "scopeRef"), ("args", .arr #[toJson (0 : Nat)]), ("owner", .str "claimed")]
-      unless (ScopedReference.parse? malformed).isError do
-        throw <| IO.userError "a reserved reference accepted an unknown control field"
+      match ScopedReference.parse? malformed with
+      | .error _ => pure ()
+      | .ok _ => throw <| IO.userError "a reserved reference accepted an unknown control field"
       scope.retire
       let expired ← try
         discard <| scope.resolveMany reservation graph scope.wireId #[.scope 0]
