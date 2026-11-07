@@ -3,6 +3,7 @@ module
 public import CasCompiler.Program
 public import CasRuntime.Reply
 public import CasRuntime.Transaction
+public import CasRuntime.Literal
 
 public section
 
@@ -41,6 +42,7 @@ private partial def materializeValue (reply : ImmediateReply) (request : Prepare
         throwError "the native export belongs to a different supplying connection"
       return ← stageResult request source draft
         (.ownedExport connection token declaration.captures)
+  discard <| ScalarLiteral.check source value
   match source.kind with
   | .proof => throwError "a source proof has no computational reply position"
   | .function =>

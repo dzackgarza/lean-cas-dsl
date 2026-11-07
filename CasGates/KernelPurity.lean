@@ -104,6 +104,8 @@ import all CasRuntime.Scope
 import all CasRuntime.ScopeTests
 import all CasRuntime.Reply
 import all CasRuntime.ReplyTests
+import all CasRuntime.Literal
+import all CasRuntime.LiteralTests
 import all CasRuntime.Materialize
 import all CasRuntime.MaterializeTests
 import all CasRuntime.ProtocolTests
