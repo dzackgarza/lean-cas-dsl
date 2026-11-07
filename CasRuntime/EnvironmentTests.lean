@@ -18,6 +18,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       { program, occurrence, role := scalar } (.portable "7".toUTF8)
   let (graph, truthData) ← liftM (m := IO) <| graph.stage owners.identities
     { program, occurrence, role := boolean } (.portable "true".toUTF8)
+  let .ok relabelled := graph.rebind truthData scalar
+    | throwError "the coarse storage role could not be prepared"
   withLocalDeclD `n (mkConst ``Nat) fun n =>
     withLocalDeclD `m (mkConst ``Nat) fun m => do
       withLocalDeclD `h (← mkEq n n) fun h =>
@@ -58,7 +60,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
                   { source := bindings[1]!.id, value := number }],
                 #[{ source := ⟨"absent", 0⟩, value := number }],
                 #[{ source := bindings[2]!.id, value := number }],
-                #[{ source := bindings[0]!.id, value := truthData }]]
+                #[{ source := bindings[0]!.id, value := truthData }],
+                #[{ source := bindings[0]!.id, value := relabelled }]]
             for parameters in invalid do
               let rejected ← try
                 discard <| RuntimeEnvironment.capture owners.worker context parameters
