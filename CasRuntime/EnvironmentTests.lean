@@ -147,18 +147,44 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             unless ((retained.lookup bindings[3]!.id).toOption.bind id).map (·.value) ==
                 some indexed.value do
               throwError "dependent runtime association replaced the original result"
-            let failure : Option Exception ← try
-              discard <| RuntimeEnvironment.capture owners.worker context
-                #[indexedParameter, changedIndex]
-              pure none
-            catch error => pure (some error)
-            let some failure := failure
-              | throwError "dependent runtime association accepted another actual index reference"
-            unless (← failure.toMessageData.toString).startsWith
-                "the runtime value has a different retained dependent reference" do
-              throw failure
+            let reject (parameters : Array RuntimeParameter) (expected : String) : MetaM Unit := do
+              let failure : Option Exception ← try
+                discard <| RuntimeEnvironment.capture owners.worker context parameters
+                pure none
+              catch error => pure (some error)
+              let some failure := failure
+                | throwError "dependent runtime association accepted a changed actual dependency"
+              unless (← failure.toMessageData.toString).startsWith expected do throw failure
+            reject #[indexedParameter, changedIndex]
+              "the runtime value has a different retained dependent reference"
+            reject #[indexedParameter]
+              "the runtime value is missing a retained dependent reference"
+            let pair ← mkAppM ``Prod.mk #[mkNatLit 7, mkNatLit 7]
+            let pairLayout ← RecordLayout.ofSource (← SourceLayout.ofTerm (← context.close pair))
+            let prefix ← liftM (m := IO) <|
+              RecordPrefix.begin owners.identities program occurrence pairLayout
+            let (prefix, firstRole) ← liftM (m := IO) <| prefix.bind graph number
+            let (_, secondRole) ← liftM (m := IO) <| prefix.bind graph number
+            let .ok firstParameter := RuntimeParameter.ofValue graph bindings[0]!.id firstRole
+              | throwError "the original dependent index role is absent"
+            let .ok secondParameter := RuntimeParameter.ofValue graph bindings[0]!.id secondRole
+              | throwError "the second dependent index role is absent"
+            let qualified ← RuntimeEnvironment.capture owners.worker context #[firstParameter]
+            let qualifiedOrigin ← qualified.origin program occurrence dependent
+            let (graph, qualifiedValue) ← liftM (m := IO) <|
+              graph.stage owners.identities qualifiedOrigin (.portable "qualified".toUTF8)
+            let .ok qualifiedParameter :=
+                RuntimeParameter.ofValue graph bindings[3]!.id qualifiedValue
+              | throwError "the result at the original actual index role is absent"
+            discard <| RuntimeEnvironment.capture owners.worker context
+              #[qualifiedParameter, firstParameter]
+            reject #[qualifiedParameter, secondParameter]
+              "the runtime value has a different retained dependent reference"
             let (graph, plain) ← liftM (m := IO) <| graph.stage owners.identities independentOrigin
               (.portable "0".toUTF8)
+            let .ok plainParameter := RuntimeParameter.ofValue graph bindings[1]!.id plain
+              | throwError "the independent source value is absent"
+            discard <| RuntimeEnvironment.capture owners.worker context #[plainParameter, changedIndex]
             let some plainNode := graph.find plain.value
               | throwError "the independent node is absent"
             unless plainNode.references.map (·.value) == #[number.value] &&
