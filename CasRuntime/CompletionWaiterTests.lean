@@ -87,6 +87,22 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless committed.root.value == joined.value do
         throwError "the execution handler replaced a committed receipt"
       discard <| liftM (m := BaseIO) consumer.abort
+      let cancelledCell ← CellTransaction.begin ledger
+      let cancelledOccurrence ← liftM (m := BaseIO) ledger.allocate
+      let cancelledRequest ← PreparedRequest.forApplication owners.identities program cancelledOccurrence
+        context callable #[scalar.source] #[actual] #[]
+      let some cancelledRole := cancelledRequest.roles.results[0]?
+        | throwError "the cancelled waiter has no result role"
+      let .ok _ ← liftM (m := BaseIO) <|
+        cancelledCell.reserve cancelledOccurrence selected wire.connection #[input]
+        | throwError "the cancelled producer could not reserve"
+      let .ok cancelledWaiter ← liftM (m := BaseIO) <|
+        cancelledCell.watch cancelledOccurrence cancelledRole.role.id
+        | throwError "the cancelled producer's waiter could not attach"
+      discard <| liftM (m := BaseIO) cancelledCell.abort
+      match ← liftM (m := IO) cancelledWaiter.wait with
+      | .error .settled => pure ()
+      | _ => throwError "an aborted producer supplied a completion through its waiter"
       setEnv prefixEnvironment
       let restored ← CellTransaction.begin ledger
       let failure : Option Exception ← try

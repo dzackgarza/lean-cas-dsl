@@ -23,10 +23,44 @@ private def retainResponse (request : PreparedRequest) (transaction : CellTransa
   transaction.retain candidate.root
   return candidate
 
+private def completionFailure (failure : TransactionFailure) : MetaM α :=
+  match failure with
+  | .settled => throwError "unavailable: cancelled"
+  | .staleOwner => throwError "unavailable: stale_owner"
+  | .reservation .consumed => throwError "unavailable: reserved_without_receipt"
+  | .detached => throwError "unavailable: waiter_detached"
+  | .referenceOutsideGraph =>
+    throwError "internal: the occurrence belongs to a different prepared request"
+  | failure => throwError "internal: completion reuse failed: {repr failure}"
+
+private def reuseResponse (request : PreparedRequest) (transaction : CellTransaction) :
+    MetaM (Option (PreparedResponse request)) := do
+  let some role := request.roles.results[0]?
+    | throwError "internal: a prepared result has no root role"
+  match ← transaction.reuse request.occurrence role.role.id with
+  | .error failure => completionFailure failure
+  | .ok (.ready value) => return some (← retainResponse request transaction value)
+  | .ok .unavailable => return none
+  | .ok (.pending _) =>
+    let waiter ← match ← transaction.watch request.occurrence role.role.id with
+      | .error failure => completionFailure failure
+      | .ok waiter => pure waiter
+    match ← waiter.wait with
+    | .error failure => completionFailure failure
+    | .ok value => return some (← retainResponse request transaction value)
+
+private def requireFresh (request : PreparedRequest) (transaction : CellTransaction) : MetaM Unit := do
+  match ← transaction.isFresh request.occurrence with
+  | .error failure => completionFailure failure
+  | .ok true => pure ()
+  | .ok false => throwError "unavailable: reserved_without_receipt"
+
 private def executeDemand
     (executor : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature)
     (request : PreparedRequest) (transaction : CellTransaction) :
     MetaM (PreparedResponse request × CellTransaction) := do
+  if let some response ← reuseResponse request transaction then return (response, transaction)
+  requireFresh request transaction
   let graph ← transaction.view
   discard <| request.admitInputs graph
   for binding in request.scope do requireAvailable transaction graph binding
@@ -36,6 +70,7 @@ private def executeDemand
   return (← retainResponse request state response.root, state)
 
 /-- Interpret prepared value actions against the active transaction and current owners.
+Visible receipts and staged completions supply actual roots; pending occurrences share a waiter.
 Stored projection selects its exact field node before checking that field's dependencies.
 Other effects use the required executor under the same prepared request and transaction.
 Every returned node passes the prepared environment's native type and dependency checks.
@@ -49,6 +84,10 @@ def interpreter
         request.occurrence.worker == transaction.id.worker &&
         request.environment.worker == transaction.id.worker do
       throwError "internal: execution belongs to a different worker"
+    if let some response ← reuseResponse request transaction then return (response, transaction)
+    match request.action with
+    | .apply .. | .primitive .. => requireFresh request transaction
+    | .project .. => pure ()
     let graph ← transaction.view
     discard <| IO.ofExcept <|
       (graph.requiredOwners (request.scope ++ request.environment.references)).mapError IO.userError

@@ -106,6 +106,11 @@ opaque OccurrenceLedger.reserveExport (ledger : OccurrenceLedger) (id : RuntimeI
   reserveTarget ledger id transaction (.native code.value token) connection graph
     (arguments.push callable)
 
+/-- Inspect coordination state; only the atomic reservation can authorize dispatch. -/
+opaque OccurrenceLedger.isFresh (ledger : OccurrenceLedger) (id : RuntimeId .occurrence) :
+    BaseIO Bool := ledger.state.atomically do
+  return (← get)[id]? matches some .fresh
+
 /-- Return only the locator belonging to this exact active transaction. -/
 opaque OccurrenceLedger.pendingFor (ledger : OccurrenceLedger) (id : RuntimeId .occurrence)
     (transaction : RuntimeId .transaction) : BaseIO (Option DispatchReservation) :=

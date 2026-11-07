@@ -6,6 +6,7 @@ public import CasCompiler.Program
 public import CasRuntime.Reply
 public import Lean.Environment
 public import Lean.CoreM
+public import Init.System.Promise
 
 public section
 
@@ -83,6 +84,7 @@ private structure ActiveCell where
   leases : Array RequestLease := #[]
   installedDrafts : Std.HashSet (RuntimeId .draft) := {}
   completions : Array StagedCompletion := #[]
+  readySignals : Std.HashMap (RuntimeId .occurrence) (IO.Promise Unit) := {}
 
 private inductive CellState
   | active (cell : ActiveCell)
@@ -131,7 +133,7 @@ opaque CellDraft.bindApplication (draft : CellDraft) (origin : ValueOrigin)
 
 inductive TransactionFailure
   | settled | staleSnapshot | staleOwner | pendingCalls | referenceOutsideGraph
-  | staleDraft | emptyDraft | invalidCompletion
+  | staleDraft | emptyDraft | invalidCompletion | detached
   | reservation (failure : ReservationFailure)
   deriving BEq, Repr
 
@@ -197,6 +199,54 @@ opaque CellTransaction.reuse (transaction : CellTransaction) (occurrence : Runti
       return .ok (.pending pending)
     return .ok .unavailable
 
+opaque CellTransaction.isFresh (transaction : CellTransaction) (occurrence : RuntimeId .occurrence) :
+    BaseIO (Except TransactionFailure Bool) := transaction.state.atomically do
+  let .active _ ← get | return .error .settled
+  return .ok (← transaction.ledger.isFresh occurrence)
+
+/-- One waiter has its own detach signal. The shared signal contains no completed result data. -/
+structure CompletionWaiter where
+  private mk ::
+  private transaction : CellTransaction
+  private occurrence : RuntimeId .occurrence
+  private role : CasCompiler.RoleId
+  private ready : IO.Promise Unit
+  private detached : IO.Promise Unit
+
+/-- Attach to this transaction's exact occurrence without retaining a completed-value cache.
+Reuse: Lean v4.33.0 Init/System/Promise.lean, Promise.new/resolve/result?. -/
+opaque CellTransaction.watch (transaction : CellTransaction) (occurrence : RuntimeId .occurrence)
+    (role : CasCompiler.RoleId) : BaseIO (Except TransactionFailure CompletionWaiter) :=
+  transaction.state.atomically do
+    let .active cell ← get | return .error .settled
+    unless role.scope.occurrence == occurrence && role.scope.program.worker == transaction.id.worker do
+      return .error .referenceOutsideGraph
+    let ready ← if (cell.parent.receipt occurrence).isSome ||
+        cell.completions.any (·.association.request.occurrence == occurrence) then do
+      let signal : IO.Promise Unit ← IO.Promise.new
+      signal.resolve ()
+      pure (some signal)
+    else pure cell.readySignals[occurrence]?
+    let some ready := ready | return .error (.reservation .consumed)
+    return .ok ⟨transaction, occurrence, role, ready, ← IO.Promise.new⟩
+
+/-- Detach only this waiter; the shared producer and other waiters remain active. -/
+opaque CompletionWaiter.detach (waiter : CompletionWaiter) : BaseIO Unit :=
+  waiter.detached.resolve ()
+
+/-- Wait for a signal, then read the actual result from the still-active transaction.
+Settled cells expose no completed data through their waiter handles. -/
+opaque CompletionWaiter.wait (waiter : CompletionWaiter) : IO (Except TransactionFailure ValueBinding) := do
+  let ready := waiter.ready.result?.map fun _ => false
+  let detached := waiter.detached.result?.map fun _ => true
+  discard <| IO.waitAny [ready, detached]
+  if ← waiter.detached.isResolved then return .error .detached
+  match ← waiter.transaction.reuse waiter.occurrence waiter.role with
+  | .error failure => return .error failure
+  | .ok (.ready value) => return .ok value
+  | .ok (.pending _) => return .error .invalidCompletion
+  | .ok .unavailable => return .error (.reservation .consumed)
+
 /-- Begin a reply delta at the currently visible graph, without exposing any new field. -/
 opaque CellTransaction.draft (transaction : CellTransaction) : IO CellDraft :=
   transaction.state.atomically do
@@ -261,7 +311,9 @@ opaque CellTransaction.reserve (transaction : CellTransaction) (occurrence : Run
     match ← transaction.ledger.reserve occurrence transaction.id selected connection cell.graph arguments with
     | .error failure => return .error (.reservation failure)
     | .ok reservation =>
-      set (CellState.active { cell with reservations := cell.reservations.push reservation })
+      set (CellState.active { cell with
+        reservations := cell.reservations.push reservation
+        readySignals := cell.readySignals.insert occurrence (← IO.Promise.new) })
       return .ok reservation
 
 /-- Track a retained native export's actual owner and code under the same abort boundary.
@@ -275,7 +327,9 @@ opaque CellTransaction.reserveExport (transaction : CellTransaction)
         cell.graph arguments with
     | .error failure => return .error (.reservation failure)
     | .ok reservation =>
-      set (CellState.active { cell with reservations := cell.reservations.push reservation })
+      set (CellState.active { cell with
+        reservations := cell.reservations.push reservation
+        readySignals := cell.readySignals.insert occurrence (← IO.Promise.new) })
       return .ok reservation
 
 /-- Arbitrate the one-use send decision against whole-cell abort before any engine write.
@@ -334,12 +388,14 @@ opaque CellTransaction.completeReply (transaction : CellTransaction) (draft : Ce
       let association : CompletionAssociation :=
         ⟨request, response, inputs, dispatch, scope.id, reply.requestId⟩
       let completion : StagedCompletion := ⟨transaction.id, association⟩
+      if let some signal := cell.readySignals[request.occurrence]? then signal.resolve ()
       set (CellState.active { cell with
         graph := draft.graph
         roots := cell.roots ++ draft.roots ++ outputs
         reservations := cell.reservations.filter (·.occurrence != request.occurrence)
         installedDrafts := cell.installedDrafts.insert draft.id
-        completions := cell.completions.push completion })
+        completions := cell.completions.push completion
+        readySignals := cell.readySignals.erase request.occurrence })
       return .ok association
     if let some (.ok _) := outcome then scope.retire
     return outcome.getD (.error .staleOwner)
@@ -351,6 +407,7 @@ opaque CellTransaction.abort (transaction : CellTransaction) : BaseIO Bool :=
     for reservation in cell.reservations do
       discard <| transaction.ledger.retire reservation
     for lease in cell.leases do lease.cancel
+    for signal in cell.readySignals.toArray do signal.2.resolve ()
     set CellState.aborted
     return true
 

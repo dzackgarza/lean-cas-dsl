@@ -173,18 +173,17 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let .ok aliasReply ← liftM (m := IO) <| wire.invokeBefore ledger transaction
         aliasReservation aliasScope (ScopedReference.scope 0).encode 5000
         | throwError "the returned-reference control did not return"
+      let (aliasDraft, aliasValue) ←
+        aliasReply.materialize aliasRequest transaction aliasScope wire.connection
+      unless aliasValue.root.value == scalar.value && !aliasDraft.view.sameRevision graph do
+        throwError "returning a reference changed its node or lost its new application revision"
+      let .ok _ ← transaction.completeReply aliasDraft aliasRequest aliasValue aliasScope aliasReply
+        | throwError "a complete reference-only reply could not stage its completion"
+      match ← liftM (m := BaseIO) <| transaction.installDraft aliasDraft with
+      | .error .staleDraft => pure ()
+      | _ => throwError "a reference-only reply draft installed twice"
       let retainAlias : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
-        fun demand active => do
-          let (aliasDraft, aliasValue) ←
-            aliasReply.materialize demand active aliasScope wire.connection
-          unless aliasValue.root.value == scalar.value && !aliasDraft.view.sameRevision graph do
-            throwError "returning a reference changed its node or lost its new application revision"
-          let .ok () ← liftM (m := BaseIO) <| active.installDraft aliasDraft
-            | throwError "a complete reply containing only an existing reference could not install"
-          match ← liftM (m := BaseIO) <| active.installDraft aliasDraft with
-          | .error .staleDraft => pure ()
-          | _ => throwError "a reference-only reply draft installed twice"
-          return (aliasValue, active)
+        fun _ _ => throwError "a completed reference-only reply reached external execution"
       let retained ← Execute.run retainAlias
         (PFunctor.FreeM.lift (P := OperationalSignature) aliasRequest) transaction
       unless retained.root.value == scalar.value &&
