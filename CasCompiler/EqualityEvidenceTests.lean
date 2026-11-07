@@ -94,6 +94,31 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let bcId := originalBC.id
   let ab ← assumptions.equalityAssumption Syntax.missing abId
   let bc ← assumptions.equalityAssumption Syntax.missing bcId
+  let quantifiedType ← assumptions.elaborate Syntax.missing fun context => do
+    let type ← inferType (← A.source.inContext context)
+    let function ← F.source.inContext context
+    withLocalDeclD `X type fun X => withLocalDeclD `Y type fun Y => do
+      withLocalDeclD `equality (← mkEq X Y) fun premise => do
+        mkForallFVars #[X, Y, premise] (← mkEq (mkApp function X) (mkApp function Y))
+  let quantified ← assumptions.assumeTerm `congruent quantifiedType
+  let some originalQuantified := quantified.context.entries.back?
+    | throwError "the quantified equality hypothesis is absent"
+  let instantiated ← quantified.equalityHypothesis Syntax.missing originalQuantified.id
+    #[A, B, ab.proof]
+  instantiated.proof.source.withOpen fun bindings proof => do
+    let context ← ContextTelescope.capture bindings
+    let function ← F.source.inContext context
+    let expected ← mkEq (mkApp function (← A.source.inContext context))
+      (mkApp function (← B.source.inContext context))
+    unless ← isDefEq (← inferType proof) expected do
+      throwError "quantified equality inference changed its dependent source arguments"
+    let some original := bindings.find? (·.id == originalQuantified.id)
+      | throwError "quantified equality inference lost its original hypothesis"
+    unless proof.getAppFn == original.expression && proof.getAppArgs.size == 3 do
+      throwError "quantified equality inference replaced its original proof program"
+    checkWithKernel (← mkExpectedTypeHint proof expected)
+  expectFailure "the applied source hypothesis is not a native equality proposition" do
+    discard <| quantified.equalityHypothesis Syntax.missing originalQuantified.id #[A, B]
   let chain ← assumptions.equalityTransitivity Syntax.missing ab bc
   let transformed ← assumptions.equalityCongruence Syntax.missing F ab
   for (evidence, congruence) in #[(chain, false), (transformed, true)] do
