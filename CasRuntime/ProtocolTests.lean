@@ -15,7 +15,7 @@ import sys
 from cas_port import read_frame, write_frame
 mode = sys.argv[1]
 ready = {'op': 'ready', 'protocol': 2, 'contract': 'cas-computation/2',
-         'features': ['scoped-values/2', 'deferred/2', 'suspend-resume/2'],
+         'features': ['scoped-values/2', 'deferred/2', 'suspend-resume/2', 'export-capture-frames/2'],
          'backend': 'framing peer ℤ', 'backend_version': '0'}
 if mode == 'legacy':
     ready['protocol'] = 1

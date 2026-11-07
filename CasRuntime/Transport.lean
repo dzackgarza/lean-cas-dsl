@@ -38,7 +38,9 @@ private def invocationFrame (reservation : DispatchReservation) (scope : Request
   | .native _ token => Json.mkObj [
       ("protocol", toJson (2 : Nat)), ("request_id", toJson requestId),
       ("op", .str "$cas.invoke_export"), ("scope_id", .str scope.wireId),
-      ("token", .str token), ("context", arguments)]
+      ("token", .str token),
+      ("captures", .arr ((Array.range scope.captureCount).map fun index =>
+        (ScopedReference.scope index).encode)), ("context", arguments)]
 
 private def failureReply (id : Nat) (operation : String) (frame : Json) : Except PortError Unit := do
   match ← str frame "status" with

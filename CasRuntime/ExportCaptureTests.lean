@@ -58,8 +58,7 @@ run_cmd Lean.Elab.Command.liftTermElabM <| liftM (m := MetaM) do
             transaction.reserveExport invocation callable wire.connection #[]
           | throwError "a retained capture invocation could not reserve"
         let graph ← liftM (m := IO) transaction.view
-        let scope ← liftM (m := IO) <| RequestScope.issue ledger reserved graph
-          exported.captures #[] #[]
+        let scope ← liftM (m := IO) <| RequestScope.issue ledger reserved graph #[] #[] #[]
         let arguments := Json.mkObj [
           ("kind", .str "dependent"), ("prepared_role", .str "capture-control"),
           ("parameters", .arr #[]), ("bindings", .arr #[]), ("arguments", .arr #[]),

@@ -81,23 +81,40 @@ private partial def encodeAt (graph : ValueGraph) (receiver : ConnectionGenerati
 Reuse: graph visibility/owner traversal, the released JSON parser and packet encodings.
 Each foreign occurrence gets its own scoped position, even when actual values alias.
 Liveness belongs to the later atomic reservation/send check. -/
-opaque ValueGraph.encodeInputs (graph : ValueGraph) (receiver : ConnectionGeneration)
-    (roots : Array InputPosition) : Except String EncodedInputs := do
+private def encodeRoots (graph : ValueGraph) (receiver : ConnectionGeneration)
+    (roots : Array InputPosition) (captures : Array ValueBinding) : Except String EncodedInputs := do
   unless receiver.worker == graph.worker do throw "the input receiver belongs to a different worker"
-  discard <| graph.requiredOwners (roots.map (·.binding))
+  discard <| graph.requiredOwners (captures ++ roots.map (·.binding))
   let mut paths : Array (List InputPathStep) := #[]
   for root in roots do
     let path := root.path.toList
     if paths.any (fun previous => previous.isPrefixOf path || path.isPrefixOf previous) then
       throw "complete encoded input roots overlap"
     paths := paths.push path
-  let mut state : EncodingState := {}
+  let mut state : EncodingState := { slots := captures }
   let mut values := #[]
   for root in roots do
     let (packet, next) ← encodeAt graph receiver root.binding root.path state
     values := values.push packet
     state := next
-  return ⟨values, state.slots, state.inputs⟩
+  return ⟨values, state.slots.extract captures.size state.slots.size, state.inputs⟩
+
+/-- Primitive scopes have no retained export capture prefix. -/
+opaque ValueGraph.encodeInputs (graph : ValueGraph) (receiver : ConnectionGeneration)
+    (roots : Array InputPosition) : Except String EncodedInputs :=
+  encodeRoots graph receiver roots #[]
+
+/-- Reserve the actual native export's capture slots before encoding context arguments.
+RequestScope.issue installs these same stored bindings, in order, without value deduplication.
+Source: execution amendment #69, comment 6706802517; reuse ValueGraph.callable. -/
+opaque ValueGraph.encodeExportInputs (graph : ValueGraph) (receiver : ConnectionGeneration)
+    (callable : ValueBinding) (roots : Array InputPosition) : Except String EncodedInputs := do
+  let code ← graph.callable callable
+  let some node := graph.find code.value | throw "the native code is outside the encoding graph"
+  let .ownedToken owner _ captures := node.payload.data
+    | throw "the callable has no native export capture table"
+  unless owner == receiver do throw "the native export receiver is not its actual owner"
+  encodeRoots graph receiver roots captures
 
 end CasRuntime
 
@@ -113,7 +130,9 @@ opaque PreparedRequest.encodeArguments (request : PreparedRequest) (graph : Valu
   let admitted ← request.admitInputs graph
   let arguments ← IO.ofExcept <| (admitted.arguments graph).mapError IO.userError
   let roots := arguments.mapIdx fun index binding => ({ path := path.push (.index index), binding } : InputPosition)
-  let encoded ← IO.ofExcept <| (graph.encodeInputs receiver roots).mapError IO.userError
+  let encoded ← IO.ofExcept <| (match request.action with
+    | .apply callable .. => graph.encodeExportInputs receiver callable roots
+    | _ => graph.encodeInputs receiver roots).mapError IO.userError
   return (admitted, encoded)
 
 end CasCompiler

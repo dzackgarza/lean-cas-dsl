@@ -47,6 +47,7 @@ structure RequestScope where
   id : RuntimeId .scope
   reservation : DispatchReservation
   slots : Array ValueBinding
+  captureCount : Nat
   inputs : Array InputPosition
   priorResults : Array ValueBinding
   private ledger : OccurrenceLedger
@@ -66,14 +67,27 @@ opaque RequestScope.issue (ledger : OccurrenceLedger) (reservation : DispatchRes
     | throw <| IO.userError "the request scope has no pending invocation"
   unless sameDispatch pending reservation do
     throw <| IO.userError "the request scope changed its dispatch identity"
+  let captures ← match reservation.selected with
+    | .primitive _ => pure #[]
+    | .native code token => do
+      let some node := graph.find code
+        | throw <| IO.userError "the native code is outside the request graph"
+      let .ownedToken owner actual captures := node.payload.data
+        | throw <| IO.userError "the native code has no stored export"
+      unless owner == reservation.connection && actual == token do
+        throw <| IO.userError "the native capture table changed its supplying export"
+      pure captures
+  let slots := captures ++ slots
   let mut paths : Array (Array InputPathStep) := #[]
   for input in inputs do
     if paths.contains input.path then
       throw <| IO.userError "a request input position has duplicate authority"
     paths := paths.push input.path
-  discard <| IO.ofExcept <| (graph.requiredOwners
+  let required ← IO.ofExcept <| (graph.requiredOwners
     (slots ++ inputs.map (·.binding) ++ priorResults)).mapError IO.userError
-  return ⟨← ledger.owners.identities.fresh .scope, reservation, slots, inputs, priorResults,
+  unless required.all reservation.dependencies.contains do
+    throw <| IO.userError "the request scope has an owner outside its reservation"
+  return ⟨← ledger.owners.identities.fresh .scope, reservation, slots, captures.size, inputs, priorResults,
     ledger, ← Std.Mutex.new true⟩
 
 private def RequestScope.lookup (scope : RequestScope) (reference : ScopedReference) :

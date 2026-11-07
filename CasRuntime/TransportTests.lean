@@ -14,7 +14,7 @@ from cas_port import read_frame, write_frame
 signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGUSR1})
 mode = sys.argv[1]
 write_frame({'op': 'ready', 'protocol': 2, 'contract': 'cas-computation/2',
-             'features': ['scoped-values/2', 'deferred/2', 'suspend-resume/2'],
+             'features': ['scoped-values/2', 'deferred/2', 'suspend-resume/2', 'export-capture-frames/2'],
              'backend': 'resource framing peer', 'backend_version': '0'})
 hello = read_frame()
 if hello != {'op': 'hello', 'protocol': 2, 'contract': 'cas-computation/2'}:
