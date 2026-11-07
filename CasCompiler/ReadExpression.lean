@@ -22,7 +22,8 @@ private def sourceAtomName? (source : Syntax) : Option String :=
 -- Reuse: Lean.Elab.App.elabAppArgs and Lean.Meta.mkFreshExprMVar at Lean 4.33.0.
 partial def readExpression
     (categoryOf : FVarId → TermElabM (Option (CasCatalogue.CategoryExpr × Expr)))
-    (source : TSyntax `cas_term) (expected : Option Expr) : TermElabM NativeSourceJudgement :=
+    (source : TSyntax `cas_term) (expected : Option Expr)
+    (qualification : Option String := none) : TermElabM NativeSourceJudgement :=
   withRef source do
   let application := fun (function : Expr) (arguments : Array (TSyntax `cas_term))
       (expected : Option Expr) => do
@@ -42,23 +43,16 @@ partial def readExpression
     let (bundle, value) ← objectExpressions entry categoryEntry fun function expected =>
       application function arguments expected
     return (⟨value, some (categoryEntry.expression, bundle)⟩ : NativeSourceJudgement)
-  let registered := fun (name : Ident) (category : Option String)
-      (arguments : Array (TSyntax `cas_term)) => do
+  let registered := fun (name : Ident) (arguments : Array (TSyntax `cas_term)) => do
     if let some declaration := (← getLCtx).findFromUserName? name.getId then
       let selected ← categoryOf declaration.fvarId
-      if let some name := category then
-        let required ← selectCategory (← CasCatalogue.semanticState) name
-        let some (symbolic, _) := selected
-          | throwError "the retained source value has no selected category"
-        unless symbolic.syntacticEq required.expression do
-          throwError "the retained source value has a different selected category"
       let value ← application (mkFVar declaration.fvarId) arguments expected
       return ⟨value, if arguments.isEmpty then selected else none⟩
-    object name.getId.toString category arguments
-  let judgement ← if let some name := sourceAtomName? source then object name none #[]
+    object name.getId.toString qualification arguments
+  let judgement ← if let some name := sourceAtomName? source then object name qualification #[]
     else match source with
     | `(cas_term| ($inner:cas_term)) =>
-      readExpression categoryOf inner expected
+      readExpression categoryOf inner expected qualification
     | `(cas_term| $number:num) =>
       unless expected.isSome do
         throwError "a source numeral requires its independently declared parameter type"
@@ -66,17 +60,11 @@ partial def readExpression
     | `(cas_term| $name:ident) =>
       if let some declaration := (← getLCtx).findFromUserName? name.getId then
         pure ⟨mkFVar declaration.fvarId, ← categoryOf declaration.fvarId⟩
-      else registered name none #[]
+      else registered name #[]
     | `(cas_term| $name:ident($arguments:cas_term,*)) =>
-      registered name none arguments.getElems
-    | `(cas_term| $name:ident($arguments:cas_term,*) in $category:ident) =>
-      registered name (some category.getId.toString) arguments.getElems
-    | `(cas_term| $name:ident in $category:ident) =>
-      registered name (some category.getId.toString) #[]
+      registered name arguments.getElems
     | `(cas_term| $body:cas_term in $category:ident) =>
-      let some name := sourceAtomName? body
-        | throwError "source qualification requires a retained selection or registered object"
-      object name (some category.getId.toString) #[]
+      readExpression categoryOf body expected (some category.getId.toString)
     | `(cas_term| ($function:cas_term)($arguments:cas_term,*)) => do
       let function ← readExpression categoryOf function none
       pure ⟨← application function.value arguments.getElems expected, none⟩
@@ -84,6 +72,12 @@ partial def readExpression
       let function ← readExpression categoryOf function none
       pure ⟨← application function.value arguments.getElems expected, none⟩
     | _ => throwError "source translation is not implemented for this expression form"
+  if let some name := qualification then
+    let required ← selectCategory (← CasCatalogue.semanticState) name
+    let some (symbolic, _) := judgement.category
+      | throwError "the retained source value has no selected category"
+    unless symbolic.syntacticEq required.expression do
+      throwError "the retained source value has a different selected category"
   if let some expected := expected then
     unless ← isDefEq (← inferType judgement.value) expected do
       throwError "the source expression does not have its independently declared parameter type"

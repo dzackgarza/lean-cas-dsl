@@ -1,11 +1,13 @@
 module
 
 import CasCompiler.Read
+import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
 import LeanCategories.Catalogue.Semantics.Algebra.Calculus
 import LeanCategories.Catalogue.Semantics.Algebra.Fields
 import LeanCategories.Catalogue.Semantics.Algebra.Semirings
 public meta import Lean.Elab.Command
 meta import CasCompiler.Read
+meta import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
 meta import LeanCategories.Catalogue.Semantics.Algebra.Calculus
 meta import LeanCategories.Catalogue.Semantics.Algebra.Fields
 meta import LeanCategories.Catalogue.Semantics.Algebra.Semirings
