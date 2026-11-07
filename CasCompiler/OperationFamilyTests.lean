@@ -19,6 +19,7 @@ private def levels (name : String) : TermElabM (List Level) := do
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let session ← SourceSession.empty identities
+  let session ← session.assume `h (← `(True))
   let cases : Array (String × String × List Level × Nat) := #[
     ("Rings", "·", [.zero], 1), ("Rings", "^", [.zero], 2),
     ("Modules", "•", [.param `u, .param `u], 2)]
@@ -41,6 +42,18 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           for parameter in parameters do
             unless body.containsFVar parameter.fvarId! do
               throwError "whole-family preparation discarded an actual rigid source parameter"
+      let some agreement ← session.operationConversion Syntax.missing family family
+        | throwError "a rigid whole source family lost its native reflexivity evidence"
+      unless agreement.proof.source.context.entries.size == session.context.entries.size do
+        throwError "whole-family evidence discarded the complete source context"
+      agreement.proof.source.withOpen fun bindings proof => do
+        let context ← ContextTelescope.capture bindings
+        let whole ← agreement.left.term.source.inContext context
+        let expected ← mkEq whole (← agreement.right.term.source.inContext context)
+        unless ← isDefEq (← agreement.proposition.source.inContext context) expected <&&>
+            isDefEq (← inferType proof) expected do
+          throwError "rigid-family evidence lost a complete generic parameter"
+        checkWithKernel (← mkExpectedTypeHint proof expected)
   for (categoryName, operationName) in #[("Rings", "·"), ("Modules", "•")] do
     let category ← session.categoryFamily Syntax.missing categoryName (← levels categoryName)
     let routes ← SourceRoutes.forOperation category.expression operationName
