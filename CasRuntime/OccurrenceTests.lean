@@ -38,6 +38,20 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let unrelated ← owners.identities.fresh .transaction
       if (← ledger.pendingFor first unrelated).isSome then
         throw <| IO.userError "another transaction acquired the pending occurrence"
+      let senders ← (Array.range 32).mapM fun _ => IO.asTask do
+        match ← ledger.commitSend winner with
+        | .ok () =>
+          child.child.stdin.putStr "one reserved frame\n"
+          child.child.stdin.flush
+          return true
+        | .error .consumed => return false
+        | .error _ => throw <| IO.userError "a reserved send failed for an unexpected reason"
+      let sent ← senders.mapM fun task => IO.ofExcept task.get
+      unless (sent.filter id).size == 1 &&
+          (← child.child.stdout.getLine) == "one reserved frame\n" do
+        throw <| IO.userError "a reserved occurrence allowed more than one actual sender"
+      unless (← ledger.pendingFor first winner.transaction).isSome do
+        throw <| IO.userError "sending removed the invocation before reply admission"
       unless ← ledger.retire winner do
         throw <| IO.userError "the pending occurrence did not retire"
       if (← ledger.pendingFor first winner.transaction).isSome then
@@ -56,7 +70,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         let program ← owners.identities.fresh .program
         let (capturedGraph, captured) ← graph.stage owners.identities
           { program, occurrence := second, role } (.ownedExport captureOwner token #[])
+        let .ok reserved ← ledger.reserve second unrelated choice child capturedGraph #[captured]
+          | throw <| IO.userError "the live captured argument could not reserve"
         owners.close captureOwner.generation
+        match ← ledger.commitSend reserved with
+        | .error .staleOwner => pure ()
+        | _ => throw <| IO.userError "send commitment accepted a captured owner lost after reservation"
+        discard <| ledger.retire reserved
         match ← ledger.reserve second unrelated choice child capturedGraph #[captured] with
         | .error .staleOwner => pure ()
         | _ => throw <| IO.userError "reservation accepted a known-dead captured owner"
