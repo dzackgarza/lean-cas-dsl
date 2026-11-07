@@ -14,6 +14,84 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let owners ← liftM (m := IO) OwnerRegistry.new
     let ledger ← liftM (m := BaseIO) (OccurrenceLedger.new owners)
     discard <| SessionSnapshot.initialize owners
+    let transaction ← CellTransaction.begin ledger
+    let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+    let occurrence ← liftM (m := BaseIO) ledger.allocate
+    let origin : ValueOrigin := { program, occurrence, role }
+    let child ← liftM (m := IO) <| owners.spawn { cmd := "/bin/cat" }
+    try
+      let token ← liftM (m := IO) do
+        child.child.stdin.putStr "joint reply resource\n"
+        child.child.stdin.flush
+        return (← child.child.stdout.getLine).trimAscii.toString
+      let draft ← liftM (m := IO) transaction.draft
+      let (draft, portable) ← liftM (m := IO) <|
+        draft.stage origin (.portable "joint portable field".toUTF8)
+      let (draft, native) ← liftM (m := IO) <|
+        draft.stage origin (.ownedExport child token #[portable])
+      let current ← liftM (m := IO) transaction.view
+      unless (current.find portable.value).isNone && (current.find native.value).isNone do
+        throwError "an isolated reply draft exposed a prefix to the active transaction"
+      liftM (m := IO) <| owners.close child.generation
+      match ← liftM (m := BaseIO) (transaction.installDraft draft) with
+      | .error .staleOwner => pure ()
+      | _ => throwError "a joint reply installed a field whose required owner had died"
+      let unchanged ← liftM (m := IO) transaction.view
+      unless (unchanged.find portable.value).isNone && (unchanged.find native.value).isNone do
+        throwError "failed joint installation left a visible reply prefix"
+      let clean ← liftM (m := IO) transaction.draft
+      let (clean, first) ← liftM (m := IO) <|
+        clean.stage origin (.portable "first admitted field".toUTF8)
+      let (clean, second) ← liftM (m := IO) <|
+        clean.stage origin (.product #[first])
+      let .ok () ← liftM (m := BaseIO) (transaction.installDraft clean)
+        | throwError "the complete portable reply could not enter the active graph"
+      let admitted ← liftM (m := IO) transaction.view
+      unless (admitted.find first.value).isSome && (admitted.find second.value).isSome do
+        throwError "joint installation lost an admitted field"
+      let .ok selected := admitted.project second 0
+        | throwError "the admitted record lost its actual preceding field"
+      unless selected.value == first.value do
+        throwError "joint installation replaced a preceding field's identity"
+      if ((← SessionSnapshot.current).graph.find first.value).isSome then
+        throwError "draft installation published before whole-cell commit"
+      match ← liftM (m := BaseIO) (transaction.installDraft clean) with
+      | .error .staleDraft => pure ()
+      | _ => throwError "an already installed reply draft was installed twice"
+      let stale ← liftM (m := IO) transaction.draft
+      let (stale, lost) ← liftM (m := IO) <|
+        stale.stage origin (.portable "stale reply field".toUTF8)
+      let intervening ← liftM (m := IO) <|
+        transaction.stage origin (.portable "intervening field".toUTF8)
+      match ← liftM (m := BaseIO) (transaction.installDraft stale) with
+      | .error .staleDraft => pure ()
+      | _ => throwError "reply installation replaced a newer active graph"
+      let latest ← liftM (m := IO) transaction.view
+      unless (latest.find lost.value).isNone && (latest.find intervening.value).isSome do
+        throwError "stale reply installation changed the active graph"
+      let other ← CellTransaction.begin ledger
+      match ← liftM (m := BaseIO) (other.installDraft clean) with
+      | .error .staleDraft => pure ()
+      | _ => throwError "a reply draft crossed its owning transaction"
+      discard <| liftM (m := BaseIO) other.abort
+      let .ok committed ← transaction.commit
+        | throwError "the cell could not publish its admitted joint reply"
+      unless (committed.graph.find first.value).isSome &&
+          (committed.graph.find second.value).isSome &&
+          (committed.graph.find intervening.value).isSome &&
+          (committed.graph.find portable.value).isNone do
+        throwError "whole-cell commit changed the admitted reply set"
+    finally liftM (m := IO) <| owners.close child.generation
+  finally setEnv original
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let original ← getEnv
+  try
+    let context ← ContextTelescope.capture #[]
+    let role ← SourceLayout.ofTerm (← context.close (mkNatLit 7))
+    let owners ← liftM (m := IO) OwnerRegistry.new
+    let ledger ← liftM (m := BaseIO) (OccurrenceLedger.new owners)
+    discard <| SessionSnapshot.initialize owners
     let parent ← getEnv
     let transaction ← CellTransaction.begin ledger
     let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
