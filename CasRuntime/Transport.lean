@@ -14,6 +14,12 @@ private def sameInvocation (left right : DispatchReservation) : Bool :=
   left.occurrence == right.occurrence && left.transaction == right.transaction &&
     left.connection == right.connection && decide (left.selected = right.selected)
 
+private def ownsInvocation (wire : FramedConnection) (transaction : CellTransaction)
+    (reservation : DispatchReservation) (scope : RequestScope) : Bool :=
+  reservation.connection == wire.connection.generation &&
+    reservation.selected.registration.backend == wire.backend &&
+    reservation.transaction == transaction.id && sameInvocation scope.reservation reservation
+
 private def failureReply (id : Nat) (operation : String) (frame : Json) : Except PortError Unit := do
   match ← str frame "status" with
   | "error" =>
@@ -41,9 +47,7 @@ opaque FramedConnection.invoke (wire : FramedConnection) (ledger : OccurrenceLed
     (transaction : CellTransaction) (reservation : DispatchReservation) (scope : RequestScope)
     (arguments : Json) : IO (Except PortError ImmediateReply) := do
   let unavailable := fun reason => PortError.unavailable wire.backend reason
-  unless reservation.connection == wire.connection.generation &&
-      reservation.selected.registration.backend == wire.backend &&
-      reservation.transaction == transaction.id && sameInvocation scope.reservation reservation do
+  unless ownsInvocation wire transaction reservation scope do
     return .error (unavailable "request_identity_mismatch")
   let some pending ← ledger.pendingFor reservation.occurrence transaction.id
     | return .error (unavailable "reserved_without_receipt")
@@ -118,12 +122,14 @@ opaque FramedConnection.invoke (wire : FramedConnection) (ledger : OccurrenceLed
       return .error error
   finally wire.release
 
-/-- A waiter deadline detaches from the exact existing worker; it never restarts a request.
+/-- A call deadline aborts its cell while the exact existing reader or queue item survives.
 The IO worker retains its permit/reader or queued permit claim and observes transaction abort.
-Reuse: Lean IO.waitAny and the same timer pattern as native negotiation. -/
+Reuse: the native task/event-loop deadline helper shared with negotiation. -/
 opaque FramedConnection.invokeBefore (wire : FramedConnection) (ledger : OccurrenceLedger)
     (transaction : CellTransaction) (reservation : DispatchReservation) (scope : RequestScope)
     (arguments : Json) (timeoutMs : UInt32) : IO (Except PortError ImmediateReply) := do
+  unless ownsInvocation wire transaction reservation scope do
+    return .error (.unavailable wire.backend "request_identity_mismatch")
   if timeoutMs == 0 then
     let draining ← wire.isDraining
     discard <| wire.cancel transaction reservation
@@ -131,10 +137,7 @@ opaque FramedConnection.invokeBefore (wire : FramedConnection) (ledger : Occurre
     return .error (.unavailable wire.backend (if draining then "busy_draining" else "deadline"))
   let worker ← IO.asTask (prio := .dedicated) <|
     wire.invoke ledger transaction reservation scope arguments
-  let deadline ← BaseIO.asTask (prio := .dedicated) do
-    IO.sleep timeoutMs
-    return (none : Option (Except IO.Error (Except PortError ImmediateReply)))
-  match ← IO.waitAny [worker.map some, deadline] with
+  match ← awaitBefore worker timeoutMs with
   | some result => IO.ofExcept result
   | none =>
     let draining ← wire.isDraining

@@ -1,6 +1,7 @@
 module
 
 public import CasRuntime.Owner
+public import CasRuntime.Deadline
 public import CasContract.Port
 public import Std.Sync.Semaphore
 
@@ -51,8 +52,7 @@ opaque FramedConnection.close (wire : FramedConnection) : IO Unit := do
   wire.owners.close wire.connection.generation
 
 /-- Race negotiation against the caller's explicit deadline, without a computational write.
-Reuse: CasContract.negotiateV2 and Lean's IO.asTask/IO.waitAny, as used by
-Lean/Server/AsyncList.lean:getFinishedPrefixWithTimeout at v4.33.0. -/
+Reuse: CasContract.negotiateV2 and the native task/event-loop deadline helper. -/
 opaque FramedConnection.start (owners : OwnerRegistry) (backend : String)
     (arguments : IO.Process.SpawnArgs) (timeoutMs : UInt32) :
     IO (Except PortError FramedConnection) := do
@@ -61,10 +61,7 @@ opaque FramedConnection.start (owners : OwnerRegistry) (backend : String)
     catch error => return .error (.unavailable backend s!"startup: {error}")
   let negotiation ← IO.asTask (prio := .dedicated) <|
     negotiateV2 backend connection.child.stdin connection.child.stdout
-  let deadline ← BaseIO.asTask (prio := .dedicated) do
-    IO.sleep timeoutMs
-    return (none : Option (Except IO.Error (Except PortError ReadyV2)))
-  let result ← IO.waitAny [negotiation.map some, deadline]
+  let result ← awaitBefore negotiation timeoutMs
   match result with
   | some (.ok (.ok ready)) =>
     unless ← owners.isLive connection.generation do

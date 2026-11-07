@@ -91,6 +91,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throwError "the actual framed request did not return its parsed control"
       unless reply.requestId == 0 && reply.scopeId == scope.id do
         throwError "the framed reply lost its exact request and scope"
+      let unrelated ← CellTransaction.begin ledger
+      match ← liftM (m := IO) <| wire.invokeBefore ledger unrelated reservation scope .null 0 with
+      | .error (.unavailable _ "request_identity_mismatch") => pure ()
+      | _ => throwError "a deadline accepted another transaction's invocation authority"
+      unless (← liftM (m := BaseIO) unrelated.activeGraph).isSome &&
+          (← liftM (m := BaseIO) first.activeGraph).isSome do
+        throwError "a foreign deadline changed either transaction"
+      discard <| liftM (m := IO) (scope.resolveMany reservation graph scope.wireId #[])
+      discard <| liftM (m := BaseIO) unrelated.abort
       match ← liftM (m := IO) <| wire.invoke ledger first reservation scope (.str "duplicate") with
       | .error (.unavailable _ _) => pure ()
       | _ => throwError "the transport sent a reserved occurrence again"

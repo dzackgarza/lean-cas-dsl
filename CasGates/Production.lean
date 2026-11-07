@@ -14,6 +14,7 @@ import all CasRuntime.IdentityTests
 import all CasRuntime.Owner
 import all CasRuntime.OwnerTests
 import all CasRuntime.Connection
+import all CasRuntime.Deadline
 import all CasRuntime.Value
 import all CasRuntime.ValueTests
 import all CasRuntime.Occurrence
