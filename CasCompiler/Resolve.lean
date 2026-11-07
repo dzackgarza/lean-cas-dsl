@@ -387,4 +387,41 @@ opaque SourceSession.operationConversion (session : SourceSession) (reference : 
   | #[proposition, proof] => return some ⟨left, right, proposition, proof⟩
   | _ => throwError "operation conversion returned an invalid evidence shape"
 
+/-- All-pairs evidence for the complete finite raw operation family.
+The retained original derivations have no selected representative. -/
+structure SourceFiniteOperationAgreement where
+  private mk ::
+  routes : SourceRoutes
+  source : SourceCategoryFamily
+  families : Array SourceOperationFamily
+  agreements : Array (Array SourceOperationAgreement)
+
+/-- Check conversion on every ordered pair of complete finite first-hit operation families.
+Reuse: exact finite trace extraction and the source-authorized whole-family conversion rule.
+None supplies no semantic judgment: infinite families and unresolved comparisons need evidence. -/
+opaque SourceRoutes.finiteOperationConversion (routes : SourceRoutes) (session : SourceSession)
+    (reference : Syntax) (source : SourceCategoryFamily) :
+    TermElabM (Option SourceFiniteOperationAgreement) := do
+  let .operation _ := routes.query
+    | throwError "finite operation comparison requires an operation-name query"
+  unless routes.source.syntacticEq source.expression do
+    throwError "finite operation comparison has a different complete symbolic source"
+  Core.checkSystem "finite operation trace extraction"
+  let words := routes.language.grammar.finiteWords
+  Core.checkSystem "finite operation trace saturation"
+  let some words := words | return none
+  let mut families : Array SourceOperationFamily := #[]
+  for word in words do
+    families := families ++ (← routes.operationFamilies session reference word source)
+  if families.isEmpty then return none
+  let mut agreements : Array (Array SourceOperationAgreement) := #[]
+  for left in families do
+    let mut row := #[]
+    for right in families do
+      Core.checkSystem "finite whole operation comparison"
+      let some agreement ← session.operationConversion reference left right | return none
+      row := row.push agreement
+    agreements := agreements.push row
+  return some ⟨routes, source, families, agreements⟩
+
 end CasCompiler
