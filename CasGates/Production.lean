@@ -23,6 +23,9 @@ import all CasCompiler.SourceAtomTests
 import all CasCompiler.SourceViewTests
 import all CasTools.QuestionExport
 import all CasTools.QuestionExportTests
+import all LeanCategories.Catalogue.Semantics.Foundation.FiniteOrders
+import all LeanCategories.Catalogue.Semantics.Foundation.IntegerSquareBounds
+import all LeanCategories.Catalogue.Semantics.Independent.InterfaceCompletionTests
 import all CasCompiler.RouteGrammar
 import all CasCompiler.RouteGrammarTests
 import all CasCompiler.Resolve
