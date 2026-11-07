@@ -29,6 +29,7 @@ inductive ReservationFailure
 private inductive OccurrenceStatus
   | fresh
   | pending (reservation : DispatchReservation)
+  | sent (reservation : DispatchReservation)
   | consumed (reservation : DispatchReservation)
 
 /-- Only resource status and pending locators live here; completed payloads belong to ValueGraph.
@@ -70,7 +71,7 @@ opaque OccurrenceLedger.reserve (ledger : OccurrenceLedger) (id : RuntimeId .occ
         ⟨id, transaction, selected, connection.generation, dependencies⟩
       set (state.insert id (.pending reservation))
       return .ok reservation
-    | some (.pending _) | some (.consumed _) => return .error .consumed
+    | some (.pending _) | some (.sent _) | some (.consumed _) => return .error .consumed
   match result with
   | some reserved => return reserved
   | none => return .error .staleOwner
@@ -80,16 +81,40 @@ opaque OccurrenceLedger.pendingFor (ledger : OccurrenceLedger) (id : RuntimeId .
     (transaction : RuntimeId .transaction) : BaseIO (Option DispatchReservation) :=
   ledger.state.atomically do
     match (← get)[id]? with
-    | some (.pending reservation) =>
+    | some (.pending reservation) | some (.sent reservation) =>
       return if reservation.transaction == transaction then some reservation else none
     | _ => return none
+
+/-- Commit this exact reserved invocation to one send, after rechecking actual owners.
+The pending locator remains available for scope and reply admission. Engine I/O follows
+outside both locks; a later connection loss cannot grant another send.
+Reuse: OwnerRegistry.atomicallyWhileLive and the existing one-use ledger transition. -/
+opaque OccurrenceLedger.commitSend (ledger : OccurrenceLedger)
+    (reservation : DispatchReservation) : BaseIO (Except ReservationFailure Unit) := do
+  let result ← ledger.owners.atomicallyWhileLive reservation.dependencies <|
+      ledger.state.atomically do
+    let state ← get
+    let some status := state[reservation.occurrence]?
+      | return .error .unknownOccurrence
+    match status with
+    | .pending active =>
+      unless active.transaction == reservation.transaction &&
+          active.connection == reservation.connection && decide (active.selected = reservation.selected) do
+        return .error .consumed
+      set (state.insert reservation.occurrence (.sent active))
+      return .ok ()
+    | .fresh | .sent _ | .consumed _ => return .error .consumed
+  return result.getD (.error .staleOwner)
 
 /-- Retire once. The consumed tombstone remains outside all semantic snapshots. -/
 opaque OccurrenceLedger.retire (ledger : OccurrenceLedger) (reservation : DispatchReservation) :
     BaseIO Bool :=
   ledger.state.atomically do
     let state ← get
-    let some (.pending active) := state[reservation.occurrence]? | return false
+    let some status := state[reservation.occurrence]? | return false
+    let active ← match status with
+      | .pending active | .sent active => pure active
+      | .fresh | .consumed _ => return false
     unless active.transaction == reservation.transaction &&
         active.connection == reservation.connection && decide (active.selected = reservation.selected) do
       return false
