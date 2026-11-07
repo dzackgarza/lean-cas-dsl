@@ -2,12 +2,8 @@
 
 Feature context: `001-categorical-research-language`.
 
-Current canonical content:
+[Current consolidated notebook/session contract v2](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6664296914).
 
-1. [Base planned notebook contract](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6664296914).
-2. [Operative runtime/model amendment](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6684996781), including the exact staged/committed visibility, commit-status and captured-continuation transitions.
-3. [Amended implementation and lifecycle validation assignments](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6685591815).
+Read it with [mathematical input](mathematical-input.md), [computational runtime](computational-runtime.md), the [data model](../data-model.md) and [validation guide](../quickstart.md). The consolidated body incorporates the current transport-admission, publication, capture, observation and owner-lifetime decisions. Earlier conflicting base wording is not an alternative contract.
 
-Read the full texts together. The amendment replaces only its explicitly identified base sections. Inert inspection, pre-transmission protocol checks, atomic publication, cancellation, snapshot identity and no-replay requirements remain binding. No implementation or notebook acceptance is established by these documents.
-
-This is a durable navigation pointer; substantive content remains in GitHub issues.
+This is a durable navigation pointer, not a claim of actual notebook execution or independent acceptance.
