@@ -48,3 +48,29 @@ private def verify : Except String Unit := do
 
 run_cmd do
   if let .error message := verify then throwError "{message}"
+
+private def verifyFiniteWords : Except String Unit := do
+  let diamond ← compile #[
+    { lhs := #[0], rhs := #[1] }, { lhs := #[0], rhs := #[2] },
+    { lhs := #[1], rhs := #[3] }, { lhs := #[2], rhs := #[3] }] #[0] #[#[3]]
+  let some words := diamond.grammar.finiteWords | throw "a finite route family became infinite"
+  unless words.size == 2 && words.contains #[0, 2] && words.contains #[1, 3] do
+    throw "finite extraction did not retain the complete diamond"
+  for word in words do discard <| diamond.reconstruct word
+  let looping ← compile #[{ lhs := #[0], rhs := #[0] }, { lhs := #[0], rhs := #[1] }]
+    #[0] #[#[1]]
+  unless looping.grammar.finiteWords.isNone do throw "a growing route cycle became finite"
+  let dead ← compile #[{ lhs := #[0], rhs := #[0] }] #[0] #[#[1]]
+  unless dead.grammar.finiteWords == some #[] do
+    throw "an unproductive cycle became an infinite nonempty language"
+  let initial ← compile #[{ lhs := #[0], rhs := #[0] }] #[0] #[#[0]]
+  unless initial.grammar.finiteWords == some #[#[]] do
+    throw "finite extraction lost the empty first-hit route"
+  let parallel ← compile #[{ lhs := #[0], rhs := #[1] }, { lhs := #[0], rhs := #[1] }]
+    #[0] #[#[1]]
+  let some words := parallel.grammar.finiteWords | throw "parallel finite routes became infinite"
+  unless words.size == 2 && words.contains #[0] && words.contains #[1] do
+    throw "finite extraction collapsed distinct source edges"
+
+run_cmd do
+  if let .error message := verifyFiniteWords then throwError "{message}"
