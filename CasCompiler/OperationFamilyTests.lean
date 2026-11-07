@@ -83,10 +83,19 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   unless nonemptyRoute do throwError "the operation control did not use its actual structural route"
   let inheritedFamilies ← traces.flatMapM fun trace =>
     inherited.operationFamilies session Syntax.missing trace commutative
-  for left in inheritedFamilies do
-    for right in inheritedFamilies do
-      let some agreement ← session.operationConversion Syntax.missing left right
-        | throwError "the actual whole multiplicative operation families lost conversion evidence"
+  let some comparisons ← inherited.finiteOperationConversion session Syntax.missing commutative
+    | throwError "the complete finite operation family lost its native conversion evidence"
+  unless comparisons.families.size == inheritedFamilies.size &&
+      comparisons.agreements.size == inheritedFamilies.size do
+    throwError "finite operation comparison omitted an original reading"
+  for family in inheritedFamilies do
+    unless comparisons.families.any (fun retained => retained.binding.id == family.binding.id &&
+        retained.route.refs == family.route.refs) do
+      throwError "finite operation comparison discarded an actual binding or ordered route"
+  for row in comparisons.agreements do
+    unless row.size == inheritedFamilies.size do
+      throwError "finite operation comparison omitted an entire-family pair"
+    for agreement in row do
       agreement.proof.source.withOpen fun bindings proof => do
         let context ← ContextTelescope.capture bindings
         let goal ← agreement.proposition.source.inContext context
