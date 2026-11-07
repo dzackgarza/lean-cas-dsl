@@ -74,7 +74,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       id := ⟨"primitive-application", index⟩, role := .parameter,
       expression := mkFVar declaration.fvarId } : LocalBinding)
     let context ← ContextTelescope.capture bindings
-    let specified ← arguments.mapM context.close
+    let specified ← arguments.mapM fun argument => liftM (m := MetaM) (context.close argument)
     let applied ← PreparedRequest.forBoundary program occurrence (.registered family)
       (family.universeParams.map Level.param) context specified #[] #[]
     let some layout := applied.application

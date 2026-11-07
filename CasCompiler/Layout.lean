@@ -176,7 +176,7 @@ opaque ApplicationLayout.ofSource (function : SourceLayout) (context : OpenConte
     (arguments : Array ClosedTerm) : MetaM (SourceLayout × ApplicationLayout) := do
   let result ← function.applyIn context arguments
   let actual ← arguments.mapM SourceLayout.ofTerm
-  let type ← inferType (← function.source.inContext context)
+  let type ← inferType (← context.apply function.source #[])
   forallBoundedTelescope type (some arguments.size) fun locals resultType => do
     unless locals.size == arguments.size do
       throwError "application layout requires the complete supplied native argument prefix"

@@ -98,7 +98,11 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let layout ← SourceLayout.ofTerm (← context.close equivalence)
   unless layout.kind == .record && !layout.fields.isEmpty do
     throwError "the callable record lost its retained fields"
-  let result ← layout.applyIn context #[← context.close (mkNatLit 1)]
+  let (result, application) ← ApplicationLayout.ofSource layout context
+    #[← context.close (mkNatLit 1)]
+  unless application.arguments.size == 1 &&
+      application.arguments[0]?.map (·.wireIndex) == some (some 0) do
+    throwError "native callable coercion lost its original argument position"
   result.source.withOpen fun _ expression => do
     unless ← isDefEq (← inferType expression) (mkConst ``Nat) do
       throwError "source application lost the record's accepted function coercion"

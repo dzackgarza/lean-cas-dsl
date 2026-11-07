@@ -154,11 +154,11 @@ opaque PreparedRequest.forBoundary (program : CasRuntime.RuntimeId .program)
     empty.close (boundary.source.family.instantiateLevelParams
       boundary.universeParams universeArguments)
   let layout ← SourceLayout.ofTerm family
-  let (source, application) ← if arguments.isEmpty then do
-      return (← layout.inContext context, none)
+  let (source, application) ← if arguments.isEmpty then
+      pure (← layout.inContext context, (none : Option ApplicationLayout))
     else do
       let (source, application) ← ApplicationLayout.ofSource layout context arguments
-      return (source, some application)
+      pure (source, some application)
   let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters
   prepareRequest program occurrence (.primitive boundary universeArguments) source context
     scope environment application
