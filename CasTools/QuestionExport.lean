@@ -216,15 +216,15 @@ loaded module provenance. Inventory checks establish completeness only; independ
 owns mathematical meaning. Reuse: native Json, FilePath, exclusive FS.writeNew and environment
 import metadata. Source: T029 and scripts/ci_kernel_candidate.py's complete-reading protocol. -/
 @[command_elab exportQuestions] meta def elabExportQuestions : CommandElab := fun stx => do
-  let `(command| #cas_export_questions $suite:str inventory $inventory:str
-      readings $readings:str failures $failures:str) := stx
+  let `(command| #cas_export_questions $suite:str inventory $inventoryFile:str
+      readings $readingsFile:str failures $failuresFile:str) := stx
     | throwUnsupportedSyntax
-  let readingsPath : System.FilePath := readings.getString
-  let failuresPath : System.FilePath := failures.getString
+  let readingsPath : System.FilePath := readingsFile.getString
+  let failuresPath : System.FilePath := failuresFile.getString
   if readingsPath == failuresPath || (← readingsPath.pathExists) ||
       (← failuresPath.pathExists) then
     throwError "question export requires distinct new output files"
-  let .ok inventoryJson := Json.parse (← IO.FS.readFile inventory.getString)
+  let .ok inventoryJson := Json.parse (← IO.FS.readFile inventoryFile.getString)
     | throwError "the original question inventory is not valid JSON"
   let .ok expected := (inventoryJson.getObjVal? "assertions").bind Json.getObj?
     | throwError "the original question inventory has no assertion map"
