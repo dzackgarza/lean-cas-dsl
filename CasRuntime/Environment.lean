@@ -42,10 +42,10 @@ def RuntimeEnvironment.lookup (environment : RuntimeEnvironment) (source : Bindi
     if entry.id == source then return value
   throw "the runtime binding identity is outside its source telescope"
 
-/-- Associate existing nodes by stable source identity and native source type.
-This checks both current and producing source types, not a coarse kind or display name.
-Reuse: ClosedTerm.inContext and Lean.Meta.isDefEq. No payload is decoded into a source term.
-Dependent runtime qualifiers and whole-reply admission remain separate checks. -/
+/-- Associate existing nodes by stable source identity, native type and retained type dependencies.
+Check the complete table before comparing each actual producing dependency with its current
+binding. Reuse: ClosedTerm.inContext, Lean.Meta.isDefEq and SourceLayout.contextDependencies.
+Whole-reply admission and consuming record qualifiers remain separate checks. -/
 opaque RuntimeEnvironment.capture (worker : String) (context : OpenContext)
     (parameters : Array RuntimeParameter) : MetaM RuntimeEnvironment := do
   if worker.isEmpty then throwError "runtime association requires an actual worker identity"
@@ -67,6 +67,19 @@ opaque RuntimeEnvironment.capture (worker : String) (context : OpenContext)
     unless ← isDefEq (← inferType producing) expected do
       throwError "the producing runtime value has an incompatible complete source type"
     supplied := supplied.insert parameter.source parameter.value
+  for parameter in parameters do
+    let origin := parameter.origin
+    for index in origin.role.contextDependencies do
+      let some dependency := origin.role.source.context.entries[index]?
+        | throwError "a producing runtime dependency is outside its source telescope"
+      let some original := origin.parameters[index]?
+        | throwError "a producing runtime dependency is outside its complete reference table"
+      if let some original := original then
+        let some current := supplied[dependency.id]?
+          | throwError "the runtime value is missing a retained dependent reference"
+        unless original.value == current.value &&
+            original.instantiations.map (·.id) == current.instantiations.map (·.id) do
+          throwError "the runtime value has a different retained dependent reference"
   let values := context.bindings.map fun binding => supplied[binding.id]?
   return ⟨worker, context.telescope, values⟩
 
