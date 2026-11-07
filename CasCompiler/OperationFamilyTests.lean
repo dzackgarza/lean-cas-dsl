@@ -92,6 +92,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless comparisons.families.any (fun retained => retained.binding.id == family.binding.id &&
         retained.route.refs == family.route.refs) do
       throwError "finite operation comparison discarded an actual binding or ordered route"
+  for left in inheritedFamilies do
+    for right in inheritedFamilies do
+      unless comparisons.agreements.any (fun row => row.any fun agreement =>
+          agreement.left.binding.id == left.binding.id &&
+          agreement.left.route.refs == left.route.refs &&
+          agreement.right.binding.id == right.binding.id &&
+          agreement.right.route.refs == right.route.refs) do
+        throwError "finite operation comparison omitted evidence for an actual ordered pair"
   for row in comparisons.agreements do
     unless row.size == inheritedFamilies.size do
       throwError "finite operation comparison omitted an entire-family pair"
