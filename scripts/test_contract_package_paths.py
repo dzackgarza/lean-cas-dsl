@@ -28,7 +28,7 @@ public def main (arguments : List String) : IO Unit := do
   let directory ← CasCatalogue.Backend.packageDir package
   IO.println (toJson directory.toString).compress
 """
-STARTUP = "import cas_port; cas_port.serve('package-path-smoke', '0', '0', {})"
+STARTUP = "import cas_port; cas_port.serve('package-path-smoke', '0', {})"
 
 
 def manifest(package: str = PACKAGE, *, name: str = "consumer", **entry) -> dict:
@@ -38,6 +38,7 @@ def manifest(package: str = PACKAGE, *, name: str = "consumer", **entry) -> dict
 def install_helper(destination: Path, helper: Path) -> None:
     (destination / "python").mkdir(parents=True, exist_ok=True)
     shutil.copy2(helper, destination / "python" / "cas_port.py")
+    shutil.copy2(helper.parent / "cas_session.py", destination / "python" / "cas_session.py")
 
 
 def resolve(lean: str, probe: Path, directory: Path, package: str,
@@ -57,19 +58,32 @@ def resolve(lean: str, probe: Path, directory: Path, package: str,
     )
 
 
-def start_helper(directory: Path, resolved: Path) -> None:
+def start_helper(directory: Path, resolved: Path, project: Path) -> None:
     environment = os.environ.copy()
     environment["PYTHONPATH"] = str(resolved / "python")
+    hello = {"op": "hello", "protocol": 2, "contract": "cas-computation/2"}
+    payload = json.dumps(hello).encode()
     result = subprocess.run(
-        [sys.executable, "-c", STARTUP], cwd=directory, env=environment,
-        input=b"", capture_output=True, check=True, timeout=10,
+        ["/home/dzack/.local/bin/uv", "run", "--frozen", "--project", str(project),
+         "python", "-c", STARTUP], cwd=directory, env=environment,
+        input=str(len(payload)).encode() + b"\n" + payload,
+        capture_output=True, check=True, timeout=10,
     )
-    length, separator, payload = result.stdout.partition(b"\n")
-    if not separator or not length.isdigit() or int(length) != len(payload):
-        raise AssertionError("the resolved helper did not emit one complete ready frame")
-    ready = json.loads(payload)
-    if ready.get("op") != "ready" or ready.get("backend") != "package-path-smoke":
-        raise AssertionError(f"the resolved helper did not start: {ready}")
+    frames, remaining = [], result.stdout
+    while remaining:
+        length, separator, body = remaining.partition(b"\n")
+        if not separator or not length.isdigit() or int(length) > len(body):
+            raise AssertionError("the resolved SDK emitted an incomplete frame")
+        frames.append(json.loads(body[:int(length)]))
+        remaining = body[int(length):]
+    if len(frames) != 2:
+        raise AssertionError("the resolved SDK did not complete negotiation")
+    ready, acknowledgement = frames
+    if ready.get("op") != "ready" or ready.get("backend") != "package-path-smoke" or \
+            ready.get("protocol") != 2 or ready.get("contract") != hello["contract"]:
+        raise AssertionError(f"the resolved SDK did not start: {ready}")
+    if acknowledgement != {**hello, "status": "ok"}:
+        raise AssertionError(f"the resolved SDK changed its acknowledgement: {acknowledgement}")
 
 
 def main() -> None:
@@ -139,7 +153,7 @@ def main() -> None:
             observed = (directory / json.loads(result.stdout.strip())).resolve()
             if observed != expected:
                 raise AssertionError(f"{label}: resolved {observed}, expected {expected}")
-            start_helper(directory, observed)
+            start_helper(directory, observed, helper.parent.parent)
         print(f"PASS: {len(cases)} package layouts/failures, including real public-helper startup")
 
 
