@@ -69,15 +69,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     throwError "equality transitivity identified independently rigid intermediate functions"
   let familyType ← functions.elaborate Syntax.missing fun context => do
     inferType (← family.term.source.inContext context)
-  let variables ← functions.assumeTerm `A familyType
-  let variables ← variables.assumeTerm `B familyType
-  let variables ← variables.assumeTerm `C familyType
-  let A ← variables.term (← `(term| $(mkIdent `A):ident))
-  let B ← variables.term (← `(term| $(mkIdent `B):ident))
-  let C ← variables.term (← `(term| $(mkIdent `C):ident))
-  let AB ← variables.elaborate Syntax.missing fun context => do
+  let families ← functions.assumeTerm `A familyType
+  let families ← families.assumeTerm `B familyType
+  let families ← families.assumeTerm `C familyType
+  let A ← families.term (← `(term| $(mkIdent `A):ident))
+  let B ← families.term (← `(term| $(mkIdent `B):ident))
+  let C ← families.term (← `(term| $(mkIdent `C):ident))
+  let AB ← families.elaborate Syntax.missing fun context => do
     mkEq (← A.source.inContext context) (← B.source.inContext context)
-  let assumptions ← variables.assumeTerm `ab AB
+  let assumptions ← families.assumeTerm `ab AB
   let abId := assumptions.context.entries.back!.id
   let BC ← assumptions.elaborate Syntax.missing fun context => do
     mkEq (← B.source.inContext context) (← C.source.inContext context)
