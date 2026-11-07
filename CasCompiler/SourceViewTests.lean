@@ -223,3 +223,34 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     pure false
   catch _ => pure true
   unless rejected do throwError "source composition accepted different middle objects"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let rings ← empty.assume `R (← nativeSource "CommRingCat.{0}")
+  let coefficients ← readSource rings "integerCoefficients(R)"
+  let some category := coefficients.category
+    | throwError "the named morphism lost its selected category"
+  unless category.role == .morphism do
+    throwError "the named morphism lost its categorical role"
+  coefficients.source.withOpen fun bindings value => do
+    let expected ← mkAppM ``CasCatalogue.Algebra.NamedCommutativeRings.integerCoefficients
+      #[bindings[0]!.expression]
+    unless (← isDefEq value expected) && value.containsFVar bindings[0]!.expression.fvarId! do
+      throwError "the named morphism changed its registered declaration or actual ring"
+  let bound ← rings.defineTerm `q coefficients
+  let mapped ← readSource bound "map q along «fun.commutative_rings.ring»()"
+  mapped.source.withOpen fun bindings value => do
+    unless value.containsFVar bindings[1]!.expression.fvarId! do
+      throwError "a named morphism was replayed during a later functor action"
+  let dimensions ← empty.assume `n (← nativeSource "Nat")
+  let reversal ← readSource dimensions "rev(n)"
+  let some category := reversal.category
+    | throwError "a parameterized named morphism lost its category"
+  unless category.role == .morphism do
+    throwError "a parameterized named morphism lost its categorical role"
+  reversal.source.withOpen fun bindings value => do
+    let expected ← mkAppM ``CasCatalogue.Foundation.Morphisms.finRev
+      #[bindings[0]!.expression]
+    unless (← isDefEq value expected) do
+      throwError "a parameterized named morphism changed its declared action"
