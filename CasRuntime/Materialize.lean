@@ -25,7 +25,7 @@ private partial def materializeValue (reply : ImmediateReply) (request : Prepare
     (path : Array InputPathStep) (draft : CellDraft) : MetaM (CellDraft × ValueBinding) := do
   if let some reference := reply.references.find? (·.path == path) then
     let candidate ← request.environment.checkResult draft.view source reference.binding
-    return (draft, candidate.root)
+    return (← liftM (m := IO) <| draft.retain candidate.root, candidate.root)
   let tag := (value.getObjValAs? String "ctor").toOption
   if tag == some "valueData" || tag == some "opaqueData" then
     let .ok envelope := ComputationalValue.decode value

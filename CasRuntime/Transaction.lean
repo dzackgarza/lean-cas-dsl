@@ -51,6 +51,7 @@ private structure ActiveCell where
   events : Array Json := #[]
   reservations : Array DispatchReservation := #[]
   leases : Array RequestLease := #[]
+  installedDrafts : Std.HashSet (RuntimeId .draft) := {}
 
 private inductive CellState
   | active (cell : ActiveCell)
@@ -61,6 +62,7 @@ private inductive CellState
 This is storage for validation, not evidence that validation has succeeded. -/
 structure CellDraft where
   private mk ::
+  private id : RuntimeId .draft
   private transaction : RuntimeId .transaction
   private identities : IdentitySupply
   private base : ValueGraph
@@ -68,6 +70,12 @@ structure CellDraft where
   private roots : Array ValueBinding
 
 def CellDraft.view (draft : CellDraft) : ValueGraph := draft.graph
+
+/-- Retain an existing visible root without allocating a replacement node or installing it.
+Reuse: ValueGraph.requiredOwners; installation performs the atomic owner recheck. -/
+opaque CellDraft.retain (draft : CellDraft) (binding : ValueBinding) : IO CellDraft := do
+  discard <| IO.ofExcept <| (draft.graph.requiredOwners #[binding]).mapError IO.userError
+  return { draft with roots := draft.roots.push binding }
 
 /-- Append only to this immutable draft; the active transaction remains unchanged.
 Reuse: ValueGraph.stage, including fresh identities and derived capture owners. -/
@@ -114,7 +122,8 @@ opaque CellTransaction.draft (transaction : CellTransaction) : IO CellDraft :=
   transaction.state.atomically do
     let .active cell ← get
       | throw <| IO.userError "the transaction has settled"
-    return ⟨transaction.id, transaction.ledger.owners.identities, cell.graph, cell.graph, #[]⟩
+    let identities := transaction.ledger.owners.identities
+    return ⟨← identities.fresh .draft, transaction.id, identities, cell.graph, cell.graph, #[]⟩
 
 /-- Install the complete isolated delta in one owner-checked active-state update.
 The caller validates the whole promised interface before this storage transition.
@@ -124,14 +133,18 @@ opaque CellTransaction.installDraft (transaction : CellTransaction) (draft : Cel
     BaseIO (Except TransactionFailure Unit) :=
   transaction.state.atomically do
     let .active cell ← get | return .error .settled
-    unless draft.transaction == transaction.id && cell.graph.sameRevision draft.base do
+    unless draft.transaction == transaction.id && cell.graph.sameRevision draft.base &&
+        !cell.installedDrafts.contains draft.id do
       return .error .staleDraft
     if draft.roots.isEmpty then return .error .emptyDraft
     let .ok dependencies := draft.graph.requiredOwners draft.roots
       | return .error .referenceOutsideGraph
     let installed ← transaction.ledger.owners.atomicallyWhileLive
         (m := Std.AtomicT CellState BaseIO) dependencies do
-      set (CellState.active { cell with graph := draft.graph, roots := cell.roots ++ draft.roots })
+      set (CellState.active { cell with
+        graph := draft.graph
+        roots := cell.roots ++ draft.roots
+        installedDrafts := cell.installedDrafts.insert draft.id })
     return if installed.isSome then .ok () else .error .staleOwner
 
 opaque CellTransaction.stage (transaction : CellTransaction) (origin : ValueOrigin)
