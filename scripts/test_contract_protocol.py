@@ -69,6 +69,7 @@ class ContractProtocol(unittest.TestCase):
                 self.read(str(len(payload)).encode() + b"\n" + payload)
 
     def test_serve_preserves_every_supplied_argument(self):
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
         from scripts.test_protocol_v2 import Peer
 
         arguments = (0, False, [], {}, None, "")
