@@ -130,9 +130,17 @@ opaque PreparedRequest.encodeArguments (request : PreparedRequest) (graph : Valu
   let admitted ← request.admitInputs graph
   let arguments ← IO.ofExcept <| (admitted.arguments graph).mapError IO.userError
   let roots := arguments.mapIdx fun index binding => ({ path := path.push (.index index), binding } : InputPosition)
-  let encoded ← IO.ofExcept <| (match request.action with
-    | .apply callable .. => graph.encodeExportInputs receiver callable roots
-    | _ => graph.encodeInputs receiver roots).mapError IO.userError
+  let encoding : Except String EncodedInputs := do
+    match request.action with
+    | .apply callable .. =>
+      let code ← graph.callable callable
+      let some node := graph.find code.value | throw "the callable is outside the encoding graph"
+      match node.payload.data with
+      | .ownedToken .. => graph.encodeExportInputs receiver callable roots
+      | .closure .. => graph.encodeInputs receiver roots
+      | _ => throw "the retained callable has no code or native token"
+    | _ => graph.encodeInputs receiver roots
+  let encoded ← IO.ofExcept <| encoding.mapError IO.userError
   return (admitted, encoded)
 
 end CasCompiler
