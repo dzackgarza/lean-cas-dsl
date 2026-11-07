@@ -35,9 +35,14 @@ structure ContextEntry where
   value : Option Expr
   nondep : Bool
 
+structure ContextInstance where
+  className : Name
+  binding : BindingId
+
 structure ContextTelescope where
   private mk ::
   entries : Array ContextEntry
+  instances : Array ContextInstance
 
 structure OpenContext where
   private mk ::
@@ -64,6 +69,7 @@ private def closeOver (locals : Array Expr) (expression : Expr) : MetaM Expr := 
   return expression
 
 /-- Capture every local declaration in order; the caller supplies stable binding identities.
+The exact ordered local-instance environment uses those same stable identities.
 Uses Lean's abstraction and local-context APIs at v4.33.0, with no expression-based identity.
 Source/reuse record: lean-cas-dsl#66, issuecomment-6693525290. -/
 opaque ContextTelescope.capture (bindings : Array LocalBinding) : MetaM OpenContext := do
@@ -71,6 +77,7 @@ opaque ContextTelescope.capture (bindings : Array LocalBinding) : MetaM OpenCont
   unless declarations.size == bindings.size do
     throwError "context capture requires a complete ordered binding map"
   let mut identities : Std.HashSet BindingId := {}
+  let mut localIds : Std.HashMap FVarId BindingId := {}
   let mut locals : Array Expr := #[]
   let mut entries : Array ContextEntry := #[]
   for decl in declarations, binding in bindings do
@@ -79,13 +86,23 @@ opaque ContextTelescope.capture (bindings : Array LocalBinding) : MetaM OpenCont
     if binding.id.session.isEmpty || identities.contains binding.id then
       throwError "context capture requires distinct session binding identities"
     identities := identities.insert binding.id
+    localIds := localIds.insert decl.fvarId binding.id
     let type ← closeOver locals decl.type
     let value ← (decl.value? true).mapM (closeOver locals)
     entries := entries.push {
       id := binding.id, role := binding.role, userName := decl.userName,
       binderInfo := decl.binderInfo, kind := decl.kind, type, value, nondep := decl.isNondep }
     locals := locals.push binding.expression
-  return ⟨⟨entries⟩, bindings⟩
+  let mut instances : Array ContextInstance := #[]
+  for selected in ← getLocalInstances do
+    unless selected.fvar.isFVar do
+      throwError "a selected local instance must denote a source declaration"
+    let some binding := localIds[selected.fvar.fvarId!]?
+      | throwError "a selected local instance is outside the complete source telescope"
+    unless (← isClass? (← inferType selected.fvar)) == some selected.className do
+      throwError "a selected local instance has an incompatible source class"
+    instances := instances.push ⟨selected.className, binding⟩
+  return ⟨⟨entries, instances⟩, bindings⟩
 
 /-- Close a checked term and its full type over the captured ordered telescope. -/
 opaque OpenContext.close (context : OpenContext) (expression : Expr) : MetaM ClosedTerm := do
@@ -107,7 +124,13 @@ def ContextTelescope.withOpen [Monad m] [MonadControlT MetaM m] (context : Conte
     (action : Array LocalBinding → m α) : m α := do
   let rec visit (entries : List ContextEntry) (bindings : Array LocalBinding) : m α := do
     match entries with
-    | [] => action bindings
+    | [] => mapMetaM (fun action => do
+        let mut instances : LocalInstances := #[]
+        for selected in context.instances do
+          let some binding := bindings.find? (·.id == selected.binding)
+            | throwError "the reopened source telescope lost a selected instance"
+          instances := instances.push ⟨selected.className, binding.expression⟩
+        withLCtx (← getLCtx) instances action) (action bindings)
     | entry :: rest =>
       let locals := bindings.map (·.expression)
       let type := entry.type.instantiateRev locals
