@@ -66,6 +66,9 @@ import all CasRuntime.Value
 import all CasRuntime.ValueTests
 import all CasRuntime.ContainerTests
 import all CasRuntime.RecordTests
+import all CasRuntime.Environment
+import all CasRuntime.EnvironmentTests
+import all CasRuntime.EnvironmentExecutionTests
 import all CasRuntime.Occurrence
 import all CasRuntime.OccurrenceTests
 import all CasRuntime.Transaction
