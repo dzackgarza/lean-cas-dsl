@@ -87,7 +87,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throwError "the framing call could not reserve"
       let graph ← liftM (m := IO) first.view
       let scope ← liftM (m := IO) <| RequestScope.issue ledger reservation graph #[] #[] #[]
-      let .ok reply ← liftM (m := IO) <| wire.invoke ledger first reservation scope (.str "first")
+      let .ok reply ← liftM (m := IO) <| wire.invokeBefore ledger first reservation scope (.str "first") 5000
         | throwError "the actual framed request did not return its parsed control"
       unless reply.requestId == 0 && reply.scopeId == scope.id do
         throwError "the framed reply lost its exact request and scope"
@@ -112,6 +112,23 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "cooperative cancellation did not win the active cell"
       unless ← liftM (m := BaseIO) wire.isDraining do
         throwError "cancellation released an outstanding frame's permit"
+      let expired ← CellTransaction.begin ledger
+      let waiting ← liftM (m := BaseIO) ledger.allocate
+      let .ok waitingReservation ← liftM (m := BaseIO) <|
+        expired.reserve waiting selected wire.connection #[]
+        | throwError "the deadline-bound queued call could not reserve"
+      let waitingGraph ← liftM (m := IO) expired.view
+      let waitingScope ← liftM (m := IO) <|
+        RequestScope.issue ledger waitingReservation waitingGraph #[] #[] #[]
+      match ← liftM (m := IO) <|
+          wire.invokeBefore ledger expired waitingReservation waitingScope (.str "expired queue") 20 with
+      | .error (.unavailable backend reason) =>
+        unless backend == "configured-backend" && reason == "busy_draining" do
+          throwError "the queued deadline lost its busy-draining outcome"
+      | _ => throwError "a queued call overtook the outstanding frame or ignored its deadline"
+      unless (← liftM (m := BaseIO) expired.activeGraph).isNone &&
+          (← liftM (m := BaseIO) (ledger.pendingFor waiting expired.id)).isNone do
+        throwError "an expired queue item retained transaction or dispatch authority"
       let later ← CellTransaction.begin ledger
       let next ← liftM (m := BaseIO) ledger.allocate
       let .ok nextReservation ← liftM (m := BaseIO) <|
