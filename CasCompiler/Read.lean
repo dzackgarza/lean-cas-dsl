@@ -16,12 +16,20 @@ syntax (name := sourceExpression) "cas_source% " cas_term : term
 private meta def sourceArgument (stx : TSyntax `cas_term) : TermElabM Arg := withRef stx do
   return .stx (← `(term| cas_source% $stx:cas_term))
 
+private meta def sourceApplication (function : Expr) (arguments : Array (TSyntax `cas_term))
+    (expected : Option Expr) : TermElabM Expr := do
+  elabAppArgs function #[] (← arguments.mapM sourceArgument) expected false false
+
 /-- Native application supplies the dependent expected type of each source argument.
 Only original source syntax is embedded; retained expressions never return to syntax. -/
 @[term_elab sourceExpression] meta def elabSourceExpression : TermElab := fun stx expected => do
   let source : TSyntax `cas_term := ⟨stx[1]⟩
   let registered := fun (name : Ident) (category : Option String)
       (arguments : Array (TSyntax `cas_term)) => do
+    if let some declaration := (← getLCtx).findFromUserName? name.getId then
+      if category.isSome then
+        throwError "category qualification of a retained source value requires structural translation"
+      return ← sourceApplication (mkFVar declaration.fvarId) arguments expected
     let (entry, categoryEntry) ← selectObject name.getId.toString category
     let (_, value) ← objectExpressions entry categoryEntry (← arguments.mapM sourceArgument)
     return value
@@ -43,6 +51,12 @@ Only original source syntax is embedded; retained expressions never return to sy
       registered name (some category.getId.toString) arguments.getElems
     | `(cas_term| $name:ident in $category:ident) =>
       registered name (some category.getId.toString) #[]
+    | `(cas_term| ($function:cas_term)($arguments:cas_term,*)) => do
+      let function ← elabTerm (← `(term| cas_source% $function:cas_term)) none
+      sourceApplication function arguments.getElems expected
+    | `(cas_term| $function:cas_term($arguments:cas_term,*)) => do
+      let function ← elabTerm (← `(term| cas_source% $function:cas_term)) none
+      sourceApplication function arguments.getElems expected
     | _ => throwError "source translation is not implemented for this expression form"
   if let some expected := expected then
     unless ← isDefEq (← inferType value) expected do
