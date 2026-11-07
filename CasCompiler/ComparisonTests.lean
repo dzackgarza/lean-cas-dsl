@@ -41,7 +41,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let component ← mkAppM ``CategoryTheory.NatTrans.app #[transformation, actualObject]
       unless ← isDefEq value component do
         throwError "source component formation replaced its actual directed action"
-      let declaration ← mkConstWithFreshMVarLevels selected.entry.declaration
+      let declaration := mkConst selected.entry.declaration levels
       let original ← if selected.entry.invertible then
           mkAppM (if inverse then ``CategoryTheory.Iso.inv else ``CategoryTheory.Iso.hom)
             #[declaration]
