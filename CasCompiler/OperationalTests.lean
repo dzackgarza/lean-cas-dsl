@@ -68,6 +68,25 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     (family.universeParams.map Level.param) context #[] #[] #[]
   unless request.reference == some reference && family.source.reference == reference do
     throwError "direct source intake changed the registered primitive address"
+  forallTelescope family.source.familyType fun arguments _ => do
+    let declarations := (← getLCtx).foldl (fun result declaration => result.push declaration) #[]
+    let bindings := declarations.mapIdx fun index declaration => ({
+      id := ⟨"primitive-application", index⟩, role := .parameter,
+      expression := mkFVar declaration.fvarId } : LocalBinding)
+    let context ← ContextTelescope.capture bindings
+    let specified ← arguments.mapM context.close
+    let applied ← PreparedRequest.forBoundary program occurrence (.registered family)
+      (family.universeParams.map Level.param) context specified #[] #[]
+    let some layout := applied.application
+      | throwError "registered source application lost its native argument telescope"
+    unless layout.arguments.size == arguments.size &&
+        layout.arguments.map (·.sourceIndex) == Array.range arguments.size &&
+        layout.resultDependencies.contains 0 do
+      throwError "registered source application changed its complete formal dependency slots"
+    let resultFamily ← layout.resultTypeFamily.inContext context
+    let actual ← applied.source.source.inContext context
+    unless ← isDefEq (mkAppN resultFamily arguments).headBeta (← inferType actual) do
+      throwError "registered source application changed the original result-type family"
   unless ← isDefEq request.source.source.expression family.source.family do
     throwError "direct request preparation changed the published family"
   unless ← isDefEq (← inferType family.source.family) family.source.familyType do

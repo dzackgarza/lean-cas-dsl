@@ -45,20 +45,24 @@ structure SourceLayout where
   fields : Array FieldLayout
   contextDependencies : Array Nat
 
-/-- Close result-type dependencies through local types and definitions, in source order.
-Reuse: Lean.collectFVars and LocalDecl.value?; the complete telescope stays in source.
+/-- Close dependencies through the selected locals' native types and definitions, in order.
+Reuse: Lean.collectFVars and LocalDecl.value?; callers retain their complete telescopes.
 Reference: Lean/Util/CollectFVars.lean and Lean/LocalContext.lean at v4.33.0. -/
-def contextDependencies (bindings : Array LocalBinding) (type : Expr) : MetaM (Array Nat) := do
+def localDependencies (locals : Array Expr) (type : Expr) : MetaM (Array Nat) := do
   let mut variables := collectFVars {} type
   let mut needed : Array Nat := #[]
-  for index in (List.range bindings.size).reverse do
-    let binding := bindings[index]!
-    if variables.fvarSet.contains binding.expression.fvarId! then
+  for index in (List.range locals.size).reverse do
+    let expression := locals[index]!
+    if variables.fvarSet.contains expression.fvarId! then
       needed := needed.push index
-      let declaration ← getFVarLocalDecl binding.expression
+      let declaration ← getFVarLocalDecl expression
       variables := collectFVars variables declaration.type
       if let some value := declaration.value? true then variables := collectFVars variables value
   return needed.reverse
+
+/-- Result-type dependency slots in the complete ordered source binding table. -/
+def contextDependencies (bindings : Array LocalBinding) (type : Expr) : MetaM (Array Nat) :=
+  localDependencies (bindings.map (·.expression)) type
 
 private def computationalKind (type : Expr) : MetaM ComputationalKind := do
   if ← isProp type then return .proof
@@ -146,5 +150,52 @@ Arguments are checked source terms; computational candidates enter through the r
 opaque SourceLayout.applyIn (function : SourceLayout) (context : OpenContext)
     (arguments : Array ClosedTerm) : MetaM SourceLayout := do
   sourceLayout (← context.close (← context.apply function.source arguments)) function.address
+
+/-- A complete native argument position, with proof erasure separated from formal dependency. -/
+structure ArgumentLayout where
+  private mk ::
+  sourceIndex : Nat
+  wireIndex : Option Nat
+  binderInfo : BinderInfo
+  precedingDependencies : Array Nat
+  source : SourceLayout
+  typeFamily : ClosedTerm
+
+/-- Dependencies refer to the original formal argument slots, before actual source substitution.
+Complete native type families retain every binder, including proof-only and unused positions. -/
+structure ApplicationLayout where
+  private mk ::
+  arguments : Array ArgumentLayout
+  resultDependencies : Array Nat
+  resultTypeFamily : ClosedTerm
+
+/-- Prepare the native application and its original callable telescope together.
+Reuse: SourceLayout.applyIn, Lean.forallBoundedTelescope, localDependencies and mkLambdaFVars.
+No runtime data is substituted into a native source term or its type family. -/
+opaque ApplicationLayout.ofSource (function : SourceLayout) (context : OpenContext)
+    (arguments : Array ClosedTerm) : MetaM (SourceLayout × ApplicationLayout) := do
+  let result ← function.applyIn context arguments
+  let actual ← arguments.mapM SourceLayout.ofTerm
+  let type ← inferType (← function.source.inContext context)
+  forallBoundedTelescope type (some arguments.size) fun locals resultType => do
+    unless locals.size == arguments.size do
+      throwError "application layout requires the complete supplied native argument prefix"
+    let mut prepared : Array ArgumentLayout := #[]
+    let mut wireIndex := 0
+    for argument in locals, index in [:locals.size] do
+      let domain ← inferType argument
+      let previous := locals.extract 0 index
+      let dependencies ← localDependencies previous domain
+      let family ← mkLambdaFVars previous domain (usedOnly := false) (usedLetOnly := false)
+      let erased ← isProp domain
+      let some source := actual[index]?
+        | throwError "application layout lost a supplied native source argument"
+      prepared := prepared.push ⟨index, if erased then none else some wireIndex,
+        (← getFVarLocalDecl argument).binderInfo, dependencies, source,
+        ← context.close family⟩
+      if !erased then wireIndex := wireIndex + 1
+    let dependencies ← localDependencies locals resultType
+    let family ← mkLambdaFVars locals resultType (usedOnly := false) (usedLetOnly := false)
+    return (result, ⟨prepared, dependencies, ← context.close family⟩)
 
 end CasCompiler
