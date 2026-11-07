@@ -70,10 +70,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     mkAppM ``CategoryTheory.Bundled.α #[← modules.value.source.inContext context]
   let objects ← session.assumeTerm `R objectType
   let object ← objects.term (← native "R")
-  let image ← file.withContext <| objects.routeImage reference.raw selected object
-  unless image.source.context.entries.size == 3 do
+  let image ← file.withContext <| objects.functorImage reference.raw selected.asFunctor object
+  let .structural retained := image.functor.derivation
+    | throwError "the source image discarded its original structural route"
+  unless retained.route.refs == selected.route.refs do
+    throwError "the source image changed its original ordered source edges"
+  unless image.value.source.context.entries.size == 3 do
     throwError "the source image discarded the actual object binding"
-  image.source.withOpen fun bindings expression => do
+  image.value.source.withOpen fun bindings expression => do
     unless expression.containsFVar bindings[0]!.expression.fvarId! &&
         expression.containsFVar bindings[2]!.expression.fvarId! do
       throwError "the source image replaced its scalar or actual source object"

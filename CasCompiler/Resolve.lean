@@ -243,25 +243,13 @@ opaque SourceRoutes.prepareFunctor (routes : SourceRoutes) (session : SourceSess
     | throwError "native route formation returned an invalid number of expressions"
   return ⟨route, source, ⟨route.target, target⟩, functor⟩
 
-/-- Apply the retained native functor to the actual checked source object.
-Reuse: Functor.toPrefunctor/Prefunctor.obj and stable-ID context transport. -/
-opaque SourceSession.routeImage (session : SourceSession) (reference : Syntax)
-    (route : SourceRoute) (object : SourceTerm) : TermElabM SourceTerm :=
-  session.elaborate reference fun context => do
-    let functor ← route.functor.source.inContext context
-    let object ← object.source.inContext context
-    let functor ← mkAppM ``CategoryTheory.Functor.toPrefunctor #[functor]
-    let image ← mkAppM ``Prefunctor.obj #[functor, object]
-    let target ← route.target.value.source.inContext context
-    let carrier ← mkAppM ``CategoryTheory.Bundled.α #[target]
-    unless ← isDefEq (← inferType image) carrier do
-      throwError "the source image does not belong to its complete target category"
-    return image
-
 /-- Exact source provenance for an explicitly registered functor or checked structural route. -/
 inductive SourceFunctorDerivation where
   | registered (entry : FunctorEntry) (parameters : Array SourceTerm)
   | structural (route : SourceRoute)
+  | identity (category : SourceCategory)
+  | composition (first second : SourceFunctorDerivation)
+  | constructed (constructor : ConstructorEntry) (functor : SourceFunctorDerivation)
 
 /-- A whole native functor with both complete category bundles and original source references. -/
 structure SourceFunctor where
@@ -300,6 +288,77 @@ opaque SourceSession.namedFunctor (session : SourceSession) (reference : Syntax)
       return #[functor, target]
     | throwError "registered functor formation returned an invalid expression family"
   return ⟨.registered entry parameters, source, ⟨entry.target, target⟩, functor⟩
+
+/-- Form the identity at the exact retained category structure.
+Reuse: native Functor.id with both the actual carrier and category dictionary. -/
+opaque SourceSession.identityFunctor (session : SourceSession) (reference : Syntax)
+    (category : SourceCategory) : TermElabM SourceFunctor := do
+  let functor ← session.elaborate reference fun context => do
+    categoryIdentity (← category.value.source.inContext context)
+  return ⟨.identity category, category, category, functor⟩
+
+/-- Compose the actual retained native functors at their complete intermediate category.
+Reuse: Semantic.mkFunctorComp, including its carrier/dictionary/universe checks. -/
+opaque SourceSession.composeFunctors (session : SourceSession) (reference : Syntax)
+    (first second : SourceFunctor) : TermElabM SourceFunctor := do
+  unless first.target.expression.syntacticEq second.source.expression do
+    throwError "source functor composition has different complete symbolic middle categories"
+  let functor ← session.elaborate reference fun context => do
+    unless ← isDefEq (← first.target.value.source.inContext context)
+        (← second.source.value.source.inContext context) do
+      throwError "source functor composition has different complete native middle categories"
+    mkFunctorComp (← first.functor.source.inContext context)
+      (← second.functor.source.inContext context)
+  return ⟨.composition first.derivation second.derivation, first.source, second.target, functor⟩
+
+/-- Apply a registered unary constructor's original functor action to the retained source value.
+Reuse: ConstructorEntry.functorialAction and the complete applyConstructorInterface contract. -/
+opaque SourceSession.constructFunctor (session : SourceSession) (reference : Syntax)
+    (id : ConstructorId) (functor : SourceFunctor) : TermElabM SourceFunctor := do
+  let some constructor := (← semanticState).constructor? id
+    | throwError "the source functor constructor is absent"
+  unless constructor.signature == #[.category] do
+    throwError "the source constructor does not expose a unary category functor interface"
+  let some action := constructor.functorialAction
+    | throwError "the source constructor has no declared functor action"
+  discard <| checkedDeclaration constructor.semantics
+  discard <| checkedDeclaration action
+  let source ← session.unaryCategory reference id functor.source
+  let target ← session.unaryCategory reference id functor.target
+  let value ← session.elaborate reference fun context => do
+    let categories := #[← functor.source.value.source.inContext context,
+      ← functor.target.value.source.inContext context]
+    let value ← applyConstructorInterface action categories
+      #[← functor.functor.source.inContext context]
+    let (domain, codomain) ← functorCategoryBundles value
+    unless ← isDefEq domain (← source.value.source.inContext context) <&&>
+        isDefEq codomain (← target.value.source.inContext context) do
+      throwError "the constructor functor has different complete native category endpoints"
+    return value
+  return ⟨.constructed constructor functor.derivation, source, target, value⟩
+
+/-- An actual functor image retains the original native functor and source object. -/
+structure SourceFunctorImage where
+  private mk ::
+  functor : SourceFunctor
+  object : SourceTerm
+  value : SourceTerm
+
+/-- Apply the retained functor to the actual checked source object in the complete context.
+Reuse: Functor.toPrefunctor/Prefunctor.obj and stable-ID context transport. -/
+opaque SourceSession.functorImage (session : SourceSession) (reference : Syntax)
+    (functor : SourceFunctor) (object : SourceTerm) : TermElabM SourceFunctorImage := do
+  let value ← session.elaborate reference fun context => do
+    let native ← functor.functor.source.inContext context
+    let object ← object.source.inContext context
+    let prefunctor ← mkAppM ``CategoryTheory.Functor.toPrefunctor #[native]
+    let value ← mkAppM ``Prefunctor.obj #[prefunctor, object]
+    let carrier ← mkAppM ``CategoryTheory.Bundled.α
+      #[← functor.target.value.source.inContext context]
+    unless ← isDefEq (← inferType value) carrier do
+      throwError "the source image does not belong to its complete native target category"
+    return value
+  return ⟨functor, object, value⟩
 
 /-- A whole category declaration, before any of its formal parameters are selected. -/
 structure SourceCategoryFamily where

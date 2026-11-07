@@ -29,7 +29,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let routes ← SourceRoutes.forOwner sets.expression sets.expression
   let route ← routes.prepareFunctor session Syntax.missing #[] sets
   let structural := route.asFunctor
-  for functor in #[named, structural] do
+  let identity ← session.identityFunctor Syntax.missing sets
+  for functor in #[named, structural, identity] do
     for (id, invertible) in #[(NaturalTransformationId.listJoin, false),
         (NaturalTransformationId.listReverse, true)] do
       let cell ← session.cell Syntax.missing id #[] sets
@@ -45,12 +46,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           let context ← ContextTelescope.capture bindings
           let F ← match functor.derivation with
             | .registered entry _ => pure (Lean.mkConst entry.declaration levels)
-            | .structural _ =>
+            | .structural _ | .identity _ =>
               let carrier ← mkAppM ``CategoryTheory.Bundled.α
                 #[← sets.value.source.inContext context]
               let category ← mkAppM ``CategoryTheory.Bundled.str
                 #[← sets.value.source.inContext context]
               mkAppOptM ``CategoryTheory.Functor.id #[some carrier, some category]
+            | _ => throwError "the actual whiskering control has an unexpected source functor"
           unless ← isDefEq F (← functor.functor.source.inContext context) do
             throwError "the retained functor differs from its original source declaration"
           let .registered entry _ _ := cell.derivation

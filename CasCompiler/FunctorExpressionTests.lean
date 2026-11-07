@@ -43,17 +43,19 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let objects ← shadowed.assumeTerm `X objectType
     let object ← objects.term (← `(term| $(mkIdent `X):ident))
     let image ← objects.functorImage Syntax.missing constructed object
-    image.source.withOpen fun bindings value => do
+    image.value.source.withOpen fun bindings value => do
       let context ← ContextTelescope.capture bindings
       let first := mkApp
         (Lean.mkConst ``CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration
           [.param `u, .param `w]) bindings[0]!.expression
       let second := Lean.mkConst
-        ``CasCatalogue.Modules.CatalogueRegistration.modulesUnderlyingDeclaration [.param `u, .param `w]
+        ``CasCatalogue.Modules.CatalogueRegistration.modulesUnderlyingDeclaration
+        [.param `u, .param `w]
       let some action := constructor.functorialAction
         | throwError "the actual constructor lost its functor action"
       let expected ← applyConstructorInterface action
-        #[← modules.value.source.inContext context, ← composite.target.value.source.inContext context]
+        #[← modules.value.source.inContext context,
+          ← composite.target.value.source.inContext context]
         #[← mkFunctorComp first second]
       unless ← isDefEq expected (← constructed.functor.source.inContext context) do
         throwError "constructed functor changed its original whole parameterized action"
