@@ -136,6 +136,21 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let reversed ← empty.inverseCell Syntax.missing reverse
   let invertible ← empty.composeCells Syntax.missing reverse reversed
   let inverted ← empty.inverseCell Syntax.missing invertible
+  let some iso := invertible.isomorphism
+    | throwError "invertible composition lost its actual native isomorphism witness"
+  iso.source.withOpen fun bindings value => do
+    let context ← ContextTelescope.capture bindings
+    let left ← invertible.left.source.inContext context
+    let right ← invertible.right.source.inContext context
+    let expected ← mkAppM ``CategoryTheory.Iso #[left, right]
+    unless ← isDefEq (← inferType value) expected do
+      throwError "the retained isomorphism has different complete native endpoints"
+    let hom ← mkAppM ``CategoryTheory.Iso.hom #[value]
+    let inv ← mkAppM ``CategoryTheory.Iso.inv #[value]
+    unless ← isDefEq hom (← invertible.transformation.source.inContext context) <&&>
+        isDefEq inv (← inverted.transformation.source.inContext context) do
+      throwError "the native isomorphism does not witness the retained directed actions"
+    checkWithKernel value
   let objects ← empty.assumeTerm `X objectType
   let object ← objects.term (← `(term| $(mkIdent `X):ident))
   for (cell, invert) in #[(composite, false), (inverted, true)] do
@@ -161,4 +176,5 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     discard <| empty.inverseCell Syntax.missing composite
     pure false
   catch _ => pure true
-  unless invalidInverse do throwError "a composite acquired an inverse of a noninvertible source cell"
+  unless invalidInverse do
+    throwError "a composite acquired an inverse of a noninvertible source cell"
