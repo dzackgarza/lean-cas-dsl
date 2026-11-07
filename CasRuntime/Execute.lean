@@ -53,7 +53,7 @@ def interpreter
       let some node := graph.find operand.value
         | throw <| IO.userError "unavailable: the projected value is outside the active graph"
       match node.payload.data with
-      | .product _ =>
+      | .product _ | .container _ =>
         let some index := field.wireIndex
           | throw <| IO.userError "internal: a proof field reached computational execution"
         let binding ← IO.ofExcept <| (graph.project operand index).mapError IO.userError

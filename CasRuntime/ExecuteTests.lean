@@ -38,6 +38,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         { program, occurrence, role := callableRole } (.ownedExport child token #[])
       let record ← liftM (m := IO) <| producer.stage
         { program, occurrence, role := recordRole } (.product #[scalar, callable])
+      let packet ← IO.ofExcept <| (ValuePayload.container
+        (Json.mkObj [("args", .arr #[.null, .null]), ("description", .str "retained packet")])
+        #[{ path := #[.field "args", .index 0], binding := scalar },
+          { path := #[.field "args", .index 1], binding := callable }]
+        #[0, 1] none).mapError IO.userError
+      let packetRecord ← liftM (m := IO) <| producer.stage
+        { program, occurrence, role := recordRole } packet
       let .ok _ ← producer.commit | throwError "the stored record could not commit"
       liftM (m := IO) <| owners.close child.generation
       let consumer ← CellTransaction.begin ledger
@@ -45,12 +52,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let second ← liftM (m := BaseIO) ledger.allocate
       let left ← PreparedRequest.forProjection program first context record 0
       let again ← PreparedRequest.forProjection program second context record 0
-      let code : OperationalProgram (RuntimeId .value × RuntimeId .value) := do
+      let packetOccurrence ← liftM (m := BaseIO) ledger.allocate
+      let packetProjection ← PreparedRequest.forProjection program packetOccurrence context packetRecord 0
+      let code : OperationalProgram (RuntimeId .value × RuntimeId .value × RuntimeId .value) := do
         let a ← PFunctor.FreeM.lift (P := OperationalSignature) left
         let b ← PFunctor.FreeM.lift (P := OperationalSignature) again
-        pure (a.root.value, b.root.value)
+        let c ← PFunctor.FreeM.lift (P := OperationalSignature) packetProjection
+        pure (a.root.value, b.root.value, c.root.value)
       let result ← liftM (m := IO) <| Execute.run unavailableExecutor code consumer
-      unless result.1 == scalar.value && result.2 == scalar.value do
+      unless result.1 == scalar.value && result.2.1 == scalar.value && result.2.2 == scalar.value do
         throwError "stateful execution replaced a stored field node"
       let .ok published ← consumer.commit
         | throwError "a dead unrelated field blocked the portable projection"

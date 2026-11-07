@@ -12,6 +12,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let functionRole ← SourceLayout.ofTerm (← context.close (mkConst ``Nat.succ))
   let pair ← mkAppM ``Prod.mk #[mkNatLit 7, mkConst ``Nat.succ]
   let recordRole ← SourceLayout.ofTerm (← context.close pair)
+  let some firstField := recordRole.fields[0]? | throwError "the first source field is missing"
+  let aliasRole ← firstField.toLayout
   liftM (m := IO) do
     let owners ← OwnerRegistry.new
     let ledger ← OccurrenceLedger.new owners
@@ -69,6 +71,24 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         ("description", .str "retained literal data")]
       unless packet == expected && stored.slots.size == 2 do
         throw <| IO.userError "container substitution lost literal structure or exact reference positions"
+      let aliased ← IO.ofExcept <| (graph.rebind scalar aliasRole).mapError IO.userError
+      let aliases ← IO.ofExcept <| (ValuePayload.container
+        (.arr #[(ScopedReference.scope 0).encode, (ScopedReference.scope 1).encode])
+        #[{ path := #[.index 0], binding := scalar }, { path := #[.index 1], binding := aliased }]
+        #[0, 1] none).mapError IO.userError
+      let .container aliasContainer := aliases.data
+        | throw <| IO.userError "the aliased container lost its packet form"
+      unless aliasContainer.template == .arr #[.null, .null] &&
+          (aliasContainer.slots.map (·.binding.value)) == #[scalar.value, scalar.value] &&
+          (aliasContainer.slots.map (·.binding.role.address)) == #[scalarRole.address, aliasRole.address] do
+        throw <| IO.userError "container retention merged aliases, changed their roles or retained ambient authority"
+      let incompletePayload ← IO.ofExcept <|
+        (ValuePayload.container template slots #[1] none).mapError IO.userError
+      let (incompleteGraph, incomplete) ← graph.stage owners.identities
+        { program, occurrence := produced, role := recordRole } incompletePayload
+      match CandidateResponse.ofValue recordRole incompleteGraph incomplete with
+      | .error _ => pure ()
+      | .ok _ => throw <| IO.userError "an incomplete container filled a complete record interface"
       let resolved ← scope.resolveMany reservation graph scope.wireId #[.scope 1, .scope 0]
       unless (resolved.map (·.value)) == (stored.slots.map (·.binding.value)) do
         throw <| IO.userError "rendered container slots changed their retained values"
@@ -82,9 +102,18 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let leaf ← IO.ofExcept <| (wrappedGraph.callable candidate.root).mapError IO.userError
       unless leaf.value == callable.value && candidate.root.value == wrapped.value do
         throw <| IO.userError "callable access replaced the stored arrow or actual callable node"
+      let invalidCallable ← IO.ofExcept <| (ValuePayload.container .null
+        #[{ path := #[], binding := scalar }] #[] (some 0)).mapError IO.userError
+      let (invalidGraph, invalidFunction) ← graph.stage owners.identities
+        { program, occurrence := produced, role := functionRole } invalidCallable
+      match CandidateResponse.ofValue functionRole invalidGraph invalidFunction with
+      | .error _ => pure ()
+      | .ok _ => throw <| IO.userError "a data slot became a retained callable"
+      let some nativeSlot := slots[0]?
+        | throw <| IO.userError "the native reference slot is missing"
       let malformed := #[
-        ValuePayload.container template #[slots[0]!, slots[0]!] #[0, 1] none,
-        ValuePayload.container template #[{ path := #[], binding := scalar }, slots[0]!] #[0, 1] none,
+        ValuePayload.container template #[nativeSlot, nativeSlot] #[0, 1] none,
+        ValuePayload.container template #[{ path := #[], binding := scalar }, nativeSlot] #[0, 1] none,
         ValuePayload.container template #[{ path := #[.field "missing"], binding := scalar }] #[0] none,
         ValuePayload.container template slots #[2] none,
         ValuePayload.container template slots #[0, 0] none,

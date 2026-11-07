@@ -2,12 +2,13 @@ module
 
 public import CasCompiler.Layout
 public import CasRuntime.Owner
+public import CasContract.Port
 
 public section
 
 namespace CasRuntime
 
-open CasCompiler
+open Lean CasCompiler CasCatalogue.Backend
 
 /-- A consuming role can differ from a node's producing role without replacing the node. -/
 structure ValueBinding where
@@ -15,9 +16,79 @@ structure ValueBinding where
   value : RuntimeId .value
   role : SourceLayout
 
+structure ContainerSlot where
+  path : Array InputPathStep
+  binding : ValueBinding
+
+/-- Literal packet structure plus exact typed positions, with source-ordered action slots. -/
+structure ValueContainer where
+  private mk ::
+  template : Json
+  slots : Array ContainerSlot
+  fields : Array Nat
+  callable : Option Nat
+
+/-- Replace only a previously located JSON position.
+Reference: Lean.Json array/object operations and CasContract.Port's InputPathStep grammar. -/
+private def replacePosition (json : Json) (path : List InputPathStep) (replacement : Json) :
+    Except String Json := do
+  match path, json with
+  | [], _ => return replacement
+  | .index index :: rest, .arr values =>
+    let some value := values[index]? | throw "the container position is outside its array"
+    return .arr (values.set! index (← replacePosition value rest replacement))
+  | .field name :: rest, .obj fields =>
+    let value ← json.getObjVal? name
+    let value ← replacePosition value rest replacement
+    return Json.mkObj (fields.toList.map fun (key, entry) =>
+      (key, if key == name then value else entry))
+  | _, _ => throw "the container position does not follow the retained JSON structure"
+
+/-- A retained literal cannot carry ambient reference or native-token authority.
+Reference: CasContract.Port.validateResultRefs and the runtime immediate-control JSON walk. -/
+private partial def checkLiteral (json : Json) : Except String Unit := do
+  if let .ok tag := json.getObjValAs? String "ctor" then
+    if #["scopeRef", "inputRef", "resultRef", "opaqueData", "deferredData"].contains tag then
+      throw "the container has an unbound reference, native token or deferred control"
+  match json with
+  | .arr entries => for entry in entries do checkLiteral entry
+  | .obj entries => for (_, entry) in entries.toList do checkLiteral entry
+  | _ => pure ()
+
+private def makeContainer (template : Json) (slots : Array ContainerSlot)
+    (fields : Array Nat) (callable : Option Nat) : Except String ValueContainer := do
+  let mut paths : Array (List InputPathStep) := #[]
+  let mut template := template
+  for slot in slots do
+    let path := slot.path.toList
+    if paths.any (fun previous => previous.isPrefixOf path || path.isPrefixOf previous) then
+      throw "container reference positions overlap"
+    template ← replacePosition template path .null
+    paths := paths.push path
+  checkLiteral template
+  let mut selected : Std.HashSet Nat := {}
+  for index in fields do
+    unless index < slots.size do throw "a container field slot is outside its reference table"
+    if selected.contains index then throw "a container field slot is repeated"
+    selected := selected.insert index
+  if let some index := callable then
+    unless index < slots.size do throw "the container callable slot is outside its reference table"
+  return ⟨template, slots, fields, callable⟩
+
+/-- Substitute freshly encoded references without rebuilding literal data from a source term. -/
+opaque ValueContainer.fill (container : ValueContainer) (replacements : Array Json) :
+    Except String Json := do
+  unless replacements.size == container.slots.size do
+    throw "container substitution does not match its exact reference arity"
+  let mut packet := container.template
+  for slot in container.slots, replacement in replacements do
+    packet ← replacePosition packet slot.path.toList replacement
+  return packet
+
 inductive ValueData
   | portable (bytes : ByteArray)
   | product (fields : Array ValueBinding)
+  | container (value : ValueContainer)
   | closure (program : RuntimeId .program) (captures : Array ValueBinding)
   | ownedToken (owner : ConnectionGeneration) (token : String) (captures : Array ValueBinding)
 
@@ -29,6 +100,10 @@ structure ValuePayload where
 def ValuePayload.portable (bytes : ByteArray) : ValuePayload := ⟨.portable bytes⟩
 
 def ValuePayload.product (fields : Array ValueBinding) : ValuePayload := ⟨.product fields⟩
+
+opaque ValuePayload.container (template : Json) (slots : Array ContainerSlot)
+    (fields : Array Nat) (callable : Option Nat) : Except String ValuePayload := do
+  return ⟨.container (← makeContainer template slots fields callable)⟩
 
 def ValuePayload.closure (program : RuntimeId .program)
     (captures : Array ValueBinding) : ValuePayload := ⟨.closure program captures⟩
@@ -53,6 +128,7 @@ structure ValueNode where
 private def ValueData.references : ValueData → Array ValueBinding
   | .portable _ => #[]
   | .product fields => fields
+  | .container value => value.slots.map (·.binding)
   | .closure _ captures | .ownedToken _ _ captures => captures
 
 def ValueNode.references (node : ValueNode) : Array ValueBinding := node.payload.data.references
@@ -105,11 +181,37 @@ opaque ValueGraph.rebind (graph : ValueGraph) (binding : ValueBinding) (role : S
 opaque ValueGraph.project (graph : ValueGraph) (binding : ValueBinding) (index : Nat) :
     Except String ValueBinding := do
   let node ← graph.require binding
-  let .product fields := node.payload.data
-    | throw "the retained payload has no stored product fields"
-  let some field := fields[index]?
-    | throw "the projection is outside the retained product"
-  return field
+  match node.payload.data with
+  | .product fields =>
+    let some field := fields[index]?
+      | throw "the projection is outside the retained product"
+    return field
+  | .container value =>
+    let some slot := value.fields[index]?
+      | throw "the projection is outside the retained container"
+    let some field := value.slots[slot]?
+      | throw "the retained container has an invalid field slot"
+    return field.binding
+  | _ => throw "the retained payload has no stored product fields"
+
+/-- Follow stored callable slots to actual code/token data, retaining the complete outer value.
+The append-only graph supplies existing references; no source expression reconstructs a callable. -/
+private partial def storedCallable (graph : ValueGraph) (binding : ValueBinding)
+    (visited : Std.HashSet (RuntimeId .value)) : Except String ValueBinding := do
+  if visited.contains binding.value then throw "the retained callable references form a cycle"
+  let node ← graph.require binding
+  match node.payload.data with
+  | .closure .. | .ownedToken .. => return binding
+  | .container value =>
+    let some index := value.callable | throw "the container has no stored callable slot"
+    let some slot := value.slots[index]? | throw "the container callable slot is missing"
+    unless slot.binding.role.kind == .function do
+      throw "the container callable slot has no prepared function interface"
+    storedCallable graph slot.binding (visited.insert binding.value)
+  | .portable _ | .product _ => throw "the retained payload has no callable code or token"
+
+opaque ValueGraph.callable (graph : ValueGraph) (binding : ValueBinding) :
+    Except String ValueBinding := storedCallable graph binding {}
 
 /-- Stage one node without modifying the prior graph or creating a completion witness.
 References must already be visible; ownership is derived from those exact nodes and the
@@ -131,7 +233,7 @@ opaque ValueGraph.stage (graph : ValueGraph) (supply : IdentitySupply)
   | .closure program _ =>
     unless program.worker == graph.worker do
       throw <| IO.userError "the closure program belongs to a different worker"
-  | .portable _ | .product _ => pure ()
+  | .portable _ | .product _ | .container _ => pure ()
   let id ← supply.fresh .value
   let node : ValueNode := ⟨id, origin, payload, owners⟩
   return (⟨graph.worker, graph.nodes.insert id node, some id⟩, ⟨id, origin.role⟩)
@@ -157,11 +259,16 @@ opaque CandidateResponse.ofValue (source : SourceLayout) (graph : ValueGraph)
   match source.kind, node.payload.data with
   | .proof, _ => throw "a source proof has no computational response"
   | .function, .closure _ _ | .function, .ownedToken _ _ _ => pure ()
+  | .function, .container _ => discard <| graph.callable value
   | .function, _ => throw "the candidate has no retained callable payload"
   | .record, .product fields =>
     let expected := source.fields.filter (·.wireIndex.isSome)
     unless fields.size == expected.size do
       throw "the candidate record does not match its prepared field arity"
+  | .record, .container container =>
+    let expected := source.fields.filter (·.wireIndex.isSome)
+    unless container.fields.size == expected.size do
+      throw "the candidate container does not match its prepared field arity"
   | .record, .closure _ _ | .record, .ownedToken _ _ _ => pure ()
   | .record, _ => throw "the candidate has no retained record interface"
   | .data, _ | .typeValue, _ => pure ()
