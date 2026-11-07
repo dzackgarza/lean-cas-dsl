@@ -133,11 +133,11 @@ private def reading (session : SourceSession) (where_ : Location) (provenance : 
 the remaining file scope; a failed question leaves the preceding scope available. Native
 saved-state restoration discards failed elaboration state without replaying source bindings.
 Source: T029 complete-reading boundary and Lean.Elab.Term.saveState/restore. -/
-def observeFile (file : SourceFile) (initial : SourceSession) : TermElabM Observation :=
+opaque observeFile (file : SourceFile) (initial : SourceSession) : TermElabM Observation :=
   file.withContext do
     let mut session := initial
     let mut observation : Observation := {}
-    let mut cause : Option Failure := none
+    let mut rootFailure : Option Failure := none
     for item in file.items do
       let (identity, provenance, statement) ← match item with
         | `(cas_item| test $id:ident $label:str : $statement:cas_stmt) =>
@@ -155,7 +155,7 @@ def observeFile (file : SourceFile) (initial : SourceSession) : TermElabM Observ
         | none, none => throwError "the source item has no question or binding identity"
       let where_ ← location file id item
       let stage := if name.isSome then "binding" else "interpretation"
-      if let some cause := cause then
+      if let some cause := rootFailure then
         observation := { observation with
           failures := observation.failures.push (blocked where_ stage cause) }
         if identity.isSome then
@@ -177,7 +177,7 @@ def observeFile (file : SourceFile) (initial : SourceSession) : TermElabM Observ
         observation := { observation with readings := observation.readings.push row }
       | .error error =>
         observation := { observation with failures := observation.failures.push error }
-        if name.isSome then cause := some error
+        if name.isSome then rootFailure := some error
         else observation := { observation with
           readings := observation.readings.push (unread where_ provenance) }
     return observation
