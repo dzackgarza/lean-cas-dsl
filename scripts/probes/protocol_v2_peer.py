@@ -35,5 +35,36 @@ def expired(arguments: JsonValue) -> JsonValue:
     return saved.reference()
 
 
+def references(arguments: JsonValue) -> JsonValue:
+    assert isinstance(arguments, dict)
+    from cas_port import input_ref
+
+    return proxy(input_ref(["item"])).reference()
+
+
+def deferred(arguments: JsonValue) -> JsonValue:
+    value = proxy(arguments)
+    return {"ctor": "deferredData", "args": [
+        [value.project(0), {"op": "$cas.apply", "args": {
+            "value": {"ctor": "resultRef", "args": [0]}, "arguments": []}}],
+        {"ctor": "resultRef", "args": [1]}]}
+
+
+def hidden(arguments: JsonValue) -> Generator[Suspension, list[Proxy], JsonValue]:
+    value = proxy(arguments)
+    yield suspend([value.project(0)], [])
+    return value.reference()
+
+
+def repeated(arguments: JsonValue) -> Generator[Suspension, list[Proxy], JsonValue]:
+    assert isinstance(arguments, list)
+    first, second = [proxy(value) for value in arguments]
+    result = yield suspend([first.project(0)], [first, second])
+    result = yield suspend([result[0].apply([second.reference()])], [second, result[0], first])
+    return [first.reference(), second.reference(), result[0].reference()]
+
+
 serve("protocol-peer", "0", {"echo": echo, "stored": stored,
-                              "adaptive": adaptive, "expired": expired})
+                              "adaptive": adaptive, "expired": expired,
+                              "references": references, "deferred": deferred,
+                              "hidden": hidden, "repeated": repeated})
