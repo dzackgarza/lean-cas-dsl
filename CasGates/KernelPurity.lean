@@ -62,6 +62,10 @@ import all CasCompiler.Surface
 import all CasCompiler.SurfaceTests
 import all CasCompiler.Read
 import all CasCompiler.SourceSyntaxTests
+import all CasCompiler.RouteGrammar
+import all CasCompiler.RouteGrammarTests
+import all CasCompiler.Resolve
+import all CasCompiler.ResolveTests
 import all CasCompiler.Layout
 import all CasCompiler.Program
 import all CasCompiler.ProgramTests
