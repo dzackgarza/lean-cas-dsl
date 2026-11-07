@@ -288,6 +288,28 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let checked ← request.environment.checkResult graph request.source valid
     unless checked.root.value == valid.value do
       throwError "stored result admission replaced the valid record"
+    let admitted ← request.admitResult graph valid
+    unless admitted.root.value == valid.value do
+      throwError "result-role admission replaced the actual record"
+    let mut fieldRoles := #[]
+    for declared in request.roles.results do
+      if declared.wirePath.isSome && declared.wirePath != some #[] then
+        let .ok value := admitted.roles.lookup graph declared.role.id
+          | throwError "an admitted stored field has no scoped result binding"
+        unless value.value == scalar.value do
+          throwError "a result role recovered another actual field"
+        fieldRoles := fieldRoles.push declared.role.id
+    unless fieldRoles.size == 2 && fieldRoles[0]? != fieldRoles[1]? do
+      throwError "aliased result fields lost their distinct source roles"
+    let next ← liftM (m := BaseIO) ledger.allocate
+    let other ← PreparedRequest.forApplication program next context retained
+      #[← context.close (mkNatLit 7)] #[argument] #[]
+    let some foreignRole := other.roles.results[0]?
+      | throwError "the other result telescope has no root"
+    match admitted.roles.lookup graph foreignRole.role.id with
+    | .error message =>
+      unless message == "the result role belongs to a different scope" do throwError message
+    | .ok _ => throwError "a result role escaped its producing occurrence"
     let nestedRole ← SourceLayout.ofTerm (← context.close (← mkAppM ``Prod.mk #[pair, pair]))
     let nested ← liftM (m := IO) <| transaction.stage
       { program, occurrence, role := nestedRole, parameters := #[] } (.product #[valid, malformed])

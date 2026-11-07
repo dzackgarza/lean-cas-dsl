@@ -152,7 +152,7 @@ private def prepareRequest (program : CasRuntime.RuntimeId .program)
     for prepared in record.fields do
       if prepared.field.wireIndex.isSome then outputs := outputs.push prepared.layout
   else outputs := #[source]
-  let roles ← RoleTelescope.ofRequest program occurrence context application source record
+  let roles ← RoleTelescope.ofRequest program occurrence context application source
     (scope.map (·.role))
   return ⟨program, occurrence, action, source, scope, outputs, record, environment, origin,
     application, roles⟩
