@@ -244,8 +244,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             | throwError "the actual consuming field is absent"
           return parameter
         let actual ← parameter bindings[2]!.id projectedValue
-        let environment ← RuntimeEnvironment.capture owners.worker context
+        discard <| RuntimeEnvironment.capture owners.worker context
           #[actual, ← parameter bindings[1]!.id originalIndex]
+        let environment ← RuntimeEnvironment.capture owners.worker context
+          #[← parameter bindings[1]!.id originalIndex]
         let expected ← SourceLayout.ofTerm (← context.close point)
         let candidate ← environment.checkResult graph expected projectedValue
         unless candidate.root.value == projectedValue.value &&
