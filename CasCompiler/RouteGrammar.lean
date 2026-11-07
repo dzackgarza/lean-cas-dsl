@@ -43,7 +43,6 @@ structure TraceGrammar where
   private mk ::
   private start : Summary
   private productions : Std.HashMap Summary (Array Production)
-  deriving Inhabited
 
 private def pushUnique [BEq α] (values : Array α) (value : α) : Array α :=
   if values.contains value then values else values.push value
@@ -152,7 +151,8 @@ private def machine (rules : Array PrefixRule) (initial : Word) (targets : Array
   pushWord 3 .start 0 (dfa.annotate ((initial.map Letter.source).push .bottom) 0) none
   : StateM Machine Unit).run {} |>.2
 
-private partial def productiveGrammar (transitions : Array Transition) : TraceGrammar := Id.run do
+private partial def productiveGrammar (transitions : Array Transition) :
+    Summary × Std.HashMap Summary (Array Production) := Id.run do
   let mut finishes : Std.HashMap (Nat × StackSymbol) (Array Nat) := {}
   let mut changed := true
   while changed do
@@ -185,8 +185,7 @@ private partial def productiveGrammar (transitions : Array Transition) : TraceGr
         (pushUnique (productions.getD key #[]) ⟨rule.emit, children⟩)
   return ⟨⟨3, .start, 2⟩, productions⟩
 
-/-- A diagnostic least trace. It confers no mathematical preference among source readings. -/
-partial def TraceGrammar.shortest (grammar : TraceGrammar) : Option Word := Id.run do
+private partial def shortestTrace (grammar : TraceGrammar) : Option Word := Id.run do
   let mut best : Std.HashMap Summary Word := {}
   let mut changed := true
   while changed do
@@ -204,6 +203,9 @@ partial def TraceGrammar.shortest (grammar : TraceGrammar) : Option Word := Id.r
           best := best.insert lhs word
           changed := true
   return best[grammar.start]?
+
+/-- A diagnostic least trace. It confers no mathematical preference among source readings. -/
+opaque TraceGrammar.shortest (grammar : TraceGrammar) : Option Word := shortestTrace grammar
 
 private partial def intersects (grammar : TraceGrammar) (states : Nat)
     (accept : Nat → Bool) (step : Nat → Nat → Nat) : Bool := Id.run do
@@ -230,11 +232,11 @@ private def singletonStep (word : Word) (position letter : Nat) : Nat :=
   if position < word.size && word[position]? == some letter then position + 1 else word.size + 1
 
 /-- Exact membership via grammar intersection with the singleton-word automaton. -/
-def TraceGrammar.contains (grammar : TraceGrammar) (word : Word) : Bool :=
+opaque TraceGrammar.contains (grammar : TraceGrammar) (word : Word) : Bool :=
   intersects grammar (word.size + 2) (· == word.size) (singletonStep word)
 
 /-- Saturated raw trace-word count, not a count of mathematical meanings or grammar parses. -/
-def TraceGrammar.distinctWordCount (grammar : TraceGrammar) : Nat :=
+opaque TraceGrammar.distinctWordCount (grammar : TraceGrammar) : Nat :=
   match grammar.shortest with
   | none => 0
   | some word =>
@@ -273,11 +275,12 @@ def RouteLanguage.reconstruct (language : RouteLanguage) (trace : Word) :
 
 /-- Exact finite grammar of all finite first-hit routes for a finite ground-prefix system.
 The ordinal of each input rule remains its distinct trace identity. -/
-def compile (rules : Array PrefixRule) (initial : Word) (targets : Array Word) :
+opaque compile (rules : Array PrefixRule) (initial : Word) (targets : Array Word) :
     Except String RouteLanguage := do
   if initial.isEmpty || targets.any (·.isEmpty) ||
       rules.any (fun rule => rule.lhs.isEmpty || rule.rhs.isEmpty) then
     throw "source category words and ground-rule endpoints must be nonempty"
-  return ⟨rules, initial, targets, productiveGrammar (machine rules initial targets).transitions⟩
+  let (start, productions) := productiveGrammar (machine rules initial targets).transitions
+  return ⟨rules, initial, targets, ⟨start, productions⟩⟩
 
 end CasCompiler.RouteGrammar
