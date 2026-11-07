@@ -115,8 +115,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         fun demand active => do
           let (aliasDraft, aliasValue) ←
             aliasReply.materialize demand active aliasScope wire.connection
-          unless aliasValue.root.value == scalar.value && aliasDraft.view.sameRevision graph do
-            throwError "returning a reference allocated a replacement value"
+          unless aliasValue.root.value == scalar.value && !aliasDraft.view.sameRevision graph do
+            throwError "returning a reference changed its node or lost its new application revision"
           let .ok () ← liftM (m := BaseIO) <| active.installDraft aliasDraft
             | throwError "a complete reply containing only an existing reference could not install"
           match ← liftM (m := BaseIO) <| active.installDraft aliasDraft with
@@ -258,6 +258,73 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throwError "the reused result is outside its isolated graph"
       unless reused.root.value == plain.value && reuseOwners == #[wire.connection.generation] do
         throwError "a reused result lost its consuming application's actual index dependency"
+      if (graph.requiredOwners #[reused.root]).isOk then
+        throwError "an older graph recovered the new consuming application association"
+      let some association := reused.root.applications.back?
+        | throwError "the reused result lost its consuming application table"
+      unless association.association.occurrence == reuseOccurrence &&
+          association.association.program == program &&
+          association.association.dependencies == #[0] &&
+          (association.arguments[0]?.bind id).map (·.value) == some indexValue.root.value &&
+          association.callable.map (·.value) == some function.value do
+        throwError "a reused result changed its actual consuming application provenance"
+      let some originalPoint := reusedDraft.view.find plain.value
+        | throwError "the original point is absent from the extended graph"
+      unless originalPoint.origin.occurrence == occurrence && originalPoint.origin.application.isNone do
+        throwError "consuming application binding rewrote the original producer"
+      let .ok reusedNumber := reusedDraft.view.project reused.root 0
+        | throwError "the reused result lost its stored numeric projection"
+      let .ok numericOwners := reusedDraft.view.requiredOwners #[reusedNumber]
+        | throwError "the reused numeric projection is outside the extended graph"
+      unless reusedNumber.value == number.value && numericOwners.isEmpty &&
+          number.associationIds.toList.isPrefixOf reusedNumber.associationIds.toList &&
+          reusedNumber.instantiations.size == number.instantiations.size + 1 do
+        throwError "a reused field changed its node, earlier roles or independent owner requirements"
+      if (graph.requiredOwners #[reusedNumber]).isOk then
+        throwError "an older graph recovered a later consuming application field view"
+      let .ok () ← liftM (m := BaseIO) <| transaction.installDraft reusedDraft
+        | throwError "the reused application draft could not install"
+      let chainedOccurrence ← liftM (m := BaseIO) ledger.allocate
+      let chainedRequest ← PreparedRequest.forApplication program chainedOccurrence context function
+        #[← context.close (mkNatLit 7)] #[actual] #[]
+      let chainedGraph ← liftM (m := IO) transaction.view
+      let .ok chainedReservation ← liftM (m := BaseIO) <| transaction.reserve chainedOccurrence
+        selected wire.connection (chainedRequest.scope.push reused.root)
+        | throwError "the successive application could not reserve"
+      let chainedScope ← liftM (m := IO) <| RequestScope.issue ledger chainedReservation
+        chainedGraph #[reused.root] #[] #[]
+      let .ok chainedReply ← liftM (m := IO) <| wire.invokeBefore ledger transaction
+        chainedReservation chainedScope (ScopedReference.scope 0).encode 5000
+        | throwError "the SDK did not return the successively reused point"
+      let (chainedDraft, chained) ← chainedReply.materialize chainedRequest transaction
+        chainedScope wire.connection
+      unless chained.root.value == plain.value &&
+          chained.root.applications.size == reused.root.applications.size + 1 &&
+          reused.root.associationIds.toList.isPrefixOf chained.root.associationIds.toList do
+        throwError "successive reuse discarded an earlier application association"
+      let pointType ← inferType (← reuseRequest.source.source.inContext context)
+      withLocalDeclD `retainedPoint pointType fun pointName => do
+        let binding : LocalBinding := {
+          id := ⟨"retained-point", 0⟩, role := .parameter, expression := pointName }
+        let pointContext ← ContextTelescope.capture #[binding]
+        let .ok parameter := RuntimeParameter.ofValue chainedDraft.view binding.id reused.root
+          | throwError "the earlier consuming result is absent from the extended graph"
+        let environment ← RuntimeEnvironment.capture owners.worker pointContext #[parameter]
+        let .ok argument := RuntimeArgument.ofValue chainedDraft.view 0 chained.root
+          | throwError "the successively reused result is absent from its graph"
+        let retained ← environment.checkArgument (← pointContext.close pointName) argument
+        unless retained.associationIds == chained.root.associationIds do
+          throwError "source argument capture lost successive application associations"
+        let .ok originalArgument := RuntimeArgument.ofValue chainedDraft.view 0 plain
+          | throwError "the original point is absent from the extended graph"
+        let failure : Option Exception ← try
+          discard <| environment.checkArgument (← pointContext.close pointName) originalArgument
+          pure none
+        catch error => pure (some error)
+        let some failure := failure
+          | throwError "source argument checking erased the retained consuming application identity"
+        unless (← failure.toMessageData.toString).startsWith
+            "the runtime argument does not retain its specified source value" do throw failure
       liftM (m := IO) wire.close
       if ← liftM (m := BaseIO) (draft.view.isAvailable owners point.root) then
         throwError "a materialized dependent point survived its actual index owner"
@@ -267,6 +334,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "a reused dependent result survived its consuming index owner"
       unless ← liftM (m := BaseIO) (graph.isAvailable owners plain) do
         throwError "a consuming application changed its original result's owner requirements"
+      unless ← liftM (m := BaseIO) (reusedDraft.view.isAvailable owners reusedNumber) do
+        throwError "the reused numeric field acquired its parent application's unrelated owner"
       discard <| liftM (m := BaseIO) transaction.abort
     finally liftM (m := IO) wire.close
   finally setEnv original

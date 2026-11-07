@@ -67,8 +67,7 @@ private def RuntimeEnvironment.bindingMap (environment : RuntimeEnvironment) :
 
 private def sameReference (original current : ValueBinding) : Bool :=
   original.value == current.value &&
-    (original.instantiations.map (·.id)).toList.isPrefixOf
-      (current.instantiations.map (·.id)).toList
+    original.associationIds.toList.isPrefixOf current.associationIds.toList
 
 private def checkNativeType (context : OpenContext) (expected : Expr)
     (value : ValueBinding) (origin : ValueOrigin) : MetaM Unit := do

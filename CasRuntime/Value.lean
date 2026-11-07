@@ -18,6 +18,17 @@ structure RecordAssociation where
   occurrence : RuntimeId .occurrence
   layout : RecordLayout
 
+/-- One prepared application's source slots and selected result dependencies.
+Actual values remain in the binding below, independently of the original producing node. -/
+structure ApplicationAssociation where
+  private mk ::
+  id : RuntimeId .association
+  program : RuntimeId .program
+  occurrence : RuntimeId .occurrence
+  layout : ApplicationLayout
+  dependencies : Array Nat
+  contextDependencies : Array Nat
+
 /-- A consuming role retains its underlying binding and actual dependent prefix.
 The recursive data keep earlier associations when an existing node fills another role.
 Source: the data model's ResultBinding and dependency-ordered DataInterface contract. -/
@@ -27,13 +38,16 @@ inductive ValueBinding where
   | private inField (id : RuntimeId .association) (binding : ValueBinding) (role : SourceLayout)
       (association : RecordAssociation) (field : FieldLayout)
       (preceding : Array (Option ValueBinding))
+  | private inApplication (binding : ValueBinding) (role : SourceLayout)
+      (association : ApplicationAssociation) (parameters arguments : Array (Option ValueBinding))
+      (callable : Option ValueBinding) (fields : Array ValueBinding)
 
 def ValueBinding.value : ValueBinding → RuntimeId .value
   | .direct value _ => value
-  | .atRole binding _ | .inField _ binding .. => binding.value
+  | .atRole binding _ | .inField _ binding .. | .inApplication binding .. => binding.value
 
 def ValueBinding.role : ValueBinding → SourceLayout
-  | .direct _ role | .atRole _ role | .inField _ _ role .. => role
+  | .direct _ role | .atRole _ role | .inField _ _ role .. | .inApplication _ role .. => role
 
 /-- Retain the actual node and field associations under a prepared consuming source role.
 Reuse: ValueBinding.atRole, shared by graph rebinding and native environment capture. -/
@@ -57,6 +71,37 @@ def ValueBinding.instantiations : ValueBinding → Array FieldInstantiation
   | .atRole binding _ => binding.instantiations
   | .inField id binding _ association field preceding =>
     binding.instantiations.push ⟨id, association, field, preceding⟩
+  | .inApplication binding .. => binding.instantiations
+
+structure ApplicationInstantiation where
+  private mk ::
+  association : ApplicationAssociation
+  parameters : Array (Option ValueBinding)
+  arguments : Array (Option ValueBinding)
+  callable : Option ValueBinding
+
+/-- Retain every consuming application in order, including earlier views of an aliased node. -/
+def ValueBinding.applications : ValueBinding → Array ApplicationInstantiation
+  | .direct .. => #[]
+  | .atRole binding _ | .inField _ binding .. => binding.applications
+  | .inApplication binding _ association parameters arguments callable _ =>
+    binding.applications.push ⟨association, parameters, arguments, callable⟩
+
+/-- Field and application identities share one ordered role chain on the same actual node. -/
+def ValueBinding.associationIds : ValueBinding → Array (RuntimeId .association)
+  | .direct .. => #[]
+  | .atRole binding _ => binding.associationIds
+  | .inField id binding .. => binding.associationIds.push id
+  | .inApplication binding _ association .. => binding.associationIds.push association.id
+
+private def selectedReferences (indices : Array Nat) (values : Array (Option ValueBinding)) :
+    Except String (Array ValueBinding) := do
+  let mut selected := #[]
+  for index in indices do
+    let some value := values[index]?
+      | throw "a result dependency is outside its complete reference table"
+    if let some value := value then selected := selected.push value
+  return selected
 
 structure ContainerSlot where
   path : Array InputPathStep
@@ -253,6 +298,18 @@ private partial def ValueGraph.checkBinding (graph : ValueGraph) (binding : Valu
     for previous in preceding do
       if let some previous := previous then visited ← graph.checkBinding previous visited
     return visited
+  | .inApplication underlying _ association parameters arguments callable fields =>
+    if visited.contains association.id then return visited
+    unless graph.associations.contains association.id do
+      throw "the application association is outside the visible graph"
+    unless association.id.worker == graph.worker && association.program.worker == graph.worker &&
+        association.occurrence.worker == graph.worker do
+      throw "the application association belongs to a different worker"
+    let mut visited ← graph.checkBinding underlying (visited.insert association.id)
+    let references := parameters.filterMap id ++ arguments.filterMap id ++
+      (match callable with | none => #[] | some value => #[value]) ++ fields
+    for reference in references do visited ← graph.checkBinding reference visited
+    return visited
 
 private def ValueGraph.require (graph : ValueGraph) (binding : ValueBinding) :
     Except String ValueNode := do
@@ -292,6 +349,14 @@ private partial def ValueGraph.bindingOwners (graph : ValueGraph) (binding : Val
       if let some previous := previous then
         state ← graph.bindingOwners previous state
     return state
+  | .inApplication underlying _ association parameters arguments _ fields =>
+    if state.instantiations.contains association.id then return state
+    let mut state ← graph.bindingOwners underlying
+      { state with instantiations := state.instantiations.insert association.id }
+    let dependencies := (← selectedReferences association.contextDependencies parameters) ++
+      (← selectedReferences association.dependencies arguments) ++ fields
+    for dependency in dependencies do state ← graph.bindingOwners dependency state
+    return state
 
 /-- Derive dependencies from visible nodes, rather than accepting owner claims from a reply. -/
 opaque ValueGraph.requiredOwners (graph : ValueGraph) (bindings : Array ValueBinding) :
@@ -309,17 +374,24 @@ opaque ValueGraph.rebind (graph : ValueGraph) (binding : ValueBinding) (role : S
   discard <| graph.require binding
   binding.withRole role
 
-/-- Projection returns the stored field binding, independently of unrelated field owners. -/
+private def ValueBinding.applicationFields : ValueBinding → Option (Array ValueBinding)
+  | .direct .. => none
+  | .atRole binding _ | .inField _ binding .. => binding.applicationFields
+  | .inApplication _ _ _ _ _ _ fields => some fields
+
+/-- Projection selects the retained field view, independently of unrelated field owners. -/
 opaque ValueGraph.project (graph : ValueGraph) (binding : ValueBinding) (index : Nat) :
     Except String ValueBinding := do
   let node ← graph.require binding
   match node.payload.data with
   | .product fields =>
+    let fields := binding.applicationFields.getD fields
     let some field := fields[index]?
       | throw "the projection is outside the retained product"
     return field
   | .container value =>
-    let some field := value.fields[index]?
+    let fields := binding.applicationFields.getD value.fields
+    let some field := fields[index]?
       | throw "the projection is outside the retained container"
     return field
   | _ => throw "the retained payload has no stored product fields"
@@ -359,15 +431,11 @@ opaque ValueGraph.stage (graph : ValueGraph) (supply : IdentitySupply)
   let contextDependencies := match origin.application with
     | none => origin.role.contextDependencies
     | some application => application.contextDependencies
-  for index in contextDependencies do
-    let some parameter := origin.parameters[index]?
-      | throw <| IO.userError "a producing type dependency is outside its context table"
-    if let some parameter := parameter then dependencies := dependencies.push parameter
+  dependencies := dependencies ++ (← IO.ofExcept <|
+    (selectedReferences contextDependencies origin.parameters).mapError IO.userError)
   if let some application := origin.application then
-    for index in application.dependencies do
-      let some argument := application.arguments[index]?
-        | throw <| IO.userError "a producing type dependency is outside its argument table"
-      if let some argument := argument then dependencies := dependencies.push argument
+    dependencies := dependencies ++ (← IO.ofExcept <|
+      (selectedReferences application.dependencies application.arguments).mapError IO.userError)
   let mut owners ← IO.ofExcept <|
     (graph.requiredOwners dependencies).mapError IO.userError
   match payload.data with
@@ -421,6 +489,48 @@ opaque CandidateResponse.ofValue (source : SourceLayout) (graph : ValueGraph)
   | .record, _ => throw "the candidate has no retained record interface"
   | .data, _ | .typeValue, _ => pure ()
   return ⟨← graph.rebind value source⟩
+
+/-- Associate an existing result with a prepared application without replacing its node.
+Stored fields are exact projections with their own prepared consuming associations.
+Reuse: CandidateResponse, immutable graph membership and source-derived dependency selection. -/
+opaque ValueGraph.bindApplication (graph : ValueGraph) (supply : IdentitySupply)
+    (origin : ValueOrigin) (value : ValueBinding) (fields : Array ValueBinding) :
+    IO (ValueGraph × ValueBinding) := do
+  unless supply.worker == graph.worker && origin.program.worker == graph.worker &&
+      origin.occurrence.worker == graph.worker do
+    throw <| IO.userError "application binding belongs to a different worker"
+  let some application := origin.application
+    | throw <| IO.userError "application binding requires a prepared application origin"
+  unless origin.parameters.size == origin.role.source.context.entries.size do
+    throw <| IO.userError "application binding requires the complete source context table"
+  let candidate ← IO.ofExcept <|
+    (CandidateResponse.ofValue origin.role graph value).mapError IO.userError
+  let some node := graph.find candidate.root.value
+    | throw <| IO.userError "the application result is outside the visible graph"
+  let stored := match node.payload.data with
+    | .product values => values.size
+    | .container value => value.fields.size
+    | _ => 0
+  unless fields.size == stored do
+    throw <| IO.userError "the application result requires its complete stored field views"
+  for field in fields, index in [:fields.size] do
+    let original ← IO.ofExcept <| (graph.project candidate.root index).mapError IO.userError
+    unless original.value == field.value &&
+        original.associationIds.toList.isPrefixOf field.associationIds.toList do
+      throw <| IO.userError "an application field view changed its original stored reference"
+  discard <| IO.ofExcept <|
+    (graph.requiredOwners (origin.references ++ fields)).mapError IO.userError
+  let association : ApplicationAssociation := ⟨← supply.fresh .association,
+    origin.program, origin.occurrence, application.layout, application.dependencies,
+    application.contextDependencies⟩
+  let binding := ValueBinding.inApplication candidate.root origin.role association
+    origin.parameters application.arguments application.callable fields
+  let revision ← supply.fresh .revision
+  let graph := { graph with
+    associations := graph.associations.insert association.id
+    revision := some revision }
+  discard <| IO.ofExcept <| (graph.requiredOwners #[binding]).mapError IO.userError
+  return (graph, binding)
 
 /-- Ordered actual constructor selections; proof positions retain their formal slots.
 This is record storage, not a whole-reply admission or correctness witness. -/

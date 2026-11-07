@@ -91,6 +91,13 @@ opaque CellDraft.bindField (draft : CellDraft) (record : RecordPrefix) (value : 
   let (graph, record, binding) ← record.bind draft.graph value
   return ({ draft with graph, roots := draft.roots.push binding }, record, binding)
 
+/-- Retain a reused result and its prepared stored-field views in this isolated reply.
+Reuse: ValueGraph.bindApplication and atomic draft installation. -/
+opaque CellDraft.bindApplication (draft : CellDraft) (origin : ValueOrigin)
+    (value : ValueBinding) (fields : Array ValueBinding) : IO (CellDraft × ValueBinding) := do
+  let (graph, binding) ← draft.graph.bindApplication draft.identities origin value fields
+  return ({ draft with graph, roots := draft.roots.push binding }, binding)
+
 inductive TransactionFailure
   | settled | staleSnapshot | staleOwner | pendingCalls | referenceOutsideGraph
   | staleDraft | emptyDraft
