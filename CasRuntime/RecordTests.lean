@@ -40,6 +40,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         (.portable "8".toUTF8)
       let finite ← RecordPrefix.begin supply program occurrence pointLayout
       let (finite, numeral) ← finite.bind graph number
+      match graph.requiredOwners #[numeral] with
+      | .error _ => pure ()
+      | .ok _ =>
+        throw <| IO.userError "an older graph recovered a later field association over an existing node"
       let finitePayload ← IO.ofExcept <| finite.finish.mapError IO.userError
       let (withoutWidth, finiteRoot) ← graph.stage supply
         { origin with role := pointLayout.source } finitePayload
