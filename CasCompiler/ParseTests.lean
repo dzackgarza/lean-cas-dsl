@@ -17,8 +17,8 @@ private def sourceIdentities (entries : Array Json) : CommandElabM (Std.HashSet 
     let .ok path := entry.getObjValAs? String "source"
       | throwError "the retained input has no original source path"
     let text ← IO.FS.readFile path
-    let source ← SourceFile.parse path text
-    unless source.context.input == text && source.context.fileName == path do
+    let source ← liftCoreM <| SourceFile.parse path text
+    unless source.context.inputString == text && source.context.fileName == path do
       throwError "parsing changed the original source bytes or file identity"
     for item in source.items do
       unless item.raw.getPos?.isSome && item.raw.getTailPos?.isSome do
@@ -46,27 +46,27 @@ run_cmd do
       throwError "the source parser changed the original complete identity inventory"
 
 run_cmd do
-  let prefix := "-- α\r\n\r\n"
+  let leading := "-- α\r\n\r\n"
   let binding := "let width := 3"
   let middle := "\r\nlet point((a, b)) := (a, b) in X → X\r\n\r\n"
   let question := "test parser.scope \"source\":\r\n  assert width = 3"
-  let text := prefix ++ binding ++ middle ++ question
-  let source ← SourceFile.parse "source-positions.cas" text
-  unless source.items.size == 3 && source.context.input == text do
+  let text := leading ++ binding ++ middle ++ question
+  let source ← liftCoreM <| SourceFile.parse "source-positions.cas" text
+  unless source.items.size == 3 && source.context.inputString == text do
     throwError "file parsing changed consecutive declarations or source line endings"
   let some first := source.items[0]? | throwError "the source binding is absent"
   let some last := source.items[2]? | throwError "the source question is absent"
-  unless first.raw.getPos?.map (·.byteIdx) == some prefix.utf8ByteSize &&
+  unless first.raw.getPos?.map (·.byteIdx) == some leading.utf8ByteSize &&
       last.raw.getPos?.map (·.byteIdx) ==
-        some (prefix ++ binding ++ middle).utf8ByteSize do
+        some (leading ++ binding ++ middle).utf8ByteSize do
     throwError "Unicode or carriage returns changed original byte positions"
   let some position := last.raw.getPos? | throwError "the source question has no location"
   unless (source.context.fileMap.toPosition position).line == 6 do
     throwError "the source question lost its original line"
-  let empty ← SourceFile.parse "empty.cas" "-- source comment\n"
+  let empty ← liftCoreM <| SourceFile.parse "empty.cas" "-- source comment\n"
   unless empty.items.isEmpty do throwError "a comment-only source acquired a statement"
   let rejected ← try
-    discard <| SourceFile.parse "malformed.cas" "let width := 3\nassert ("
+    discard <| liftCoreM <| SourceFile.parse "malformed.cas" "let width := 3\nassert ("
     pure false
   catch _ => pure true
   unless rejected do throwError "malformed trailing source was accepted as a complete file"
