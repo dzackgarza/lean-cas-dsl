@@ -254,3 +254,16 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       #[bindings[0]!.expression]
     unless (← isDefEq value expected) do
       throwError "a parameterized named morphism changed its declared action"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let point ← readSource empty "rev(3,2)"
+  unless point.source.expression.containsConst
+      (· == ``CasCatalogue.Foundation.Morphisms.finPoint) do
+    throwError "a source point numeral omitted its independent declared point"
+  let rejected ← try
+    discard <| readSource empty "rev(3,3)"
+    pure false
+  catch _ => pure true
+  unless rejected do throwError "a source point numeral bypassed its declared domain obligation"
