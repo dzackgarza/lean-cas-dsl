@@ -42,7 +42,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         (Json.mkObj [("args", .arr #[.null, .null]), ("description", .str "retained packet")])
         #[{ path := #[.field "args", .index 0], binding := scalar },
           { path := #[.field "args", .index 1], binding := callable }]
-        #[0, 1] none).mapError IO.userError
+        #[scalar, callable] none).mapError IO.userError
       let packetRecord ← liftM (m := IO) <| producer.stage
         { program, occurrence, role := recordRole } packet
       let .ok _ ← producer.commit | throwError "the stored record could not commit"
