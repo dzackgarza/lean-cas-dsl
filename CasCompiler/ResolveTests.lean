@@ -2,9 +2,13 @@ module
 
 import CasCompiler.Resolve
 import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
+import LeanCategories.Catalogue.Semantics.ConstructorRegistration
+import LeanCategories.Catalogue.Semantics.Algebra.MonoidOperations
 public meta import Lean.Elab.Command
 meta import CasCompiler.Resolve
 meta import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
+meta import LeanCategories.Catalogue.Semantics.ConstructorRegistration
+meta import LeanCategories.Catalogue.Semantics.Algebra.MonoidOperations
 
 open Lean CasCompiler CasCatalogue
 
