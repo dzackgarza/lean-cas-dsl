@@ -55,8 +55,28 @@ private inductive CellState
   | committed (snapshot : RuntimeId .snapshot)
   | aborted
 
+/-- Isolated tentative reply fields, rooted in one exact active graph revision.
+This is storage for validation, not evidence that validation has succeeded. -/
+structure CellDraft where
+  private mk ::
+  private transaction : RuntimeId .transaction
+  private identities : IdentitySupply
+  private base : ValueGraph
+  private graph : ValueGraph
+  private roots : Array ValueBinding
+
+def CellDraft.view (draft : CellDraft) : ValueGraph := draft.graph
+
+/-- Append only to this immutable draft; the active transaction remains unchanged.
+Reuse: ValueGraph.stage, including fresh identities and derived capture owners. -/
+opaque CellDraft.stage (draft : CellDraft) (origin : ValueOrigin) (payload : ValuePayload) :
+    IO (CellDraft × ValueBinding) := do
+  let (graph, binding) ← draft.graph.stage draft.identities origin payload
+  return ({ draft with graph, roots := draft.roots.push binding }, binding)
+
 inductive TransactionFailure
   | settled | staleSnapshot | staleOwner | pendingCalls | referenceOutsideGraph
+  | staleDraft | emptyDraft
   | reservation (failure : ReservationFailure)
   deriving BEq, Repr
 
@@ -82,6 +102,31 @@ opaque CellTransaction.view (transaction : CellTransaction) : IO ValueGraph :=
     let .active cell ← get
       | throw <| IO.userError "the transaction has settled"
     return cell.graph
+
+/-- Begin a reply delta at the currently visible graph, without exposing any new field. -/
+opaque CellTransaction.draft (transaction : CellTransaction) : IO CellDraft :=
+  transaction.state.atomically do
+    let .active cell ← get
+      | throw <| IO.userError "the transaction has settled"
+    return ⟨transaction.id, transaction.ledger.owners.identities, cell.graph, cell.graph, #[]⟩
+
+/-- Install the complete isolated delta in one owner-checked active-state update.
+The caller validates the whole promised interface before this storage transition.
+Revision comparison prevents replacing an intervening append or installing a delta twice.
+Reuse: the existing transaction/owner lock order and persistent ValueGraph operations. -/
+opaque CellTransaction.installDraft (transaction : CellTransaction) (draft : CellDraft) :
+    BaseIO (Except TransactionFailure Unit) :=
+  transaction.state.atomically do
+    let .active cell ← get | return .error .settled
+    unless draft.transaction == transaction.id && cell.graph.sameRevision draft.base do
+      return .error .staleDraft
+    if draft.roots.isEmpty then return .error .emptyDraft
+    let .ok dependencies := draft.graph.requiredOwners draft.roots
+      | return .error .referenceOutsideGraph
+    let installed ← transaction.ledger.owners.atomicallyWhileLive
+        (m := Std.AtomicT CellState BaseIO) dependencies do
+      set (CellState.active { cell with graph := draft.graph, roots := cell.roots ++ draft.roots })
+    return if installed.isSome then .ok () else .error .staleOwner
 
 opaque CellTransaction.stage (transaction : CellTransaction) (origin : ValueOrigin)
     (payload : ValuePayload) : IO ValueBinding :=

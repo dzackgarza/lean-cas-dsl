@@ -63,8 +63,14 @@ structure ValueGraph where
   private mk ::
   worker : String
   private nodes : Std.HashMap (RuntimeId .value) ValueNode
+  private revision : Option (RuntimeId .value)
 
-def ValueGraph.empty (supply : IdentitySupply) : ValueGraph := ⟨supply.worker, {}⟩
+def ValueGraph.empty (supply : IdentitySupply) : ValueGraph := ⟨supply.worker, {}, none⟩
+
+/-- Each append has a fresh node identity, so an append-only graph has an exact revision.
+Reference: the existing IdentitySupply monotone allocation and persistent HashMap insertion. -/
+def ValueGraph.sameRevision (left right : ValueGraph) : Bool :=
+  left.worker == right.worker && left.revision == right.revision
 
 def ValueGraph.find (graph : ValueGraph) (id : RuntimeId .value) : Option ValueNode :=
   graph.nodes[id]?
@@ -128,7 +134,7 @@ opaque ValueGraph.stage (graph : ValueGraph) (supply : IdentitySupply)
   | .portable _ | .product _ => pure ()
   let id ← supply.fresh .value
   let node : ValueNode := ⟨id, origin, payload, owners⟩
-  return (⟨graph.worker, graph.nodes.insert id node⟩, ⟨id, origin.role⟩)
+  return (⟨graph.worker, graph.nodes.insert id node, some id⟩, ⟨id, origin.role⟩)
 
 /-- Availability reads current liveness without rewriting the immutable payload. -/
 def ValueGraph.isAvailable (graph : ValueGraph) (owners : OwnerRegistry)
