@@ -113,6 +113,10 @@ opaque viewExpressions (entry : FunctorEntry ⊕ ClassifierEntry)
 /-- Apply the actual native functor to its actual object and check its complete target type.
 Reuse: Functor.toPrefunctor/Prefunctor.obj, shared with the retained source functor API. -/
 opaque functorObject (functor object target : Expr) : MetaM Expr := do
+  let (domain, _) ← functorCategoryBundles functor
+  let inputType ← mkAppM ``CategoryTheory.Bundled.α #[domain]
+  unless ← withTransparency .all <| isDefEq (← inferType object) inputType do
+    throwError "the source object does not inhabit the selected functor's native domain"
   let prefunctor ← mkAppM ``CategoryTheory.Functor.toPrefunctor #[functor]
   let value ← mkAppM ``Prefunctor.obj #[prefunctor, object]
   let carrier ← mkAppM ``CategoryTheory.Bundled.α #[target]
