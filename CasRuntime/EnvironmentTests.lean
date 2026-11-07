@@ -161,10 +161,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
               "the runtime value is missing a retained dependent reference"
             let pair ← mkAppM ``Prod.mk #[mkNatLit 7, mkNatLit 7]
             let pairLayout ← RecordLayout.ofSource (← SourceLayout.ofTerm (← context.close pair))
-            let prefix ← liftM (m := IO) <|
+            let record ← liftM (m := IO) <|
               RecordPrefix.begin owners.identities program occurrence pairLayout
-            let (prefix, firstRole) ← liftM (m := IO) <| prefix.bind graph number
-            let (_, secondRole) ← liftM (m := IO) <| prefix.bind graph number
+            let (record, firstRole) ← liftM (m := IO) <| record.bind graph number
+            let (_, secondRole) ← liftM (m := IO) <| record.bind graph number
             let .ok firstParameter := RuntimeParameter.ofValue graph bindings[0]!.id firstRole
               | throwError "the original dependent index role is absent"
             let .ok secondParameter := RuntimeParameter.ofValue graph bindings[0]!.id secondRole
