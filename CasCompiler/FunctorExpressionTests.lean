@@ -43,6 +43,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let objects ← shadowed.assumeTerm `X objectType
     let object ← objects.term (← `(term| $(mkIdent `X):ident))
     let image ← objects.functorImage Syntax.missing constructed object
+    let .constructed retainedConstructor
+        (.composition (.registered retainedFirst _) (.registered retainedSecond _)) :=
+        image.functor.derivation
+      | throwError "the source image discarded its actual ordered functor derivation"
+    unless retainedConstructor.id == id && retainedFirst.id == firstEntry.id &&
+        retainedSecond.id == secondEntry.id &&
+        image.object.source.expression == object.source.expression do
+      throwError "the source image changed its original constructor, functors or object reference"
     image.value.source.withOpen fun bindings value => do
       let context ← ContextTelescope.capture bindings
       let first := mkApp
