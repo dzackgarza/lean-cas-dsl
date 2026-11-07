@@ -184,6 +184,20 @@ opaque CellTransaction.reserve (transaction : CellTransaction) (occurrence : Run
       set (CellState.active { cell with reservations := cell.reservations.push reservation })
       return .ok reservation
 
+/-- Track a retained native export's actual owner and code under the same abort boundary.
+Reuse: OccurrenceLedger.reserveExport and the primitive reservation lock order. -/
+opaque CellTransaction.reserveExport (transaction : CellTransaction)
+    (occurrence : RuntimeId .occurrence) (callable : ValueBinding) (connection : Connection)
+    (arguments : Array ValueBinding) : BaseIO (Except TransactionFailure DispatchReservation) :=
+  transaction.state.atomically do
+    let .active cell ← get | return .error .settled
+    match ← transaction.ledger.reserveExport occurrence transaction.id callable connection
+        cell.graph arguments with
+    | .error failure => return .error (.reservation failure)
+    | .ok reservation =>
+      set (CellState.active { cell with reservations := cell.reservations.push reservation })
+      return .ok reservation
+
 /-- Arbitrate the one-use send decision against whole-cell abort before any engine write.
 Reuse: the reserve lock order, active-cell gate and occurrence send commitment. -/
 opaque CellTransaction.commitSend (transaction : CellTransaction)
@@ -195,7 +209,7 @@ opaque CellTransaction.commitSend (transaction : CellTransaction)
         lease.occurrence == reservation.occurrence && lease.owner == reservation.connection &&
         cell.reservations.any (fun tracked =>
         tracked.occurrence == reservation.occurrence && tracked.connection == reservation.connection &&
-        decide (tracked.selected = reservation.selected)) do
+        tracked.selected == reservation.selected) do
       return .error (.reservation .unknownOccurrence)
     match ← transaction.ledger.commitSend reservation with
     | .error failure => return .error (.reservation failure)

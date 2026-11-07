@@ -39,7 +39,7 @@ structure InputPosition where
 
 private def sameDispatch (left right : DispatchReservation) : Bool :=
   left.occurrence == right.occurrence && left.transaction == right.transaction &&
-    left.connection == right.connection && decide (left.selected = right.selected)
+    left.connection == right.connection && left.selected == right.selected
 
 /-- Active request authority stores references and roles, with no completed payload cache. -/
 structure RequestScope where

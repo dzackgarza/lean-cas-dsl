@@ -12,13 +12,33 @@ open Lean CasCatalogue.Backend
 
 private def sameInvocation (left right : DispatchReservation) : Bool :=
   left.occurrence == right.occurrence && left.transaction == right.transaction &&
-    left.connection == right.connection && decide (left.selected = right.selected)
+    left.connection == right.connection && left.selected == right.selected
 
 private def ownsInvocation (wire : FramedConnection) (transaction : CellTransaction)
     (reservation : DispatchReservation) (scope : RequestScope) : Bool :=
   reservation.connection == wire.connection.generation &&
-    reservation.selected.registration.backend == wire.backend &&
+    (match reservation.selected with
+      | .primitive selected => selected.registration.backend == wire.backend
+      | .native .. => true) &&
     reservation.transaction == transaction.id && sameInvocation scope.reservation reservation
+
+private def DispatchTarget.operation : DispatchTarget → String
+  | .primitive selected => selected.registration.operation
+  | .native .. => "$cas.invoke_export"
+
+/-- Frame the exact reserved target; native tokens come only from its stored code identity.
+Reuse: cas_session._Invoke and _InvokeExport in the pinned public SDK. -/
+private def invocationFrame (reservation : DispatchReservation) (scope : RequestScope)
+    (requestId : Nat) (arguments : Json) : Json :=
+  match reservation.selected with
+  | .primitive selected => Json.mkObj [
+      ("protocol", toJson (2 : Nat)), ("request_id", toJson requestId),
+      ("op", .str selected.registration.operation), ("input", .str selected.registration.input),
+      ("args", arguments), ("scope_id", .str scope.wireId)]
+  | .native _ token => Json.mkObj [
+      ("protocol", toJson (2 : Nat)), ("request_id", toJson requestId),
+      ("op", .str "$cas.invoke_export"), ("scope_id", .str scope.wireId),
+      ("token", .str token), ("context", arguments)]
 
 private def failureReply (id : Nat) (operation : String) (frame : Json) : Except PortError Unit := do
   match ← str frame "status" with
@@ -39,7 +59,8 @@ opaque FramedConnection.cancel (wire : FramedConnection) (transaction : CellTran
       reservation.connection == wire.connection.generation do return false
   transaction.abort
 
-/-- Send an exact selected primitive once and return parsed control, before value admission.
+/-- Send an exact selected primitive or retained export once, before value admission.
+For a retained export, arguments is its already prepared invocation context.
 The native permit spans the entire frame and cancellation cleanup. All process I/O runs
 outside transaction, owner and resource-state mutexes. Receipt construction is a later boundary.
 Reuse: CasContract framing/negotiation, native Semaphore, RequestScope and ImmediateReply. -/
@@ -59,6 +80,13 @@ opaque FramedConnection.invoke (wire : FramedConnection) (ledger : OccurrenceLed
       return .error (unavailable "stale_owner")
     let some graph ← transaction.activeGraph
       | return .error (unavailable "cancelled")
+    if let .native code token := reservation.selected then
+      let some node := graph.find code
+        | return .error (.protocol "the retained native code is outside the active graph")
+      let .ownedToken owner actual _ := node.payload.data
+        | return .error (.protocol "the retained native target has no actual export token")
+      unless owner == wire.connection.generation && actual == token do
+        return .error (.protocol "the retained native target changed its actual owner or token")
     try discard <| scope.resolveMany reservation graph scope.wireId #[]
     catch error => return .error (.protocol error.toString)
     let lease ← match ← wire.beginRequest transaction.id reservation.occurrence with
@@ -73,12 +101,10 @@ opaque FramedConnection.invoke (wire : FramedConnection) (ledger : OccurrenceLed
       | .reservation .staleOwner => return .error (unavailable "stale_owner")
       | _ => throw <| IO.userError "internal: the prepared send lost its transaction association"
     | .ok () => pure ()
-    let operation := reservation.selected.registration.operation
+    let operation := reservation.selected.operation
     try
-      writeFrame wire.connection.child.stdin <| Json.mkObj [
-        ("protocol", toJson (2 : Nat)), ("request_id", toJson lease.requestId),
-        ("op", .str operation), ("input", .str reservation.selected.registration.input),
-        ("args", arguments), ("scope_id", .str scope.wireId)]
+      writeFrame wire.connection.child.stdin <|
+        invocationFrame reservation scope lease.requestId arguments
     catch error =>
       wire.close
       discard <| transaction.abort

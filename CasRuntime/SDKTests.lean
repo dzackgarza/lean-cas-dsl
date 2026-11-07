@@ -98,6 +98,11 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let operand ← liftM (m := IO) <| later.stage
         { program, occurrence := storedOccurrence, role := layout, parameters := #[] }
         (.portable "7".toUTF8)
+      let .ok wrapper := ValuePayload.container (.str "retained callable wrapper") #[] #[]
+        (some callable)
+        | throwError "the retained native callable wrapper could not form"
+      let retainedCallable ← liftM (m := IO) <| later.stage
+        { program, occurrence := storedOccurrence, role := callableRole, parameters := #[] } wrapper
       let nativeOccurrence ← liftM (m := BaseIO) ledger.allocate
       let .ok other ← liftM (m := IO) <| FramedConnection.start owners "selected-backend" {
           cmd := (contract / ".venv/bin/python").toString
@@ -106,12 +111,12 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throwError "the distinct native-owner control did not negotiate"
       try
         match ← liftM (m := BaseIO) <|
-            later.reserveExport nativeOccurrence callable other.connection #[operand] with
+            later.reserveExport nativeOccurrence retainedCallable other.connection #[operand] with
         | .error (.reservation .wrongConnection) => pure ()
         | _ => throwError "a matching backend name redirected a retained native export"
       finally liftM (m := IO) other.close
       let .ok native ← liftM (m := BaseIO) <|
-          later.reserveExport nativeOccurrence callable wire.connection #[operand]
+          later.reserveExport nativeOccurrence retainedCallable wire.connection #[operand]
         | throwError "the retained native export could not reserve on its actual owner"
       unless native.selected == .native callable.value exported.token &&
           native.connection == exported.owner do
@@ -136,7 +141,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless (Json.parse encodedContext).toOption == some invocation do
         throwError "native transport changed the complete invocation context"
       match ← liftM (m := BaseIO) <|
-          later.reserveExport nativeOccurrence callable wire.connection #[operand] with
+          later.reserveExport nativeOccurrence retainedCallable wire.connection #[operand] with
       | .error (.reservation .consumed) => pure ()
       | _ => throwError "a native invocation acquired a second dispatch right"
       discard <| liftM (m := BaseIO) later.abort

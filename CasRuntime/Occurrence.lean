@@ -12,18 +12,26 @@ structure DispatchIdentity where
   manifestDigest : String
   registration : CasCatalogue.Registration
   profileDigest : String
-  deriving DecidableEq, Repr
+  deriving DecidableEq, BEq, Repr
+
+/-- A selected primitive or the exact stored native code node and local token.
+Native dispatch retains its existing owner in DispatchReservation.connection. -/
+inductive DispatchTarget where
+  | primitive (identity : DispatchIdentity)
+  | native (value : RuntimeId .value) (token : String)
+  deriving BEq, Repr
 
 structure DispatchReservation where
   private mk ::
   occurrence : RuntimeId .occurrence
   transaction : RuntimeId .transaction
-  selected : DispatchIdentity
+  selected : DispatchTarget
   connection : ConnectionGeneration
   dependencies : Array ConnectionGeneration
 
 inductive ReservationFailure
   | wrongWorker | unknownOccurrence | consumed | staleOwner | referenceOutsideGraph
+  | invalidExport | wrongConnection
   deriving BEq, Repr
 
 private inductive OccurrenceStatus
@@ -51,8 +59,8 @@ opaque OccurrenceLedger.allocate (ledger : OccurrenceLedger) : BaseIO (RuntimeId
 
 /-- Owner retirement and the one-use reservation cannot interleave.
 The nested ledger section holds no engine I/O and stores no value or completion payload. -/
-opaque OccurrenceLedger.reserve (ledger : OccurrenceLedger) (id : RuntimeId .occurrence)
-    (transaction : RuntimeId .transaction) (selected : DispatchIdentity) (connection : Connection)
+private def reserveTarget (ledger : OccurrenceLedger) (id : RuntimeId .occurrence)
+    (transaction : RuntimeId .transaction) (selected : DispatchTarget) (connection : Connection)
     (graph : ValueGraph) (arguments : Array ValueBinding) :
     BaseIO (Except ReservationFailure DispatchReservation) := do
   unless id.worker == ledger.owners.worker && transaction.worker == ledger.owners.worker &&
@@ -75,6 +83,28 @@ opaque OccurrenceLedger.reserve (ledger : OccurrenceLedger) (id : RuntimeId .occ
   match result with
   | some reserved => return reserved
   | none => return .error .staleOwner
+
+/-- Reserve the already selected primitive under the shared one-use owner/ledger transition. -/
+opaque OccurrenceLedger.reserve (ledger : OccurrenceLedger) (id : RuntimeId .occurrence)
+    (transaction : RuntimeId .transaction) (selected : DispatchIdentity) (connection : Connection)
+    (graph : ValueGraph) (arguments : Array ValueBinding) :
+    BaseIO (Except ReservationFailure DispatchReservation) :=
+  reserveTarget ledger id transaction (.primitive selected) connection graph arguments
+
+/-- Resolve the actual stored code and reserve only its original supplying connection.
+Reuse: ValueGraph.callable and the same atomic reservation as primitive dispatch.
+The complete callable reference brings its actual captures and dependent owner closure. -/
+opaque OccurrenceLedger.reserveExport (ledger : OccurrenceLedger) (id : RuntimeId .occurrence)
+    (transaction : RuntimeId .transaction) (callable : ValueBinding) (connection : Connection)
+    (graph : ValueGraph) (arguments : Array ValueBinding) :
+    BaseIO (Except ReservationFailure DispatchReservation) := do
+  let .ok code := graph.callable callable | return .error .invalidExport
+  let some node := graph.find code.value | return .error .referenceOutsideGraph
+  let .ownedToken owner token _ := node.payload.data | return .error .invalidExport
+  if token.isEmpty then return .error .invalidExport
+  unless owner == connection.generation do return .error .wrongConnection
+  reserveTarget ledger id transaction (.native code.value token) connection graph
+    (arguments.push callable)
 
 /-- Return only the locator belonging to this exact active transaction. -/
 opaque OccurrenceLedger.pendingFor (ledger : OccurrenceLedger) (id : RuntimeId .occurrence)
@@ -99,7 +129,7 @@ opaque OccurrenceLedger.commitSend (ledger : OccurrenceLedger)
     match status with
     | .pending active =>
       unless active.transaction == reservation.transaction &&
-          active.connection == reservation.connection && decide (active.selected = reservation.selected) do
+          active.connection == reservation.connection && active.selected == reservation.selected do
         return .error .consumed
       set (state.insert reservation.occurrence (.sent active))
       return .ok ()
@@ -116,7 +146,7 @@ opaque OccurrenceLedger.retire (ledger : OccurrenceLedger) (reservation : Dispat
       | .pending active | .sent active => pure active
       | .fresh | .consumed _ => return false
     unless active.transaction == reservation.transaction &&
-        active.connection == reservation.connection && decide (active.selected = reservation.selected) do
+        active.connection == reservation.connection && active.selected == reservation.selected do
       return false
     set (state.insert reservation.occurrence (.consumed active))
     return true

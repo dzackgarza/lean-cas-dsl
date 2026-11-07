@@ -9,6 +9,7 @@ open Lean Meta CasCompiler CasRuntime
 run_cmd Lean.Elab.Command.liftTermElabM do
   let context ← ContextTelescope.capture #[]
   let role ← SourceLayout.ofTerm (← context.close (mkNatLit 7))
+  let callableRole ← SourceLayout.ofTerm (← context.close (mkConst ``Nat.succ))
   liftM (m := IO) do
     let owners ← OwnerRegistry.new
     let ledger ← OccurrenceLedger.new owners
@@ -31,7 +32,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throw <| IO.userError "an occurrence reservation did not have exactly one winner"
       let some winner := winners[0]?
         | throw <| IO.userError "the successful reservation is missing"
-      unless decide (winner.selected = choice) && winner.connection == child.generation do
+      unless winner.selected == .primitive choice && winner.connection == child.generation do
         throw <| IO.userError "reservation changed the selected realization or connection"
       unless (← ledger.pendingFor first winner.transaction).isSome do
         throw <| IO.userError "the owning transaction lost its pending occurrence"
@@ -72,7 +73,25 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           { program, occurrence := second, role, parameters := #[] } (.ownedExport captureOwner token #[])
         let .ok reserved ← ledger.reserve second unrelated choice child capturedGraph #[captured]
           | throw <| IO.userError "the live captured argument could not reserve"
+        child.child.stdin.putStr "retained code token\n"
+        child.child.stdin.flush
+        let codeToken := (← child.child.stdout.getLine).trimAscii.toString
+        let (nativeGraph, native) ← capturedGraph.stage owners.identities
+          { program, occurrence := second, role := callableRole, parameters := #[] }
+          (.ownedExport child codeToken #[captured])
+        let nativeOccurrence ← ledger.allocate
+        let .ok nativeReservation ← ledger.reserveExport nativeOccurrence unrelated native child
+            nativeGraph #[]
+          | throw <| IO.userError "a native export with live captures could not reserve"
         owners.close captureOwner.generation
+        match ← ledger.commitSend nativeReservation with
+        | .error .staleOwner => pure ()
+        | _ => throw <| IO.userError "native send commitment accepted a lost capture owner"
+        discard <| ledger.retire nativeReservation
+        let deadCaptureOccurrence ← ledger.allocate
+        match ← ledger.reserveExport deadCaptureOccurrence unrelated native child nativeGraph #[] with
+        | .error .staleOwner => pure ()
+        | _ => throw <| IO.userError "native reservation accepted a known-dead capture owner"
         match ← ledger.commitSend reserved with
         | .error .staleOwner => pure ()
         | _ => throw <| IO.userError "send commitment accepted a captured owner lost after reservation"
