@@ -53,3 +53,8 @@ run_cmd do
     throwError "the route target lost its actual source operation binding"
   unless bound.language.grammar.contains #[] && bound.language.grammar.distinctWordCount == 1 do
     throwError "the source operation name did not bind at its first owner"
+  let some candidates ← liftCoreM bound.finiteRoutes
+    | throwError "the initial operation binding acquired an infinite route family"
+  unless candidates.size == 1 && candidates[0]?.map (·.steps.isEmpty) == some true &&
+      candidates[0]?.map (·.target.syntacticEq owner.expression) == some true do
+    throwError "finite source candidates lost the actual empty first-binding route"
