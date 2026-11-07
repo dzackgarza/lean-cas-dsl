@@ -34,7 +34,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
       let context ← ContextTelescope.capture #[]
       let layout ← SourceLayout.ofTerm (← context.close (mkNatLit 7))
-      let binding ← liftM (m := IO) <| transaction.stage ⟨occurrence, program, layout, #[]⟩
+      let binding ← liftM (m := IO) <| transaction.stage
+        { occurrence, program, role := layout, parameters := #[] }
         (ValuePayload.portable "retained traffic data".toUTF8)
       let selected : DispatchIdentity := {
         manifestDigest := "sdk-traffic-manifest", profileDigest := "sdk-traffic-profile"
