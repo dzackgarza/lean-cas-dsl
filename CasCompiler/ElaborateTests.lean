@@ -12,7 +12,8 @@ private def sourceSyntax (text : String) : TermElabM Term := do
   return ⟨stx⟩
 
 run_cmd Lean.Elab.Command.liftTermElabM do
-  let initial ← SourceSession.empty "native-source"
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let initial ← SourceSession.empty identities
   let types ← initial.assume `α (← sourceSyntax "Type 1")
   let instances ← types.assume `chosen (← sourceSyntax "Inhabited α") .instImplicit
   let parameters ← instances.assume `x (← sourceSyntax "α")
@@ -69,7 +70,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     throwError "native source elaboration mutated an earlier persistent context"
 
 run_cmd Lean.Elab.Command.liftTermElabM do
-  let session ← SourceSession.empty "native-source-safety"
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let session ← SourceSession.empty identities
   for (text, message) in #[
       ("sorryAx Nat true", "depends on sorryAx"),
       ("unsafeCast (α := Nat) (β := Nat) 7", "is unsafe")] do
@@ -87,7 +89,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   unless rejected do throwError "a selected-instance binder accepted a nonclass source type"
 
 run_cmd Lean.Elab.Command.liftTermElabM do
-  let session ← SourceSession.empty "annotated-source-definition"
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let session ← SourceSession.empty identities
   let rejected ← try
     discard <| session.define `value (← sourceSyntax "Nat.zero")
       (some (← sourceSyntax "Bool"))

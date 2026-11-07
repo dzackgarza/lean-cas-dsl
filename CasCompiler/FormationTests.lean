@@ -14,7 +14,8 @@ private def nativeSyntax (text : String) : TermElabM Term := do
   return ⟨stx⟩
 
 run_cmd Lean.Elab.Command.liftTermElabM do
-  let empty ← SourceSession.empty "direct-source-formation"
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
   let types ← empty.assume `α (← nativeSyntax "Type")
   let instances ← types.assume `chosen (← nativeSyntax "Inhabited α") .instImplicit
   let parameters ← instances.assume `x (← nativeSyntax "α")
@@ -33,7 +34,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let later ← shadowed.defineTerm `z formed
   unless later.context.entries[6]?.bind (·.value) == some (mkBVar 3) do
     throwError "direct definition intake rebound an earlier source variable by its spelling"
-  let foreign ← SourceSession.empty "different-source-formation"
+  let foreign ← SourceSession.empty identities
   let rejected ← try
     discard <| foreign.defineTerm `z formed
     pure false
@@ -66,7 +67,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       throwError "whole declaration safety was not checked before universe specialization"
 
 run_cmd Lean.Elab.Command.liftTermElabM do
-  let empty ← SourceSession.empty "dependent-source-application"
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
   let parameters ← empty.assume `n (← nativeSyntax "Nat")
   let session ← parameters.assume `point (← nativeSyntax "Fin n")
   let function ← session.term (← nativeSyntax "fun (k : Nat) (i : Fin k) => i")
@@ -90,7 +92,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   unless rejected do throwError "direct source application accepted a mistyped dependent argument"
 
 run_cmd Lean.Elab.Command.liftTermElabM do
-  let initial ← SourceSession.empty "source-branches"
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let initial ← SourceSession.empty identities
   let left ← initial.assume `left (← nativeSyntax "Nat")
   let right ← initial.assume `right (← nativeSyntax "Nat")
   let captured ← left.term (← nativeSyntax "left")

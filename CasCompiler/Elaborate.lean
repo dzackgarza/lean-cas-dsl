@@ -3,6 +3,7 @@ module
 public import CasCompiler.Context
 public import CasCompiler.Declaration
 public import CasCompiler.Syntax
+public import CasRuntime.Identity
 public import Lean.Elab.Term
 public import Lean.Elab.SyntheticMVars
 
@@ -31,24 +32,28 @@ Source: mathematical-input contract §1 and data-model contract §2, lean-cas-ds
 No provider, runtime value or stored binding syntax participates in this context. -/
 structure SourceSession where
   private mk ::
-  private identity : String
-  private nextBinding : Nat
+  private identities : CasRuntime.IdentitySupply
   context : ContextTelescope
   spans : Array SourceSpan
+
+/-- Source declarations share the worker's monotone identity supply across snapshot branches.
+Reuse: IdentitySupply.fresh and its native atomic counter; only identities live in the supply. -/
+private def SourceSession.freshBinding (session : SourceSession) : BaseIO BindingId := do
+  let id ← session.identities.fresh .sourceBinding
+  return ⟨id.worker, id.serial⟩
 
 private def defineIn (session : SourceSession) (context : OpenContext) (name : Name)
     (expression : Expr) (span : SourceSpan) : MetaM SourceSession := do
   let type ← inferType expression
-  let id : BindingId := ⟨session.identity, session.nextBinding⟩
+  let id ← session.freshBinding
   withLetDecl name type expression fun expression => do
     let context ← ContextTelescope.capture
       (context.bindings.push { id, role := .definition, expression })
-    return ⟨session.identity, session.nextBinding + 1, context.telescope, session.spans.push span⟩
+    return ⟨session.identities, context.telescope, session.spans.push span⟩
 
-opaque SourceSession.empty (identity : String) : MetaM SourceSession := do
-  if identity.isEmpty then throwError "a source session requires a stable identity"
+opaque SourceSession.empty (identities : CasRuntime.IdentitySupply) : MetaM SourceSession := do
   let context ← withLCtx {} #[] <| ContextTelescope.capture #[]
-  return ⟨identity, 0, context.telescope, #[]⟩
+  return ⟨identities, context.telescope, #[]⟩
 
 /-- Apply the release's safety and axiom policy to the newly completed source term and type.
 Reuse: Lean.collectAxioms and the existing source-family intake policy in Program.lean.
@@ -129,10 +134,10 @@ opaque SourceSession.assume (session : SourceSession) (name : Name) (stx : Term)
           pure BindingRole.instance
         else if ← isProp type then pure BindingRole.hypothesis
         else pure BindingRole.parameter
-      let id : BindingId := ⟨session.identity, session.nextBinding⟩
+      let id ← session.freshBinding
       withLocalDecl name binderInfo type fun expression => do
         let context ← ContextTelescope.capture (bindings.push { id, role, expression })
-        return ⟨session.identity, session.nextBinding + 1, context.telescope,
+        return ⟨session.identities, context.telescope,
           session.spans.push (← sourceSpan stx)⟩
 
 /-- Retain an elaborated definition as a native let declaration for all subsequent source use.

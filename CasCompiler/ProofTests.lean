@@ -21,7 +21,8 @@ private def suppliedProof (text : String) : TermElabM (TSyntax `cas_term) := do
   return ⟨stx⟩
 
 run_cmd Lean.Elab.Command.liftTermElabM do
-  let empty ← SourceSession.empty "formal-proof-source"
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
   let parameters ← empty.assume `n (← nativeSyntax "Nat")
   let propositions ← parameters.assume `P (← nativeSyntax "Prop")
   let session ← propositions.assume `h (← nativeSyntax "P")

@@ -9,9 +9,9 @@ namespace CasRuntime
 
 inductive IdentityKind
   | connection | program | occurrence | value | transaction | snapshot | commit | outputBatch | scope
-  | association
+  | association | sourceBinding
 
-/-- Resource kinds share a serial supply but remain distinct Lean types. -/
+/-- Identity kinds share a serial supply but remain distinct Lean types. -/
 structure RuntimeId (kind : IdentityKind) where
   private mk ::
   worker : String
