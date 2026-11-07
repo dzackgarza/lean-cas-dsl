@@ -24,6 +24,22 @@ opaque RuntimeParameter.ofValue (graph : ValueGraph) (source : BindingId) (value
     | throw "the runtime parameter is outside the visible graph"
   return ⟨source, value, node.origin⟩
 
+/-- An actual operand at an explicit position in the complete source argument list. -/
+structure RuntimeArgument where
+  private mk ::
+  index : Nat
+  value : ValueBinding
+  private origin : ValueOrigin
+
+/-- Retain operand provenance from the visible graph before native application preparation.
+Reuse: the same graph visibility and immutable producing-origin checks as RuntimeParameter. -/
+opaque RuntimeArgument.ofValue (graph : ValueGraph) (index : Nat) (value : ValueBinding) :
+    Except String RuntimeArgument := do
+  discard <| graph.requiredOwners #[value]
+  let some node := graph.find value.value
+    | throw "the runtime argument is outside the visible graph"
+  return ⟨index, value, node.origin⟩
+
 /-- The complete semantic telescope and its separate ordered runtime-binding table.
 Formal-only entries retain their source definitions, hypotheses and selected instances.
 Source: data model section 2, ContextTelescope and its runtime-binding table. -/
@@ -41,6 +57,13 @@ def RuntimeEnvironment.lookup (environment : RuntimeEnvironment) (source : Bindi
   for (entry, value) in environment.context.entries.zip environment.values do
     if entry.id == source then return value
   throw "the runtime binding identity is outside its source telescope"
+
+private def RuntimeEnvironment.bindingMap (environment : RuntimeEnvironment) :
+    Std.HashMap BindingId ValueBinding := Id.run do
+  let mut supplied := {}
+  for (entry, value) in environment.context.entries.zip environment.values do
+    if let some value := value then supplied := supplied.insert entry.id value
+  return supplied
 
 private def sameReference (original current : ValueBinding) : Bool :=
   original.value == current.value &&
@@ -117,6 +140,33 @@ opaque RuntimeEnvironment.capture (worker : String) (context : OpenContext)
   let values := context.bindings.map fun binding => supplied[binding.id]?
   return ⟨worker, context.telescope, values⟩
 
+/-- Bind the supplied operand to its actual source argument, rather than a same-typed value.
+Source variables use their stable-ID runtime association. Other terms require their retained
+native consuming expression. Reuse: the complete type/dependency checks and native conversion. -/
+opaque RuntimeEnvironment.checkArgument (environment : RuntimeEnvironment) (source : ClosedTerm)
+    (argument : RuntimeArgument) : MetaM ValueBinding := do
+  unless argument.value.value.worker == environment.worker do
+    throwError "the runtime argument belongs to a different worker"
+  environment.context.withOpen fun bindings => do
+    let context ← ContextTelescope.capture bindings
+    let specified ← source.inContext context
+    let expected ← inferType specified
+    if ← isProp expected then throwError "a formal proof argument has no runtime value binding"
+    checkNativeType context expected argument.value argument.origin
+    checkDependencies context environment.bindingMap expected argument.value argument.origin
+    if specified.isFVar then
+      let some binding := bindings.find? (·.expression == specified)
+        | throwError "the source argument is outside the complete runtime telescope"
+      let .ok (some retained) := environment.lookup binding.id
+        | throwError "the source argument has no retained runtime binding"
+      unless sameReference retained argument.value do
+        throwError "the runtime argument does not retain its specified source value"
+    else
+      let original ← argument.value.role.source.inContext context
+      unless ← isDefEq original specified do
+        throwError "the runtime argument does not retain its specified source value"
+    return argument.value
+
 /-- Check a retained candidate at the prepared result's complete native type and actual indexes.
 Reuse: the source-binding type/dependency checks and CandidateResponse's operational shape check.
 The graph supplies the immutable producing provenance; liveness and publication are later gates. -/
@@ -132,10 +182,7 @@ opaque RuntimeEnvironment.checkResult (environment : RuntimeEnvironment) (graph 
     let context ← ContextTelescope.capture bindings
     let expected ← inferType (← source.source.inContext context)
     checkNativeType context expected value node.origin
-    let mut supplied : Std.HashMap BindingId ValueBinding := {}
-    for (entry, value) in environment.context.entries.zip environment.values do
-      if let some value := value then supplied := supplied.insert entry.id value
-    checkDependencies context supplied expected value node.origin
+    checkDependencies context environment.bindingMap expected value node.origin
     let .ok candidate := CandidateResponse.ofValue source graph value
       | throwError "the prepared result has an incompatible computational interface"
     return candidate
