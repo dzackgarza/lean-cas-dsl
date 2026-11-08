@@ -1,5 +1,7 @@
 # Implementation plan: categorical research language
 
+**Work priority:** required functionality has absolute priority over performance. Performance work is the last phase of this project and begins only when every required capability works through the public interface. A slow run, timeout, resource budget or red CI job does not select work and does not block functional work. [Full rule](https://github.com/dzackgarza/lean-cas-dsl/issues/10#work-priority).
+
 Feature context: `001-categorical-research-language`.
 
 Read the [current consolidated implementation plan](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6664354269) against the [clarified specification](spec.md) and [permanent constitution](../../.specify/memory/constitution.md).
