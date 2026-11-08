@@ -3,10 +3,12 @@ module
 import CasCompiler.Read
 import CasCompiler.Resolve
 import LeanCategories.Catalogue.Semantics.Algebra.Fields
+import LeanCategories.Catalogue.Semantics.Algebra.ComputationDerivations
 public meta import Lean.Elab.Command
 meta import CasCompiler.Read
 meta import CasCompiler.Resolve
 meta import LeanCategories.Catalogue.Semantics.Algebra.Fields
+meta import LeanCategories.Catalogue.Semantics.Algebra.ComputationDerivations
 
 open Lean Meta Elab Term CasCompiler CasCatalogue
 
