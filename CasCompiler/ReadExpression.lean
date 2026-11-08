@@ -250,7 +250,8 @@ partial def readExpression
     let family ← sourceMemberFamily receiver name qualification
     let family ← match method, family with
       | some _, some _ =>
-        throwSemanticAmbiguity "a method and a member family both accept this selected receiver"
+        CasCatalogue.throwSemanticAmbiguity
+          "a method and a member family both accept this selected receiver"
       | some method, none => pure method
       | none, some family => pure family
       | none, none => throwError "no declared member family accepts this complete selected receiver"
@@ -353,7 +354,8 @@ partial def readExpression
     | `(cas_term| |$receiver:cas_term|) => do
       let receiver ← readExpression categoryOf receiver none
       unless receiver.category.any (·.role == .object) do
-        throwUnsupportedSource "source absolute-value formation requires its declared operation family"
+        CasCatalogue.throwUnsupportedSource
+          "source absolute-value formation requires its declared operation family"
       let some value ← sourceMethod receiver "cardinality"
         | throwError "the selected source object has no declared cardinality method"
       pure value
