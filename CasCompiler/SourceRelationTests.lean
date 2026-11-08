@@ -37,3 +37,35 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         unless bindings.size == 2 && (← isDefEq value expected) do
           throwError "the source relation changed its actual selected structure or context"
         checkWithKernel (← mkExpectedTypeHint (← mkEqRefl value) (← mkEq value expected))
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let session ← empty.assume `L (← `(LinOrd.{0}))
+  let category ← session.namedCategory Syntax.missing "LinearOrders" [.zero] #[]
+  let object ← session.term (← `(L))
+  let object ← object.inCategory category.expression category.value
+  let session ← session.defineTerm `A object
+  let session ← session.assume `x (← `(CasCatalogue.Foundation.PowerSets.orderCarrier A))
+  let session ← session.assume `y (← `(CasCatalogue.Foundation.PowerSets.orderCarrier A))
+  let session ← session.assume `unused (← `(Nat))
+  let expected ← session.term (← `(CasCatalogue.Foundation.PowerSets.le A (x, y)))
+  for (text, truth) in #[
+      ("x ≤ y", none), ("(x ≤ y) = false", some ``False),
+      ("(x ≤ y) = true", some ``True)] do
+    let question ← session.readQuestion (← sourceTerm text)
+    question.source.withOpen fun bindings value => do
+      let expected ← expected.source.inContext (← ContextTelescope.capture bindings)
+      let expected ← match truth with
+        | none => pure expected
+        | some declaration => mkEq expected (mkConst declaration)
+      unless bindings.size == 5 && (← isDefEq value expected) do
+        throwError "the relation or truth constant changed its arbitrary selected order"
+      checkWithKernel (← mkExpectedTypeHint (← mkEqRefl value) (← mkEq value expected))
+  let session ← session.assume `false (← `(Prop))
+  let question ← session.readQuestion (← sourceTerm "(x ≤ y) = false")
+  question.source.withOpen fun bindings value => do
+    let expected ← expected.source.inContext (← ContextTelescope.capture bindings)
+    let expected ← mkEq expected bindings[5]!.expression
+    unless ← isDefEq value expected do
+      throwError "a logical spelling displaced its exact lexical binding"
