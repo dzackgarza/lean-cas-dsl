@@ -51,6 +51,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let session ← session.assume `x (← nativeTerm "S")
   let session ← session.assume `y (← nativeTerm "S")
   let session ← session.assume `customAddition (← nativeTerm "Add S") .instImplicit
+  let session ← session.assume `customMapCall (← nativeTerm
+    "CoeFun (TypeCat.Hom (S × S) S) (fun _ => (S × S) → S)") .instImplicit
   let term ← session.read (← sourceTerm "x + y")
   term.source.withOpen fun bindings expression => do
     let pair ← mkAppM ``Prod.mk #[bindings[2]!.expression, bindings[3]!.expression]
@@ -65,13 +67,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         expression.containsFVar bindings[1]!.expression.fvarId! &&
         expression.containsFVar bindings[2]!.expression.fvarId! &&
         expression.containsFVar bindings[3]!.expression.fvarId! &&
-        !expression.containsFVar bindings[4]!.expression.fvarId! do
+        !expression.containsFVar bindings[4]!.expression.fvarId! &&
+        !expression.containsFVar bindings[5]!.expression.fvarId! do
       throwError "a source operation changed its selected ring, operands or dictionary"
   let session ← session.defineTerm `sum term
   let session ← session.assume `S (← nativeTerm "RingCat.{0}")
   let retained ← session.read (← sourceTerm "sum")
   retained.source.withOpen fun bindings expression => do
-    unless expression == bindings[5]!.expression do
+    unless expression == bindings[6]!.expression do
       throwError "a source operation was reconstructed after its structure name was shadowed"
 
 run_cmd Lean.Elab.Command.liftTermElabM do

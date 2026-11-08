@@ -70,16 +70,15 @@ def sourceRouteAgreements (state : SemanticState) (source : NativeSourceCategory
 
 /-- Consume a supplied carrier prefix, or the complete structural carrier family.
 Only checked uniform native equality identifies implicit alternatives. Actual functor
-actions, original objects, route references and equality evidence remain in the term.
+actions, original objects or arrows, route references and equality evidence remain in the term.
 Source: ObjectRefinement, structuralEdges and the native family-conversion rule. -/
 opaque sourceCarrier (source : NativeSourceJudgement) : TermElabM NativeSourceJudgement := do
   let some category := source.category
     | do
       discard <| getLevel source.value
       return source
-  unless category.role == .object do throwError "a source function domain must be an object"
   if category.expression.syntacticEq (.atom CategoryId.sets) then
-    discard <| getLevel source.value
+    if category.role == .object then discard <| getLevel source.value
     return source
   let state ← semanticState
   let mut value := source.value
@@ -98,17 +97,21 @@ opaque sourceCarrier (source : NativeSourceJudgement) : TermElabM NativeSourceJu
       let (domain, target) ← functorCategoryBundles action
       unless ← isDefEq domain bundle do
         throwError "the selected carrier application has a different complete source category"
-      value ← functorObject action value target
+      value ← match category.role with
+        | .object => functorObject action value target
+        | .morphism => mkAppM ``CategoryTheory.Functor.map #[action, value]
       bundle := target
     selectedEdges := selected.refs
     start := selected.target
   let routes ← carrierRoutes start
-  let proofs ← sourceRouteAgreements state ⟨.object, start, bundle, none⟩ routes
+  let proofs ← sourceRouteAgreements state ⟨category.role, start, bundle, none⟩ routes
   let some route := routes[0]?
     | throwError "carrier formation requires its source route"
   if !route.steps.isEmpty then
     let selected ← nativeRouteFunctor state route bundle
-    value ← functorObject selected.functor value selected.target
+    value ← match category.role with
+      | .object => functorObject selected.functor value selected.target
+      | .morphism => mkAppM ``CategoryTheory.Functor.map #[selected.functor, value]
     bundle := selected.target
   for proof in proofs.reverse do
     let body := value
@@ -119,7 +122,15 @@ opaque sourceCarrier (source : NativeSourceJudgement) : TermElabM NativeSourceJu
   value := .mdata (KVMap.empty.setString `CasCompiler.source.carrierRoutes refs) value
   let selection := category.carrier.map fun selected =>
     { selected with refs := #[], target := .atom CategoryId.sets, actions := #[] }
-  return ⟨value, some ⟨.object, .atom CategoryId.sets, bundle, selection⟩⟩
+  return ⟨value, some ⟨category.role, .atom CategoryId.sets, bundle, selection⟩⟩
+
+/-- Apply the selected complete carrier functor to an arrow before taking its function.
+Ordinary native functions retain their original expression and context. -/
+def sourceFunction (source : NativeSourceJudgement) : TermElabM Expr := do
+  if source.category.any (·.role == .morphism) then
+    let carrier ← sourceCarrier source
+    sourceSetFunction carrier.value
+  else pure source.value
 
 /-- The actual object and checked whole carrier family that supply an element type. -/
 structure NativeSourceElementOwner where

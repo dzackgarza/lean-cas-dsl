@@ -20,19 +20,7 @@ private def bindReceiver (row : MorphismEntry) (receiver : Expr) (slot : Nat) :
   let some parameter := parameters[slot]? | return none
   unless binders[slot]!.isExplicit do return none
   withConfig (fun config => { config with zetaDelta := false }) do
-    for earlier in parameters.take slot do
-      let earlier ← instantiateMVars earlier
-      unless earlier.isMVar do continue
-      let type ← whnfR (← inferType earlier)
-      let some name := type.getAppFn.constName? | continue
-      unless isStructure (← getEnv) name do continue
-      let .inductInfo info ← getConstInfo name | continue
-      let [constructor] := info.ctors | continue
-      discard <| checkedDeclaration constructor
-      let constructor ← mkConstWithFreshMVarLevels constructor
-      let (fields, _, result) ← forallMetaTelescopeReducing (← inferType constructor)
-      unless ← isDefEq result type do return none
-      unless ← isDefEq earlier (mkAppN constructor fields) do return none
+    unless ← expandSourceStructures (parameters.take slot) do return none
     unless ← isDefEq (← inferType parameter) (← inferType receiver) <&&>
         isDefEq parameter receiver do return none
     return some (← instantiateMVars (mkAppN declaration parameters))

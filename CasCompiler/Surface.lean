@@ -4,6 +4,7 @@ public import CasCompiler.Elaborate
 public import LeanCategories.Catalogue.Registry.Semantic
 public import LeanCategories.Catalogue.Semantics.Foundation.Catalogue
 public import CasCatalogue.InterpretationFailure
+public import Lean.Meta.Structure
 import Lean.Elab.App
 
 public section
@@ -11,6 +12,31 @@ public section
 namespace CasCompiler
 
 open Lean Meta Elab Term CasCatalogue
+
+/-- The function of the actual set map, using its fixed native category structure.
+Reuse: Mathlib.CategoryTheory.Category.Types.Basic, TypeCat.Hom.hom and Fun.toFun. -/
+def sourceSetFunction (value : Expr) : MetaM Expr := do
+  let function ← mkAppM ``TypeCat.Hom.hom #[value]
+  mkAppM ``TypeCat.Fun.toFun #[function]
+
+/-- Expose the native constructor fields of undetermined structure parameters.
+Reuse: the selected receiver rule and Lean's checked structure constructors. The complete
+source type must determine these fields; this operation does not synthesize instances. -/
+def expandSourceStructures (parameters : Array Expr) : MetaM Bool := do
+  for parameter in parameters do
+    let parameter ← instantiateMVars parameter
+    unless parameter.isMVar do continue
+    let type ← whnfR (← inferType parameter)
+    let some name := type.getAppFn.constName? | continue
+    unless isStructure (← getEnv) name do continue
+    let .inductInfo info ← getConstInfo name | continue
+    let [constructor] := info.ctors | continue
+    discard <| checkedDeclaration constructor
+    let constructor ← mkConstWithFreshMVarLevels constructor
+    let (fields, _, result) ← forallMetaTelescopeReducing (← inferType constructor)
+    unless ← isDefEq result type do return false
+    unless ← isDefEq parameter (mkAppN constructor fields) do return false
+  return true
 
 /-- Locate the exact registered source domains through original native definitions. -/
 def registeredDomain (value : Expr) : MetaM (Expr × Array ObjectEntry) := do
@@ -338,15 +364,22 @@ structure NativeRouteFunctor where
 Reuse: Registry.Semantic.routeFunctor's composition, edgeFunctor and functorCategoryBundles. -/
 def nativeRouteFunctor (state : SemanticState) (route : Route) (category : Expr) :
     MetaM NativeRouteFunctor := do
-  for ref in route.refs do checkEdgeDeclarations state ref
-  let actions ← route.refs.mapM state.edgeFunctor
+  let mut current := category
+  let mut actions := #[]
+  for ref in route.refs do
+    checkEdgeDeclarations state ref
+    let action ← state.edgeFunctor ref
+    unless ← expandSourceStructures ((← getMVars action).map mkMVar) do
+      throwError "the selected functor's native parameter structures are inconsistent"
+    let (domain, target) ← functorCategoryBundles action
+    unless ← isDefEq domain current do
+      throwError "the selected functor edge {repr ref} has a different complete source category: expected {current}, declared {domain}"
+    actions := actions.push (← instantiateMVars action)
+    current ← instantiateMVars target
   let functor ← match actions[0]? with
     | none => categoryIdentity category
     | some first => (actions.drop 1).foldlM mkFunctorComp first
-  let (domain, target) ← functorCategoryBundles functor
-  unless ← isDefEq domain category do
-    throwError "the selected functor has a different complete source category"
-  return ⟨functor, target, actions⟩
+  return ⟨functor, current, actions⟩
 
 /-- Retain the route, actual edge parameters and comparison of an object refinement.
 Reuse: ObjectRefinement and applyObjectParameters at the original object arguments. -/

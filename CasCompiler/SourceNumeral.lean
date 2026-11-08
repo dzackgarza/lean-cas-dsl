@@ -122,7 +122,8 @@ private def numeralCandidate (row : NumeralEntry) (context : NumeralContext)
     throwError "the admitted numeral is not a native point map"
   let source := type.getAppArgs[2]!
   let terminalPoint ← mkAppOptM ``default #[some source, none]
-  let value ← elabAppArgs point #[] #[Arg.expr terminalPoint] (some expected) false false
+  let function ← sourceSetFunction point
+  let value ← elabAppArgs function #[] #[Arg.expr terminalPoint] (some expected) false false
   let value ← match context with
     | .selected _ evidence =>
       withLetDecl (← mkFreshUserName `elementOwnerAgreement) (← inferType evidence) evidence

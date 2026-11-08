@@ -31,8 +31,9 @@ partial def readExpression
     (source : TSyntax `cas_term) (expected : Option Expr)
     (qualification : Option String := none) : TermElabM NativeSourceJudgement :=
   withRef source do
-  let application := fun (function : Expr) (arguments : Array (TSyntax `cas_term))
+  let application := fun (source : NativeSourceJudgement) (arguments : Array (TSyntax `cas_term))
       (expected : Option Expr) => do
+    let function ← if arguments.isEmpty then pure source.value else sourceFunction source
     let holes ← arguments.mapM fun _ => mkFreshExprMVar none
     discard <| elabAppArgs function #[] (holes.map Arg.expr) expected false false
     let mut actual := #[]
@@ -79,8 +80,9 @@ partial def readExpression
     let operation ← sourceOperation categoryOf name domain contextual hints operands.size
       (numerals.map fun numeral type => do
         return (← readExpression categoryOf numeral (some type)).value)
+    let function ← sourceSetFunction operation.value
     let argument ← mkFreshExprMVar none
-    discard <| elabAppArgs operation.value #[] #[Arg.expr argument] none false false
+    discard <| elabAppArgs function #[] #[Arg.expr argument] none false false
     let cursor : IO.Ref Nat ← liftM (m := IO) (IO.mkRef 0)
     let readOperand : TSyntax `cas_term → Expr → TermElabM Expr := fun source type => do
       let index : Nat ← liftM (m := IO) cursor.get
@@ -100,6 +102,7 @@ partial def readExpression
         let iso ← whnfR (← inferType comparison)
         let value ← read iso.getAppArgs[3]!
         let inverse ← mkAppM ``CategoryTheory.Iso.inv #[comparison]
+        let inverse ← sourceSetFunction inverse
         elabAppArgs inverse #[] #[Arg.expr value] (some type) false false
       else read type
     let type ← instantiateMVars (← inferType argument)
@@ -108,11 +111,12 @@ partial def readExpression
           | throwError "the source operation requires its original operand"
         readOperand operand type
       else sourceTuple operands type readOperand
-    let value ← elabAppArgs operation.value #[] #[Arg.expr value] none false false
+    let value ← elabAppArgs function #[] #[Arg.expr value] none false false
     let value ← if operation.outputTransport then do
         let some comparison := operation.comparison
           | throwError "the source result lost its supplied comparison"
         let forward ← mkAppM ``CategoryTheory.Iso.hom #[comparison]
+        let forward ← sourceSetFunction forward
         elabAppArgs forward #[] #[Arg.expr value] expected false false
       else pure value
     return (⟨value, none⟩ : NativeSourceJudgement)
@@ -145,13 +149,13 @@ partial def readExpression
       (arguments : Array (TSyntax `cas_term)) => do
     let (entry, categoryEntry) ← selectObject name category expected
     let (bundle, value) ← registeredExpressions (.inl entry) categoryEntry fun function expected =>
-      application function arguments expected
+      application ⟨function, none⟩ arguments expected
     return (⟨value, some ⟨.object, categoryEntry.expression, bundle,
       ← objectCarrierSelection entry bundle value⟩⟩ : NativeSourceJudgement)
   let registered := fun (name : Ident) (arguments : Array (TSyntax `cas_term)) => do
     if let some declaration := (← getLCtx).findFromUserName? name.getId then
       let selected ← categoryOf declaration.fvarId
-      let value ← application (mkFVar declaration.fvarId) arguments expected
+      let value ← application ⟨mkFVar declaration.fvarId, selected⟩ arguments expected
       return ⟨value, if arguments.isEmpty then selected else none⟩
     let (entry, categoryEntry) ← selectNamed
       (name.getId.toString (escape := false)) qualification expected
@@ -163,28 +167,31 @@ partial def readExpression
       let (_, binders, _) ← forallMetaTelescopeReducing info.type
       pure (binders.filter (·.isExplicit)).size
     let (bundle, value) ← registeredExpressions entry categoryEntry fun function expected =>
-      application function (arguments.take parameterCount) expected
-    if parameterCount < arguments.size then
-      return ⟨← application value (arguments.drop parameterCount) expected, none⟩
+      application ⟨function, none⟩ (arguments.take parameterCount) expected
     let role := match entry with
       | .inl _ => SourceCategoryRole.object
       | .inr _ => SourceCategoryRole.morphism
     let carrier ← match entry with
       | .inl object => objectCarrierSelection object bundle value
       | .inr _ => pure none
-    return ⟨value, some ⟨role, categoryEntry.expression, bundle, carrier⟩⟩
+    let result : NativeSourceJudgement :=
+      ⟨value, some ⟨role, categoryEntry.expression, bundle, carrier⟩⟩
+    if parameterCount < arguments.size then
+      return ⟨← application result (arguments.drop parameterCount) expected, none⟩
+    return result
   let member := fun (receiver : TSyntax `cas_term) (name : String)
       (arguments : Array (TSyntax `cas_term)) => do
     let receiver ← readExpression categoryOf receiver none
     let family ← sourceMemberFamily receiver name qualification
     if arguments.size == 1 then
-      return (⟨← application family.value arguments expected, none⟩ : NativeSourceJudgement)
+      return (⟨← application family arguments expected, none⟩ : NativeSourceJudgement)
+    let function ← sourceFunction family
     let argument ← mkFreshExprMVar none
-    discard <| elabAppArgs family.value #[] #[Arg.expr argument] expected false false
+    discard <| elabAppArgs function #[] #[Arg.expr argument] expected false false
     let type ← instantiateMVars (← inferType argument)
     let argument ← sourceTuple arguments type fun source type => do
       return (← readExpression categoryOf source (some type)).value
-    return (⟨← elabAppArgs family.value #[] #[Arg.expr argument] expected false false, none⟩ :
+    return (⟨← elabAppArgs function #[] #[Arg.expr argument] expected false false, none⟩ :
       NativeSourceJudgement)
   let readFunctorAction := fun (role : SourceCategoryRole) (receiver : TSyntax `cas_term)
       (id : Ident) (arguments : Array (TSyntax `cas_term)) => do
@@ -195,7 +202,7 @@ partial def readExpression
         throwError "the source functor action has a different object or morphism role"
     let selected ← viewExpressions entry
         (receiver.category.map fun category => (category.expression, category.bundle)) fun constant =>
-      application constant arguments none
+      application ⟨constant, none⟩ arguments none
     let image ← match role with
       | .object => functorObject selected.functor receiver.value selected.targetBundle
       | .morphism => do
@@ -338,10 +345,10 @@ partial def readExpression
       annotated body domain
     | `(cas_term| ($function:cas_term)($arguments:cas_term,*)) => do
       let function ← readExpression categoryOf function none
-      pure ⟨← application function.value arguments.getElems expected, none⟩
+      pure ⟨← application function arguments.getElems expected, none⟩
     | `(cas_term| $function:cas_term($arguments:cas_term,*)) => do
       let function ← readExpression categoryOf function none
-      pure ⟨← application function.value arguments.getElems expected, none⟩
+      pure ⟨← application function arguments.getElems expected, none⟩
     | _ =>
       CasCatalogue.throwUnsupportedSource
         m!"source translation is not implemented for expression {source}"

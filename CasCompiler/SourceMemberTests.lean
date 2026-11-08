@@ -95,3 +95,39 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       then throw error
     pure true
   unless rejected do throwError "a member family inferred a structure from an unrelated set"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let session ← empty.assume `R (← nativeTerm "CommRingCat.{0}")
+  let session ← session.assume `W (← nativeTerm "ModuleCat.{0} R")
+  let session ← session.assume `X
+    (← nativeTerm "LeanCategories.Modules.Bilinear.Valued.BilinModuleCat R W")
+  let session ← session.assume `Y
+    (← nativeTerm "LeanCategories.Modules.Bilinear.Valued.BilinModuleCat R W")
+  let ringType ← session.term (← nativeTerm "(R : Type)")
+  let valueType ← session.term (← nativeTerm "(W : Type)")
+  let category ← session.namedCategory Syntax.missing "Bil" [.zero] #[ringType, valueType]
+  let first ← session.term (← nativeTerm "X")
+  let first ← first.inCategory category.expression category.value
+  let session ← session.defineTerm `A first
+  let second ← session.term (← nativeTerm "Y")
+  let second ← second.inCategory category.expression category.value
+  let session ← session.defineTerm `B second
+  let session ← session.assume `f (← nativeTerm "A ⟶ B")
+  let arrow ← session.term (← nativeTerm "f")
+  let arrow ← arrow.inCategory category.expression category.value .morphism
+  let session ← session.defineTerm `g arrow
+  let session ← session.assume `x (← nativeTerm "A.carrier")
+  let expected ← session.term (← nativeTerm
+    "LeanCategories.Modules.Bilinear.Valued.BilinModuleCat.underlyingMap g x")
+  for source in #["g(x)", "(g)(x)"] do
+    let result ← session.read (← sourceTerm source)
+    result.source.withOpen fun bindings value => do
+      let context ← ContextTelescope.capture bindings
+      let expected ← expected.source.inContext context
+      unless value.containsFVar bindings[7]!.expression.fvarId! &&
+          value.containsFVar bindings[8]!.expression.fvarId! &&
+          (← isDefEq value expected) do
+        throwError "a selected source arrow changed its arbitrary native function or operand"
+      checkWithKernel (← mkExpectedTypeHint (← mkEqRefl value) (← mkEq value expected))
