@@ -27,6 +27,16 @@ LEAVES = {
 LEAF_REPOSITORY = 'https://github.com/dzackgarza/lean-cas-dsl-leaves.git'
 
 
+def verify_workflow_sources(runtime: Path) -> dict:
+    sources = {}
+    for name, revision in LEAVES.items():
+        source = candidate.state(runtime / 'workflow-sources' / name)
+        if source['commit'] != revision or source['workingTree']:
+            raise ValueError('Workflow specimen differs from its exact clean revision')
+        sources[name] = source
+    return sources
+
+
 def restore_leaves(runtime):
     sources = {}
     for name, revision in LEAVES.items():
@@ -71,7 +81,7 @@ def execution_artifacts(root, selected):
     return {str(path): candidate.record(path) for path in sorted(paths)}
 
 
-def run(root, runtime, published):
+def run(root, runtime, published, diagnostic_execution=None, sets_execution=None):
     evidence = runtime / 'evidence'
     report_path = evidence / 'connected-workflows-summary.json'
     if report_path.exists():
@@ -97,7 +107,9 @@ def run(root, runtime, published):
     if not sage or not Path(sage).is_file() or not lake:
         raise ValueError('Use the installed candidate engines and Lean toolchain')
     os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
-    leaf_sources = restore_leaves(runtime)
+    leaf_sources = (verify_workflow_sources(runtime)
+                    if diagnostic_execution is not None or sets_execution is not None
+                    else restore_leaves(runtime))
     sources = {**producer, **leaf_sources}
     diagnostic = Path(leaf_sources['workflowLeaves']['path']) / 'diagnostics/v1/leaves.json'
     existing = Path(leaf_sources['existingLeaves']['path']) / 'leaves.json'
@@ -109,6 +121,13 @@ def run(root, runtime, published):
                    *sorted((root / 'examples/kernel-v1').glob('*.cas'))]
     fixed = {item['path']: item for item in gate['guardedInputs']}
     fixed.update({str(path): candidate.record(path) for path in fixed_paths})
+    execution_inputs = {}
+    for name, original, execution in [('diagnostic', diagnostic, diagnostic_execution),
+                                       ('sets', existing, sets_execution)]:
+        if execution is not None:
+            receipt = candidate.execution_manifest_inputs(original, execution, selected['cas_leaf_contracts'])
+            execution_inputs[name] = receipt
+            fixed.update({item['path']: item for item in receipt['guards']})
     generated_inputs = {}
     artifacts = execution_artifacts(root, selected)
     report = {
@@ -117,6 +136,7 @@ def run(root, runtime, published):
         'verifiedBuild': gate['verifiedBuild'], 'readerPreflight': gate['readerPreflight'],
         'startedUtc': candidate.stamp(), 'status': 'running', 'steps': [],
         'fixedInputs': fixed, 'artifactsBefore': artifacts,
+        'executionManifests': execution_inputs,
         'sourceSelection': 'Original diagnostic specimen plus only the two existing Sets registrations',
     }
     candidate.write(report_path, report)
@@ -134,11 +154,16 @@ def run(root, runtime, published):
         return evidence / (name + '.log')
 
     def demo_arguments(output):
-        return [str(root / 'scripts/run_kernel_v1_demo.py'),
+        arguments = [str(root / 'scripts/run_kernel_v1_demo.py'),
                 '--contract', str(selected['cas_leaf_contracts']),
                 '--sage-python', sage, '--diagnostic-manifest', str(diagnostic),
                 '--leaves-manifest', str(existing), '--packages', str(runtime / 'packages.json'),
                 '--lake', lake, '--output', str(output)]
+        for flag, execution in [('--diagnostic-execution-manifest', diagnostic_execution),
+                                ('--sets-execution-manifest', sets_execution)]:
+            if execution is not None:
+                arguments.extend([flag, str(execution.resolve(strict=True))])
+        return arguments
 
     try:
         cli_output = evidence / 'connected-workflows'
@@ -263,10 +288,13 @@ def main():
                         default=Path(os.environ.get('RUNNER_TEMP', '/tmp')) / 'kernel-v1-candidate')
     parser.add_argument('--published-kernel-commit', default=os.environ.get('GITHUB_SHA'),
                         help='explicit published source SHA; defaults to the Actions checkout SHA')
+    parser.add_argument('--diagnostic-execution-manifest', type=Path)
+    parser.add_argument('--sets-execution-manifest', type=Path)
     args = parser.parse_args()
     if not args.published_kernel_commit:
         parser.error('provide --published-kernel-commit outside GitHub Actions')
-    return run(args.root.resolve(), args.runtime.resolve(), args.published_kernel_commit)
+    return run(args.root.resolve(), args.runtime.resolve(), args.published_kernel_commit,
+               args.diagnostic_execution_manifest, args.sets_execution_manifest)
 
 
 if __name__ == '__main__':

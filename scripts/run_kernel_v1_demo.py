@@ -179,6 +179,8 @@ def arguments() -> argparse.Namespace:
                         default=ROOT.parent / "lean-cas-dsl-leaves-diagnostic/diagnostics/v1/leaves.json")
     parser.add_argument("--leaves-manifest", type=Path,
                         default=ROOT.parent / "lean-cas-dsl-leaves/leaves.json")
+    parser.add_argument("--diagnostic-execution-manifest", type=Path)
+    parser.add_argument("--sets-execution-manifest", type=Path)
     parser.add_argument("--suite", type=Path, default=ROOT / "examples/kernel-v1",
                         help=".cas file or directory; defaults to the four V1 examples")
     parser.add_argument("--output", type=Path, default=ROOT.parent / "kernel-v1-run",
@@ -207,7 +209,19 @@ def main() -> int:
         raise ValueError(f"contract checkout has no python/cas_port.py: {contract}")
     sage = executable(args.sage_python, "Sage Python")
     diagnostic, existing = args.diagnostic_manifest.resolve(), args.leaves_manifest.resolve()
-    manifest = selected_manifest(diagnostic, existing)
+    import ci_kernel_candidate as candidate
+    execution_inputs = {}
+    selected = []
+    for name, original, execution in [
+            ('diagnostic', diagnostic, args.diagnostic_execution_manifest),
+            ('sets', existing, args.sets_execution_manifest)]:
+        if execution is None:
+            selected.append(original)
+        else:
+            execution_inputs[name] = candidate.execution_manifest_inputs(original, execution, contract)
+            selected.append(execution.resolve(strict=True))
+    manifest = selected_manifest(*selected)
+    execution_guards = [item for receipt in execution_inputs.values() for item in receipt['guards']]
     output = args.output.resolve()
     if output == ROOT or ROOT in output.parents:
         raise ValueError("choose --output outside the source repository")
@@ -238,10 +252,13 @@ def main() -> int:
     write_json(output / "inputs.json", {
         "suite": str(suite), "contract": str(contract), "sagePython": sage,
         "command": command, "sources": {str(path): digest(path) for path in source_paths},
+        "executionManifests": execution_inputs,
     })
     print(f"Selected {len(manifest['registrations'])} registrations; "
           f"{len(assertions)} demo assertions. Configuration: {manifest_path}", flush=True)
     if args.prepare_only:
+        if candidate.changed_records(execution_guards):
+            raise ValueError("execution manifest inputs changed during preparation")
         print("Prepared only; no CAS computation, Sage import, or build has run.")
         print("Start the existing casdsl notebook kernel with these inherited variables:")
         for name, value in (("CAS_LEAF_CONTRACT_PATH", str(contract)),
@@ -258,6 +275,8 @@ def main() -> int:
     environment["CAS_LEAVES"] = str(manifest_path)
     report.unlink(missing_ok=True)
     print("Running: " + shlex.join(command), flush=True)
+    if candidate.changed_records(execution_guards):
+        raise ValueError("execution manifest inputs changed before execution")
     # Stream the existing harness output and retain it; impose no runtime budget.
     with (output / "execution.log").open("w", encoding="utf-8") as log:
         with subprocess.Popen(command, cwd=ROOT, env=environment, stdout=subprocess.PIPE,
@@ -268,6 +287,8 @@ def main() -> int:
                 log.write(line)
                 log.flush()
             returncode = process.wait()
+    if candidate.changed_records(execution_guards):
+        raise ValueError("execution manifest inputs changed during execution")
     valid = check_report(report, assertions)
     if returncode != 0:
         print(f"FAIL: CAS harness exited with status {returncode}; see {output / 'execution.log'}",
