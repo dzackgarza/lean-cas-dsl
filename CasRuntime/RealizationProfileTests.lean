@@ -38,8 +38,8 @@ private def rejected (manifest : Manifest) (json : Json) : MetaM Unit := do
   unless rejected do throwError "an invalid realization profile was admitted"
 
 run_cmd Lean.Elab.Command.liftTermElabM do
-  let some path ← IO.getEnv "CAS_REALIZATION_TEST_MANIFEST"
-    | throwError "provide the unchanged original manifest for realization profile controls"
+  let path : System.FilePath := (← IO.getEnv "CAS_LEAVES").getD ".lake/packages/cas_leaves"
+  let path := if path.extension == some "json" then path else path / manifestFile
   let .ok manifest ← Manifest.read path | throwError "the original manifest is unreadable"
   let registrations := manifest.registrations.filter (·.operation == "meth.cardinality")
   unless registrations.size >= 2 do throwError "the original cardinality registrations are missing"
