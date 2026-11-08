@@ -24,17 +24,17 @@ private def methodFunctor (state : SemanticState) (route : Route) (method : Meth
     | throwError "the source method has no registered functor"
   discard <| checkedDeclaration entry.declaration
   let selected ← nativeRouteFunctor state route bundle
-  let along ← match method.shape with
+  let transport ← match method.shape with
     | .object => pure selected.functor
     | .isoInvariant => mkAppM ``CategoryTheory.Functor.core #[selected.functor]
   let function ← registeredFunctorInstance entry
   unless ← expandSourceStructures ((← getMVars function).map mkMVar) do
     throwError "the method functor has inconsistent native category parameters"
-  let (_, expected) ← functorCategoryBundles along
+  let (_, expected) ← functorCategoryBundles transport
   let (declared, _) ← functorCategoryBundles function
   unless ← isDefEq declared expected do
     throwError "the method functor has a different complete selected source category"
-  let function ← mkFunctorComp along function
+  let function ← mkFunctorComp transport function
   let function ← instantiateMVars function
   if function.hasMVar || function.hasLevelMVar then
     throwUnsupportedSource "the source method requires its complete declaration parameters"
@@ -112,9 +112,9 @@ opaque sourceMethod (receiver : NativeSourceJudgement) (name : String) :
     value ← withLetDecl (← mkFreshUserName `methodFamilyAgreement) (← inferType proof) proof
       fun binding => mkLetFVars #[binding] value
         (usedLetOnly := false) (generalizeNondepLet := false)
-  let value := sourceReference ``MethodEntry first.entry.id.raw first.functor.declaration value
-  let value := Expr.mdata (KVMap.empty.setString `CasCompiler.source.methodRoutes
-    (reprStr (families.map fun family => (family.entry.id, family.route.refs)))) value
-  return some ⟨value, some ⟨.object, first.functor.target, target, none⟩⟩
+  let referenced := sourceReference ``MethodEntry first.entry.id.raw first.functor.declaration value
+  let referenced := Expr.mdata (KVMap.empty.setString `CasCompiler.source.methodRoutes
+    (reprStr (families.map fun family => (family.entry.id, family.route.refs)))) referenced
+  return some ⟨referenced, some ⟨.object, first.functor.target, target, none⟩⟩
 
 end CasCompiler
