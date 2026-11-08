@@ -12,6 +12,15 @@ meta import LeanCategories.Catalogue.Semantics.Modules.Bilinear.Valued.Degenerat
 
 open Lean Meta Elab Term CasCompiler
 
+universe u₁ u₂ v₁ v₂
+
+-- The native layout retains independent object and morphism universes at both boundaries.
+example {C : Type u₁} {D : Type u₂} [CategoryTheory.Category.{v₁} C]
+    [CategoryTheory.Category.{v₂} D] (U : CategoryTheory.Functor C D)
+    (selected : CasCatalogue.MonoLift U) (X : C) (K : D)
+    (i : K ⟶ U.obj X) (monicity : CategoryTheory.Mono i) : SourceLiftApplication U :=
+  ⟨selected, X, K, i, monicity⟩
+
 -- Reuse the original selected application and accepted MonoLift projection terms.
 -- This checks native source translation, without deciding any acceptance question.
 run_cmd Lean.Elab.Command.liftTermElabM do

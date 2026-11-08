@@ -10,10 +10,13 @@ namespace CasCompiler
 
 open CategoryTheory
 
+universe u₁ u₂ v₁ v₂
+
 /-- Native storage for a selected application of the independent lift interface.
 This records its original inputs; all resulting operations are the upstream projections.
 Source: MonoLift and the mathematical-input contract, existing lift and universal data. -/
-structure SourceLiftApplication {C D : Type*} [Category C] [Category D] (U : C ⥤ D) where
+structure SourceLiftApplication {C : Type u₁} {D : Type u₂}
+    [Category.{v₁} C] [Category.{v₂} D] (U : C ⥤ D) where
   selected : CasCatalogue.MonoLift U
   object : C
   domain : D
