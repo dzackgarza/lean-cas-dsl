@@ -366,14 +366,22 @@ structure SourceOperationFamily where
   binding : OperationEntry
   term : SourceTerm
 
-/-- Form the whole native operation before selecting its source object or operands.
-Reuse: validateOperation's object/numeral boundary and withRigidArguments. -/
-def nativeOperationFamily (state : SemanticState) (source : CategoryExpr)
-    (categoryFamily : Expr) (route : Route) (binding : OperationEntry) : MetaM Expr := do
+/-- A complete declaration family and the position of its original source object. -/
+structure NativeOwnedFamily where
+  value : Expr
+  objectIndex : Nat
+
+/-- Route a whole declaration at a rigid source object, retaining independent parameters.
+Reuse: nativeOperationFamily's source telescope and withRigidArguments; the actual operation
+or numeral signature determines its object position. -/
+def nativeOwnedFamily (state : SemanticState) (source : CategoryExpr)
+    (categoryFamily : Expr) (route : Route) (declaration : Name)
+    (objectPosition : Array BinderInfo → Option Nat) : MetaM NativeOwnedFamily := do
   unless source.syntacticEq route.source do
-    throwError "the operation family has a different complete symbolic source"
-  discard <| checkedDeclaration binding.declaration
-  forallTelescopeReducing (← inferType categoryFamily) fun parameters _ => do
+    throwError "the declaration family has a different complete symbolic source"
+  discard <| checkedDeclaration declaration
+  let mut objectIndex := 0
+  let value ← forallTelescopeReducing (← inferType categoryFamily) fun parameters _ => do
     let category := mkAppN categoryFamily parameters
     let selected ← nativeRouteFunctor state route category
     let functor := selected.functor
@@ -381,21 +389,30 @@ def nativeOperationFamily (state : SemanticState) (source : CategoryExpr)
     withLocalDeclD `sourceObject carrier fun object => do
       let prefunctor ← mkAppM ``CategoryTheory.Functor.toPrefunctor #[functor]
       let image ← mkAppM ``Prefunctor.obj #[prefunctor, object]
-      let constant ← mkConstWithFreshMVarLevels binding.declaration
+      let constant ← mkConstWithFreshMVarLevels declaration
       let (arguments, infos, result) ← forallMetaTelescopeReducing (← inferType constant)
-      unless arguments.size > binding.numerals do
-        throwError "the whole source operation has no object parameter"
+      let some position := objectPosition infos
+        | throwError "the whole declaration family has no object parameter"
       unless (← whnfR result).isAppOf ``Quiver.Hom do
-        throwError "the source operation does not retain its whole morphism result"
-      let objectIndex := arguments.size - 1 - binding.numerals
-      unless ← isDefEq (← inferType arguments[objectIndex]!) (← inferType image) <&&>
-          isDefEq arguments[objectIndex]! image do
-        throwError "the source operation has a different complete routed object"
-      withRigidArguments arguments infos 0 objectIndex fun prefixParameters => do
-        withRigidArguments arguments infos (objectIndex + 1) arguments.size
+        throwError "the declaration family does not retain its whole morphism result"
+      unless ← isDefEq (← inferType arguments[position]!) (← inferType image) <&&>
+          isDefEq arguments[position]! image do
+        throwError "the declaration family has a different complete routed object"
+      withRigidArguments arguments infos 0 position fun prefixParameters => do
+        objectIndex := parameters.size + prefixParameters.size
+        withRigidArguments arguments infos (position + 1) arguments.size
             fun suffixParameters => do
           let body ← instantiateMVars (mkAppN constant arguments)
           mkLambdaFVars (parameters ++ prefixParameters ++ #[object] ++ suffixParameters) body
+  return ⟨value, objectIndex⟩
+
+/-- Form the whole native operation before selecting its source object or operands.
+Reuse: validateOperation's object/numeral boundary and nativeOwnedFamily. -/
+def nativeOperationFamily (state : SemanticState) (source : CategoryExpr)
+    (categoryFamily : Expr) (route : Route) (binding : OperationEntry) : MetaM Expr := do
+  let family ← nativeOwnedFamily state source categoryFamily route binding.declaration fun infos =>
+    if infos.size > binding.numerals then some (infos.size - 1 - binding.numerals) else none
+  return family.value
 
 private def operationTerm (state : SemanticState) (session : SourceSession) (reference : Syntax)
     (source : SourceCategoryFamily) (route : Route) (binding : OperationEntry) :
