@@ -304,8 +304,8 @@ def sourceObjectNumeral (number : Nat) (selected : NativeSourceCategory)
 Reuse: the public literalExpr namespace rule and LiteralEntry; source is never replayed. -/
 def sourceObjectNamedLiteral (name : Name) (selected : NativeSourceCategory)
     (expected : Expr) : TermElabM (Option NativeSourceJudgement) :=
-  sourceObjectLiteral selected expected fun namespace literalType => do
-    let declaration := namespace ++ name
+  sourceObjectLiteral selected expected fun typeName literalType => do
+    let declaration := typeName ++ name
     discard <| checkedDeclaration declaration
     elabTermEnsuringType (mkIdent declaration) (some literalType)
 
