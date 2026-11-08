@@ -8,7 +8,7 @@ open Lean CasRuntime
 
 private def check (graph : RealizationGraph size) (node : Fin size)
     (count : RealizationCount) (choice : Option Nat) : Except String Unit := do
-  let result := graph.grounded
+  let some result := graph.grounded | throw "the finite grounding analysis did not return a result"
   unless result.counts[node] == count do
     throw "finite grounded realization multiplicity differs from the required count"
   unless (← result.uniqueAlternative node) == choice do
@@ -34,11 +34,12 @@ run_cmd Lean.Elab.Command.liftIO <| IO.ofExcept do
   -- Source order changes an ordinal, never eligibility or multiplicity.
   check (⟨#v[#[#[1], #[]], #[#[1]]]⟩ : RealizationGraph 2) 0 .one (some 1)
   let graph : RealizationGraph 4 := ⟨#v[#[#[1]], #[#[2]], #[#[3]], #[#[]]]⟩
-  let result := graph.grounded
+  let some result := graph.grounded | throw "the finite grounding analysis did not return a result"
   for node in [0:4] do
     if bound : node < 4 then
-      unless result.counts[⟨node, bound⟩] == .one &&
-          (← result.uniqueAlternative ⟨node, bound⟩) == some 0 do
+      let current : Fin 4 := ⟨node, bound⟩
+      unless result.counts[current] == RealizationCount.one &&
+          (← result.uniqueAlternative current) == some 0 do
         throw "the unique graph lost a reached child or its actual alternative"
   -- Structural finiteness supplies the closure size; no guessed depth bounds it.
   let deep : RealizationGraph 257 := ⟨Vector.ofFn fun node =>

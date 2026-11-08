@@ -44,25 +44,35 @@ def RealizationGraph.step (graph : RealizationGraph size) (counts : Vector Reali
   Vector.ofFn fun node => graph.alternatives[node].foldl
     (fun count children => count.add (RealizationGraph.alternativeCount counts children)) .zero
 
-/-- Iterate until the equations themselves stabilize, without a depth or search bound.
-Reuse: Lean's equation-preserving tail-recursive partial_fixpoint construction,
-https://lean-lang.org/doc/reference/latest/Definitions/Recursive-Definitions/.
-From zero the finite saturated counts can rise at most twice per node. The complete
-source-closure and tree-count correctness obligations remain separate from this iteration. -/
-def RealizationGraph.stabilize (graph : RealizationGraph size)
-    (counts : Vector RealizationCount size) : Vector RealizationCount size :=
-  let next := graph.step counts
-  if next == counts then next else graph.stabilize next
-partial_fixpoint
+/-- Simultaneous zero-seeded approximation at a fixed finite tree height. -/
+def RealizationGraph.atHeight (graph : RealizationGraph size) : Nat → Vector RealizationCount size
+  | 0 => Vector.replicate size .zero
+  | height + 1 => graph.step (graph.atHeight height)
 
 /-- Stable counts for the supplied finite graph, retaining its original adjacency and ordinals.
 No provider call, selected execution binding or mathematical judgment is created here. -/
 structure GroundedRealizations (graph : RealizationGraph size) where
+  height : Nat
   counts : Vector RealizationCount size
+  generated : counts = graph.atHeight height
+  fixed : graph.step counts = counts
+
+/-- Iterate until the equations stabilize, retaining checked generation and fixed-point proofs.
+Reuse: Lean's equation-preserving monadic partial_fixpoint construction,
+https://lean-lang.org/doc/reference/latest/Definitions/Recursive-Definitions/.
+There is no depth or search bound. Nontermination is not a zero count. Source-demand closure,
+universal termination and the realization-tree interpretation remain separate obligations. -/
+def RealizationGraph.stabilize (graph : RealizationGraph size) (height : Nat)
+    (counts : Vector RealizationCount size) (generated : counts = graph.atHeight height) :
+    Option (GroundedRealizations graph) :=
+  if fixed : graph.step counts = counts then
+    some ⟨height, counts, generated, fixed⟩
+  else graph.stabilize (height + 1) (graph.step counts) (congrArg graph.step generated)
+partial_fixpoint
 
 /-- Least grounding iteration from zero, as specified by execution contract v2 §5.1. -/
-def RealizationGraph.grounded (graph : RealizationGraph size) : GroundedRealizations graph :=
-  ⟨graph.stabilize (Vector.replicate size .zero)⟩
+def RealizationGraph.grounded (graph : RealizationGraph size) : Option (GroundedRealizations graph) :=
+  graph.stabilize 0 (Vector.replicate size .zero) rfl
 
 /-- Retain the original unique alternative ordinal; zero and many counts remain in counts.
 This is graph analysis only. A caller cannot infer noImplementation from an incomplete
