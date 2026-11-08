@@ -48,7 +48,9 @@ private def methodReceiver (state : SemanticState) (receiver : NativeSourceJudge
     | throwError "a source morphism method requires its registered arrow constructor"
   discard <| checkedDeclaration constructor.semantics
   let bundle ← applyConstructorInterface constructor.semantics #[category.bundle] #[category.bundle]
-  let value ← mkAppM ``CategoryTheory.Arrow.mk #[receiver.value]
+  let expected ← mkAppM ``CategoryTheory.Bundled.α #[bundle]
+  let constructor ← mkConstWithFreshMVarLevels ``CategoryTheory.Arrow.mk
+  let value ← elabAppArgs constructor #[] #[Arg.expr receiver.value] (some expected) false false
   return some ⟨value, some ⟨.object,
     .construct constructor.id #[.category category.expression], bundle, none⟩⟩
 
