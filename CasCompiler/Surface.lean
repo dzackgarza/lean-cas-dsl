@@ -166,6 +166,13 @@ opaque selectCategory (state : SemanticState) (name : String) : TermElabM NamedC
   | #[] => throwError "unregistered source category: {name}"
   | _ => throwSemanticAmbiguity m!"source category {name} has several registrations"
 
+-- ObjectEntry permits distinct explicit names for refinements of the same base.
+-- validateObject checks the base reference before it enters SemanticState. A shared
+-- base name still requires a selected category; a distinct name selects its own row.
+private def unqualifiedObjectName (state : SemanticState) (entry : ObjectEntry) : Bool :=
+  entry.refines.all fun refinement => state.objects.any fun base =>
+    base.id == refinement.base && base.name != entry.name
+
 /-- Select a named source row in an explicit category or independently declared parameter type.
 Reuse: native category declaration telescopes, Lean isDefEq and withoutModifyingState.
 Each candidate check has isolated metavariables; lexical bindings bypass this selection. -/
@@ -180,7 +187,7 @@ opaque selectObject (name : String) (category : Option String) (expected : Optio
     let entries := state.objects.filter fun entry =>
       entry.name == name && match qualified with
         | some category => entry.category == category.id
-        | none => parameterType.isSome || entry.refines.isNone
+        | none => parameterType.isSome || unqualifiedObjectName state entry
     let entries ← entries.filterM fun entry => do
       let #[categoryEntry] := state.categories.filter (·.id == entry.category)
         | throwError "the source object requires one registered category"
@@ -211,7 +218,7 @@ opaque selectNamed (name : String) (category : Option String) (expected : Option
     return (.inl entry, category)
   let objects := state.objects.filter fun entry =>
     entry.name == name && qualified.all (·.id == entry.category) &&
-      (qualified.isSome || entry.refines.isNone)
+      (qualified.isSome || unqualifiedObjectName state entry)
   unless objects.isEmpty do
     throwSemanticAmbiguity m!"source name {name} requires a category qualification"
   let #[entry] := morphisms
