@@ -67,14 +67,17 @@ private partial def encode (constructors : Array ConstructorId) (category : Cate
 inductive RouteQuery
   | owner (category : CategoryExpr)
   | operation (name : String)
+  | method (name : String)
 
 inductive RouteTarget
   | owner (category : CategoryExpr)
   | operation (category : NamedCategoryEntry) (binding : OperationEntry)
+  | method (binding : MethodEntry)
 
 def RouteTarget.category : RouteTarget → CategoryExpr
   | .owner category => category
   | .operation category _ => category.expression
+  | .method binding => binding.owner
 
 /-- Symbolic route family over the exact frozen registry inventory.
 Native dependent operation formation and comparison evidence are separate consumers. -/
@@ -95,6 +98,7 @@ private def sourceRoutes (state : SemanticState) (source : CategoryExpr)
     | .owner category => #[RouteTarget.owner category]
     | .operation name => state.categories.flatMap fun category =>
       (state.operationBindings category.expression name).map (RouteTarget.operation category)
+    | .method name => (state.methods.filter (·.name == name)).map RouteTarget.method
   let constructors := (state.constructors.filter (·.functorialAction.isSome)).map (·.id)
   let edges := state.structuralEdges
   let build : StateM (Array SourceSymbol)
@@ -120,6 +124,11 @@ opaque SourceRoutes.forOwner (source owner : CategoryExpr) : CoreM SourceRoutes 
 /-- Bind the surface operation name before any arity filtering, exactly as the source does. -/
 opaque SourceRoutes.forOperation (source : CategoryExpr) (name : String) : CoreM SourceRoutes := do
   sourceRoutes (← semanticState) source (.operation name)
+
+/-- Stop at every first actual owner of this method name, before applying a receiver.
+Reuse: the same accepted structural inventory and first-hit ground-prefix grammar. -/
+opaque SourceRoutes.forMethod (source : CategoryExpr) (name : String) : CoreM SourceRoutes := do
+  sourceRoutes (← semanticState) source (.method name)
 
 /-- Reconstruct a selected symbolic derivation and validate it against the frozen source.
 Actual edge references and constructor actions remain attached to each source occurrence. -/

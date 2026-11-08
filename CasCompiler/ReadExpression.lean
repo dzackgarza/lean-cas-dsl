@@ -7,6 +7,7 @@ public import CasCompiler.SourceTuple
 public import CasCompiler.SourceOperation
 public import CasCompiler.SourceLimit
 public import CasCompiler.SourceMember
+public import CasCompiler.SourceMethod
 public import CasCompiler.SourceLift
 public import Lean.Elab.App
 
@@ -245,7 +246,14 @@ partial def readExpression
       unless arguments.isEmpty do
         throwError "a selected lift projection takes no additional source arguments"
       return value
+    let method ← sourceMethod receiver name
     let family ← sourceMemberFamily receiver name qualification
+    let family ← match method, family with
+      | some _, some _ =>
+        throwSemanticAmbiguity "a method and a member family both accept this selected receiver"
+      | some method, none => pure method
+      | none, some family => pure family
+      | none, none => throwError "no declared member family accepts this complete selected receiver"
     if arguments.isEmpty then return family
     if arguments.size == 1 then
       return (⟨← application family arguments expected, none⟩ : NativeSourceJudgement)
@@ -340,6 +348,15 @@ partial def readExpression
       sourceBinaryLimit left right true
     | `(cas_term| $left:cas_term + $right:cas_term) =>
       elementOperation "+" #[left, right] #[] #[] none
+    | `(cas_term| $receiver.$method:ident()) =>
+      member receiver method.getId.toString #[]
+    | `(cas_term| |$receiver:cas_term|) => do
+      let receiver ← readExpression categoryOf receiver none
+      unless receiver.category.any (·.role == .object) do
+        throwUnsupportedSource "source absolute-value formation requires its declared operation family"
+      let some value ← sourceMethod receiver "cardinality"
+        | throwError "the selected source object has no declared cardinality method"
+      pure value
     | `(cas_term| $left:cas_term · $right:cas_term) =>
       elementOperation "·" #[left, right] #[] #[] none
     | `(cas_term| $left:cas_term • $right:cas_term) => action left right

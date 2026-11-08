@@ -29,9 +29,9 @@ private def bindReceiver (row : MorphismEntry) (receiver : Expr) (slot : Nat) :
 Reuse: Language.invariantOf's unique typed receiver rule, native declaration telescopes,
 Lean.Meta.etaStructReduce and the registered morphism boundary check. -/
 opaque sourceMemberFamily (receiver : NativeSourceJudgement) (name : String)
-    (qualification : Option String := none) : TermElabM NativeSourceJudgement := do
+    (qualification : Option String := none) : TermElabM (Option NativeSourceJudgement) := do
   let some selected := receiver.category
-    | throwUnsupportedSource "member family application requires its selected object or map"
+    | return none
   let state ← semanticState
   let qualified ← qualification.mapM (selectCategory state)
   let mut candidates : Array (MorphismEntry × Nat) := #[]
@@ -45,11 +45,9 @@ opaque sourceMemberFamily (receiver : NativeSourceJudgement) (name : String)
       let applicable ← withoutModifyingState do
         return (← bindReceiver row receiver.value slot).isSome
       if applicable then candidates := candidates.push (row, slot)
+  if candidates.isEmpty then return none
   let #[(row, slot)] := candidates
-    | if candidates.isEmpty then
-        throwError "no declared member family accepts this complete selected receiver"
-      else
-        throwSemanticAmbiguity "several declared member parameters accept this selected receiver"
+    | throwSemanticAmbiguity "several declared member parameters accept this selected receiver"
   let some original ← bindReceiver row receiver.value slot
     | throwError "the selected member changed its complete receiver boundary"
   let original ← instantiateMVars original
@@ -81,6 +79,6 @@ opaque sourceMemberFamily (receiver : NativeSourceJudgement) (name : String)
   let value ← withLetDecl (← mkFreshUserName `memberReceiverCategory)
     (← inferType selected.bundle) selected.bundle fun binding => mkLetFVars #[binding] value
       (usedLetOnly := false) (generalizeNondepLet := false)
-  return ⟨value, some ⟨.morphism, category.expression, bundle, none⟩⟩
+  return some ⟨value, some ⟨.morphism, category.expression, bundle, none⟩⟩
 
 end CasCompiler
