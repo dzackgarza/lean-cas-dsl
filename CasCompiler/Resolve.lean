@@ -29,7 +29,9 @@ def sourceFamilyConversion (left right : Expr) (declarations : Array Name) :
   for declaration in declarations ++ left.getUsedConstants ++ right.getUsedConstants do
     if let some (.defnInfo _) := (← getEnv).find? declaration then
       theorems ← theorems.addDeclToUnfold declaration
-  let context ← Simp.mkContext {} (simpTheorems := #[theorems])
+  -- Route applications also occur inside the selected algebraic dictionaries.
+  -- Normalize those native arguments while retaining the original whole equality.
+  let context ← Simp.mkContext { instances := true } (simpTheorems := #[theorems])
     (congrTheorems := ← getSimpCongrTheorems)
   let (result, _) ← simp proposition context
   let some proof ← result.ofTrue | return none
