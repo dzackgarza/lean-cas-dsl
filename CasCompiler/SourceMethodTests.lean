@@ -116,3 +116,26 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless ← isDefEq value expected do
         throwError "inherited method formation changed its actual classifier forgetful action"
       checkWithKernel (← mkExpectedTypeHint (← mkEqRefl value) (← mkEq value expected))
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let object ← empty.read (← sourceTerm "Fin(3)")
+  let session ← empty.defineTerm `X object
+  let session ← session.assume `unused (← nativeTerm "Nat")
+  for expression in #["|X| = 3", "|X| = (3)"] do
+    let question ← session.readQuestion (← sourceTerm expression)
+    unless question.source.context.entries.size == 2 do
+      throwError "literal formation lost the original mathematical context"
+    question.source.withOpen fun bindings value => do
+      let type ← inferType value
+      unless type.isSort && type.sortLevel! == .zero do
+        throwError "literal comparison did not form a proposition"
+      unless value.isAppOfArity ``Eq 3 do
+        throwError "literal comparison changed the source equality"
+      let right := value.getAppArgs[2]!
+      let literal ← mkAppM ``CasCatalogue.Foundation.Cardinality.CardinalLiteral.denote
+        #[← mkAppM ``CasCatalogue.Foundation.Cardinality.CardinalLiteral.finite #[mkNatLit 3]]
+      unless ← isDefEq right literal do
+        throwError "the literal did not retain its registered denotation"
+      unless bindings.size == 2 do throwError "literal comparison lost its unused binding"
