@@ -152,14 +152,14 @@ opaque RealizationProfile.prepare (manifest : Manifest) (configuration : Option 
   return ⟨id, normalized, digest, rules⟩
 
 /-- Apply the frozen primitive set for this exact source target; unlisted targets allow all. -/
-def RealizationProfile.allowsPrimitive (profile : RealizationProfile)
+opaque RealizationProfile.allowsPrimitive (profile : RealizationProfile)
     (target : ComputationRef) (registration : Registration) : Bool :=
   match profile.rules.find? (·.target == target) with
   | none => true
   | some rule => rule.primitives.contains registration
 
 /-- Apply the frozen derivation set without changing the checked mathematical plan. -/
-def RealizationProfile.allowsDerivation (profile : RealizationProfile)
+opaque RealizationProfile.allowsDerivation (profile : RealizationProfile)
     (entry : ComputationDerivationEntry) : Bool :=
   match profile.rules.find? (·.target == entry.target) with
   | none => true
