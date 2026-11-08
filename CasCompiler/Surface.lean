@@ -199,7 +199,7 @@ opaque sourceSetJudgement (role : SourceCategoryRole) (value : Expr) :
   | .morphism =>
     let function ← mkAppM ``CategoryTheory.Functor.map #[← categoryIdentity bundle]
     discard <| elabAppArgs function #[] #[Arg.expr value] none false false
-  return ⟨value, some ⟨role, entry.expression, bundle⟩⟩
+  return ⟨value, some ⟨role, entry.expression, bundle, none⟩⟩
 
 /-- A direct registered view before closing its complete native expressions. -/
 structure NativeSourceView where
@@ -270,6 +270,71 @@ opaque functorObject (functor object target : Expr) : MetaM Expr := do
     throwError "the source image does not belong to its complete native target category"
   return value
 
+partial def checkEdgeDeclarations (state : SemanticState) : EdgeRef → MetaM Unit
+  | .functor id => do
+    let some entry := state.functor? id | throwError "the source functor declaration is absent"
+    discard <| checkedDeclaration entry.declaration
+  | .classifierForget id => do
+    let some entry := state.classifier? id
+      | throwError "the source classifier declaration is absent"
+    discard <| checkedDeclaration entry.declaration
+  | .constructMap id inner => do
+    let some entry := state.constructor? id
+      | throwError "the source constructor declaration is absent"
+    let some action := entry.functorialAction
+      | throwError "the source constructor has no declared functorial action"
+    discard <| checkedDeclaration entry.semantics
+    discard <| checkedDeclaration action
+    checkEdgeDeclarations state inner
+
+structure NativeRouteFunctor where
+  functor : Expr
+  target : Expr
+  actions : Array Expr
+
+/-- Interpret a source route while retaining every complete edge application.
+Reuse: Registry.Semantic.routeFunctor's composition, edgeFunctor and functorCategoryBundles. -/
+def nativeRouteFunctor (state : SemanticState) (route : Route) (category : Expr) :
+    MetaM NativeRouteFunctor := do
+  for ref in route.refs do checkEdgeDeclarations state ref
+  let actions ← route.refs.mapM state.edgeFunctor
+  let functor ← match actions[0]? with
+    | none => categoryIdentity category
+    | some first => (actions.drop 1).foldlM mkFunctorComp first
+  let (domain, target) ← functorCategoryBundles functor
+  unless ← isDefEq domain category do
+    throwError "the selected functor has a different complete source category"
+  return ⟨functor, target, actions⟩
+
+/-- Retain the route, actual edge parameters and comparison of an object refinement.
+Reuse: ObjectRefinement and applyObjectParameters at the original object arguments. -/
+opaque objectCarrierSelection (entry : ObjectEntry) (category value : Expr) :
+    TermElabM (Option NativeSourceCarrierSelection) := do
+  let some refinement := entry.refines | return none
+  let state ← semanticState
+  let some base := state.objects.find? (·.id == refinement.base)
+    | throwError "the selected object refinement has no registered base"
+  let #[targetCategory] := state.categories.filter (·.id == base.category)
+    | throwError "the selected object refinement requires one registered base category"
+  discard <| checkedDeclaration refinement.identification
+  let #[sourceCategory] := state.categories.filter (·.id == entry.category)
+    | throwError "the selected object refinement requires one registered source category"
+  let some steps := state.routeEdges? sourceCategory.expression targetCategory.expression
+      refinement.route
+    | throwError "the selected object refinement has different source boundaries"
+  let selected ← nativeRouteFunctor state
+    { source := sourceCategory.expression, target := targetCategory.expression, steps } category
+  let comparison ← applyObjectParameters s!"object {entry.id.raw}" refinement.identification
+    (← sourceDomain value).getAppArgs
+  let type ← whnfR (← inferType comparison)
+  unless type.isAppOfArity ``CategoryTheory.Iso 4 do
+    throwError "the selected carrier comparison is not an isomorphism"
+  let image ← functorObject selected.functor value selected.target
+  unless ← isDefEq type.getAppArgs[2]! image do
+    throwError "the selected carrier action has different complete comparison parameters"
+  return some ⟨refinement.route, targetCategory.expression, #[refinement.identification],
+    ← selected.actions.mapM instantiateMVars, #[← instantiateMVars comparison]⟩
+
 /-- Select a registered source family, then let native application elaborate its arguments.
 Reuse: semanticState and the independently owned declaration telescopes; Lean.elabAppArgs
 accepts retained expressions and synthesizes native implicits and selected instances. -/
@@ -277,14 +342,15 @@ opaque SourceSession.namedObject (session : SourceSession) (reference : Syntax) 
     (category : Option String) (arguments : Array SourceTerm) : TermElabM SourceObject :=
   withRef reference do
     let (entry, categoryEntry) ← selectObject name category
-    let #[category, value] ← session.elaborateMany reference fun context => do
+    let #[category, value] ← session.elaborateJudgements reference fun context => do
         let arguments ← arguments.mapM fun argument => do
           return Arg.expr (← argument.source.inContext context)
         let (category, value) ← registeredExpressions (.inl entry) categoryEntry fun function expected =>
           elabAppArgs function #[] arguments expected false false
-        return #[category, value]
+        let selection ← objectCarrierSelection entry category value
+        return #[⟨category, none⟩,
+          ⟨value, some ⟨.object, categoryEntry.expression, category, selection⟩⟩]
       | throwError "registered source formation returned an invalid number of expressions"
-    return ⟨entry, categoryEntry, category,
-      ← value.inCategory categoryEntry.expression category⟩
+    return ⟨entry, categoryEntry, category, value⟩
 
 end CasCompiler

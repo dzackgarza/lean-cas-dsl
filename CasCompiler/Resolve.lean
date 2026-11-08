@@ -187,23 +187,6 @@ opaque SourceSession.unaryCategory (session : SourceSession) (reference : Syntax
 opaque SourceObject.sourceCategory (object : SourceObject) : SourceCategory :=
   ⟨object.categoryEntry.expression, object.category⟩
 
-private partial def checkEdgeDeclarations (state : SemanticState) : EdgeRef → MetaM Unit
-  | .functor id => do
-    let some entry := state.functor? id | throwError "the source functor declaration is absent"
-    discard <| checkedDeclaration entry.declaration
-  | .classifierForget id => do
-    let some entry := state.classifier? id
-      | throwError "the source classifier declaration is absent"
-    discard <| checkedDeclaration entry.declaration
-  | .constructMap id inner => do
-    let some entry := state.constructor? id
-      | throwError "the source constructor declaration is absent"
-    let some action := entry.functorialAction
-      | throwError "the source constructor has no declared functorial action"
-    discard <| checkedDeclaration entry.semantics
-    discard <| checkedDeclaration action
-    checkEdgeDeclarations state inner
-
 /-- One explicitly selected source derivation and its actual native functor. -/
 structure SourceRoute where
   private mk ::
@@ -211,15 +194,6 @@ structure SourceRoute where
   source : SourceCategory
   target : SourceCategory
   functor : SourceTerm
-
-private def nativeRouteFunctor (state : SemanticState) (route : Route) (category : Expr) :
-    MetaM (Expr × Expr) := do
-  let functor ← if route.steps.isEmpty then categoryIdentity category
-    else state.routeFunctor route.refs
-  let (domain, target) ← functorCategoryBundles functor
-  unless ← isDefEq domain category do
-    throwError "the selected functor has a different complete source category"
-  return (functor, target)
 
 /-- Interpret the selected route in the complete native context, preserving both bundle fields.
 Reuse: the independent routeFunctor/functorCategoryBundles/applyConstructorInterface APIs.
@@ -230,11 +204,10 @@ opaque SourceRoutes.prepareFunctor (routes : SourceRoutes) (session : SourceSess
   unless routes.source.syntacticEq source.expression do
     throwError "the native source category differs from the exact symbolic route source"
   let route ← routes.reconstruct trace
-  for ref in route.refs do checkEdgeDeclarations routes.state ref
   let #[functor, target] ← session.elaborateMany reference fun context => do
       let category ← source.value.source.inContext context
-      let (functor, target) ← nativeRouteFunctor routes.state route category
-      return #[functor, target]
+      let selected ← nativeRouteFunctor routes.state route category
+      return #[selected.functor, selected.target]
     | throwError "native route formation returned an invalid number of expressions"
   return ⟨route, source, ⟨route.target, target⟩, functor⟩
 
@@ -398,13 +371,13 @@ private def operationTerm (state : SemanticState) (session : SourceSession) (ref
     TermElabM SourceTerm := do
   unless source.expression.syntacticEq route.source do
     throwError "the operation family has a different complete symbolic source"
-  for ref in route.refs do checkEdgeDeclarations state ref
   discard <| checkedDeclaration binding.declaration
   session.elaborate reference fun context => do
     let categoryFamily ← source.family.source.inContext context
     forallTelescopeReducing (← inferType categoryFamily) fun parameters _ => do
       let category := mkAppN categoryFamily parameters
-      let (functor, _) ← nativeRouteFunctor state route category
+      let selected ← nativeRouteFunctor state route category
+      let functor := selected.functor
       let carrier ← mkAppM ``CategoryTheory.Bundled.α #[category]
       withLocalDeclD `sourceObject carrier fun object => do
         let prefunctor ← mkAppM ``CategoryTheory.Functor.toPrefunctor #[functor]

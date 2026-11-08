@@ -28,18 +28,36 @@ inductive SourceCategoryRole where
   | morphism
   deriving BEq
 
+/-- A carrier prefix selected by the independent object registration.
+Its remaining edges and comparison declarations survive native aliases and explicit views. -/
+structure SourceCarrierSelection where
+  refs : Array CasCatalogue.EdgeRef
+  target : CasCatalogue.CategoryExpr
+  identifications : Array Name
+  actions : Array ClosedTerm
+  comparisons : Array ClosedTerm
+
+structure NativeSourceCarrierSelection where
+  refs : Array CasCatalogue.EdgeRef
+  target : CasCatalogue.CategoryExpr
+  identifications : Array Name
+  actions : Array Expr
+  comparisons : Array Expr
+
 /-- The selected symbolic category and its complete native bundle in the original context. -/
 structure SourceCategoryBinding where
   private mk ::
   expression : CasCatalogue.CategoryExpr
   bundle : ClosedTerm
   role : SourceCategoryRole
+  carrier : Option SourceCarrierSelection := none
 
 /-- A native value's selected category, including whether it is an object or an arrow. -/
 structure NativeSourceCategory where
   role : SourceCategoryRole
   expression : CasCatalogue.CategoryExpr
   bundle : Expr
+  carrier : Option NativeSourceCarrierSelection := none
 
 /-- An elaborated value and any category explicitly selected by the source frontend. -/
 structure NativeSourceJudgement where
@@ -120,7 +138,8 @@ partial def sourceObjectReference? (value : Expr) : MetaM (Option (CasCatalogue.
 Reuse: native Bundled.α and stable-ID context transport. Category identity is supplied by
 source selection, never inferred from a carrier type. Source: #66, comment 6664276482 §1. -/
 opaque SourceTerm.inCategory (term : SourceTerm) (expression : CasCatalogue.CategoryExpr)
-    (category : SourceTerm) (role : SourceCategoryRole := .object) : MetaM SourceTerm := do
+    (category : SourceTerm) (role : SourceCategoryRole := .object)
+    (selection : Option SourceCarrierSelection := none) : MetaM SourceTerm := do
   term.source.withOpen fun bindings value => do
     let context ← ContextTelescope.capture bindings
     let categoryValue ← category.source.inContext context
@@ -133,7 +152,7 @@ opaque SourceTerm.inCategory (term : SourceTerm) (expression : CasCatalogue.Cate
       -- Native identity-map application checks both endpoints in the supplied category.
       let identity ← categoryIdentity categoryValue
       discard <| withTransparency .all <| mkAppM ``CategoryTheory.Functor.map #[identity, value]
-  return { term with category := some ⟨expression, category.source, role⟩ }
+  return { term with category := some ⟨expression, category.source, role, selection⟩ }
 
 /-- Source declarations share the worker's monotone identity supply across snapshot branches.
 Reuse: IdentitySupply.fresh and its native atomic counter; only identities live in the supply. -/
@@ -185,7 +204,16 @@ opaque SourceSession.elaborateJudgements (session : SourceSession) (reference : 
         | some selected =>
           let category ← context.close (← instantiateMVars selected.bundle)
           checkSource category
-          term.inCategory selected.expression ⟨category, span, none⟩ selected.role
+          let selection ← selected.carrier.mapM fun carrier => do
+            let close := fun action => do
+              let action ← context.close (← instantiateMVars action)
+              checkSource action
+              return action
+            let actions ← carrier.actions.mapM close
+            let comparisons ← carrier.comparisons.mapM close
+            return (⟨carrier.refs, carrier.target, carrier.identifications, actions, comparisons⟩ :
+              SourceCarrierSelection)
+          term.inCategory selected.expression ⟨category, span, none⟩ selected.role selection
 
 /-- Form ordinary checked native terms through the same complete source boundary. -/
 opaque SourceSession.elaborateMany (session : SourceSession) (reference : Syntax)

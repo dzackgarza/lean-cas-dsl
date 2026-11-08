@@ -24,7 +24,10 @@ private meta def sourceFiles (suite : System.FilePath) : IO (Array System.FilePa
 private meta def provenance : CommandElabM Json := do
   let env ← getEnv
   let imports := env.header.imports.map (·.module)
-  let observed := #[`CasCompiler.Read, `LeanCategories.Catalogue, `CasContract.Port,
+  let observed := #[`CasCompiler.Context, `CasCompiler.Elaborate, `CasCompiler.Surface,
+    `CasCompiler.Resolve, `CasCompiler.SourceCarrier, `CasCompiler.SourcePattern,
+    `CasCompiler.SourceNumeral, `CasCompiler.ReadExpression, `CasCompiler.Read,
+    `LeanCategories.Catalogue, `CasContract.Port,
     `CasTools.QuestionObservation, `CasCatalogue.QuestionIdentity] ++ imports
   let modules ← observed.mapM fun name => do
     unless env.header.modules.any (·.module == name) do

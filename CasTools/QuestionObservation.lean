@@ -72,11 +72,19 @@ private def closedTermJson (term : ClosedTerm) : Json :=
     ("universeParams", toJson (term.universeParams.map (·.toString (escape := false)))),
     ("expression", toJson (reprStr term.expression)), ("type", toJson (reprStr term.type))]
 
+private def carrierJson (carrier : SourceCarrierSelection) : Json :=
+  Json.mkObj [("refs", toJson (reprStr carrier.refs)),
+    ("target", toJson (reprStr carrier.target)),
+    ("identifications", toJson (carrier.identifications.map (·.toString (escape := false)))),
+    ("actions", toJson (carrier.actions.map closedTermJson)),
+    ("comparisons", toJson (carrier.comparisons.map closedTermJson))]
+
 private def categoryJson (category : SourceCategoryBinding) : Json :=
   Json.mkObj [("role", toJson <| match category.role with
       | .object => "object" | .morphism => "morphism"),
     ("expression", toJson (reprStr category.expression)),
-    ("bundle", closedTermJson category.bundle)]
+    ("bundle", closedTermJson category.bundle),
+    ("carrier", toJson (category.carrier.map carrierJson))]
 
 private def snapshot (session : SourceSession) (term : SourceTerm) : Json :=
   Json.mkObj [("native", closedTermJson term.source),
@@ -127,10 +135,23 @@ private def canonicalCategory (table : CasCatalogue.Realize.TermTable)
   let bundle ← category.bundle.withOpen fun bindings value =>
     mkLambdaFVars (bindings.map (·.expression)) value
       (usedLetOnly := false) (generalizeNondepLet := false)
+  let carrier ← category.carrier.mapM fun carrier => do
+    let encode := fun (term : ClosedTerm) => do
+      let value ← term.withOpen fun bindings value =>
+        mkLambdaFVars (bindings.map (·.expression)) value
+          (usedLetOnly := false) (generalizeNondepLet := false)
+      table.encode value
+    let actions ← carrier.actions.mapM encode
+    let comparisons ← carrier.comparisons.mapM encode
+    return Json.mkObj [("refs", toJson (reprStr carrier.refs)),
+      ("target", toJson (reprStr carrier.target)),
+      ("identifications", toJson (carrier.identifications.map (·.toString (escape := false)))),
+      ("actions", toJson actions), ("comparisons", toJson comparisons)]
   return Json.mkObj [("role", toJson <| match category.role with
       | .object => "object" | .morphism => "morphism"),
     ("expression", toJson (reprStr category.expression)),
-    ("bundle", toJson (← table.encode bundle))]
+    ("bundle", toJson (← table.encode bundle)),
+    ("carrier", toJson carrier)]
 
 private def reading (session : SourceSession) (where_ : Location) (provenance : String)
     (term : SourceTerm) : TermElabM Reading := do

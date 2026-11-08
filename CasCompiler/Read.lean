@@ -21,7 +21,12 @@ private def sourceCategory (session : SourceSession) (context : OpenContext)
   let some binding := context.bindings.find? (·.expression.fvarId! == id)
     | return none
   let some category := session.categoryFor binding.id | return none
-  return some ⟨category.role, category.expression, ← category.bundle.inContext context⟩
+  let carrier ← category.carrier.mapM fun carrier => do
+    return (⟨carrier.refs, carrier.target, carrier.identifications,
+      ← carrier.actions.mapM (·.inContext context),
+      ← carrier.comparisons.mapM (·.inContext context)⟩ : NativeSourceCarrierSelection)
+  return some ⟨category.role, category.expression, ← category.bundle.inContext context,
+    carrier⟩
 
 private def SourceSession.readAt (session : SourceSession) (reference : Syntax)
     (stx : TSyntax `cas_term)

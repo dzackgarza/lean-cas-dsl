@@ -21,6 +21,8 @@ import all CasCompiler.SourceSyntaxTests
 import all CasCompiler.SourceLambdaTests
 import all CasCompiler.SourcePattern
 import all CasCompiler.SourcePatternTests
+import all CasCompiler.SourceCarrier
+import all CasCompiler.SourceCarrierTests
 import all CasCompiler.SourceCategoryBindingTests
 import all CasCompiler.SourceAtomTests
 import all CasCompiler.SourceViewTests

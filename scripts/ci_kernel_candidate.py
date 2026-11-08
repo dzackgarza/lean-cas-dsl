@@ -30,6 +30,12 @@ FIXED_IMPORTS = (
     'LeanCategories.Catalogue.Semantics.Independent.InterfaceCompletionTests',
 )
 
+READER_MODULES = (
+    'CasCompiler.Context', 'CasCompiler.Elaborate', 'CasCompiler.Surface',
+    'CasCompiler.Resolve', 'CasCompiler.SourceCarrier', 'CasCompiler.SourcePattern',
+    'CasCompiler.SourceNumeral', 'CasCompiler.ReadExpression', 'CasCompiler.Read',
+)
+
 PRODUCTION_MODULES = (
     'CasCompiler', 'CasRuntime',
 )
@@ -640,7 +646,7 @@ def export_gate(root, runtime, published):
                record(build_path), record(reader_path), record(reader_run_path)]
     modules = {}
     for name in ['CasCatalogue.Admission', 'CasCatalogue.Realize', 'CasTools.QuestionExport',
-                 'CasCompiler.Read', 'CasTools.QuestionObservation', 'CasCatalogue.QuestionIdentity',
+                 *READER_MODULES, 'CasTools.QuestionObservation', 'CasCatalogue.QuestionIdentity',
                  'CasContract.Port', 'LeanCategories.Catalogue', *FIXED_IMPORTS]:
         owner = ('mathematics' if name.startswith('LeanCategories.') else
                  'contract' if name.startswith('CasContract.') else 'kernel')
@@ -775,7 +781,7 @@ def check_question_export(readings, failures, expected, imports, gate, control=F
         if provenance.get('reader') != 'CasCompiler.SourceSession.readStatement':
             problems.append('reading export did not name the native source reader')
         module_files = provenance.get('moduleFiles', [])
-        observed = ['CasCompiler.Read', 'LeanCategories.Catalogue', 'CasContract.Port',
+        observed = [*READER_MODULES, 'LeanCategories.Catalogue', 'CasContract.Port',
                     'CasTools.QuestionObservation', 'CasCatalogue.QuestionIdentity',
                     *selected_imports]
         if [item.get('module') for item in module_files] != observed:

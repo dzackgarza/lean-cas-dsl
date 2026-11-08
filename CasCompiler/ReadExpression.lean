@@ -2,6 +2,7 @@ module
 
 public import CasCompiler.SourceNumeral
 public import CasCompiler.SourcePattern
+public import CasCompiler.SourceCarrier
 public import Lean.Elab.App
 
 public section
@@ -68,7 +69,8 @@ partial def readExpression
     let (entry, categoryEntry) ← selectObject name category expected
     let (bundle, value) ← registeredExpressions (.inl entry) categoryEntry fun function expected =>
       application function arguments expected
-    return (⟨value, some ⟨.object, categoryEntry.expression, bundle⟩⟩ : NativeSourceJudgement)
+    return (⟨value, some ⟨.object, categoryEntry.expression, bundle,
+      ← objectCarrierSelection entry bundle value⟩⟩ : NativeSourceJudgement)
   let registered := fun (name : Ident) (arguments : Array (TSyntax `cas_term)) => do
     if let some declaration := (← getLCtx).findFromUserName? name.getId then
       let selected ← categoryOf declaration.fvarId
@@ -90,7 +92,10 @@ partial def readExpression
     let role := match entry with
       | .inl _ => SourceCategoryRole.object
       | .inr _ => SourceCategoryRole.morphism
-    return ⟨value, some ⟨role, categoryEntry.expression, bundle⟩⟩
+    let carrier ← match entry with
+      | .inl object => objectCarrierSelection object bundle value
+      | .inr _ => pure none
+    return ⟨value, some ⟨role, categoryEntry.expression, bundle, carrier⟩⟩
   let readFunctorAction := fun (role : SourceCategoryRole) (receiver : TSyntax `cas_term)
       (id : Ident) (arguments : Array (TSyntax `cas_term)) => do
     let entry ← selectView (id.getId.toString (escape := false))
@@ -111,10 +116,30 @@ partial def readExpression
     let (kind, id) := match selected.reference with
       | .inl id => (``CasCatalogue.EdgeRef.functor, id.raw)
       | .inr id => (``CasCatalogue.EdgeRef.classifierForget, id.raw)
+    let edge := match selected.reference with
+      | .inl id => CasCatalogue.EdgeRef.functor id
+      | .inr id => CasCatalogue.EdgeRef.classifierForget id
+    let carrier : Option NativeSourceCarrierSelection ← match receiver.category.bind (·.carrier) with
+      | none => pure none
+      | some carrier =>
+        if role != .object || carrier.refs[0]? != some edge then pure none
+        else do
+          let some action := carrier.actions[0]?
+            | throwError "the selected carrier prefix has no complete native edge application"
+          let action ← instantiateMVars action
+          let actual ← instantiateMVars selected.functor
+          let agrees ← if action == actual then pure true else do
+            if action.hasMVar || action.hasLevelMVar || actual.hasMVar || actual.hasLevelMVar then
+              CasCatalogue.throwUnsupportedSource
+                "carrier-prefix comparison requires its complete native view parameters"
+            withoutModifyingState <| isDefEq action actual
+          pure <| if agrees then
+            some { carrier with refs := carrier.refs.drop 1, actions := carrier.actions.drop 1 }
+          else none
     -- Keep the exact selected reference beside its actual native action for source inspection.
     -- Lean MData preserves these names through closure; native checking uses the retained body.
     return (⟨sourceReference kind id selected.declaration image,
-      some ⟨role, selected.target, selected.targetBundle⟩⟩ :
+      some ⟨role, selected.target, selected.targetBundle, carrier⟩⟩ :
       NativeSourceJudgement)
   let judgement ← if let some name := sourceAtomName? source then object name qualification #[]
     else match source with
@@ -137,16 +162,8 @@ partial def readExpression
         pure body
       pure ⟨← sourceNumeral categoryOf number.getNat domain.value proofs, none⟩
     | `(cas_term| $left:cas_term → $right:cas_term) => do
-      let left ← readExpression categoryOf left none
-      let right ← readExpression categoryOf right none
-      for domain in #[left, right] do
-        if let some category := domain.category then
-          unless category.role == .object do
-            throwError "a source function domain must be an object"
-          unless category.expression.syntacticEq (.atom CasCatalogue.CategoryId.sets) do
-            CasCatalogue.throwUnsupportedSource
-              "source function domains require their selected carrier actions"
-        discard <| getLevel domain.value
+      let left ← sourceCarrier (← readExpression categoryOf left none)
+      let right ← sourceCarrier (← readExpression categoryOf right none)
       let value ← mkAppM ``TypeCat.Hom #[left.value, right.value]
       sourceSetJudgement .object value
     | `(cas_term| view $receiver:cas_term along $functor:ident) =>
