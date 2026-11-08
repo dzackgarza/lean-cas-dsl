@@ -284,8 +284,8 @@ def sourceObjectNumeral (number : Nat) (selected : NativeSourceCategory)
   unless ← isDefEq expected carrier do
     throwError "the object literal has a different complete selected category"
   let literalType ← mkConstWithFreshMVarLevels row.type
-  let syntax : Term := ⟨Syntax.mkNumLit (toString number)⟩
-  let literal ← elabTermEnsuringType syntax (some literalType)
+  let source : Term := ⟨Syntax.mkNumLit (toString number)⟩
+  let literal ← elabTermEnsuringType source (some literalType)
   let value ← mkAppM row.denotation #[literal]
   unless ← isDefEq (← inferType value) carrier do
     throwError "the registered literal denotation has a different selected category"
