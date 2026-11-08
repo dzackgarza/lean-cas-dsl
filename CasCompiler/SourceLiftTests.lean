@@ -58,7 +58,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       | `(cas_stmt| let $name:ident := $_:cas_term) => pure name.getId
       | `(cas_stmt| let $name:ident($_:cas_term) := $_:cas_term) => pure name.getId
       | _ => continue
-    let .definition next value ← file.withContext (session.readStatement statement)
+    let formed ← try file.withContext (session.readStatement statement)
+      catch error => throwError "original binding {name}: {error.toMessageData}"
+    let .definition next value := formed
       | throwError "the original selected lift did not extend its source context"
     unless value.source.context.entries.map (·.id) == session.context.entries.map (·.id) do
       throwError "the selected lift shortened its original ordered context"
