@@ -37,6 +37,11 @@ partial def readExpression
         throwErrorAt argument "the source argument does not match its dependent native type"
       actual := actual.push (Arg.expr value.value)
     elabAppArgs function #[] actual expected false false
+  let annotated := fun (body domain : TSyntax `cas_term) => do
+    let domain ← readExpression categoryOf domain none
+    discard <| getLevel domain.value
+    if let some expected := expected then checkRegisteredDomains domain.value expected
+    readExpression categoryOf body (some domain.value)
   let object := fun (name : String) (category : Option String)
       (arguments : Array (TSyntax `cas_term)) => do
     let (entry, categoryEntry) ← selectObject name category expected
@@ -92,6 +97,29 @@ partial def readExpression
       NativeSourceJudgement)
   let judgement ← if let some name := sourceAtomName? source then object name qualification #[]
     else match source with
+    | `(cas_term| $name:ident ↦ $body:cas_term) => do
+      let some expected := expected
+        | throwError "a source lambda requires its independently declared function type"
+      let type ← whnf expected
+      if type.isAppOf ``TypeCat.Hom then
+        -- Mathlib's set-map constructor wraps this exact native function. It supplies
+        -- no structured-map laws; the complete declared Hom type fixes both endpoints.
+        let constructor ← mkConstWithFreshMVarLevels ``TypeCat.ofHom
+        let hole ← mkFreshExprMVar none
+        discard <| elabAppArgs constructor #[] #[Arg.expr hole] (some expected) false false
+        let function ← readExpression categoryOf source (some (← inferType hole))
+        let value ← elabAppArgs constructor #[] #[Arg.expr function.value]
+          (some expected) false false
+        return ← sourceSetJudgement .morphism value
+      let .forallE _ domain codomain binderInfo := type
+        | CasCatalogue.throwUnsupportedSource
+            "source lambda formation is not implemented for this declared map type"
+      -- Reuse Lean's dependent binder and metavariable-aware abstraction. The body is
+      -- read once with its actual bound occurrence; later arguments may still constrain
+      -- domain metavariables. The outer source boundary performs complete synthesis.
+      withLocalDecl name.getId binderInfo domain fun parameter => do
+        let body ← readExpression categoryOf body (some (codomain.instantiate1 parameter))
+        pure ⟨← mkLambdaFVars #[parameter] body.value, none⟩
     | `(cas_term| $number:num in $domain:cas_term using ($evidence:cas_term,*)) => do
       let domain ← readExpression categoryOf domain none
       let some category := domain.category
@@ -106,6 +134,19 @@ partial def readExpression
           | throwError "source numeral evidence requires the explicit proof wrapper"
         pure body
       pure ⟨← sourceNumeral categoryOf number.getNat domain.value proofs, none⟩
+    | `(cas_term| $left:cas_term → $right:cas_term) => do
+      let left ← readExpression categoryOf left none
+      let right ← readExpression categoryOf right none
+      for domain in #[left, right] do
+        if let some category := domain.category then
+          unless category.role == .object do
+            throwError "a source function domain must be an object"
+          unless category.expression.syntacticEq (.atom CasCatalogue.CategoryId.sets) do
+            CasCatalogue.throwUnsupportedSource
+              "source function domains require their selected carrier actions"
+        discard <| getLevel domain.value
+      let value ← mkAppM ``TypeCat.Hom #[left.value, right.value]
+      sourceSetJudgement .object value
     | `(cas_term| view $receiver:cas_term along $functor:ident) =>
       readFunctorAction .object receiver functor #[]
     | `(cas_term| view $receiver:cas_term along $functor:ident($arguments:cas_term,*)) =>
@@ -146,8 +187,13 @@ partial def readExpression
       else registered name #[]
     | `(cas_term| $name:ident($arguments:cas_term,*)) =>
       registered name arguments.getElems
-    | `(cas_term| $body:cas_term in $category:ident) =>
-      readExpression categoryOf body expected (some (category.getId.toString (escape := false)))
+    | `(cas_term| $body:cas_term in $category:ident) => do
+      if ((← getLCtx).findFromUserName? category.getId).isSome then
+        annotated body (← `(cas_term| $category:ident))
+      else
+        readExpression categoryOf body expected (some (category.getId.toString (escape := false)))
+    | `(cas_term| $body:cas_term in $domain:cas_term) =>
+      annotated body domain
     | `(cas_term| ($function:cas_term)($arguments:cas_term,*)) => do
       let function ← readExpression categoryOf function none
       pure ⟨← application function.value arguments.getElems expected, none⟩

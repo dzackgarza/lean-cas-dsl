@@ -2,6 +2,7 @@ module
 
 public import CasCompiler.Elaborate
 public import LeanCategories.Catalogue.Registry.Semantic
+public import LeanCategories.Catalogue.Semantics.Foundation.Catalogue
 public import CasCatalogue.InterpretationFailure
 import Lean.Elab.App
 
@@ -135,6 +136,27 @@ opaque registeredExpressions (entry : ObjectEntry ⊕ MorphismEntry)
     let function ← mkAppM ``CategoryTheory.Functor.map #[identity]
     discard <| elabAppArgs function #[] #[Arg.expr value] none false false
   return (category, sourceReference kind id declaration value)
+
+/-- Retain the registered category of a set or set map formed by public function syntax.
+Reuse: the actual Sets declaration, Bundled projections and Functor.map. The supplied
+native value constrains the complete category bundle, including its universe. -/
+opaque sourceSetJudgement (role : SourceCategoryRole) (value : Expr) :
+    TermElabM NativeSourceJudgement := do
+  let #[entry] := (← semanticState).categories.filter (·.id == CategoryId.sets)
+    | throwError "source function syntax requires one registered category of sets"
+  discard <| checkedDeclaration entry.declaration
+  let family ← mkConstWithFreshMVarLevels entry.declaration
+  let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
+  let bundle := mkAppN family parameters
+  match role with
+  | .object =>
+    let carrier ← mkAppM ``CategoryTheory.Bundled.α #[bundle]
+    unless ← isDefEq (← inferType value) carrier do
+      throwError "the source function domain is outside its registered category of sets"
+  | .morphism =>
+    let function ← mkAppM ``CategoryTheory.Functor.map #[← categoryIdentity bundle]
+    discard <| elabAppArgs function #[] #[Arg.expr value] none false false
+  return ⟨value, some ⟨role, entry.expression, bundle⟩⟩
 
 /-- A direct registered view before closing its complete native expressions. -/
 structure NativeSourceView where

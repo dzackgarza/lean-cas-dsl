@@ -23,15 +23,20 @@ private def sourceCategory (session : SourceSession) (context : OpenContext)
   let some category := session.categoryFor binding.id | return none
   return some ⟨category.role, category.expression, ← category.bundle.inContext context⟩
 
-/-- Read public source syntax directly in the retained native context.
-Reuse: Lean's term elaborator supplies dependent parameter types and local bindings. -/
-opaque SourceSession.read (session : SourceSession) (stx : TSyntax `cas_term)
+private def SourceSession.readAt (session : SourceSession) (reference : Syntax)
+    (stx : TSyntax `cas_term)
     (expected : Option ClosedTerm := none) : TermElabM SourceTerm := do
-  let #[term] ← session.elaborateJudgements stx fun context => do
+  let #[term] ← session.elaborateJudgements reference fun context => do
     let expected ← expected.mapM (·.inContext context)
     return #[← readExpression (sourceCategory session context) stx expected]
     | throwError "source reading returned an invalid number of judgements"
   return term
+
+/-- Read public source syntax directly in the retained native context.
+Reuse: Lean's term elaborator supplies dependent parameter types and local bindings. -/
+opaque SourceSession.read (session : SourceSession) (stx : TSyntax `cas_term)
+    (expected : Option ClosedTerm := none) : TermElabM SourceTerm :=
+  session.readAt stx stx expected
 
 -- Assertion equality uses native Eq, as in SourceEquality and the public claimEqual
 -- contract. Logical conjunction uses native And. Neither operation supplies a proof.
@@ -84,6 +89,18 @@ opaque SourceSession.readStatement (session : SourceSession) (stx : TSyntax `cas
     let type ← session.read annotation
     type.source.withOpen fun _ expression => discard <| getLevel expression
     let value ← session.read body (some type.source)
+    return .definition (← session.defineTerm name.getId value) value
+  | `(cas_stmt| let $name:ident($parameter:cas_term) := $value:cas_term) =>
+    let `(cas_term| $parameter:ident) := parameter
+      | CasCatalogue.throwUnsupportedSource
+          "source function patterns require their declared component projections"
+    let translated ← match value with
+      | `(cas_term| $body:cas_term in $domain:cas_term) =>
+        `(cas_term| $parameter:ident ↦ $body:cas_term in $domain:cas_term)
+      | _ => `(cas_term| $parameter:ident ↦ $value:cas_term)
+    -- Public let-function syntax expands once. The native value retains its actual
+    -- preceding bindings; its span refers to the original statement, not generated syntax.
+    let value ← session.readAt stx translated
     return .definition (← session.defineTerm name.getId value) value
   | `(cas_stmt| assert implemented $_:cas_term) =>
     CasCatalogue.throwUnsupportedSource
