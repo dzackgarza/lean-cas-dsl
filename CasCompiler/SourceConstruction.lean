@@ -39,7 +39,8 @@ opaque sourceConstruction (entry : ConstructionEntry) (receiver : NativeSourceJu
   unless ← isDefEq domain bundle do
     throwError "the construction has a different complete selected source category"
   let mut index := 0
-  for argument in arguments, binder in binders do
+  let mut actual := arguments
+  for argument in arguments, binder in binders, position in [:arguments.size] do
     unless binder.isExplicit do continue
     let type ← instantiateMVars (← inferType argument)
     if type.isConstOf ``LeanCategories.ObjCat || type.isConstOf ``CategoryTheory.Cat then
@@ -49,10 +50,13 @@ opaque sourceConstruction (entry : ConstructionEntry) (receiver : NativeSourceJu
     let value ← parameter type
     unless ← isDefEq (← inferType value) type <&&> isDefEq argument value do
       throwError "the construction parameter differs from its complete source boundary"
+    actual := actual.set! position value
     index := index + 1
   unless index == parameters.size do
     throwError "the source construction has arguments beyond its declared parameters"
-  let function ← instantiateMVars function
+  -- The template checks the full boundary; the retained application uses the actual
+  -- supplied arguments, as Lean's dependent application does after hole elaboration.
+  let function ← instantiateMVars (mkAppN declaration actual)
   if function.hasMVar || function.hasLevelMVar then
     throwError "the source construction has undetermined native declaration parameters"
   let (_, target) ← functorCategoryBundles function
