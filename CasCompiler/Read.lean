@@ -79,13 +79,14 @@ private partial def questionExpression
     let rightPrincipal ← questionPrincipal right
     let (left, right) ← if !leftPrincipal && rightPrincipal then do
       let right ← readExpression categoryOf right none
-      let left ← readExpression categoryOf left (some (← inferType right.value))
+      let left ← readExpression categoryOf left (some (← inferType right.value)) none right.category
       pure (left, right)
     else do
       let left ← readExpression categoryOf left none
       let type ← inferType left.value
       let right ← readExpression categoryOf right
-        (if rightPrincipal then none else some type)
+        (if rightPrincipal then none else some type) none
+        (if rightPrincipal then none else left.category)
       pure (left, right)
     let (left, right) ← sourceCommonCategory left right
     checkRegisteredDomains (← inferType left.value) (← inferType right.value)

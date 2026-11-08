@@ -266,4 +266,32 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
     | throwError "the selected source numeral changed its admitted boundary"
   return sourceReference ``NumeralEntry row.id.raw row.declaration value
 
+/-- Interpret an object numeral through the literal row of its selected category.
+Reuse: Registry.Entry.LiteralEntry and Lean's typed numeral elaborator. OfNat acts
+only on the independent literal type; its registered denotation supplies the object.
+Category identity is explicit input, never inferred from coincident native carriers. -/
+def sourceObjectNumeral (number : Nat) (selected : NativeSourceCategory)
+    (expected : Expr) : TermElabM (Option NativeSourceJudgement) := do
+  unless selected.role == .object do return none
+  let .atom category := selected.expression | return none
+  let rows := (← semanticState).literals.filter (·.category == category)
+  if rows.isEmpty then return none
+  let #[row] := rows
+    | throwSemanticAmbiguity "the selected category requires its literal form"
+  discard <| checkedDeclaration row.type
+  discard <| checkedDeclaration row.denotation
+  let carrier ← mkAppM ``CategoryTheory.Bundled.α #[selected.bundle]
+  unless ← isDefEq expected carrier do
+    throwError "the object literal has a different complete selected category"
+  let literalType ← mkConstWithFreshMVarLevels row.type
+  let syntax : Term := ⟨Syntax.mkNumLit (toString number)⟩
+  let literal ← elabTermEnsuringType syntax (some literalType)
+  let value ← mkAppM row.denotation #[literal]
+  unless ← isDefEq (← inferType value) carrier do
+    throwError "the registered literal denotation has a different selected category"
+  let value ← instantiateMVars value
+  if value.hasMVar || value.hasLevelMVar then
+    throwError "the registered object literal has undetermined parameters"
+  return some ⟨sourceReference ``LiteralEntry row.id.raw row.denotation value, some selected⟩
+
 end CasCompiler

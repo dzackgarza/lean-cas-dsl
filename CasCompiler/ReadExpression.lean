@@ -36,7 +36,8 @@ private partial def sourceNumeric (source : Syntax) : Bool :=
 partial def readExpression
     (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
     (source : TSyntax `cas_term) (expected : Option Expr)
-    (qualification : Option String := none) : TermElabM NativeSourceJudgement :=
+    (qualification : Option String := none)
+    (expectedCategory : Option NativeSourceCategory := none) : TermElabM NativeSourceJudgement :=
   withRef source do
   let application := fun (source : NativeSourceJudgement) (arguments : Array (TSyntax `cas_term))
       (expected : Option Expr) => do
@@ -425,10 +426,12 @@ partial def readExpression
         return (← readExpression categoryOf component (some type)).value
       pure ⟨value, none⟩
     | `(cas_term| ($inner:cas_term)) =>
-      readExpression categoryOf inner expected qualification
-    | `(cas_term| $number:num) =>
+      readExpression categoryOf inner expected qualification expectedCategory
+    | `(cas_term| $number:num) => do
       let some expected := expected
         | throwError "a source numeral requires its independently declared parameter type"
+      if let some category := expectedCategory then
+        if let some value ← sourceObjectNumeral number.getNat category expected then return value
       pure ⟨← sourceNumeral categoryOf number.getNat expected, none⟩
     | `(cas_term| $name:ident) =>
       if let some declaration := (← getLCtx).findFromUserName? name.getId then
