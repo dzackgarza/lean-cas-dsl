@@ -254,7 +254,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     for carrier in expression.getAppArgs do
       unless carrier.containsFVar bindings[0]!.expression.fvarId! do
         throwError "a selected carrier was replaced by its named comparison target"
-      let .mdata data _ := carrier
+      let some origin ← sourceTypeOrigin? carrier
+        | throwError "a selected carrier discarded its exact native owner"
+      let .mdata data _ := origin.type
         | throwError "a selected carrier discarded its actual route"
       unless data.getString `CasCompiler.source.carrierRoutes == reprStr #[selection.refs] do
         throwError "a selected carrier was replaced by another structural route"

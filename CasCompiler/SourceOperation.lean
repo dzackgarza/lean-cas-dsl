@@ -272,11 +272,9 @@ opaque sourceOperation
     | throwError "operation preparation requires its complete first binding"
   let mut proofs := #[]
   for other in families do
-    unless ← isDefEq (← inferType first.value) (← inferType other.value) <&&>
-        isDefEq first.value other.value do
-      throwSemanticAmbiguity "the whole operation families require their supplied agreement"
-    let proof ← mkExpectedTypeHint (← mkEqRefl first.value) (← mkEq first.value other.value)
-    checkWithKernel proof
+    let some proof ← sourceFamilyConversion first.value other.value
+        #[first.binding.declaration, other.binding.declaration]
+      | throwSemanticAmbiguity "the whole operation families require their supplied agreement"
     proofs := proofs.push proof
   let (inputDomains, outputDomain, roleProofs) ←
     operationTransportRoles root categoryFamily first

@@ -5,12 +5,28 @@ public import CasCompiler.Surface
 public import LeanCategories.Catalogue.Registry.Semantic
 public import Mathlib.CategoryTheory.NatIso
 public import Mathlib.CategoryTheory.Whiskering
+public import Mathlib.Lean.Meta.Simp
 
 public section
 
 namespace CasCompiler
 
 open Lean Meta Elab Term CasCatalogue
+
+/-- Compare complete rigid source families with the accepted library's rewrite evidence.
+Reuse: Mathlib.Lean.Meta.Simp.Context.ofNames and Simp.Result.ofTrue. Only the supplied
+declarations are unfolded explicitly; imported simp theorems supply checked equalities.
+The returned proof retains both complete families before actual source specialization. -/
+def sourceFamilyConversion (left right : Expr) (declarations : Array Name) :
+    MetaM (Option Expr) := do
+  unless ← isDefEq (← inferType left) (← inferType right) do return none
+  let proposition ← mkEq left right
+  let context ← Simp.Context.ofNames declarations.toList
+  let (result, _) ← simp proposition context
+  let some proof ← result.ofTrue | return none
+  let proof ← mkExpectedTypeHint proof proposition
+  checkWithKernel proof
+  return some proof
 
 private inductive SourceSymbol
   | atom (expression : CategoryExpr)

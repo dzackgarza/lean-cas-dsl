@@ -246,20 +246,18 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
       | throwSemanticAmbiguity "several declared source point numerals apply in this domain"
     let mut evidence := first.evidence
     let mut alternatives := #[]
-    for (_, other) in admitted do
+    for (otherRow, other) in admitted do
       let .selected other := other
         | throwSemanticAmbiguity "several declared source point numerals apply in this domain"
       unless first.owner.value == other.owner.value &&
           first.owner.category.expression.syntacticEq other.owner.category.expression &&
           (← isDefEq first.owner.category.bundle other.owner.category.bundle) do
         throwSemanticAmbiguity "the source numeral requires its selected original structure"
-      unless ← isDefEq (← inferType first.family.value) (← inferType other.family.value) <&&>
-          isDefEq first.family.value other.family.value do
+      let some proof ← sourceFamilyConversion first.family.value other.family.value
+          #[row.declaration, otherRow.declaration]
+        | do
         throwSemanticAmbiguity
           s!"inherited point families require their supplied whole agreement: {repr first.alternatives} and {repr other.alternatives}"
-      let proof ← mkExpectedTypeHint (← mkEqRefl first.family.value)
-        (← mkEq first.family.value other.family.value)
-      checkWithKernel proof
       evidence := evidence ++ other.evidence.push proof
       alternatives := alternatives ++ other.alternatives
     pure (.selected { first with evidence, alternatives })
