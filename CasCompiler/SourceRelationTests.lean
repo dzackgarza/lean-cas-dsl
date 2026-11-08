@@ -74,3 +74,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let expected ← mkEq expected bindings[5]!.expression
     unless ← isDefEq value expected do
       throwError "a logical spelling displaced its exact lexical binding"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let session ← SourceSession.empty identities
+  let expected ← session.term (← nativeTerm
+    "CasCatalogue.Foundation.PowerSets.le CasCatalogue.Foundation.PowerSets.orderIntegers (0, 1)")
+  let question ← session.readQuestion (← sourceTerm "0 ≤ 1")
+  question.source.withOpen fun bindings value => do
+    let expected ← expected.source.inContext (← ContextTelescope.capture bindings)
+    unless ← isDefEq value expected do
+      throwError "the relation's truth-value result replaced its declared integral literal domain"
+    checkWithKernel (← mkExpectedTypeHint (← mkEqRefl value) (← mkEq value expected))
