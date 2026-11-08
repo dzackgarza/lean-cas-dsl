@@ -239,34 +239,35 @@ partial def readExpression
         let leading ← `(cas_term| $literal:num)
         pure (base, #[leading] ++ arguments)
     let selected ← selectNamed spelling qualification expected
-    let .registered entry categoryEntry := selected
-      | .construction entry => do
-        let some receiver := arguments.back?
-          | throwError "a source construction requires its actual receiver"
-        let receiver ← readExpression categoryOf receiver none
-        return ← sourceConstruction entry receiver
-          ((arguments.pop).map fun parameter type => do
-            return (← readExpression categoryOf parameter (some type)).value)
-    let declaration := match entry with
-      | .inl entry => entry.declaration
-      | .inr entry => entry.declaration
-    let parameterCount ← withoutModifyingState do
-      let info ← checkedDeclaration declaration
-      let (_, binders, _) ← forallMetaTelescopeReducing info.type
-      pure (binders.filter (·.isExplicit)).size
-    let (bundle, value) ← registeredExpressions entry categoryEntry fun function expected =>
-      application ⟨function, none⟩ (arguments.take parameterCount) expected
-    let role := match entry with
-      | .inl _ => SourceCategoryRole.object
-      | .inr _ => SourceCategoryRole.morphism
-    let carrier ← match entry with
-      | .inl object => objectCarrierSelection object bundle value
-      | .inr _ => pure none
-    let result : NativeSourceJudgement :=
-      ⟨value, some ⟨role, categoryEntry.expression, bundle, carrier⟩⟩
-    if parameterCount < arguments.size then
-      return ⟨← application result (arguments.drop parameterCount) expected, none⟩
-    return result
+    match selected with
+    | .construction entry => do
+      let some receiver := arguments.back?
+        | throwError "a source construction requires its actual receiver"
+      let receiver ← readExpression categoryOf receiver none
+      sourceConstruction entry receiver
+        ((arguments.pop).map fun parameter type => do
+          return (← readExpression categoryOf parameter (some type)).value)
+    | .registered entry categoryEntry => do
+      let declaration := match entry with
+        | .inl entry => entry.declaration
+        | .inr entry => entry.declaration
+      let parameterCount ← withoutModifyingState do
+        let info ← checkedDeclaration declaration
+        let (_, binders, _) ← forallMetaTelescopeReducing info.type
+        pure (binders.filter (·.isExplicit)).size
+      let (bundle, value) ← registeredExpressions entry categoryEntry fun function expected =>
+        application ⟨function, none⟩ (arguments.take parameterCount) expected
+      let role := match entry with
+        | .inl _ => SourceCategoryRole.object
+        | .inr _ => SourceCategoryRole.morphism
+      let carrier ← match entry with
+        | .inl object => objectCarrierSelection object bundle value
+        | .inr _ => pure none
+      let result : NativeSourceJudgement :=
+        ⟨value, some ⟨role, categoryEntry.expression, bundle, carrier⟩⟩
+      if parameterCount < arguments.size then
+        return ⟨← application result (arguments.drop parameterCount) expected, none⟩
+      return result
   let member := fun (receiver : TSyntax `cas_term) (name : String)
       (arguments : Array (TSyntax `cas_term)) => do
     let receiver ← readExpression categoryOf receiver none
@@ -301,48 +302,48 @@ partial def readExpression
     if let some category := receiver.category then
       unless category.role == role do
         throwError "the source functor action has a different object or morphism role"
-    let .registered entry := entry
-      | .construction entry =>
-        return ← sourceConstruction entry receiver (arguments.map fun parameter type => do
+    match entry with
+    | .construction entry =>
+      sourceConstruction entry receiver (arguments.map fun parameter type => do
           return (← readExpression categoryOf parameter (some type)).value)
-    let selected ← viewExpressions entry
+    | .registered entry => do
+      let selected ← viewExpressions entry
         (receiver.category.map fun category => (category.expression, category.bundle)) fun constant =>
-      application ⟨constant, none⟩ arguments none
-    let image ← match role with
-      | .object => functorObject selected.functor receiver.value selected.targetBundle
-      | .morphism => do
-        let function ← mkAppM ``CategoryTheory.Functor.map #[selected.functor]
-        -- AppBuilder protects pre-existing metavariables. Native source application must
-        -- solve the selected declaration's levels at the actual arrow in this context.
-        elabAppArgs function #[] #[Arg.expr receiver.value] none false false
-    let (kind, id) := match selected.reference with
-      | .inl id => (``CasCatalogue.EdgeRef.functor, id.raw)
-      | .inr id => (``CasCatalogue.EdgeRef.classifierForget, id.raw)
-    let edge := match selected.reference with
-      | .inl id => CasCatalogue.EdgeRef.functor id
-      | .inr id => CasCatalogue.EdgeRef.classifierForget id
-    let carrier : Option NativeSourceCarrierSelection ← match receiver.category.bind (·.carrier) with
-      | none => pure none
-      | some carrier =>
-        if role != .object || carrier.refs[0]? != some edge then pure none
-        else do
-          let some action := carrier.actions[0]?
-            | throwError "the selected carrier prefix has no complete native edge application"
-          let action ← instantiateMVars action
-          let actual ← instantiateMVars selected.functor
-          let agrees ← if action == actual then pure true else do
-            if action.hasMVar || action.hasLevelMVar || actual.hasMVar || actual.hasLevelMVar then
-              CasCatalogue.throwUnsupportedSource
-                "carrier-prefix comparison requires its complete native view parameters"
-            withoutModifyingState <| isDefEq action actual
-          pure <| if agrees then
-            some { carrier with refs := carrier.refs.drop 1, actions := carrier.actions.drop 1 }
-          else none
-    -- Keep the exact selected reference beside its actual native action for source inspection.
-    -- Lean MData preserves these names through closure; native checking uses the retained body.
-    return (⟨sourceReference kind id selected.declaration image,
-      some ⟨role, selected.target, selected.targetBundle, carrier⟩⟩ :
-      NativeSourceJudgement)
+        application ⟨constant, none⟩ arguments none
+      let image ← match role with
+        | .object => functorObject selected.functor receiver.value selected.targetBundle
+        | .morphism => do
+          let function ← mkAppM ``CategoryTheory.Functor.map #[selected.functor]
+          -- AppBuilder protects pre-existing metavariables. Native source application must
+          -- solve the selected declaration's levels at the actual arrow in this context.
+          elabAppArgs function #[] #[Arg.expr receiver.value] none false false
+      let (kind, id) := match selected.reference with
+        | .inl id => (``CasCatalogue.EdgeRef.functor, id.raw)
+        | .inr id => (``CasCatalogue.EdgeRef.classifierForget, id.raw)
+      let edge := match selected.reference with
+        | .inl id => CasCatalogue.EdgeRef.functor id
+        | .inr id => CasCatalogue.EdgeRef.classifierForget id
+      let carrier : Option NativeSourceCarrierSelection ←
+          match receiver.category.bind (·.carrier) with
+        | none => pure none
+        | some carrier =>
+          if role != .object || carrier.refs[0]? != some edge then pure none
+          else do
+            let some action := carrier.actions[0]?
+              | throwError "the selected carrier prefix has no complete native edge application"
+            let action ← instantiateMVars action
+            let actual ← instantiateMVars selected.functor
+            let agrees ← if action == actual then pure true else do
+              if action.hasMVar || action.hasLevelMVar || actual.hasMVar || actual.hasLevelMVar then
+                CasCatalogue.throwUnsupportedSource
+                  "carrier-prefix comparison requires its complete native view parameters"
+              withoutModifyingState <| isDefEq action actual
+            pure <| if agrees then
+              some { carrier with refs := carrier.refs.drop 1, actions := carrier.actions.drop 1 }
+            else none
+      -- Keep the selected reference beside its actual action for source inspection.
+      return (⟨sourceReference kind id selected.declaration image,
+        some ⟨role, selected.target, selected.targetBundle, carrier⟩⟩ : NativeSourceJudgement)
   let judgement ← if source.raw.getKind == ``CasCatalogue.Language.casCallWith then do
       let arguments := source.raw[4].getSepArgs.map fun argument =>
         (⟨argument⟩ : TSyntax `cas_term)
