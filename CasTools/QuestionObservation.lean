@@ -24,9 +24,11 @@ structure Reading where
   sourceLine : Nat
   source : String
   provenance : String
+  /-- The canonical typed reading in the fixed mathematical source environment. -/
   question : String
   proposition : String
   prettyProposition : String
+  /-- Complete native source terms, binding identities, selections and original spans. -/
   sourceContext : Json
   deriving Inhabited, ToJson
 
