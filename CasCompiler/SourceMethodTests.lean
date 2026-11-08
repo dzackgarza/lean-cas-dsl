@@ -7,6 +7,8 @@ public meta import Lean.Elab.Command
 meta import CasCompiler.Read
 meta import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
 meta import LeanCategories.Catalogue.Semantics.Foundation.Cardinality
+import LeanCategories.Catalogue.Semantics.Algebra.CatalogueRegistration
+meta import LeanCategories.Catalogue.Semantics.Algebra.CatalogueRegistration
 
 open Lean Meta Elab Term CasCompiler CasCatalogue
 
@@ -38,6 +40,23 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless ← isDefEq value expected do
         throwError "source method formation changed the actual registered functor application"
       checkWithKernel (← mkExpectedTypeHint (← mkEqRefl value) (← mkEq value expected))
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let session ← empty.assume `R (← nativeTerm "RingCat.{0}")
+  let category ← session.namedCategory Syntax.missing "Rings" [.zero] #[]
+  let object ← session.term (← nativeTerm "R")
+  let object ← object.inCategory category.expression category.value
+  let session ← session.defineTerm `S object
+  let expected ← session.term (← nativeTerm
+    "CasCatalogue.Foundation.Cardinality.setsCardinality.obj (CategoryTheory.Core.mk (S : Type))")
+  let result ← session.read (← sourceTerm "S.cardinality()")
+  result.source.withOpen fun bindings value => do
+    let expected ← expected.source.inContext (← ContextTelescope.capture bindings)
+    unless value.containsFVar bindings[1]!.expression.fvarId! && (← isDefEq value expected) do
+      throwError "whole method-family agreement changed its original rigid ring receiver"
+    checkWithKernel (← mkExpectedTypeHint (← mkEqRefl value) (← mkEq value expected))
   let resultType ← session.elaborate Syntax.missing fun context => do
     inferType (← expected.source.inContext context)
   let lexical ← session.assumeTerm `X.cardinality resultType
