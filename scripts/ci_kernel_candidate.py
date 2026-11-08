@@ -33,7 +33,8 @@ FIXED_IMPORTS = (
 READER_MODULES = (
     'CasCompiler.Context', 'CasCompiler.Elaborate', 'CasCompiler.Surface',
     'CasCompiler.Resolve', 'CasCompiler.SourceCarrier', 'CasCompiler.SourcePattern',
-    'CasCompiler.SourceNumeral', 'CasCompiler.ReadExpression', 'CasCompiler.Read',
+    'CasCompiler.SourceNumeral', 'CasCompiler.SourceTuple', 'CasCompiler.ReadExpression',
+    'CasCompiler.Read',
 )
 
 PRODUCTION_MODULES = (

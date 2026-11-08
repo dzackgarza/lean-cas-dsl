@@ -3,6 +3,7 @@ module
 public import CasCompiler.SourceNumeral
 public import CasCompiler.SourcePattern
 public import CasCompiler.SourceCarrier
+public import CasCompiler.SourceTuple
 public import Lean.Elab.App
 
 public section
@@ -194,6 +195,12 @@ partial def readExpression
       let value ← elabAppArgs composition #[] #[Arg.expr right.value, Arg.expr left.value]
         expected false false
       pure ⟨value, some category⟩
+    | `(cas_term| ($first:cas_term, $rest:cas_term,*)) => do
+      let some expected := expected
+        | throwError "a source tuple requires its independently declared domain"
+      let value ← sourceTuple (#[first] ++ rest.getElems) expected fun component type => do
+        return (← readExpression categoryOf component (some type)).value
+      pure ⟨value, none⟩
     | `(cas_term| ($inner:cas_term)) =>
       readExpression categoryOf inner expected qualification
     | `(cas_term| $number:num) =>

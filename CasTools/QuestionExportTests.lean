@@ -2,9 +2,11 @@ module
 
 import CasTools.QuestionExport
 import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
+import LeanCategories.Catalogue.Semantics.Algebra.LinearAlgebra
 public meta import Lean.Elab.Command
 meta import CasTools.QuestionExport
 meta import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
+meta import LeanCategories.Catalogue.Semantics.Algebra.LinearAlgebra
 
 open Lean Meta Elab Term CasCompiler CasTools.QuestionExport
 
@@ -86,3 +88,22 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   unless first.file != second.file && first.provenance != second.provenance &&
       first.sourceLine != second.sourceLine && first.sourceContext != second.sourceContext do
     throwError "the observer discarded original source provenance"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let observe (fileName label leading : String) : TermElabM Reading := do
+    let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+    let empty ← SourceSession.empty identities
+    let initial ← empty.assume `n (← nativeTerm "Nat")
+    let file ← SourceFile.parse fileName <| leading ++
+      "let X := Fin(n)\nlet V := Vec(X, 2)\n" ++
+      "let diagonal(i) := (i, i) in X → V\n" ++
+      "test observer.tuple \"" ++ label ++ "\": assert diagonal = diagonal\n"
+    let result ← observeFile file initial
+    unless result.failures.isEmpty && result.readings.size == 1 &&
+        !result.readings[0]!.proposition.isEmpty do
+      throwError "the tuple observer did not retain the complete native proposition"
+    return result.readings[0]!
+  let first ← observe "first-tuple.cas" "first tuple source" ""
+  let second ← observe "second-tuple.cas" "second tuple source" "-- tuple provenance\n"
+  unless first.question == second.question && first.sourceContext != second.sourceContext do
+    throwError "tuple observation changed its native question or discarded source provenance"

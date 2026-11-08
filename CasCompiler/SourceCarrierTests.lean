@@ -92,6 +92,18 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       | throwError "the original coordinate function lost its source-module binding"
     unless (← inferType expression).containsFVar sourceBinding.expression.fvarId! do
       throwError "a coordinate function replaced its actual source-module domain"
+  let reordered ← session.read (← sourceTerm
+    "((a, b) ↦ (b, a)) in sourceModule → targetModule")
+  reordered.source.withOpen fun bindings expression => do
+    let some sourceBinding := bindings.find? (·.id == sourceEntry.id)
+      | throwError "the tuple function lost its source-module binding"
+    let some targetBinding := bindings.find? (·.id == targetEntry.id)
+      | throwError "the tuple function lost its target-module binding"
+    let type ← inferType expression
+    unless type.containsFVar sourceBinding.expression.fvarId! &&
+        type.containsFVar targetBinding.expression.fvarId! &&
+        expression.getUsedConstants.contains ``Fin.cases do
+      throwError "a tuple function replaced its original domains or native components"
 
 
 run_cmd Lean.Elab.Command.liftTermElabM do

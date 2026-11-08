@@ -26,7 +26,8 @@ private meta def provenance : CommandElabM Json := do
   let imports := env.header.imports.map (·.module)
   let observed := #[`CasCompiler.Context, `CasCompiler.Elaborate, `CasCompiler.Surface,
     `CasCompiler.Resolve, `CasCompiler.SourceCarrier, `CasCompiler.SourcePattern,
-    `CasCompiler.SourceNumeral, `CasCompiler.ReadExpression, `CasCompiler.Read,
+    `CasCompiler.SourceNumeral, `CasCompiler.SourceTuple, `CasCompiler.ReadExpression,
+    `CasCompiler.Read,
     `LeanCategories.Catalogue, `CasContract.Port,
     `CasTools.QuestionObservation, `CasCatalogue.QuestionIdentity] ++ imports
   let modules ← observed.mapM fun name => do
