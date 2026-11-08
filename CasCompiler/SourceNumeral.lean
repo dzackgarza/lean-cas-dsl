@@ -8,10 +8,47 @@ namespace CasCompiler
 
 open Lean Meta Elab Term CasCatalogue
 
+private structure RoutedNumeral where
+  owner : NativeSourceElementOwner
+  route : Route
+  categoryFamily : Expr
+  family : NativeOwnedFamily
+  evidence : Array Expr := #[]
+
 private inductive NumeralContext where
   | direct
-  | selected (value : Expr) (evidence : Expr)
+  | selected (routed : RoutedNumeral)
   | refinement (entry : ObjectEntry)
+
+-- The point must land in the complete selected carrier family before specialization.
+-- Reuse sourceCarrier's explicit prefix and whole-functor agreement rules.
+private def numeralCarrierAgreement (routed : RoutedNumeral) : TermElabM Expr := do
+  let state ← semanticState
+  let count ← forallTelescopeReducing (← inferType routed.categoryFamily) fun parameters _ =>
+    pure parameters.size
+  lambdaTelescope routed.family.value fun parameters body => do
+    let category := mkAppN routed.categoryFamily (parameters.take count)
+    let selection ← routed.owner.category.carrier.mapM fun selection => do
+      let some steps := state.routeEdges? routed.owner.category.expression selection.target
+          selection.refs
+        | throwError "the source numeral lost its selected carrier prefix"
+      let route : Route :=
+        { source := routed.owner.category.expression, target := selection.target, steps }
+      let native ← nativeRouteFunctor state route category
+      return { selection with actions := native.actions }
+    let object := parameters[routed.family.objectIndex]!
+    let carrier ← sourceCarrier
+      ⟨object, some ⟨.object, routed.owner.category.expression, category, selection⟩⟩
+    let type ← whnfR (← inferType body)
+    unless type.isAppOfArity ``Quiver.Hom 4 do
+      throwError "the whole numeral family lost its point-map boundary"
+    let target ← mkLambdaFVars parameters type.getAppArgs[3]!
+    let expected ← mkLambdaFVars parameters carrier.value
+    unless ← isDefEq (← inferType target) (← inferType expected) <&&> isDefEq target expected do
+      throwError "the numeral has a different complete selected carrier family"
+    let proof ← mkExpectedTypeHint (← mkEqRefl target) (← mkEq target expected)
+    checkWithKernel proof
+    return proof
 
 -- Source rule: CasCatalogue.Language.decideObligation, using native checked decisions.
 private def numeralProof (proposition : Expr) : MetaM (Option Expr) := do
@@ -54,7 +91,10 @@ private def numeralCandidate (row : NumeralEntry) (context : NumeralContext)
     (number : Nat) (expected : Expr) (proofs : Array Term) : TermElabM (Option Expr) := do
   let (object, comparison, proofIndex) ← match context with
     | .direct => pure (none, none, 0)
-    | .selected value _ => pure (some value, none, 0)
+    | .selected routed => do
+      let selected ← nativeRouteFunctor (← semanticState) routed.route routed.owner.category.bundle
+      let value ← functorObject selected.functor routed.owner.value selected.target
+      pure (some value, none, 0)
     | .refinement entry => do
       let some refinement := entry.refines
         | throwError "a source numeral refinement has no declared comparison"
@@ -125,10 +165,15 @@ private def numeralCandidate (row : NumeralEntry) (context : NumeralContext)
   let function ← sourceSetFunction point
   let value ← elabAppArgs function #[] #[Arg.expr terminalPoint] (some expected) false false
   let value ← match context with
-    | .selected _ evidence =>
-      withLetDecl (← mkFreshUserName `elementOwnerAgreement) (← inferType evidence) evidence
-        fun binding => mkLetFVars #[binding] value
-          (usedLetOnly := false) (generalizeNondepLet := false)
+    | .selected routed => do
+      let mut value := value
+      for evidence in (routed.evidence.push routed.owner.evidence).reverse do
+        let body := value
+        value ← withLetDecl (← mkFreshUserName `numeralOwnerAgreement)
+          (← inferType evidence) evidence fun binding =>
+            mkLetFVars #[binding] body (usedLetOnly := false) (generalizeNondepLet := false)
+      pure <| Expr.mdata
+        (KVMap.empty.setString `CasCompiler.source.numeralRoutes (reprStr routed.route.refs)) value
     | _ => pure value
   return some value
 
@@ -145,6 +190,9 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
   let (domain, bases) ← registeredDomain expected
   let owners ← if bases.isEmpty then sourceElementOwners categoryOf expected #[expected]
     else pure #[]
+  let ownerFamilies ← owners.mapM fun owner => do
+    let family ← nativeCategoryFamily state owner.category.expression fun _ => mkFreshLevelMVar
+    return (owner, family)
   let mut candidates : Array (NumeralEntry × NumeralContext) := #[]
   for row in state.numerals do
     discard <| checkedDeclaration row.declaration
@@ -153,21 +201,22 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
     | some owner =>
       let #[category] := state.categories.filter (·.id == owner)
         | throwError "the source numeral requires one registered structural category"
-      for selected in owners do
-        if selected.category.expression.syntacticEq category.expression then
-          discard <| checkedDeclaration category.declaration
-          let family ← mkConstWithFreshMVarLevels category.declaration
-          let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
-          unless ← isDefEq selected.category.bundle (mkAppN family parameters) do
-            throwError "the source numeral has a different complete structural category"
-          candidates := candidates.push (row, .selected selected.value selected.evidence)
+      for (selected, categoryFamily) in ownerFamilies do
+        let paths ← SourceRoutes.forOwner selected.category.expression category.expression
+        let some routes ← paths.finiteRoutes
+          | throwUnsupportedSource "numeral inheritance requires its supplied uniform comparison"
+        for route in routes do
+          let family ← nativeOwnedFamily state selected.category.expression categoryFamily route
+            row.declaration (fun infos => infos.findIdx? (·.isExplicit))
+          candidates := candidates.push
+            (row, .selected ⟨selected, route, categoryFamily, family⟩)
       for entry in state.objects.filter (·.category == owner) do
         if let some refinement := entry.refines then
           if bases.any (·.id == refinement.base) then
             candidates := candidates.push (row, .refinement entry)
   let hasSelectedStructure := candidates.any fun (_, context) =>
     match context with
-    | .selected _ _ => true
+    | .selected _ => true
     | _ => false
   if bases.isEmpty && !hasSelectedStructure then
     let defaults ← sourceLiteralDomains domain
@@ -177,16 +226,43 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
           for entry in state.objects.filter (·.category == owner) do
             if entry.refines.any (·.base == base.id) then
               candidates := candidates.push (row, .refinement entry)
+  -- Freeze every whole-family universe before checking carriers or point agreement.
+  for (_, context) in candidates do
+    if let .selected routed := context then
+      discard <| levelMVarToParam (← instantiateMVars routed.family.value)
+  candidates ← candidates.mapM fun (row, context) => do
+    let .selected routed := context | return (row, context)
+    let value ← instantiateMVars routed.family.value
+    if value.hasMVar || value.hasLevelMVar then
+      throwError "the complete inherited numeral family has undetermined parameters"
+    let routed := { routed with
+      categoryFamily := ← instantiateMVars routed.categoryFamily
+      family := { routed.family with value } }
+    let proof ← numeralCarrierAgreement routed
+    return (row, .selected { routed with evidence := #[proof] })
   let mut admitted := #[]
   for (row, context) in candidates do
     let applicable ← withoutModifyingState do
       return (← numeralCandidate row context number expected proofs).isSome
     if applicable then
       admitted := admitted.push (row, context)
-  let #[(row, context)] := admitted
-    | if admitted.isEmpty then
-        throwError "no declared source point numeral was admitted in the supplied domain"
-      else throwSemanticAmbiguity "several declared source point numerals apply in this domain"
+  let some (row, context) := admitted[0]?
+    | throwError "no declared source point numeral was admitted in the supplied domain"
+  let context ← if admitted.size == 1 then pure context else do
+    let .selected first := context
+      | throwSemanticAmbiguity "several declared source point numerals apply in this domain"
+    let mut evidence := first.evidence
+    for (_, other) in admitted do
+      let .selected other := other
+        | throwSemanticAmbiguity "several declared source point numerals apply in this domain"
+      unless ← isDefEq (← inferType first.family.value) (← inferType other.family.value) <&&>
+          isDefEq first.family.value other.family.value do
+        throwSemanticAmbiguity "inherited point families require their supplied whole agreement"
+      let proof ← mkExpectedTypeHint (← mkEqRefl first.family.value)
+        (← mkEq first.family.value other.family.value)
+      checkWithKernel proof
+      evidence := evidence.push proof
+    pure (.selected { first with evidence })
   let some value ← numeralCandidate row context number expected proofs
     | throwError "the selected source numeral changed its admitted boundary"
   return sourceReference ``NumeralEntry row.id.raw row.declaration value

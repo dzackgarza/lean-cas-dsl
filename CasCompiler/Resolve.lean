@@ -344,9 +344,10 @@ opaque SourceSession.unaryCategoryFamily (session : SourceSession) (reference : 
       mkLambdaFVars parameters value
   return ⟨.construct id #[.category argument.expression], family⟩
 
-private partial def withRigidArguments (arguments : Array Expr) (infos : Array BinderInfo)
-    (start stop : Nat) (action : Array Expr → MetaM Expr) : MetaM Expr := do
-  let rec visit (index : Nat) (rigid : Array Expr) : MetaM Expr := do
+private partial def withRigidArguments {α : Type} (arguments : Array Expr)
+    (infos : Array BinderInfo) (start stop : Nat)
+    (action : Array Expr → MetaM α) : MetaM α := do
+  let rec visit (index : Nat) (rigid : Array Expr) : MetaM α := do
     if index >= stop then return ← action rigid
     let argument ← instantiateMVars arguments[index]!
     if !argument.isMVar then return ← visit (index + 1) rigid
@@ -380,8 +381,7 @@ def nativeOwnedFamily (state : SemanticState) (source : CategoryExpr)
   unless source.syntacticEq route.source do
     throwError "the declaration family has a different complete symbolic source"
   discard <| checkedDeclaration declaration
-  let mut objectIndex := 0
-  let value ← forallTelescopeReducing (← inferType categoryFamily) fun parameters _ => do
+  forallTelescopeReducing (← inferType categoryFamily) fun parameters _ => do
     let category := mkAppN categoryFamily parameters
     let selected ← nativeRouteFunctor state route category
     let functor := selected.functor
@@ -399,12 +399,12 @@ def nativeOwnedFamily (state : SemanticState) (source : CategoryExpr)
           isDefEq arguments[position]! image do
         throwError "the declaration family has a different complete routed object"
       withRigidArguments arguments infos 0 position fun prefixParameters => do
-        objectIndex := parameters.size + prefixParameters.size
         withRigidArguments arguments infos (position + 1) arguments.size
             fun suffixParameters => do
           let body ← instantiateMVars (mkAppN constant arguments)
-          mkLambdaFVars (parameters ++ prefixParameters ++ #[object] ++ suffixParameters) body
-  return ⟨value, objectIndex⟩
+          let value ← mkLambdaFVars
+            (parameters ++ prefixParameters ++ #[object] ++ suffixParameters) body
+          return ⟨value, parameters.size + prefixParameters.size⟩
 
 /-- Form the whole native operation before selecting its source object or operands.
 Reuse: validateOperation's object/numeral boundary and nativeOwnedFamily. -/
