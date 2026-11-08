@@ -16,6 +16,8 @@ open Lean Meta Elab Term CasCatalogue
 /-- Compare complete rigid source families with the accepted library's rewrite evidence.
 Reuse: Lean.Meta.SimpTheorems.addDeclToUnfold and Mathlib's Simp.Result.ofTrue. Only the supplied
 declarations are unfolded explicitly; imported simp theorems supply checked equalities.
+The native constants present in the families include their route applications. Lean's
+getUsedConstants supplies these definitions without a subject-specific unfolding list.
 The returned proof retains both complete families before actual source specialization. -/
 def sourceFamilyConversion (left right : Expr) (declarations : Array Name) :
     MetaM (Option Expr) := do
@@ -24,8 +26,9 @@ def sourceFamilyConversion (left right : Expr) (declarations : Array Name) :
   unless ← isDefEq (← inferType left) (← inferType right) do return none
   let proposition ← mkEq left right
   let mut theorems ← getSimpTheorems
-  for declaration in declarations do
-    theorems ← theorems.addDeclToUnfold declaration
+  for declaration in declarations ++ left.getUsedConstants ++ right.getUsedConstants do
+    if let some (.defnInfo _) := (← getEnv).find? declaration then
+      theorems ← theorems.addDeclToUnfold declaration
   let context ← Simp.mkContext {} (simpTheorems := #[theorems])
     (congrTheorems := ← getSimpCongrTheorems)
   let (result, _) ← simp proposition context
