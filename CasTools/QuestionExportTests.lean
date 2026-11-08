@@ -34,8 +34,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   unless first.file == "observer-original.cas" && first.sourceLine == 3 &&
       first.source == "test observer.first \"scope\": assert X = X" do
     throwError "the observer lost original source bytes or line positions"
-  let .ok question := Json.parse first.question
-    | throwError "the observer did not export the complete checked source question"
+  let question := first.sourceContext
   let .ok context := question.getObjValAs? (Array Json) "context"
     | throwError "the observer omitted the question telescope"
   unless context.size == 4 && (context[1]!.getObjValAs? String "role") == .ok "hypothesis" &&
@@ -85,5 +84,5 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   unless first.question == second.question do
     throwError "source provenance or fresh worker bindings changed the native question identity"
   unless first.file != second.file && first.provenance != second.provenance &&
-      first.sourceLine != second.sourceLine do
+      first.sourceLine != second.sourceLine && first.sourceContext != second.sourceContext do
     throwError "the observer discarded original source provenance"

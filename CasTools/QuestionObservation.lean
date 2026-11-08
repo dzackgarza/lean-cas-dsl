@@ -2,6 +2,7 @@ module
 
 public import CasCompiler.Parse
 public import CasCompiler.Read
+public import CasCatalogue.QuestionIdentity
 public import Lean.Elab.Command
 
 @[expose] public section
@@ -26,6 +27,7 @@ structure Reading where
   question : String
   proposition : String
   prettyProposition : String
+  sourceContext : Json
   deriving Inhabited, ToJson
 
 structure Failure where
@@ -116,18 +118,45 @@ private def blocked (where_ : Location) (stage : String) (cause : Failure) : Fai
     some ⟨cause.id, cause.file, cause.sourceLine, cause.source⟩⟩
 
 private def unread (where_ : Location) (provenance : String) : Reading :=
-  ⟨where_.id, where_.file, where_.sourceLine, where_.source, provenance, "", "", ""⟩
+  ⟨where_.id, where_.file, where_.sourceLine, where_.source, provenance, "", "", "", Json.null⟩
+
+private def canonicalCategory (table : CasCatalogue.Realize.TermTable)
+    (category : SourceCategoryBinding) : TermElabM Json := do
+  let bundle ← category.bundle.withOpen fun bindings value =>
+    mkLambdaFVars (bindings.map (·.expression)) value
+      (usedLetOnly := false) (generalizeNondepLet := false)
+  return Json.mkObj [("role", toJson <| match category.role with
+      | .object => "object" | .morphism => "morphism"),
+    ("expression", toJson (reprStr category.expression)),
+    ("bundle", toJson (← table.encode bundle))]
 
 private def reading (session : SourceSession) (where_ : Location) (provenance : String)
-    (term : SourceTerm) : MetaM Reading := do
+    (term : SourceTerm) : TermElabM Reading := do
   let proposition ← term.source.withOpen fun bindings expression => do
     unless ← isProp expression do throwError "an exported question must be a proposition"
     -- Retain unused parameters, hypotheses and lets; do not generalize a let into a parameter.
     -- Reuse: Lean.Meta.mkForallFVars at v4.33.0, with its explicit retention controls.
     mkForallFVars (bindings.map (·.expression)) expression
       (usedLetOnly := false) (generalizeNondepLet := false)
+  -- Reuse the existing typed canonical serializer. It erases only native metadata,
+  -- binder spelling and proofs of the same proposition; the unquotiented snapshot stays below.
+  -- Source: CasCatalogue/QuestionIdentity.lean, QuestionIdentity.encode and TermTable.
+  let table ← CasCatalogue.Realize.TermTable.new
+  let root ← table.encode proposition
+  let categories ← term.source.context.entries.mapM fun entry =>
+    (session.categoryFor entry.id).mapM (canonicalCategory table)
+  let category ← term.category.mapM (canonicalCategory table)
+  let instances ← term.source.context.instances.mapM fun selected => do
+    let some index := term.source.context.entries.findIdx? (·.id == selected.binding)
+      | throwError "an exported instance is outside its actual source telescope"
+    return Json.mkObj [("class", toJson (selected.className.toString (escape := false))),
+      ("binding", toJson index)]
+  let question ← table.finish <| Json.mkObj [("proposition", toJson root),
+    ("roles", toJson (term.source.context.entries.map (reprStr ·.role))),
+    ("instances", toJson instances), ("categories", toJson categories),
+    ("category", toJson category)]
   return ⟨where_.id, where_.file, where_.sourceLine, where_.source, provenance,
-    (snapshot session term).compress, reprStr proposition, (← ppExpr proposition).pretty⟩
+    question, reprStr proposition, (← ppExpr proposition).pretty, snapshot session term⟩
 
 /-- Observe each original item through the native source session. A failed definition blocks
 the remaining file scope; a failed question leaves the preceding scope available. Native
