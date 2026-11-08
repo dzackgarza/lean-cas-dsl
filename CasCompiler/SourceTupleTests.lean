@@ -2,9 +2,11 @@ module
 
 import CasCompiler.Read
 import LeanCategories.Catalogue.Semantics.Algebra.LinearAlgebra
+import LeanCategories.Catalogue.Semantics.Algebra.RectangularLinearAlgebra
 public meta import Lean.Elab.Command
 meta import CasCompiler.Read
 meta import LeanCategories.Catalogue.Semantics.Algebra.LinearAlgebra
+meta import LeanCategories.Catalogue.Semantics.Algebra.RectangularLinearAlgebra
 
 open Lean Meta Elab Term CasCompiler
 
@@ -93,3 +95,43 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let expected ← expected.source.inContext (← ContextTelescope.capture bindings)
     unless ← isDefEq expression expected do
       throwError "a source vector tuple changed its original ordered components"
+
+-- A matrix literal is checked at the actual declared finite row and column domains.
+-- Its native data are ordered finite functions; this control supplies arbitrary cells.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let session ← empty.assume `R (← nativeTerm "CommRingCat.{0}")
+  let rings ← session.namedCategory Syntax.missing "CommutativeRings" [.zero] #[]
+  let ring ← session.term (← nativeTerm "R")
+  let ring ← ring.inCategory rings.expression rings.value
+  let session ← session.defineTerm `S ring
+  let session ← session.assume `a (← nativeTerm "(S : Type)")
+  let session ← session.assume `b (← nativeTerm "(S : Type)")
+  for (rows, columns, source, native) in #[
+      (1, 2, "[a, b]", "![![a, b]]"),
+      (2, 2, "[a, b; b, a]", "![![a, b], ![b, a]]"),
+      (3, 2, "[a, b; b, a; a, a]", "![![a, b], ![b, a], ![a, a]]")] do
+    let type ← session.read (← sourceTerm s!"RectangularMatrices({rows}, {columns}, S)")
+    let value ← session.read (← sourceTerm source) (some type.source)
+    let expected ← session.term (← nativeTerm native)
+    value.source.withOpen fun bindings expression => do
+      let expected ← expected.source.inContext (← ContextTelescope.capture bindings)
+      unless ← isDefEq expression expected do
+        throwError "a source finite matrix changed its declared dimensions or ordered cells"
+      unless (← inferType expression).containsFVar bindings[1]!.expression.fvarId! &&
+          expression.containsFVar bindings[2]!.expression.fvarId! &&
+          expression.containsFVar bindings[3]!.expression.fvarId! do
+        throwError "a source matrix discarded its selected coefficient object or cell bindings"
+      checkWithKernel (← mkExpectedTypeHint (← mkEqRefl expression) (← mkEq expression expected))
+  let type ← session.read (← sourceTerm "RectangularMatrices(2, 2, S)")
+  for source in #["[a, b]", "[a; b]", "[a, b; b]"] do
+    let rejected ← withoutModifyingState do
+      try
+        discard <| session.read (← sourceTerm source) (some type.source)
+        pure false
+      catch error =>
+        let detail ← error.toMessageData.toString
+        unless (detail.splitOn "finite arit").length > 1 do throw error
+        pure true
+    unless rejected do throwError "a finite matrix accepted a different declared shape"
