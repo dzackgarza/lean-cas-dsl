@@ -287,6 +287,7 @@ partial def readExpression
         | throwError "selected source lifting requires one registered lift"
       discard <| checkedDeclaration row.evidence
       if let some computation := row.computation then discard <| checkedDeclaration computation
+      checkEdgeDeclarations state row.edge
       CasCatalogue.validateLift state row
       let receiver ← readExpression categoryOf receiver none
       let selected ← application ⟨← mkConstWithFreshMVarLevels row.evidence, none⟩

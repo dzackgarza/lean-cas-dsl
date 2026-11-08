@@ -24,17 +24,22 @@ structure SourceLiftApplication {C : Type u₁} {D : Type u₂}
 
 open Lean Meta Elab Term CasCatalogue
 
--- Reuse structuralEdges/edgesFrom's unary constructor action, preserving the exact edge.
+-- Reuse registered boundaries and edgesFrom's unary constructor action.
+-- An explicitly selected lift keeps the registered action's actual role.
 private partial def liftEdgeBoundary (state : SemanticState) (ref : EdgeRef) :
     MetaM (CategoryExpr × CategoryExpr) := do
   match ref with
   | .constructMap id inner =>
     let (source, target) ← liftEdgeBoundary state inner
     return (.construct id #[.category source], .construct id #[.category target])
-  | _ =>
-    let some edge := state.structuralEdge? ref
-      | throwError "the selected lift edge is not a declared structural action"
-    return (edge.source, edge.target)
+  | .functor id =>
+    let some entry := state.functor? id
+      | throwError "the selected lift functor is not registered"
+    return (entry.source, entry.target)
+  | .classifierForget id =>
+    let some entry := state.classifier? id
+      | throwError "the selected lift classifier is not registered"
+    return (.classifierTotal id, entry.host)
 
 private def liftBoundary (state : SemanticState) (row : LiftEntry) :
     MetaM (CategoryExpr × CategoryExpr) := do
@@ -55,6 +60,8 @@ The supplied proof selects an actual inclusion; its carrier must equal the writt
 def sourceSelectedLift (row : LiftEntry) (receiver input : NativeSourceJudgement)
     (selected monicity : Expr) : TermElabM NativeSourceJudgement := do
   let state ← semanticState
+  unless (← sourceDomain selected).getAppFn.constName? == some row.evidence do
+    throwError "the selected lift changed its independent source declaration"
   let (source, target) ← liftBoundary state row
   let some category := receiver.category
     | throwError "a selected lift requires its complete source category"
