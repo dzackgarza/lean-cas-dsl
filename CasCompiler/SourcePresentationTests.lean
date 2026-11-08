@@ -54,3 +54,5 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let expected ← mkAppM ``CategoryTheory.Functor.map #[functor, core]
     unless ← isDefEq value expected do
       throwError "Aut lost the selected presentation's actual inverse data"
+    unless value.containsFVar bindings[4]!.expression.fvarId! do
+      throwError "the presentation action discarded its actual source map reference"
