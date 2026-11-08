@@ -58,7 +58,6 @@ partial_fixpoint
 /-- Stable counts for the supplied finite graph, retaining its original adjacency and ordinals.
 No provider call, selected execution binding or mathematical judgment is created here. -/
 structure GroundedRealizations (graph : RealizationGraph size) where
-  private mk ::
   counts : Vector RealizationCount size
 
 /-- Least grounding iteration from zero, as specified by execution contract v2 §5.1. -/
