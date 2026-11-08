@@ -426,8 +426,7 @@ partial def readExpression
     | _ => do
       if source.raw.isOfKind ``CasCatalogue.Language.casMatrix then
         let some expected := expected
-          | CasCatalogue.throwUnsupportedSource
-            "source matrix default-domain interpretation is not implemented"
+          | CasCatalogue.throwUnsupportedSource "source matrix default-domain interpretation is not implemented"
         let rows := source.raw[1].getSepArgs.map fun row =>
           row.getSepArgs.map fun cell => (⟨cell⟩ : TSyntax `cas_term)
         let value ← sourceMatrix rows expected fun component type => do
