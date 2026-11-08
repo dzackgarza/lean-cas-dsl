@@ -153,8 +153,24 @@ partial def readExpression
   let annotated := fun (body domain : TSyntax `cas_term) => do
     let domain ← sourceCarrier (← readExpression categoryOf domain none)
     discard <| getLevel domain.value
+    -- A relation's annotation selects its operand structure, not its truth-value result.
+    -- Reuse the same whole-family operation preparation as other element operations.
+    match body with
+    | `(cas_term| $left:cas_term ≤ $right:cas_term) =>
+      return ← elementOperation "≤" #[left, right] #[] #[] (some domain.value)
+    | `(cas_term| $left:cas_term < $right:cas_term) =>
+      return ← elementOperation "<" #[left, right] #[] #[] (some domain.value)
+    | _ => pure ()
     if let some expected := expected then checkRegisteredDomains domain.value expected
     readExpression categoryOf body (some domain.value)
+  let relation := fun (name : String) (left right : TSyntax `cas_term) => do
+    -- The public precedence grammar places a trailing domain on the right operand.
+    -- Its actual selected structure types both operands through the registered map.
+    match right with
+    | `(cas_term| $operand:cas_term in $domain:cas_term) =>
+      let domain ← sourceCarrier (← readExpression categoryOf domain none)
+      elementOperation name #[left, operand] #[] #[] (some domain.value)
+    | _ => elementOperation name #[left, right] #[] #[] none
   let lambda := fun (pattern body : TSyntax `cas_term) => do
     let some expected := expected
       | throwError "a source lambda requires its independently declared function type"
@@ -350,6 +366,8 @@ partial def readExpression
       sourceBinaryLimit left right true
     | `(cas_term| $left:cas_term + $right:cas_term) =>
       elementOperation "+" #[left, right] #[] #[] none
+    | `(cas_term| $left:cas_term ≤ $right:cas_term) => relation "≤" left right
+    | `(cas_term| $left:cas_term < $right:cas_term) => relation "<" left right
     | `(cas_term| $receiver.$method:ident()) =>
       member receiver method.getId.toString #[]
     | `(cas_term| |$receiver:cas_term|) => do
@@ -444,6 +462,8 @@ partial def readExpression
     | `(cas_term| $name:ident) =>
       if let some declaration := (← getLCtx).findFromUserName? name.getId then
         pure ⟨mkFVar declaration.fvarId, ← categoryOf declaration.fvarId⟩
+      else if name.getId == `false then pure ⟨mkConst ``False, none⟩
+      else if name.getId == `true then pure ⟨mkConst ``True, none⟩
       else registered name #[]
     | `(cas_term| $name:ident($arguments:cas_term,*)) =>
       if ((← getLCtx).findFromUserName? name.getId).isSome then
