@@ -16,26 +16,10 @@ private structure CarrierCategoryFamily where
 -- All source parameters and universes stay rigid while comparing complete functors.
 private partial def carrierCategoryFamily (state : SemanticState) (source : CategoryExpr) :
     MetaM CarrierCategoryFamily := do
-  match state.categories.filter (·.expression.syntacticEq source) with
-  | #[entry] =>
-    let info ← checkedDeclaration entry.declaration
-    let universes ← info.levelParams.mapM fun _ => mkFreshUserName `carrierUniverse
-    return ⟨mkConst entry.declaration (universes.map Level.param), universes⟩
-  | #[] =>
-    let .construct id #[.category argument] := source
-      | throwUnsupportedSource "carrier comparison requires its complete source category family"
-    let some constructor := state.constructor? id
-      | throwError "the carrier category constructor is absent"
-    unless constructor.signature == #[.category] do
-      throwUnsupportedSource "carrier comparison requires its declared constructor parameters"
-    discard <| checkedDeclaration constructor.semantics
-    let family ← carrierCategoryFamily state argument
-    let value ← forallTelescopeReducing (← inferType family.value) fun parameters _ => do
-      let category := mkAppN family.value parameters
-      let result ← applyConstructorInterface constructor.semantics #[category] #[category]
-      mkLambdaFVars parameters result
-    return ⟨value, family.universes⟩
-  | _ => throwSemanticAmbiguity "carrier comparison requires one complete source category family"
+  let value ← nativeCategoryFamily state source fun _ => do
+    return .param (← mkFreshUserName `carrierUniverse)
+  let levels : CollectLevelParams.State := {}
+  return ⟨value, (levels.collect value).params.toList⟩
 
 private def carrierRoutes (source : CategoryExpr) : TermElabM (Array Route) := do
   let sets := CategoryExpr.atom CategoryId.sets
@@ -49,7 +33,7 @@ private def carrierRoutes (source : CategoryExpr) : TermElabM (Array Route) := d
 -- Eq.refl is checked on full functor families before any object, category parameter,
 -- or universe is specialized. A natural isomorphism is not used as functor equality.
 -- Reuse: SourceSession.operationConversion's native conversion rule and congrFun.
-private def carrierAgreements (state : SemanticState) (source : NativeSourceCategory)
+def sourceRouteAgreements (state : SemanticState) (source : NativeSourceCategory)
     (routes : Array Route) : TermElabM (Array Expr) := do
   if routes.size == 1 then return #[]
   let family ← carrierCategoryFamily state source.expression
@@ -119,7 +103,7 @@ opaque sourceCarrier (source : NativeSourceJudgement) : TermElabM NativeSourceJu
     selectedEdges := selected.refs
     start := selected.target
   let routes ← carrierRoutes start
-  let proofs ← carrierAgreements state ⟨.object, start, bundle, none⟩ routes
+  let proofs ← sourceRouteAgreements state ⟨.object, start, bundle, none⟩ routes
   let some route := routes[0]?
     | throwError "carrier formation requires its source route"
   if !route.steps.isEmpty then
@@ -136,5 +120,73 @@ opaque sourceCarrier (source : NativeSourceJudgement) : TermElabM NativeSourceJu
   let selection := category.carrier.map fun selected =>
     { selected with refs := #[], target := .atom CategoryId.sets, actions := #[] }
   return ⟨value, some ⟨.object, .atom CategoryId.sets, bundle, selection⟩⟩
+
+/-- The actual object and checked whole carrier family that supply an element type. -/
+structure NativeSourceElementOwner where
+  category : NativeSourceCategory
+  value : Expr
+  evidence : Expr
+
+private partial def elementTypeBody (type : Expr) : Expr :=
+  match type with
+  | .mdata _ body => elementTypeBody body
+  | .letE _ _ value body _ => elementTypeBody (body.instantiate1 value)
+  | _ => type
+
+-- Vary only the final object argument. All other data remain fixed.
+private def elementTypeOrigin (type : Expr) : Option (Expr × (Expr → Expr)) :=
+  match elementTypeBody type with
+  | .app function object => some (object, mkApp function)
+  | .proj name index object => some (object, Expr.proj name index)
+  | _ => none
+
+/-- Recover an element owner from its principal source object, with a checked family
+comparison. Reuse: registeredDomain, objectCarrierSelection and sourceCarrier. -/
+def sourceElementOwners
+    (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
+    (expected : Expr) (hints : Array Expr) : TermElabM (Array NativeSourceElementOwner) := do
+  let state ← semanticState
+  let mut selected : Array NativeSourceElementOwner := #[]
+  for hint in hints do
+    let some (value, typeAt) := elementTypeOrigin hint | continue
+    let category ← if let .fvar id := value then categoryOf id else pure none
+    let category ← match category with
+      | some category => pure (some category)
+      | none => do
+        let (_, entries) ← registeredDomain value
+        if entries.isEmpty then pure none
+        else do
+          let #[entry] := entries
+            | throwSemanticAmbiguity "the element owner requires its selected source object"
+          let #[category] := state.categories.filter (·.id == entry.category)
+            | throwError "the element owner requires one complete source category"
+          discard <| checkedDeclaration category.declaration
+          let family ← mkConstWithFreshMVarLevels category.declaration
+          let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
+          let bundle := mkAppN family parameters
+          let objectType ← mkAppM ``CategoryTheory.Bundled.α #[bundle]
+          unless ← isDefEq objectType (← inferType value) do
+            throwError "the source element owner has a different native category"
+          let bundle ← instantiateMVars bundle
+          let carrier ← objectCarrierSelection entry bundle value
+          pure (some ⟨.object, category.expression, bundle, carrier⟩)
+    let some category := category | continue
+    unless category.role == .object &&
+        !category.expression.syntacticEq (.atom CategoryId.sets) do continue
+    if selected.any (·.value == value) then continue
+    let carrier ← sourceCarrier ⟨value, some category⟩
+    unless ← withoutModifyingState <| isDefEq carrier.value expected do continue
+    let proof ← withLocalDeclD `elementOwner (← inferType value) fun object => do
+      let carrier ← sourceCarrier ⟨object, some category⟩
+      let original ← mkLambdaFVars #[object] (typeAt object)
+      let canonical ← mkLambdaFVars #[object] carrier.value
+      unless ← isDefEq (← inferType original) (← inferType canonical) <&&>
+          isDefEq original canonical do
+        throwUnsupportedSource "element provenance requires its whole carrier-family comparison"
+      let proof ← mkExpectedTypeHint (← mkEqRefl original) (← mkEq original canonical)
+      checkWithKernel proof
+      return proof
+    selected := selected.push ⟨category, value, proof⟩
+  return selected
 
 end CasCompiler

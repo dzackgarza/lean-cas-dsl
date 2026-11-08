@@ -12,7 +12,8 @@ namespace CasCompiler
 
 open Lean Meta Elab Term CasCatalogue
 
-private def registeredDomain (value : Expr) : MetaM (Expr × Array ObjectEntry) := do
+/-- Locate the exact registered source domains through original native definitions. -/
+def registeredDomain (value : Expr) : MetaM (Expr × Array ObjectEntry) := do
   let state ← semanticState
   let domain ← sourceDomain value
   let reference ← sourceObjectReference? value
@@ -22,6 +23,45 @@ private def registeredDomain (value : Expr) : MetaM (Expr × Array ObjectEntry) 
   if reference.isSome && owners.isEmpty then
     throwError "the source domain reference is unavailable in the source inventory"
   return (domain, owners)
+
+/-- The complete named or unary-constructed native category family.
+Reuse: Resolve's categoryFamily/unaryCategoryFamily and the source constructor interface.
+The caller supplies universe variables; no source object is introduced here. -/
+partial def nativeCategoryFamily (state : SemanticState) (source : CategoryExpr)
+    (instantiateUniverse : Name → MetaM Level) : MetaM Expr := do
+  match state.categories.filter (·.expression.syntacticEq source) with
+  | #[entry] =>
+    let info ← checkedDeclaration entry.declaration
+    return mkConst entry.declaration (← info.levelParams.mapM instantiateUniverse)
+  | #[] =>
+    let .construct id #[.category argument] := source
+      | throwUnsupportedSource "comparison requires its complete source category family"
+    let some constructor := state.constructor? id
+      | throwError "the source category constructor is absent"
+    unless constructor.signature == #[.category] do
+      throwUnsupportedSource "comparison requires its declared constructor parameters"
+    discard <| checkedDeclaration constructor.semantics
+    let family ← nativeCategoryFamily state argument instantiateUniverse
+    forallTelescopeReducing (← inferType family) fun parameters _ => do
+      let category := mkAppN family parameters
+      let result ← applyConstructorInterface constructor.semantics #[category] #[category]
+      mkLambdaFVars parameters result
+  | _ => throwSemanticAmbiguity "comparison requires one complete source category family"
+
+/-- Match the independently declared literal selectors at their complete authored values.
+Reuse: Foundation.Objects and Algebra.NamedRings object notation selectors. -/
+def sourceLiteralDomains (domain : Expr) : TermElabM (Array ObjectEntry) := do
+  let defaults ← (← semanticState).objects.filterM fun entry => do
+    unless entry.notations.contains "literal.integral.domain" ||
+        entry.notations.contains "literal.fractional.domain" do return false
+    let info ← checkedDeclaration entry.declaration
+    let some body := info.value? | return false
+    let head := body.headBeta.consumeMData.getAppFn.constName?
+    unless head.isSome && head == domain.consumeMData.getAppFn.constName? do return false
+    withoutModifyingState <| isDefEq body domain
+  if defaults.size > 1 then
+    throwSemanticAmbiguity "the source has several declared literal-domain selectors"
+  return defaults
 
 /-- Compare registered source identities before native carrier conversion.
 Where both endpoints name registered objects, their exact row and actual declaration

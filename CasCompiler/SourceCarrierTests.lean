@@ -112,6 +112,18 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless (← inferType expression).containsFVar targetBinding.expression.fvarId! &&
         expression.getUsedConstants.contains ``CasCatalogue.Algebra.NamedRings.ringNumeral do
       throwError "a tuple point changed its original target domain or declared scalar numeral"
+  let mut originalFunction := false
+  for item in file.items do
+    let `(cas_item| $statement:cas_stmt) := item | continue
+    if let `(cas_stmt| let $name:ident($_:cas_term) := $_:cas_term) := statement then
+      let .definition next _ ← file.withContext (session.readStatement statement)
+        | throwError "the original function declaration did not extend its complete context"
+      unless name.getId == `expectedF &&
+          next.context.entries.size == session.context.entries.size + 1 do
+        throwError "the original function changed its name or complete context"
+      originalFunction := true
+      break
+  unless originalFunction do throwError "the original function declaration was not inspected"
 
 
 run_cmd Lean.Elab.Command.liftTermElabM do

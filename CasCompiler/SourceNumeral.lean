@@ -1,6 +1,6 @@
 module
 
-public import CasCompiler.Surface
+public import CasCompiler.SourceCarrier
 
 public section
 
@@ -10,7 +10,7 @@ open Lean Meta Elab Term CasCatalogue
 
 private inductive NumeralContext where
   | direct
-  | selected (value : Expr)
+  | selected (value : Expr) (evidence : Expr)
   | refinement (entry : ObjectEntry)
 
 -- Source rule: CasCatalogue.Language.decideObligation, using native checked decisions.
@@ -54,7 +54,7 @@ private def numeralCandidate (row : NumeralEntry) (context : NumeralContext)
     (number : Nat) (expected : Expr) (proofs : Array Term) : TermElabM (Option Expr) := do
   let (object, comparison, proofIndex) ← match context with
     | .direct => pure (none, none, 0)
-    | .selected value => pure (some value, none, 0)
+    | .selected value _ => pure (some value, none, 0)
     | .refinement entry => do
       let some refinement := entry.refines
         | throwError "a source numeral refinement has no declared comparison"
@@ -122,7 +122,14 @@ private def numeralCandidate (row : NumeralEntry) (context : NumeralContext)
     throwError "the admitted numeral is not a native point map"
   let source := type.getAppArgs[2]!
   let terminalPoint ← mkAppOptM ``default #[some source, none]
-  return some (← elabAppArgs point #[] #[Arg.expr terminalPoint] (some expected) false false)
+  let value ← elabAppArgs point #[] #[Arg.expr terminalPoint] (some expected) false false
+  let value ← match context with
+    | .selected _ evidence =>
+      withLetDecl (← mkFreshUserName `elementOwnerAgreement) (← inferType evidence) evidence
+        fun binding => mkLetFVars #[binding] value
+          (usedLetOnly := false) (generalizeNondepLet := false)
+    | _ => pure value
+  return some value
 
 /-- Read a numeral from its independent point declarations, not a host OfNat instance.
 Nat parameters use the kernel's natural literal. Point domains retain their original source
@@ -134,15 +141,9 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
     unless proofs.isEmpty do throwError "a natural parameter literal has no domain obligations"
     return mkNatLit number
   let state ← semanticState
-  let domain ← sourceDomain expected
-  let reference ← sourceObjectReference? expected
-  if let some (id, declaration) := reference then
-    unless state.objects.any (fun entry => entry.id == id && entry.declaration == declaration) do
-      throwError "the source numeral's object reference is unavailable in the source inventory"
-  let bases := state.objects.filter fun entry =>
-    entry.refines.isNone && match reference with
-      | some (id, declaration) => entry.id == id && entry.declaration == declaration
-      | none => domain.getAppFn.constName? == some entry.declaration
+  let (domain, bases) ← registeredDomain expected
+  let owners ← if bases.isEmpty then sourceElementOwners categoryOf expected #[expected]
+    else pure #[]
   let mut candidates : Array (NumeralEntry × NumeralContext) := #[]
   for row in state.numerals do
     discard <| checkedDeclaration row.declaration
@@ -151,40 +152,24 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
     | some owner =>
       let #[category] := state.categories.filter (·.id == owner)
         | throwError "the source numeral requires one registered structural category"
-      if bases.isEmpty then
-        for declaration in ← getLCtx do
-          unless expected.containsFVar declaration.fvarId do continue
-          if let some selected ← categoryOf declaration.fvarId then
-            if selected.role == .object && selected.expression.syntacticEq category.expression then
-              discard <| checkedDeclaration category.declaration
-              let family ← mkConstWithFreshMVarLevels category.declaration
-              let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
-              unless ← isDefEq selected.bundle (mkAppN family parameters) do
-                throwError "the source numeral has a different complete structural category"
-              candidates := candidates.push (row, .selected (mkFVar declaration.fvarId))
+      for selected in owners do
+        if selected.category.expression.syntacticEq category.expression then
+          discard <| checkedDeclaration category.declaration
+          let family ← mkConstWithFreshMVarLevels category.declaration
+          let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
+          unless ← isDefEq selected.category.bundle (mkAppN family parameters) do
+            throwError "the source numeral has a different complete structural category"
+          candidates := candidates.push (row, .selected selected.value selected.evidence)
       for entry in state.objects.filter (·.category == owner) do
-        if bases.isEmpty then
-          if let some value := expected.find? fun value =>
-              value.getAppFn.constName? == some entry.declaration then
-            candidates := candidates.push (row, .selected value)
         if let some refinement := entry.refines then
           if bases.any (·.id == refinement.base) then
             candidates := candidates.push (row, .refinement entry)
   let hasSelectedStructure := candidates.any fun (_, context) =>
     match context with
-    | .selected _ => true
+    | .selected _ _ => true
     | _ => false
   if bases.isEmpty && !hasSelectedStructure then
-    let defaults ← state.objects.filterM fun entry => do
-      unless entry.notations.contains "literal.integral.domain" ||
-          entry.notations.contains "literal.fractional.domain" do return false
-      let info ← checkedDeclaration entry.declaration
-      let some body := info.value? | return false
-      -- An independently declared literal selector supplies the exact authored domain.
-      -- Compare its complete value, including parameters, before considering refinements.
-      withoutModifyingState <| isDefEq body domain
-    if defaults.size > 1 then
-      throwSemanticAmbiguity "the source numeral has several declared literal-domain selectors"
+    let defaults ← sourceLiteralDomains domain
     for base in defaults do
       for row in state.numerals do
         if let some owner := row.over then

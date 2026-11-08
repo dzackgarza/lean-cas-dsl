@@ -23,6 +23,8 @@ import all CasCompiler.SourcePattern
 import all CasCompiler.SourcePatternTests
 import all CasCompiler.SourceTuple
 import all CasCompiler.SourceTupleTests
+import all CasCompiler.SourceOperation
+import all CasCompiler.SourceOperationTests
 import all CasCompiler.SourceCarrier
 import all CasCompiler.SourceCarrierTests
 import all CasCompiler.SourceCategoryBindingTests

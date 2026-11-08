@@ -4,6 +4,7 @@ public import CasCompiler.SourceNumeral
 public import CasCompiler.SourcePattern
 public import CasCompiler.SourceCarrier
 public import CasCompiler.SourceTuple
+public import CasCompiler.SourceOperation
 public import Lean.Elab.App
 
 public section
@@ -40,6 +41,79 @@ partial def readExpression
         throwErrorAt argument "the source argument does not match its dependent native type"
       actual := actual.push (Arg.expr value.value)
     elabAppArgs function #[] actual expected false false
+  let elementOperation := fun (name : String) (operands : Array (TSyntax `cas_term))
+      (numerals : Array (TSyntax `cas_term)) => do
+    let mut retained : Array (Option Expr) := Array.replicate operands.size none
+    let mut hints : Array Expr := #[]
+    for operand in operands, index in [:operands.size] do
+      if let `(cas_term| $identifier:ident) := operand then
+        if ((← getLCtx).findFromUserName? identifier.getId).isSome then
+          let value ← readExpression categoryOf operand none
+          retained := retained.set! index (some value.value)
+          hints := hints.push (← inferType value.value)
+    let contextual ← expected.mapM instantiateMVars
+    let contextual := contextual.filter (! ·.headBeta.consumeMData.getAppFn.isMVar)
+    let domain ← match contextual with
+      | some type => pure type
+      | none => do
+        let mut domain := hints[0]?
+        if domain.isNone then
+          for operand in operands, index in [:operands.size] do
+            if let `(cas_term| $_:num) := operand then continue
+            let value ← readExpression categoryOf operand none
+            domain := some (← inferType value.value)
+            retained := retained.set! index (some value.value)
+            hints := hints.push (← inferType value.value)
+            break
+        if let some selectedDomain := domain then pure selectedDomain
+        else do
+          let defaults := (← CasCatalogue.semanticState).objects.filter
+            (·.notations.contains "literal.integral.domain")
+          let #[entry] := defaults
+            | CasCatalogue.throwSemanticAmbiguity "the source operation requires its scalar domain"
+          discard <| checkedDeclaration entry.declaration
+          mkConstWithFreshMVarLevels entry.declaration
+    let originalOperand := retained
+    let operation ← sourceOperation categoryOf name domain contextual hints operands.size
+      (numerals.map fun numeral type => do
+        return (← readExpression categoryOf numeral (some type)).value)
+    let argument ← mkFreshExprMVar none
+    discard <| elabAppArgs operation.value #[] #[Arg.expr argument] none false false
+    let cursor : IO.Ref Nat ← liftM (m := IO) (IO.mkRef 0)
+    let readOperand : TSyntax `cas_term → Expr → TermElabM Expr := fun source type => do
+      let index : Nat ← liftM (m := IO) cursor.get
+      liftM (m := IO) (cursor.set (index + 1))
+      let some transport := operation.inputTransports[index]?
+        | throwError "the source operation lost its declared operand position"
+      let read : Expr → TermElabM Expr := fun expected => do
+        if let some (some value) := originalOperand[index]? then
+          checkRegisteredDomains (← inferType value) expected
+          unless ← isDefEq (← inferType value) expected do
+            throwErrorAt source "the retained operand has a different declared domain"
+          return value
+        return (← readExpression categoryOf source (some expected)).value
+      if transport then
+        let some comparison := operation.comparison
+          | throwError "the source operand lost its supplied comparison"
+        let iso ← whnfR (← inferType comparison)
+        let value ← read iso.getAppArgs[3]!
+        let inverse ← mkAppM ``CategoryTheory.Iso.inv #[comparison]
+        elabAppArgs inverse #[] #[Arg.expr value] (some type) false false
+      else read type
+    let type ← instantiateMVars (← inferType argument)
+    let value ← if operands.size == 1 then do
+        let some operand := operands[0]?
+          | throwError "the source operation requires its original operand"
+        readOperand operand type
+      else sourceTuple operands type readOperand
+    let value ← elabAppArgs operation.value #[] #[Arg.expr value] none false false
+    let value ← if operation.outputTransport then do
+        let some comparison := operation.comparison
+          | throwError "the source result lost its supplied comparison"
+        let forward ← mkAppM ``CategoryTheory.Iso.hom #[comparison]
+        elabAppArgs forward #[] #[Arg.expr value] expected false false
+      else pure value
+    return (⟨value, none⟩ : NativeSourceJudgement)
   let annotated := fun (body domain : TSyntax `cas_term) => do
     let domain ← readExpression categoryOf domain none
     discard <| getLevel domain.value
@@ -144,6 +218,14 @@ partial def readExpression
       NativeSourceJudgement)
   let judgement ← if let some name := sourceAtomName? source then object name qualification #[]
     else match source with
+    | `(cas_term| $left:cas_term + $right:cas_term) =>
+      elementOperation "+" #[left, right] #[]
+    | `(cas_term| $left:cas_term · $right:cas_term) =>
+      elementOperation "·" #[left, right] #[]
+    | `(cas_term| -$operand:cas_term) =>
+      elementOperation "-" #[operand] #[]
+    | `(cas_term| $base:cas_term ^ $power:cas_term) =>
+      elementOperation "^" #[base] #[power]
     | `(cas_term| $name:ident ↦ $body:cas_term) => do
       lambda (← `(cas_term| $name:ident)) body
     | `(cas_term| ($first:cas_term, $rest:cas_term,*) ↦ $body:cas_term) => do
@@ -236,6 +318,7 @@ partial def readExpression
     unless selected.expression.syntacticEq required.expression do
       throwError "the retained source value has a different selected category"
   if let some expected := expected then
+    checkRegisteredDomains (← inferType judgement.value) expected
     unless ← isDefEq (← inferType judgement.value) expected do
       throwError "the source expression does not have its independently declared parameter type"
   return judgement

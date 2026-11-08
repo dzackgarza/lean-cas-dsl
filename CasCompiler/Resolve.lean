@@ -366,37 +366,43 @@ structure SourceOperationFamily where
   binding : OperationEntry
   term : SourceTerm
 
-private def operationTerm (state : SemanticState) (session : SourceSession) (reference : Syntax)
-    (source : SourceCategoryFamily) (route : Route) (binding : OperationEntry) :
-    TermElabM SourceTerm := do
-  unless source.expression.syntacticEq route.source do
+/-- Form the whole native operation before selecting its source object or operands.
+Reuse: validateOperation's object/numeral boundary and withRigidArguments. -/
+def nativeOperationFamily (state : SemanticState) (source : CategoryExpr)
+    (categoryFamily : Expr) (route : Route) (binding : OperationEntry) : MetaM Expr := do
+  unless source.syntacticEq route.source do
     throwError "the operation family has a different complete symbolic source"
   discard <| checkedDeclaration binding.declaration
+  forallTelescopeReducing (← inferType categoryFamily) fun parameters _ => do
+    let category := mkAppN categoryFamily parameters
+    let selected ← nativeRouteFunctor state route category
+    let functor := selected.functor
+    let carrier ← mkAppM ``CategoryTheory.Bundled.α #[category]
+    withLocalDeclD `sourceObject carrier fun object => do
+      let prefunctor ← mkAppM ``CategoryTheory.Functor.toPrefunctor #[functor]
+      let image ← mkAppM ``Prefunctor.obj #[prefunctor, object]
+      let constant ← mkConstWithFreshMVarLevels binding.declaration
+      let (arguments, infos, result) ← forallMetaTelescopeReducing (← inferType constant)
+      unless arguments.size > binding.numerals do
+        throwError "the whole source operation has no object parameter"
+      unless (← whnfR result).isAppOf ``Quiver.Hom do
+        throwError "the source operation does not retain its whole morphism result"
+      let objectIndex := arguments.size - 1 - binding.numerals
+      unless ← isDefEq (← inferType arguments[objectIndex]!) (← inferType image) <&&>
+          isDefEq arguments[objectIndex]! image do
+        throwError "the source operation has a different complete routed object"
+      withRigidArguments arguments infos 0 objectIndex fun prefixParameters => do
+        withRigidArguments arguments infos (objectIndex + 1) arguments.size
+            fun suffixParameters => do
+          let body ← instantiateMVars (mkAppN constant arguments)
+          mkLambdaFVars (parameters ++ prefixParameters ++ #[object] ++ suffixParameters) body
+
+private def operationTerm (state : SemanticState) (session : SourceSession) (reference : Syntax)
+    (source : SourceCategoryFamily) (route : Route) (binding : OperationEntry) :
+    TermElabM SourceTerm :=
   session.elaborate reference fun context => do
-    let categoryFamily ← source.family.source.inContext context
-    forallTelescopeReducing (← inferType categoryFamily) fun parameters _ => do
-      let category := mkAppN categoryFamily parameters
-      let selected ← nativeRouteFunctor state route category
-      let functor := selected.functor
-      let carrier ← mkAppM ``CategoryTheory.Bundled.α #[category]
-      withLocalDeclD `sourceObject carrier fun object => do
-        let prefunctor ← mkAppM ``CategoryTheory.Functor.toPrefunctor #[functor]
-        let image ← mkAppM ``Prefunctor.obj #[prefunctor, object]
-        let constant ← mkConstWithFreshMVarLevels binding.declaration
-        let (arguments, infos, result) ← forallMetaTelescopeReducing (← inferType constant)
-        unless arguments.size > binding.numerals do
-          throwError "the whole source operation has no object parameter"
-        unless (← whnfR result).isAppOf ``Quiver.Hom do
-          throwError "the source operation does not retain its whole morphism result"
-        let objectIndex := arguments.size - 1 - binding.numerals
-        unless ← isDefEq (← inferType arguments[objectIndex]!) (← inferType image) <&&>
-            isDefEq arguments[objectIndex]! image do
-          throwError "the source operation has a different complete routed object"
-        withRigidArguments arguments infos 0 objectIndex fun prefixParameters => do
-          withRigidArguments arguments infos (objectIndex + 1) arguments.size
-              fun suffixParameters => do
-            let body ← instantiateMVars (mkAppN constant arguments)
-            mkLambdaFVars (parameters ++ prefixParameters ++ #[object] ++ suffixParameters) body
+    nativeOperationFamily state source.expression
+      (← source.family.source.inContext context) route binding
 
 /-- Form every binding at an explicitly selected first-hit target before choosing objects/operands.
 Reuse: validateOperation's native object/numeral telescope boundary and native abstraction.
