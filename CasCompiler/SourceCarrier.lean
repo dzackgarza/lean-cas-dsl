@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.Resolve
+public import CasCompiler.SourceTypeOrigin
 
 public section
 
@@ -122,6 +123,8 @@ opaque sourceCarrier (source : NativeSourceJudgement) : TermElabM NativeSourceJu
         (usedLetOnly := false) (generalizeNondepLet := false)
   let refs := reprStr (routes.map fun route => selectedEdges ++ route.refs)
   value := .mdata (KVMap.empty.setString `CasCompiler.source.carrierRoutes refs) value
+  if category.role == .object then
+    value ← annotateSourceType category source.value value
   let selection := category.carrier.map fun selected =>
     { selected with refs := #[], target := .atom CategoryId.sets, actions := #[] }
   return ⟨value, some ⟨category.role, .atom CategoryId.sets, bundle, selection⟩⟩
@@ -161,8 +164,15 @@ def sourceElementOwners
   let state ← semanticState
   let mut selected : Array NativeSourceElementOwner := #[]
   for hint in hints do
-    let some (value, typeAt) := elementTypeOrigin hint | continue
-    let category ← if let .fvar id := value then categoryOf id else pure none
+    let origin ← sourceTypeOrigin? hint
+    let some (value, typeAt) := match origin with
+      | some origin => some (origin.object, fun object =>
+          origin.type.replace fun part => if part == origin.object then some object else none)
+      | none => elementTypeOrigin hint
+      | continue
+    let category ← match origin with
+      | some origin => pure (some origin.category)
+      | none => if let .fvar id := value then categoryOf id else pure none
     let category ← match category with
       | some category => pure (some category)
       | none => do

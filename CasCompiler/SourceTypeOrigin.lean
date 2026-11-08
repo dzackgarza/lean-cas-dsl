@@ -66,8 +66,8 @@ partial def sourceTypeOrigin? (type : Expr) : MetaM (Option NativeSourceTypeOrig
       | throwError "the native source type has malformed provenance data"
     let .ok (descriptor : OwnerDescriptor) := fromJson? document
       | throwError "the native source type has a different provenance layout"
-    let count := 2 + descriptor.carrier.map (fun carrier =>
-      carrier.actions + carrier.comparisons) |>.getD 0
+    let count := 2 + (descriptor.carrier.map (fun carrier =>
+      carrier.actions + carrier.comparisons) |>.getD 0)
     let mut fields := #[]
     let mut body := body
     for _ in [:count] do
