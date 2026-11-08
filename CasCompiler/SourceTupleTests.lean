@@ -135,3 +135,16 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         unless (detail.splitOn "finite arit").length > 1 do throw error
         pure true
     unless rejected do throwError "a finite matrix accepted a different declared shape"
+  let session ← session.assume `ambientZero (← nativeTerm "OfNat (S : Type) 0") .instImplicit
+  let session ← session.assume `ambientOne (← nativeTerm "OfNat (S : Type) 1") .instImplicit
+  let type ← session.read (← sourceTerm "RectangularMatrices(1, 2, S)")
+  let value ← session.read (← sourceTerm "[1, 0]") (some type.source)
+  let expected ← session.term (← nativeTerm
+    "![![TypeCat.Fun.toFun (TypeCat.Hom.hom (CasCatalogue.Algebra.NamedRings.ringNumeral (CasCatalogue.Algebra.Algebras.commutativeRingsRings.toFunctor.obj S) 1)) default, TypeCat.Fun.toFun (TypeCat.Hom.hom (CasCatalogue.Algebra.NamedRings.ringNumeral (CasCatalogue.Algebra.Algebras.commutativeRingsRings.toFunctor.obj S) 0)) default]]")
+  value.source.withOpen fun bindings expression => do
+    let expected ← expected.source.inContext (← ContextTelescope.capture bindings)
+    unless (← isDefEq expression expected) &&
+        !expression.containsFVar bindings[4]!.expression.fvarId! &&
+        !expression.containsFVar bindings[5]!.expression.fvarId! do
+      throwError "matrix cells changed their selected coefficient or declared point maps"
+    checkWithKernel (← mkExpectedTypeHint (← mkEqRefl expression) (← mkEq expression expected))
