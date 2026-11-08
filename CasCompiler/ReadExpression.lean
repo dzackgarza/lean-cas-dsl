@@ -183,6 +183,23 @@ partial def readExpression
       let selected ← categoryOf declaration.fvarId
       let value ← application ⟨mkFVar declaration.fvarId, selected⟩ arguments expected
       return ⟨value, if arguments.isEmpty then selected else none⟩
+    if name.getId == `id then
+      let #[argument] := arguments
+        | throwError "source identity requires one object"
+      let object ← readExpression categoryOf argument none
+      let object ← if object.category.isSome then pure object
+        else sourceSetJudgement .object object.value
+      let some category := object.category
+        | throwError "source identity requires its complete selected category"
+      unless category.role == .object do throwError "source identity requires an object"
+      let carrier ← mkAppM ``CategoryTheory.Bundled.α #[category.bundle]
+      let instanceValue ← mkAppM ``CategoryTheory.Bundled.str #[category.bundle]
+      let structureValue ← mkAppOptM ``CategoryTheory.Category.toCategoryStruct
+        #[some carrier, some instanceValue]
+      let function ← mkAppOptM ``CategoryTheory.CategoryStruct.id
+        #[some carrier, some structureValue]
+      let value ← elabAppArgs function #[] #[Arg.expr object.value] expected false false
+      return ⟨value, some { category with role := .morphism, carrier := none }⟩
     let (entry, categoryEntry) ← selectNamed
       (name.getId.toString (escape := false)) qualification expected
     let declaration := match entry with

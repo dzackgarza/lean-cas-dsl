@@ -31,7 +31,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let expected ← session.term (← nativeTerm "CategoryTheory.CategoryStruct.id M")
     let session ← if source == "RegularModule(R)" then
         session.assume `unrelatedCategory
-          (← nativeTerm "CategoryTheory.Category (ModuleCat.{0} R)") .instImplicit
+          (← nativeTerm "CategoryTheory.Category.{0} (ModuleCat.{0} R)") .instImplicit
       else pure session
     let value ← session.read (← sourceTerm "id(M)")
     let some category := value.category
