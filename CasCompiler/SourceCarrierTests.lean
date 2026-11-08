@@ -159,6 +159,32 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         (← isDefEq value expected) do
       throwError "the original product replaced its actual vector set or universal presentation"
     checkWithKernel (← mkExpectedTypeHint (← mkEqRefl value) (← mkEq value expected))
+  session := ← session.defineTerm `pairOfVectors product
+  let .ok native := Parser.runParserCategory (← getEnv) `term
+      "TypeCat.ofHom (fun (p : pairOfVectors) => X.pairing p.1 p.2)"
+    | throwError "the independently declared native pairing control did not parse"
+  let expectedPairing ← session.term ⟨native⟩
+  let mut originalPairing := false
+  for item in file.items do
+    let `(cas_item| $statement:cas_stmt) := item | continue
+    if let `(cas_stmt| let $name:ident($_:cas_term) := $_:cas_term) := statement then
+      unless name.getId == `sourcePairing do continue
+      let .definition _ value ← file.withContext (session.readStatement statement)
+        | throwError "the original pairing declaration did not form its source function"
+      unless value.source.context.entries.map (·.id) == session.context.entries.map (·.id) do
+        throwError "the original pairing shortened its complete preceding context"
+      value.source.withOpen fun bindings expression => do
+        let context ← ContextTelescope.capture bindings
+        let expected ← expectedPairing.source.inContext context
+        unless expression.containsConst
+            (· == ``CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.pairing) &&
+            (← isDefEq expression expected) do
+          throwError "the original pairing changed its complete declared native map"
+        checkWithKernel
+          (← mkExpectedTypeHint (← mkEqRefl expression) (← mkEq expression expected))
+      originalPairing := true
+      break
+  unless originalPairing do throwError "the original pairing declaration was not inspected"
 
 
 run_cmd Lean.Elab.Command.liftTermElabM do

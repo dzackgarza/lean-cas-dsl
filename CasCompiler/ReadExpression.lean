@@ -6,6 +6,7 @@ public import CasCompiler.SourceCarrier
 public import CasCompiler.SourceTuple
 public import CasCompiler.SourceOperation
 public import CasCompiler.SourceLimit
+public import CasCompiler.SourceMember
 public import Lean.Elab.App
 
 public section
@@ -172,6 +173,19 @@ partial def readExpression
       | .inl object => objectCarrierSelection object bundle value
       | .inr _ => pure none
     return ⟨value, some ⟨role, categoryEntry.expression, bundle, carrier⟩⟩
+  let member := fun (receiver : TSyntax `cas_term) (name : String)
+      (arguments : Array (TSyntax `cas_term)) => do
+    let receiver ← readExpression categoryOf receiver none
+    let family ← sourceMemberFamily receiver name qualification
+    if arguments.size == 1 then
+      return (⟨← application family.value arguments expected, none⟩ : NativeSourceJudgement)
+    let argument ← mkFreshExprMVar none
+    discard <| elabAppArgs family.value #[] #[Arg.expr argument] expected false false
+    let type ← instantiateMVars (← inferType argument)
+    let argument ← sourceTuple arguments type fun source type => do
+      return (← readExpression categoryOf source (some type)).value
+    return (⟨← elabAppArgs family.value #[] #[Arg.expr argument] expected false false, none⟩ :
+      NativeSourceJudgement)
   let readFunctorAction := fun (role : SourceCategoryRole) (receiver : TSyntax `cas_term)
       (id : Ident) (arguments : Array (TSyntax `cas_term)) => do
     let entry ← selectView (id.getId.toString (escape := false))
@@ -217,7 +231,11 @@ partial def readExpression
     return (⟨sourceReference kind id selected.declaration image,
       some ⟨role, selected.target, selected.targetBundle, carrier⟩⟩ :
       NativeSourceJudgement)
-  let judgement ← if let some name := sourceAtomName? source then object name qualification #[]
+  let judgement ← if source.raw.getKind == ``CasCatalogue.Language.casCallWith then do
+      let arguments := source.raw[4].getSepArgs.map fun argument =>
+        (⟨argument⟩ : TSyntax `cas_term)
+      member ⟨source.raw[0]⟩ (source.raw[2].getId.toString (escape := false)) arguments
+    else if let some name := sourceAtomName? source then object name qualification #[]
     else match source with
     | `(cas_term| $left:cas_term × $right:cas_term) => do
       let left ← readExpression categoryOf left none qualification
@@ -303,7 +321,14 @@ partial def readExpression
         pure ⟨mkFVar declaration.fvarId, ← categoryOf declaration.fvarId⟩
       else registered name #[]
     | `(cas_term| $name:ident($arguments:cas_term,*)) =>
-      registered name arguments.getElems
+      if ((← getLCtx).findFromUserName? name.getId).isSome then
+        registered name arguments.getElems
+      else if let .str receiver field := name.getId then do
+        if !receiver.isAnonymous && !arguments.getElems.isEmpty &&
+            ((← getLCtx).findFromUserName? receiver).isSome then
+          member (← `(cas_term| $(mkIdentFrom name receiver):ident)) field arguments.getElems
+        else registered name arguments.getElems
+      else registered name arguments.getElems
     | `(cas_term| $body:cas_term in $category:ident) => do
       if ((← getLCtx).findFromUserName? category.getId).isSome then
         annotated body (← `(cas_term| $category:ident))

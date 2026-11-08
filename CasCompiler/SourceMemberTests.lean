@@ -37,6 +37,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let session ← session.defineTerm `A object
   let session ← session.assume `x (← nativeTerm "(A.carrier : Type)")
   let session ← session.assume `y (← nativeTerm "(A.carrier : Type)")
+  let functionType ← session.term (← nativeTerm "∀ (_ : A.carrier) (_ : A.carrier), A.carrier")
   let session ← session.assume `unrelatedRing (← nativeTerm "CommRing (R : Type)") .instImplicit
   let result ← session.read (← sourceTerm "A.pairing(x, y)")
   result.source.withOpen fun bindings value => do
@@ -56,6 +57,19 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           expression.getAppArgs[2]! == bindings[3]!.expression).isSome do
       throwError "member application changed its original bundled parameters or dictionary"
     checkWithKernel (← mkExpectedTypeHint (← mkEqRefl value) (← mkEq value expected))
+  let parenthesized ← session.read (← sourceTerm "(A).pairing(x, y)")
+  parenthesized.source.withOpen fun bindings value => do
+    let context ← ContextTelescope.capture bindings
+    let expected ← result.source.inContext context
+    unless ← isDefEq value expected do
+      throwError "a parenthesized member receiver changed its declared application"
+    checkWithKernel (← mkExpectedTypeHint (← mkEqRefl value) (← mkEq value expected))
+  let shadowed ← session.assumeTerm `A.pairing functionType
+  let localCall ← shadowed.read (← sourceTerm "A.pairing(x, y)")
+  localCall.source.withOpen fun bindings value => do
+    let expected := mkApp2 bindings[7]!.expression bindings[4]!.expression bindings[5]!.expression
+    unless value.getAppFn == bindings[7]!.expression && (← isDefEq value expected) do
+      throwError "a member call displaced an exact local callable binding"
   let session ← session.defineTerm `result result
   let session ← session.assume `A (← nativeTerm "Type")
   let retained ← session.read (← sourceTerm "result")

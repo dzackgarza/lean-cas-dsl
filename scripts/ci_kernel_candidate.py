@@ -35,6 +35,7 @@ READER_MODULES = (
     'CasCompiler.Resolve', 'CasCompiler.SourceCarrier', 'CasCompiler.SourcePattern',
     'CasCompiler.SourceNumeral', 'CasCompiler.SourceTuple', 'CasCompiler.SourceOperation',
     'CasCompiler.SourceLimit',
+    'CasCompiler.SourceMember',
     'CasCompiler.ReadExpression',
     'CasCompiler.Read',
 )

@@ -27,6 +27,8 @@ import all CasCompiler.SourceOperation
 import all CasCompiler.SourceOperationTests
 import all CasCompiler.SourceLimit
 import all CasCompiler.SourceLimitTests
+import all CasCompiler.SourceMember
+import all CasCompiler.SourceMemberTests
 import all CasCompiler.SourceCarrier
 import all CasCompiler.SourceCarrierTests
 import all CasCompiler.SourceCategoryBindingTests

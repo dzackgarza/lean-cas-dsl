@@ -28,6 +28,7 @@ private meta def provenance : CommandElabM Json := do
     `CasCompiler.Resolve, `CasCompiler.SourceCarrier, `CasCompiler.SourcePattern,
     `CasCompiler.SourceNumeral, `CasCompiler.SourceTuple, `CasCompiler.SourceOperation,
     `CasCompiler.SourceLimit,
+    `CasCompiler.SourceMember,
     `CasCompiler.ReadExpression,
     `CasCompiler.Read,
     `LeanCategories.Catalogue, `CasContract.Port,
