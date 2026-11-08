@@ -175,21 +175,22 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
     | .selected _ => true
     | _ => false
   if bases.isEmpty && !hasSelectedStructure then
-    let defaults := state.objects.filter (·.notations.contains "literal.integral.domain")
+    let defaults ← state.objects.filterM fun entry => do
+      unless entry.notations.contains "literal.integral.domain" ||
+          entry.notations.contains "literal.fractional.domain" do return false
+      let info ← checkedDeclaration entry.declaration
+      let some body := info.value? | return false
+      -- An independently declared literal selector supplies the exact authored domain.
+      -- Compare its complete value, including parameters, before considering refinements.
+      withoutModifyingState <| isDefEq body domain
     if defaults.size > 1 then
-      throwSemanticAmbiguity "the source numeral has several integral-domain selectors"
+      throwSemanticAmbiguity "the source numeral has several declared literal-domain selectors"
     for base in defaults do
-      let info ← getConstInfo base.declaration
-      if let some body := info.value? then
-        -- Native annotations can expose the selector's exact authored mathematical head.
-        if body.headBeta.getAppFn.constName?.isSome &&
-            body.headBeta.getAppFn.constName? == domain.getAppFn.constName? then
-          discard <| checkedDeclaration base.declaration
-          for row in state.numerals do
-            if let some owner := row.over then
-              for entry in state.objects.filter (·.category == owner) do
-                if entry.refines.any (·.base == base.id) then
-                  candidates := candidates.push (row, .refinement entry)
+      for row in state.numerals do
+        if let some owner := row.over then
+          for entry in state.objects.filter (·.category == owner) do
+            if entry.refines.any (·.base == base.id) then
+              candidates := candidates.push (row, .refinement entry)
   let mut admitted := #[]
   for (row, context) in candidates do
     let applicable ← withoutModifyingState do

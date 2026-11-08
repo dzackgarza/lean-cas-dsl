@@ -290,7 +290,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let empty ← SourceSession.empty identities
   for domain in #["Int", "CasCatalogue.Foundation.Objects.integers",
-      "CasCatalogue.Foundation.Objects.integersMod 3"] do
+      "CasCatalogue.Foundation.Objects.integersMod 3", "Rat",
+      "CasCatalogue.Algebra.NamedRings.rationals"] do
     let functions ← empty.define `f (← nativeSource s!"fun (x : {domain}) => x")
     let value ← readSource functions "f(3)"
     unless value.source.expression.containsConst
@@ -307,6 +308,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless value.containsFVar bindings[0]!.expression.fvarId! &&
         value.containsConst (· == ``CasCatalogue.Algebra.NamedRings.ringNumeral) do
       throwError "a source numeral replaced the actual selected scalar object"
+  let dictionaries ← empty.assume `customRationalNumeral
+    (← nativeSource "OfNat Rat 3") .instImplicit
+  let functions ← dictionaries.define `f (← nativeSource "fun (x : Rat) => x")
+  let value ← readSource functions "f(3)"
+  value.source.withOpen fun bindings value => do
+    unless value.containsConst (· == ``CasCatalogue.Algebra.NamedRings.ringNumeral) &&
+        value.containsConst (· == ``CasCatalogue.Algebra.NamedRings.ringRationals) &&
+        !value.containsFVar bindings[0]!.expression.fvarId! do
+      throwError "a source rational point changed its declared ring or used a host numeral instance"
 
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new

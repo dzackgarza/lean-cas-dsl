@@ -104,6 +104,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         type.containsFVar targetBinding.expression.fvarId! &&
         expression.getUsedConstants.contains ``Fin.cases do
       throwError "a tuple function replaced its original domains or native components"
+  let pointFunction ← session.read (← sourceTerm
+    "((a, b) ↦ (a, 0)) in sourceModule → targetModule")
+  pointFunction.source.withOpen fun bindings expression => do
+    let some targetBinding := bindings.find? (·.id == targetEntry.id)
+      | throwError "the point-valued tuple lost its target-module binding"
+    unless (← inferType expression).containsFVar targetBinding.expression.fvarId! &&
+        expression.getUsedConstants.contains ``CasCatalogue.Algebra.NamedRings.ringNumeral do
+      throwError "a tuple point changed its original target domain or declared scalar numeral"
 
 
 run_cmd Lean.Elab.Command.liftTermElabM do

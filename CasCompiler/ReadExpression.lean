@@ -228,7 +228,7 @@ partial def readExpression
       pure ⟨← application function.value arguments.getElems expected, none⟩
     | _ =>
       CasCatalogue.throwUnsupportedSource
-        "source translation is not implemented for this expression form"
+        m!"source translation is not implemented for expression {source}"
   if let some name := qualification then
     let required ← selectCategory (← CasCatalogue.semanticState) name
     let some selected := judgement.category
