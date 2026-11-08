@@ -39,6 +39,8 @@ import all CasCompiler.SourceMember
 import all CasCompiler.SourceMemberTests
 import all CasCompiler.SourceMethod
 import all CasCompiler.SourceMethodTests
+import all CasCompiler.SourceConstruction
+import all CasCompiler.SourceConstructionTests
 import all CasCompiler.SourceCarrier
 import all CasCompiler.SourceCarrierTests
 import all CasCompiler.SourceCategoryBindingTests

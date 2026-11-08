@@ -8,6 +8,7 @@ public import CasCompiler.SourceOperation
 public import CasCompiler.SourceLimit
 public import CasCompiler.SourceMember
 public import CasCompiler.SourceMethod
+public import CasCompiler.SourceConstruction
 public import CasCompiler.SourceLift
 public import Lean.Elab.App
 
@@ -237,8 +238,15 @@ partial def readExpression
         let literal : TSyntax `num := ⟨Syntax.mkNumLit (toString number)⟩
         let leading ← `(cas_term| $literal:num)
         pure (base, #[leading] ++ arguments)
-    let (entry, categoryEntry) ← selectNamed
-      spelling qualification expected
+    let selected ← selectNamed spelling qualification expected
+    let .registered entry categoryEntry := selected
+      | .construction entry => do
+        let some receiver := arguments.back?
+          | throwError "a source construction requires its actual receiver"
+        let receiver ← readExpression categoryOf receiver none
+        return ← sourceConstruction entry receiver
+          ((arguments.pop).map fun parameter type => do
+            return (← readExpression categoryOf parameter (some type)).value)
     let declaration := match entry with
       | .inl entry => entry.declaration
       | .inr entry => entry.declaration
@@ -293,6 +301,10 @@ partial def readExpression
     if let some category := receiver.category then
       unless category.role == role do
         throwError "the source functor action has a different object or morphism role"
+    let .registered entry := entry
+      | .construction entry =>
+        return ← sourceConstruction entry receiver (arguments.map fun parameter type => do
+          return (← readExpression categoryOf parameter (some type)).value)
     let selected ← viewExpressions entry
         (receiver.category.map fun category => (category.expression, category.bundle)) fun constant =>
       application ⟨constant, none⟩ arguments none

@@ -206,26 +206,38 @@ opaque selectObject (name : String) (category : Option String) (expected : Optio
       | throwError "the source object requires one registered category"
     return (entry, categoryEntry)
 
-/-- Select the exact named source kind; neither kind has priority over the other. -/
+inductive SourceNamedEntry where
+  | registered (entry : ObjectEntry ⊕ MorphismEntry) (category : NamedCategoryEntry)
+  | construction (entry : ConstructionEntry)
+
+/-- Select the exact named source kind without a priority between kinds. -/
 opaque selectNamed (name : String) (category : Option String) (expected : Option Expr) :
-    TermElabM ((ObjectEntry ⊕ MorphismEntry) × NamedCategoryEntry) := do
+    TermElabM SourceNamedEntry := do
   let state ← semanticState
   let qualified ← category.mapM (selectCategory state)
   let morphisms := state.morphisms.filter fun entry =>
     entry.name == name && qualified.all (·.id == entry.category)
-  if morphisms.isEmpty then
-    let (entry, category) ← selectObject name category expected
-    return (.inl entry, category)
   let objects := state.objects.filter fun entry =>
     entry.name == name && qualified.all (·.id == entry.category) &&
       (qualified.isSome || unqualifiedObjectName state entry)
+  let constructions := state.constructions.filter fun entry =>
+    entry.name == name && qualified.all (entry.target.syntacticEq ·.expression)
+  unless constructions.isEmpty do
+    unless objects.isEmpty && morphisms.isEmpty do
+      throwSemanticAmbiguity m!"source name {name} has distinct registered kinds"
+    let #[entry] := constructions
+      | throwSemanticAmbiguity m!"source construction {name} has several registrations"
+    return .construction entry
+  if morphisms.isEmpty then
+    let (entry, category) ← selectObject name category expected
+    return .registered (.inl entry) category
   unless objects.isEmpty do
     throwSemanticAmbiguity m!"source name {name} requires a category qualification"
   let #[entry] := morphisms
     | throwSemanticAmbiguity m!"source name {name} requires a category qualification"
   let #[categoryEntry] := state.categories.filter (·.id == entry.category)
     | throwError "the source morphism requires one registered category"
-  return (.inr entry, categoryEntry)
+  return .registered (.inr entry) categoryEntry
 
 /-- Form the actual registered value and check its declared object or morphism role.
 Reuse: the source's declaration/category pair, native application and the identity functor. -/
@@ -285,14 +297,20 @@ structure NativeSourceView where
   functor : Expr
   targetBundle : Expr
 
+inductive SourceActionEntry where
+  | registered (entry : FunctorEntry ⊕ ClassifierEntry)
+  | construction (entry : ConstructionEntry)
+
 /-- Select an actual direct source action by its exact published identity. -/
-opaque selectView (id : String) : TermElabM (FunctorEntry ⊕ ClassifierEntry) := do
+opaque selectView (id : String) : TermElabM SourceActionEntry := do
   let state ← semanticState
-  match state.functors.filter (·.id.raw == id), state.classifiers.filter (·.id.raw == id) with
-  | #[entry], #[] => return .inl entry
-  | #[], #[entry] => return .inr entry
-  | #[], #[] => throwError "unregistered source view: {id}"
-  | _, _ => throwSemanticAmbiguity m!"source view {id} has several declared actions"
+  match state.functors.filter (·.id.raw == id), state.classifiers.filter (·.id.raw == id),
+      state.constructions.filter (·.name == id) with
+  | #[entry], #[], #[] => return .registered (.inl entry)
+  | #[], #[entry], #[] => return .registered (.inr entry)
+  | #[], #[], #[entry] => return .construction entry
+  | #[], #[], #[] => throwError "unregistered source view: {id}"
+  | _, _, _ => throwSemanticAmbiguity m!"source view {id} has several declared actions"
 
 /-- Apply the selected declaration and retain its complete native functor boundary.
 An existing receiver category stays fixed. Otherwise the explicitly selected action supplies
