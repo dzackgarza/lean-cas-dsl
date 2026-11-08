@@ -89,12 +89,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let session ← parameters.defineTerm `S second
   let session ← session.assume `x (← nativeTerm "R")
   let session ← session.assume `y (← nativeTerm "S")
-  let rejected ← withoutModifyingState do
-    try
-      discard <| session.read (← sourceTerm "x + y")
-      pure false
-    catch error =>
-      let message ← error.toMessageData.toString
-      return (message.splitOn "selected common refinement").length > 1
-  unless rejected do
-    throwError "equal carriers selected one of two independently supplied ring structures"
+  let type ← session.term (← nativeTerm "(R : Type)")
+  for expected in #[none, some type.source] do
+    let rejected ← withoutModifyingState do
+      try
+        discard <| session.read (← sourceTerm "x + y") expected
+        pure false
+      catch error =>
+        let message ← error.toMessageData.toString
+        return (message.splitOn "selected common refinement").length > 1
+    unless rejected do
+      throwError "equal carriers selected one of two independently supplied ring structures"

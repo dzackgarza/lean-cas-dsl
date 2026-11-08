@@ -61,9 +61,7 @@ private def operationDomains
   let state ← semanticState
   let (domain, entries) ← registeredDomain expected
   if entries.isEmpty then
-    if let some type := contextual then
-      let selected ← scopedOperationDomains categoryOf expected #[type]
-      if !selected.isEmpty then return selected
+    let hints := contextual.toArray ++ hints
     let selected ← scopedOperationDomains categoryOf expected hints
     if !selected.isEmpty then return selected
   let bases := entries
