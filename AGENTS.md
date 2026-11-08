@@ -22,3 +22,4 @@ issues; changes to constitutional requirements follow its amendment rules.
 - [Independent acceptance](https://github.com/dzackgarza/lean-cas-dsl/issues/24)
 - [Construction inputs](https://github.com/dzackgarza/lean-cas-dsl/issues/23)
 - [Higher coherence](https://github.com/dzackgarza/lean-cas-dsl/issues/82)
+- Goals, plans and handoffs: section "Goals, outlines and plans" of `~/ai/AGENTS.global.md`
