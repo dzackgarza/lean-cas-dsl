@@ -55,3 +55,37 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         unless expression.getAppFn == bindings.back!.expression &&
             expression.containsFVar bindings[1]!.expression.fvarId! do
           throwError "the identity syntax displaced an exact local callable binding"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let session ← empty.assume `R (← nativeTerm "RingCat.{0}")
+  let object ← session.read (← sourceTerm "RegularModule(R)")
+  let session ← session.defineTerm `M object
+  let session ← session.assume `a (← nativeTerm "(M : Type)")
+  let value ← session.read (← sourceTerm "a in M")
+  value.source.withOpen fun bindings expression => do
+    unless expression == bindings[2]!.expression do
+      throwError "a structured-domain annotation changed its actual source value"
+    let domain ← sourceCarrier ⟨bindings[1]!.expression,
+      ← pure <| some ⟨.object, object.category.get!.expression,
+        ← object.category.get!.bundle.inContext (← ContextTelescope.capture bindings), none⟩⟩
+    unless ← isDefEq (← inferType expression) domain.value do
+      throwError "a structured-domain annotation changed its chosen carrier"
+  let session ← empty.assume `A (← nativeTerm "Type")
+  let session ← session.assume `B (← nativeTerm "Type")
+  let session ← session.assume `a (← nativeTerm "A")
+  let value ← session.read (← sourceTerm "a in A")
+  value.source.withOpen fun bindings expression => do
+    unless expression == bindings[2]!.expression do
+      throwError "an annotation replaced its exact native source binding"
+  let rejected ← withoutModifyingState do
+    try
+      discard <| session.read (← sourceTerm "a in B")
+      pure false
+    catch error =>
+      let detail ← error.toMessageData.toString
+      unless (detail.splitOn "source annotation has a different native domain").length > 1 do
+        throw error
+      pure true
+  unless rejected do throwError "a source annotation accepted an unrelated native domain"
