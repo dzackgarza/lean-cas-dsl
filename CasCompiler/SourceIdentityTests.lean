@@ -63,14 +63,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let object ← session.read (← sourceTerm "RegularModule(R)")
   let session ← session.defineTerm `M object
   let session ← session.assume `a (← nativeTerm "(M : Type)")
+  let carrier ← session.term (← nativeTerm "(M : Type)")
   let value ← session.read (← sourceTerm "a in M")
   value.source.withOpen fun bindings expression => do
     unless expression == bindings[2]!.expression do
       throwError "a structured-domain annotation changed its actual source value"
-    let domain ← sourceCarrier ⟨bindings[1]!.expression,
-      ← pure <| some ⟨.object, object.category.get!.expression,
-        ← object.category.get!.bundle.inContext (← ContextTelescope.capture bindings), none⟩⟩
-    unless ← isDefEq (← inferType expression) domain.value do
+    let carrier ← carrier.source.inContext (← ContextTelescope.capture bindings)
+    unless ← isDefEq (← inferType expression) carrier do
       throwError "a structured-domain annotation changed its chosen carrier"
   let session ← empty.assume `A (← nativeTerm "Type")
   let session ← session.assume `B (← nativeTerm "Type")
