@@ -30,7 +30,28 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let mut session ← SourceSession.empty identities
   let mut observed := #[]
+  let mut questions := #[]
   for item in file.items do
+    if let `(cas_item| test $id:ident $_:str : assert $body:cas_term) := item then
+      let text := id.getId.toString (escape := false)
+      let native := if text.endsWith ".first_inverse_on_carrier" then
+          some "CategoryTheory.CategoryStruct.comp alpha1 beta1 = CategoryTheory.CategoryStruct.id firstCarrier"
+        else if text.endsWith ".first_inverse_on_scalar" then
+          some "CategoryTheory.CategoryStruct.comp beta1 alpha1 = CategoryTheory.CategoryStruct.id scalarModule"
+        else none
+      if let some native := native then
+        let .ok parsed := Parser.runParserCategory (← getEnv) `term native
+          | throwError "the native composed-map proposition did not parse"
+        let expected ← session.term ⟨parsed⟩
+        let question ← file.withContext (session.readQuestion body)
+        question.source.withOpen fun bindings expression => do
+          let expected ← expected.source.inContext (← ContextTelescope.capture bindings)
+          unless ← isDefEq expression expected do
+            throwError "the original inverse equation changed its complete native reading"
+          checkWithKernel
+            (← mkExpectedTypeHint (← mkEqRefl expression) (← mkEq expression expected))
+        questions := questions.push text
+      continue
     let `(cas_item| $statement:cas_stmt) := item | continue
     if let `(cas_stmt| assert $_:cas_term) := statement then continue
     let name ← match statement with
@@ -46,6 +67,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       | `i1 => some "CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneLifts.firstInclusion"
       | `alpha1 => some "CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneLifts.alpha"
       | `beta1 => some "CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneLifts.beta"
+      | `unscaledRaw => some "(![(4 : ℚ), (-4 : ℚ)])"
       | _ => none
     if let some expectedName := expectedName then
       let .ok parsed := Parser.runParserCategory (← getEnv) `term expectedName
@@ -78,6 +100,6 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             pure true
         unless rejected do
           throwError "a selected lift accepted evidence for a different source input"
-    if name == `beta1 then break
-  unless observed == #[`X1, `i1, `alpha1, `beta1] do
-    throwError "the original selected lift did not supply all four native projections"
+    if name == `unscaledRaw then break
+  unless observed == #[`X1, `i1, `alpha1, `beta1, `unscaledRaw] && questions.size == 2 do
+    throwError "the original lift context did not supply its projections, equations and raw point"
