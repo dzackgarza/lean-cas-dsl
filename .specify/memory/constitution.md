@@ -406,6 +406,20 @@ are mathematical domain requirements, not a blanket ban on programming construct
 [approximation contract][S11]; [later domain requirements][S9]; [numeral, admission and
 mathematical-totality rules][S36].
 
+**Competing routes.** When first-binding lookup leaves more than one binding for a surface
+name on an object, the readings agree only by definitional equality of the complete dependent
+operation families, or by an accepted comparison cell, composed with its actual transports,
+that equates those families. Absent such data, the question is mathematically ambiguous and is
+reported as such before execution. No route is selected by owner, route length, registration
+order, implementation priority or search over unregistered theorems. A comparison cell is a
+mathematical claim: it is formalized in **M** by the independent mathematical author, and a
+cell supplied by a kernel, leaf or runtime is not evidence. A declared preferred route is not a
+mathematical claim: it names which surviving binding a surface name denotes for that
+registration, asserts no agreement, is ordinary registration data through the public leaf
+contract, and is recorded with the reading that used it. The lookup completeness obligation of
+C3 concerns enumeration of first-binding routes on the accepted declarations; it does not
+require deciding whether inherited operations agree.
+
 ### C7. Transport, lifts and higher coherence require their actual data
 
 A functor supplies its declared action; it does not by itself supply a reverse lift,
@@ -778,7 +792,7 @@ not silently repeal it.
 | Realization selection | At the selected operation/input form, zero eligible registrations yields its declared gap, one yields the selected call, and multiple yield implementation ambiguity. Cheapest, first, priority, installed-order and retry-until-success selection are prohibited. This is separate from mathematical ambiguity. An existing occurrence retains its chosen registration. The prescribed explicit-manifest comparison/replacement experiments and admitted fused realization remain available under their recorded rules. | Selection contract, revised November 3 [S41] |
 | Retry and migration | A failed or consumed occurrence must not be automatically retried, replayed or migrated. An explicit user rerun is a fresh invocation/routing act; returning an existing committed binding or joining the same pending execution is not a new dispatch. A future resume/migration design requires an actual authorized policy change. | July adoption [S42]; November lifecycle contract [S43] |
 | Default mathematical display | Results render mathematically and automatically, using LaTeX when available and a usable text fallback, without an extra display command. Emit once per event; do not stack a second plaintext display under the rendered result. Backend, routing and timing diagnostics are opt-in. Mathematical qualifications required by C15 remain with the result. MIME encoding, renderer architecture and later logging milestones retain their assigned implementation scope. | Rendering [S23]; one-emission ruling [S25]; opt-in diagnostics [S45] |
-| Production-leaf sequencing | The recorded kernel-MVP readiness and independently selected frozen extension trials precede substantial production-leaf work in that development phase. Earlier diagnostic specimens remain limited to their assigned public interface checks; full required acceptance follows. This phase-specific order remains in its owning work plan, rather than becoming an all-time prerequisite for authorized construction or being silently repealed by omission. | Pre-migration phase policy [S36]; preserved exit trials [S44] |
+| Production-leaf sequencing | Kernel readiness for leaf work precedes substantial production-leaf work. Independently selected frozen extension trials come after functionality (C21). Earlier diagnostic specimens remain limited to their assigned public interface checks; full required acceptance follows. This phase-specific order remains in its owning work plan, rather than becoming an all-time prerequisite for authorized construction or being silently repealed by omission. | Pre-migration phase policy [S36]; preserved exit trials [S44] |
 
 Implementation-specific mechanisms mentioned in these sources do not acquire constitutional
 status by being recorded alongside genuine requirements. Unresolved computational or
@@ -1141,6 +1155,10 @@ position in a list or task order does not schedule them earlier. A goal, plan, o
 task order derives its sequence from the remaining functionality and not from CI state. It cannot
 add a performance priority.
 
+Evidence that only shows self-consistency comes after functionality in the same way: independent
+assessments, acceptance inventories, frozen trials, preservation arguments and correctness proofs
+remain obligations where this constitution requires them, and they do not gate functional work.
+
 ### Adoption record
 
 | Version | Date | Change |
@@ -1151,6 +1169,7 @@ add a performance priority.
 | 1.2.0 | 2026-11-05 | Make the intrinsic product explicit in C0: a growing categorical mathematical research language with first-class constructions, generic interface/composition growth, fixed mathematical meaning, actual computational workflows and mathematical interaction. Make the adopted mathematical roles of computations, classifiers, dependent families and higher coherence explicit in C1, C5 and C7. Elaborate C4, C11 and C12 positively; clarify the C8 and C15 titles; name lean-categories as the currently designated independent formal development. Relocate C14, C16–C20 and the detailed C1/C12 contributor procedures under Governance while preserving their obligations and identifiers. This restores the source-backed project definition and distinguishes it from contribution policy; it does not select a runtime architecture, reduce computational scope or amend the mathematical trust boundary. |
 | 1.2.1 | 2026-11-05 | Clarify the existing separation and encapsulation of responsibilities in C2: leaf registration and output are computational claims against independently fixed obligations; mathematical definitions and proofs are never leaf deliverables, including optional proofs; the public leaf boundary confers no semantic or acceptance authority. Align the computational-evidence policy wording with this prohibition. Independent formalization, generic kernel discharge, independent acceptance and complete actual delivery retain their existing responsibilities. |
 | 1.4.0 | 2026-11-08 | Add C21 by owner decision. Old obligation: budgets and required capabilities had no stated order of work. New obligation: all required functionality precedes all performance work, and budgets are obligations of the last phase. Reason: goals and plans placed expensive computations before missing functionality. Decision record: [issue #10, work priority](https://github.com/dzackgarza/lean-cas-dsl/issues/10#work-priority). Affected issues and pointer files are reconciled in the same change. |
+| 1.5.0 | 2026-11-08 | Add the competing-routes rule to C6 by owner decision on issue #66: a leaf supplies a comparison cell formalized in **M** or declares a preferred route as registration data; otherwise the question is ambiguous. Extend C21: evidence that only shows self-consistency follows functionality. Change production-leaf sequencing to follow kernel readiness. Reconciled in issues #10, #24, #66 and #69. |
 
 ### Provenance
 
@@ -1221,4 +1240,4 @@ evidence of an authorized amendment.
 
 [S46]: https://github.com/dzackgarza/lean-cas-dsl/blob/a206552ca315726c5d8cca356cebc65f617d4d7a/README.md
 
-**Version**: 1.4.0 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-08
+**Version**: 1.5.0 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-08
