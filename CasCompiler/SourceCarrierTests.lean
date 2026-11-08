@@ -124,6 +124,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       originalFunction := true
       break
   unless originalFunction do throwError "the original function declaration was not inspected"
+  let vectors ← session.read (← sourceTerm "Vec(Q, 2) in Sets")
+  let some scalarEntry := session.context.entries.find? (·.userName == `Q)
+    | throwError "the original selected scalar object is absent"
+  vectors.source.withOpen fun bindings expression => do
+    let some scalar := bindings.find? (·.id == scalarEntry.id)
+      | throwError "the vector parameter lost the original selected scalar binding"
+    unless expression.containsFVar scalar.expression.fvarId! &&
+        expression.containsConst (· == ``CasCatalogue.Algebra.LinearAlgebra.vectors) do
+      throwError "the vector parameter replaced its selected source carrier"
 
 
 run_cmd Lean.Elab.Command.liftTermElabM do
