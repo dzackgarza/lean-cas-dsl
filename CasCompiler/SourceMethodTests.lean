@@ -123,7 +123,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let object ← empty.read (← sourceTerm "Fin(3)")
   let session ← empty.defineTerm `X object
   let session ← session.assume `unused (← nativeTerm "Nat")
-  for expression in #["|X| = 3", "|X| = (3)"] do
+  for expression in #["|X| = 3", "|X| = (3)", "3 = |X|"] do
     let question ← session.readQuestion (← sourceTerm expression)
     unless question.source.context.entries.size == 2 do
       throwError "literal formation lost the original mathematical context"
@@ -133,9 +133,17 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "literal comparison did not form a proposition"
       unless value.isAppOfArity ``Eq 3 do
         throwError "literal comparison changed the source equality"
-      let right := value.getAppArgs[2]!
+      let right := value.getAppArgs[if expression == "3 = |X|" then 1 else 2]!
       let literal ← mkAppM ``CasCatalogue.Foundation.Cardinality.CardinalLiteral.denote
         #[← mkAppM ``CasCatalogue.Foundation.Cardinality.CardinalLiteral.finite #[mkNatLit 3]]
       unless ← isDefEq right literal do
         throwError "the literal did not retain its registered denotation"
       unless bindings.size == 2 do throwError "literal comparison lost its unused binding"
+  let question ← session.readQuestion (← sourceTerm "|X| = ℵ₀")
+  question.source.withOpen fun _ value => do
+    unless value.isAppOfArity ``Eq 3 do
+      throwError "the named literal comparison changed the source equality"
+    let literal ← mkAppM ``CasCatalogue.Foundation.Cardinality.CardinalLiteral.denote
+      #[mkConst ``CasCatalogue.Foundation.Cardinality.CardinalLiteral.aleph0]
+    unless ← isDefEq value.getAppArgs[2]! literal do
+      throwError "the named literal lost its independently registered denotation"
