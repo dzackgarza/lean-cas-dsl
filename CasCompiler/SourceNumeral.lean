@@ -255,7 +255,8 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
         throwSemanticAmbiguity "the source numeral requires its selected original structure"
       unless ← isDefEq (← inferType first.family.value) (← inferType other.family.value) <&&>
           isDefEq first.family.value other.family.value do
-        throwSemanticAmbiguity "inherited point families require their supplied whole agreement"
+        throwSemanticAmbiguity
+          s!"inherited point families require their supplied whole agreement: {repr first.alternatives} and {repr other.alternatives}"
       let proof ← mkExpectedTypeHint (← mkEqRefl first.family.value)
         (← mkEq first.family.value other.family.value)
       checkWithKernel proof

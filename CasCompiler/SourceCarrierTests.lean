@@ -63,7 +63,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let source := expression.getAppArgs[0]!
     let target := expression.getAppArgs[1]!
     for carrier in #[source, target] do
-      let .mdata data body := carrier
+      let some origin ← sourceTypeOrigin? carrier
+        | throwError "a source carrier discarded its exact selected owner"
+      let .mdata data body := origin.type
         | throwError "a carrier discarded its actual route references"
       unless data.getString `CasCompiler.source.carrierRoutes == reprStr (candidates.map (·.refs)) do
         throwError "a carrier discarded an original structural route"
@@ -78,6 +80,11 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       | throwError "the original source-module binding is absent"
     let some targetBinding := bindings.find? (·.id == targetEntry.id)
       | throwError "the original target-module binding is absent"
+    for (carrier, binding) in #[(source, sourceBinding), (target, targetBinding)] do
+      let some origin ← sourceTypeOrigin? carrier
+        | throwError "the original carrier lost its typed source owner"
+      unless origin.object == binding.expression && origin.category.role == .object do
+        throwError "native context transport changed a carrier's original selected object"
     unless source.containsFVar sourceBinding.expression.fvarId! &&
         !source.containsFVar targetBinding.expression.fvarId! &&
         target.containsFVar targetBinding.expression.fvarId! &&
