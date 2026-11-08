@@ -152,12 +152,7 @@ partial def readExpression
     let domain ← sourceCarrier (← readExpression categoryOf domain none)
     discard <| getLevel domain.value
     if let some expected := expected then checkRegisteredDomains domain.value expected
-    let value ← readExpression categoryOf body (some domain.value)
-    let type ← inferType value.value
-    checkRegisteredDomains type domain.value
-    unless ← isDefEq type domain.value do
-      throwErrorAt body "the source annotation has a different native domain"
-    return value
+    readExpression categoryOf body (some domain.value)
   let lambda := fun (pattern body : TSyntax `cas_term) => do
     let some expected := expected
       | throwError "a source lambda requires its independently declared function type"

@@ -84,7 +84,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       pure false
     catch error =>
       let detail ← error.toMessageData.toString
-      unless (detail.splitOn "source annotation has a different native domain").length > 1 do
+      unless (detail.splitOn "independently declared parameter type").length > 1 do
         throw error
       pure true
   unless rejected do throwError "a source annotation accepted an unrelated native domain"
