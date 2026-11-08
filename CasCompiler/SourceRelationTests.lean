@@ -8,6 +8,11 @@ meta import LeanCategories.Catalogue.Semantics.Foundation.FiniteOrders
 
 open Lean Meta Elab Term CasCompiler CasCatalogue
 
+private def nativeTerm (text : String) : TermElabM Term := do
+  let .ok source := Parser.runParserCategory (← getEnv) `term text
+    | throwError "the retained native relation source did not parse"
+  return ⟨source⟩
+
 private def sourceTerm (text : String) : TermElabM (TSyntax `cas_term) := do
   let .ok source := Parser.runParserCategory (← getEnv) `cas_term text
     | throwError "the original relation source did not parse"
@@ -43,13 +48,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let empty ← SourceSession.empty identities
   let session ← empty.assume `L (← `(LinOrd.{0}))
   let category ← session.namedCategory Syntax.missing "LinearOrders" [.zero] #[]
-  let object ← session.term (← `(L))
+  let object ← session.term (← nativeTerm "L")
   let object ← object.inCategory category.expression category.value
   let session ← session.defineTerm `A object
-  let session ← session.assume `x (← `(CasCatalogue.Foundation.PowerSets.orderCarrier A))
-  let session ← session.assume `y (← `(CasCatalogue.Foundation.PowerSets.orderCarrier A))
+  let session ← session.assume `x (← nativeTerm "CasCatalogue.Foundation.PowerSets.orderCarrier A")
+  let session ← session.assume `y (← nativeTerm "CasCatalogue.Foundation.PowerSets.orderCarrier A")
   let session ← session.assume `unused (← `(Nat))
-  let expected ← session.term (← `(CasCatalogue.Foundation.PowerSets.le A (x, y)))
+  let expected ← session.term (← nativeTerm "CasCatalogue.Foundation.PowerSets.le A (x, y)")
   for (text, truth) in #[
       ("x ≤ y", none), ("(x ≤ y) = false", some ``False),
       ("(x ≤ y) = true", some ``True)] do
