@@ -57,8 +57,16 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless value.containsFVar bindings[1]!.expression.fvarId! && (← isDefEq value expected) do
       throwError "whole method-family agreement changed its original rigid ring receiver"
     checkWithKernel (← mkExpectedTypeHint (← mkEqRefl value) (← mkEq value expected))
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let object ← empty.read (← sourceTerm "Fin(3)")
+  let session ← empty.defineTerm `X object
+  let session ← session.assume `unused (← nativeTerm "Nat")
+  let method ← session.read (← sourceTerm "X.cardinality()")
   let resultType ← session.elaborate Syntax.missing fun context => do
-    inferType (← expected.source.inContext context)
+    inferType (← method.source.inContext context)
   let lexical ← session.assumeTerm `X.cardinality resultType
   let localValue ← lexical.read (← sourceTerm "X.cardinality()")
   localValue.source.withOpen fun bindings value => do
