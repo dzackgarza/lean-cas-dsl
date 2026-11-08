@@ -202,8 +202,22 @@ partial def readExpression
         #[some carrier, some structureValue]
       let value ← elabAppArgs function #[] #[Arg.expr object.value] expected false false
       return ⟨value, some { category with role := .morphism, carrier := none }⟩
+    let spelling := name.getId.toString (escape := false)
+    let (spelling, arguments) ← do
+      let state ← CasCatalogue.semanticState
+      let some (base, number) := CasCatalogue.Language.subscripted? spelling
+        | pure (spelling, arguments)
+      if state.objects.any (·.name == spelling) || state.morphisms.any (·.name == spelling) ||
+          !state.objects.any (·.name == base) then
+        pure (spelling, arguments)
+      else
+        -- The documented leading parameter enters the same dependent application once.
+        -- Exact lexical and registered spellings have already retained their own identity.
+        let literal : TSyntax `num := ⟨Syntax.mkNumLit (toString number)⟩
+        let leading ← `(cas_term| $literal:num)
+        pure (base, #[leading] ++ arguments)
     let (entry, categoryEntry) ← selectNamed
-      (name.getId.toString (escape := false)) qualification expected
+      spelling qualification expected
     let declaration := match entry with
       | .inl entry => entry.declaration
       | .inr entry => entry.declaration

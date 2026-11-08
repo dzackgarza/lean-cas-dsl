@@ -784,15 +784,6 @@ partial def looseIdentifiers (stx : Syntax) : Array Name :=
         looseIdentifiers domain ++ (looseIdentifiers body).filter (· != bound.getId)
     | _ => if stx.isIdent then #[stx.getId] else stx.getArgs.flatMap looseIdentifiers
 
-/-- `N₂₃` as `N` and `23`. -/
-def subscripted? (s : String) : Option (String × Nat) :=
-  let digits := "₀₁₂₃₄₅₆₇₈₉".toList
-  let chars := s.toList
-  let suffix := (chars.reverse.takeWhile digits.contains).reverse
-  let base := chars.take (chars.length - suffix.length)
-  if suffix.isEmpty || base.isEmpty then none
-  else some (String.ofList base, suffix.foldl (fun n c => 10 * n + digits.idxOf c) 0)
-
 /-- A three-valued decision as a value. -/
 def answerOf (b : Option Bool) : Value := .answer (toExpr b)
 

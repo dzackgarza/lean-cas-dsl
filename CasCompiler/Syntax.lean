@@ -12,6 +12,15 @@ open Lean Meta Elab Term
 
 namespace CasCatalogue.Language
 
+/-- `N₂₃` as `N` and `23`. -/
+def subscripted? (s : String) : Option (String × Nat) :=
+  let digits := "₀₁₂₃₄₅₆₇₈₉".toList
+  let chars := s.toList
+  let suffix := (chars.reverse.takeWhile digits.contains).reverse
+  let base := chars.take (chars.length - suffix.length)
+  if suffix.isEmpty || base.isEmpty then none
+  else some (String.ofList base, suffix.foldl (fun n c => 10 * n + digits.idxOf c) 0)
+
 declare_syntax_cat cas_term
 syntax:max num : cas_term
 /-- A decimal `1.4142`: the fraction `14142/10⁴`. -/
