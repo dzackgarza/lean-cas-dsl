@@ -120,11 +120,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless expression.containsFVar bindings[1]!.expression.fvarId! do
         throwError "a subscripted family discarded its actual coefficient binding"
       checkWithKernel (← mkExpectedTypeHint (← mkEqRefl expression) (← mkEq expression expected))
-  for (rows, columns, source, native) in #[
-      (1, 2, "[a, b]", "![![a, b]]"),
-      (2, 2, "[a, b; b, a]", "![![a, b], ![b, a]]"),
-      (3, 2, "[a, b; b, a; a, a]", "![![a, b], ![b, a], ![a, a]]")] do
-    let type ← session.read (← sourceTerm s!"RectangularMatrices({rows}, {columns}, S)")
+  for (domain, source, native) in #[
+      ("RectangularMatrices(1, 2, S)", "[a, b]", "![![a, b]]"),
+      ("RectangularMatrices(2, 2, S)", "[a, b; b, a]", "![![a, b], ![b, a]]"),
+      ("RectangularMatrices(3, 2, S)", "[a, b; b, a; a, a]",
+        "![![a, b], ![b, a], ![a, a]]"),
+      ("Mat₂(S)", "[a, b; b, a]", "![![a, b], ![b, a]]")] do
+    let type ← session.read (← sourceTerm domain)
     let value ← session.read (← sourceTerm source) (some type.source)
     let expected ← session.term (← nativeTerm native)
     value.source.withOpen fun bindings expression => do
