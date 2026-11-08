@@ -2,6 +2,7 @@ module
 
 public import LeanCategories.Catalogue.Registry.Computation
 public import CasContract.Registration
+public import CasRuntime.GroundedRealizations
 import CasContract.Port
 
 @[expose] public section

@@ -87,6 +87,8 @@ import all CasRuntime.Occurrence
 import all CasRuntime.OccurrenceTests
 import all CasRuntime.Realization
 import all CasRuntime.RealizationProfileTests
+import all CasRuntime.GroundedRealizations
+import all CasRuntime.GroundedRealizationTests
 import all CasRuntime.Transaction
 import all CasRuntime.TransactionTests
 import all CasRuntime.CompletionTests
