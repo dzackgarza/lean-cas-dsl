@@ -90,7 +90,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let session ← session.assume `iso (← nativeTerm "X ≅ Y")
   let sets ← session.namedCategory Syntax.missing "Sets" [.zero] #[]
   let core ← session.unaryCategory Syntax.missing ConstructorId.core sets
-  let arrow ← session.term (← nativeTerm "CategoryTheory.CoreHom.mk iso")
+  let arrow ← session.term (← nativeTerm
+    "CategoryTheory.CoreHom.mk (X := CategoryTheory.Core.mk X) (Y := CategoryTheory.Core.mk Y) iso")
   let arrow ← arrow.inCategory core.expression core.value .morphism
   let session ← session.defineTerm `e arrow
   let result ← session.read (← sourceTerm "map e along Aut()")
