@@ -318,9 +318,16 @@ partial def readExpression
     unless selected.expression.syntacticEq required.expression do
       throwError "the retained source value has a different selected category"
   if let some expected := expected then
+    -- A native type parameter consumes the actual selected object's carrier.
+    -- Reuse the same checked source action as public function domains.
+    let judgement ← if (← instantiateMVars expected).isSort &&
+        judgement.category.any (·.role == .object) then
+      sourceCarrier judgement
+    else pure judgement
     checkRegisteredDomains (← inferType judgement.value) expected
     unless ← isDefEq (← inferType judgement.value) expected do
       throwError "the source expression does not have its independently declared parameter type"
+    return judgement
   return judgement
 
 end CasCompiler

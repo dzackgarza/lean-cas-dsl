@@ -133,6 +133,11 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless expression.containsFVar scalar.expression.fvarId! &&
         expression.containsConst (· == ``CasCatalogue.Algebra.LinearAlgebra.vectors) do
       throwError "the vector parameter replaced its selected source carrier"
+    let carrier ← mkAppM ``CommRingCat.carrier #[scalar.expression]
+    let expected ← mkAppM ``CasCatalogue.Algebra.LinearAlgebra.vectors #[carrier, mkNatLit 2]
+    unless ← isDefEq expression expected do
+      throwError "the vector declaration differs from the selected scalar's native carrier"
+    checkWithKernel (← mkExpectedTypeHint (← mkEqRefl expression) (← mkEq expression expected))
 
 
 run_cmd Lean.Elab.Command.liftTermElabM do
