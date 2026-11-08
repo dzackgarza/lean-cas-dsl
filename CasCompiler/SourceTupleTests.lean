@@ -108,6 +108,18 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let session ← session.defineTerm `S ring
   let session ← session.assume `a (← nativeTerm "(S : Type)")
   let session ← session.assume `b (← nativeTerm "(S : Type)")
+  for (source, native) in #[
+      ("Mat₂(S)", "CasCatalogue.Algebra.LinearAlgebra.matrices 2 S"),
+      ("Mat₂(S) in Rings", "CasCatalogue.Algebra.LinearAlgebra.matrixRing 2 S")] do
+    let value ← session.read (← sourceTerm source)
+    let expected ← session.term (← nativeTerm native)
+    value.source.withOpen fun bindings expression => do
+      let expected ← expected.source.inContext (← ContextTelescope.capture bindings)
+      unless ← isDefEq expression expected do
+        throwError "a subscripted family changed its selected declaration or coefficient object"
+      unless expression.containsFVar bindings[1]!.expression.fvarId! do
+        throwError "a subscripted family discarded its actual coefficient binding"
+      checkWithKernel (← mkExpectedTypeHint (← mkEqRefl expression) (← mkEq expression expected))
   for (rows, columns, source, native) in #[
       (1, 2, "[a, b]", "![![a, b]]"),
       (2, 2, "[a, b; b, a]", "![![a, b], ![b, a]]"),

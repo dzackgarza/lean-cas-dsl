@@ -54,3 +54,28 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless id == entry.id && declaration == entry.declaration &&
           value == bindings[0]!.expression do
         throwError "a native source alias changed its selected object or binding"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let session ← SourceSession.empty identities
+  for (text, native) in #[
+      ("Fin₂₃", ← `(CasCatalogue.Foundation.Objects.fin 23)),
+      ("Fin₀", ← `(CasCatalogue.Foundation.Objects.fin 0)),
+      ("Fin₂ in FiniteSets", ← `(CasCatalogue.Foundation.FiniteObjects.finiteFin 2))] do
+    let .ok source := Parser.runParserCategory (← getEnv) `cas_term text
+      | throwError "the subscripted object did not parse"
+    let value ← session.read ⟨source⟩
+    let expected ← session.term native
+    value.source.withOpen fun bindings expression => do
+      let expected ← expected.source.inContext (← ContextTelescope.capture bindings)
+      unless ← isDefEq expression expected do
+        throwError "a subscripted object changed its actual declaration or leading parameter"
+      checkWithKernel (← mkExpectedTypeHint (← mkEqRefl expression) (← mkEq expression expected))
+  let session ← session.assume `Fin₂₃ (← `(Nat → Type))
+  let session ← session.assume `n (← `(Nat))
+  let .ok source := Parser.runParserCategory (← getEnv) `cas_term "Fin₂₃(n)"
+    | throwError "the local subscripted callable did not parse"
+  let value ← session.read ⟨source⟩
+  value.source.withOpen fun bindings expression => do
+    unless expression == mkApp bindings[0]!.expression bindings[1]!.expression do
+      throwError "a subscripted spelling replaced its exact local callable binding"
