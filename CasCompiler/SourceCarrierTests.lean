@@ -169,7 +169,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let `(cas_item| $statement:cas_stmt) := item | continue
     if let `(cas_stmt| let $name:ident($_:cas_term) := $_:cas_term) := statement then
       unless name.getId == `sourcePairing do continue
-      let .definition _ value ← file.withContext (session.readStatement statement)
+      let .definition next value ← file.withContext (session.readStatement statement)
         | throwError "the original pairing declaration did not form its source function"
       unless value.source.context.entries.map (·.id) == session.context.entries.map (·.id) do
         throwError "the original pairing shortened its complete preceding context"
@@ -183,8 +183,32 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         checkWithKernel
           (← mkExpectedTypeHint (← mkEqRefl expression) (← mkEq expression expected))
       originalPairing := true
+      session := next
       break
   unless originalPairing do throwError "the original pairing declaration was not inspected"
+  let .ok native := Parser.runParserCategory (← getEnv) `term
+      "TypeCat.ofHom (fun (p : pairOfVectors) => Y.pairing (LeanCategories.Modules.Bilinear.Valued.BilinModuleCat.underlyingMap f p.1) (LeanCategories.Modules.Bilinear.Valued.BilinModuleCat.underlyingMap f p.2))"
+    | throwError "the native image-pairing control did not parse"
+  let expectedImage ← session.term ⟨native⟩
+  let mut originalImage := false
+  for item in file.items do
+    let `(cas_item| $statement:cas_stmt) := item | continue
+    if let `(cas_stmt| let $name:ident($_:cas_term) := $_:cas_term) := statement then
+      unless name.getId == `imagePairing do continue
+      let .definition _ value ← file.withContext (session.readStatement statement)
+        | throwError "the original image pairing did not form its source function"
+      unless value.source.context.entries.map (·.id) == session.context.entries.map (·.id) do
+        throwError "the original image pairing shortened its complete preceding context"
+      value.source.withOpen fun bindings expression => do
+        let context ← ContextTelescope.capture bindings
+        let expected ← expectedImage.source.inContext context
+        unless ← isDefEq expression expected do
+          throwError "the original image pairing changed its selected native map action"
+        checkWithKernel
+          (← mkExpectedTypeHint (← mkEqRefl expression) (← mkEq expression expected))
+      originalImage := true
+      break
+  unless originalImage do throwError "the original image-pairing declaration was not inspected"
 
 
 run_cmd Lean.Elab.Command.liftTermElabM do

@@ -38,7 +38,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let session ← session.assume `x (← nativeTerm "(A.carrier : Type)")
   let session ← session.assume `y (← nativeTerm "(A.carrier : Type)")
   let functionType ← session.term (← nativeTerm "∀ (_ : A.carrier) (_ : A.carrier), A.carrier")
+  let mapCoercion ← session.term (← nativeTerm
+    "CoeFun (TypeCat.Hom (A.carrier × A.carrier) W) (fun _ => (A.carrier × A.carrier) → W)")
   let session ← session.assume `unrelatedRing (← nativeTerm "CommRing (R : Type)") .instImplicit
+  let session ← session.assumeTerm `unrelatedMapCall mapCoercion .instImplicit
   let result ← session.read (← sourceTerm "A.pairing(x, y)")
   result.source.withOpen fun bindings value => do
     let declaration := ``CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.pairing
@@ -51,6 +54,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless ← isDefEq value expected do
       throwError "member application differs from its complete selected source map"
     unless !value.containsFVar bindings[6]!.expression.fvarId! &&
+        !value.containsFVar bindings[7]!.expression.fvarId! &&
         (value.find? fun expression => expression.isAppOfArity declaration 3 &&
           expression.getAppArgs[0]! == bindings[0]!.expression &&
           expression.getAppArgs[1]! == bindings[1]!.expression &&
@@ -67,14 +71,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let shadowed ← session.assumeTerm `A.pairing functionType
   let localCall ← shadowed.read (← sourceTerm "A.pairing(x, y)")
   localCall.source.withOpen fun bindings value => do
-    let expected := mkApp2 bindings[7]!.expression bindings[4]!.expression bindings[5]!.expression
-    unless value.getAppFn == bindings[7]!.expression && (← isDefEq value expected) do
+    let expected := mkApp2 bindings[8]!.expression bindings[4]!.expression bindings[5]!.expression
+    unless value.getAppFn == bindings[8]!.expression && (← isDefEq value expected) do
       throwError "a member call displaced an exact local callable binding"
   let session ← session.defineTerm `result result
   let session ← session.assume `A (← nativeTerm "Type")
   let retained ← session.read (← sourceTerm "result")
   retained.source.withOpen fun bindings value => do
-    unless value == bindings[7]!.expression do
+    unless value == bindings[8]!.expression do
       throwError "member application was reconstructed after its receiver name was shadowed"
 
 run_cmd Lean.Elab.Command.liftTermElabM do
