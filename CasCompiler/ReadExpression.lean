@@ -5,6 +5,7 @@ public import CasCompiler.SourcePattern
 public import CasCompiler.SourceCarrier
 public import CasCompiler.SourceTuple
 public import CasCompiler.SourceOperation
+public import CasCompiler.SourceLimit
 public import Lean.Elab.App
 
 public section
@@ -218,6 +219,14 @@ partial def readExpression
       NativeSourceJudgement)
   let judgement ← if let some name := sourceAtomName? source then object name qualification #[]
     else match source with
+    | `(cas_term| $left:cas_term × $right:cas_term) => do
+      let left ← readExpression categoryOf left none qualification
+      let right ← readExpression categoryOf right none qualification
+      sourceBinaryLimit left right false
+    | `(cas_term| $left:cas_term ⊔ $right:cas_term) => do
+      let left ← readExpression categoryOf left none qualification
+      let right ← readExpression categoryOf right none qualification
+      sourceBinaryLimit left right true
     | `(cas_term| $left:cas_term + $right:cas_term) =>
       elementOperation "+" #[left, right] #[]
     | `(cas_term| $left:cas_term · $right:cas_term) =>

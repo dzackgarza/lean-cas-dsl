@@ -27,6 +27,7 @@ private meta def provenance : CommandElabM Json := do
   let observed := #[`CasCompiler.Context, `CasCompiler.Elaborate, `CasCompiler.Surface,
     `CasCompiler.Resolve, `CasCompiler.SourceCarrier, `CasCompiler.SourcePattern,
     `CasCompiler.SourceNumeral, `CasCompiler.SourceTuple, `CasCompiler.SourceOperation,
+    `CasCompiler.SourceLimit,
     `CasCompiler.ReadExpression,
     `CasCompiler.Read,
     `LeanCategories.Catalogue, `CasContract.Port,

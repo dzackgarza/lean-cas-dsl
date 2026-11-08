@@ -48,11 +48,16 @@ run_cmd Lean.Elab.Command.liftTermElabM do
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let empty ← SourceSession.empty identities
-  let session ← empty.assume `R (← nativeTerm "RingCat.{0}")
+  let rings ← empty.namedCategory Syntax.missing "Rings" [.param `u] #[]
+  let ringType ← empty.elaborate Syntax.missing fun context => do
+    mkAppM ``CategoryTheory.Bundled.α #[← rings.value.source.inContext context]
+  let session ← empty.assumeTerm `R ringType
   let ring ← session.term (← nativeTerm "R")
-  let modules ← session.namedCategory Syntax.missing "Modules" [.zero, .zero] #[ring]
-  let session ← session.assume `M (← nativeTerm "ModuleCat.{0} R")
-  let session ← session.assume `N (← nativeTerm "ModuleCat.{0} R")
+  let modules ← session.namedCategory Syntax.missing "Modules" [.param `u, .param `v] #[ring]
+  let moduleType ← session.elaborate Syntax.missing fun context => do
+    mkAppM ``CategoryTheory.Bundled.α #[← modules.value.source.inContext context]
+  let session ← session.assumeTerm `M moduleType
+  let session ← session.assumeTerm `N moduleType
   let left ← session.term (← nativeTerm "M")
   let left ← left.inCategory modules.expression modules.value
   let right ← session.term (← nativeTerm "N")
@@ -60,6 +65,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let session ← session.defineTerm `A left
   let session ← session.defineTerm `B right
   let product ← session.read (← sourceTerm "A × B")
+  for level in #[`u, `v] do
+    unless product.source.universeParams.contains level do
+      throwError "the source module product specialized an independent universe"
   product.source.withOpen fun bindings value => do
     let presentation ← mkAppM ``CasCatalogue.Limits.Registration.modulesProduct
       #[bindings[0]!.expression, bindings[3]!.expression, bindings[4]!.expression]

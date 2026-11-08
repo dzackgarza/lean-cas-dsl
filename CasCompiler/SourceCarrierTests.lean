@@ -141,6 +141,24 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless ← isDefEq expression expected do
       throwError "the vector declaration differs from the selected scalar's native carrier"
     checkWithKernel (← mkExpectedTypeHint (← mkEqRefl expression) (← mkEq expression expected))
+  session := ← session.defineTerm `vectorSet vectors
+  let product ← session.read (← sourceTerm "vectorSet × vectorSet")
+  unless product.source.context.entries.map (·.id) == session.context.entries.map (·.id) do
+    throwError "the original product shortened its complete preceding context"
+  let some vectorEntry := session.context.entries.find? (·.userName == `vectorSet)
+    | throwError "the original vector-set declaration is absent"
+  product.source.withOpen fun bindings value => do
+    let some vectorSet := bindings.find? (·.id == vectorEntry.id)
+      | throwError "the original product lost its selected vector-set binding"
+    let presentation ← mkAppM ``CasCatalogue.Limits.Registration.setsProduct
+      #[vectorSet.expression, vectorSet.expression]
+    let cone ← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[presentation]
+    let expected ← mkAppM ``CategoryTheory.Limits.Cone.pt #[cone]
+    unless value.containsFVar vectorSet.expression.fvarId! &&
+        value.containsConst (· == ``CasCatalogue.Limits.Registration.setsProduct) &&
+        (← isDefEq value expected) do
+      throwError "the original product replaced its actual vector set or universal presentation"
+    checkWithKernel (← mkExpectedTypeHint (← mkEqRefl value) (← mkEq value expected))
 
 
 run_cmd Lean.Elab.Command.liftTermElabM do
