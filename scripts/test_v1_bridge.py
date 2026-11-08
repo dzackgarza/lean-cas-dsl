@@ -133,6 +133,29 @@ class V1Bridge(unittest.TestCase):
         self.assertFalse(self.started.with_suffix(".calls").exists())
         self.assertEqual(peer.invoke(1, "traffic.echo", "later actual data")["value"], "later actual data")
 
+    def test_original_deferred_group_keeps_its_references_and_template(self) -> None:
+        peer = self.peer()
+        reply = peer.invoke(0, "traffic.deferred", {"payload": [0, "α"]})
+        self.assertEqual(reply, {"request_id": 0, "status": "ok", "exports": [], "value": {
+            "ctor": "deferredData", "args": [[
+                {"op": "traffic.echo", "input": "traffic#input",
+                 "args": {"ctor": "inputRef", "args": [["payload"]]}}
+            ], {"ctor": "resultRef", "args": [0]}]}})
+        calls = [json.loads(line) for line in self.started.with_suffix(".calls").read_text().splitlines()]
+        self.assertEqual(calls, [{"op": "traffic.deferred", "args": {"payload": [0, "α"]}}])
+
+    def test_child_ready_is_checked_before_native_ready(self) -> None:
+        self.source["backends"][0]["args"].append("wrong-protocol")
+        self.manifest.write_text(json.dumps(self.source))
+        prepared = self.prepare()
+        self.assertEqual(prepared.returncode, 0, prepared.stderr)
+        backend = json.loads(self.execution.read_text())["backends"][0]
+        refused = subprocess.run([backend["command"], *backend["args"]], input=b"",
+                                 capture_output=True, timeout=5)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertEqual(refused.stdout, b"")
+        self.assertIn(b"protocol", refused.stderr)
+
     def test_child_loss_closes_the_wrapper_without_a_restart(self) -> None:
         peer = self.peer()
         child = peer.invoke(0, "traffic.state", {})["value"]["pid"]

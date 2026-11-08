@@ -45,6 +45,12 @@ def fail(arguments: JsonValue) -> JsonValue:
     raise ArithmeticError("original computational failure")
 
 
+def deferred(arguments: JsonValue) -> JsonValue:
+    return cas_port.deferred_data([
+        cas_port.deferred_call("traffic.echo", "traffic#input", cas_port.input_ref(["payload"]))
+    ], cas_port.result_ref(0))
+
+
 def observed(operation: str, handler: Callable[[JsonValue], JsonValue]) -> Callable[[JsonValue], JsonValue]:
     def invoke(arguments: JsonValue) -> JsonValue:
         with record.with_suffix(".calls").open("a") as output:
@@ -56,6 +62,6 @@ def observed(operation: str, handler: Callable[[JsonValue], JsonValue]) -> Calla
 cas_port.serve("original-traffic", "0", "pinned-v1", {
     operation: observed(operation, handler) for operation, handler in {
         "traffic.echo": echo, "traffic.state": state, "traffic.retain": retain,
-        "traffic.invoke": invoke, "traffic.fail": fail,
+        "traffic.invoke": invoke, "traffic.fail": fail, "traffic.deferred": deferred,
     }.items()
-})
+}, protocol=2 if len(sys.argv) > 2 and sys.argv[2] == "wrong-protocol" else 1)
