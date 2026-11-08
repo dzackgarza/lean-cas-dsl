@@ -68,7 +68,8 @@ def RealizationGraph.grounded (graph : RealizationGraph size) : GroundedRealizat
 /-- Retain the original unique alternative ordinal; zero and many counts remain in counts.
 This is graph analysis only. A caller cannot infer noImplementation from an incomplete
 source closure, or authorize dispatch from an ordinal without the exact prepared bindings. -/
-def GroundedRealizations.uniqueAlternative (result : GroundedRealizations graph)
+def GroundedRealizations.uniqueAlternative {size : Nat} {graph : RealizationGraph size}
+    (result : GroundedRealizations graph)
     (node : Fin size) : Except String (Option Nat) := do
   unless result.counts[node] == .one do return none
   let choices := (graph.alternatives[node].mapIdx fun index children =>
