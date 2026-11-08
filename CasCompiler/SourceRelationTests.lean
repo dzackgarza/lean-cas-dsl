@@ -33,7 +33,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         elabAppArgs function #[] #[Arg.expr value] (some (mkSort .zero)) false false
       let question ← session.readQuestion (← sourceTerm text)
       question.source.withOpen fun bindings value => do
-        let expected ← expected.inContext (← ContextTelescope.capture bindings)
+        let expected ← expected.source.inContext (← ContextTelescope.capture bindings)
         unless bindings.size == 2 && (← isDefEq value expected) do
           throwError "the source relation changed its actual selected structure or context"
         checkWithKernel (← mkExpectedTypeHint (← mkEqRefl value) (← mkEq value expected))
