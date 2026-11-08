@@ -365,6 +365,7 @@ partial def readExpression
     | `(cas_term| $left:cas_term ∘ $right:cas_term) => do
       let left ← readExpression categoryOf left none
       let right ← readExpression categoryOf right none
+      let (left, right) ← sourceCommonCategory left right
       let some category := left.category <|> right.category
         | throwError "source composition requires its selected category"
       for selected in #[left.category, right.category] do

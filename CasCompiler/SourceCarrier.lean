@@ -129,6 +129,31 @@ opaque sourceCarrier (source : NativeSourceJudgement) : TermElabM NativeSourceJu
     { selected with refs := #[], target := .atom CategoryId.sets, actions := #[] }
   return ⟨value, some ⟨category.role, .atom CategoryId.sets, bundle, selection⟩⟩
 
+/-- Put source values in the category explicitly selected by a set-valued operand.
+Reuse: sourceCarrier's whole functor checks and retained native actions. Two structured
+operands keep their selected category; an explicit set operand supplies the carrier context. -/
+def sourceCommonCategory (left right : NativeSourceJudgement) :
+    TermElabM (NativeSourceJudgement × NativeSourceJudgement) := do
+  let some first := left.category | return (left, right)
+  let some second := right.category | return (left, right)
+  unless first.role == second.role do
+    throwError "source values have different object and morphism roles"
+  let sets := CategoryExpr.atom CategoryId.sets
+  let (left, right) ←
+    if first.expression.syntacticEq sets && !second.expression.syntacticEq sets then
+      pure (left, ← sourceCarrier right)
+    else if second.expression.syntacticEq sets && !first.expression.syntacticEq sets then
+      pure (← sourceCarrier left, right)
+    else pure (left, right)
+  let some first := left.category
+    | throwError "source carrier comparison lost its first selected category"
+  let some second := right.category
+    | throwError "source carrier comparison lost its second selected category"
+  unless first.expression.syntacticEq second.expression &&
+      (← isDefEq first.bundle second.bundle) do
+    throwError "source values have different complete selected categories"
+  return (left, right)
+
 /-- Apply the selected carrier to an arbitrary object in its complete category family.
 Reuse: nativeRouteFunctor and sourceCarrier. Typed provenance stays with source types;
 family comparisons use the actual carrier expression after removing that annotation. -/

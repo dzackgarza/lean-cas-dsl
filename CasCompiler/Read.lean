@@ -43,6 +43,26 @@ opaque SourceSession.read (session : SourceSession) (stx : TSyntax `cas_term)
     (expected : Option ClosedTerm := none) : TermElabM SourceTerm :=
   session.readAt stx stx expected
 
+-- These forms determine their category and type from their own source inputs.
+-- Other forms retain expected-type flow, including unqualified registered objects,
+-- literals, tuples, lambdas and applications with implicit parameters.
+private partial def questionPrincipal (source : TSyntax `cas_term) : TermElabM Bool := do
+  match source with
+  | `(cas_term| ($inner:cas_term)) => questionPrincipal inner
+  | `(cas_term| $name:ident) =>
+    return ((← getLCtx).findFromUserName? name.getId).isSome
+  | `(cas_term| $_:cas_term in $_:cas_term)
+  | `(cas_term| $_:cas_term → $_:cas_term)
+  | `(cas_term| $_:cas_term × $_:cas_term)
+  | `(cas_term| $_:cas_term ⊔ $_:cas_term)
+  | `(cas_term| $_:cas_term ∘ $_:cas_term)
+  | `(cas_term| view $_:cas_term along $_:ident)
+  | `(cas_term| view $_:cas_term along $_:ident($_:cas_term,*))
+  | `(cas_term| map $_:cas_term along $_:ident($_:cas_term,*)) => return true
+  | `(cas_term| $name:ident($_:cas_term,*)) =>
+    return name.getId == `id && ((← getLCtx).findFromUserName? name.getId).isNone
+  | _ => return false
+
 -- Assertion equality uses native Eq, as in SourceEquality and the public claimEqual
 -- contract. Logical conjunction uses native And. Neither operation supplies a proof.
 -- Reuse: Lean.Meta.mkEq, Lean.Meta.mkAppM and the single native source reader.
@@ -55,14 +75,20 @@ private partial def questionExpression
     mkAppM ``And #[← questionExpression categoryOf left, ← questionExpression categoryOf right]
   | `(cas_term| $left:cas_term = $right:cas_term)
   | `(cas_term| $left:cas_term is $right:cas_term) => do
-    let left ← readExpression categoryOf left none
-    let right ← readExpression categoryOf right (some (← inferType left.value))
+    let leftPrincipal ← questionPrincipal left
+    let rightPrincipal ← questionPrincipal right
+    let (left, right) ← if !leftPrincipal && rightPrincipal then do
+      let right ← readExpression categoryOf right none
+      let left ← readExpression categoryOf left (some (← inferType right.value))
+      pure (left, right)
+    else do
+      let left ← readExpression categoryOf left none
+      let type ← inferType left.value
+      let right ← readExpression categoryOf right
+        (if rightPrincipal then none else some type)
+      pure (left, right)
+    let (left, right) ← sourceCommonCategory left right
     checkRegisteredDomains (← inferType left.value) (← inferType right.value)
-    if let some first := left.category then
-      if let some second := right.category then
-        unless first.role == second.role && first.expression.syntacticEq second.expression &&
-            (← isDefEq first.bundle second.bundle) do
-          throwError "source equality has different complete selected categories"
     mkEq left.value right.value
   | _ =>
     let value ← readExpression categoryOf stx (some (mkSort .zero))
