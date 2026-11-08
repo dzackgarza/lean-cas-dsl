@@ -69,7 +69,9 @@ partial def readExpression
           hints := hints.push (← inferType value.value)
     let contextual ← expected.mapM instantiateMVars
     let contextual := contextual.filter (! ·.headBeta.consumeMData.getAppFn.isMVar)
-    let domain ← match domainHint.or contextual with
+    -- Actual typed operands determine the input domain before the expected result.
+    -- Relations land in Ω; that result must not replace their selected operand owner.
+    let domain ← match (domainHint.or hints[0]?).or contextual with
       | some type => pure type
       | none => do
         let mut domain := hints[0]?
