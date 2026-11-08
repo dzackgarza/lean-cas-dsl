@@ -35,10 +35,12 @@ def scope_ref(slot: int) -> dict[str, JsonValue]:
 
 
 class Peer:
-    def __init__(self, test: unittest.TestCase, contracts: Path = CONTRACTS) -> None:
+    def __init__(self, test: unittest.TestCase, contracts: Path = CONTRACTS,
+                 command: list[str] | None = None) -> None:
         self.test = test
         environment = dict(os.environ, PYTHONPATH=str(contracts / "python"))
         self.process = subprocess.Popen(
+            command if command is not None else
             ["uv", "run", "--frozen", "--project", str(contracts), "python",
              str(ROOT / "scripts/probes/protocol_v2_peer.py")],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
