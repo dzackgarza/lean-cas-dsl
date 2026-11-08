@@ -2,7 +2,7 @@ module
 
 public import CasCompiler.Surface
 
-public section
+@[expose] public section
 
 namespace CasCompiler
 
@@ -18,7 +18,7 @@ deriving instance ToJson, FromJson for EdgeRef
 -- Its generator uses auxFunNames[0] for every mutual member; traverse the actual source
 -- category/argument pair explicitly while keeping the same native data constructors.
 mutual
-private partial def categoryJson : CategoryExpr → Json
+partial def categoryJson : CategoryExpr → Json
   | .atom id => Json.mkObj [("atom", toJson id)]
   | .construct id args => Json.mkObj [("construct", toJson (id, args.map argumentJson))]
   | .familyApp id args => Json.mkObj [("familyApp", toJson (id, args))]
@@ -27,14 +27,14 @@ private partial def categoryJson : CategoryExpr → Json
   | .refine base id => Json.mkObj [("refine", toJson (categoryJson base, id))]
   | .opaque id => Json.mkObj [("opaque", toJson id)]
 
-private partial def argumentJson : ConstructorArg → Json
+partial def argumentJson : ConstructorArg → Json
   | .category category => Json.mkObj [("category", categoryJson category)]
   | .object id => Json.mkObj [("object", toJson id)]
   | .functor id => Json.mkObj [("functor", toJson id)]
 end
 
 mutual
-private partial def categoryFromJson (document : Json) : Except String CategoryExpr := do
+partial def categoryFromJson (document : Json) : Except String CategoryExpr := do
   if let .ok value := document.getObjVal? "atom" then return .atom (← fromJson? value)
   if let .ok value := document.getObjVal? "construct" then
     let (id, args) ← (fromJson? value : Except String (ConstructorId × Array Json))
@@ -52,7 +52,7 @@ private partial def categoryFromJson (document : Json) : Except String CategoryE
   if let .ok value := document.getObjVal? "opaque" then return .opaque (← fromJson? value)
   .error "invalid source category constructor"
 
-private partial def argumentFromJson (document : Json) : Except String ConstructorArg := do
+partial def argumentFromJson (document : Json) : Except String ConstructorArg := do
   if let .ok value := document.getObjVal? "category" then
     return .category (← categoryFromJson value)
   if let .ok value := document.getObjVal? "object" then return .object (← fromJson? value)
@@ -63,7 +63,7 @@ end
 instance : ToJson CategoryExpr := ⟨categoryJson⟩
 instance : FromJson CategoryExpr := ⟨categoryFromJson⟩
 
-private structure CarrierDescriptor where
+structure CarrierDescriptor where
   refs : Array EdgeRef
   target : CategoryExpr
   identifications : Nat
@@ -71,7 +71,7 @@ private structure CarrierDescriptor where
   comparisons : Nat
   deriving ToJson, FromJson
 
-private structure OwnerDescriptor where
+structure OwnerDescriptor where
   category : CategoryExpr
   carrier : Option CarrierDescriptor
   deriving ToJson, FromJson
