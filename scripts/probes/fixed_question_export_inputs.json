@@ -1,0 +1,313 @@
+{
+  "purpose": "Archived fixed source selection and inventory only; no expected answers or interpretation judgment",
+  "archive": "saved evidence version 45",
+  "archivedInputs": [
+    {
+      "path": "restored-runtime-and-reader-v40/kernel-verification-20261026/frozen-inputs/inventory.json",
+      "sha256": "50d5c313fd5b2ecb6c108d8711d3605dbe9888312f4486d0e0121a5b5995c0d3"
+    },
+    {
+      "path": "restored-runtime-and-reader-v40/kernel-verification-20261026/frozen-inputs/positive-original-inputs.json",
+      "sha256": "1bcdf17f412c0cfe43ad1acca95c805cfab2a38a0f47e989c50a2ad82b9778ac"
+    },
+    {
+      "path": "restored-runtime-and-reader-v40/kernel-verification-20261026/frozen-inputs/positive-clarified-inputs.json",
+      "sha256": "e735a7a292e861577f464d334af5d7201ea4389dd5ae3ab60f793620fb3ad837"
+    },
+    {
+      "path": "post-restore-closed-20261025/kernel-verification-20261025/permanent-fixed-inputs.json",
+      "sha256": "cb59d474007ea94ddce740205c2c4e2a3dc877d532bd9727f0b95e09eb115bb1"
+    },
+    {
+      "path": "native-and-derivations-v41/kernel-verification-20261026/readings-5ab0edf/PermanentReadings.lean",
+      "sha256": "052bebf81c47719e12d9d780b670fa33ecf82e03ce3dc33f9ec8535af197dc8f"
+    },
+    {
+      "path": "native-and-derivations-v41/kernel-verification-20261026/readings-5ab0edf/ExtensionReadings.lean",
+      "sha256": "9caded9d4311c1d4971c3e2d97d079116009a83cca2a588f6667de602141af29"
+    }
+  ],
+  "permanentSources": [
+    {
+      "source": "tests/acceptance/algebras_schemes.cas",
+      "sha256": "4dd63094c93c9edf45e830ae87ee94335e4bb25dc02196bdb9b3fa9cef9ef906"
+    },
+    {
+      "source": "tests/acceptance/calculus.cas",
+      "sha256": "5db1192f08f6c16461d933d62a4dc338a6a1de939a43d2005e677b76b9d6a157"
+    },
+    {
+      "source": "tests/acceptance/composed.cas",
+      "sha256": "2bcf37c5bacbfc34b2c8ffe55e0dc849048a4acc144cb38a11c565b5abc1c752"
+    },
+    {
+      "source": "tests/acceptance/differentials.cas",
+      "sha256": "4609fa755ded88c69995479f0ca66d08d1f49a111229cb47c48af736415353fe"
+    },
+    {
+      "source": "tests/acceptance/ellipses.cas",
+      "sha256": "d97723ef15e4dce80578865b59b67092c3c604a63b21e281a5d0d862a0f6de1e"
+    },
+    {
+      "source": "tests/acceptance/factorization.cas",
+      "sha256": "66caf1f57f2f7d8c803d29646afe0ddc2cf1218dcb6b8cc208320ce0dc966ab9"
+    },
+    {
+      "source": "tests/acceptance/finite_sets.cas",
+      "sha256": "63512549dbaa47f3b0f54c512123e5e88559746d8074ea4f164cbb3bfa14bf33"
+    },
+    {
+      "source": "tests/acceptance/fractions.cas",
+      "sha256": "2da11266a376b8f53358056f066f263b687c73bda9fea644b91b3058740f1851"
+    },
+    {
+      "source": "tests/acceptance/functions.cas",
+      "sha256": "70a89a40e70798e3dc9b0ab18bb1eef6cd6c4d695f4c5aeda1e9d460e5e0067e"
+    },
+    {
+      "source": "tests/acceptance/inverses.cas",
+      "sha256": "29ff6c9e55285554b5c981f906e6a3ce131229bd81afae575ab8d6d41f96d738"
+    },
+    {
+      "source": "tests/acceptance/lattices.cas",
+      "sha256": "dee714bef7bf691b8fb06269a585a6c3739659c2ee0d264408f7055e3530de5b"
+    },
+    {
+      "source": "tests/acceptance/linear_algebra.cas",
+      "sha256": "90e04dbc4bcde8d201448ee5e2c2a974eaddfa1d828554cf559f350bba30e927"
+    },
+    {
+      "source": "tests/acceptance/numbers.cas",
+      "sha256": "5e16c37a6c31b2efa087db8dabce5c52e2a55652d377714949169da54a9e9160"
+    },
+    {
+      "source": "tests/acceptance/polynomials.cas",
+      "sha256": "cce15e7eafb2b607711e6afbfaa8722ed489dd2c79a763cce389f8f00fbe81ea"
+    },
+    {
+      "source": "tests/acceptance/series.cas",
+      "sha256": "ded04efe61726b92b870fd1dad854d210bcb816a498522b92199fd268d696b14"
+    },
+    {
+      "source": "tests/acceptance/sets.cas",
+      "sha256": "19e1734e16c3f6195cd039b701245306a66d20bf43048757514328d1b47fab01"
+    },
+    {
+      "source": "tests/acceptance/several_variables.cas",
+      "sha256": "8792b2378b9fd40e7bdc64a37a35ebf11a98a6eed2a423eb5652ded64045618d"
+    }
+  ],
+  "extensionSources": [
+    {
+      "source": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+      "selectedName": "rx-lift-prescribed-stages.cas",
+      "sha256": "a5568912e5869e36c60d9450f3bb3c97e0f43e869f820b1da225d16db940746a"
+    },
+    {
+      "source": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-source-comparison.cas",
+      "selectedName": "rx-lift-source-comparison.cas",
+      "sha256": "8b677f75efb6143bbcdc1c182ea151b50fc57182e30cd6eb3edbf951d651c4ca"
+    },
+    {
+      "source": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx01-selected-orders.cas",
+      "selectedName": "rx01-selected-orders.cas",
+      "sha256": "ad6bad0cf74c7c034cc7b9feee9ce1a7a6ad897a157147238417180eee0bc9ea"
+    },
+    {
+      "source": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx02-complete-core-action.cas",
+      "selectedName": "rx02-complete-core-action.cas",
+      "sha256": "89ea7a08af111782af8e8465629698040c0ee0780caecf3ab400d5f0651aee8e"
+    },
+    {
+      "source": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx02-two-subsets.cas",
+      "selectedName": "rx02-two-subsets.cas",
+      "sha256": "754bd0daf448bb763a91a34ebc41108605e72c4767a79d29b4dee18e1dfb3b95"
+    },
+    {
+      "source": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx03-complete-automorphism-arrows.cas",
+      "selectedName": "rx03-complete-automorphism-arrows.cas",
+      "sha256": "f5549f8865f5da0836c9811dd4dd28d21d19ae9b637c677eab99b2f45ddd2a7a"
+    },
+    {
+      "source": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx03-cyclic-automorphisms.cas",
+      "selectedName": "rx03-cyclic-automorphisms.cas",
+      "sha256": "cad952f8cf3c453e50bd5a616980ca1af0f26d9e3253a02d3b91918e32bf3c59"
+    },
+    {
+      "source": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx04-square-bound.cas",
+      "selectedName": "rx04-square-bound.cas",
+      "sha256": "c1afe50098651ec298ccf47c2851918dcbdc72817653ed860f384e88b06d7c7a"
+    },
+    {
+      "source": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx05-carrier-diamond.cas",
+      "selectedName": "rx05-carrier-diamond.cas",
+      "sha256": "7fbdbc11d8c7888ff2c55223cd8e1dba4aca1e0175b956fba51b4dc40261fc73"
+    },
+    {
+      "source": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx06-reindexing.cas",
+      "selectedName": "rx06-reindexing.cas",
+      "sha256": "81d7092d91cc0f07c6a1349651e8b58704d1f445032817361a23237e5fef1f4d"
+    },
+    {
+      "source": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx07-f9-transport.cas",
+      "selectedName": "rx07-f9-transport.cas",
+      "sha256": "615a8baa593041a6ec2805b5bc34834ca663c40a67c9915a0b0f4ba85879b631"
+    },
+    {
+      "source": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/clarifications/rx08-ordinary-module-kernel.cas.proposal",
+      "selectedName": "rx08-ordinary-kernel.cas",
+      "sha256": "38a8c9d4fb8145ea337f33d8aa724effae21ae06c616681c89a077ff2311e89f",
+      "originalSource": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx08-ordinary-kernel.cas",
+      "originalSha256": "5bcb0bf768bd231dc93dd81fd4344fd12666145163f1df6327ed6731000ce118",
+      "assessment": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/clarifications/rx08-module-kernel-name-assessment.md",
+      "assessmentSha256": "d0a28f64774e564763096c3f95b765cd6ff011407f513af8edaf07120e863699",
+      "status": "independent additive proposal; original ambiguity control retained"
+    },
+    {
+      "source": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx09-successor-series.cas",
+      "selectedName": "rx09-successor-series.cas",
+      "sha256": "3ec5f7cf7dca51f3e9e8fdbc0e35cfe279ce73938a220168135521f2c52be090"
+    },
+    {
+      "source": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx10-fixed-execution-question.cas",
+      "selectedName": "rx10-fixed-execution-question.cas",
+      "sha256": "e8d92db593bd59b641fca0038d0d5d145cf8beb86369d51d4092d4eca4d17a85"
+    }
+  ],
+  "assertions": {
+    "reconstructed_extensions_20261024.complete.lift.formed_arrow_action": {},
+    "reconstructed_extensions_20261024.complete.lift.whole_formed_equation": {},
+    "reconstructed_extensions_20261024.complete.lift.first_inverse_on_carrier": {},
+    "reconstructed_extensions_20261024.complete.lift.first_inverse_on_scalar": {},
+    "reconstructed_extensions_20261024.complete.lift.first_defining_map": {},
+    "reconstructed_extensions_20261024.complete.lift.first_backward_action": {},
+    "reconstructed_extensions_20261024.complete.lift.first_nonidentity_coordinate": {},
+    "reconstructed_extensions_20261024.complete.lift.first_full_pairing": {},
+    "reconstructed_extensions_20261024.complete.lift.first_whole_factorization": {},
+    "reconstructed_extensions_20261024.complete.lift.first_factor_comparison": {},
+    "reconstructed_extensions_20261024.complete.lift.first_factor_sample_one": {},
+    "reconstructed_extensions_20261024.complete.lift.first_factor_sample_two": {},
+    "reconstructed_extensions_20261024.complete.lift.actual_second_inclusion": {},
+    "reconstructed_extensions_20261024.complete.lift.composed_forward": {},
+    "reconstructed_extensions_20261024.complete.lift.composed_backward": {},
+    "reconstructed_extensions_20261024.complete.lift.final_inverse_on_carrier": {},
+    "reconstructed_extensions_20261024.complete.lift.final_inverse_on_scalar": {},
+    "reconstructed_extensions_20261024.complete.lift.final_defining_map": {},
+    "reconstructed_extensions_20261024.complete.lift.final_backward_action": {},
+    "reconstructed_extensions_20261024.complete.lift.final_full_pairing": {},
+    "reconstructed_extensions_20261024.complete.lift.final_pairing_sample": {},
+    "reconstructed_extensions_20261024.complete.lift.final_nonzero_inclusion": {},
+    "reconstructed_extensions_20261024.complete.lift.final_whole_factorization": {},
+    "reconstructed_extensions_20261024.complete.lift.final_factor_comparison": {},
+    "reconstructed_extensions_20261024.complete.lift.final_factor_sample_one": {},
+    "reconstructed_extensions_20261024.complete.lift.final_factor_sample_two": {},
+    "reconstructed_extensions_20261024.addition.lift.cone_comparison_inverse_left": {},
+    "reconstructed_extensions_20261024.addition.lift.cone_comparison_inverse_right": {},
+    "reconstructed_extensions_20261024.addition.lift.complete_cone_triangle": {},
+    "reconstructed_extensions_20261024.addition.lift.second_input_compatibility": {},
+    "reconstructed_extensions_20261024.addition.lift.separate_second_defining_equation": {},
+    "reconstructed_extensions_20261024.addition.lift.separate_second_comparison": {},
+    "reconstructed_extensions_20261024.addition.lift.composed_factor_against_first": {},
+    "reconstructed_extensions_20261024.addition.lift.unique_second_factor": {},
+    "reconstructed_extensions_20261024.complete.rx01.ordinary_cardinality": {},
+    "reconstructed_extensions_20261024.complete.rx01.reverse_cardinality": {},
+    "reconstructed_extensions_20261024.complete.rx01.ordinary_relation": {},
+    "reconstructed_extensions_20261024.complete.rx01.reverse_relation": {},
+    "reconstructed_extensions_20261024.addition.rx02.actual_forward": {},
+    "reconstructed_extensions_20261024.addition.rx02.actual_backward": {},
+    "reconstructed_extensions_20261024.addition.rx02.nonidentity_input": {},
+    "reconstructed_extensions_20261024.addition.rx02.core_map_composition": {},
+    "reconstructed_extensions_20261024.addition.rx02.core_identity_action": {},
+    "reconstructed_extensions_20261024.addition.rx02.full_inverse_action": {},
+    "reconstructed_extensions_20261024.addition.rx02.whole_direct_image": {},
+    "reconstructed_extensions_20261024.complete.rx02.cardinality": {},
+    "reconstructed_extensions_20261024.complete.rx02.singleton_excluded": {},
+    "reconstructed_extensions_20261024.addition.rx03.actual_inverse_arrow": {},
+    "reconstructed_extensions_20261024.addition.rx03.arrow_inverse_left": {},
+    "reconstructed_extensions_20261024.addition.rx03.arrow_inverse_right": {},
+    "reconstructed_extensions_20261024.addition.rx03.complete_double_coordinates": {},
+    "reconstructed_extensions_20261024.addition.rx03.complete_triple_coordinates": {},
+    "reconstructed_extensions_20261024.addition.rx03.complete_conjugation": {},
+    "reconstructed_extensions_20261024.addition.rx03.complete_inverse_conjugation": {},
+    "reconstructed_extensions_20261024.addition.rx03.conjugated_double_action": {},
+    "reconstructed_extensions_20261024.addition.rx03.conjugated_triple_action": {},
+    "reconstructed_extensions_20261024.addition.rx03.all_integer_classes_double": {},
+    "reconstructed_extensions_20261024.addition.rx03.all_integer_classes_triple": {},
+    "reconstructed_extensions_20261024.addition.rx03.double_class_one": {},
+    "reconstructed_extensions_20261024.addition.rx03.double_class_three": {},
+    "reconstructed_extensions_20261024.addition.rx03.triple_class_two": {},
+    "reconstructed_extensions_20261024.complete.rx03.cardinality": {},
+    "reconstructed_extensions_20261024.complete.rx03.presentation_left_inverse": {},
+    "reconstructed_extensions_20261024.complete.rx03.presentation_right_inverse": {},
+    "reconstructed_extensions_20261024.complete.rx03.aut_map_left_inverse": {},
+    "reconstructed_extensions_20261024.complete.rx03.aut_map_right_inverse": {},
+    "reconstructed_extensions_20261024.complete.rx03.inverse": {},
+    "reconstructed_extensions_20261024.complete.rx03.inverse_product": {},
+    "reconstructed_extensions_20261024.complete.rx03.product_inverse": {},
+    "reconstructed_extensions_20261024.complete.rx03.fourth_power": {},
+    "reconstructed_extensions_20261024.complete.rx03.second_power_nonidentity": {},
+    "reconstructed_extensions_20261024.complete.rx03.conjugation_retains_inverse": {},
+    "reconstructed_extensions_20261024.complete.rx03.conjugated_value_reuse": {},
+    "reconstructed_extensions_20261024.complete.rx04.cardinality": {},
+    "reconstructed_extensions_20261024.complete.rx04.finite_classifier": {},
+    "reconstructed_extensions_20261024.complete.rx04.forgotten_refinement_cardinality": {},
+    "reconstructed_extensions_20261024.complete.rx04.exact_predicate": {},
+    "reconstructed_extensions_20261024.complete.rx04.exact_members": {},
+    "reconstructed_extensions_20261024.complete.rx04.ambient_not_finite": {},
+    "reconstructed_extensions_20261024.complete.rx04.admission_retains_subset": {},
+    "reconstructed_extensions_20261024.complete.rx05.inherited_cardinality": {},
+    "reconstructed_extensions_20261024.complete.rx05.multiplicative_cardinality": {},
+    "reconstructed_extensions_20261024.complete.rx05.additive_cardinality": {},
+    "reconstructed_extensions_20261024.complete.rx05.complete_component": {},
+    "reconstructed_extensions_20261024.complete.rx05.complete_inverse_component": {},
+    "reconstructed_extensions_20261024.complete.rx05.component_left_inverse": {},
+    "reconstructed_extensions_20261024.complete.rx05.component_right_inverse": {},
+    "reconstructed_extensions_20261024.complete.rx05.addition": {},
+    "reconstructed_extensions_20261024.complete.rx05.multiplication": {},
+    "reconstructed_extensions_20261024.complete.rx05.operations_distinct": {},
+    "reconstructed_extensions_20261024.complete.rx05.whole_map_naturality": {},
+    "reconstructed_extensions_20261024.complete.rx05.multiplicative_map_sample": {},
+    "reconstructed_extensions_20261024.complete.rx05.additive_map_sample": {},
+    "reconstructed_extensions_20261024.complete.rx06.original_dimension": {},
+    "reconstructed_extensions_20261024.complete.rx06.restricted_cardinality": {},
+    "reconstructed_extensions_20261024.complete.rx06.named_restricted_cardinality": {},
+    "reconstructed_extensions_20261024.complete.rx06.cartesian_whole_carrier": {},
+    "reconstructed_extensions_20261024.complete.rx06.action_two_three": {},
+    "reconstructed_extensions_20261024.complete.rx06.action_five_one": {},
+    "reconstructed_extensions_20261024.complete.rx06.action_negative_one_two": {},
+    "reconstructed_extensions_20261024.complete.rx06.whole_reindexed_map": {},
+    "reconstructed_extensions_20261024.complete.rx06.reindexed_map_sample": {},
+    "reconstructed_extensions_20261024.complete.rx06.whole_scalar_action": {},
+    "reconstructed_extensions_20261024.complete.rx07.generator_forward": {},
+    "reconstructed_extensions_20261024.complete.rx07.generator_backward": {},
+    "reconstructed_extensions_20261024.complete.rx07.generator_nonidentity": {},
+    "reconstructed_extensions_20261024.complete.rx07.left_inverse": {},
+    "reconstructed_extensions_20261024.complete.rx07.right_inverse": {},
+    "reconstructed_extensions_20261024.complete.rx07.coefficients_forward": {},
+    "reconstructed_extensions_20261024.complete.rx07.coefficients_backward": {},
+    "reconstructed_extensions_20261024.complete.rx07.successive_value": {},
+    "reconstructed_extensions_20261024.complete.rx07.successive_square": {},
+    "reconstructed_extensions_20261024.complete.rx07.successive_back": {},
+    "reconstructed_extensions_20261024.complete.rx07.full_forward_map": {},
+    "reconstructed_extensions_20261024.complete.rx07.full_square_map": {},
+    "reconstructed_extensions_20261024.complete.rx07.full_backward_map": {},
+    "reconstructed_extensions_20261024.complete.rx07.full_map_inverse": {},
+    "reconstructed_extensions_20261024.complete.rx07.map_sample_forward": {},
+    "reconstructed_extensions_20261024.complete.rx07.map_sample_square": {},
+    "reconstructed_extensions_20261024.complete.rx07.map_sample_backward": {},
+    "reconstructed_extensions_20261024.complete.rx08.full_projection": {},
+    "reconstructed_extensions_20261024.complete.rx08.kernel_dimension": {},
+    "reconstructed_extensions_20261024.complete.rx08.kernel_zero_composite": {},
+    "reconstructed_extensions_20261024.complete.rx08.restriction_zero_composite": {},
+    "reconstructed_extensions_20261024.complete.rx08.full_coordinate_inclusion": {},
+    "reconstructed_extensions_20261024.complete.rx08.full_restricted_pairing": {},
+    "reconstructed_extensions_20261024.complete.rx08.restricted_pairing_one": {},
+    "reconstructed_extensions_20261024.complete.rx09.full_family": {},
+    "reconstructed_extensions_20261024.complete.rx09.full_coefficients": {},
+    "reconstructed_extensions_20261024.complete.rx09.degree_zero": {},
+    "reconstructed_extensions_20261024.complete.rx09.degree_one": {},
+    "reconstructed_extensions_20261024.complete.rx09.degree_three": {},
+    "reconstructed_extensions_20261024.complete.rx09.degree_five": {},
+    "reconstructed_extensions_20261024.complete.rx10.fixed_question": {}
+  }
+}

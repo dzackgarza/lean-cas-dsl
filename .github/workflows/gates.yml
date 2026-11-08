@@ -8,7 +8,7 @@ name: Gates
       - '**/*.md'
   # Pre-v1: complete acceptance stays on source pushes and explicit dispatch;
   # it is not an automatic pull-request gate during construction.
-  workflow_dispatch: null
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
@@ -22,7 +22,8 @@ jobs:
       - name: Check out the chain at latest main
         run: python3 scripts/ci_chain.py
       - name: No leaves in lean-cas-dsl
-        run: python3 scripts/check_no_leaves.py --self-test && python3 scripts/check_no_leaves.py
+        run: python3 scripts/check_no_leaves.py --self-test && python3 
+          scripts/check_no_leaves.py
       - name: Permanent acceptance assertions
         run: python3 scripts/check_acceptance_permanent.py
   kernel-purity:
@@ -41,7 +42,7 @@ jobs:
         run: |
           python3 scripts/ci_chain.py
           lake update lean_categories cas_leaf_contracts nbdsl-worker
-          lake build CasGates
+          lake env lake build CasGates
   build:
     name: Build and audit (just test)
     runs-on: ubuntu-latest
@@ -53,7 +54,8 @@ jobs:
       - name: Check out the chain at latest main
         run: python3 scripts/ci_chain.py
       - name: Clone QC infrastructure
-        run: git clone --depth 1 https://github.com/dzackgarza/ai-review-ci.git "$HOME/ai-review-ci"
+        run: git clone --depth 1 https://github.com/dzackgarza/ai-review-ci.git 
+          "$HOME/ai-review-ci"
       - name: Install ripgrep
         run: sudo apt-get update && sudo apt-get install -y ripgrep
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
@@ -96,7 +98,8 @@ jobs:
           lint: 'false'
           use-mathlib-cache: 'false'
       - name: Check candidate assertions against the accepted base ledger
-        run: python3 head/scripts/check_acceptance_permanent.py --base base/CasAcceptance/Permanent/admitted.json
+        run: python3 head/scripts/check_acceptance_permanent.py --base 
+          base/CasAcceptance/Permanent/admitted.json
       - name: Run the suite at the base and at the head
         run: |
           for side in base head; do
@@ -122,9 +125,12 @@ jobs:
             base.json
           if-no-files-found: error
       - name: Compare, assertion by assertion
-        run: python3 head/scripts/check_acceptance_regression.py base.json head.json
-      - name: Admitted assertions keep their semantic questions (gov-meaning-permanence)
-        run: python3 head/scripts/check_question_permanence.py --base base/CasAcceptance/Permanent/questions.json head.json
+        run: python3 head/scripts/check_acceptance_regression.py base.json 
+          head.json
+      - name: Admitted assertions keep their semantic questions 
+          (gov-meaning-permanence)
+        run: python3 head/scripts/check_question_permanence.py --base 
+          base/CasAcceptance/Permanent/questions.json head.json
   controller-boundary:
     name: Controller boundary fixtures
     runs-on: ubuntu-latest

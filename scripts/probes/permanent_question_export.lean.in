@@ -1,0 +1,10 @@
+module
+
+import CasTools.QuestionExport
+meta import CasTools.QuestionExport
+
+-- Existing production exporter; unchanged permanent sources and inventory.
+#cas_export_questions "@suite@"
+  inventory "@inventory@"
+  readings "@readings@"
+  failures "@failures@"

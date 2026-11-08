@@ -1,0 +1,54 @@
+-- RX-08. This ordinary projection is not the formed map used in RX-LIFT.
+let Q := ℚ in CommutativeRings
+let Qring := view Q along «fun.commutative_rings.ring»()
+let scalarModule := RegularModule(Qring)
+let formedSource := RationalDiagonal23()
+let sourceModule := view formedSource along «fun.bilin_module.forget»(ℚ, ℚ)
+let row := [1, 0] in RectangularMatrices(1, 2, Q)
+let projection := row_linear_map(2, Q, row)
+let expectedProjection((a, b)) := a in sourceModule → scalarModule
+
+test reconstructed_extensions_20261024.complete.rx08.full_projection "[M11,M12] projection_apply; actual 1 by 2 row with scalar codomain":
+  assert projection = expectedProjection
+
+let K := projection.kernel()
+let kernelObject := K.obj()
+let kernelInclusion := K.hom()
+let zeroOnKernel(z) := 0 in kernelObject → scalarModule
+
+test reconstructed_extensions_20261024.complete.rx08.kernel_dimension "[M11] kernelCoordinates and kernel_dimension; the entire kernel is one-dimensional":
+  assert K.dim() = 1
+
+test reconstructed_extensions_20261024.complete.rx08.kernel_zero_composite "[M11] complete ordinary kernel defining map; no formed-arrow claim about projection":
+  assert projection ∘ kernelInclusion = zeroOnKernel
+
+let restricted := RestrictToModuleKernel(Q, scalarModule, formedSource, scalarModule, projection)
+let formedInclusion := ordinary_kernel_inclusion(Q, scalarModule, formedSource, scalarModule, projection)
+let restrictionCarrier := view restricted along «fun.bilin_module.forget»(ℚ, ℚ)
+let underlyingInclusion := map formedInclusion along «fun.bilin_module.forget»(ℚ, ℚ)
+let zeroOnRestriction(z) := 0 in restrictionCarrier → scalarModule
+
+test reconstructed_extensions_20261024.complete.rx08.restriction_zero_composite "[M11] ordinaryKernelInclusion_condition at all five selected inputs":
+  assert projection ∘ underlyingInclusion = zeroOnRestriction
+
+-- The entire coordinate map is admitted into this actual kernel subtype.
+-- The proof covers every rational t; no output supplies membership evidence.
+let coordinateData(t) := (0, t) in (ℚ in Sets) → (Vec(Q, 2) in Sets)
+let kappa := coordinateData in restrictionCarrier using (proof(by intro t; exact (CasCatalogue.Modules.Bilinear.Valued.ModuleKernelRestriction.RationalProjection.mem_kernel ![0, t]).2 rfl))
+
+test reconstructed_extensions_20261024.complete.rx08.full_coordinate_inclusion "[M11] inclusion_coordinates for all t, using the actual returned formed inclusion":
+  assert formedInclusion(kappa) = coordinateData
+
+let pairDomain := (ℚ in Sets) × (ℚ in Sets)
+let observedPairing((s, t)) := pairing(Q, scalarModule, restricted)((kappa(s), kappa(t))) in pairDomain → (ℚ in Sets)
+let expectedPairing((s, t)) := 3*s*t in pairDomain → (ℚ in Sets)
+
+test reconstructed_extensions_20261024.complete.rx08.full_restricted_pairing "[M11] restricted_pairing for every rational s,t; Gram coefficient three":
+  assert observedPairing = expectedPairing
+
+test reconstructed_extensions_20261024.complete.rx08.restricted_pairing_one "[M11] restricted_pairing_one; consumes restricted and kappa from above":
+  assert pairing(Q, scalarModule, restricted)((kappa(1), kappa(1))) = 3 in ℚ
+
+-- The full ordinary universal property and the universal negative over EVERY
+-- target bilinear form remain in expected-facts.lean and ../questions.md.
+-- Rejection for only one selected target form does not discharge that negative.

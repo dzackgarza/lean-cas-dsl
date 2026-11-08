@@ -1,0 +1,337 @@
+module
+
+public import CasCompiler.Context
+public import CasCompiler.Declaration
+public import CasCompiler.Syntax
+public import CasRuntime.Identity
+public import LeanCategories.Catalogue.Syntax
+public import LeanCategories.Catalogue.Registry.Entry
+public import Lean.Elab.Term
+public import Lean.Elab.SyntheticMVars
+
+public section
+
+namespace CasCompiler
+
+open Lean Meta Elab Term
+
+structure SourceSpan where
+  fileName : String
+  start : Option String.Pos.Raw
+  stop : Option String.Pos.Raw
+
+private def sourceSpan (stx : Syntax) : CoreM SourceSpan := do
+  return ⟨← getFileName, stx.getPos?, stx.getTailPos?⟩
+
+inductive SourceCategoryRole where
+  | object
+  | morphism
+  deriving BEq
+
+/-- A carrier prefix selected by the independent object registration.
+Its remaining edges and comparison declarations survive native aliases and explicit views. -/
+structure SourceCarrierSelection where
+  refs : Array CasCatalogue.EdgeRef
+  target : CasCatalogue.CategoryExpr
+  identifications : Array Name
+  actions : Array ClosedTerm
+  comparisons : Array ClosedTerm
+
+structure NativeSourceCarrierSelection where
+  refs : Array CasCatalogue.EdgeRef
+  target : CasCatalogue.CategoryExpr
+  identifications : Array Name
+  actions : Array Expr
+  comparisons : Array Expr
+
+/-- The selected symbolic category and its complete native bundle in the original context. -/
+structure SourceCategoryBinding where
+  private mk ::
+  expression : CasCatalogue.CategoryExpr
+  bundle : ClosedTerm
+  role : SourceCategoryRole
+  carrier : Option SourceCarrierSelection := none
+
+/-- A native value's selected category, including whether it is an object or an arrow. -/
+structure NativeSourceCategory where
+  role : SourceCategoryRole
+  expression : CasCatalogue.CategoryExpr
+  bundle : Expr
+  carrier : Option NativeSourceCarrierSelection := none
+
+/-- An elaborated value and any category explicitly selected by the source frontend. -/
+structure NativeSourceJudgement where
+  value : Expr
+  category : Option NativeSourceCategory
+
+/-- A completed checked source expression, with its full telescope and original source span. -/
+structure SourceTerm where
+  private mk ::
+  source : ClosedTerm
+  span : SourceSpan
+  category : Option SourceCategoryBinding
+
+/-- Persistent source declarations. Later terms reopen their checked native declarations.
+Source: mathematical-input contract §1 and data-model contract §2, lean-cas-dsl#66.
+No provider, runtime value or stored binding syntax participates in this context. -/
+structure SourceSession where
+  private mk ::
+  private identities : CasRuntime.IdentitySupply
+  context : ContextTelescope
+  spans : Array SourceSpan
+  private categories : Array (Option SourceCategoryBinding)
+
+def SourceSession.categoryFor (session : SourceSession) (id : BindingId) :
+    Option SourceCategoryBinding := do
+  let index ← session.context.entries.findIdx? (·.id == id)
+  session.categories[index]?.bind fun category => category
+
+private def SourceSession.categoryOf (session : SourceSession) (context : OpenContext)
+    (expression : Expr) : Option SourceCategoryBinding := do
+  let .fvar binderId := expression | none
+  let binding ← context.bindings.find? (·.expression.fvarId! == binderId)
+  session.categoryFor binding.id
+
+/-- The identity functor of the supplied complete category, with its actual structure.
+Reuse: native Bundled projections and Functor.id, also used by source route interpretation. -/
+opaque categoryIdentity (category : Expr) : MetaM Expr := do
+  let carrier ← mkAppM ``CategoryTheory.Bundled.α #[category]
+  let categoryStructure ← mkAppM ``CategoryTheory.Bundled.str #[category]
+  mkAppOptM ``CategoryTheory.Functor.id #[some carrier, some categoryStructure]
+
+/-- Inspect the source head through assigned native variables and original definitions.
+Uses retain their actual references. Reuse: Lean.Meta.instantiateMVars and native let values. -/
+partial def sourceDomain (value : Expr) : MetaM Expr := do
+  let value := (← instantiateMVars value).headBeta.consumeMData
+  if let .fvar id := value then
+    if let some definition := (← id.getDecl).value? then return ← sourceDomain definition
+  return value
+
+/-- Retain an actual selected catalogue reference beside its complete native expression.
+Reuse: Lean MData/KVMap, preserved by native closure and ignored by kernel conversion. -/
+def sourceReference (kind : Name) (id : String) (declaration : Name) (value : Expr) : Expr :=
+  .mdata (KVMap.empty |>.setName `CasCompiler.source.kind kind
+    |>.setString `CasCompiler.source.id id
+    |>.setName `CasCompiler.source.declaration declaration) value
+
+/-- Read an object reference through original native aliases and verify its retained declaration. -/
+partial def sourceObjectReference? (value : Expr) : MetaM (Option (CasCatalogue.ObjectId × Name)) := do
+  let value ← instantiateMVars value
+  match value with
+  | .mdata data body =>
+    if data.getName `CasCompiler.source.kind == ``CasCatalogue.ObjectEntry then
+      let declaration := data.getName `CasCompiler.source.declaration
+      unless body.consumeMData.getAppFn.constName? == some declaration do
+        throwError "the source object reference does not retain its actual declaration"
+      return some (⟨data.getString `CasCompiler.source.id⟩, declaration)
+    sourceObjectReference? body
+  | .fvar id =>
+    match (← id.getDecl).value? with
+    | some value => sourceObjectReference? value
+    | none => pure none
+  | _ =>
+    let reduced := value.headBeta
+    if reduced == value then return none
+    sourceObjectReference? reduced
+
+/-- Attach only a supplied category bundle, checked at the complete retained source type.
+Reuse: native Bundled.α and stable-ID context transport. Category identity is supplied by
+source selection, never inferred from a carrier type. Source: #66, comment 6664276482 §1. -/
+opaque SourceTerm.inCategory (term : SourceTerm) (expression : CasCatalogue.CategoryExpr)
+    (category : SourceTerm) (role : SourceCategoryRole := .object)
+    (selection : Option SourceCarrierSelection := none) : MetaM SourceTerm := do
+  term.source.withOpen fun bindings value => do
+    let context ← ContextTelescope.capture bindings
+    let categoryValue ← category.source.inContext context
+    let carrier ← mkAppM ``CategoryTheory.Bundled.α #[categoryValue]
+    match role with
+    | .object =>
+      unless ← isDefEq (← inferType value) carrier do
+        throwError "the source value does not inhabit its selected native category"
+    | .morphism =>
+      -- Native identity-map application checks both endpoints in the supplied category.
+      let identity ← categoryIdentity categoryValue
+      discard <| withTransparency .all <| mkAppM ``CategoryTheory.Functor.map #[identity, value]
+  return { term with category := some ⟨expression, category.source, role, selection⟩ }
+
+/-- Source declarations share the worker's monotone identity supply across snapshot branches.
+Reuse: IdentitySupply.fresh and its native atomic counter; only identities live in the supply. -/
+private def SourceSession.freshBinding (session : SourceSession) : BaseIO BindingId := do
+  let id ← session.identities.fresh .sourceBinding
+  return ⟨id.worker, id.serial⟩
+
+private def defineIn (session : SourceSession) (context : OpenContext) (name : Name)
+    (expression : Expr) (span : SourceSpan) (category : Option SourceCategoryBinding) :
+    MetaM SourceSession := do
+  let type ← inferType expression
+  let id ← session.freshBinding
+  withLetDecl name type expression fun expression => do
+    let context ← ContextTelescope.capture
+      (context.bindings.push { id, role := .definition, expression })
+    return ⟨session.identities, context.telescope, session.spans.push span,
+      session.categories.push category⟩
+
+opaque SourceSession.empty (identities : CasRuntime.IdentitySupply) : MetaM SourceSession := do
+  let context ← withLCtx {} #[] <| ContextTelescope.capture #[]
+  return ⟨identities, context.telescope, #[], #[]⟩
+
+/-- Apply the release's safety and axiom policy to the newly completed source term and type.
+Reuse: Lean.collectAxioms and the existing source-family intake policy in Program.lean.
+Earlier declarations were checked when inserted into this private persistent session. -/
+private def checkSource (source : ClosedTerm) : MetaM Unit := do
+  let constants := source.expression.getUsedConstants ++ source.type.getUsedConstants
+  for declaration in constants do
+    discard <| checkedDeclaration declaration
+
+/-- Form a checked source term directly in the complete native scope.
+Reuse: ContextTelescope.withOpen, native synthesis and OpenContext.close. Public frontend
+adapters supply native expressions; source terms never pass through a syntax replay table. -/
+opaque SourceSession.elaborateJudgements (session : SourceSession) (reference : Syntax)
+    (build : OpenContext → TermElabM (Array NativeSourceJudgement)) :
+    TermElabM (Array SourceTerm) :=
+  withRef reference <| withoutErrToSorry <| withoutAutoBoundImplicit do
+    session.context.withOpen fun bindings => do
+      let context ← ContextTelescope.capture bindings
+      let expressions ← withSynthesize <| build context
+      let span ← sourceSpan reference
+      expressions.mapM fun judgement => do
+        let expression ← instantiateMVars judgement.value
+        let source ← context.close (← instantiateMVars expression)
+        checkSource source
+        let term : SourceTerm := ⟨source, span, session.categoryOf context expression⟩
+        match judgement.category with
+        | none => return term
+        | some selected =>
+          let category ← context.close (← instantiateMVars selected.bundle)
+          checkSource category
+          let selection ← selected.carrier.mapM fun carrier => do
+            let close := fun action => do
+              let action ← context.close (← instantiateMVars action)
+              checkSource action
+              return action
+            let actions ← carrier.actions.mapM close
+            let comparisons ← carrier.comparisons.mapM close
+            return (⟨carrier.refs, carrier.target, carrier.identifications, actions, comparisons⟩ :
+              SourceCarrierSelection)
+          term.inCategory selected.expression ⟨category, span, none⟩ selected.role selection
+
+/-- Form ordinary checked native terms through the same complete source boundary. -/
+opaque SourceSession.elaborateMany (session : SourceSession) (reference : Syntax)
+    (build : OpenContext → TermElabM (Array Expr)) : TermElabM (Array SourceTerm) :=
+  session.elaborateJudgements reference fun context => do
+    return (← build context).map fun value => ⟨value, none⟩
+
+opaque SourceSession.elaborate (session : SourceSession) (reference : Syntax)
+    (build : OpenContext → TermElabM Expr) : TermElabM SourceTerm := do
+  let #[source] ← session.elaborateMany reference fun context => do
+      return #[← build context]
+    | throwError "source formation returned an invalid number of expressions"
+  return source
+
+/-- Elaborate in the complete native context and publish only a resolved checked expression.
+Reuse: Lean 4.33.0 Term.elabTermEnsuringType, withSynthesize and native context reopening.
+Source syntax is consumed here; persistent definitions store their checked values. -/
+opaque SourceSession.term (session : SourceSession) (stx : Term)
+    (expected : Option ClosedTerm := none) : TermElabM SourceTerm :=
+  session.elaborate stx fun context => do
+    let expected ← expected.mapM (·.inContext context)
+    elabTermEnsuringType stx expected
+
+/-- Intake the whole source declaration before selecting explicit rigid universe arguments.
+Reuse: checkedDeclaration and Lean.mkConst; native checking retains the full family type. -/
+opaque SourceSession.constant (session : SourceSession) (reference : Syntax) (name : Name)
+    (universes : List Level) : TermElabM SourceTerm :=
+  session.elaborate reference fun _ => do
+    let info ← checkedDeclaration name
+    unless universes.length == info.levelParams.length do
+      throwError "source universe arguments do not match the whole declaration"
+    let universes ← universes.mapM instantiateLevelMVars
+    if universes.any (·.hasMVar) then
+      throwError "source declaration intake requires resolved universe arguments"
+    return mkConst name universes
+
+/-- A formal proposition is retained as a question; elaboration does not establish it. -/
+opaque SourceSession.proposition (session : SourceSession) (stx : Term) :
+    TermElabM SourceTerm := withRef stx do
+  let term ← session.term stx
+  term.source.withOpen fun _ expression => do
+    unless ← isProp expression do throwError "a source proposition must have type Prop"
+  return term
+
+/-- Check an explicitly supplied source proof at an independently prepared proposition.
+Reuse: native expected-type elaboration and stable-ID context transport. The source hypothesis
+and proof remain formal; this operation accepts no computational response as evidence. -/
+opaque SourceSession.proof (session : SourceSession) (stx : TSyntax `cas_term)
+    (obligation : ClosedTerm) : TermElabM SourceTerm := withRef stx do
+  obligation.withOpen fun _ proposition => do
+    unless ← isProp proposition do
+      throwError "a formal proof requires a source proposition"
+  let `(cas_term| proof($evidence:term)) := stx
+    | throwError "source evidence requires an explicit proof term"
+  session.term evidence (some obligation)
+
+private def assumeIn (session : SourceSession) (context : OpenContext) (name : Name)
+    (type : Expr) (span : SourceSpan) (binderInfo : BinderInfo) : MetaM SourceSession := do
+  discard <| getLevel type
+  let role ← if binderInfo == .instImplicit then do
+      unless (← isClass? type).isSome do
+        throwError "a selected-instance source binder must have a class type"
+      pure BindingRole.instance
+    else if ← isProp type then pure BindingRole.hypothesis
+    else pure BindingRole.parameter
+  let id ← session.freshBinding
+  withLocalDecl name binderInfo type fun expression => do
+    let context ← ContextTelescope.capture (context.bindings.push { id, role, expression })
+    return ⟨session.identities, context.telescope, session.spans.push span,
+      session.categories.push none⟩
+
+/-- Add one native parameter, hypothesis or selected instance with a fresh stable source ID.
+Reuse: Lean.elabType and Meta.withLocalDecl, including native local-instance registration. -/
+opaque SourceSession.assume (session : SourceSession) (name : Name) (stx : Term)
+    (binderInfo : BinderInfo := .default) : TermElabM SourceSession :=
+  withRef stx <| withoutErrToSorry <| withoutAutoBoundImplicit do
+    session.context.withOpen fun bindings => do
+      let context ← ContextTelescope.capture bindings
+      let type ← instantiateMVars (← withSynthesize <| elabType stx)
+      let source ← context.close type
+      checkSource source
+      assumeIn session context name type (← sourceSpan stx) binderInfo
+
+/-- Bind a retained source type through native context transport and native sort checking.
+Reuse: ClosedTerm.inContext, Meta.getLevel and the ordinary native binder capture. -/
+opaque SourceSession.assumeTerm (session : SourceSession) (name : Name) (type : SourceTerm)
+    (binderInfo : BinderInfo := .default) : MetaM SourceSession :=
+  session.context.withOpen fun bindings => do
+    let context ← ContextTelescope.capture bindings
+    assumeIn session context name (← type.source.inContext context) type.span binderInfo
+
+/-- Retain an elaborated definition as a native let declaration for all subsequent source use.
+Reuse: Term.elabTermEnsuringType and Meta.withLetDecl; no expansion/replay table is stored. -/
+opaque SourceSession.define (session : SourceSession) (name : Name) (stx : Term)
+    (annotation : Option Term := none) : TermElabM SourceSession :=
+  withRef stx <| withoutErrToSorry <| withoutAutoBoundImplicit do
+    session.context.withOpen fun bindings => do
+      let context ← ContextTelescope.capture bindings
+      let expected ← annotation.mapM fun stx => withSynthesize <| elabType stx
+      let expression ← instantiateMVars (← withSynthesize <| elabTermEnsuringType stx expected)
+      let source ← context.close expression
+      checkSource source
+      defineIn session context name expression (← sourceSpan stx)
+        (session.categoryOf context expression)
+
+/-- Bind an already checked source value by native context transport and a fresh declaration.
+Reuse: ClosedTerm.inContext and the same native let capture as ordinary source definitions. -/
+opaque SourceSession.defineTerm (session : SourceSession) (name : Name) (term : SourceTerm) :
+    MetaM SourceSession :=
+  session.context.withOpen fun bindings => do
+    let context ← ContextTelescope.capture bindings
+    defineIn session context name (← term.source.inContext context) term.span term.category
+
+/-- Form ordinary native application from retained checked function and argument sources.
+Reuse: OpenContext.apply, also used by SourceLayout.applyIn, with complete argument order. -/
+opaque SourceSession.apply (session : SourceSession) (reference : Syntax) (function : SourceTerm)
+    (arguments : Array SourceTerm) : TermElabM SourceTerm :=
+  session.elaborate reference fun context => do
+    context.apply function.source (arguments.map (·.source))
+
+end CasCompiler

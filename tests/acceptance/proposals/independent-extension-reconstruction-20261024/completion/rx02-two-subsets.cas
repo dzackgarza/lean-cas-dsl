@@ -1,0 +1,18 @@
+-- RX-02. Source proposal; the complete inclusion and core-map obligations
+-- remain fixed in ../questions.md even where a public selector is still needed.
+let existingFive := Fin(5) in Sets
+let twoElementSubsets := existingFive.two_subsets()
+
+test reconstructed_extensions_20261024.complete.rx02.cardinality "[M02] fin_five_cardinal; choose(5,2)=10 counts unordered distinct pairs":
+  assert twoElementSubsets.cardinality() = 10
+
+-- Finite ordinals carry the existing numeral operation. The source of the
+-- selected singleton is kept; repetition does not supply a second member.
+let singletonZero := {0} in 𝒫_fin(existingFive)
+
+test reconstructed_extensions_20261024.complete.rx02.singleton_excluded "[M02] singleton_not_member (Fin 5) 0":
+  assert (singletonZero ∈ TwoSubsets(existingFive)) = false
+
+-- The full map action remains direct image by a specified bijection.
+-- No arbitrary set map, list of sampled images, or endpoint equality is used
+-- here to manufacture the missing complete core-arrow input.
