@@ -31,6 +31,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let expected ← session.term (← nativeTerm
     "CasCatalogue.Foundation.Cardinality.setsCardinality.obj (CategoryTheory.Core.mk X)")
   let method ← session.read (← sourceTerm "X.cardinality()")
+  unless method.category.any (fun category => category.role == .object &&
+      category.expression.syntacticEq (.atom ⟨"cat.cardinals"⟩)) do
+    throwError "the method result lost its declared object role or target category"
   for expression in #["X.cardinality()", "(X).cardinality()", "|X|", "|Fin(3)|"] do
     let result ← session.read (← sourceTerm expression)
     unless result.source.context.entries.size == 2 do
