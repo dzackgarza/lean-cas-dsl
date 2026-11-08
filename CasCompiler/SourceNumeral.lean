@@ -24,27 +24,17 @@ private inductive NumeralContext where
 -- The point must land in the complete selected carrier family before specialization.
 -- Reuse sourceCarrier's explicit prefix and whole-functor agreement rules.
 private def numeralCarrierAgreement (routed : RoutedNumeral) : TermElabM Expr := do
-  let state ← semanticState
   let count ← forallTelescopeReducing (← inferType routed.categoryFamily) fun parameters _ =>
     pure parameters.size
   lambdaTelescope routed.family.value fun parameters body => do
     let category := mkAppN routed.categoryFamily (parameters.take count)
-    let selection ← routed.owner.category.carrier.mapM fun selection => do
-      let some steps := state.routeEdges? routed.owner.category.expression selection.target
-          selection.refs
-        | throwError "the source numeral lost its selected carrier prefix"
-      let route : Route :=
-        { source := routed.owner.category.expression, target := selection.target, steps }
-      let native ← nativeRouteFunctor state route category
-      return { selection with actions := native.actions }
     let object := parameters[routed.family.objectIndex]!
-    let carrier ← sourceCarrier
-      ⟨object, some ⟨.object, routed.owner.category.expression, category, selection⟩⟩
+    let carrier ← sourceCarrierFamilyObject routed.owner.category category object
     let type ← whnfR (← inferType body)
     unless type.isAppOfArity ``Quiver.Hom 4 do
       throwError "the whole numeral family lost its point-map boundary"
     let target ← mkLambdaFVars parameters type.getAppArgs[3]!
-    let expected ← mkLambdaFVars parameters carrier.value
+    let expected ← mkLambdaFVars parameters carrier
     unless ← isDefEq (← inferType target) (← inferType expected) <&&> isDefEq target expected do
       throwError "the numeral has a different complete selected carrier family"
     let proof ← mkExpectedTypeHint (← mkEqRefl target) (← mkEq target expected)

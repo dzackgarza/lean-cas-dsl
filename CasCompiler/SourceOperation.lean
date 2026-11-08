@@ -118,6 +118,8 @@ structure NativeSourceOperation where
   value : Expr
   arity : Nat
   comparison : Option Expr
+  inputDomains : Array Bool
+  outputDomain : Bool
   inputTransports : Array Bool
   outputTransport : Bool
 
@@ -193,26 +195,15 @@ def sourceJuxtapositionName
 
 -- Classify transport roles at the entire rigid source family. A scalar argument and
 -- an object argument remain distinct even if their carriers coincide after substitution.
-private def operationTransportRoles (state : SemanticState) (root : OperationRoot)
+private def operationTransportRoles (root : OperationRoot)
     (categoryFamily : Expr) (family : NativeOperationFamily) :
     TermElabM (Array Bool × Bool × Array Expr) := do
-  if root.domain.comparison.isNone then
-    return (Array.replicate family.binding.arity false, false, #[])
-  let some selected := root.domain.category.carrier
-    | throwError "the operation refinement lost its supplied carrier action"
-  unless selected.target.syntacticEq (.atom CategoryId.sets) do
-    throwUnsupportedSource "operation transport requires its actual carrier comparison"
-  let some steps := state.routeEdges? root.domain.category.expression selected.target selected.refs
-    | throwError "the operation refinement lost its complete carrier route"
-  let route : Route :=
-    { source := root.domain.category.expression, target := selected.target, steps }
   let parameterCount ← forallTelescopeReducing (← inferType categoryFamily) fun parameters _ =>
     pure parameters.size
   lambdaTelescope family.value fun parameters body => do
     let category := mkAppN categoryFamily (parameters.take parameterCount)
     let objectIndex := parameters.size - 1 - family.binding.numerals
-    let native ← nativeRouteFunctor state route category
-    let carrier ← functorObject native.functor parameters[objectIndex]! native.target
+    let carrier ← sourceCarrierFamilyObject root.domain.category category parameters[objectIndex]!
     let arrow ← whnfR (← inferType body)
     unless arrow.isAppOfArity ``Quiver.Hom 4 do
       throwError "the whole source operation lost its typed morphism"
@@ -287,8 +278,10 @@ opaque sourceOperation
     let proof ← mkExpectedTypeHint (← mkEqRefl first.value) (← mkEq first.value other.value)
     checkWithKernel proof
     proofs := proofs.push proof
-  let (inputTransports, outputTransport, roleProofs) ←
-    operationTransportRoles state root categoryFamily first
+  let (inputDomains, outputDomain, roleProofs) ←
+    operationTransportRoles root categoryFamily first
+  let inputTransports := inputDomains.map (· && root.domain.comparison.isSome)
+  let outputTransport := outputDomain && root.domain.comparison.isSome
   proofs := proofs ++ roleProofs
   -- Specialize already checked universal evidence at the exact category parameters.
   let mut levelParameters : CollectLevelParams.State := {}
@@ -376,6 +369,7 @@ opaque sourceOperation
     (domain.category.expression, routes.map Route.refs)
   operation := .mdata
     (KVMap.empty.setString `CasCompiler.source.operationRefinements (reprStr cone)) operation
-  return ⟨operation, arity, root.domain.comparison, inputTransports, outputTransport⟩
+  return ⟨operation, arity, root.domain.comparison, inputDomains, outputDomain,
+    inputTransports, outputTransport⟩
 
 end CasCompiler

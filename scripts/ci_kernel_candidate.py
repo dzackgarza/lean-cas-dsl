@@ -32,7 +32,8 @@ FIXED_IMPORTS = (
 
 READER_MODULES = (
     'CasCompiler.Context', 'CasCompiler.Elaborate', 'CasCompiler.Surface',
-    'CasCompiler.Resolve', 'CasCompiler.SourceCarrier', 'CasCompiler.SourcePattern',
+    'CasCompiler.Resolve', 'CasCompiler.SourceTypeOrigin',
+    'CasCompiler.SourceCarrier', 'CasCompiler.SourcePattern',
     'CasCompiler.SourceNumeral', 'CasCompiler.SourceTuple', 'CasCompiler.SourceOperation',
     'CasCompiler.SourceLimit',
     'CasCompiler.SourceMember',

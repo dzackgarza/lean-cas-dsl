@@ -116,6 +116,7 @@ partial def readExpression
         let inverse ← mkAppM ``CategoryTheory.Iso.inv #[comparison]
         let inverse ← sourceSetFunction inverse
         elabAppArgs inverse #[] #[Arg.expr value] (some type) false false
+      else if operation.inputDomains[index]?.getD false then read domain
       else read type
     let type ← instantiateMVars (← inferType argument)
     let value ← if operands.size == 1 then do
@@ -130,6 +131,7 @@ partial def readExpression
         let forward ← mkAppM ``CategoryTheory.Iso.hom #[comparison]
         let forward ← sourceSetFunction forward
         elabAppArgs forward #[] #[Arg.expr value] expected false false
+      else if operation.outputDomain then mkExpectedTypeHint value domain
       else pure value
     return (⟨value, none⟩ : NativeSourceJudgement)
   let action := fun (left right : TSyntax `cas_term) => do

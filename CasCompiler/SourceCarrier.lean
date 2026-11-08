@@ -129,6 +129,21 @@ opaque sourceCarrier (source : NativeSourceJudgement) : TermElabM NativeSourceJu
     { selected with refs := #[], target := .atom CategoryId.sets, actions := #[] }
   return ⟨value, some ⟨category.role, .atom CategoryId.sets, bundle, selection⟩⟩
 
+/-- Apply the selected carrier to an arbitrary object in its complete category family.
+Reuse: nativeRouteFunctor and sourceCarrier. Typed provenance stays with source types;
+family comparisons use the actual carrier expression after removing that annotation. -/
+def sourceCarrierFamilyObject (source : NativeSourceCategory) (bundle object : Expr) :
+    TermElabM Expr := do
+  let state ← semanticState
+  let selection ← source.carrier.mapM fun selection => do
+    let some steps := state.routeEdges? source.expression selection.target selection.refs
+      | throwError "the source carrier family lost its selected prefix"
+    let route : Route := { source := source.expression, target := selection.target, steps }
+    let native ← nativeRouteFunctor state route bundle
+    return { selection with actions := native.actions }
+  let carrier ← sourceCarrier ⟨object, some ⟨.object, source.expression, bundle, selection⟩⟩
+  return (← sourceTypeOrigin? carrier.value).map (·.type) |>.getD carrier.value
+
 /-- Apply the selected complete carrier functor to an arrow before taking its function.
 Ordinary native functions retain their original expression and context. -/
 def sourceFunction (source : NativeSourceJudgement) : TermElabM Expr := do
