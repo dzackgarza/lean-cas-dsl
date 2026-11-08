@@ -31,6 +31,12 @@ private def componentValues (source : Syntax) (value : Expr) (count : Nat) :
     TermElabM (Array Expr) := withRef source do
   if let some values ← sourceComponentValues value count then return values
   let type ← whnf (← inferType value)
+  if let .forallE _ index _ _ := type then
+    let index ← whnf index
+    if index.isAppOfArity ``Fin 1 then
+      -- Native finite functions retain their actual argument, index type and order.
+      -- Reference: Mathlib.Data.Fin.VecNotation's native Fin-indexed vector semantics.
+      return (← sourceFiniteIndices index.getAppArgs[0]! count).map (mkApp value)
   let (first, second) ←
     if type.isAppOfArity ``Prod 2 then pure (``Prod.fst, ``Prod.snd)
     else if type.isAppOfArity ``Sigma 2 then pure (``Sigma.fst, ``Sigma.snd)

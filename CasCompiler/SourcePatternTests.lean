@@ -105,3 +105,23 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let expected ← expected.source.inContext (← ContextTelescope.capture bindings)
       unless ← isDefEq expression expected do
         throwError "a dependent pattern changed its actual second projection or dependent type"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let session ← empty.assume `X (← nativeTerm "Fin 3 → Type")
+  let type ← session.term (← nativeTerm "((i : Fin 3) → X i) → X 1")
+  let expected ← session.term (← nativeTerm "fun (v : (i : Fin 3) → X i) => v 1")
+  let term ← session.read (← sourceTerm "(a, b, c) ↦ b") (some type.source)
+  term.source.withOpen fun bindings expression => do
+    let expected ← expected.source.inContext (← ContextTelescope.capture bindings)
+    unless ← isDefEq expression expected do
+      throwError "a finite function pattern changed its actual indexed component"
+    unless expression.containsFVar bindings[0]!.expression.fvarId! do
+      throwError "a finite function pattern lost its original dependent value family"
+  let rejected ← try
+    discard <| session.read (← sourceTerm "(a, b) ↦ b") (some type.source)
+    pure false
+  catch _ => pure true
+  unless rejected do
+    throwError "a finite function pattern accepted a different native index arity"

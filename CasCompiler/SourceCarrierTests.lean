@@ -85,6 +85,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       throwError "carrier formation replaced or exchanged its original selected module objects"
     discard <| getLevel source
     discard <| getLevel target
+  let coordinate ← session.read (← sourceTerm
+    "((a, b) ↦ a) in sourceModule → (ℚ in Sets)")
+  coordinate.source.withOpen fun bindings expression => do
+    let some sourceBinding := bindings.find? (·.id == sourceEntry.id)
+      | throwError "the original coordinate function lost its source-module binding"
+    unless (← inferType expression).containsFVar sourceBinding.expression.fvarId! do
+      throwError "a coordinate function replaced its actual source-module domain"
+
 
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new

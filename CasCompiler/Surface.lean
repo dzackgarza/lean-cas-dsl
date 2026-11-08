@@ -41,6 +41,19 @@ opaque checkRegisteredDomains (left right : Expr) : MetaM Unit := do
     unless ← isDefEq left right do
       throwError "the source domains have different complete declaration parameters"
 
+/-- Canonical native indices at the complete finite arity supplied by the source type.
+Reuse: Lean.Meta.LitValues.litToCtor's Fin construction and native Boolean proof. -/
+def sourceFiniteIndices (arity : Expr) (count : Nat) : MetaM (Array Expr) := do
+  unless ← isDefEq arity (mkNatLit count) do
+    throwError "the source tuple pattern has a different declared component arity"
+  (Array.range count).mapM fun index => do
+    let literal := mkNatLit index
+    let bound := mkApp4 (mkConst ``LT.lt [.zero]) (mkConst ``Nat) (mkConst ``instLTNat)
+      literal (mkNatLit count)
+    let proof := mkApp3 (mkConst ``of_decide_eq_true) bound
+      (mkApp2 (mkConst ``Nat.decLt) literal (mkNatLit count)) eagerReflBoolTrue
+    mkAppOptM ``Fin.mk #[some (mkNatLit count), some literal, some proof]
+
 /-- Apply the coordinates declared by the exact source object of a bound value.
 Reuse: ObjectComponents and Registry.Semantic.applyObjectParameters, which checks the
 complete dependent parameters before application. An unregistered native type returns none;
@@ -57,19 +70,8 @@ opaque sourceComponentValues (value : Expr) (count : Nat) : TermElabM (Option (A
   discard <| checkedDeclaration components.projection
   let parameters := source.getAppArgs
   let arity ← applyObjectParameters s!"object {entry.id.raw}" components.arity parameters
-  unless ← isDefEq arity (mkNatLit count) do
-    throwError "the source tuple pattern has a different declared component arity"
   let mut values := #[]
-  for index in [:count] do
-    -- Use the canonical finite-index construction from Lean.Meta.LitValues.litToCtor;
-    -- source-local order or decision instances do not select coordinate positions.
-    let literal := mkNatLit index
-    let bound := mkApp4 (mkConst ``LT.lt [.zero]) (mkConst ``Nat) (mkConst ``instLTNat)
-      literal (mkNatLit count)
-    let proof := mkApp3 (mkConst ``of_decide_eq_true) bound
-      (mkApp2 (mkConst ``Nat.decLt) literal (mkNatLit count)) eagerReflBoolTrue
-    let index ← mkAppOptM ``Fin.mk
-      #[some (mkNatLit count), some literal, some proof]
+  for index in ← sourceFiniteIndices arity count do
     let projection ← applyObjectParameters s!"object {entry.id.raw}"
       components.projection (parameters.push index)
     let type ← whnfR (← inferType projection)
