@@ -79,25 +79,6 @@ def state(path):
             'workingTree': git(path, 'status', '--porcelain')}
 
 
-def execution_manifest_inputs(original: Path, execution: Path, contract: Path) -> dict:
-    original, execution, contract = (path.resolve(strict=True)
-                                     for path in (original, execution, contract))
-    result = subprocess.run(
-        ['uv', 'run', '--frozen', '--project', str(contract), 'python',
-         str(contract / 'python/cas_v1_bridge.py'), '--manifest', str(original),
-         '--execution-manifest', str(execution)], text=True, capture_output=True, check=False)
-    if result.returncode:
-        raise ValueError('Execution manifest verification failed:\n' + result.stdout + result.stderr)
-    receipt = json.loads(result.stdout)
-    if receipt['format'] != 'cas-v1-execution/1':
-        raise ValueError('Unexpected execution manifest receipt format')
-    guards = [record(Path(item['path'])) for item in receipt['guards']]
-    if any(actual['sha256'] != expected['sha256']
-           for actual, expected in zip(guards, receipt['guards'], strict=True)):
-        raise ValueError('Execution manifest inputs changed during verification')
-    return {'manifest': record(original), 'executionManifest': record(execution), 'guards': guards}
-
-
 def snapshot(runtime):
     roots = json.loads((runtime / 'evidence/source-roots.json').read_text())
     return {name: state(Path(path)) for name, path in roots.items()}
@@ -1035,8 +1016,7 @@ def check_fixed_controls(name, document):
     raise ValueError('Unknown fixed control: ' + name)
 
 
-def fixed_execution(root, runtime, published, manifest, leaf_commit, controls=False,
-                    execution_manifest=None):
+def fixed_execution(root, runtime, published, manifest, leaf_commit, controls=False):
     """Run existing fixed inputs unchanged; this does not admit or rewrite an assertion."""
     gate = export_gate(root, runtime, published)
     manifest = manifest.resolve()
@@ -1049,13 +1029,6 @@ def fixed_execution(root, runtime, published, manifest, leaf_commit, controls=Fa
     directory = runtime / 'evidence' / name
     directory.mkdir()
     guards = [*gate['guardedInputs'], record(__file__), record(manifest)]
-    execution_inputs = None
-    selected_manifest = manifest
-    if execution_manifest is not None:
-        contract = Path(gate['producer']['contract']['path'])
-        execution_inputs = execution_manifest_inputs(manifest, execution_manifest, contract)
-        guards.extend(execution_inputs['guards'])
-        selected_manifest = execution_manifest.resolve(strict=True)
     invocations = []
     if controls:
         for control, module in [('rx10', 'FixedQuestionExecutionControls'),
@@ -1064,7 +1037,7 @@ def fixed_execution(root, runtime, published, manifest, leaf_commit, controls=Fa
             report = directory / (control + '.json')
             source = root / 'CasAcceptance/Kernel' / (module + '.lean')
             guards.append(record(source))
-            environment = (['CAS_FROZEN_LEAF_MANIFEST=' + str(selected_manifest),
+            environment = (['CAS_FROZEN_LEAF_MANIFEST=' + str(manifest),
                             'CAS_FIXED_QUESTION_REPORT=' + str(report),
                             'CAS_CONDITION_PROTOCOL_DIR=' + str(root / 'CasAcceptance/Strata')]
                            if control == 'rx10' else
@@ -1097,7 +1070,7 @@ def fixed_execution(root, runtime, published, manifest, leaf_commit, controls=Fa
         report = directory / 'fixed-positive.json'
         command = ['bash', str(runtime / 'lake.sh'), 'env',
                    str(root / '.lake/build/bin/cas-harness'), '--suite', str(suite),
-                   '--inventory', str(inventory), '--manifest', str(selected_manifest),
+                   '--inventory', str(inventory), '--manifest', str(manifest),
                    '--report', str(report), '--computation-only']
         for module in FIXED_IMPORTS:
             command.extend(['--import', module])
@@ -1108,7 +1081,6 @@ def fixed_execution(root, runtime, published, manifest, leaf_commit, controls=Fa
     summary_path = directory / 'summary.json'
     summary = {'purpose': 'Existing fixed computations and controls; no independent acceptance claimed',
                **gate, 'frozenLeaf': leaf, 'manifest': record(manifest), 'results': results,
-               'executionManifest': execution_inputs,
                'guardedInputs': guards, 'completeExecution': False}
     write(summary_path, summary)
     for selection, report, command, expected in invocations:
@@ -1168,7 +1140,6 @@ def main():
         execution = commands.add_parser(name)
         execution.add_argument('--published-kernel-commit', required=True)
         execution.add_argument('--manifest', type=Path, required=True)
-        execution.add_argument('--execution-manifest', type=Path)
         execution.add_argument('--leaf-commit', required=True,
                                help='exact frozen leaf SHA shared with the original RX-LIFT run')
     args = parser.parse_args()
@@ -1193,8 +1164,7 @@ def main():
         questions_export(root, runtime, args.published_kernel_commit)
     elif args.phase in {'execute-fixed', 'execute-fixed-controls'}:
         fixed_execution(root, runtime, args.published_kernel_commit, args.manifest,
-                        args.leaf_commit, controls=args.phase == 'execute-fixed-controls',
-                        execution_manifest=args.execution_manifest)
+                        args.leaf_commit, controls=args.phase == 'execute-fixed-controls')
     else:
         verify(root, runtime)
 
