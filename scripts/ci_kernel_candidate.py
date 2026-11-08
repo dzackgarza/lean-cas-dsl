@@ -38,6 +38,7 @@ READER_MODULES = (
     'CasCompiler.SourceMember',
     'CasCompiler.ReadExpression',
     'CasCompiler.Read',
+    'CasTools.NativeExpression',
 )
 
 PRODUCTION_MODULES = (

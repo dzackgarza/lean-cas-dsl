@@ -15,6 +15,9 @@ run_cmd do
   let metadata : MData := { entries := [
     (name, .ofString "native α"), (`flag, .ofBool true), (`name, .ofName name),
     (`natural, .ofNat 23), (`integer, .ofInt (-7)), (`syntaxValue, .ofSyntax syntaxValue)] }
+  let shiftedSyntax := Syntax.node (.synthetic ⟨2⟩ ⟨4⟩ true) name syntaxValue.getArgs
+  let shiftedMetadata : MData := { entries := metadata.entries.map fun (key, value) =>
+    (key, if key == `syntaxValue then .ofSyntax shiftedSyntax else value) }
   let level := Level.imax (.max (.param name) (.succ .zero)) (.mvar ⟨name⟩)
   let leaf := Expr.const name [level]
   let roots : Array Expr := #[leaf, .sort level, .bvar 3, .fvar ⟨name⟩, .mvar ⟨name⟩,
@@ -23,12 +26,15 @@ run_cmd do
     .forallE name (.sort .zero) (.bvar 0) .strictImplicit,
     .letE name (.sort .zero) leaf (.bvar 0) true,
     .letE name (.sort .zero) leaf (.bvar 0) false,
-    .lit (.natVal 5), .lit (.strVal "α"), .mdata metadata leaf, .proj name 2 leaf]
+    .lit (.natVal 5), .lit (.strVal "α"), .mdata metadata leaf,
+    .mdata shiftedMetadata leaf, .mdata { entries := metadata.entries.reverse } leaf,
+    .proj name 2 leaf]
   let document := encode roots
   let .ok json := Json.parse document.compress | throwError "native graph JSON did not parse"
   let .ok restored := decode json | throwError "native graph JSON did not decode"
   unless restored.size == roots.size &&
-      roots.zip restored |>.all (fun (source, target) => source.equal target) do
+      (roots.zip restored).all (fun (source, target) =>
+        source.equal target && reprStr source == reprStr target) do
     throwError "native graph transport changed a constructor, binder, metadata value or universe"
 
 run_cmd do
@@ -42,7 +48,6 @@ run_cmd do
     | throwError "the native graph omitted its shared node table"
   unless nodes.size == 25 do
     throwError "the native graph expanded repeated subterms"
-  let .ok json := Json.parse "{\"roots\":[0],\"nodes\":[{\"app\":[0,0]}]}"
-    | throwError "the malformed graph control did not parse"
-  unless (decode json).isError do
+  let json := Json.mkObj [("roots", toJson #[0]), ("nodes", toJson #[Node.app 0 0])]
+  if let .ok _ := decode json then
     throwError "the native graph accepted a forward or cyclic reference"

@@ -42,6 +42,17 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   unless context.size == 4 && (context[1]!.getObjValAs? String "role") == .ok "hypothesis" &&
       (context[3]!.getObjValAs? String "name") == .ok "X" do
     throwError "the observer shortened or changed the actual preceding source context"
+  let .ok graph := question.getObjVal? "nativeExpressions"
+    | throwError "the observer omitted its exact native graph"
+  let .ok nodes := CasTools.NativeExpression.decodeNodes graph
+    | throwError "the observer's native graph did not decode"
+  let .ok index := context[3]!.getObjValAs? Nat "value"
+    | throwError "the observer omitted the original definition value"
+  let some value := nodes[index]? | throwError "the definition value is outside its native graph"
+  unless (value.find? fun expression => match expression with
+      | .mdata data _ => !(data.getString `CasCompiler.source.id).isEmpty
+      | _ => false).isSome do
+    throwError "the native snapshot lost its actual source identity metadata"
   let .ok instances := question.getObjValAs? (Array Json) "instances"
     | throwError "the observer omitted selected local dictionaries"
   unless instances.size == 1 && !first.proposition.isEmpty &&

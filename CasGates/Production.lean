@@ -36,6 +36,8 @@ import all CasCompiler.SourceAtomTests
 import all CasCompiler.SourceViewTests
 import all CasTools.QuestionExport
 import all CasTools.QuestionExportTests
+import all CasTools.NativeExpressionTests
+import all CasTools.SourceSnapshotTests
 import all LeanCategories.Catalogue.Semantics.Foundation.FiniteOrders
 import all LeanCategories.Catalogue.Semantics.Foundation.IntegerSquareBounds
 import all LeanCategories.Catalogue.Semantics.Independent.InterfaceCompletionTests
