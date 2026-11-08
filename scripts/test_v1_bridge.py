@@ -163,6 +163,19 @@ class V1Bridge(unittest.TestCase):
         self.assertNotEqual(peer.process.wait(timeout=5), 0)
         self.assertEqual(self.started.read_text().splitlines(), [str(child)])
 
+    def test_wrapper_termination_retires_its_original_child(self) -> None:
+        peer = self.peer()
+        child = peer.invoke(0, "traffic.state", {})["value"]["pid"]
+        try:
+            peer.process.terminate()
+            peer.process.wait(timeout=5)
+            self.assertFalse(Path(f"/proc/{child}").exists(), "the wrapper left its original child alive")
+        finally:
+            try:
+                os.kill(child, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+
     def test_legacy_identity_and_changed_source_reject_before_ready(self) -> None:
         refused = self.prepare(CONTRACTS)
         self.assertNotEqual(refused.returncode, 0)
