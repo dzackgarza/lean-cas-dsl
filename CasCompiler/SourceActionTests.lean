@@ -69,7 +69,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let session ← session.defineTerm `M moduleObject
   let session ← session.assume `v (← nativeTerm "M")
   let expected ← session.term (← nativeTerm
-    "TypeCat.Fun.toFun (TypeCat.Hom.hom (CasCatalogue.Modules.Operations.scalarAction S M)) ((2 : S), v)")
+    "TypeCat.Fun.toFun (TypeCat.Hom.hom (CasCatalogue.Modules.Operations.scalarAction S M)) (TypeCat.Fun.toFun (TypeCat.Hom.hom (CasCatalogue.Algebra.NamedRings.ringNumeral S 2)) default, v)")
   for source in #["2 • v", "2 * v", "2 v"] do
     let term ← session.read (← sourceTerm source)
     term.source.withOpen fun bindings expression => do
@@ -77,6 +77,6 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let expected ← expected.source.inContext context
       unless expression.containsConst (· == ``CasCatalogue.Modules.Operations.scalarAction) &&
           (← isDefEq expression expected) do
-        throwError "a source action identified scalar and module roles from their coincident carriers"
+        throwError "source action {source} changed its generic scalar or module role"
       checkWithKernel
         (← mkExpectedTypeHint (← mkEqRefl expression) (← mkEq expression expected))

@@ -29,6 +29,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   for (source, declaration) in #[
       ("a + b", ``CasCatalogue.Algebra.NamedRings.add),
       ("a · b", ``CasCatalogue.Algebra.NamedRings.mul),
+      ("a * b", ``CasCatalogue.Algebra.NamedRings.mul),
       ("-a", ``CasCatalogue.Algebra.NamedRings.neg),
       ("a ^ 2", ``CasCatalogue.Algebra.NamedRings.pow)] do
     let term ← session.read (← sourceTerm source) (some type.source)
@@ -36,7 +37,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless expression.containsConst (· == declaration) &&
           expression.containsFVar bindings[0]!.expression.fvarId! do
         throwError "a source scalar operation changed its declared operation or first operand"
-      if source == "a + b" || source == "a · b" then
+      if source == "a + b" || source == "a · b" || source == "a * b" then
         unless expression.containsFVar bindings[1]!.expression.fvarId! do
           throwError "a binary source operation lost its second original operand"
 
@@ -94,12 +95,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let session ← session.assume `y (← nativeTerm "S")
   let type ← session.term (← nativeTerm "(R : Type)")
   for expected in #[none, some type.source] do
-    let rejected ← withoutModifyingState do
-      try
-        discard <| session.read (← sourceTerm "x + y") expected
-        pure false
-      catch error =>
-        let message ← error.toMessageData.toString
-        return (message.splitOn "selected common refinement").length > 1
-    unless rejected do
-      throwError "equal carriers selected one of two independently supplied ring structures"
+    for source in #["x + y", "x * y"] do
+      let rejected ← withoutModifyingState do
+        try
+          discard <| session.read (← sourceTerm source) expected
+          pure false
+        catch error =>
+          let message ← error.toMessageData.toString
+          return (message.splitOn "selected common refinement").length > 1
+      unless rejected do
+        throwError "equal carriers selected one of two independently supplied ring structures"

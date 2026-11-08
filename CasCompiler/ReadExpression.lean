@@ -22,6 +22,11 @@ private def sourceAtomName? (source : Syntax) : Option String :=
     some source[0][0].getAtomVal
   else none
 
+-- Reuse Language.numeric's source rule: numeral-only syntax has no chosen set yet.
+private partial def sourceNumeric (source : Syntax) : Bool :=
+  !source.isIdent && !(source.isAtom &&
+    (source.getAtomVal == "√" || source.getAtomVal == "|")) && source.getArgs.all sourceNumeric
+
 -- Native application determines argument types before the original source is read once.
 -- A final application uses the actual expressions, preserving lexical binding occurrences
 -- even when expected-type unification has already assigned a provisional argument.
@@ -45,10 +50,15 @@ partial def readExpression
       actual := actual.push (Arg.expr value.value)
     elabAppArgs function #[] actual expected false false
   let elementOperation := fun (name : String) (operands : Array (TSyntax `cas_term))
-      (numerals : Array (TSyntax `cas_term)) => do
+      (numerals : Array (TSyntax `cas_term)) (known : Array (Option Expr))
+      (domainHint : Option Expr) => do
     let mut retained : Array (Option Expr) := Array.replicate operands.size none
     let mut hints : Array Expr := #[]
     for operand in operands, index in [:operands.size] do
+      if let some (some value) := known[index]? then
+        retained := retained.set! index (some value)
+        hints := hints.push (← inferType value)
+        continue
       if let `(cas_term| $identifier:ident) := operand then
         if ((← getLCtx).findFromUserName? identifier.getId).isSome then
           let value ← readExpression categoryOf operand none
@@ -56,7 +66,7 @@ partial def readExpression
           hints := hints.push (← inferType value.value)
     let contextual ← expected.mapM instantiateMVars
     let contextual := contextual.filter (! ·.headBeta.consumeMData.getAppFn.isMVar)
-    let domain ← match contextual with
+    let domain ← match domainHint.or contextual with
       | some type => pure type
       | none => do
         let mut domain := hints[0]?
@@ -77,7 +87,8 @@ partial def readExpression
           discard <| checkedDeclaration entry.declaration
           mkConstWithFreshMVarLevels entry.declaration
     let originalOperand := retained
-    let operation ← sourceOperation categoryOf name domain contextual hints operands.size
+    let operationHints := if domainHint.isSome then #[domain] else hints
+    let operation ← sourceOperation categoryOf name domain contextual operationHints operands.size
       (numerals.map fun numeral type => do
         return (← readExpression categoryOf numeral (some type)).value)
     let function ← sourceSetFunction operation.value
@@ -120,6 +131,20 @@ partial def readExpression
         elabAppArgs forward #[] #[Arg.expr value] expected false false
       else pure value
     return (⟨value, none⟩ : NativeSourceJudgement)
+  let action := fun (left right : TSyntax `cas_term) => do
+    let rightExpected := if sourceNumeric right.raw then expected else none
+    let value ← readExpression categoryOf right rightExpected
+    elementOperation "•" #[left, right] #[] #[none, some value.value]
+      (some (← inferType value.value))
+  let juxtapose := fun (left right : TSyntax `cas_term) => do
+    let rightExpected := if sourceNumeric right.raw then expected else none
+    let rightValue ← readExpression categoryOf right rightExpected
+    let leftValue ← if sourceNumeric left.raw then pure none
+      else pure (some (← readExpression categoryOf left none))
+    let name ← sourceJuxtapositionName categoryOf leftValue rightValue
+    let owner ← if name == "•" then pure (some (← inferType rightValue.value)) else pure none
+    elementOperation name #[left, right] #[] #[leftValue.map (·.value), some rightValue.value]
+      owner
   let annotated := fun (body domain : TSyntax `cas_term) => do
     let domain ← readExpression categoryOf domain none
     discard <| getLevel domain.value
@@ -242,6 +267,10 @@ partial def readExpression
       let arguments := source.raw[4].getSepArgs.map fun argument =>
         (⟨argument⟩ : TSyntax `cas_term)
       member ⟨source.raw[0]⟩ (source.raw[2].getId.toString (escape := false)) arguments
+    else if source.raw.isOfKind ``CasCatalogue.Language.casTimes then
+      juxtapose ⟨source.raw[0]⟩ ⟨source.raw[2]⟩
+    else if source.raw.isOfKind ``CasCatalogue.Language.casActed then
+      juxtapose ⟨source.raw[0]⟩ (← `(cas_term| $(⟨source.raw[1]⟩):ident))
     else if let some name := sourceAtomName? source then object name qualification #[]
     else match source with
     | `(cas_term| $left:cas_term × $right:cas_term) => do
@@ -253,13 +282,14 @@ partial def readExpression
       let right ← readExpression categoryOf right none qualification
       sourceBinaryLimit left right true
     | `(cas_term| $left:cas_term + $right:cas_term) =>
-      elementOperation "+" #[left, right] #[]
+      elementOperation "+" #[left, right] #[] #[] none
     | `(cas_term| $left:cas_term · $right:cas_term) =>
-      elementOperation "·" #[left, right] #[]
+      elementOperation "·" #[left, right] #[] #[] none
+    | `(cas_term| $left:cas_term • $right:cas_term) => action left right
     | `(cas_term| -$operand:cas_term) =>
-      elementOperation "-" #[operand] #[]
+      elementOperation "-" #[operand] #[] #[] none
     | `(cas_term| $base:cas_term ^ $power:cas_term) =>
-      elementOperation "^" #[base] #[power]
+      elementOperation "^" #[base] #[power] #[] none
     | `(cas_term| $name:ident ↦ $body:cas_term) => do
       lambda (← `(cas_term| $name:ident)) body
     | `(cas_term| ($first:cas_term, $rest:cas_term,*) ↦ $body:cas_term) => do

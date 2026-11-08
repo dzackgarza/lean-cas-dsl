@@ -129,6 +129,68 @@ private partial def operationInputs (type : Expr) (arity : Nat) : MetaM (Array E
     throwUnsupportedSource "the source operation requires its declared product mediation"
   return #[pair.getAppArgs[0]!] ++ (← operationInputs pair.getAppArgs[1]! (arity - 1))
 
+/-- Resolve element juxtaposition from selected owners and whole input families.
+Reuse: Language.juxtapose's common-object rule, first-hit operation routes and
+nativeOperationFamily. A pending numeral has no selected object; heterogeneous action
+roles are compared before any actual scalar or module is substituted. -/
+def sourceJuxtapositionName
+    (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
+    (left : Option NativeSourceJudgement) (right : NativeSourceJudgement) :
+    TermElabM String := do
+  let state ← semanticState
+  let rightType ← inferType right.value
+  let rightDomains ← operationDomains categoryOf rightType none #[rightType]
+  let leftDomains ← match left with
+    | none => pure #[]
+    | some left => do
+      let type ← inferType left.value
+      operationDomains categoryOf type none #[type]
+  if !leftDomains.isEmpty && !rightDomains.isEmpty then
+    let domains := leftDomains ++ rightDomains
+    for root in domains do
+      if (← operationRoutes root.category.expression "·").isEmpty then continue
+      let mut common := true
+      for target in domains do
+        let family ← SourceRoutes.forOwner root.category.expression target.category.expression
+        let some routes ← family.finiteRoutes
+          | throwUnsupportedSource "juxtaposition requires its uniform source comparison"
+        if routes.isEmpty then common := false
+      if common then return "·"
+  if let some left := left then
+    if leftDomains.isEmpty && (left.category.any (·.role == .morphism) ||
+        (← whnf (← inferType left.value)).isForall) then
+      throwUnsupportedSource
+        "callable juxtaposition requires its declared action and application comparison"
+  let mut heterogeneous := #[]
+  for domain in rightDomains do
+    let routes ← operationRoutes domain.category.expression "•"
+    if routes.isEmpty then continue
+    let categoryFamily ← nativeCategoryFamily state domain.category.expression
+      fun _ => mkFreshLevelMVar
+    for route in routes do
+      for binding in state.operationBindings route.target "•" do
+        unless binding.arity == 2 && binding.numerals == 0 do
+          throwError "the first juxtaposition action has a different declared signature"
+        let value ← nativeOperationFamily state domain.category.expression categoryFamily route binding
+        discard <| levelMVarToParam (← instantiateMVars value)
+        let value ← instantiateMVars value
+        if value.hasMVar || value.hasLevelMVar then
+          throwError "the whole juxtaposition action has undetermined parameters"
+        let same ← lambdaTelescope value fun parameters body => do
+          let arrow ← whnfR (← inferType body)
+          unless arrow.isAppOfArity ``Quiver.Hom 4 do
+            throwError "the juxtaposition action lost its native morphism boundary"
+          let inputs ← operationInputs arrow.getAppArgs[2]! 2
+          let first ← mkLambdaFVars parameters inputs[0]!
+          let second ← mkLambdaFVars parameters inputs[1]!
+          withoutModifyingState <| isDefEq (← inferType first) (← inferType second) <&&>
+            isDefEq first second
+        heterogeneous := heterogeneous.push (!same)
+  if heterogeneous.isEmpty || heterogeneous.all (! ·) then return "·"
+  unless heterogeneous.all id do
+    throwSemanticAmbiguity "juxtaposition requires its selected whole action family"
+  return "•"
+
 -- Classify transport roles at the entire rigid source family. A scalar argument and
 -- an object argument remain distinct even if their carriers coincide after substitution.
 private def operationTransportRoles (state : SemanticState) (root : OperationRoot)
