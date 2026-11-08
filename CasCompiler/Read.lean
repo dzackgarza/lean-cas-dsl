@@ -56,6 +56,7 @@ private partial def questionPrincipal (source : TSyntax `cas_term) : TermElabM B
   | `(cas_term| $_:cas_term × $_:cas_term)
   | `(cas_term| $_:cas_term ⊔ $_:cas_term)
   | `(cas_term| $_:cas_term ∘ $_:cas_term)
+  | `(cas_term| |$_:cas_term|)
   | `(cas_term| view $_:cas_term along $_:ident)
   | `(cas_term| view $_:cas_term along $_:ident($_:cas_term,*))
   | `(cas_term| map $_:cas_term along $_:ident($_:cas_term,*)) => return true

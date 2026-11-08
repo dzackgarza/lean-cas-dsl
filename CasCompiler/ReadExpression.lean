@@ -427,6 +427,14 @@ partial def readExpression
       pure ⟨value, none⟩
     | `(cas_term| ($inner:cas_term)) =>
       readExpression categoryOf inner expected qualification expectedCategory
+    | `(cas_term| ℵ₀) => do
+      let some expected := expected
+        | throwError "a named object literal requires its selected category"
+      let some category := expectedCategory
+        | throwError "a named object literal requires its selected category"
+      let some value ← sourceObjectNamedLiteral `«ℵ₀» category expected
+        | throwError "the selected category has no registered named literal form"
+      return value
     | `(cas_term| $number:num) => do
       let some expected := expected
         | throwError "a source numeral requires its independently declared parameter type"

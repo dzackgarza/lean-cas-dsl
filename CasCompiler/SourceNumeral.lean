@@ -266,12 +266,11 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
     | throwError "the selected source numeral changed its admitted boundary"
   return sourceReference ``NumeralEntry row.id.raw row.declaration value
 
-/-- Interpret an object numeral through the literal row of its selected category.
-Reuse: Registry.Entry.LiteralEntry and Lean's typed numeral elaborator. OfNat acts
-only on the independent literal type; its registered denotation supplies the object.
-Category identity is explicit input, never inferred from coincident native carriers. -/
-def sourceObjectNumeral (number : Nat) (selected : NativeSourceCategory)
-    (expected : Expr) : TermElabM (Option NativeSourceJudgement) := do
+-- Reuse Registry.Entry.LiteralEntry: category identity selects the complete literal
+-- boundary before elaborating either existing literal syntax form at its native type.
+private def sourceObjectLiteral (selected : NativeSourceCategory) (expected : Expr)
+    (readLiteral : Name → Expr → TermElabM Expr) :
+    TermElabM (Option NativeSourceJudgement) := do
   unless selected.role == .object do return none
   let .atom category := selected.expression | return none
   let rows := (← semanticState).literals.filter (·.category == category)
@@ -284,8 +283,7 @@ def sourceObjectNumeral (number : Nat) (selected : NativeSourceCategory)
   unless ← isDefEq expected carrier do
     throwError "the object literal has a different complete selected category"
   let literalType ← mkConstWithFreshMVarLevels row.type
-  let source : Term := ⟨Syntax.mkNumLit (toString number)⟩
-  let literal ← elabTermEnsuringType source (some literalType)
+  let literal ← readLiteral row.type literalType
   let value ← mkAppM row.denotation #[literal]
   unless ← isDefEq (← inferType value) carrier do
     throwError "the registered literal denotation has a different selected category"
@@ -293,5 +291,22 @@ def sourceObjectNumeral (number : Nat) (selected : NativeSourceCategory)
   if value.hasMVar || value.hasLevelMVar then
     throwError "the registered object literal has undetermined parameters"
   return some ⟨sourceReference ``LiteralEntry row.id.raw row.denotation value, some selected⟩
+
+/-- OfNat acts only on the registered literal type; the denotation supplies the object.
+Reuse: LiteralEntry and Lean's typed numeral elaborator, not a carrier OfNat instance. -/
+def sourceObjectNumeral (number : Nat) (selected : NativeSourceCategory)
+    (expected : Expr) : TermElabM (Option NativeSourceJudgement) :=
+  sourceObjectLiteral selected expected fun _ literalType => do
+    let source : Term := ⟨Syntax.mkNumLit (toString number)⟩
+    elabTermEnsuringType source (some literalType)
+
+/-- Named literals use the actual declaration in their registered type's namespace.
+Reuse: the public literalExpr namespace rule and LiteralEntry; source is never replayed. -/
+def sourceObjectNamedLiteral (name : Name) (selected : NativeSourceCategory)
+    (expected : Expr) : TermElabM (Option NativeSourceJudgement) :=
+  sourceObjectLiteral selected expected fun namespace literalType => do
+    let declaration := namespace ++ name
+    discard <| checkedDeclaration declaration
+    elabTermEnsuringType (mkIdent declaration) (some literalType)
 
 end CasCompiler
