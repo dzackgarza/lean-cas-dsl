@@ -38,6 +38,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless ← isDefEq value expected do
         throwError "source method formation changed the actual registered functor application"
       checkWithKernel (← mkExpectedTypeHint (← mkEqRefl value) (← mkEq value expected))
+  let resultType ← session.elaborate Syntax.missing fun context => do
+    inferType (← expected.source.inContext context)
+  let lexical ← session.assumeTerm `X.cardinality resultType
+  let localValue ← lexical.read (← sourceTerm "X.cardinality()")
+  localValue.source.withOpen fun bindings value => do
+    unless value == bindings[2]!.expression do
+      throwError "a method call displaced an exact qualified lexical binding"
   let session ← session.defineTerm `answer method
   let session ← session.assume `X (← nativeTerm "Type")
   let retained ← session.read (← sourceTerm "answer")
@@ -61,3 +68,21 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless value.containsFVar bindings[1]!.expression.fvarId! && (← isDefEq value expected) do
       throwError "a method specialized or replaced its arbitrary original receiver"
     checkWithKernel (← mkExpectedTypeHint (← mkEqRefl value) (← mkEq value expected))
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let session ← empty.assume `n (← nativeTerm "Nat")
+  let object ← session.read (← sourceTerm "Fin(n) in FiniteSets")
+  let session ← session.defineTerm `X object
+  let expected ← session.term (← nativeTerm
+    "CasCatalogue.Foundation.Cardinality.setsCardinality.obj (CategoryTheory.Core.mk (LeanCategories.Foundation.Mathlib.finite.forget.toFunctor.obj X))")
+  for expression in #["X.cardinality()", "|X|", "|Fin(n) in FiniteSets|"] do
+    let result ← session.read (← sourceTerm expression)
+    unless result.source.context.entries.size == 2 do
+      throwError "inherited method formation lost its original parameter or object binding"
+    result.source.withOpen fun bindings value => do
+      let expected ← expected.source.inContext (← ContextTelescope.capture bindings)
+      unless ← isDefEq value expected do
+        throwError "inherited method formation changed its actual classifier forgetful action"
+      checkWithKernel (← mkExpectedTypeHint (← mkEqRefl value) (← mkEq value expected))
