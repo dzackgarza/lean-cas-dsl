@@ -4,6 +4,8 @@
 
 ## Core Principles
 
+**Required functionality has absolute priority over performance; see [C21](#c21-required-functionality-precedes-all-performance-work).**
+
 C0 states the product and its guiding commitments. C1–C13 and C15 specify its mathematical,
 computational and user-facing invariants. The [authority and scope](#authority-and-scope),
 [obligation classes](#obligation-classes) and [formal contract](#formal-contract-and-notation)
@@ -1121,6 +1123,24 @@ skill or revising an agent-authored plan.
 construction and review policies][S9]; [coherent-review and assignment requirements on
 main][S37]; [November 2 authorization policy][S33].
 
+### C21. Required functionality precedes all performance work
+
+Required functionality has absolute priority over performance. Performance work is the last phase
+of this project and begins only when every required capability works through the public interface.
+This article governs the order of work. It removes no capability, question, assertion or resource
+requirement.
+
+A slow run, timeout, memory limit, benchmark, resource or heartbeat budget, or a red or unfinished
+expensive CI job does not select work and does not block functional work. Functional work may use
+any time, memory or heartbeat limit that it needs. Optimization during functional work is permitted
+only when a small required example of the selected capability cannot finish at all; the work then
+returns to that capability.
+
+Budgets named by C11 and by the acceptance inventory remain obligations of the last phase. Their
+position in a list or task order does not schedule them earlier. A goal, plan, outline, handoff or
+task order derives its sequence from the remaining functionality and not from CI state. It cannot
+add a performance priority.
+
 ### Adoption record
 
 | Version | Date | Change |
@@ -1130,6 +1150,7 @@ main][S37]; [November 2 authorization policy][S33].
 | 1.1.1 | 2026-11-05 | Editorial conformance to the released [Spec Kit constitution workflow](https://github.com/github/spec-kit/blob/34a0d388eac671d656eb05b125ad3ed6056168ed/templates/commands/constitution.md): use the resolved scaffold, group C1–C20 under Core Principles, retain authority and policy sections, present Governance and the prescribed version/date footer, and wrap prose. All substantive obligations, article identifiers, formulas and source references are preserved. |
 | 1.2.0 | 2026-11-05 | Make the intrinsic product explicit in C0: a growing categorical mathematical research language with first-class constructions, generic interface/composition growth, fixed mathematical meaning, actual computational workflows and mathematical interaction. Make the adopted mathematical roles of computations, classifiers, dependent families and higher coherence explicit in C1, C5 and C7. Elaborate C4, C11 and C12 positively; clarify the C8 and C15 titles; name lean-categories as the currently designated independent formal development. Relocate C14, C16–C20 and the detailed C1/C12 contributor procedures under Governance while preserving their obligations and identifiers. This restores the source-backed project definition and distinguishes it from contribution policy; it does not select a runtime architecture, reduce computational scope or amend the mathematical trust boundary. |
 | 1.2.1 | 2026-11-05 | Clarify the existing separation and encapsulation of responsibilities in C2: leaf registration and output are computational claims against independently fixed obligations; mathematical definitions and proofs are never leaf deliverables, including optional proofs; the public leaf boundary confers no semantic or acceptance authority. Align the computational-evidence policy wording with this prohibition. Independent formalization, generic kernel discharge, independent acceptance and complete actual delivery retain their existing responsibilities. |
+| 1.4.0 | 2026-11-08 | Add C21 by owner decision. Old obligation: budgets and required capabilities had no stated order of work. New obligation: all required functionality precedes all performance work, and budgets are obligations of the last phase. Reason: goals and plans placed expensive computations before missing functionality. Decision record: [issue #10, work priority](https://github.com/dzackgarza/lean-cas-dsl/issues/10#work-priority). Affected issues and pointer files are reconciled in the same change. |
 
 ### Provenance
 
@@ -1200,4 +1221,4 @@ evidence of an authorized amendment.
 
 [S46]: https://github.com/dzackgarza/lean-cas-dsl/blob/a206552ca315726c5d8cca356cebc65f617d4d7a/README.md
 
-**Version**: 1.2.1 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-05
+**Version**: 1.4.0 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-08
