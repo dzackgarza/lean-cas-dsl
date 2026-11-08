@@ -12,8 +12,56 @@ open Lean Meta CasCatalogue
 deriving instance ToJson, FromJson for CategoryId, ClassifierId, CategoryFamilyId
 deriving instance ToJson, FromJson for ParameterId, ParameterOperationId, FunctorId, ConstructorId
 deriving instance ToJson, FromJson for ParameterExpr
-deriving instance ToJson, FromJson for ConstructorArg, CategoryExpr
 deriving instance ToJson, FromJson for EdgeRef
+
+-- Reference: Lean.Elab.Deriving.FromToJson at Lean 4.33.0, tagged constructor encoding.
+-- Its generator uses auxFunNames[0] for every mutual member; traverse the actual source
+-- category/argument pair explicitly while keeping the same native data constructors.
+mutual
+private partial def categoryJson : CategoryExpr → Json
+  | .atom id => Json.mkObj [("atom", toJson id)]
+  | .construct id args => Json.mkObj [("construct", toJson (id, args.map argumentJson))]
+  | .familyApp id args => Json.mkObj [("familyApp", toJson (id, args))]
+  | .familyTotal id => Json.mkObj [("familyTotal", toJson id)]
+  | .classifierTotal id => Json.mkObj [("classifierTotal", toJson id)]
+  | .refine base id => Json.mkObj [("refine", toJson (categoryJson base, id))]
+  | .opaque id => Json.mkObj [("opaque", toJson id)]
+
+private partial def argumentJson : ConstructorArg → Json
+  | .category category => Json.mkObj [("category", categoryJson category)]
+  | .object id => Json.mkObj [("object", toJson id)]
+  | .functor id => Json.mkObj [("functor", toJson id)]
+end
+
+mutual
+private partial def categoryFromJson (document : Json) : Except String CategoryExpr := do
+  if let .ok value := document.getObjVal? "atom" then return .atom (← fromJson? value)
+  if let .ok value := document.getObjVal? "construct" then
+    let (id, args) ← (fromJson? value : Except String (ConstructorId × Array Json))
+    return .construct id (← args.mapM argumentFromJson)
+  if let .ok value := document.getObjVal? "familyApp" then
+    let (id, args) ← (fromJson? value : Except String (CategoryFamilyId × Array ParameterExpr))
+    return .familyApp id args
+  if let .ok value := document.getObjVal? "familyTotal" then
+    return .familyTotal (← fromJson? value)
+  if let .ok value := document.getObjVal? "classifierTotal" then
+    return .classifierTotal (← fromJson? value)
+  if let .ok value := document.getObjVal? "refine" then
+    let (base, id) ← (fromJson? value : Except String (Json × ClassifierId))
+    return .refine (← categoryFromJson base) id
+  if let .ok value := document.getObjVal? "opaque" then return .opaque (← fromJson? value)
+  .error "invalid source category constructor"
+
+private partial def argumentFromJson (document : Json) : Except String ConstructorArg := do
+  if let .ok value := document.getObjVal? "category" then
+    return .category (← categoryFromJson value)
+  if let .ok value := document.getObjVal? "object" then return .object (← fromJson? value)
+  if let .ok value := document.getObjVal? "functor" then return .functor (← fromJson? value)
+  .error "invalid source constructor argument"
+end
+
+instance : ToJson CategoryExpr := ⟨categoryJson⟩
+instance : FromJson CategoryExpr := ⟨categoryFromJson⟩
 
 private structure CarrierDescriptor where
   refs : Array EdgeRef

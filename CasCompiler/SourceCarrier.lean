@@ -165,11 +165,11 @@ def sourceElementOwners
   let mut selected : Array NativeSourceElementOwner := #[]
   for hint in hints do
     let origin ← sourceTypeOrigin? hint
-    let some (value, typeAt) := match origin with
+    let candidate := match origin with
       | some origin => some (origin.object, fun object =>
           origin.type.replace fun part => if part == origin.object then some object else none)
       | none => elementTypeOrigin hint
-      | continue
+    let some (value, typeAt) := candidate | continue
     let category ← match origin with
       | some origin => pure (some origin.category)
       | none => if let .fvar id := value then categoryOf id else pure none
