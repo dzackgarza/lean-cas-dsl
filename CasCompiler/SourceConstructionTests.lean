@@ -134,5 +134,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let expected ← functorObject functor input target
     unless ← isDefEq value expected do
       throwError "the parameterized construction changed its actual functor or pointed object"
+    unless (value.find? fun part =>
+        part.isAppOfArity ``CasCatalogue.Algebra.Automorphisms.stabilizersConstruction 2 &&
+        part.getAppArgs[1]! == bindings[0]!.expression).isSome do
+      throwError "the construction did not retain its exact supplied functor argument"
   expectRefusal "requires its actual declaration parameter"
     (session.read (← sourceTerm "Stab(point)"))
