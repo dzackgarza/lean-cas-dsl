@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import sys
+from collections.abc import Callable
 
 import cas_port
 
@@ -44,7 +45,17 @@ def fail(arguments: JsonValue) -> JsonValue:
     raise ArithmeticError("original computational failure")
 
 
+def observed(operation: str, handler: Callable[[JsonValue], JsonValue]) -> Callable[[JsonValue], JsonValue]:
+    def invoke(arguments: JsonValue) -> JsonValue:
+        with record.with_suffix(".calls").open("a") as output:
+            output.write(json.dumps({"op": operation, "args": arguments}) + "\n")
+        return handler(arguments)
+    return invoke
+
+
 cas_port.serve("original-traffic", "0", "pinned-v1", {
-    "traffic.echo": echo, "traffic.state": state, "traffic.retain": retain,
-    "traffic.invoke": invoke, "traffic.fail": fail,
+    operation: observed(operation, handler) for operation, handler in {
+        "traffic.echo": echo, "traffic.state": state, "traffic.retain": retain,
+        "traffic.invoke": invoke, "traffic.fail": fail,
+    }.items()
 })
