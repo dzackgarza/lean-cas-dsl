@@ -2,12 +2,14 @@ module
 
 import CasCompiler.Read
 import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
+import LeanCategories.Catalogue.Semantics.Foundation.FiniteOrders
 import LeanCategories.Catalogue.Semantics.Algebra.Calculus
 import LeanCategories.Catalogue.Semantics.Algebra.Fields
 import LeanCategories.Catalogue.Semantics.Algebra.Semirings
 public meta import Lean.Elab.Command
 meta import CasCompiler.Read
 meta import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
+meta import LeanCategories.Catalogue.Semantics.Foundation.FiniteOrders
 meta import LeanCategories.Catalogue.Semantics.Algebra.Calculus
 meta import LeanCategories.Catalogue.Semantics.Algebra.Fields
 meta import LeanCategories.Catalogue.Semantics.Algebra.Semirings
@@ -79,3 +81,23 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   value.source.withOpen fun bindings expression => do
     unless expression == mkApp bindings[0]!.expression bindings[1]!.expression do
       throwError "a subscripted spelling replaced its exact local callable binding"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let session ← empty.assume `n (← `(Nat))
+  for (text, declaration) in #[
+      ("FinOrder(n)", ``CasCatalogue.Foundation.FiniteOrders.ordinary),
+      ("ReverseFinOrder(n)", ``CasCatalogue.Foundation.FiniteOrders.reverse)] do
+    let .ok source := Parser.runParserCategory (← getEnv) `cas_term text
+      | throwError "the explicitly named structure did not parse"
+    let result ← session.read ⟨source⟩
+    let some category := result.category
+      | throwError "the explicitly named structure lost its selected category"
+    unless category.expression.syntacticEq (.atom CategoryId.linearOrders) do
+      throwError "the explicitly named structure changed its registered category"
+    result.source.withOpen fun bindings value => do
+      let expected ← mkAppM declaration #[bindings[0]!.expression]
+      unless ← isDefEq value expected do
+        throwError "the explicit structure name changed its original dependent declaration"
+      checkWithKernel (← mkExpectedTypeHint (← mkEqRefl value) (← mkEq value expected))
