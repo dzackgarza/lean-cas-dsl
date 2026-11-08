@@ -68,3 +68,22 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   unless observation.failures.isEmpty && observation.readings.size == 1 &&
       !observation.readings[0]!.question.isEmpty do
     throwError "the public observer changed ordinary source binding names"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let observe (fileName label leading : String) : TermElabM Reading := do
+    let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+    let empty ← SourceSession.empty identities
+    let initial ← empty.assume `n (← nativeTerm "Nat")
+    let file ← SourceFile.parse fileName <| leading ++ "let X := Fin(n)\n" ++
+      "test observer.stable \"" ++ label ++ "\": assert X = X\n"
+    let result ← observeFile file initial
+    unless result.failures.isEmpty && result.readings.size == 1 do
+      throwError "the source identity control did not produce its complete reading"
+    return result.readings[0]!
+  let first ← observe "first-location.cas" "first source" ""
+  let second ← observe "second-location.cas" "second source" "-- diagnostic location\n"
+  unless first.question == second.question do
+    throwError "source provenance or fresh worker bindings changed the native question identity"
+  unless first.file != second.file && first.provenance != second.provenance &&
+      first.sourceLine != second.sourceLine do
+    throwError "the observer discarded original source provenance"
