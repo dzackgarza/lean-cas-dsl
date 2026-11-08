@@ -47,8 +47,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let multiply := ComputationRef.operation ⟨"op.rings.mul"⟩
   let programs ← checkedComputationDerivations multiply
   unless programs.size >= 2 do throwError "the published alternative derivations are missing"
-  let selected := programs[0]!.entry.id
-  let other := programs[1]!.entry.id
+  let some first := programs[0]? | throwError "the first published derivation is missing"
+  let some second := programs[1]? | throwError "the second published derivation is missing"
+  let selected := first.entry.id
+  let other := second.entry.id
   let primitiveRule := rule (target "method" "meth.cardinality")
     (only "entries" #[registrationJson registrations[0]!]) all
   let derivationRule := rule (target "operation" "op.rings.mul") all
@@ -56,7 +58,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let frozen ← RealizationProfile.prepare manifest (some (configuration #[primitiveRule, derivationRule]))
   unless frozen.allowsPrimitive cardinality registrations[0]! &&
       !frozen.allowsPrimitive cardinality registrations[1]! &&
-      frozen.allowsDerivation programs[0]!.entry && !frozen.allowsDerivation programs[1]!.entry do
+      frozen.allowsDerivation first.entry && !frozen.allowsDerivation second.entry do
     throwError "the frozen profile changed exact selected registration or derivation identities"
   let permuted ← RealizationProfile.prepare manifest
     (some (configuration #[derivationRule, primitiveRule]))
@@ -65,13 +67,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     throwError "profile normalization depends on rule order or lost its SHA-256 receipt"
   let defaultProfile ← RealizationProfile.prepare manifest none
   unless defaultProfile.allowsPrimitive cardinality registrations[1]! &&
-      defaultProfile.allowsDerivation programs[0]!.entry &&
-      defaultProfile.allowsDerivation programs[1]!.entry do
+      defaultProfile.allowsDerivation first.entry &&
+      defaultProfile.allowsDerivation second.entry do
     throwError "the default profile excluded an existing alternative"
   let emptyProfile ← RealizationProfile.prepare manifest (some (configuration #[
     rule (target "method" "meth.cardinality") (only "entries" #[]) all]))
   unless !emptyProfile.allowsPrimitive cardinality registrations[0]! &&
-      emptyProfile.allowsDerivation programs[0]!.entry do
+      emptyProfile.allowsDerivation first.entry do
     throwError "an empty only set or an unlisted target changed its meaning"
   rejected manifest (configuration #[primitiveRule, primitiveRule])
   rejected manifest (configuration #[rule (target "method" "meth.cardinality")
