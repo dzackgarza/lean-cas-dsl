@@ -121,10 +121,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless name.getId == `expectedF &&
           next.context.entries.size == session.context.entries.size + 1 do
         throwError "the original function changed its name or complete context"
+      session := next
       originalFunction := true
       break
   unless originalFunction do throwError "the original function declaration was not inspected"
   let vectors ← session.read (← sourceTerm "Vec(Q, 2) in Sets")
+  unless vectors.source.context.entries.map (·.id) == session.context.entries.map (·.id) do
+    throwError "the vector parameter shortened its original preceding context"
   let some scalarEntry := session.context.entries.find? (·.userName == `Q)
     | throwError "the original selected scalar object is absent"
   vectors.source.withOpen fun bindings expression => do
