@@ -1,6 +1,20 @@
-# Issue references
+# Constitution and issue references
 
+**Work priority:** required functionality has absolute priority over performance. Performance work is the last phase of this project and begins only when every required capability works through the public interface. A slow run, timeout, resource budget or red CI job does not select work and does not block functional work. [Full rule](https://github.com/dzackgarza/lean-cas-dsl/issues/10#work-priority).
+
+Read the [project constitution](.specify/memory/constitution.md) before the
+applicable issue requirements. It is the permanent repository authority for
+cross-architecture obligations, expressly excepted from the issue-only
+documentation policy. Preserve its complete text through merges and migrations.
+Plans, work orders, implementation decisions and evidence remain in their owning
+issues; changes to constitutional requirements follow its amendment rules.
+
+- [Current Spec Kit feature and canonical artifact index](specs/001-categorical-research-language/plan.md)
 - [Work, specification and invariants](https://github.com/dzackgarza/lean-cas-dsl/issues/10)
+- [Actual selected cells, permitted choices and required-data errors](https://github.com/dzackgarza/lean-cas-dsl/issues/66#issuecomment-6664276482)
+- [Independent mathematical authority and computation-only leaf requirements](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6660532064)
+- [Current task assignments and role/input conventions](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684546229)
+- [Requirements-quality review and marker ownership](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6665588103)
 - [Architecture, ownership and evidence](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6574949858)
 - [Contribution policies](https://github.com/dzackgarza/lean-cas-dsl/issues/85#issuecomment-6574924066)
 - [Interpretation](https://github.com/dzackgarza/lean-cas-dsl/issues/66)
