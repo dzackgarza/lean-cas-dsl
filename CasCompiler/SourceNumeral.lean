@@ -18,6 +18,7 @@ private structure RoutedNumeral where
 
 private inductive NumeralContext where
   | direct
+  | carrier (owner : NativeSourceElementOwner) (comparison : Expr)
   | selected (routed : RoutedNumeral)
   | refinement (entry : ObjectEntry)
 
@@ -82,6 +83,11 @@ private def numeralCandidate (row : NumeralEntry) (context : NumeralContext)
     (number : Nat) (expected : Expr) (proofs : Array Term) : TermElabM (Option Expr) := do
   let (object, comparison, proofIndex) ← match context with
     | .direct => pure (none, none, 0)
+    | .carrier _ comparison => do
+      let comparison ← mkAppM ``CategoryTheory.Iso.symm #[comparison]
+      let type ← whnfR (← inferType comparison)
+      unless ← isDefEq type.getAppArgs[3]! expected do return none
+      pure (none, some comparison, 0)
     | .selected routed => do
       let selected ← nativeRouteFunctor (← semanticState) routed.route routed.owner.category.bundle
       let value ← functorObject selected.functor routed.owner.value selected.target
@@ -122,7 +128,7 @@ private def numeralCandidate (row : NumeralEntry) (context : NumeralContext)
       let type ← whnfR (← inferType comparison)
       pure type.getAppArgs[2]!
   if row.over.isNone then
-    let source ← sourceDomain expected
+    let source ← sourceDomain destination
     let target ← sourceDomain target
     unless source.getAppFn.constName?.isSome &&
         source.getAppFn.constName? == target.getAppFn.constName? do return none
@@ -156,6 +162,10 @@ private def numeralCandidate (row : NumeralEntry) (context : NumeralContext)
   let function ← sourceSetFunction point
   let value ← elabAppArgs function #[] #[Arg.expr terminalPoint] (some expected) false false
   let value ← match context with
+    | .carrier owner _ =>
+      withLetDecl (← mkFreshUserName `numeralCarrierAgreement)
+        (← inferType owner.evidence) owner.evidence fun binding =>
+          mkLetFVars #[binding] value (usedLetOnly := false) (generalizeNondepLet := false)
     | .selected routed => do
       let mut value := value
       for evidence in (routed.evidence.push routed.owner.evidence).reverse do
@@ -189,7 +199,17 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
   for row in state.numerals do
     discard <| checkedDeclaration row.declaration
     match row.over with
-    | none => candidates := candidates.push (row, .direct)
+    | none =>
+      candidates := candidates.push (row, .direct)
+      -- The selected object's checked carrier presentation licenses transport of a
+      -- base point. Native carrier equality alone does not identify that base.
+      -- Reuse ObjectRefinement's directed isomorphism and its complete-family validation.
+      for owner in owners do
+        for comparison in owner.category.carrier.toArray.flatMap (·.comparisons) do
+          let type ← whnfR (← inferType comparison)
+          unless type.isAppOfArity ``CategoryTheory.Iso 4 do continue
+          unless ← withoutModifyingState <| isDefEq type.getAppArgs[2]! expected do continue
+          candidates := candidates.push (row, .carrier owner comparison)
     | some owner =>
       let #[category] := state.categories.filter (·.id == owner)
         | throwError "the source numeral requires one registered structural category"
