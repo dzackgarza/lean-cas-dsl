@@ -2,6 +2,7 @@ module
 
 public import CasCompiler.SourceCarrier
 public import LeanCategories.Catalogue.Lift
+public import LeanCategories.Catalogue.Semantics.ConstructorCatalogue
 
 public section
 
@@ -115,6 +116,7 @@ def sourceLiftMember? (receiver : NativeSourceJudgement) (name : String) :
   let (sourceBundle, targetBundle) ← functorCategoryBundles functor
   let selected ← mkAppM ``SourceLiftApplication.selected #[receiver.value]
   let object ← mkAppM ``SourceLiftApplication.object #[receiver.value]
+  let domainObject ← mkAppM ``SourceLiftApplication.domain #[receiver.value]
   let inclusion ← mkAppM ``SourceLiftApplication.inclusion #[receiver.value]
   let monicity ← mkAppM ``SourceLiftApplication.monicity #[receiver.value]
   let computation ← mkAppM ``MonoLift.computation #[selected]
@@ -126,8 +128,8 @@ def sourceLiftMember? (receiver : NativeSourceJudgement) (name : String) :
     | _ => throwError "the selected lift has no declared member {name}"
   let function ← mkAppM declaration #[computation]
   -- The actual input and proof are supplied explicitly; local instances cannot replace them.
-  let value ← elabAppArgs function #[]
-    #[Arg.expr object, Arg.expr inclusion, Arg.expr monicity] none false false
+  let value := mkAppN function #[object, domainObject, inclusion, monicity]
+  check value
   let category := if name == "forward" || name == "backward" then target else source
   let bundle := if name == "forward" || name == "backward" then targetBundle else sourceBundle
   let role := if name == "obj" then SourceCategoryRole.object else .morphism
