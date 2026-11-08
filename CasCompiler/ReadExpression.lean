@@ -423,7 +423,15 @@ partial def readExpression
     | `(cas_term| $function:cas_term($arguments:cas_term,*)) => do
       let function ← readExpression categoryOf function none
       pure ⟨← application function arguments.getElems expected, none⟩
-    | _ =>
+    | _ => do
+      if source.raw.isOfKind ``CasCatalogue.Language.casMatrix then
+        let some expected := expected
+          | throwError "a source matrix requires its independently declared domain"
+        let rows := source.raw[1].getSepArgs.map fun row =>
+          row.getSepArgs.map fun cell => (⟨cell⟩ : TSyntax `cas_term)
+        let value ← sourceMatrix rows expected fun component type => do
+          return (← readExpression categoryOf component (some type)).value
+        return ⟨value, none⟩
       CasCatalogue.throwUnsupportedSource
         m!"source translation is not implemented for expression {source}"
   if let some name := qualification then
