@@ -24,12 +24,14 @@ private meta def sourceFiles (suite : System.FilePath) : IO (Array System.FilePa
 private meta def provenance : CommandElabM Json := do
   let env ← getEnv
   let imports := env.header.imports.map (·.module)
-  let observed := #[`CasCompiler.Context, `CasCompiler.Elaborate, `CasCompiler.Surface,
+  let observed := #[`CasCompiler.Syntax, `CasCompiler.Parse, `CasCompiler.Declaration,
+    `CasCompiler.Context, `CasCompiler.Elaborate, `CasCompiler.Surface,
+    `CasCompiler.RouteGrammar,
     `CasCompiler.Resolve, `CasCompiler.SourceTypeOrigin,
     `CasCompiler.SourceCarrier, `CasCompiler.SourcePattern,
     `CasCompiler.SourceNumeral, `CasCompiler.SourceTuple, `CasCompiler.SourceOperation,
     `CasCompiler.SourceLimit,
-    `CasCompiler.SourceMember,
+    `CasCompiler.SourceMember, `CasCompiler.SourceMethod,
     `CasCompiler.SourceLift,
     `CasCompiler.ReadExpression,
     `CasCompiler.Read,
