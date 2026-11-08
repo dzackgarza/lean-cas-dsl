@@ -2,7 +2,6 @@ module
 
 public import CasCompiler.SourceCarrier
 public import LeanCategories.Catalogue.Lift
-public import LeanCategories.Catalogue.Semantics.ConstructorCatalogue
 
 public section
 
@@ -41,11 +40,14 @@ private def liftBoundary (state : SemanticState) (row : LiftEntry) :
     MetaM (CategoryExpr × CategoryExpr) := do
   let .subobjects := row.kind
     | throwUnsupportedSource "selected limit lifting requires its declared diagram"
-  let .constructMap constructor inner := row.edge
-    | throwError "the selected subobject lift has no declared arrow action"
-  unless constructor == ConstructorId.arrow do
-    throwError "the selected subobject lift requires the declared arrow constructor"
-  liftEdgeBoundary state inner
+  let (source, target) ← liftEdgeBoundary state row.edge
+  -- validateLift checks the complete edge against the actual functor's mapArrow.
+  -- Its declared unary boundaries retain the source and target category expressions.
+  let .construct _ #[.category source] := source
+    | throwError "the selected lift has no declared arrow source category"
+  let .construct _ #[.category target] := target
+    | throwError "the selected lift has no declared arrow target category"
+  return (source, target)
 
 /-- Check the selected whole family before applying original source arguments.
 Reuse: Registry.validateLift checks the complete callable family against MonoLift.computation.
