@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.SourceCarrier
+public import CasCompiler.SourcePresentation
 
 public section
 
@@ -24,8 +25,12 @@ opaque sourceConstruction (entry : ConstructionEntry) (receiver : NativeSourceJu
   unless result.isAppOfArity ``CategoryTheory.Functor 4 do
     throwError "the source construction requires its complete native functor family"
   let core := (← whnfR result.getAppArgs[0]!).isAppOf ``CategoryTheory.Core
+  let iso ← if selected.role == .morphism then sourceIsoOrigin? receiver.value else pure none
+  let alreadyCore := (← whnfR (← mkAppM ``CategoryTheory.Bundled.α
+    #[selected.bundle])).isAppOf ``CategoryTheory.Core
+  let wrapCore := core && (selected.role == .object || (!alreadyCore && iso.isSome))
   let state ← semanticState
-  let bundle ← if core && selected.role == .object then do
+  let bundle ← if wrapCore then do
       let #[constructor] := state.constructors.filter
         (·.semantics == `CasCatalogue.Constructors.core)
         | throwError "the construction requires its registered core constructor"
@@ -66,8 +71,15 @@ opaque sourceConstruction (entry : ConstructionEntry) (receiver : NativeSourceJu
         else pure receiver.value
       functorObject function input target
     | .morphism => do
+      let input ← if wrapCore then do
+          let some iso := iso | throwError "the core action lost its selected inverse data"
+          sourceIsoCoreHom iso selected.bundle
+        else pure receiver.value
       let action ← mkAppM ``CategoryTheory.Functor.map #[function]
-      elabAppArgs action #[] #[Arg.expr receiver.value] none false false
+      let value ← elabAppArgs action #[] #[Arg.expr input] none false false
+      if let some iso ← sourceMorphismIso? input then
+        retainSourceIso (← mkAppM ``CategoryTheory.Functor.mapIso #[function, iso]) value
+      else pure value
   return ⟨sourceReference ``ConstructionEntry entry.id.raw entry.declaration value,
     some ⟨selected.role, entry.target, target, none⟩⟩
 

@@ -41,6 +41,8 @@ import all CasCompiler.SourceMethod
 import all CasCompiler.SourceMethodTests
 import all CasCompiler.SourceConstruction
 import all CasCompiler.SourceConstructionTests
+import all CasCompiler.SourcePresentation
+import all CasCompiler.SourcePresentationTests
 import all CasCompiler.SourceCarrier
 import all CasCompiler.SourceCarrierTests
 import all CasCompiler.SourceCategoryBindingTests

@@ -8,6 +8,7 @@ public import CasCompiler.SourceOperation
 public import CasCompiler.SourceLimit
 public import CasCompiler.SourceMember
 public import CasCompiler.SourceMethod
+public import CasCompiler.SourcePresentation
 public import CasCompiler.SourceConstruction
 public import CasCompiler.SourceLift
 public import Lean.Elab.App
@@ -354,6 +355,12 @@ partial def readExpression
       juxtapose ⟨source.raw[0]⟩ (← `(cas_term| $(⟨source.raw[1]⟩):ident))
     else if let some name := sourceAtomName? source then object name qualification #[]
     else match source with
+    | `(cas_term| presentation($name:ident($arguments:cas_term,*))) =>
+      sourcePresentation name.getId.toString false fun declaration =>
+        application ⟨declaration, none⟩ arguments.getElems none
+    | `(cas_term| inverse_presentation($name:ident($arguments:cas_term,*))) =>
+      sourcePresentation name.getId.toString true fun declaration =>
+        application ⟨declaration, none⟩ arguments.getElems none
     | `(cas_term| lift($receiver:cas_term) along $id:ident($arguments:cas_term,*)
         with $input:cas_term using $evidence:cas_term) => do
       let state ← CasCatalogue.semanticState
