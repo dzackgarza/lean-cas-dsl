@@ -54,7 +54,7 @@ private def expectRefusal (message : String) (action : TermElabM SourceTerm) : T
     discard action
     pure false
   catch error =>
-    if (← error.toMessageData.toString).splitOn message |>.length > 1 then pure true
+    if ((← error.toMessageData.toString).splitOn message).length > 1 then pure true
     else throw error
   unless refused do throwError "the source accepted an incompatible construction input"
 
@@ -89,7 +89,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let session ← session.assume `Y (← `(Type))
   let session ← session.assume `iso (← nativeTerm "X ≅ Y")
   let sets ← session.namedCategory Syntax.missing "Sets" [.zero] #[]
-  let core ← session.unaryCategory ConstructorId.core sets
+  let core ← session.unaryCategory Syntax.missing ConstructorId.core sets
   let arrow ← session.term (← nativeTerm "CategoryTheory.CoreHom.mk iso")
   let arrow ← arrow.inCategory core.expression core.value .morphism
   let session ← session.defineTerm `e arrow
