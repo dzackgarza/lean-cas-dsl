@@ -211,8 +211,8 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
           let family ← nativeOwnedFamily state selected.category.expression categoryFamily route
             row.declaration (fun infos => infos.findIdx? (·.isExplicit))
           candidates := candidates.push
-            (row, .selected { owner := selected, route, categoryFamily, family,
-              alternatives := #[(row.id, route.refs)] })
+            (row, .selected ⟨selected, route, categoryFamily, family,
+              #[], #[(row.id, route.refs)]⟩)
       for entry in state.objects.filter (·.category == owner) do
         if let some refinement := entry.refines then
           if bases.any (·.id == refinement.base) then
