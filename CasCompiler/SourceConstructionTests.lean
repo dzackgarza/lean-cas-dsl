@@ -115,7 +115,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let empty ← SourceSession.empty identities
   let sets ← empty.namedCategory Syntax.missing "Sets" [.zero] #[]
   let functor ← empty.term (← nativeTerm
-    "CasCatalogue.Foundation.CatalogueRegistration.setsIdentity.toFunctor")
+    "CasCatalogue.Foundation.CatalogueRegistration.setsIdentity.{0}.toFunctor")
   let session ← empty.defineTerm `U functor
   let session ← session.assume `P (← nativeTerm
     "CasCatalogue.Algebra.Automorphisms.Registration.pointedSetsCategory.{0}")
