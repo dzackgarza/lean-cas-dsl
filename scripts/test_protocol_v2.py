@@ -90,7 +90,7 @@ class Peer:
     def negotiate(self) -> None:
         self.test.assertEqual(self.read(), {
             "op": "ready", "protocol": 2, "contract": "cas-computation/2",
-            "features": ["scoped-values/2", "deferred/2", "suspend-resume/2"],
+            "features": ["scoped-values/2", "deferred/2", "suspend-resume/2", "export-capture-frames/2"],
             "backend": "protocol-peer", "backend_version": "0",
         })
         self.test.assertEqual(self.send({"op": "hello", "protocol": 2,
@@ -144,7 +144,7 @@ class ProtocolV2(unittest.TestCase):
         context = {"kind": "published", "operation": "traffic.operation", "input": "traffic#input",
                    "args": {"ctor": "apply", "args": fields}}
         request = {"protocol": 2, "request_id": 2, "op": "$cas.invoke_export",
-                   "scope_id": "call-first", "token": first, "context": context}
+                   "scope_id": "call-first", "token": first, "captures": [], "context": context}
         reply = peer.send(request)
         self.assertEqual(reply["status"], "ok")
         self.assertEqual(reply["value"]["stored"], "first")
@@ -165,7 +165,7 @@ class ProtocolV2(unittest.TestCase):
         context = {"kind": "dependent", "prepared_role": "role", "parameters": [],
                    "bindings": [], "arguments": [], "argument_layouts": [], "result_layout": {}}
         reply = peer.send({"protocol": 2, "request_id": 1, "op": "$cas.invoke_export",
-                           "scope_id": "invoke", "token": token, "context": context})
+                           "scope_id": "invoke", "token": token, "captures": [], "context": context})
         self.assertEqual(reply["status"], "ok")
         self.assertEqual(reply["value"]["stored"], "retained")
 
@@ -250,7 +250,7 @@ class ProtocolV2(unittest.TestCase):
         context = {"kind": "published", "operation": "operation", "input": "input",
                    "args": {"ctor": "apply", "args": fields, "proof": "forbidden"}}
         request = {"protocol": 2, "request_id": 1, "op": "$cas.invoke_export",
-                   "token": token, "scope_id": "one", "context": context}
+                   "token": token, "scope_id": "one", "captures": [], "context": context}
         self.assertEqual(peer.send(request)["status"], "error")
         del context["args"]["proof"]
         arrow["args"][2] = {"ctor": "opaqueData", "args": ["another-token"]}
