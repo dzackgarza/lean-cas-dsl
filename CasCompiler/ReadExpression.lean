@@ -7,6 +7,7 @@ public import CasCompiler.SourceTuple
 public import CasCompiler.SourceOperation
 public import CasCompiler.SourceLimit
 public import CasCompiler.SourceMember
+public import CasCompiler.SourceLift
 public import Lean.Elab.App
 
 public section
@@ -207,7 +208,12 @@ partial def readExpression
   let member := fun (receiver : TSyntax `cas_term) (name : String)
       (arguments : Array (TSyntax `cas_term)) => do
     let receiver ← readExpression categoryOf receiver none
+    if let some value ← sourceLiftMember? receiver name then
+      unless arguments.isEmpty do
+        throwError "a selected lift projection takes no additional source arguments"
+      return value
     let family ← sourceMemberFamily receiver name qualification
+    if arguments.isEmpty then return family
     if arguments.size == 1 then
       return (⟨← application family arguments expected, none⟩ : NativeSourceJudgement)
     let function ← sourceFunction family
@@ -273,6 +279,23 @@ partial def readExpression
       juxtapose ⟨source.raw[0]⟩ (← `(cas_term| $(⟨source.raw[1]⟩):ident))
     else if let some name := sourceAtomName? source then object name qualification #[]
     else match source with
+    | `(cas_term| lift($receiver:cas_term) along $id:ident($arguments:cas_term,*)
+        with $input:cas_term using $evidence:cas_term) => do
+      let state ← CasCatalogue.semanticState
+      let #[row] := state.lifts.filter
+        (·.id.raw == id.getId.toString (escape := false))
+        | throwError "selected source lifting requires one registered lift"
+      discard <| checkedDeclaration row.evidence
+      if let some computation := row.computation then discard <| checkedDeclaration computation
+      CasCatalogue.validateLift state row
+      let receiver ← readExpression categoryOf receiver none
+      let selected ← application ⟨← mkConstWithFreshMVarLevels row.evidence, none⟩
+        arguments.getElems none
+      let input ← readExpression categoryOf input none
+      let `(cas_term| proof($proof:term)) := evidence
+        | throwError "a selected lift requires explicit native monicity evidence"
+      let proof ← elabTermEnsuringType proof none
+      sourceSelectedLift row receiver input selected proof
     | `(cas_term| $left:cas_term × $right:cas_term) => do
       let left ← readExpression categoryOf left none qualification
       let right ← readExpression categoryOf right none qualification
@@ -361,7 +384,7 @@ partial def readExpression
       if ((← getLCtx).findFromUserName? name.getId).isSome then
         registered name arguments.getElems
       else if let .str receiver field := name.getId then do
-        if !receiver.isAnonymous && !arguments.getElems.isEmpty &&
+        if !receiver.isAnonymous &&
             ((← getLCtx).findFromUserName? receiver).isSome then
           member (← `(cas_term| $(mkIdentFrom name receiver):ident)) field arguments.getElems
         else registered name arguments.getElems
