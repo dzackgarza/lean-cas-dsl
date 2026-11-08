@@ -58,6 +58,8 @@ def sourceRouteAgreements (state : SemanticState) (source : NativeSourceCategory
   let levels ← family.universes.mapM fun _ => mkFreshLevelMVar
   let actual := family.value.instantiateLevelParams family.universes levels
   let (arguments, _, _) ← forallMetaTelescopeReducing (← inferType actual)
+  unless ← expandSourceStructures arguments do
+    throwError "the selected carrier has inconsistent native parameter structures"
   unless ← isDefEq (mkAppN actual arguments) source.bundle do
     throwError "the selected carrier has a different complete native category family"
   let levels ← levels.mapM instantiateLevelMVars

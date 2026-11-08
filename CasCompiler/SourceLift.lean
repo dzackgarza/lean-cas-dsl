@@ -63,7 +63,7 @@ def sourceSelectedLift (row : LiftEntry) (receiver input : NativeSourceJudgement
   unless ← isDefEq domain category.bundle do
     throwError "the selected lift has different native category parameters"
   let proofType ← whnfR (← inferType monicity)
-  unless proofType.isAppOf ``CategoryTheory.Mono do
+  unless proofType.isAppOfArity ``CategoryTheory.Mono 5 do
     throwError "the selected lift requires its explicit monicity evidence"
   let inclusion := proofType.getAppArgs.back!
   let arrow : NativeSourceJudgement :=
@@ -78,8 +78,7 @@ def sourceSelectedLift (row : LiftEntry) (receiver input : NativeSourceJudgement
   let agreement ← mkExpectedTypeHint (← mkEqRefl actual.value)
     (← mkEq actual.value input.value)
   checkWithKernel agreement
-  let domainType ← mkAppM ``CategoryTheory.Bundled.α #[codomain]
-  let domainObject ← mkFreshExprMVar domainType
+  let domainObject := proofType.getAppArgs[2]!
   let value ← mkAppM ``SourceLiftApplication.mk
     #[selected, receiver.value, domainObject, inclusion, monicity]
   let value ← withLetDecl (← mkFreshUserName `liftInputAgreement)

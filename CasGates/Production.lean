@@ -26,6 +26,8 @@ import all CasCompiler.SourceTupleTests
 import all CasCompiler.SourceOperation
 import all CasCompiler.SourceOperationTests
 import all CasCompiler.SourceActionTests
+import all CasCompiler.SourceLift
+import all CasCompiler.SourceLiftTests
 import all CasCompiler.SourceLimit
 import all CasCompiler.SourceLimitTests
 import all CasCompiler.SourceMember

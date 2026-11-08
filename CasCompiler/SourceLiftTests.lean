@@ -49,6 +49,26 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         checkWithKernel (← mkExpectedTypeHint (← mkEqRefl expression) (← mkEq expression expected))
       observed := observed.push name
     session := next
+    if name == `i0 then
+      for (input, proof, detail) in #[
+          ("i0", "True.intro", "explicit monicity evidence"),
+          ("underlyingF",
+            "CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneLifts.kernelInclusion_mono",
+            "different original inclusion")] do
+        let text := "lift(X) along «lift.bilin_module.restrict»(ℚ, ℚ) with " ++
+          input ++ " using proof(" ++ proof ++ ")"
+        let .ok parsed := Parser.runParserCategory (← getEnv) `cas_term text
+          | throwError "the selected lift evidence control did not parse"
+        let rejected ← withoutModifyingState do
+          try
+            discard <| session.read ⟨parsed⟩
+            pure false
+          catch error =>
+            let message ← error.toMessageData.toString
+            unless (message.splitOn detail).length > 1 do throw error
+            pure true
+        unless rejected do
+          throwError "a selected lift accepted evidence for a different source input"
     if name == `beta1 then break
   unless observed == #[`X1, `i1, `alpha1, `beta1] do
     throwError "the original selected lift did not supply all four native projections"
