@@ -5,7 +5,6 @@ public import CasCompiler.Surface
 public import LeanCategories.Catalogue.Registry.Semantic
 public import Mathlib.CategoryTheory.NatIso
 public import Mathlib.CategoryTheory.Whiskering
-public import Mathlib.Lean.Meta.Simp
 
 public section
 
@@ -13,31 +12,27 @@ namespace CasCompiler
 
 open Lean Meta Elab Term CasCatalogue
 
-/-- Compare complete rigid source families with the accepted library's rewrite evidence.
-Reuse: Lean.Meta.SimpTheorems.addDeclToUnfold and Mathlib's Simp.Result.ofTrue. Only the supplied
-declarations are unfolded explicitly; imported simp theorems supply checked equalities.
-The native constants present in the families include their route applications. Lean's
-getUsedConstants supplies these definitions without a subject-specific unfolding list.
-The returned proof retains both complete families before actual source specialization. -/
-def sourceFamilyConversion (left right : Expr) (declarations : Array Name) :
+/-- Check native conversion or an actual supplied equality of complete rigid families.
+Reuse: SourceSession.operationConversion's native equality and SourceEquality's exact
+proof-type validation. Mathematical agreement evidence is an input to this consumer. -/
+def sourceFamilyConversion (left right : Expr) (evidence : Array Expr) :
     MetaM (Option Expr) := do
   if left.hasMVar || left.hasLevelMVar || right.hasMVar || right.hasLevelMVar then
     throwError "whole source family comparison requires rigid parameters and universes"
   unless ← isDefEq (← inferType left) (← inferType right) do return none
   let proposition ← mkEq left right
-  let mut theorems ← getSimpTheorems
-  for declaration in declarations ++ left.getUsedConstants ++ right.getUsedConstants do
-    if let some (.defnInfo _) := (← getEnv).find? declaration then
-      theorems ← theorems.addDeclToUnfold declaration
-  -- Route applications also occur inside the selected algebraic dictionaries.
-  -- Normalize those native arguments while retaining the original whole equality.
-  let context ← Simp.mkContext { instances := true } (simpTheorems := #[theorems])
-    (congrTheorems := ← getSimpCongrTheorems)
-  let (result, _) ← simp proposition context
-  let some proof ← result.ofTrue | return none
-  let proof ← mkExpectedTypeHint proof proposition
-  checkWithKernel proof
-  return some proof
+  if ← withoutModifyingState <| isDefEq left right then
+    let proof ← mkExpectedTypeHint (← mkEqRefl left) proposition
+    checkWithKernel proof
+    return some proof
+  for proof in evidence do
+    if proof.hasMVar || proof.hasLevelMVar then
+      throwError "whole source agreement evidence has undetermined parameters"
+    if ← withoutModifyingState <| isDefEq (← inferType proof) proposition then
+      let proof ← mkExpectedTypeHint proof proposition
+      checkWithKernel proof
+      return some proof
+  return none
 
 private inductive SourceSymbol
   | atom (expression : CategoryExpr)

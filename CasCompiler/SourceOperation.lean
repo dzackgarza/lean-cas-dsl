@@ -271,9 +271,10 @@ opaque sourceOperation
   let some first := families[0]?
     | throwError "operation preparation requires its complete first binding"
   let mut proofs := #[]
+  let agreementEvidence := root.domains.flatMap fun domain =>
+    domain.originEvidence ++ domain.category.carrier.toArray.flatMap (·.comparisons)
   for other in families do
-    let some proof ← sourceFamilyConversion first.value other.value
-        #[first.binding.declaration, other.binding.declaration]
+    let some proof ← sourceFamilyConversion first.value other.value agreementEvidence
       | throwSemanticAmbiguity "the whole operation families require their supplied agreement"
     proofs := proofs.push proof
   let (inputDomains, outputDomain, roleProofs) ←
