@@ -41,6 +41,49 @@ opaque checkRegisteredDomains (left right : Expr) : MetaM Unit := do
     unless ← isDefEq left right do
       throwError "the source domains have different complete declaration parameters"
 
+/-- Apply the coordinates declared by the exact source object of a bound value.
+Reuse: ObjectComponents and Registry.Semantic.applyObjectParameters, which checks the
+complete dependent parameters before application. An unregistered native type returns none;
+a registered object never obtains coordinates from a coincident native representation. -/
+opaque sourceComponentValues (value : Expr) (count : Nat) : TermElabM (Option (Array Expr)) := do
+  let domain ← inferType value
+  let (source, entries) ← registeredDomain domain
+  if entries.isEmpty then return none
+  let #[entry] := entries
+    | throwSemanticAmbiguity "the source pattern requires one selected component declaration"
+  let some components := entry.components
+    | throwUnsupportedSource "source pattern binding is not implemented for this registered object"
+  discard <| checkedDeclaration components.arity
+  discard <| checkedDeclaration components.projection
+  let parameters := source.getAppArgs
+  let arity ← applyObjectParameters s!"object {entry.id.raw}" components.arity parameters
+  unless ← isDefEq arity (mkNatLit count) do
+    throwError "the source tuple pattern has a different declared component arity"
+  let mut values := #[]
+  for index in [:count] do
+    -- Use the canonical finite-index construction from Lean.Meta.LitValues.litToCtor;
+    -- source-local order or decision instances do not select coordinate positions.
+    let literal := mkNatLit index
+    let bound := mkApp4 (mkConst ``LT.lt [.zero]) (mkConst ``Nat) (mkConst ``instLTNat)
+      literal (mkNatLit count)
+    let proof := mkApp3 (mkConst ``of_decide_eq_true) bound
+      (mkApp2 (mkConst ``Nat.decLt) literal (mkNatLit count)) eagerReflBoolTrue
+    let index ← mkAppOptM ``Fin.mk
+      #[some (mkNatLit count), some literal, some proof]
+    let projection ← applyObjectParameters s!"object {entry.id.raw}"
+      components.projection (parameters.push index)
+    let type ← whnfR (← inferType projection)
+    unless type.isAppOfArity ``Quiver.Hom 4 do
+      throwError "the declared source component is not a morphism"
+    let source := type.getAppArgs[2]!
+    checkRegisteredDomains domain source
+    unless ← isDefEq domain source do
+      throwError "the declared source component has a different complete domain"
+    let component ← elabAppArgs projection #[] #[Arg.expr value] none false false
+    values := values.push (sourceReference ``ObjectComponents entry.id.raw
+      components.projection component)
+  return some values
+
 /-- Exact registered source selection and its applied native category and value. -/
 structure SourceObject where
   private mk ::

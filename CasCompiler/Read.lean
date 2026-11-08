@@ -76,6 +76,15 @@ inductive SourceStatement where
   | definition (session : SourceSession) (value : SourceTerm)
   | question (proposition : SourceTerm)
 
+private partial def patternFunction (pattern body : TSyntax `cas_term) :
+    TermElabM (TSyntax `cas_term) :=
+  match pattern with
+  | `(cas_term| $name:ident) => `(cas_term| $name:ident ↦ $body:cas_term)
+  | `(cas_term| ($first:cas_term, $rest:cas_term,*)) =>
+    `(cas_term| ($first:cas_term, $rest:cas_term,*) ↦ $body:cas_term)
+  | `(cas_term| ($inner:cas_term)) => patternFunction inner body
+  | _ => throwErrorAt pattern "a source function parameter must be a name or tuple pattern"
+
 /-- Read public statements through the checked source session, retaining actual let bindings.
 Reuse: SourceSession.read/defineTerm and native expected-type checking. Source annotations
 are read in the preceding scope; the new name is inserted only after its value is checked. -/
@@ -91,13 +100,11 @@ opaque SourceSession.readStatement (session : SourceSession) (stx : TSyntax `cas
     let value ← session.read body (some type.source)
     return .definition (← session.defineTerm name.getId value) value
   | `(cas_stmt| let $name:ident($parameter:cas_term) := $value:cas_term) =>
-    let `(cas_term| $parameter:ident) := parameter
-      | CasCatalogue.throwUnsupportedSource
-          "source function patterns require their declared component projections"
     let translated ← match value with
-      | `(cas_term| $body:cas_term in $domain:cas_term) =>
-        `(cas_term| $parameter:ident ↦ $body:cas_term in $domain:cas_term)
-      | _ => `(cas_term| $parameter:ident ↦ $value:cas_term)
+      | `(cas_term| $body:cas_term in $domain:cas_term) => do
+        let function ← patternFunction parameter body
+        `(cas_term| $function:cas_term in $domain:cas_term)
+      | _ => patternFunction parameter value
     -- Public let-function syntax expands once. The native value retains its actual
     -- preceding bindings; its span refers to the original statement, not generated syntax.
     let value ← session.readAt stx translated

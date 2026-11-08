@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.SourceNumeral
+public import CasCompiler.SourcePattern
 public import Lean.Elab.App
 
 public section
@@ -42,6 +43,26 @@ partial def readExpression
     discard <| getLevel domain.value
     if let some expected := expected then checkRegisteredDomains domain.value expected
     readExpression categoryOf body (some domain.value)
+  let lambda := fun (pattern body : TSyntax `cas_term) => do
+    let some expected := expected
+      | throwError "a source lambda requires its independently declared function type"
+    let type ← whnf expected
+    if type.isAppOf ``TypeCat.Hom then
+      -- Mathlib's set-map constructor wraps this exact native function. It supplies
+      -- no structured-map laws; the complete declared Hom type fixes both endpoints.
+      let constructor ← mkConstWithFreshMVarLevels ``TypeCat.ofHom
+      let hole ← mkFreshExprMVar none
+      discard <| elabAppArgs constructor #[] #[Arg.expr hole] (some expected) false false
+      let function ← readExpression categoryOf source (some (← inferType hole))
+      let value ← elabAppArgs constructor #[] #[Arg.expr function.value]
+        (some expected) false false
+      return ← sourceSetJudgement .morphism value
+    let .forallE _ domain codomain binderInfo := type
+      | CasCatalogue.throwUnsupportedSource
+          "source lambda formation is not implemented for this declared map type"
+    let value ← sourcePatternLambda pattern domain binderInfo fun parameter => do
+      return (← readExpression categoryOf body (some (codomain.instantiate1 parameter))).value
+    return ⟨value, none⟩
   let object := fun (name : String) (category : Option String)
       (arguments : Array (TSyntax `cas_term)) => do
     let (entry, categoryEntry) ← selectObject name category expected
@@ -98,28 +119,9 @@ partial def readExpression
   let judgement ← if let some name := sourceAtomName? source then object name qualification #[]
     else match source with
     | `(cas_term| $name:ident ↦ $body:cas_term) => do
-      let some expected := expected
-        | throwError "a source lambda requires its independently declared function type"
-      let type ← whnf expected
-      if type.isAppOf ``TypeCat.Hom then
-        -- Mathlib's set-map constructor wraps this exact native function. It supplies
-        -- no structured-map laws; the complete declared Hom type fixes both endpoints.
-        let constructor ← mkConstWithFreshMVarLevels ``TypeCat.ofHom
-        let hole ← mkFreshExprMVar none
-        discard <| elabAppArgs constructor #[] #[Arg.expr hole] (some expected) false false
-        let function ← readExpression categoryOf source (some (← inferType hole))
-        let value ← elabAppArgs constructor #[] #[Arg.expr function.value]
-          (some expected) false false
-        return ← sourceSetJudgement .morphism value
-      let .forallE _ domain codomain binderInfo := type
-        | CasCatalogue.throwUnsupportedSource
-            "source lambda formation is not implemented for this declared map type"
-      -- Reuse Lean's dependent binder and metavariable-aware abstraction. The body is
-      -- read once with its actual bound occurrence; later arguments may still constrain
-      -- domain metavariables. The outer source boundary performs complete synthesis.
-      withLocalDecl name.getId binderInfo domain fun parameter => do
-        let body ← readExpression categoryOf body (some (codomain.instantiate1 parameter))
-        pure ⟨← mkLambdaFVars #[parameter] body.value, none⟩
+      lambda (← `(cas_term| $name:ident)) body
+    | `(cas_term| ($first:cas_term, $rest:cas_term,*) ↦ $body:cas_term) => do
+      lambda (← `(cas_term| ($first:cas_term, $rest:cas_term,*))) body
     | `(cas_term| $number:num in $domain:cas_term using ($evidence:cas_term,*)) => do
       let domain ← readExpression categoryOf domain none
       let some category := domain.category

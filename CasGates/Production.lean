@@ -19,6 +19,8 @@ import all CasCompiler.Read
 import all CasCompiler.ReadExpression
 import all CasCompiler.SourceSyntaxTests
 import all CasCompiler.SourceLambdaTests
+import all CasCompiler.SourcePattern
+import all CasCompiler.SourcePatternTests
 import all CasCompiler.SourceCategoryBindingTests
 import all CasCompiler.SourceAtomTests
 import all CasCompiler.SourceViewTests

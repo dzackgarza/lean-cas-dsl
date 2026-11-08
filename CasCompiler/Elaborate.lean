@@ -81,9 +81,10 @@ opaque categoryIdentity (category : Expr) : MetaM Expr := do
   let categoryStructure ← mkAppM ``CategoryTheory.Bundled.str #[category]
   mkAppOptM ``CategoryTheory.Functor.id #[some carrier, some categoryStructure]
 
-/-- Inspect the source head of original native definitions. Uses retain their actual references. -/
+/-- Inspect the source head through assigned native variables and original definitions.
+Uses retain their actual references. Reuse: Lean.Meta.instantiateMVars and native let values. -/
 partial def sourceDomain (value : Expr) : MetaM Expr := do
-  let value := value.headBeta.consumeMData
+  let value := (← instantiateMVars value).headBeta.consumeMData
   if let .fvar id := value then
     if let some definition := (← id.getDecl).value? then return ← sourceDomain definition
   return value
@@ -97,6 +98,7 @@ def sourceReference (kind : Name) (id : String) (declaration : Name) (value : Ex
 
 /-- Read an object reference through original native aliases and verify its retained declaration. -/
 partial def sourceObjectReference? (value : Expr) : MetaM (Option (CasCatalogue.ObjectId × Name)) := do
+  let value ← instantiateMVars value
   match value with
   | .mdata data body =>
     if data.getName `CasCompiler.source.kind == ``CasCatalogue.ObjectEntry then
