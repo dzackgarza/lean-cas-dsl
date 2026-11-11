@@ -120,11 +120,22 @@ private def normalizedProfile (id : String) (rules : Array ProfileRule) : Json :
       ("primitive_registrations", selectionJson "entries" registrationJson rule.primitives),
       ("derivations", selectionJson "ids" (toJson ∘ ComputationDerivationId.raw) rule.derivations)]))]
 
+/-- SHA-256 of immutable configuration text.
+Reuse: GNU Coreutils sha256sum through Lean's IO.Process.output stdin API;
+https://www.gnu.org/software/coreutils/manual/html_node/sha2-utilities.html. -/
+def sha256Hex (text : String) : IO String := do
+  let hashed ← IO.Process.output { cmd := "sha256sum", args := #["-"] } (some text)
+  unless hashed.exitCode == 0 do throw <| IO.userError s!"SHA-256 failed: {hashed.stderr}"
+  let digest := (hashed.stdout.splitOn " ").head!
+  unless digest.length == 64 && digest.toList.all (fun c =>
+      c.isDigit || ('a' ≤ c && c ≤ 'f')) do
+    throw <| IO.userError "SHA-256 returned an invalid digest"
+  return digest
+
 /-- Validate exact published targets, installed triples and checked target-specific derivations.
 Normalize set order once and retain the SHA-256 of that immutable configuration.
 Reuse: ComputationRef.declaration, checkedComputationDerivations, the released registration
-schema and strict field checker. Hashing uses GNU Coreutils sha256sum through Lean's
-IO.Process.output stdin API; https://www.gnu.org/software/coreutils/manual/html_node/sha2-utilities.html. -/
+schema, the strict field checker and sha256Hex. -/
 opaque RealizationProfile.prepare (manifest : Manifest) (configuration : Option Json) :
     MetaM RealizationProfile := do
   let (id, rules) ← match configuration with
@@ -143,14 +154,7 @@ opaque RealizationProfile.prepare (manifest : Manifest) (configuration : Option 
         unless checked.any (·.entry.id == id) do
           throwError "realization profile: unknown or wrong-target derivation {id.raw}"
   let normalized := normalizedProfile id rules
-  let hashed ← liftM (m := IO) <| IO.Process.output { cmd := "sha256sum", args := #["-"] }
-    (some normalized.compress)
-  unless hashed.exitCode == 0 do throwError "realization profile: SHA-256 failed: {hashed.stderr}"
-  let digest := (hashed.stdout.splitOn " ").head!
-  unless digest.length == 64 && digest.toList.all (fun c =>
-      c.isDigit || ('a' ≤ c && c ≤ 'f')) do
-    throwError "realization profile: SHA-256 returned an invalid digest"
-  return ⟨id, normalized, digest, rules⟩
+  return ⟨id, normalized, ← sha256Hex normalized.compress, rules⟩
 
 /-- Apply the frozen primitive set for this exact source target; unlisted targets allow all. -/
 opaque RealizationProfile.allowsPrimitive (profile : RealizationProfile)

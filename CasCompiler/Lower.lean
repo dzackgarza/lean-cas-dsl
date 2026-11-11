@@ -274,10 +274,26 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
     | .proj owner index value => do
       let some info := getStructureInfo? (← getEnv) owner
         | throwError "internal: a source projection has no structure metadata"
-      let some field := info.fieldNames[index]?
+      let some name := info.fieldNames[index]?
         | throwError "internal: a source projection is outside its structure"
-      project (← lower value) index m!"{field}"
+      field owner index value m!"{name}"
     | _ => application expression
+
+/-- Select one field of a checked source record.
+A selected instance and a registered named constant are definitions, so the field comes from
+Lean's reduction of that definition. Any other record is lowered, and the field is a demand. -/
+private partial def field (owner : Name) (index : Nat) (value : Expr) (name : MessageData) :
+    LowerM ValueBinding := do
+  if (← isClass? (← whnf (← inferType value))).isSome then
+    let reduced ← whnfCore (.proj owner index (← whnf value))
+    if reduced.isProj then
+      throwUnsupportedSource m!"the selected instance field {name} has no definition in this context"
+    return ← lower reduced
+  if let .const declaration _ := value.consumeMData.getAppFn then
+    unless (descriptorIds (← semanticState) declaration).isEmpty do
+      if let some unfolded ← unfoldDefinition? value.consumeMData then
+        return ← lower (.proj owner index unfolded)
+  project (← lower value) index name
 
 private partial def project (operand : ValueBinding) (index : Nat) (field : MessageData) :
     LowerM ValueBinding := do
@@ -365,19 +381,20 @@ private partial def application (expression : Expr) : LowerM ValueBinding := do
         if let some reduced ← unfoldProjInst? expression then return ← lower reduced
       let some operand := arguments[info.numParams]?
         | throwError "internal: a source projection lost its record"
-      let field ← project (← lower operand) info.i m!"{name}"
-      return ← apply field (arguments.extract (info.numParams + 1) arguments.size)
+      let owner := (← getConstInfoCtor info.ctorName).induct
+      let selected ← field owner info.i operand m!"{name}"
+      return ← apply selected (arguments.extract (info.numParams + 1) arguments.size)
   unless (descriptorIds state name).isEmpty do
     let kind := (← SourceLayout.ofTerm (← frame.context.close expression)).kind
     if kind == .function then return ← closure expression
     if kind == .record then
       let layout := (← origin expression).role
       let mut fields := #[]
-      for field in layout.fields do
-        if field.wireIndex.isSome then
-          let value ← field.source.inContext frame.context
-          fields := fields.push (← if field.kind == .data then lower value
-            else if field.kind == .typeValue then formal value #[]
+      for prepared in layout.fields do
+        if prepared.wireIndex.isSome then
+          let value ← prepared.source.inContext frame.context
+          fields := fields.push (← if prepared.kind == .data then lower value
+            else if prepared.kind == .typeValue then formal value #[]
             else closure value)
       return ← formal expression fields
     return ← formal expression #[]
