@@ -118,26 +118,54 @@ private def discharged (session : KernelSession) (context : OpenContext) (propos
   if proposition.hasFVar then return none
   Decide.decideProp proposition
 
+/-- The literal value of a side that is a registered literal form's denotation `denote L`.
+Source: LiteralEntry, "a statement comparing a computed value with a literal compares it
+with this denotation". -/
+private def literalForm? (side : Expr) : MetaM (Option Expr) := do
+  let side := side.consumeMData
+  let .const name _ := side.getAppFn | return none
+  unless (← semanticState).literals.any (·.denotation == name) do return none
+  return side.getAppArgs.back?
+
+private def packetOf (session : KernelSession) (transaction : CellTransaction)
+    (context : OpenContext) (side : Expr) : MetaM (Except String Json) := do
+  let binding ← session.kernel.run transaction context session.bound side
+  let graph ← transaction.view
+  match ← IO.ofExcept <| (graph.packet? binding).mapError IO.userError with
+  | some packet => return .ok packet
+  | none => return .error "the computed value is retained by its provider and has no scalar comparison"
+
 /-- Compare two computed candidates of one source type as retained scalar data.
-The comparison reads the actual returned packets at their source type and decides equality
-of those values in Lean's kernel. It is an observation of candidates, not a proof. -/
+The comparison reads the actual returned packets at their source type, or at the registered
+literal type when one side is a literal form, and decides equality of those values in Lean's
+kernel. It is an observation of candidates, not a proof. -/
 private def compare (session : KernelSession) (transaction : CellTransaction)
     (context : OpenContext) (left right : Expr) : MetaM Outcome := do
+  let literals ← #[left, right].mapM literalForm?
+  let reading ← (literals.findSome? id).mapM fun literal => inferType literal
   let mut values := #[]
-  for side in #[left, right] do
-    let binding ← session.kernel.run transaction context session.bound side
-    let graph ← transaction.view
-    let some packet ← IO.ofExcept <| (graph.packet? binding).mapError IO.userError
-      | return .gap "the computed value is retained by its provider and has no scalar comparison"
-    let role ← SourceLayout.ofTerm (← context.close side)
-    let some value ← ScalarLiteral.read role packet
-      | return .gap s!"the computed value {packet.compress} has no scalar reading at its source type"
-    values := values.push (value, packet)
+  for side in #[left, right], literal in literals do
+    if let some literal := literal then
+      values := values.push (literal, toString (← ppExpr literal))
+      continue
+    let packet ← match ← packetOf session transaction context side with
+      | .ok packet => pure packet
+      | .error reason => return .gap reason
+    -- A candidate outside the representation of its reading type is a malformed answer.
+    let value ← try
+        match reading with
+        | some type => ScalarLiteral.readAt type packet
+        | none => ScalarLiteral.read (← SourceLayout.ofTerm (← context.close side)) packet
+      catch error =>
+        return .malformed s!"{packet.compress}: {← error.toMessageData.toString}"
+    let some value := value
+      | return .gap s!"the computed value {packet.compress} has no scalar reading at its type"
+    values := values.push (value, packet.compress)
   let some (first, shown) := values[0]? | return .internal "the comparison lost its left value"
   let some (second, expected) := values[1]? | return .internal "the comparison lost its right value"
   match ← Decide.decideProp (← mkEq first second) with
   | some true => return .holds
-  | some false => return .wrong s!"computed {shown.compress}, compared with {expected.compress}"
+  | some false => return .wrong s!"computed {shown}, compared with {expected}"
   | none => return .gap "equality of the computed values is not decided in Lean"
 
 /-- The result of one statement: its outcome, the session after it and, for a question,

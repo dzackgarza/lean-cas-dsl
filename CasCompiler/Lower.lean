@@ -38,7 +38,6 @@ private structure Frame where
   program : RuntimeId .program
   context : OpenContext
   bound : Std.HashMap BindingId ValueBinding
-  selected : Array (Name × ComputationRef)
 
 private abbrev LowerM := ReaderT Frame MetaM
 
@@ -166,47 +165,6 @@ private def evaluated? (state : SemanticState) (expression type : Expr) : MetaM 
     return none
   literal? (← reduce expression (skipTypes := true) (skipProofs := true))
 
-private structure Symbol where
-  packet : Json
-  slots : Array ContainerSlot := #[]
-
-/-- A mechanical descriptor of a formal source term. Registered declarations use their
-public addresses. Retained values keep their own references in typed slots.
-Reference: CasContract.Port descriptor grammar `{"ctor": address, "args": [...]}`. -/
-private partial def symbol (frame : Frame) (marks : Array ValueBinding) (state : SemanticState)
-    (expression : Expr) (path : Array CasCatalogue.Backend.InputPathStep) : MetaM Symbol := do
-  let retained := fun (value : ValueBinding) =>
-    ({ packet := .null, slots := #[{ path, binding := value, fieldIndex := none }] } : Symbol)
-  match expression with
-  | .mdata data body =>
-    if let some key := markedKey? data then
-      let some value := marks[key]? | throwError "internal: a retained source value lost its mark"
-      return retained value
-    symbol frame marks state body path
-  | .fvar id =>
-    if let some binding := frame.context.bindings.find? (·.expression.fvarId! == id) then
-      if let some value := frame.bound[binding.id]? then return retained value
-    return ⟨Json.mkObj [("ctor", "variable"), ("args", .arr #[toJson (← id.getUserName).toString])], #[]⟩
-  | _ =>
-    if let some packet ← literal? expression then return ⟨packet, #[]⟩
-    let .const name _ := expression.getAppFn
-      | return ⟨Json.mkObj [("ctor", "formal"), ("args", .arr #[])], #[]⟩
-    let arguments := expression.getAppArgs
-    let info ← getFunInfoNArgs expression.getAppFn arguments.size
-    let mut packets := #[]
-    let mut slots := #[]
-    let address := match descriptorIds state name with
-      | #[id] => id
-      | _ => "lean:" ++ name.toString
-    for argument in arguments, index in [:arguments.size] do
-      let explicit := (info.paramInfo[index]?.map (·.isExplicit)).getD true
-      if !explicit || (← isProof argument) then continue
-      let child ← symbol frame marks state argument
-        (path ++ #[.field "args", .index packets.size])
-      packets := packets.push child.packet
-      slots := slots ++ child.slots
-    return ⟨Json.mkObj [("ctor", toJson address), ("args", .arr packets)], slots⟩
-
 private partial def captured (frame : Frame) (marks : Array ValueBinding) (expression : Expr)
     (found : Array ValueBinding) : Array ValueBinding :=
   match expression with
@@ -240,14 +198,6 @@ private def closure (expression : Expr) : LowerM ValueBinding := do
   frame.environment.codes.modify (·.insert program code)
   stage expression (.closure program captures)
 
-/-- A formal source value: a type, or a registered named constant with its public descriptor. -/
-private def formal (expression : Expr) (fields : Array ValueBinding) : LowerM ValueBinding := do
-  let frame ← read
-  let described ← symbol frame (← frame.environment.marks.get) (← semanticState) expression #[]
-  let .ok payload := ValuePayload.container described.packet described.slots fields none
-    | throwError "internal: a formal source descriptor has an invalid reference layout"
-  stage expression payload
-
 mutual
 
 /-- Lower one checked source term to its actual retained value.
@@ -264,9 +214,13 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
       let some value := (← (← read).environment.marks.get)[key]?
         | throwError "internal: a retained source value lost its mark"
       return value
+    -- The reader's selected address belongs to each occurrence of its declaration. It moves
+    -- onto those occurrences, so retained code keeps it after this term is taken apart.
     match selectedReference? data with
-    | some selection =>
-      withReader (fun frame => { frame with selected := frame.selected.push selection }) (lower body)
+    | some (declaration, _) =>
+      if body.isConstOf declaration then application expression
+      else lower (body.replace fun term =>
+        if term.isConstOf declaration then some (.mdata data term) else none)
     | none => lower body
   | .fvar id =>
     let frame ← read
@@ -274,20 +228,27 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
       if let some value := frame.bound[binding.id]? then return value
     match (← id.getDecl).value? with
     | some value => lower value
-    | none => formal expression #[]
+    | none =>
+      -- A formal parameter of the source has no computed value. Its descriptor names it.
+      let packet := Json.mkObj [("ctor", "variable"),
+        ("args", .arr #[toJson (← id.getUserName).toString])]
+      stage expression (.portable packet.compress.toUTF8)
   | .letE _ _ value body _ =>
     if (← isProof value) || (← isType value) then return ← lower (body.instantiate1 value)
     let bound ← lower value
     lower (body.instantiate1 (← markValue (← read).environment.marks bound value))
   | .lam .. => closure expression
   | _ =>
+    -- Lean's head reduction drops metadata, so a selected family head is dispatched first.
+    if let .mdata data _ := expression.getAppFn then
+      if (selectedReference? data).isSome then return ← application expression
     let type ← whnf (← inferType expression)
     trace[cas.lower] "{expression.getAppFn} [{expression.getAppNumArgs}] : {type}"
     if ← isProp type then throwError "internal: a source proof has no computational value"
-    if type.isSort then return ← formal expression #[]
     if (← isClass? type).isSome then return ← closure expression
     -- A structure value is a dependent record of its fields. Only data-kind terms are packets.
-    unless (type.getAppFn.constName?.map (isStructure (← getEnv))).getD false do
+    -- A type is an object of the category of sets, and is lowered like any other term.
+    unless type.isSort || (type.getAppFn.constName?.map (isStructure (← getEnv))).getD false do
       if let some packet ← literal? expression then
         return ← stage expression (.portable packet.compress.toUTF8)
       if let some packet ← evaluated? (← semanticState) expression type then
@@ -302,7 +263,36 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
       let some name := info.fieldNames[index]?
         | throwError "internal: a source projection is outside its structure"
       field owner index value m!"{name}"
+    | .forallE .. | .sort .. => descriptor expression "lean:type" #[] #[]
     | _ => application expression
+
+/-- A descriptor of a named source constant at its actual explicit arguments.
+Reference: CasContract.Port descriptor grammar `{"ctor": address, "args": [...]}`.
+Each argument is lowered and keeps its own retained reference in a typed slot. -/
+private partial def descriptor (expression : Expr) (address : String) (arguments : Array Expr)
+    (fields : Array ValueBinding) : LowerM ValueBinding := do
+  let mut packets := #[]
+  let mut slots := #[]
+  for argument in arguments do
+    let value ← lower argument
+    slots := slots.push ({
+      path := #[.field "args", .index packets.size], binding := value, fieldIndex := none } :
+      ContainerSlot)
+    packets := packets.push Json.null
+  let packet := Json.mkObj [("ctor", toJson address), ("args", .arr packets)]
+  let .ok payload := ValuePayload.container packet slots fields none
+    | throwError "internal: the descriptor of {address} has an invalid reference layout"
+  stage expression payload
+
+/-- The explicit arguments of an application that are not proofs. -/
+private partial def explicitArguments (expression : Expr) : LowerM (Array Expr) := do
+  let arguments := expression.getAppArgs
+  let info ← getFunInfoNArgs expression.getAppFn arguments.size
+  let mut selected := #[]
+  for argument in arguments, index in [:arguments.size] do
+    let explicit := (info.paramInfo[index]?.map (·.isExplicit)).getD true
+    if explicit && !(← isProof argument) then selected := selected.push argument
+  return selected
 
 /-- Select one field of a checked source record.
 A selected instance and a registered named constant are definitions, so the field comes from
@@ -381,14 +371,20 @@ private partial def record (expression : Expr) (fields : Array Expr) : LowerM Va
 
 private partial def application (expression : Expr) : LowerM ValueBinding := do
   let frame ← read
-  let function := expression.getAppFn
   let arguments := expression.getAppArgs
+  let (function, selected) := match expression.getAppFn with
+    | .mdata data head => match selectedReference? data with
+      | some (declaration, reference) =>
+        if head.isConstOf declaration then (head, some reference) else (expression.getAppFn, none)
+      | none => (expression.getAppFn, none)
+    | head => (head, none)
   let .const name levels := function
     | return ← apply (← lower function) arguments
+  let expression := mkAppN function arguments
   let state ← semanticState
-  let selected := frame.selected.filterMap fun (declaration, reference) =>
-    if declaration == name then some reference else none
-  let references := if selected.isEmpty then computationRefs state name else selected
+  let references := match selected with
+    | some reference => #[reference]
+    | none => computationRefs state name
   if let some reference := references[0]? then
     unless references.all (· == reference) do
       throwError "internal: the declaration {name} has several published computation addresses"
@@ -409,40 +405,25 @@ private partial def application (expression : Expr) : LowerM ValueBinding := do
       let owner := (← getConstInfoCtor info.ctorName).induct
       let selected ← field owner info.i operand m!"{name}"
       return ← apply selected (arguments.extract (info.numParams + 1) arguments.size)
-  unless (descriptorIds state name).isEmpty do
-    let kind := (← SourceLayout.ofTerm (← frame.context.close expression)).kind
-    if kind == .function then return ← closure expression
-    if kind == .record then
-      let layout := (← origin expression).role
-      let mut fields := #[]
-      for prepared in layout.fields do
-        if prepared.wireIndex.isSome then
-          let value ← prepared.source.inContext frame.context
-          fields := fields.push (← if prepared.kind == .data then lower value
-            else if prepared.kind == .typeValue then formal value #[]
-            else closure value)
-      return ← formal expression fields
-    return ← formal expression #[]
+  if let some address := (descriptorIds state name)[0]? then
+    let layout := (← origin expression).role
+    if layout.kind == .function then return ← closure expression
+    let mut fields := #[]
+    for prepared in layout.fields do
+      if prepared.wireIndex.isSome then
+        fields := fields.push (← closure (← prepared.source.inContext frame.context))
+    return ← descriptor expression address (← explicitArguments expression) fields
   match (← getEnv).find? name with
   | some (.ctorInfo constructor) =>
     unless arguments.size == constructor.numParams + constructor.numFields do
       return ← closure (← etaExpand expression)
     let fields := arguments.extract constructor.numParams arguments.size
     if isStructure (← getEnv) constructor.induct then return ← record expression fields
-    let described ← symbol frame (← frame.environment.marks.get) state expression #[]
-    let mut packets := #[]
-    let mut slots := #[]
-    for field in fields do
-      if ← isProof field then continue
-      let value ← lower field
-      slots := slots.push ({
-        path := #[.field "args", .index packets.size], binding := value, fieldIndex := none } :
-        ContainerSlot)
-      packets := packets.push Json.null
-    let packet := Json.mkObj [("ctor", toJson name.getString!), ("args", .arr packets)]
-    let .ok payload := ValuePayload.container packet slots #[] none
-      | throwError "internal: a source constructor has an invalid reference layout: {described.packet}"
-    stage expression payload
+    descriptor expression name.getString! (← fields.filterM fun field => return !(← isProof field))
+      #[]
+  | some (.inductInfo _) =>
+    -- A type former at its arguments is an object of the category of sets.
+    descriptor expression s!"lean:{name}" (← explicitArguments expression) #[]
   | some (.recInfo _) | some (.quotInfo _) =>
     throwUnsupportedSource
       m!"source eliminator {name} requires the returned-value branch compiler"
@@ -462,6 +443,6 @@ end
 opaque lowerTerm (environment : LowerEnvironment) (program : RuntimeId .program)
     (context : OpenContext) (bound : Std.HashMap BindingId ValueBinding) (expression : Expr) :
     MetaM ValueBinding :=
-  (lower expression).run { environment, program, context, bound, selected := #[] }
+  (lower expression).run { environment, program, context, bound }
 
 end CasCompiler

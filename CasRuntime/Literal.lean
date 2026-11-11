@@ -129,4 +129,10 @@ opaque read (source : SourceLayout) (packet : Json) : MetaM (Option Expr) := do
   let .ok () := CasRuntime.checkLiteral packet | return none
   source.source.withOpen fun _ expression => do decode (← inferType expression) packet
 
+/-- Read an inline candidate at a closed registered literal type, as `read` does at a source
+type. The registry's literal form fixes that type; the candidate does not select it. -/
+opaque readAt (type : Expr) (packet : Json) : MetaM (Option Expr) := do
+  let .ok () := CasRuntime.checkLiteral packet | return none
+  decode type packet
+
 end CasRuntime.ScalarLiteral
