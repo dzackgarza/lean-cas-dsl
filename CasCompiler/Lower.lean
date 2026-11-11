@@ -239,9 +239,17 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
     lower (body.instantiate1 (← markValue (← read).environment.marks bound value))
   | .lam .. => closure expression
   | _ =>
-    -- Lean's head reduction drops metadata, so a selected family head is dispatched first.
+    -- Lean's head reduction drops metadata. A retained value at the head is applied as that
+    -- same value, a retained record gives its field, and a selected family head is dispatched.
     if let .mdata data _ := expression.getAppFn then
+      if (markedKey? data).isSome then
+        return ← apply (← lower expression.getAppFn) expression.getAppArgs
       if (selectedReference? data).isSome then return ← application expression
+    if let .proj owner index (.mdata data value) := expression then
+      if (markedKey? data).isSome then
+        let some info := getStructureInfo? (← getEnv) owner
+          | throwError "internal: a source projection has no structure metadata"
+        return ← project (← lower (.mdata data value)) index m!"{info.fieldNames[index]?}"
     let type ← whnf (← inferType expression)
     trace[cas.lower] "{expression.getAppFn} [{expression.getAppNumArgs}] : {type}"
     if ← isProp type then throwError "internal: a source proof has no computational value"
@@ -253,8 +261,10 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
         return ← stage expression (.portable packet.compress.toUTF8)
       if let some packet ← evaluated? (← semanticState) expression type then
         return ← stage expression (.portable packet.compress.toUTF8)
-    let reduced ← withConfig (fun config => { config with zeta := false, zetaDelta := false })
-      (whnfCore expression)
+    -- Head reduction only: no let substitution and no unfolding under a projection, so a
+    -- published family below a field stays a demand and is not replaced by its definition.
+    let reduced ← withConfig (fun config =>
+      { config with zeta := false, zetaDelta := false, proj := .yes }) (whnfCore expression)
     if reduced != expression then return ← lower reduced
     match expression with
     | .proj owner index value => do
@@ -299,6 +309,8 @@ A selected instance and a registered named constant are definitions, so the fiel
 Lean's reduction of that definition. Any other record is lowered, and the field is a demand. -/
 private partial def field (owner : Name) (index : Nat) (value : Expr) (name : MessageData) :
     LowerM ValueBinding := do
+  if let .mdata data _ := value then
+    if (markedKey? data).isSome then return ← project (← lower value) index name
   if (← isClass? (← whnf (← inferType value))).isSome then
     let reduced ← whnfCore (.proj owner index (← whnf value))
     if reduced.isProj then

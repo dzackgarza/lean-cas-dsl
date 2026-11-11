@@ -54,6 +54,25 @@ private def failureReply (id : Nat) (operation : String) (frame : Json) : Except
     throw (.unsupported operation)
   | status => throw (.protocol s!"request {id} has an unknown control status {status}")
 
+/-- A complete successful control frame: an immediate value, or an ordered deferred group with
+its final template (execution contract v2 §6). The group is validated before any child runs. -/
+inductive InvocationReply
+  | immediate (reply : ImmediateReply)
+  | deferred (requestId : Nat) (calls : Array Json) (template exports : Json)
+
+/-- Read the whole deferred control: exact fields, the envelope, and backward-only result
+references. Reuse: checkServiceFields and validateResultRefs of the released port. -/
+private def deferredControl (requestId : Nat) (frame value : Json) : Except String InvocationReply := do
+  checkServiceFields #["request_id", "status", "value", "exports"] frame
+  checkServiceFields #["ctor", "args"] value
+  let #[calls, template] ← (← value.getObjVal? "args").getArr?
+    | throw "a deferred computation requires its ordered calls and final result template"
+  let calls ← calls.getArr?
+  for call in calls, index in [:calls.size] do
+    validateResultRefs index (← call.getObjVal? "args")
+  validateResultRefs calls.size template
+  return .deferred requestId calls template (← frame.getObjVal? "exports")
+
 /-- Cooperative cancellation settles the cell; its resource leases retain exact frame drainers. -/
 opaque FramedConnection.cancel (wire : FramedConnection) (transaction : CellTransaction)
     (reservation : DispatchReservation) : BaseIO Bool := do
@@ -66,9 +85,9 @@ For a retained export, arguments is its already prepared invocation context.
 The native permit spans the entire frame and cancellation cleanup. All process I/O runs
 outside transaction, owner and resource-state mutexes. Receipt construction is a later boundary.
 Reuse: CasContract framing/negotiation, native Semaphore, RequestScope and ImmediateReply. -/
-opaque FramedConnection.invoke (wire : FramedConnection) (ledger : OccurrenceLedger)
+opaque FramedConnection.invokeControl (wire : FramedConnection) (ledger : OccurrenceLedger)
     (transaction : CellTransaction) (reservation : DispatchReservation) (scope : RequestScope)
-    (arguments : Json) : IO (Except PortError ImmediateReply) := do
+    (arguments : Json) : IO (Except PortError InvocationReply) := do
   let unavailable := fun reason => PortError.unavailable wire.backend reason
   unless ownsInvocation wire transaction reservation scope do
     return .error (unavailable "request_identity_mismatch")
@@ -132,11 +151,16 @@ opaque FramedConnection.invoke (wire : FramedConnection) (ledger : OccurrenceLed
       return .error (unavailable "cancelled")
     let some current ← transaction.activeGraph
       | scope.retire; return .error (unavailable "cancelled")
-    let result : Except PortError ImmediateReply ←
+    let result : Except PortError InvocationReply ←
       if (frame.getObjValAs? String "status").toOption == some "ok" then
-        try
-          pure (.ok (← ImmediateReply.parseControl scope reservation current scope.wireId lease.requestId frame))
-        catch error => pure (.error (.protocol error.toString))
+        let value := (frame.getObjVal? "value").toOption.getD .null
+        if (value.getObjValAs? String "ctor").toOption == some "deferredData" then
+          pure ((deferredControl lease.requestId frame value).mapError PortError.protocol)
+        else
+          try
+            pure (.ok (.immediate (← ImmediateReply.parseControl scope reservation current
+              scope.wireId lease.requestId frame)))
+          catch error => pure (.error (.protocol error.toString))
       else pure <| match failureReply lease.requestId operation frame with
         | .error error => .error error
         | .ok () => .error (.protocol "the control has no immediate result")
@@ -155,9 +179,9 @@ opaque FramedConnection.invoke (wire : FramedConnection) (ledger : OccurrenceLed
 /-- A call deadline aborts its cell while the exact existing reader or queue item survives.
 The IO worker retains its permit/reader or queued permit claim and observes transaction abort.
 Reuse: the native task/event-loop deadline helper shared with negotiation. -/
-opaque FramedConnection.invokeBefore (wire : FramedConnection) (ledger : OccurrenceLedger)
+opaque FramedConnection.invokeControlBefore (wire : FramedConnection) (ledger : OccurrenceLedger)
     (transaction : CellTransaction) (reservation : DispatchReservation) (scope : RequestScope)
-    (arguments : Json) (timeoutMs : UInt32) : IO (Except PortError ImmediateReply) := do
+    (arguments : Json) (timeoutMs : UInt32) : IO (Except PortError InvocationReply) := do
   unless ownsInvocation wire transaction reservation scope do
     return .error (.unavailable wire.backend "request_identity_mismatch")
   if timeoutMs == 0 then
@@ -167,7 +191,7 @@ opaque FramedConnection.invokeBefore (wire : FramedConnection) (ledger : Occurre
     scope.retire
     return .error failure
   let worker ← IO.asTask (prio := .dedicated) <|
-    wire.invoke ledger transaction reservation scope arguments
+    wire.invokeControl ledger transaction reservation scope arguments
   match ← awaitBefore worker timeoutMs with
   | some result => IO.ofExcept result
   | none =>
@@ -176,5 +200,28 @@ opaque FramedConnection.invokeBefore (wire : FramedConnection) (ledger : Occurre
     discard <| transaction.failPort failure
     scope.retire
     return .error failure
+
+/-- An invocation whose prepared consumer accepts only an immediate value. -/
+private def immediateOnly (transaction : CellTransaction) (scope : RequestScope)
+    (control : Except PortError InvocationReply) : IO (Except PortError ImmediateReply) := do
+  match control with
+  | .error error => return .error error
+  | .ok (.immediate reply) => return .ok reply
+  | .ok (.deferred ..) =>
+    let failure := PortError.protocol "a deferred control is not an immediate result value"
+    discard <| transaction.failPort failure
+    scope.retire
+    return .error failure
+
+opaque FramedConnection.invoke (wire : FramedConnection) (ledger : OccurrenceLedger)
+    (transaction : CellTransaction) (reservation : DispatchReservation) (scope : RequestScope)
+    (arguments : Json) : IO (Except PortError ImmediateReply) := do
+  immediateOnly transaction scope (← wire.invokeControl ledger transaction reservation scope arguments)
+
+opaque FramedConnection.invokeBefore (wire : FramedConnection) (ledger : OccurrenceLedger)
+    (transaction : CellTransaction) (reservation : DispatchReservation) (scope : RequestScope)
+    (arguments : Json) (timeoutMs : UInt32) : IO (Except PortError ImmediateReply) := do
+  immediateOnly transaction scope
+    (← wire.invokeControlBefore ledger transaction reservation scope arguments timeoutMs)
 
 end CasRuntime

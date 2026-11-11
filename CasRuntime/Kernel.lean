@@ -234,74 +234,6 @@ private def kernelCompletion (request : PreparedRequest) (transaction : CellTran
   | .error failure => transactionFailure failure
   | .ok association => request.admitResult (← transaction.view) association.response.root
 
-/-- Send one prepared invocation on its reserved connection, then admit and stage the whole
-reply with its completion. Reuse: FramedConnection.invokeBefore and stageCompletion. -/
-private def Kernel.invoke (kernel : Kernel) (request : PreparedRequest)
-    (transaction : CellTransaction) (wire : FramedConnection) (reservation : DispatchReservation)
-    (encoded : EncodedInputs) (arguments : Json) : MetaM (PreparedResponse request) := do
-  let graph ← transaction.view
-  let scope ← RequestScope.issue kernel.ledger reservation graph encoded.slots encoded.inputs #[]
-  let reply ← match ← wire.invokeBefore kernel.ledger transaction reservation scope arguments
-      kernel.timeoutMs with
-    | .ok reply => pure reply
-    | .error error => portFailure error
-  match ← reply.stageCompletion request transaction scope wire.connection with
-  | .error failure => transactionFailure failure
-  | .ok association => request.admitResult (← transaction.view) association.response.root
-
-/-- Dispatch a published operation on its selected registration.
-`parameters` are the retained family parameters; the request supplies the action arguments. -/
-private def Kernel.invokeRegistration (kernel : Kernel) (request : PreparedRequest)
-    (transaction : CellTransaction) (registration : Registration) (role : String)
-    (parameters : Array ValueBinding) : MetaM (PreparedResponse request) := do
-  let wire ← kernel.connection registration.backend
-  let graph ← transaction.view
-  let inputs ← request.admitInputs graph
-  let arguments ← IO.ofExcept <| (inputs.arguments graph).mapError IO.userError
-  let roots : Array InputPosition :=
-    parameters.mapIdx (fun index binding =>
-      { path := #[.field "parameters", .index index], binding }) ++
-    arguments.mapIdx (fun index binding =>
-      { path := #[.field "arguments", .index index], binding })
-  let encoded ← IO.ofExcept <|
-    (graph.encodeInputs wire.connection.generation roots).mapError IO.userError
-  let identity : DispatchIdentity := {
-    manifestDigest := kernel.manifestDigest, registration, profileDigest := kernel.profile.sha256 }
-  let reservation ← match ← transaction.reserve request.occurrence identity wire.connection
-      (parameters ++ arguments) with
-    | .ok reservation => pure reservation
-    | .error failure => transactionFailure failure
-  kernel.dispatches.modify (·.push registration)
-  kernel.invoke request transaction wire reservation encoded <|
-    dependentContext role (encoded.values.extract 0 parameters.size)
-      (encoded.values.extract parameters.size encoded.values.size) (argumentLayouts request)
-      request.source
-
-/-- Invoke a retained native export on its original supplying connection.
-Source: execution contract v2 §4.1. No registration is searched for a selected callable. -/
-private def Kernel.invokeExport (kernel : Kernel) (request : PreparedRequest)
-    (transaction : CellTransaction) (callable : ValueBinding) (role : String) :
-    MetaM (PreparedResponse request) := do
-  let graph ← transaction.view
-  let code ← IO.ofExcept <| (graph.callable callable).mapError IO.userError
-  let some node := graph.find code.value
-    | throwError "internal: the native callable is outside the active graph"
-  let .ownedToken owner _ _ := node.payload.data
-    | throwError "internal: the retained callable has no native export"
-  let wire ← kernel.connectionOf owner
-  let inputs ← request.admitInputs graph
-  let arguments ← IO.ofExcept <| (inputs.arguments graph).mapError IO.userError
-  let roots : Array InputPosition := arguments.mapIdx fun index binding =>
-    { path := #[.field "arguments", .index index], binding }
-  let encoded ← IO.ofExcept <|
-    (graph.encodeExportInputs wire.connection.generation callable roots).mapError IO.userError
-  let reservation ← match ← transaction.reserveExport request.occurrence callable wire.connection
-      arguments with
-    | .ok reservation => pure reservation
-    | .error failure => transactionFailure failure
-  kernel.invoke request transaction wire reservation encoded <|
-    dependentContext role #[] encoded.values (argumentLayouts request) request.source
-
 private def withSourceScope (request : PreparedRequest)
     (action : OpenContext → Std.HashMap BindingId ValueBinding → MetaM α) : MetaM α :=
   request.environment.context.withOpen fun bindings => do
@@ -335,6 +267,196 @@ private def Kernel.lowering (kernel : Kernel)
 
 mutual
 
+/-- Send one prepared invocation on its reserved connection, then admit and stage the whole
+reply with its completion. A deferred group runs first, with the provider permit released.
+Reuse: FramedConnection.invokeControlBefore and stageCompletion. -/
+private partial def Kernel.invoke (kernel : Kernel) (request : PreparedRequest)
+    (transaction : CellTransaction) (wire : FramedConnection) (reservation : DispatchReservation)
+    (encoded : EncodedInputs) (arguments : Json) : MetaM (PreparedResponse request) := do
+  let graph ← transaction.view
+  let issued ← RequestScope.issue kernel.ledger reservation graph encoded.slots encoded.inputs #[]
+  let control ← match ← wire.invokeControlBefore kernel.ledger transaction reservation issued
+      arguments kernel.timeoutMs with
+    | .ok control => pure control
+    | .error error => portFailure error
+  let (scope, reply) ← match control with
+    | .immediate reply => pure (issued, reply)
+    | .deferred requestId calls template exports =>
+      issued.retire
+      kernel.deferred request transaction reservation encoded requestId calls template exports
+  match ← reply.stageCompletion request transaction scope wire.connection with
+  | .error failure => transactionFailure failure
+  | .ok association => request.admitResult (← transaction.view) association.response.root
+
+/-- Dispatch a published operation on its selected registration.
+`parameters` are the retained family parameters; the request supplies the action arguments. -/
+private partial def Kernel.invokeRegistration (kernel : Kernel) (request : PreparedRequest)
+    (transaction : CellTransaction) (registration : Registration) (role : String)
+    (parameters : Array ValueBinding) : MetaM (PreparedResponse request) := do
+  let wire ← kernel.connection registration.backend
+  let graph ← transaction.view
+  let inputs ← request.admitInputs graph
+  let arguments ← IO.ofExcept <| (inputs.arguments graph).mapError IO.userError
+  let roots : Array InputPosition :=
+    parameters.mapIdx (fun index binding =>
+      { path := #[.field "parameters", .index index], binding }) ++
+    arguments.mapIdx (fun index binding =>
+      { path := #[.field "arguments", .index index], binding })
+  let encoded ← IO.ofExcept <|
+    (graph.encodeInputs wire.connection.generation roots).mapError IO.userError
+  let identity : DispatchIdentity := {
+    manifestDigest := kernel.manifestDigest, registration, profileDigest := kernel.profile.sha256 }
+  let reservation ← match ← transaction.reserve request.occurrence identity wire.connection
+      (parameters ++ arguments) with
+    | .ok reservation => pure reservation
+    | .error failure => transactionFailure failure
+  kernel.dispatches.modify (·.push registration)
+  kernel.invoke request transaction wire reservation encoded <|
+    dependentContext role (encoded.values.extract 0 parameters.size)
+      (encoded.values.extract parameters.size encoded.values.size) (argumentLayouts request)
+      request.source
+
+/-- Invoke a retained native export on its original supplying connection.
+Source: execution contract v2 §4.1. No registration is searched for a selected callable. -/
+private partial def Kernel.invokeExport (kernel : Kernel) (request : PreparedRequest)
+    (transaction : CellTransaction) (callable : ValueBinding) (role : String) :
+    MetaM (PreparedResponse request) := do
+  let graph ← transaction.view
+  let code ← IO.ofExcept <| (graph.callable callable).mapError IO.userError
+  let some node := graph.find code.value
+    | throwError "internal: the native callable is outside the active graph"
+  let .ownedToken owner _ _ := node.payload.data
+    | throwError "internal: the retained callable has no native export"
+  let wire ← kernel.connectionOf owner
+  let inputs ← request.admitInputs graph
+  let arguments ← IO.ofExcept <| (inputs.arguments graph).mapError IO.userError
+  let roots : Array InputPosition := arguments.mapIdx fun index binding =>
+    { path := #[.field "arguments", .index index], binding }
+  let encoded ← IO.ofExcept <|
+    (graph.encodeExportInputs wire.connection.generation callable roots).mapError IO.userError
+  let reservation ← match ← transaction.reserveExport request.occurrence callable wire.connection
+      arguments with
+    | .ok reservation => pure reservation
+    | .error failure => transactionFailure failure
+  kernel.invoke request transaction wire reservation encoded <|
+    dependentContext role #[] encoded.values (argumentLayouts request) request.source
+
+/-- Run one call of a deferred group through the production lowerer and executor.
+Source: execution contract v2 §4 and §6; api/python-sdk.md of the leaf contract.
+A reference is resolved in the call's own scope and keeps its retained value. An inline
+operand is read at the declared type of its position. `$cas.project` and `$cas.apply` act on
+a retained value. Any other call names a published operation with its dependent context.
+Lean checks the complete call before any dispatch. -/
+private partial def Kernel.child (kernel : Kernel) (request : PreparedRequest)
+    (transaction : CellTransaction) (reservation : DispatchReservation) (scope : RequestScope)
+    (call : Json) : MetaM ValueBinding := do
+  let malformed : {α : Type} → String → MetaM α := fun reason =>
+    throwStratum .malformed m!"deferred call {call.compress}: {reason}"
+  let graph ← transaction.view
+  let retained : Json → MetaM (Option ValueBinding) := fun packet => do
+    match ScopedReference.parse? packet with
+    | .error reason => malformed reason
+    | .ok none => return none
+    | .ok (some reference) =>
+      let #[binding] ← scope.resolveMany reservation graph scope.wireId #[reference]
+        | throwError "internal: one scoped reference resolved to several values"
+      return some binding
+  let operation ← match call.getObjValAs? String "op" with
+    | .ok operation => pure operation
+    | .error reason => malformed reason
+  let arguments ← match call.getObjVal? "args" with
+    | .ok arguments => pure arguments
+    | .error reason => malformed reason
+  let list : Json → String → MetaM (Array Json) := fun packet key =>
+    match (packet.getObjVal? key).bind (·.getArr?) with
+    | .ok values => pure values
+    | .error reason => malformed reason
+  withSourceScope request fun context bound => do
+    let reference : Json → MetaM (ValueBinding × Expr) := fun packet => do
+      let some binding ← retained packet | malformed "the acted value must be a scoped reference"
+      return (binding, ← markValue kernel.marks binding (← binding.role.source.inContext context))
+    -- Apply to every wire operand in order. A formal proof premise has no wire position.
+    let applied : Expr → Array Json → MetaM Expr := fun function packets => do
+      let mut term := function
+      for packet in packets do
+        let .forallE _ domain _ _ ← whnf (← inferType term)
+          | malformed "more operands than the declared interface"
+        if ← isProp domain then malformed "the call requires a formal premise that no leaf supplies"
+        let operand ← match ← retained packet with
+          | some binding => do
+            let source ← binding.role.source.inContext context
+            unless ← isDefEq (← inferType source) domain do
+              malformed "a referenced operand has a different declared type"
+            markValue kernel.marks binding source
+          | none => do
+            let some literal ← ScalarLiteral.readAt (← instantiateMVars domain) packet
+              | malformed "an inline operand has no scalar reading at its declared type"
+            pure literal
+        term := mkApp term operand
+      return term
+    let term ← if operation == "$cas.project" then do
+        let (binding, source) ← reference ((arguments.getObjVal? "value").toOption.getD .null)
+        let position ← match arguments.getObjValAs? Nat "field" with
+          | .ok position => pure position
+          | .error reason => malformed reason
+        let some field := binding.role.fields.find? (·.wireIndex == some position)
+          | malformed "the field is outside the prepared record interface"
+        projectTerm source field
+      else if operation == "$cas.apply" then do
+        let (_, source) ← reference ((arguments.getObjVal? "value").toOption.getD .null)
+        applied source (← list arguments "arguments")
+      else do
+        let state ← semanticState
+        let some family := publishedFamily? state operation
+          | malformed "the operation is not a published address"
+        let declaration ← family.declaration state
+        let selected := match family with
+          | .method id => sourceReference ``MethodEntry id.raw declaration
+          | .construction id => sourceReference ``ConstructionEntry id.raw declaration
+          | .functor id => sourceReference ``EdgeRef.functor id.raw declaration
+          | .operation _ | .morphism _ => id
+        let mut term ← applied (selected (← mkConstWithFreshMVarLevels declaration))
+          (← list arguments "parameters")
+        let role ← match arguments.getObjValAs? String "prepared_role" with
+          | .ok role => pure role
+          | .error reason => malformed reason
+        for name in (role.splitOn "/").filter (!·.isEmpty) do
+          let some info := (← getEnv).getProjectionFnInfo? name.toName
+            | malformed s!"{name} is not a field of the published interface"
+          term := .proj (← getConstInfoCtor info.ctorName).induct info.i term
+        applied term (← list arguments "arguments")
+    let term ← instantiateMVars term
+    if term.hasMVar || term.hasLevelMVar then malformed "the call leaves a parameter undetermined"
+    lowerTerm (kernel.lowering kernel.executor transaction) request.program context bound term
+
+/-- Execute an ordered deferred group and form its final immediate control.
+Source: execution contract v2 §6. Each child has a fresh scope over the original inputs and
+the completed prefix of results. The final template is read in a scope over all results and
+is then admitted at the parent's prepared role, like an immediate reply. -/
+private partial def Kernel.deferred (kernel : Kernel) (request : PreparedRequest)
+    (transaction : CellTransaction) (reservation : DispatchReservation) (encoded : EncodedInputs)
+    (requestId : Nat) (calls : Array Json) (template exports : Json) :
+    MetaM (RequestScope × ImmediateReply) := do
+  let mut results : Array ValueBinding := #[]
+  for call in calls do
+    let scope ← RequestScope.issue kernel.ledger reservation (← transaction.view) encoded.slots
+      encoded.inputs results
+    let value ← try kernel.child request transaction reservation scope call
+      finally scope.retire
+    results := results.push value
+  let graph ← transaction.view
+  let scope ← RequestScope.issue kernel.ledger reservation graph encoded.slots encoded.inputs
+    results
+  let frame := Json.mkObj [("request_id", toJson requestId), ("status", "ok"),
+    ("value", template), ("exports", exports)]
+  let reply ← try
+      liftM (m := IO) <| ImmediateReply.parseControl scope reservation graph scope.wireId
+        requestId frame
+    catch error => throwStratum .malformed m!"deferred result: {← error.toMessageData.toString}"
+  return (scope, reply)
+
+
+
 /-- Evaluate a checked source term for a claimed demand and complete that demand. -/
 private partial def Kernel.evaluate (kernel : Kernel) (request : PreparedRequest)
     (transaction : CellTransaction)
@@ -358,7 +480,7 @@ private partial def Kernel.reach (kernel : Kernel) (request : PreparedRequest)
   let forms ← withSourceScope request fun context _ => inputForms reference context arguments
   match ← kernel.select reference address forms with
   | .registration registration =>
-    let role := ".".intercalate (path.map (·.projection.toString)).toList
+    let role := "/".intercalate (path.map (·.projection.toString)).toList
     kernel.invokeRegistration request transaction registration role parameters
   | .derivation checked =>
     kernel.evaluate request transaction fun context => do
