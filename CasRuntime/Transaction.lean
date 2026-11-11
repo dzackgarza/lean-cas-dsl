@@ -22,16 +22,20 @@ inductive TransactionFailure
   | producerInternal (id : Nat) (extra : List (Name × DataValue))
   deriving BEq, Repr
 
-/-- Completed native interface admission and its exact invocation provenance.
+/-- The actual producer of a completed demand: one framed provider invocation, or the kernel's
+own evaluation of retained code and stored fields, which sends no frame. -/
+inductive CompletionProducer
+  | invocation (dispatch : DispatchReservation) (scope : RuntimeId .scope) (requestId : Nat)
+  | kernel
+
+/-- Completed native interface admission and its exact provenance.
 References point into the ordinary graph; this record owns no second payload heap. -/
 structure CompletionAssociation where
   private mk ::
   request : CasCompiler.PreparedRequest
   response : CasCompiler.PreparedResponse request
   inputs : InputRoleMap
-  dispatch : DispatchReservation
-  scope : RuntimeId .scope
-  requestId : Nat
+  producer : CompletionProducer
 
 structure StagedCompletion where
   private mk ::
@@ -438,7 +442,7 @@ opaque CellTransaction.completeReply (transaction : CellTransaction) (draft : Ce
         (m := Std.AtomicT CellState BaseIO) dependencies do
       unless ← transaction.ledger.retire dispatch do return .error .invalidCompletion
       let association : CompletionAssociation :=
-        ⟨request, response, inputs, dispatch, scope.id, reply.requestId⟩
+        ⟨request, response, inputs, .invocation dispatch scope.id reply.requestId⟩
       let completion : StagedCompletion := ⟨transaction.id, association⟩
       if let some signal := cell.readySignals[request.occurrence]? then signal.resolve ()
       set (CellState.active { cell with
@@ -452,6 +456,44 @@ opaque CellTransaction.completeReply (transaction : CellTransaction) (draft : Ce
       return .ok association
     if let some (.ok _) := outcome then scope.retire
     return outcome.getD (.error .staleOwner)
+
+/-- Complete a claimed demand that the kernel evaluated from retained code or stored fields.
+No dispatch right is consumed and no frame exists. The occurrence leaves the fresh state,
+so a later demand cannot dispatch it. Later demands in this cell reuse this completion.
+Reuse: the claim, owner gate and completion table of completeReply. -/
+opaque CellTransaction.completeKernel (transaction : CellTransaction)
+    (request : CasCompiler.PreparedRequest) (response : CasCompiler.PreparedResponse request) :
+    MetaM (Except TransactionFailure CompletionAssociation) := do
+  let graph ← transaction.view
+  let inputs ← request.admitInputs graph
+  let response ← request.admitResult graph response.root
+  liftM (m := BaseIO) <| transaction.state.atomically do
+    let .active cell ← get | return .error .settled
+    unless request.program.worker == transaction.id.worker &&
+        cell.graph.sameRevision graph do return .error .invalidCompletion
+    if cell.completions.any (·.association.request.occurrence == request.occurrence) ||
+        (cell.parent.receipt request.occurrence).isSome then return .error .invalidCompletion
+    unless cell.claims[request.occurrence]? == some request.roles.scope do
+      return .error .invalidCompletion
+    if (← transaction.ledger.pendingFor request.occurrence transaction.id).isSome then
+      return .error .invalidCompletion
+    let outputs := response.roles.references
+    let .ok dependencies := cell.graph.requiredOwners (outputs ++ inputs.references)
+      | return .error .referenceOutsideGraph
+    let outcome : Option CompletionAssociation ← transaction.owners.atomicallyWhileLive
+        (m := Std.AtomicT CellState BaseIO) dependencies do
+      transaction.ledger.abandon request.occurrence
+      let association : CompletionAssociation := ⟨request, response, inputs, .kernel⟩
+      if let some signal := cell.readySignals[request.occurrence]? then signal.resolve ()
+      set (CellState.active { cell with
+        roots := cell.roots ++ outputs
+        completions := cell.completions.push ⟨transaction.id, association⟩
+        readySignals := cell.readySignals.erase request.occurrence
+        claims := cell.claims.erase request.occurrence })
+      return association
+    return match outcome with
+      | some association => .ok association
+      | none => .error .staleOwner
 
 /-- Settle with plain diagnostic/status metadata, dropping every staged value and completion.
 The first settlement wins. Native exception data use Lean's literal KVMap entries, not message callbacks. -/
