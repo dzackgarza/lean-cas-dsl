@@ -104,10 +104,12 @@ opaque SourceSession.readQuestion (session : SourceSession) (stx : TSyntax `cas_
     TermElabM SourceTerm :=
   session.elaborate stx fun context => questionExpression (sourceCategory session context) stx
 
-/-- A definition extends the native scope. A question retains that scope without extending it. -/
+/-- A definition extends the native scope. A question retains that scope without extending it.
+An implementation request asks that the installed computations produce the value. -/
 inductive SourceStatement where
   | definition (session : SourceSession) (value : SourceTerm)
   | question (proposition : SourceTerm)
+  | implemented (value : SourceTerm)
 
 private partial def patternFunction (pattern body : TSyntax `cas_term) :
     TermElabM (TSyntax `cas_term) :=
@@ -142,9 +144,8 @@ opaque SourceSession.readStatement (session : SourceSession) (stx : TSyntax `cas
     -- preceding bindings; its span refers to the original statement, not generated syntax.
     let value ← session.readAt stx translated
     return .definition (← session.defineTerm name.getId value) value
-  | `(cas_stmt| assert implemented $_:cas_term) =>
-    CasCatalogue.throwUnsupportedSource
-      "source implementation requests require their prepared computational obligation"
+  | `(cas_stmt| assert implemented $body:cas_term) =>
+    return .implemented (← session.read body)
   | `(cas_stmt| assert $body:cas_term) =>
     return .question (← session.readQuestion body)
   | _ =>

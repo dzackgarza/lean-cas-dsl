@@ -199,6 +199,16 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
         | some binding => session.bound.insert entry.id binding
         | none => session.bound
       return { outcome := .holds, session := { session with source := next, bound } }
+    | .implemented value =>
+      -- The value is computed in its own cell. A gap or a failed computation is the outcome.
+      let transaction ← CellTransaction.begin session.kernel.ledger
+      let shown ← session.source.context.withOpen fun bindings => do
+        let context ← ContextTelescope.capture bindings
+        let expression ← value.source.inContext context
+        discard <| session.kernel.run transaction context session.bound expression
+        return toString (← ppExpr expression)
+      commit transaction
+      return { outcome := .holds, session, proposition := shown }
     | .question proposition =>
       let transaction ← CellTransaction.begin session.kernel.ledger
       let (outcome, shown) ← session.source.context.withOpen fun bindings => do

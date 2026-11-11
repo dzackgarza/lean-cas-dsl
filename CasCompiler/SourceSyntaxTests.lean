@@ -122,6 +122,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           value.span.fileName == "source-statements.cas" do
         throwError "source statement formation lost its declaration or original location"
       session := next
+    | .implemented _ => throwError "these source statements contain no implementation request"
     | .question proposition =>
       unless proposition.source.context.entries.size == 6 &&
           session.context.entries.size == 6 do

@@ -242,7 +242,8 @@ opaque observeFile (file : SourceFile) (initial : SourceSession) : TermElabM Obs
         let formed ← session.readStatement statement
         match formed with
         | .definition next _ => pure (.ok (Sum.inl next))
-        | .question term => pure (.ok (Sum.inr (← reading session where_ provenance term)))
+        | .question term | .implemented term =>
+          pure (.ok (Sum.inr (← reading session where_ provenance term)))
       catch error =>
         saved.restore
         pure (.error (← failure where_ stage error))
