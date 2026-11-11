@@ -121,6 +121,7 @@ import all CasRuntime.ExportCaptureTests
 import all CasCompiler.Lower
 import all CasRuntime.Kernel
 import all CasRuntime.Session
+import all CasRuntime.SessionTests
 import all CasContract
 import all CasContract.Failure
 import all CasContract.Port
