@@ -15,3 +15,5 @@ public import CasRuntime.Literal
 public import CasRuntime.Materialize
 public import CasRuntime.Transport
 public import CasRuntime.Realization
+public import CasRuntime.Kernel
+public import CasRuntime.Session

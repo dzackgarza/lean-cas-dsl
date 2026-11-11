@@ -10,8 +10,9 @@ public import CasCatalogue
 # CasDsl — the notebook surface
 
 Syntax only. A notebook cell is a Lean command over the core's surfaces: a statement of the
-language (`#cas "assert |Fin(3)| = 3"`), read from the catalogue and decided in Lean or through
-the installed leaves' registrations (`CasCatalogue.TestSuite`); `#resolve` and `#methods`, the
+language (`#cas "assert |Fin(3)| = 3"`), read from the catalogue, lowered and run by the kernel
+executor through the installed leaves' registrations (`CasCatalogue.TestSuite`,
+`CasRuntime.KernelSession`); `#resolve` and `#methods`, the
 resolution and the operation surface a category has; `cell%`, a composite of registered cells.
 
 This package declares nothing and registers nothing: every value is a term of the catalogue's

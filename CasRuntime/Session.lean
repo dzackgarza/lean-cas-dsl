@@ -62,15 +62,38 @@ structure KernelSession where
   private mk ::
   kernel : Kernel
   source : SourceSession
+  /-- Compute every question through the kernel, with no discharge in Lean. -/
+  computationOnly : Bool
   private bound : Std.HashMap BindingId ValueBinding
 
-/-- Start a session on the manifest. The caller owns the Environment that holds the snapshot. -/
-opaque KernelSession.start (manifest : System.FilePath) (profile : Option Json := none)
-    (timeoutMs : UInt32 := 600000) : MetaM KernelSession := do
+/-- The installed leaves' manifest when none is named: `CAS_LEAVES`, the leaves package
+directory or its manifest file, else `.lake/packages/cas_leaves`. An absent default manifest
+installs no leaf. Source: api/manifest.md of the leaf contract. -/
+def installedManifest : IO (Option System.FilePath) := do
+  let path : System.FilePath ← match ← IO.getEnv "CAS_LEAVES" with
+    | some leaves =>
+      let leaves : System.FilePath := leaves
+      pure (if leaves.extension == some "json" then leaves else leaves / manifestFile)
+    | none => pure ((".lake" / "packages" / "cas_leaves" : System.FilePath) / manifestFile)
+  return if ← path.pathExists then some path else none
+
+/-- Start a session on the named manifest, or on the installed one. The realization profile
+is the file named by `CAS_REALIZATION_PROFILE` (execution contract v2 §5.3).
+The caller owns the Environment that holds the runtime snapshot. -/
+opaque KernelSession.start (manifest : Option System.FilePath := none)
+    (computationOnly : Bool := false) (timeoutMs : UInt32 := 600000) : MetaM KernelSession := do
+  let manifest ← match manifest with
+    | some path => pure (some path)
+    | none => installedManifest
+  let profile ← match ← IO.getEnv "CAS_REALIZATION_PROFILE" with
+    | none => pure none
+    | some path => do
+      let json ← IO.ofExcept <| (Json.parse (← IO.FS.readFile path)).mapError IO.userError
+      pure (some json)
   let owners ← OwnerRegistry.new
   discard <| SessionSnapshot.initialize owners
   return ⟨← Kernel.load owners manifest profile timeoutMs,
-    ← SourceSession.empty owners.identities, {}⟩
+    ← SourceSession.empty owners.identities, computationOnly, {}⟩
 
 opaque KernelSession.close (session : KernelSession) : IO Unit := session.kernel.close
 
@@ -90,7 +113,7 @@ private def discharged (session : KernelSession) (context : OpenContext) (propos
     MetaM (Option Bool) := do
   let retained := context.bindings.any fun binding =>
     (session.bound[binding.id]?).isSome && proposition.containsFVar binding.expression.fvarId!
-  if retained then return none
+  if retained || session.computationOnly then return none
   let proposition ← zetaReduce proposition
   if proposition.hasFVar then return none
   Decide.decideProp proposition
@@ -117,12 +140,19 @@ private def compare (session : KernelSession) (transaction : CellTransaction)
   | some false => return .wrong s!"computed {shown.compress}, compared with {expected.compress}"
   | none => return .gap "equality of the computed values is not decided in Lean"
 
+/-- The result of one statement: its outcome, the session after it and, for a question,
+the proposition that the reader formed. -/
+structure StatementRun where
+  outcome : Outcome
+  session : KernelSession
+  proposition : String := ""
+
 /-- Run one public statement through the production reader, lowerer and executor.
 A definition extends the source session and retains its computed value for later statements.
 A question is discharged in Lean when it is decidable there, and is otherwise computed.
 Each statement is one cell: its results are published together or not at all. -/
 opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stmt) :
-    TermElabM (Outcome × KernelSession) := do
+    TermElabM StatementRun := do
   let saved ← saveState
   try
     match ← session.source.readStatement statement with
@@ -140,24 +170,26 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
       let bound := match binding with
         | some binding => session.bound.insert entry.id binding
         | none => session.bound
-      return (.holds, ⟨session.kernel, next, bound⟩)
+      return { outcome := .holds, session := { session with source := next, bound } }
     | .question proposition =>
       let transaction ← CellTransaction.begin session.kernel.ledger
-      let outcome ← session.source.context.withOpen fun bindings => do
+      let (outcome, shown) ← session.source.context.withOpen fun bindings => do
         let context ← ContextTelescope.capture bindings
         let asked ← proposition.source.inContext context
-        match ← discharged session context asked with
-        | some true => return .holds
-        | some false => return .wrong "Lean decides the negation of the statement"
-        | none =>
-          match asked.eq? with
-          | some (_, left, right) => compare session transaction context left right
-          | none => return .gap "the statement is not an equality of computed values"
+        let shown := toString (← ppExpr asked)
+        let outcome ← match ← discharged session context asked with
+          | some true => pure .holds
+          | some false => pure (.wrong "Lean decides the negation of the statement")
+          | none =>
+            match asked.eq? with
+            | some (_, left, right) => compare session transaction context left right
+            | none => pure (.gap "the statement is not an equality of computed values")
+        return (outcome, shown)
       commit transaction
-      return (outcome, session)
+      return { outcome, session, proposition := shown }
   catch error =>
     let outcome ← Outcome.ofException error
     saved.restore
-    return (outcome, session)
+    return { outcome, session }
 
 end CasRuntime

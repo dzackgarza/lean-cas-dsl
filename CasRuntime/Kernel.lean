@@ -24,18 +24,57 @@ structure Kernel where
   manifestDigest : String
   profile : RealizationProfile
   timeoutMs : UInt32
+  /-- Registrations of the manifest that name no published operation or declared backend. -/
+  rejected : Array String
   private connections : IO.Ref (Std.HashMap String FramedConnection)
   codes : IO.Ref (Std.HashMap (RuntimeId .program) ClosureCode)
   marks : IO.Ref (Array ValueBinding)
+  /-- The registrations actually dispatched, in order. An observation, not evidence. -/
+  dispatches : IO.Ref (Array Registration)
 
-/-- Read and freeze the manifest and profile before any invocation. No process starts here. -/
-opaque Kernel.load (owners : OwnerRegistry) (manifest : System.FilePath)
+private def referenceId : ComputationRef → String
+  | .operation id => id.raw
+  | .functor id => id.raw
+  | .method id => id.raw
+  | .construction id => id.raw
+  | .morphism id => id.raw
+
+/-- The published family that an operation address names: the family address itself, or the
+address of one of its fields (`<id>#map`). An unknown address creates no operation. -/
+private def publishedFamily? (state : SemanticState) (address : String) : Option ComputationRef :=
+  let id := (address.splitOn "#").head!
+  (state.operations.find? (·.id.raw == id) |>.map (.operation ·.id)) <|>
+  (state.methods.find? (·.id.raw == id) |>.map (.method ·.id)) <|>
+  (state.functors.find? (·.id.raw == id) |>.map (.functor ·.id)) <|>
+  (state.constructions.find? (·.id.raw == id) |>.map (.construction ·.id)) <|>
+  (state.morphisms.find? (·.id.raw == id) |>.map (.morphism ·.id))
+
+/-- Read and freeze the manifest and profile before any invocation. No process starts here.
+Without a manifest no leaf is installed. A registration is admitted when its operation is the
+address of a published family and its backend is declared. Rejections are reported, and a
+rejected registration is never selected. -/
+opaque Kernel.load (owners : OwnerRegistry) (manifest : Option System.FilePath)
     (profile : Option Json) (timeoutMs : UInt32) : MetaM Kernel := do
-  let text ← IO.FS.readFile manifest
+  let (root, text) ← match manifest with
+    | some path => pure (path.parent.getD ".", ← IO.FS.readFile path)
+    | none => pure (".", "{}")
   let parsed ← IO.ofExcept <| (Json.parse text >>= Manifest.parse).mapError IO.userError
-  return ⟨← OccurrenceLedger.new owners, manifest.parent.getD ".", parsed, ← sha256Hex text,
-    ← RealizationProfile.prepare parsed profile, timeoutMs, ← IO.mkRef {}, ← IO.mkRef {},
-    ← IO.mkRef #[]⟩
+  let state ← semanticState
+  let mut admitted := #[]
+  let mut rejected := #[]
+  for registration in parsed.registrations do
+    let described :=
+      s!"{registration.operation} on {registration.input} by {registration.backend}"
+    if (publishedFamily? state registration.operation).isNone then
+      rejected := rejected.push s!"{described}: {registration.operation} is not a published operation"
+    else if !parsed.backends.any (·.name == registration.backend) then
+      rejected := rejected.push
+        s!"{described}: the backend {registration.backend} is not declared in the manifest"
+    else admitted := admitted.push registration
+  let installed := { parsed with registrations := admitted }
+  return ⟨← OccurrenceLedger.new owners, root, installed, ← sha256Hex text,
+    ← RealizationProfile.prepare installed profile, timeoutMs, rejected, ← IO.mkRef {},
+    ← IO.mkRef {}, ← IO.mkRef #[], ← IO.mkRef #[]⟩
 
 /-- Close every started connection. Their generations become invalid for later demands. -/
 opaque Kernel.close (kernel : Kernel) : IO Unit := do
@@ -78,13 +117,6 @@ private def Kernel.connectionOf (kernel : Kernel) (owner : ConnectionGeneration)
   for (_, wire) in (← kernel.connections.get).toList do
     if wire.connection.generation == owner then return wire
   throwStratum .unavailable "stale_owner"
-
-private def referenceId : ComputationRef → String
-  | .operation id => id.raw
-  | .functor id => id.raw
-  | .method id => id.raw
-  | .construction id => id.raw
-  | .morphism id => id.raw
 
 private def kindName : ComputationalKind → String
   | .proof => "proof"
@@ -239,6 +271,7 @@ private def Kernel.invokeRegistration (kernel : Kernel) (request : PreparedReque
       (parameters ++ arguments) with
     | .ok reservation => pure reservation
     | .error failure => transactionFailure failure
+  kernel.dispatches.modify (·.push registration)
   kernel.invoke request transaction wire reservation encoded <|
     dependentContext role (encoded.values.extract 0 parameters.size)
       (encoded.values.extract parameters.size encoded.values.size) (argumentLayouts request)

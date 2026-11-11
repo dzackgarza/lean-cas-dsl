@@ -9,3 +9,4 @@ public import CasCompiler.Read
 public import CasCompiler.Resolve
 public import CasCompiler.Equality
 public import CasCompiler.Program
+public import CasCompiler.Lower

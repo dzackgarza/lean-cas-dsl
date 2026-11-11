@@ -34,7 +34,7 @@ published on its own so that a leaf depends on nothing of the kernel
 (`lean-cas-dsl-leaf-contracts`). The leaves themselves (`lean-cas-dsl-leaves`) are not a Lake
 dependency: a leaf ships no Lean, and the kernel imports nothing from it
 (`specs/leaf-registration.md`). The suite finds their manifest `leaves.json` through
-`CAS_LEAVES` (`CasCatalogue.Realize.Harness.load`). -/
+`CAS_LEAVES` (`CasRuntime.installedManifest`). -/
 require cas_leaf_contracts from git
   "https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts" @ "main"
 

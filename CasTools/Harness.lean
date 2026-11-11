@@ -16,12 +16,12 @@ public import Lean.Elab.Frontend
 imports, into a fresh environment,
 the catalogue and the language, and runs every file of the suite (`tests/acceptance` by default)
 with `#cas_tests`, through the registrations of the manifest `FILE` (by default the installed
-leaves', `CasCatalogue.Realize.leavesManifest`). The leaves see neither the suite nor the harness:
+leaves', `CasRuntime.installedManifest`). The leaves see neither the suite nor the harness:
 a leaf is a manifest and the programs it names, imported by nothing (`specs/leaf-registration.md`).
 It prints each file's report, writes every result as JSON to the report file, and exits nonzero if
 a test fails (`Outcome.fails`). Gaps are its output: the implementations the suite derives.
 
-`--computation-only` evaluates the same interpreted questions through the realization path,
+`--computation-only` computes the same questions through the kernel executor,
 without Lean proof discharge. Each result includes the actual runner dispatches made during
 that assertion, so required registered execution can be checked separately from its outcome.
 Dispatch records do not establish mathematical correctness.
