@@ -389,6 +389,11 @@ partial def readExpression
       sourceBinaryLimit left right true
     | `(cas_term| $left:cas_term + $right:cas_term) =>
       elementOperation "+" #[left, right] #[] #[] none
+    | `(cas_term| $left:cas_term - $right:cas_term) => do
+      -- `x - y` is `x + -y` in the selected structure (public language contract).
+      -- The expansion is read once through the same registered addition and negation.
+      return ← readExpression categoryOf (← `(cas_term| $left:cas_term + (-$right:cas_term)))
+        expected qualification expectedCategory
     | `(cas_term| $left:cas_term ≤ $right:cas_term) => relation "≤" left right
     | `(cas_term| $left:cas_term < $right:cas_term) => relation "<" left right
     | `(cas_term| $receiver.$method:ident()) =>
