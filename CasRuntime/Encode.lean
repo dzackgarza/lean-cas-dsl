@@ -99,6 +99,34 @@ private def encodeRoots (graph : ValueGraph) (receiver : ConnectionGeneration)
     state := next
   return ⟨values, state.slots.extract captures.size state.slots.size, state.inputs⟩
 
+/-- The original packet of retained portable data. Native exports and closures have none.
+Reuse: the stored literal structure and ValueContainer.fill, as in receiver encoding. -/
+partial def ValueGraph.packet? (graph : ValueGraph) (binding : ValueBinding) :
+    Except String (Option Json) := do
+  let some node := graph.find binding.value | throw "the value is outside the visible graph"
+  match node.payload.data with
+  | .portable bytes =>
+    let some text := String.fromUTF8? bytes | throw "the portable value is not UTF-8 packet data"
+    return some (← Json.parse text)
+  | .ownedToken .. | .closure .. => return none
+  | .container container =>
+    if binding.role.kind == .function || container.callable.isSome then return none
+    let mut replacements := #[]
+    for slot in container.slots do
+      let actual ← match slot.fieldIndex with
+        | none => pure slot.binding
+        | some index => graph.project binding index
+      let some packet ← graph.packet? actual | return none
+      replacements := replacements.push packet
+    return some (← container.fill replacements)
+  | .product fields =>
+    let mut packets := #[]
+    for index in [:fields.size] do
+      let some packet ← graph.packet? (← graph.project binding index) | return none
+      packets := packets.push packet
+    if let #[packet] := packets then return some packet
+    return some (.arr packets)
+
 /-- Primitive scopes have no retained export capture prefix. -/
 opaque ValueGraph.encodeInputs (graph : ValueGraph) (receiver : ConnectionGeneration)
     (roots : Array InputPosition) : Except String EncodedInputs :=

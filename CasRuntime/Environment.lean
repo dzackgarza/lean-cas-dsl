@@ -188,8 +188,11 @@ private partial def checkResultValue (environment : RuntimeEnvironment) (graph :
     let expected ← inferType (← source.source.inContext context)
     checkNativeType context expected value node.origin
     checkDependencies context environment.bindingMap expected value node.origin
-    let .ok candidate := CandidateResponse.ofValue source graph value
-      | throwError "the prepared result has an incompatible computational interface"
+    let candidate ← match CandidateResponse.ofValue source graph value with
+      | .ok candidate => pure candidate
+      | .error reason =>
+        throwError "the prepared result has an incompatible computational interface: {reason} \
+          at {← source.source.inContext context}"
     let stored := match node.payload.data with
       | .product _ | .container _ => true
       | _ => false

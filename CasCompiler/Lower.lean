@@ -12,6 +12,8 @@ namespace CasCompiler
 
 open Lean Meta CasRuntime CasCatalogue
 
+initialize registerTraceClass `cas.lower
+
 /-- Operational code of a kernel closure. The value node retains the actual captures.
 Source: data model §5, ComputationalClosure, lean-cas-dsl#66 comment 6664275536. -/
 inductive ClosureCode
@@ -124,6 +126,10 @@ private partial def literal? (expression : Expr) : MetaM (Option Json) := do
   if let some value := expression.nat? then return some (toJson value)
   if let some value := expression.int? then return some (toJson value)
   if let .lit (.strVal value) := expression then return some (toJson value)
+  if expression.isAppOfArity ``Int.ofNat 1 then
+    if let some value := expression.appArg!.rawNatLit? then return some (toJson (Int.ofNat value))
+  if expression.isAppOfArity ``Int.negSucc 1 then
+    if let some value := expression.appArg!.rawNatLit? then return some (toJson (Int.negSucc value))
   if let some (_, elements) := expression.listLit? then
     let mut packets := #[]
     for element in elements do
@@ -145,6 +151,20 @@ private partial def literal? (expression : Expr) : MetaM (Option Json) := do
     if let #[packet] := packets then return some packet
     return some (.arr packets)
   return some (Json.mkObj [("ctor", toJson name.getString!), ("args", .arr packets)])
+
+/-- Closed ground data with no published computation family is ordinary Lean data: a numeral,
+a finite index, a tuple of such. Lean's reduction gives its literal form.
+A term that names a published family is never reduced here: its definition is mathematics,
+and its computation is the published interface (mathematical-input contract §2).
+Reuse: Lean.Meta.reduce at Lean v4.33.0. -/
+private def evaluated? (state : SemanticState) (expression type : Expr) : MetaM (Option Json) := do
+  if expression.hasFVar || expression.hasMVar || type.isForall || type.isSort then return none
+  if (expression.find? fun term => match term with
+      | .mdata data _ => (markedKey? data).isSome
+      | _ => false).isSome then return none
+  unless expression.getUsedConstants.all fun name => (computationRefs state name).isEmpty do
+    return none
+  literal? (← reduce expression (skipTypes := true) (skipProofs := true))
 
 private structure Symbol where
   packet : Json
@@ -262,11 +282,16 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
   | .lam .. => closure expression
   | _ =>
     let type ← whnf (← inferType expression)
+    trace[cas.lower] "{expression.getAppFn} [{expression.getAppNumArgs}] : {type}"
     if ← isProp type then throwError "internal: a source proof has no computational value"
     if type.isSort then return ← formal expression #[]
     if (← isClass? type).isSome then return ← closure expression
-    if let some packet ← literal? expression then
-      return ← stage expression (.portable packet.compress.toUTF8)
+    -- A structure value is a dependent record of its fields. Only data-kind terms are packets.
+    unless (type.getAppFn.constName?.map (isStructure (← getEnv))).getD false do
+      if let some packet ← literal? expression then
+        return ← stage expression (.portable packet.compress.toUTF8)
+      if let some packet ← evaluated? (← semanticState) expression type then
+        return ← stage expression (.portable packet.compress.toUTF8)
     let reduced ← withConfig (fun config => { config with zeta := false, zetaDelta := false })
       (whnfCore expression)
     if reduced != expression then return ← lower reduced

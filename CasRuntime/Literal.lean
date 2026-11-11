@@ -122,4 +122,11 @@ opaque check (source : SourceLayout) (packet : Json) : MetaM Status := do
     let some _ ← decode (← inferType expression) packet | return .notScalar
     return .checked
 
+/-- Read a wholly inline closed scalar candidate as a native value of its source type.
+The value is computational data for a comparison of candidates. It proves nothing about
+the computation that returned it. Reuse: the checked decoder above. -/
+opaque read (source : SourceLayout) (packet : Json) : MetaM (Option Expr) := do
+  let .ok () := CasRuntime.checkLiteral packet | return none
+  source.source.withOpen fun _ expression => do decode (← inferType expression) packet
+
 end CasRuntime.ScalarLiteral
