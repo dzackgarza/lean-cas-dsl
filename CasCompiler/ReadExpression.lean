@@ -96,13 +96,19 @@ partial def readExpression
     for argument in arguments, hole in holes do
       let type ← instantiateMVars (← inferType hole)
       -- An object of another selected category is viewed along its structural route.
-      let viewed ← if sourceNumeric argument.raw then pure none else do
+      let viewed : Option NativeSourceJudgement ← if sourceNumeric argument.raw then pure none else do
         let some category ← sourceObjectCategory? type | pure none
         let object ← readExpression categoryOf argument none
         let some selected := object.category | pure none
         if selected.role != .object || selected.expression.syntacticEq category.expression then
           pure none
-        else pure (some (← sourceStructuralView object category.expression))
+        else
+          -- Without a structural route the argument is read at the parameter's own category,
+          -- where its name may select that category's row.
+          let routes ← SourceRoutes.forOwner selected.expression category.expression
+          let routed := (← routes.finiteRoutes).all (! ·.isEmpty)
+          if routed then pure (some (← sourceStructuralView object category.expression))
+          else pure none
       let value ← match viewed with
         | some value => pure value
         | none => readExpression categoryOf argument (some type)
