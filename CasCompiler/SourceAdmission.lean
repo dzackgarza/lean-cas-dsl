@@ -17,6 +17,26 @@ def sourceExplicitArguments (expression : Expr) : MetaM (Array Expr) := do
   return (arguments.zip (info.paramInfo.map (·.isExplicit))).filterMap fun (argument, explicit) =>
     if explicit then some argument else none
 
+/-- The unique registered object family application that is the native type `type` by reducible
+unification (`polynomials ℤ` for `Polynomial ℤ`), or `type` itself when there is none or several. -/
+def sourceRegisteredForm (type : Expr) : MetaM Expr := do
+  let mut found := #[]
+  for entry in (← semanticState).objects do
+    discard <| checkedDeclaration entry.declaration
+    let family ← mkConstWithFreshMVarLevels entry.declaration
+    let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
+    let object := mkAppN family parameters
+    let applicable ← withoutModifyingState do
+      unless ← withReducible (isDefEq object type) do return false
+      return !(← instantiateMVars object).hasMVar
+    if applicable then
+      discard <| withReducible (isDefEq object type)
+      let object ← instantiateMVars object
+      unless found.contains object do found := found.push object
+  match found with
+  | #[object] => return object
+  | _ => return type
+
 /-- The registered object with an admission whose object family, at the parameters that
 reducible unification determines, is the native type `type` (`ℙ` for `Nat.Primes`). -/
 def sourceAdmissionDomain? (type : Expr) : MetaM (Option ObjectEntry) := do
@@ -45,7 +65,9 @@ private def establish (entry : ObjectEntry) (obligation : Expr) : TermElabM Expr
   if closed.hasFVar || closed.hasMVar then
     throwStratum .invalid
       m!"the hypothesis {closed} of {entry.name} is about a value that is not closed"
-  let goal ← mkFreshExprMVar closed .syntheticOpaque
+  -- The procedure is stated of the value's mathematics, not the reader's categorical plumbing.
+  let presented ← Evaluation.evidencePresentation (← semanticState) closed
+  let goal ← mkFreshExprMVar presented .syntheticOpaque
   match ← Evaluation.runProcedure evidence goal.mvarId! with
   | .error message =>
     throwStratum .invalid m!"{closed} is not established by the evidence of {entry.name}: {message}"
@@ -80,6 +102,9 @@ def sourceAdmission (entry : ObjectEntry) (target : Expr) (read : Expr → TermE
       (type.findMVar? (· == arguments[index]!.mvarId!)).isNone
     | throwError "the admission of {entry.name} takes no value"
   let value ← read (← instantiateMVars (← inferType arguments[element]!))
+  -- A closed value is admitted at its plumbing-free normal form, which is definitionally it.
+  let value ← if (← zetaReduce value).hasFVar then pure value
+    else Evaluation.normalizedValue (← zetaReduce (← instantiateMVars value))
   unless ← isDefEq arguments[element]! value do
     throwStratum .invalid m!"the value is not in the set that {entry.name} is included in"
   for argument in arguments, info in infos do

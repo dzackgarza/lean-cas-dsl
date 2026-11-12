@@ -120,4 +120,158 @@ def decideEvaluated (p : Expr) (extra : Array Name := #[]) : TermElabM (Option B
   if ← evaluatedDecides evaluations (mkNot p) then return some false
   return none
 
+/-- The heads whose unfolding is the categorical and representational plumbing the kernel builds
+values with (composites, identities, `ofHom`, limit presentations and their mediators, the
+catalogue's definitions, function application of maps), as opposed to the mathematics a value is
+made of (`Polynomial.X`, `Matrix.det`, `Real.exp`, a ring's operations). -/
+def plumbingRoots : List Name :=
+  [`CasCatalogue, `LeanCategories, `CategoryTheory, `TypeCat, `DFunLike, `FunLike, `Function,
+   `id, `Prod.fst, `Prod.snd, `Prod.map, `inferInstance, `inferInstanceAs]
+
+/-- Whether `e`, headed by a plumbing root, is plumbing to unfold. A coercion of a map to a
+function (`DFunLike.coe F x`) is the kernel's plumbing only when `F` is a morphism the kernel
+built (its type is a categorical hom); a ring homomorphism applied to a value (`Int.castRingHom R
+2`, the numeral row's image) is mathematics, kept so that evidence is stated of it rather than of
+`RingHom.toFun` (b0-domain-preservation). -/
+def plumbingApplication (e : Expr) : MetaM Bool := do
+  unless e.isAppOf ``DFunLike.coe do return true
+  let some F := e.getAppArgs[4]? | return true
+  let type ← whnfR (← inferType F)
+  return type.isAppOf ``Quiver.Hom || (type.getAppFn.constName?.map
+    (fun c => [`CategoryTheory, `TypeCat].any (·.isPrefixOf c))).getD false
+
+/-- A value with its plumbing unfolded (`plumbingRoots`), its mathematics kept: `!![1, 2; 3, 4]`
+for a matrix assembled from rows of tuples through product mediators, `X ^ 3 - 2 X + 1` for a
+polynomial assembled by the ring operations of `ℚ[x]`. Definitionally the value it was given
+(every step is an unfolding or a reduction); the caller checks that. -/
+partial def plumbingValue (e : Expr) : MetaM Expr := do
+  let e ← whnfCore e
+  match e with
+  | .lam .. => lambdaTelescope e fun xs body => do mkLambdaFVars xs (← plumbingValue body)
+  | .app .. | .const .. =>
+      let f := e.getAppFn
+      if let .const c _ := f then
+        if plumbingRoots.any (·.isPrefixOf c) && (← plumbingApplication e) then
+          if let some e' ← unfoldDefinition? e then return ← plumbingValue e'
+          if let some e' ← unfoldProjInst? e then return ← plumbingValue e'
+      let args ← e.getAppArgs.mapM fun a => do
+        if (← isProp (← inferType a)) || (← isType a) then pure a else plumbingValue a
+      let e' := mkAppN f args
+      -- A projection may now meet its constructor.
+      let r ← whnfCore e'
+      if r != e' then plumbingValue r else pure e'
+  | _ => pure e
+
+/-- `plumbingValue v`, checked to be `v`: what an obligation is stated of must be the value. -/
+def normalizedValue (v : Expr) : MetaM Expr := do
+  let v' ← plumbingValue v
+  unless ← withTransparency .default (isDefEq v' v) do
+    throwError "the kernel's normal form of {v} is not the value itself"
+  return v'
+
+/-- Expose the stored action of a supplied closed categorical map, while preserving registered
+comparison and operation declarations before any value reduction. -/
+def suppliedHomPresentation (state : SemanticState) (p : Expr) : MetaM Expr :=
+  Meta.transform p (post := fun e => do
+    if e.hasMVar || e.hasLevelMVar || e.hasFVar || e.hasLooseBVars then
+      return .continue
+    -- Guard the complete supplied object before any value WHNF or projection reduction.
+    let protectedDeclarations := state.presentations.map (·.declaration) ++ state.operations.map (·.declaration)
+    if (e.find? fun part => part.constName?.any protectedDeclarations.contains).isSome then
+      return .continue
+    let originalType ← inferType e
+    let type ← withTransparency .all <| whnf originalType
+    unless type.isAppOf ``TypeCat.Hom do return .continue
+    let bundled ← mkAppM ``TypeCat.Hom.hom #[e]
+    let action ← mkAppM ``TypeCat.Fun.toFun #[bundled]
+    let action ← withTransparency .all <| whnf action
+    let normalized ← mkAppM ``TypeCat.ofHom #[action]
+    if normalized.hasMVar || normalized.hasLevelMVar || normalized.hasFVar || normalized.hasLooseBVars then
+      throwError "closed Hom action retained unresolved data"
+    unless ← isTypeCorrect normalized do throwError "closed Hom action is ill-typed"
+    unless ← withTransparency .all <| isDefEq (← inferType normalized) originalType do
+      throwError "closed Hom action changed its complete type"
+    unless ← withTransparency .all <| isDefEq normalized e do
+      throwError "closed Hom action changed its supplied value"
+    return .done normalized) (skipConstInApp := true)
+
+/-- Expose only supplied closed data presentations. A class dictionary may use the ordinary
+instance presentation only when its complete data are definitionally identical to the supplied
+package. Predicate heads, binders and chosen data remain the same original typed statement. -/
+def evidencePresentation (state : SemanticState) (p : Expr) : MetaM Expr := do
+  let objectTypes ← IO.mkRef ({} : Std.HashMap Expr Bool)
+  let expose (p : Expr) : MetaM Expr :=
+    Meta.transform p (post := fun e => do
+      if e.hasMVar || e.hasLevelMVar || e.hasFVar || (← isProof e) || (← isProp e) then
+        return .continue
+      let type ← inferType e
+      let classData := (← isClass? type).isSome
+      let carrierAlias := !e.isConst && (← isType e) && !(← isProp e)
+      let mut objectData := false
+      unless classData || carrierAlias do
+        if let some cached := (← objectTypes.get).get? type then
+          objectData := cached
+        else
+          for category in state.categories do
+            if ← withoutModifyingState do
+                try
+                  let constant ← mkConstWithFreshMVarLevels category.declaration
+                  let (arguments, _, _) ← forallMetaTelescopeReducing (← inferType constant)
+                  let family := mkAppN constant arguments
+                  let expected ← mkAppM ``CategoryTheory.Bundled.α #[family]
+                  withTransparency .all <| isDefEq expected type
+                catch _ => pure false then
+              objectData := true
+              break
+          unless type.hasMVar || type.hasLevelMVar do
+            objectTypes.modify (·.insert type objectData)
+      if objectData || classData || carrierAlias then
+        let normalized ← if carrierAlias && !objectData && !classData then
+          whnfR e
+        else withTransparency .all <| whnf e
+        unless ← withTransparency .all <| isDefEq normalized e do
+          throwError "a supplied data presentation changed its complete object"
+        return .done normalized
+      return .continue) (skipConstInApp := true)
+  let presented ← expose (← expose p)
+  let presented ← Meta.transform presented (post := fun e => do
+    if e.hasMVar || e.hasLevelMVar || e.hasFVar || (← isProof e) then return .continue
+    let type ← inferType e
+    unless (← isClass? type).isSome do return .continue
+    let candidate? ← withoutModifyingState do
+      try
+        let candidate ← instantiateMVars (← synthInstance type)
+        if candidate.hasMVar || candidate.hasLevelMVar || candidate.hasSorry ||
+            !(← isTypeCorrect candidate) then return none
+        unless ← withTransparency .all <| isDefEq candidate e do return none
+        return some candidate
+      catch _ => return none
+    match candidate? with
+    | none => return .continue
+    | some candidate =>
+        unless ← withTransparency .all <| isDefEq (← inferType candidate) type do
+          throwError "a supplied dictionary presentation changed its complete type"
+        return .done candidate) (skipConstInApp := true)
+  let presented ← Core.betaReduce presented
+  let presented ← suppliedHomPresentation state presented
+  -- Finish only stuck, closed carrier projections after dictionary presentation. Expanding
+  -- all type expressions earlier would also expose the value's function-wrapper dictionaries.
+  let presented ← Meta.transform presented (post := fun e => do
+    if e.hasMVar || e.hasLevelMVar || e.hasFVar || e.hasLooseBVars then return .continue
+    unless (← isType e) && !(← isProp e) do return .continue
+    let reduced ← whnfR e
+    unless reduced.isProj do return .continue
+    -- Reducing a *closed type projection* is elaboration of a supplied carrier,
+    -- not a tactic or a proof procedure.  Do not invoke Lean.Meta.Tactic.Delta:
+    -- that machinery belongs exclusively to the registered evidence runner.
+    let normalized ← withTransparency .all <| whnf reduced
+    unless ← withTransparency .all <| isDefEq normalized e do
+      throwError "presenting the carrier changed its complete type"
+    return .done normalized) (skipConstInApp := true)
+  unless !presented.hasMVar && !presented.hasLevelMVar &&
+      (← isTypeCorrect presented) &&
+      (← withTransparency .all <| isDefEq presented p) do
+    throwError "the evidence presentation is not the original complete target"
+  return presented
+
 end CasCatalogue.Evaluation

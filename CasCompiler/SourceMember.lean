@@ -82,15 +82,25 @@ opaque sourceMemberFamily (receiver : NativeSourceJudgement) (name : String)
   return some ⟨value, some ⟨.morphism, category.expression, bundle, none⟩⟩
 
 /-- A registered morphism named `name` at fresh declaration parameters, with its source set. -/
-private def morphismAtSource (row : MorphismEntry) : TermElabM (Expr × Expr) := do
+private def morphismAtSource (row : MorphismEntry) :
+    TermElabM (Expr × Expr × Array (Expr × BinderInfo)) := do
   discard <| checkedDeclaration row.declaration
   let declaration ← mkConstWithFreshMVarLevels row.declaration
-  let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType declaration)
+  let (parameters, infos, _) ← forallMetaTelescopeReducing (← inferType declaration)
   let morphism := mkAppN declaration parameters
   let type ← whnfR (← inferType morphism)
   unless type.isAppOfArity ``Quiver.Hom 4 do
     throwError "the registered morphism {row.id.raw} is not a native map"
-  return (morphism, type.getAppArgs[2]!)
+  return (morphism, type.getAppArgs[2]!, parameters.zip infos)
+
+/-- Synthesize the declared instances of a morphism once its source fixed the parameters. -/
+private def synthesizeDeclared (parameters : Array (Expr × BinderInfo)) : TermElabM Bool := do
+  for (parameter, info) in parameters do
+    if info.isInstImplicit && (← instantiateMVars parameter).isMVar then
+      let some instanceValue ← synthInstance? (← instantiateMVars (← inferType parameter))
+        | return false
+      unless ← isDefEq parameter instanceValue do return false
+  return true
 
 /-- The registered morphism named `name` whose source is the set `type`, at the declaration
 parameters that reducible unification determines (`d/dx` on `ℚ[x]`). -/
@@ -98,12 +108,14 @@ def sourceMorphismFrom? (name : String) (type : Expr) : TermElabM (Option Expr) 
   let mut found := #[]
   for row in (← semanticState).morphisms do
     unless row.name == name do continue
-    let (morphism, source) ← morphismAtSource row
+    let (morphism, source, parameters) ← morphismAtSource row
     let applicable ← withoutModifyingState do
       unless ← withReducible (isDefEq source type) do return false
+      unless ← synthesizeDeclared parameters do return false
       return !(← instantiateMVars morphism).hasMVar
     unless applicable do continue
     discard <| withReducible (isDefEq source type)
+    discard <| synthesizeDeclared parameters
     found := found.push (sourceReference ``MorphismEntry row.id.raw row.declaration
       (← instantiateMVars morphism))
   match found with
@@ -123,7 +135,7 @@ def sourceElementMember? (name : String) (receiver : Option NativeSourceJudgemen
   let mut found : Array (MorphismEntry × Expr × Expr) := #[]
   for row in state.morphisms do
     unless row.name == name do continue
-    let (morphism, whole) ← morphismAtSource row
+    let (morphism, whole, parameters) ← morphismAtSource row
     -- With further arguments the source is the pair of the receiver's set and theirs.
     let source ← match arguments with
       | none => pure whole
@@ -137,11 +149,14 @@ def sourceElementMember? (name : String) (receiver : Option NativeSourceJudgemen
       let type ← instantiateMVars (← inferType receiver.value)
       let applicable ← withoutModifyingState do
         unless ← withReducible (isDefEq source type) do return false
+        unless ← synthesizeDeclared parameters do return false
         return !(← instantiateMVars morphism).hasMVar
       unless applicable do continue
       discard <| withReducible (isDefEq source type)
+      discard <| synthesizeDeclared parameters
       found := found.push (row, ← instantiateMVars morphism, receiver.value)
     | none =>
+      unless ← synthesizeDeclared parameters do continue
       let source ← instantiateMVars source
       if source.hasMVar || source.hasLevelMVar then continue
       found := found.push (row, ← instantiateMVars morphism, ← read source)

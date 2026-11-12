@@ -723,8 +723,10 @@ partial def readExpression
         return ⟨← admitted entry source expected, none⟩
       let some power ← sourcePowerObject? (← instantiateMVars expected)
         | throwError "a source set literal requires a subset of a registered power object"
+      -- Elements are read in the registered form of the base set (`Poly(ℤ)` for `Polynomial ℤ`).
+      let base ← sourceRegisteredForm power.base
       let elements ← elements.getElems.mapM fun element => do
-        return (← readExpression categoryOf element (some power.base)).value
+        return (← readExpression categoryOf element (some base)).value
       return ⟨← sourceSubsetLiteral power elements expected, none⟩
     | `(cas_term| {$bound:ident ∈ $domain:cas_term | $body:cas_term}) => do
       -- Over a subset `A ⊆ X`: `{t ∈ X | t ∈ A and P}`, through `A`'s power object.
