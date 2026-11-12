@@ -129,6 +129,48 @@ opaque sourceCarrier (source : NativeSourceJudgement) : TermElabM NativeSourceJu
     { selected with refs := #[], target := .atom CategoryId.sets, actions := #[] }
   return ⟨value, some ⟨category.role, .atom CategoryId.sets, bundle, selection⟩⟩
 
+/-- The registered category whose objects are the native type `type` (`MonCat` for `Monoids`).
+Several categories with that object type are ambiguous. -/
+def sourceObjectCategory? (type : Expr) : TermElabM (Option NamedCategoryEntry) := do
+  let mut found := #[]
+  for entry in (← semanticState).categories do
+    discard <| checkedDeclaration entry.declaration
+    let family ← mkConstWithFreshMVarLevels entry.declaration
+    let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
+    let objects ← mkAppM ``CategoryTheory.Bundled.α #[mkAppN family parameters]
+    if ← withoutModifyingState (isDefEq objects type) then found := found.push entry
+  match found with
+  | #[] => return none
+  | #[entry] => return some entry
+  | _ => throwSemanticAmbiguity "several registered categories have these objects"
+
+/-- An object of one selected category read where an object of `target` is expected: its image
+along the structural route from its category to `target`, with the whole-family agreement of
+competing routes (a ring of matrices as the monoid whose units are formed). The route functor
+and its actual object action remain in the term. Source: SourceRoutes, structural edges and
+the native family-conversion rule, as for `sourceCarrier`. -/
+opaque sourceStructuralView (source : NativeSourceJudgement) (target : CategoryExpr) :
+    TermElabM NativeSourceJudgement := do
+  let some category := source.category
+    | throwError "a structural view requires its selected category"
+  unless category.role == .object do throwError "a structural view acts on an object"
+  if category.expression.syntacticEq target then return source
+  let state ← semanticState
+  let routes ← SourceRoutes.forOwner category.expression target
+  let some routes ← routes.finiteRoutes
+    | throwUnsupportedSource "the structural view requires its supplied uniform comparison"
+  let some route := routes[0]?
+    | throwError "the selected category has no structural route to the expected category"
+  let proofs ← sourceRouteAgreements state category routes
+  let selected ← nativeRouteFunctor state route category.bundle
+  let mut value ← functorObject selected.functor source.value selected.target
+  for proof in proofs.reverse do
+    let body := value
+    value ← withLetDecl (← mkFreshUserName `viewAgreement) (← inferType proof) proof
+      fun binding => mkLetFVars #[binding] body
+        (usedLetOnly := false) (generalizeNondepLet := false)
+  return ⟨value, some ⟨.object, target, selected.target, none⟩⟩
+
 /-- Put source values in the category explicitly selected by a set-valued operand.
 Reuse: sourceCarrier's whole functor checks and retained native actions. Two structured
 operands keep their selected category; an explicit set operand supplies the carrier context. -/

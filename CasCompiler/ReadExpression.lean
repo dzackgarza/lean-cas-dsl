@@ -95,7 +95,17 @@ partial def readExpression
     let mut actual := #[]
     for argument in arguments, hole in holes do
       let type ← instantiateMVars (← inferType hole)
-      let value ← readExpression categoryOf argument (some type)
+      -- An object of another selected category is viewed along its structural route.
+      let viewed ← if sourceNumeric argument.raw then pure none else do
+        let some category ← sourceObjectCategory? type | pure none
+        let object ← readExpression categoryOf argument none
+        let some selected := object.category | pure none
+        if selected.role != .object || selected.expression.syntacticEq category.expression then
+          pure none
+        else pure (some (← sourceStructuralView object category.expression))
+      let value ← match viewed with
+        | some value => pure value
+        | none => readExpression categoryOf argument (some type)
       unless ← isDefEq hole value.value do
         throwErrorAt argument "the source argument does not match its dependent native type"
       actual := actual.push (Arg.expr value.value)

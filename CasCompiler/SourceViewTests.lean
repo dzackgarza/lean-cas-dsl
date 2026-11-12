@@ -5,12 +5,14 @@ import LeanCategories.Catalogue.Semantics.Foundation.Lists
 import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
 import LeanCategories.Catalogue.Semantics.Algebra.Fields
 import LeanCategories.Catalogue.Semantics.Modules.CatalogueRegistration
+import LeanCategories.Catalogue
 public meta import Lean.Elab.Command
 meta import CasCompiler.Read
 meta import LeanCategories.Catalogue.Semantics.Foundation.Lists
 meta import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
 meta import LeanCategories.Catalogue.Semantics.Algebra.Fields
 meta import LeanCategories.Catalogue.Semantics.Modules.CatalogueRegistration
+meta import LeanCategories.Catalogue
 
 open Lean Meta Elab Term CasCompiler CasCatalogue
 
@@ -367,3 +369,24 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   catch _ => pure true
   unless rejected do
     throwError "a scalar in a dimension expression replaced the selected finite domain"
+
+/- An object read where another category's object is expected is viewed along the structural
+route: a group as the monoid whose units are formed. Competing routes with different whole
+functors (a ring's multiplicative and additive monoids) are an unresolved reading. -/
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let session ← SourceSession.empty identities
+  let read := fun (text : String) => do
+    let .ok stx := Parser.runParserCategory (← getEnv) `cas_term text
+      | throwError "the structural view control did not parse"
+    session.read ⟨stx⟩
+  let units ← read "(Sym(3) in Groups)ˣ"
+  let viewed ← units.source.withOpen fun _ expression => do
+    return (← instantiateMVars expression).containsConst
+      (· == ``CasCatalogue.Algebra.Ports.groupsMonoid)
+  let rejected ← try
+    discard <| read "(Mat₂(ℚ) in Rings)ˣ"
+    pure false
+  catch error => pure (CasCatalogue.Exception.isSemanticAmbiguity error)
+  unless viewed do throwError "a group was not viewed along its structural monoid route"
+  unless rejected do throwError "competing structural views were read without a selection"
