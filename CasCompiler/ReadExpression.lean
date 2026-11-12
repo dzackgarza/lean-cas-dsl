@@ -257,14 +257,7 @@ partial def readExpression
       return ← elementOperation "<" #[left, right] #[] #[] (some domain.value)
     | _ => pure ()
     if let some expected := expected then checkRegisteredDomains domain.value expected
-    let judgement ← readExpression categoryOf body (some domain.value)
-    -- The annotated domain keeps its selected source object: a later operand typed by this
-    -- value reads the domain with that origin, not only its native carrier.
-    if ← isProp judgement.value then return judgement
-    -- An occurrence whose own type already is the domain stays the original occurrence.
-    if (← instantiateMVars (← inferType judgement.value)) == (← instantiateMVars domain.value) then
-      return judgement
-    return { judgement with value := ← mkExpectedTypeHint judgement.value domain.value }
+    readExpression categoryOf body (some domain.value)
   let relation := fun (name : String) (left right : TSyntax `cas_term) => do
     -- The public precedence grammar places a trailing domain on the right operand.
     -- Its actual selected structure types both operands through the registered map.
@@ -560,8 +553,18 @@ partial def readExpression
     let leftPrincipal ← sourcePrincipal left
     let rightPrincipal ← sourcePrincipal right
     let (left, right) ← if !leftPrincipal && rightPrincipal then do
+      -- An annotated operand `x in D` gives the other operand D's carrier with its selected
+      -- source object, not only the native type of x (`2 + 3 = 0 in ℤ/5`).
+      let domain ← match right with
+        | `(cas_term| $_:cas_term in $domain:cas_term) => do
+          if domain.raw.isIdent then pure none
+          else pure (some (← sourceCarrier (← readExpression categoryOf domain none)).value)
+        | _ => pure none
       let right ← readExpression categoryOf right none
-      let left ← readExpression categoryOf left (some (← inferType right.value)) none right.category
+      let leftType ← match domain with
+        | some domain => pure domain
+        | none => inferType right.value
+      let left ← readExpression categoryOf left (some leftType) none right.category
       pure (left, right)
     else do
       let left ← readExpression categoryOf left none
