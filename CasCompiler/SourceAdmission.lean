@@ -298,4 +298,25 @@ def sourceCommonDomain (types : Array Expr) : TermElabM (Option Expr) := do
   | #[candidate] => return some candidate
   | _ => return distinct[0]?
 
+/-- A numeral in a set with no numeral of its own (`2` in `ℕ ∪ {-∞}`): the image, under the
+unique registered inclusion into that set whose source reads the numeral, of the numeral there.
+`readAt` reads the numeral at a type. Source: InclusionEntry and the original reader's
+numerals of related sets. -/
+def sourceIncludedNumeral (target : Expr) (readAt : Expr → TermElabM Expr) :
+    TermElabM (Option Expr) := do
+  let target ← sourceRegisteredForm target
+  let mut readings := #[]
+  for inclusion in (← semanticState).inclusions do
+    let some (arrow, source) ← mapInto? inclusion.declaration target | continue
+    let numeral ← withoutModifyingState do
+      try pure (some (← readAt source)) catch _ => pure none
+    if numeral.isSome then readings := readings.push (arrow, source)
+  match readings with
+  | #[] => return none
+  | #[(arrow, source)] =>
+    let function ← sourceSetFunction arrow
+    let value ← elabAppArgs function #[] #[Arg.expr (← readAt source)] none false false
+    return some (← mkExpectedTypeHint value target)
+  | _ => throwSemanticAmbiguity "several registered inclusions read this numeral"
+
 end CasCompiler

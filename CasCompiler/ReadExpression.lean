@@ -1001,6 +1001,13 @@ partial def readExpression
         return ⟨← admitted entry source expected, none⟩
       if let some category := expectedCategory then
         if let some value ← sourceObjectNumeral number.getNat category expected then return value
+      let direct ← withoutModifyingState do
+        try pure (some (← sourceNumeral categoryOf number.getNat expected)) catch _ => pure none
+      if direct.isNone then
+        -- A set with no numeral of its own reads it through a registered inclusion.
+        if let some value ← sourceIncludedNumeral expected fun type => do
+            return (← readExpression categoryOf source (some type)).value then
+          return ⟨value, none⟩
       pure ⟨← sourceNumeral categoryOf number.getNat expected, none⟩
     | `(cas_term| $name:ident) =>
       if let some declaration := (← getLCtx).findFromUserName? name.getId then
