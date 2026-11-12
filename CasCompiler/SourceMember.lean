@@ -92,6 +92,25 @@ private def morphismAtSource (row : MorphismEntry) : TermElabM (Expr × Expr) :=
     throwError "the registered morphism {row.id.raw} is not a native map"
   return (morphism, type.getAppArgs[2]!)
 
+/-- The registered morphism named `name` whose source is the set `type`, at the declaration
+parameters that reducible unification determines (`d/dx` on `ℚ[x]`). -/
+def sourceMorphismFrom? (name : String) (type : Expr) : TermElabM (Option Expr) := do
+  let mut found := #[]
+  for row in (← semanticState).morphisms do
+    unless row.name == name do continue
+    let (morphism, source) ← morphismAtSource row
+    let applicable ← withoutModifyingState do
+      unless ← withReducible (isDefEq source type) do return false
+      return !(← instantiateMVars morphism).hasMVar
+    unless applicable do continue
+    discard <| withReducible (isDefEq source type)
+    found := found.push (sourceReference ``MorphismEntry row.id.raw row.declaration
+      (← instantiateMVars morphism))
+  match found with
+  | #[] => return none
+  | #[morphism] => return some morphism
+  | _ => throwSemanticAmbiguity s!"several registered morphisms {name} leave this set"
+
 /-- `x.m()` for an element `x`: the registered morphism `m` whose source is the set `x` lies in,
 applied to `x`. Its declaration parameters are those that reducible unification of its source
 with the element's type determines. `read` reads the receiver at a candidate's source when the

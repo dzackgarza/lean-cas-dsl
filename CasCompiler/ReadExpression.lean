@@ -189,6 +189,14 @@ partial def readExpression
     let rightValue ← readExpression categoryOf right rightExpected
     let leftValue ← if sourceNumeric left.raw then pure none
       else pure (some (← readExpression categoryOf left none))
+    -- A registered action map `•` on exactly the pair of the operands' sets (a polynomial
+    -- times a differential, `(6x + 1) dx`).
+    if let some leftValue := leftValue then
+      let pair ← mkAppM ``Prod #[← inferType leftValue.value, ← inferType rightValue.value]
+      if let some action ← sourceMorphismFrom? "•" pair then
+        let function ← sourceSetFunction action
+        let argument ← mkAppM ``Prod.mk #[leftValue.value, rightValue.value]
+        return ⟨← elabAppArgs function #[] #[Arg.expr argument] expected false false, none⟩
     let name ← sourceJuxtapositionName categoryOf leftValue rightValue
     let owner ← if name == "•" then pure (some (← inferType rightValue.value)) else pure none
     elementOperation name #[left, right] #[] #[leftValue.map (·.value), some rightValue.value]
@@ -330,6 +338,23 @@ partial def readExpression
         let info ← checkedDeclaration declaration
         let (_, binders, _) ← forallMetaTelescopeReducing info.type
         pure (binders.filter (·.isExplicit)).size
+      -- `d(f)`: a named map applied to one element whose set fixes its declaration parameters,
+      -- rather than one source argument per parameter (`rev(3, 2)`).
+      if let (.inr row, #[argument]) := (entry, arguments) then
+        if parameterCount > 0 && !sourceNumeric argument.raw then
+          let element ← readExpression categoryOf argument none
+          let type ← instantiateMVars (← inferType element.value)
+          let parameterType ← withoutModifyingState do
+            let info ← checkedDeclaration declaration
+            let (parameters, binders, _) ← forallMetaTelescopeReducing info.type
+            let some (first, _) := (parameters.zip binders).find? (·.2.isExplicit)
+              | throwError "the named map lost its declaration parameter"
+            instantiateMVars (← inferType first)
+          unless ← withoutModifyingState (isDefEq type parameterType) do
+            let some morphism ← sourceMorphismFrom? row.name type
+              | throwError "the named map {row.name} does not leave the set of its argument"
+            let function ← sourceSetFunction morphism
+            return ⟨← elabAppArgs function #[] #[Arg.expr element.value] expected false false, none⟩
       let (bundle, value) ← registeredExpressions entry categoryEntry fun function expected =>
         application ⟨function, none⟩ (arguments.take parameterCount) expected
       let role := match entry with
@@ -547,6 +572,9 @@ partial def readExpression
       let coefficient : TSyntax `cas_term := ⟨source.raw[1]⟩
       readExpression categoryOf (← `(cas_term| ($coefficient:cas_term) · $factor:cas_term))
         expected qualification expectedCategory
+    else if source.raw.isOfKind ``CasCatalogue.Language.casIntegral then
+      -- `∫ ω`: the registered primitives of the differential `ω`.
+      registered (mkIdentFrom source (.mkSimple "∫")) #[⟨source.raw[1]⟩]
     else if source.raw.isOfKind ``CasCatalogue.Language.casProgression then do
       -- `{a₀, a₁, …, ...}`: the progression `{a₀ + d·k | k ∈ ℕ}` its numerals begin, with
       -- `d = a₁ - a₀` constant (public language contract).
@@ -786,6 +814,16 @@ partial def readExpression
       if let some object ← objectPower base power then return object
       elementOperation "^" #[base] #[power] #[] none
     | `(cas_term| $left:cas_term / $right:cas_term) => do
+      -- `d/dx`: the registered derivative of the ring whose variable `x` is.
+      let identifier := fun (term : TSyntax `cas_term) => match term with
+        | `(cas_term| $name:ident) => some name.getId
+        | _ => none
+      if identifier left == some `d then
+        if let some generator := (identifier right).bind sourceDifferentialOf? then
+          if let some declaration := (← getLCtx).findFromUserName? generator then
+            let some morphism ← sourceMorphismFrom? "derivative" declaration.type
+              | throwError "the ring of {generator} has no registered derivative"
+            return ⟨morphism, none⟩
       -- `ℤ/n`: the object whose registered notation is the atom followed by `/`.
       let some atom := sourceAtomName? left
         | CasCatalogue.throwUnsupportedSource "source division is not implemented"
@@ -871,6 +909,13 @@ partial def readExpression
     | `(cas_term| $name:ident) =>
       if let some declaration := (← getLCtx).findFromUserName? name.getId then
         pure ⟨mkFVar declaration.fvarId, ← categoryOf declaration.fvarId⟩
+      else if let some generator ← (sourceDifferentialOf? name.getId).filterM fun generator =>
+          return ((← getLCtx).findFromUserName? generator).isSome then
+        -- `dv` for a bound variable `v` is its differential `d(v)` (public language contract).
+        readExpression categoryOf
+          (← `(cas_term| $(mkIdentFrom name `d):ident($(mkIdentFrom name generator):ident)))
+          expected qualification
+          expectedCategory
       else if name.getId == `false then pure ⟨mkConst ``False, none⟩
       else if name.getId == `true then pure ⟨mkConst ``True, none⟩
       else registered name #[]

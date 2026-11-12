@@ -117,9 +117,17 @@ partial def sourceRingVariables (stx : Syntax) : Array (Name × Syntax × Option
     else #[]
   stx.getArgs.foldl (fun found argument => found ++ sourceRingVariables argument) own
 
-/-- Whether `name` occurs as an identifier of `stx` outside the variable slot of a ring. -/
+/-- The variable `v` whose differential the identifier `dv` names. -/
+def sourceDifferentialOf? (name : Name) : Option Name :=
+  match name with
+  | .str .anonymous text =>
+    if text.startsWith "d" && text.length > 1 then some (.mkSimple (text.drop 1).toString) else none
+  | _ => none
+
+/-- Whether `name` occurs as an identifier of `stx` outside the variable slot of a ring, or as
+its differential `dv`. -/
 partial def sourceUses (name : Name) (stx : Syntax) : Bool :=
-  if stx.isIdent then stx.getId == name
+  if stx.isIdent then stx.getId == name || sourceDifferentialOf? stx.getId == some name
   else if stx.isOfKind ``CasCatalogue.Language.casRing ||
       stx.isOfKind ``CasCatalogue.Language.casSeries ||
       stx.isOfKind ``CasCatalogue.Language.casMvRing then sourceUses name stx[0]
