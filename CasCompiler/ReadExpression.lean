@@ -258,7 +258,7 @@ partial def readExpression
         let `(cas_term| $name:ident) := pattern
           | CasCatalogue.throwUnsupportedSource
               "source lambda formation is not implemented for this declared map type"
-        let some generator ← sourceGeneratorAt? expected
+        let some generator ← sourceGeneratorAt? expected none
           | CasCatalogue.throwUnsupportedSource
               "source lambda formation is not implemented for this declared map type"
         return ← withLetDecl name.getId expected generator fun bound => do
@@ -596,6 +596,13 @@ partial def readExpression
     else if source.raw.isOfKind ``CasCatalogue.Language.casRing then
       -- `R[x]`: the polynomials `Poly(R)`; the variable `x` names its generator.
       registered (mkIdentFrom source `Poly) #[⟨source.raw[0]⟩]
+    else if source.raw.isOfKind ``CasCatalogue.Language.casMvRing then do
+      -- `R[x, y]`, `R[x_0, …, x_9]`: `MvPoly(n, R)` in its `n` listed variables.
+      let names ← match sourceRingVariableNames source.raw with
+        | .ok names => pure names
+        | .error message => throwError message
+      let count : TSyntax `cas_term ← `(cas_term| $(⟨Syntax.mkNumLit (toString names.size)⟩):num)
+      registered (mkIdentFrom source `MvPoly) #[count, ⟨source.raw[0]⟩]
     else if source.raw.isOfKind ``CasCatalogue.Language.casSeries then
       -- `R[[t]]`: the formal power series `PowerSeries(R)`.
       registered (mkIdentFrom source `PowerSeries) #[⟨source.raw[0]⟩]
@@ -924,33 +931,50 @@ Source: the public language contract, "`R[x]`: the polynomials over `R`, whose g
 names". A variable named by two different written rings is ambiguous. -/
 partial def withRingVariables
     (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
+    (recorded : Array (Name × Expr × Option Nat))
     (source : TSyntax `cas_term) (read : TermElabM NativeSourceJudgement) :
     TermElabM NativeSourceJudgement := do
-  let mut written : Array (Name × Syntax) := #[]
-  for (name, ring) in sourceRingVariables source.raw do
+  let mut written : Array (Name × Syntax × Option Nat) := #[]
+  for (name, ring, index) in sourceRingVariables source.raw do
     unless sourceUses name source.raw && !sourceBinds name source.raw do continue
-    if let some (_, other) := written.find? (·.1 == name) then
+    if let some (_, other, _) := written.find? (·.1 == name) then
       unless other.reprint == ring.reprint do
         CasCatalogue.throwSemanticAmbiguity m!"{name} is the variable of several rings"
       continue
-    written := written.push (name, ring)
-  bind written.toList
+    written := written.push (name, ring, index)
+  -- The rings of the definitions the term uses supply the variables it does not write.
+  let mut inherited : Array (Name × Expr × Option Nat) := #[]
+  for (name, carrier, index) in recorded do
+    unless sourceUses name source.raw && !sourceBinds name source.raw do continue
+    if written.any (·.1 == name) then continue
+    if let some (_, other, _) := inherited.find? (·.1 == name) then
+      unless other == carrier do
+        CasCatalogue.throwSemanticAmbiguity m!"{name} is the variable of several rings"
+      continue
+    inherited := inherited.push (name, carrier, index)
+  let mut bindings : Array (Name × Sum Syntax Expr × Option Nat) := #[]
+  for (name, ring, index) in written do bindings := bindings.push (name, .inl ring, index)
+  for (name, carrier, index) in inherited do bindings := bindings.push (name, .inr carrier, index)
+  bind bindings.toList
 where
-  bind : List (Name × Syntax) → TermElabM NativeSourceJudgement
+  bind : List (Name × Sum Syntax Expr × Option Nat) → TermElabM NativeSourceJudgement
     | [] => read
-    | (name, ring) :: rest => do
+    | (name, ring, index) :: rest => do
       if ((← getLCtx).findFromUserName? name).isSome then return ← bind rest
-      let carrier ← sourceCarrier (← readExpression categoryOf ⟨ring⟩ none)
-      let some generator ← sourceGeneratorAt? carrier.value
-        | throwErrorAt ring "the ring has no registered generator"
-      withLetDecl name carrier.value generator fun bound => do
+      let carrier ← match ring with
+        | .inl ring => pure (← sourceCarrier (← readExpression categoryOf ⟨ring⟩ none)).value
+        | .inr carrier => pure carrier
+      let some generator ← sourceGeneratorAt? carrier index
+        | throwError "the ring of {name} has no registered generator"
+      withLetDecl name carrier generator fun bound => do
         let judgement ← bind rest
         return { judgement with value := ← mkLetFVars #[bound] judgement.value }
 
 /-- Read a whole source term with its written rings' variables (`withRingVariables`). -/
 def readSourceTerm (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
+    (recorded : Array (Name × Expr × Option Nat))
     (source : TSyntax `cas_term) (expected : Option Expr) : TermElabM NativeSourceJudgement :=
-  withRingVariables categoryOf source (readExpression categoryOf source expected)
+  withRingVariables categoryOf recorded source (readExpression categoryOf source expected)
 
 /-- `a = b` in a question: native equality of the operands at their common domain, as in
 SourceEquality and the public claimEqual contract. Formation supplies no proof. -/

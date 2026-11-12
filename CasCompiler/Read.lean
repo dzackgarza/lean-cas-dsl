@@ -28,12 +28,42 @@ private def sourceCategory (session : SourceSession) (context : OpenContext)
   return some ⟨category.role, category.expression, ← category.bundle.inContext context,
     carrier⟩
 
+/-- The ring variables of the session's definitions that `stx` names, in `context`. -/
+private def recordedRings (session : SourceSession) (context : OpenContext) (stx : Syntax) :
+    TermElabM (Array (Name × Expr × Option Nat)) := do
+  let mut found := #[]
+  for binding in context.bindings do
+    unless sourceUses (← binding.expression.fvarId!.getUserName) stx do continue
+    for ring in session.ringsFor binding.id do
+      found := found.push (ring.name, ← ring.carrier.inContext context, ring.index)
+  return found
+
+/-- The variables of the rings that the definition `stx` writes, with their carriers, retained by
+the session for the statements that use this definition. -/
+private def writtenRings (session : SourceSession) (stx : Syntax) :
+    TermElabM (Array SourceRingVariable) := do
+  let mut found := #[]
+  for (name, ring, index) in sourceRingVariables stx do
+    if found.any (fun (written : SourceRingVariable) => written.name == name) then continue
+    let carrier ← session.elaborate ring fun context => do
+      let object ← readExpression (sourceCategory session context) ⟨ring⟩ none
+      return (← sourceCarrier object).value
+    found := found.push ⟨name, carrier.source, index⟩
+  return found
+
+/-- Insert a definition and retain the ring variables its source wrote. -/
+private def SourceSession.defineWritten (session : SourceSession) (stx : Syntax) (name : Name)
+    (value : SourceTerm) : TermElabM SourceSession := do
+  let rings ← writtenRings session stx
+  return (← session.defineTerm name value).recordRings rings
+
 private def SourceSession.readAt (session : SourceSession) (reference : Syntax)
     (stx : TSyntax `cas_term)
     (expected : Option ClosedTerm := none) : TermElabM SourceTerm := do
   let #[term] ← session.elaborateJudgements reference fun context => do
     let expected ← expected.mapM (·.inContext context)
-    return #[← readSourceTerm (sourceCategory session context) stx expected]
+    return #[← readSourceTerm (sourceCategory session context)
+      (← recordedRings session context stx) stx expected]
     | throwError "source reading returned an invalid number of judgements"
   return term
 
@@ -67,7 +97,7 @@ opaque SourceSession.readQuestion (session : SourceSession) (stx : TSyntax `cas_
     TermElabM SourceTerm :=
   session.elaborate stx fun context => do
     let categoryOf := sourceCategory session context
-    return (← withRingVariables categoryOf stx do
+    return (← withRingVariables categoryOf (← recordedRings session context stx) stx do
       return ⟨← questionExpression categoryOf stx, none⟩).value
 
 /-- A definition extends the native scope. A question retains that scope without extending it.
@@ -85,7 +115,8 @@ Source: mathematical-input contract §1; the original reader's settled typing ju
 private def typingQuestion (session : SourceSession) (stx : TSyntax `cas_term) :
     TermElabM SourceStatement := do
   let term ← session.elaborate stx fun context =>
-    return (← readSourceTerm (sourceCategory session context) stx none).value
+    return (← readSourceTerm (sourceCategory session context)
+      (← recordedRings session context stx) stx none).value
   let proposition ← term.source.withOpen fun _ expression => isProp expression
   return if proposition then .question term else .settled term
 
@@ -106,12 +137,12 @@ opaque SourceSession.readStatement (session : SourceSession) (stx : TSyntax `cas
   match stx with
   | `(cas_stmt| let $name:ident := $body:cas_term) =>
     let value ← session.read body
-    return .definition (← session.defineTerm name.getId value) value
+    return .definition (← session.defineWritten body name.getId value) value
   | `(cas_stmt| let $name:ident : $annotation:cas_term := $body:cas_term) =>
     let type ← session.read annotation
     type.source.withOpen fun _ expression => discard <| getLevel expression
     let value ← session.read body (some type.source)
-    return .definition (← session.defineTerm name.getId value) value
+    return .definition (← session.defineWritten annotation name.getId value) value
   | `(cas_stmt| let $name:ident($parameter:cas_term) := $value:cas_term) =>
     let translated ← match value with
       | `(cas_term| $body:cas_term in $domain:cas_term) => do
@@ -121,7 +152,7 @@ opaque SourceSession.readStatement (session : SourceSession) (stx : TSyntax `cas
     -- Public let-function syntax expands once. The native value retains its actual
     -- preceding bindings; its span refers to the original statement, not generated syntax.
     let value ← session.readAt stx translated
-    return .definition (← session.defineTerm name.getId value) value
+    return .definition (← session.defineWritten translated name.getId value) value
   | `(cas_stmt| assert implemented $body:cas_term) =>
     return .implemented (← session.read body)
   | `(cas_stmt| assert $body:cas_term) =>

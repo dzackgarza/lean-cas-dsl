@@ -71,6 +71,13 @@ structure SourceTerm where
   span : SourceSpan
   category : Option SourceCategoryBinding
 
+/-- A variable that a ring written in a source definition names: `x` of `ℚ[x]`, `x_3` (index 3)
+of `ℂ[x_0, …, x_9]`, with the ring's carrier. -/
+structure SourceRingVariable where
+  name : Name
+  carrier : ClosedTerm
+  index : Option Nat
+
 /-- Persistent source declarations. Later terms reopen their checked native declarations.
 Source: mathematical-input contract §1 and data-model contract §2, lean-cas-dsl#66.
 No provider, runtime value or stored binding syntax participates in this context. -/
@@ -80,6 +87,19 @@ structure SourceSession where
   context : ContextTelescope
   spans : Array SourceSpan
   private categories : Array (Option SourceCategoryBinding)
+  /-- The ring variables each definition's source wrote, by entry position. -/
+  private rings : Array (Array SourceRingVariable)
+
+/-- The ring variables written by the source of the declaration `id`. -/
+def SourceSession.ringsFor (session : SourceSession) (id : BindingId) :
+    Array SourceRingVariable := Id.run do
+  let some index := session.context.entries.findIdx? (·.id == id) | return #[]
+  return session.rings[index]?.getD #[]
+
+/-- Retain the ring variables that the source of the latest declaration wrote. -/
+def SourceSession.recordRings (session : SourceSession) (written : Array SourceRingVariable) :
+    SourceSession :=
+  { session with rings := session.rings.pop.push written }
 
 def SourceSession.categoryFor (session : SourceSession) (id : BindingId) :
     Option SourceCategoryBinding := do
@@ -169,11 +189,11 @@ private def defineIn (session : SourceSession) (context : OpenContext) (name : N
     let context ← ContextTelescope.capture
       (context.bindings.push { id, role := .definition, expression })
     return ⟨session.identities, context.telescope, session.spans.push span,
-      session.categories.push category⟩
+      session.categories.push category, session.rings.push #[]⟩
 
 opaque SourceSession.empty (identities : CasRuntime.IdentitySupply) : MetaM SourceSession := do
   let context ← withLCtx {} #[] <| ContextTelescope.capture #[]
-  return ⟨identities, context.telescope, #[], #[]⟩
+  return ⟨identities, context.telescope, #[], #[], #[]⟩
 
 /-- Apply the release's safety and axiom policy to the newly completed source term and type.
 Reuse: Lean.collectAxioms and the existing source-family intake policy in Program.lean.
@@ -283,7 +303,7 @@ private def assumeIn (session : SourceSession) (context : OpenContext) (name : N
   withLocalDecl name binderInfo type fun expression => do
     let context ← ContextTelescope.capture (context.bindings.push { id, role, expression })
     return ⟨session.identities, context.telescope, session.spans.push span,
-      session.categories.push none⟩
+      session.categories.push none, session.rings.push #[]⟩
 
 /-- Add one native parameter, hypothesis or selected instance with a fresh stable source ID.
 Reuse: Lean.elabType and Meta.withLocalDecl, including native local-instance registration. -/
