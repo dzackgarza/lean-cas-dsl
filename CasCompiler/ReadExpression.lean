@@ -567,6 +567,26 @@ partial def readExpression
     let (left, right) ← sourceCommonCategory left right
     checkRegisteredDomains (← inferType left.value) (← inferType right.value)
     return (left, right)
+  -- The registered object whose name the language derives from the name `N` of the object
+  -- `base = N(…)` reads (`N∖0`, `Spec N`), at the same explicit parameters.
+  let relatedObject := fun (base : TSyntax `cas_term) (derived : String → String) => do
+    let base ← readExpression categoryOf base none
+    let state ← CasCatalogue.semanticState
+    -- A definition names the object its value is.
+    let base := { base with value := ← zetaReduce (← instantiateMVars base.value) }
+    let head := base.value.consumeMData.getAppFn
+    let some entry := state.objects.find? fun entry => head.isConstOf entry.declaration
+      | throwError "the derived object is formed of a registered object"
+    let rows := state.objects.filter (·.name == derived entry.name)
+    let #[target] := rows
+      | CasCatalogue.throwUnsupportedSource s!"no registered object {derived entry.name}"
+    let #[category] := state.categories.filter (·.id == target.category)
+      | throwError "the derived object requires one complete category"
+    let arguments ← sourceExplicitArguments (← instantiateMVars base.value.consumeMData)
+    let (bundle, value) ← registeredExpressions (.inl target) category fun function expected =>
+      elabAppArgs function #[] (arguments.map Arg.expr) expected false false
+    return (⟨value, some ⟨.object, category.expression, bundle,
+      ← objectCarrierSelection target bundle value⟩⟩ : NativeSourceJudgement)
   -- A subset used as an object denotes its extent.
   let asObject := fun (judgement : NativeSourceJudgement) => do
     return (← sourceExtent? judgement).getD judgement
@@ -659,21 +679,10 @@ partial def readExpression
       -- `X ∖ 0` for `X = N(…)`: the registered object `N∖0` at the same parameters.
       unless source.raw[2].isNatLit? == some 0 do
         throwError "`X ∖ n` is written for n = 0 only, the nonzero elements"
-      let base ← readExpression categoryOf ⟨source.raw[0]⟩ none
-      let state ← CasCatalogue.semanticState
-      let head := base.value.consumeMData.getAppFn
-      let some entry := state.objects.find? fun entry => head.isConstOf entry.declaration
-        | throwError "`X ∖ 0` is formed of a registered object"
-      let rows := state.objects.filter (·.name == s!"{entry.name}∖0")
-      let #[target] := rows
-        | CasCatalogue.throwUnsupportedSource s!"no registered object {entry.name}∖0"
-      let #[category] := state.categories.filter (·.id == target.category)
-        | throwError "the nonzero object requires one complete category"
-      let arguments ← sourceExplicitArguments (← instantiateMVars base.value.consumeMData)
-      let (bundle, value) ← registeredExpressions (.inl target) category fun function expected =>
-        elabAppArgs function #[] (arguments.map Arg.expr) expected false false
-      pure ⟨value, some ⟨.object, category.expression, bundle,
-        ← objectCarrierSelection target bundle value⟩⟩
+      relatedObject ⟨source.raw[0]⟩ fun name => s!"{name}∖0"
+    else if source.raw.isOfKind ``CasCatalogue.Language.casSpec then
+      -- `Spec A` for `A = N(…)`: the registered object `Spec N` at the same parameters.
+      relatedObject ⟨source.raw[1]⟩ fun name => s!"Spec {name}"
     else if source.raw.isOfKind ``CasCatalogue.Language.casRing then
       -- `R[x]`: the polynomials `Poly(R)`; the variable `x` names its generator.
       registered (mkIdentFrom source `Poly) #[⟨source.raw[0]⟩]
@@ -988,6 +997,48 @@ partial def readExpression
           member (← `(cas_term| $(mkIdentFrom name receiver):ident)) field arguments.getElems
         else registered name arguments.getElems
       else registered name arguments.getElems
+    | `(cas_term| $body:cas_term in $category:ident / $base:cas_term) => do
+      -- `X in C/Y`: X read in the registered category family C at its base parameter Y.
+      let state ← CasCatalogue.semanticState
+      let name := category.getId.toString (escape := false)
+      -- The family registered as `C/` (`Schemes/`, beside `Schemes`), else `C` itself.
+      let some entry := (state.categories.find? (·.name == name ++ "/")).orElse fun _ =>
+          state.categories.find? (·.name == name)
+        | annotated body (← `(cas_term| $category:ident / $base:cas_term))
+      let name := entry.name
+      discard <| checkedDeclaration entry.declaration
+      let family ← mkConstWithFreshMVarLevels entry.declaration
+      let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
+      let some parameter := parameters.back?
+        | throwError "the category {name} has no base parameter"
+      let base ← readExpression categoryOf base (some (← instantiateMVars (← inferType parameter)))
+      unless ← isDefEq parameter base.value do
+        throwError "the base is not an object of the base category of {name}"
+      -- An object already selected elsewhere is in C through C's registered refinement of its
+      -- object family, at the same parameters (`ℂ[x₀, …]` as a ℂ-algebra).
+      let object ← readExpression categoryOf body none
+      let judgement ← if object.category.any (·.expression.syntacticEq entry.expression) then
+          pure object
+        else do
+          let value ← zetaReduce (← instantiateMVars object.value)
+          let some original := state.objects.find? fun row =>
+              value.consumeMData.getAppFn.isConstOf row.declaration
+            | throwError "the value does not name a registered object"
+          let rows := state.objects.filter fun row =>
+            row.category == entry.id && (row.refines.any (·.base == original.id) ||
+              original.refines.any (·.base == row.id))
+          let #[refinement] := rows
+            | CasCatalogue.throwStratum .invalid m!"{original.name} has no registered object in {name}"
+          let arguments ← sourceExplicitArguments value.consumeMData
+          let (bundle, refined) ← registeredExpressions (.inl refinement) entry
+            fun function expected =>
+              elabAppArgs function #[] (arguments.map Arg.expr) expected false false
+          pure (⟨refined, some ⟨.object, entry.expression, bundle, none⟩⟩ : NativeSourceJudgement)
+      let some selected := judgement.category
+        | throwError "the source value has no selected category"
+      unless ← isDefEq (mkAppN family parameters) selected.bundle do
+        CasCatalogue.throwStratum .invalid m!"the value is not an object of {name} over this base"
+      return judgement
     | `(cas_term| $body:cas_term in $category:ident) => do
       if ((← getLCtx).findFromUserName? category.getId).isSome then
         annotated body (← `(cas_term| $category:ident))
