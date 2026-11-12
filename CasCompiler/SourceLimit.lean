@@ -1,6 +1,6 @@
 module
 
-public import CasCompiler.Surface
+public import CasCompiler.SourceCarrier
 public import Mathlib.CategoryTheory.Limits.Shapes.BinaryProducts
 
 public section
@@ -35,6 +35,13 @@ opaque sourceBinaryLimit (left right : NativeSourceJudgement) (colimit : Bool) :
     TermElabM NativeSourceJudgement := do
   let left ← if left.category.isSome then pure left else sourceSetJudgement .object left.value
   let right ← if right.category.isSome then pure right else sourceSetJudgement .object right.value
+  -- Objects of different selected categories meet in sets: each operand is its carrier, read
+  -- through its whole structural carrier route (`Fin(2) × ℤ/3`).
+  let (left, right) ← match left.category, right.category with
+    | some source, some target =>
+      if source.expression.syntacticEq target.expression then pure (left, right)
+      else pure (← sourceCarrier left, ← sourceCarrier right)
+    | _, _ => pure (left, right)
   let some source := left.category
     | throwError "the source binary construction requires its selected category"
   let some target := right.category

@@ -33,6 +33,27 @@ private partial def sourceNumeric (source : Syntax) : Bool :=
   !source.isIdent && !(source.isAtom &&
     (source.getAtomVal == "√" || source.getAtomVal == "|")) && source.getArgs.all sourceNumeric
 
+-- These forms determine their category and type from their own source inputs.
+-- Other forms retain expected-type flow, including unqualified registered objects,
+-- literals, tuples, lambdas and applications with implicit parameters.
+private partial def sourcePrincipal (source : TSyntax `cas_term) : TermElabM Bool := do
+  match source with
+  | `(cas_term| ($inner:cas_term)) => sourcePrincipal inner
+  | `(cas_term| $name:ident) =>
+    return ((← getLCtx).findFromUserName? name.getId).isSome
+  | `(cas_term| $_:cas_term in $_:cas_term)
+  | `(cas_term| $_:cas_term → $_:cas_term)
+  | `(cas_term| $_:cas_term × $_:cas_term)
+  | `(cas_term| $_:cas_term ⊔ $_:cas_term)
+  | `(cas_term| $_:cas_term ∘ $_:cas_term)
+  | `(cas_term| |$_:cas_term|)
+  | `(cas_term| view $_:cas_term along $_:ident)
+  | `(cas_term| view $_:cas_term along $_:ident($_:cas_term,*))
+  | `(cas_term| map $_:cas_term along $_:ident($_:cas_term,*)) => return true
+  | `(cas_term| $name:ident($_:cas_term,*)) =>
+    return name.getId == `id && ((← getLCtx).findFromUserName? name.getId).isNone
+  | _ => return false
+
 -- Native application determines argument types before the original source is read once.
 -- A final application uses the actual expressions, preserving lexical binding occurrences
 -- even when expected-type unification has already assigned a provisional argument.
@@ -169,7 +190,11 @@ partial def readExpression
       return ← elementOperation "<" #[left, right] #[] #[] (some domain.value)
     | _ => pure ()
     if let some expected := expected then checkRegisteredDomains domain.value expected
-    readExpression categoryOf body (some domain.value)
+    let judgement ← readExpression categoryOf body (some domain.value)
+    -- The annotated domain keeps its selected source object: a later operand typed by this
+    -- value reads the domain with that origin, not only its native carrier.
+    if ← isProp judgement.value then return judgement
+    return { judgement with value := ← mkExpectedTypeHint judgement.value domain.value }
   let relation := fun (name : String) (left right : TSyntax `cas_term) => do
     -- The public precedence grammar places a trailing domain on the right operand.
     -- Its actual selected structure types both operands through the registered map.
@@ -380,6 +405,55 @@ partial def readExpression
       | some "³" => `(cas_term| $factor:cas_term ^ 3)
       | _ => pure factor
     return factor
+  -- The object whose registered notation is `notation`, at the source arguments.
+  let notationObject := fun (form : String) (arguments : Array (TSyntax `cas_term)) => do
+    let state ← CasCatalogue.semanticState
+    let rows := state.objects.filter (·.notations.contains form)
+    let #[entry] := rows
+      | if rows.isEmpty then return none
+        else CasCatalogue.throwSemanticAmbiguity s!"several objects declare the notation {form}"
+    let #[categoryEntry] := state.categories.filter (·.id == entry.category)
+      | throwError "the notation object requires one complete category"
+    let (bundle, value) ← registeredExpressions (.inl entry) categoryEntry fun function expected =>
+      application ⟨function, none⟩ arguments expected
+    return some (⟨value, some ⟨.object, categoryEntry.expression, bundle,
+      ← objectCarrierSelection entry bundle value⟩⟩ : NativeSourceJudgement)
+  -- `Xⁿ` of an object is its `n`-tuples `Vec(X, n)`, and `(ℤ/n)^k` the object of the notation
+  -- `(ℤ/)^`. An element base is an element power. Only a base that names an object is read here.
+  let objectPower := fun (base power : TSyntax `cas_term) => do
+    let `(cas_term| $_:num) := power | return none
+    if let `(cas_term| ($inner:cas_term)) := base then
+      if let `(cas_term| $atom:cas_term / $modulus:cas_term) := inner then
+        if let some name := sourceAtomName? atom then
+          if let some object ← notationObject s!"({name}/)^" #[modulus, power] then
+            return some object
+    let named := base.raw.isOfKind ``CasCatalogue.Language.casAtom || base.raw.isIdent ||
+      (match base with
+        | `(cas_term| $_:ident($_:cas_term,*)) => true
+        | `(cas_term| ($_:cas_term)) => true
+        | _ => false)
+    unless named do return none
+    let object ← readExpression categoryOf base none
+    unless object.category.any (·.role == .object) do return none
+    return some (← registered (mkIdentFrom source `Vec) #[base, power])
+  -- A principal operand fixes its own type; the other operand is read at that type.
+  let equationOperands := fun (left right : TSyntax `cas_term) => do
+    let leftPrincipal ← sourcePrincipal left
+    let rightPrincipal ← sourcePrincipal right
+    let (left, right) ← if !leftPrincipal && rightPrincipal then do
+      let right ← readExpression categoryOf right none
+      let left ← readExpression categoryOf left (some (← inferType right.value)) none right.category
+      pure (left, right)
+    else do
+      let left ← readExpression categoryOf left none
+      let type ← inferType left.value
+      let right ← readExpression categoryOf right
+        (if rightPrincipal then none else some type) none
+        (if rightPrincipal then none else left.category)
+      pure (left, right)
+    let (left, right) ← sourceCommonCategory left right
+    checkRegisteredDomains (← inferType left.value) (← inferType right.value)
+    return (left, right)
   -- A subset used as an object denotes its extent.
   let asObject := fun (judgement : NativeSourceJudgement) => do
     return (← sourceExtent? judgement).getD judgement
@@ -466,10 +540,12 @@ partial def readExpression
     | `(cas_term| $element:cas_term ∈ $container:cas_term) => membership element container
     | `(cas_term| $element:cas_term ∉ $container:cas_term) => do
       return ⟨mkNot (← membership element container).value, none⟩
-    | `(cas_term| $base:cas_term²) =>
+    | `(cas_term| $base:cas_term²) => do
+      if let some object ← objectPower base (← `(cas_term| 2)) then return object
       readExpression categoryOf (← `(cas_term| $base:cas_term ^ 2)) expected qualification
         expectedCategory
-    | `(cas_term| $base:cas_term³) =>
+    | `(cas_term| $base:cas_term³) => do
+      if let some object ← objectPower base (← `(cas_term| 3)) then return object
       readExpression categoryOf (← `(cas_term| $base:cas_term ^ 3)) expected qualification
         expectedCategory
     | `(cas_term| √$operand:cas_term) =>
@@ -500,6 +576,10 @@ partial def readExpression
         let function ← mkLambdaFVars #[parameter] value.value
         let power ← sourcePowerObjectAt target
         return (⟨← sourceImage power base function expected, none⟩ : NativeSourceJudgement)
+    | `(cas_term| $left:cas_term = $right:cas_term) => do
+      -- Within a term, `=` is the equality predicate of the operands' common domain.
+      let (left, right) ← equationOperands left right
+      return ⟨← mkEq left.value right.value, none⟩
     | `(cas_term| $left:cas_term ≤ $right:cas_term) => relation "≤" left right
     | `(cas_term| $left:cas_term < $right:cas_term) => relation "<" left right
     | `(cas_term| $receiver.$method:ident()) =>
@@ -524,24 +604,16 @@ partial def readExpression
         if object.category.any (·.role == .object) then
           return ← registered (mkIdentFrom source (.mkSimple "𝒫")) #[power]
       elementOperation "^" #[← `(cas_term| 2)] #[power] #[] none
-    | `(cas_term| $base:cas_term ^ $power:cas_term) =>
+    | `(cas_term| $base:cas_term ^ $power:cas_term) => do
+      if let some object ← objectPower base power then return object
       elementOperation "^" #[base] #[power] #[] none
     | `(cas_term| $left:cas_term / $right:cas_term) => do
       -- `ℤ/n`: the object whose registered notation is the atom followed by `/`.
       let some atom := sourceAtomName? left
         | CasCatalogue.throwUnsupportedSource "source division is not implemented"
-      let state ← CasCatalogue.semanticState
-      let rows := state.objects.filter (·.notations.contains s!"{atom}/")
-      let #[entry] := rows
-        | if rows.isEmpty then
-            CasCatalogue.throwUnsupportedSource "source division is not implemented"
-          else CasCatalogue.throwSemanticAmbiguity s!"several objects declare the notation {atom}/"
-      let #[categoryEntry] := state.categories.filter (·.id == entry.category)
-        | throwError "the notation object requires one complete category"
-      let (bundle, value) ← registeredExpressions (.inl entry) categoryEntry fun function expected =>
-        application ⟨function, none⟩ #[right] expected
-      return (⟨value, some ⟨.object, categoryEntry.expression, bundle,
-        ← objectCarrierSelection entry bundle value⟩⟩ : NativeSourceJudgement)
+      let some object ← notationObject s!"{atom}/" #[right]
+        | CasCatalogue.throwUnsupportedSource "source division is not implemented"
+      return object
     | `(cas_term| $name:ident ↦ $body:cas_term) => do
       lambda (← `(cas_term| $name:ident)) body
     | `(cas_term| ($first:cas_term, $rest:cas_term,*) ↦ $body:cas_term) => do
@@ -709,6 +781,13 @@ where
 def readSourceTerm (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
     (source : TSyntax `cas_term) (expected : Option Expr) : TermElabM NativeSourceJudgement :=
   withRingVariables categoryOf source (readExpression categoryOf source expected)
+
+/-- `a = b` in a question: native equality of the operands at their common domain, as in
+SourceEquality and the public claimEqual contract. Formation supplies no proof. -/
+def sourceEquation (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
+    (left right : TSyntax `cas_term) : TermElabM Expr := do
+  let equation ← `(cas_term| $left:cas_term = $right:cas_term)
+  return (← readExpression categoryOf equation (some (mkSort .zero))).value
 
 end CasCompiler
 

@@ -175,12 +175,18 @@ private def canonicalCategory (table : CasCatalogue.Realize.TermTable)
     ("bundle", toJson (← table.encode bundle)),
     ("carrier", toJson carrier)]
 
+/-- A question is its proposition. A settled typing question (`x ∈ Y` for an object `Y`) is the
+element read at its declared type, whose reading settled it. -/
 private def reading (session : SourceSession) (where_ : Location) (provenance : String)
-    (term : SourceTerm) : TermElabM Reading := do
+    (term : SourceTerm) (settled : Bool) : TermElabM Reading := do
   let proposition ← term.source.withOpen fun bindings expression => do
-    unless ← isProp expression do throwError "an exported question must be a proposition"
     -- Retain unused parameters, hypotheses and lets; do not generalize a let into a parameter.
     -- Reuse: Lean.Meta.mkForallFVars at v4.33.0, with its explicit retention controls.
+    if settled then
+      let typed ← mkExpectedTypeHint expression (← inferType expression)
+      return ← mkLambdaFVars (bindings.map (·.expression)) typed
+        (usedLetOnly := false) (generalizeNondepLet := false)
+    unless ← isProp expression do throwError "an exported question must be a proposition"
     mkForallFVars (bindings.map (·.expression)) expression
       (usedLetOnly := false) (generalizeNondepLet := false)
   -- Reuse the existing typed canonical serializer. It erases only native metadata,
@@ -196,7 +202,9 @@ private def reading (session : SourceSession) (where_ : Location) (provenance : 
       | throwError "an exported instance is outside its actual source telescope"
     return Json.mkObj [("class", toJson (selected.className.toString (escape := false))),
       ("binding", toJson index)]
-  let question ← table.finish <| Json.mkObj [("proposition", toJson root),
+  -- A settled reading is marked; a proposition keeps its existing identity document.
+  let judgement := if settled then [("judgement", toJson "settled")] else []
+  let question ← table.finish <| Json.mkObj <| judgement ++ [("proposition", toJson root),
     ("roles", toJson (term.source.context.entries.map (reprStr ·.role))),
     ("instances", toJson instances), ("categories", toJson categories),
     ("category", toJson category)]
@@ -242,8 +250,9 @@ opaque observeFile (file : SourceFile) (initial : SourceSession) : TermElabM Obs
         let formed ← session.readStatement statement
         match formed with
         | .definition next _ => pure (.ok (Sum.inl next))
-        | .question term | .implemented term | .settled term =>
-          pure (.ok (Sum.inr (← reading session where_ provenance term)))
+        | .question term | .implemented term =>
+          pure (.ok (Sum.inr (← reading session where_ provenance term false)))
+        | .settled term => pure (.ok (Sum.inr (← reading session where_ provenance term true)))
       catch error =>
         saved.restore
         pure (.error (← failure where_ stage error))
