@@ -548,9 +548,9 @@ partial def readExpression
       -- `{a₀, a₁, …, ...}`: the progression `{a₀ + d·k | k ∈ ℕ}` its numerals begin, with
       -- `d = a₁ - a₀` constant (public language contract).
       let numerals ← source.raw[1].getSepArgs.mapM fun numeral => do
-        let some value := numeral.isNatLit?
+        let `(cas_term| $value:num) := (⟨numeral⟩ : TSyntax `cas_term)
           | throwError "a progression `…, ...` is of numerals"
-        pure value
+        pure value.getNat
       let (some first, some second) := (numerals[0]?, numerals[1]?)
         | throwError "a progression `…, ...` begins with two numerals"
       unless first ≤ second do throwError "a progression `…, ...` in ℕ increases"
