@@ -13,6 +13,7 @@ public import CasCompiler.SourceConstruction
 public import CasCompiler.SourceLift
 public import CasCompiler.SourceSubset
 public import CasCompiler.SourceRing
+public import CasCompiler.SourceAdmission
 public import Lean.Elab.App
 
 public section
@@ -67,6 +68,20 @@ partial def readExpression
   let application := fun (source : NativeSourceJudgement) (arguments : Array (TSyntax `cas_term))
       (expected : Option Expr) => do
     let function ← if arguments.isEmpty then pure source.value else sourceFunction source
+    -- Several arguments of a map on a product are the components of one tuple (`gcd(84, 30)`).
+    if arguments.size > 1 then
+      let hole ← mkFreshExprMVar none
+      let unary ← withoutModifyingState do
+        discard <| elabAppArgs function #[] #[Arg.expr hole] none false false
+        let type ← whnfR (← instantiateMVars (← inferType hole))
+        let result ← whnfR (← inferType (mkApp function hole))
+        return type.isAppOfArity ``Prod 2 && !result.isForall
+      if unary then
+        discard <| elabAppArgs function #[] #[Arg.expr hole] none false false
+        let type ← instantiateMVars (← inferType hole)
+        let tuple ← sourceTuple arguments type fun component type => do
+          return (← readExpression categoryOf component (some type)).value
+        return ← elabAppArgs function #[] #[Arg.expr tuple] expected false false
     let holes ← arguments.mapM fun _ => mkFreshExprMVar none
     discard <| elabAppArgs function #[] (holes.map Arg.expr) expected false false
     let mut actual := #[]
@@ -178,9 +193,29 @@ partial def readExpression
     let owner ← if name == "•" then pure (some (← inferType rightValue.value)) else pure none
     elementOperation name #[left, right] #[] #[leftValue.map (·.value), some rightValue.value]
       owner
+  -- A value admitted into a registered subobject: read in the including set, then admitted
+  -- with the domain's own evidence. A map read where its function is expected is that function.
+  let admitted := fun (entry : CasCatalogue.ObjectEntry) (body : TSyntax `cas_term)
+      (domain : Expr) => do
+    sourceAdmission entry domain fun base => do
+      if (← whnfR base).isForall then
+        let value ← readExpression categoryOf body none
+        let type ← whnfR (← inferType value.value)
+        if type.isAppOfArity ``Quiver.Hom 4 || type.isAppOf ``TypeCat.Hom then
+          return ← sourceSetFunction value.value
+      return (← readExpression categoryOf body (some base)).value
   let annotated := fun (body domain : TSyntax `cas_term) => do
     let domain ← sourceCarrier (← readExpression categoryOf domain none)
     discard <| getLevel domain.value
+    if let some entry ← sourceAdmissionDomain? domain.value then
+      let identifier := body.raw.isIdent && ((← getLCtx).findFromUserName? body.raw.getId).isSome
+      let typed ← if identifier then do
+          let value ← readExpression categoryOf body none
+          isDefEq (← inferType value.value) domain.value
+        else pure false
+      unless typed do
+        let value ← admitted entry body domain.value
+        return (⟨← mkExpectedTypeHint value domain.value, none⟩ : NativeSourceJudgement)
     -- A relation's annotation selects its operand structure, not its truth-value result.
     -- Reuse the same whole-family operation preparation as other element operations.
     match body with
@@ -302,11 +337,35 @@ partial def readExpression
         | .inr _ => pure none
       let result : NativeSourceJudgement :=
         ⟨value, some ⟨role, categoryEntry.expression, bundle, carrier⟩⟩
+      -- A named global element `1 ⟶ X` (`i`, `π`) read where an element of a set is expected
+      -- is its value at the terminal point.
+      if role == .morphism && parameterCount == arguments.size then
+        if let some expected := expected then
+          let expected ← instantiateMVars expected
+          let type ← whnfR (← inferType value)
+          if !expected.isSort && type.isAppOfArity ``Quiver.Hom 4 &&
+              !(← whnfR expected).isAppOfArity ``Quiver.Hom 4 then
+            let source := type.getAppArgs[2]!
+            if (← synthInstance? (← mkAppM ``Unique #[source])).isSome then
+              return ⟨← sourcePointValue value (some expected), none⟩
       if parameterCount < arguments.size then
         return ⟨← application result (arguments.drop parameterCount) expected, none⟩
       return result
   let member := fun (receiver : TSyntax `cas_term) (name : String)
       (arguments : Array (TSyntax `cas_term)) => do
+    let readArguments : Option (Expr → TermElabM Expr) := if arguments.isEmpty then none
+      else some fun type => do
+        if let #[argument] := arguments then
+          return (← readExpression categoryOf argument (some type)).value
+        sourceTuple arguments type fun source type => do
+          return (← readExpression categoryOf source (some type)).value
+    -- A numeral receiver is read at the declared source of the registered method.
+    if sourceNumeric receiver.raw then
+      let read := fun (type : Expr) => do
+        return (← readExpression categoryOf receiver (some type)).value
+      let some value ← sourceElementMember? name none read readArguments
+        | throwError "no registered morphism {name} accepts this numeral"
+      return (⟨value, none⟩ : NativeSourceJudgement)
     let receiver ← readExpression categoryOf receiver none
     if let some value ← sourceLiftMember? receiver name then
       unless arguments.isEmpty do
@@ -320,7 +379,11 @@ partial def readExpression
           "a method and a member family both accept this selected receiver"
       | some method, none => pure method
       | none, some family => pure family
-      | none, none => throwError "no declared member family accepts this complete selected receiver"
+      | none, none => do
+        let some value ← sourceElementMember? name (some receiver) (fun _ => pure receiver.value)
+            readArguments
+          | throwError "no declared member family accepts this complete selected receiver"
+        return (⟨value, none⟩ : NativeSourceJudgement)
     if arguments.isEmpty then return family
     if arguments.size == 1 then
       return (⟨← application family arguments expected, none⟩ : NativeSourceJudgement)
@@ -481,6 +544,30 @@ partial def readExpression
       let coefficient : TSyntax `cas_term := ⟨source.raw[1]⟩
       readExpression categoryOf (← `(cas_term| ($coefficient:cas_term) · $factor:cas_term))
         expected qualification expectedCategory
+    else if source.raw.isOfKind ``CasCatalogue.Language.casUnits then
+      -- `Xˣ`: the registered units of `X`.
+      registered (mkIdentFrom source `Units) #[⟨source.raw[0]⟩]
+    else if source.raw.isOfKind ``CasCatalogue.Language.casFiniteSubsets then
+      registered (mkIdentFrom source (.mkSimple "𝒫_fin")) #[⟨source.raw[2]⟩]
+    else if source.raw.isOfKind ``CasCatalogue.Language.casNonzero then do
+      -- `X ∖ 0` for `X = N(…)`: the registered object `N∖0` at the same parameters.
+      unless source.raw[2].isNatLit? == some 0 do
+        throwError "`X ∖ n` is written for n = 0 only, the nonzero elements"
+      let base ← readExpression categoryOf ⟨source.raw[0]⟩ none
+      let state ← CasCatalogue.semanticState
+      let head := base.value.consumeMData.getAppFn
+      let some entry := state.objects.find? fun entry => head.isConstOf entry.declaration
+        | throwError "`X ∖ 0` is formed of a registered object"
+      let rows := state.objects.filter (·.name == s!"{entry.name}∖0")
+      let #[target] := rows
+        | CasCatalogue.throwUnsupportedSource s!"no registered object {entry.name}∖0"
+      let #[category] := state.categories.filter (·.id == target.category)
+        | throwError "the nonzero object requires one complete category"
+      let arguments ← sourceExplicitArguments (← instantiateMVars base.value.consumeMData)
+      let (bundle, value) ← registeredExpressions (.inl target) category fun function expected =>
+        elabAppArgs function #[] (arguments.map Arg.expr) expected false false
+      pure ⟨value, some ⟨.object, category.expression, bundle,
+        ← objectCarrierSelection target bundle value⟩⟩
     else if source.raw.isOfKind ``CasCatalogue.Language.casRing then
       -- `R[x]`: the polynomials `Poly(R)`; the variable `x` names its generator.
       registered (mkIdentFrom source `Poly) #[⟨source.raw[0]⟩]
@@ -556,6 +643,9 @@ partial def readExpression
     | `(cas_term| {$elements:cas_term,*}) => do
       let some expected := expected
         | throwError "a source set literal requires its declared power object"
+      -- A literal in an admitted subobject of a power object (`𝒫_fin(X)`) is admitted there.
+      if let some entry ← sourceAdmissionDomain? (← instantiateMVars expected) then
+        return ⟨← admitted entry source expected, none⟩
       let some power ← sourcePowerObject? (← instantiateMVars expected)
         | throwError "a source set literal requires a subset of a registered power object"
       let elements ← elements.getElems.mapM fun element => do
@@ -685,6 +775,8 @@ partial def readExpression
     | `(cas_term| $number:num) => do
       let some expected := expected
         | throwError "a source numeral requires its independently declared parameter type"
+      if let some entry ← sourceAdmissionDomain? (← instantiateMVars expected) then
+        return ⟨← admitted entry source expected, none⟩
       if let some category := expectedCategory then
         if let some value ← sourceObjectNumeral number.getNat category expected then return value
       pure ⟨← sourceNumeral categoryOf number.getNat expected, none⟩

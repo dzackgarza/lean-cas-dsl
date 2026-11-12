@@ -81,4 +81,62 @@ opaque sourceMemberFamily (receiver : NativeSourceJudgement) (name : String)
       (usedLetOnly := false) (generalizeNondepLet := false)
   return some ⟨value, some ⟨.morphism, category.expression, bundle, none⟩⟩
 
+/-- A registered morphism named `name` at fresh declaration parameters, with its source set. -/
+private def morphismAtSource (row : MorphismEntry) : TermElabM (Expr × Expr) := do
+  discard <| checkedDeclaration row.declaration
+  let declaration ← mkConstWithFreshMVarLevels row.declaration
+  let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType declaration)
+  let morphism := mkAppN declaration parameters
+  let type ← whnfR (← inferType morphism)
+  unless type.isAppOfArity ``Quiver.Hom 4 do
+    throwError "the registered morphism {row.id.raw} is not a native map"
+  return (morphism, type.getAppArgs[2]!)
+
+/-- `x.m()` for an element `x`: the registered morphism `m` whose source is the set `x` lies in,
+applied to `x`. Its declaration parameters are those that reducible unification of its source
+with the element's type determines. `read` reads the receiver at a candidate's source when the
+receiver has no type of its own (a numeral). Source: the original reader's method call on an
+element; Registry.Entry.MorphismEntry. Several applicable morphisms are ambiguous. -/
+def sourceElementMember? (name : String) (receiver : Option NativeSourceJudgement)
+    (read : Expr → TermElabM Expr) (arguments : Option (Expr → TermElabM Expr)) :
+    TermElabM (Option Expr) := do
+  let state ← semanticState
+  let mut found : Array (MorphismEntry × Expr × Expr) := #[]
+  for row in state.morphisms do
+    unless row.name == name do continue
+    let (morphism, whole) ← morphismAtSource row
+    -- With further arguments the source is the pair of the receiver's set and theirs.
+    let source ← match arguments with
+      | none => pure whole
+      | some _ => do
+        let pair ← whnfR whole
+        unless pair.isAppOfArity ``Prod 2 do continue
+        pure pair.getAppArgs[0]!
+    match receiver with
+    | some receiver =>
+      unless receiver.category.isNone do continue
+      let type ← instantiateMVars (← inferType receiver.value)
+      let applicable ← withoutModifyingState do
+        unless ← withReducible (isDefEq source type) do return false
+        return !(← instantiateMVars morphism).hasMVar
+      unless applicable do continue
+      discard <| withReducible (isDefEq source type)
+      found := found.push (row, ← instantiateMVars morphism, receiver.value)
+    | none =>
+      let source ← instantiateMVars source
+      if source.hasMVar || source.hasLevelMVar then continue
+      found := found.push (row, ← instantiateMVars morphism, ← read source)
+  match found with
+  | #[] => return none
+  | #[(row, morphism, element)] =>
+    let function ← sourceSetFunction (sourceReference ``MorphismEntry row.id.raw row.declaration
+      morphism)
+    let argument ← match arguments with
+      | none => pure element
+      | some read => do
+        let pair ← whnfR (← instantiateMVars ((← whnfR (← inferType morphism)).getAppArgs[2]!))
+        mkAppM ``Prod.mk #[element, ← read pair.getAppArgs[1]!]
+    return some (← elabAppArgs function #[] #[Arg.expr argument] none false false)
+  | _ => throwSemanticAmbiguity s!"several registered morphisms {name} accept this element"
+
 end CasCompiler
