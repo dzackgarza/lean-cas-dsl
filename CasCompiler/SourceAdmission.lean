@@ -121,4 +121,65 @@ def sourceAdmission (entry : ObjectEntry) (target : Expr) (read : Expr → TermE
     throwStratum .invalid m!"the parameters or evidence of {entry.name} are not determined"
   sourcePointValue admitted (some target)
 
+/-- A binding operator `token` (`∫_{a}^{b} e dt`, `lim_{t → a} e`, `∑_{t ∈ A} e`) through its
+registered rows (Registry.Entry.BinderEntry). The notation's arguments are the operation's last
+explicit parameters, each a point `1 ⟶ X` (read as an element of `X`) or an object; the bound
+variable ranges over the row's domain at the same parameters; the map `t ↦ e` is admitted into
+the operation's source object with that object's evidence; the operation is applied to it.
+`readArgument` reads an argument at a type, `readBody` the body with the bound variable. Every
+parameter must be fixed by the arguments and the body; one row must read the statement. -/
+def sourceBinder (token : String) (arguments : Array (Expr → TermElabM Expr))
+    (bound : Name) (readBody : Expr → TermElabM Expr) : TermElabM Expr := do
+  let state ← semanticState
+  let rows := state.binders.filter (·.token == token)
+  let attempt := fun (row : BinderEntry) => do
+    discard <| checkedDeclaration row.operation
+    discard <| checkedDeclaration row.domain
+    let operation ← mkConstWithFreshMVarLevels row.operation
+    let (parameters, infos, arrow) ← forallMetaTelescopeReducing (← inferType operation)
+    let explicit := (parameters.zip infos).filter (·.2.isExplicit) |>.map (·.1)
+    unless arguments.size ≤ explicit.size do throwError "the binder takes fewer arguments"
+    for parameter in explicit.extract (explicit.size - arguments.size) explicit.size,
+        read in arguments do
+      let type ← whnfR (← instantiateMVars (← inferType parameter))
+      let value ← if type.isAppOfArity ``Quiver.Hom 4 then do
+          let element ← read (← instantiateMVars type.getAppArgs[3]!)
+          let constant ← withLocalDeclD `point type.getAppArgs[2]! fun point =>
+            mkLambdaFVars #[point] element
+          elabAppArgs (← mkConstWithFreshMVarLevels ``TypeCat.ofHom) #[] #[Arg.expr constant]
+            (some type) false false
+        else read type
+      unless ← isDefEq parameter value do throwError "the binder argument has another type"
+    let domainConstant ← mkConstWithFreshMVarLevels row.domain
+    -- The bound variable lies in the registered form of the domain (`ℝ` for `∫_{a}^{b}`).
+    let domain ← sourceRegisteredForm (← instantiateMVars (mkAppN domainConstant parameters))
+    let arrow ← whnfR arrow
+    unless arrow.isAppOfArity ``Quiver.Hom 4 do throwError "the binder operation is not a map"
+    let some entry ← sourceAdmissionDomain? (← instantiateMVars arrow.getAppArgs[2]!)
+      | throwError "the binder operation does not act on an admitted object of maps"
+    let point ← sourceAdmission entry (← instantiateMVars arrow.getAppArgs[2]!) fun base => do
+      withLocalDeclD bound domain fun parameter => do
+        let body ← readBody parameter
+        let function ← mkLambdaFVars #[parameter] body
+        unless ← isDefEq (← inferType function) base do
+          throwError "the binder body is not a map of the operation's source"
+        return function
+    let applied ← instantiateMVars (mkAppN operation parameters)
+    if applied.hasMVar || applied.hasLevelMVar then
+      throwUnsupportedSource m!"the binder {token} has parameters its arguments do not determine"
+    let function ← sourceSetFunction (sourceReference ``BinderEntry row.id.raw row.operation applied)
+    elabAppArgs function #[] #[Arg.expr point] none false false
+  let mut readings := #[]
+  for row in rows do
+    let reading ← withoutModifyingState do
+      try pure (some (← attempt row)) catch _ => pure none
+    if reading.isSome then readings := readings.push row
+  match readings with
+  | #[row] => attempt row
+  | #[] =>
+    match rows with
+    | #[row] => attempt row
+    | _ => throwStratum .invalid m!"no registered binder {token} reads these arguments and body"
+  | _ => throwSemanticAmbiguity m!"several registered binders {token} read this statement"
+
 end CasCompiler
