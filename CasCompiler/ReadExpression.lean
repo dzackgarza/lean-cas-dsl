@@ -544,6 +544,31 @@ partial def readExpression
       let coefficient : TSyntax `cas_term := ⟨source.raw[1]⟩
       readExpression categoryOf (← `(cas_term| ($coefficient:cas_term) · $factor:cas_term))
         expected qualification expectedCategory
+    else if source.raw.isOfKind ``CasCatalogue.Language.casProgression then do
+      -- `{a₀, a₁, …, ...}`: the progression `{a₀ + d·k | k ∈ ℕ}` its numerals begin, with
+      -- `d = a₁ - a₀` constant (public language contract).
+      let numerals ← source.raw[1].getSepArgs.mapM fun numeral => do
+        let some value := numeral.isNatLit?
+          | throwError "a progression `…, ...` is of numerals"
+        pure value
+      let (some first, some second) := (numerals[0]?, numerals[1]?)
+        | throwError "a progression `…, ...` begins with two numerals"
+      unless first ≤ second do throwError "a progression `…, ...` in ℕ increases"
+      let difference := second - first
+      unless (numerals.toList.zip numerals.toList.tail).all fun (x, y) => y = x + difference do
+        CasCatalogue.throwStratum .invalid
+          m!"{numerals.toList}, ... is not an arithmetic progression"
+      let first : TSyntax `num := ⟨Syntax.mkNumLit (toString first)⟩
+      let difference : TSyntax `num := ⟨Syntax.mkNumLit (toString difference)⟩
+      readExpression categoryOf
+        (← `(cas_term| {$first:num + $difference:num · index | index ∈ ℕ}))
+        expected qualification expectedCategory
+    else if source.raw.isOfKind ``CasCatalogue.Language.casMultiples then do
+      -- `2ℕ`: the multiples `{2·n | n ∈ ℕ}` of the numeral in the named set.
+      let factor : TSyntax `num := ⟨source.raw[0]⟩
+      let set : TSyntax `cas_term := ⟨mkNode ``CasCatalogue.Language.casAtom #[source.raw[1]]⟩
+      readExpression categoryOf (← `(cas_term| {$factor:num · index | index ∈ $set:cas_term}))
+        expected qualification expectedCategory
     else if source.raw.isOfKind ``CasCatalogue.Language.casUnits then
       -- `Xˣ`: the registered units of `X`.
       registered (mkIdentFrom source `Units) #[⟨source.raw[0]⟩]
@@ -666,6 +691,59 @@ partial def readExpression
         let function ← mkLambdaFVars #[parameter] value.value
         let power ← sourcePowerObjectAt target
         return (⟨← sourceImage power base function expected, none⟩ : NativeSourceJudgement)
+    | `(cas_term| {$pairs:cas_pair,*} : $source:cas_term → $target:cas_term) => do
+      -- The map with this graph, through the registered graph literal of the endpoints'
+      -- category. Totality and distinct arguments are decided by the kernel on the literal.
+      let domain ← readExpression categoryOf source none
+      let codomain ← readExpression categoryOf target none
+      let (domain, codomain) ← sourceCommonCategory domain codomain
+      let some category := domain.category
+        | throwError "a graph literal requires its selected category"
+      unless category.role == .object && codomain.category.any (·.role == .object) do
+        throwError "a graph literal maps between objects"
+      let state ← CasCatalogue.semanticState
+      let rows := state.graphLiterals.filter fun row => state.categories.any fun entry =>
+        entry.id == row.category && entry.expression.syntacticEq category.expression
+      let #[row] := rows
+        | CasCatalogue.throwUnsupportedSource "the selected category has no registered graph literal"
+      let sourceCarrierType := (← sourceCarrier domain).value
+      let targetCarrierType := (← sourceCarrier codomain).value
+      let pairType ← mkAppM ``Prod #[sourceCarrierType, targetCarrierType]
+      let mut elements := #[]
+      for pair in pairs.getElems do
+        let `(cas_pair| $argument:cas_term ↦ $result:cas_term) := pair
+          | throwError "a graph literal lists pairs `x ↦ y`"
+        let argument ← readExpression categoryOf argument (some sourceCarrierType)
+        let result ← readExpression categoryOf result (some targetCarrierType)
+        elements := elements.push (← mkAppOptM ``Prod.mk
+          #[some sourceCarrierType, some targetCarrierType, some argument.value, some result.value])
+      let graph ← mkListLit pairType elements.toList
+      discard <| checkedDeclaration row.denotation
+      let constant ← mkConstWithFreshMVarLevels row.denotation
+      let (arguments, infos, type) ← forallMetaTelescopeReducing (← inferType constant)
+      let type ← whnfR type
+      unless type.isAppOfArity ``Quiver.Hom 4 do
+        throwError "the registered graph literal does not denote a map"
+      unless ← isDefEq type.getAppArgs[2]! domain.value <&&>
+          isDefEq type.getAppArgs[3]! codomain.value do
+        throwError "the registered graph literal has different endpoints"
+      let explicit := (List.range arguments.size).toArray.filter (infos[·]!.isExplicit)
+      let some first := explicit[0]? | throwError "the graph literal takes no graph"
+      unless ← isDefEq arguments[first]! graph do
+        throwError "the graph literal does not accept this list of pairs"
+      for argument in arguments, info in infos do
+        if info.isInstImplicit && (← instantiateMVars argument).isMVar then
+          let some instanceValue ← synthInstance? (← inferType argument)
+            | throwError "the graph literal lacks its declared decidable equality"
+          discard <| isDefEq argument instanceValue
+      for index in explicit.drop 1 do
+        let obligation ← instantiateMVars (← inferType arguments[index]!)
+        let some proof ← CasCatalogue.Decide.decisionProof obligation
+          | CasCatalogue.throwStratum .invalid m!"the graph does not list each element once: {obligation}"
+        discard <| isDefEq arguments[index]! proof
+      let value ← instantiateMVars (mkAppN constant arguments)
+      return ⟨sourceReference ``CasCatalogue.GraphLiteralEntry row.id.raw row.denotation value,
+        some { category with role := .morphism, carrier := none }⟩
     | `(cas_term| $left:cas_term = $right:cas_term) => do
       -- Within a term, `=` is the equality predicate of the operands' common domain.
       let (left, right) ← equationOperands left right
