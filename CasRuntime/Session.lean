@@ -2,7 +2,7 @@ module
 
 public import CasRuntime.Kernel
 public import CasCompiler.Read
-public import CasCatalogue.Decide
+public import CasCatalogue.Evaluation
 
 public section
 
@@ -106,17 +106,18 @@ private def commit (transaction : CellTransaction) : MetaM Unit := do
   | .ok _ => pure ()
   | .error failure => throwError "internal: the cell did not commit: {repr failure}"
 
-/-- Decide the closed proposition in Lean, after substituting the session's definitions.
+/-- Decide the closed proposition in Lean, after substituting the session's definitions, by the
+registered literal evaluations and the kernel's decision (`Evaluation.decideEvaluated`).
 A statement about a declaration with a retained computed value is a statement about that
 actual value, so it is compared and not discharged from the definition. -/
 private def discharged (session : KernelSession) (context : OpenContext) (proposition : Expr) :
-    MetaM (Option Bool) := do
+    TermElabM (Option Bool) := do
   let retained := context.bindings.any fun binding =>
     (session.bound[binding.id]?).isSome && proposition.containsFVar binding.expression.fvarId!
   if retained || session.computationOnly then return none
   let proposition ← zetaReduce proposition
   if proposition.hasFVar then return none
-  Decide.decideProp proposition
+  Evaluation.decideEvaluated proposition
 
 /-- The literal value of a side that is a registered literal form's denotation `denote L`.
 Source: LiteralEntry, "a statement comparing a computed value with a literal compares it
@@ -186,6 +187,7 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
     match ← session.source.readStatement statement with
     | .definition next value =>
       let transaction ← CellTransaction.begin session.kernel.ledger
+      let sent := (← session.kernel.dispatches.get).size
       let binding ← next.context.withOpen fun bindings => do
         let context ← ContextTelescope.capture bindings
         let expression ← value.source.inContext context
@@ -195,10 +197,18 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
       commit transaction
       let some entry := next.context.entries.back?
         | throwError "internal: a source definition added no declaration"
+      -- A value that no provider computed is its definition: later statements read that
+      -- definition. Only a value with actual computational provenance is retained.
+      let computed := (← session.kernel.dispatches.get).size > sent
       let bound := match binding with
-        | some binding => session.bound.insert entry.id binding
+        | some binding => if computed then session.bound.insert entry.id binding else session.bound
         | none => session.bound
       return { outcome := .holds, session := { session with source := next, bound } }
+    | .settled value =>
+      let shown ← session.source.context.withOpen fun bindings => do
+        let context ← ContextTelescope.capture bindings
+        return toString (← ppExpr (← value.source.inContext context))
+      return { outcome := .holds, session, proposition := s!"settled: {shown}" }
     | .implemented value =>
       -- The value is computed in its own cell. A gap or a failed computation is the outcome.
       let transaction ← CellTransaction.begin session.kernel.ledger

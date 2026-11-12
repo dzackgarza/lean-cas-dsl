@@ -123,6 +123,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "source statement formation lost its declaration or original location"
       session := next
     | .implemented _ => throwError "these source statements contain no implementation request"
+    | .settled _ => throwError "these source statements contain no typing question"
     | .question proposition =>
       unless proposition.source.context.entries.size == 6 &&
           session.context.entries.size == 6 do

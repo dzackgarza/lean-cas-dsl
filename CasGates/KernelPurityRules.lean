@@ -64,7 +64,7 @@ meta def evaluators : List Name := []
 
 /-- The one declaration that runs a registered proof procedure (with its auxiliary
 declarations): a domain's evidence, a literal form's evaluation. -/
-meta def evidenceRunner : Name := `CasCatalogue.Language.runProcedure
+meta def evidenceRunner : Name := `CasCatalogue.Evaluation.runProcedure
 
 /-- Tactic blocks as terms, and the tactic category, which the kernel may not name. -/
 meta def tacticSyntax : List Name :=

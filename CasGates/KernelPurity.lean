@@ -19,6 +19,7 @@ import all CasCatalogue.ElementData
 import all CasCatalogue.ElementDataProbes
 import all CasCatalogue.EquationData
 import all CasCatalogue.EquationDataProbes
+import all CasCatalogue.Evaluation
 import all CasCatalogue.EvidencePresentationProbes
 import all CasCatalogue.FileItems
 import all CasCatalogue.FunctorActionData

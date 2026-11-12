@@ -35,6 +35,8 @@ import all CasCompiler.SourceEqualityTests
 import all CasCompiler.SourceInheritedNumeralTests
 import all CasCompiler.SourceLimit
 import all CasCompiler.SourceLimitTests
+import all CasCompiler.SourceSubset
+import all CasCompiler.SourceSubsetTests
 import all CasCompiler.SourceMember
 import all CasCompiler.SourceMemberTests
 import all CasCompiler.SourceMethod
@@ -120,6 +122,7 @@ import all CasRuntime.SDKTests
 import all CasRuntime.ExportCaptureTests
 import all CasCompiler.Lower
 import all CasRuntime.Kernel
+import all CasCatalogue.Evaluation
 import all CasRuntime.Session
 import all CasRuntime.SessionTests
 import all CasContract

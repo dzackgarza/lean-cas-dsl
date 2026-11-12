@@ -7,6 +7,7 @@ module
 public import CasCatalogue.Semantic
 public import CasCatalogue.Admission
 public import CasCompiler.Syntax
+public import CasCatalogue.Evaluation
 -- The whole pinned semantic release: what the language can say never depends on which leaves are
 -- installed.
 public import LeanCategories.Catalogue
@@ -1060,42 +1061,6 @@ def evidencePresentation (state : RegistryState) (p : Expr) : MetaM Expr := do
     throwError "the evidence presentation is not the original complete target"
   return presented
 
-/-- The one place the kernel runs a proof procedure it did not write (`CasGates.KernelPurity`,
-`evidenceRunner`): `procedure`, a `meta` procedure `TacticM Unit` of `lean-categories` registered
-there and validated there, a domain's evidence registered with its admission (LC-18) or a literal
-form's evaluation registered with the form, run on the goal `goal`. The result is the goals it
-leaves, or, when it fails or logs an error, why. The kernel names no lemma and no tactic, and runs
-no proof search of its own (`specs/architecture.md`, "What must be impossible"). A failed
-procedure is not recovered into `sorry`, and its attempt leaves no message behind: its failure is
-reported once, by the caller. -/
-def runProcedure (procedure : Name) (goal : MVarId) :
-    TermElabM (Except String (List MVarId)) := do
-  let procedure ← unsafe evalConst (Lean.Elab.Tactic.TacticM Unit) procedure
-  let messages := (← getThe Core.State).messages
-  let restore : TermElabM Unit := modifyThe Core.State fun st => { st with messages }
-  let outcome ← withoutErrToSorry <| Term.withoutErrToSorry do
-    try
-      let remaining ← Term.withSynthesize (postpone := .no) <|
-        Lean.Elab.Tactic.run goal procedure
-      pure (Except.ok remaining : Except String (List MVarId))
-    -- A failed procedure is returned as its failure, which the caller reports.
-    -- not a reading fallback: the failure is returned, never retried
-    catch e => pure (Except.error (← e.toMessageData.toString))
-  let logged := (← getThe Core.State).messages.hasErrors && !messages.hasErrors
-  match outcome with
-  | .error message =>
-      restore
-      return .error message
-  | .ok remaining =>
-      if logged then
-        let errors := (← getThe Core.State).messages.toList.filter (·.severity == .error)
-        let detail ← match errors.getLast? with
-          | some msg => msg.data.toString
-          | none => pure ""
-        restore
-        return .error s!"its proof has a hole: {detail}"
-      return .ok remaining
-
 /-- The evidence of the hypothesis `p` of the admission of a domain (a proposition, `IsUnit x`,
 `Continuous f`, or data with at most one value, `Invertible x`, the inverse an admitted unit
 keeps), established when a statement is read (LC-14) by the domain's registered evidence and by
@@ -1110,7 +1075,7 @@ def establish (evidence : Name) (p : Expr) (what : MessageData) : TermElabM Expr
     throwStratum .invalid m!"{what}: the hypothesis {p} is not determined"
   let presented ← evidencePresentation (← registryState) p
   let goal ← mkFreshExprMVar presented .syntheticOpaque
-  match ← runProcedure evidence goal.mvarId! with
+  match ← Evaluation.runProcedure evidence goal.mvarId! with
   | .error message =>
       let detail := if message.length ≤ 300 then message else
         s!"{message.take 300}\n{String.intercalate "\n" ((message.splitOn "\n").reverse.take 8).reverse}"

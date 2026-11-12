@@ -156,11 +156,20 @@ opaque RuntimeEnvironment.checkArgument (environment : RuntimeEnvironment) (sour
     if ← isProp expected then throwError "a formal proof argument has no runtime value binding"
     checkNativeType context expected argument.value argument.origin
     checkDependencies context environment.bindingMap expected argument.value argument.origin
-    if specified.isFVar then
-      let some binding := bindings.find? (·.expression == specified)
-        | throwError "the source argument is outside the complete runtime telescope"
-      let .ok (some retained) := environment.lookup binding.id
-        | throwError "the source argument has no retained runtime binding"
+    -- A source variable with a computed value is that retained value. A definition that no
+    -- provider computed is its definition, so its argument is checked like any other term.
+    let retained ← if specified.isFVar then do
+        let some binding := bindings.find? (·.expression == specified)
+          | throwError "the source argument is outside the complete runtime telescope"
+        match environment.lookup binding.id with
+        | .ok (some retained) => pure (some retained)
+        | .ok none =>
+          if (← specified.fvarId!.getDecl).value?.isNone then
+            throwError "the source argument has no retained runtime binding"
+          pure none
+        | .error reason => throwError "the source argument is outside its telescope: {reason}"
+      else pure none
+    if let some retained := retained then
       unless sameReference retained argument.value do
         throwError "the runtime argument does not retain its specified source value"
     else

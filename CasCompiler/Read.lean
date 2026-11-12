@@ -105,11 +105,23 @@ opaque SourceSession.readQuestion (session : SourceSession) (stx : TSyntax `cas_
   session.elaborate stx fun context => questionExpression (sourceCategory session context) stx
 
 /-- A definition extends the native scope. A question retains that scope without extending it.
-An implementation request asks that the installed computations produce the value. -/
+An implementation request asks that the installed computations produce the value. A typing
+question (`x ∈ Y` or `x in Y` for an object `Y`) is settled by reading `x` in `Y`. -/
 inductive SourceStatement where
   | definition (session : SourceSession) (value : SourceTerm)
   | question (proposition : SourceTerm)
   | implemented (value : SourceTerm)
+  | settled (value : SourceTerm)
+
+/-- Read an asserted membership or annotation. Membership in a subset is a proposition; in an
+object it is the element's reading there, whose success settles the question.
+Source: mathematical-input contract §1; the original reader's settled typing judgements. -/
+private def typingQuestion (session : SourceSession) (stx : TSyntax `cas_term) :
+    TermElabM SourceStatement := do
+  let term ← session.elaborate stx fun context =>
+    return (← readExpression (sourceCategory session context) stx none).value
+  let proposition ← term.source.withOpen fun _ expression => isProp expression
+  return if proposition then .question term else .settled term
 
 private partial def patternFunction (pattern body : TSyntax `cas_term) :
     TermElabM (TSyntax `cas_term) :=
@@ -147,7 +159,10 @@ opaque SourceSession.readStatement (session : SourceSession) (stx : TSyntax `cas
   | `(cas_stmt| assert implemented $body:cas_term) =>
     return .implemented (← session.read body)
   | `(cas_stmt| assert $body:cas_term) =>
-    return .question (← session.readQuestion body)
+    match body with
+    | `(cas_term| $_:cas_term ∈ $_:cas_term)
+    | `(cas_term| $_:cas_term in $_:cas_term) => typingQuestion session body
+    | _ => return .question (← session.readQuestion body)
   | _ =>
     CasCatalogue.throwUnsupportedSource
       "source translation is not implemented for this statement form"

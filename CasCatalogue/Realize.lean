@@ -7,6 +7,7 @@ module
 public import CasCatalogue.Language
 public import CasCatalogue.Admission
 public import CasCatalogue.Codec
+public import CasCatalogue.Evaluation
 public import CasCatalogue.StructuredResult
 public import CasCatalogue.ConstructionData
 public import CasCatalogue.FunctorActionData
@@ -2808,17 +2809,6 @@ def evaluatedEq (a b : Expr) : MetaM Bool := do
   | some equal => return equal
   | none => throwStratum .noImplementation m!"the fixed typed values have no executable equality comparison"
 
-/-- The registered evaluations that apply to the proposition `p`: the `evaluation` of each
-registered literal form (a literal row's, a subset-literal row's) whose denotation occurs in `p`.
-Each is a `meta` procedure of `lean-categories`, validated there with its row, which rewrites the
-images of literals of its form under the catalogue's operations to literals, by the theorems of
-its domain, and never closes a goal. -/
-def evaluationsOf (state : RegistryState) (p : Expr) : Array Name :=
-  let occurs (denotation : Name) : Bool := (p.find? (·.isConstOf denotation)).isSome
-  (state.literals.filterMap fun form => if occurs form.denotation then form.evaluation else none)
-    ++ (state.subsetLiterals.filterMap fun form =>
-      if occurs form.denotation then form.evaluation else none)
-
 /-- Select domain-owned point evaluators only from actual retained complete comparisons. -/
 def presentationEvaluationsOf (trace : Trace) (p : Expr) : TermElabM (Array Name) := do
   let state ← registryState
@@ -2859,44 +2849,6 @@ def presentationEvaluationsOf (trace : Trace) (p : Expr) : TermElabM (Array Name
     unless evaluations.contains evaluation do evaluations := evaluations.push evaluation
   return evaluations
 
-/-- Whether Lean's kernel accepts a proof of the closed proposition `p` by the registered
-evaluations `evaluations` and decision: the goal `p` is given to each evaluation in turn, through
-the one sanctioned runner (`Language.runProcedure`, LC-18). A closed remainder uses the existing
-structural decision (`Codec.conditionProof`), retaining its complete declared types while
-normalizing their presentation. Ordinary `mkDecideProof` remains available for a residue with
-local hypotheses. The assembled proof is checked against the original `p` by Lean's kernel,
-synchronously within `decideBudget`. Failure to construct or check a proof decides nothing. -/
-def evaluatedDecides (evaluations : Array Name) (p : Expr) : TermElabM Bool := do
-  let attempt : TermElabM Bool := do
-    let goal ← mkFreshExprMVar p .syntheticOpaque
-    let mut remaining := [goal.mvarId!]
-    for evaluation in evaluations do
-      let [current] := remaining | return false
-      match ← Language.runProcedure evaluation current with
-      | .ok goals => remaining := goals
-      -- not a reading fallback: an evaluation that fails decides nothing, and the claim is then
-      -- realized, unchanged
-      | .error _ => return false
-    match remaining with
-    | [] => pure ()
-    | [residue] => residue.withContext do
-        let condition ← instantiateMVars (← residue.getDecl).type
-        let structural ← if condition.hasFVar || condition.hasMVar || condition.hasLevelMVar then
-          pure none else Codec.conditionProof condition
-        let proof ← match structural with
-          | some proof => pure proof
-          | none => mkDecideProof condition
-        residue.assign proof
-    | _ => return false
-    let proof ← instantiateMVars goal
-    if proof.hasMVar || proof.hasLevelMVar || proof.hasSorry then return false
-    kernelAccepts p proof
-  withCurrHeartbeats <|
-    withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := decideBudget * 1000 }) <|
-      -- not a reading fallback: a proposition the evaluations and decision do not settle is not
-      -- decided by Lean; the claim is then realized, unchanged
-      tryCatchRuntimeEx attempt fun _ => pure false
-
 /-- The proposition `p` decided in Lean, generically: `some true` when the kernel accepts its
 proof by the registered evaluations that apply to it (`evaluationsOf`) and decision
 (`evaluatedDecides`), `some false` when it accepts one of `¬p`, `none` otherwise. -/
@@ -2906,10 +2858,7 @@ def decideEvaluated (p : Expr) (trace? : Option Trace := none) : TermElabM (Opti
   let pointEvaluations ← match trace? with
     | some trace => presentationEvaluationsOf trace p
     | none => pure #[]
-  let evaluations := pointEvaluations ++ evaluationsOf (← registryState) p
-  if ← evaluatedDecides evaluations p then return some true
-  if ← evaluatedDecides evaluations (mkNot p) then return some false
-  return none
+  Evaluation.decideEvaluated p pointEvaluations
 
 /-- Outcomes available to computation after interpretation. An execution path cannot
 construct an authoritative semantic-invalidity or semantic-ambiguity judgement. -/
@@ -2962,8 +2911,8 @@ def evaluatedPointEq (trace : Trace) (a b : Expr) : TermElabM Bool := do
   let condition ← mkEq a b
   let evaluations ← presentationEvaluationsOf trace condition
   unless evaluations.isEmpty do
-    if ← evaluatedDecides evaluations condition then return true
-    if ← evaluatedDecides evaluations (mkNot condition) then return false
+    if ← Evaluation.evaluatedDecides evaluations condition then return true
+    if ← Evaluation.evaluatedDecides evaluations (mkNot condition) then return false
   evaluatedEq a b
 
 /-- Interpret the port's finite function graphs under categorical composition.
