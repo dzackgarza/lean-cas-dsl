@@ -59,6 +59,8 @@ private partial def sourcePrincipal (source : TSyntax `cas_term) : TermElabM Boo
 -- A final application uses the actual expressions, preserving lexical binding occurrences
 -- even when expected-type unification has already assigned a provisional argument.
 -- Reuse: Lean.Elab.App.elabAppArgs and Lean.Meta.mkFreshExprMVar at Lean 4.33.0.
+-- The one dispatch over every source form exceeds the compiler's default budget.
+set_option maxHeartbeats 400000 in
 partial def readExpression
     (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
     (source : TSyntax `cas_term) (expected : Option Expr)
@@ -136,7 +138,7 @@ partial def readExpression
     let inputContext := contextual.filter (! ·.headBeta.consumeMData.isSort)
     -- Actual typed operands determine the input domain before the expected result.
     -- Relations land in Ω; that result must not replace their selected operand owner.
-    let domain ← match (domainHint.or hints[0]?).or inputContext with
+    let domain ← match domainHint.or (← sourceCommonDomain hints) |>.or inputContext with
       | some type => pure type
       | none => do
         let mut domain := hints[0]?
@@ -144,10 +146,9 @@ partial def readExpression
           for operand in operands, index in [:operands.size] do
             if let `(cas_term| $_:num) := operand then continue
             let value ← readExpression categoryOf operand none
-            domain := some (← inferType value.value)
             retained := retained.set! index (some value.value)
             hints := hints.push (← inferType value.value)
-            break
+          domain ← sourceCommonDomain hints
         if let some selectedDomain := domain then pure selectedDomain
         else do
           let defaults := (← CasCatalogue.semanticState).objects.filter
@@ -172,6 +173,8 @@ partial def readExpression
         | throwError "the source operation lost its declared operand position"
       let read : Expr → TermElabM Expr := fun expected => do
         if let some (some value) := originalOperand[index]? then
+          unless ← withoutModifyingState (isDefEq (← inferType value) expected) do
+            if let some mapped ← sourceCoercion? value expected then return mapped
           checkRegisteredDomains (← inferType value) expected
           unless ← isDefEq (← inferType value) expected do
             throwErrorAt source "the retained operand has a different declared domain"
@@ -648,6 +651,21 @@ partial def readExpression
           return (← readExpression categoryOf index (some type)).value]
         source.raw[2].getId fun _ => do
           return (← readExpression categoryOf ⟨source.raw[6]⟩ none).value
+      pure ⟨value, none⟩
+    else if source.raw.isOfKind ``CasCatalogue.Language.casCoefficientOf then do
+      -- `[tⁿ]f`, `[t^n]f`, `[t]f`: the registered coefficient of `f` at the exponent `n`.
+      let monomial : TSyntax `cas_term := ⟨source.raw[1]⟩
+      let exponent ← match monomial with
+        | `(cas_term| $_:ident ^ $power:num) => pure power
+        | `(cas_term| $_:ident²) => `(num| 2)
+        | `(cas_term| $_:ident³) => `(num| 3)
+        | `(cas_term| $_:ident) => `(num| 1)
+        | _ => throwError "a coefficient is of a monomial `[tⁿ]`"
+      let series ← readExpression categoryOf ⟨source.raw[3]⟩ none
+      let some value ← sourceElementMember? "coefficient" (some series)
+          (fun _ => pure series.value) (some fun type => do
+            return (← readExpression categoryOf (← `(cas_term| $exponent:num)) (some type)).value)
+        | throwError "the series has no registered coefficient"
       pure ⟨value, none⟩
     else if source.raw.isOfKind ``CasCatalogue.Language.casInfinity then
       registered (mkIdentFrom source (.mkSimple "∞")) #[]

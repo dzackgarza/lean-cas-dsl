@@ -278,4 +278,24 @@ def sourceCoercion? (value target : Expr) : TermElabM (Option Expr) := do
     return some (← mkExpectedTypeHint result target)
   | _ => throwSemanticAmbiguity "several registered maps read this element in the expected set"
 
+/-- The set in which operands of the given sets meet: the one into which every other operand's
+set maps through registered maps (`sourceCoercion?`), so that `n² · tⁿ` is read in ℤ[[t]];
+otherwise the first set. -/
+def sourceCommonDomain (types : Array Expr) : TermElabM (Option Expr) := do
+  let mut distinct : Array Expr := #[]
+  for type in types do
+    unless ← distinct.anyM fun other => withoutModifyingState (isDefEq other type) do
+      distinct := distinct.push type
+  if distinct.size ≤ 1 then return distinct[0]?
+  let mut common := #[]
+  for candidate in distinct do
+    let reaches ← distinct.allM fun other => do
+      if ← withoutModifyingState (isDefEq other candidate) then return true
+      withLocalDeclD `operand other fun operand => do
+        return (← withoutModifyingState (sourceCoercion? operand candidate)).isSome
+    if reaches then common := common.push candidate
+  match common with
+  | #[candidate] => return some candidate
+  | _ => return distinct[0]?
+
 end CasCompiler
