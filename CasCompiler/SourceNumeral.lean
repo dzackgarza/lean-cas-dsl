@@ -179,6 +179,14 @@ private def numeralCandidate (row : NumeralEntry) (context : NumeralContext)
     | _ => pure value
   return some value
 
+/-- First-binding lookup for numerals (constitution C6): an inherited numeral route is a reading
+only when no numeral row binds at a category before its target. This is the rule that
+`SemanticState.isFirstOperationBindingRoute` states for operation names; a farther binding
+cannot replace one already found on the same path. -/
+private def firstNumeralBinding (state : SemanticState) (route : Route) : Bool :=
+  route.steps.all fun edge => !state.categories.any fun entry =>
+    entry.expression.syntacticEq edge.source && state.numerals.any (·.over == some entry.id)
+
 /-- Read a numeral from its independent point declarations, not a host OfNat instance.
 Nat parameters use the kernel's natural literal. Point domains retain their original source
 object identity; refinements require the actual registered object and directed comparison.
@@ -218,6 +226,7 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
         let some routes ← paths.finiteRoutes
           | throwUnsupportedSource "numeral inheritance requires its supplied uniform comparison"
         for route in routes do
+          unless firstNumeralBinding state route do continue
           let family ← nativeOwnedFamily state selected.category.expression categoryFamily route
             row.declaration (fun infos => infos.findIdx? (·.isExplicit))
           candidates := candidates.push
