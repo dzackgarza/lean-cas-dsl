@@ -407,8 +407,12 @@ partial def readExpression
       unless arguments.isEmpty do
         throwError "a selected lift projection takes no additional source arguments"
       return value
-    let method ← sourceMethod receiver name
-    let family ← sourceMemberFamily receiver name qualification
+    -- A method of objects on a subset is its extent's method (`Fs.cardinality()`).
+    let object ← match ← sourceExtent? receiver with
+      | some extent => pure extent
+      | none => pure receiver
+    let method ← sourceMethod object name
+    let family ← sourceMemberFamily object name qualification
     let family ← match method, family with
       | some _, some _ =>
         CasCatalogue.throwSemanticAmbiguity
@@ -722,7 +726,15 @@ partial def readExpression
       let elements ← elements.getElems.mapM fun element => do
         return (← readExpression categoryOf element (some power.base)).value
       return ⟨← sourceSubsetLiteral power elements expected, none⟩
-    | `(cas_term| {$bound:ident ∈ $domain:cas_term | $body:cas_term}) =>
+    | `(cas_term| {$bound:ident ∈ $domain:cas_term | $body:cas_term}) => do
+      -- Over a subset `A ⊆ X`: `{t ∈ X | t ∈ A and P}`, through `A`'s power object.
+      let subset ← readExpression categoryOf domain none
+      if let some power ← sourcePowerObject? (← instantiateMVars (← inferType subset.value)) then
+        return ← withLocalDeclD bound.getId power.base fun parameter => do
+          let predicate ← readExpression categoryOf body (some (mkSort .zero))
+          let member ← sourceMembership power parameter subset.value
+          let predicate ← mkLambdaFVars #[parameter] (mkAnd member predicate.value)
+          return (⟨← sourceComprehension power predicate expected, none⟩ : NativeSourceJudgement)
       boundIn bound domain fun base parameter => do
         let predicate ← readExpression categoryOf body (some (mkSort .zero))
         let predicate ← mkLambdaFVars #[parameter] predicate.value
