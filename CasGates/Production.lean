@@ -37,6 +37,8 @@ import all CasCompiler.SourceLimit
 import all CasCompiler.SourceLimitTests
 import all CasCompiler.SourceSubset
 import all CasCompiler.SourceSubsetTests
+import all CasCompiler.SourceRing
+import all CasCompiler.SourceRingTests
 import all CasCompiler.SourceMember
 import all CasCompiler.SourceMemberTests
 import all CasCompiler.SourceMethod

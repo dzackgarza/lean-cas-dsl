@@ -115,6 +115,18 @@ private def selectedReference? (data : MData) : Option (Name × ComputationRef) 
   else if kind == ``EdgeRef.functor then some (declaration, .functor ⟨id⟩)
   else none
 
+/-- A registered distinguished element that the reader evaluated at its point: a subset literal
+or an object's generator. Its address names the element; the declaration locates its
+application inside the native point value. -/
+private def namedElement? (data : MData) : Option (Name × String) := do
+  let declaration := data.getName `CasCompiler.source.declaration
+  let id := data.getString `CasCompiler.source.id
+  if declaration.isAnonymous || id.isEmpty then none
+  let kind := data.getName `CasCompiler.source.kind
+  if kind == ``SubsetLiteralEntry then some (declaration, id)
+  else if kind == ``ObjectEntry.generator then some (declaration, s!"{id}#generator")
+  else none
+
 /-- Closed scalar data in the released literal grammar, read by ScalarLiteral.check.
 Reference: CasRuntime/Literal.lean decode; this is its inverse on literal constructor forms.
 Only numerals, lists and constructor applications are read. No definition is unfolded. -/
@@ -216,6 +228,12 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
       return value
     -- The reader's selected address belongs to each occurrence of its declaration. It moves
     -- onto those occurrences, so retained code keeps it after this term is taken apart.
+    -- A named element is sent as its descriptor at its explicit parameters, not as the
+    -- unfolded definition of its point value.
+    if let some (declaration, address) := namedElement? data then
+      let some element := body.find? (·.getAppFn.isConstOf declaration)
+        | throwError "internal: the named element lost its registered declaration"
+      return ← namedConstant expression address (← explicitArguments element)
     match selectedReference? data with
     | some (declaration, _) =>
       if body.isConstOf declaration then application expression
@@ -293,6 +311,19 @@ private partial def descriptor (expression : Expr) (address : String) (arguments
   let .ok payload := ValuePayload.container packet slots fields none
     | throwError "internal: the descriptor of {address} has an invalid reference layout"
   stage expression payload
+
+/-- A registered named constant at its explicit arguments. A callable is retained as code; a
+record value keeps each computational field as a closure beside its descriptor. -/
+private partial def namedConstant (expression : Expr) (address : String) (arguments : Array Expr) :
+    LowerM ValueBinding := do
+  let frame ← read
+  let layout := (← origin expression).role
+  if layout.kind == .function then return ← closure expression
+  let mut fields := #[]
+  for prepared in layout.fields do
+    if prepared.wireIndex.isSome then
+      fields := fields.push (← closure (← prepared.source.inContext frame.context))
+  descriptor expression address arguments fields
 
 /-- The explicit arguments of an application that are not proofs. -/
 private partial def explicitArguments (expression : Expr) : LowerM (Array Expr) := do
@@ -418,13 +449,7 @@ private partial def application (expression : Expr) : LowerM ValueBinding := do
       let selected ← field owner info.i operand m!"{name}"
       return ← apply selected (arguments.extract (info.numParams + 1) arguments.size)
   if let some address := (descriptorIds state name)[0]? then
-    let layout := (← origin expression).role
-    if layout.kind == .function then return ← closure expression
-    let mut fields := #[]
-    for prepared in layout.fields do
-      if prepared.wireIndex.isSome then
-        fields := fields.push (← closure (← prepared.source.inContext frame.context))
-    return ← descriptor expression address (← explicitArguments expression) fields
+    return ← namedConstant expression address (← explicitArguments expression)
   match (← getEnv).find? name with
   | some (.ctorInfo constructor) =>
     unless arguments.size == constructor.numParams + constructor.numFields do

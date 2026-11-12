@@ -33,7 +33,7 @@ private def SourceSession.readAt (session : SourceSession) (reference : Syntax)
     (expected : Option ClosedTerm := none) : TermElabM SourceTerm := do
   let #[term] ← session.elaborateJudgements reference fun context => do
     let expected ← expected.mapM (·.inContext context)
-    return #[← readExpression (sourceCategory session context) stx expected]
+    return #[← readSourceTerm (sourceCategory session context) stx expected]
     | throwError "source reading returned an invalid number of judgements"
   return term
 
@@ -102,7 +102,10 @@ Source: mathematical-input contract §1 and ContextTelescope; equality and conju
 retain the actual terms. Formation does not decide the question or add a hypothesis. -/
 opaque SourceSession.readQuestion (session : SourceSession) (stx : TSyntax `cas_term) :
     TermElabM SourceTerm :=
-  session.elaborate stx fun context => questionExpression (sourceCategory session context) stx
+  session.elaborate stx fun context => do
+    let categoryOf := sourceCategory session context
+    return (← withRingVariables categoryOf stx do
+      return ⟨← questionExpression categoryOf stx, none⟩).value
 
 /-- A definition extends the native scope. A question retains that scope without extending it.
 An implementation request asks that the installed computations produce the value. A typing
@@ -119,7 +122,7 @@ Source: mathematical-input contract §1; the original reader's settled typing ju
 private def typingQuestion (session : SourceSession) (stx : TSyntax `cas_term) :
     TermElabM SourceStatement := do
   let term ← session.elaborate stx fun context =>
-    return (← readExpression (sourceCategory session context) stx none).value
+    return (← readSourceTerm (sourceCategory session context) stx none).value
   let proposition ← term.source.withOpen fun _ expression => isProp expression
   return if proposition then .question term else .settled term
 

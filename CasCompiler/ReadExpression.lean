@@ -12,6 +12,7 @@ public import CasCompiler.SourcePresentation
 public import CasCompiler.SourceConstruction
 public import CasCompiler.SourceLift
 public import CasCompiler.SourceSubset
+public import CasCompiler.SourceRing
 public import Lean.Elab.App
 
 public section
@@ -192,8 +193,17 @@ partial def readExpression
         (some expected) false false
       return ← sourceSetJudgement .morphism value
     let .forallE _ domain codomain binderInfo := type
-      | CasCatalogue.throwUnsupportedSource
-          "source lambda formation is not implemented for this declared map type"
+      | do
+        -- `x ↦ e` in `R[x]`: the element `e` with `x` the ring's registered generator.
+        let `(cas_term| $name:ident) := pattern
+          | CasCatalogue.throwUnsupportedSource
+              "source lambda formation is not implemented for this declared map type"
+        let some generator ← sourceGeneratorAt? expected
+          | CasCatalogue.throwUnsupportedSource
+              "source lambda formation is not implemented for this declared map type"
+        return ← withLetDecl name.getId expected generator fun bound => do
+          let body ← readExpression categoryOf body (some expected)
+          return (⟨← mkLetFVars #[bound] body.value, none⟩ : NativeSourceJudgement)
     let value ← sourcePatternLambda pattern domain binderInfo fun parameter => do
       return (← readExpression categoryOf body (some (codomain.instantiate1 parameter))).value
     return ⟨value, none⟩
@@ -397,6 +407,12 @@ partial def readExpression
       let coefficient : TSyntax `cas_term := ⟨source.raw[1]⟩
       readExpression categoryOf (← `(cas_term| ($coefficient:cas_term) · $factor:cas_term))
         expected qualification expectedCategory
+    else if source.raw.isOfKind ``CasCatalogue.Language.casRing then
+      -- `R[x]`: the polynomials `Poly(R)`; the variable `x` names its generator.
+      registered (mkIdentFrom source `Poly) #[⟨source.raw[0]⟩]
+    else if source.raw.isOfKind ``CasCatalogue.Language.casSeries then
+      -- `R[[t]]`: the formal power series `PowerSeries(R)`.
+      registered (mkIdentFrom source `PowerSeries) #[⟨source.raw[0]⟩]
     else if let some name := sourceAtomName? source then object name qualification #[]
     else match source with
     | `(cas_term| presentation($name:ident($arguments:cas_term,*))) =>
@@ -659,6 +675,40 @@ partial def readExpression
       throwError "the source expression does not have its independently declared parameter type"
     return judgement
   return judgement
+
+/-- Read a whole source term. Each variable of a ring `R[v]` that the term writes and uses free is
+bound to that ring's registered generator for this term only.
+Source: the public language contract, "`R[x]`: the polynomials over `R`, whose generator `x`
+names". A variable named by two different written rings is ambiguous. -/
+partial def withRingVariables
+    (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
+    (source : TSyntax `cas_term) (read : TermElabM NativeSourceJudgement) :
+    TermElabM NativeSourceJudgement := do
+  let mut written : Array (Name × Syntax) := #[]
+  for (name, ring) in sourceRingVariables source.raw do
+    unless sourceUses name source.raw && !sourceBinds name source.raw do continue
+    if let some (_, other) := written.find? (·.1 == name) then
+      unless other.reprint == ring.reprint do
+        CasCatalogue.throwSemanticAmbiguity m!"{name} is the variable of several rings"
+      continue
+    written := written.push (name, ring)
+  bind written.toList
+where
+  bind : List (Name × Syntax) → TermElabM NativeSourceJudgement
+    | [] => read
+    | (name, ring) :: rest => do
+      if ((← getLCtx).findFromUserName? name).isSome then return ← bind rest
+      let carrier ← sourceCarrier (← readExpression categoryOf ⟨ring⟩ none)
+      let some generator ← sourceGeneratorAt? carrier.value
+        | throwErrorAt ring "the ring has no registered generator"
+      withLetDecl name carrier.value generator fun bound => do
+        let judgement ← bind rest
+        return { judgement with value := ← mkLetFVars #[bound] judgement.value }
+
+/-- Read a whole source term with its written rings' variables (`withRingVariables`). -/
+def readSourceTerm (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
+    (source : TSyntax `cas_term) (expected : Option Expr) : TermElabM NativeSourceJudgement :=
+  withRingVariables categoryOf source (readExpression categoryOf source expected)
 
 end CasCompiler
 

@@ -138,6 +138,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "a source function binding changed its morphism role"
       session := next
     | .implemented _ => throwError "these source statements contain no implementation request"
+    | .settled _ => throwError "these source statements contain no typing question"
     | .question proposition =>
       unless proposition.source.context.entries.size == 5 do
         throwError "a later function question lost its complete preceding context"
