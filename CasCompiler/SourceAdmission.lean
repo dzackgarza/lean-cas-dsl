@@ -182,4 +182,100 @@ def sourceBinder (token : String) (arguments : Array (Expr → TermElabM Expr))
     | _ => throwStratum .invalid m!"no registered binder {token} reads these arguments and body"
   | _ => throwSemanticAmbiguity m!"several registered binders {token} read this statement"
 
+
+/-- The registered object whose family, at parameters that reducible unification determines, is
+the native type `type`, with that application. -/
+private def registeredObjectAt? (type : Expr) : MetaM (Option (ObjectEntry × Expr)) := do
+  let mut found := #[]
+  for entry in (← semanticState).objects do
+    if entry.refines.isSome then continue
+    discard <| checkedDeclaration entry.declaration
+    let family ← mkConstWithFreshMVarLevels entry.declaration
+    let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
+    let object := mkAppN family parameters
+    let applicable ← withoutModifyingState do
+      unless ← withReducible (isDefEq object type) do return false
+      return !(← instantiateMVars object).hasMVar
+    if applicable then
+      discard <| withReducible (isDefEq object type)
+      found := found.push (entry, ← instantiateMVars object)
+  match found with
+  | #[unique] => return some unique
+  | _ => return none
+
+/-- A registered map out of the set `source`: a declaration whose arrow, at parameters that
+reducible unification with `source` determines, leaves `source`. -/
+private def mapFrom? (declaration : Name) (source : Expr) : MetaM (Option (Expr × Expr)) := do
+  discard <| checkedDeclaration declaration
+  let constant ← mkConstWithFreshMVarLevels declaration
+  let (parameters, _, arrow) ← forallMetaTelescopeReducing (← inferType constant)
+  let arrow ← whnfR arrow
+  unless arrow.isAppOfArity ``Quiver.Hom 4 do return none
+  let applicable ← withoutModifyingState do
+    unless ← withReducible (isDefEq arrow.getAppArgs[2]! source) do return false
+    return !(← instantiateMVars (mkAppN constant parameters)).hasMVar
+  unless applicable do return none
+  discard <| withReducible (isDefEq arrow.getAppArgs[2]! source)
+  return some (← instantiateMVars (mkAppN constant parameters),
+    ← instantiateMVars arrow.getAppArgs[3]!)
+
+/-- A registered map into the set `target`, at the parameters that reducible unification of its
+target with `target` determines, with its source set. -/
+private def mapInto? (declaration : Name) (target : Expr) : MetaM (Option (Expr × Expr)) := do
+  discard <| checkedDeclaration declaration
+  let constant ← mkConstWithFreshMVarLevels declaration
+  let (parameters, _, arrow) ← forallMetaTelescopeReducing (← inferType constant)
+  let arrow ← whnfR arrow
+  unless arrow.isAppOfArity ``Quiver.Hom 4 do return none
+  let applicable ← withoutModifyingState do
+    unless ← withReducible (isDefEq arrow.getAppArgs[3]! target) do return false
+    return !(← instantiateMVars (mkAppN constant parameters)).hasMVar
+  unless applicable do return none
+  discard <| withReducible (isDefEq arrow.getAppArgs[3]! target)
+  return some (← instantiateMVars (mkAppN constant parameters),
+    ← instantiateMVars arrow.getAppArgs[2]!)
+
+/-- Every chain of registered inclusions out of the set `current`, as the maps along it with the
+set it ends in. A visited object is not entered again, so each chain is a simple path. -/
+private partial def inclusionChains (state : SemanticState) (current : Expr)
+    (visited : List String) : TermElabM (Array (Array Expr × Expr)) := do
+  let mut found := #[(#[], current)]
+  let some (entry, _) ← registeredObjectAt? (← sourceRegisteredForm current) | return found
+  if visited.contains entry.id.raw then return found
+  for inclusion in state.inclusions do
+    unless inclusion.sub == entry.id do continue
+    let some (arrow, next) ← mapFrom? inclusion.declaration current | continue
+    for (maps, last) in ← inclusionChains state next (entry.id.raw :: visited) do
+      found := found.push (#[arrow] ++ maps, last)
+  return found
+
+/-- The element `value` of a named set read in the named set `target`, through the registered
+inclusions (`ℕ ⊆ ℤ`) and the target's registered constants (`R ↪ R[x]`): `none` when no chain
+of these maps leads there. Several chains are a competing reading. Source: InclusionEntry,
+ObjectEntry.constants and the original reader's rule for elements of related sets. -/
+def sourceCoercion? (value target : Expr) : TermElabM (Option Expr) := do
+  let state ← semanticState
+  let source ← instantiateMVars (← inferType value)
+  let some _ ← registeredObjectAt? (← sourceRegisteredForm source) | return none
+  let some (goal, _) ← registeredObjectAt? (← sourceRegisteredForm target) | return none
+  let chains ← inclusionChains state source []
+  let mut readings := #[]
+  for (maps, last) in chains do
+    if maps.isEmpty then continue
+    if ← withoutModifyingState (isDefEq last target) then readings := readings.push maps
+  if let some constants := goal.constants then
+    if let some (arrow, coefficients) ← mapInto? constants (← sourceRegisteredForm target) then
+      for (maps, last) in chains do
+        if ← withoutModifyingState (isDefEq last coefficients) then
+          readings := readings.push (maps.push arrow)
+  match readings with
+  | #[] => return none
+  | #[maps] =>
+    let mut result := value
+    for arrow in maps do
+      let function ← sourceSetFunction arrow
+      result ← elabAppArgs function #[] #[Arg.expr result] none false false
+    return some (← mkExpectedTypeHint result target)
+  | _ => throwSemanticAmbiguity "several registered maps read this element in the expected set"
+
 end CasCompiler

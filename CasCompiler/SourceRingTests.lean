@@ -51,3 +51,26 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     pure false
   catch _ => pure true
   unless rejected do throwError "a variable with no written ring was read"
+
+/- An element of a named set read in a larger one goes through the registered maps between them:
+inclusions (`ℕ ⊆ ℤ`) and the target's constants (`ℚ ↪ ℚ[x]`). -/
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let file ← SourceFile.parse "source-coercions.cas" "let n := 3 in ℕ\nlet m := n in ℤ\nlet p := n in ℚ[x]\n"
+  let mut session ← SourceSession.empty identities
+  let mut values := #[]
+  for item in file.items do
+    let `(cas_item| $statement:cas_stmt) := item
+      | throwError "the coercion control changed its parsed category"
+    let .definition next value ← file.withContext (session.readStatement statement)
+      | throwError "a coercion control is not a definition"
+    session := next
+    values := values.push value
+  let uses := fun (index : Nat) (declaration : Name) => do
+    let some value := values[index]? | throwError "a coercion control was not read"
+    value.source.withOpen fun _ expression => do
+      return (← instantiateMVars expression).containsConst (· == declaration)
+  unless ← uses 1 ``CasCatalogue.Algebra.NumberSystems.naturalsIntegers do
+    throwError "a natural was not read in ℤ through the registered inclusion"
+  unless ← uses 2 ``CasCatalogue.Algebra.Polynomials.coefficients do
+    throwError "a natural was not read in ℚ[x] through the registered constants"

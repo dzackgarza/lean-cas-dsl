@@ -1087,6 +1087,11 @@ partial def readExpression
         | some extent => sourceCarrier extent
         | none => pure judgement
     else pure judgement
+    unless ← withoutModifyingState (isDefEq (← inferType judgement.value) expected) do
+      -- An element of a related named set is read through the registered maps between them.
+      if judgement.category.isNone then
+        if let some value ← sourceCoercion? judgement.value (← instantiateMVars expected) then
+          return ⟨value, none⟩
     checkRegisteredDomains (← inferType judgement.value) expected
     unless ← isDefEq (← inferType judgement.value) expected do
       throwError "the source expression does not have its independently declared parameter type"
