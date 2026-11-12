@@ -151,4 +151,107 @@ partial def sourceBinds (name : Name) (stx : Syntax) : Bool :=
       | _ => false
   binder || stx.getArgs.any (sourceBinds name)
 
+/-- The registered objects of the object type `type` of a parameter (`A : Under R`), at the
+declaration parameters that unification determines, for which `fits` holds once the parameter
+is that object. -/
+private def registeredObjectsAt (type : Expr) (fits : Expr → TermElabM Bool) :
+    TermElabM (Array Expr) := do
+  let mut found := #[]
+  for entry in (← semanticState).objects do
+    discard <| checkedDeclaration entry.declaration
+    let family ← mkConstWithFreshMVarLevels entry.declaration
+    let (parameters, _, objectType) ← forallMetaTelescopeReducing (← inferType family)
+    let object := mkAppN family parameters
+    let applicable ← withoutModifyingState do
+      unless ← isDefEq objectType type do return false
+      unless ← fits object do return false
+      return !(← instantiateMVars object).hasMVar
+    if applicable then
+      discard <| isDefEq objectType type
+      discard <| fits object
+      found := found.push (← instantiateMVars object)
+  return found
+
+/-- `p(a)` for an element `p` of an object with a registered application
+`∀ params A, obj params × A ⟶ B` (a polynomial's evaluation `R[x] × A → A` at an `R`-algebra
+`A`). An argument in the coefficient ring `R` itself is evaluated in `Under.mk (𝟙 R)`, the
+algebra that lean-categories states is own-ring evaluation (`Polynomials.evaluation_own`); any
+other argument in the unique registered `R`-algebra whose carrier is its set.
+Source: ObjectEntry.application. `read` reads the argument, at the coefficient set when given. -/
+def sourceObjectApplication? (value : Expr) (numeral : Bool)
+    (read : Option Expr → TermElabM Expr) : TermElabM (Option Expr) := do
+  let type ← instantiateMVars (← inferType value)
+  let state ← semanticState
+  let mut applications := #[]
+  for entry in state.objects do
+    let some application := entry.application | continue
+    discard <| checkedDeclaration entry.declaration
+    let family ← mkConstWithFreshMVarLevels entry.declaration
+    let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
+    if ← withoutModifyingState (withReducible (isDefEq (mkAppN family parameters) type)) then
+      applications := applications.push (entry, application)
+  let some (entry, application) := applications[0]? | return none
+  unless applications.size == 1 do
+    throwSemanticAmbiguity "several registered applications act on this element"
+  discard <| checkedDeclaration application
+  let constant ← mkConstWithFreshMVarLevels application
+  let (parameters, _, arrow) ← forallMetaTelescopeReducing (← inferType constant)
+  let arrow ← whnfR arrow
+  unless arrow.isAppOfArity ``Quiver.Hom 4 do
+    throwError "the application of {entry.name} is not a native map"
+  let pair ← whnfR arrow.getAppArgs[2]!
+  unless pair.isAppOfArity ``Prod 2 do
+    throwError "the application of {entry.name} does not act on a pair"
+  unless ← withReducible (isDefEq pair.getAppArgs[0]! type) do
+    throwError "the application of {entry.name} does not act on this element"
+  let some algebra := parameters.back?
+    | throwError "the application of {entry.name} has no argument object"
+  let algebraType ← instantiateMVars (← inferType algebra)
+  unless algebraType.isAppOf ``CategoryTheory.Under do
+    throwUnsupportedSource m!"the application of {entry.name} acts at an unread argument object"
+  let ring := algebraType.appArg!
+  let own ← mkAppM ``CategoryTheory.Under.mk #[← mkAppM ``CategoryTheory.CategoryStruct.id #[ring]]
+  -- The set the application reads its argument in, once the argument object is `object`.
+  let argumentSet := fun (object : Expr) => do
+    unless ← isDefEq algebra object do return none
+    return some (← instantiateMVars pair.getAppArgs[1]!)
+  let ownCarrier ← withoutModifyingState do
+    let some carrier ← argumentSet own | throwError "the own-ring algebra does not fit"
+    return carrier
+  -- A numeral is an element of the coefficient set, the source of the object's registered
+  -- constants `R ↪ R[x]` (ObjectEntry.constants). It is read by the numeral rules at that set's
+  -- native type, where the declared literal selectors (ℤ, ℚ) recognize it.
+  let coefficients ← match entry.constants with
+    | none => pure ownCarrier
+    | some constants => do
+      discard <| checkedDeclaration constants
+      let family ← mkConstWithFreshMVarLevels constants
+      let (_, _, inclusion) ← forallMetaTelescopeReducing (← inferType family)
+      let inclusion ← whnfR inclusion
+      unless inclusion.isAppOfArity ``Quiver.Hom 4 &&
+          (← withReducible (isDefEq inclusion.getAppArgs[3]! type)) do
+        throwError "the constants of {entry.name} do not land in this element's set"
+      instantiateMVars inclusion.getAppArgs[2]!
+  let argument ← if numeral then read (some (← whnf coefficients)) else read none
+  let argumentType ← instantiateMVars (← inferType argument)
+  let candidates ← if ← isDefEq argumentType ownCarrier then pure #[own]
+    else registeredObjectsAt algebraType fun object => do
+      let some carrier ← argumentSet object | return false
+      isDefEq carrier argumentType
+  let selected ← match candidates with
+    | #[object] => pure object
+    | #[] => throwUnsupportedSource m!"no registered coefficient algebra acts on this argument"
+    | _ => throwSemanticAmbiguity "several registered algebras act on the argument's set"
+  unless ← isDefEq algebra selected do
+    throwError "the selected argument object does not fit the application of {entry.name}"
+  let applied ← instantiateMVars (mkAppN constant parameters)
+  if applied.hasMVar || applied.hasLevelMVar then
+    throwError "the application of {entry.name} is not determined"
+  let function ← sourceSetFunction (sourceReference ``ObjectEntry.application entry.id.raw
+    application applied)
+  let result ← elabAppArgs function #[] #[Arg.expr (← mkAppM ``Prod.mk #[value, argument])]
+    none false false
+  -- The value lies in the argument's own set, as the reader formed it.
+  mkExpectedTypeHint result argumentType
+
 end CasCompiler

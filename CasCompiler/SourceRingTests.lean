@@ -16,7 +16,8 @@ free variable of a term that writes the ring, and as the bound variable of `x �
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let file ← SourceFile.parse "source-rings.cas"
-    "let p(x) := x² - 2x + 1 in ℤ[x]\nassert x ∈ ℤ[x]\nlet q := x · x in ℚ[x]\n"
+    "let p(x) := x² - 2x + 1 in ℤ[x]\nassert x ∈ ℤ[x]\nlet q := x · x in ℚ[x]\n\
+     assert p(1) = 0\nassert q(√2) = 2\n"
   let mut session ← SourceSession.empty identities
   let mut formed := #[]
   for item in file.items do
@@ -26,7 +27,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     if let .definition next _ := statement then session := next
     formed := formed.push statement
   let generator := ``CasCatalogue.Algebra.Polynomials.generator
-  for statement in formed do
+  let evaluation := ``CasCatalogue.Algebra.Polynomials.evaluation
+  for index in [3, 4] do
+    let some (SourceStatement.question term) := formed[index]?
+      | throwError "a polynomial evaluation is not a question"
+    let evaluated ← term.source.withOpen fun _ expression => do
+      return (← instantiateMVars expression).containsConst (· == evaluation)
+    unless evaluated do throwError "a polynomial value was not applied by its registered evaluation"
+  for statement in formed.extract 0 3 do
     let term := match statement with
       | .definition _ value | .question value | .implemented value | .settled value => value
     let uses ← term.source.withOpen fun _ expression => do

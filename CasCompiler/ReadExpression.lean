@@ -67,6 +67,14 @@ partial def readExpression
   withRef source do
   let application := fun (source : NativeSourceJudgement) (arguments : Array (TSyntax `cas_term))
       (expected : Option Expr) => do
+    -- An element with a registered application (a polynomial `p(a)`).
+    if let #[argument] := arguments then
+      if source.category.isNone then
+        let type ← whnfR (← instantiateMVars (← inferType source.value))
+        unless type.isForall || type.isAppOfArity ``Quiver.Hom 4 || type.isAppOf ``TypeCat.Hom do
+          if let some value ← sourceObjectApplication? source.value (sourceNumeric argument.raw)
+              fun expected => do return (← readExpression categoryOf argument expected).value then
+            return value
     let function ← if arguments.isEmpty then pure source.value else sourceFunction source
     -- Several arguments of a map on a product are the components of one tuple (`gcd(84, 30)`).
     if arguments.size > 1 then
