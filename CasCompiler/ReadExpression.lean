@@ -229,6 +229,9 @@ partial def readExpression
     -- The annotated domain keeps its selected source object: a later operand typed by this
     -- value reads the domain with that origin, not only its native carrier.
     if ← isProp judgement.value then return judgement
+    -- An occurrence whose own type already is the domain stays the original occurrence.
+    if (← instantiateMVars (← inferType judgement.value)) == (← instantiateMVars domain.value) then
+      return judgement
     return { judgement with value := ← mkExpectedTypeHint judgement.value domain.value }
   let relation := fun (name : String) (left right : TSyntax `cas_term) => do
     -- The public precedence grammar places a trailing domain on the right operand.
