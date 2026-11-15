@@ -25,7 +25,8 @@ run_cmd liftTermElabM do
   try
     let session ← KernelSession.start none (computationOnly := true)
     try
-      for text in #["assert x + 1 = 1 + x in ℚ[x]", "assert Fin(3).is_finite()"] do
+      for text in #["assert x + 1 = 1 + x in ℚ[x]", "assert Fin(3).is_finite()",
+          "assert ℤ.is_finite() = false"] do
         let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
           | .ok statement => pure statement
           | .error error => throwError "the statement did not parse: {error}"

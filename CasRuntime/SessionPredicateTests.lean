@@ -40,7 +40,9 @@ run_cmd liftTermElabM do
           ("let primes := {n ∈ ℕ | n.is_prime()}", "holds"),
           ("assert 7 ∈ primes", "holds"),
           ("assert 9 ∉ primes", "holds"),
-          ("assert 9 ∈ primes", "wrong")] do
+          ("assert 9 ∈ primes", "wrong"),
+          ("assert (9 ∈ primes) = false", "holds"),
+          ("assert (7 ∈ primes) = true", "holds")] do
         let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
           | .ok statement => pure statement
           | .error error => throwError "the statement did not parse: {error}"
@@ -50,7 +52,7 @@ run_cmd liftTermElabM do
         session := run.session
       let dispatched := (← session.kernel.dispatches.get).map (·.operation)
       unless dispatched == #["mor.sets.nat_is_prime", "mor.sets.nat_is_prime",
-          "mor.sets.nat_is_prime"] do
+          "mor.sets.nat_is_prime", "mor.sets.nat_is_prime", "mor.sets.nat_is_prime"] do
         throwError "the session dispatched {dispatched}"
     finally liftM (m := IO) session.close
   finally setEnv environment
