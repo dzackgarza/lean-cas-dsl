@@ -85,5 +85,13 @@ run_cmd liftTermElabM do
       let run ← withoutErrToSorry <| bare.run ⟨statement⟩
       unless run.outcome.kind == "gap" do
         throwError "a statement with no installed leaf is {run.outcome.kind}, not a gap"
+      -- The definition keeps its meaning without a leaf (constitution C3): a later statement
+      -- reads it, and this closed question is settled in Lean.
+      let question ← match Parser.runParserCategory (← getEnv) `cas_stmt "assert a = 46 in ℤ" with
+        | .ok statement => pure statement
+        | .error error => throwError "the statement did not parse: {error}"
+      let asked ← withoutErrToSorry <| run.session.run ⟨question⟩
+      unless asked.outcome.kind == "holds" do
+        throwError "a definition with no installed leaf is lost: {asked.outcome.kind} ({asked.outcome.detail})"
     finally liftM (m := IO) bare.close
   finally setEnv environment
