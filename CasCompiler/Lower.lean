@@ -276,7 +276,11 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
       let some name := info.fieldNames[index]?
         | throwError "internal: a source projection is outside its structure"
       field owner index value m!"{name}"
-    | .forallE .. | .sort .. => descriptor expression "lean:type" #[] #[]
+    | .forallE .. | .sort .. =>
+      if type.isProp then
+        -- A quantified proposition is decided by a published predicate or not at all (C22).
+        throwStratum .noImplementation m!"the proposition {expression} has no published predicate"
+      descriptor expression "lean:type" #[] #[]
     | _ => application expression
 
 /-- A descriptor of a named source constant at its actual explicit arguments.
@@ -444,6 +448,9 @@ private partial def application (expression : Expr) : LowerM ValueBinding := do
     descriptor expression name.getString! (← fields.filterM fun field => return !(← isProof field))
       #[]
   | some (.inductInfo _) =>
+    if (← whnf (← inferType expression)).isProp then
+      -- A proposition formed by a type former has no computed truth value of its own (C22).
+      throwStratum .noImplementation m!"the proposition {name} has no published predicate"
     -- A type former at its arguments is an object of the category of sets.
     descriptor expression s!"lean:{name}" (← explicitArguments expression) #[]
   | some (.recInfo _) | some (.quotInfo _) =>
