@@ -128,6 +128,16 @@ private def literalForm? (side : Expr) : MetaM (Option Expr) := do
   unless (← semanticState).literals.any (·.denotation == name) do return none
   return side.getAppArgs.back?
 
+/-- A side that the reader formed as a registered numeral (NumeralEntry). It is compared as its
+own term: deciding that a computed value equals a numeral evaluates a closed proposition, which
+the kernel may do; it does not compute the numeral's image as data (constitution C22). -/
+private def numeralForm? (side : Expr) : Option Expr :=
+  match side with
+  | .mdata data body =>
+    if data.getName `CasCompiler.source.kind == ``CasCatalogue.NumeralEntry then some side
+    else numeralForm? body
+  | _ => none
+
 private def packetOf (session : KernelSession) (transaction : CellTransaction)
     (context : OpenContext) (side : Expr) : MetaM (Except String Json) := do
   let binding ← session.kernel.run transaction context session.bound side
@@ -142,7 +152,9 @@ literal type when one side is a literal form, and decides equality of those valu
 kernel. It is an observation of candidates, not a proof. -/
 private def compare (session : KernelSession) (transaction : CellTransaction)
     (context : OpenContext) (left right : Expr) : MetaM Outcome := do
-  let literals ← #[left, right].mapM literalForm?
+  let literals ← #[left, right].mapM fun side => do
+    if let some literal ← literalForm? side then return some literal
+    return numeralForm? side
   let reading ← (literals.findSome? id).mapM fun literal => inferType literal
   let mut values := #[]
   for side in #[left, right], literal in literals do

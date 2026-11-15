@@ -115,15 +115,16 @@ private def selectedReference? (data : MData) : Option (Name × ComputationRef) 
   else if kind == ``EdgeRef.functor then some (declaration, .functor ⟨id⟩)
   else none
 
-/-- A registered distinguished element that the reader evaluated at its point: a subset literal
-or an object's generator. Its address names the element; the declaration locates its
-application inside the native point value. -/
+/-- A registered distinguished element that the reader evaluated at its point: a subset literal,
+an object's generator or a numeral. Its address names the element; the declaration locates its
+application inside the native point value. A numeral is the image of `k` under a universal map
+(NumeralEntry); computing that image is a leaf's job (constitution C22). -/
 private def namedElement? (data : MData) : Option (Name × String) := do
   let declaration := data.getName `CasCompiler.source.declaration
   let id := data.getString `CasCompiler.source.id
   if declaration.isAnonymous || id.isEmpty then none
   let kind := data.getName `CasCompiler.source.kind
-  if kind == ``SubsetLiteralEntry then some (declaration, id)
+  if kind == ``SubsetLiteralEntry || kind == ``NumeralEntry then some (declaration, id)
   else if kind == ``ObjectEntry.generator then some (declaration, s!"{id}#generator")
   else none
 
@@ -162,20 +163,6 @@ private partial def literal? (expression : Expr) : MetaM (Option Json) := do
     if let #[packet] := packets then return some packet
     return some (.arr packets)
   return some (Json.mkObj [("ctor", toJson name.getString!), ("args", .arr packets)])
-
-/-- Closed ground data with no published computation family is ordinary Lean data: a numeral,
-a finite index, a tuple of such. Lean's reduction gives its literal form.
-A term that names a published family is never reduced here: its definition is mathematics,
-and its computation is the published interface (mathematical-input contract §2).
-Reuse: Lean.Meta.reduce at Lean v4.33.0. -/
-private def evaluated? (state : SemanticState) (expression type : Expr) : MetaM (Option Json) := do
-  if expression.hasFVar || expression.hasMVar || type.isForall || type.isSort then return none
-  if (expression.find? fun term => match term with
-      | .mdata data _ => (markedKey? data).isSome
-      | _ => false).isSome then return none
-  unless expression.getUsedConstants.all fun name => (computationRefs state name).isEmpty do
-    return none
-  literal? (← reduce expression (skipTypes := true) (skipProofs := true))
 
 private partial def captured (frame : Frame) (marks : Array ValueBinding) (expression : Expr)
     (found : Array ValueBinding) : Array ValueBinding :=
@@ -276,8 +263,6 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
     -- A type is an object of the category of sets, and is lowered like any other term.
     unless type.isSort || (type.getAppFn.constName?.map (isStructure (← getEnv))).getD false do
       if let some packet ← literal? expression then
-        return ← stage expression (.portable packet.compress.toUTF8)
-      if let some packet ← evaluated? (← semanticState) expression type then
         return ← stage expression (.portable packet.compress.toUTF8)
     -- Head reduction only: no let substitution and no unfolding under a projection, so a
     -- published family below a field stays a demand and is not replaced by its definition.
@@ -462,15 +447,15 @@ private partial def application (expression : Expr) : LowerM ValueBinding := do
     -- A type former at its arguments is an object of the category of sets.
     descriptor expression s!"lean:{name}" (← explicitArguments expression) #[]
   | some (.recInfo _) | some (.quotInfo _) =>
-    throwUnsupportedSource
-      m!"source eliminator {name} requires the returned-value branch compiler"
+    -- The kernel evaluates no eliminator (constitution C22): branching belongs to the leaf
+    -- that implements an operation.
+    throwStratum .noImplementation m!"{name} is an eliminator with no published operation"
   | _ =>
     if ← isMatcher name then
-      throwUnsupportedSource
-        m!"source match {name} requires the returned-value branch compiler"
+      throwStratum .noImplementation m!"{name} is a match with no published operation"
     let some unfolded ← unfoldDefinition? expression
-      | throwUnsupportedSource
-          m!"source constant {name} has no published computational interface and no definition"
+      | throwStratum .noImplementation
+          m!"{name} has no published operation and no definition"
     lower unfolded
 
 end
