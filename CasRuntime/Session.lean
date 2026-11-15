@@ -200,6 +200,21 @@ private partial def decideComputed (session : KernelSession) (transaction : Cell
   | .bool false => return .wrong "the computed predicate is false"
   | other => return .malformed s!"{other.compress}: a predicate requires a Boolean answer"
 
+/-- An equality of propositions with a truth value on one side is that proposition or its
+negation (`(9 ∈ primes) = false`). -/
+private def truthCase? (type left right : Expr) : MetaM (Option Expr) := do
+  unless (← whnfR (← instantiateMVars type)).isProp do return none
+  let truth := fun (side : Expr) => do
+    let side ← whnfR (← instantiateMVars side)
+    return if side.isConstOf ``True then some true
+      else if side.isConstOf ``False then some false else none
+  match ← truth right, ← truth left with
+  | some true, _ => return some left
+  | some false, _ => return some (mkNot left)
+  | none, some true => return some right
+  | none, some false => return some (mkNot right)
+  | none, none => return none
+
 /-- The proposition under the reader's leading bindings, such as a ring variable bound to its
 registered generator. Reuse: Lean Expr.instantiate1, the substitution of one let. -/
 private partial def underBindings : Expr → Expr
@@ -277,7 +292,10 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
           | none =>
             let asked := underBindings asked
             match asked.eq? with
-            | some (_, left, right) => compare session transaction context left right
+            | some (type, left, right) =>
+              match ← truthCase? type left right with
+              | some proposition => decideComputed session transaction context proposition
+              | none => compare session transaction context left right
             | none => decideComputed session transaction context asked
         return (outcome, shown)
       commit transaction
