@@ -200,12 +200,20 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
     | .definition next value =>
       let transaction ← CellTransaction.begin session.kernel.ledger
       let sent := (← session.kernel.dispatches.get).size
-      let binding ← next.context.withOpen fun bindings => do
-        let context ← ContextTelescope.capture bindings
-        let expression ← value.source.inContext context
-        let type ← whnf (← inferType expression)
-        if (← isProp type) || type.isSort then return none
-        return some (← session.kernel.run transaction context session.bound expression)
+      let binding ← try
+          next.context.withOpen fun bindings => do
+            let context ← ContextTelescope.capture bindings
+            let expression ← value.source.inContext context
+            let type ← whnf (← inferType expression)
+            if (← isProp type) || type.isSort then return none
+            return some (← session.kernel.run transaction context session.bound expression)
+        catch error =>
+          -- A read definition keeps its meaning when its computation is a gap or unavailable
+          -- (constitution C3): later statements read it from its definition.
+          let outcome ← Outcome.ofException error
+          if outcome.fails then throw error
+          discard <| (transaction.abort : BaseIO Bool)
+          return { outcome, session := { session with source := next } }
       commit transaction
       let some entry := next.context.entries.back?
         | throwError "internal: a source definition added no declaration"
