@@ -6,8 +6,8 @@ Feature context: `001-categorical-research-language`.
 
 Read both current consolidated issue-owned parts:
 
-1. [T001–T064 and execution/authority conventions](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684546229).
-2. [T065–T110, dependency and repair rules, story organization and coverage](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684571141).
+1. [Part 1: kernel functionality and execution/authority conventions](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684546229). Its tasks are the completion condition of kernel work.
+2. [Part 2: leaf delivery, proofs, assessment and performance, with dependency and repair rules and coverage](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684571141). Its tasks come after kernel functionality and gate no Part 1 task.
 
 These bodies incorporate the predecessor and contract corrections directly. Do not reapply an older amendment or restore a superseded G1 task description. Stable IDs remain T001–T110; explicit `After` fields, not numerical or visual phase order, determine scheduling. Task state lives in the owning entries, not this pointer.
 
