@@ -4,8 +4,8 @@
 
 - **[Current handoff](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6726232237)**
 - [Current specification, plan, contracts and artifact index](specs/001-categorical-research-language/plan.md)
-- [Current T001–T064 and actual role/input assignments](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684546229)
-- [Current T065–T110, dependency/repair rules and coverage](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684571141)
+- [Tasks Part 1: kernel functionality and actual role/input assignments](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684546229), the completion condition of kernel work
+- [Tasks Part 2: leaf delivery, proofs, assessment and performance, after functionality](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684571141), with dependency/repair rules and coverage
 - [Source-selected cells, allowed choices and missing-data boundary](https://github.com/dzackgarza/lean-cas-dsl/issues/66#issuecomment-6664276482)
 - [Independent mathematical and computational authorship requirements](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6660532064)
 - [Requirements-quality review, distinct from implementation completion](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6665588103)

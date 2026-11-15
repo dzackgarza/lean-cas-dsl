@@ -14,7 +14,7 @@ Read the [current consolidated implementation plan](https://github.com/dzackgarz
 | `contracts/computational-runtime.md` | [Consolidated computational execution contract](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6664277464) |
 | `contracts/notebook-session.md` | [Consolidated notebook/session contract](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6664296914) |
 | `quickstart.md` | [Current validation entrypoint and preserved command recipe](https://github.com/dzackgarza/lean-cas-dsl/issues/24#issuecomment-6708322175) |
-| `tasks.md` | [Current T001–T064](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684546229) and [T065–T110, dependencies and coverage](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684571141) |
+| `tasks.md` | [Part 1: kernel functionality](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684546229) and [Part 2: leaf delivery, proofs, assessment and performance, after functionality](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684571141) |
 
 The current consolidated bodies replace the older conflicting design and task wording. Earlier G1 discovery/coverage proposals are historical research, not additional operative selection requirements. The research record identifies the reusable structural algorithm and the rejected general gateway.
 
