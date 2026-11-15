@@ -370,7 +370,10 @@ partial def readExpression
             let some (first, _) := (parameters.zip binders).find? (·.2.isExplicit)
               | throwError "the named map lost its declaration parameter"
             instantiateMVars (← inferType first)
-          unless ← withoutModifyingState (isDefEq type parameterType) do
+          -- An object argument instead indexes a family of global elements
+          -- (`dimension(ℚ[x, y])`): it is read at the declared parameter type below.
+          let indexing := element.category.any (·.role == .object)
+          unless indexing || (← withoutModifyingState (isDefEq type parameterType)) do
             let some morphism ← sourceMorphismFrom? row.name type
               | throwError "the named map {row.name} does not leave the set of its argument"
             let function ← sourceSetFunction morphism
