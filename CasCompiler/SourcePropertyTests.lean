@@ -29,6 +29,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let some classifier := state.classifiers.find? (·.id == ClassifierId.setsFinite)
       | throwError "the finiteness classifier is not registered"
     let object ← mkAppM ``CasCatalogue.Foundation.Objects.fin #[mkNatLit 3]
-    let expected ← mkAppM ``CasCatalogue.Classifier.Holds #[← classifierInstance classifier, object]
-    unless ← isDefEq value expected do
-      throwError "the property reading is not the classifier proposition at Fin(3): {value}"
+    let holds := value.consumeMData
+    unless holds.isAppOfArity ``CasCatalogue.Classifier.Holds 3 do
+      throwError "the property reading is not a classifier proposition: {value}"
+    unless ← isDefEq holds.appFn!.appArg! (← classifierInstance classifier) do
+      throwError "the property reading has a different classifier: {value}"
+    unless ← isDefEq holds.appArg! object do
+      throwError "the property reading is not at Fin(3): {value}"

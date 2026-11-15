@@ -432,6 +432,8 @@ partial def readExpression
       | some method, none => pure method
       | none, some family => pure family
       | none, none => do
+        if arguments.isEmpty then
+          if let some property ← sourceProperty object name then return property
         let some value ← sourceElementMember? name (some receiver) (fun _ => pure receiver.value)
             readArguments
           | throwError "no declared member family accepts this complete selected receiver"

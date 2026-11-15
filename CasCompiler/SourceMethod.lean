@@ -119,4 +119,41 @@ opaque sourceMethod (receiver : NativeSourceJudgement) (name : String) :
     (reprStr (families.map fun family => (family.entry.id, family.route.refs)))) referenced
   return some ⟨referenced, some ⟨.object, first.functor.target, target, none⟩⟩
 
+/-- The proposition that a registered property holds of the receiver (CC-PROP): the fibre of the
+property's classifier over the receiver's image in the classifier's host category is inhabited.
+Reuse: PropertyEntry, classifierInstance and Classifier.Holds of lean-categories; the first-hit
+owner routes with their whole-family agreements, as for an inherited carrier. -/
+opaque sourceProperty (receiver : NativeSourceJudgement) (name : String) :
+    TermElabM (Option NativeSourceJudgement) := do
+  let state ← semanticState
+  let some selected := receiver.category | return none
+  unless selected.role == .object do return none
+  let rows := state.properties.filter fun row =>
+    row.name == name && row.receiver.all (·.syntacticEq selected.expression)
+  let #[row] := rows
+    | if rows.isEmpty then return none
+      else throwSemanticAmbiguity s!"several properties named {name} accept this receiver"
+  let some classifier := state.classifiers.find? (·.id == row.classifier)
+    | throwError "the property {name} has no registered classifier"
+  discard <| checkedDeclaration classifier.declaration
+  let query ← SourceRoutes.forOwner selected.expression classifier.host
+  let some routes ← query.finiteRoutes
+    | throwUnsupportedSource "the property route family requires its supplied uniform comparison"
+  let some route := routes[0]?
+    | throwError "the property {name} is not reachable from the receiver's category"
+  let agreements ← sourceRouteAgreements state selected routes
+  let object ← if route.refs.isEmpty then pure receiver.value else do
+    let image ← nativeRouteFunctor state route selected.bundle
+    functorObject image.functor receiver.value image.target
+  -- AppBuilder protects the classifier's fresh universe metavariables; native application
+  -- solves them at the actual receiver.
+  let mut value ← elabAppArgs (← mkConstWithFreshMVarLevels ``CasCatalogue.Classifier.Holds) #[]
+    #[Arg.expr (← classifierInstance classifier), Arg.expr object] none false false
+  value ← instantiateMVars value
+  for proof in agreements.reverse do
+    value ← withLetDecl (← mkFreshUserName `propertyRouteAgreement) (← inferType proof) proof
+      fun binding => mkLetFVars #[binding] value
+        (usedLetOnly := false) (generalizeNondepLet := false)
+  return some ⟨sourceReference ``PropertyEntry row.id.raw classifier.declaration value, none⟩
+
 end CasCompiler
