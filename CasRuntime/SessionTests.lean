@@ -5,12 +5,14 @@ import LeanCategories.Catalogue.Semantics.Algebra.NamedRings
 import LeanCategories.Catalogue.Semantics.Algebra.ComputationDerivations
 import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
 import LeanCategories.Catalogue.Semantics.Foundation.Cardinality
+import LeanCategories.Catalogue.Semantics.Algebra.CyclicQuotients
 public meta import Lean.Elab.Command
 meta import CasRuntime.Session
 meta import LeanCategories.Catalogue.Semantics.Algebra.NamedRings
 meta import LeanCategories.Catalogue.Semantics.Algebra.ComputationDerivations
 meta import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
 meta import LeanCategories.Catalogue.Semantics.Foundation.Cardinality
+meta import LeanCategories.Catalogue.Semantics.Algebra.CyclicQuotients
 
 open Lean Elab Command Term CasRuntime CasCompiler CasCatalogue CasCatalogue.Backend
 
@@ -55,7 +57,10 @@ run_cmd liftTermElabM do
         ("assert c = 3", "holds"),
         ("assert c = 4", "wrong"),
         ("assert implemented |Fin(2)|", "holds"),
-        ("assert 2 + 2 = 4 in ℤ", "holds")]
+        ("assert 2 + 2 = 4 in ℤ", "holds"),
+        -- A numeral of ℤ/5 is the image of 3 under ℤ → ℤ/5; computing it is a leaf's job
+        -- (constitution C22), so defining it dispatches nothing and holds.
+        ("let x := 3 in ℤ/5", "holds")]
       for (text, kind) in expected do
         let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
           | .ok statement => pure statement
