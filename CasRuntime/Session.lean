@@ -181,6 +181,13 @@ private def compare (session : KernelSession) (transaction : CellTransaction)
   | some false => return .wrong s!"computed {shown}, compared with {expected}"
   | none => return .gap "equality of the computed values is not decided in Lean"
 
+/-- The proposition under the reader's leading bindings, such as a ring variable bound to its
+registered generator. Reuse: Lean Expr.instantiate1, the substitution of one let. -/
+private partial def underBindings : Expr → Expr
+  | .letE _ _ value body _ => underBindings (body.instantiate1 value)
+  | .mdata _ body => underBindings body
+  | expression => expression
+
 /-- The result of one statement: its outcome, the session after it and, for a question,
 the proposition that the reader formed. -/
 structure StatementRun where
@@ -249,7 +256,7 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
           | some true => pure .holds
           | some false => pure (.wrong "Lean decides the negation of the statement")
           | none =>
-            match asked.eq? with
+            match (underBindings asked).eq? with
             | some (_, left, right) => compare session transaction context left right
             | none => pure (.gap "the statement is not an equality of computed values")
         return (outcome, shown)
