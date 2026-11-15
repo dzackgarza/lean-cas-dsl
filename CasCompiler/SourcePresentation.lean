@@ -34,9 +34,15 @@ partial def sourceIsoOrigin? (value : Expr) : MetaM (Option Expr) := do
     discard <| retainSourceIso iso body.getAppArgs[2]!
     return some iso
   | .fvar id =>
-    match (← id.getDecl).value? with
-    | some value => sourceIsoOrigin? value
-    | none => pure none
+    let some value := (← id.getDecl).value? | return none
+    let some iso ← sourceIsoOrigin? value | return none
+    -- The source binding itself is the forward map; the retained isomorphism supplies the
+    -- inverse and both laws, which hold for the binding by its definition.
+    -- Reuse: Mathlib CategoryTheory.Iso.mk.
+    return some (← mkAppM ``CategoryTheory.Iso.mk #[.fvar id,
+      ← mkAppM ``CategoryTheory.Iso.inv #[iso],
+      ← mkAppM ``CategoryTheory.Iso.hom_inv_id #[iso],
+      ← mkAppM ``CategoryTheory.Iso.inv_hom_id #[iso]])
   | .letE _ _ value body _ => sourceIsoOrigin? (body.instantiate1 value)
   | _ => pure none
 
