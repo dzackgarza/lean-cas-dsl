@@ -181,6 +181,25 @@ private def compare (session : KernelSession) (transaction : CellTransaction)
   | some false => return .wrong s!"computed {shown}, compared with {expected}"
   | none => return .gap "equality of the computed values is not decided in Lean"
 
+/-- Decide a question that is not an equality from its computed truth value. A predicate is a
+computation of the leaf that implements it (constitution C22); the kernel lowers the proposition,
+reads the returned Boolean, and applies the proposition's negation, which is logic on that
+answer, not a computation. -/
+private partial def decideComputed (session : KernelSession) (transaction : CellTransaction)
+    (context : OpenContext) (proposition : Expr) : MetaM Outcome := do
+  if proposition.isAppOfArity ``Not 1 then
+    return match ← decideComputed session transaction context proposition.appArg! with
+      | .holds => .wrong "the computed predicate holds, so its negation does not"
+      | .wrong _ => .holds
+      | outcome => outcome
+  let packet ← match ← packetOf session transaction context proposition with
+    | .ok packet => pure packet
+    | .error reason => return .gap reason
+  match packet with
+  | .bool true => return .holds
+  | .bool false => return .wrong "the computed predicate is false"
+  | other => return .malformed s!"{other.compress}: a predicate requires a Boolean answer"
+
 /-- The proposition under the reader's leading bindings, such as a ring variable bound to its
 registered generator. Reuse: Lean Expr.instantiate1, the substitution of one let. -/
 private partial def underBindings : Expr → Expr
@@ -256,9 +275,10 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
           | some true => pure .holds
           | some false => pure (.wrong "Lean decides the negation of the statement")
           | none =>
-            match (underBindings asked).eq? with
+            let asked := underBindings asked
+            match asked.eq? with
             | some (_, left, right) => compare session transaction context left right
-            | none => pure (.gap "the statement is not an equality of computed values")
+            | none => decideComputed session transaction context asked
         return (outcome, shown)
       commit transaction
       return { outcome, session, proposition := shown }
