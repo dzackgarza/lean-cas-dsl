@@ -31,7 +31,8 @@ private def sourceAtomName? (source : Syntax) : Option String :=
 
 -- Reuse Language.numeric's source rule: numeral-only syntax has no chosen set yet.
 private partial def sourceNumeric (source : Syntax) : Bool :=
-  !source.isIdent && !(source.isAtom &&
+  -- A number-system atom (`ℤ`, `ℚ`, …) names an object, not a numeral.
+  !source.isIdent && !source.isOfKind ``CasCatalogue.Language.casAtom && !(source.isAtom &&
     (source.getAtomVal == "√" || source.getAtomVal == "|")) && source.getArgs.all sourceNumeric
 
 -- These forms determine their category and type from their own source inputs.
@@ -1034,7 +1035,17 @@ partial def readExpression
         if !receiver.isAnonymous &&
             ((← getLCtx).findFromUserName? receiver).isSome then
           member (← `(cas_term| $(mkIdentFrom name receiver):ident)) field arguments.getElems
-        else registered name arguments.getElems
+        else
+          -- `ℤ.is_finite()` lexes as one identifier. When the whole dotted name is not
+          -- registered, the receiver is a term of the language read before the member.
+          let state ← CasCatalogue.semanticState
+          let spelling := name.getId.toString (escape := false)
+          let named := state.objects.any (·.name == spelling) ||
+            state.morphisms.any (·.name == spelling)
+          match named, Parser.runParserCategory (← getEnv) `cas_term
+              (receiver.toString (escape := false)) with
+          | false, .ok source => member ⟨source⟩ field arguments.getElems
+          | _, _ => registered name arguments.getElems
       else registered name arguments.getElems
     | `(cas_term| $body:cas_term in $category:ident / $base:cas_term) => do
       -- `X in C/Y`: X read in the registered category family C at its base parameter Y.
