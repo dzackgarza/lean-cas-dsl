@@ -31,8 +31,7 @@ private def sourceAtomName? (source : Syntax) : Option String :=
 
 -- Reuse Language.numeric's source rule: numeral-only syntax has no chosen set yet.
 private partial def sourceNumeric (source : Syntax) : Bool :=
-  -- A number-system atom (`ℤ`, `ℚ`, …) names an object, not a numeral.
-  !source.isIdent && !source.isOfKind ``CasCatalogue.Language.casAtom && !(source.isAtom &&
+  !source.isIdent && !(source.isAtom &&
     (source.getAtomVal == "√" || source.getAtomVal == "|")) && source.getArgs.all sourceNumeric
 
 -- These forms determine their category and type from their own source inputs.
@@ -411,8 +410,9 @@ partial def readExpression
           return (← readExpression categoryOf argument (some type)).value
         sourceTuple arguments type fun source type => do
           return (← readExpression categoryOf source (some type)).value
-    -- A numeral receiver is read at the declared source of the registered method.
-    if sourceNumeric receiver.raw then
+    -- A numeral receiver is read at the declared source of the registered method. A
+    -- number-system atom (`ℤ.is_finite()`) names an object and is not a numeral receiver.
+    if sourceNumeric receiver.raw && !receiver.raw.isOfKind ``CasCatalogue.Language.casAtom then
       let read := fun (type : Expr) => do
         return (← readExpression categoryOf receiver (some type)).value
       let some value ← sourceElementMember? name none read readArguments
@@ -1042,8 +1042,9 @@ partial def readExpression
           let spelling := name.getId.toString (escape := false)
           let named := state.objects.any (·.name == spelling) ||
             state.morphisms.any (·.name == spelling)
-          match named, Parser.runParserCategory (← getEnv) `cas_term
-              (receiver.toString (escape := false)) with
+          let parsed := Parser.runParserCategory (← getEnv) `cas_term
+            (receiver.toString (escape := false))
+          match named || receiver.isAnonymous, parsed with
           | false, .ok source => member ⟨source⟩ field arguments.getElems
           | _, _ => registered name arguments.getElems
       else registered name arguments.getElems
