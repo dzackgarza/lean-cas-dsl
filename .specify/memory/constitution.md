@@ -6,7 +6,7 @@
 
 **Required functionality has absolute priority over performance; see [C21](#c21-required-functionality-precedes-all-performance-work).**
 
-C0 states the product and its guiding commitments. C1–C13 and C15 specify its mathematical,
+C0 states the product and its guiding commitments. C1–C13, C15 and C22 specify its mathematical,
 computational and user-facing invariants. The [authority and scope](#authority-and-scope),
 [obligation classes](#obligation-classes) and [formal contract](#formal-contract-and-notation)
 below fix their interpretation. Contributor obligations and their concrete enforcement belong to
@@ -201,6 +201,51 @@ representations cannot be cast into law-bearing formal structures by assuming th
 **Source basis:** [September owner record][S3]; [October fundamental-model chapter, §§3–5][S5];
 [maintained leaf-interface and evidence boundaries][S9]. The logical counterexample above is
 proved directly.
+
+### C22. The kernel resolves computation; leaves perform it
+
+Every mathematical notion, including each operation, method, predicate and construction, is
+formalized in **M**. Its computation is a leaf responsibility. A predicate such as irreducibility
+of a polynomial is computed by a leaf in the same way as a method; the kernel **K** does not
+decide it.
+
+**K** reads a source statement, selects its meaning from **M**, resolves each required computation
+to a leaf that implements it, admits and retains the returned data, and passes that data to later
+uses. Resolution is realization selection over the registered leaves; when no leaf implements the
+requested operation, **K** reports the prescribed no-implementation outcome. **K** must not
+fulfil a computational obligation of **M** itself.
+
+A leaf that implements an operation owns all control logic of that implementation, including
+branches on intermediate answers and recursion. Its implementation may use any operation,
+method or predicate formalized in **M**, whether or not any leaf implements it. For each such use
+the leaf may:
+
+1. compute it internally;
+2. use another leaf's computational code directly, without **K**; or
+3. ask **K** through the released contract to resolve it. **K** routes that request like any
+   other request and returns the result, or returns the no-implementation outcome to the
+   requesting leaf.
+
+A missing implementation therefore surfaces only when a computation actually demands it.
+
+**K** composes only what it receives as a composition: the user's source statement with its
+definitions, and registered derivation plans of **M** that compose published operations. **K**
+must not evaluate an eliminator, recursor, matcher or definition body to produce a mathematical
+value. A value that no published operation supplies has the no-implementation outcome, naming the
+unpublished declaration. This holds on closed concrete inputs: Lean reduction of an operation that
+no leaf publishes, such as a gcd of two numerals, is a computation by **K** and is prohibited.
+
+A closed question that a proof procedure registered in **M** settles is not a computation. To check
+`2 + 2 = 4`, **K** evaluates the proposition, not the sum; it may discharge the proposition through
+that procedure, as C2 permits, and this is usually much quicker than a leaf computation. **K** may
+also elaborate, type-check, select and read notation to its registered meaning. Structural
+admission of returned data (layout, scope, owner) is validation, not computation.
+
+**Rationale:** a kernel that also computes is a second, unregistered provider. Its answers bypass
+realization selection, independent assessment of providers and the no-implementation outcome, and
+they hide missing leaf coverage.
+
+**Source basis:** [owner decision of 2026-11-15][S47].
 
 ### C3. Mathematical meaning is independent of computational availability
 
@@ -1170,6 +1215,7 @@ remain obligations where this constitution requires them, and they do not gate f
 | 1.2.1 | 2026-11-05 | Clarify the existing separation and encapsulation of responsibilities in C2: leaf registration and output are computational claims against independently fixed obligations; mathematical definitions and proofs are never leaf deliverables, including optional proofs; the public leaf boundary confers no semantic or acceptance authority. Align the computational-evidence policy wording with this prohibition. Independent formalization, generic kernel discharge, independent acceptance and complete actual delivery retain their existing responsibilities. |
 | 1.4.0 | 2026-11-08 | Add C21 by owner decision. Old obligation: budgets and required capabilities had no stated order of work. New obligation: all required functionality precedes all performance work, and budgets are obligations of the last phase. Reason: goals and plans placed expensive computations before missing functionality. Decision record: [issue #10, work priority](https://github.com/dzackgarza/lean-cas-dsl/issues/10#work-priority). Affected issues and pointer files are reconciled in the same change. |
 | 1.5.0 | 2026-11-08 | Add the competing-routes rule to C6 by owner decision on issue #66: a leaf supplies a comparison cell formalized in **M** or declares a preferred route as registration data; otherwise the question is ambiguous. Extend C21: evidence that only shows self-consistency follows functionality. Change production-leaf sequencing to follow kernel readiness. Reconciled in issues #10, #24, #66 and #69. |
+| 1.6.0 | 2026-11-15 | Add C22 by owner decision ([issue #10](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6891013550)). Old obligation: no article stated what the kernel may compute; the interpretation contract and T033 assigned eliminators, recursors and source recursion to the kernel, and the lowerer reduced closed data with no published operation in Lean. New obligation: every operation, method and predicate is computed by a leaf, and the kernel only resolves each request to a leaf implementation or reports no implementation; a leaf owns its control logic and may use any formalized operation internally, through another leaf directly, or by asking the kernel; a value with no published operation has the no-implementation outcome; discharging a closed proposition through a proof procedure registered upstream remains permitted. Reason: kernel-side evaluation made the kernel an unregistered provider. Reconciled in the specification, tasks, plan, interpretation contract and handoff on issues #10 and #66. |
 
 ### Provenance
 
@@ -1239,5 +1285,6 @@ evidence of an authorized amendment.
 [S45]: https://github.com/dzackgarza/lean-cas-dsl/issues/8#issuecomment-5126214910
 
 [S46]: https://github.com/dzackgarza/lean-cas-dsl/blob/a206552ca315726c5d8cca356cebc65f617d4d7a/README.md
+[S47]: https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6891013550
 
-**Version**: 1.5.0 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-08
+**Version**: 1.6.0 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-15
