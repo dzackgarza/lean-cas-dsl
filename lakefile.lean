@@ -15,9 +15,6 @@ require «nbdsl-worker» from git
   "https://github.com/dzackgarza/lean-jupyter-kernel"
     @ "main" / "worker"
 
-require mathlib from git
-  "https://github.com/leanprover-community/mathlib4" @ "v4.33.0"
-
 /- All mathematics, including the CAS's semantic registry (`LeanCategories.Catalogue`). This
 package owns the CAS machinery over it (resolution and propagation, the language, the permanent
 tests, the harness, the notebook). -/
@@ -32,6 +29,16 @@ dependency: a leaf ships no Lean, and the kernel imports nothing from it
 `CAS_LEAVES` (`CasCatalogue.Realize.Harness.load`). -/
 require cas_leaf_contracts from git
   "https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts" @ "main"
+
+/- Mathlib at `master`: the research image builds one shared Lean project on the Mathlib master
+head and every Lean repository of the programme follows it, repairing in this repository what a
+Mathlib change breaks (dzackgarza/lean-cas-dsl#90). The exact head is pinned by
+`lake-manifest.json`. This require comes last so that Mathlib's own dependency revisions take
+precedence in the resolved workspace over the older pins the other dependencies carry:
+`lake exe cache get` computes its olean hashes from the resolved workspace, which must match
+Mathlib's own manifest or the cache fetch fails. -/
+require mathlib from git
+  "https://github.com/leanprover-community/mathlib4" @ "master"
 
 /- The notebook package: the prelude `CasDsl.Notebook` over the core and the standard universe.
 Syntax only: it declares nothing and registers nothing (`CasDslTests.Boundary`). -/
