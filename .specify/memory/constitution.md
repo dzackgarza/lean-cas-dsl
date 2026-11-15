@@ -229,10 +229,12 @@ the leaf may:
 A missing implementation therefore surfaces only when a computation actually demands it.
 
 **K** composes only what it receives as a composition: the user's source statement with its
-definitions, and registered derivation plans of **M** that compose published operations. **K**
-must not evaluate an eliminator, recursor, matcher or definition body to produce a mathematical
-value. A value that no published operation supplies has the no-implementation outcome, naming the
-unpublished declaration. This holds on closed concrete inputs: Lean reduction of an operation that
+definitions, and registered derivation plans of **M** that compose published operations.
+Unfolding a definition to the published operations, constructors and literals it is built from is
+composition. **K** must not evaluate an eliminator, recursor or matcher, or reduce a term in Lean,
+to produce a mathematical value. A value that no published operation supplies has the
+no-implementation outcome, naming the unpublished declaration. A numeral is the image of `k` under
+a universal map; **K** sends it as its registered descriptor and does not compute that image. This holds on closed concrete inputs: Lean reduction of an operation that
 no leaf publishes, such as a gcd of two numerals, is a computation by **K** and is prohibited.
 
 A closed question that a proof procedure registered in **M** settles is not a computation. To check
@@ -1216,6 +1218,7 @@ remain obligations where this constitution requires them, and they do not gate f
 | 1.4.0 | 2026-11-08 | Add C21 by owner decision. Old obligation: budgets and required capabilities had no stated order of work. New obligation: all required functionality precedes all performance work, and budgets are obligations of the last phase. Reason: goals and plans placed expensive computations before missing functionality. Decision record: [issue #10, work priority](https://github.com/dzackgarza/lean-cas-dsl/issues/10#work-priority). Affected issues and pointer files are reconciled in the same change. |
 | 1.5.0 | 2026-11-08 | Add the competing-routes rule to C6 by owner decision on issue #66: a leaf supplies a comparison cell formalized in **M** or declares a preferred route as registration data; otherwise the question is ambiguous. Extend C21: evidence that only shows self-consistency follows functionality. Change production-leaf sequencing to follow kernel readiness. Reconciled in issues #10, #24, #66 and #69. |
 | 1.6.0 | 2026-11-15 | Add C22 by owner decision ([issue #10](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6891013550)). Old obligation: no article stated what the kernel may compute; the interpretation contract and T033 assigned eliminators, recursors and source recursion to the kernel, and the lowerer reduced closed data with no published operation in Lean. New obligation: every operation, method and predicate is computed by a leaf, and the kernel only resolves each request to a leaf implementation or reports no implementation; a leaf owns its control logic and may use any formalized operation internally, through another leaf directly, or by asking the kernel; a value with no published operation has the no-implementation outcome; discharging a closed proposition through a proof procedure registered upstream remains permitted. Reason: kernel-side evaluation made the kernel an unregistered provider. Reconciled in the specification, tasks, plan, interpretation contract and handoff on issues #10 and #66. |
+| 1.6.1 | 2026-11-15 | Clarify C22 without changing its obligation: unfolding a definition to the published operations, constructors and literals it is built from is composition; reducing a term in Lean to a value is not permitted; a numeral is sent as its registered descriptor. |
 
 ### Provenance
 
@@ -1287,4 +1290,4 @@ evidence of an authorized amendment.
 [S46]: https://github.com/dzackgarza/lean-cas-dsl/blob/a206552ca315726c5d8cca356cebc65f617d4d7a/README.md
 [S47]: https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6891013550
 
-**Version**: 1.6.0 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-15
+**Version**: 1.6.1 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-15
