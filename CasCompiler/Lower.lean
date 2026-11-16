@@ -218,6 +218,12 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
     -- onto those occurrences, so retained code keeps it after this term is taken apart.
     -- A named element is sent as its descriptor at its explicit parameters, not as the
     -- unfolded definition of its point value.
+    -- A registered object application is published as `<object>#application` (leaf contract
+    -- api/manifest.md); ComputationRef has no object-application kind, so the kernel cannot
+    -- address it, and it does not evaluate the application's definition (C22).
+    if data.getName `CasCompiler.source.kind == ``ObjectEntry.application then
+      throwStratum .noImplementation
+        m!"{data.getString `CasCompiler.source.id}#application has no kernel computation address"
     if let some (declaration, address) := namedElement? data then
       let some element := body.find? (·.getAppFn.isConstOf declaration)
         | throwError "internal: the named element lost its registered declaration"
