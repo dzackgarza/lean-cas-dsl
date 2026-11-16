@@ -127,6 +127,17 @@ opaque OccurrenceLedger.pendingFor (ledger : OccurrenceLedger) (id : RuntimeId .
       return if reservation.transaction == transaction then some reservation else none
     | _ => return none
 
+/-- Whether this exact reservation's occurrence has been sent and not yet retired: the state in
+which the provider may suspend it and the kernel may resume it (execution contract §6).
+A resume continues that one dispatch; it is not a second dispatch right. -/
+opaque OccurrenceLedger.wasSent (ledger : OccurrenceLedger) (reservation : DispatchReservation) :
+    BaseIO Bool := ledger.state.atomically do
+  match (← get)[reservation.occurrence]? with
+  | some (.sent active) =>
+    return active.transaction == reservation.transaction &&
+      active.connection == reservation.connection && active.selected == reservation.selected
+  | _ => return false
+
 /-- Commit this exact reserved invocation to one send, after rechecking actual owners.
 The pending locator remains available for scope and reply admission. Engine I/O follows
 outside both locks; a later connection loss cannot grant another send.

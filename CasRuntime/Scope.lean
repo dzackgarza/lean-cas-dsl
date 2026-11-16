@@ -56,27 +56,9 @@ structure RequestScope where
 def RequestScope.wireId (scope : RequestScope) : String :=
   s!"{scope.id.worker}:{scope.id.serial}"
 
-/-- Issue fresh authority for an actual pending invocation and exact retained positions.
-Reuse: the worker identity supply, occurrence ledger and immutable value-graph visibility checks. -/
-opaque RequestScope.issue (ledger : OccurrenceLedger) (reservation : DispatchReservation)
-    (graph : ValueGraph) (slots : Array ValueBinding) (inputs : Array InputPosition)
+private def RequestScope.issueWith (ledger : OccurrenceLedger) (reservation : DispatchReservation)
+    (graph : ValueGraph) (captures slots : Array ValueBinding) (inputs : Array InputPosition)
     (priorResults : Array ValueBinding) : IO RequestScope := do
-  unless graph.worker == ledger.owners.worker do
-    throw <| IO.userError "the request scope belongs to a different worker"
-  let some pending ← ledger.pendingFor reservation.occurrence reservation.transaction
-    | throw <| IO.userError "the request scope has no pending invocation"
-  unless sameDispatch pending reservation do
-    throw <| IO.userError "the request scope changed its dispatch identity"
-  let captures ← match reservation.selected with
-    | .primitive _ => pure #[]
-    | .native code token => do
-      let some node := graph.find code
-        | throw <| IO.userError "the native code is outside the request graph"
-      let .ownedToken owner actual captures := node.payload.data
-        | throw <| IO.userError "the native code has no stored export"
-      unless owner == reservation.connection && actual == token do
-        throw <| IO.userError "the native capture table changed its supplying export"
-      pure captures
   let slots := captures ++ slots
   let mut paths : Array (Array InputPathStep) := #[]
   for input in inputs do
@@ -89,6 +71,42 @@ opaque RequestScope.issue (ledger : OccurrenceLedger) (reservation : DispatchRes
     throw <| IO.userError "the request scope has an owner outside its reservation"
   return ⟨← ledger.owners.identities.fresh .scope, reservation, slots, captures.size, inputs, priorResults,
     ledger, ← Std.Mutex.new true⟩
+
+private def RequestScope.checkPending (ledger : OccurrenceLedger) (reservation : DispatchReservation)
+    (graph : ValueGraph) : IO Unit := do
+  unless graph.worker == ledger.owners.worker do
+    throw <| IO.userError "the request scope belongs to a different worker"
+  let some pending ← ledger.pendingFor reservation.occurrence reservation.transaction
+    | throw <| IO.userError "the request scope has no pending invocation"
+  unless sameDispatch pending reservation do
+    throw <| IO.userError "the request scope changed its dispatch identity"
+
+/-- Issue fresh authority for an actual pending invocation and exact retained positions.
+Reuse: the worker identity supply, occurrence ledger and immutable value-graph visibility checks. -/
+opaque RequestScope.issue (ledger : OccurrenceLedger) (reservation : DispatchReservation)
+    (graph : ValueGraph) (slots : Array ValueBinding) (inputs : Array InputPosition)
+    (priorResults : Array ValueBinding) : IO RequestScope := do
+  RequestScope.checkPending ledger reservation graph
+  let captures ← match reservation.selected with
+    | .primitive _ => pure #[]
+    | .native code token => do
+      let some node := graph.find code
+        | throw <| IO.userError "the native code is outside the request graph"
+      let .ownedToken owner actual captures := node.payload.data
+        | throw <| IO.userError "the native code has no stored export"
+      unless owner == reservation.connection && actual == token do
+        throw <| IO.userError "the native capture table changed its supplying export"
+      pure captures
+  RequestScope.issueWith ledger reservation graph captures slots inputs priorResults
+
+/-- Issue the scope of a resume request: exactly the captures declared by the suspension,
+then the ordered child results, numbered from zero (python-sdk.md, "Generator suspension"), with
+the completed prefix of a following group's results. The suspended invocation's own native
+export captures are not part of it. -/
+opaque RequestScope.issueResume (ledger : OccurrenceLedger) (reservation : DispatchReservation)
+    (graph : ValueGraph) (slots priorResults : Array ValueBinding) : IO RequestScope := do
+  RequestScope.checkPending ledger reservation graph
+  RequestScope.issueWith ledger reservation graph #[] slots #[] priorResults
 
 private def RequestScope.lookup (scope : RequestScope) (reference : ScopedReference) :
     Except String ValueBinding := do

@@ -406,6 +406,26 @@ opaque CellTransaction.commitSend (transaction : CellTransaction)
       set (CellState.active { cell with leases := cell.leases.push lease })
       return .ok ()
 
+/-- Register the lease of a resume request on an already sent occurrence, against whole-cell
+abort, before any engine write. The occurrence keeps its one dispatch right: a resume continues
+the suspended invocation, so the ledger is checked, not advanced.
+Reuse: commitSend's active-cell gate and reservation tracking. -/
+opaque CellTransaction.commitResume (transaction : CellTransaction)
+    (reservation : DispatchReservation) (lease : RequestLease) :
+    BaseIO (Except TransactionFailure Unit) :=
+  transaction.state.atomically do
+    let .active cell ← get | return .error .settled
+    unless reservation.transaction == transaction.id && lease.transaction == transaction.id &&
+        lease.occurrence == reservation.occurrence && lease.owner == reservation.connection &&
+        cell.reservations.any (fun tracked =>
+        tracked.occurrence == reservation.occurrence && tracked.connection == reservation.connection &&
+        tracked.selected == reservation.selected) do
+      return .error (.reservation .unknownOccurrence)
+    unless ← transaction.ledger.wasSent reservation do return .error (.reservation .consumed)
+    unless ← lease.markSent do return .error (.reservation .consumed)
+    set (CellState.active { cell with leases := cell.leases.push lease })
+    return .ok ()
+
 /-- Install an admitted whole reply and its transaction-local completion together.
 Reuse: prepared input/result admission, isolated drafts, actual received leases and owner gating.
 The parsed reply and request scope identify the exact transport invocation. -/
