@@ -587,6 +587,15 @@ partial def readExpression
       pure (left, right)
     else do
       let left ← readExpression categoryOf left none
+      -- A global element `1 ⟶ X` compared with a numeral is compared at its point, where the
+      -- numeral reads in X by the numeral rules (`dimension(ℚ) = 0`).
+      let pointType ← whnfR (← inferType left.value)
+      let mut left := left
+      if sourceNumeric right.raw && pointType.isAppOfArity ``Quiver.Hom 4 then
+        let source := pointType.getAppArgs[2]!
+        if (← whnfR (← inferType source)).isSort then
+          if (← synthInstance? (← mkAppM ``Unique #[source])).isSome then
+            left := ⟨← sourcePointValue left.value none, none⟩
       let type ← inferType left.value
       let right ← readExpression categoryOf right
         (if rightPrincipal then none else some type) none
