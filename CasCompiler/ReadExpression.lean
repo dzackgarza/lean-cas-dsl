@@ -67,17 +67,19 @@ partial def readExpression
     (qualification : Option String := none)
     (expectedCategory : Option NativeSourceCategory := none) : TermElabM NativeSourceJudgement :=
   withRef source do
+  -- The ends `X`, `Y` of a map `f : X → Y` of sets.
+  let mapEnds := fun (arrow : Expr) => do
+    let type ← whnfR (← instantiateMVars (← inferType arrow))
+    if type.isAppOfArity ``Quiver.Hom 4 then return some (type.getAppArgs[2]!, type.getAppArgs[3]!)
+    if type.isAppOfArity ``TypeCat.Hom 2 then return some (type.getAppArgs[0]!, type.getAppArgs[1]!)
+    return none
   let application := fun (source : NativeSourceJudgement) (arguments : Array (TSyntax `cas_term))
       (expected : Option Expr) => do
     -- A map applied to its whole domain is the map's image (`m2(ℕ)`), through the registered
     -- image of the power object of its target (PowerObjectEntry.image).
     if let #[argument] := arguments then
       if argument.raw.isOfKind ``CasCatalogue.Language.casAtom then
-        let type ← whnfR (← instantiateMVars (← inferType source.value))
-        let ends := if type.isAppOfArity ``Quiver.Hom 4 then some (type.getAppArgs[2]!, type.getAppArgs[3]!)
-          else if type.isAppOfArity ``TypeCat.Hom 2 then some (type.getAppArgs[0]!, type.getAppArgs[1]!)
-          else none
-        if let some (domain, codomain) := ends then
+        if let some (domain, codomain) ← mapEnds source.value then
           let object ← readExpression categoryOf argument none
           if object.category.any (·.role == .object) then
             if ← isDefEq object.value domain then
@@ -459,6 +461,11 @@ partial def readExpression
       unless arguments.isEmpty do
         throwError "a selected lift projection takes no additional source arguments"
       return value
+    -- `f.image()` is the image of the whole map, as `f(X)` (PowerObjectEntry.image).
+    if name == "image" && arguments.isEmpty then
+      if let some (domain, codomain) ← mapEnds receiver.value then
+        return (⟨← sourceImageOf (← sourcePowerObjectAt codomain) domain receiver.value expected,
+          none⟩ : NativeSourceJudgement)
     -- A method of objects on a subset is its extent's method (`Fs.cardinality()`).
     let object ← match ← sourceExtent? receiver with
       | some extent => pure extent
@@ -972,14 +979,16 @@ partial def readExpression
     | `(cas_term| $left:cas_term < $right:cas_term) => relation "<" left right
     | `(cas_term| $receiver.$method:ident()) =>
       member receiver method.getId.toString #[]
-    | `(cas_term| |$receiver:cas_term|) => do
-      let receiver ← asObject (← readExpression categoryOf receiver none)
-      unless receiver.category.any (·.role == .object) do
-        CasCatalogue.throwUnsupportedSource
-          "source absolute-value formation requires its declared operation family"
-      let some value ← sourceMethod receiver "cardinality"
-        | throwError "the selected source object has no declared cardinality method"
-      pure value
+    | `(cas_term| |$operand:cas_term|) => do
+      let receiver ← asObject (← readExpression categoryOf operand none)
+      -- The bars of an element are its registered absolute value `abs` (`|z|` for z in ℂ);
+      -- those of an object are its cardinality.
+      if !receiver.category.any (·.role == .object) then
+        registered (mkIdentFrom source `abs) #[operand]
+      else
+        let some value ← sourceMethod receiver "cardinality"
+          | throwError "the selected source object has no declared cardinality method"
+        pure value
     | `(cas_term| $left:cas_term · $right:cas_term) =>
       elementOperation "·" #[left, right] #[] #[] none
     | `(cas_term| $left:cas_term • $right:cas_term) => action left right
