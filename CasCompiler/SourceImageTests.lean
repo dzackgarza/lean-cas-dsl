@@ -10,9 +10,9 @@ meta import LeanCategories.Catalogue
 
 open Lean Meta Elab Term CasCompiler
 
-/- A map applied to its whole domain is the image of the map: `m2(ℕ)` for `m2 : ℕ → ℕ` is the
-registered image of the power object of ℕ at `m2` (PowerObjectEntry.image), as in
-tests/acceptance/finite_sets.cas. -/
+/- A map applied to its whole domain is the image of the map: `m2(ℕ)` and its member form
+`m2.image()` for `m2 : ℕ → ℕ` are the registered image of the power object of ℕ at `m2`
+(PowerObjectEntry.image), as in tests/acceptance/finite_sets.cas. -/
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let file ← SourceFile.parse "source-image.cas" "let m2 : ℕ → ℕ := n ↦ 2n\n"
@@ -23,13 +23,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let .definition next _ ← file.withContext (session.readStatement statement)
       | throwError "the source map did not extend its source context"
     session := next
-  let .ok source := Parser.runParserCategory (← getEnv) `cas_term "m2(ℕ)"
-    | throwError "the image source did not parse"
-  let image ← session.read ⟨source⟩
-  image.source.withOpen fun _ value => do
-    unless ((← instantiateMVars value).find?
-        (·.isConstOf ``CasCatalogue.Foundation.PowerSets.image)).isSome do
-      throwError "`m2(ℕ)` is not the registered image of m2: {value}"
+  for text in #["m2(ℕ)", "m2.image()"] do
+    let .ok source := Parser.runParserCategory (← getEnv) `cas_term text
+      | throwError "the image source did not parse"
+    let image ← session.read ⟨source⟩
+    image.source.withOpen fun _ value => do
+      unless ((← instantiateMVars value).find?
+          (·.isConstOf ``CasCatalogue.Foundation.PowerSets.image)).isSome do
+        throwError "`{text}` is not the registered image of m2: {value}"
 
 /- A set compared with a subset of itself is the whole subset: in `X = ℕ` for `X` in `𝒫(ℕ)`
 (tests/acceptance/ellipses.cas), `ℕ` is the image of its identity map. -/
