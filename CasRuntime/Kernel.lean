@@ -265,6 +265,36 @@ private def Kernel.lowering (kernel : Kernel)
   ledger := kernel.ledger, transaction, codes := kernel.codes, marks := kernel.marks
   run := fun program => Execute.run executor program transaction }
 
+/-- An operand of a child call at its declared type. A scoped reference is its retained value; a
+structure given as an array is read field by field at the constructor's field types, so a
+reference may stand at any position (`[resultRef, 46]` for a pair); anything else is a scalar
+literal. Reuse: Lean structure constructors and ScalarLiteral.readAt. -/
+private partial def childOperand (marks : IO.Ref (Array ValueBinding)) (context : OpenContext)
+    (retained : Json → MetaM (Option ValueBinding)) (domain : Expr) (packet : Json) :
+    MetaM Expr := do
+  let malformed : {α : Type} → String → MetaM α := fun reason =>
+    throwStratum .malformed m!"deferred operand {packet.compress}: {reason}"
+  if let some binding ← retained packet then
+    let source ← binding.role.source.inContext context
+    unless ← isDefEq (← inferType source) domain do
+      malformed "a referenced operand has a different declared type"
+    return ← markValue marks binding source
+  let domain ← whnfR (← instantiateMVars domain)
+  if let (.arr components, .const owner levels) := (packet, domain.getAppFn) then
+    if let some info := getStructureInfo? (← getEnv) owner then
+      let constructor := getStructureCtor (← getEnv) owner
+      unless components.size == info.fieldNames.size do
+        malformed "the structure operand has a different number of fields"
+      let mut value := mkAppN (.const constructor.name levels) domain.getAppArgs
+      for component in components do
+        let .forallE _ field _ _ ← whnf (← inferType value)
+          | malformed "the structure operand has more fields than its constructor"
+        value := mkApp value (← childOperand marks context retained field component)
+      return value
+  let some literal ← ScalarLiteral.readAt domain packet
+    | malformed "an inline operand has no scalar reading at its declared type"
+  return literal
+
 mutual
 
 /-- Send one prepared invocation on its reserved connection, then admit and stage the whole
@@ -382,17 +412,7 @@ private partial def Kernel.child (kernel : Kernel) (request : PreparedRequest)
         let .forallE _ domain _ _ ← whnf (← inferType term)
           | malformed "more operands than the declared interface"
         if ← isProp domain then malformed "the call requires a formal premise that no leaf supplies"
-        let operand ← match ← retained packet with
-          | some binding => do
-            let source ← binding.role.source.inContext context
-            unless ← isDefEq (← inferType source) domain do
-              malformed "a referenced operand has a different declared type"
-            markValue kernel.marks binding source
-          | none => do
-            let some literal ← ScalarLiteral.readAt (← instantiateMVars domain) packet
-              | malformed "an inline operand has no scalar reading at its declared type"
-            pure literal
-        term := mkApp term operand
+        term := mkApp term (← childOperand kernel.marks context retained domain packet)
       return term
     let term ← if operation == "$cas.project" then do
         let (binding, source) ← reference ((arguments.getObjVal? "value").toOption.getD .null)
