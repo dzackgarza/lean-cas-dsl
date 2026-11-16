@@ -824,8 +824,20 @@ partial def readExpression
     | `(cas_term| 𝒫($operand:cas_term)) =>
       registered (mkIdentFrom source (.mkSimple "𝒫")) #[operand]
     | `(cas_term| {$elements:cas_term,*}) => do
-      let some expected := expected
-        | throwError "a source set literal requires its declared power object"
+      let expected ← match expected with
+        | some expected => pure expected
+        | none => do
+          -- With no declared power object, the set in which the elements meet determines it
+          -- (`span({u₁, u₂})` for vectors of ℚ³).
+          let types ← elements.getElems.mapM fun element => do
+            inferType (← readExpression categoryOf element none).value
+          let some base ← sourceCommonDomain types
+            | throwError "a source set literal requires its declared power object"
+          let power ← sourcePowerObjectAt base
+          let some object := (← CasCatalogue.semanticState).objects.find? (·.id == power.row.object)
+            | throwError "the registered power object has no object family"
+          let family ← mkConstWithFreshMVarLevels object.declaration
+          elabAppArgs family #[] #[Arg.expr base] none false false
       -- A literal in an admitted subobject of a power object (`𝒫_fin(X)`) is admitted there.
       if let some entry ← sourceAdmissionDomain? (← instantiateMVars expected) then
         return ⟨← admitted entry source expected, none⟩

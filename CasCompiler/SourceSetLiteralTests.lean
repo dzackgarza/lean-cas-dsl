@@ -24,9 +24,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let session ← session.defineTerm `u₂ (← session.read (← sourceTerm "(0, 1, 1)") (some space.source))
   let literal ← session.read (← sourceTerm "{u₁, u₂}")
   literal.source.withOpen fun _ value => do
-    let some power ← sourcePowerObject? (← instantiateMVars (← inferType value))
-      | throwError "the literal is not a subset of a registered power object: {value}"
     let vectors ← mkAppM ``CasCatalogue.Algebra.LinearAlgebra.vectors
       #[Expr.const ``CasCatalogue.Algebra.NamedRings.rationals [], mkNatLit 3]
-    unless ← isDefEq power.base vectors do
-      throwError "the literal is not a subset of ℚ³: {power.base}"
+    let power ← mkAppM ``CasCatalogue.Foundation.PowerSets.powerSet #[vectors]
+    unless ← isDefEq (← inferType value) power do
+      throwError "the literal is not a subset of ℚ³: {← inferType value}"
