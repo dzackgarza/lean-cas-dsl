@@ -2,6 +2,7 @@ module
 
 public import CasCompiler.SourceCarrier
 public import LeanCategories.Catalogue.Lift
+public import CasCompiler.LiftFamily
 
 public section
 
@@ -114,8 +115,32 @@ private partial def liftReference (value : Expr) : MetaM (Option LiftEntry) := d
     return some row
   | _ => pure none
 
+/-- The original inputs of a selected lift application (`SourceLiftApplication.mk`): the
+evidence, the object, the base, the inclusion and its monicity, read through the definitions of
+the source bindings that name it. -/
+private partial def liftInputs (value : Expr) : MetaM (Expr × Expr × Expr × Expr × Expr) := do
+  match value with
+  | .fvar id =>
+    let some value := (← id.getDecl).value?
+      | throwError "the selected lift application has no definition"
+    liftInputs value
+  | .mdata _ body => liftInputs body
+  | .letE _ _ bound body _ => liftInputs (body.instantiate1 bound)
+  | _ =>
+    let some name := value.getAppFn.constName?
+      | throwError "the selected lift application is not formed by its constructor"
+    unless name == ``SourceLiftApplication.mk do
+      throwError "the selected lift application is not formed by its constructor"
+    let constructor ← getConstInfoCtor name
+    let #[evidence, object, domain, inclusion, monicity] :=
+        value.getAppArgs.extract constructor.numParams value.getAppNumArgs
+      | throwError "the selected lift application has a different constructor"
+    return (evidence, object, domain, inclusion, monicity)
+
 /-- Project the actual independent callable data at the retained original application.
-Reuse: MonoLift.computation and its four existing field projections. No result is rebuilt. -/
+Reuse: LiftEntry.computation and the four field projections of MonoLiftComputation, applied to
+the application's own inputs. The lift's computation is marked for its ports (LiftFamily); no
+result is rebuilt and the computation is not unfolded. -/
 def sourceLiftMember? (receiver : NativeSourceJudgement) (name : String) :
     TermElabM (Option NativeSourceJudgement) := do
   let type ← whnfR (← inferType receiver.value)
@@ -125,12 +150,8 @@ def sourceLiftMember? (receiver : NativeSourceJudgement) (name : String) :
   let (source, target) ← liftBoundary (← semanticState) row
   let functor := type.getAppArgs.back!
   let (sourceBundle, targetBundle) ← functorCategoryBundles functor
-  let selected ← mkAppM ``SourceLiftApplication.selected #[receiver.value]
-  let object ← mkAppM ``SourceLiftApplication.object #[receiver.value]
-  let domainObject ← mkAppM ``SourceLiftApplication.domain #[receiver.value]
-  let inclusion ← mkAppM ``SourceLiftApplication.inclusion #[receiver.value]
-  let monicity ← mkAppM ``SourceLiftApplication.monicity #[receiver.value]
-  let computation ← mkAppM ``MonoLift.computation #[selected]
+  let (evidence, object, domainObject, inclusion, monicity) ← liftInputs receiver.value
+  let computation ← LiftFamily.atEvidence row .computation evidence
   let declaration ← match name with
     | "obj" => pure ``MonoLiftComputation.obj
     | "hom" => pure ``MonoLiftComputation.hom
@@ -160,12 +181,8 @@ def sourceLiftFactor (receiver : NativeSourceJudgement) (base source proof : Exp
     | throwError "the native lift application has no selected source reference"
   let (category, _) ← liftBoundary (← semanticState) row
   let (bundle, _) ← functorCategoryBundles type.getAppArgs.back!
-  let selected ← mkAppM ``SourceLiftApplication.selected #[receiver.value]
-  let object ← mkAppM ``SourceLiftApplication.object #[receiver.value]
-  let domainObject ← mkAppM ``SourceLiftApplication.domain #[receiver.value]
-  let inclusion ← mkAppM ``SourceLiftApplication.inclusion #[receiver.value]
-  let monicity ← mkAppM ``SourceLiftApplication.monicity #[receiver.value]
-  let computation ← mkAppM ``MonoLift.factorComputation #[selected]
+  let (evidence, object, domainObject, inclusion, monicity) ← liftInputs receiver.value
+  let computation ← LiftFamily.atEvidence row .factor evidence
   let function ← mkAppM ``MonoLiftFactorComputation.factor #[computation]
   let sourceType ← whnfR (← inferType source)
   unless sourceType.isAppOfArity ``Quiver.Hom 4 do

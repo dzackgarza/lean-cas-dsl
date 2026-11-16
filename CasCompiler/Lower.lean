@@ -233,6 +233,9 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
       let some element := admitted.getAppArgs[data.getNat `CasCompiler.source.element 0]?
         | throwError "internal: the admitted element lost its value"
       return ← lower element
+    -- A published computation of a selected lift is sent to its lift's ports, at the
+    -- parameters of the lift's evidence; its definition is not unfolded (C22).
+    if data.getName `CasCompiler.source.kind == ``LiftFamily then return ← liftFamily data body
     if let some (declaration, address) := namedElement? data then
       let some element := body.find? (·.getAppFn.isConstOf declaration)
         | throwError "internal: the named element lost its registered declaration"
@@ -429,6 +432,25 @@ private partial def record (expression : Expr) (fields : Array Expr) : LowerM Va
   match ← frame.environment.transaction.installDraft complete with
   | .ok () => return binding
   | .error failure => throwError "internal: a source record could not be retained: {repr failure}"
+
+/-- A published computation of a selected lift (`LiftFamily.mark`) at its evidence parameters: a
+prepared demand on the lift boundary, whose fields are the lift's ports. -/
+private partial def liftFamily (data : MData) (body : Expr) : LowerM ValueBinding := do
+  let frame ← read
+  let lift := data.getString `CasCompiler.source.id
+  let some row := (← semanticState).lifts.find? (·.id.raw == lift)
+    | throwError "internal: the selected lift {lift} is not registered"
+  let some port := LiftPort.ofName? (data.getString `CasCompiler.source.port)
+    | throwError "internal: the selected lift computation has no port"
+  let family ← LiftFamily.forLift row port
+  let (head, levels) ← family.instantiate
+  unless ← isDefEq head body.getAppFn do
+    throwError "internal: the selected lift computation changed its family"
+  let (closed, actual) ← actualArguments body.getAppArgs
+  let request ← PreparedRequest.forBoundary (← supply) frame.program
+    (← frame.environment.ledger.allocate) (.lift family) (← levels.mapM instantiateLevelMVars)
+    frame.context closed actual #[] (← parameters)
+  demand request
 
 private partial def application (expression : Expr) : LowerM ValueBinding := do
   let frame ← read

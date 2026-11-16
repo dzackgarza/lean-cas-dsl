@@ -106,7 +106,10 @@ run_cmd liftTermElabM do
       let .ok request := Json.parse line | throwError "the peer log is malformed: {line}"
       let .ok parameters := (request.getObjValD "context").getObjValAs? (Array Json) "parameters"
         | throwError "the lift request has no parameters: {line}"
-      unless parameters.size == 2 do
+      -- Every non-proof argument of the evidence `forgetMonoLift (R) [CommRing R] (W)
+      -- [AddCommGroup W] [Module R W]`, in order, as for every published family: ℚ at R and W.
+      let rationals := Json.mkObj [("args", .arr #[]), ("ctor", "obj.sets.rationals")]
+      unless parameters.size == 5 && parameters[0]! == rationals && parameters[2]! == rationals do
         throwError "the lift request does not carry the evidence parameters (ℚ, ℚ): {line}"
     finally liftM (m := IO) session.close
   finally setEnv environment

@@ -3,6 +3,7 @@ module
 public import LeanCategories.Catalogue.Registry.Computation
 public import CasCompiler.Layout
 public import CasCompiler.Declaration
+public import CasCompiler.LiftFamily
 public import CasRuntime.Value
 public import CasRuntime.Environment
 public import CasRuntime.RoleMap
@@ -62,24 +63,32 @@ opaque SourceFamily.forReference (reference : ComputationRef) : MetaM SourceFami
   return ⟨{ reference, declaration, family := family.expression, familyType := family.type },
     info.levelParams⟩
 
-/-- Exact registered family, checked derivation target or ordered primitive slot. -/
+/-- Exact registered family, checked derivation target, ordered primitive slot, or a published
+computation of a selected lift. -/
 inductive ProgramBoundary
   | registered (family : SourceFamily)
   | target (program : SourceProgram)
   | prerequisite (program : SourceProgram) (index : Fin program.source.prerequisites.size)
+  | lift (family : LiftFamily)
 
-def ProgramBoundary.source : ProgramBoundary → CheckedComputationPrerequisite
-  | .registered family => family.source
-  | .target program => {
-      reference := program.source.entry.target
-      declaration := program.source.targetDeclaration
-      family := program.source.target
-      familyType := program.source.familyType }
-  | .prerequisite program index => program.source.prerequisites[index.val]
+/-- The published computation family, whose public address is a `ComputationRef`. A lift's
+computation is addressed by its lift row instead (`ProgramBoundary.lift`). -/
+def ProgramBoundary.reference : ProgramBoundary → Option ComputationRef
+  | .registered family => some family.source.reference
+  | .target program => some program.source.entry.target
+  | .prerequisite program index => some program.source.prerequisites[index.val].reference
+  | .lift _ => none
+
+def ProgramBoundary.family : ProgramBoundary → Expr
+  | .registered family => family.source.family
+  | .target program => program.source.target
+  | .prerequisite program index => program.source.prerequisites[index.val].family
+  | .lift family => family.family
 
 def ProgramBoundary.universeParams : ProgramBoundary → List Name
   | .registered family => family.universeParams
   | .target program | .prerequisite program _ => program.source.universeParams
+  | .lift family => family.universeParams
 
 inductive PreparedAction
   | primitive (boundary : ProgramBoundary) (universeArguments : List Level)
@@ -104,7 +113,7 @@ structure PreparedRequest where
 
 def PreparedRequest.reference (request : PreparedRequest) : Option ComputationRef :=
   match request.action with
-  | .primitive boundary _ => some boundary.source.reference
+  | .primitive boundary _ => boundary.reference
   | .project .. | .apply .. => none
 
 def PreparedRequest.universeArguments (request : PreparedRequest) : Option (List Level) :=
@@ -204,7 +213,7 @@ opaque PreparedRequest.forBoundary (identities : CasRuntime.IdentitySupply)
     throwError "request preparation requires resolved universe arguments"
   let family ← withLCtx {} #[] do
     let empty ← ContextTelescope.capture #[]
-    empty.close (boundary.source.family.instantiateLevelParams
+    empty.close (boundary.family.instantiateLevelParams
       boundary.universeParams universeArguments)
   let layout ← SourceLayout.ofTerm family
   let (source, application) ← if arguments.isEmpty then

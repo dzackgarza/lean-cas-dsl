@@ -49,6 +49,17 @@ private def publishedFamily? (state : SemanticState) (address : String) : Option
   (state.constructions.find? (·.id.raw == id) |>.map (.construction ·.id)) <|>
   (state.morphisms.find? (·.id.raw == id) |>.map (.morphism ·.id))
 
+/-- The selected lift and computation that a lift port names (`<lift id>#<field>`; leaf contract
+api/wire-examples.md, "Prescribed subobject lifts" and "Separate universal factor"). -/
+private def publishedLift? (state : SemanticState) (address : String) :
+    Option (LiftEntry × LiftPort) := do
+  let [id, field] := address.splitOn "#" | none
+  let row ← state.lifts.find? (·.id.raw == id)
+  if row.computation.isNone then none
+  if #["obj", "hom", "forward", "backward"].contains field then some (row, .computation)
+  else if field == "factor" then some (row, .factor)
+  else none
+
 /-- Why a declared preferred route is malformed, if it is: its receiver is a registered category,
 its name a registered surface name, and its route a chain of structural edges from the receiver
 (contract api/manifest.md). Whether it is a surviving route is decided when a reading uses it. -/
@@ -85,7 +96,8 @@ opaque Kernel.load (owners : OwnerRegistry) (manifest : Option System.FilePath)
   for registration in parsed.registrations do
     let described :=
       s!"{registration.operation} on {registration.input} by {registration.backend}"
-    if (publishedFamily? state registration.operation).isNone then
+    if (publishedFamily? state registration.operation).isNone &&
+        (publishedLift? state registration.operation).isNone then
       rejected := rejected.push s!"{described}: {registration.operation} is not a published operation"
     else if !parsed.backends.any (·.name == registration.backend) then
       rejected := rejected.push
@@ -180,15 +192,28 @@ private def actionAddress (reference : ComputationRef) (path : Array FieldLayout
 
 /-- Input addresses of this exact invocation: the complete-request form, and the exact form and
 category of each argument that is a registered named object. -/
-private def inputForms (reference : ComputationRef) (context : OpenContext)
+private def inputForms (family : String) (context : OpenContext)
     (arguments : Array ClosedTerm) : MetaM (Array String) := do
   let state ← semanticState
-  let mut forms := #[s!"{referenceId reference}#input"]
+  let mut forms := #[s!"{family}#input"]
   for argument in arguments do
     if let some (id, _) ← sourceObjectReference? (← argument.inContext context) then
       if let some entry := state.objects.find? (·.id == id) then
         forms := forms ++ #[entry.id.raw, entry.category.raw]
   return forms
+
+/-- Select the registration of one exact lift-port demand. **M** publishes no derivation of a
+lift's computation, so the alternatives are the eligible registrations (execution contract v2
+§5.1); zero and many dispatch nothing. -/
+private def Kernel.selectLift (kernel : Kernel) (address : String) (forms : Array String) :
+    MetaM Registration := do
+  let eligible := kernel.manifest.registrations.filter fun registration =>
+    registration.operation == address && forms.contains registration.input &&
+      kernel.manifest.backends.any (·.name == registration.backend)
+  match eligible with
+  | #[registration] => return registration
+  | #[] => throwStratum .noImplementation m!"{address} on {forms}"
+  | _ => throwStratum .ambiguousRealization m!"{address} on {forms}"
 
 private inductive Realization
   | registration (selected : Registration)
@@ -449,16 +474,22 @@ private partial def Kernel.child (kernel : Kernel) (request : PreparedRequest)
         applied source (← list arguments "arguments")
       else do
         let state ← semanticState
-        let some family := publishedFamily? state operation
-          | malformed "the operation is not a published address"
-        let declaration ← family.declaration state
-        let selected := match family with
-          | .method id => sourceReference ``MethodEntry id.raw declaration
-          | .construction id => sourceReference ``ConstructionEntry id.raw declaration
-          | .functor id => sourceReference ``EdgeRef.functor id.raw declaration
-          | .operation _ | .morphism _ => id
-        let mut term ← applied (selected (← mkConstWithFreshMVarLevels declaration))
-          (← list arguments "parameters")
+        let mut term ← if let some (row, port) := publishedLift? state operation then do
+            -- A lift port: the lift's computation at the evidence parameters, sent to the port.
+            let family ← LiftFamily.forLift row port
+            let (head, _) ← family.instantiate
+            pure (family.mark (← applied head (← list arguments "parameters")))
+          else do
+            let some family := publishedFamily? state operation
+              | malformed "the operation is not a published address"
+            let declaration ← family.declaration state
+            let selected := match family with
+              | .method id => sourceReference ``MethodEntry id.raw declaration
+              | .construction id => sourceReference ``ConstructionEntry id.raw declaration
+              | .functor id => sourceReference ``EdgeRef.functor id.raw declaration
+              | .operation _ | .morphism _ => id
+            applied (selected (← mkConstWithFreshMVarLevels declaration))
+              (← list arguments "parameters")
         let role ← match arguments.getObjValAs? String "prepared_role" with
           | .ok role => pure role
           | .error reason => malformed reason
@@ -560,12 +591,22 @@ private partial def Kernel.reach (kernel : Kernel) (request : PreparedRequest)
     MetaM (PreparedResponse request) := do
   let .primitive boundary universes := family.action
     | throwError "internal: a delayed family demand lost its published boundary"
-  let reference := boundary.source.reference
+  let role := "/".intercalate (path.map (·.projection.toString)).toList
+  let some reference := boundary.reference
+    | let .lift lift := boundary
+        | throwError "internal: a delayed family demand has no public address"
+      -- Every lift port names its field (`<lift>#obj`), the first one included.
+      let some field := path.back?
+        | throwError "internal: a lift computation was applied without a selected field"
+      let address := s!"{lift.lift.raw}#{field.projection.getString!}"
+      let forms ← withSourceScope request fun context _ => inputForms lift.lift.raw context arguments
+      kernel.invokeRegistration request transaction (← kernel.selectLift address forms) role
+        parameters
   let address := actionAddress reference path
-  let forms ← withSourceScope request fun context _ => inputForms reference context arguments
+  let forms ← withSourceScope request fun context _ =>
+    inputForms (referenceId reference) context arguments
   match ← kernel.select reference address forms with
   | .registration registration =>
-    let role := "/".intercalate (path.map (·.projection.toString)).toList
     kernel.invokeRegistration request transaction registration role parameters
   | .derivation checked =>
     kernel.evaluate request transaction fun context => do
