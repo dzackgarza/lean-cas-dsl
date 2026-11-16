@@ -225,6 +225,24 @@ private partial def underBindings : Expr → Expr
   | .mdata _ body => underBindings body
   | expression => expression
 
+/-- Whether a value holds a delayed published computation (a closure of a published family, as a
+lift's fields are) or data owned by a provider, directly or in a field. A value the user wrote,
+such as a lambda or a matrix literal, is read from its definition instead. -/
+private partial def delayedComputation (codes : Std.HashMap (RuntimeId .program) ClosureCode)
+    (graph : ValueGraph) (binding : ValueBinding) : Bool :=
+  match graph.find binding.value with
+  | none => false
+  | some node => match node.payload.data with
+    | .closure program _ => match codes[program]? with
+      | some (.family ..) => true
+      | _ => false
+    | .ownedToken .. => true
+    | .product fields => fields.any (delayedComputation codes graph)
+    | .container value =>
+      (value.slots.map (·.binding) ++ value.fields ++ value.callable.toArray).any
+        (delayedComputation codes graph)
+    | .portable _ => false
+
 /-- The result of one statement: its outcome, the session after it and, for a question,
 the proposition that the reader formed. -/
 structure StatementRun where
@@ -266,13 +284,12 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
             | throwError "internal: a source definition added no declaration"
           let unavailable := session.unavailable.push (entry.id, entry.userName)
           return { outcome, session := { session with source := next, unavailable } }
-      -- A portable value that no provider computed is its definition: later statements read that
-      -- definition. A value with computational provenance, and a record, closure or owned value
-      -- (a delayed lift's fields), is retained: later uses demand that same occurrence.
+      -- A value that no provider computed is its definition: later statements read that
+      -- definition. A value with computational provenance, or one that holds a delayed published
+      -- computation (a lift's fields), is retained: later uses demand that same occurrence.
       let graph ← transaction.view
-      let delayed := binding.any fun binding => match graph.find binding.value with
-        | some node => !(node.payload.data matches .portable _)
-        | none => false
+      let codes ← session.kernel.codes.get
+      let delayed := binding.any (delayedComputation codes graph)
       commit transaction
       let some entry := next.context.entries.back?
         | throwError "internal: a source definition added no declaration"
