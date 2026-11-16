@@ -86,6 +86,53 @@ opaque sourceBinaryLimit (left right : NativeSourceJudgement) (colimit : Bool) :
   return ⟨sourceReference ``LimitEntry row.id.raw row.declaration apex,
     some ⟨.object, source.expression, source.bundle, none⟩⟩
 
+/-- The limit of shape `shape` of the maps `maps` of a category that only creates it: the
+registered limit of the image diagram along the structural step `U` of a registered creation lift
+(LiftKind.createsLimits), transported to the image of the source diagram (Mathlib
+`diagramIsoCospan`, `IsLimit.postcomposeInvEquiv`) and lifted back along `U` (Mathlib
+`liftLimit`). Reference: the original reader's `Semantic.limit` and `liftedLimitCone`. -/
+private def createdLimit (shape : String) (selected : NativeSourceCategory)
+    (maps : Array NativeSourceJudgement) : TermElabM (Option NativeSourceJudgement) := do
+  let state ← semanticState
+  for lift in state.lifts do
+    unless lift.kind == .createsLimits shape do continue
+    let some edge := state.structuralEdge? lift.edge | continue
+    unless edge.source.syntacticEq selected.expression do continue
+    let some target := state.categories.find? (·.expression.syntacticEq edge.target) | continue
+    let some row := state.limits.find? fun limit =>
+        !limit.colimit && limit.category == target.id && limit.shape == shape
+      | continue
+    let #[left, right] := maps
+      | throwUnsupportedSource m!"a created {shape} takes the two maps of its cospan"
+    unless shape == "pullback" do
+      throwUnsupportedSource m!"the created {shape} has no diagram constructor in the reader"
+    let some steps := state.routeEdges? selected.expression target.expression #[lift.edge]
+      | throwError "the creation lift {lift.id.raw} is not a route of its own step"
+    let routed ← nativeRouteFunctor state
+      { source := selected.expression, target := target.expression, steps } selected.bundle
+    let functor ← exprToSyntax routed.functor
+    discard <| checkedDeclaration lift.evidence
+    let evidence ← exprToSyntax (← mkConstWithFreshMVarLevels lift.evidence)
+    discard <| checkedDeclaration row.declaration
+    let declaration ← exprToSyntax (← mkConstWithFreshMVarLevels row.declaration)
+    let (f, g) := (← exprToSyntax left.value, ← exprToSyntax right.value)
+    let apex ← elabTermAndSynthesize (← `(
+      letI : CategoryTheory.CreatesLimit (CategoryTheory.Limits.cospan $f $g) $functor :=
+        (($evidence : CategoryTheory.CreatesLimitsOfShape CategoryTheory.Limits.WalkingCospan
+          $functor).CreatesLimit (K := CategoryTheory.Limits.cospan $f $g))
+      (CategoryTheory.liftLimit (K := CategoryTheory.Limits.cospan $f $g) (F := $functor)
+        ((CategoryTheory.Limits.IsLimit.postcomposeInvEquiv
+            (CategoryTheory.Limits.diagramIsoCospan
+              (CategoryTheory.Functor.comp (CategoryTheory.Limits.cospan $f $g) $functor))
+            ($declaration (CategoryTheory.Functor.map $functor $f) (CategoryTheory.Functor.map $functor $g)).cone).symm
+          ($declaration (CategoryTheory.Functor.map $functor $f) (CategoryTheory.Functor.map $functor $g)).isLimit)).pt)) none
+    let apex ← instantiateMVars apex
+    if apex.hasMVar || apex.hasLevelMVar then
+      throwError "the created {shape} has undetermined parameters"
+    return some ⟨sourceReference ``LimitEntry row.id.raw row.declaration apex,
+      some ⟨.object, selected.expression, selected.bundle, none⟩⟩
+  return none
+
 /-- A registered limit or colimit named by its shape and applied to the maps of its diagram
 (`pullback(f, g)`, `cokernel(m)`): the apex of the declared cone or cocone at those maps, in the
 category of the maps. Reuse: LimitEntry and the native LimitCone/ColimitCocone family. A row
@@ -115,6 +162,8 @@ opaque sourceNamedLimit (shape : String) (maps : Array NativeSourceJudgement) :
       try discard <| present row; pure true
       catch _ => pure false
     if accepts then candidates := candidates.push row
+  if candidates.isEmpty then
+    if let some created ← createdLimit shape selected maps then return some created
   let #[row] := candidates
     | if candidates.isEmpty then
         throwUnsupportedSource m!"no registered {shape} accepts these maps"
