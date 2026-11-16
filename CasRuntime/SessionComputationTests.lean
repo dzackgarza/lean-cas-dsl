@@ -51,6 +51,9 @@ run_cmd liftTermElabM do
           -- cardinality is reached through the structural carrier functor of the form's
           -- category, not through an eliminator inside the apex.
           ("assert |cokernel(to_dual(1))| = 2", "fun.bil_wform.carrier"),
+          -- The apex of a binary coproduct is sent as the registered colimit's descriptor at its
+          -- objects, so its cardinality is the published method (tests/acceptance/sets.cas).
+          ("assert |Fin(2) ⊔ Fin(3)| = 5", "meth.cardinality"),
           -- A matrix's registered application is the published operation of Mat; the kernel
           -- does not evaluate its definition.
           ("assert M(v) = b", "obj.sets.matrices#application")] do
