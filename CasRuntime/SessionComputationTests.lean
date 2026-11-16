@@ -9,6 +9,8 @@ import LeanCategories.Catalogue.Semantics.Foundation.Finiteness
 import LeanCategories.Catalogue.Semantics.Foundation.Cardinality
 import LeanCategories.Catalogue.Semantics.Limits.Registration
 import LeanCategories.Catalogue.Semantics.Modules.Bilinear.Valued.Lattices
+import LeanCategories.Catalogue.Semantics.Algebra.LinearAlgebra
+import LeanCategories.Catalogue.Semantics.Algebra.NumberSystems
 public meta import Lean.Elab.Command
 meta import CasRuntime.Session
 meta import LeanCategories.Catalogue.Semantics.Algebra.NamedRings
@@ -19,6 +21,8 @@ meta import LeanCategories.Catalogue.Semantics.Foundation.Finiteness
 meta import LeanCategories.Catalogue.Semantics.Foundation.Cardinality
 meta import LeanCategories.Catalogue.Semantics.Limits.Registration
 meta import LeanCategories.Catalogue.Semantics.Modules.Bilinear.Valued.Lattices
+meta import LeanCategories.Catalogue.Semantics.Algebra.LinearAlgebra
+meta import LeanCategories.Catalogue.Semantics.Algebra.NumberSystems
 
 open Lean Elab Command Term CasRuntime
 
@@ -29,15 +33,27 @@ kernel does not evaluate its definition. -/
 run_cmd liftTermElabM do
   let environment ← getEnv
   try
-    let session ← KernelSession.start none (computationOnly := true)
+    let mut session ← KernelSession.start none (computationOnly := true)
     try
+      for text in #["let M := [1, 2; 3, 4] in Mat₂(ℚ)", "let v := (1, 2) in ℚ²",
+          "let b := (5, 11) in ℚ²"] do
+        let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
+          | .ok statement => pure statement
+          | .error error => throwError "the statement did not parse: {error}"
+        let run ← withoutErrToSorry <| session.run ⟨statement⟩
+        unless run.outcome.kind == "holds" do
+          throwError "`{text}` is {run.outcome.kind} ({run.outcome.detail}), not holds"
+        session := run.session
       for (text, reached) in #[("assert x + 1 = 1 + x in ℚ[x]", "NoImplementation"),
           ("assert Fin(3).is_finite()", "NoImplementation"),
           ("assert ℤ.is_finite() = false", "NoImplementation"),
           -- The apex of a registered presentation is a construction for a leaf: its
           -- cardinality is reached through the structural carrier functor of the form's
           -- category, not through an eliminator inside the apex.
-          ("assert |cokernel(to_dual(1))| = 2", "fun.bil_wform.carrier")] do
+          ("assert |cokernel(to_dual(1))| = 2", "fun.bil_wform.carrier"),
+          -- A matrix's registered application is the published operation of Mat; the kernel
+          -- does not evaluate its definition.
+          ("assert M(v) = b", "obj.sets.matrices#application")] do
         let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
           | .ok statement => pure statement
           | .error error => throwError "the statement did not parse: {error}"
