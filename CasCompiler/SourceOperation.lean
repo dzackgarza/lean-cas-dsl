@@ -25,7 +25,6 @@ private def refinementDomain (state : SemanticState) (entry : ObjectEntry) (doma
   let type ← whnfR (← inferType comparison)
   unless type.isAppOfArity ``CategoryTheory.Iso 4 do
     throwError "the source operation refinement requires its actual isomorphism"
-  checkRegisteredDomains domain type.getAppArgs[3]!
   -- A parameterized refinement is the declared family at the parameters that the operand's
   -- actual type determines. Reducible unification fixes them from that type's own spelling:
   -- unfolding a definition to a coinciding native carrier does not select a parameter.
@@ -38,6 +37,8 @@ private def refinementDomain (state : SemanticState) (entry : ObjectEntry) (doma
       unless ← isDefEq argument instanceValue do return none
   let arguments ← arguments.mapM instantiateMVars
   if arguments.any (fun argument => argument.hasMVar || argument.hasLevelMVar) then return none
+  -- Registered identities are compared at the determined parameters, not at fresh ones.
+  checkRegisteredDomains domain (← instantiateMVars type.getAppArgs[3]!)
   let #[category] := state.categories.filter (·.id == entry.category)
     | throwError "the source refinement requires one complete category"
   let (bundle, value) ← registeredExpressions (.inl entry) category fun function _ => do

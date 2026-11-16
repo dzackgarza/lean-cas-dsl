@@ -98,14 +98,16 @@ opaque checkRegisteredDomains (left right : Expr) : MetaM Unit := do
   let (right, rightOwners) ← registeredDomain right
   if leftOwners.isEmpty || rightOwners.isEmpty then return
   unless leftOwners.any fun first => rightOwners.any (·.id == first.id) do
-    throwError "the source values have different registered domains"
+    throwError "the source values have different registered domains \
+      ({left}: {leftOwners.map (·.id.raw)}, {right}: {rightOwners.map (·.id.raw)})"
   let leftParameters := left.getAppArgs
   let rightParameters := right.getAppArgs
   unless leftParameters.size == rightParameters.size do
     throwError "the source domains have different complete declaration parameters"
   for left in leftParameters, right in rightParameters do
     unless ← isDefEq left right do
-      throwError "the source domains have different complete declaration parameters"
+      throwError "the source domains have different complete declaration parameters \
+        ({left} : {← inferType left}, {right} : {← inferType right})"
 
 /-- Canonical native indices at the complete finite arity supplied by the source type.
 Reuse: Lean.Meta.LitValues.litToCtor's Fin construction and native Boolean proof. -/

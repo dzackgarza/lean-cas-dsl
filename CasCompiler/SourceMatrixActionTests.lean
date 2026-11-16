@@ -14,8 +14,9 @@ private def sourceTerm (text : String) : TermElabM (TSyntax `cas_term) := do
   return ⟨source⟩
 
 /- A matrix of Mat₂(ℚ) acting on a vector of ℚ² (tests/acceptance/linear_algebra.cas,
-`matrices.product`): the action's ring is determined by the operands before their registered
-domains are compared, so `M*v` reads. -/
+`matrices.application` and `matrices.product`): the registered application `(M, v) ↦ M v` of
+Mat is reached with no argument object, its parameters fixed by the matrix, and `M(v)` and
+`M*v` read. -/
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let empty ← SourceSession.empty identities
@@ -23,7 +24,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let session ← empty.defineTerm `M (← empty.read (← sourceTerm "[1, 2; 3, 4]") (some matrices.source))
   let vectors ← session.read (← sourceTerm "ℚ²")
   let session ← session.defineTerm `v (← session.read (← sourceTerm "(1, 2)") (some vectors.source))
-  let product ← session.read (← sourceTerm "M*v")
-  product.source.withOpen fun _ value => do
-    let value ← instantiateMVars value
-    if value.hasMVar then throwError "the matrix action left a parameter undetermined: {value}"
+  for text in #["M(v)", "M*v"] do
+    let product ← session.read (← sourceTerm text)
+    product.source.withOpen fun _ value => do
+      let value ← instantiateMVars value
+      if value.hasMVar then throwError "`{text}` left a parameter undetermined: {value}"
+      unless (value.find? (·.isConstOf ``CasCatalogue.Algebra.LinearAlgebra.apply)).isSome do
+        throwError "`{text}` is not the registered application of Mat: {value}"

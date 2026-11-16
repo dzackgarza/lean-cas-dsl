@@ -178,8 +178,8 @@ private def registeredObjectsAt (type : Expr) (fits : Expr → TermElabM Bool) :
 algebra that lean-categories states is own-ring evaluation (`Polynomials.evaluation_own`); any
 other argument in the unique registered `R`-algebra whose carrier is its set.
 Source: ObjectEntry.application. `read` reads the argument, at the coefficient set when given. -/
-def sourceObjectApplication? (value : Expr) (numeral : Bool)
-    (read : Option Expr → TermElabM Expr) : TermElabM (Option Expr) := do
+private def objectApplication? (value : Expr) :
+    TermElabM (Option (ObjectEntry × Name)) := do
   let type ← instantiateMVars (← inferType value)
   let state ← semanticState
   let mut applications := #[]
@@ -190,9 +190,49 @@ def sourceObjectApplication? (value : Expr) (numeral : Bool)
     let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
     if ← withoutModifyingState (withReducible (isDefEq (mkAppN family parameters) type)) then
       applications := applications.push (entry, application)
-  let some (entry, application) := applications[0]? | return none
+  let some found := applications[0]? | return none
   unless applications.size == 1 do
     throwSemanticAmbiguity "several registered applications act on this element"
+  return some found
+
+/-- An element's registered application that takes no argument object (`(M, v) ↦ M v` on
+`Mat n K × Kⁿ`): the element fixes every parameter of the application, and with them the set
+its argument is read in. `read` reads the argument at that set. -/
+def sourceDirectApplication? (value : Expr) (read : Expr → TermElabM Expr) :
+    TermElabM (Option Expr) := do
+  let some (entry, application) ← objectApplication? value | return none
+  discard <| checkedDeclaration application
+  let type ← instantiateMVars (← inferType value)
+  let constant ← mkConstWithFreshMVarLevels application
+  let (parameters, _, arrow) ← forallMetaTelescopeReducing (← inferType constant)
+  let arrow ← whnfR arrow
+  unless arrow.isAppOfArity ``Quiver.Hom 4 do
+    throwError "the application of {entry.name} is not a native map"
+  let pair ← whnfR arrow.getAppArgs[2]!
+  unless pair.isAppOfArity ``Prod 2 do
+    throwError "the application of {entry.name} does not act on a pair"
+  unless ← withReducible (isDefEq pair.getAppArgs[0]! type) do
+    throwError "the application of {entry.name} does not act on this element"
+  let some last := parameters.back? | return none
+  if (← instantiateMVars (← inferType last)).isAppOf ``CategoryTheory.Under then return none
+  let argumentSet ← instantiateMVars pair.getAppArgs[1]!
+  if argumentSet.hasMVar then
+    throwUnsupportedSource m!"the application of {entry.name} acts at an unread argument object"
+  let argument ← read argumentSet
+  let applied ← instantiateMVars (mkAppN constant parameters)
+  if applied.hasMVar || applied.hasLevelMVar then
+    throwError "the application of {entry.name} is not determined"
+  let function ← sourceSetFunction (sourceReference ``ObjectEntry.application entry.id.raw
+    application applied)
+  return some (← elabAppArgs function #[] #[Arg.expr (← mkAppM ``Prod.mk #[value, argument])]
+    none false false)
+
+def sourceObjectApplication? (value : Expr) (numeral : Bool)
+    (read : Option Expr → TermElabM Expr) : TermElabM (Option Expr) := do
+  if let some applied ← sourceDirectApplication? value fun set => read (some set) then
+    return some applied
+  let type ← instantiateMVars (← inferType value)
+  let some (entry, application) ← objectApplication? value | return none
   discard <| checkedDeclaration application
   let constant ← mkConstWithFreshMVarLevels application
   let (parameters, _, arrow) ← forallMetaTelescopeReducing (← inferType constant)

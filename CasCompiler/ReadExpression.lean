@@ -224,6 +224,11 @@ partial def readExpression
         let function ← sourceSetFunction action
         let argument ← mkAppM ``Prod.mk #[leftValue.value, rightValue.value]
         return ⟨← elabAppArgs function #[] #[Arg.expr argument] expected false false, none⟩
+      -- An element whose registered application takes no argument object acts on the
+      -- operand (`M v`, `M*v` for a matrix and a vector).
+      if let some applied ← sourceDirectApplication? leftValue.value fun set => do
+          return (← readExpression categoryOf right (some set)).value then
+        return ⟨applied, none⟩
     let name ← sourceJuxtapositionName categoryOf leftValue rightValue
     let owner ← if name == "•" then pure (some (← inferType rightValue.value)) else pure none
     elementOperation name #[left, right] #[] #[leftValue.map (·.value), some rightValue.value]
