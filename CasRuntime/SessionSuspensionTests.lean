@@ -19,7 +19,8 @@ open Lean Elab Command Term CasRuntime CasCompiler CasCatalogue CasCatalogue.Bac
 /- A leaf that suspends asks the kernel to resolve a published operation it uses
 (constitution C22, execution contract §6). The provider computes `a · 2` by suspending on the
 addition `a + a`; the kernel dispatches that child, resumes the generator on the same
-connection, and the resumed reply completes the original multiplication. -/
+connection, and the resumed reply completes the original multiplication. `a · 3` suspends a
+second time on an addition that takes the first child result from the resumed scope. -/
 run_cmd liftTermElabM do
   let environment ← getEnv
   try
@@ -45,7 +46,9 @@ run_cmd liftTermElabM do
       for (text, kind) in #[
           ("let a := 17 + 29 in ℤ", "holds"),
           ("let d := a · 2 in ℤ", "holds"),
-          ("assert d = 92 in ℤ", "holds")] do
+          ("assert d = 92 in ℤ", "holds"),
+          ("let t := a · 3 in ℤ", "holds"),
+          ("assert t = 138 in ℤ", "holds")] do
         let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
           | .ok statement => pure statement
           | .error error => throwError "the statement did not parse: {error}"
@@ -54,7 +57,8 @@ run_cmd liftTermElabM do
           throwError "`{text}` is {run.outcome.kind} ({run.outcome.detail}), not {kind}"
         session := run.session
       let dispatched := (← session.kernel.dispatches.get).map (·.operation)
-      unless dispatched == #["op.rings.add", "op.rings.mul", "op.rings.add"] do
+      unless dispatched == #["op.rings.add", "op.rings.mul", "op.rings.add",
+          "op.rings.mul", "op.rings.add", "op.rings.add"] do
         throwError "the session dispatched {dispatched}"
     finally liftM (m := IO) session.close
   finally setEnv environment
