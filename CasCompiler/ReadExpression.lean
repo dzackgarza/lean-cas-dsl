@@ -69,6 +69,20 @@ partial def readExpression
   withRef source do
   let application := fun (source : NativeSourceJudgement) (arguments : Array (TSyntax `cas_term))
       (expected : Option Expr) => do
+    -- A map applied to its whole domain is the map's image (`m2(ℕ)`), through the registered
+    -- image of the power object of its target (PowerObjectEntry.image).
+    if let #[argument] := arguments then
+      if argument.raw.isOfKind ``CasCatalogue.Language.casAtom then
+        let type ← whnfR (← instantiateMVars (← inferType source.value))
+        let ends := if type.isAppOfArity ``Quiver.Hom 4 then some (type.getAppArgs[2]!, type.getAppArgs[3]!)
+          else if type.isAppOfArity ``TypeCat.Hom 2 then some (type.getAppArgs[0]!, type.getAppArgs[1]!)
+          else none
+        if let some (domain, codomain) := ends then
+          let object ← readExpression categoryOf argument none
+          if object.category.any (·.role == .object) then
+            if ← isDefEq object.value domain then
+              let target ← sourcePowerObjectAt codomain
+              return ← sourceImageOf target domain source.value expected
     -- An element with a registered application (a polynomial `p(a)`).
     if let #[argument] := arguments then
       if source.category.isNone then
@@ -609,9 +623,23 @@ partial def readExpression
           if (← synthInstance? (← mkAppM ``Unique #[source])).isSome then
             left := ⟨← sourcePointValue left.value none, none⟩
       let type ← inferType left.value
-      let right ← readExpression categoryOf right
-        (if rightPrincipal then none else some type) none
-        (if rightPrincipal then none else left.category)
+      -- A set compared with a subset of itself is the whole subset, the image of its identity
+      -- (`X = ℕ` for `X` in `𝒫(ℕ)`).
+      let wholeSubset := fun (type : Expr) => do
+        unless right.raw.isOfKind ``CasCatalogue.Language.casAtom do return none
+        let some power ← sourcePowerObject? (← instantiateMVars type) | return none
+        let object ← readExpression categoryOf right none
+        unless object.category.any (·.role == .object) do return none
+        unless ← isDefEq object.value power.base do return none
+        let identity ← withLocalDeclD `x power.base fun x => mkLambdaFVars #[x] x
+        return some (⟨← sourceImage power power.base identity (some type), none⟩ :
+          NativeSourceJudgement)
+      let whole ← wholeSubset type
+      let right ← match whole with
+        | some whole => pure whole
+        | none =>
+          readExpression categoryOf right (if rightPrincipal then none else some type) none
+            (if rightPrincipal then none else left.category)
       pure (left, right)
     let (left, right) ← sourceCommonCategory left right
     checkRegisteredDomains (← inferType left.value) (← inferType right.value)

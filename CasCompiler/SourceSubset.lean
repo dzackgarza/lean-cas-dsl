@@ -136,6 +136,16 @@ def sourceComprehension (power : NativePowerObject) (predicate : Expr) (expected
   let element ← atBase power power.row.transpose #[classifierValue]
   sourceGlobalValue power element expected
 
+/-- `f(X)` for a map `f : X → Y` applied to its whole domain: the image of `f` in `𝒫(Y)`, through
+the registered image of the power object of `Y`. `target` is the power object at `Y`. -/
+def sourceImageOf (target : NativePowerObject) (domain arrow : Expr) (expected : Option Expr) :
+    TermElabM Expr := do
+  let image ← mkConstWithFreshMVarLevels target.row.image
+  discard <| checkedDeclaration target.row.image
+  let element ← elabAppArgs image #[] #[Arg.expr domain, Arg.expr target.base, Arg.expr arrow]
+    none false false
+  sourceGlobalValue target element expected
+
 /-- `{e | t ∈ X}`: the image of the whole map `t ↦ e : X → Y` in `𝒫(Y)`, through the registered
 image of the power object of `Y`. `target` is the power object at `Y`. -/
 def sourceImage (target : NativePowerObject) (domain function : Expr) (expected : Option Expr) :
@@ -148,8 +158,6 @@ def sourceImage (target : NativePowerObject) (domain function : Expr) (expected 
   let arrowType ← instantiateMVars (← inferType arrow)
   let arrowValue ← elabAppArgs (← mkConstWithFreshMVarLevels ``TypeCat.ofHom) #[]
     #[Arg.expr function] (some arrowType) false false
-  let element ← elabAppArgs image #[] #[Arg.expr domain, Arg.expr target.base, Arg.expr arrowValue]
-    none false false
-  sourceGlobalValue target element expected
+  sourceImageOf target domain arrowValue expected
 
 end CasCompiler
