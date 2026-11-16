@@ -93,5 +93,17 @@ run_cmd liftTermElabM do
       let asked ← withoutErrToSorry <| run.session.run ⟨question⟩
       unless asked.outcome.kind == "holds" do
         throwError "a definition with no installed leaf is lost: {asked.outcome.kind} ({asked.outcome.detail})"
+      -- Maps the user wrote are not computed values: a question about them is settled in Lean
+      -- from their definitions, not sent to a leaf (tests/acceptance/functions.cas).
+      let mut written := asked.session
+      for (text, kind) in #[("let h := t ↦ t² + 1 in ℤ → ℤ", "holds"),
+          ("let hp(t) := t^2 + 1 in ℤ → ℤ", "holds"), ("assert h = hp", "holds")] do
+        let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
+          | .ok statement => pure statement
+          | .error error => throwError "the statement did not parse: {error}"
+        let step ← withoutErrToSorry <| written.run ⟨statement⟩
+        unless step.outcome.kind == kind do
+          throwError "`{text}` is {step.outcome.kind} ({step.outcome.detail}), not {kind}"
+        written := step.session
     finally liftM (m := IO) bare.close
   finally setEnv environment
