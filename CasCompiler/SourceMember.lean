@@ -143,7 +143,14 @@ def sourceMorphismFrom? (name : String) (type : Expr) : TermElabM (Option Expr) 
           unless ← synthesizeDeclared parameters do return none
           let morphism ← instantiateMVars morphism
           if morphism.hasMVar || morphism.hasLevelMVar then return none
-          return some morphism
+          -- The identification is definitional, so the map keeps the actual set's spelling at
+          -- each end that is that set (`span ℚ 3 : 𝒫(ℚ³) ⟶ 𝒫(ℚ³)`), where its numerals read.
+          let arrow ← whnfR (← inferType morphism)
+          let target := arrow.getAppArgs[3]!
+          let target ← if ← isDefEq target type then pure type else pure target
+          let args := arrow.getAppArgs
+          return some (← mkExpectedTypeHint morphism
+            (mkAppN arrow.getAppFn #[args[0]!, args[1]!, type, target]))
         if let some applied := applied then
           found := found.push (sourceReference ``MorphismEntry row.id.raw row.declaration applied)
   match found with
