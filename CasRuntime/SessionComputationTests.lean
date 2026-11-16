@@ -75,14 +75,18 @@ with; the kernel opens neither `List.toFinset` nor Mathlib's polynomial addition
 run_cmd liftTermElabM do
   let environment ← getEnv
   try
-    let session ← KernelSession.start none (computationOnly := true)
+    let started ← KernelSession.start none (computationOnly := true)
     try
-      let text := "let F := {x - 1} in 𝒫_fin(ℤ[x])"
-      let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
-        | .ok statement => pure statement
-        | .error error => throwError "the statement did not parse: {error}"
-      let run ← withoutErrToSorry <| session.run ⟨statement⟩
-      unless run.outcome.kind == "gap" && (run.outcome.detail.splitOn "op.rings.add").length > 1 do
-        throwError "`{text}` does not reach its elements' operation: {run.outcome.kind} ({run.outcome.detail})"
-    finally liftM (m := IO) session.close
+      let mut session := started
+      for text in #["let F := {x - 1} in 𝒫_fin(ℤ[x])", "assert F = F"] do
+        let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
+          | .ok statement => pure statement
+          | .error error => throwError "the statement did not parse: {error}"
+        let run ← withoutErrToSorry <| session.run ⟨statement⟩
+        if text.startsWith "let" then
+          session := run.session
+          continue
+        unless run.outcome.kind == "gap" && (run.outcome.detail.splitOn "op.rings.add").length > 1 do
+          throwError "`{text}` does not reach its elements' operation: {run.outcome.kind} ({run.outcome.detail})"
+    finally liftM (m := IO) started.close
   finally setEnv environment
