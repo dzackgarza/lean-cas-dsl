@@ -212,9 +212,12 @@ inductive SourceNamedEntry where
   | registered (entry : ObjectEntry ⊕ MorphismEntry) (category : NamedCategoryEntry)
   | construction (entry : ConstructionEntry)
 
-/-- Select the exact named source kind without a priority between kinds. -/
+/-- Select the exact named source kind without a priority between kinds. When a registered
+morphism and a registered object share the name, every one of them is a candidate; the reader
+keeps those that accept the actual arguments (`span({u₁, u₂})`), and the name is ambiguous
+only if several do. -/
 opaque selectNamed (name : String) (category : Option String) (expected : Option Expr) :
-    TermElabM SourceNamedEntry := do
+    TermElabM (Array SourceNamedEntry) := do
   let state ← semanticState
   let qualified ← category.mapM (selectCategory state)
   let morphisms := state.morphisms.filter fun entry =>
@@ -229,17 +232,22 @@ opaque selectNamed (name : String) (category : Option String) (expected : Option
       throwSemanticAmbiguity m!"source name {name} has distinct registered kinds"
     let #[entry] := constructions
       | throwSemanticAmbiguity m!"source construction {name} has several registrations"
-    return .construction entry
+    return #[.construction entry]
   if morphisms.isEmpty then
     let (entry, category) ← selectObject name category expected
-    return .registered (.inl entry) category
+    return #[.registered (.inl entry) category]
+  let category := fun (id : CategoryId) => do
+    let #[categoryEntry] := state.categories.filter (·.id == id)
+      | throwError "the source name requires one registered category"
+    return categoryEntry
   unless objects.isEmpty do
-    throwSemanticAmbiguity m!"source name {name} requires a category qualification"
+    let kinds ← morphisms.mapM fun entry => do
+      return SourceNamedEntry.registered (.inr entry) (← category entry.category)
+    return kinds ++ (← objects.mapM fun entry => do
+      return SourceNamedEntry.registered (.inl entry) (← category entry.category))
   let #[entry] := morphisms
     | throwSemanticAmbiguity m!"source name {name} requires a category qualification"
-  let #[categoryEntry] := state.categories.filter (·.id == entry.category)
-    | throwError "the source morphism requires one registered category"
-  return .registered (.inr entry) categoryEntry
+  return #[.registered (.inr entry) (← category entry.category)]
 
 /-- Form the actual registered value and check its declared object or morphism role.
 Reuse: the source's declaration/category pair, native application and the identity functor. -/

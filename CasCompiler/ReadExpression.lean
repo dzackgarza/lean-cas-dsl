@@ -351,67 +351,79 @@ partial def readExpression
         let literal : TSyntax `num := ⟨Syntax.mkNumLit (toString number)⟩
         let leading ← `(cas_term| $literal:num)
         pure (base, #[leading] ++ arguments)
-    let selected ← selectNamed spelling qualification expected
-    match selected with
-    | .construction entry => do
-      let some receiver := arguments.back?
-        | throwError "a source construction requires its actual receiver"
-      let receiver ← readExpression categoryOf receiver none
-      sourceConstruction entry receiver
-        ((arguments.pop).map fun parameter type => do
-          return (← readExpression categoryOf parameter (some type)).value)
-    | .registered entry categoryEntry => do
-      let declaration := match entry with
-        | .inl entry => entry.declaration
-        | .inr entry => entry.declaration
-      let parameterCount ← withoutModifyingState do
-        let info ← checkedDeclaration declaration
-        let (_, binders, _) ← forallMetaTelescopeReducing info.type
-        pure (binders.filter (·.isExplicit)).size
-      -- `d(f)`: a named map applied to one element whose set fixes its declaration parameters,
-      -- rather than one source argument per parameter (`rev(3, 2)`).
-      if let (.inr row, #[argument]) := (entry, arguments) then
-        if parameterCount > 0 && !sourceNumeric argument.raw then
-          let element ← readExpression categoryOf argument none
-          let type ← instantiateMVars (← inferType element.value)
-          let parameterType ← withoutModifyingState do
-            let info ← checkedDeclaration declaration
-            let (parameters, binders, _) ← forallMetaTelescopeReducing info.type
-            let some (first, _) := (parameters.zip binders).find? (·.2.isExplicit)
-              | throwError "the named map lost its declaration parameter"
-            instantiateMVars (← inferType first)
-          -- An object argument instead indexes a family of global elements
-          -- (`dimension(ℚ[x, y])`): it is read at the declared parameter type below.
-          let indexing := element.category.any (·.role == .object)
-          unless indexing || (← withoutModifyingState (isDefEq type parameterType)) do
-            let some morphism ← sourceMorphismFrom? row.name type
-              | throwError "the named map {row.name} does not leave the set of its argument"
-            let function ← sourceSetFunction morphism
-            return ⟨← elabAppArgs function #[] #[Arg.expr element.value] expected false false, none⟩
-      let (bundle, value) ← registeredExpressions entry categoryEntry fun function expected =>
-        application ⟨function, none⟩ (arguments.take parameterCount) expected
-      let role := match entry with
-        | .inl _ => SourceCategoryRole.object
-        | .inr _ => SourceCategoryRole.morphism
-      let carrier ← match entry with
-        | .inl object => objectCarrierSelection object bundle value
-        | .inr _ => pure none
-      let result : NativeSourceJudgement :=
-        ⟨value, some ⟨role, categoryEntry.expression, bundle, carrier⟩⟩
-      -- A named global element `1 ⟶ X` (`i`, `π`) read where an element of a set is expected
-      -- is its value at the terminal point.
-      if role == .morphism && parameterCount == arguments.size then
-        if let some expected := expected then
-          let expected ← instantiateMVars expected
-          let type ← whnfR (← inferType value)
-          if !expected.isSort && type.isAppOfArity ``Quiver.Hom 4 &&
-              !(← whnfR expected).isAppOfArity ``Quiver.Hom 4 then
-            let source := type.getAppArgs[2]!
-            if (← synthInstance? (← mkAppM ``Unique #[source])).isSome then
-              return ⟨← sourcePointValue value (some expected), none⟩
-      if parameterCount < arguments.size then
-        return ⟨← application result (arguments.drop parameterCount) expected, none⟩
-      return result
+    let readNamed := fun (selected : SourceNamedEntry) => do
+     match selected with
+     | .construction entry => do
+       let some receiver := arguments.back?
+         | throwError "a source construction requires its actual receiver"
+       let receiver ← readExpression categoryOf receiver none
+       sourceConstruction entry receiver
+         ((arguments.pop).map fun parameter type => do
+           return (← readExpression categoryOf parameter (some type)).value)
+     | .registered entry categoryEntry => do
+       let declaration := match entry with
+         | .inl entry => entry.declaration
+         | .inr entry => entry.declaration
+       let parameterCount ← withoutModifyingState do
+         let info ← checkedDeclaration declaration
+         let (_, binders, _) ← forallMetaTelescopeReducing info.type
+         pure (binders.filter (·.isExplicit)).size
+       -- `d(f)`: a named map applied to one element whose set fixes its declaration parameters,
+       -- rather than one source argument per parameter (`rev(3, 2)`).
+       if let (.inr row, #[argument]) := (entry, arguments) then
+         if parameterCount > 0 && !sourceNumeric argument.raw then
+           let element ← readExpression categoryOf argument none
+           let type ← instantiateMVars (← inferType element.value)
+           let parameterType ← withoutModifyingState do
+             let info ← checkedDeclaration declaration
+             let (parameters, binders, _) ← forallMetaTelescopeReducing info.type
+             let some (first, _) := (parameters.zip binders).find? (·.2.isExplicit)
+               | throwError "the named map lost its declaration parameter"
+             instantiateMVars (← inferType first)
+           -- An object argument instead indexes a family of global elements
+           -- (`dimension(ℚ[x, y])`): it is read at the declared parameter type below.
+           let indexing := element.category.any (·.role == .object)
+           unless indexing || (← withoutModifyingState (isDefEq type parameterType)) do
+             let some morphism ← sourceMorphismFrom? row.name type
+               | throwError "the named map {row.name} does not leave the set of its argument"
+             let function ← sourceSetFunction morphism
+             return ⟨← elabAppArgs function #[] #[Arg.expr element.value] expected false false, none⟩
+       let (bundle, value) ← registeredExpressions entry categoryEntry fun function expected =>
+         application ⟨function, none⟩ (arguments.take parameterCount) expected
+       let role := match entry with
+         | .inl _ => SourceCategoryRole.object
+         | .inr _ => SourceCategoryRole.morphism
+       let carrier ← match entry with
+         | .inl object => objectCarrierSelection object bundle value
+         | .inr _ => pure none
+       let result : NativeSourceJudgement :=
+         ⟨value, some ⟨role, categoryEntry.expression, bundle, carrier⟩⟩
+       -- A named global element `1 ⟶ X` (`i`, `π`) read where an element of a set is expected
+       -- is its value at the terminal point.
+       if role == .morphism && parameterCount == arguments.size then
+         if let some expected := expected then
+           let expected ← instantiateMVars expected
+           let type ← whnfR (← inferType value)
+           if !expected.isSort && type.isAppOfArity ``Quiver.Hom 4 &&
+               !(← whnfR expected).isAppOfArity ``Quiver.Hom 4 then
+             let source := type.getAppArgs[2]!
+             if (← synthInstance? (← mkAppM ``Unique #[source])).isSome then
+               return ⟨← sourcePointValue value (some expected), none⟩
+       if parameterCount < arguments.size then
+         return ⟨← application result (arguments.drop parameterCount) expected, none⟩
+       return result
+    let candidates ← selectNamed spelling qualification expected
+    if let #[selected] := candidates then return ← readNamed selected
+    -- Kinds sharing a name: the reading is the one candidate that accepts the arguments.
+    let mut accepted := #[]
+    for selected in candidates do
+      let reads ← withoutModifyingState do
+        try discard <| readNamed selected; pure true
+        catch _ => pure false
+      if reads then accepted := accepted.push selected
+    let #[selected] := accepted
+      | CasCatalogue.throwSemanticAmbiguity m!"source name {spelling} requires a category qualification"
+    readNamed selected
   let member := fun (receiver : TSyntax `cas_term) (name : String)
       (arguments : Array (TSyntax `cas_term)) => do
     let readArguments : Option (Expr → TermElabM Expr) := if arguments.isEmpty then none

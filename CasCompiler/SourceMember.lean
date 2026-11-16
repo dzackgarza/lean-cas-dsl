@@ -118,6 +118,34 @@ def sourceMorphismFrom? (name : String) (type : Expr) : TermElabM (Option Expr) 
     discard <| synthesizeDeclared parameters
     found := found.push (sourceReference ``MorphismEntry row.id.raw row.declaration
       (← instantiateMVars morphism))
+  if found.isEmpty then
+    -- A parameter object that the set does not spell (the field `K` of `span K n` on
+    -- `𝒫(Fin n → K)`) is a registered object refining a set that the actual set is built from
+    -- (`obj.fields.rationals` over `obj.sets.rationals`). Its source must then agree with the set
+    -- through that refinement's identification, which holds definitionally for these rows.
+    let state ← semanticState
+    for row in state.morphisms do
+      unless row.name == name do continue
+      for object in state.objects do
+        let some refinement := object.refines | continue
+        let some base := state.objects.find? (·.id == refinement.base) | continue
+        unless (type.find? (·.isConstOf base.declaration)).isSome do continue
+        discard <| checkedDeclaration object.declaration
+        let applied ← withoutModifyingState do
+          let (morphism, source, parameters) ← morphismAtSource row
+          let value ← mkConstWithFreshMVarLevels object.declaration
+          let mut selected := false
+          for (parameter, info) in parameters do
+            if info.isExplicit && !selected && (← isDefEq (← inferType parameter) (← inferType value)) then
+              selected ← isDefEq parameter value
+          unless selected do return none
+          unless ← isDefEq source type do return none
+          unless ← synthesizeDeclared parameters do return none
+          let morphism ← instantiateMVars morphism
+          if morphism.hasMVar || morphism.hasLevelMVar then return none
+          return some morphism
+        if let some applied := applied then
+          found := found.push (sourceReference ``MorphismEntry row.id.raw row.declaration applied)
   match found with
   | #[] => return none
   | #[morphism] => return some morphism
