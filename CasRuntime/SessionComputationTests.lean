@@ -69,9 +69,10 @@ run_cmd liftTermElabM do
     finally liftM (m := IO) session.close
   finally setEnv environment
 
-/- An admitted finite subset keeps the literal and the registered ring operations it is read
-with; the kernel opens neither `List.toFinset` nor Mathlib's polynomial addition
-(tests/acceptance/polynomials.cas). -/
+/- An admitted finite subset is the literal it admits, sent as the array of its elements, each
+retained with the registered ring operations it is read with; the kernel opens neither the
+admission, `List.toFinset` nor Mathlib's polynomial addition (tests/acceptance/polynomials.cas).
+With no leaf, a question about it stops at the retained value, which has no scalar comparison. -/
 run_cmd liftTermElabM do
   let environment ← getEnv
   try
@@ -86,7 +87,8 @@ run_cmd liftTermElabM do
         if text.startsWith "let" then
           session := run.session
           continue
-        unless run.outcome.kind == "gap" && (run.outcome.detail.splitOn "op.rings.add").length > 1 do
-          throwError "`{text}` does not reach its elements' operation: {run.outcome.kind} ({run.outcome.detail})"
+        unless run.outcome.kind == "gap" && run.outcome.detail ==
+            "the computed value is retained by its provider and has no scalar comparison" do
+          throwError "`{text}` did not keep the admitted literal: {run.outcome.kind} ({run.outcome.detail})"
     finally liftM (m := IO) started.close
   finally setEnv environment

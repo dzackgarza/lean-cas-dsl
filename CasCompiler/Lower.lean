@@ -224,6 +224,15 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
     if data.getName `CasCompiler.source.kind == ``ObjectEntry.application then
       throwStratum .noImplementation
         m!"{data.getString `CasCompiler.source.id}#application has no kernel computation address"
+    -- An admitted element is the value it admits (ObjectEntry.admission); the admission's
+    -- definition is not evaluated.
+    if data.getName `CasCompiler.source.kind == ``ObjectEntry.admission then
+      let declaration := data.getName `CasCompiler.source.declaration
+      let some admitted := body.find? (·.getAppFn.isConstOf declaration)
+        | throwError "internal: the admitted element lost its registered admission"
+      let some element := admitted.getAppArgs[data.getNat `CasCompiler.source.element 0]?
+        | throwError "internal: the admitted element lost its value"
+      return ← lower element
     if let some (declaration, address) := namedElement? data then
       let some element := body.find? (·.getAppFn.isConstOf declaration)
         | throwError "internal: the named element lost its registered declaration"
@@ -306,6 +315,19 @@ private partial def descriptor (expression : Expr) (address : String) (arguments
   let packet := Json.mkObj [("ctor", toJson address), ("args", .arr packets)]
   let .ok payload := ValuePayload.container packet slots fields none
     | throwError "internal: the descriptor of {address} has an invalid reference layout"
+  stage expression payload
+
+/-- A finite list or finite-subset literal `[a₁, …, aₙ]`, `List.toFinset [a₁, …, aₙ]`: the array of
+its elements' data (leaf contract api/wire-examples.md, "List or finite subset literal"). Each
+element is lowered and keeps its own retained reference in a typed slot. -/
+private partial def array (expression : Expr) (elements : Array Expr) : LowerM ValueBinding := do
+  let mut slots := #[]
+  for element in elements, index in [:elements.size] do
+    let binding ← lower element
+    slots := slots.push ({ path := #[.index index], binding, fieldIndex := none } : ContainerSlot)
+  let .ok payload := ValuePayload.container (.arr (Array.replicate elements.size Json.null)) slots
+      #[] none
+    | throwError "internal: a finite literal has an invalid reference layout"
   stage expression payload
 
 /-- A registered named constant at its explicit arguments. A callable is retained as code; a
@@ -420,6 +442,9 @@ private partial def application (expression : Expr) : LowerM ValueBinding := do
   let .const name levels := function
     | return ← apply (← lower function) arguments
   let expression := mkAppN function arguments
+  if name == ``List.toFinset then
+    if let some (_, elements) := (← instantiateMVars arguments.back!).consumeMData.listLit? then
+      return ← array expression elements.toArray
   let state ← semanticState
   let references := match selected with
     | some reference => #[reference]

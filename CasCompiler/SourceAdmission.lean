@@ -101,10 +101,12 @@ def sourceAdmission (entry : ObjectEntry) (target : Expr) (read : Expr → TermE
   let some element := explicit.find? fun index =>
       (type.findMVar? (· == arguments[index]!.mvarId!)).isNone
     | throwError "the admission of {entry.name} takes no value"
-  let value ← read (← instantiateMVars (← inferType arguments[element]!))
-  -- A closed value is admitted at its plumbing-free normal form, which is definitionally it.
-  let value ← if (← zetaReduce value).hasFVar then pure value
-    else Evaluation.normalizedValue (← zetaReduce (← instantiateMVars value))
+  let read ← read (← instantiateMVars (← inferType arguments[element]!))
+  -- The evidence is stated of a closed value's plumbing-free normal form, which is
+  -- definitionally it; the admitted element remains the value as read, so that its registered
+  -- operations reach the kernel (constitution C22).
+  let value ← if (← zetaReduce read).hasFVar then pure read
+    else Evaluation.normalizedValue (← zetaReduce (← instantiateMVars read))
   unless ← isDefEq arguments[element]! value do
     throwStratum .invalid m!"the value is not in the set that {entry.name} is included in"
   for argument in arguments, info in infos do
@@ -116,10 +118,15 @@ def sourceAdmission (entry : ObjectEntry) (target : Expr) (read : Expr → TermE
     let proof ← establish entry (← inferType arguments[index]!)
     unless ← isDefEq arguments[index]! proof do
       throwStratum .invalid m!"the evidence of {entry.name} does not apply"
-  let admitted ← instantiateMVars (mkAppN constant arguments)
+  let admitted ← instantiateMVars (mkAppN constant (arguments.set! element read))
   if admitted.hasMVar || admitted.hasLevelMVar then
     throwStratum .invalid m!"the parameters or evidence of {entry.name} are not determined"
-  sourcePointValue admitted (some target)
+  -- The admitted element's data is the value it admits: the kernel sends that value and does not
+  -- evaluate the admission's definition (constitution C22).
+  let value ← sourcePointValue admitted (some target)
+  let .mdata data body := sourceReference ``ObjectEntry.admission entry.id.raw admission value
+    | throwError "internal: the admission reference lost its metadata"
+  return .mdata (data.setNat `CasCompiler.source.element element) body
 
 /-- A binding operator `token` (`∫_{a}^{b} e dt`, `lim_{t → a} e`, `∑_{t ∈ A} e`) through its
 registered rows (Registry.Entry.BinderEntry). The notation's arguments are the operation's last
