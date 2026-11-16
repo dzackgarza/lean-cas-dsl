@@ -60,13 +60,27 @@ private def parseTarget (json : Json) : Except String ComputationRef := do
   | "morphism" => return .morphism ⟨id⟩
   | _ => throw "realization profile: unknown computation target kind"
 
+/-- A registration's record: its triple, and its declared preferred routes when it has any
+(contract api/manifest.md). -/
 private def registrationJson (registration : Registration) : Json :=
-  Json.mkObj [("operation", toJson registration.operation), ("input", toJson registration.input),
-    ("backend", toJson registration.backend)]
+  let triple := [("operation", toJson registration.operation),
+    ("input", toJson registration.input), ("backend", toJson registration.backend)]
+  if registration.preferredRoutes.isEmpty then Json.mkObj triple
+  else Json.mkObj (triple ++ [("preferredRoutes", .arr (registration.preferredRoutes.map fun route =>
+    Json.mkObj [("name", toJson route.name), ("receiver", toJson route.receiver),
+      ("route", toJson route.route)]))])
 
 private def parseRegistration (json : Json) : Except String Registration := do
-  fields #["operation", "input", "backend"] json
-  return ⟨← text json "operation", ← text json "input", ← text json "backend"⟩
+  let preferredRoutes ← match json.getObjVal? "preferredRoutes" with
+    | .error _ => do fields #["operation", "input", "backend"] json; pure #[]
+    | .ok _ => do
+      fields #["operation", "input", "backend", "preferredRoutes"] json
+      (← Manifest.arrayField json "preferredRoutes").mapM Manifest.preferredRouteOf
+        |>.mapError ("realization profile: " ++ ·)
+  let operation ← text json "operation"
+  let input ← text json "input"
+  let backend ← text json "backend"
+  return { operation, input, backend, preferredRoutes }
 
 private def selection [DecidableEq α] (key : String) (parse : Json → Except String α)
     (json : Json) : Except String (Selection α) := do
