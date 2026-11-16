@@ -6,6 +6,9 @@ import LeanCategories.Catalogue.Semantics.Algebra.NamedCommutativeRings
 import LeanCategories.Catalogue.Semantics.Algebra.Polynomials
 import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
 import LeanCategories.Catalogue.Semantics.Foundation.Finiteness
+import LeanCategories.Catalogue.Semantics.Foundation.Cardinality
+import LeanCategories.Catalogue.Semantics.Limits.Registration
+import LeanCategories.Catalogue.Semantics.Modules.Bilinear.Valued.Lattices
 public meta import Lean.Elab.Command
 meta import CasRuntime.Session
 meta import LeanCategories.Catalogue.Semantics.Algebra.NamedRings
@@ -13,6 +16,9 @@ meta import LeanCategories.Catalogue.Semantics.Algebra.NamedCommutativeRings
 meta import LeanCategories.Catalogue.Semantics.Algebra.Polynomials
 meta import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
 meta import LeanCategories.Catalogue.Semantics.Foundation.Finiteness
+meta import LeanCategories.Catalogue.Semantics.Foundation.Cardinality
+meta import LeanCategories.Catalogue.Semantics.Limits.Registration
+meta import LeanCategories.Catalogue.Semantics.Modules.Bilinear.Valued.Lattices
 
 open Lean Elab Command Term CasRuntime
 
@@ -25,13 +31,18 @@ run_cmd liftTermElabM do
   try
     let session ← KernelSession.start none (computationOnly := true)
     try
-      for text in #["assert x + 1 = 1 + x in ℚ[x]", "assert Fin(3).is_finite()",
-          "assert ℤ.is_finite() = false"] do
+      for (text, reached) in #[("assert x + 1 = 1 + x in ℚ[x]", "NoImplementation"),
+          ("assert Fin(3).is_finite()", "NoImplementation"),
+          ("assert ℤ.is_finite() = false", "NoImplementation"),
+          -- The apex of a registered presentation is a construction for a leaf: its
+          -- cardinality is the computation reached, not an eliminator inside the apex.
+          ("assert |cokernel(to_dual(1))| = 2", "meth.cardinality")] do
         let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
           | .ok statement => pure statement
           | .error error => throwError "the statement did not parse: {error}"
         let run ← withoutErrToSorry <| session.run ⟨statement⟩
-        unless run.outcome.kind == "gap" && (run.outcome.detail.splitOn "NoImplementation").length > 1 do
+        unless run.outcome.kind == "gap" && (run.outcome.detail.splitOn "NoImplementation").length > 1 &&
+            (run.outcome.detail.splitOn reached).length > 1 do
           throwError "`{text}` is not a computation without a leaf: {run.outcome.kind} ({run.outcome.detail})"
     finally liftM (m := IO) session.close
   finally setEnv environment
