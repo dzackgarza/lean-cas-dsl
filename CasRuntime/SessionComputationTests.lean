@@ -35,8 +35,9 @@ run_cmd liftTermElabM do
           ("assert Fin(3).is_finite()", "NoImplementation"),
           ("assert ℤ.is_finite() = false", "NoImplementation"),
           -- The apex of a registered presentation is a construction for a leaf: its
-          -- cardinality is the computation reached, not an eliminator inside the apex.
-          ("assert |cokernel(to_dual(1))| = 2", "meth.cardinality")] do
+          -- cardinality is reached through the structural carrier functor of the form's
+          -- category, not through an eliminator inside the apex.
+          ("assert |cokernel(to_dual(1))| = 2", "fun.bil_wform.carrier")] do
         let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
           | .ok statement => pure statement
           | .error error => throwError "the statement did not parse: {error}"

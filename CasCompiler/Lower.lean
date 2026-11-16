@@ -116,7 +116,7 @@ private def selectedReference? (data : MData) : Option (Name × ComputationRef) 
   else none
 
 /-- A registered distinguished element that the reader evaluated at its point: a subset literal,
-an object's generator or a numeral. Its address names the element; the declaration locates its
+an object's generator, a numeral, or the apex of a registered limit or colimit at its maps. Its address names the element; the declaration locates its
 application inside the native point value. A numeral is the image of `k` under a universal map
 (NumeralEntry); computing that image is a leaf's job (constitution C22). -/
 private def namedElement? (data : MData) : Option (Name × String) := do
@@ -124,7 +124,8 @@ private def namedElement? (data : MData) : Option (Name × String) := do
   let id := data.getString `CasCompiler.source.id
   if declaration.isAnonymous || id.isEmpty then none
   let kind := data.getName `CasCompiler.source.kind
-  if kind == ``SubsetLiteralEntry || kind == ``NumeralEntry then some (declaration, id)
+  if kind == ``SubsetLiteralEntry || kind == ``NumeralEntry || kind == ``LimitEntry then
+    some (declaration, id)
   else if kind == ``ObjectEntry.generator then some (declaration, s!"{id}#generator")
   else none
 
