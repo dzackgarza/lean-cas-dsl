@@ -250,12 +250,19 @@ structure StatementRun where
   session : KernelSession
   proposition : String := ""
 
+/-- The heartbeat limit of one statement, in thousands. Functional work may use any heartbeat
+limit that it needs (constitution C21); the limit stays finite so that a statement that does not
+terminate ends in a timeout. `polynomials.factors` needs more than Lean's default 200000. -/
+def statementHeartbeats : Nat := 50000000
+
 /-- Run one public statement through the production reader, lowerer and executor.
 A definition extends the source session and retains its computed value for later statements.
 A question is discharged in Lean when it is decidable there, and is otherwise computed.
 Each statement is one cell: its results are published together or not at all. -/
 opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stmt) :
-    TermElabM StatementRun := do
+    TermElabM StatementRun :=
+  withCurrHeartbeats <|
+  withTheReader Core.Context (fun context => { context with maxHeartbeats := statementHeartbeats * 1000 }) do
   let saved ← saveState
   try
     match ← session.source.readStatement statement with
