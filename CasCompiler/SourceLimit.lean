@@ -83,4 +83,45 @@ opaque sourceBinaryLimit (left right : NativeSourceJudgement) (colimit : Bool) :
     throwError "the universal presentation changed its complete selected category"
   return ⟨apex, some ⟨.object, source.expression, source.bundle, none⟩⟩
 
+/-- A registered limit or colimit named by its shape and applied to the maps of its diagram
+(`pullback(f, g)`, `cokernel(m)`): the apex of the declared cone or cocone at those maps, in the
+category of the maps. Reuse: LimitEntry and the native LimitCone/ColimitCocone family. A row
+whose declaration does not accept the maps is not a candidate; several accepting rows are a
+semantic ambiguity. -/
+opaque sourceNamedLimit (shape : String) (maps : Array NativeSourceJudgement) :
+    TermElabM (Option NativeSourceJudgement) := do
+  let state ← semanticState
+  let rows := state.limits.filter (·.shape == shape)
+  if rows.isEmpty then return none
+  let some selected := maps[0]?.bind (·.category)
+    | throwError "the universal construction {shape} requires maps of a selected category"
+  unless maps.all (·.category.any (·.role == .morphism)) do
+    throwError "the universal construction {shape} is applied to the maps of its diagram"
+  let present := fun (row : LimitEntry) => do
+    discard <| checkedDeclaration row.declaration
+    let declaration ← mkConstWithFreshMVarLevels row.declaration
+    let value ← elabAppArgs declaration #[] (maps.map (Arg.expr ·.value)) none false false
+    let value ← instantiateMVars value
+    if value.hasMVar || value.hasLevelMVar then
+      throwError "the presentation of {shape} has undetermined parameters"
+    return value
+  let mut candidates := #[]
+  for row in rows do
+    -- Applicability is the declaration's own typing at the actual maps.
+    let accepts ← withoutModifyingState do
+      try discard <| present row; pure true
+      catch _ => pure false
+    if accepts then candidates := candidates.push row
+  let #[row] := candidates
+    | if candidates.isEmpty then
+        throwUnsupportedSource m!"no registered {shape} accepts these maps"
+      else throwSemanticAmbiguity s!"several registered presentations of {shape} accept these maps"
+  let presentation ← present row
+  let cone ← mkAppM (if row.colimit then ``CategoryTheory.Limits.ColimitCocone.cocone
+    else ``CategoryTheory.Limits.LimitCone.cone) #[presentation]
+  let apex ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone.pt
+    else ``CategoryTheory.Limits.Cone.pt) #[cone]
+  return some ⟨sourceReference ``LimitEntry row.id.raw row.declaration apex,
+    some ⟨.object, selected.expression, selected.bundle, none⟩⟩
+
 end CasCompiler

@@ -310,6 +310,11 @@ partial def readExpression
       let selected ← categoryOf declaration.fvarId
       let value ← application ⟨mkFVar declaration.fvarId, selected⟩ arguments expected
       return ⟨value, if arguments.isEmpty then selected else none⟩
+    -- `pullback(f, g)`: a registered universal construction named by its shape.
+    let spelling := name.getId.toString (escape := false)
+    if !arguments.isEmpty && (← CasCatalogue.semanticState).limits.any (·.shape == spelling) then
+      let maps ← arguments.mapM (readExpression categoryOf · none)
+      if let some limit ← sourceNamedLimit spelling maps then return limit
     if name.getId == `id then
       let #[argument] := arguments
         | throwError "source identity requires one object"
