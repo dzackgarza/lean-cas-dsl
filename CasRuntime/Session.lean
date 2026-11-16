@@ -65,6 +65,9 @@ structure KernelSession where
   /-- Compute every question through the kernel, with no discharge in Lean. -/
   computationOnly : Bool
   private bound : Std.HashMap BindingId ValueBinding
+  /-- Definitions kept without a runtime value because their computation had no leaf or no
+  available backend (constitution C3), and the definitions that use them. -/
+  private unavailable : Array (BindingId × Name) := #[]
 
 /-- The installed leaves' manifest when none is named: `CAS_LEAVES`, the leaves package
 directory or its manifest file, else `.lake/packages/cas_leaves`. An absent default manifest
@@ -93,7 +96,7 @@ opaque KernelSession.start (manifest : Option System.FilePath := none)
   let owners ← OwnerRegistry.new
   discard <| SessionSnapshot.initialize owners
   return ⟨← Kernel.load owners manifest profile timeoutMs,
-    ← SourceSession.empty owners.identities, computationOnly, {}⟩
+    ← SourceSession.empty owners.identities, computationOnly, {}, #[]⟩
 
 opaque KernelSession.close (session : KernelSession) : IO Unit := session.kernel.close
 
@@ -241,30 +244,45 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
     | .definition next value =>
       let transaction ← CellTransaction.begin session.kernel.ledger
       let sent := (← session.kernel.dispatches.get).size
-      let binding ← try
+      let (binding, dependent) ← try
           next.context.withOpen fun bindings => do
             let context ← ContextTelescope.capture bindings
             let expression ← value.source.inContext context
+            -- A definition that uses a definition with no computed value depends on that gap.
+            let dependent := context.bindings.any fun binding =>
+              session.unavailable.any (·.1 == binding.id) &&
+                expression.containsFVar binding.expression.fvarId!
             let type ← whnf (← inferType expression)
-            if (← isProp type) || type.isSort then return none
-            return some (← session.kernel.run transaction context session.bound expression)
+            if (← isProp type) || type.isSort then return (none, dependent)
+            return (some (← session.kernel.run transaction context session.bound expression),
+              dependent)
         catch error =>
           -- A read definition keeps its meaning when its computation is a gap or unavailable
           -- (constitution C3): later statements read it from its definition.
           let outcome ← Outcome.ofException error
           if outcome.fails then throw error
           discard <| (transaction.abort : BaseIO Bool)
-          return { outcome, session := { session with source := next } }
+          let some entry := next.context.entries.back?
+            | throwError "internal: a source definition added no declaration"
+          let unavailable := session.unavailable.push (entry.id, entry.userName)
+          return { outcome, session := { session with source := next, unavailable } }
+      -- A portable value that no provider computed is its definition: later statements read that
+      -- definition. A value with computational provenance, and a record, closure or owned value
+      -- (a delayed lift's fields), is retained: later uses demand that same occurrence.
+      let graph ← transaction.view
+      let delayed := binding.any fun binding => match graph.find binding.value with
+        | some node => !(node.payload.data matches .portable _)
+        | none => false
       commit transaction
       let some entry := next.context.entries.back?
         | throwError "internal: a source definition added no declaration"
-      -- A value that no provider computed is its definition: later statements read that
-      -- definition. Only a value with actual computational provenance is retained.
-      let computed := (← session.kernel.dispatches.get).size > sent
+      let computed := (← session.kernel.dispatches.get).size > sent || delayed
       let bound := match binding with
         | some binding => if computed then session.bound.insert entry.id binding else session.bound
         | none => session.bound
-      return { outcome := .holds, session := { session with source := next, bound } }
+      let unavailable := if dependent then session.unavailable.push (entry.id, entry.userName)
+        else session.unavailable
+      return { outcome := .holds, session := { session with source := next, bound, unavailable } }
     | .settled value =>
       let shown ← session.source.context.withOpen fun bindings => do
         let context ← ContextTelescope.capture bindings
@@ -303,6 +321,16 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
   catch error =>
     let outcome ← Outcome.ofException error
     saved.restore
+    -- A statement that uses a definition whose computation had no leaf needs that missing
+    -- value: its failure is that gap, named, not an internal defect (constitution C3).
+    if let .internal reason := outcome then
+      -- `first.obj` names `first`: a dotted identifier uses its leading definition.
+      let used := statement.raw.find? fun node => node.isIdent &&
+        session.unavailable.any (·.2.isPrefixOf node.getId)
+      let names := used.bind fun node =>
+        (session.unavailable.find? (·.2.isPrefixOf node.getId)).map (·.2)
+      if let some name := names then
+        return { outcome := .gap s!"{name} has no computed value: {reason}", session }
     return { outcome, session }
 
 end CasRuntime

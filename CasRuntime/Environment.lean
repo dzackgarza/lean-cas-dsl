@@ -65,9 +65,13 @@ private def RuntimeEnvironment.bindingMap (environment : RuntimeEnvironment) :
     if let some value := value then supplied := supplied.insert entry.id value
   return supplied
 
+/-- The same actual occurrence, seen at either end of one association chain: a later projection
+extends the original's chain, and a record field holding a binding extends the binding's own
+chain (a lift record's source object). A different value is never the same reference. -/
 private def sameReference (original current : ValueBinding) : Bool :=
   original.value == current.value &&
-    original.associationIds.toList.isPrefixOf current.associationIds.toList
+    (original.associationIds.toList.isPrefixOf current.associationIds.toList ||
+      current.associationIds.toList.isPrefixOf original.associationIds.toList)
 
 private def checkNativeType (context : OpenContext) (expected : Expr)
     (value : ValueBinding) (origin : ValueOrigin) : MetaM Unit := do
@@ -106,9 +110,11 @@ private def checkDependencies (context : OpenContext)
           if ← isDefEq (← inferType dependency.expression) (← inferType formal) <&&>
               isDefEq dependency.expression formal then
             let some current := supplied[dependency.id]?
-              | throwError "the runtime value is missing a consuming dependent reference"
+              | throwError "the runtime value is missing a consuming dependent reference \
+                  ({dependency.expression})"
             unless sameReference original current do
-              throwError "the runtime value has a different consuming dependent reference"
+              throwError "the runtime value has a different consuming dependent reference \
+                ({dependency.expression})"
 
 /-- Associate existing nodes by stable source identity, native type and retained type dependencies.
 Check the complete table before comparing each actual producing dependency with its current
