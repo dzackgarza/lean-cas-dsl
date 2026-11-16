@@ -49,6 +49,26 @@ private def publishedFamily? (state : SemanticState) (address : String) : Option
   (state.constructions.find? (·.id.raw == id) |>.map (.construction ·.id)) <|>
   (state.morphisms.find? (·.id.raw == id) |>.map (.morphism ·.id))
 
+/-- Why a declared preferred route is malformed, if it is: its receiver is a registered category,
+its name a registered surface name, and its route a chain of structural edges from the receiver
+(contract api/manifest.md). Whether it is a surviving route is decided when a reading uses it. -/
+private def preferenceDefect (state : SemanticState) (preference : PreferredRoute) :
+    Option String := Id.run do
+  let some receiver := state.categories.find? (·.id.raw == preference.receiver)
+    | return some s!"{preference.receiver} is not a registered category"
+  let named := state.objects.any (·.name == preference.name) ||
+    state.morphisms.any (·.name == preference.name) ||
+    state.operations.any (·.name == preference.name)
+  unless named do return some s!"{preference.name} is not a registered surface name"
+  let mut current := receiver.expression
+  for label in preference.route do
+    let some edge := state.structuralEdges.find? (·.ref.label == label)
+      | return some s!"{label} is not a structural edge"
+    unless edge.source.syntacticEq current do
+      return some s!"the edge {label} does not continue the route from {preference.receiver}"
+    current := edge.target
+  return none
+
 /-- Read and freeze the manifest and profile before any invocation. No process starts here.
 Without a manifest no leaf is installed. A registration is admitted when its operation is the
 address of a published family and its backend is declared. Rejections are reported, and a
@@ -70,6 +90,8 @@ opaque Kernel.load (owners : OwnerRegistry) (manifest : Option System.FilePath)
     else if !parsed.backends.any (·.name == registration.backend) then
       rejected := rejected.push
         s!"{described}: the backend {registration.backend} is not declared in the manifest"
+    else if let some defect := registration.preferredRoutes.findSome? (preferenceDefect state) then
+      rejected := rejected.push s!"{described}: a declared preferred route is malformed: {defect}"
     else admitted := admitted.push registration
   let installed := { parsed with registrations := admitted }
   return ⟨← OccurrenceLedger.new owners, root, installed, ← sha256Hex text,

@@ -125,7 +125,13 @@ partial def readExpression
           -- where its name may select that category's row.
           let routes ← SourceRoutes.forOwner selected.expression category.expression
           let routed := (← routes.finiteRoutes).all (! ·.isEmpty)
-          if routed then pure (some (← sourceStructuralView object category.expression))
+          -- The surface name of the applied family, for a declared preferred route.
+          let state ← CasCatalogue.semanticState
+          let head := function.consumeMData.getAppFn.constName?
+          let name := head.bind fun head =>
+            (state.objects.find? (·.declaration == head)).map (·.name) <|>
+            (state.morphisms.find? (·.declaration == head)).map (·.name)
+          if routed then pure (some (← sourceStructuralView object category.expression name))
           else pure none
       let value ← match viewed with
         | some value => pure value

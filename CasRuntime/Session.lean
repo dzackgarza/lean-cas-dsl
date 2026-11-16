@@ -263,6 +263,9 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
     TermElabM StatementRun :=
   withCurrHeartbeats <|
   withTheReader Core.Context (fun context => { context with maxHeartbeats := statementHeartbeats * 1000 }) do
+  -- The reading uses the declared preferred routes of the admitted registrations (C6).
+  CasCompiler.setPreferredRoutes
+    (session.kernel.manifest.registrations.flatMap (·.preferredRoutes))
   let saved ← saveState
   try
     match ← session.source.readStatement statement with

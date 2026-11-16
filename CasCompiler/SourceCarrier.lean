@@ -2,12 +2,42 @@ module
 
 public import CasCompiler.Resolve
 public import CasCompiler.SourceTypeOrigin
+public import CasContract.Registration
+public import CasContract.Failure
 
 public section
 
 namespace CasCompiler
 
 open Lean Meta Elab Term CasCatalogue
+
+/-- The declared preferred routes (constitution C6) of the admitted registrations that the current
+statement is read with; the kernel session sets them before reading. -/
+initialize preferredRoutesExtension : EnvExtension (Array PreferredRoute) ←
+  registerEnvExtension (pure #[])
+
+/-- Read the statements that follow with the declared preferred routes `routes`. -/
+def setPreferredRoutes (routes : Array PreferredRoute) : CoreM Unit :=
+  modifyEnv (preferredRoutesExtension.setState · routes)
+
+/-- Of the surviving routes `routes` from the category `receiver` for the surface name `name`, the
+one that the admitted registrations declare preferred. None when no preference applies; two
+different applicable preferences are not ranked (contract api/manifest.md). -/
+def preferredRoute? (state : SemanticState) (receiver : CategoryExpr) (name : String)
+    (routes : Array Route) : TermElabM (Option Route) := do
+  let applicable := (preferredRoutesExtension.getState (← getEnv)).filter fun preference =>
+    preference.name == name && state.categories.any fun entry =>
+      entry.id.raw == preference.receiver && entry.expression.syntacticEq receiver
+  let declared := applicable.foldl (fun found preference =>
+    if found.contains preference.route then found else found.push preference.route) #[]
+  match declared with
+  | #[] => return none
+  | #[labels] =>
+    let some route := routes.find? (·.refs.map (·.label) == labels)
+      | throwStratum .invalid
+          m!"the declared preferred route {labels} of {name} is not a surviving route"
+    return some route
+  | _ => throwSemanticAmbiguity m!"several declared preferred routes of {name} apply: {declared}"
 
 private structure CarrierCategoryFamily where
   value : Expr
@@ -149,8 +179,8 @@ along the structural route from its category to `target`, with the whole-family 
 competing routes (a ring of matrices as the monoid whose units are formed). The route functor
 and its actual object action remain in the term. Source: SourceRoutes, structural edges and
 the native family-conversion rule, as for `sourceCarrier`. -/
-opaque sourceStructuralView (source : NativeSourceJudgement) (target : CategoryExpr) :
-    TermElabM NativeSourceJudgement := do
+opaque sourceStructuralView (source : NativeSourceJudgement) (target : CategoryExpr)
+    (name : Option String) : TermElabM NativeSourceJudgement := do
   let some category := source.category
     | throwError "a structural view requires its selected category"
   unless category.role == .object do throwError "a structural view acts on an object"
@@ -161,7 +191,16 @@ opaque sourceStructuralView (source : NativeSourceJudgement) (target : CategoryE
     | throwUnsupportedSource "the structural view requires its supplied uniform comparison"
   let some route := routes[0]?
     | throwError "the selected category has no structural route to the expected category"
-  let proofs ← sourceRouteAgreements state category routes
+  -- Competing routes for a name are resolved by a declared preferred route, recorded with the
+  -- reading, or else by their whole-family agreement (constitution C6).
+  let preferred ← if routes.size > 1 then
+      match name with
+      | some name => preferredRoute? state category.expression name routes
+      | none => pure none
+    else pure none
+  let (route, proofs) ← match preferred with
+    | some route => pure (route, #[])
+    | none => pure (route, ← sourceRouteAgreements state category routes)
   let selected ← nativeRouteFunctor state route category.bundle
   let mut value ← functorObject selected.functor source.value selected.target
   for proof in proofs.reverse do
@@ -169,6 +208,9 @@ opaque sourceStructuralView (source : NativeSourceJudgement) (target : CategoryE
     value ← withLetDecl (← mkFreshUserName `viewAgreement) (← inferType proof) proof
       fun binding => mkLetFVars #[binding] body
         (usedLetOnly := false) (generalizeNondepLet := false)
+  if preferred.isSome then
+    value := .mdata (KVMap.empty.setString `CasCompiler.source.preferredRoute
+      (reprStr (route.refs.map (·.label)))) value
   return ⟨value, some ⟨.object, target, selected.target, none⟩⟩
 
 /-- Put source values in the category explicitly selected by a set-valued operand.
