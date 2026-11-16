@@ -54,9 +54,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let value ← instantiateMVars value
     let some applied := value.find? (·.isAppOf ``CasCatalogue.MonoLiftFactorComputation.factor)
       | throwError "the factor is not the selected lift's factor computation: {value}"
-    let mut cone := none
+    let mut found := none
     for binding in bindings do
-      if (← binding.expression.fvarId!.getDecl).userName == `cone then cone := some binding.expression
-    let some cone := cone | throwError "the session lost its cone binding"
+      if (← binding.expression.fvarId!.getDecl).userName == `cone then found := some binding.expression
+    let some cone := found | throwError "the session lost its cone binding"
     unless applied.getAppArgs.any (·.containsFVar cone.fvarId!) do
       throwError "the factor lost its actual source arrow: {applied}"

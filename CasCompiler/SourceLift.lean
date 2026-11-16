@@ -146,4 +146,34 @@ def sourceLiftMember? (receiver : NativeSourceJudgement) (name : String) :
   let role := if name == "obj" then SourceCategoryRole.object else .morphism
   return some ⟨value, some ⟨role, category, bundle, none⟩⟩
 
+/-- The universal factor through a selected lift (`factor(g) through L with f using proof(p)`):
+for the base arrow `g : U Y ⟶ K`, the source arrow `f : Y ⟶ X` and the formal equation
+`p : U.map f = g ≫ i`, the arrow `Y ⟶ L.obj X i` of the lift's upstream factor computation at
+the lift's actual object and inclusion. Reuse: MonoLift.factorComputation and
+MonoLiftFactorComputation.factor; the factor laws stay upstream and are not data. -/
+def sourceLiftFactor (receiver : NativeSourceJudgement) (base source proof : Expr) :
+    TermElabM NativeSourceJudgement := do
+  let type ← whnfR (← inferType receiver.value)
+  unless type.isAppOf ``SourceLiftApplication do
+    throwError "a source factor requires a selected lift application"
+  let some row ← liftReference receiver.value
+    | throwError "the native lift application has no selected source reference"
+  let (category, _) ← liftBoundary (← semanticState) row
+  let (bundle, _) ← functorCategoryBundles type.getAppArgs.back!
+  let selected ← mkAppM ``SourceLiftApplication.selected #[receiver.value]
+  let object ← mkAppM ``SourceLiftApplication.object #[receiver.value]
+  let domainObject ← mkAppM ``SourceLiftApplication.domain #[receiver.value]
+  let inclusion ← mkAppM ``SourceLiftApplication.inclusion #[receiver.value]
+  let monicity ← mkAppM ``SourceLiftApplication.monicity #[receiver.value]
+  let computation ← mkAppM ``MonoLift.factorComputation #[selected]
+  let function ← mkAppM ``MonoLiftFactorComputation.factor #[computation]
+  let sourceType ← whnfR (← inferType source)
+  unless sourceType.isAppOfArity ``Quiver.Hom 4 do
+    throwError "the factor's source arrow is not a morphism"
+  let apex := sourceType.getAppArgs[2]!
+  -- The actual input, proof and source object are supplied explicitly; no instance is searched.
+  let value := mkAppN function #[object, domainObject, inclusion, monicity, apex, base, source, proof]
+  check value
+  return ⟨value, some ⟨.morphism, category, bundle, none⟩⟩
+
 end CasCompiler

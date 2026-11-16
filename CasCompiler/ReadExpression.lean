@@ -760,6 +760,15 @@ partial def readExpression
         | throwError "a selected lift requires explicit native monicity evidence"
       let proof ← elabTermEnsuringType proof none
       sourceSelectedLift row receiver input selected proof
+    | `(cas_term| factor($base:cas_term) through $lift:cas_term with $source:cas_term
+        using $evidence:cas_term) => do
+      let lift ← readExpression categoryOf lift none
+      let base ← readExpression categoryOf base none
+      let source ← readExpression categoryOf source none
+      let `(cas_term| proof($proof:term)) := evidence
+        | throwError "a source factor requires its explicit native equation"
+      let proof ← elabTermEnsuringType proof none
+      sourceLiftFactor lift base.value source.value proof
     | `(cas_term| $left:cas_term × $right:cas_term) => do
       let left ← asObject (← readExpression categoryOf left none qualification)
       let right ← asObject (← readExpression categoryOf right none qualification)
