@@ -26,7 +26,7 @@ private def limitPresentation (row : LimitEntry) (diagram : Expr) :
   let presentation ← instantiateMVars (mkAppN declaration parameters)
   if presentation.hasMVar || presentation.hasLevelMVar then
     throwError "the registered universal presentation requires its complete declaration parameters"
-  return some (sourceReference ``LimitEntry row.id.raw row.declaration presentation)
+  return some presentation
 
 /-- Form the declared binary presentation at the original complete source objects.
 Reuse: Limits.pair, LimitEntry and the accepted native cone/cocone projections.
@@ -81,7 +81,10 @@ opaque sourceBinaryLimit (left right : NativeSourceJudgement) (colimit : Bool) :
     else ``CategoryTheory.Limits.Cone.pt) #[cone]
   unless ← isDefEq (← inferType apex) carrier do
     throwError "the universal presentation changed its complete selected category"
-  return ⟨apex, some ⟨.object, source.expression, source.bundle, none⟩⟩
+  -- The apex is the registered limit's named object at its diagram, as for a limit named by
+  -- its shape: the lowerer sends it as that row's descriptor, not the presentation record.
+  return ⟨sourceReference ``LimitEntry row.id.raw row.declaration apex,
+    some ⟨.object, source.expression, source.bundle, none⟩⟩
 
 /-- A registered limit or colimit named by its shape and applied to the maps of its diagram
 (`pullback(f, g)`, `cokernel(m)`): the apex of the declared cone or cocone at those maps, in the
