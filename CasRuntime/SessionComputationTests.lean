@@ -12,6 +12,7 @@ import LeanCategories.Catalogue.Semantics.Limits.Registration
 import LeanCategories.Catalogue.Semantics.Modules.Bilinear.Valued.Lattices
 import LeanCategories.Catalogue.Semantics.Algebra.LinearAlgebra
 import LeanCategories.Catalogue.Semantics.Algebra.NumberSystems
+import LeanCategories.Catalogue.Semantics.Algebra.Series
 public meta import Lean.Elab.Command
 meta import CasRuntime.Session
 meta import LeanCategories.Catalogue.Semantics.Algebra.NamedRings
@@ -25,6 +26,7 @@ meta import LeanCategories.Catalogue.Semantics.Limits.Registration
 meta import LeanCategories.Catalogue.Semantics.Modules.Bilinear.Valued.Lattices
 meta import LeanCategories.Catalogue.Semantics.Algebra.LinearAlgebra
 meta import LeanCategories.Catalogue.Semantics.Algebra.NumberSystems
+meta import LeanCategories.Catalogue.Semantics.Algebra.Series
 
 open Lean Elab Command Term CasRuntime
 
@@ -58,7 +60,11 @@ run_cmd liftTermElabM do
           ("assert |Fin(2) ⊔ Fin(3)| = 5", "meth.cardinality"),
           -- A matrix's registered application is the published operation of Mat; the kernel
           -- does not evaluate its definition.
-          ("assert M(v) = b", "obj.sets.matrices#application")] do
+          ("assert M(v) = b", "obj.sets.matrices#application"),
+          -- The summand family is admitted into the registered summable families
+          -- (`summableFamilies`) before the sum takes it; the admitted element keeps that
+          -- subobject as its type and the family's data (tests/acceptance/series.cas).
+          ("let f := ∑_{n ∈ ℕ} n² · t^n in ℤ[[t]]", "NoImplementation")] do
         let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
           | .ok statement => pure statement
           | .error error => throwError "the statement did not parse: {error}"
