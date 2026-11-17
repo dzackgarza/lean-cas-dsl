@@ -1,11 +1,14 @@
 # lean-cas-dsl — categorically organized CAS in Lean, an nbdsl DSL plugin.
 #
 # One Lake package (library CasDsl + prelude CasDsl.Notebook) over the
-# nbdsl-worker core. The leaves (`lean-cas-dsl-leaves`) are not a Lake
-# dependency: a leaf is a manifest `leaves.json` of registrations and the
-# programs it names, found through `CAS_LEAVES` (or `.lake/packages/cas_leaves`),
-# written against the leaf contract (`lean-cas-dsl-leaf-contracts`). Lake owns
-# compilation; language-level QC delegates to the global gates.
+# nbdsl-worker core. A computational backend package is not a Lake dependency:
+# `CAS_LEAVES` finds `leaves.json` entries registering individual (formal operation,
+# input form, backend) computational ports and their programs, written against
+# `lean-cas-dsl-leaf-contracts`. A port registration is NOT the whole category-
+# aligned computational leaf: independently formalized categories have complete
+# constructors, common operations and immediate functor actions that may be
+# realized through many ports. See specs/architecture.md and issue #91.
+# Lake owns compilation; language-level QC delegates to the global gates.
 #
 # Not adopted: lean-axiom-audit — it requires a target-private
 # _lean-axiom-audit budget recipe, and this package has no audited axiom
