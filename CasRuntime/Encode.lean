@@ -144,11 +144,35 @@ opaque ValueGraph.encodeExportInputs (graph : ValueGraph) (receiver : Connection
   unless owner == receiver do throw "the native export receiver is not its actual owner"
   encodeRoots graph receiver roots captures
 
-end CasRuntime
+private def kindName : ComputationalKind → String
+  | .proof => "proof"
+  | .typeValue => "type"
+  | .function => "function"
+  | .record => "record"
+  | .data => "data"
 
-namespace CasCompiler
+/-- The prepared interface of one role: its kind and its ordered computational fields. -/
+private def layoutJson (layout : SourceLayout) : Json :=
+  Json.mkObj [("kind", toJson (kindName layout.kind)),
+    ("fields", .arr (layout.fields.filterMap fun field => field.wireIndex.map fun _ =>
+      Json.mkObj [("name", toJson field.projection.toString), ("kind", toJson (kindName field.kind))]))]
 
-open Lean Meta CasRuntime CasCatalogue.Backend
+/-- The dependent invocation context of execution contract v2 §4.1, for a published operation
+and for a retained native export. Parameters and arguments keep their source order. -/
+def dependentContext (role : String) (parameters bindings arguments : Array Json)
+    (argumentLayouts : Array SourceLayout) (result : SourceLayout) : Json :=
+  Json.mkObj [("kind", "dependent"), ("prepared_role", toJson role),
+    ("parameters", .arr parameters), ("bindings", .arr bindings), ("arguments", .arr arguments),
+    ("argument_layouts", .arr (argumentLayouts.map layoutJson)),
+    ("result_layout", layoutJson result)]
+
+def argumentLayouts (request : PreparedRequest) : Array SourceLayout :=
+  match request.application with
+  | none => #[]
+  | some application => application.arguments.filterMap fun argument =>
+      argument.wireIndex.map fun _ => argument.source
+
+open Lean Meta
 
 /-- Encode source-ordered arguments only after the entire declared input map is admitted.
 Reuse: scoped role identities, native input checks and receiver-aware retained-data encoding. -/
@@ -171,4 +195,4 @@ opaque PreparedRequest.encodeArguments (request : PreparedRequest) (graph : Valu
   let encoded ← IO.ofExcept <| encoding.mapError IO.userError
   return (admitted, encoded)
 
-end CasCompiler
+end CasRuntime

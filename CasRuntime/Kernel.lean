@@ -32,13 +32,6 @@ structure Kernel where
   /-- The registrations actually dispatched, in order. An observation, not evidence. -/
   dispatches : IO.Ref (Array Registration)
 
-private def referenceId : ComputationRef → String
-  | .operation id => id.raw
-  | .functor id => id.raw
-  | .method id => id.raw
-  | .construction id => id.raw
-  | .morphism id => id.raw
-
 /-- The published family that an operation address names: the family address itself, or the
 address of one of its fields (`<id>#map`). An unknown address creates no operation. -/
 private def publishedFamily? (state : SemanticState) (address : String) : Option ComputationRef :=
@@ -152,34 +145,6 @@ private def Kernel.connectionOf (kernel : Kernel) (owner : ConnectionGeneration)
     if wire.connection.generation == owner then return wire
   throwStratum .unavailable "stale_owner"
 
-private def kindName : ComputationalKind → String
-  | .proof => "proof"
-  | .typeValue => "type"
-  | .function => "function"
-  | .record => "record"
-  | .data => "data"
-
-/-- The prepared interface of one role: its kind and its ordered computational fields. -/
-private def layoutJson (layout : SourceLayout) : Json :=
-  Json.mkObj [("kind", toJson (kindName layout.kind)),
-    ("fields", .arr (layout.fields.filterMap fun field => field.wireIndex.map fun _ =>
-      Json.mkObj [("name", toJson field.projection.toString), ("kind", toJson (kindName field.kind))]))]
-
-/-- The dependent invocation context of execution contract v2 §4.1, for a published operation
-and for a retained native export. Parameters and arguments keep their source order. -/
-private def dependentContext (role : String) (parameters bindings arguments : Array Json)
-    (argumentLayouts : Array SourceLayout) (result : SourceLayout) : Json :=
-  Json.mkObj [("kind", "dependent"), ("prepared_role", toJson role),
-    ("parameters", .arr parameters), ("bindings", .arr bindings), ("arguments", .arr arguments),
-    ("argument_layouts", .arr (argumentLayouts.map layoutJson)),
-    ("result_layout", layoutJson result)]
-
-private def argumentLayouts (request : PreparedRequest) : Array SourceLayout :=
-  match request.application with
-  | none => #[]
-  | some application => application.arguments.filterMap fun argument =>
-      argument.wireIndex.map fun _ => argument.source
-
 /-- The public action address of a selected family field.
 The first computational field of a record uses the family address. Another field appends its
 name, as the published `<functor id>#map` (api/manifest.md, "Matching and overlap"). -/
@@ -201,78 +166,6 @@ private def inputForms (family : String) (context : OpenContext)
       if let some entry := state.objects.find? (·.id == id) then
         forms := forms ++ #[entry.id.raw, entry.category.raw]
   return forms
-
-/-- Select the registration of one exact lift-port demand. **M** publishes no derivation of a
-lift's computation, so the alternatives are the eligible registrations (execution contract v2
-§5.1); zero and many dispatch nothing. -/
-private def Kernel.selectLift (kernel : Kernel) (address : String) (forms : Array String) :
-    MetaM Registration := do
-  let eligible := kernel.manifest.registrations.filter fun registration =>
-    registration.operation == address && forms.contains registration.input &&
-      kernel.manifest.backends.any (·.name == registration.backend)
-  match eligible with
-  | #[registration] => return registration
-  | #[] => throwStratum .noImplementation m!"{address} on {forms}"
-  | _ => throwStratum .ambiguousRealization m!"{address} on {forms}"
-
-private inductive Realization
-  | registration (selected : Registration)
-  | derivation (checked : CheckedComputationDerivation)
-
-/-- Select the realization of one exact demand by the saturated grounded count.
-Source: execution contract v2 §5.1 and §5.2. The root alternatives are the eligible
-registrations and the profile's checked derivations. A prerequisite is a delayed demand: an
-installed registration or a grounded derivation makes it present, and its own realization is
-selected when its actual arguments exist. Zero and many dispatch nothing.
-Reuse: RealizationGraph.grounded and GroundedRealizations.uniqueAlternative. -/
-private def Kernel.select (kernel : Kernel) (reference : ComputationRef) (address : String)
-    (forms : Array String) : MetaM Realization := do
-  let eligible := kernel.manifest.registrations.filter fun registration =>
-    registration.operation == address && forms.contains registration.input &&
-      kernel.manifest.backends.any (·.name == registration.backend) &&
-      kernel.profile.allowsPrimitive reference registration
-  let mut nodes : Array ComputationRef := #[reference]
-  let mut derivations : Array (Array CheckedComputationDerivation) := #[]
-  let mut next := 0
-  while next < nodes.size do
-    let some node := nodes[next]? | break
-    let checked := (← checkedComputationDerivations node).filter fun derivation =>
-      kernel.profile.allowsDerivation derivation.entry
-    for derivation in checked do
-      for prerequisite in derivation.prerequisites do
-        unless nodes.contains prerequisite.reference do nodes := nodes.push prerequisite.reference
-    derivations := derivations.push checked
-    next := next + 1
-  let size := nodes.size
-  let present := fun (node : ComputationRef) =>
-    kernel.manifest.registrations.any fun registration =>
-      (registration.operation == referenceId node ||
-        registration.operation.startsWith s!"{referenceId node}#") &&
-        kernel.profile.allowsPrimitive node registration
-  let rows : Array (Array (Array Nat)) := nodes.mapIdx fun index node =>
-    let primitive : Array (Array Nat) :=
-      if index == 0 then eligible.map fun _ => #[]
-      else if present node then #[#[]] else #[]
-    primitive ++ (derivations[index]?.getD #[]).map fun derivation =>
-      derivation.prerequisites.filterMap fun prerequisite =>
-        nodes.findIdx? (· == prerequisite.reference)
-  let graph : RealizationGraph size := ⟨Vector.ofFn fun node =>
-    (rows[node.val]?.getD #[]).map fun children =>
-      children.filterMap fun child => if bound : child < size then some ⟨child, bound⟩ else none⟩
-  let some grounded := graph.grounded
-    | throwError "internal: the realization grounding did not stabilize"
-  if root : 0 < size then
-    match ← IO.ofExcept <| (grounded.uniqueAlternative ⟨0, root⟩).mapError IO.userError with
-    | some alternative =>
-      if let some registration := eligible[alternative]? then return .registration registration
-      let some derivation := (derivations[0]?.getD #[])[alternative - eligible.size]?
-        | throwError "internal: the selected realization is outside its alternatives"
-      return .derivation derivation
-    | none =>
-      if grounded.counts[(⟨0, root⟩ : Fin size)] == .zero then
-        throwStratum .noImplementation m!"{address} on {forms}"
-      throwStratum .ambiguousRealization m!"{address} on {forms}"
-  else throwError "internal: the realization graph has no root demand"
 
 private def kernelCompletion (request : PreparedRequest) (transaction : CellTransaction)
     (value : ValueBinding) : MetaM (PreparedResponse request) := do
@@ -641,12 +534,12 @@ private partial def Kernel.reach (kernel : Kernel) (request : PreparedRequest)
       let address := s!"{lift.lift.raw}#{field.projection.getString!}"
       let forms ← withSourceScope request fun context _ => inputForms lift.lift.raw context arguments
       let earlier ← kernel.earlierOutputs request transaction family lift field arguments
-      kernel.invokeRegistration request transaction (← kernel.selectLift address forms) role
+      kernel.invokeRegistration request transaction (← selectLift kernel.manifest address forms) role
         parameters earlier
   let address := actionAddress reference path
   let forms ← withSourceScope request fun context _ =>
     inputForms (referenceId reference) context arguments
-  match ← kernel.select reference address forms with
+  match ← kernel.profile.select kernel.manifest reference address forms with
   | .registration registration =>
     kernel.invokeRegistration request transaction registration role parameters #[]
   | .derivation checked =>

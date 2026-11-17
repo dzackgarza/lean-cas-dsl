@@ -2,6 +2,7 @@ module
 
 public import LeanCategories.Catalogue.Registry.Computation
 public import CasContract.Registration
+public import CasContract.Failure
 public import CasRuntime.GroundedRealizations
 import CasContract.Port
 
@@ -183,5 +184,84 @@ opaque RealizationProfile.allowsDerivation (profile : RealizationProfile)
   match profile.rules.find? (·.target == entry.target) with
   | none => true
   | some rule => rule.derivations.contains entry.id
+
+def referenceId : ComputationRef → String
+  | .operation id => id.raw
+  | .functor id => id.raw
+  | .method id => id.raw
+  | .construction id => id.raw
+  | .morphism id => id.raw
+
+/-- Select the registration of one exact lift-port demand. **M** publishes no derivation of a
+lift's computation, so the alternatives are the eligible registrations (execution contract v2
+§5.1); zero and many dispatch nothing. -/
+def selectLift (manifest : Manifest) (address : String) (forms : Array String) :
+    MetaM Registration := do
+  let eligible := manifest.registrations.filter fun registration =>
+    registration.operation == address && forms.contains registration.input &&
+      manifest.backends.any (·.name == registration.backend)
+  match eligible with
+  | #[registration] => return registration
+  | #[] => throwStratum .noImplementation m!"{address} on {forms}"
+  | _ => throwStratum .ambiguousRealization m!"{address} on {forms}"
+
+inductive Realization
+  | registration (selected : Registration)
+  | derivation (checked : CheckedComputationDerivation)
+
+/-- Select the realization of one exact demand by the saturated grounded count.
+Source: execution contract v2 §5.1 and §5.2. The root alternatives are the eligible
+registrations and the profile's checked derivations. A prerequisite is a delayed demand: an
+installed registration or a grounded derivation makes it present, and its own realization is
+selected when its actual arguments exist. Zero and many dispatch nothing.
+Reuse: RealizationGraph.grounded and GroundedRealizations.uniqueAlternative. -/
+def RealizationProfile.select (profile : RealizationProfile) (manifest : Manifest)
+    (reference : ComputationRef) (address : String) (forms : Array String) : MetaM Realization := do
+  let eligible := manifest.registrations.filter fun registration =>
+    registration.operation == address && forms.contains registration.input &&
+      manifest.backends.any (·.name == registration.backend) &&
+      profile.allowsPrimitive reference registration
+  let mut nodes : Array ComputationRef := #[reference]
+  let mut derivations : Array (Array CheckedComputationDerivation) := #[]
+  let mut next := 0
+  while next < nodes.size do
+    let some node := nodes[next]? | break
+    let checked := (← checkedComputationDerivations node).filter fun derivation =>
+      profile.allowsDerivation derivation.entry
+    for derivation in checked do
+      for prerequisite in derivation.prerequisites do
+        unless nodes.contains prerequisite.reference do nodes := nodes.push prerequisite.reference
+    derivations := derivations.push checked
+    next := next + 1
+  let size := nodes.size
+  let present := fun (node : ComputationRef) =>
+    manifest.registrations.any fun registration =>
+      (registration.operation == referenceId node ||
+        registration.operation.startsWith s!"{referenceId node}#") &&
+        profile.allowsPrimitive node registration
+  let rows : Array (Array (Array Nat)) := nodes.mapIdx fun index node =>
+    let primitive : Array (Array Nat) :=
+      if index == 0 then eligible.map fun _ => #[]
+      else if present node then #[#[]] else #[]
+    primitive ++ (derivations[index]?.getD #[]).map fun derivation =>
+      derivation.prerequisites.filterMap fun prerequisite =>
+        nodes.findIdx? (· == prerequisite.reference)
+  let graph : RealizationGraph size := ⟨Vector.ofFn fun node =>
+    (rows[node.val]?.getD #[]).map fun children =>
+      children.filterMap fun child => if bound : child < size then some ⟨child, bound⟩ else none⟩
+  let some grounded := graph.grounded
+    | throwError "internal: the realization grounding did not stabilize"
+  if root : 0 < size then
+    match ← IO.ofExcept <| (grounded.uniqueAlternative ⟨0, root⟩).mapError IO.userError with
+    | some alternative =>
+      if let some registration := eligible[alternative]? then return .registration registration
+      let some derivation := (derivations[0]?.getD #[])[alternative - eligible.size]?
+        | throwError "internal: the selected realization is outside its alternatives"
+      return .derivation derivation
+    | none =>
+      if grounded.counts[(⟨0, root⟩ : Fin size)] == .zero then
+        throwStratum .noImplementation m!"{address} on {forms}"
+      throwStratum .ambiguousRealization m!"{address} on {forms}"
+  else throwError "internal: the realization graph has no root demand"
 
 end CasRuntime
