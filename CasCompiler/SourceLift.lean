@@ -3,6 +3,7 @@ module
 public import CasCompiler.SourceCarrier
 public import LeanCategories.Catalogue.Lift
 public import CasCompiler.LiftFamily
+public import CasCompiler.SelectedField
 
 public section
 
@@ -97,7 +98,20 @@ def sourceSelectedLift (row : LiftEntry) (receiver input : NativeSourceJudgement
   let value ← withLetDecl (← mkFreshUserName `liftInputAgreement)
       (← inferType agreement) agreement fun binding =>
     mkLetFVars #[binding] value (usedLetOnly := false) (generalizeNondepLet := false)
+  let selection ← mkFreshUserName `selectedLift
+  let value := .mdata (KVMap.empty.setName `CasCompiler.selection selection) value
   return ⟨sourceReference ``LiftEntry row.id.raw row.evidence value, none⟩
+
+private partial def liftSelection (value : Expr) : MetaM Name := do
+  match value with
+  | .fvar id =>
+    let some value := (← id.getDecl).value?
+      | throwError "the selected lift has no retained source identity"
+    liftSelection value
+  | .mdata data body =>
+    let selection := data.getName `CasCompiler.selection
+    if selection.isAnonymous then liftSelection body else pure selection
+  | _ => throwError "the selected lift lost its source identity"
 
 private partial def liftReference (value : Expr) : MetaM (Option LiftEntry) := do
   match value with
@@ -152,6 +166,8 @@ def sourceLiftMember? (receiver : NativeSourceJudgement) (name : String) :
   let (sourceBundle, targetBundle) ← functorCategoryBundles functor
   let (evidence, object, domainObject, inclusion, monicity) ← liftInputs receiver.value
   let computation ← LiftFamily.atEvidence row .computation evidence
+  let selection ← liftSelection receiver.value
+  let computation ← selectRecordActions selection computation
   let declaration ← match name with
     | "obj" => pure ``MonoLiftComputation.obj
     | "hom" => pure ``MonoLiftComputation.hom
@@ -160,7 +176,8 @@ def sourceLiftMember? (receiver : NativeSourceJudgement) (name : String) :
     | _ => throwError "the selected lift has no declared member {name}"
   let function ← mkAppM declaration #[computation]
   -- The actual input and proof are supplied explicitly; local instances cannot replace them.
-  let value := mkAppN function #[object, domainObject, inclusion, monicity]
+  let value := selectedField selection declaration
+    (mkAppN function #[object, domainObject, inclusion, monicity])
   check value
   let category := if name == "forward" || name == "backward" then target else source
   let bundle := if name == "forward" || name == "backward" then targetBundle else sourceBundle
@@ -190,6 +207,16 @@ def sourceLiftFactor (receiver : NativeSourceJudgement) (base source proof : Exp
   let apex := sourceType.getAppArgs[2]!
   -- The actual input, proof and source object are supplied explicitly; no instance is searched.
   let value := mkAppN function #[object, domainObject, inclusion, monicity, apex, base, source, proof]
+  let selection ← liftSelection receiver.value
+  let selected ← selectRecordActions selection
+    (← LiftFamily.atEvidence row .computation evidence)
+  let target := mkAppN (← mkAppM ``MonoLiftComputation.obj #[selected])
+    #[object, domainObject, inclusion, monicity]
+  let resultType ← whnfR (← inferType value)
+  unless resultType.isAppOfArity ``Quiver.Hom 4 do
+    throwError "the selected factor has no declared morphism endpoints"
+  let value ← mkExpectedTypeHint value
+    (mkAppN resultType.getAppFn (resultType.getAppArgs.set! 3 target))
   check value
   return ⟨value, some ⟨.morphism, category, bundle, none⟩⟩
 

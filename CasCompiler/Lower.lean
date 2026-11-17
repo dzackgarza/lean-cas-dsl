@@ -1,7 +1,8 @@
 module
 
-public import CasRuntime.PreparedRequest
+public import CasRuntime.Closure
 public import CasCompiler.Elaborate
+public import CasCompiler.SelectedField
 public import CasRuntime.Transaction
 public import LeanCategories.Catalogue.Registry.Semantic
 public import CasCatalogue.InterpretationFailure
@@ -13,16 +14,6 @@ namespace CasCompiler
 open Lean Meta CasRuntime CasCatalogue
 
 initialize registerTraceClass `cas.lower
-
-/-- Operational code of a kernel closure. The value node retains the actual captures.
-Source: data model §5, ComputationalClosure, lean-cas-dsl#66 comment 6664275536. -/
-inductive ClosureCode
-  /-- A checked source term. A field or application demand lowers that eliminator on it. -/
-  | term (source : ClosedTerm)
-  /-- A published family at its prepared parameters, with the fields already selected.
-  Its realization is selected when an action reaches actual arguments
-  (execution contract v2 §5.2, lean-cas-dsl#69 comment 6664277464). -/
-  | family (request : PreparedRequest) (path : Array FieldLayout)
 
 /-- The active cell consumed by compiled source code. `run` interprets each emitted program.
 A later demand is prepared from the actual references that an earlier program returned. -/
@@ -38,22 +29,9 @@ private structure Frame where
   program : RuntimeId .program
   context : OpenContext
   bound : Std.HashMap BindingId ValueBinding
+  selection : Option Name := none
 
 private abbrev LowerM := ReaderT Frame MetaM
-
-private def valueKey : Name := `CasCompiler.lower.value
-
-private def markedKey? (data : MData) : Option Nat :=
-  match data.find valueKey with
-  | some (.ofNat key) => some key
-  | _ => none
-
-/-- Associate an actual retained value with one occurrence of its checked source term.
-Reuse: Lean MData, preserved by closure and ignored by kernel conversion, as sourceReference. -/
-def markValue (marks : IO.Ref (Array ValueBinding)) (value : ValueBinding) (expression : Expr) :
-    BaseIO Expr := do
-  let key ← marks.modifyGet fun values => (values.size, values.push value)
-  return .mdata (KVMap.empty.setNat valueKey key) expression
 
 private def supply : LowerM IdentitySupply :=
   return (← read).environment.ledger.owners.identities
@@ -80,6 +58,7 @@ private def stage (expression : Expr) (payload : ValuePayload) : LowerM ValueBin
   (← read).environment.transaction.stage (← origin expression) payload
 
 private def demand (request : PreparedRequest) : LowerM ValueBinding := do
+  let request := request.withSelection (← read).selection
   (← read).environment.run do
     let response ← PFunctor.FreeM.lift (P := OperationalSignature) request
     pure response.root
@@ -198,35 +177,6 @@ private def closure (expression : Expr) : LowerM ValueBinding := do
   frame.environment.codes.modify (·.insert program code)
   stage expression (.closure program captures)
 
-/-- `expression` without the lowerer's retained-value marks (`markValue`). -/
-private partial def unmarked (expression : Expr) : Expr :=
-  match expression with
-  | .mdata data body => if (markedKey? data).isSome then unmarked body
-      else .mdata data (unmarked body)
-  | .app function argument => .app (unmarked function) (unmarked argument)
-  | .lam name type body info => .lam name (unmarked type) (unmarked body) info
-  | .forallE name type body info => .forallE name (unmarked type) (unmarked body) info
-  | .letE name type value body nondep =>
-    .letE name (unmarked type) (unmarked value) (unmarked body) nondep
-  | .proj owner index value => .proj owner index (unmarked value)
-  | other => other
-
-/-- The retained value of the source binding that is defined as exactly `expression`. A later
-use of that term, for example an endpoint in the type of a returned map, is that binding and keeps
-its occurrence; it is not staged again (execution contract, lean-cas-dsl#69 comment 6664277464:
-"an existing binding retains its occurrence"; T046). The binding's definition names the term; no
-two values are identified by comparing them. -/
-private def boundDefinition? (expression : Expr) : LowerM (Option ValueBinding) := do
-  if expression.isFVar then return none
-  let frame ← read
-  -- A retained-value mark only associates a value with an occurrence; it is not part of the term.
-  let term := unmarked expression
-  for binding in frame.context.bindings do
-    let some value := frame.bound[binding.id]? | continue
-    let some definition := (← binding.expression.fvarId!.getDecl).value? | continue
-    if (← instantiateMVars definition) == term then return some value
-  return none
-
 mutual
 
 /-- Lower one checked source term to its actual retained value.
@@ -237,9 +187,17 @@ projection and application demands. Lambdas and selected instances retain code a
 Ordinary definitions are unfolded with Lean's delta rule. No operation is recognized by name. -/
 private partial def lower (expression : Expr) : LowerM ValueBinding := do
   let expression ← instantiateMVars expression
-  if let some value ← boundDefinition? expression then return value
   match expression with
   | .mdata data body =>
+    if let some (selection, field) := selectedField? data then
+      let transaction := (← read).environment.transaction
+      let .ok prior ← transaction.selected selection field
+        | throwStratum .unavailable "the selected construction's result is no longer available"
+      if let some value := prior then return value
+      let value ← withReader (fun frame => { frame with selection := some selection }) (lower body)
+      let .ok () ← transaction.bindSelected selection field value
+        | throwError "the selected construction's field changed its computational occurrence"
+      return value
     if let some key := markedKey? data then
       let some value := (← (← read).environment.marks.get)[key]?
         | throwError "internal: a retained source value lost its mark"

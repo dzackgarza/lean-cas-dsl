@@ -1,9 +1,11 @@
 module
 
 import CasCompiler.Read
+import CasCompiler.Resolve
 import LeanCategories.Catalogue.Semantics.Foundation.FiniteOrders
 public meta import Lean.Elab.Command
 meta import CasCompiler.Read
+meta import CasCompiler.Resolve
 meta import LeanCategories.Catalogue.Semantics.Foundation.FiniteOrders
 
 open Lean Meta Elab Term CasCompiler CasCatalogue

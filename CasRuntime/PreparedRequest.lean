@@ -32,6 +32,11 @@ structure PreparedRequest where
   origin : CasRuntime.ValueOrigin
   application : Option ApplicationLayout
   roles : RoleTelescope
+  selection : Option Name := none
+
+/-- Carry the exact source construction identity into its prepared field demands. -/
+opaque PreparedRequest.withSelection (request : PreparedRequest) (selection : Option Name) :
+    PreparedRequest := { request with selection }
 
 def PreparedRequest.reference (request : PreparedRequest) : Option ComputationRef :=
   match request.action with
@@ -87,7 +92,7 @@ private def prepareRequest (identities : CasRuntime.IdentitySupply)
   let roles ← RoleTelescope.ofRequest identities program occurrence context application source
     (scope.map (·.role))
   return ⟨program, occurrence, action, source, scope, outputs, record, environment, origin,
-    application, roles⟩
+    application, roles, none⟩
 
 /-- Check the complete declared input map before execution or wire encoding.
 Preparation may inspect a source telescope before its input producers have supplied values. -/

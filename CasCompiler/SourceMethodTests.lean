@@ -1,10 +1,12 @@
 module
 
 import CasCompiler.Read
+import CasCompiler.Resolve
 import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
 import LeanCategories.Catalogue.Semantics.Foundation.Cardinality
 public meta import Lean.Elab.Command
 meta import CasCompiler.Read
+meta import CasCompiler.Resolve
 meta import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
 meta import LeanCategories.Catalogue.Semantics.Foundation.Cardinality
 import LeanCategories.Catalogue.Semantics.Algebra.CatalogueRegistration

@@ -46,7 +46,9 @@ run_cmd liftTermElabM do
           ("let first := lift(X) along «lift.bilin_module.restrict»(ℚ, ℚ) with i0 using proof(CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneLifts.kernelInclusion_mono)", "holds"),
           ("let second := lift(X) along «lift.bilin_module.restrict»(ℚ, ℚ) with i0 using proof(CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneLifts.kernelInclusion_mono)", "holds"),
           ("let X1 := first.obj()", "holds"),
-          ("let X2 := second.obj()", "holds")] do
+          ("let X2 := second.obj()", "holds"),
+          ("let Xalias := X1", "holds"),
+          ("let again := first.obj()", "holds")] do
         let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
           | .ok statement => pure statement
           | .error error => throwError "the statement did not parse: {error}"
@@ -64,5 +66,12 @@ run_cmd liftTermElabM do
         | throwError "the second selection has no retained occurrence"
       unless firstValue.value != secondValue.value do
         throwError "independent selected lift declarations share one computational occurrence"
+      for name in #[`Xalias, `again] do
+        let some declaration := session.source.context.entries.find? (·.userName == name)
+          | throwError "the repeated selected use was not declared"
+        let some value := session.value? declaration.id
+          | throwError "the repeated selected use has no retained occurrence"
+        unless value.value == firstValue.value do
+          throwError "a repeated use changed the selected lift's returned occurrence"
     finally liftM (m := IO) session.close
   finally setEnv environment

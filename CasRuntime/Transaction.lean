@@ -63,6 +63,7 @@ structure SessionSnapshot where
   graph : ValueGraph
   outputBatches : Array OutputBatch
   private receipts : Std.HashMap (RuntimeId .occurrence) CommittedReceipt
+  private selections : Std.HashMap (Name × Name) ValueBinding := {}
 
 /-- Inert receipt visibility belongs to this exact immutable Environment snapshot. -/
 def SessionSnapshot.receipt (snapshot : SessionSnapshot) (occurrence : RuntimeId .occurrence) :
@@ -83,7 +84,7 @@ opaque SessionSnapshot.initialize (owners : OwnerRegistry) : CoreM SessionSnapsh
   if (snapshotExtension.getState environment).isSome then
     throwError "the runtime Environment is already initialized"
   let snapshot : SessionSnapshot :=
-    ⟨← owners.identities.fresh .snapshot, ValueGraph.empty owners.identities, #[], {}⟩
+    ⟨← owners.identities.fresh .snapshot, ValueGraph.empty owners.identities, #[], {}, {}⟩
   setEnv (snapshotExtension.setState environment (some snapshot))
   return snapshot
 
@@ -98,6 +99,7 @@ private structure ActiveCell where
   completions : Array StagedCompletion := #[]
   readySignals : Std.HashMap (RuntimeId .occurrence) (IO.Promise Unit) := {}
   claims : Std.HashMap (RuntimeId .occurrence) CasCompiler.RoleScope := {}
+  selections : Std.HashMap (Name × Name) ValueBinding := {}
 
 private inductive CellState
   | active (cell : ActiveCell)
@@ -199,6 +201,33 @@ opaque CellTransaction.view (transaction : CellTransaction) : IO ValueGraph := d
   let some graph ← transaction.activeGraph
     | throw <| IO.userError "the transaction has settled"
   return graph
+
+/-- Read the actual result of an exact source-selected field in this transaction's snapshot.
+The association stores only a reference into the ordinary value graph. -/
+def CellTransaction.selected (transaction : CellTransaction) (selection field : Name) :
+    BaseIO (Except TransactionFailure (Option ValueBinding)) :=
+  transaction.state.atomically do
+    let state ← get
+    let .active cell := state | return .error state.failure
+    let value := cell.selections[(selection, field)]? <|>
+      cell.parent.selections[(selection, field)]?
+    if let some value := value then
+      unless ← cell.graph.isAvailable transaction.owners value do return .error .staleOwner
+    return .ok value
+
+/-- Publish an association only with the cell that produced it. Abort discards this table;
+commit retains its immutable references with the graph and ordinary receipts. -/
+def CellTransaction.bindSelected (transaction : CellTransaction) (selection field : Name)
+    (value : ValueBinding) : BaseIO (Except TransactionFailure Unit) :=
+  transaction.state.atomically do
+    let state ← get
+    let .active cell := state | return .error state.failure
+    let .ok _ := cell.graph.requiredOwners #[value] | return .error .referenceOutsideGraph
+    if let some existing := cell.selections[(selection, field)]? <|>
+        cell.parent.selections[(selection, field)]? then
+      unless existing.value == value.value do return .error .invalidCompletion
+    set (CellState.active { cell with selections := cell.selections.insert (selection, field) value })
+    return .ok ()
 
 /-- Visible committed receipt, then this cell's completion, then its exact pending locator.
 Consumed occurrences never recover a result from the resource ledger. -/
@@ -566,7 +595,9 @@ opaque CellTransaction.commit (transaction : CellTransaction) :
           receipts := receipts.insert association.request.occurrence
             ⟨association, commit, snapshotId, batch.id⟩
         let snapshot : SessionSnapshot :=
-          ⟨snapshotId, cell.graph, cell.parent.outputBatches.push batch, receipts⟩
+          ⟨snapshotId, cell.graph, cell.parent.outputBatches.push batch, receipts,
+            cell.selections.fold (fun values key value => values.insert key value)
+              cell.parent.selections⟩
         set (CellState.committed snapshot.id)
         return snapshot
     match result with
