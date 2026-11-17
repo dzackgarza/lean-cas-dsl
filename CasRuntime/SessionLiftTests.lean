@@ -3,10 +3,14 @@ module
 import CasRuntime.Session
 import LeanCategories.Catalogue
 import LeanCategories.Catalogue.Semantics.Modules.Bilinear.Valued.DegeneratePlaneLifts
+import LeanCategories.Catalogue.Semantics.Modules.Bilinear.Valued.DegeneratePlaneFactorization
+import LeanCategories.Catalogue.Semantics.Algebra.RectangularLinearAlgebra
 public meta import Lean.Elab.Command
 meta import CasRuntime.Session
 meta import LeanCategories.Catalogue
 meta import LeanCategories.Catalogue.Semantics.Modules.Bilinear.Valued.DegeneratePlaneLifts
+meta import LeanCategories.Catalogue.Semantics.Modules.Bilinear.Valued.DegeneratePlaneFactorization
+meta import LeanCategories.Catalogue.Semantics.Algebra.RectangularLinearAlgebra
 
 open Lean Elab Command Term CasRuntime
 
@@ -67,7 +71,14 @@ run_cmd liftTermElabM do
     let operations : Array String := #["fun.commutative_rings.ring", "fun.bilin_module.forget",
       "fun.bilin_module.forget#map",
       "lift.bilin_module.restrict#obj", "lift.bilin_module.restrict#hom",
-      "lift.bilin_module.restrict#forward", "lift.bilin_module.restrict#backward"]
+      "lift.bilin_module.restrict#forward", "lift.bilin_module.restrict#backward",
+      "lift.bilin_module.restrict#factor", "mor.sets.divide", "mor.modules.row_linear_map"]
+    -- The divider's leaf declares the multiplicative monoid route for `/` on commutative rings
+    -- (C6), so `3/2` in Q reads.
+    let preferences := fun (operation : String) => if operation == "mor.sets.divide" then
+        #[Json.mkObj [("name", "/"), ("receiver", "cat.commutative_rings"),
+          ("route", .arr #["fun.commutative_rings.ring", "fun.rings.multiplicative_monoid"])]]
+      else #[]
     let input := fun (operation : String) => s!"{(operation.splitOn "#").head!}#input"
     let manifest := Json.mkObj [
       ("backends", .arr #[Json.mkObj [("name", "peer"), ("command", python.toString),
@@ -75,7 +86,7 @@ run_cmd liftTermElabM do
           toJson log.toString] ++ operations.map toJson))]]),
       ("registrations", .arr (operations.map fun (operation : String) => Json.mkObj [
         ("operation", toJson operation), ("input", toJson (input operation)),
-        ("backend", "peer")]))]
+        ("backend", "peer"), ("preferredRoutes", .arr (preferences operation))]))]
     let path := root / ".tmp" / "kernel-lift-leaves.json"
     liftM (m := IO) <| IO.FS.writeFile path manifest.compress
     let mut session ← KernelSession.start (some path)
@@ -97,7 +108,13 @@ run_cmd liftTermElabM do
           -- Later uses of the returned object and map (T049): each consumer receives the
           -- retained provider value, not a rebuilt term.
           "let firstCarrier := view X1 along «fun.bilin_module.forget»(ℚ, ℚ)",
-          "let firstUnderlyingInclusion := map i1 along «fun.bilin_module.forget»(ℚ, ℚ)"] do
+          "let firstUnderlyingInclusion := map i1 along «fun.bilin_module.forget»(ℚ, ℚ)",
+          -- The universal factor through the lift (T044), sent to its port and used later.
+          "let cone := degenerate_plane_cone()",
+          "let mediatorRow := [3/2, -1] in RectangularMatrices(1, 2, Q)",
+          "let g0 := row_linear_map(2, Q, mediatorRow)",
+          "let h1 := factor(g0) through first with cone using proof(CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneFactorization.cone_base_factorization)",
+          "let underlyingH1 := map h1 along «fun.bilin_module.forget»(ℚ, ℚ)"] do
         let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
           | .ok statement => pure statement
           | .error error => throwError "the statement did not parse: {error}"
@@ -106,7 +123,7 @@ run_cmd liftTermElabM do
           throwError "`{text}` is {run.outcome.kind} ({run.outcome.detail}), not holds"
         session := run.session
       let dispatched := (← session.kernel.dispatches.get).map (·.operation)
-      for port in #["obj", "hom", "forward", "backward"] do
+      for port in #["obj", "hom", "forward", "backward", "factor"] do
         unless dispatched.contains s!"lift.bilin_module.restrict#{port}" do
           throwError "the lift's {port} was not dispatched to its port: {dispatched}"
       -- The domain of i1 is the object X1 already returned: it is not staged again (T046, T049;
@@ -117,8 +134,9 @@ run_cmd liftTermElabM do
       -- The functor's object action on X1 and its map action on i1 receive the values that the
       -- lift's leaf returned: provider data goes back to its owner as its export token
       -- (`opaqueData`). The map's source endpoint is that same X1; its target is the named X.
-      let arguments := fun (operation : String) => do
-        let some line := requests.reverse.find? (·.startsWith s!"\{\"op\": \"{operation}\"")
+      let arguments := fun (operation : String) (first : Bool) => do
+        let matching := requests.filter (·.startsWith s!"\{\"op\": \"{operation}\"")
+        let some line := if first then matching.head? else matching.getLast?
           | throwError "the peer received no request for {operation}: {requests}"
         let .ok request := Json.parse line | throwError "the peer log is malformed: {line}"
         let .ok values := (request.getObjValD "context").getObjValAs? (Array Json) "arguments"
@@ -126,14 +144,20 @@ run_cmd liftTermElabM do
         pure values
       let returned := fun (argument : Json) =>
         (argument.getObjValAs? String "ctor").toOption == some "opaqueData"
-      let objectAction ← arguments "fun.bilin_module.forget"
-      let mapAction ← arguments "fun.bilin_module.forget#map"
+      let objectAction ← arguments "fun.bilin_module.forget" false
+      let mapAction ← arguments "fun.bilin_module.forget#map" true
       let #[carrierOf] := objectAction
         | throwError "the object action has a different arity: {objectAction}"
       let #[source, _, inclusion] := mapAction
         | throwError "the map action has a different arity: {mapAction}"
       unless returned carrierOf && returned inclusion && source == carrierOf do
         throwError "the later uses did not receive the returned X1 and i1: {objectAction} {mapAction}"
+      -- The map action on h1 receives the value that the factor's leaf returned.
+      let factorAction ← arguments "fun.bilin_module.forget#map" false
+      let #[_, _, factor] := factorAction
+        | throwError "the factor's map action has a different arity: {factorAction}"
+      unless returned factor && factor != inclusion do
+        throwError "the map action on h1 did not receive the returned factor: {factorAction}"
       let some line := requests.find? (·.startsWith "{\"op\": \"lift.bilin_module.restrict#obj\"")
         | throwError "the peer received no lift request: {requests}"
       let .ok request := Json.parse line | throwError "the peer log is malformed: {line}"
