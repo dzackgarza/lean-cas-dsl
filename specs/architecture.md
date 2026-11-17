@@ -178,10 +178,24 @@ owner's intended model, the shape
 
 `C_i : D_i → Y`,
 
-where `D_i` is an *actual category of defining presentations or tuples*, with
-its mathematically specified morphisms. The construction functor needs an
-object action **and** a morphism action satisfying its formal laws. Treating a
-software tuple or a request packet as `D_i` does not define that mathematics.
+where `D_i` is a category of defining presentations or tuples, not a wire
+schema. For a constructor defined only by an object assignment `c:I_i→Ob(Y)`,
+the **minimal** well-defined constructor functor is
+`Disc(I_i)→Y`: on each identity `id_i` it sends to `id_(c(i))`,
+which respects the functor laws because the discrete source has no other
+arrows. It is **not** necessary to invent nonidentity presentation maps for
+every constructor. If a richer `D_i` is intended, its additional morphisms,
+the constructor's action on them and the laws require actual upstream
+mathematical declarations.
+
+Do not conflate these object constructors with
+`LeanCategories.Catalogue.Registry.ConstructorEntry`:
+the latter defines **category-level** constructors such as `Arr(C)`;
+its `functorialAction` maps a category functor `C→D` to an induced
+functor `Arr(C)→Arr(D)`. That field is not evidence that an arbitrary
+object-valued `C_i:D_i→Y` has been supplied. The exact mathematical
+source and unresolved constructor declarations are recorded in
+[#91 decision docket D2](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942323747).
 
 A source category `X` has public mathematical observations `m_j`, each with
 its genuine domain and codomain. Those codomains may involve the appropriate
@@ -242,8 +256,15 @@ hierarchy or translator between private `X` and `Y` representations creates
 this relationship. Runtime references, scopes and operands can exist but do
 not supply or reconstruct mathematical meaning. Not every functor makes every
 operation inheritable; the exact formal domain, structural admissibility,
-comparisons and selected choices control resolution. In particular an
-isofibration does not, by itself, supply arbitrary limit or quotient lifting.
+comparisons and selected choices control resolution. The current
+`lean-categories` [`FunctorEntry.structural`](https://github.com/dzackgarza/lean-categories/blob/main/LeanCategories/Catalogue/Registry/Entry.lean)
+identifies underlying-object functors for **unqualified method inheritance**;
+this is already an upstream formal rule, not a runtime engineering option.
+Its agreement with the full original mathematical requirement must be
+checked on actual examples, as specified in [#91 D3](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942323747).
+An explicit mathematical composite `P(F(x))` is not the same question as
+automatically exposing an unqualified `x.P()`. In particular an isofibration
+does not, by itself, supply arbitrary limit or quotient lifting.
 
 ### Mathematically complete examples that determine implementation
 
@@ -267,9 +288,18 @@ in the literal coslice, a morphism `(e : ℕ→S) → (e' : ℕ→T)` must satis
 `f ∘ e = e'`. Arbitrary lattice homomorphisms do not necessarily give such
 arrows (e.g. `-1 : ℤ→ℤ` cannot preserve a surjective fixed enumeration).
 The exact source category and functor's arrow action are **not settled by the
-owner transcript**. They must be specified in `lean-categories` before a
-generic functor is asserted. The response is *not* an ad-hoc backend reindexing
-or a “transport” between serialized lattice vectors.
+owner transcript**. Moreover, the existing formal
+[`EnumeratedSetCat`](https://github.com/dzackgarza/lean-categories/blob/main/LeanCategories/Foundation/Sets.lean)
+uses a selected `Encodable` structure with **all functions** as morphisms,
+rather than a literal epi coslice with commuting-triangle morphisms. These are
+non-equivalent definitions. Under the existing formal category ordinary lattice
+maps have an underlying-arrow action, but converting a mere epi `ℕ↠L` into
+a computationally effective `Encodable L` may require additional encoding
+or search information. The exact mathematical target and arrow contract must
+be **reconciled at the independent mathematical owner** before this proposed
+new functor is admitted: [#91 decision docket D1](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942323747).
+The response is *not* an ad-hoc backend reindexing or a “transport” between
+serialized lattice vectors.
 
 **Toric and formed integral lattices.** Chosen bases `m_i` of characters
 and `n_i` of cocharacters, dual under evaluation, provide
@@ -324,8 +354,11 @@ have been split; [record C](https://github.com/dzackgarza/lean-cas-dsl/issues/91
 gives their exact inspected replacements. Removing a nonexistent function or
 mechanically repeating a past file split is not remediation. The only
 committed work order remains [#10](https://github.com/dzackgarza/lean-cas-dsl/issues/10):
-T016/#84, measured edit → affected imports → same unchanged public consumer,
-is the current first ranked task. The precise evidence and later acceptance
+T016/#84 was recorded complete on November 17 in
+[#84](https://github.com/dzackgarza/lean-cas-dsl/issues/84)
+(with its own measured evidence). The current task is the **first unfinished**
+entry of the [fixed #10 queue](https://github.com/dzackgarza/lean-cas-dsl/issues/10),
+not a permanent re-run of T016. The precise evidence and later acceptance
 belong to the same existing owner issues.
 
 
