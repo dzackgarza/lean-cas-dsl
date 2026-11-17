@@ -167,10 +167,10 @@ private def layoutJson (layout : SourceLayout) : Json :=
 
 /-- The dependent invocation context of execution contract v2 §4.1, for a published operation
 and for a retained native export. Parameters and arguments keep their source order. -/
-private def dependentContext (role : String) (parameters arguments : Array Json)
+private def dependentContext (role : String) (parameters bindings arguments : Array Json)
     (argumentLayouts : Array SourceLayout) (result : SourceLayout) : Json :=
   Json.mkObj [("kind", "dependent"), ("prepared_role", toJson role),
-    ("parameters", .arr parameters), ("bindings", .arr #[]), ("arguments", .arr arguments),
+    ("parameters", .arr parameters), ("bindings", .arr bindings), ("arguments", .arr arguments),
     ("argument_layouts", .arr (argumentLayouts.map layoutJson)),
     ("result_layout", layoutJson result)]
 
@@ -366,10 +366,11 @@ private partial def Kernel.invoke (kernel : Kernel) (request : PreparedRequest)
   | .ok association => request.admitResult (← transaction.view) association.response.root
 
 /-- Dispatch a published operation on its selected registration.
-`parameters` are the retained family parameters; the request supplies the action arguments. -/
+`parameters` are the retained family parameters and `bindings` the earlier outputs the selected
+field depends on; the request supplies the action arguments. -/
 private partial def Kernel.invokeRegistration (kernel : Kernel) (request : PreparedRequest)
     (transaction : CellTransaction) (registration : Registration) (role : String)
-    (parameters : Array ValueBinding) : MetaM (PreparedResponse request) := do
+    (parameters bindings : Array ValueBinding) : MetaM (PreparedResponse request) := do
   let wire ← kernel.connection registration.backend
   let graph ← transaction.view
   let inputs ← request.admitInputs graph
@@ -377,6 +378,8 @@ private partial def Kernel.invokeRegistration (kernel : Kernel) (request : Prepa
   let roots : Array InputPosition :=
     parameters.mapIdx (fun index binding =>
       { path := #[.field "parameters", .index index], binding }) ++
+    bindings.mapIdx (fun index binding =>
+      { path := #[.field "bindings", .index index], binding }) ++
     arguments.mapIdx (fun index binding =>
       { path := #[.field "arguments", .index index], binding })
   let encoded ← IO.ofExcept <|
@@ -384,14 +387,15 @@ private partial def Kernel.invokeRegistration (kernel : Kernel) (request : Prepa
   let identity : DispatchIdentity := {
     manifestDigest := kernel.manifestDigest, registration, profileDigest := kernel.profile.sha256 }
   let reservation ← match ← transaction.reserve request.occurrence identity wire.connection
-      (parameters ++ arguments) with
+      (parameters ++ bindings ++ arguments) with
     | .ok reservation => pure reservation
     | .error failure => transactionFailure failure
   kernel.dispatches.modify (·.push registration)
+  let leading := parameters.size + bindings.size
   kernel.invoke request transaction wire reservation encoded <|
     dependentContext role (encoded.values.extract 0 parameters.size)
-      (encoded.values.extract parameters.size encoded.values.size) (argumentLayouts request)
-      request.source
+      (encoded.values.extract parameters.size leading)
+      (encoded.values.extract leading encoded.values.size) (argumentLayouts request) request.source
 
 /-- Invoke a retained native export on its original supplying connection.
 Source: execution contract v2 §4.1. No registration is searched for a selected callable. -/
@@ -416,7 +420,7 @@ private partial def Kernel.invokeExport (kernel : Kernel) (request : PreparedReq
     | .ok reservation => pure reservation
     | .error failure => transactionFailure failure
   kernel.invoke request transaction wire reservation encoded <|
-    dependentContext role #[] encoded.values (argumentLayouts request) request.source
+    dependentContext role #[] #[] encoded.values (argumentLayouts request) request.source
 
 /-- Run one call of a deferred group through the production lowerer and executor.
 Source: execution contract v2 §4 and §6; api/python-sdk.md of the leaf contract.
@@ -582,6 +586,42 @@ private partial def Kernel.evaluate (kernel : Kernel) (request : PreparedRequest
       (← build context)
   kernelCompletion request transaction value
 
+/-- The earlier outputs of a lift port: the fields of the lift's computation before `field`, at
+the same parameters and inputs (leaf contract api/wire-examples.md, "Prescribed subobject lifts":
+`#hom` receives O, `#forward` O and the inclusion, `#backward` also the forward comparison). Each
+is lowered in the request's scope, so an output already bound keeps its occurrence and any other
+is computed first. The factor port has none. -/
+private partial def Kernel.earlierOutputs (kernel : Kernel) (request : PreparedRequest)
+    (transaction : CellTransaction) (family : PreparedRequest) (lift : LiftFamily)
+    (field : FieldLayout) (arguments : Array ClosedTerm) : MetaM (Array ValueBinding) := do
+  unless lift.port == .computation do return #[]
+  let .primitive _ universes := family.action
+    | throwError "internal: a delayed lift demand lost its published boundary"
+  let fields := getStructureFields (← getEnv) ``MonoLiftComputation
+  let some position := fields.findIdx? (·.toString == field.projection.getString!)
+    | throwError "internal: the lift port {field.projection} is not a field of its computation"
+  withSourceScope request fun context bound => do
+    let formal : Array ClosedTerm := match family.application with
+      | none => #[]
+      | some application => application.arguments.map (·.source.source)
+    let head := lift.family.instantiateLevelParams lift.universeParams universes
+    let computation := lift.mark (mkAppN head (← formal.mapM (·.inContext context)))
+    let values := match request.action with
+      | .apply _ _ values => values
+      | _ => #[]
+    let mut actual := #[]
+    for argument in arguments, index in [:arguments.size] do
+      let source ← argument.inContext context
+      actual := actual.push (← match values[index]?.bind id with
+        | some value => markValue kernel.marks value source
+        | none => pure source)
+    let mut outputs := #[]
+    for name in fields.extract 0 position do
+      let projection ← mkAppM (``MonoLiftComputation ++ name) #[computation]
+      outputs := outputs.push (← lowerTerm (kernel.lowering kernel.executor transaction)
+        request.program context bound (mkAppN projection actual))
+    return outputs
+
 /-- Dispatch a delayed family demand whose action has reached its actual arguments.
 The selected registration receives the family parameters and the action arguments.
 A selected derivation is the checked plan at those same parameters, fields and arguments. -/
@@ -600,14 +640,15 @@ private partial def Kernel.reach (kernel : Kernel) (request : PreparedRequest)
         | throwError "internal: a lift computation was applied without a selected field"
       let address := s!"{lift.lift.raw}#{field.projection.getString!}"
       let forms ← withSourceScope request fun context _ => inputForms lift.lift.raw context arguments
+      let earlier ← kernel.earlierOutputs request transaction family lift field arguments
       kernel.invokeRegistration request transaction (← kernel.selectLift address forms) role
-        parameters
+        parameters earlier
   let address := actionAddress reference path
   let forms ← withSourceScope request fun context _ =>
     inputForms (referenceId reference) context arguments
   match ← kernel.select reference address forms with
   | .registration registration =>
-    kernel.invokeRegistration request transaction registration role parameters
+    kernel.invokeRegistration request transaction registration role parameters #[]
   | .derivation checked =>
     kernel.evaluate request transaction fun context => do
       let plan := checked.plan.instantiateLevelParams checked.universeParams universes

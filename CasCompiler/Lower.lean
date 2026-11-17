@@ -198,6 +198,19 @@ private def closure (expression : Expr) : LowerM ValueBinding := do
   frame.environment.codes.modify (·.insert program code)
   stage expression (.closure program captures)
 
+/-- `expression` without the lowerer's retained-value marks (`markValue`). -/
+private partial def unmarked (expression : Expr) : Expr :=
+  match expression with
+  | .mdata data body => if (markedKey? data).isSome then unmarked body
+      else .mdata data (unmarked body)
+  | .app function argument => .app (unmarked function) (unmarked argument)
+  | .lam name type body info => .lam name (unmarked type) (unmarked body) info
+  | .forallE name type body info => .forallE name (unmarked type) (unmarked body) info
+  | .letE name type value body nondep =>
+    .letE name (unmarked type) (unmarked value) (unmarked body) nondep
+  | .proj owner index value => .proj owner index (unmarked value)
+  | other => other
+
 /-- The retained value of the source binding that is defined as exactly `expression`. A later
 use of that term, for example an endpoint in the type of a returned map, is that binding and keeps
 its occurrence; it is not staged again (execution contract, lean-cas-dsl#69 comment 6664277464:
@@ -206,10 +219,12 @@ two values are identified by comparing them. -/
 private def boundDefinition? (expression : Expr) : LowerM (Option ValueBinding) := do
   if expression.isFVar then return none
   let frame ← read
+  -- A retained-value mark only associates a value with an occurrence; it is not part of the term.
+  let term := unmarked expression
   for binding in frame.context.bindings do
     let some value := frame.bound[binding.id]? | continue
     let some definition := (← binding.expression.fvarId!.getDecl).value? | continue
-    if (← instantiateMVars definition) == expression then return some value
+    if (← instantiateMVars definition) == term then return some value
   return none
 
 mutual
