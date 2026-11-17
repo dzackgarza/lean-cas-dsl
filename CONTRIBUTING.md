@@ -12,6 +12,8 @@
 The linked policies determine which inputs each author may receive. The rules below apply to
 implementation contributions; the released leaf contract retains its own owner.
 
+The maintained [mathematical execution model](specs/architecture.md) reconstructs the *owner's* intended category-level software encapsulation, not merely a set of prohibitions. A category-aligned computational leaf may realize multiple accepted **constructors, common methods and immediate functor actions**, whereas one manifest `(operation, input form, backend)` is a **computational registration**, not the category itself. For the precise owner statements, see [#91 source A](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942015918), [formal contract B](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942060158), and [current implementation map C](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942116552). These records are available to authors who cannot access the original chat. They are source input for the requirements, not a new acceptance process.
+
 ## Mathematical implementation rules
 
 Read [the execution model](specs/architecture.md) before designing a fix. These rules apply C23;
