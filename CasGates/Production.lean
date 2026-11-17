@@ -30,6 +30,7 @@ import all CasCompiler.SourceRelationTests
 import all CasCompiler.SourceActionTests
 import all CasCompiler.SourceLift
 import all CasCompiler.SelectedField
+import all CasCompiler.SelectedMorphism
 import all CasCompiler.SourceLiftTests
 import all CasCompiler.SourceIdentityTests
 import all CasCompiler.SourceEqualityTests
@@ -179,6 +180,7 @@ import all CasRuntime.PreparedRequest
 import all CasRuntime.SessionComputationTests
 import all CasRuntime.SessionLiftTests
 import all CasRuntime.SessionOccurrenceTests
+import all CasRuntime.SessionEndpointTests
 public meta import CasGates.KernelPurityRules
 public meta import CasGates.AxiomAuditRules
 

@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.Elaborate
+public import CasCompiler.SelectedMorphism
 public import LeanCategories.Catalogue.Registry.Semantic
 public import LeanCategories.Catalogue.Semantics.Foundation.Catalogue
 public import CasCatalogue.InterpretationFailure
@@ -275,7 +276,8 @@ opaque registeredExpressions (entry : ObjectEntry ⊕ MorphismEntry)
     let identity ← categoryIdentity category
     let function ← mkAppM ``CategoryTheory.Functor.map #[identity]
     discard <| elabAppArgs function #[] #[Arg.expr value] none false false
-  return (category, sourceReference kind id declaration value)
+  let value := sourceReference kind id declaration value
+  return (category, ← if role == .morphism then selectMorphism value else pure value)
 
 /-- Retain the registered category of a set or set map formed by public function syntax.
 Reuse: the actual Sets declaration, Bundled projections and Functor.map. The supplied

@@ -66,6 +66,7 @@ import all CasCompiler.SurfaceTests
 import all CasCompiler.Read
 import all CasCompiler.ReadExpression
 import all CasCompiler.SelectedField
+import all CasCompiler.SelectedMorphism
 import all CasCompiler.SourceSyntaxTests
 import all CasCompiler.SourceCategoryBindingTests
 import all CasCompiler.SourceAtomTests
@@ -186,6 +187,7 @@ import all CasRuntime.Realization
 import all CasRuntime.SessionComputationTests
 import all CasRuntime.SessionLiftTests
 import all CasRuntime.SessionOccurrenceTests
+import all CasRuntime.SessionEndpointTests
 public meta import CasGates.KernelPurityRules
 
 open Lean CasGates.KernelPurity

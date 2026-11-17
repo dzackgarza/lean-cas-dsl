@@ -2,6 +2,7 @@ module
 
 public import CasCompiler.Context
 public import CasCompiler.Declaration
+public import CasCompiler.SelectedMorphism
 public import CasCompiler.Syntax
 public import CasRuntime.Identity
 public import LeanCategories.Catalogue.Syntax
@@ -122,6 +123,8 @@ opaque categoryIdentity (category : Expr) : MetaM Expr := do
 /-- Inspect the source head through assigned native variables and original definitions.
 Uses retain their actual references. Reuse: Lean.Meta.instantiateMVars and native let values. -/
 partial def sourceDomain (value : Expr) : MetaM Expr := do
+  if let some endpoint := selectedEndpoint? (← instantiateMVars value) then
+    return ← sourceDomain endpoint
   let value := (← instantiateMVars value).headBeta.consumeMData
   if let .fvar id := value then
     if let some definition := (← id.getDecl).value? then return ← sourceDomain definition
@@ -136,6 +139,8 @@ def sourceReference (kind : Name) (id : String) (declaration : Name) (value : Ex
 
 /-- Read an object reference through original native aliases and verify its retained declaration. -/
 partial def sourceObjectReference? (value : Expr) : MetaM (Option (CasCatalogue.ObjectId × Name)) := do
+  if let some endpoint := selectedEndpoint? (← instantiateMVars value) then
+    return ← sourceObjectReference? endpoint
   let value ← instantiateMVars value
   match value with
   | .mdata data body =>

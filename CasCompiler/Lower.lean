@@ -3,6 +3,7 @@ module
 public import CasRuntime.Closure
 public import CasCompiler.Elaborate
 public import CasCompiler.SelectedField
+public import CasCompiler.SelectedMorphism
 public import CasRuntime.Transaction
 public import LeanCategories.Catalogue.Registry.Semantic
 public import CasCatalogue.InterpretationFailure
@@ -189,6 +190,23 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
   let expression ← instantiateMVars expression
   match expression with
   | .mdata data body =>
+    if let some (.ofString selector) := data.find `CasCompiler.endpoint then
+      let projection := if selector == "source" then ``CategoryTheory.Arrow.left
+        else if selector == "target" then ``CategoryTheory.Arrow.right
+        else Name.anonymous
+      unless !projection.isAnonymous && body.getAppFn.isConstOf projection do
+        throwError "the selected endpoint lost its declared projection"
+      let arrow := body.getAppArgs.back!
+      unless arrow.getAppFn.isConstOf ``CategoryTheory.Arrow.mk do
+        throwError "the selected endpoint lost its actual arrow"
+      let value ← lower arrow.getAppArgs.back!
+      let template := Json.mkObj [("ctor", "morphismEndpoint"),
+        ("args", .arr #[.null, toJson selector])]
+      let .ok payload := ValuePayload.container template
+          #[{ path := #[.field "args", .index 0], binding := value, fieldIndex := none }]
+          (← fieldClosures expression) none
+        | throwError "the selected endpoint has an invalid reference layout"
+      return ← stage expression payload
     if let some (selection, field) := selectedField? data then
       let transaction := (← read).environment.transaction
       let .ok prior ← transaction.selected selection field
@@ -469,39 +487,6 @@ private partial def liftFamily (data : MData) (body : Expr) : LowerM ValueBindin
     frame.context closed actual #[] (← parameters)
   demand request
 
-/-- An object that the declared arrow of a registered morphism fixes as its source or target, and
-that has no named object row: `morphismEndpoint(<arrow>, "source" | "target")`, the arrow being
-that registered morphism at the parameters the endpoint determines (leaf contract
-api/wire-examples.md: "An accepted declared arrow can also fix a complete endpoint that has no
-named object row"). The endpoint's definition is not unfolded (C22). -/
-private partial def morphismEndpoint? (expression : Expr) : LowerM (Option ValueBinding) := do
-  let some head := expression.getAppFn.constName? | return none
-  let mut found := #[]
-  for row in (← semanticState).morphisms do
-    unless ((← getConstInfo row.declaration).type.find? (·.isConstOf head)).isSome do continue
-    let matched ← (withoutModifyingState do
-      let constant ← mkConstWithFreshMVarLevels row.declaration
-      let (parameters, _, type) ← forallMetaTelescopeReducing (← inferType constant)
-      let type ← whnfR type
-      unless type.isAppOfArity ``Quiver.Hom 4 do return none
-      for (selector, endpoint) in #[("source", type.getAppArgs[2]!), ("target", type.getAppArgs[3]!)] do
-        if ← withReducible (isDefEq endpoint expression) then
-          let arrow ← instantiateMVars (mkAppN constant parameters)
-          unless arrow.hasMVar || arrow.hasLevelMVar do return some (arrow, selector)
-      return none : MetaM (Option (Expr × String)))
-    if let some matched := matched then found := found.push matched
-  let some (arrow, selector) := found[0]? | return none
-  unless found.size == 1 do
-    throwStratum .noImplementation
-      m!"{expression} is an endpoint of several registered arrows and has no named object row"
-  let value ← lower arrow
-  let template := Json.mkObj [("ctor", "morphismEndpoint"), ("args", .arr #[.null, toJson selector])]
-  let .ok payload := ValuePayload.container template
-      #[{ path := #[.field "args", .index 0], binding := value, fieldIndex := none }]
-      (← fieldClosures expression) none
-    | throwError "internal: the arrow endpoint has an invalid reference layout"
-  some <$> stage expression payload
-
 private partial def application (expression : Expr) : LowerM ValueBinding := do
   let frame ← read
   let arguments := expression.getAppArgs
@@ -562,7 +547,6 @@ private partial def application (expression : Expr) : LowerM ValueBinding := do
     -- that implements an operation.
     throwStratum .noImplementation m!"{name} is an eliminator with no published operation"
   | _ =>
-    if let some endpoint ← morphismEndpoint? expression then return endpoint
     if ← isMatcher name then
       throwStratum .noImplementation m!"{name} is a match with no published operation"
     let some unfolded ← unfoldDefinition? expression
