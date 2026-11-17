@@ -98,3 +98,57 @@ run_cmd liftTermElabM do
           throwError "`{text}` did not keep the admitted literal: {run.outcome.kind} ({run.outcome.detail})"
     finally liftM (m := IO) started.close
   finally setEnv environment
+
+/- A defining leg of a registered limit is that limit's named leg at its maps (constitution C7),
+not the apex and not the presentation's definition (C22): in `|cokernel(q)|` for `q := C.leg(1)`,
+the carrier functor's object action receives the apex of `cokernel(q)`, whose map is the
+descriptor `colim.bil_w_form.cokernel#leg` with the limit's map and the ordinal 1. A real
+protocol-v2 process answers; its log records each request. -/
+run_cmd liftTermElabM do
+  let environment ← getEnv
+  try
+    let contract ← liftM (m := IO) <| CasCatalogue.Backend.packageDir
+      CasCatalogue.Backend.contractPackage
+    let prepared ← liftM (m := IO) <| IO.Process.output {
+      cmd := "/home/dzack/.local/bin/uv", args := #["sync", "--frozen", "--project", contract.toString] }
+    unless prepared.exitCode == 0 do
+      throwError "the pinned native SDK dependencies could not be provisioned: {prepared.stderr}"
+    let root ← liftM (m := IO) IO.currentDir
+    let python := (← liftM (m := IO) <| IO.FS.realPath contract) / ".venv/bin/python"
+    liftM (m := IO) <| IO.FS.createDirAll (root / ".tmp")
+    let log := root / ".tmp" / "kernel-leg-peer.log"
+    liftM (m := IO) <| IO.FS.writeFile log ""
+    let operation := "fun.bil_wform.carrier"
+    let manifest := Json.mkObj [
+      ("backends", .arr #[Json.mkObj [("name", "peer"), ("command", python.toString),
+        ("args", .arr #[toJson (root / "scripts/probes/kernel_lift_peer.py").toString,
+          toJson log.toString, toJson operation])]]),
+      ("registrations", .arr #[Json.mkObj [("operation", toJson operation),
+        ("input", "fun.bil_wform.carrier#input"), ("backend", "peer")]])]
+    let path := root / ".tmp" / "kernel-leg-leaves.json"
+    liftM (m := IO) <| IO.FS.writeFile path manifest.compress
+    let mut session ← KernelSession.start (some path)
+    try
+      for text in #["let C := cokernel(to_dual(1))", "let q := C.leg(1)",
+          "let n := |cokernel(q)|"] do
+        let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
+          | .ok statement => pure statement
+          | .error error => throwError "the statement did not parse: {error}"
+        let run ← withoutErrToSorry <| session.run ⟨statement⟩
+        -- The cardinality after the carrier has no leaf here; that is the cardinality's gap.
+        unless run.outcome.kind == "holds" || text.startsWith "let n" && run.outcome.kind == "gap" do
+          throwError "`{text}` is {run.outcome.kind} ({run.outcome.detail})"
+        session := run.session
+      let requests := ((← liftM (m := IO) <| IO.FS.readFile log).splitOn "\n").filter (!·.isEmpty)
+      let some line := requests.head? | throwError "the carrier's object action was not dispatched"
+      let .ok request := Json.parse line | throwError "the peer log is malformed: {line}"
+      let .ok arguments := (request.getObjValD "context").getObjValAs? (Array Json) "arguments"
+        | throwError "the object action has no arguments: {line}"
+      let #[apex] := arguments | throwError "the object action has a different arity: {line}"
+      let leg := ((apex.getObjValD "args").getArr?.toOption.bind (·.back?)).getD .null
+      unless (apex.getObjValAs? String "ctor").toOption == some "colim.bil_w_form.cokernel" &&
+          (leg.getObjValAs? String "ctor").toOption == some "colim.bil_w_form.cokernel#leg" &&
+          ((leg.getObjValD "args").getArr?.toOption.bind (·.back?)) == some (toJson (1 : Nat)) do
+        throwError "the cokernel of q did not receive the cokernel's leg 1 as its map: {line}"
+    finally liftM (m := IO) session.close
+  finally setEnv environment
