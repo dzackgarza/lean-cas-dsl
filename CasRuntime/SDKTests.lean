@@ -15,10 +15,6 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let environment ← getEnv
   try
     let contract ← liftM (m := IO) <| packageDir contractPackage
-    let prepared ← liftM (m := IO) <| IO.Process.output {
-      cmd := "/home/dzack/.local/bin/uv", args := #["sync", "--frozen", "--project", contract.toString] }
-    unless prepared.exitCode == 0 do
-      throwError "the pinned native SDK dependencies could not be provisioned: {prepared.stderr}"
     let root ← liftM (m := IO) IO.currentDir
     let owners ← liftM (m := IO) OwnerRegistry.new
     let ledger ← liftM (m := BaseIO) (OccurrenceLedger.new owners)

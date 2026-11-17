@@ -101,6 +101,13 @@ def sourceRouteAgreements (state : SemanticState) (source : NativeSourceCategory
       proof ← mkAppM ``congrFun #[proof, argument]
     instantiateMVars proof
 
+-- Apply the already selected native functor at the judgement's unchanged role.
+private def carrierAction (role : SourceCategoryRole) (functor value target : Expr) :
+    TermElabM Expr :=
+  match role with
+  | .object => functorObject functor value target
+  | .morphism => mkAppM ``CategoryTheory.Functor.map #[functor, value]
+
 /-- Consume a supplied carrier prefix, or the complete structural carrier family.
 Only checked uniform native equality identifies implicit alternatives. Actual functor
 actions, original objects or arrows, route references and equality evidence remain in the term.
@@ -130,9 +137,7 @@ opaque sourceCarrier (source : NativeSourceJudgement) : TermElabM NativeSourceJu
       let (domain, target) ← functorCategoryBundles action
       unless ← isDefEq domain bundle do
         throwError "the selected carrier application has a different complete source category"
-      value ← match category.role with
-        | .object => functorObject action value target
-        | .morphism => mkAppM ``CategoryTheory.Functor.map #[action, value]
+      value ← carrierAction category.role action value target
       bundle := target
     selectedEdges := selected.refs
     start := selected.target
@@ -142,9 +147,7 @@ opaque sourceCarrier (source : NativeSourceJudgement) : TermElabM NativeSourceJu
     | throwError "carrier formation requires its source route"
   if !route.steps.isEmpty then
     let selected ← nativeRouteFunctor state route bundle
-    value ← match category.role with
-      | .object => functorObject selected.functor value selected.target
-      | .morphism => mkAppM ``CategoryTheory.Functor.map #[selected.functor, value]
+    value ← carrierAction category.role selected.functor value selected.target
     bundle := selected.target
   for proof in proofs.reverse do
     let body := value

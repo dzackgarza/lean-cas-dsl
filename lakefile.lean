@@ -45,11 +45,15 @@ lean_lib CasDsl where
   -- so the lib must glob submodules or the kernelspec's olean is never built
   globs := #[.andSubmodules `CasDsl]
 
-lean_lib CasCompiler where
-  globs := #[.andSubmodules `CasCompiler]
+/-- Production roots compile only their connected implementation imports. -/
+lean_lib CasCompiler
 
-lean_lib CasRuntime where
-  globs := #[.andSubmodules `CasRuntime]
+lean_lib CasRuntime
+
+/-- Explicit controls; production builds do not elaborate these modules. -/
+lean_lib CasCompilerTests
+
+lean_lib CasRuntimeTests
 
 /-- The core: resolution, propagation, calls and the language, over the leaf contract
 (`cas_leaf_contracts`) and `lean-categories`' semantic registry (`LeanCategories.Catalogue`), which it

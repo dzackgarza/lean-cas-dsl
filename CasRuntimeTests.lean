@@ -1,0 +1,35 @@
+module
+
+import CasRuntime.ApplicationOriginTests
+import CasRuntime.CompletionFailureTests
+import CasRuntime.CompletionTests
+import CasRuntime.CompletionWaiterTests
+import CasRuntime.ContainerTests
+import CasRuntime.EncodeTests
+import CasRuntime.EnvironmentExecutionTests
+import CasRuntime.EnvironmentTests
+import CasRuntime.ExecuteTests
+import CasRuntime.ExportCaptureTests
+import CasRuntime.GroundedRealizationTests
+import CasRuntime.IdentityTests
+import CasRuntime.LiteralTests
+import CasRuntime.MaterializeTests
+import CasRuntime.OccurrenceTests
+import CasRuntime.OwnerTests
+import CasRuntime.ProtocolTests
+import CasRuntime.RealizationProfileTests
+import CasRuntime.RecordTests
+import CasRuntime.ReplyTests
+import CasRuntime.SDKTests
+import CasRuntime.ScopeTests
+import CasRuntime.SessionComputationTests
+import CasRuntime.SessionEndpointTests
+import CasRuntime.SessionLiftTests
+import CasRuntime.SessionOccurrenceTests
+import CasRuntime.SessionPredicateTests
+import CasRuntime.SessionPreferenceTests
+import CasRuntime.SessionSuspensionTests
+import CasRuntime.SessionTests
+import CasRuntime.TransactionTests
+import CasRuntime.TransportTests
+import CasRuntime.ValueTests

@@ -27,140 +27,32 @@ track-main:
 cache +modules:
     @lake exe cache get {{modules}}
 
-# Build one Lean target and automatically profile it if slow; mode=profile profiles a source.
-focus target mode="build":
+# Build one target, or a source probe with its imports, with live diagnostics.
+focus target:
     #!/usr/bin/env bash
     set -euo pipefail
     target={{quote(target)}}
-    mode={{quote(mode)}}
-    diagnosed=0
-    if [[ "$mode" == "diagnosed" ]]; then
-      if [[ -z "${B0_PRIOR_PROFILE_LOG:-}" ]]; then
-        echo "Diagnosed build requires B0_PRIOR_PROFILE_LOG from a completed profile." >&2
-        exit 2
-      fi
-      if [[ ! -s "$B0_PRIOR_PROFILE_LOG" ]]; then
-        echo "Prior profile must be a nonempty readable log: $B0_PRIOR_PROFILE_LOG" >&2
-        exit 2
-      fi
-    if ! grep -q 'cumulative profiling times:' "$B0_PRIOR_PROFILE_LOG"; then
-        echo "Diagnosed build requires B0_PRIOR_PROFILE_LOG from a completed profile." >&2
-        exit 2
-      fi
-      diagnosed=1
-      mode=build
-      echo "Using prior target profile: $B0_PRIOR_PROFILE_LOG"
-    fi
-    budget=${B0_FOCUS_BUDGET_SECONDS:-120}
-    if [[ ! "$budget" =~ ^[1-9][0-9]*$ ]]; then
-      echo "B0_FOCUS_BUDGET_SECONDS must be a positive integer" >&2
-      exit 2
-    fi
-    if (( budget > 120 && diagnosed == 0 )) && [[ "$mode" == "build" ]]; then
-      echo "A build budget above 120s requires a completed target profile; use profile first, then diagnosed mode." >&2
-      exit 2
-    fi
-    if [[ "$target" == *.lean ]]; then
-      source=$target
-      module=${target%.lean}
-      module=${module//\//.}
-    else
-      module=$target
-      source=${target//.//}.lean
-    fi
-    if (( diagnosed == 1 )); then
-      prior_target=$(cat "${B0_PRIOR_PROFILE_LOG}.target")
-      if [[ "$prior_target" != "$module" ]]; then
-        echo "Prior profile must be tagged for $module." >&2
-        exit 2
-      fi
-    fi
-    log=$(mktemp /tmp/lean-cas-focus.XXXXXX.log)
-    started=$(date +%s)
-    set +e
-    case "$mode" in
-      profile) timeout --signal=TERM --kill-after=5s "${budget}s" \
-          /usr/bin/time -f 'elapsed_seconds=%e peak_rss_kib=%M' \
-          lake env lean --profile "$source" 2>&1 | tee "$log" >/dev/null ;;
-      build) timeout --signal=TERM --kill-after=5s "${budget}s" \
-          /usr/bin/time -f 'elapsed_seconds=%e peak_rss_kib=%M' \
-          lake env lake build "$module" 2>&1 | tee "$log" >/dev/null ;;
-      *) echo "mode must be profile or build" >&2; exit 2 ;;
-    esac
-    result=${PIPESTATUS[0]}
-    set -e
-    if [[ "$mode" == "profile" && "$result" == 0 ]]; then
-      printf '%s\n' "$module" > "${log}.target"
-    fi
+    log=$(mktemp "${TMPDIR:-/tmp}/lean-cas-focus.XXXXXX.log")
     echo "Focused log: $log"
-    if (( result == 0 )); then
-      if [[ "$mode" == "profile" ]]; then tail -n 27 "$log"
-      else grep -E 'Built |Build completed|elapsed_seconds=' "$log" | tail -n 8
-      fi
+    if [[ "$target" == *.lean ]]; then
+      lake lean "$target" 2>&1 | tee "$log"
     else
-      tail -n 30 "$log"
+      lake build "$target" 2>&1 | tee "$log"
     fi
-    elapsed=$(($(date +%s) - started))
-    if (( result == 124 )); then
-      echo "Focused $mode exceeded ${budget}s. Diagnose the target before increasing B0_FOCUS_BUDGET_SECONDS." >&2
-    fi
-    if (( elapsed >= 60 )); then
-      case "$mode:$diagnosed:$result" in
-        build:0:0|build:0:124)
-        if [[ -f "$source" ]]; then
-          profile_log=$(mktemp /tmp/lean-cas-profile.XXXXXX.log)
-          set +e
-          timeout --signal=TERM --kill-after=5s "${budget}s" \
-            /usr/bin/time -f 'elapsed_seconds=%e peak_rss_kib=%M' \
-            lake env lean --profile "$source" 2>&1 | tee "$profile_log" >/dev/null
-          profile_result=${PIPESTATUS[0]}
-          set -e
-          if (( profile_result == 0 )); then
-            printf '%s\n' "$module" > "${profile_log}.target"
-          fi
-          echo "Profile log: $profile_log"
-          tail -n 27 "$profile_log"
-          if (( profile_result == 124 )); then
-            echo "Profile exceeded ${budget}s; reduce the reproducer or inspect the import boundary." >&2
-          fi
-          if (( result == 0 )); then result=$profile_result; fi
-        fi
-        ;;
-      esac
-      echo "Slow target ($elapsed s): inspect the profile and import costs before another source iteration." >&2
-    fi
-    exit "$result"
 
-# Run a bounded import-only Lean reproducer from /tmp before another slow source edit.
-probe source:
+# Profile a source only when explicitly requested; rebuild its imports first.
+profile target:
     #!/usr/bin/env bash
     set -euo pipefail
-    source={{quote(source)}}
-    if [[ "$source" != /tmp/*.lean ]]; then
-      echo "Probe source must be an existing /tmp/*.lean file." >&2
-      exit 2
-    fi
-    if [[ ! -f "$source" ]]; then
-      echo "Probe source must be an existing /tmp/*.lean file." >&2
-      exit 2
-    fi
-    budget=${B0_PROBE_BUDGET_SECONDS:-60}
-    if [[ ! "$budget" =~ ^[1-9][0-9]*$ ]]; then
-      echo "B0_PROBE_BUDGET_SECONDS must be a positive integer" >&2
-      exit 2
-    fi
-    log=$(mktemp /tmp/lean-cas-probe.XXXXXX.log)
-    echo "Probe log: $log"
-    set +e
-    timeout --signal=TERM --kill-after=5s "${budget}s" \
-      /usr/bin/time -f 'elapsed_seconds=%e peak_rss_kib=%M' \
-      lake env lean "$source" 2>&1 | tee "$log"
-    result=${PIPESTATUS[0]}
-    set -e
-    if (( result == 124 )); then
-      echo "Probe exceeded ${budget}s; shrink the reproducer before another source edit." >&2
-    fi
-    exit "$result"
+    source={{quote(target)}}
+    if [[ "$source" != *.lean ]]; then source="${source//.//}.lean"; fi
+    log=$(mktemp "${TMPDIR:-/tmp}/lean-cas-profile.XXXXXX.log")
+    echo "Profile log: $log"
+    lake lean "$source" -- --profile 2>&1 | tee "$log"
+
+# Elaborate a source probe after rebuilding its changed imports.
+probe source:
+    @just focus {{quote(source)}}
 
 # Measure an unchanged admitted assertion through the requested production stage.
 bench-question assertion="matrices.kernel" source="benchmarks/question_identity.lean": track-main
@@ -216,9 +108,23 @@ _integration-intent:
       exit 2
     fi
 
-# Compile the shared compiler and runtime at the committed dependency selection.
+# Compile the connected public implementation at the committed dependency selection.
 build-production:
-    @lake build +CasCompiler:olean +CasRuntime:olean
+    @lake build +CasRuntime.Session:olean
+
+# Provision the selected contract's pinned SDK environment once, outside elaboration.
+setup-sdk contracts=".lake/packages/cas_leaf_contracts":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    contracts=${CAS_LEAF_CONTRACT_PATH:-{{quote(contracts)}}}
+    uv sync --frozen --project "$contracts"
+
+# Source and runtime controls are explicit targets, outside production compilation.
+test-compiler:
+    @lake build +CasCompilerTests:olean
+
+test-runtime:
+    @lake build +CasRuntimeTests:olean
 
 # Audit all compiler, runtime and contract declarations against the shared rules.
 audit-production:
@@ -236,6 +142,9 @@ build: _integration-intent
     @python3 scripts/check_reuse_records.py
     @python3 scripts/check_acceptance_permanent.py
     @just build-production
+    @just setup-sdk
+    @just test-compiler
+    @just test-runtime
     @just audit-production
     @lake env lake build CasCatalogue CasGates CasAcceptance CasTools CasDsl CasDslTests cas-registry-export cas-axiom-audit cas-harness
 

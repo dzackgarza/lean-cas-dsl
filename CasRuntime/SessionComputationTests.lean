@@ -108,10 +108,6 @@ run_cmd liftTermElabM do
   try
     let contract ← liftM (m := IO) <| CasCatalogue.Backend.packageDir
       CasCatalogue.Backend.contractPackage
-    let prepared ← liftM (m := IO) <| IO.Process.output {
-      cmd := "/home/dzack/.local/bin/uv", args := #["sync", "--frozen", "--project", contract.toString] }
-    unless prepared.exitCode == 0 do
-      throwError "the pinned native SDK dependencies could not be provisioned: {prepared.stderr}"
     let root ← liftM (m := IO) IO.currentDir
     let python := (← liftM (m := IO) <| IO.FS.realPath contract) / ".venv/bin/python"
     liftM (m := IO) <| IO.FS.createDirAll (root / ".tmp")

@@ -32,6 +32,7 @@ jobs:
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
       - uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596
         with:
           test: false
@@ -42,6 +43,7 @@ jobs:
         run: |
           python3 scripts/ci_chain.py
           lake update lean_categories cas_leaf_contracts nbdsl-worker
+          uv sync --frozen --project .lake/packages/cas_leaf_contracts
           lake env lake build CasGates
   build:
     name: Build and audit (just test)

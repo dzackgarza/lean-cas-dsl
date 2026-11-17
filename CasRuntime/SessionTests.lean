@@ -23,10 +23,6 @@ run_cmd liftTermElabM do
   let environment ← getEnv
   try
     let contract ← liftM (m := IO) <| packageDir contractPackage
-    let prepared ← liftM (m := IO) <| IO.Process.output {
-      cmd := "/home/dzack/.local/bin/uv", args := #["sync", "--frozen", "--project", contract.toString] }
-    unless prepared.exitCode == 0 do
-      throwError "the pinned native SDK dependencies could not be provisioned: {prepared.stderr}"
     let root ← liftM (m := IO) IO.currentDir
     let python := (← liftM (m := IO) <| IO.FS.realPath contract) / ".venv/bin/python"
     let peer := root / "scripts/probes/kernel_session_peer.py"

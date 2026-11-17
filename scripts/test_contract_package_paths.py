@@ -64,8 +64,7 @@ def start_helper(directory: Path, resolved: Path, project: Path) -> None:
     hello = {"op": "hello", "protocol": 2, "contract": "cas-computation/2"}
     payload = json.dumps(hello).encode()
     result = subprocess.run(
-        ["/home/dzack/.local/bin/uv", "run", "--frozen", "--project", str(project),
-         "python", "-c", STARTUP], cwd=directory, env=environment,
+        [str(project / ".venv" / "bin" / "python"), "-c", STARTUP], cwd=directory, env=environment,
         input=str(len(payload)).encode() + b"\n" + payload,
         capture_output=True, check=True, timeout=10,
     )

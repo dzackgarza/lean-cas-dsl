@@ -73,14 +73,17 @@ if [[ "$2" == lean ]]; then
   echo 'Lean (version 4.33.0, test fixture)'
 elif [[ "$2" == lake ]]; then
   echo 'Lake version test (Lean version 4.33.0)'
+elif [[ "$2" == printenv && "$3" == LEAN_SRC_PATH ]]; then
+  printf '%s\\n' "$PWD"
 else exit 9
 fi
 ''')
     lake.chmod(0o755)
+    selection = shlex.quote(str(lake)) + ' --packages=' + shlex.quote(str(runtime / 'packages.json'))
     (runtime / 'lake.sh').write_text('#!/usr/bin/env bash\nset -euo pipefail\n' +
         'export PATH=' + shlex.quote(str(toolchain)) + ':"$PATH"\n' +
-        'cd -- ' + shlex.quote(str(root)) + '\nexec ' + shlex.quote(str(lake)) +
-        ' --packages=' + shlex.quote(str(runtime / 'packages.json')) + ' "$@"\n')
+        'cd -- ' + shlex.quote(str(root)) + '\nexport LEAN_SRC_PATH="$(' +
+        selection + ' env printenv LEAN_SRC_PATH)"\nexec ' + selection + ' "$@"\n')
     for name in ['evidence', 'cache-extraction-originals', 'engines', 'artifacts']:
         (runtime / name).mkdir()
         (runtime / name / 'preserve.txt').write_text('original ' + name)
