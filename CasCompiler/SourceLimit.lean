@@ -176,4 +176,100 @@ opaque sourceNamedLimit (shape : String) (maps : Array NativeSourceJudgement) :
   return some ⟨sourceReference ``LimitEntry row.id.raw row.declaration apex,
     some ⟨.object, selected.expression, selected.bundle, none⟩⟩
 
+/-- The object of a diagram's index type that the ordinal `ordinal` names: the number itself in
+`ℕ`, `⟨ordinal, _⟩` in `Fin n` when it is below `n`, else the `ordinal`-th constructor of a closed
+enumeration. Any other index, or an ordinal outside it, is invalid.
+Reference: the original reader's `constructionIndex` (CasCatalogue/Language.lean). -/
+private def constructionIndex (indexType : Expr) (ordinal : Nat) : TermElabM Expr := do
+  let indexType ← instantiateMVars (← whnfR indexType)
+  if indexType.hasMVar || indexType.hasLevelMVar then
+    throwStratum .invalid m!"the construction index type is not determined"
+  if indexType.isConstOf ``Nat then return mkNatLit ordinal
+  if indexType.isAppOfArity ``Fin 1 then
+    let bound := indexType.appArg!
+    let below ← mkAppM ``LT.lt #[mkNatLit ordinal, bound]
+    let proof ← try mkDecideProof below
+      catch _ => throwStratum .invalid m!"the construction index {ordinal} is outside {indexType}"
+    return mkApp3 (mkConst ``Fin.mk) bound (mkNatLit ordinal) proof
+  let some name := indexType.getAppFn.constName?
+    | throwStratum .invalid m!"the construction index {indexType} is not a closed enumeration"
+  let .inductInfo info ← getConstInfo name
+    | throwStratum .invalid m!"the construction index {indexType} is not an enumeration"
+  for constructor in info.ctors do
+    let .ctorInfo constructorInfo ← getConstInfo constructor | unreachable!
+    unless constructorInfo.numFields == 0 do
+      throwStratum .invalid m!"an ordinal cannot select a constructor with fields of {indexType}"
+  let some constructor := info.ctors[ordinal]?
+    | throwStratum .invalid m!"the construction index {ordinal} is outside {indexType}"
+  let index ← mkAppOptM constructor (indexType.getAppArgs.map some)
+  unless ← isDefEq (← inferType index) indexType do
+    throwStratum .invalid m!"the index constructor does not inhabit {indexType}"
+  return index
+
+/-- The registered limit or colimit whose apex `value` is, with that apex's cone or cocone and
+whether it is a colimit: the reading of `pullback(f, g)`, `cokernel(m)`, `X × Y` and of a created
+limit (sourceNamedLimit, sourceBinaryLimit, createdLimit). -/
+private partial def limitApex? (value : Expr) : MetaM (Option (MData × Expr × Bool)) := do
+  match value with
+  | .fvar id =>
+    match (← id.getDecl).value? with
+    | some value => limitApex? value
+    | none => return none
+  | .mdata data body =>
+    if data.getName `CasCompiler.source.kind == ``LimitEntry then
+      let apex := body.consumeMData
+      if apex.isAppOfArity ``CategoryTheory.Limits.Cone.pt 6 then
+        return some (data, apex.appArg!, false)
+      if apex.isAppOfArity ``CategoryTheory.Limits.Cocone.pt 6 then
+        return some (data, apex.appArg!, true)
+      throwError "the registered limit lost its apex's cone"
+    limitApex? body
+  | _ => return none
+
+/-- `K.leg(j)`: the defining leg of the registered limit or colimit `K` at the object of its shape
+that the ordinal `j` names (constitution C7: a universal construction supplies its defining maps).
+It is the registered cone's `π` or cocone's `ι` at that object, marked with the limit's row and
+the ordinal, so that it is sent as the limit's named leg and not unfolded (C22). Reference: the
+original reader's `constructionLeg` (CasCatalogue/Language.lean). -/
+def sourceLimitLeg? (receiver : NativeSourceJudgement) (ordinal : Nat) :
+    TermElabM (Option NativeSourceJudgement) := do
+  let some (data, cone, colimit) ← limitApex? receiver.value | return none
+  let some category := receiver.category
+    | throwError "a defining leg requires the limit's selected category"
+  let leg ← mkAppM (if colimit then ``CategoryTheory.Limits.Cocone.ι
+    else ``CategoryTheory.Limits.Cone.π) #[cone]
+  let component ← mkAppM ``CategoryTheory.NatTrans.app #[leg]
+  let .forallE _ indexType _ _ ← whnf (← inferType component)
+    | throwError "the defining leg has no shape index"
+  let hom := mkApp component (← constructionIndex indexType ordinal)
+  check hom
+  -- The leg's ends are objects of the diagram (`(parallelPair f 0).obj one`). Each is stated as
+  -- the object the presentation names, to which it is definitionally equal: an object argument,
+  -- an end of a map argument, or the marked apex; the diagram is not unfolded when it is sent.
+  let apex ← mkAppM (if colimit then ``CategoryTheory.Limits.Cocone.pt
+    else ``CategoryTheory.Limits.Cone.pt) #[cone]
+  let presentation := cone.appArg!
+  let mut named := #[.mdata data apex]
+  for argument in presentation.getAppArgs do
+    let type ← whnfR (← inferType argument)
+    if type.isAppOfArity ``Quiver.Hom 4 then
+      named := named ++ #[type.getAppArgs[2]!, type.getAppArgs[3]!]
+    else if !(← isProof argument) && !(← isType argument) then named := named.push argument
+  let arrow ← whnfR (← inferType hom)
+  unless arrow.isAppOfArity ``Quiver.Hom 4 do throwError "the defining leg is not a morphism"
+  let mut ends := #[]
+  for index in [2, 3] do
+    let original := arrow.getAppArgs[index]!
+    let mut chosen := original
+    for candidate in named do
+      if ← withoutModifyingState (isDefEq (← inferType candidate) (← inferType original) <&&>
+          isDefEq candidate original) then
+        chosen := candidate
+        break
+    ends := ends.push chosen
+  let stated := mkAppN arrow.getAppFn #[arrow.getAppArgs[0]!, arrow.getAppArgs[1]!, ends[0]!, ends[1]!]
+  let hom ← mkExpectedTypeHint hom stated
+  return some ⟨.mdata (data.setNat `CasCompiler.source.leg ordinal) hom,
+    some ⟨.morphism, category.expression, category.bundle, none⟩⟩
+
 end CasCompiler

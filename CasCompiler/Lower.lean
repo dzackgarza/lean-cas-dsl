@@ -277,7 +277,17 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
     if let some (declaration, address) := namedElement? data then
       let some element := body.find? (·.getAppFn.isConstOf declaration)
         | throwError "internal: the named element lost its registered declaration"
-      return ← namedConstant expression address (← explicitArguments element)
+      let arguments ← explicitArguments element
+      -- A defining leg of a registered limit is that limit's named leg at its maps and the
+      -- ordinal of its shape object (SourceLimit.sourceLimitLeg?). The contract publishes no
+      -- address that applies a leg to an element (api/wire-examples.md, "constructionLeg").
+      if let some (.ofNat ordinal) := data.find `CasCompiler.source.leg then
+        if (← origin expression).role.kind == .function then
+          throwStratum .noImplementation
+            m!"the leg {ordinal} of {address} is a map of sets; no published address applies it"
+        return ← descriptor expression s!"{address}#leg" (arguments.push (mkNatLit ordinal))
+          (← fieldClosures expression)
+      return ← namedConstant expression address arguments
     match selectedReference? data with
     | some (declaration, _) =>
       if body.isConstOf declaration then application expression

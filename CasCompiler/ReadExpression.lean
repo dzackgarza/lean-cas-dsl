@@ -468,6 +468,11 @@ partial def readExpression
       unless arguments.isEmpty do
         throwError "a selected lift projection takes no additional source arguments"
       return value
+    -- `K.leg(j)`: a defining leg of a registered limit or colimit.
+    if name == "leg" then
+      if let #[index] := arguments then
+        if let `(cas_term| $ordinal:num) := index then
+          if let some leg ← sourceLimitLeg? receiver ordinal.getNat then return leg
     -- `f.image()` is the image of the whole map, as `f(X)` (PowerObjectEntry.image).
     if name == "image" && arguments.isEmpty then
       if let some (domain, codomain) ← mapEnds receiver.value then
