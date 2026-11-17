@@ -155,3 +155,24 @@ After T016, the order below is a stable dependency ordering of the existing auth
 ### Execution update — 2026-11-17
 
 T016 is complete at [implementation `d790eaa`](https://github.com/dzackgarza/lean-cas-dsl/commit/d790eaaa2689f50c81e40de3c63e9fd420dd56ce), with its same-input source-edit/rebuild/public-check comparison, fresh-implementation control, command/setup checks and preserved test inventory recorded in [#84](https://github.com/dzackgarza/lean-cas-dsl/issues/84). T007 is the first unfinished task. The order and all other task markers remain unchanged. The three functional test failures reproduced on the baseline remain required repairs in the existing functional work; this transition does not declare the functional backlog or the broader issues complete.
+
+### T007 execution state — 2026-11-18 (Asia/Taipei)
+
+**T007 remains unchecked and the sole active task at rank 2.** Its complete source-layout,
+fixed-result/permitted-choice, selected-data and inert-observation requirements remain in force.
+The [owning issue's execution and recovery record](https://github.com/dzackgarza/lean-cas-dsl/issues/66#issuecomment-6955872256)
+identifies the exact working state, focused results and unresolved public-session failure.
+
+The T007 source changes are uncommitted in the working copy based on `25e4c69`; they are not
+part of this documentation update. The execution environment became unavailable on November 17
+UTC before the remaining reference-producer repair, removal of temporary diagnostics and full
+verification. The unchanged public computation session still fails on a conflict between
+distinct selected nodes. Stored projection's zero-reference parent retention also remains to
+repair. The complete original public sessions, aggregate checks and current real source-edit /
+affected-import rebuild / unchanged-public-check comparison remain required.
+
+The accepted mathematical input inspected by this work does not yet supply T007's permitted-choice
+declaration. The [mathematical-input contract](contracts/mathematical-input.md#fixed-results-and-independently-declared-choices)
+and [independent-authorship rule](../../.specify/memory/constitution.md#independent-authorship-and-permitted-inputs-c1-c9-c10)
+govern that missing input. No completion criterion is reduced. T016 retains its recorded completion;
+all later tasks keep their existing ranks and complete requirements.
