@@ -82,7 +82,7 @@ opaque sourceMemberFamily (receiver : NativeSourceJudgement) (name : String)
   return some ⟨value, some ⟨.morphism, category.expression, bundle, none⟩⟩
 
 /-- A registered morphism named `name` at fresh declaration parameters, with its source set. -/
-private def morphismAtSource (row : MorphismEntry) :
+def morphismAtSource (row : MorphismEntry) :
     TermElabM (Expr × Expr × Array (Expr × BinderInfo)) := do
   discard <| checkedDeclaration row.declaration
   let declaration ← mkConstWithFreshMVarLevels row.declaration
@@ -94,7 +94,7 @@ private def morphismAtSource (row : MorphismEntry) :
   return (morphism, type.getAppArgs[2]!, parameters.zip infos)
 
 /-- Synthesize the declared instances of a morphism once its source fixed the parameters. -/
-private def synthesizeDeclared (parameters : Array (Expr × BinderInfo)) : TermElabM Bool := do
+def synthesizeDeclared (parameters : Array (Expr × BinderInfo)) : TermElabM Bool := do
   for (parameter, info) in parameters do
     if info.isInstImplicit && (← instantiateMVars parameter).isMVar then
       let some instanceValue ← synthInstance? (← instantiateMVars (← inferType parameter))

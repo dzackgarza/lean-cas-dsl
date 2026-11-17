@@ -11,6 +11,7 @@ public import CasCompiler.SourceMethod
 public import CasCompiler.SourcePresentation
 public import CasCompiler.SourceConstruction
 public import CasCompiler.SourceLift
+public import CasCompiler.SourceDivision
 public import CasCompiler.SourceSubset
 public import CasCompiler.SourceRing
 public import CasCompiler.SourceAdmission
@@ -1022,11 +1023,20 @@ partial def readExpression
               | throwError "the ring of {generator} has no registered derivative"
             return ⟨morphism, none⟩
       -- `ℤ/n`: the object whose registered notation is the atom followed by `/`.
-      let some atom := sourceAtomName? left
-        | CasCatalogue.throwUnsupportedSource "source division is not implemented"
-      let some object ← notationObject s!"{atom}/" #[right]
-        | CasCatalogue.throwUnsupportedSource "source division is not implemented"
-      return object
+      if let some atom := sourceAtomName? left then
+        if let some object ← notationObject s!"{atom}/" #[right] then return object
+      -- `a / b`: the registered division at the monoid of the operands' object.
+      let mut hints := #[]
+      for operand in #[left, right] do
+        if let `(cas_term| $identifier:ident) := operand then
+          if ((← getLCtx).findFromUserName? identifier.getId).isSome then
+            hints := hints.push (← inferType (← readExpression categoryOf operand none).value)
+      let some domain := (← expected.mapM instantiateMVars).orElse fun _ => hints[0]?
+        | CasCatalogue.throwUnsupportedSource "source division requires the set of its operands"
+      let owners ← sourceElementOwners categoryOf domain (#[domain] ++ hints)
+      let value ← sourceDivision owners left right fun operand => do
+        return (← readExpression categoryOf operand (some domain)).value
+      return ⟨value, none⟩
     | `(cas_term| $name:ident ↦ $body:cas_term) => do
       lambda (← `(cas_term| $name:ident)) body
     | `(cas_term| ($first:cas_term, $rest:cas_term,*) ↦ $body:cas_term) => do
