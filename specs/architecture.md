@@ -159,6 +159,176 @@ state observable obligations. They supplement the original mathematical workload
 extension requirements; routing logs, opaque peers and successful helper checks do not establish
 those mathematical results. Acceptance remains independently authored under C9–C12.
 
+## Reconstructed owner intent: constructors, functors and category-aligned computation
+
+This section is **mathematical design input**, not a claim about the current executable kernel.
+It reconstructs the original category-based implementation model directly stated by
+the owner on November 17, 2026. The original chat is not an operative repository
+dependency: [source passages in #91, record A](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942015918),
+[complete independent reconstruction, record B](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942060158),
+and the [current-source implementation map, record C](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942116552)
+supply the relevant evidence, distinctions and exact owner statements. The
+mathematical authority is still `lean-categories`; an example below is not a
+new formal declaration or authorization to invent missing category theory.
+
+### Constructors are themselves typed mathematical constructions
+
+For a category `Y`, a family of admitted public constructors has, in the
+owner's intended model, the shape
+
+`C_i : D_i → Y`,
+
+where `D_i` is an *actual category of defining presentations or tuples*, with
+its mathematically specified morphisms. The construction functor needs an
+object action **and** a morphism action satisfying its formal laws. Treating a
+software tuple or a request packet as `D_i` does not define that mathematics.
+
+A source category `X` has public mathematical observations `m_j`, each with
+its genuine domain and codomain. Those codomains may involve the appropriate
+mathematical categories associated with booleans, naturals, integers or tuple
+presentations; this does not mean untyped wire tags. The computational
+realization of an accepted functor `F : X → Y` can assemble its target defining
+data from the source's public methods and apply a public target constructor:
+
+`F(x) = C_i(Φ(m_1(x), …, m_k(x)))`.
+
+The actual typed `F(f) : F(x) → F(x')` must likewise be realized through the
+public target hom/morphism interface; merely implementing the object formula
+does not make an arbitrary assignment functorial.
+
+The **constructor-completeness invariant** is not a demand for eager algorithms:
+every admissible public method on `Y` has its established mathematical
+meaning for objects made by **any** `C_i`. A constructor may choose a private
+representation or return `NoImplementation` for a demanded computation. It may
+not give its products a different mathematical public API depending on their
+source presentation. A selected mathematical basis, map, presentation or
+comparison is retained, not discarded as a mere implementation detail.
+
+For example, over a PID `R`, a finitely generated module can be constructed
+from an `R`-action `R → End_Ab(A)`, or from a free rank and appropriate
+invariant-factor data. These give objects in the same module category,
+not automatically judgmentally equal objects. Both have the same meaningful
+`action_morphism` and `invariant_factors` interfaces where those are
+mathematically defined. A leaf may have no algorithm to extract invariant
+factors from arbitrary action data; that is missing computation rather than a
+different category or a missing mathematical method.
+
+### A leaf is not a single capability registration
+
+The owner's **category-aligned computational leaf** implements a category's
+accepted constructors, common methods and the **computational actions of its
+immediate formal functors**. Formal definitions, laws and proofs remain in
+`lean-categories`; no leaf may invent them. The generic `lean-cas-dsl`
+**kernel** enables category-to-category interoperability and is a prerequisite
+to making these category-aligned implementations independent.
+
+A leaf manifest entry `(operation, input form, backend)` advertises one
+**computational port**. The port is not itself a mathematical category or the
+entire category-aligned leaf. A package may expose many such ports; it must
+fulfil the independently selected interfaces and cannot determine method
+availability or mathematical ownership by registering them. In particular,
+the existing three-field protocol need not be replaced to correct this
+conceptual separation, but the actual grouping and constructor completeness
+must be realized through the public contract.
+
+Thus `x.P()` is not a leaf-defined forwarding method. For an accepted
+structural `F : X → Y` and suitably typed and admissible method `P`,
+the kernel resolves the mathematical composite
+
+`(P ∘ F)(x) = P(F(x))`.
+
+The `Y`-object can be constructed **on demand** through `C_i`. No runtime
+hierarchy or translator between private `X` and `Y` representations creates
+this relationship. Runtime references, scopes and operands can exist but do
+not supply or reconstruct mathematical meaning. Not every functor makes every
+operation inheritable; the exact formal domain, structural admissibility,
+comparisons and selected choices control resolution. In particular an
+isofibration does not, by itself, supply arbitrary limit or quotient lifting.
+
+### Mathematically complete examples that determine implementation
+
+**Free lattice cardinality.** Given an appropriate formal structural functor
+from lattices to their underlying modules and sets, and the correctly typed
+set-cardinality operation, `L.cardinality()` means the admitted composite
+`card(U(L))`. If `L ≅ ℤ^n`, it has one element when `n=0`, and
+countably infinitely many when `n≥1`: a nonzero finite product of countably
+infinite sets is countable and contains a copy of `ℤ`. The kernel is not
+authorized to compute this by a lattice-rank special case or an unpublished
+Lean reduction. Existing applicable methods must reach a newly defined
+lattice without a new lattice forwarding implementation.
+
+**Enumeration of a presented lattice.** A selected surjection
+`q : ℤ^n ↠ L` and a supplied enumeration `e_n : ℕ ↠ ℤ^n` construct
+`q ∘ e_n : ℕ ↠ L`. Surjectivity follows directly by choosing a preimage
+under each surjection. An object of the epi portion of the coslice
+`ℕ ↓ Set` can therefore be constructed *as an object* through the public
+enumerated-set constructor. There is a **separate formal morphism obligation**:
+in the literal coslice, a morphism `(e : ℕ→S) → (e' : ℕ→T)` must satisfy
+`f ∘ e = e'`. Arbitrary lattice homomorphisms do not necessarily give such
+arrows (e.g. `-1 : ℤ→ℤ` cannot preserve a surjective fixed enumeration).
+The exact source category and functor's arrow action are **not settled by the
+owner transcript**. They must be specified in `lean-categories` before a
+generic functor is asserted. The response is *not* an ad-hoc backend reindexing
+or a “transport” between serialized lattice vectors.
+
+**Toric and formed integral lattices.** Chosen bases `m_i` of characters
+and `n_i` of cocharacters, dual under evaluation, provide
+`⟨m_i,n_j⟩ = δ_ij` and selected Euclidean forms
+`b_M(m_i,m_j)=δ_ij`, `b_N(n_i,n_j)=δ_ij`.
+The resulting formed integral lattices inherit their public general lattice
+algorithms. For `v=Σ a_i m_i`, `b_M(v,v)=Σa_i²`; a norm bound
+`≤R` bounds each `|a_i|` by `⌊√R⌋`. An independent toric engine with
+its own public “lattice” and bespoke enumeration/short-vector functions is
+the duplicated-ontology failure this project exists to avoid. The bases are
+**chosen structure**, not a claim of a canonical basis-free Euclidean form.
+
+**Refinement of a computed subset.** The original illustrative phrase
+`{n∈ℤ | n<5}` is actually infinite (the injection `k↦4-k` from
+`ℕ` proves this). The corrected bounded subset
+`B={n∈ℤ | 0≤n<5}={0,1,2,3,4}` has a finiteness proof.
+The *formal* classifier/refinement rule can produce a selected
+`FiniteSets` lift with an identification of its underlying set with `B`
+and retention of the original inclusion `B ↪ ℤ`. A backend array of five
+elements is not the proof and may not change semantic placement. A proof of
+existence of a basis or enumeration likewise does not select one.
+
+**A selected limit's defining leg.** A selected limit is its actual diagram
+`D:J→C`, cone, apex `L`, projections `π_j:L→D(j)` and universal
+factorization. Its `leg(j)` is the corresponding projection of **that
+cone**, not a reverse search of all cones whose apex happens to match.
+Two selected limits may share an apex without having the same defining maps.
+The subsequent operation must consume those actual maps and the selected
+returned computational occurrence.
+
+### What implementers must demonstrate, and what must not be inferred
+
+A new contributor, using **only this checked mathematical source and the
+repository**, must locate the owner category, its actual declared methods,
+constructor data category, admitted functor and morphism action, and the
+unchanged **later mathematical use**. If any mathematical category/action or
+theorem is missing, the exact formal input is an upstream
+`lean-categories` obligation; neither the core nor a leaf can silently
+create an implementation-shaped mathematical replacement.
+
+No private internal test may promote itself to independent acceptance.
+In particular, successful transport of an opaque lift token through a test
+peer is a useful structural probe but does **not** establish the original
+lift's map/comparison/factorization equations. Those independently required
+assertions must run through the connected public kernel and adequate actual
+computational implementations.
+
+Before refactoring a historical source path, inspect the current integration
+revision. The Nov 17 source audit documents that some historical
+reconstruction functions have already been removed and the reader/kernel
+have been split; [record C](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942116552)
+gives their exact inspected replacements. Removing a nonexistent function or
+mechanically repeating a past file split is not remediation. The only
+committed work order remains [#10](https://github.com/dzackgarza/lean-cas-dsl/issues/10):
+T016/#84, measured edit → affected imports → same unchanged public consumer,
+is the current first ranked task. The precise evidence and later acceptance
+belong to the same existing owner issues.
+
+
 ## Owning sources
 
 - [Independent mathematical API and ownership](https://github.com/dzackgarza/lean-categories/blob/main/INTENT.md).
