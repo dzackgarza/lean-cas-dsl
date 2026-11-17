@@ -8,6 +8,8 @@ namespace CasRuntime
 
 open Lean Meta CasCompiler
 
+initialize registerTraceClass `cas.environment
+
 /-- An actual value associated with an explicitly identified source binder. -/
 structure RuntimeParameter where
   private mk ::
@@ -77,9 +79,11 @@ private def checkNativeType (context : OpenContext) (expected : Expr)
     (value : ValueBinding) (origin : ValueOrigin) : MetaM Unit := do
   let original ← value.role.source.inContext context
   unless ← isDefEq (← inferType original) expected do
+    trace[cas.environment] "{original} : {← inferType original}, expected {expected}"
     throwError "the runtime value has an incompatible complete source type"
   let producing ← origin.role.source.inContext context
   unless ← isDefEq (← inferType producing) expected do
+    trace[cas.environment] "{producing} : {← inferType producing}, expected {expected}"
     throwError "the producing runtime value has an incompatible complete source type"
 
 private def checkDependencies (context : OpenContext)

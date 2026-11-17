@@ -239,15 +239,23 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
     if data.getName `CasCompiler.source.kind == ``ObjectEntry.application then
       throwStratum .noImplementation
         m!"{data.getString `CasCompiler.source.id}#application has no kernel computation address"
-    -- An admitted element is the value it admits (ObjectEntry.admission); the admission's
-    -- definition is not evaluated.
+    -- An admitted element carries the data of the value it admits (ObjectEntry.admission: it
+    -- is determined by that value alone), and keeps its own role, an element of the subobject;
+    -- the admission's definition is not evaluated.
     if data.getName `CasCompiler.source.kind == ``ObjectEntry.admission then
       let declaration := data.getName `CasCompiler.source.declaration
       let some admitted := body.find? (·.getAppFn.isConstOf declaration)
         | throwError "internal: the admitted element lost its registered admission"
       let some element := admitted.getAppArgs[data.getNat `CasCompiler.source.element 0]?
         | throwError "internal: the admitted element lost its value"
-      return ← lower element
+      let value ← lower element
+      -- An element of a subtype is a record whose one computational field is that value.
+      if (← origin expression).role.kind == .record then
+        return ← stageRecord expression #[value]
+      let .ok payload := ValuePayload.container .null
+          #[{ path := #[], binding := value, fieldIndex := none }] #[] none
+        | throwError "internal: the admitted element has an invalid reference layout"
+      return ← stage expression payload
     -- A published computation of a selected lift is sent to its lift's ports, at the
     -- parameters of the lift's evidence; its definition is not unfolded (C22).
     if data.getName `CasCompiler.source.kind == ``LiftFamily then return ← liftFamily data body
@@ -426,16 +434,24 @@ private partial def apply (callable : ValueBinding) (arguments : Array Expr) :
   demand request
 
 private partial def record (expression : Expr) (fields : Array Expr) : LowerM ValueBinding := do
-  let frame ← read
-  let identities ← supply
-  let produced ← origin expression
-  let layout ← RecordLayout.ofSource produced.role
+  let layout ← RecordLayout.ofSource (← origin expression).role
   let mut values := #[]
   for prepared in layout.fields do
     if prepared.field.wireIndex.isSome then
       let some field := fields[prepared.field.sourceIndex]?
         | throwError "internal: a source constructor lost a computational field"
       values := values.push (← lower field)
+  stageRecord expression values
+
+/-- Stage the record `expression` from the values of its computational fields, in order. -/
+private partial def stageRecord (expression : Expr) (values : Array ValueBinding) :
+    LowerM ValueBinding := do
+  let frame ← read
+  let identities ← supply
+  let produced ← origin expression
+  let layout ← RecordLayout.ofSource produced.role
+  unless values.size == (layout.fields.filter (·.field.wireIndex.isSome)).size do
+    throwError "internal: a source record has a different number of computational fields"
   let mut draft ← frame.environment.transaction.draft
   let mut selected ← RecordPrefix.begin identities produced.program produced.occurrence layout
   for value in values do
