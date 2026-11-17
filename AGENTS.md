@@ -25,6 +25,8 @@ issues; changes to constitutional requirements follow its amendment rules.
 - [Higher coherence](https://github.com/dzackgarza/lean-cas-dsl/issues/82)
 - Goals, plans and handoffs: section "Goals, outlines and plans" of `~/ai/AGENTS.global.md`
 
+**Owner-design reconstruction source:** [verbatim architectural statements, #91 record A](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942015918) · [mathematical contract and unresolved functorial issues, record B](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942060158) · [source-checked current implementation map, record C](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942116552). The maintained [architecture](specs/architecture.md) reconstructs the owner's constructor-as-functor and category-as-implementation-unit model. Do not replace an unresolved mathematical category/morphism action with a kernel or backend heuristic; the current source, not old audit function names, determines what remains to repair.
+
 ## Required mathematical model
 
 Before changing interpretation, execution or a category interface, read
