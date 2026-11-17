@@ -115,20 +115,25 @@ run_cmd liftTermElabM do
         throwError "the lift's object was staged again for a later use: {dispatched}"
       let requests := ((← liftM (m := IO) <| IO.FS.readFile log).splitOn "\n").filter (!·.isEmpty)
       -- The functor's object action on X1 and its map action on i1 receive the values that the
-      -- lift's leaf returned: the peer's own export token (provider data goes back to its owner as
-      -- `opaqueData`) or a reference into the request scope.
-      let reference := fun (argument : Json) =>
-        let tag := (argument.getObjValAs? String "ctor").toOption
-        tag == some "opaqueData" || tag == some "scopeRef"
-      for (operation, consumer) in #[("fun.bilin_module.forget", "X1"),
-          ("fun.bilin_module.forget#map", "i1")] do
+      -- lift's leaf returned: provider data goes back to its owner as its export token
+      -- (`opaqueData`). The map's source endpoint is that same X1; its target is the named X.
+      let arguments := fun (operation : String) => do
         let some line := requests.reverse.find? (·.startsWith s!"\{\"op\": \"{operation}\"")
           | throwError "the peer received no request for {operation}: {requests}"
         let .ok request := Json.parse line | throwError "the peer log is malformed: {line}"
-        let .ok arguments := (request.getObjValD "context").getObjValAs? (Array Json) "arguments"
+        let .ok values := (request.getObjValD "context").getObjValAs? (Array Json) "arguments"
           | throwError "the request has no arguments: {line}"
-        unless arguments.all reference do
-          throwError "{operation} at {consumer} did not receive the returned value: {line}"
+        pure values
+      let returned := fun (argument : Json) =>
+        (argument.getObjValAs? String "ctor").toOption == some "opaqueData"
+      let objectAction ← arguments "fun.bilin_module.forget"
+      let mapAction ← arguments "fun.bilin_module.forget#map"
+      let #[carrierOf] := objectAction
+        | throwError "the object action has a different arity: {objectAction}"
+      let #[source, _, inclusion] := mapAction
+        | throwError "the map action has a different arity: {mapAction}"
+      unless returned carrierOf && returned inclusion && source == carrierOf do
+        throwError "the later uses did not receive the returned X1 and i1: {objectAction} {mapAction}"
       let some line := requests.find? (·.startsWith "{\"op\": \"lift.bilin_module.restrict#obj\"")
         | throwError "the peer received no lift request: {requests}"
       let .ok request := Json.parse line | throwError "the peer log is malformed: {line}"

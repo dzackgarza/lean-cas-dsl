@@ -198,6 +198,20 @@ private def closure (expression : Expr) : LowerM ValueBinding := do
   frame.environment.codes.modify (·.insert program code)
   stage expression (.closure program captures)
 
+/-- The retained value of the source binding that is defined as exactly `expression`. A later
+use of that term, for example an endpoint in the type of a returned map, is that binding and keeps
+its occurrence; it is not staged again (execution contract, lean-cas-dsl#69 comment 6664277464:
+"an existing binding retains its occurrence"; T046). The binding's definition names the term; no
+two values are identified by comparing them. -/
+private def boundDefinition? (expression : Expr) : LowerM (Option ValueBinding) := do
+  if expression.isFVar then return none
+  let frame ← read
+  for binding in frame.context.bindings do
+    let some value := frame.bound[binding.id]? | continue
+    let some definition := (← binding.expression.fvarId!.getDecl).value? | continue
+    if (← instantiateMVars definition) == expression then return some value
+  return none
+
 mutual
 
 /-- Lower one checked source term to its actual retained value.
@@ -208,6 +222,7 @@ projection and application demands. Lambdas and selected instances retain code a
 Ordinary definitions are unfolded with Lean's delta rule. No operation is recognized by name. -/
 private partial def lower (expression : Expr) : LowerM ValueBinding := do
   let expression ← instantiateMVars expression
+  if let some value ← boundDefinition? expression then return value
   match expression with
   | .mdata data body =>
     if let some key := markedKey? data then
