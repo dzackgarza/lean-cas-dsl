@@ -65,6 +65,7 @@ run_cmd liftTermElabM do
     let log := root / ".tmp" / "kernel-lift-peer.log"
     liftM (m := IO) <| IO.FS.writeFile log ""
     let operations : Array String := #["fun.commutative_rings.ring", "fun.bilin_module.forget",
+      "fun.bilin_module.forget#map",
       "lift.bilin_module.restrict#obj", "lift.bilin_module.restrict#hom",
       "lift.bilin_module.restrict#forward", "lift.bilin_module.restrict#backward"]
     let input := fun (operation : String) => s!"{(operation.splitOn "#").head!}#input"
@@ -89,7 +90,14 @@ run_cmd liftTermElabM do
           "let sourceModule := view X along «fun.bilin_module.forget»(ℚ, ℚ)",
           "let i0(t) := (2*t, -2*t) in scalarModule → sourceModule",
           "let first := lift(X) along «lift.bilin_module.restrict»(ℚ, ℚ) with i0 using proof(CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneLifts.kernelInclusion_mono)",
-          "let X1 := first.obj()"] do
+          "let X1 := first.obj()",
+          "let i1 := first.hom()",
+          "let alpha1 := first.forward()",
+          "let beta1 := first.backward()",
+          -- Later uses of the returned object and map (T049): each consumer receives the
+          -- retained provider value, not a rebuilt term.
+          "let firstCarrier := view X1 along «fun.bilin_module.forget»(ℚ, ℚ)",
+          "let firstUnderlyingInclusion := map i1 along «fun.bilin_module.forget»(ℚ, ℚ)"] do
         let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
           | .ok statement => pure statement
           | .error error => throwError "the statement did not parse: {error}"
@@ -98,9 +106,29 @@ run_cmd liftTermElabM do
           throwError "`{text}` is {run.outcome.kind} ({run.outcome.detail}), not holds"
         session := run.session
       let dispatched := (← session.kernel.dispatches.get).map (·.operation)
-      unless dispatched.contains "lift.bilin_module.restrict#obj" do
-        throwError "the lift's object was not dispatched to its port: {dispatched}"
+      for port in #["obj", "hom", "forward", "backward"] do
+        unless dispatched.contains s!"lift.bilin_module.restrict#{port}" do
+          throwError "the lift's {port} was not dispatched to its port: {dispatched}"
+      -- The domain of i1 is the object X1 already returned: it is not staged again (T046, T049;
+      -- execution contract: an existing binding retains its occurrence).
+      unless (dispatched.filter (· == "lift.bilin_module.restrict#obj")).size == 1 do
+        throwError "the lift's object was staged again for a later use: {dispatched}"
       let requests := ((← liftM (m := IO) <| IO.FS.readFile log).splitOn "\n").filter (!·.isEmpty)
+      -- The functor's object action on X1 and its map action on i1 receive the values that the
+      -- lift's leaf returned: the peer's own export token (provider data goes back to its owner as
+      -- `opaqueData`) or a reference into the request scope.
+      let reference := fun (argument : Json) =>
+        let tag := (argument.getObjValAs? String "ctor").toOption
+        tag == some "opaqueData" || tag == some "scopeRef"
+      for (operation, consumer) in #[("fun.bilin_module.forget", "X1"),
+          ("fun.bilin_module.forget#map", "i1")] do
+        let some line := requests.reverse.find? (·.startsWith s!"\{\"op\": \"{operation}\"")
+          | throwError "the peer received no request for {operation}: {requests}"
+        let .ok request := Json.parse line | throwError "the peer log is malformed: {line}"
+        let .ok arguments := (request.getObjValD "context").getObjValAs? (Array Json) "arguments"
+          | throwError "the request has no arguments: {line}"
+        unless arguments.all reference do
+          throwError "{operation} at {consumer} did not receive the returned value: {line}"
       let some line := requests.find? (·.startsWith "{\"op\": \"lift.bilin_module.restrict#obj\"")
         | throwError "the peer received no lift request: {requests}"
       let .ok request := Json.parse line | throwError "the peer log is malformed: {line}"
