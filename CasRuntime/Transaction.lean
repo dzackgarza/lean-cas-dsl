@@ -2,7 +2,7 @@ module
 
 public import CasRuntime.Occurrence
 public import CasRuntime.Connection
-public import CasCompiler.Program
+public import CasRuntime.PreparedRequest
 public import CasRuntime.Reply
 public import Lean.Environment
 public import Lean.CoreM
@@ -32,8 +32,8 @@ inductive CompletionProducer
 References point into the ordinary graph; this record owns no second payload heap. -/
 structure CompletionAssociation where
   private mk ::
-  request : CasCompiler.PreparedRequest
-  response : CasCompiler.PreparedResponse request
+  request : PreparedRequest
+  response : PreparedResponse request
   inputs : InputRoleMap
   producer : CompletionProducer
 
@@ -430,7 +430,7 @@ opaque CellTransaction.commitResume (transaction : CellTransaction)
 Reuse: prepared input/result admission, isolated drafts, actual received leases and owner gating.
 The parsed reply and request scope identify the exact transport invocation. -/
 opaque CellTransaction.completeReply (transaction : CellTransaction) (draft : CellDraft)
-    (request : CasCompiler.PreparedRequest) (response : CasCompiler.PreparedResponse request)
+    (request : PreparedRequest) (response : PreparedResponse request)
     (scope : RequestScope) (reply : ImmediateReply) : MetaM (Except TransactionFailure CompletionAssociation) := do
   let inputs ← request.admitInputs draft.view
   let response ← request.admitResult draft.view response.root
@@ -482,7 +482,7 @@ No dispatch right is consumed and no frame exists. The occurrence leaves the fre
 so a later demand cannot dispatch it. Later demands in this cell reuse this completion.
 Reuse: the claim, owner gate and completion table of completeReply. -/
 opaque CellTransaction.completeKernel (transaction : CellTransaction)
-    (request : CasCompiler.PreparedRequest) (response : CasCompiler.PreparedResponse request) :
+    (request : PreparedRequest) (response : PreparedResponse request) :
     MetaM (Except TransactionFailure CompletionAssociation) := do
   let graph ← transaction.view
   let inputs ← request.admitInputs graph

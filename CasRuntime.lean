@@ -5,6 +5,7 @@ public import CasRuntime.Connection
 public import CasRuntime.Value
 public import CasRuntime.Environment
 public import CasRuntime.RoleMap
+public import CasRuntime.PreparedRequest
 public import CasRuntime.Occurrence
 public import CasRuntime.Transaction
 public import CasRuntime.Execute

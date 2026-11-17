@@ -1,8 +1,8 @@
 module
 
-import CasCompiler.Program
+import CasRuntime.PreparedRequest
 public meta import Lean.Elab.Command
-meta import CasCompiler.Program
+meta import CasRuntime.PreparedRequest
 
 open Lean Meta CasCompiler CasRuntime
 

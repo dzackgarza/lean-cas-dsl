@@ -1,6 +1,6 @@
 module
 
-public import CasCompiler.Program
+public import CasRuntime.PreparedRequest
 public import CasCompiler.Elaborate
 public import CasRuntime.Transaction
 public import LeanCategories.Catalogue.Registry.Semantic

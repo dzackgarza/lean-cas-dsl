@@ -1,6 +1,6 @@
 module
 
-public import CasCompiler.Program
+public import CasRuntime.PreparedRequest
 public import CasRuntime.Transaction
 public import PolyFun.PFunctor.Handler.Stateful
 

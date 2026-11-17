@@ -1,6 +1,6 @@
 module
 
-public import CasCompiler.Program
+public import CasRuntime.PreparedRequest
 public import CasRuntime.Reply
 public import CasRuntime.Transaction
 public import CasRuntime.Literal

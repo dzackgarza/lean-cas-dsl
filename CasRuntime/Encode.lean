@@ -1,7 +1,7 @@
 module
 
 public import CasRuntime.Scope
-public import CasCompiler.Program
+public import CasRuntime.PreparedRequest
 
 public section
 

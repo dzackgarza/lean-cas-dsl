@@ -1,9 +1,9 @@
 module
 
-import CasCompiler.Program
+import CasRuntime.PreparedRequest
 import LeanCategories.Catalogue.Semantics.Algebra.ComputationDerivations
 public meta import Lean.Elab.Command
-meta import CasCompiler.Program
+meta import CasRuntime.PreparedRequest
 meta import LeanCategories.Catalogue.Semantics.Algebra.ComputationDerivations
 
 open Lean Meta CasCompiler CasRuntime CasCatalogue
