@@ -168,5 +168,21 @@ run_cmd liftTermElabM do
       let rationals := Json.mkObj [("args", .arr #[]), ("ctor", "obj.sets.rationals")]
       unless parameters.size == 5 && parameters[0]! == rationals && parameters[2]! == rationals do
         throwError "the lift request does not carry the evidence parameters (ℚ, ℚ): {line}"
+      -- Each later lift port receives the earlier outputs, in the order of the contract's ports
+      -- (api/wire-examples.md, "Prescribed subobject lifts"): `#hom` the returned X1, `#forward`
+      -- X1 and i1, `#backward` X1, i1 and the forward comparison, as its context `bindings`.
+      let bindings := fun (port : String) => do
+        let some line := requests.find? (·.startsWith s!"\{\"op\": \"lift.bilin_module.restrict#{port}\"")
+          | throwError "the peer received no request for #{port}: {requests}"
+        let .ok request := Json.parse line | throwError "the peer log is malformed: {line}"
+        let .ok values := (request.getObjValD "context").getObjValAs? (Array Json) "bindings"
+          | throwError "the #{port} request has no bindings: {line}"
+        pure values
+      let hom ← bindings "hom"
+      let forward ← bindings "forward"
+      let backward ← bindings "backward"
+      unless hom == #[carrierOf] && forward == #[carrierOf, inclusion] && backward.size == 3 &&
+          backward.extract 0 2 == forward && returned backward[2]! do
+        throwError "the lift ports did not receive their earlier outputs: {hom} {forward} {backward}"
     finally liftM (m := IO) session.close
   finally setEnv environment
