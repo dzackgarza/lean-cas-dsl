@@ -1,6 +1,6 @@
 module
 
-public import CasCompiler.SourceCarrier
+public import CasCompiler.Surface
 public import CasCompiler.SourcePresentation
 
 public section

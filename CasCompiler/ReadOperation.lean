@@ -6,6 +6,7 @@ public import CasCompiler.SourceTuple
 public import CasCompiler.SourceRing
 public import CasCompiler.SourceAdmission
 public import CasCompiler.SourceMember
+import CasCompiler.SourceCarrier
 
 public section
 

@@ -1,6 +1,6 @@
 # Intent references
 
-**Work priority:** required functionality has absolute priority over performance. Performance work is the last phase of this project and begins only when every required capability works through the public interface. A slow run, timeout, resource budget or red CI job does not select work and does not block functional work. [Full rule](https://github.com/dzackgarza/lean-cas-dsl/issues/10#work-priority).
+**Work priority (owner correction, 2026-11-17):** follow the [fixed execution queue](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6726232237). Complete the fast inner development feedback loop (T016 / #84) before resuming feature work. Work only on the first unfinished task; parallel work must directly serve it. Advancement requires its complete existing criteria. Reordering or a repair transition requires a dated change to the queue and matching repository plan before implementation resumes. Final mathematical/runtime benchmarks remain after functionality, and every original completion and independent-author requirement remains in force. The queue and owning task entry record current status and evidence.
 
 - [Permanent project constitution](.specify/memory/constitution.md)
 - [Current specification, owner clarifications and research workflows](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6660528117)

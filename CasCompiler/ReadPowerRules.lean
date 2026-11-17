@@ -4,6 +4,7 @@ public import CasCompiler.ReadContext
 public import CasCompiler.ReadNamed
 public import CasCompiler.ReadOperation
 public import CasCompiler.SourceDivision
+import CasCompiler.SourceCarrier
 
 public section
 

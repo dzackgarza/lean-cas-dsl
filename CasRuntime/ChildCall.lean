@@ -1,7 +1,7 @@
 module
 
 public import CasRuntime.ExecutionContext
-public import CasCompiler.Elaborate
+public import CasCompiler.SourceReference
 public import CasRuntime.Literal
 
 public section

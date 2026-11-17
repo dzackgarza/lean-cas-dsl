@@ -1,9 +1,10 @@
 module
 
-public import CasCompiler.SourceCarrier
 public import LeanCategories.Catalogue.Lift
 public import CasCompiler.LiftFamily
 public import CasCompiler.SelectedField
+public import CasCompiler.Elaborate
+import CasCompiler.SourceCarrier
 
 public section
 

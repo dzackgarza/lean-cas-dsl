@@ -24,6 +24,7 @@ public import CasCompiler.ReadApplicationRules
 public import CasCompiler.ReadProjection
 public import CasCompiler.ReadDispatch
 public import CasCompiler.SourceRing
+import CasCompiler.SourceCarrier
 
 public section
 

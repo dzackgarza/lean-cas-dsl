@@ -1,12 +1,20 @@
 module
 
-public import CasCompiler.Surface
+public import CasCompiler.Elaborate
 
-@[expose] public section
+public section
 
 namespace CasCompiler
 
 open Lean Meta CasCatalogue
+
+/-- The actual object and checked whole carrier family that supply an element type. -/
+structure NativeSourceElementOwner where
+  category : NativeSourceCategory
+  value : Expr
+  evidence : Expr
+
+@[expose] section
 
 -- Native source syntax is data. Derive its codec from the independently owned types.
 deriving instance ToJson, FromJson for CategoryId, ClassifierId, CategoryFamilyId
@@ -143,5 +151,7 @@ partial def sourceTypeOrigin? (type : Expr) : MetaM (Option NativeSourceTypeOrig
     | some value => sourceTypeOrigin? value
     | none => pure none
   | _ => pure none
+
+end
 
 end CasCompiler

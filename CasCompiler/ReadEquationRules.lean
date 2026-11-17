@@ -3,6 +3,7 @@ module
 public import CasCompiler.ReadContext
 public import CasCompiler.SourceSubset
 public import CasCompiler.SourceRing
+import CasCompiler.SourceCarrier
 
 public section
 

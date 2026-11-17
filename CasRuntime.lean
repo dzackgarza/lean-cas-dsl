@@ -18,3 +18,4 @@ public import CasRuntime.Transport
 public import CasRuntime.Realization
 public import CasRuntime.Kernel
 public import CasRuntime.Session
+public import CasCompiler.Read

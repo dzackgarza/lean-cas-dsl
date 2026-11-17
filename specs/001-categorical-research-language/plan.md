@@ -1,12 +1,12 @@
 # Implementation plan: categorical research language
 
-**Execution priority:** follow the numbered order recorded below and in the [authoritative handoff](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6726232237). The owner's 2026-11-17 correction makes T016/#84, the measured fast inner feedback loop, the sole active task. All subsequent feature work is paused until that task is complete. Final mathematical/runtime benchmarking remains after functionality.
+**Work priority (owner correction, 2026-11-17):** follow the [fixed execution queue](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6726232237). Complete the fast inner development feedback loop (T016 / #84) before resuming feature work. Work only on the first unfinished task; parallel work must directly serve it. Advancement requires its complete existing criteria. Reordering or a repair transition requires a dated change to the queue and matching repository plan before implementation resumes. Final mathematical/runtime benchmarks remain after functionality, and every original completion and independent-author requirement remains in force. The queue and owning task entry record current status and evidence.
 
 Feature context: `001-categorical-research-language`.
 
-Read the [current consolidated implementation plan](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6664354269) against the [clarified specification](spec.md) and [permanent constitution](../../.specify/memory/constitution.md).
+Read the [current consolidated implementation plan](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6664354269) against the [clarified specification](spec.md) and [permanent constitution](../../.specify/memory/constitution.md). The [authoritative handoff's fixed execution queue](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6726232237) governs the active implementation order. The identical dated queue below is its repository record; source-to-result requirements remain mandatory at their assigned task ranks.
 
-| Artifact | Current issue-owned content |
+| Artifact | Issue-owned design, assignment and evidence |
 |---|---|
 | `research.md` | [Current Phase 0 source investigation and architectural decision](https://github.com/dzackgarza/lean-cas-dsl/issues/85#issuecomment-6708266418) |
 | `data-model.md` | [Consolidated retained-context, selection and value model](https://github.com/dzackgarza/lean-cas-dsl/issues/66#issuecomment-6664275536) |
@@ -18,7 +18,10 @@ Read the [current consolidated implementation plan](https://github.com/dzackgarz
 
 The current consolidated bodies replace the older conflicting design and task wording. Earlier G1 discovery/coverage proposals are historical research, not additional operative selection requirements. The research record identifies the reusable structural algorithm and the rejected general gateway.
 
-This file is an artifact index. Full source judgments, decisions, task state and validation remain in the owning issues; no production acceptance follows from a planning review.
+This file indexes the issue-owned work. The constitution, mathematical execution model,
+feature scenarios and local contract requirements remain maintained repository requirements.
+Implementation decisions, task state and validation remain in the owning issues; no production
+acceptance follows from a planning review.
 
 ## Required model at implementation entry
 
@@ -27,6 +30,11 @@ Read [the mathematical execution model](../architecture.md), constitutional C23 
 The local source, runtime, session and data-model contracts state the same preservation boundary.
 Each implementation change must reach its original public mathematical continuation. Work state
 and evidence remain issue-owned; this requirement supplement creates no new implementation lane.
+
+The [development boundaries](../../AGENTS.md#development-boundaries) and
+[focused commands](../../CONTRIBUTING.md#focused-development) apply to that same implementation.
+They specify boundaries for source preparation, actual request binding, generic execution and final assembly;
+they do not authorize preserving reconstruction machinery behind those interfaces.
 
 ## Committed execution order — owner correction of 2026-11-17
 

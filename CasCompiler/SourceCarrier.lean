@@ -2,6 +2,7 @@ module
 
 public import CasCompiler.SourceRoutes
 public import CasCompiler.SourceTypeOrigin
+public import CasCompiler.Surface
 public import CasContract.Registration
 public import CasContract.Failure
 
@@ -263,12 +264,6 @@ def sourceFunction (source : NativeSourceJudgement) : TermElabM Expr := do
     let carrier ← sourceCarrier source
     sourceSetFunction carrier.value
   else pure source.value
-
-/-- The actual object and checked whole carrier family that supply an element type. -/
-structure NativeSourceElementOwner where
-  category : NativeSourceCategory
-  value : Expr
-  evidence : Expr
 
 private partial def elementTypeBody (type : Expr) : Expr :=
   match type with

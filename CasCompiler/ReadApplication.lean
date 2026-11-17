@@ -4,6 +4,7 @@ public import CasCompiler.ReadContext
 public import CasCompiler.SourceRing
 public import CasCompiler.SourceTuple
 public import CasCompiler.SourceSubset
+import CasCompiler.SourceCarrier
 
 public section
 

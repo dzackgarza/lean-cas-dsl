@@ -1,8 +1,9 @@
 module
 
 public import CasRuntime.Kernel
-public import CasCompiler.Read
+public import CasCompiler.ReadSession
 public import CasCatalogue.Evaluation
+import CasCompiler.SourceCarrier
 
 public section
 

@@ -2,7 +2,8 @@ module
 
 public import CasCompiler.SourceMember
 public import CasCompiler.SourceAdmission
-public import CasCompiler.SourceCarrier
+public import CasCompiler.SourceTypeOrigin
+import CasCompiler.SourceCarrier
 
 public section
 

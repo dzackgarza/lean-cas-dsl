@@ -1,6 +1,6 @@
 # Constitution and issue references
 
-**Work priority:** required functionality has absolute priority over performance. Performance work is the last phase of this project and begins only when every required capability works through the public interface. A slow run, timeout, resource budget or red CI job does not select work and does not block functional work. [Full rule](https://github.com/dzackgarza/lean-cas-dsl/issues/10#work-priority).
+**Work priority (owner correction, 2026-11-17):** follow the [fixed execution queue](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6726232237). Complete the fast inner development feedback loop (T016 / #84) before resuming feature work. Work only on the first unfinished task; parallel work must directly serve it. Advancement requires its complete existing criteria. Reordering or a repair transition requires a dated change to the queue and matching repository plan before implementation resumes. Final mathematical/runtime benchmarks remain after functionality, and every original completion and independent-author requirement remains in force. The queue and owning task entry record current status and evidence.
 
 Read the [project constitution](.specify/memory/constitution.md) before the
 applicable issue requirements. It is the permanent repository authority for
@@ -48,3 +48,30 @@ own work assignments and evidence. A source implementation is not authority to w
 - Check the extension consequence: a new category with immediate functors leaves existing category
   implementations unchanged; a new generic method leaves existing applicable leaves unchanged.
   Verify the original mathematical continuation, not only dispatch or helper behavior.
+
+## Development boundaries
+
+Apply the [current source-to-result correction](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6726232237)
+when a functional task becomes active under the fixed queue. Preserve the dependency cuts already made while
+correcting the mathematical relationship; moving recovery code into another file does not repair it.
+
+- Checked source families and `ProgramBoundary` do not import runtime ownership or value storage.
+  Actual operand binding and response admission belong to runtime request preparation.
+- Source rules share the typed reading context and import only the mathematical mechanisms they
+  use. The complete reader assembles those rules; transport and lifecycle code do not import it.
+- Runtime execution consumes prepared operations. Provider-requested calls use the same source
+  preparation as direct calls; a runtime module must not rebuild their mathematical applications.
+- Production targets build the connected public implementation. Compiler/runtime test targets are
+  separate, and tests never provision packages during Lean elaboration or name a developer's
+  absolute interpreter path.
+- Use the [focused development commands](CONTRIBUTING.md#focused-development) for the changed
+  mechanism, then rebuild and run its original public consumer. Diagnostics stream immediately;
+  profiling is explicit and no prior profile is required to finish a slow functional build.
+- Assess encapsulation from actual imports, public declarations and affected consumers. Neither
+  file counts nor moving a function establishes an independent compilation boundary. Preserve
+  executable metaprogram dependencies when narrowing public imports.
+
+The full production, notebook, mathematical and independent-extension obligations remain with
+their existing owners. Focused checks establish only their exercised properties. Independent
+extension trials keep the kernel, released contract, old consumer and expectations frozen under
+C12; adding another kernel case to accommodate an extension fails that candidate.

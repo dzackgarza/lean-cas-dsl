@@ -1,7 +1,8 @@
 module
 
 public import CasCompiler.ReadContext
-public import CasCatalogue.Evaluation
+public import CasCatalogue.Decide
+import CasCompiler.SourceCarrier
 
 public section
 

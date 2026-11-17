@@ -5,6 +5,7 @@ public import CasCompiler.ReadApplication
 public import CasCompiler.SourceMethod
 public import CasCompiler.SourceMember
 public import CasCompiler.SourceSubset
+import CasCompiler.SourceCarrier
 
 public section
 

@@ -4,7 +4,7 @@
 
 ## Core Principles
 
-**Required functionality has absolute priority over performance; see [C21](#c21-required-functionality-precedes-all-performance-work).**
+**Fast inner development feedback comes first; final mathematical/runtime performance follows complete functionality. See [C21](#c21-fast-development-feedback-first-final-performance-after-functionality).**
 
 C0 states the product and its guiding commitments. C1–C13, C15, C22 and C23 specify its mathematical,
 computational and user-facing invariants. The [authority and scope](#authority-and-scope),
@@ -1309,27 +1309,49 @@ skill or revising an agent-authored plan.
 construction and review policies][S9]; [coherent-review and assignment requirements on
 main][S37]; [November 2 authorization policy][S33].
 
-### C21. Required functionality precedes all performance work
+<a id="c21-required-functionality-precedes-all-performance-work"></a>
 
-Required functionality has absolute priority over performance. Performance work is the last phase
-of this project and begins only when every required capability works through the public interface.
-This article governs the order of work. It removes no capability, question, assertion or resource
-requirement.
+### C21. Fast development feedback first; final performance after functionality
 
-A slow run, timeout, memory limit, benchmark, resource or heartbeat budget, or a red or unfinished
-expensive CI job does not select work and does not block functional work. Functional work may use
-any time, memory or heartbeat limit that it needs. Optimization during functional work is permitted
-only when a small required example of the selected capability cannot finish at all; the work then
-returns to that capability.
+The owner's November 17 correction makes the fast inner development feedback loop the immediate
+priority, before resuming feature work. This is an explicit exception to the historical blanket
+ordering of all performance work after functionality. The actual loop is a real source edit,
+rebuilding its affected imports and executable dependencies, and running the same unchanged public
+check. Completion requires comparable before/after measurements on the same source/input,
+toolchain and host, including the check outcome. A cached no-edit run, stale-import check, reduced
+workload or helper-only check does not establish this requirement. [S49] [S50]
+
+The [owner's fixed task queue][S49], recorded in the repository plan, governs execution. Only its
+first unfinished task is active; parallel work must directly serve that task. Reordering or
+entering a repair transition requires an explicit dated change to the queue and repository plan
+before implementation resumes. The November 17 promotion of T016 / #84 includes focused commands,
+explicit SDK setup, production/test separation and justified dependency cuts insofar as they
+serve the measured loop. This exception does not mark T012 or any other functional task complete.
+
+Required functionality has absolute priority over final mathematical and runtime performance
+work. That performance work remains the last phase of this project and begins only when every
+required capability works through the public interface. This article governs the order of work.
+It removes no capability, question, assertion, independent-author boundary or resource requirement.
+
+Outside the explicit development-feedback correction above, a slow run, timeout, memory limit,
+benchmark, resource or heartbeat budget, or a red or unfinished expensive CI job does not select
+work and does not block functional work. Functional work may use any time, memory or heartbeat
+limit that it needs. Optimization during functional work is otherwise permitted only when a small
+required example of the selected capability cannot finish at all; the work then returns to that
+capability.
 
 Budgets named by C11 and by the acceptance inventory remain obligations of the last phase. Their
-position in a list or task order does not schedule them earlier. A goal, plan, outline, handoff or
-task order derives its sequence from the remaining functionality and not from CI state. It cannot
-add a performance priority.
+position in a list or issue-group order does not schedule them earlier. A goal, plan, outline,
+handoff or task order follows the authorized fixed queue and actual functional dependencies,
+not CI state, and cannot add another performance priority.
 
 Evidence that only shows self-consistency comes after functionality in the same way: independent
 assessments, acceptance inventories, frozen trials, preservation arguments and correctness proofs
 remain obligations where this constitution requires them, and they do not gate functional work.
+
+**Source basis:** [November 17 owner priority and fixed task queue][S49]; [matching committed
+repository queue][S50]. The 1.4.0/1.5.0 adoption entries below retain the historical rule as adopted;
+the present exception records the later explicit owner correction.
 
 ### Adoption record
 
@@ -1346,6 +1368,7 @@ remain obligations where this constitution requires them, and they do not gate f
 | 1.6.1 | 2026-11-15 | Clarify C22 without changing its obligation: unfolding a definition to the published operations, constructors and literals it is built from is composition; reducing a term in Lean to a value is not permitted; a numeral is sent as its registered descriptor. |
 | 1.7.0 | 2026-11-17 | Add C23 under the [authorized forward-realization amendment][S48]. The existing articles required preservation of selected data and actual results. C23 makes their implementation consequence explicit: constructors supply complete categorical interfaces; inherited actions execute the selected functorial composite; morphism and universal-construction data remain attached to their selections; occurrence identity is retained rather than inferred from equality; dependent inputs come from the formal interface; and all public calls share mathematical preparation. Repairs restore the forward relationship and remove its superseded recovery mechanism in the same change. This substantive elaboration preserves mathematical authority, computational ownership and the original acceptance obligations. |
 | 1.8.0 | 2026-11-17 | Elaborate C23 under the authorized repository-wide mathematical-model clarification. The prior article required forward realization and retained selections; the expanded obligation specifies category interfaces, public target constructors for both functor actions, correctly typed methods, evidence-based classifier refinement and coexistence of selected structures. The reason is to make these consequences explicit at implementation entrypoints. The local architecture specification records the model and source references; contribution rules and the existing feature contracts carry its application and acceptance conditions. |
+| 2.0.0 | 2026-11-17 | Amend only C21's work ordering under the [explicit owner correction and fixed queue][S49], also [committed in the repository plan][S50]. Old obligation: all performance work followed complete functionality except when a small required example could not finish. New obligation: first complete the measured real source-edit/rebuild/unchanged-public-check loop, with only the first unfinished queued task active and explicit recorded changes before reordering; final mathematical/runtime performance and budgets still follow complete functionality. Reason: the owner explicitly prioritized fast inner feedback and required the written, committed execution order. This is a major version under the existing governance rule because it changes the written scheduling obligation; it changes no mathematical, functional, independent-authorship, acceptance or final-budget requirement. Historical adoption entries remain intact. |
 
 ### Provenance
 
@@ -1417,5 +1440,7 @@ evidence of an authorized amendment.
 [S46]: https://github.com/dzackgarza/lean-cas-dsl/blob/a206552ca315726c5d8cca356cebc65f617d4d7a/README.md
 [S47]: https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6891013550
 [S48]: https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6938133034
+[S49]: https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6726232237
+[S50]: https://github.com/dzackgarza/lean-cas-dsl/commit/da8e31db0d9a75bf037207970649c101f8b3fb89
 
-**Version**: 1.8.0 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-17
+**Version**: 2.0.0 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-17

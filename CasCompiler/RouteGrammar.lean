@@ -1,6 +1,7 @@
 module
 
-public import Lean
+public import Std.Data.HashMap.Basic
+import Std.Data.HashSet.Basic
 
 @[expose] public section
 

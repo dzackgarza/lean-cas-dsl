@@ -3,6 +3,7 @@ module
 public import CasCompiler.ReadContext
 public import CasCompiler.ReadAdmission
 public import CasCompiler.ReadOperation
+import CasCompiler.SourceCarrier
 
 public section
 

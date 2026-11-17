@@ -1,7 +1,7 @@
 module
 
 public import CasRuntime.Invocation
-public import CasCompiler.Elaborate
+public import CasCompiler.SourceReference
 public import CasCompiler.SelectedField
 
 public section

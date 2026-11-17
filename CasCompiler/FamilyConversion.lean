@@ -1,12 +1,13 @@
 module
 
-public import CasCompiler.Declaration
+public import Lean.Meta.Basic
+import Lean.Meta.AppBuilder
 
 public section
 
 namespace CasCompiler
 
-open Lean Meta Elab Term CasCatalogue
+open Lean Meta
 
 /-- Check native conversion or an actual supplied equality of complete rigid families.
 Reuse: SourceSession.operationConversion's native equality and SourceEquality's exact

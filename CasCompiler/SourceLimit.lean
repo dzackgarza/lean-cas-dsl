@@ -1,7 +1,8 @@
 module
 
-public import CasCompiler.SourceCarrier
 public import Mathlib.CategoryTheory.Limits.Shapes.BinaryProducts
+public import CasCompiler.Elaborate
+import CasCompiler.SourceCarrier
 
 public section
 
