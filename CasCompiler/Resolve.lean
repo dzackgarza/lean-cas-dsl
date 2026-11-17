@@ -1,6 +1,8 @@
 module
 
-public import CasCompiler.RouteGrammar
+public import CasCompiler.SourceRoutes
+public import CasCompiler.OperationFamily
+public import CasCompiler.FamilyConversion
 public import CasCompiler.Surface
 public import LeanCategories.Catalogue.Registry.Semantic
 public import Mathlib.CategoryTheory.NatIso
@@ -11,172 +13,6 @@ public section
 namespace CasCompiler
 
 open Lean Meta Elab Term CasCatalogue
-
-/-- Check native conversion or an actual supplied equality of complete rigid families.
-Reuse: SourceSession.operationConversion's native equality and SourceEquality's exact
-proof-type validation. Mathematical agreement evidence is an input to this consumer. -/
-def sourceFamilyConversion (left right : Expr) (evidence : Array Expr) :
-    MetaM (Option Expr) := do
-  if left.hasMVar || left.hasLevelMVar || right.hasMVar || right.hasLevelMVar then
-    throwError "whole source family comparison requires rigid parameters and universes"
-  unless ← isDefEq (← inferType left) (← inferType right) do return none
-  let proposition ← mkEq left right
-  if ← withoutModifyingState <| isDefEq left right then
-    let proof ← mkExpectedTypeHint (← mkEqRefl left) proposition
-    checkWithKernel proof
-    return some proof
-  for proof in evidence do
-    if proof.hasMVar || proof.hasLevelMVar then
-      throwError "whole source agreement evidence has undetermined parameters"
-    if ← withoutModifyingState <| isDefEq (← inferType proof) proposition then
-      let proof ← mkExpectedTypeHint proof proposition
-      checkWithKernel proof
-      return some proof
-  return none
-
-private inductive SourceSymbol
-  | atom (expression : CategoryExpr)
-  | constructor (id : ConstructorId)
-
-private def SourceSymbol.same : SourceSymbol → SourceSymbol → Bool
-  | .atom left, .atom right => left.syntacticEq right
-  | .constructor left, .constructor right => left == right
-  | _, _ => false
-
-private def symbol (value : SourceSymbol) : StateM (Array SourceSymbol) Nat := do
-  let symbols ← get
-  if let some index := symbols.findIdx? (·.same value) then return index
-  set (symbols.push value)
-  return symbols.size
-
-/-- Exact source decomposition follows the same active unary-context test as edgesFrom.
-Residual atoms retain their entire parameter syntax and selected symbolic structure. -/
-private partial def encode (constructors : Array ConstructorId) (category : CategoryExpr) :
-    StateM (Array SourceSymbol) RouteGrammar.Word := do
-  match category with
-  | .construct id args =>
-    match args with
-    | #[.category inner] =>
-      if constructors.contains id then
-        let leading ← encode constructors inner
-        return leading.push (← symbol (.constructor id))
-      else return #[← symbol (.atom category)]
-    | _ => return #[← symbol (.atom category)]
-  | _ => return #[← symbol (.atom category)]
-
-inductive RouteQuery
-  | owner (category : CategoryExpr)
-  | operation (name : String)
-  | method (name : String)
-
-inductive RouteTarget
-  | owner (category : CategoryExpr)
-  | operation (category : NamedCategoryEntry) (binding : OperationEntry)
-  | method (binding : MethodEntry)
-
-def RouteTarget.category : RouteTarget → CategoryExpr
-  | .owner category => category
-  | .operation category _ => category.expression
-  | .method binding => binding.owner
-
-/-- Symbolic route family over the exact frozen registry inventory.
-Native dependent operation formation and comparison evidence are separate consumers. -/
-structure SourceRoutes where
-  private mk ::
-  private state : SemanticState
-  source : CategoryExpr
-  query : RouteQuery
-  targets : Array RouteTarget
-  private symbols : Array SourceSymbol
-  edges : Array StructuralEdge
-  language : RouteGrammar.RouteLanguage
-
-private def sourceRoutes (state : SemanticState) (source : CategoryExpr)
-    (query : RouteQuery) : CoreM SourceRoutes := do
-  Core.checkSystem "source route construction"
-  let targets := match query with
-    | .owner category => #[RouteTarget.owner category]
-    | .operation name => state.categories.flatMap fun category =>
-      (state.operationBindings category.expression name).map (RouteTarget.operation category)
-    | .method name => (state.methods.filter (·.name == name)).map RouteTarget.method
-  let constructors := (state.constructors.filter (·.functorialAction.isSome)).map (·.id)
-  let edges := state.structuralEdges
-  let build : StateM (Array SourceSymbol)
-      (RouteGrammar.Word × Array RouteGrammar.Word × Array RouteGrammar.PrefixRule) := do
-    let initial ← encode constructors source
-    let targets ← targets.mapM (fun target => encode constructors target.category)
-    let rules ← edges.mapM fun edge => do
-      let lhs ← encode constructors edge.source
-      let rhs ← encode constructors edge.target
-      return ({ lhs, rhs } : RouteGrammar.PrefixRule)
-    return (initial, targets, rules)
-  let ((initial, encodedTargets, rules), symbols) := build.run #[]
-  let .ok language := RouteGrammar.compile rules initial encodedTargets
-    | throwError "the source registry produced an invalid ground-prefix route system"
-  Core.checkSystem "source route saturation"
-  return ⟨state, source, query, targets, symbols, edges, language⟩
-
-/-- Project one independently supplied owner target from the current accepted source inventory.
-Reuse: structuralEdges/edgesFrom and the source correspondence in #66 comment 6693871042. -/
-opaque SourceRoutes.forOwner (source owner : CategoryExpr) : CoreM SourceRoutes := do
-  sourceRoutes (← semanticState) source (.owner owner)
-
-/-- Bind the surface operation name before any arity filtering, exactly as the source does. -/
-opaque SourceRoutes.forOperation (source : CategoryExpr) (name : String) : CoreM SourceRoutes := do
-  sourceRoutes (← semanticState) source (.operation name)
-
-/-- Stop at every first actual owner of this method name, before applying a receiver.
-Reuse: the same accepted structural inventory and first-hit ground-prefix grammar. -/
-opaque SourceRoutes.forMethod (source : CategoryExpr) (name : String) : CoreM SourceRoutes := do
-  sourceRoutes (← semanticState) source (.method name)
-
-/-- Reconstruct a selected symbolic derivation and validate it against the frozen source.
-Actual edge references and constructor actions remain attached to each source occurrence. -/
-opaque SourceRoutes.reconstruct (routes : SourceRoutes) (trace : RouteGrammar.Word) :
-    CoreM Route := do
-  let .ok occurrences := routes.language.reconstruct trace
-    | throwError "the selected trace is not a first-hit source derivation"
-  let mut current := routes.source
-  let mut refs := #[]
-  for occurrence in occurrences do
-    Core.checkSystem "source route reconstruction"
-    let some base := routes.edges[occurrence.rule]?
-      | throwError "the selected trace lost its original structural edge"
-    let mut edge := base
-    for ordinal in occurrence.outerContext do
-      let some (.constructor id) := routes.symbols[ordinal]?
-        | throwError "the source constructor suffix contains a residual atom"
-      edge := {
-        source := .construct id #[.category edge.source]
-        target := .construct id #[.category edge.target]
-        expression := .constructMap id edge.expression
-        ref := .constructMap id edge.ref }
-    unless current.syntacticEq edge.source do
-      throwError "the reconstructed source route has incompatible complete endpoints"
-    refs := refs.push edge.ref
-    current := edge.target
-  unless routes.targets.any (·.category.syntacticEq current) do
-    throwError "the reconstructed source route lost its exact binding target"
-  let some steps := routes.state.routeEdges? routes.source current refs
-    | throwError "the reconstructed route does not belong to the retained source inventory"
-  let route : Route := { source := routes.source, target := current, steps }
-  if let .operation name := routes.query then
-    unless routes.state.isFirstOperationBindingRoute name route do
-      throwError "the reconstructed route does not reach its first actual operation binding"
-  Core.checkSystem "source route validation"
-  return route
-
-/-- Reconstruct every finite raw candidate family; none denotes an infinite trace language.
-Each returned route retains and validates its actual source edges and constructor actions. -/
-opaque SourceRoutes.finiteRoutes (routes : SourceRoutes) : CoreM (Option (Array Route)) := do
-  Core.checkSystem "finite source route extraction"
-  let words := routes.language.grammar.finiteWords
-  Core.checkSystem "finite source route saturation"
-  let result ← match words with
-    | none => pure none
-    | some words => return some (← words.mapM routes.reconstruct)
-  Core.checkSystem "finite source route publication"
-  return result
 
 /-- An exact symbolic source category and its retained native bundle. -/
 structure SourceCategory where
@@ -375,20 +211,6 @@ opaque SourceSession.unaryCategoryFamily (session : SourceSession) (reference : 
       mkLambdaFVars parameters value
   return ⟨.construct id #[.category argument.expression], family⟩
 
-private partial def withRigidArguments {α : Type} (arguments : Array Expr)
-    (infos : Array BinderInfo) (start stop : Nat)
-    (action : Array Expr → MetaM α) : MetaM α := do
-  let rec visit (index : Nat) (rigid : Array Expr) : MetaM α := do
-    if index >= stop then return ← action rigid
-    let argument ← instantiateMVars arguments[index]!
-    if !argument.isMVar then return ← visit (index + 1) rigid
-    let declaration ← argument.mvarId!.getDecl
-    withLocalDecl declaration.userName infos[index]! (← instantiateMVars declaration.type)
-        fun parameter => do
-      argument.mvarId!.assign parameter
-      visit (index + 1) (rigid.push parameter)
-  visit start #[]
-
 /-- Exact source binding and route, with the entire generic morphism family. -/
 structure SourceOperationFamily where
   private mk ::
@@ -397,53 +219,6 @@ structure SourceOperationFamily where
   route : Route
   binding : OperationEntry
   term : SourceTerm
-
-/-- A complete declaration family and the position of its original source object. -/
-structure NativeOwnedFamily where
-  value : Expr
-  objectIndex : Nat
-
-/-- Route a whole declaration at a rigid source object, retaining independent parameters.
-Reuse: nativeOperationFamily's source telescope and withRigidArguments; the actual operation
-or numeral signature determines its object position. -/
-def nativeOwnedFamily (state : SemanticState) (source : CategoryExpr)
-    (categoryFamily : Expr) (route : Route) (declaration : Name)
-    (objectPosition : Array BinderInfo → Option Nat) : MetaM NativeOwnedFamily := do
-  unless source.syntacticEq route.source do
-    throwError "the declaration family has a different complete symbolic source"
-  discard <| checkedDeclaration declaration
-  forallTelescopeReducing (← inferType categoryFamily) fun parameters _ => do
-    let category := mkAppN categoryFamily parameters
-    let selected ← nativeRouteFunctor state route category
-    let functor := selected.functor
-    let carrier ← mkAppM ``CategoryTheory.Bundled.α #[category]
-    withLocalDeclD `sourceObject carrier fun object => do
-      let prefunctor ← mkAppM ``CategoryTheory.Functor.toPrefunctor #[functor]
-      let image ← mkAppM ``Prefunctor.obj #[prefunctor, object]
-      let constant ← mkConstWithFreshMVarLevels declaration
-      let (arguments, infos, result) ← forallMetaTelescopeReducing (← inferType constant)
-      let some position := objectPosition infos
-        | throwError "the whole declaration family has no object parameter"
-      unless (← whnfR result).isAppOf ``Quiver.Hom do
-        throwError "the declaration family does not retain its whole morphism result"
-      unless ← isDefEq (← inferType arguments[position]!) (← inferType image) <&&>
-          isDefEq arguments[position]! image do
-        throwError "the declaration family has a different complete routed object"
-      withRigidArguments arguments infos 0 position fun prefixParameters => do
-        withRigidArguments arguments infos (position + 1) arguments.size
-            fun suffixParameters => do
-          let body ← instantiateMVars (mkAppN constant arguments)
-          let value ← mkLambdaFVars
-            (parameters ++ prefixParameters ++ #[object] ++ suffixParameters) body
-          return ⟨value, parameters.size + prefixParameters.size⟩
-
-/-- Form the whole native operation before selecting its source object or operands.
-Reuse: validateOperation's object/numeral boundary and nativeOwnedFamily. -/
-def nativeOperationFamily (state : SemanticState) (source : CategoryExpr)
-    (categoryFamily : Expr) (route : Route) (binding : OperationEntry) : MetaM Expr := do
-  let family ← nativeOwnedFamily state source categoryFamily route binding.declaration fun infos =>
-    if infos.size > binding.numerals then some (infos.size - 1 - binding.numerals) else none
-  return family.value
 
 private def operationTerm (state : SemanticState) (session : SourceSession) (reference : Syntax)
     (source : SourceCategoryFamily) (route : Route) (binding : OperationEntry) :

@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.SourceCarrier
+public import CasCompiler.FamilyConversion
 
 public section
 

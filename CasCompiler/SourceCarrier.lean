@@ -1,6 +1,6 @@
 module
 
-public import CasCompiler.Resolve
+public import CasCompiler.SourceRoutes
 public import CasCompiler.SourceTypeOrigin
 public import CasContract.Registration
 public import CasContract.Failure
@@ -43,7 +43,7 @@ private structure CarrierCategoryFamily where
   value : Expr
   universes : List Name
 
--- Reuse the named-category and unary-constructor family rules in Resolve.lean.
+-- Reuse the named-category and unary-constructor families in the semantic registry.
 -- All source parameters and universes stay rigid while comparing complete functors.
 private partial def carrierCategoryFamily (state : SemanticState) (source : CategoryExpr) :
     MetaM CarrierCategoryFamily := do
