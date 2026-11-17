@@ -13,3 +13,16 @@ Read the current linked text and its CHK001–CHK040 markers in full. This point
 is not an empty or passed checklist. Requirements-quality review, implementation
 completion and independent acceptance have their distinct meanings in that text.
 The separate built-in `requirements.md` checklist retains its own review lifecycle.
+
+## Mathematical-model review criteria
+
+Review the [execution model](../../architecture.md) and MM001–MM012 alongside the issue-owned
+criteria. For each affected path, identify the authoritative declaration, actual operation domain,
+selected composite, public target construction, refinement evidence, retained occurrence and
+subsequent consumer. Check comparison transport without assuming equality, property versus choice,
+generic dependent inputs, shared public-call preparation and provider-independent meaning.
+
+Reject a repair that leaves reconstruction in place of a lost selected relationship. Check the
+unchanged target consumer and independently required mathematical assertions. A checked document
+or transport test is not evidence that these behaviors execute. Review dispositions remain in
+the owning issue; this text assigns no passed status.

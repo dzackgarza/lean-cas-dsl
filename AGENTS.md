@@ -23,3 +23,27 @@ issues; changes to constitutional requirements follow its amendment rules.
 - [Construction inputs](https://github.com/dzackgarza/lean-cas-dsl/issues/23)
 - [Higher coherence](https://github.com/dzackgarza/lean-cas-dsl/issues/82)
 - Goals, plans and handoffs: section "Goals, outlines and plans" of `~/ai/AGENTS.global.md`
+
+## Required mathematical model
+
+Before changing interpretation, execution or a category interface, read
+[the mathematical execution model](specs/architecture.md) and constitutional C1–C8, C22–C23.
+The local explanation and feature contracts are maintained requirement documents; issue records
+own work assignments and evidence. A source implementation is not authority to weaken either.
+
+- Resolve the independently declared mathematical operation and its complete dependent interface
+  before selecting a provider. Category membership and method applicability come from that source.
+- Realize functor object and morphism actions through public target constructors and exact selected
+  endpoints. Inherited methods use the formal composite, with its actual domain and comparisons.
+- Apply refinements only through formal classifiers, rules and evidence. Retain chosen structures
+  separately from existence proofs; permit simultaneous refinements.
+- Carry selected bindings, morphisms, cones, comparisons and dependent inputs forward. Preserve
+  computational occurrence identity even when formal expressions are equal.
+- Use common source preparation for all public requests, including deferred and provider requests.
+  Keep runtime execution generic and mathematical computation in leaves, as C22 requires.
+- Diagnose a lost association at the boundary that discarded it. Repair the producer and consumer
+  together and delete its recovery substitute. Do not improve expression matching, global endpoint
+  lookup or apex recognition as a replacement for retained mathematical data.
+- Check the extension consequence: a new category with immediate functors leaves existing category
+  implementations unchanged; a new generic method leaves existing applicable leaves unchanged.
+  Verify the original mathematical continuation, not only dispatch or helper behavior.

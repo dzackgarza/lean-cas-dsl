@@ -19,3 +19,11 @@ Read the [current consolidated implementation plan](https://github.com/dzackgarz
 The current consolidated bodies replace the older conflicting design and task wording. Earlier G1 discovery/coverage proposals are historical research, not additional operative selection requirements. The research record identifies the reusable structural algorithm and the rejected general gateway.
 
 This file is an artifact index. Full source judgments, decisions, task state and validation remain in the owning issues; no production acceptance follows from a planning review.
+
+## Required model at implementation entry
+
+Read [the mathematical execution model](../architecture.md), constitutional C23 and
+[MM001–MM012](spec.md#mathematical-model-acceptance) before applying the issue-owned plan.
+The local source, runtime, session and data-model contracts state the same preservation boundary.
+Each implementation change must reach its original public mathematical continuation. Work state
+and evidence remain issue-owned; this requirement supplement creates no new implementation lane.

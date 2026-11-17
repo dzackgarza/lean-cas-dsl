@@ -561,6 +561,25 @@ realizations: computing a field may be deferred, but its mathematical meaning an
 the selected construction must already be fixed. A missing provider is the C22 execution outcome,
 not permission to supply an incomplete mathematical object.
 
+**Categories are the units of organization.** The objects, homs, endpoint maps, identities,
+composition, operations and relations of a category are declarations of **M**. Its computational
+implementation supplies algorithms against those declarations. Backend classes do not determine
+membership or the available mathematical interface. In particular, the category of a functor
+image is its declared target; discovering where that image originated is not a prerequisite for
+using target-category methods.
+
+**Functor actions construct their targets.** For a declared functor $F:C\to D$, an object action
+computes defining data through public source operations and supplies those data to a public
+constructor of $D$. Its morphism action constructs an arrow with the selected endpoints $F(X)$
+and $F(Y)$ through the public morphism interface of $D$. Both actions must realize the formal
+functor, including its identity and composition laws. These laws remain independently specified;
+this does not assign proofs to leaves. An existing target object or arrow may be returned when
+the specified action selects it. Public construction does not require fresh allocation or eager
+evaluation. A target result must support the complete applicable interface, including methods
+added independently later. Implementations must not inspect another leaf's private layout to
+make this possible. A fused realization of a composite is admissible only against the same
+formal operation, dependent interface and independent correctness obligation.
+
 **Inheritance is composition.** Given an accepted structural functor $F:\mathcal C\to\mathcal D$
 and a method $P:\mathcal D\to\mathcal E$, applying that inherited method to $x\in\mathcal C$
 means evaluating the selected composite $(P\circ F)(x)$. Applicability, parameters, variance and
@@ -569,6 +588,27 @@ those actions through the published constructors and methods. Matching carriers,
 forms or implementation classes cannot supply an additional interpretation of the intermediate
 object. A routing algorithm serves this composition; its existence is not completion of the
 composite's required execution.
+
+The domain of a method must be its actual formal domain. An isomorphism invariant can be defined
+on the core groupoid of its owner; cardinality must not be assigned an invented functor action
+from all set maps to a discrete category of cardinals. Parameter-object morphisms, dependent
+sections, slice or arrow category operations and higher constructions retain their declared
+types. For an ordinary functorial method, inheritance includes the morphism action
+$(P\circ F)(f)=P(F(f))$, not only the object action. Parallel routes with equal endpoints remain
+distinct until the accepted comparison rule relates their complete meanings. A natural
+isomorphism supplies component maps and the prescribed transport; it does not by itself assert
+judgmental equality of method results. C6 governs ambiguity and explicit route preferences.
+
+**Refinement consumes formal evidence.** For a classifier $p:E\to C$, the property query has
+the meaning $\operatorname{Holds}(p,X)=\operatorname{Nonempty}(p^{-1}(X))$, with the categorical
+fiber specified in **M**. An available formal refinement rule and its evidence determine the
+refined object and its comparison with $X$. A returned list or a backend type cannot establish
+that rule or evidence. Computational predicate answers remain claims under C2 and C22; formal
+proof procedures retain their separate role. Property evidence must not silently select a basis,
+orientation, enumeration or other structure. Such a use requires the actual chosen data in the
+specified fiber. Several justified refinements may coexist; resolution must not assume a unique
+most-specialized category. Missing upstream mathematics must be identified as such rather than
+supplied by downstream classification code.
 
 **Selected data remains selected.** A morphism retains its actual domain and codomain projections.
 A chosen limit retains its diagram, cone and defining legs, with the specified universal
@@ -627,6 +667,8 @@ passes.
 
 **Source basis:** [November 17 forward-realization amendment][S48], elaborating C4, C5, C7, C8,
 C18 and C22. The mathematical-authority and independent-acceptance boundaries remain unchanged.
+The [mathematical execution model](../../specs/architecture.md) records the authorized
+November 17 elaboration, its source references and the corresponding specification obligations.
 
 ### C9. Independent acceptance preserves the complete question
 
@@ -1303,6 +1345,7 @@ remain obligations where this constitution requires them, and they do not gate f
 | 1.6.0 | 2026-11-15 | Add C22 by owner decision ([issue #10](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6891013550)). Old obligation: no article stated what the kernel may compute; the interpretation contract and T033 assigned eliminators, recursors and source recursion to the kernel, and the lowerer reduced closed data with no published operation in Lean. New obligation: every operation, method and predicate is computed by a leaf, and the kernel only resolves each request to a leaf implementation or reports no implementation; a leaf owns its control logic and may use any formalized operation internally, through another leaf directly, or by asking the kernel; a value with no published operation has the no-implementation outcome; discharging a closed proposition through a proof procedure registered upstream remains permitted. Reason: kernel-side evaluation made the kernel an unregistered provider. Reconciled in the specification, tasks, plan, interpretation contract and handoff on issues #10 and #66. |
 | 1.6.1 | 2026-11-15 | Clarify C22 without changing its obligation: unfolding a definition to the published operations, constructors and literals it is built from is composition; reducing a term in Lean to a value is not permitted; a numeral is sent as its registered descriptor. |
 | 1.7.0 | 2026-11-17 | Add C23 under the [authorized forward-realization amendment][S48]. The existing articles required preservation of selected data and actual results. C23 makes their implementation consequence explicit: constructors supply complete categorical interfaces; inherited actions execute the selected functorial composite; morphism and universal-construction data remain attached to their selections; occurrence identity is retained rather than inferred from equality; dependent inputs come from the formal interface; and all public calls share mathematical preparation. Repairs restore the forward relationship and remove its superseded recovery mechanism in the same change. This substantive elaboration preserves mathematical authority, computational ownership and the original acceptance obligations. |
+| 1.8.0 | 2026-11-17 | Elaborate C23 under the authorized repository-wide mathematical-model clarification. The prior article required forward realization and retained selections; the expanded obligation specifies category interfaces, public target constructors for both functor actions, correctly typed methods, evidence-based classifier refinement and coexistence of selected structures. The reason is to make these consequences explicit at implementation entrypoints. The local architecture specification records the model and source references; contribution rules and the existing feature contracts carry its application and acceptance conditions. |
 
 ### Provenance
 
@@ -1375,4 +1418,4 @@ evidence of an authorized amendment.
 [S47]: https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6891013550
 [S48]: https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6938133034
 
-**Version**: 1.7.0 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-17
+**Version**: 1.8.0 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-17
