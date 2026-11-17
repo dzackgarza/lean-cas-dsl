@@ -6,7 +6,7 @@
 
 **Required functionality has absolute priority over performance; see [C21](#c21-required-functionality-precedes-all-performance-work).**
 
-C0 states the product and its guiding commitments. C1–C13, C15 and C22 specify its mathematical,
+C0 states the product and its guiding commitments. C1–C13, C15, C22 and C23 specify its mathematical,
 computational and user-facing invariants. The [authority and scope](#authority-and-scope),
 [obligation classes](#obligation-classes) and [formal contract](#formal-contract-and-notation)
 below fix their interpretation. Contributor obligations and their concrete enforcement belong to
@@ -544,6 +544,89 @@ independently supplied.
 **Source basis:** [October complete-interface chapter, §§6–8][S5]; [mathematical generality and
 infinite inputs][S27]; [public-constructor and later-use requirement][S14]; [preserved result
 boundary][S9].
+
+### C23. Realization proceeds from the selected mathematical construction
+
+The selected construction in **M** determines what **K** prepares and what a leaf realizes.
+Preparation, execution and subsequent use must preserve this relation continuously. A runtime
+payload is not a new mathematical problem whose category, origin or construction must be inferred
+after it has been returned. Improving dispatch, compilation or storage does not discharge this
+obligation.
+
+**Complete categorical interfaces.** A constructor's result has the full interface of its
+declared category as soon as that result is formed. Its applicable methods, structure maps,
+parameters and required comparisons follow from the formal construction. They must not depend on
+later recognition of a computational representation. C7 and C8 permit lazy, symbolic and callable
+realizations: computing a field may be deferred, but its mathematical meaning and its relation to
+the selected construction must already be fixed. A missing provider is the C22 execution outcome,
+not permission to supply an incomplete mathematical object.
+
+**Inheritance is composition.** Given an accepted structural functor $F:\mathcal C\to\mathcal D$
+and a method $P:\mathcal D\to\mathcal E$, applying that inherited method to $x\in\mathcal C$
+means evaluating the selected composite $(P\circ F)(x)$. Applicability, parameters, variance and
+the comparisons needed to compose these actions come from **M**, under C4 and C6. Leaves realize
+those actions through the published constructors and methods. Matching carriers, serialized
+forms or implementation classes cannot supply an additional interpretation of the intermediate
+object. A routing algorithm serves this composition; its existence is not completion of the
+composite's required execution.
+
+**Selected data remains selected.** A morphism retains its actual domain and codomain projections.
+A chosen limit retains its diagram, cone and defining legs, with the specified universal
+operation; the dual obligation holds for colimits. A leg is obtained from that chosen cone or
+cocone. Its apex alone does not determine which cone or cocone was selected. Neither a search for
+a matching endpoint among registered morphisms nor recognition of an apex expression can replace
+the selected relationship. A forgetful action may discard structure in its mathematical image.
+A subsequent operation requiring that structure must use explicitly retained source data or a
+new, independently specified lift with its actual choices and comparisons. It must not infer the
+forgotten structure from the carrier.
+
+**Computational occurrences are not mathematical equalities.** Each selected source binding and
+each actual returned occurrence keep their exact association through preparation, projections,
+parameter substitution and later calls. Two bindings can have equal defining expressions and
+still denote different computational occurrences. Syntactic equality, definitional equality,
+equal packet bytes or the first matching prior binding do not establish which occurrence a use
+selected. Mathematical equality remains available for the judgments that require it; it cannot
+serve as a substitute for retained operational identity.
+
+**Dependencies come from the formal interface.** The source-derived dependent context and result
+interface determine which parameters, preceding results and comparisons a demand consumes.
+Preparation retains those dependencies and execution supplies their actual associated values.
+The runtime must not inspect the name of a particular mathematical construction to invent its
+dependency order. Generic handling of a dependent record must apply to another record admitted
+by the same formal interface without a new construction-specific execution case. New categories,
+functors, methods and universal constructions within the accepted calculus extend **M** and the
+leaf implementations; they do not require representation-recognition cases in **K**.
+
+**Every public request uses the same mathematical preparation boundary.** An initial source call,
+a deferred call and a call requested by a provider must use the common source-governed operation
+selection, dependent application and interface preparation. The runtime resolves scoped operands
+to their actual retained values, invokes the prepared computation and retains its result.
+Decoding a wire request does not authorize a separate runtime mathematical interpreter. Reusing
+only the final lowerer after independently rebuilding the selected application is insufficient.
+This requirement adds no expression language, mathematical registry or representation authority.
+
+Under C18, a failure to preserve one of these relationships must be repaired where the selected
+information is lost, together with the affected consumers. The same change must remove the
+recovery mechanism that the retained relationship replaces. Refining its matching heuristic,
+moving it behind a new interface or adding another recognized representation is not that repair.
+The contributor must identify the source construction and the required continuation before
+choosing the implementation change.
+
+Verification must distinguish these obligations from successful packet transport. In the affected
+public path, equal formal values with distinct occurrences must retain their selected identities;
+an unrelated registry addition must not change a fully selected endpoint; and two selected
+universal constructions sharing an apex must retain their own defining data. Direct and
+provider-requested calls must preserve the same selected mathematical operation and dependent
+inputs. These observations supplement the unchanged mathematical workload required by C9–C12.
+They do not replace its assertions with helper checks, dispatch counts or an opaque test peer.
+
+**Rationale:** deriving each action from the selected construction makes categorical composition
+the source of interoperability. Recovering mathematics from intermediate representations creates
+additional interpretations that can disagree with that construction, even when a local example
+passes.
+
+**Source basis:** [November 17 forward-realization amendment][S48], elaborating C4, C5, C7, C8,
+C18 and C22. The mathematical-authority and independent-acceptance boundaries remain unchanged.
 
 ### C9. Independent acceptance preserves the complete question
 
@@ -1219,6 +1302,7 @@ remain obligations where this constitution requires them, and they do not gate f
 | 1.5.0 | 2026-11-08 | Add the competing-routes rule to C6 by owner decision on issue #66: a leaf supplies a comparison cell formalized in **M** or declares a preferred route as registration data; otherwise the question is ambiguous. Extend C21: evidence that only shows self-consistency follows functionality. Change production-leaf sequencing to follow kernel readiness. Reconciled in issues #10, #24, #66 and #69. |
 | 1.6.0 | 2026-11-15 | Add C22 by owner decision ([issue #10](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6891013550)). Old obligation: no article stated what the kernel may compute; the interpretation contract and T033 assigned eliminators, recursors and source recursion to the kernel, and the lowerer reduced closed data with no published operation in Lean. New obligation: every operation, method and predicate is computed by a leaf, and the kernel only resolves each request to a leaf implementation or reports no implementation; a leaf owns its control logic and may use any formalized operation internally, through another leaf directly, or by asking the kernel; a value with no published operation has the no-implementation outcome; discharging a closed proposition through a proof procedure registered upstream remains permitted. Reason: kernel-side evaluation made the kernel an unregistered provider. Reconciled in the specification, tasks, plan, interpretation contract and handoff on issues #10 and #66. |
 | 1.6.1 | 2026-11-15 | Clarify C22 without changing its obligation: unfolding a definition to the published operations, constructors and literals it is built from is composition; reducing a term in Lean to a value is not permitted; a numeral is sent as its registered descriptor. |
+| 1.7.0 | 2026-11-17 | Add C23 under the [authorized forward-realization amendment][S48]. The existing articles required preservation of selected data and actual results. C23 makes their implementation consequence explicit: constructors supply complete categorical interfaces; inherited actions execute the selected functorial composite; morphism and universal-construction data remain attached to their selections; occurrence identity is retained rather than inferred from equality; dependent inputs come from the formal interface; and all public calls share mathematical preparation. Repairs restore the forward relationship and remove its superseded recovery mechanism in the same change. This substantive elaboration preserves mathematical authority, computational ownership and the original acceptance obligations. |
 
 ### Provenance
 
@@ -1289,5 +1373,6 @@ evidence of an authorized amendment.
 
 [S46]: https://github.com/dzackgarza/lean-cas-dsl/blob/a206552ca315726c5d8cca356cebc65f617d4d7a/README.md
 [S47]: https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6891013550
+[S48]: https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6938133034
 
-**Version**: 1.6.1 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-15
+**Version**: 1.7.0 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-17
