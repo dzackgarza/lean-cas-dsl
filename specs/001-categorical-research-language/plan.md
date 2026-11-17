@@ -38,16 +38,16 @@ they do not authorize preserving reconstruction machinery behind those interface
 
 ## Committed execution order — owner correction of 2026-11-17
 
-**Only rank 1, T016 / #84, is active. All later feature work is paused.** This is the fixed task execution order, not the order of issue groups. Each ID retains its complete existing definition, acceptance obligations, owner boundaries and checkbox in [Tasks Part 1](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684546229) or [Tasks Part 2](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684571141). The five historically checked tasks T001, T002, T003, T005 and T006 are not repeated below; T024/T025 remain retired. All 103 existing unfinished IDs occur exactly once.
+**Only rank 2, T007, is active. Rank 1, T016, is complete; all later tasks remain in their fixed positions.** This is the fixed task execution order, not the order of issue groups. Each ID retains its complete existing definition, acceptance obligations, owner boundaries and checkbox in [Tasks Part 1](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684546229) or [Tasks Part 2](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684571141). The five historically checked tasks T001, T002, T003, T005 and T006 are not repeated below; T024/T025 remain retired. All 103 IDs that were unfinished when this queue was adopted on November 17 occur exactly once; completed entries keep their ranks.
 
-Work proceeds only on the first unfinished task in this order. Parallel work must directly serve that task. Advancing requires its full existing completion criteria; this ordering does not mark any task complete. Reordering or entering a repair transition requires an explicit dated change to this queue and the matching repository plan before implementation resumes. A failed later check returns to the responsible existing task under that recorded correction, preserving the original required reruns and independent-author boundaries.
+Work proceeds only on the first unfinished task in this order. Parallel work must directly serve that task. Advancing requires its full existing completion criteria; the ordering alone does not mark any task complete. Reordering or entering a repair transition requires an explicit dated change to this queue and the matching repository plan before implementation resumes. A failed later check returns to the responsible existing task under that recorded correction, preserving the original required reruns and independent-author boundaries.
 
 **Rank 1 completion:** make the actual inner source-edit → affected imports and executable dependencies rebuilt → same unchanged public check loop fast, and record comparable before/after timings on the same source/input/toolchain/host and public check, including the check outcome. T016 includes the requested single streaming focused build, separately requested profiling, probes rebuilding imports, explicit one-time SDK setup, production/test target separation, and justified dependency cuts. Commands, a cached no-edit check, a stale-import check or a reduced test do not establish completion. #85 and #90 may supply work only when it directly removes a measured dependency or setup cost from this active loop; #90 is not a second active task. The owner explicitly promotes this existing T016 correction ahead of its recorded T012 completion edge by using the already implemented baseline; T012 remains unfinished and its full definition is unchanged.
 
 After T016, the order below is a stable dependency ordering of the existing authoritative task definitions: retain their recorded order where dependencies permit, honor every remaining `After` input and the complete Part 1 functionality condition F, then execute the existing independent delivery, proof, extension and acceptance obligations. Removing an already transferred reconstruction path remains part of its responsible functional task; the later T051/T064 entries do not authorize retaining a competing path. Final mathematical/runtime benchmarking T103 remains after actual functionality and the required delivered implementations.
 
-1. **T016 — #84: measured fast inner feedback loop (ACTIVE).**
-2. T007
+1. **T016 — #84: measured fast inner feedback loop (COMPLETE, 2026-11-17).**
+2. **T007 — source-derived dependent layouts and request preparation (ACTIVE).**
 3. T008
 4. T009
 5. T010
@@ -151,3 +151,7 @@ After T016, the order below is a stable dependency ordering of the existing auth
 103. T110
 
 **Issue-group order is separate:** #84, #90, #85, #66, #69, #23, #86, #82, #24, #19, #3, #34, #68, #8, #13, followed by closed historical #11/#12. It groups related tracking records and does not grant permission to skip or parallelize task ranks. #24 retains complete original acceptance; no functional or benchmark requirement is lowered.
+
+### Execution update — 2026-11-17
+
+T016 is complete at [implementation `d790eaa`](https://github.com/dzackgarza/lean-cas-dsl/commit/d790eaaa2689f50c81e40de3c63e9fd420dd56ce), with its same-input source-edit/rebuild/public-check comparison, fresh-implementation control, command/setup checks and preserved test inventory recorded in [#84](https://github.com/dzackgarza/lean-cas-dsl/issues/84). T007 is the first unfinished task. The order and all other task markers remain unchanged. The three functional test failures reproduced on the baseline remain required repairs in the existing functional work; this transition does not declare the functional backlog or the broader issues complete.
