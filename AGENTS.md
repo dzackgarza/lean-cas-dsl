@@ -4,8 +4,9 @@
 
 Read the [project constitution](.specify/memory/constitution.md) before the
 applicable issue requirements. It is the permanent repository authority for
-cross-architecture obligations, expressly excepted from the issue-only
-documentation policy. Preserve its complete text through merges and migrations.
+cross-architecture obligations. The constitution, mathematical execution model, local
+contribution rules and feature-contract requirements are maintained repository documents.
+Preserve their complete requirements through merges and migrations.
 Plans, work orders, implementation decisions and evidence remain in their owning
 issues; changes to constitutional requirements follow its amendment rules.
 

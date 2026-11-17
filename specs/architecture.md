@@ -28,7 +28,14 @@ The interpretation of an inherited call on `X : C` is `(P ∘ F)(X)`. On an arro
 is not part of this definition.
 
 The realization of `F` computes data from the public interface of `X` and passes them to a
-public constructor of `D`. Its arrow action similarly constructs an arrow in
+public constructor of `D`. Writing `m_i` for public source operations and `Φ` for the leaf
+algorithm, the object action has the form
+
+$$
+\widehat F(X)=\operatorname{Construct}_D(\Phi(m_1(X),\ldots,m_k(X))).
+$$
+
+The independently declared `F` determines the obligation that this algorithm must satisfy. Its arrow action similarly constructs an arrow in
 `Hom_D(F(X), F(Y))`, with the actual selected endpoints. Reusing a selected target value is
 valid when that is the declared action. Public construction can be lazy; completeness concerns
 the specified interface and selected dependencies, not eager computation or fresh allocation.
@@ -59,9 +66,10 @@ needed for the requested operation. A natural isomorphism `η : F ⇒ G` gives c
 `η_X : F(X) → G(X)`; it does not assert judgmental equality of arbitrary results.
 
 C6 permits an explicit preferred binding through the released contract. Such a preference
-records a selection and asserts no equality between routes. Definitional equality of the complete dependent operation families can also establish agreement.
-Without a valid selection or the required agreement, report ambiguity before execution. Provider availability, caches and
-successful computations cannot settle that mathematical ambiguity.
+records a selection and asserts no equality between routes. Definitional equality of the complete
+dependent operation families can also establish agreement. Without a valid selection or the
+required agreement, report ambiguity before execution. Provider availability, caches and successful
+computations cannot settle that mathematical ambiguity.
 
 ## Properties, refinement and choice
 
@@ -70,6 +78,20 @@ fiber. A refinement requires the declared rule and its evidence. For example, fo
 that an integer interval is finite can support its specified lift into finite sets, with the
 prescribed identification of its underlying set. A backend's finite list is not that evidence.
 A computational predicate reply remains a candidate answer; it is not a new Lean proof.
+
+Concretely, let `X = {n : ℤ | 0 ≤ n ∧ n < 5}`, with its inclusion `j : X ↪ ℤ`.
+For the forgetful functor `U : FiniteSets → Sets`, the declared finiteness refinement supplies
+`X̃ : FiniteSets` and its specified identification `e : U(X̃) ≅ X`. Its inclusion into the
+original ambient set is `j ∘ e`; refinement must preserve this relationship. When the formal
+rule and evidence are available, the kernel applies that refinement to make the justified
+interface available, without a backend-type classification step. This illustrative interval
+is distinct from the upstream square-bound family linked below; it does not assert a particular
+surface syntax or that this exact interval is currently executable.
+
+The upstream `Finiteness.finiteHolds_iff` relates the classifier query to `Finite X`.
+`IntegerSquareBounds` supplies a concrete family with `finiteExtent`, `finiteIdentification`
+and its original integer inclusion. These declarations exemplify retaining the actual subset
+and its map while adding the justified finite-set interface.
 
 Existence of structure and selected structure differ. A proof of existence of a basis supplies
 no chosen basis for a later coordinate computation. A computation that selects a basis must
@@ -82,6 +104,10 @@ code must expose that missing formal input rather than invent a classification r
 ## Selected constructions remain usable
 
 For a selected limit of `D : J → C`, retain its cone, apex, legs and universal operation.
+With apex `L`, its legs are `π_j : L → D(j)`. For `u : j → k`, they satisfy
+`D(u) ∘ π_j = π_k`. Its universal property supplies the specified unique factor from each
+cone. The formal construction fixes these laws; retaining unrelated arrows with the right
+endpoints does not supply its cone or universal property.
 The request for a leg at `j` projects the selected cone. Two cones can share an apex, so an
 apex expression cannot identify the selected diagram or its maps. Colimits obey the dual rule.
 
@@ -99,9 +125,12 @@ without runtime cases named for one particular construction.
 
 ## Execution and diagnosis
 
-The common path is a checked source judgment with context and selected data, followed by
-categorical interpretation, preparation of the complete dependent request, leaf realization,
-and continued use of the actual result. Initial, deferred and provider-requested public calls
+The input is the original checked judgment `(Γ; S ⊢ t : A)`: `Γ` contains the mathematical
+parameters and hypotheses, while `S` records the selected structures, functors and comparisons.
+Interpretation determines the admissible composite, refinements and complete dependent request.
+Realization invokes its public leaf operations. Continued use applies further categorical
+operations to the actual result with those retained selections. The result remains a candidate
+realization of this judgment; it does not become authority for a revised judgment. Initial, deferred and provider-requested public calls
 use the same mathematical preparation. The runtime resolves scoped actual operands and retains
 results; it does not build an independent interpretation of a wire description.
 
@@ -136,6 +165,8 @@ those mathematical results. Acceptance remains independently authored under C9�
 - [Functor target construction](https://github.com/dzackgarza/sage-categories/blob/main/specs/functor.md#functor-actions-are-concrete-constructors) and [public category interfaces](https://github.com/dzackgarza/sage-categories/blob/main/specs/leaves.md). These supply the constructor-composition principle; their Python class and trust conventions do not replace this repository's independent Lean authority or acceptance rules.
 - [Formal method domains](https://github.com/dzackgarza/lean-categories/blob/main/LeanCategories/Catalogue/Registry/Entry.lean).
 - [Classifier.Holds](https://github.com/dzackgarza/lean-categories/blob/main/LeanCategories/Catalogue/Holds.lean).
+- [Finiteness and the classifier fiber](https://github.com/dzackgarza/lean-categories/blob/main/LeanCategories/Catalogue/Semantics/Foundation/Finiteness.lean).
+- [Square-bound refinement with its original inclusion](https://github.com/dzackgarza/lean-categories/blob/main/LeanCategories/Catalogue/Semantics/Foundation/IntegerSquareBounds.lean).
 
 # Implementation and issue references
 
