@@ -360,14 +360,17 @@ private partial def array (expression : Expr) (elements : Array Expr) : LowerM V
 record value keeps each computational field as a closure beside its descriptor. -/
 private partial def namedConstant (expression : Expr) (address : String) (arguments : Array Expr) :
     LowerM ValueBinding := do
+  if (← origin expression).role.kind == .function then return ← closure expression
+  descriptor expression address arguments (← fieldClosures expression)
+
+/-- The computational fields of a record value named by a descriptor, each retained as code. -/
+private partial def fieldClosures (expression : Expr) : LowerM (Array ValueBinding) := do
   let frame ← read
-  let layout := (← origin expression).role
-  if layout.kind == .function then return ← closure expression
   let mut fields := #[]
-  for prepared in layout.fields do
+  for prepared in (← origin expression).role.fields do
     if prepared.wireIndex.isSome then
       fields := fields.push (← closure (← prepared.source.inContext frame.context))
-  descriptor expression address arguments fields
+  return fields
 
 /-- The explicit arguments of an application that are not proofs. -/
 private partial def explicitArguments (expression : Expr) : LowerM (Array Expr) := do
@@ -483,6 +486,39 @@ private partial def liftFamily (data : MData) (body : Expr) : LowerM ValueBindin
     frame.context closed actual #[] (← parameters)
   demand request
 
+/-- An object that the declared arrow of a registered morphism fixes as its source or target, and
+that has no named object row: `morphismEndpoint(<arrow>, "source" | "target")`, the arrow being
+that registered morphism at the parameters the endpoint determines (leaf contract
+api/wire-examples.md: "An accepted declared arrow can also fix a complete endpoint that has no
+named object row"). The endpoint's definition is not unfolded (C22). -/
+private partial def morphismEndpoint? (expression : Expr) : LowerM (Option ValueBinding) := do
+  let some head := expression.getAppFn.constName? | return none
+  let mut found := #[]
+  for row in (← semanticState).morphisms do
+    unless ((← getConstInfo row.declaration).type.find? (·.isConstOf head)).isSome do continue
+    let matched ← (withoutModifyingState do
+      let constant ← mkConstWithFreshMVarLevels row.declaration
+      let (parameters, _, type) ← forallMetaTelescopeReducing (← inferType constant)
+      let type ← whnfR type
+      unless type.isAppOfArity ``Quiver.Hom 4 do return none
+      for (selector, endpoint) in #[("source", type.getAppArgs[2]!), ("target", type.getAppArgs[3]!)] do
+        if ← withReducible (isDefEq endpoint expression) then
+          let arrow ← instantiateMVars (mkAppN constant parameters)
+          unless arrow.hasMVar || arrow.hasLevelMVar do return some (arrow, selector)
+      return none : MetaM (Option (Expr × String)))
+    if let some matched := matched then found := found.push matched
+  let some (arrow, selector) := found[0]? | return none
+  unless found.size == 1 do
+    throwStratum .noImplementation
+      m!"{expression} is an endpoint of several registered arrows and has no named object row"
+  let value ← lower arrow
+  let template := Json.mkObj [("ctor", "morphismEndpoint"), ("args", .arr #[.null, toJson selector])]
+  let .ok payload := ValuePayload.container template
+      #[{ path := #[.field "args", .index 0], binding := value, fieldIndex := none }]
+      (← fieldClosures expression) none
+    | throwError "internal: the arrow endpoint has an invalid reference layout"
+  some <$> stage expression payload
+
 private partial def application (expression : Expr) : LowerM ValueBinding := do
   let frame ← read
   let arguments := expression.getAppArgs
@@ -543,6 +579,7 @@ private partial def application (expression : Expr) : LowerM ValueBinding := do
     -- that implements an operation.
     throwStratum .noImplementation m!"{name} is an eliminator with no published operation"
   | _ =>
+    if let some endpoint ← morphismEndpoint? expression then return endpoint
     if ← isMatcher name then
       throwStratum .noImplementation m!"{name} is a match with no published operation"
     let some unfolded ← unfoldDefinition? expression
