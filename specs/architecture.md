@@ -194,8 +194,12 @@ the latter defines **category-level** constructors such as `Arr(C)`;
 its `functorialAction` maps a category functor `C→D` to an induced
 functor `Arr(C)→Arr(D)`. That field is not evidence that an arbitrary
 object-valued `C_i:D_i→Y` has been supplied. The exact mathematical
-source and unresolved constructor declarations are recorded in
-[#91 decision docket D2](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942323747).
+source and exact functor laws are supplied by the independent mathematical
+owner. [Mathlib `Discrete.functor`](https://github.com/leanprover-community/mathlib4/blob/master/Mathlib/CategoryTheory/Discrete/Basic.lean)
+already handles every object-valued constructor on discrete defining data.
+No additional presentation-arrow calculus is a prerequisite unless the
+required construction actually acts on nonidentity presentation arrows.
+See [the formalization-backed decisions](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6966807286).
 
 A source category `X` has public mathematical observations `m_j`, each with
 its genuine domain and codomain. Those codomains may involve the appropriate
@@ -260,8 +264,10 @@ comparisons and selected choices control resolution. The current
 `lean-categories` [`FunctorEntry.structural`](https://github.com/dzackgarza/lean-categories/blob/main/LeanCategories/Catalogue/Registry/Entry.lean)
 identifies underlying-object functors for **unqualified method inheritance**;
 this is already an upstream formal rule, not a runtime engineering option.
-Its agreement with the full original mathematical requirement must be
-checked on actual examples, as specified in [#91 D3](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942323747).
+Use this accepted rule for unqualified inherited method syntax and check
+its actual interpretations with the independent public examples. No second
+isofibration- or backend-based inheritance rule is permitted.
+[Formalization-backed choice](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6966807286).
 An explicit mathematical composite `P(F(x))` is not the same question as
 automatically exposing an unqualified `x.P()`. In particular an isofibration
 does not, by itself, supply arbitrary limit or quotient lifting.
@@ -278,28 +284,48 @@ authorized to compute this by a lattice-rank special case or an unpublished
 Lean reduction. Existing applicable methods must reach a newly defined
 lattice without a new lattice forwarding implementation.
 
-**Enumeration of a presented lattice.** A selected surjection
-`q : ℤ^n ↠ L` and a supplied enumeration `e_n : ℕ ↠ ℤ^n` construct
-`q ∘ e_n : ℕ ↠ L`. Surjectivity follows directly by choosing a preimage
-under each surjection. An object of the epi portion of the coslice
-`ℕ ↓ Set` can therefore be constructed *as an object* through the public
-enumerated-set constructor. There is a **separate formal morphism obligation**:
-in the literal coslice, a morphism `(e : ℕ→S) → (e' : ℕ→T)` must satisfy
-`f ∘ e = e'`. Arbitrary lattice homomorphisms do not necessarily give such
-arrows (e.g. `-1 : ℤ→ℤ` cannot preserve a surjective fixed enumeration).
-The exact source category and functor's arrow action are **not settled by the
-owner transcript**. Moreover, the existing formal
-[`EnumeratedSetCat`](https://github.com/dzackgarza/lean-categories/blob/main/LeanCategories/Foundation/Sets.lean)
-uses a selected `Encodable` structure with **all functions** as morphisms,
-rather than a literal epi coslice with commuting-triangle morphisms. These are
-non-equivalent definitions. Under the existing formal category ordinary lattice
-maps have an underlying-arrow action, but converting a mere epi `ℕ↠L` into
-a computationally effective `Encodable L` may require additional encoding
-or search information. The exact mathematical target and arrow contract must
-be **reconciled at the independent mathematical owner** before this proposed
-new functor is admitted: [#91 decision docket D1](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942323747).
-The response is *not* an ad-hoc backend reindexing or a “transport” between
-serialized lattice vectors.
+**Enumeration of a presented lattice (decided against existing formalizations).**
+Choose the *existing* [`EnumeratedSetCat`](https://github.com/dzackgarza/lean-categories/blob/main/LeanCategories/Foundation/Sets.lean),
+whose objects carry a selected `Encodable` and whose morphisms are
+**all underlying functions** (the source uses Mathlib's `InducedCategory`).
+Do not use the strict epi coslice's index-preserving morphisms in the
+published API. The epi-coslice example motivated the object operation but
+does not determine its executable representation or constrain ordinary maps.
+
+The required user-facing API is **actual nth-element access**, not a
+categorical presentation discussion. For every object, `nth? (k)` denotes
+its selected `Encodable.decode k : Option X`. For nonempty `X` with
+a selected `d:X`, `nth(k) = (decode k).getD d`; hence
+`first=nth(0)`, `second=nth(1)`, and
+`nth(encode(x))=x`. Mathlib proves
+[`Encodable.surjective_decode_getD`](https://github.com/leanprover-community/mathlib4/blob/master/Mathlib/Logic/Encodable/Basic.lean).
+An empty carrier cannot have a total `ℕ→X`, so it offers `nth?` rather
+than a fictional first element; finite nonempty carriers may repeat items.
+No canonical enumeration order or nonrepetition is required.
+
+For a generated lattice with its *selected* surjection
+`q : ℤⁿ ↠ L` and a published `eₙ : ℕ ↠ ℤⁿ`, the selected
+enumeration is `e_L = q ∘ eₙ`, with
+`nth(k)=q(eₙ(k))`. Its surjectivity is immediate from that of `q`
+and `eₙ`. If an `Encodable` witness is needed, let
+`decode(k)=some(e_L(k))` and
+`encode(x)=Nat.find (∃ k, e_L(k)=x)`.
+[`Nat.find_spec`](https://github.com/leanprover-community/mathlib4/blob/master/Mathlib/Data/Nat/Find.lean)
+proves `decode(encode x)=some x`. Constructively, this inverse search
+requires decidable equality (classical decidability suffices for the
+mathematical witness). The **nth computation itself** uses only the
+supplied `q` and `eₙ`, and must not depend on running a possibly
+noncomputable inverse search. If a consumer demands an unimplemented
+`encode`, report `NoImplementation` for that computation.
+
+A generated-lattice map acts by its **underlying function** between the
+two separately selected enumerated-set objects. It need not preserve
+their chosen indices, exactly as `EnumeratedSetCat` already prescribes.
+Mathematically one need not change either the source category or the
+public method interface. Do not introduce a second registration ontology,
+new strict-coslice category, or private representation translator.
+These choices and the cited existing proofs are recorded at
+[#91's settled formalization decision](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6966807286).
 
 **Toric and formed integral lattices.** Chosen bases `m_i` of characters
 and `n_i` of cocharacters, dual under evaluation, provide
@@ -316,11 +342,16 @@ the duplicated-ontology failure this project exists to avoid. The bases are
 `{n∈ℤ | n<5}` is actually infinite (the injection `k↦4-k` from
 `ℕ` proves this). The corrected bounded subset
 `B={n∈ℤ | 0≤n<5}={0,1,2,3,4}` has a finiteness proof.
-The *formal* classifier/refinement rule can produce a selected
-`FiniteSets` lift with an identification of its underlying set with `B`
-and retention of the original inclusion `B ↪ ℤ`. A backend array of five
-elements is not the proof and may not change semantic placement. A proof of
-existence of a basis or enumeration likewise does not select one.
+The **already accepted** classifier/refinement machinery in
+[`lean-categories`](https://github.com/dzackgarza/lean-categories/blob/main/LeanCategories/Catalogue/Registry/Entry.lean)
+uses the exact registered domain-owned theorem/proof procedure and
+`refinementRealization`, producing a selected `FiniteSets` lift with
+its underlying-set identification and the original inclusion `B ↪ ℤ`.
+This procedure is the adopted design; it is neither a free-ranging theorem
+search nor a backend Boolean-based classification. No single most-specialized
+category is selected when multiple justified refinements coexist. A backend
+array of five elements is not a proof. A proof of existence of a basis or
+enumeration likewise does not select one.
 
 **A selected limit's defining leg.** A selected limit is its actual diagram
 `D:J→C`, cone, apex `L`, projections `π_j:L→D(j)` and universal
