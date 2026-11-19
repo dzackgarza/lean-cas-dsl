@@ -100,8 +100,7 @@ private def sourceLayout (source : ClosedTerm) (address : Array Name) : MetaM So
         let some projection := info.getProjFn? index
           | throwError "record layout is missing a source projection"
         let fieldType ← inferType locals[index]!
-        let dependencies := (Array.range index).filter fun previous =>
-          fieldType.containsFVar locals[previous]!.fvarId!
+        let dependencies ← localDependencies (locals.extract 0 index) fieldType
         let typeFamily ← mkLambdaFVars (locals.extract 0 index) fieldType
           (usedOnly := false) (usedLetOnly := false)
         let value ← mkProjection expression info.fieldNames[index]!
