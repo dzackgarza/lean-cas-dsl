@@ -18,7 +18,8 @@ def mapEnds :
     Expr → TermElabM (Option (Expr × Expr)) :=
   fun (arrow : Expr) => do
     let type ← whnfR (← instantiateMVars (← inferType arrow))
-    if type.isAppOfArity ``Quiver.Hom 4 then return some (type.getAppArgs[2]!, type.getAppArgs[3]!)
+    if type.isAppOfArity ``Quiver.Hom 4 then
+      return some (← declaredEndpoint type.getAppArgs[2]!, ← declaredEndpoint type.getAppArgs[3]!)
     if type.isAppOfArity ``TypeCat.Hom 2 then return some (type.getAppArgs[0]!, type.getAppArgs[1]!)
     return none
 
@@ -52,12 +53,12 @@ def application (context : ReadContext) :
       let hole ← mkFreshExprMVar none
       let unary ← withoutModifyingState do
         discard <| elabAppArgs function #[] #[Arg.expr hole] none false false
-        let type ← whnfR (← instantiateMVars (← inferType hole))
-        let result ← whnfR (← inferType (mkApp function hole))
+        let type ← whnfR (← declaredEndpoint (← inferType hole))
+        let result ← whnfR (← declaredEndpoint (← inferType (mkApp function hole)))
         return type.isAppOfArity ``Prod 2 && !result.isForall
       if unary then
         discard <| elabAppArgs function #[] #[Arg.expr hole] none false false
-        let type ← instantiateMVars (← inferType hole)
+        let type ← declaredEndpoint (← inferType hole)
         let tuple ← sourceTuple arguments type fun component type => do
           return (← readExpression categoryOf component (some type)).value
         return ← elabAppArgs function #[] #[Arg.expr tuple] expected false false

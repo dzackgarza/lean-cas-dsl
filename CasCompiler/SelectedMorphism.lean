@@ -23,10 +23,22 @@ def selectedEndpoint? (value : Expr) : Option Expr := do
       arguments[arguments.size - (if selector == "source" then 3 else 2)]?
 
 /-- The declared end that a stated end of a selected map retains; any other expression is
-returned as it is. Instance synthesis and matching against registered objects take this end. -/
+returned as it is. A stated end is `(Arrow.mk f).left` or `(Arrow.mk f).right`; the declared end
+is the corresponding argument of `Arrow.mk`, which is that projection by definition. Unification
+can drop the endpoint annotation, so the annotation is not required here. Instance synthesis,
+the shape of a source set and matching against registered objects take the declared end. -/
 def declaredEndpoint (stated : Expr) : MetaM Expr := do
   let stated ← instantiateMVars stated
-  return (selectedEndpoint? stated).getD stated
+  let body := stated.consumeMData
+  for (projection, fromEnd) in
+      [(``CategoryTheory.Arrow.left, 3), (``CategoryTheory.Arrow.right, 2)] do
+    if body.getAppFn.isConstOf projection then
+      if let some arrow := body.getAppArgs.back? then
+        let arrow := arrow.consumeMData
+        if arrow.getAppFn.isConstOf ``CategoryTheory.Arrow.mk then
+          let arguments := arrow.getAppArgs
+          if let some declared := arguments[arguments.size - fromEnd]? then return declared
+  return stated
 
 /-- Retain the source and target projections of this actual selected arrow.
 Reuse: Mathlib's Arrow.mk, Arrow.left and Arrow.right. The type hint is definitionally
