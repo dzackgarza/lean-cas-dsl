@@ -42,6 +42,7 @@ import CasCompiler.SourceNamedLimitTests
 import CasCompiler.SourceOperationTests
 import CasCompiler.SourcePatternTests
 import CasCompiler.SourcePresentationTests
+import CasCompiler.SourceProductArgumentTests
 import CasCompiler.SourcePropertyTests
 import CasCompiler.SourceRelationTests
 import CasCompiler.SourceRingTests
