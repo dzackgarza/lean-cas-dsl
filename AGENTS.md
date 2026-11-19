@@ -2,6 +2,8 @@
 
 **Work order:** execute the unchecked tasks of the [task list](specs/001-categorical-research-language/tasks.md#execution-order) in document order. Required functionality precedes final performance, proofs and assessments ([C21](.specify/memory/constitution.md#c21-fast-development-feedback-first-final-performance-after-functionality)). A wait on a missing input blocks only the work that needs it.
 
+**Source location:** the kernel source (`CasCompiler/`, `CasRuntime/`) is on branch `integration/kernel-v1-20261106` (PR #87), which pins Lean 4.33.0 and Mathlib `v4.33.0`. `main` pins the toolchain and Mathlib of the research image ([#90](https://github.com/dzackgarza/lean-cas-dsl/issues/90)). The two branches carry the same governing documents: the constitution, this file, `CONTRIBUTING.md` and `specs/`. An edit to one of them is committed on both branches.
+
 Read the [project constitution](.specify/memory/constitution.md) before the
 applicable issue requirements. It is the permanent repository authority for
 cross-architecture obligations. The constitution, mathematical execution model, local
