@@ -4,9 +4,9 @@
 
 ## Core Principles
 
-**Required functionality has absolute priority over performance; see [C21](#c21-required-functionality-precedes-all-performance-work).**
+**Fast inner development feedback comes first; final mathematical/runtime performance follows complete functionality. See [C21](#c21-fast-development-feedback-first-final-performance-after-functionality).**
 
-C0 states the product and its guiding commitments. C1–C13, C15 and C22 specify its mathematical,
+C0 states the product and its guiding commitments. C1–C13, C15, C22 and C23 specify its mathematical,
 computational and user-facing invariants. The [authority and scope](#authority-and-scope),
 [obligation classes](#obligation-classes) and [formal contract](#formal-contract-and-notation)
 below fix their interpretation. Contributor obligations and their concrete enforcement belong to
@@ -545,6 +545,131 @@ independently supplied.
 infinite inputs][S27]; [public-constructor and later-use requirement][S14]; [preserved result
 boundary][S9].
 
+### C23. Realization proceeds from the selected mathematical construction
+
+The selected construction in **M** determines what **K** prepares and what a leaf realizes.
+Preparation, execution and subsequent use must preserve this relation continuously. A runtime
+payload is not a new mathematical problem whose category, origin or construction must be inferred
+after it has been returned. Improving dispatch, compilation or storage does not discharge this
+obligation.
+
+**Complete categorical interfaces.** A constructor's result has the full interface of its
+declared category as soon as that result is formed. Its applicable methods, structure maps,
+parameters and required comparisons follow from the formal construction. They must not depend on
+later recognition of a computational representation. C7 and C8 permit lazy, symbolic and callable
+realizations: computing a field may be deferred, but its mathematical meaning and its relation to
+the selected construction must already be fixed. A missing provider is the C22 execution outcome,
+not permission to supply an incomplete mathematical object.
+
+**Categories are the units of organization.** The objects, homs, endpoint maps, identities,
+composition, operations and relations of a category are declarations of **M**. Its computational
+implementation supplies algorithms against those declarations. Backend classes do not determine
+membership or the available mathematical interface. In particular, the category of a functor
+image is its declared target; discovering where that image originated is not a prerequisite for
+using target-category methods.
+
+**Functor actions construct their targets.** For a declared functor $F:C\to D$, an object action
+computes defining data through public source operations and supplies those data to a public
+constructor of $D$. Its morphism action constructs an arrow with the selected endpoints $F(X)$
+and $F(Y)$ through the public morphism interface of $D$. Both actions must realize the formal
+functor, including its identity and composition laws. These laws remain independently specified;
+this does not assign proofs to leaves. An existing target object or arrow may be returned when
+the specified action selects it. Public construction does not require fresh allocation or eager
+evaluation. A target result must support the complete applicable interface, including methods
+added independently later. Implementations must not inspect another leaf's private layout to
+make this possible. A fused realization of a composite is admissible only against the same
+formal operation, dependent interface and independent correctness obligation.
+
+**Inheritance is composition.** Given an accepted structural functor $F:\mathcal C\to\mathcal D$
+and a method $P:\mathcal D\to\mathcal E$, applying that inherited method to $x\in\mathcal C$
+means evaluating the selected composite $(P\circ F)(x)$. Applicability, parameters, variance and
+the comparisons needed to compose these actions come from **M**, under C4 and C6. Leaves realize
+those actions through the published constructors and methods. Matching carriers, serialized
+forms or implementation classes cannot supply an additional interpretation of the intermediate
+object. A routing algorithm serves this composition; its existence is not completion of the
+composite's required execution.
+
+The domain of a method must be its actual formal domain. An isomorphism invariant can be defined
+on the core groupoid of its owner; cardinality must not be assigned an invented functor action
+from all set maps to a discrete category of cardinals. Parameter-object morphisms, dependent
+sections, slice or arrow category operations and higher constructions retain their declared
+types. For an ordinary functorial method, inheritance includes the morphism action
+$(P\circ F)(f)=P(F(f))$, not only the object action. Parallel routes with equal endpoints remain
+distinct until the accepted comparison rule relates their complete meanings. A natural
+isomorphism supplies component maps and the prescribed transport; it does not by itself assert
+judgmental equality of method results. C6 governs ambiguity and explicit route preferences.
+
+**Refinement consumes formal evidence.** For a classifier $p:E\to C$, the property query has
+the meaning $\operatorname{Holds}(p,X)=\operatorname{Nonempty}(p^{-1}(X))$, with the categorical
+fiber specified in **M**. An available formal refinement rule and its evidence determine the
+refined object and its comparison with $X$. A returned list or a backend type cannot establish
+that rule or evidence. Computational predicate answers remain claims under C2 and C22; formal
+proof procedures retain their separate role. Property evidence must not silently select a basis,
+orientation, enumeration or other structure. Such a use requires the actual chosen data in the
+specified fiber. Several justified refinements may coexist; resolution must not assume a unique
+most-specialized category. Missing upstream mathematics must be identified as such rather than
+supplied by downstream classification code.
+
+**Selected data remains selected.** A morphism retains its actual domain and codomain projections.
+A chosen limit retains its diagram, cone and defining legs, with the specified universal
+operation; the dual obligation holds for colimits. A leg is obtained from that chosen cone or
+cocone. Its apex alone does not determine which cone or cocone was selected. Neither a search for
+a matching endpoint among registered morphisms nor recognition of an apex expression can replace
+the selected relationship. A forgetful action may discard structure in its mathematical image.
+A subsequent operation requiring that structure must use explicitly retained source data or a
+new, independently specified lift with its actual choices and comparisons. It must not infer the
+forgotten structure from the carrier.
+
+**Computational occurrences are not mathematical equalities.** Each selected source binding and
+each actual returned occurrence keep their exact association through preparation, projections,
+parameter substitution and later calls. Two bindings can have equal defining expressions and
+still denote different computational occurrences. Syntactic equality, definitional equality,
+equal packet bytes or the first matching prior binding do not establish which occurrence a use
+selected. Mathematical equality remains available for the judgments that require it; it cannot
+serve as a substitute for retained operational identity.
+
+**Dependencies come from the formal interface.** The source-derived dependent context and result
+interface determine which parameters, preceding results and comparisons a demand consumes.
+Preparation retains those dependencies and execution supplies their actual associated values.
+The runtime must not inspect the name of a particular mathematical construction to invent its
+dependency order. Generic handling of a dependent record must apply to another record admitted
+by the same formal interface without a new construction-specific execution case. New categories,
+functors, methods and universal constructions within the accepted calculus extend **M** and the
+leaf implementations; they do not require representation-recognition cases in **K**.
+
+**Every public request uses the same mathematical preparation boundary.** An initial source call,
+a deferred call and a call requested by a provider must use the common source-governed operation
+selection, dependent application and interface preparation. The runtime resolves scoped operands
+to their actual retained values, invokes the prepared computation and retains its result.
+Decoding a wire request does not authorize a separate runtime mathematical interpreter. Reusing
+only the final lowerer after independently rebuilding the selected application is insufficient.
+This requirement adds no expression language, mathematical registry or representation authority.
+
+Under C18, a failure to preserve one of these relationships must be repaired where the selected
+information is lost, together with the affected consumers. The same change must remove the
+recovery mechanism that the retained relationship replaces. Refining its matching heuristic,
+moving it behind a new interface or adding another recognized representation is not that repair.
+The contributor must identify the source construction and the required continuation before
+choosing the implementation change.
+
+Verification must distinguish these obligations from successful packet transport. In the affected
+public path, equal formal values with distinct occurrences must retain their selected identities;
+an unrelated registry addition must not change a fully selected endpoint; and two selected
+universal constructions sharing an apex must retain their own defining data. Direct and
+provider-requested calls must preserve the same selected mathematical operation and dependent
+inputs. These observations supplement the unchanged mathematical workload required by C9–C12.
+They do not replace its assertions with helper checks, dispatch counts or an opaque test peer.
+
+**Rationale:** deriving each action from the selected construction makes categorical composition
+the source of interoperability. Recovering mathematics from intermediate representations creates
+additional interpretations that can disagree with that construction, even when a local example
+passes.
+
+**Source basis:** [November 17 forward-realization amendment][S48], elaborating C4, C5, C7, C8,
+C18 and C22. The mathematical-authority and independent-acceptance boundaries remain unchanged.
+The [mathematical execution model](../../specs/architecture.md) records the authorized
+November 17 elaboration, its source references and the corresponding specification obligations.
+
 ### C9. Independent acceptance preserves the complete question
 
 For every admitted assertion identity `a`, acceptance fixes its complete selected question
@@ -725,8 +850,8 @@ requirements that every implementation, replacement architecture, contribution a
 claim must satisfy. Its mandatory rules are expressed by “must”, “must not”, and the quantified
 obligations below.
 
-The owner explicitly requested a permanent repository constitution on 2026-11-04. This is a
-specific exception to the earlier policy that repository documents contain only issue pointers.
+The owner explicitly requested a permanent repository constitution on 2026-11-04, as an exception
+to the policy of that date that repository documents contain only issue pointers.
 The complete constitution must remain in the repository. It must not be replaced by a pointer,
 omitted during a merge, or removed as part of a documentation migration. Its preservation does
 not depend on the architecture, programming language, process layout or planning tool.
@@ -739,8 +864,10 @@ and API-ownership requirements. A change of physical repository layout does not 
 authority to the CAS or a leaf. A downstream implementation or this document's notation cannot
 supply missing mathematics. [S3] [S4]
 
-Implementation plans, work orders, diagnostics, completion evidence and architectural proposals
-remain in their owning GitHub issues. Those records specialize the requirements to an authorized
+The Spec Kit feature directory under `specs/` holds the maintained specification, plan, research
+record, data model, contracts, validation guide, checklists and task list of each feature.
+Diagnostics, work records, completion evidence and architectural proposals remain in their owning
+GitHub issues. [S51] These documents and records specialize the requirements to an authorized
 task; neither an agent-authored plan nor an existing implementation can amend this constitution.
 Applicable owner instructions retain their authority. A change to a constitutional requirement
 must be recorded explicitly under the amendment rules below.
@@ -1184,27 +1311,106 @@ skill or revising an agent-authored plan.
 construction and review policies][S9]; [coherent-review and assignment requirements on
 main][S37]; [November 2 authorization policy][S33].
 
-### C21. Required functionality precedes all performance work
+<a id="c21-required-functionality-precedes-all-performance-work"></a>
 
-Required functionality has absolute priority over performance. Performance work is the last phase
-of this project and begins only when every required capability works through the public interface.
-This article governs the order of work. It removes no capability, question, assertion or resource
-requirement.
+### C21. Fast development feedback first; final performance after functionality
 
-A slow run, timeout, memory limit, benchmark, resource or heartbeat budget, or a red or unfinished
-expensive CI job does not select work and does not block functional work. Functional work may use
-any time, memory or heartbeat limit that it needs. Optimization during functional work is permitted
-only when a small required example of the selected capability cannot finish at all; the work then
-returns to that capability.
+The owner's November 17 correction makes the fast inner development feedback loop the immediate
+priority, before resuming feature work. This is an explicit exception to the historical blanket
+ordering of all performance work after functionality. The actual loop is a real source edit,
+rebuilding its affected imports and executable dependencies, and running the same unchanged public
+check. Completion requires comparable before/after measurements on the same source/input,
+toolchain and host, including the check outcome. A cached no-edit run, stale-import check, reduced
+workload or helper-only check does not establish this requirement. [S49] [S50]
+
+The task list of the feature, `tasks.md`, governs execution. Its unchecked tasks are executed in
+document order; that order is the [owner's fixed task queue of November 17][S49]. The first
+unchecked task is active, and other work must serve it. A wait blocks only the work that needs
+the missing input (C16). When the active task, or a part of it, waits on an input that its role
+must not supply, or on an environment that is not available, the contributor completes the other
+parts, records the missing input at its owner and continues with the next unchecked task whose
+inputs are present. The waiting task keeps its position. A change of order is a committed edit
+of `tasks.md` that states its reason. [S51] The November 17 promotion of T016 / #84 includes focused commands,
+explicit SDK setup, production/test separation and justified dependency cuts insofar as they
+serve the measured loop. This exception does not mark T012 or any other functional task complete.
+
+Required functionality has absolute priority over final mathematical and runtime performance
+work. That performance work remains the last phase of this project and begins only when every
+required capability works through the public interface. This article governs the order of work.
+It removes no capability, question, assertion, independent-author boundary or resource requirement.
+
+Outside the explicit development-feedback correction above, a slow run, timeout, memory limit,
+benchmark, resource or heartbeat budget, or a red or unfinished expensive CI job does not select
+work and does not block functional work. Functional work may use any time, memory or heartbeat
+limit that it needs. Optimization during functional work is otherwise permitted only when a small
+required example of the selected capability cannot finish at all; the work then returns to that
+capability.
 
 Budgets named by C11 and by the acceptance inventory remain obligations of the last phase. Their
-position in a list or task order does not schedule them earlier. A goal, plan, outline, handoff or
-task order derives its sequence from the remaining functionality and not from CI state. It cannot
-add a performance priority.
+position in a list or issue-group order does not schedule them earlier. A goal, plan, outline,
+handoff or task order follows the task list and actual functional dependencies,
+not CI state, and cannot add another performance priority.
 
 Evidence that only shows self-consistency comes after functionality in the same way: independent
 assessments, acceptance inventories, frozen trials, preservation arguments and correctness proofs
 remain obligations where this constitution requires them, and they do not gate functional work.
+
+**Source basis:** [November 17 owner priority and fixed task queue][S49]; [matching committed
+repository queue][S50]; [November 19 owner instruction][S51]. The 1.4.0/1.5.0 adoption entries
+below retain the historical rule as adopted; the present exception records the later explicit
+owner correction.
+
+### C24. Engineering defaults for tests, feedback, logs and timing
+
+These defaults govern how contributors build and check the product. They add no mathematical
+requirement, and they do not gate functional work (C21).
+
+**Test tiers.** Tests are divided into tiers. Tier 1 is the smallest set that establishes
+implementation correctness through the happy paths and the meaningful branches. Its total run
+time must be seconds or minutes. A slow tier 1 loop is a defect, to be repaired when it is found.
+Higher tiers add evidence: the long tail of examples, permutations, edge cases and unexpected
+combinations.
+
+**Test design.** A test must exercise externally observable, end-to-end behaviour through a real
+user story of the specification. Mathematical assertions are tested through the public
+operations, at the owner of each operation. Mocks, tests of internal units and tests that
+manipulate internals to bypass the path a user exercises must be minimized or removed; their
+intended behavioural coverage is preserved through the real path. C19 governs what a test may
+claim.
+
+**Contribution lessons.** `CONTRIBUTING.md` records lessons from past mistakes as policies with
+stable alphanumeric identifiers, grouped by category. Each policy addresses a general class of
+contribution and, where possible, pairs a defective contribution with its correct replacement.
+
+**Feedback cadence.** Feedback loops of ten minutes or more must be minimized. Necessary long
+runs are reserved for milestones, such as the completion of a batch of work. Where a push starts
+long checks, pushes occur at milestones, and fast commit-only checks are the primary loop.
+
+**Platform scope.** Support for more than one platform is added only on explicit request.
+
+**Logging.** The application must write detailed logs. Test runs must produce durable logs that
+support later review. The default mathematical display policy is unchanged: diagnostics shown
+to the user remain opt-in.
+
+**Timing history.** Every test and computation must have a timing record that includes setup,
+fixtures, construction and nested work. Each record carries its run, revision, environment and
+input, so that measurements can be compared. The records are durable and are kept in the
+repository.
+
+**Timing triage.** Optimization work is selected from a triage table of measured costs:
+operation, cost per call, multiplying factors, aggregate cost, priority, proposed remedy and
+remaining measured cost. The aggregate is the cost per call times the calls, examples, fixtures,
+repetitions and other actual multipliers. Small costs that compound and objectively large single
+costs come first. The table selects among optimizations; it does not move optimization ahead of
+functionality.
+
+**Construction cost.** Construction of a mathematical object must be close to instant. Expensive
+computation is deferred until it is queried, unless an explicit flag requests eager computation;
+C7 and C8 permit lazy realization. Internal setup must not dominate computational cost, and
+timing triage applies when it does.
+
+**Source basis:** [owner instruction of 2026-11-19, applying the owner's standing defaults for
+Spec Kit constitutions][S51].
 
 ### Adoption record
 
@@ -1219,6 +1425,10 @@ remain obligations where this constitution requires them, and they do not gate f
 | 1.5.0 | 2026-11-08 | Add the competing-routes rule to C6 by owner decision on issue #66: a leaf supplies a comparison cell formalized in **M** or declares a preferred route as registration data; otherwise the question is ambiguous. Extend C21: evidence that only shows self-consistency follows functionality. Change production-leaf sequencing to follow kernel readiness. Reconciled in issues #10, #24, #66 and #69. |
 | 1.6.0 | 2026-11-15 | Add C22 by owner decision ([issue #10](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6891013550)). Old obligation: no article stated what the kernel may compute; the interpretation contract and T033 assigned eliminators, recursors and source recursion to the kernel, and the lowerer reduced closed data with no published operation in Lean. New obligation: every operation, method and predicate is computed by a leaf, and the kernel only resolves each request to a leaf implementation or reports no implementation; a leaf owns its control logic and may use any formalized operation internally, through another leaf directly, or by asking the kernel; a value with no published operation has the no-implementation outcome; discharging a closed proposition through a proof procedure registered upstream remains permitted. Reason: kernel-side evaluation made the kernel an unregistered provider. Reconciled in the specification, tasks, plan, interpretation contract and handoff on issues #10 and #66. |
 | 1.6.1 | 2026-11-15 | Clarify C22 without changing its obligation: unfolding a definition to the published operations, constructors and literals it is built from is composition; reducing a term in Lean to a value is not permitted; a numeral is sent as its registered descriptor. |
+| 1.7.0 | 2026-11-17 | Add C23 under the [authorized forward-realization amendment][S48]. The existing articles required preservation of selected data and actual results. C23 makes their implementation consequence explicit: constructors supply complete categorical interfaces; inherited actions execute the selected functorial composite; morphism and universal-construction data remain attached to their selections; occurrence identity is retained rather than inferred from equality; dependent inputs come from the formal interface; and all public calls share mathematical preparation. Repairs restore the forward relationship and remove its superseded recovery mechanism in the same change. This substantive elaboration preserves mathematical authority, computational ownership and the original acceptance obligations. |
+| 1.8.0 | 2026-11-17 | Elaborate C23 under the authorized repository-wide mathematical-model clarification. The prior article required forward realization and retained selections; the expanded obligation specifies category interfaces, public target constructors for both functor actions, correctly typed methods, evidence-based classifier refinement and coexistence of selected structures. The reason is to make these consequences explicit at implementation entrypoints. The local architecture specification records the model and source references; contribution rules and the existing feature contracts carry its application and acceptance conditions. |
+| 2.0.0 | 2026-11-17 | Amend only C21's work ordering under the [explicit owner correction and fixed queue][S49], also [committed in the repository plan][S50]. Old obligation: all performance work followed complete functionality except when a small required example could not finish. New obligation: first complete the measured real source-edit/rebuild/unchanged-public-check loop, with only the first unfinished queued task active and explicit recorded changes before reordering; final mathematical/runtime performance and budgets still follow complete functionality. Reason: the owner explicitly prioritized fast inner feedback and required the written, committed execution order. This is a major version under the existing governance rule because it changes the written scheduling obligation; it changes no mathematical, functional, independent-authorship, acceptance or final-budget requirement. Historical adoption entries remain intact. |
+| 3.0.0 | 2026-11-19 | Amend the authority and scope section, C21 and add C24 under the [owner instruction of 2026-11-19][S51]. Old obligations: plans and work orders remained in issues, and repository feature files were pointers; only the first unfinished task of a numbered queue was active. New obligations: the Spec Kit feature directory holds the specification, plan, research record, data model, contracts, validation guide, checklists and tasks; the unchecked tasks of `tasks.md` are executed in document order, which equals the November 17 queue; a wait on a missing input blocks only the work that needs it, as C16 already required. C24 adds the engineering defaults for test tiers, test design, contribution lessons, feedback cadence, platform scope, logging, timing history, timing triage and construction cost. Reasons: the Spec Kit commands had no specification, plan or task file to read; the queue was a list of bare task numbers kept in three places; its single-active-task rule could stop all work when one input was missing. This is a major version because it changes where the work order lives and the written scheduling obligation; it changes no mathematical, functional, independent-authorship, acceptance or final-budget requirement. |
 
 ### Provenance
 
@@ -1289,5 +1499,9 @@ evidence of an authorized amendment.
 
 [S46]: https://github.com/dzackgarza/lean-cas-dsl/blob/a206552ca315726c5d8cca356cebc65f617d4d7a/README.md
 [S47]: https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6891013550
+[S48]: https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6938133034
+[S49]: https://github.com/dzackgarza/lean-cas-dsl/blob/b1f5ab6d5c7a0bd68aabef7e9a781d7722894e90/specs/001-categorical-research-language/plan.md#committed-execution-order--owner-correction-of-2026-11-17
+[S50]: https://github.com/dzackgarza/lean-cas-dsl/commit/da8e31db0d9a75bf037207970649c101f8b3fb89
+[S51]: https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-7001905239
 
-**Version**: 1.6.1 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-15
+**Version**: 3.0.0 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-19
