@@ -146,6 +146,15 @@ A source audit on 2026-11-19 read every non-test file of `CasCompiler/` and `Cas
 | T013 | `FramedConnection.invoke`, `invokeBefore`, `immediateOnly`; `PreparedRequest.encodeArguments`, `reference`, `universeArguments`; `SessionSnapshot.reuse`; `InputRoleMap.lookup`; `KernelSession.value?`; `RealizationProfile.id`, `normalized` | Used by tests only, or by nothing. Connect or delete. |
 | T030 | Source forms declared in `CasCompiler/Syntax.lean` with no reader rule: `component(…)`, `inverse_component(…)`, `binder(…)`, `composite_lift(…)`, `map p to S[x]`, `map X along id` without arguments, `map X back along id`, `M⁻¹`, `a is b` inside a term, `let f(x, y) := …` | Each ends in the unsupported-source error. Owners by capability: T055 and T060 (cells), T046 (`composite_lift`), T036 (`map p to S[x]`), T031 (`let f(x, y)`). |
 
+### Acceptance drivers that name absent files
+
+| Task | Location | State | |
+| --- | --- | --- | --- |
+| T004, T029, T040 | `scripts/ci_kernel_candidate.py:468` | Requires the executable `cas-question-export`; `lakefile.lean` defines `cas-registry-export`, `cas-harness` and `cas-axiom-audit` only. | ✓ |
+| T063, T071 | `scripts/ci_kernel_candidate.py:1036-1039` | Reads `CasAcceptance/Kernel/FrozenObservationControls.lean` and its sibling controls. The directory exists only at `origin/work/kernel-v1-20261023`. Restate the controls on the new session. | ✓ |
+| T103 | `benchmarks/question_identity.lean:16-18` | Uses `CasCatalogue.Language.Scope` and `Language.items` and imports only `CasCatalogue.TestSuite`, which does not import the old reader. Not confirmed by a build. | ✓ |
+| T041 | `scripts/probes/rx_lift_runtime.lean` | Runs the original RX-LIFT statements through `CasCatalogue.Realize`. | ✓ |
+
 ### Removal of the old path (T051, T064)
 
 `#cas` and `#cas_tests` run the new kernel (`CasCatalogue/TestSuite.lean` imports only `CasRuntime.Session` and `CasCompiler.Parse`). `#resolve`, `#methods` and `cell%` still answer from the old `CasCatalogue/Resolve.lean`.
