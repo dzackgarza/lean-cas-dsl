@@ -22,6 +22,12 @@ def selectedEndpoint? (value : Expr) : Option Expr := do
       let arguments := arrow.getAppArgs
       arguments[arguments.size - (if selector == "source" then 3 else 2)]?
 
+/-- The declared end that a stated end of a selected map retains; any other expression is
+returned as it is. Instance synthesis and matching against registered objects take this end. -/
+def declaredEndpoint (stated : Expr) : MetaM Expr := do
+  let stated ← instantiateMVars stated
+  return (selectedEndpoint? stated).getD stated
+
 /-- Retain the source and target projections of this actual selected arrow.
 Reuse: Mathlib's Arrow.mk, Arrow.left and Arrow.right. The type hint is definitionally
 the original morphism type; the metadata preserves its computational occurrence. -/

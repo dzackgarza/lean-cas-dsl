@@ -41,8 +41,7 @@ def equationOperands (context : ReadContext) :
       let pointType ← whnfR (← inferType left.value)
       let mut left := left
       if sourceNumeric right.raw && pointType.isAppOfArity ``Quiver.Hom 4 then
-        let stated ← instantiateMVars pointType.getAppArgs[2]!
-        let source := (selectedEndpoint? stated).getD stated
+        let source ← declaredEndpoint pointType.getAppArgs[2]!
         if (← whnfR (← inferType source)).isSort then
           if (← synthInstance? (← mkAppM ``Unique #[source])).isSome then
             left := ⟨← sourcePointValue left.value none, none⟩

@@ -131,7 +131,7 @@ def registered (context : ReadContext) :
            let type ← whnfR (← inferType value)
            if !expected.isSort && type.isAppOfArity ``Quiver.Hom 4 &&
                !(← whnfR expected).isAppOfArity ``Quiver.Hom 4 then
-             let source := type.getAppArgs[2]!
+             let source ← declaredEndpoint type.getAppArgs[2]!
              if (← synthInstance? (← mkAppM ``Unique #[source])).isSome then
                return ⟨← sourcePointValue value (some expected), none⟩
        if parameterCount < arguments.size then
