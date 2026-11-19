@@ -106,3 +106,23 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   result.source.withOpen fun _ expression => do
     unless ← isDefEq (← inferType expression) (mkConst ``Nat) do
       throwError "source application lost the record's accepted function coercion"
+
+/-- A constructor field depends on the earlier fields that its type names and, through their
+types, on the fields that those types name (data model: "Constructor fields retain their exact
+projections and transitive preceding dependencies"). -/
+structure ChainedFieldsFixture where
+  bound : Nat
+  family : Fin bound → Type
+  index : Fin bound
+  value : family index
+
+def chainedFieldsFixture : ChainedFieldsFixture := ⟨2, fun _ => Nat, 0, (5 : Nat)⟩
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let context ← ContextTelescope.capture #[]
+  let layout ← SourceLayout.ofTerm (← context.close (mkConst ``chainedFieldsFixture))
+  let some value := layout.fields.find? (·.projection == ``ChainedFieldsFixture.value)
+    | throwError "the chained record lost its last field"
+  unless value.precedingDependencies == #[0, 1, 2] do
+    throwError "the field `value : family index` has preceding dependencies \
+      {value.precedingDependencies}; its type names `family` and `index`, whose types name `bound`"
