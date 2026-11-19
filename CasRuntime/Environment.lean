@@ -75,6 +75,13 @@ private def sameReference (original current : ValueBinding) : Bool :=
     (original.associationIds.toList.isPrefixOf current.associationIds.toList ||
       current.associationIds.toList.isPrefixOf original.associationIds.toList)
 
+/-- A supplied operand retains a source binding's value when it is that node and carries every
+association of the binding. A view of the node without one of them (the value before a consuming
+application) is not the bound value. -/
+private def retainsReference (bound operand : ValueBinding) : Bool :=
+  bound.value == operand.value &&
+    bound.associationIds.toList.isPrefixOf operand.associationIds.toList
+
 private def checkNativeType (context : OpenContext) (expected : Expr)
     (value : ValueBinding) (origin : ValueOrigin) : MetaM Unit := do
   let original ← value.role.source.inContext context
@@ -180,7 +187,7 @@ opaque RuntimeEnvironment.checkArgument (environment : RuntimeEnvironment) (sour
         | .error reason => throwError "the source argument is outside its telescope: {reason}"
       else pure none
     if let some retained := retained then
-      unless sameReference retained argument.value do
+      unless retainsReference retained argument.value do
         throwError "the runtime argument does not retain its specified source value"
     else
       let original ← argument.value.role.source.inContext context
