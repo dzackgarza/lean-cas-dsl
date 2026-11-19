@@ -156,11 +156,10 @@ A source audit on 2026-11-19 read every non-test file of `CasCompiler/` and `Cas
 
 ### Removal of the old path (T051, T064)
 
-`#cas` and `#cas_tests` run the new kernel (`CasCatalogue/TestSuite.lean` imports only `CasRuntime.Session` and `CasCompiler.Parse`). `#resolve`, `#methods` and `cell%` still answer from the old `CasCatalogue/Resolve.lean`.
+`#cas` and `#cas_tests` run the new kernel (`CasCatalogue/TestSuite.lean` imports only `CasRuntime.Session` and `CasCompiler.Parse`). `#resolve`, `#methods` and `cell%` still answer from the old `CasCatalogue/Resolve.lean`. The aggregate `CasCatalogue.lean`, which `CasDsl.lean` imports, no longer imports `Language`, `Realize`, `Codec` or `Admission`.
 
 | Step | Modules | Blocked by |
 | --- | --- | --- |
-| Now | The imports of `Language`, `Realize`, `Codec` and `Admission` in `CasCatalogue.lean` | Nothing in the source: `CasDsl.lean` is the only importer of the aggregate, and the public entrance does not use these modules. The check is a build of `CasDsl` and `CasDslTests`, which builds the remaining closure of the aggregate. |
 | 1 | `Realize`, `ElementData` | `scripts/probes/rx_lift_runtime.lean`, `rx_lift_reader_preflight.lean` with `scripts/ci_kernel_candidate.py`, `scripts/test_question_provenance.py`, `CasAcceptance/RegistrationProbes.lean`, `benchmarks/question_identity.lean`, five `CasCatalogue` probes |
 | 2 | `ComputationalData`, `ConstructionData`, `LiftedSubobjectData`, `FunctorActionData`, then `StructuredResult` | `CasAcceptance/StructuredComparisonProbes.lean`, `ReindexExecutionProbes.lean`, three probes |
 | 3 | `Language`, `FileItems` | `CasAcceptance/SelectedStructureProbes.lean`, `benchmarks/semantic_reading.lean`, eight reader probes |
