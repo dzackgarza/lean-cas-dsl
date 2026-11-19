@@ -384,14 +384,13 @@ reconstruction functions have already been removed and the reader/kernel
 have been split; [record C](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942116552)
 gives their exact inspected replacements. Removing a nonexistent function or
 mechanically repeating a past file split is not remediation. The only
-committed work order remains [#10](https://github.com/dzackgarza/lean-cas-dsl/issues/10):
+work order is the [task list](001-categorical-research-language/tasks.md):
 T016/#84 was recorded complete on November 17 in
 [#84](https://github.com/dzackgarza/lean-cas-dsl/issues/84)
-(with its own measured evidence). The current task is the **first unfinished**
-entry of the [fixed #10 queue](https://github.com/dzackgarza/lean-cas-dsl/issues/10),
+(with its own measured evidence). The current task is the first unchecked task of the
+[task list](001-categorical-research-language/tasks.md#execution-order),
 not a permanent re-run of T016. The precise evidence and later acceptance
 belong to the same existing owner issues.
-
 
 ## Owning sources
 
@@ -406,7 +405,7 @@ belong to the same existing owner issues.
 
 - [Project constitution](../.specify/memory/constitution.md)
 - [Current Spec Kit artifact index](001-categorical-research-language/plan.md)
-- [Current architectural decision and status of superseded proposals](https://github.com/dzackgarza/lean-cas-dsl/issues/85#issuecomment-6708266418)
-- [Consolidated implementation plan](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6664354269)
-- [Actual selected-data and independent-source contract](https://github.com/dzackgarza/lean-cas-dsl/issues/66#issuecomment-6664276482)
+- [Current architectural decision and status of superseded proposals](001-categorical-research-language/research.md)
+- [Consolidated implementation plan](001-categorical-research-language/plan.md)
+- [Actual selected-data and independent-source contract](001-categorical-research-language/contracts/mathematical-input.md)
 - [Architecture, ownership and evidence](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6574949858)

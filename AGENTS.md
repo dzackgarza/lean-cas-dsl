@@ -1,21 +1,23 @@
 # Constitution and issue references
 
-**Work priority (owner correction, 2026-11-17):** follow the [fixed execution queue](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6726232237). Complete the fast inner development feedback loop (T016 / #84) before resuming feature work. Work only on the first unfinished task; parallel work must directly serve it. Advancement requires its complete existing criteria. Reordering or a repair transition requires a dated change to the queue and matching repository plan before implementation resumes. Final mathematical/runtime benchmarks remain after functionality, and every original completion and independent-author requirement remains in force. The queue and owning task entry record current status and evidence.
+**Work order:** execute the unchecked tasks of the [task list](specs/001-categorical-research-language/tasks.md#execution-order) in document order. Required functionality precedes final performance, proofs and assessments ([C21](.specify/memory/constitution.md#c21-fast-development-feedback-first-final-performance-after-functionality)). A wait on a missing input blocks only the work that needs it.
 
 Read the [project constitution](.specify/memory/constitution.md) before the
 applicable issue requirements. It is the permanent repository authority for
 cross-architecture obligations. The constitution, mathematical execution model, local
-contribution rules and feature-contract requirements are maintained repository documents.
+contribution rules and the Spec Kit feature directory (specification, plan, research, data model,
+contracts, validation guide, checklists and tasks) are maintained repository documents.
 Preserve their complete requirements through merges and migrations.
-Plans, work orders, implementation decisions and evidence remain in their owning
-issues; changes to constitutional requirements follow its amendment rules.
+Work records, diagnostics and evidence remain in their owning issues; changes to constitutional
+requirements follow its amendment rules.
 
-- [Current Spec Kit feature and canonical artifact index](specs/001-categorical-research-language/plan.md)
-- [Work, specification and invariants](https://github.com/dzackgarza/lean-cas-dsl/issues/10)
-- [Actual selected cells, permitted choices and required-data errors](https://github.com/dzackgarza/lean-cas-dsl/issues/66#issuecomment-6664276482)
-- [Independent mathematical authority and computation-only leaf requirements](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6660532064)
-- [Current task assignments and role/input conventions](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6684546229)
-- [Requirements-quality review and marker ownership](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6665588103)
+- [Current handoff](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6726232237)
+- [Spec Kit feature: specification, plan, contracts and tasks](specs/001-categorical-research-language/)
+- [Roadmap and work records](https://github.com/dzackgarza/lean-cas-dsl/issues/10)
+- [Actual selected cells, permitted choices and required-data errors](specs/001-categorical-research-language/contracts/mathematical-input.md)
+- [Independent mathematical authority and computation-only leaf requirements](specs/001-categorical-research-language/spec.md)
+- [Current task assignments and role/input conventions](specs/001-categorical-research-language/tasks.md)
+- [Requirements-quality review and marker ownership](specs/001-categorical-research-language/checklists/architecture.md)
 - [Architecture, ownership and evidence](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6574949858)
 - [Contribution policies](https://github.com/dzackgarza/lean-cas-dsl/issues/85#issuecomment-6574924066)
 - [Interpretation](https://github.com/dzackgarza/lean-cas-dsl/issues/66)
@@ -25,7 +27,7 @@ issues; changes to constitutional requirements follow its amendment rules.
 - [Higher coherence](https://github.com/dzackgarza/lean-cas-dsl/issues/82)
 - Goals, plans and handoffs: section "Goals, outlines and plans" of `~/ai/AGENTS.global.md`
 
-**Owner-design reconstruction source:** [verbatim architectural statements, #91 record A](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942015918) · [mathematical contract and unresolved functorial issues, record B](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942060158) · [source-checked current implementation map, record C](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942116552). The maintained [architecture](specs/architecture.md) reconstructs the owner's constructor-as-functor and category-as-implementation-unit model. Do not replace an unresolved mathematical category/morphism action with a kernel or backend heuristic; the current source, not old audit function names, determines what remains to repair.
+**Owner-design reconstruction source:** [owner design statements in summary, #91 record A](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942015918) · [mathematical contract and unresolved functorial issues, record B](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942060158) · [source-checked current implementation map, record C](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942116552). The maintained [architecture](specs/architecture.md) reconstructs the owner's constructor-as-functor and category-as-implementation-unit model. Do not replace an unresolved mathematical category/morphism action with a kernel or backend heuristic; the current source, not old audit function names, determines what remains to repair.
 
 ## Required mathematical model
 
@@ -53,8 +55,8 @@ own work assignments and evidence. A source implementation is not authority to w
 
 ## Development boundaries
 
-Apply the [current source-to-result correction](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6726232237)
-when a functional task becomes active under the fixed queue. Preserve the dependency cuts already made while
+Apply the [source-to-result correction](specs/001-categorical-research-language/tasks.md#required-source-to-result-correction--functional-work-after-t016-2026-11-17)
+to each functional task. Preserve the dependency cuts already made while
 correcting the mathematical relationship; moving recovery code into another file does not repair it.
 
 - Checked source families and `ProgramBoundary` do not import runtime ownership or value storage.

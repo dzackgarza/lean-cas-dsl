@@ -850,8 +850,8 @@ requirements that every implementation, replacement architecture, contribution a
 claim must satisfy. Its mandatory rules are expressed by “must”, “must not”, and the quantified
 obligations below.
 
-The owner explicitly requested a permanent repository constitution on 2026-11-04. This is a
-specific exception to the earlier policy that repository documents contain only issue pointers.
+The owner explicitly requested a permanent repository constitution on 2026-11-04, as an exception
+to the policy of that date that repository documents contain only issue pointers.
 The complete constitution must remain in the repository. It must not be replaced by a pointer,
 omitted during a merge, or removed as part of a documentation migration. Its preservation does
 not depend on the architecture, programming language, process layout or planning tool.
@@ -864,8 +864,10 @@ and API-ownership requirements. A change of physical repository layout does not 
 authority to the CAS or a leaf. A downstream implementation or this document's notation cannot
 supply missing mathematics. [S3] [S4]
 
-Implementation plans, work orders, diagnostics, completion evidence and architectural proposals
-remain in their owning GitHub issues. Those records specialize the requirements to an authorized
+The Spec Kit feature directory under `specs/` holds the maintained specification, plan, research
+record, data model, contracts, validation guide, checklists and task list of each feature.
+Diagnostics, work records, completion evidence and architectural proposals remain in their owning
+GitHub issues. [S51] These documents and records specialize the requirements to an authorized
 task; neither an agent-authored plan nor an existing implementation can amend this constitution.
 Applicable owner instructions retain their authority. A change to a constitutional requirement
 must be recorded explicitly under the amendment rules below.
@@ -1321,10 +1323,14 @@ check. Completion requires comparable before/after measurements on the same sour
 toolchain and host, including the check outcome. A cached no-edit run, stale-import check, reduced
 workload or helper-only check does not establish this requirement. [S49] [S50]
 
-The [owner's fixed task queue][S49], recorded in the repository plan, governs execution. Only its
-first unfinished task is active; parallel work must directly serve that task. Reordering or
-entering a repair transition requires an explicit dated change to the queue and repository plan
-before implementation resumes. The November 17 promotion of T016 / #84 includes focused commands,
+The task list of the feature, `tasks.md`, governs execution. Its unchecked tasks are executed in
+document order; that order is the [owner's fixed task queue of November 17][S49]. The first
+unchecked task is active, and other work must serve it. A wait blocks only the work that needs
+the missing input (C16). When the active task, or a part of it, waits on an input that its role
+must not supply, or on an environment that is not available, the contributor completes the other
+parts, records the missing input at its owner and continues with the next unchecked task whose
+inputs are present. The waiting task keeps its position. A change of order is a committed edit
+of `tasks.md` that states its reason. [S51] The November 17 promotion of T016 / #84 includes focused commands,
 explicit SDK setup, production/test separation and justified dependency cuts insofar as they
 serve the measured loop. This exception does not mark T012 or any other functional task complete.
 
@@ -1342,7 +1348,7 @@ capability.
 
 Budgets named by C11 and by the acceptance inventory remain obligations of the last phase. Their
 position in a list or issue-group order does not schedule them earlier. A goal, plan, outline,
-handoff or task order follows the authorized fixed queue and actual functional dependencies,
+handoff or task order follows the task list and actual functional dependencies,
 not CI state, and cannot add another performance priority.
 
 Evidence that only shows self-consistency comes after functionality in the same way: independent
@@ -1350,8 +1356,61 @@ assessments, acceptance inventories, frozen trials, preservation arguments and c
 remain obligations where this constitution requires them, and they do not gate functional work.
 
 **Source basis:** [November 17 owner priority and fixed task queue][S49]; [matching committed
-repository queue][S50]. The 1.4.0/1.5.0 adoption entries below retain the historical rule as adopted;
-the present exception records the later explicit owner correction.
+repository queue][S50]; [November 19 owner instruction][S51]. The 1.4.0/1.5.0 adoption entries
+below retain the historical rule as adopted; the present exception records the later explicit
+owner correction.
+
+### C24. Engineering defaults for tests, feedback, logs and timing
+
+These defaults govern how contributors build and check the product. They add no mathematical
+requirement, and they do not gate functional work (C21).
+
+**Test tiers.** Tests are divided into tiers. Tier 1 is the smallest set that establishes
+implementation correctness through the happy paths and the meaningful branches. Its total run
+time must be seconds or minutes. A slow tier 1 loop is a defect, to be repaired when it is found.
+Higher tiers add evidence: the long tail of examples, permutations, edge cases and unexpected
+combinations.
+
+**Test design.** A test must exercise externally observable, end-to-end behaviour through a real
+user story of the specification. Mathematical assertions are tested through the public
+operations, at the owner of each operation. Mocks, tests of internal units and tests that
+manipulate internals to bypass the path a user exercises must be minimized or removed; their
+intended behavioural coverage is preserved through the real path. C19 governs what a test may
+claim.
+
+**Contribution lessons.** `CONTRIBUTING.md` records lessons from past mistakes as policies with
+stable alphanumeric identifiers, grouped by category. Each policy addresses a general class of
+contribution and, where possible, pairs a defective contribution with its correct replacement.
+
+**Feedback cadence.** Feedback loops of ten minutes or more must be minimized. Necessary long
+runs are reserved for milestones, such as the completion of a batch of work. Where a push starts
+long checks, pushes occur at milestones, and fast commit-only checks are the primary loop.
+
+**Platform scope.** Support for more than one platform is added only on explicit request.
+
+**Logging.** The application must write detailed logs. Test runs must produce durable logs that
+support later review. The default mathematical display policy is unchanged: diagnostics shown
+to the user remain opt-in.
+
+**Timing history.** Every test and computation must have a timing record that includes setup,
+fixtures, construction and nested work. Each record carries its run, revision, environment and
+input, so that measurements can be compared. The records are durable and are kept in the
+repository.
+
+**Timing triage.** Optimization work is selected from a triage table of measured costs:
+operation, cost per call, multiplying factors, aggregate cost, priority, proposed remedy and
+remaining measured cost. The aggregate is the cost per call times the calls, examples, fixtures,
+repetitions and other actual multipliers. Small costs that compound and objectively large single
+costs come first. The table selects among optimizations; it does not move optimization ahead of
+functionality.
+
+**Construction cost.** Construction of a mathematical object must be close to instant. Expensive
+computation is deferred until it is queried, unless an explicit flag requests eager computation;
+C7 and C8 permit lazy realization. Internal setup must not dominate computational cost, and
+timing triage applies when it does.
+
+**Source basis:** [owner instruction of 2026-11-19, applying the owner's standing defaults for
+Spec Kit constitutions][S51].
 
 ### Adoption record
 
@@ -1369,6 +1428,7 @@ the present exception records the later explicit owner correction.
 | 1.7.0 | 2026-11-17 | Add C23 under the [authorized forward-realization amendment][S48]. The existing articles required preservation of selected data and actual results. C23 makes their implementation consequence explicit: constructors supply complete categorical interfaces; inherited actions execute the selected functorial composite; morphism and universal-construction data remain attached to their selections; occurrence identity is retained rather than inferred from equality; dependent inputs come from the formal interface; and all public calls share mathematical preparation. Repairs restore the forward relationship and remove its superseded recovery mechanism in the same change. This substantive elaboration preserves mathematical authority, computational ownership and the original acceptance obligations. |
 | 1.8.0 | 2026-11-17 | Elaborate C23 under the authorized repository-wide mathematical-model clarification. The prior article required forward realization and retained selections; the expanded obligation specifies category interfaces, public target constructors for both functor actions, correctly typed methods, evidence-based classifier refinement and coexistence of selected structures. The reason is to make these consequences explicit at implementation entrypoints. The local architecture specification records the model and source references; contribution rules and the existing feature contracts carry its application and acceptance conditions. |
 | 2.0.0 | 2026-11-17 | Amend only C21's work ordering under the [explicit owner correction and fixed queue][S49], also [committed in the repository plan][S50]. Old obligation: all performance work followed complete functionality except when a small required example could not finish. New obligation: first complete the measured real source-edit/rebuild/unchanged-public-check loop, with only the first unfinished queued task active and explicit recorded changes before reordering; final mathematical/runtime performance and budgets still follow complete functionality. Reason: the owner explicitly prioritized fast inner feedback and required the written, committed execution order. This is a major version under the existing governance rule because it changes the written scheduling obligation; it changes no mathematical, functional, independent-authorship, acceptance or final-budget requirement. Historical adoption entries remain intact. |
+| 3.0.0 | 2026-11-19 | Amend the authority and scope section, C21 and add C24 under the [owner instruction of 2026-11-19][S51]. Old obligations: plans and work orders remained in issues, and repository feature files were pointers; only the first unfinished task of a numbered queue was active. New obligations: the Spec Kit feature directory holds the specification, plan, research record, data model, contracts, validation guide, checklists and tasks; the unchecked tasks of `tasks.md` are executed in document order, which equals the November 17 queue; a wait on a missing input blocks only the work that needs it, as C16 already required. C24 adds the engineering defaults for test tiers, test design, contribution lessons, feedback cadence, platform scope, logging, timing history, timing triage and construction cost. Reasons: the Spec Kit commands had no specification, plan or task file to read; the queue was a list of bare task numbers kept in three places; its single-active-task rule could stop all work when one input was missing. This is a major version because it changes where the work order lives and the written scheduling obligation; it changes no mathematical, functional, independent-authorship, acceptance or final-budget requirement. |
 
 ### Provenance
 
@@ -1440,7 +1500,8 @@ evidence of an authorized amendment.
 [S46]: https://github.com/dzackgarza/lean-cas-dsl/blob/a206552ca315726c5d8cca356cebc65f617d4d7a/README.md
 [S47]: https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6891013550
 [S48]: https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6938133034
-[S49]: https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6726232237
+[S49]: https://github.com/dzackgarza/lean-cas-dsl/blob/b1f5ab6d5c7a0bd68aabef7e9a781d7722894e90/specs/001-categorical-research-language/plan.md#committed-execution-order--owner-correction-of-2026-11-17
 [S50]: https://github.com/dzackgarza/lean-cas-dsl/commit/da8e31db0d9a75bf037207970649c101f8b3fb89
+[S51]: https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-7001905239
 
-**Version**: 2.0.0 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-17
+**Version**: 3.0.0 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-19

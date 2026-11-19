@@ -1,18 +1,16 @@
 # Contribution references
 
-**Work priority (owner correction, 2026-11-17):** follow the [fixed execution queue](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6726232237). Complete the fast inner development feedback loop (T016 / #84) before resuming feature work. Work only on the first unfinished task; parallel work must directly serve it. Advancement requires its complete existing criteria. Reordering or a repair transition requires a dated change to the queue and matching repository plan before implementation resumes. Final mathematical/runtime benchmarks remain after functionality, and every original completion and independent-author requirement remains in force. The queue and owning task entry record current status and evidence.
-
 - [Permanent constitution and independent-author/input boundaries](.specify/memory/constitution.md)
-- [Current FR-012–FR-015: independent formalization and computation-only leaves](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6660532064)
-- [Current source contract: actual cells, allowed choice data, mandatory errors and separate responsibilities](https://github.com/dzackgarza/lean-cas-dsl/issues/66#issuecomment-6664276482)
-- [Released computational-interface design and public-only handoff boundary](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6664277464)
+- [Current FR-012–FR-015: independent formalization and computation-only leaves](specs/001-categorical-research-language/spec.md)
+- [Current source contract: actual cells, allowed choice data, mandatory errors and separate responsibilities](specs/001-categorical-research-language/contracts/mathematical-input.md)
+- [Released computational-interface design and public-only handoff boundary](specs/001-categorical-research-language/contracts/computational-runtime.md)
 - [Contribution policies and permitted inputs](https://github.com/dzackgarza/lean-cas-dsl/issues/85#issuecomment-6574924066)
 - [Architecture, ownership and evidence](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6574949858)
 
 The linked policies determine which inputs each author may receive. The rules below apply to
 implementation contributions; the released leaf contract retains its own owner.
 
-The maintained [mathematical execution model](specs/architecture.md) reconstructs the *owner's* intended category-level software encapsulation, not merely a set of prohibitions. A category-aligned computational leaf may realize multiple accepted **constructors, common methods and immediate functor actions**, whereas one manifest `(operation, input form, backend)` is a **computational registration**, not the category itself. For the precise owner statements, see [#91 source A](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942015918), [formal contract B](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942060158), and [current implementation map C](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942116552). These records are available to authors who cannot access the original chat. They are source input for the requirements, not a new acceptance process.
+The maintained [mathematical execution model](specs/architecture.md) reconstructs the *owner's* intended category-level software encapsulation, not merely a set of prohibitions. A category-aligned computational leaf may realize multiple accepted **constructors, common methods and immediate functor actions**, whereas one manifest `(operation, input form, backend)` is a **computational registration**, not the category itself. For the owner design statements in summary, see [#91 source A](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942015918), [formal contract B](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942060158), and [current implementation map C](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942116552). They are source input for the requirements, not a new acceptance process.
 
 ## Mathematical implementation rules
 
