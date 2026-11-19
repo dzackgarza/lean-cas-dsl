@@ -136,6 +136,37 @@ Final performance retains the original 99-root 3×3 specimen, strict under-60-se
 
 Proof obligations retain their original quantifiers: semantic safety under arbitrary provider behavior; conditional preservation/progress under independently fixed primitive relations and stated operational hypotheses; actual complete execution/independent assessment of the designated delivery. Generic library laws, structural validation and arbitrary provider correctness are not interchangeable. Independently frozen trials keep contributor choice, permitted inputs, zero accommodation and affected repair/refreeze/rerun requirements, but no longer block implementing required kernel capabilities.
 
+## Source organization recorded at `e24045ca`
+
+This section records how the source on branch `integration/kernel-v1-20261106` is organized and which engineering choices it makes. Read the source before you rely on a statement here.
+
+### Production path
+
+Source text runs through `SourceSession.readStatement` (`CasCompiler/ReadSession.lean`, `ReadExpression.lean`; `Read.lean` retains the term-notation facade and public exports) → `CasCompiler.lowerTerm` (`Lower.lean`) → `CasRuntime.Kernel.execute` → the framed provider connection → a retained binding. `#cas` and `#cas_tests` call it through `CasRuntime.KernelSession` (`CasRuntime/Session.lean`). The reader produces native Lean terms whose meaning comes from lean-categories registry rows; it computes nothing. Computation is dispatched to leaves, and without leaves a computational statement ends in `NoImplementation`.
+
+### Dependency boundaries
+
+Checked computation declarations and `ProgramBoundary` belong to `CasCompiler/Program.lean`. Runtime operand binding, request and response admission, and the operational signature belong to `CasRuntime/PreparedRequest.lean`. Source-only program work imports the former; lowering and execution consume the latter.
+
+`CasCompiler/SourceRoutes.lean` owns first-binding route formation and retains its immutable source inventory. `OperationFamily.lean` owns whole-family preparation; `FamilyConversion.lean` owns native family agreement. `SourceCarrier` imports route formation directly. The numeral, method and operation readers import their required family operations explicitly. Cell comparison and coherence remain in `Resolve.lean`.
+
+`CasRuntime/Realization.lean` selects from the admitted manifest and frozen profile. `Encode.lean` prepares dependent invocation packets. `Kernel.lean` consumes both. Connection and transport modules remain independent of source-language reading.
+
+The expression reader now assembles typed rule modules, and runtime manifest/connection/invocation/demand responsibilities have separate owners with `Kernel.lean` as assembly. These source cuts must remain while their consumers are corrected; moving a responsibility is not proof that its mathematical preparation has been repaired. These boundaries must preserve the original source-to-result computations, including constructed values consumed through their target-category interface. Focused checks establish only the behaviour they exercise; independent mathematical acceptance remains separate.
+
+### Engineering decisions
+
+Each is a delegated engineering choice (constitution C17). Those that change what a leaf sees must be published by T028.
+
+1. **Arguments of a published operation** are the dependent invocation context of execution contract §4.1 (`kind`, `prepared_role`, `parameters`, `bindings`, `arguments`, `argument_layouts`, `result_layout`). A registered named constant is a descriptor `{"ctor": <catalogue id>, "args": [...]}`.
+2. **Operation address**: the family id, with `#<field>` when the reached field is not the first computational field.
+3. **Named elements**: a generator is the descriptor `<object id>#generator`, a subset literal the descriptor of its `SubsetLiteralEntry` id whose finite set is the array of its elements (each element a retained slot), an admitted element the data of the value it admits under its own role (an element of a subtype is the record whose one field is that value), a numeral the descriptor of its `NumeralEntry` id (`{"ctor": "num.rings", "args": [<ring>, k]}`), each at its explicit parameters. A comparison with a numeral decides the closed equality in Lean.
+4. **Delayed families** are closures; realization is selected when an action reaches actual arguments.
+5. **Input forms**: the complete-request form `<id>#input`, plus the exact form of each argument that is a registered named object.
+6. **Retention**: a definition keeps a runtime value when its evaluation dispatched to a provider or its value holds a closure of a published family or provider-owned data (a delayed lift); other definitions, including lambdas and matrix literals the user wrote, are read from their definition.
+7. **Questions**: a question about a retained value compares returned packets; a closed question is discharged in Lean through the registered literal evaluations (`CasCatalogue/Evaluation.lean`). `x ∈ Y` and `x in Y` for an object `Y` are settled by reading `x` in `Y`.
+8. **Evaluation algebra**: `p(a)` for `a` in the coefficient ring uses `Under.mk (𝟙 R)` (lean-categories `Polynomials.evaluation_own`); otherwise the unique registered `R`-algebra on the argument's set.
+
 ## Artifact and source map
 
 The feature directory holds the artifacts: [specification][S1]/[requirements][S2], this plan, [research][F], [data model][D], [mathematical input][M], [runtime][R], [notebook][N], [validation][Q], and [tasks Part 1][T1]/[Part 2][T2]. The original [requirements checklist][CHK] remains reviewer-owned; this plan edit does not approve its markers.
