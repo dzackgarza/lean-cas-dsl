@@ -15,9 +15,16 @@ def sourcePointValue (element : Expr) (expected : Option Expr) : TermElabM Expr 
   let type ← whnfR (← inferType element)
   unless type.isAppOfArity ``Quiver.Hom 4 do
     throwError "a registered distinguished element is not a native point map"
-  let point ← mkAppOptM ``default #[some type.getAppArgs[2]!, none]
+  -- A selected map states its ends as projections of its own arrow (`selectMorphism`). The point
+  -- and the set of the value are read at the declared ends that those projections retain.
+  let declared := fun (stated : Expr) => do
+    let stated ← instantiateMVars stated
+    return (selectedEndpoint? stated).getD stated
+  let point ← mkAppOptM ``default #[some (← declared type.getAppArgs[2]!), none]
   let function ← sourceSetFunction element
-  elabAppArgs function #[] #[Arg.expr point] expected false false
+  let value ← elabAppArgs function #[] #[Arg.expr point] expected false false
+  if expected.isSome then return value
+  mkExpectedTypeHint value (← declared type.getAppArgs[3]!)
 
 /-- The registered generator `∀ params, 1 ⟶ obj params` of the object whose carrier is `type`,
 at its point: the variable `x` of `R[x]`. The parameters are those that reducible unification
