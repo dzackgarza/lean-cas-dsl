@@ -164,7 +164,7 @@ Each is a delegated engineering choice (constitution C17). Those that change wha
 4. **Delayed families** are closures; realization is selected when an action reaches actual arguments.
 5. **Input forms**: the complete-request form `<id>#input`, plus the exact form of each argument that is a registered named object.
 6. **Retention**: a definition keeps a runtime value when its evaluation dispatched to a provider or its value holds a closure of a published family or provider-owned data (a delayed lift); other definitions, including lambdas and matrix literals the user wrote, are read from their definition.
-7. **Questions**: a question about a retained value compares returned packets; a closed question is discharged in Lean through the registered literal evaluations (`CasCatalogue/Evaluation.lean`). `x ∈ Y` and `x in Y` for an object `Y` are settled by reading `x` in `Y`.
+7. **Questions**: a question about a retained value compares returned packets; a closed question is discharged in Lean through the registered literal evaluations (`CasCatalogue/Evaluation.lean`). `x ∈ Y` and `x in Y` for an object `Y` are settled by reading `x` in `Y`. This choice contravenes C22 where the session decides the equality of returned values itself; task T113 replaces it.
 8. **Evaluation algebra**: `p(a)` for `a` in the coefficient ring uses `Under.mk (𝟙 R)` (lean-categories `Polynomials.evaluation_own`); otherwise the unique registered `R`-algebra on the argument's set.
 
 ## Artifact and source map
