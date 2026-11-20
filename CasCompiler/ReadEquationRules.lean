@@ -78,8 +78,10 @@ def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
   let source := context.source
   let equationOperands := equationOperands context
   match source with
-  | `(cas_term| $left:cas_term = $right:cas_term) => do
-    -- Within a term, `=` is the equality predicate of the operands' common domain.
+  | `(cas_term| $left:cas_term = $right:cas_term)
+  | `(cas_term| $left:cas_term is $right:cas_term) => do
+    -- Within a term, `=` is the equality predicate of the operands' common domain; `a is b` is
+    -- the same statement.
     let (left, right) ← equationOperands left right
     return ⟨← mkEq left.value right.value, none⟩
   | _ => throwReadRuleMismatch
