@@ -163,3 +163,31 @@ run_cmd liftTermElabM do
           ({run.outcome.detail}), not invalid source that names it"
     finally liftM (m := IO) session.close
   finally setEnv environment
+
+/- A statement that uses a name whose own definition did not read has that definition's outcome,
+and its detail names the definition and gives the reason. The name is not an unknown name. -/
+run_cmd liftTermElabM do
+  let environment ← getEnv
+  try
+    let mut session ← KernelSession.start none (computationOnly := true)
+    try
+      let mut kinds := #[]
+      let mut details := #[]
+      for text in #["let unreadDefinition := undeclaredName + 1 in ℤ",
+          "assert unreadDefinition = 1 in ℤ"] do
+        let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
+          | .ok statement => pure statement
+          | .error error => throwError "the statement did not parse: {error}"
+        let run ← withoutErrToSorry <| session.run ⟨statement⟩
+        kinds := kinds.push run.outcome.kind
+        details := details.push run.outcome.detail
+        session := run.session
+      unless kinds == #["invalid", "invalid"] do
+        throwError "a use of an unread definition has outcomes {kinds} ({details})"
+      let some detail := details[1]? | throwError "the use reported nothing"
+      unless (detail.splitOn "unreadDefinition").length > 1 &&
+          (detail.splitOn "did not read").length > 1 &&
+          (detail.splitOn "undeclaredName").length > 1 do
+        throwError "the use of an unread definition does not name it and its reason: {detail}"
+    finally liftM (m := IO) session.close
+  finally setEnv environment
