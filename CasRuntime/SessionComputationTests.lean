@@ -144,3 +144,22 @@ run_cmd liftTermElabM do
         throwError "the map action did not receive C's leg 1: {line}"
     finally liftM (m := IO) session.close
   finally setEnv environment
+
+/- A statement that names nothing registered and nothing bound is invalid source, and its outcome
+names the identifier. It is not an internal failure of the kernel (FR-029, outcome separation). -/
+run_cmd liftTermElabM do
+  let environment ← getEnv
+  try
+    let session ← KernelSession.start none (computationOnly := true)
+    try
+      let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt
+          "assert undeclaredName = 1 in ℤ" with
+        | .ok statement => pure statement
+        | .error error => throwError "the statement did not parse: {error}"
+      let run ← withoutErrToSorry <| session.run ⟨statement⟩
+      unless run.outcome.kind == "invalid" &&
+          (run.outcome.detail.splitOn "undeclaredName").length > 1 do
+        throwError "a statement with an unknown name is {run.outcome.kind} \
+          ({run.outcome.detail}), not invalid source that names it"
+    finally liftM (m := IO) session.close
+  finally setEnv environment
