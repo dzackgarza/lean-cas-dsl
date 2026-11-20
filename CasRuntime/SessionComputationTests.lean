@@ -191,3 +191,23 @@ run_cmd liftTermElabM do
         throwError "the use of an unread definition does not name it and its reason: {detail}"
     finally liftM (m := IO) session.close
   finally setEnv environment
+
+/- `X ⊆ Y` for two named sets is a typing judgement: it is settled by a chain of registered
+inclusions of `X` in `Y` (tests/acceptance/numbers.cas, `numbers.containments`), and a conjunction
+of such judgements is settled when each is. With no chain the judgement is not established; it is
+not a false statement. -/
+run_cmd liftTermElabM do
+  let environment ← getEnv
+  try
+    let session ← KernelSession.start none (computationOnly := true)
+    try
+      for (text, kind) in #[("assert ℤ ⊆ ℚ and ℚ ⊆ ℝ and ℝ ⊆ ℂ", "holds"),
+          ("assert ℕ ⊆ ℂ", "holds"), ("assert ℤ ⊆ ℕ", "invalid")] do
+        let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
+          | .ok statement => pure statement
+          | .error error => throwError "the statement did not parse: {error}"
+        let run ← withoutErrToSorry <| session.run ⟨statement⟩
+        unless run.outcome.kind == kind do
+          throwError "`{text}` is {run.outcome.kind} ({run.outcome.detail}), not {kind}"
+    finally liftM (m := IO) session.close
+  finally setEnv environment
