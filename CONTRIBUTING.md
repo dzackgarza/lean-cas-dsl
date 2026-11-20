@@ -34,19 +34,51 @@ correctness and independent acceptance. Documentation of a requirement does not 
 implementation. An upstream formal gap is reported to its owner under the existing independent
 input rules; a downstream repair cannot invent the missing theorem or definition.
 
-## Focused development
+## Feedback loops
 
 Use the repository's selected toolchain and dependency tuple. Dependency refresh and SDK setup
 are explicit actions; an ordinary source build does not change them.
 
-| Command | Purpose |
-| --- | --- |
-| `just setup-sdk` | Provision the pinned contract SDK environment once before protocol tests. An explicit contract path may be supplied. |
-| `just focus TARGET` | Build the changed Lean target once, streaming its diagnostics and preserving its exit status. |
-| `just probe FILE` | Run a temporary Lean probe after Lake rebuilds its imports. |
-| `just build-production` | Build the connected `CasRuntime.Session` production closure without compiler/runtime test modules. |
-| `just test-compiler` / `just test-runtime` | Run the separate compiler/runtime test targets. |
-| `just profile TARGET` | Request a separate diagnostic profile when that measurement is needed. |
+The loop of each change is short. The long run is for a milestone. The recipes make the short
+loop one command and put a stated reason, a clean tree and a record in front of the long run
+(constitution C24). `scripts/feedback.sh` implements them; they run from the host or from inside
+the research container.
+
+| Command | Use | Cost |
+| --- | --- | --- |
+| `just loop "TARGETS" [FILE …]` | After each change: build the test module of the changed mechanism (several targets in one quoted argument), then the acceptance files that the change touches (stems of `tests/acceptance/*.cas`). | Limit 300 s. The run is recorded. A target whose last recorded run was over the limit is refused. |
+| `just slow "REASON" TARGET …` | A target over the limit, when its result is needed now. | The reason (20 characters or more) is recorded. |
+| `just milestone "REASON"` | Before a push of the kernel branch, before a handoff, and after a batch of changes: both test aggregates, the notebook targets and every acceptance file. | About 75 min on 2026-11-20. Needs a reason, a clean tree and a head that the last milestone did not check. |
+| `just stop` | Stop every `lake` and `lean` process of this checkout. A build started through `docker exec` continues after its caller stops. | — |
+| `scripts/accept_files.sh FILE …` | The acceptance part alone. With no file it refuses; `--baseline` makes the last run the comparison base. Do not build while it runs: named files read the live build outputs. | One file costs 130 to 200 s (`timing/README.md`). Seconds go to `timing/acceptance.jsonl`; each statement's milliseconds are in its report. |
+| `just probe FILE` | Elaborate a temporary Lean file after Lake rebuilds its imports. | — |
+| `just build-production` | Build the connected `CasRuntime.Session` production closure without test modules. | — |
+| `just setup-sdk` | Provision the pinned contract SDK environment once before protocol tests. | — |
+| `just profile TARGET` | A separate diagnostic profile, when that measurement is needed. | — |
+
+`timing/runs.jsonl` holds one record for each run (time, revision, targets, seconds, status,
+reason). `timing/README.md` holds the table of measured costs and their remedies. The full output
+of each run is in `.tmp/logs/`.
+
+**LOOP001 — the loop of a change is the changed mechanism.** A change to one reader rule followed
+by both test aggregates and all 17 acceptance files (75 min) => `just loop
+"CasCompiler.SourceEqualityFormTests"`, and `just loop "CasRuntime.SessionComputationTests"
+numbers` when a statement outcome changes (25 s to 4 min).
+
+**LOOP002 — the long run needs a reason and a milestone.** `just milestone` after each commit =>
+one milestone after a batch, with the reason recorded; each commit message of the batch names the
+short loop that checked it and says that the aggregates were not rerun.
+
+**LOOP003 — a slow test is a defect with a row, not a habit.** Waiting 8 min for
+`CasRuntime.SessionLiftTests` in each loop => a row in `timing/README.md` with its measured cost
+and its remedy; until the remedy, the target runs in the milestone or through `just slow`.
+
+**LOOP004 — one run at a time, and no run left behind.** A second build started while one runs,
+or a stopped caller whose build continues in the container => `just stop`, then one `just loop`.
+
+**LOOP005 — stale build outputs are not a result.** `lake env lean FILE` on a file whose imports
+changed (Lean exits with status 139 and no message) => `just loop` on the target, which rebuilds
+the imports first.
 
 After a focused change, rebuild its affected public consumer and exercise the same mathematical
 input and continuation. Protocol peers check framing, dispatch, retained values and lifecycle;

@@ -6,7 +6,7 @@ and the task list. GitHub issues own work records, diagnostics and execution evi
 - [Project constitution](.specify/memory/constitution.md)
 - [Current specification, plan, contracts and tasks](specs/001-categorical-research-language/plan.md)
 - [Contribution and independent-role references](CONTRIBUTING.md)
-- [Focused build, SDK setup and separate test commands](CONTRIBUTING.md#focused-development)
+- [Feedback loops: the short loop, the long run, SDK setup](CONTRIBUTING.md#feedback-loops)
 - [Validation and original mathematical consumers](specs/001-categorical-research-language/quickstart.md)
 - [V1 roadmap, specification and invariants](https://github.com/dzackgarza/lean-cas-dsl/issues/10)
 - [Interpret complete dependent questions](https://github.com/dzackgarza/lean-cas-dsl/issues/66)
