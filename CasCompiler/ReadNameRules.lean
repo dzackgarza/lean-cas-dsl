@@ -23,6 +23,20 @@ def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
   let expectedCategory := context.expectedCategory
   let registered := registered context
   let member := member context
+  -- `m(X)` for a registered method or property `m` is `X.m()`. The rule applies when the name
+  -- names no object, map, construction or limit shape, so no kind takes priority.
+  let registeredOrMember := fun (name : TSyntax `ident) (arguments : Array (TSyntax `cas_term)) => do
+    let state ← CasCatalogue.semanticState
+    let spelling := name.getId.toString (escape := false)
+    let memberName := state.methods.any (·.name == spelling) ||
+      state.properties.any (·.name == spelling)
+    let otherKind := state.objects.any (·.name == spelling) ||
+      state.morphisms.any (·.name == spelling) ||
+      state.constructions.any (·.name == spelling) ||
+      state.limits.any (·.shape == spelling)
+    match memberName && !otherKind, arguments with
+    | true, #[receiver] => member receiver spelling #[]
+    | _, _ => registered name arguments
   match source with
   | `(cas_term| $name:ident) =>
     if let some declaration := (← getLCtx).findFromUserName? name.getId then
@@ -55,8 +69,8 @@ def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
           (receiver.toString (escape := false))
         match named || receiver.isAnonymous, parsed with
         | false, .ok source => member ⟨source⟩ field arguments.getElems
-        | _, _ => registered name arguments.getElems
-    else registered name arguments.getElems
+        | _, _ => registeredOrMember name arguments.getElems
+    else registeredOrMember name arguments.getElems
   | _ => throwReadRuleMismatch
 
 end ReadNameRules
