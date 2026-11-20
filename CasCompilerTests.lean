@@ -31,6 +31,7 @@ import CasCompiler.SourceImageTests
 import CasCompiler.SourceInheritedNumeralTests
 import CasCompiler.SourceInvariantTests
 import CasCompiler.SourceLambdaTests
+import CasCompiler.SourceLetArgumentsTests
 import CasCompiler.SourceLiftFactorTests
 import CasCompiler.SourceLiftTests
 import CasCompiler.SourceLimitLegTests
