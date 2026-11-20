@@ -130,6 +130,16 @@ Reuse: SourceSession.read/defineTerm and native expected-type checking. Source a
 are read in the preceding scope; the new name is inserted only after its value is checked. -/
 opaque SourceSession.readStatement (session : SourceSession) (stx : TSyntax `cas_stmt) :
     TermElabM SourceStatement := withRef stx do
+  -- Public let-function syntax expands once. The native value retains its actual preceding
+  -- bindings; its span refers to the original statement, not generated syntax.
+  let defineFunction := fun (name : TSyntax `ident) (parameter value : TSyntax `cas_term) => do
+    let translated ← match value with
+      | `(cas_term| $body:cas_term in $domain:cas_term) => do
+        let function ← patternFunction parameter body
+        `(cas_term| $function:cas_term in $domain:cas_term)
+      | _ => patternFunction parameter value
+    let value ← session.readAt stx translated
+    return SourceStatement.definition (← session.defineWritten translated name.getId value) value
   match stx with
   | `(cas_stmt| let $name:ident := $body:cas_term) =>
     let value ← session.read body
@@ -140,15 +150,12 @@ opaque SourceSession.readStatement (session : SourceSession) (stx : TSyntax `cas
     let value ← session.read body (some type.source)
     return .definition (← session.defineWritten annotation name.getId value) value
   | `(cas_stmt| let $name:ident($parameter:cas_term) := $value:cas_term) =>
-    let translated ← match value with
-      | `(cas_term| $body:cas_term in $domain:cas_term) => do
-        let function ← patternFunction parameter body
-        `(cas_term| $function:cas_term in $domain:cas_term)
-      | _ => patternFunction parameter value
-    -- Public let-function syntax expands once. The native value retains its actual
-    -- preceding bindings; its span refers to the original statement, not generated syntax.
-    let value ← session.readAt stx translated
-    return .definition (← session.defineWritten translated name.getId value) value
+    defineFunction name parameter value
+  | `(cas_stmt| let $name:ident($first:ident, $rest:ident,*) := $value:cas_term) =>
+    -- Several parameters are one tuple pattern: `let f(x, y) := e` is `let f := (x, y) ↦ e`.
+    let first ← `(cas_term| $first:ident)
+    let rest ← rest.getElems.mapM fun parameter => `(cas_term| $parameter:ident)
+    defineFunction name (← `(cas_term| ($first:cas_term, $rest:cas_term,*))) value
   | `(cas_stmt| assert implemented $body:cas_term) =>
     return .implemented (← session.read body)
   | `(cas_stmt| assert $body:cas_term) =>
