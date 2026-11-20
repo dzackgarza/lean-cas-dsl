@@ -25,6 +25,7 @@ import CasCompiler.SourceCarrierTests
 import CasCompiler.SourceCategoryBindingTests
 import CasCompiler.SourceConstructionTests
 import CasCompiler.SourceDivisionTests
+import CasCompiler.SourceEqualityFormTests
 import CasCompiler.SourceEqualityTests
 import CasCompiler.SourceIdentityTests
 import CasCompiler.SourceImageTests
