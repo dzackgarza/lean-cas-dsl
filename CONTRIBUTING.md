@@ -34,6 +34,18 @@ correctness and independent acceptance. Documentation of a requirement does not 
 implementation. An upstream formal gap is reported to its owner under the existing independent
 input rules; a downstream repair cannot invent the missing theorem or definition.
 
+## Task rows and open questions
+
+**SPEC001 — a task row holds a requirement, not a decision.** A task row that says "decide X
+against the contract", written where two implementations differ => read the specification, the
+data model and the contracts; write the passage that settles X and its acceptance condition in the
+row. A question that none of them settles is a gap of the specification: it goes to
+`/speckit-clarify` and into `spec.md`, and the task names that clarification as its input.
+
+**SPEC002 — "no test states it" is not a status.** "The required behaviour has no test, so the
+item is open" => derive the acceptance condition from the governing passage, write the failing
+test, then repair.
+
 ## Feedback loops
 
 Use the repository's selected toolchain and dependency tuple. Dependency refresh and SDK setup
