@@ -55,6 +55,11 @@ structure TestResult where
   proposition : String := ""
   /-- Registrations actually dispatched during this statement; not mathematical evidence. -/
   dispatches : Array Json := #[]
+  /-- Wall time of this statement, in milliseconds (constitution C24, timing history). -/
+  milliseconds : Nat := 0
+  /-- Wall time of the definitions before this statement that are not reported themselves: the
+  setup that this statement uses, in milliseconds. -/
+  setupMilliseconds : Nat := 0
   deriving ToJson, FromJson, Inhabited
 
 private def dispatchJson (registration : Registration) : Json :=
@@ -87,6 +92,7 @@ def runFile (session : KernelSession) (path : System.FilePath) :
                   fails := true }], session)
   let mut session := session
   let mut results : Array TestResult := #[]
+  let mut setupMilliseconds := 0
   for item in source.items do
     let (id?, statement) : Option String × TSyntax `cas_stmt := match item with
       | `(cas_item| test $id:ident $_:str : $statement:cas_stmt) =>
@@ -94,21 +100,27 @@ def runFile (session : KernelSession) (path : System.FilePath) :
       | `(cas_item| $statement:cas_stmt) => (none, statement)
       | _ => (none, ⟨item.raw⟩)
     let id := id?.getD s!"(statement) {item.raw.reprint.getD ""}"
+    let start ← IO.monoMsNow
     let execution ← try
         pure (some (← runOne session statement (some source)))
       catch error =>
         results := results.push {
           file, id, kind := "internal"
           detail := s!"statement execution failed: {← error.toMessageData.toString}"
-          fails := true }
+          fails := true, milliseconds := (← IO.monoMsNow) - start, setupMilliseconds }
+        setupMilliseconds := 0
         pure none
+    let milliseconds := (← IO.monoMsNow) - start
     let some (run, dispatches) := execution | continue
     session := run.session
-    if id?.isNone && run.outcome matches .holds then continue
+    if id?.isNone && run.outcome matches .holds then
+      setupMilliseconds := setupMilliseconds + milliseconds
+      continue
     results := results.push {
       file, id, kind := run.outcome.kind, detail := run.outcome.detail
       fails := run.outcome.fails, question := run.proposition, proposition := run.proposition
-      dispatches }
+      dispatches, milliseconds, setupMilliseconds }
+    setupMilliseconds := 0
   return (results, session)
 
 /-- The report of a file's results. -/

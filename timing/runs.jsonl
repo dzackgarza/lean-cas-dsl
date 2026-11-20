@@ -1,0 +1,6 @@
+{"utc": "2026-11-20T11:54:41Z", "kind": "loop", "revision": "c9e6b43", "dirty": true, "targets": ["CasCompiler.SourceEqualityFormTests"], "acceptance": [], "seconds": 25, "status": 0, "over_limit": false}
+{"utc": "2026-11-20T11:59:23Z", "kind": "loop", "revision": "c9e6b43", "dirty": true, "targets": ["CasCompiler.SourceEqualityFormTests"], "acceptance": ["ellipses"], "seconds": 200, "status": 0, "over_limit": false}
+{"utc": "2026-11-20T11:59:37Z", "kind": "loop", "revision": "c9e6b43", "dirty": true, "targets": ["CasCompiler.SourceEqualityFormTests"], "acceptance": [], "seconds": 13, "status": 0, "over_limit": false}
+{"utc": "2026-11-20T12:23:38Z", "kind": "loop", "revision": "c9e6b43", "dirty": true, "targets": ["CasCatalogue.TestSuite"], "acceptance": ["ellipses"], "seconds": 172, "status": 0, "over_limit": false}
+{"utc": "2026-11-20T12:31:29Z", "kind": "loop", "revision": "c9e6b43", "dirty": true, "targets": ["CasCatalogue.TestSuite"], "acceptance": ["ellipses"], "seconds": 198, "status": 0, "over_limit": false}
+{"utc": "2026-11-20T12:34:22Z", "kind": "loop", "revision": "c9e6b43", "dirty": true, "targets": ["CasCatalogue.TestSuite"], "acceptance": ["ellipses"], "seconds": 162, "status": 0, "over_limit": false}

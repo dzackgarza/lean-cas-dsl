@@ -57,9 +57,9 @@ Close #10 only when #66/#69/#24 and every original A–F condition hold together
 
 ## Working on one capability
 
-The [focused development commands](../../CONTRIBUTING.md#focused-development) separate explicit
-SDK setup, compilation, protocol tests and optional profiling. Build the changed mechanism, then
-its affected public consumer. `just build-production` targets the connected session implementation;
+The [feedback loops](../../CONTRIBUTING.md#feedback-loops) separate the short loop of a change
+from the long run of a milestone, and keep SDK setup and profiling explicit. Check the changed
+mechanism with `just loop`, then its affected public consumer. `just build-production` targets the connected session implementation;
 compiler/runtime test targets and the complete integration gate retain their separate purposes.
 Package provisioning must not occur as a side effect of importing a test or production module.
 

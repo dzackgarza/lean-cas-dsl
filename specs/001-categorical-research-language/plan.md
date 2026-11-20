@@ -198,6 +198,6 @@ Each implementation change must reach its original public mathematical continuat
 and evidence remain in their owning issues.
 
 The [development boundaries](../../AGENTS.md#development-boundaries) and
-[focused commands](../../CONTRIBUTING.md#focused-development) apply to that same implementation.
+[feedback loops](../../CONTRIBUTING.md#feedback-loops) apply to that same implementation.
 They specify boundaries for source preparation, actual request binding, generic execution and final assembly;
 they do not authorize preserving reconstruction machinery behind those interfaces.

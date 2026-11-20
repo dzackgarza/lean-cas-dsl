@@ -10,6 +10,11 @@
 # realized through many ports. See specs/architecture.md and issue #91.
 # Lake owns compilation; language-level QC delegates to the global gates.
 #
+# Feedback: `just loop` is the loop of each change. `just slow` and `just milestone` are long runs
+# and need a stated reason (scripts/feedback.sh, CONTRIBUTING "Feedback loops"). The loop recipes
+# run from the host or from inside the research container; the other recipes call `lake` and run
+# inside the container.
+#
 # Not adopted: lean-axiom-audit — it requires a target-private
 # _lean-axiom-audit budget recipe, and this package has no audited axiom
 # budget yet (same posture as lean-jupyter-kernel; revisit alongside its
@@ -30,18 +35,21 @@ track-main:
 cache +modules:
     @lake exe cache get {{modules}}
 
-# Build one target, or a source probe with its imports, with live diagnostics.
-focus target:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    target={{quote(target)}}
-    log=$(mktemp "${TMPDIR:-/tmp}/lean-cas-focus.XXXXXX.log")
-    echo "Focused log: $log"
-    if [[ "$target" == *.lean ]]; then
-      lake lean "$target" 2>&1 | tee "$log"
-    else
-      lake build "$target" 2>&1 | tee "$log"
-    fi
+# The short loop: build the named Lake targets, then run the named acceptance files (limit 300 s).
+loop targets *acceptance:
+    @scripts/feedback.sh loop {{quote(targets)}} {{acceptance}}
+
+# Run targets that the timing records show over the limit of the short loop; the reason is recorded.
+slow reason +targets:
+    @scripts/feedback.sh slow {{quote(reason)}} {{targets}}
+
+# The long run: every test module, the notebook targets and every acceptance file, on a clean tree.
+milestone reason:
+    @scripts/feedback.sh milestone {{quote(reason)}}
+
+# Stop every lake and lean process that works in this checkout.
+stop:
+    @scripts/feedback.sh stop
 
 # Profile a source only when explicitly requested; rebuild its imports first.
 profile target:
@@ -55,7 +63,7 @@ profile target:
 
 # Elaborate a source probe after rebuilding its changed imports.
 probe source:
-    @just focus {{quote(source)}}
+    @lake lean {{quote(source)}}
 
 # Measure an unchanged admitted assertion through the requested production stage.
 bench-question assertion="matrices.kernel" source="benchmarks/question_identity.lean": track-main
@@ -122,13 +130,6 @@ setup-sdk contracts=".lake/packages/cas_leaf_contracts":
     contracts=${CAS_LEAF_CONTRACT_PATH:-{{quote(contracts)}}}
     uv sync --frozen --project "$contracts"
 
-# Source and runtime controls are explicit targets, outside production compilation.
-test-compiler:
-    @lake build +CasCompilerTests:olean
-
-test-runtime:
-    @lake build +CasRuntimeTests:olean
-
 # Audit all compiler, runtime and contract declarations against the shared rules.
 audit-production:
     @lake env lake build +CasGates.Production:olean +CasGates.KernelPurityProbes:olean
@@ -146,8 +147,8 @@ build: _integration-intent
     @python3 scripts/check_acceptance_permanent.py
     @just build-production
     @just setup-sdk
-    @just test-compiler
-    @just test-runtime
+    @lake build +CasCompilerTests:olean
+    @lake build +CasRuntimeTests:olean
     @just audit-production
     @lake env lake build CasCatalogue CasGates CasAcceptance CasTools CasDsl CasDslTests cas-registry-export cas-axiom-audit cas-harness
 

@@ -70,9 +70,12 @@ correcting the mathematical relationship; moving recovery code into another file
 - Production targets build the connected public implementation. Compiler/runtime test targets are
   separate, and tests never provision packages during Lean elaboration or name a developer's
   absolute interpreter path.
-- Use the [focused development commands](CONTRIBUTING.md#focused-development) for the changed
-  mechanism, then rebuild and run its original public consumer. Diagnostics stream immediately;
-  profiling is explicit and no prior profile is required to finish a slow functional build.
+- The loop of each change is `just loop "<test module of the changed mechanism>" [touched
+  acceptance files]` ([feedback loops](CONTRIBUTING.md#feedback-loops), limit 300 s). Then check
+  its original public consumer the same way. The long run, `just milestone "<reason>"`, is for a
+  batch of changes, a push or a handoff; it is not the check of one change. `just stop` stops a
+  build that its caller left behind. Profiling is explicit and no prior profile is required to
+  finish a slow functional build.
 - Assess encapsulation from actual imports, public declarations and affected consumers. Neither
   file counts nor moving a function establishes an independent compilation boundary. Preserve
   executable metaprogram dependencies when narrowing public imports.
