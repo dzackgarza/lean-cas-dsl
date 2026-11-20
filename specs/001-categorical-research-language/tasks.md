@@ -127,12 +127,10 @@ A source audit on 2026-11-19 read every non-test file of `CasCompiler/` and `Cas
 | --- | --- | --- | --- |
 | T027 | `CasRuntime/Session.lean` (`Outcome.ofException`, `Outcome.fails`) | A source form that the reader has no rule for is reported with the kind `gap`, with no stratum, and a gap does not fail. It is kernel work, not a missing leaf. An ambiguous realization also has the kind `gap`; its stratum is in the detail, and the acceptance drivers fix the list of kinds. | An outcome for an unread source form that the drivers can tell from a missing implementation. |
 | T027 | `CasRuntime/KernelState.lean:39-41`; `Realization.lean:157-158`, `:246`, `:250` | An absent manifest becomes `{}` and an absent profile becomes `all`. | Fail on a missing manifest or profile. |
-| T034 | `CasCompiler/ReadNumeralRules.lean:54-61` | Any failure of the direct numeral reading, including its ambiguity error, is caught; a reading through an inclusion replaces it. | Fall through only on "no numeral here". |
-| T030 | `CasCompiler/ReadNamed.lean:143-151` | When kinds share a name, each is tried and its errors are dropped. | A matched rule's failure is final. |
 | T027 | `CasRuntime/Environment.lean:117-121` | A dependent reference that is missing or different raises an error with no stratum, so the statement is reported as `internal`. | The stratum of the cause: a malformed reply, or no implementation when one constructor binder has several input roles. |
 | T113, T027 | `CasRuntime/Session.lean:199-205`; `CasCompiler/Syntax.lean` | A predicate reply must be a Boolean. A provider cannot answer "unknown", and `assert P = unknown` has no source form, although C6 names the `unknown` outcome. | A decision with three values. |
 | T010, T022 | `CasRuntime/Execute.lean:41-55` | A demand for an occurrence that is running waits for its completion, so a demand whose operands reach its own occurrence would wait on itself. Reach from the lowerer is not established. | Refuse such a demand as `unavailable`. |
-| T048, T031 | `CasCompiler/SourceLimit.lean:162-165`; `SourceAdmission.lean:180-183`, `:318-320` | Candidate filters catch every exception as "not applicable". | Catch only the inapplicable stratum. |
+| T030, T031, T034, T048 | `CasCompiler/ReadNumeralRules.lean`, `ReadNamed.lean`, `SourceLimit.lean`, `SourceAdmission.lean` (the five trial readings, `keepTrialAmbiguity`) | A trial reading that fails is discarded, except when its failure is an ambiguity. A failure of another stratum and an internal failure are still read as "not applicable". | Discard a trial only when it is not applicable. The reader's "not applicable" failures have no tag of their own today, so they cannot be told from an internal failure. |
 
 ### Unreached code
 
