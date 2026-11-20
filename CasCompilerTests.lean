@@ -39,6 +39,7 @@ import CasCompiler.SourceLimitLegTests
 import CasCompiler.SourceLimitTests
 import CasCompiler.SourceMatrixActionTests
 import CasCompiler.SourceMemberTests
+import CasCompiler.SourceMethodCallTests
 import CasCompiler.SourceMethodTests
 import CasCompiler.SourceNamedLimitTests
 import CasCompiler.SourceOperationTests
