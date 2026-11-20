@@ -381,16 +381,11 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
     let session := match definedName? statement with
       | some name => { session with unread := session.unread.push (name, outcome) }
       | none => session
-    -- A statement that uses a definition whose computation had no leaf needs that missing
-    -- value: its failure is that gap, named, not an internal defect (constitution C3).
-    if let .internal reason := outcome then
-      -- `first.obj` names `first`: a dotted identifier uses its leading definition.
-      let used := statement.raw.find? fun node => node.isIdent &&
-        session.unavailable.any (·.2.isPrefixOf node.getId)
-      let names := used.bind fun node =>
-        (session.unavailable.find? (·.2.isPrefixOf node.getId)).map (·.2)
-      if let some name := names then
-        return { outcome := .gap s!"{name} has no computed value: {reason}", session }
+    -- A statement that needs the value of a definition whose computation had no leaf has that
+    -- gap, named, not an internal defect (constitution C3). The dependency check names the
+    -- binding that has no value.
+    if let some (_, name) := session.unavailable.find? fun (id, _) => missingValueOf error id then
+      return { outcome := .gap s!"{name} has no computed value: {outcome.detail}", session }
     return { outcome, session }
 
 end CasRuntime

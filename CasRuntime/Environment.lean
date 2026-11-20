@@ -93,6 +93,15 @@ private def checkNativeType (context : OpenContext) (expected : Expr)
     trace[cas.environment] "{producing} : {← inferType producing}, expected {expected}"
     throwError "the producing runtime value has an incompatible complete source type"
 
+/-- The tag of the failure "the source binding `id` has no runtime value". A session uses it to
+report the statement as the gap of that definition. -/
+def missingValueTag (id : BindingId) : Name :=
+  .num (.str `CasRuntime.missingValue id.session) id.serial
+
+/-- Whether the failure is a missing runtime value of the source binding `id`. -/
+def missingValueOf (error : Exception) (id : BindingId) : Bool :=
+  error.toMessageData.hasTag (· == missingValueTag id)
+
 private def checkDependencies (context : OpenContext)
     (supplied : Std.HashMap BindingId ValueBinding) (expected : Expr)
     (value : ValueBinding) (origin : ValueOrigin) : MetaM Unit := do
@@ -103,7 +112,8 @@ private def checkDependencies (context : OpenContext)
       | throwError "a producing runtime dependency is outside its complete reference table"
     if let some original := original then
       let some current := supplied[dependency.id]?
-        | throwError "the runtime value is missing a retained dependent reference"
+        | throwError (MessageData.tagged (missingValueTag dependency.id)
+            m!"the runtime value is missing a retained dependent reference")
       unless sameReference original current do
         throwError "the runtime value has a different retained dependent reference"
   let dependencies ← CasCompiler.contextDependencies context.bindings expected
@@ -121,8 +131,9 @@ private def checkDependencies (context : OpenContext)
           if ← isDefEq (← inferType dependency.expression) (← inferType formal) <&&>
               isDefEq dependency.expression formal then
             let some current := supplied[dependency.id]?
-              | throwError "the runtime value is missing a consuming dependent reference \
-                  ({dependency.expression})"
+              | throwError (MessageData.tagged (missingValueTag dependency.id)
+                  m!"the runtime value is missing a consuming dependent reference \
+                    ({dependency.expression})")
             unless sameReference original current do
               throwError "the runtime value has a different consuming dependent reference \
                 ({dependency.expression})"
