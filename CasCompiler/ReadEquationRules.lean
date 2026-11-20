@@ -84,6 +84,13 @@ def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
     -- the same statement.
     let (left, right) ← equationOperands left right
     return ⟨← mkEq left.value right.value, none⟩
+  | `(cas_term| $left:cas_term and $right:cas_term) => do
+    -- The conjunction of two statements, each read as a proposition. Nothing is decided here.
+    let readExpression := @ReadContext.readExpression context
+    let proposition := some (mkSort .zero)
+    let left ← readExpression context.categoryOf left proposition
+    let right ← readExpression context.categoryOf right proposition
+    return ⟨← mkAppM ``And #[left.value, right.value], none⟩
   | _ => throwReadRuleMismatch
 
 end ReadEquationRules
