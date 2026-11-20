@@ -144,7 +144,9 @@ def registered (context : ReadContext) :
     for selected in candidates do
       let reads ← withoutModifyingState do
         try discard <| readNamed selected; pure true
-        catch _ => pure false
+        catch error => do
+          CasCatalogue.keepTrialAmbiguity error
+          pure false
       if reads then accepted := accepted.push selected
     let #[selected] := accepted
       | CasCatalogue.throwSemanticAmbiguity m!"source name {spelling} requires a category qualification"

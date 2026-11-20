@@ -164,7 +164,9 @@ opaque sourceNamedLimit (shape : String) (maps : Array NativeSourceJudgement) :
     -- Applicability is the declaration's own typing at the actual maps.
     let accepts ← withoutModifyingState do
       try discard <| present row; pure true
-      catch _ => pure false
+      catch error => do
+        CasCatalogue.keepTrialAmbiguity error
+        pure false
     if accepts then candidates := candidates.push row
   if candidates.isEmpty then
     if let some created ← createdLimit shape selected maps then return some created

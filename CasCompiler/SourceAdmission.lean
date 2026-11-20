@@ -179,7 +179,10 @@ def sourceBinder (token : String) (arguments : Array (Expr → TermElabM Expr))
   let mut readings := #[]
   for row in rows do
     let reading ← withoutModifyingState do
-      try pure (some (← attempt row)) catch _ => pure none
+      try pure (some (← attempt row))
+      catch error => do
+        CasCatalogue.keepTrialAmbiguity error
+        pure none
     if reading.isSome then readings := readings.push row
   match readings with
   | #[row] => attempt row
@@ -316,7 +319,10 @@ def sourceIncludedNumeral (target : Expr) (readAt : Expr → TermElabM Expr) :
   for inclusion in (← semanticState).inclusions do
     let some (arrow, source) ← mapInto? inclusion.declaration target | continue
     let numeral ← withoutModifyingState do
-      try pure (some (← readAt source)) catch _ => pure none
+      try pure (some (← readAt source))
+      catch error => do
+        CasCatalogue.keepTrialAmbiguity error
+        pure none
     if numeral.isSome then readings := readings.push (arrow, source)
   match readings with
   | #[] => return none

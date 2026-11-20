@@ -23,6 +23,13 @@ def throwSemanticAmbiguity {m : Type → Type} {α : Type} [Monad m] [MonadError
 def Exception.isSemanticAmbiguity (error : Exception) : Bool :=
   error.toMessageData.hasTag (· == `CasCatalogue.throwSemanticAmbiguity)
 
+/-- A trial reading that fails is discarded as "not applicable", with one exception: a trial whose
+own reading is ambiguous has that ambiguity as its result, and the ambiguity is raised again
+(constitution C6: distinct unresolved readings remain distinct). -/
+def keepTrialAmbiguity {m : Type → Type} [Monad m] [MonadExcept Exception m]
+    (error : Exception) : m Unit :=
+  if Exception.isSemanticAmbiguity error then throw error else pure ()
+
 /-- A source form whose translation is unfinished, distinct from invalid mathematics.
 Reuse: Lean's tagged MessageData, as for semantic ambiguity above. -/
 def throwUnsupportedSource {m : Type → Type} {α : Type} [Monad m] [MonadError m]

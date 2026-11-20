@@ -52,7 +52,10 @@ def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
     if let some category := expectedCategory then
       if let some value ← sourceObjectNumeral number.getNat category expected then return value
     let direct ← withoutModifyingState do
-      try pure (some (← sourceNumeral categoryOf number.getNat expected)) catch _ => pure none
+      try pure (some (← sourceNumeral categoryOf number.getNat expected))
+      catch error => do
+        CasCatalogue.keepTrialAmbiguity error
+        pure none
     if direct.isNone then
       -- A set with no numeral of its own reads it through a registered inclusion.
       if let some value ← sourceIncludedNumeral expected fun type => do
