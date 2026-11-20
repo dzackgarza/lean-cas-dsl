@@ -333,11 +333,13 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
       let unavailable := if dependent then session.unavailable.push (entry.id, entry.userName)
         else session.unavailable
       return { outcome := .holds, session := { session with source := next, bound, unavailable } }
-    | .settled value =>
+    | .settled values =>
       let shown ← session.source.context.withOpen fun bindings => do
         let context ← ContextTelescope.capture bindings
-        return toString (← ppExpr (← value.source.inContext context))
-      return { outcome := .holds, session, proposition := s!"settled: {shown}" }
+        values.mapM fun value => do
+          return toString (← ppExpr (← value.source.inContext context))
+      return { outcome := .holds, session,
+               proposition := s!"settled: {" and ".intercalate shown.toList}" }
     | .implemented value =>
       -- The value is computed in its own cell. A gap or a failed computation is the outcome.
       let transaction ← CellTransaction.begin session.kernel.ledger

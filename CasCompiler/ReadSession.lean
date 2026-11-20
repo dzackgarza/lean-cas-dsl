@@ -103,7 +103,7 @@ inductive SourceStatement where
   | definition (session : SourceSession) (value : SourceTerm)
   | question (proposition : SourceTerm)
   | implemented (value : SourceTerm)
-  | settled (value : SourceTerm)
+  | settled (values : Array SourceTerm)
 
 /-- Read an asserted membership or annotation. Membership in a subset is a proposition; in an
 object it is the element's reading there, whose success settles the question.
@@ -114,7 +114,54 @@ private def typingQuestion (session : SourceSession) (stx : TSyntax `cas_term) :
     return (← readSourceTerm (sourceCategory session context)
       (← recordedRings session context stx) stx none).value
   let proposition ← term.source.withOpen fun _ expression => isProp expression
-  return if proposition then .question term else .settled term
+  return if proposition then .question term else .settled #[term]
+
+/-- `X ⊆ Y` for two named sets: the map that a chain of registered inclusions of `X` in `Y`
+gives (`sourceCoercion?`: registered inclusions and registered constants; several chains are a
+competing reading). With no chain the judgement is not established. `none` when a side is not an
+object: `⊆` is then the order of subsets, a proposition. -/
+private def inclusionJudgement? (session : SourceSession) (stx left right : TSyntax `cas_term) :
+    TermElabM (Option SourceTerm) := do
+  try
+    return some (← session.elaborate stx fun context => do
+      let categoryOf := sourceCategory session context
+      let rings ← recordedRings session context stx
+      let source ← readSourceTerm categoryOf rings left none
+      let target ← readSourceTerm categoryOf rings right none
+      unless source.category.any (·.role == .object) && target.category.any (·.role == .object) do
+        throwReadRuleMismatch
+      unless (← whnfR (← inferType source.value)).isSort &&
+          (← whnfR (← inferType target.value)).isSort do
+        throwReadRuleMismatch
+      withLocalDeclD `x source.value fun element => do
+        let some included ← sourceCoercion? element target.value
+          | CasCatalogue.throwStratum .invalid
+              m!"no chain of registered inclusions gives {left} ⊆ {right}"
+        mkLambdaFVars #[element] included)
+  catch error =>
+    match error with
+    | .internal id _ => if id == readRuleMismatch then return none else throw error
+    | _ => throw error
+
+/-- The typing judgements of an assertion, when every conjunct is one and each is settled:
+`x ∈ Y` or `x in Y` for an object `Y`, and `X ⊆ Y` for named sets. `none` when a conjunct is a
+proposition; the assertion is then read as a question. -/
+private partial def settledJudgements? (session : SourceSession) (stx : TSyntax `cas_term) :
+    TermElabM (Option (Array SourceTerm)) := do
+  match stx with
+  | `(cas_term| ($body:cas_term)) => settledJudgements? session body
+  | `(cas_term| $left:cas_term and $right:cas_term) =>
+    let some first ← settledJudgements? session left | return none
+    let some second ← settledJudgements? session right | return none
+    return some (first ++ second)
+  | `(cas_term| $_:cas_term ∈ $_:cas_term)
+  | `(cas_term| $_:cas_term in $_:cas_term) =>
+    match ← typingQuestion session stx with
+    | .settled values => return some values
+    | _ => return none
+  | `(cas_term| $left:cas_term ⊆ $right:cas_term) =>
+    return (← inclusionJudgement? session stx left right).map fun value => #[value]
+  | _ => return none
 
 private partial def patternFunction (pattern body : TSyntax `cas_term) :
     TermElabM (TSyntax `cas_term) :=
@@ -162,6 +209,11 @@ opaque SourceSession.readStatement (session : SourceSession) (stx : TSyntax `cas
     match body with
     | `(cas_term| $_:cas_term ∈ $_:cas_term)
     | `(cas_term| $_:cas_term in $_:cas_term) => typingQuestion session body
+    | `(cas_term| $_:cas_term ⊆ $_:cas_term)
+    | `(cas_term| $_:cas_term and $_:cas_term) =>
+      match ← settledJudgements? session body with
+      | some values => return .settled values
+      | none => return .question (← session.readQuestion body)
     | _ => return .question (← session.readQuestion body)
   | _ =>
     CasCatalogue.throwUnsupportedSource
