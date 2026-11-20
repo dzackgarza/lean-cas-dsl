@@ -177,6 +177,12 @@ private def unqualifiedObjectName (state : SemanticState) (entry : ObjectEntry) 
   entry.refines.all fun refinement => state.objects.any fun base =>
     base.id == refinement.base && base.name != entry.name
 
+/-- The source uses a name that no registration and no binding declares: invalid source, tagged
+with the name. -/
+private def throwUnknownSourceName {α : Type} (name : String) : TermElabM α :=
+  throwStratum .invalid
+    (MessageData.tagged (unknownSourceNameTag name) m!"unregistered source object: {name}")
+
 /-- Select a named source row in an explicit category or independently declared parameter type.
 Reuse: native category declaration telescopes, Lean isDefEq and withoutModifyingState.
 Each candidate check has isolated metavariables; lexical bindings bypass this selection. -/
@@ -204,7 +210,7 @@ opaque selectObject (name : String) (category : Option String) (expected : Optio
       else return true
     let entry ← match entries with
       | #[entry] => pure entry
-      | #[] => throwStratum .invalid m!"unregistered source object: {name}"
+      | #[] => throwUnknownSourceName name
       | _ => throwSemanticAmbiguity m!"source object {name} requires a category qualification"
     let #[categoryEntry] := state.categories.filter (·.id == entry.category)
       | throwError "the source object requires one registered category"

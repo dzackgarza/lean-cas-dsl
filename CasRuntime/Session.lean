@@ -39,6 +39,17 @@ def Outcome.detail : Outcome → String
   | .wrong message | .gap message | .unavailable message | .malformed message
   | .invalid message | .ambiguous message | .internal message => message
 
+/-- The same kind of outcome with another detail. An outcome that holds has no detail. -/
+def Outcome.withDetail : Outcome → String → Outcome
+  | .holds, _ => .holds
+  | .wrong _, detail => .wrong detail
+  | .gap _, detail => .gap detail
+  | .unavailable _, detail => .unavailable detail
+  | .malformed _, detail => .malformed detail
+  | .invalid _, detail => .invalid detail
+  | .ambiguous _, detail => .ambiguous detail
+  | .internal _, detail => .internal detail
+
 def Outcome.fails (outcome : Outcome) : Bool :=
   !(outcome matches .holds | .gap _ | .unavailable _)
 
@@ -69,6 +80,9 @@ structure KernelSession where
   /-- Definitions kept without a runtime value because their computation had no leaf or no
   available backend (constitution C3), and the definitions that use them. -/
   private unavailable : Array (BindingId × Name) := #[]
+  /-- Definitions whose statement did not read, by declared name, with the outcome of that
+  statement. A later use of such a name has the outcome of its definition. -/
+  private unread : Array (String × Outcome) := #[]
 
 /-- The installed leaves' manifest when none is named: `CAS_LEAVES`, the leaves package
 directory or its manifest file, else `.lake/packages/cas_leaves`. An absent default manifest
@@ -97,7 +111,7 @@ opaque KernelSession.start (manifest : Option System.FilePath := none)
   let owners ← OwnerRegistry.new
   discard <| SessionSnapshot.initialize owners
   return ⟨← Kernel.load owners manifest profile timeoutMs,
-    ← SourceSession.empty owners.identities, computationOnly, {}, #[]⟩
+    ← SourceSession.empty owners.identities, computationOnly, {}, #[], #[]⟩
 
 opaque KernelSession.close (session : KernelSession) : IO Unit := session.kernel.close
 
@@ -256,6 +270,14 @@ limit that it needs (constitution C21); the limit stays finite so that a stateme
 terminate ends in a timeout. `polynomials.factors` needs more than Lean's default 200000. -/
 def statementHeartbeats : Nat := 50000000
 
+/-- The name that a definition statement declares: the identifier after `let`. -/
+private def definedName? (statement : TSyntax `cas_stmt) : Option String :=
+  let arguments := statement.raw.getArgs
+  match arguments[0]?, arguments[1]? with
+  | some (Syntax.atom _ "let"), some name =>
+    if name.isIdent then some name.getId.toString else none
+  | _, _ => none
+
 /-- Run one public statement through the production reader, lowerer and executor.
 A definition extends the source session and retains its computed value for later statements.
 A question is discharged in Lean when it is decidable there, and is otherwise computed.
@@ -349,6 +371,16 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
   catch error =>
     let outcome ← Outcome.ofException error
     saved.restore
+    -- A use of a name whose own definition did not read has the outcome of that definition.
+    if let some (name, definition) := session.unread.find? fun (name, _) =>
+        CasCatalogue.Exception.isUnknownSourceName error name then
+      return { outcome := definition.withDetail
+                 s!"the definition of {name} did not read: {definition.detail}",
+               session }
+    -- A definition that did not read declares no name. Its declared name is kept with its outcome.
+    let session := match definedName? statement with
+      | some name => { session with unread := session.unread.push (name, outcome) }
+      | none => session
     -- A statement that uses a definition whose computation had no leaf needs that missing
     -- value: its failure is that gap, named, not an internal defect (constitution C3).
     if let .internal reason := outcome then

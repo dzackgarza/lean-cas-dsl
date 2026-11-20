@@ -32,4 +32,13 @@ def throwUnsupportedSource {m : Type → Type} {α : Type} [Monad m] [MonadError
 def Exception.isUnsupportedSource (error : Exception) : Bool :=
   error.toMessageData.hasTag (· == `CasCatalogue.throwUnsupportedSource)
 
+/-- The tag of the failure "the source uses the name `name`, and no registration and no binding
+declares it". A session uses it to tell a name whose own definition did not read. -/
+def unknownSourceNameTag (name : String) : Name :=
+  .str `CasCatalogue.unknownSourceName name
+
+/-- Whether the failure is the unknown source name `name`. -/
+def Exception.isUnknownSourceName (error : Exception) (name : String) : Bool :=
+  error.toMessageData.hasTag (· == unknownSourceNameTag name)
+
 end CasCatalogue
