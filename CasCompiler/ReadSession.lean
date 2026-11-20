@@ -18,8 +18,11 @@ private def sourceCategory (session : SourceSession) (context : OpenContext)
     return (⟨carrier.refs, carrier.target, carrier.identifications,
       ← carrier.actions.mapM (·.inContext context),
       ← carrier.comparisons.mapM (·.inContext context)⟩ : NativeSourceCarrierSelection)
+  let limit ← category.limit.mapM fun limit => do
+    return (⟨limit.row, limit.declaration, ← limit.cone.inContext context, limit.colimit⟩ :
+      NativeSourceLimitSelection)
   return some ⟨category.role, category.expression, ← category.bundle.inContext context,
-    carrier⟩
+    carrier, limit⟩
 
 /-- The ring variables of the session's definitions that `stx` names, in `context`. -/
 private def recordedRings (session : SourceSession) (context : OpenContext) (stx : Syntax) :

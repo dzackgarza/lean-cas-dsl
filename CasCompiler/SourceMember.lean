@@ -79,7 +79,7 @@ opaque sourceMemberFamily (receiver : NativeSourceJudgement) (name : String)
   let value ← withLetDecl (← mkFreshUserName `memberReceiverCategory)
     (← inferType selected.bundle) selected.bundle fun binding => mkLetFVars #[binding] value
       (usedLetOnly := false) (generalizeNondepLet := false)
-  return some ⟨value, some ⟨.morphism, category.expression, bundle, none⟩⟩
+  return some ⟨value, some ⟨.morphism, category.expression, bundle, none, none⟩⟩
 
 /-- A registered morphism named `name` at fresh declaration parameters, with its source set. -/
 def morphismAtSource (row : MorphismEntry) :

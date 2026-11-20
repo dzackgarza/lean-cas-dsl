@@ -81,6 +81,6 @@ opaque sourceConstruction (entry : ConstructionEntry) (receiver : NativeSourceJu
         retainSourceIso (← mkAppM ``CategoryTheory.Functor.mapIso #[function, iso]) value
       else pure value
   return ⟨sourceReference ``ConstructionEntry entry.id.raw entry.declaration value,
-    some ⟨selected.role, entry.target, target, none⟩⟩
+    some ⟨selected.role, entry.target, target, none, none⟩⟩
 
 end CasCompiler

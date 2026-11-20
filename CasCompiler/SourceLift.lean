@@ -82,7 +82,7 @@ def sourceSelectedLift (row : LiftEntry) (receiver input : NativeSourceJudgement
     throwError "the selected lift requires its explicit monicity evidence"
   let inclusion := proofType.getAppArgs.back!
   let arrow : NativeSourceJudgement :=
-    ⟨inclusion, some ⟨.morphism, target, codomain, none⟩⟩
+    ⟨inclusion, some ⟨.morphism, target, codomain, none, none⟩⟩
   let actual ← if input.category.any (fun selected =>
       selected.role == .morphism && selected.expression.syntacticEq target) then
     pure arrow
@@ -183,7 +183,7 @@ def sourceLiftMember? (receiver : NativeSourceJudgement) (name : String) :
   let category := if name == "forward" || name == "backward" then target else source
   let bundle := if name == "forward" || name == "backward" then targetBundle else sourceBundle
   let role := if name == "obj" then SourceCategoryRole.object else .morphism
-  return some ⟨value, some ⟨role, category, bundle, none⟩⟩
+  return some ⟨value, some ⟨role, category, bundle, none, none⟩⟩
 
 /-- The universal factor through a selected lift (`factor(g) through L with f using proof(p)`):
 for the base arrow `g : U Y ⟶ K`, the source arrow `f : Y ⟶ X` and the formal equation
@@ -219,6 +219,6 @@ def sourceLiftFactor (receiver : NativeSourceJudgement) (base source proof : Exp
   let value ← mkExpectedTypeHint value
     (mkAppN resultType.getAppFn (resultType.getAppArgs.set! 3 target))
   check value
-  return ⟨value, some ⟨.morphism, category, bundle, none⟩⟩
+  return ⟨value, some ⟨.morphism, category, bundle, none, none⟩⟩
 
 end CasCompiler

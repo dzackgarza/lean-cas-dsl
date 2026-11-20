@@ -66,7 +66,7 @@ def readFunctorAction (context : ReadContext) :
             else none
       -- Keep the selected reference beside its actual action for source inspection.
       return (⟨sourceReference kind id selected.declaration image,
-        some ⟨role, selected.target, selected.targetBundle, carrier⟩⟩ : NativeSourceJudgement)
+        some ⟨role, selected.target, selected.targetBundle, carrier, none⟩⟩ : NativeSourceJudgement)
 
 end SourceReader
 

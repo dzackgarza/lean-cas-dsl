@@ -298,7 +298,7 @@ opaque sourceSetJudgement (role : SourceCategoryRole) (value : Expr) :
   | .morphism =>
     let function ← mkAppM ``CategoryTheory.Functor.map #[← categoryIdentity bundle]
     discard <| elabAppArgs function #[] #[Arg.expr value] none false false
-  return ⟨value, some ⟨role, entry.expression, bundle, none⟩⟩
+  return ⟨value, some ⟨role, entry.expression, bundle, none, none⟩⟩
 
 /-- A direct registered view before closing its complete native expressions. -/
 structure NativeSourceView where
@@ -461,7 +461,7 @@ opaque SourceSession.namedObject (session : SourceSession) (reference : Syntax) 
           elabAppArgs function #[] arguments expected false false
         let selection ← objectCarrierSelection entry category value
         return #[⟨category, none⟩,
-          ⟨value, some ⟨.object, categoryEntry.expression, category, selection⟩⟩]
+          ⟨value, some ⟨.object, categoryEntry.expression, category, selection, none⟩⟩]
       | throwError "registered source formation returned an invalid number of expressions"
     return ⟨entry, categoryEntry, category, value⟩
 

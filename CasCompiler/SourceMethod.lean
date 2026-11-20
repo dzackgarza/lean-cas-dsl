@@ -54,7 +54,7 @@ private def methodReceiver (state : SemanticState) (receiver : NativeSourceJudge
   let function ← mkConstWithFreshMVarLevels ``CategoryTheory.Arrow.mk
   let value ← elabAppArgs function #[] #[Arg.expr receiver.value] (some expected) false false
   return some ⟨value, some ⟨.object,
-    .construct constructor.id #[.category category.expression], bundle, none⟩⟩
+    .construct constructor.id #[.category category.expression], bundle, none, none⟩⟩
 
 /-- Form an inherited method through its whole checked functor families before specialization.
 Reuse: MethodEntry/validateMethodEntry, nativeRouteFunctor, the first-hit source grammar and
@@ -119,7 +119,7 @@ opaque sourceMethod (receiver : NativeSourceJudgement) (name : String) :
   let referenced := sourceReference ``MethodEntry first.entry.id.raw first.functor.declaration value
   let referenced := Expr.mdata (KVMap.empty.setString `CasCompiler.source.methodRoutes
     (reprStr (families.map fun family => (family.entry.id, family.route.refs)))) referenced
-  return some ⟨referenced, some ⟨.object, first.functor.target, target, none⟩⟩
+  return some ⟨referenced, some ⟨.object, first.functor.target, target, none, none⟩⟩
 
 /-- The proposition that a registered property holds of the receiver (CC-PROP): the fibre of the
 property's classifier over the receiver's image in the classifier's host category is inhabited.

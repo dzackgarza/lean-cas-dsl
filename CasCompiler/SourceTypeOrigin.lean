@@ -140,7 +140,7 @@ partial def sourceTypeOrigin? (type : Expr) : MetaM (Option NativeSourceTypeOrig
         fields.extract 2 (2 + carrier.actions),
         fields.extract (2 + carrier.actions) count⟩ : NativeSourceCarrierSelection)
     let category : NativeSourceCategory :=
-      ⟨.object, descriptor.category, fields[0]!, carrier⟩
+      ⟨.object, descriptor.category, fields[0]!, carrier, none⟩
     unless ← isDefEq (← inferType fields[1]!)
         (← mkAppM ``CategoryTheory.Bundled.α #[category.bundle]) do
       throwError "the native source type has a different complete owner category"

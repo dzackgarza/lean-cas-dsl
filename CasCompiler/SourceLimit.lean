@@ -85,7 +85,8 @@ opaque sourceBinaryLimit (left right : NativeSourceJudgement) (colimit : Bool) :
   -- The apex is the registered limit's named object at its diagram, as for a limit named by
   -- its shape: the lowerer sends it as that row's descriptor, not the presentation record.
   return ⟨sourceReference ``LimitEntry row.id.raw row.declaration apex,
-    some ⟨.object, source.expression, source.bundle, none⟩⟩
+    some ⟨.object, source.expression, source.bundle, none,
+      some ⟨row.id.raw, row.declaration, cone, colimit⟩⟩⟩
 
 /-- The limit of shape `shape` of the maps `maps` of a category that only creates it: the
 registered limit of the image diagram along the structural step `U` of a registered creation lift
@@ -117,7 +118,7 @@ private def createdLimit (shape : String) (selected : NativeSourceCategory)
     discard <| checkedDeclaration row.declaration
     let declaration ← exprToSyntax (← mkConstWithFreshMVarLevels row.declaration)
     let (f, g) := (← exprToSyntax left.value, ← exprToSyntax right.value)
-    let apex ← elabTermAndSynthesize (← `(
+    let cone ← elabTermAndSynthesize (← `(
       letI : CategoryTheory.CreatesLimit (CategoryTheory.Limits.cospan $f $g) $functor :=
         (($evidence : CategoryTheory.CreatesLimitsOfShape CategoryTheory.Limits.WalkingCospan
           $functor).CreatesLimit (K := CategoryTheory.Limits.cospan $f $g))
@@ -126,12 +127,14 @@ private def createdLimit (shape : String) (selected : NativeSourceCategory)
             (CategoryTheory.Limits.diagramIsoCospan
               (CategoryTheory.Functor.comp (CategoryTheory.Limits.cospan $f $g) $functor))
             ($declaration (CategoryTheory.Functor.map $functor $f) (CategoryTheory.Functor.map $functor $g)).cone).symm
-          ($declaration (CategoryTheory.Functor.map $functor $f) (CategoryTheory.Functor.map $functor $g)).isLimit)).pt)) none
-    let apex ← instantiateMVars apex
-    if apex.hasMVar || apex.hasLevelMVar then
+          ($declaration (CategoryTheory.Functor.map $functor $f) (CategoryTheory.Functor.map $functor $g)).isLimit)))) none
+    let cone ← instantiateMVars cone
+    if cone.hasMVar || cone.hasLevelMVar then
       throwError "the created {shape} has undetermined parameters"
+    let apex ← mkAppM ``CategoryTheory.Limits.Cone.pt #[cone]
     return some ⟨sourceReference ``LimitEntry row.id.raw row.declaration apex,
-      some ⟨.object, selected.expression, selected.bundle, none⟩⟩
+      some ⟨.object, selected.expression, selected.bundle, none,
+        some ⟨row.id.raw, row.declaration, cone, false⟩⟩⟩
   return none
 
 /-- A registered limit or colimit named by its shape and applied to the maps of its diagram
@@ -175,7 +178,8 @@ opaque sourceNamedLimit (shape : String) (maps : Array NativeSourceJudgement) :
   let apex ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone.pt
     else ``CategoryTheory.Limits.Cone.pt) #[cone]
   return some ⟨sourceReference ``LimitEntry row.id.raw row.declaration apex,
-    some ⟨.object, selected.expression, selected.bundle, none⟩⟩
+    some ⟨.object, selected.expression, selected.bundle, none,
+      some ⟨row.id.raw, row.declaration, cone, row.colimit⟩⟩⟩
 
 /-- The object of a diagram's index type that the ordinal `ordinal` names: the number itself in
 `ℕ`, `⟨ordinal, _⟩` in `Fin n` when it is below `n`, else the `ordinal`-th constructor of a closed
@@ -207,36 +211,19 @@ private def constructionIndex (indexType : Expr) (ordinal : Nat) : TermElabM Exp
     throwStratum .invalid m!"the index constructor does not inhabit {indexType}"
   return index
 
-/-- The registered limit or colimit whose apex `value` is, with that apex's cone or cocone and
-whether it is a colimit: the reading of `pullback(f, g)`, `cokernel(m)`, `X × Y` and of a created
-limit (sourceNamedLimit, sourceBinaryLimit, createdLimit). -/
-private partial def limitApex? (value : Expr) : MetaM (Option (MData × Expr × Bool)) := do
-  match value with
-  | .fvar id =>
-    match (← id.getDecl).value? with
-    | some value => limitApex? value
-    | none => return none
-  | .mdata data body =>
-    if data.getName `CasCompiler.source.kind == ``LimitEntry then
-      let apex := body.consumeMData
-      if apex.isAppOfArity ``CategoryTheory.Limits.Cone.pt 6 then
-        return some (data, apex.appArg!, false)
-      if apex.isAppOfArity ``CategoryTheory.Limits.Cocone.pt 6 then
-        return some (data, apex.appArg!, true)
-      throwError "the registered limit lost its apex's cone"
-    limitApex? body
-  | _ => return none
-
 /-- `K.leg(j)`: the defining leg of the registered limit or colimit `K` at the object of its shape
 that the ordinal `j` names (constitution C7: a universal construction supplies its defining maps).
-It is the registered cone's `π` or cocone's `ι` at that object, marked with the limit's row and
-the ordinal, so that it is sent as the limit's named leg and not unfolded (C22). Reference: the
-original reader's `constructionLeg` (CasCatalogue/Language.lean). -/
+The row and the cone or cocone are the selection that the formation of `K` retained in its
+judgement (constitution C23); a receiver with no such selection is not a limit. The leg is the
+cone's `π` or the cocone's `ι` at that object, marked with the limit's row and the ordinal, so
+that it is sent as the limit's named leg and not unfolded (C22). Reference: the original reader's
+`constructionLeg` (CasCatalogue/Language.lean). -/
 def sourceLimitLeg? (receiver : NativeSourceJudgement) (ordinal : Nat) :
     TermElabM (Option NativeSourceJudgement) := do
-  let some (data, cone, colimit) ← limitApex? receiver.value | return none
-  let some category := receiver.category
-    | throwError "a defining leg requires the limit's selected category"
+  let some category := receiver.category | return none
+  let some selection := category.limit | return none
+  let cone := selection.cone
+  let colimit := selection.colimit
   let leg ← mkAppM (if colimit then ``CategoryTheory.Limits.Cocone.ι
     else ``CategoryTheory.Limits.Cone.π) #[cone]
   let component ← mkAppM ``CategoryTheory.NatTrans.app #[leg]
@@ -250,6 +237,8 @@ def sourceLimitLeg? (receiver : NativeSourceJudgement) (ordinal : Nat) :
   let apex ← mkAppM (if colimit then ``CategoryTheory.Limits.Cocone.pt
     else ``CategoryTheory.Limits.Cone.pt) #[cone]
   let presentation := cone.appArg!
+  let .mdata data _ := sourceReference ``LimitEntry selection.row selection.declaration apex
+    | throwError "internal: a source reference is not an annotation"
   let mut named := #[.mdata data apex]
   for argument in presentation.getAppArgs do
     let type ← whnfR (← inferType argument)
@@ -271,6 +260,6 @@ def sourceLimitLeg? (receiver : NativeSourceJudgement) (ordinal : Nat) :
   let stated := mkAppN arrow.getAppFn #[arrow.getAppArgs[0]!, arrow.getAppArgs[1]!, ends[0]!, ends[1]!]
   let hom ← mkExpectedTypeHint hom stated
   return some ⟨.mdata (data.setNat `CasCompiler.source.leg ordinal) hom,
-    some ⟨.morphism, category.expression, category.bundle, none⟩⟩
+    some ⟨.morphism, category.expression, category.bundle, none, none⟩⟩
 
 end CasCompiler

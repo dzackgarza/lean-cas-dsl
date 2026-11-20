@@ -45,6 +45,20 @@ structure NativeSourceCarrierSelection where
   actions : Array Expr
   comparisons : Array Expr
 
+/-- The registered limit or colimit that a source construction selected: its row, and its cone or
+cocone at the source diagram. A later use (`K.leg(j)`) takes them from here, not from the apex. -/
+structure SourceLimitSelection where
+  row : String
+  declaration : Name
+  cone : ClosedTerm
+  colimit : Bool
+
+structure NativeSourceLimitSelection where
+  row : String
+  declaration : Name
+  cone : Expr
+  colimit : Bool
+
 /-- The selected symbolic category and its complete native bundle in the original context. -/
 structure SourceCategoryBinding where
   private mk ::
@@ -52,6 +66,7 @@ structure SourceCategoryBinding where
   bundle : ClosedTerm
   role : SourceCategoryRole
   carrier : Option SourceCarrierSelection := none
+  limit : Option SourceLimitSelection := none
 
 /-- A native value's selected category, including whether it is an object or an arrow. -/
 structure NativeSourceCategory where
@@ -59,6 +74,7 @@ structure NativeSourceCategory where
   expression : CasCatalogue.CategoryExpr
   bundle : Expr
   carrier : Option NativeSourceCarrierSelection := none
+  limit : Option NativeSourceLimitSelection := none
 
 /-- An elaborated value and any category explicitly selected by the source frontend. -/
 structure NativeSourceJudgement where
@@ -135,7 +151,8 @@ Reuse: native Bundled.α and stable-ID context transport. Category identity is s
 source selection, never inferred from a carrier type. Source: #66, comment 6664276482 §1. -/
 opaque SourceTerm.inCategory (term : SourceTerm) (expression : CasCatalogue.CategoryExpr)
     (category : SourceTerm) (role : SourceCategoryRole := .object)
-    (selection : Option SourceCarrierSelection := none) : MetaM SourceTerm := do
+    (selection : Option SourceCarrierSelection := none)
+    (limit : Option SourceLimitSelection := none) : MetaM SourceTerm := do
   term.source.withOpen fun bindings value => do
     let context ← ContextTelescope.capture bindings
     let categoryValue ← category.source.inContext context
@@ -148,7 +165,7 @@ opaque SourceTerm.inCategory (term : SourceTerm) (expression : CasCatalogue.Cate
       -- Native identity-map application checks both endpoints in the supplied category.
       let identity ← categoryIdentity categoryValue
       discard <| withTransparency .all <| mkAppM ``CategoryTheory.Functor.map #[identity, value]
-  return { term with category := some ⟨expression, category.source, role, selection⟩ }
+  return { term with category := some ⟨expression, category.source, role, selection, limit⟩ }
 
 /-- Source declarations share the worker's monotone identity supply across snapshot branches.
 Reuse: IdentitySupply.fresh and its native atomic counter; only identities live in the supply. -/
@@ -209,7 +226,11 @@ opaque SourceSession.elaborateJudgements (session : SourceSession) (reference : 
             let comparisons ← carrier.comparisons.mapM close
             return (⟨carrier.refs, carrier.target, carrier.identifications, actions, comparisons⟩ :
               SourceCarrierSelection)
-          term.inCategory selected.expression ⟨category, span, none⟩ selected.role selection
+          let limit ← selected.limit.mapM fun limit => do
+            let cone ← context.close (← instantiateMVars limit.cone)
+            checkSource cone
+            return (⟨limit.row, limit.declaration, cone, limit.colimit⟩ : SourceLimitSelection)
+          term.inCategory selected.expression ⟨category, span, none⟩ selected.role selection limit
 
 /-- Form ordinary checked native terms through the same complete source boundary. -/
 opaque SourceSession.elaborateMany (session : SourceSession) (reference : Syntax)

@@ -92,7 +92,7 @@ def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
         let (bundle, refined) ← registeredExpressions (.inl refinement) entry
           fun function expected =>
             elabAppArgs function #[] (arguments.map Arg.expr) expected false false
-        pure (⟨refined, some ⟨.object, entry.expression, bundle, none⟩⟩ : NativeSourceJudgement)
+        pure (⟨refined, some ⟨.object, entry.expression, bundle, none, none⟩⟩ : NativeSourceJudgement)
     let some selected := judgement.category
       | throwError "the source value has no selected category"
     unless ← isDefEq (mkAppN family parameters) selected.bundle do

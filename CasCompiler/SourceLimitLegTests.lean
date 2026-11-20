@@ -47,3 +47,27 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   | none => throwError "an ordinal outside the cokernel's shape was admitted"
   | some error =>
     unless CasCatalogue.Exception.stratum? error == some .invalid do throw error
+
+/- The formation of a limit retains its selection (constitution C23): the binding of `C` carries
+the row of the registered cokernel and its cocone. `C.leg(j)` is read from that selection, not from
+the apex. -/
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let file ← SourceFile.parse "source-leg.cas" "let C := cokernel(to_dual(1))\n"
+  let mut session ← SourceSession.empty identities
+  for item in file.items do
+    let `(cas_item| $statement:cas_stmt) := item
+      | throwError "the cokernel statement did not parse"
+    let .definition next _ ← file.withContext (session.readStatement statement)
+      | throwError "the cokernel did not extend its source context"
+    session := next
+  let some entry := session.context.entries.back?
+    | throwError "the cokernel added no declaration"
+  let some category := session.categoryFor entry.id
+    | throwError "the cokernel has no selected category"
+  let some limit := category.limit
+    | throwError "the binding of the cokernel did not retain its limit selection"
+  unless limit.colimit do throwError "the retained selection is not a colimit"
+  let state ← CasCatalogue.semanticState
+  unless state.limits.any (fun row => row.id.raw == limit.row && row.colimit) do
+    throwError "the retained selection names no registered colimit row: {limit.row}"

@@ -71,7 +71,7 @@ def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
       discard <| isDefEq arguments[index]! proof
     let value ← instantiateMVars (mkAppN constant arguments)
     return ⟨sourceReference ``CasCatalogue.GraphLiteralEntry row.id.raw row.denotation value,
-      some { category with role := .morphism, carrier := none }⟩
+      some { category with role := .morphism, carrier := none, limit := none }⟩
   | _ => throwReadRuleMismatch
 
 end ReadGraphRules

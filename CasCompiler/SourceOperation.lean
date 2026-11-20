@@ -48,7 +48,7 @@ private def refinementDomain (state : SemanticState) (entry : ObjectEntry) (doma
       throwError "the source refinement changed its complete declaration parameters"
     return mkAppN function arguments
   let selection ← objectCarrierSelection entry bundle value
-  return some ⟨⟨.object, category.expression, bundle, selection⟩, value,
+  return some ⟨⟨.object, category.expression, bundle, selection, none⟩, value,
     some (← instantiateMVars comparison), #[]⟩
 
 private def scopedOperationDomains

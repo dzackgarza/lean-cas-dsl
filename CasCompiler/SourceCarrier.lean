@@ -143,7 +143,7 @@ opaque sourceCarrier (source : NativeSourceJudgement) : TermElabM NativeSourceJu
     selectedEdges := selected.refs
     start := selected.target
   let routes ← carrierRoutes start
-  let proofs ← sourceRouteAgreements state ⟨category.role, start, bundle, none⟩ routes
+  let proofs ← sourceRouteAgreements state ⟨category.role, start, bundle, none, none⟩ routes
   let some route := routes[0]?
     | throwError "carrier formation requires its source route"
   if !route.steps.isEmpty then
@@ -161,7 +161,7 @@ opaque sourceCarrier (source : NativeSourceJudgement) : TermElabM NativeSourceJu
     value ← annotateSourceType category source.value value
   let selection := category.carrier.map fun selected =>
     { selected with refs := #[], target := .atom CategoryId.sets, actions := #[] }
-  return ⟨value, some ⟨category.role, .atom CategoryId.sets, bundle, selection⟩⟩
+  return ⟨value, some ⟨category.role, .atom CategoryId.sets, bundle, selection, none⟩⟩
 
 /-- The registered category whose objects are the native type `type` (`MonCat` for `Monoids`).
 Several categories with that object type are ambiguous. -/
@@ -215,7 +215,7 @@ opaque sourceStructuralView (source : NativeSourceJudgement) (target : CategoryE
   if preferred.isSome then
     value := .mdata (KVMap.empty.setString `CasCompiler.source.preferredRoute
       (reprStr (route.refs.map (·.label)))) value
-  return ⟨value, some ⟨.object, target, selected.target, none⟩⟩
+  return ⟨value, some ⟨.object, target, selected.target, none, none⟩⟩
 
 /-- Put source values in the category explicitly selected by a set-valued operand.
 Reuse: sourceCarrier's whole functor checks and retained native actions. Two structured
@@ -254,7 +254,7 @@ def sourceCarrierFamilyObject (source : NativeSourceCategory) (bundle object : E
     let route : Route := { source := source.expression, target := selection.target, steps }
     let native ← nativeRouteFunctor state route bundle
     return { selection with actions := native.actions }
-  let carrier ← sourceCarrier ⟨object, some ⟨.object, source.expression, bundle, selection⟩⟩
+  let carrier ← sourceCarrier ⟨object, some ⟨.object, source.expression, bundle, selection, none⟩⟩
   return (← sourceTypeOrigin? carrier.value).map (·.type) |>.getD carrier.value
 
 /-- Apply the selected complete carrier functor to an arrow before taking its function.
@@ -314,7 +314,7 @@ def sourceElementOwners
             throwError "the source element owner has a different native category"
           let bundle ← instantiateMVars bundle
           let carrier ← objectCarrierSelection entry bundle value
-          pure (some ⟨.object, category.expression, bundle, carrier⟩)
+          pure (some ⟨.object, category.expression, bundle, carrier, none⟩)
     let some category := category | continue
     unless category.role == .object &&
         !category.expression.syntacticEq (.atom CategoryId.sets) do continue

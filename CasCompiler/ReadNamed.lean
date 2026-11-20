@@ -26,7 +26,7 @@ def object (context : ReadContext) :
     let (bundle, value) ← registeredExpressions (.inl entry) categoryEntry fun function expected =>
       application ⟨function, none⟩ arguments expected
     return (⟨value, some ⟨.object, categoryEntry.expression, bundle,
-      ← objectCarrierSelection entry bundle value⟩⟩ : NativeSourceJudgement)
+      ← objectCarrierSelection entry bundle value, none⟩⟩ : NativeSourceJudgement)
 
 def registered (context : ReadContext) :
     Ident → Array (TSyntax `cas_term) → TermElabM NativeSourceJudgement :=
@@ -61,7 +61,7 @@ def registered (context : ReadContext) :
       let function ← mkAppOptM ``CategoryTheory.CategoryStruct.id
         #[some carrier, some structureValue]
       let value ← elabAppArgs function #[] #[Arg.expr object.value] expected false false
-      return ⟨value, some { category with role := .morphism, carrier := none }⟩
+      return ⟨value, some { category with role := .morphism, carrier := none, limit := none }⟩
     let spelling := name.getId.toString (escape := false)
     let (spelling, arguments) ← do
       let state ← CasCatalogue.semanticState
@@ -122,7 +122,7 @@ def registered (context : ReadContext) :
          | .inl object => objectCarrierSelection object bundle value
          | .inr _ => pure none
        let result : NativeSourceJudgement :=
-         ⟨value, some ⟨role, categoryEntry.expression, bundle, carrier⟩⟩
+         ⟨value, some ⟨role, categoryEntry.expression, bundle, carrier, none⟩⟩
        -- A named global element `1 ⟶ X` (`i`, `π`) read where an element of a set is expected
        -- is its value at the terminal point.
        if role == .morphism && parameterCount == arguments.size then
@@ -164,7 +164,7 @@ def notationObject (context : ReadContext) :
     let (bundle, value) ← registeredExpressions (.inl entry) categoryEntry fun function expected =>
       application ⟨function, none⟩ arguments expected
     return some (⟨value, some ⟨.object, categoryEntry.expression, bundle,
-      ← objectCarrierSelection entry bundle value⟩⟩ : NativeSourceJudgement)
+      ← objectCarrierSelection entry bundle value, none⟩⟩ : NativeSourceJudgement)
 
 def objectPower (context : ReadContext) :
     TSyntax `cas_term → TSyntax `cas_term → TermElabM (Option NativeSourceJudgement) :=
@@ -211,7 +211,7 @@ def relatedObject (context : ReadContext) :
     let (bundle, value) ← registeredExpressions (.inl target) category fun function expected =>
       elabAppArgs function #[] (arguments.map Arg.expr) expected false false
     return (⟨value, some ⟨.object, category.expression, bundle,
-      ← objectCarrierSelection target bundle value⟩⟩ : NativeSourceJudgement)
+      ← objectCarrierSelection target bundle value, none⟩⟩ : NativeSourceJudgement)
 
 end SourceReader
 

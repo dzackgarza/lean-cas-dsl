@@ -114,6 +114,6 @@ opaque sourcePresentation (name : String) (inverse : Bool)
   let hom ← mkAppM ``CategoryTheory.Iso.hom #[iso]
   let value ← retainSourceIso iso hom
   return ⟨sourceReference ``PresentationComparisonEntry entry.id.raw entry.declaration value,
-    some ⟨.morphism, category.expression, bundle, none⟩⟩
+    some ⟨.morphism, category.expression, bundle, none, none⟩⟩
 
 end CasCompiler
