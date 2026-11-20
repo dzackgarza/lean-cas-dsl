@@ -5,6 +5,7 @@ public import CasCompiler.SelectedMorphism
 public import LeanCategories.Catalogue.Registry.Semantic
 public import LeanCategories.Catalogue.Semantics.Foundation.Catalogue
 public import CasCatalogue.InterpretationFailure
+public import CasContract.Failure
 public import Lean.Meta.Structure
 import Lean.Elab.App
 
@@ -203,7 +204,7 @@ opaque selectObject (name : String) (category : Option String) (expected : Optio
       else return true
     let entry ← match entries with
       | #[entry] => pure entry
-      | #[] => throwError "unregistered source object: {name}"
+      | #[] => throwStratum .invalid m!"unregistered source object: {name}"
       | _ => throwSemanticAmbiguity m!"source object {name} requires a category qualification"
     let #[categoryEntry] := state.categories.filter (·.id == entry.category)
       | throwError "the source object requires one registered category"
