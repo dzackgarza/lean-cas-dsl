@@ -49,51 +49,80 @@ test, then repair.
 ## Feedback loops
 
 Use the selected toolchain and dependency tuple of the kernel implementation worktree (locate it
-with `git worktree list`). The following recipes describe that implementation checkout; their
-documentation on `main` is not proof that the scripts are implemented there.
-Use the repository's selected toolchain and dependency tuple. Dependency refresh and SDK setup
-are explicit actions; an ordinary source build does not change them.
+with `git worktree list`). These recipes describe that checkout; documentation on `main` does
+not establish that its implementation commands are present there. Dependency refresh and SDK
+setup are explicit operations.
 
-The loop of each change is short. The long run is for a milestone. The recipes make the short
-loop one command and put a stated reason, a clean tree and a record in front of the long run
-(constitution C24). `scripts/feedback.sh` implements them; they run from the host or from inside
-the research container.
+`scripts/feedback.sh` runs from the host or inside the research container. For a named local
+module, the focused command builds its `+Module:deps` and then uses `lake lean` to execute the
+actual source afresh. An explicit `+Module:facet` selects an artifact build and requires a
+selected acceptance consumer in the same invocation. For example,
+`just loop "+CasCatalogue.TestSuite:leanArts" ellipses` rebuilds the suite producer and runs the
+whole unchanged `tests/acceptance/ellipses.cas` file.
 
-| Command | Use | Cost |
+| Command | Use | Bound and records |
 | --- | --- | --- |
-| `just loop "TARGETS" [FILE …]` | After each change: build the test module of the changed mechanism (several targets in one quoted argument), then the acceptance files that the change touches (stems of `tests/acceptance/*.cas`). | Limit 300 s. The run is recorded. A target whose last recorded run was over the limit is refused. |
-| `just slow "REASON" TARGET …` | A target over the limit, when its result is needed now. | The reason (20 characters or more) is recorded. |
-| `just milestone "REASON"` | Before a push of the kernel branch, before a handoff, and after a batch of changes: both test aggregates, the notebook targets and every acceptance file. | About 75 min on 2026-11-20. Needs a reason, a clean tree and a head that the last milestone did not check. |
-| `just stop` | Stop every `lake` and `lean` process of this checkout. A build started through `docker exec` continues after its caller stops. | — |
-| `scripts/accept_files.sh FILE …` | The acceptance part alone. With no file it refuses; `--baseline` makes the last run the comparison base. Do not build while it runs: named files read the live build outputs. | One file costs 130 to 200 s (`timing/README.md`). Seconds go to `timing/acceptance.jsonl`; each statement's milliseconds are in its report. |
+| `just loop "MODULES" [FILE …]` | After a change: freshly execute the test modules of the changed mechanism, then the complete affected acceptance files. Put several modules in the quoted argument; file arguments are stems of `tests/acceptance/*.cas`. | 300 seconds for the whole command. A completed overrun returns nonzero and records both the execution outcome and the exceeded bound. There is no kill timer. |
+| `just loop "+MODULE:FACET" [--manifest PATH] FILE …` | Build the named artifacts and run their selected public acceptance consumer. | The same ordinary-loop bound; an artifact build alone cannot supply the consumer result. |
+| `just slow "REASON" TARGET … [-- acceptance arguments …]` | Run the same selected workload explicitly when it needs longer. Use `--` before acceptance arguments, including an optional `--manifest PATH`. | Record a reason of at least 20 characters. The command is allowed to finish without the ordinary-loop bound. |
+| `just milestone "REASON"` | After a batch and before its kernel-branch push or handoff: build both test aggregates and the notebook targets, freshly execute their test modules, and run every acceptance file. | A stated reason and clean committed tree are required. Current costs belong in `timing/README.md`. |
+| `just stop` | Stop every `lake` and `lean` process of this checkout. A build started through `docker exec` can continue after its caller stops. | — |
+| `scripts/accept_files.sh [--manifest PATH] FILE …` | Run complete selected acceptance files. An empty selection is refused. Do not build concurrently: the consumer reads the live build outputs. | Per-run build, worker and total times go to `timing/acceptance.jsonl`; each statement and its setup retain their timing in the report. |
+| `just test-feedback [TEST …]` | Check changes to feedback mechanics through the actual process and report regression controls in the research container. Optional unittest selectors rerun only the named controls. | Run for changes to the feedback commands or report producer, rather than for each mathematical source edit. |
 | `just probe FILE` | Elaborate a temporary Lean file after Lake rebuilds its imports. | — |
 | `just build-production` | Build the connected `CasRuntime.Session` production closure without test modules. | — |
 | `just setup-sdk` | Provision the pinned contract SDK environment once before protocol tests. | — |
-| `just profile TARGET` | A separate diagnostic profile, when that measurement is needed. | — |
+| `just profile TARGET` | Run a separate diagnostic profile when that measurement is needed. | — |
 
-`timing/runs.jsonl` holds one record for each run (time, revision, targets, seconds, status,
-reason). `timing/README.md` holds the table of measured costs and their remedies. The full output
-of each run is in `.tmp/logs/`.
+An acceptance invocation without `--manifest PATH` uses the empty-provider diagnostic. Supply
+the actual manifest for a provider-backed observation, for example
+`just loop "+CasCatalogue.TestSuite:leanArts" --manifest PATH ellipses`.
+A `gap` or `unavailable` result remains uncomputed; it is not a positive mathematical pass.
+The entire selected file runs with its original definitions, assertions and later uses.
 
-**LOOP001 — the loop of a change is the changed mechanism.** A change to one reader rule followed
-by both test aggregates and all 17 acceptance files (75 min) => `just loop
-"CasCompiler.SourceEqualityFormTests"`, and `just loop "CasRuntime.SessionComputationTests"
-numbers` when a statement outcome changes (25 s to 4 min).
+Builds use Lake's native diagnostic threshold to suppress information and warnings from
+successful build jobs. Failed-job diagnostics remain visible. Fresh consumer output streams
+without that filter, including each completed statement's outcome and timing.
+
+`timing/runs.jsonl` records the command, selected targets and inputs, source revision and change
+hash, actual dependency revisions, toolchain and host, input hashes, phase statuses, build,
+execution and acceptance times, and total elapsed time. Each invocation has its own directory
+under `.tmp/logs/`. `timing/README.md` holds measured costs and their remedies.
+
+`.tmp/accept-run.json` contains only the current selected observation. Earlier runs remain in
+their own logs; their rows are not merged into current success. Missing, partial, duplicate or
+foreign reports and failed processes produce a nonzero result. Report completeness and
+mathematical success remain distinct. `scripts/accept_files.sh --baseline` accepts a complete
+recorded current report as the regression comparison base; its gaps and failures remain gaps
+and failures.
+
+The latest attempted `loop` or `slow` observation of the exact workload and tuple governs a
+repeat. An unchanged workload whose latest observation exceeded 300 seconds is refused by
+`loop`; repair the cost or run that exact selection explicitly. For example,
+`just slow "Measure the complete selected consumer" +CasCatalogue.TestSuite:leanArts -- ellipses`
+retains the same input. A new source or dependency selection gets its own measurement.
+
+**LOOP001 — the loop of a change is the changed mechanism.** A reader-rule change followed by
+both test aggregates and every acceptance file => `just loop "CasCompiler.SourceEqualityFormTests"`,
+then the affected unchanged public consumer. Choose complete relevant consumers and keep their
+definitions and assertions; current costs come from the timing records.
 
 **LOOP002 — the long run needs a reason and a milestone.** `just milestone` after each commit =>
 one milestone after a batch, with the reason recorded; each commit message of the batch names the
 short loop that checked it and says that the aggregates were not rerun.
 
-**LOOP003 — a slow test is a defect with a row, not a habit.** Waiting 8 min for
-`CasRuntime.SessionLiftTests` in each loop => a row in `timing/README.md` with its measured cost
-and its remedy; until the remedy, the target runs in the milestone or through `just slow`.
+**LOOP003 — a slow test is a defect with a row, not a habit.** An over-limit
+`CasRuntime.SessionLiftTests` in every iteration => a row in `timing/README.md` with its
+measured cost and remedy; until the remedy, use the milestone or an explicit `just slow` run.
+Keep the complete original consumer when measuring its cost.
 
 **LOOP004 — one run at a time, and no run left behind.** A second build started while one runs,
 or a stopped caller whose build continues in the container => `just stop`, then one `just loop`.
 
-**LOOP005 — stale build outputs are not a result.** `lake env lean FILE` on a file whose imports
-changed (Lean exits with status 139 and no message) => `just loop` on the target, which rebuilds
-the imports first.
+**LOOP005 — stale build outputs are not a result.** `lake env lean FILE` against changed
+imports, or a cached test target standing in for fresh execution => `just loop` on the actual
+module, which rebuilds its dependencies and executes its source. A skipped consumer or failed
+parent build cannot leave an earlier acceptance report as the current result.
 
 After a focused change, rebuild its affected public consumer and exercise the same mathematical
 input and continuation. Protocol peers check framing, dispatch, retained values and lifecycle;

@@ -62,6 +62,14 @@ structure TestResult where
   setupMilliseconds : Nat := 0
   deriving ToJson, FromJson, Inhabited
 
+/-- Report a completed statement. `-DstderrAsMessages=false` enables live stderr output. -/
+private def TestResult.writeProgress (result : TestResult) : CommandElabM Unit := do
+  let output ← if Core.stderrAsMessages.get (← getOptions) then IO.getStdout else IO.getStderr
+  let detail := if result.detail.isEmpty then "" else s!": {result.detail}"
+  output.putStrLn s!"{result.file}: {result.id}: {result.kind} \
+    ({result.milliseconds} ms){detail}"
+  output.flush
+
 private def dispatchJson (registration : Registration) : Json :=
   Json.mkObj [("operation", toJson registration.operation), ("input", toJson registration.input),
     ("backend", toJson registration.backend)]
@@ -84,7 +92,12 @@ An exception outside a statement's own outcome is that statement's internal erro
 def runFile (session : KernelSession) (path : System.FilePath) :
     CommandElabM (Array TestResult × KernelSession) := do
   let file := path.toString
-  let source ← try liftCoreM <| SourceFile.parse file (← IO.FS.readFile path)
+  let contents ← try IO.FS.readFile path
+    catch error =>
+      return (#[{ file, id := "(statement) infrastructure", kind := "internal"
+                  detail := s!"cannot read selected input: {← error.toMessageData.toString}"
+                  fails := true }], session)
+  let source ← try liftCoreM <| SourceFile.parse file contents
     catch error =>
       -- A syntactically unreadable file is invalid input, not an interpreter crash.
       return (#[{ file, id := "(statement) parse", kind := "invalid"
@@ -104,22 +117,26 @@ def runFile (session : KernelSession) (path : System.FilePath) :
     let execution ← try
         pure (some (← runOne session statement (some source)))
       catch error =>
-        results := results.push {
+        let result : TestResult := {
           file, id, kind := "internal"
           detail := s!"statement execution failed: {← error.toMessageData.toString}"
           fails := true, milliseconds := (← IO.monoMsNow) - start, setupMilliseconds }
+        result.writeProgress
+        results := results.push result
         setupMilliseconds := 0
         pure none
     let milliseconds := (← IO.monoMsNow) - start
     let some (run, dispatches) := execution | continue
     session := run.session
-    if id?.isNone && run.outcome matches .holds then
-      setupMilliseconds := setupMilliseconds + milliseconds
-      continue
-    results := results.push {
+    let result : TestResult := {
       file, id, kind := run.outcome.kind, detail := run.outcome.detail
       fails := run.outcome.fails, question := run.proposition, proposition := run.proposition
       dispatches, milliseconds, setupMilliseconds }
+    result.writeProgress
+    if id?.isNone && run.outcome matches .holds then
+      setupMilliseconds := setupMilliseconds + milliseconds
+      continue
+    results := results.push result
     setupMilliseconds := 0
   return (results, session)
 
@@ -160,6 +177,13 @@ def runSuite (manifest? : Option System.FilePath) (computationOnly : Bool)
         detail := ← error.toMessageData.toString
         fails := true }
       pure #[]
+  if files.isEmpty && results.isEmpty then
+    results := results.push {
+      file := path.toString
+      id := "(statement) infrastructure"
+      kind := "internal"
+      detail := "the selected suite contains no .cas files"
+      fails := true }
   for file in files.qsort (·.toString < ·.toString) do
     try
       results := results ++
@@ -172,6 +196,18 @@ def runSuite (manifest? : Option System.FilePath) (computationOnly : Bool)
         kind := "internal"
         detail := ← error.toMessageData.toString
         fails := true }
+  let mut identities : Array String := #[]
+  for result in results do
+    if result.id.startsWith "(statement)" then continue
+    if identities.contains result.id then
+      results := results.push {
+        file := result.file
+        id := s!"(statement) duplicate {result.id}"
+        kind := "internal"
+        detail := s!"duplicate named assertion identity: {result.id}"
+        fails := true }
+    else
+      identities := identities.push result.id
   if let some inventory := inventory? then
     try
       let .ok document := Json.parse (← IO.FS.readFile inventory)

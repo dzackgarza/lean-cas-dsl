@@ -54,7 +54,17 @@ def assertions() -> dict[str, str]:
             if ident in found:
                 raise SystemExit(f"{path.name}: the assertion {ident} is stated twice")
             found[ident] = hashlib.sha256(text.encode()).hexdigest()
-    for path in sorted(SUITE.glob("*.cas")):
+    for ident, digest in suite_assertions(sorted(SUITE.glob("*.cas"))).items():
+        if ident in found:
+            raise SystemExit(f"the assertion {ident} is stated twice")
+        found[ident] = digest
+    return found
+
+
+def suite_assertions(paths: list[Path]) -> dict[str, str]:
+    """Hash the selected original DSL assertions with all their preceding definitions."""
+    found: dict[str, str] = {}
+    for path in paths:
         lets: list[str] = []
         for item in re.split(r"\n\s*\n", path.read_text()):
             lines = [l for l in item.splitlines() if l.strip() and not l.lstrip().startswith("--")]
@@ -76,14 +86,7 @@ def assertions() -> dict[str, str]:
 
 def suite_ids() -> set[str]:
     """The ids of the assertions of the DSL suite, `tests/acceptance/*.cas`."""
-    ids: set[str] = set()
-    for path in sorted(SUITE.glob("*.cas")):
-        for item in re.split(r"\n\s*\n", path.read_text()):
-            lines = [l for l in item.splitlines() if l.strip() and not l.lstrip().startswith("--")]
-            m = TEST.match(" ".join(" ".join(lines).split())) if lines else None
-            if m:
-                ids.add(m.group(1))
-    return ids
+    return set(suite_assertions(sorted(SUITE.glob("*.cas"))))
 
 
 def main() -> int:

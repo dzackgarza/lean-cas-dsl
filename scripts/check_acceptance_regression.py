@@ -53,7 +53,7 @@ def main() -> int:
                   and head[key] not in FAILING)
     new_failing = sorted((key, head[key]) for key in head
                          if key not in base and head[key] in FAILING)
-    gained = sorted((key, base[key], head[key]) for key in head
+    gained = sorted((key, base[key] if key in base else "not previously observed", head[key]) for key in head
                     if head[key] == "holds" and (key not in base or base[key] != "holds"))
     rekinded = sorted((key, base[key], head[key]) for key in base
                       if key in head and base[key] in FAILING and head[key] in FAILING

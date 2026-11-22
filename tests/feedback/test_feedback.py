@@ -1,7 +1,7 @@
 """Real public-command regressions for current source-to-result feedback.
 
-Run from the compatible kernel checkout with
-python3 -m unittest discover -s tests/feedback -v.
+Run from the compatible kernel checkout with just test-feedback.
+An optional unittest selector runs only the requested regression.
 The probes retain their sources, reports and diagnostics under .tmp/feedback-tests.
 """
 from __future__ import annotations
@@ -92,7 +92,8 @@ class AcceptanceFeedbackTests(unittest.TestCase):
         subprocess.run(["scripts/accept_files.sh", "numbers"], cwd=ROOT, check=False)
         report = ROOT / ".tmp/accept-run.json"
         prior = [row for row in json.loads(report.read_text())
-                 if Path(row["file"]).name == "numbers.cas"]
+                 if Path(row["file"]).name == "numbers.cas"
+                 and not row["id"].startswith("(statement)")]
         self.assertTrue(prior, "the first real selected execution must produce results")
         directory = ROOT / ".tmp/feedback-tests"
         directory.mkdir(parents=True, exist_ok=True)
@@ -140,6 +141,147 @@ class AcceptanceFeedbackTests(unittest.TestCase):
             self.assertNotEqual(status, 0, f"the interrupted worker was reported successful; see {log}")
         with self.subTest("current selected result"):
             self.assertEqual(current, [], "the interrupted run inherited previous selected results")
+
+    def test_partial_report_cannot_reuse_complete_results(self) -> None:
+        # Hold only the owning shell after real workers start. Their computation continues,
+        # but aggregation cannot race the mutation of this invocation's generated report.
+        directory = ROOT / ".tmp/feedback-tests"
+        directory.mkdir(parents=True, exist_ok=True)
+        log = Path(tempfile.mkdtemp(dir=directory)) / "partial.log"
+        run: Path | None = None
+        stopped = False
+        removed_id = ""
+        with log.open("w") as output:
+            process = subprocess.Popen(
+                ["scripts/accept_files.sh", "ellipses", "numbers"], cwd=ROOT,
+                stdout=output, stderr=subprocess.STDOUT, start_new_session=True,
+            )
+            try:
+                # This deadline bounds test cleanup, not the product's feedback budget.
+                deadline = time.monotonic() + 900
+                while process.poll() is None and time.monotonic() < deadline:
+                    if run is None:
+                        for line in log.read_text().splitlines():
+                            if line.startswith("Acceptance run: "):
+                                run = (ROOT / line.removeprefix("Acceptance run: ")).resolve()
+                                self.assertEqual(run.parent, ROOT / ".tmp/logs")
+                                break
+                    if run is not None:
+                        selected_workers = {
+                            str(run.relative_to(ROOT) / f"worker{worker}.lean")
+                            for worker in range(2)
+                        }
+                        pending = [process.pid]
+                        while pending:
+                            pid = pending.pop()
+                            proc = Path(f"/proc/{pid}")
+                            try:
+                                pending.extend(int(child) for child in
+                                               (proc / f"task/{pid}/children").read_text().split())
+                                arguments = (proc / "cmdline").read_bytes().decode().split("\0")
+                                if ((proc / "comm").read_text().strip() == "lean"
+                                        and (proc / "cwd").resolve() == ROOT
+                                        and os.getpgid(pid) == process.pid
+                                        and selected_workers.intersection(arguments)):
+                                    self.assertFalse(
+                                        (run / "ellipses.json").exists(),
+                                        f"the report appeared before the aggregation barrier; see {log}",
+                                    )
+                                    os.kill(process.pid, signal.SIGSTOP)
+                                    stopped = True
+                                    break
+                            except (FileNotFoundError, ProcessLookupError):
+                                continue
+                    if stopped:
+                        break
+                    time.sleep(0.1)
+                self.assertTrue(stopped, f"no actual acceptance worker was reached; see {log}")
+                self.assertIsNotNone(run)
+                assert run is not None
+                while time.monotonic() < deadline:
+                    state = next(
+                        line.split()[1] for line in
+                        Path(f"/proc/{process.pid}/status").read_text().splitlines()
+                        if line.startswith("State:")
+                    )
+                    if state == "T":
+                        break
+                    time.sleep(0.01)
+                else:
+                    self.fail(f"the owning acceptance shell did not stop; see {log}")
+
+                selected_report = run / "ellipses.json"
+                while time.monotonic() < deadline:
+                    try:
+                        workers = [
+                            json.loads((run / f"worker{worker}.status.json").read_text())
+                            for worker in range(2)
+                        ]
+                        original = selected_report.read_bytes()
+                        rows = json.loads(original)
+                        break
+                    except (FileNotFoundError, json.JSONDecodeError):
+                        time.sleep(0.1)
+                else:
+                    self.fail(f"the actual workers did not finish before cleanup; see {log}")
+                self.assertTrue(
+                    all(worker["status"] == 0 for worker in workers),
+                    f"the unmodified real consumers must finish before report corruption: {workers}",
+                )
+                expected = set(json.loads(
+                    (run / "ellipses.inventory.json").read_text())["assertions"])
+                named = [row for row in rows if not row["id"].startswith("(statement)")]
+                self.assertEqual({row["id"] for row in named}, expected)
+                self.assertEqual(len(named), len(expected), "the original report must be complete")
+                self.assertTrue(named, "the real selected report must contain named assertions")
+                (run / "ellipses.complete.json").write_bytes(original)
+                removed_id = named[0]["id"]
+                partial = [row for row in rows if row["id"] != removed_id]
+                selected_report.write_text(json.dumps(partial, ensure_ascii=False, indent=1) + "\n")
+
+                os.kill(process.pid, signal.SIGCONT)
+                stopped = False
+                status = process.wait(timeout=max(1, deadline - time.monotonic()))
+            finally:
+                if stopped:
+                    try:
+                        os.kill(process.pid, signal.SIGCONT)
+                    except ProcessLookupError:
+                        pass
+                if process.poll() is None:
+                    try:
+                        os.killpg(process.pid, signal.SIGTERM)
+                    except ProcessLookupError:
+                        pass
+                    try:
+                        process.wait(timeout=30)
+                    except subprocess.TimeoutExpired:
+                        try:
+                            os.killpg(process.pid, signal.SIGKILL)
+                        except ProcessLookupError:
+                            pass
+                        process.wait(timeout=30)
+
+        current = json.loads((ROOT / ".tmp/accept-run.json").read_text())
+        latest = json.loads((ROOT / "timing/acceptance.jsonl").read_text().splitlines()[-1])
+        self.assertEqual(latest["run"], str(run.relative_to(ROOT)))
+        self.assertNotEqual(status, 0, f"the partial selected report was accepted; see {log}")
+        self.assertNotEqual(latest["status"], 0)
+        self.assertFalse(latest["complete"], "a missing selected assertion is incomplete")
+        errors = [row for row in current
+                  if row["file"] == "tests/acceptance/ellipses.cas"
+                  and row["kind"] == "internal" and row["fails"]]
+        self.assertTrue(
+            any(removed_id in row["detail"] and "incomplete" in row["detail"] for row in errors),
+            f"the current failure must identify the omitted assertion {removed_id}: {errors}",
+        )
+        self.assertNotIn(removed_id, {row["id"] for row in current},
+                         "an earlier complete result supplied the missing current assertion")
+        self.assertLessEqual(
+            {row["file"] for row in current},
+            {"tests/acceptance/ellipses.cas", "tests/acceptance/numbers.cas"},
+            "the selected report merged historical results from unselected inputs",
+        )
 
 
 if __name__ == "__main__":

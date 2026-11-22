@@ -35,13 +35,15 @@ track-main:
 cache +modules:
     @lake exe cache get {{modules}}
 
-# The short loop: build the named Lake targets, then run the named acceptance files (limit 300 s).
+# Rebuild dependencies, freshly execute named modules, then run selected complete consumers.
+[positional-arguments]
 loop targets *acceptance:
-    @scripts/feedback.sh loop {{quote(targets)}} {{acceptance}}
+    @scripts/feedback.sh loop "$@"
 
-# Run targets that the timing records show over the limit of the short loop; the reason is recorded.
+# Run the same workload explicitly for longer; use -- before optional acceptance arguments.
+[positional-arguments]
 slow reason +targets:
-    @scripts/feedback.sh slow {{quote(reason)}} {{targets}}
+    @scripts/feedback.sh slow "$@"
 
 # The long run: every test module, the notebook targets and every acceptance file, on a clean tree.
 milestone reason:
@@ -50,6 +52,15 @@ milestone reason:
 # Stop every lake and lean process that works in this checkout.
 stop:
     @scripts/feedback.sh stop
+
+# Check feedback mechanics with actual process/report controls in the research container.
+[private]
+[positional-arguments]
+test-feedback *tests:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source scripts/container.sh
+    incontainer python3 tests/feedback/test_feedback.py "$@" -v
 
 # Profile a source only when explicitly requested; rebuild its imports first.
 profile target:
