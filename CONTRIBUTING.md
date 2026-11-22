@@ -77,7 +77,8 @@ whole unchanged `tests/acceptance/ellipses.cas` file.
 An acceptance invocation without `--manifest PATH` uses the empty-provider diagnostic. Supply
 the actual manifest for a provider-backed observation, for example
 `just loop "+CasCatalogue.TestSuite:leanArts" --manifest PATH ellipses`.
-A `gap` or `unavailable` result remains uncomputed; it is not a positive mathematical pass.
+A `gap` or `unavailable` result does not establish the selected assertion; diagnostic process
+success is not mathematical completion.
 The entire selected file runs with its original definitions, assertions and later uses.
 
 Builds use Lake's native diagnostic threshold to suppress information and warnings from

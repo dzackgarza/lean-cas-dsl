@@ -22,8 +22,8 @@ just loop "+CasCatalogue.TestSuite:leanArts" ellipses
 
 The second command runs the complete unchanged file, including its definitions and later uses.
 Acceptance commands default to the empty-provider diagnostic; insert `--manifest PATH` before
-the file stems to use the actual provider manifest. Gaps remain uncomputed results. A protocol
-peer establishes only the public execution and protocol behavior it exercises.
+the file stems to use the actual provider manifest. A gap does not establish the selected
+assertion. A protocol peer establishes only the public execution and protocol behavior it exercises.
 
 The ordinary loop retains its 300-second bound. An overrun is allowed to finish, records its
 actual execution outcome and returns nonzero; there is no kill timer. Use

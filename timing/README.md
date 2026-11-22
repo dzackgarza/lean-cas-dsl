@@ -33,10 +33,12 @@ file, including its original definitions and continuations.
 | `ellipses`, full file after the streaming repair | 136.156 s end to end | Same complete input | Status 0 |
 | `ellipses`, deliberate producer fault | 81.469 s end to end | Fault reached all 13 original statements after rebuilding the owner | Status 1 |
 | `ellipses`, restored producer | 105.302 s end to end | Build 21.800 s; acceptance phase 77.334 s | Status 0 |
+| `ellipses`, committed repair with a quoted manifest path | 82.410 s end to end | Complete file at `283e64e`; the original empty-provider manifest bytes passed through a path containing spaces | Status 0; eight gaps, no historical rows |
 | `numbers`, original unmodified full-file worker | about 334 s for the worker | Worker duration, not an end-to-end loop total | 13 holds and 6 gaps, including a definition row |
 | `numbers`, current complete acceptance invocation | 303.408 s | Includes actual build and preparation | 19 rows: 18 named assertions; 13 holds and 6 gaps |
 | Interrupted-worker regression | 336.056 s for the whole test | Complete `numbers` invocation followed by an actual Lean-worker termination | Passed: the interrupted run failed and inherited no named rows |
 | Partial-report regression | 357.937 s for the whole test | Both original consumers finished successfully; one generated `ellipses` row was removed before aggregation | Passed: status 1, incomplete coverage, missing ID identified, no historical replacement |
+| Failed parent-build control | 8.851 s | A deliberately absent build target prevented selected acceptance execution | Passed: nonzero status, acceptance unattempted, prior current report archived and absent from the current path |
 
 The selected provider context and reported outcomes determine what each execution established.
 In particular, the no-provider gaps remain gaps. The phase measurements do not isolate catalogue
