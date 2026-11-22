@@ -4,3 +4,5 @@
 {"utc": "2026-11-20T12:23:38Z", "kind": "loop", "revision": "c9e6b43", "dirty": true, "targets": ["CasCatalogue.TestSuite"], "acceptance": ["ellipses"], "seconds": 172, "status": 0, "over_limit": false}
 {"utc": "2026-11-20T12:31:29Z", "kind": "loop", "revision": "c9e6b43", "dirty": true, "targets": ["CasCatalogue.TestSuite"], "acceptance": ["ellipses"], "seconds": 198, "status": 0, "over_limit": false}
 {"utc": "2026-11-20T12:34:22Z", "kind": "loop", "revision": "c9e6b43", "dirty": true, "targets": ["CasCatalogue.TestSuite"], "acceptance": ["ellipses"], "seconds": 162, "status": 0, "over_limit": false}
+{"utc": "2026-11-22T10:10:49Z", "kind": "loop", "revision": "2339e7c", "dirty": false, "targets": ["CasRuntime.SessionTests"], "acceptance": [], "seconds": 29, "status": 0, "over_limit": false}
+{"utc": "2026-11-22T10:22:23Z", "kind": "loop", "revision": "2339e7c", "dirty": true, "targets": ["CasRuntime.SessionTests"], "acceptance": [], "seconds": 18, "status": 0, "over_limit": false}
