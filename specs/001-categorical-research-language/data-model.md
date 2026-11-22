@@ -1,6 +1,7 @@
 # Data model: retained mathematics, actual selections and computational values
 
-**Feature:** `001-categorical-research-language` · **Current design:** 2026-11-07  
+**Feature:** `001-categorical-research-language` · **Updated:** 2026-11-22
+
 **Requirements:** [clarified scope/scenarios](spec.md) and [FR/SC obligations](spec.md). **Mathematical consumption:** [current consolidated contract](contracts/mathematical-input.md).
 
 Names below are proposed engineering records, not new mathematical definitions or a claim that the native API is implemented. All subject meanings, laws, choice families and abstract computational obligations remain independently owned by lean-categories. This consolidation incorporates the actual-selection clarification and the existing [staged/suspension](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6684996781), [export-capture/transport-ID](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6706802517), and [observation/liveness](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6707359041) corrections. Their detailed wire transitions remain in the owning runtime/notebook contracts.
