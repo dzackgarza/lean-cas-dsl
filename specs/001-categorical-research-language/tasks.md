@@ -31,6 +31,10 @@ The [six completion milestones](plan.md#completion-milestones) group outcomes on
 owns complete F, and [#93](https://github.com/dzackgarza/lean-cas-dsl/issues/93) owns
 required category implementations and delivery. The existing broad owners retain every
 obligation through independent V1 acceptance and the later B0/research phases.
+The matching milestone ledgers and native blockers follow the [issue-tree mapping](plan.md#issue-tree-and-task-order).
+#86 is implemented at T030 inside #92; #90 is completed at T105 inside #93.
+Neither is a second implementation after its containing outcome. #84 closes on the complete
+current T114 capability; subsequent tasks inherit its continuing C21/C24 obligation.
 
 ## Execution and authority
 
@@ -462,7 +466,7 @@ Part 1's required outcome is **all specified generic kernel behavior through the
 
 The bounded verification needed to implement a function is part of that work. No formal assessment/proof/frozen trial/benchmark completion in Part 2 is a predecessor of these tasks. Existing missing mathematical inputs remain with their independent owners and block their exact consumers; they do not make other functions or concrete executor work contingent on a larger theory project.
 
-[Part 2][T2] retains substantial public-only leaf delivery, all independent assessments/trials/proofs and final original resource requirements. None is silently discarded by moving it after functionality. No task/reviewer marker is advanced by this plan.
+[Part 2][T2] retains substantial public-only leaf delivery, all independent assessments/trials/proofs and final original resource requirements. These complete outcomes follow functionality. T041's original-driver preparation may serve the active functional task earlier; its final assessment remains after F. No task/reviewer marker is advanced by this plan.
 
 [P]: plan.md
 [T2]: tasks.md
@@ -475,7 +479,7 @@ The bounded verification needed to implement a function is part of that work. No
 
 **F means the complete actual functionality assigned in Part 1.** It is shorthand for that existing kernel-readiness condition, not a new task, checklist, freeze, approval service or substitute deliverable. Every required generic behavior works through its real public entrance, including source lowering, concrete execution, route/choice errors, complete returned data, later use, advertised services, notebook and mathematical interaction. A helper test, first construction or hand-assembled OperationalProgram does not establish F.
 
-All tasks in this part take place after F under C21. Runtime/source checks necessary to perform a function stay in Part 1. General proofs, independent acceptance and evidence-only verification remain required here, without being predecessors of missing functions. Substantial leaf work requires the built functional kernel, not prior completion of kernel correctness proofs, a new per-construct receipt or an early independent trial. Performance remains the last phase and cannot select functional work.
+The complete delivery and assessment outcomes in this part take place after F under C21. T041's driver preparation may serve the active functional consumer before F; its final execution and complete assessment still require F. This exception does not open a parallel task queue or advance T041's completion marker. Runtime/source checks necessary to perform a function stay in Part 1. General proofs, independent acceptance and evidence-only verification remain required here, without being predecessors of missing functions. Substantial leaf work requires the built functional kernel, not prior completion of kernel correctness proofs, a new per-construct receipt or an early independent trial. Performance remains the last phase and cannot select functional work.
 
 `After` is a success dependency for the recorded outcome, except the explicit failure-entry rule of T081. An implementation defect discovered anywhere enables its repair at the responsible functional task without first satisfying a failed acceptance task. Original independent questions, source/author boundaries, expected answers and final budgets never change to make the candidate pass.
 
@@ -542,7 +546,7 @@ These tasks change no behaviour of the kernel. They come after kernel functional
 - [ ] T107 Run final real notebook/workflow/lifecycle/discovery/display acceptance through `scripts/ci_kernel_workflows.py` on the same tuple. Retain the actual executed notebook, four workflows/three areas/all 17 assertions, all capture/owner/rollback/cancel/publication/duplicate races and inert incompatible-worker queries. Stored outputs or unreached cases cannot pass. **Owner:** I/A. **After:** T094, T095, T096, T102, T105. **Trace:** FR-030, FR-033–FR-039.
 - [ ] T108 Freeze the final complete baseline and perform prescribed fresh contributor-choice growth/producer/replacement/unchanged-consumer trials through the original harness. Preserve complete scope, separate authors/inputs, allowed overlays and zero accommodation. Reuse earlier evidence only where all relevant source/hypotheses remain unchanged; affected repair requires actual refreeze and the originally required new choices/reruns. **Owner:** I/A/L/M separately. **After:** T076, T082, T105, T106, T107. **Trace:** FR-013, FR-015–FR-017, FR-023–FR-024, FR-027, FR-030–FR-032, FR-039.
 - [ ] T109 Complete independent review of `CasCompiler/Correctness.lean`, `CasRuntime/Correctness.lean`, every production entrance and the released contract/API. Review actual source-to-program-to-invocation-to-retained-result-to-next-use composition, all required proofs and author/input separation; a supplied fixture executor cannot stand in for the production one. Resolve findings at their authority without leaf-defined mathematics or a stronger substituted quotient problem. Material changes reenter T105 and affected final observations/trials before renewed review. **Owner:** A/K separately. **After:** T014, T015, T039, T052, T062, T070, T076, T096, T108. **Trace:** FR-012–FR-017, FR-021, FR-025, FR-026, FR-029, FR-030, FR-039.
-- [ ] T110 Publish the complete integrated source/API/examples, commands, provenance, original reports, independent assessments and mechanism arguments on #10/#24/#66/#69; this feature directory holds the specification, plan, contracts and tasks. Close only when every V1 A–F obligation holds together on the same actual compatible tuple. Preserve separate full-B0/parity and later #3/#13/#34/#68 scopes. Leave every unmet item unchecked; no story, proof, count or partial successful run substitutes for the full assignment. **Owner:** I/A. **After:** T082, T103, T106, T107, T108, T109. **Trace:** FR-030, FR-033, FR-039, FR-040.
+- [ ] T110 Publish the complete integrated source/API/examples, commands, provenance, original reports, independent assessments and mechanism arguments on #10/#97/#24/#66/#69; this feature directory holds the specification, plan, contracts and tasks. Close the V1 work owners and M3/#97 only when every V1 A–F obligation holds together on the same actual compatible tuple and each owner's complete requirements hold. #10 remains the project root until its later M4/M5 scopes are also complete. Preserve separate full-B0/parity and later #3/#13/#34/#68 scopes. Leave every unmet item unchecked; no story, proof, count or partial successful run substitutes for the full assignment. **Owner:** I/A. **After:** T082, T103, T106, T107, T108, T109. **Trace:** FR-030, FR-033, FR-039, FR-040.
 
 ## Exact dependency and repair consequences
 
