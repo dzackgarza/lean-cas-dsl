@@ -131,7 +131,7 @@ functional work earlier while retaining its later proof and acceptance obligatio
 | [M0 — Fast edit-to-result feedback](https://github.com/dzackgarza/lean-cas-dsl/milestone/1) | A substantive edit in the current owner rebuilds affected executable dependencies and runs the unchanged public consumer within the normal focused-loop bound. Current diagnostics, failures and timings are truthful. Retain this behavior throughout development. | #84, T114/US9; reuse T016's completed work without treating its historical timing as current readiness. |
 | [M1 — Complete generic categorical kernel](https://github.com/dzackgarza/lean-cas-dsl/milestone/2) | F: all Part 1 functionality works through real public entrances, including complete constructions and later use, both functor actions, selected lifting/refinement/comparisons, higher/infinite interfaces, protocol, notebook/lifetime, discovery/display and both directions of growth. | #92; #66/#69 and #82/#85/#91 supply their functional responsibilities; #86 closes here. The first complete construction is an internal step, not this milestone. |
 | [M2 — V1 category implementations and delivery](https://github.com/dzackgarza/lean-cas-dsl/milestone/3) | All required V1 category implementations supply actual computations, defining data and later uses through the released contract; publish and build one compatible mathematics/kernel/contract/leaf/notebook tuple. | #93, T104/T105; #90 supplies the research-image toolchain/Mathlib port. |
-| [M3 — Independently accepted V1](https://github.com/dzackgarza/lean-cas-dsl/milestone/4) | All #24 A–F obligations, independent mathematical assessment, preservation arguments, frozen extension trials and original final budgets hold together on the delivered tuple. | #24 and full closure of #66/#69/#82/#85/#91; #10's existing V1 closure condition remains unchanged. |
+| [M3 — Independently accepted V1](https://github.com/dzackgarza/lean-cas-dsl/milestone/4) | All #24 A–F obligations, independent mathematical assessment, preservation arguments, frozen extension trials and original final budgets hold together on the delivered tuple. | #24 and full closure of #66/#69/#82/#85/#91; #97 records #10's unchanged V1 closure condition; the project root remains open through M4/M5. |
 | [M4 — Full B0 and classified Sage coverage](https://github.com/dzackgarza/lean-cas-dsl/milestone/5) | Complete #19's K1–K14 computations and the separate versioned Sage coverage denominator, including required hypotheses, defining maps and continuations. | #19, #20, #21, #22, #23. Their bounded construction/input work can inform V1 before their later full closure. |
 | [M5 — Research and client completion](https://github.com/dzackgarza/lean-cas-dsl/milestone/6) | Complete the retained research facade, installation portability, unit-group delivery, opt-in logging and actual research-use demand work against their existing outcomes. | #68, #34, #3, #8, #13. These remain outside the V1 denominator. |
 
@@ -148,6 +148,55 @@ For full B0, F and the usable released contract establish implementation readine
 implementation and delivery have priority. Otherwise runnable broader work need not wait for an
 evidence-only V1 tail, provided it does not displace V1 completion. Final V1 acceptance is neither
 full-B0 completion nor a new mathematical input to broader algorithms.
+
+### Issue tree and task order
+
+The native root is [#10](https://github.com/dzackgarza/lean-cas-dsl/issues/10), which stays open
+through every retained phase. V1 completion is recorded by M3/#97 under the unchanged
+#66/#69/#24 condition; it does not close the project root while M4/M5 remain.
+
+| Direct-root milestone ledger | Ordered complete work owners |
+| --- | --- |
+| [#94 — M0](https://github.com/dzackgarza/lean-cas-dsl/issues/94) | #84 / T114 |
+| [#95 — M1](https://github.com/dzackgarza/lean-cas-dsl/issues/95) | #92 / F; #86 at T030 within F |
+| [#96 — M2](https://github.com/dzackgarza/lean-cas-dsl/issues/96) | #93 / T104 then T105; #90 within T105 |
+| [#97 — M3](https://github.com/dzackgarza/lean-cas-dsl/issues/97) | #24; full remaining obligations of #66, #69, #82, #85, #91 |
+| [#19 — M4](https://github.com/dzackgarza/lean-cas-dsl/issues/19) | #22 / full B0 and classified Sage delivery; #20, #21, #23 supply full-parity inputs |
+| [#98 — M5](https://github.com/dzackgarza/lean-cas-dsl/issues/98) | #68, #34, #3, #8, #13 |
+
+`itree next` selects the completion owner; the unchecked task order selects the current work
+within its scope. #84/T114 comes first. Close #84 only on its complete current loop evidence;
+later tasks inherit the continuing C21/C24 obligation. Its former full-#85 blocker is obsolete.
+M1 consumes that capability, M2 consumes F, and M3 consumes the delivered candidate. Native
+group blockers prevent a later proof/assessment owner or subsidiary delivery issue from being
+selected ahead of those required inputs.
+
+Execute #86's whole scoped-declaration requirement at T030 and close it on its original
+acceptance within #92. Execute #90's whole image requirement at T105 and close it on its
+original acceptance within #93. Their sibling positions do not postpone those implementations
+until after F or delivery. The broad M3 owners contribute their functional requirements at
+the existing positions under #92; their later full closure never gates that functionality.
+
+Within M3, #24 coordinates the remaining Part 2 work in document order with its separately
+assigned proof, engineering and independent-assessment owners. Close each broad owner only
+when its own complete requirements hold; its later sibling position does not postpone its
+contribution until after acceptance. T110 records V1 closure at #97 and preserves #10 for
+the remaining project phases.
+
+These native completion dependencies do not prohibit the work needed to restore an actually
+missing environment for the active task. Perform the necessary #90 port work as support for
+that active task under the existing exception, without adding a full-F-before-repair cycle.
+If native traversal must select #90 for that observed repair, temporarily remove M2/#96's
+#92 blocker while retaining #93's own #92 blocker; restore ordinary M2 readiness once the
+active environment is usable. This does not complete #90's full image acceptance.
+A missing independent input still blocks only its actual consumers. Full B0's executed
+coverage consumes F and #20/#21/#23, without a #24 evidence-completion prerequisite; early
+source/input work remains available. #22 owns both complete M4 execution outcomes already
+specified in #19. Its whole issue is not blocked by unrelated full-Sage inventory work:
+the full-parity input order remains #20 → (#21 and #23) → the corresponding executions,
+while existing B0 questions use their actual available inputs. Close every owner only on
+its entire requirement and #22 only on both full outcomes. Verify resumed selector results
+against this task source.
 
 ### Architecture realized at these milestones
 
@@ -167,8 +216,8 @@ private cross-leaf representations.
 2. Implement T032 lowering and T013's concrete execution composition at their positions in the [task order](tasks.md#execution-order). Functional outputs needed by the executor are T017–T021/T026; source selection is T053–T056. These are parts of one functioning path, not preliminary standalone release projects.
 3. Bind actual results and connect T038; remove transferred fallback paths. T041's real driver is prepared without T039 or broad mathematical coverage as a prerequisite. T027's shared outcome classification does not depend on completing suspension first.
 4. Complete every required generic mechanism, protocol behavior, notebook and discovery/display function. No per-construct export freeze, preservation proof or early contributor trial gates this expansion. Full kernel readiness, not a first scalar or first RX-LIFT, enables substantial leaf work.
-5. Separately situated leaf authors migrate retained implementations and supply remaining required established-engine glue using the actually built released contract. No kernel-informed formalization assignment is bundled into their work.
-6. Complete independent assessment, source-to-machine/correctness arguments, original fixed and frozen-extension observations, coherent delivery and the final performance phase. Relevant corrections reexecute affected obligations on the new tuple without weakening them.
+5. Separately situated leaf authors migrate retained implementations and supply remaining required established-engine glue using the actually built released contract. Integration then publishes T105's compatible tuple, including #90. No kernel-informed formalization assignment is bundled into leaf work.
+6. Complete independent assessment, source-to-machine/correctness arguments, original fixed and frozen-extension observations and the final performance phase on that delivered tuple. Relevant corrections republish the tuple and reexecute affected obligations without weakening them.
 
 The former edges T041←T039, T030←T029, T038←the complete deferred/suspension chain, expansion←T079, and functional construction←self-consistency-only proof/audit tasks are removed in the actual task entries. Proof responsibilities formerly mixed into functional T016/T043/T044/T046/T053–T056/T061 are assigned to T014/T039/T052/T062/T070/T076/T096 as appropriate. Nothing is declared proved by that reassignment. Required source-law validation in an actual invocation remains functional and cannot be omitted.
 
