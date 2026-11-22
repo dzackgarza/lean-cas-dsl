@@ -6,18 +6,43 @@ Use the [current requirements](spec.md), [actual corrected plan](plan.md), [func
 
 ## Current development feedback comes first
 
-T114/#84 uses the existing commands in the kernel implementation worktree; locate that checkout
-with `git worktree list` and inspect its actual `justfile`/tuple before running them.
-Documentation on `main` does not establish that implementation commands are present there.
-Use `just loop "TARGETS" [FILE …]` for the changed owner and unchanged affected public consumer,
-within the existing 300-second ordinary-loop bound. Stream diagnostics and retain the current
-source, dependency/environment identity, input, elapsed time and actual outcome.
+T114/#84 uses the commands in the kernel implementation worktree; locate that checkout with
+`git worktree list` and inspect its actual `justfile` and dependency tuple. Documentation on
+`main` does not establish that implementation commands are present there. The
+[feedback command reference](../../CONTRIBUTING.md#feedback-loops) gives the full usage.
 
-A substantive change must reach the consumer through fresh affected imports and executable
-dependencies. Missing, skipped, stale, partial or failed selected execution cannot inherit an
-older success. Existing freshness and failure controls must exercise that distinction.
-Keep setup, dependency refresh, optional-engine installation, profiling and unrelated aggregates
-outside the ordinary loop. Compare fixed-input before/after measurements when claiming a gain.
+A named local module is checked by building its `+Module:deps` and freshly executing its source
+with `lake lean`. An explicit `+Module:facet` builds artifacts and requires an acceptance
+consumer in the same invocation:
+
+```sh
+just loop "CasRuntime.SessionTests"
+just loop "+CasCatalogue.TestSuite:leanArts" ellipses
+```
+
+The second command runs the complete unchanged file, including its definitions and later uses.
+Acceptance commands default to the empty-provider diagnostic; insert `--manifest PATH` before
+the file stems to use the actual provider manifest. A gap does not establish the selected
+assertion. A protocol peer establishes only the public execution and protocol behavior it exercises.
+
+The ordinary loop retains its 300-second bound. An overrun is allowed to finish, records its
+actual execution outcome and returns nonzero; there is no kill timer. Use
+`just slow "Measure the complete selected consumer" +CasCatalogue.TestSuite:leanArts -- ellipses`
+for an explicit long run of that same selection. Keep the complete input and record its cost.
+
+Lake's native diagnostic threshold suppresses information and warnings from successful build
+jobs while retaining failure diagnostics. Fresh consumer output streams without that filter.
+The existing timing records retain source/change identity, the actual dependency and environment
+tuple, input hashes, command, phase outcomes, build/execution times and total elapsed time.
+Each run has its own logs. A current acceptance report contains only its selected observation;
+missing, skipped, stale, partial or failed selected execution cannot inherit an older success.
+
+A substantive change must reach the unchanged public consumer through fresh affected imports
+and executable dependencies. Exercise the relevant freshness and failure controls. When the
+feedback commands or report producer change, `just test-feedback` runs their actual process and
+report regressions in the research container. Keep setup, dependency refresh, optional-engine
+installation, profiling and unrelated aggregates outside ordinary iterations. Compare the same
+complete input, host, tuple and rebuild conditions when claiming a gain.
 
 A fast failing mathematical check establishes feedback, not the missing function. T016 retains
 its historical completion; T114 establishes the current loop and maintains it during later work.
