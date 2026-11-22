@@ -1,6 +1,7 @@
 # Data model: retained mathematics, actual selections and computational values
 
-**Feature:** `001-categorical-research-language` · **Current design:** 2026-11-07  
+**Feature:** `001-categorical-research-language` · **Updated:** 2026-11-22
+
 **Requirements:** [clarified scope/scenarios](spec.md) and [FR/SC obligations](spec.md). **Mathematical consumption:** [current consolidated contract](contracts/mathematical-input.md).
 
 Names below are proposed engineering records, not new mathematical definitions or a claim that the native API is implemented. All subject meanings, laws, choice families and abstract computational obligations remain independently owned by lean-categories. This consolidation incorporates the actual-selection clarification and the existing [staged/suspension](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6684996781), [export-capture/transport-ID](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6706802517), and [observation/liveness](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6707359041) corrections. Their detailed wire transitions remain in the owning runtime/notebook contracts.
@@ -20,6 +21,13 @@ The platform remains Lean 4.33.0 with accepted lean-categories, compatible CSLib
 Keep mathematical term identity, compiled program identity, execution occurrence identity and returned value identity separate. Definitionally equal expressions or identical bytes may occur in distinct computations or selected roles. Restoring a snapshot or reprinting an expression does not reproduce an old execution or value.
 
 A further distinction is essential: an allowed choice family is not an actual selected member, and a selected comparison is not evidence that every possible route/cell is equal. Its mathematical role and required data are fixed upstream; the runtime retains the actual candidate member supplied under that role.
+
+The category implementation interface is a generated public view of accepted declarations, not
+a new semantic record or manifest authority. Object constructor families into a category remain
+distinct from category-level constructors such as `Arr(C)`. Multiple ports can implement one
+category; common engine code does not identify mathematical objects. Every admitted constructor
+supports the complete applicable target interface, with positive delivery determined by the
+original assigned workloads and actual later uses. See [conformance](../architecture.md#constructor-and-operation-conformance).
 
 ## 2. Source environment and complete dependent context
 
@@ -66,6 +74,7 @@ Consume `CheckedComputationDerivation` with its exact target reference/declarati
 | Semantic/compiled program | Native selected expressions, actual cells, required roles, accepted computation templates, layouts and closure code | Fixed mathematical question and faithful operational control, including dormant dependent calls |
 | Realization dependency graph | Exact current demands and primitive/generic/fused alternatives with ordered slots | 0/1/many finite grounded computation analysis only where exact finite closure is justified |
 | Runtime value/occurrence graph | Actual returned values, choices, field/capture dependencies, dispatch occurrences and completion associations | Executed result and later use, not reconstruction from the other graphs |
+| Physical import/build/execution graph | Actual source imports, executable metaprograms, packages, shared libraries and engines of the selected implementation | Focused build and runtime locality; no new applicability, semantic route or mathematical authority |
 
 A result-dependent child remains code plus its actual environment until arguments exist. A unique current realization does not prove availability/uniqueness of every future invocation. Later failure never authorizes replay under another provider.
 

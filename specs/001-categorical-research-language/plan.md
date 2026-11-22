@@ -1,6 +1,6 @@
 # Implementation Plan: Categorical research language
 
-**Feature:** `001-categorical-research-language` · **Replanned:** 2026-11-09 (Asia/Taipei).
+**Feature:** `001-categorical-research-language` · **Updated:** 2026-11-22 (Asia/Taipei).
 
 **Authority:** [current permanent constitution][C], especially C6 and C21; [owner's current functional handoff][H]; [specification and scenarios][S1]; [requirements and acceptance][S2]. **Operative tasks:** [Part 1 — functional implementation][T1] and [Part 2 — leaf delivery, proofs, independent assessment and performance, after functionality][T2]. These complete bodies replace the former subsystem-first phase order and its predecessor tables. They are not amendments to be applied to an older task list.
 
@@ -31,7 +31,7 @@ The source/runtime boundary remains categorical and independently specified. A l
 | External boundary | Data-only versioned framing, exact dependent roles and scoped references, existing engines, retained callable ownership, no automatic retry/replay or provider-priority fallback. All advertised deferred/suspended behavior needs a real kernel handler. |
 | Platform | Existing authorized execution environment and actual CAS/notebook surface. No owner-machine access, new persistent environment or alternate frontend is a planning prerequisite. |
 | Legacy bridge | T024/T025 are retired by the current owner order. Do not revive v1 bridge work as a prerequisite. Existing retained implementations move to v2 through their separate public-only owners after kernel readiness, under T104. Their original mathematics and acceptance questions remain unchanged. |
-| Budget phase | C21 governs: functional work may use the time/memory/heartbeat limits needed. Original budgets remain final obligations, including the 99-root 3×3 specimen under 60 seconds and RX-LIFT's shared 200,000 heartbeats/full 22-binding prefix. Optimization cannot select work during the functional phase except the narrow C21 cannot-finish-at-all exception. |
+| Budget phase | C21 governs: functional work may use the time/memory/heartbeat limits needed. Original budgets remain final obligations, including the 99-root 3×3 specimen under 60 seconds and RX-LIFT's shared 200,000 heartbeats/full 22-binding prefix. Fast development feedback remains an immediate continuing priority; other optimization cannot select functional work except the narrow C21 cannot-finish-at-all exception. |
 
 The scoped contracts remain [mathematical input][M], [computational runtime][R], [data model][D] and [notebook session][N]. Their behavioral requirements remain binding. The schedule in this plan and tasks implements the current C21 order; it does not reintroduce their historical first-use-proof, early-freeze, v1-bridge or budget gates. Exact changes of responsibility and proof ownership are specified below, not left to an implementer to reconcile contradictory task dependencies.
 
@@ -46,15 +46,20 @@ The corrected design has these consequences:
 - C6: enumeration of first bindings is distinct from proving agreement. Complete-family definitional agreement or independently formalized comparison can establish agreement; a declared preferred route selects an admitted reading without asserting agreement. Without the required resolution data, ambiguity is reported before execution. No shortest route, backend success or unregistered theorem search substitutes.
 - C9–C13: mathematical authorship, candidate computation and independent acceptance remain distinct; original observations, extension trials and exact lifetime/publication rules remain due.
 - C16–C20: preserve existing useful implementation, remove transferred reconstruction paths and inspect the actual public responsibility path. Documentation edits do not claim implementation or independent approval.
-- C21: kernel functionality comes before substantial leaf work, self-consistency-only evidence, frozen trials, preservation/correctness proofs and performance work. Actual type/domain/data/owner checks needed to perform a function remain part of that function; postponing proof documentation does not permit an unsound runtime shortcut.
+- C21: current fast development feedback comes first and remains active. Complete kernel functionality comes before substantial leaf work, self-consistency-only evidence, frozen trials, preservation/correctness proofs and final mathematical/runtime performance work. Actual type/domain/data/owner checks needed to perform a function remain part of that function; postponing proof documentation does not permit an unsound runtime shortcut.
 
-No constitutional amendment or reduced product is proposed. The current constitution was inspected at integration `fba37ec6973bcbad4acce4cab12bef9738cc0532` (constitution blob `e690013ecf4d77e746d20d4379dc47fcb04813cc`). That is input provenance, not evidence of present source functionality.
+The governing constitution is [v3.1.0](../../.specify/memory/constitution.md), amended on
+2026-11-22 under the owner's direction to enshrine durable principles from both comparative
+analyses. C0/C9/C21/C23/C24 now state source-derived complete category interfaces, separate
+dependency relations, real locality, continuing feedback and full choice-sensitive assessment.
+This compatible elaboration changes no original mathematical question, authority boundary or
+final budget. Earlier constitution hashes remain historical input provenance.
 
 ## November 17 source-to-result correction
 
 The [current handoff](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6726232237) and functional tasks supersede older reader-first sequencing. Repair the complete selected source construction and its actual continuation: retain exact occurrences/endpoints and universal data, prepare generic dependencies, use the common source boundary for provider requests, construct genuine public target objects/arrows, apply formal classifier refinements and complete generic operation growth. Delete each transferred recovery path in the same implementation change. Retain already adequate source/runtime/rule separation; do not reimplement it for another receipt.
 
-The explicit focused-command, production/test target and SDK-provisioning corrections support those functional changes. Tests stay outside the production target; provisioning stays outside Lean elaboration; a focused build streams once without a profiling gate. Functional source/provider consumers remain the endpoint of that loop. #84's measurements and optimization remain after functionality.
+The explicit focused-command, production/test target and SDK-provisioning corrections support those functional changes. Tests stay outside the production target; provisioning stays outside Lean elaboration; a focused build streams once without a profiling gate. Functional source/provider consumers remain the endpoint of that loop. #84's current changed-source feedback is an immediate priority under C21 and remains part of functional work. Final mathematical/runtime optimization remains after functionality.
 
 ## Concrete production architecture
 
@@ -113,9 +118,52 @@ The stories retain the specification's user outcomes. Shared code is implemented
 
 US2–US6 use the shared production path developed with US1; this dependency is explicit, not a claim that a protocol-only phase is independently executable. Their generic capabilities use that interface in the fixed task order; the interface does not authorize separate active tasks. US7/US8 are real integration, not mock frontends or post-delivery polish.
 
+## Completion milestones
+
+These are complete delivery outcomes, not file/module counts or a second task queue.
+[Tasks](tasks.md#execution-order) retain stable IDs, definitions and execution order.
+[GitHub #10](https://github.com/dzackgarza/lean-cas-dsl/issues/10) owns the roadmap and evidence;
+native milestones record each issue's full closure stage. A broad owner issue can contribute
+functional work earlier while retaining its later proof and acceptance obligations.
+
+| Milestone | Complete observable outcome | Owners and scope |
+| --- | --- | --- |
+| [M0 — Fast edit-to-result feedback](https://github.com/dzackgarza/lean-cas-dsl/milestone/1) | A substantive edit in the current owner rebuilds affected executable dependencies and runs the unchanged public consumer within the normal focused-loop bound. Current diagnostics, failures and timings are truthful. Retain this behavior throughout development. | #84, T114/US9; reuse T016's completed work without treating its historical timing as current readiness. |
+| [M1 — Complete generic categorical kernel](https://github.com/dzackgarza/lean-cas-dsl/milestone/2) | F: all Part 1 functionality works through real public entrances, including complete constructions and later use, both functor actions, selected lifting/refinement/comparisons, higher/infinite interfaces, protocol, notebook/lifetime, discovery/display and both directions of growth. | #92; #66/#69 and #82/#85/#91 supply their functional responsibilities; #86 closes here. The first complete construction is an internal step, not this milestone. |
+| [M2 — V1 category implementations and delivery](https://github.com/dzackgarza/lean-cas-dsl/milestone/3) | All required V1 category implementations supply actual computations, defining data and later uses through the released contract; publish and build one compatible mathematics/kernel/contract/leaf/notebook tuple. | #93, T104/T105; #90 supplies the research-image toolchain/Mathlib port. |
+| [M3 — Independently accepted V1](https://github.com/dzackgarza/lean-cas-dsl/milestone/4) | All #24 A–F obligations, independent mathematical assessment, preservation arguments, frozen extension trials and original final budgets hold together on the delivered tuple. | #24 and full closure of #66/#69/#82/#85/#91; #10's existing V1 closure condition remains unchanged. |
+| [M4 — Full B0 and classified Sage coverage](https://github.com/dzackgarza/lean-cas-dsl/milestone/5) | Complete #19's K1–K14 computations and the separate versioned Sage coverage denominator, including required hypotheses, defining maps and continuations. | #19, #20, #21, #22, #23. Their bounded construction/input work can inform V1 before their later full closure. |
+| [M5 — Research and client completion](https://github.com/dzackgarza/lean-cas-dsl/milestone/6) | Complete the retained research facade, installation portability, unit-group delivery, opt-in logging and actual research-use demand work against their existing outcomes. | #68, #34, #3, #8, #13. These remain outside the V1 denominator. |
+
+M1 consumes the functioning development loop. M2 consumes F and the usable released contract.
+M3 consumes the delivered candidate. Within a milestone, use actual task inputs; a missing input
+blocks only its dependent work. Native issue dependencies encode those real completion inputs,
+not a requirement to stop every other task.
+
+The image port stays T105/M2. Bring it forward only when the actual available environment cannot
+build an active functional task. A fresh image or broad dependency refresh is not an invented M0
+prerequisite when the current compatible environment already supports the work.
+
+For full B0, F and the usable released contract establish implementation readiness. V1-required
+implementation and delivery have priority. Otherwise runnable broader work need not wait for an
+evidence-only V1 tail, provided it does not displace V1 completion. Final V1 acceptance is neither
+full-B0 completion nor a new mathematical input to broader algorithms.
+
+### Architecture realized at these milestones
+
+The [mathematical execution model](../architecture.md#category-interfaces-computational-dependencies-and-build-boundaries)
+separates mathematical meaning, public computational realization and physical build dependencies.
+M1 realizes public constructor and operation conformance, with complete selected objects/maps,
+generic composition and a category-indexed computational interface generated from accepted declarations
+through the existing exporter. The independent registry remains semantic authority. M2 supplies the required category implementations against that boundary.
+M3 establishes the original independent correctness, general preservation and frozen-extension
+obligations. A port registration, category name or packet shape establishes none of these outcomes
+by itself. Private library reuse remains permitted; public interoperability cannot require
+private cross-leaf representations.
+
 ## Implementation order and dependency correction
 
-1. Retain adequate existing foundations and prepare the actual source/public driver interfaces. Do not reopen checked setup to produce new receipts. Missing mandatory source/contract inputs are identified precisely, not filled by downstream mathematics.
+1. Complete T114's current changed-source/public-consumer feedback under #84, preserving it during the remaining work. Then retain adequate existing foundations and prepare the actual source/public driver interfaces. Do not reopen checked setup to produce new receipts. Missing mandatory source/contract inputs are identified precisely, not filled by downstream mathematics.
 2. Implement T032 lowering and T013's concrete execution composition at their positions in the [task order](tasks.md#execution-order). Functional outputs needed by the executor are T017–T021/T026; source selection is T053–T056. These are parts of one functioning path, not preliminary standalone release projects.
 3. Bind actual results and connect T038; remove transferred fallback paths. T041's real driver is prepared without T039 or broad mathematical coverage as a prerequisite. T027's shared outcome classification does not depend on completing suspension first.
 4. Complete every required generic mechanism, protocol behavior, notebook and discovery/display function. No per-construct export freeze, preservation proof or early contributor trial gates this expansion. Full kernel readiness, not a first scalar or first RX-LIFT, enables substantial leaf work.

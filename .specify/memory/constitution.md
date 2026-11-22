@@ -63,6 +63,11 @@ The following commitments define the product through implementation changes:
   later uses, required mixed-provider compositions and independent extensions. A declaration
   catalogue, an isolated demonstration or a correct report of missing computation does not
   deliver such a workflow. C8 and C11–C13 specify the positive requirements.
+- **Independent mathematical growth must remain local to implement and exercise.** A category
+  implementation obtains its complete public computational interface from the accepted
+  mathematics. Its constructors and functor actions compose with unchanged applicable consumers;
+  ordinary changes can be built and exercised with their actual dependencies. Fast feedback is a
+  maintained product-development capability. C12, C21, C23 and C24 specify these obligations.
 - **The ordinary interaction speaks mathematics.** Users must be able to discover applicable
   operations, work in mathematical notation, read mathematical answers and inspect their
   assumptions, chosen presentations and actual computational provenance. Ordinary expressions
@@ -568,6 +573,40 @@ membership or the available mathematical interface. In particular, the category 
 image is its declared target; discovering where that image originated is not a prerequisite for
 using target-category methods.
 
+**The category implementation interface is derived, not independently maintained.** The published
+computational interface is generated from accepted declarations of **M** and the released
+contract. It exposes admitted object and morphism constructors, operations at their actual
+domains, immediate formal functor actions, and the dependent parameters, choices, maps and
+comparisons needed to construct and use results. This adds neither a second mathematical
+hierarchy nor leaf authority to define that interface. An individual operation/input/backend
+registration is an invocation port; registering ports alone does not deliver a category
+implementation. Every admitted constructor supplies the full applicable mathematical interface.
+Every positive constructor/operation combination assigned by the required workload must actually
+execute with its prescribed later uses; a missing provider cannot satisfy that positive
+obligation. Implementations may share an engine or use several ports without changing this unit
+of public responsibility.
+
+**Mathematical, computational and software dependencies are distinct.** Formal categories,
+hypotheses and functors determine applicability. Published computational actions and selected
+dependent data determine the requests needed to realize a construction. Imports, packages,
+engines and executable metaprograms determine a particular implementation's build and execution
+closure. A declaration or a file boundary establishes none of the other relations by itself.
+Public interoperability must use the accepted computational interface without requiring another
+implementation's private representation. C22 still permits direct reuse of another leaf's code
+and shared libraries or sessions. Such reuse is an actual software dependency, not an additional
+source of mathematical meaning; it must be included when assessing locality under C24. There is
+no requirement for one repository, process or binary per category.
+
+**Installing computation and extending mathematics are different operations.** Installing or
+replacing a provider for an existing accepted interface and released contract must not require
+changes to the mathematical environment, generic kernel algorithm or unrelated implementations.
+The provider may build its own actual dependencies and update permitted realization
+configuration under the existing selection/ambiguity rules. Adding an independently accepted
+formal category or operation extends the mathematical environment: its modules and genuine
+dependents may need compilation. The extension guarantee requires no accommodating edits to the
+generic kernel algorithm or existing applicable computational implementations; it does not
+promise formal growth without imports or builds.
+
 **Functor actions construct their targets.** For a declared functor $F:C\to D$, an object action
 computes defining data through public source operations and supplies those data to a public
 constructor of $D$. Its morphism action constructs an arrow with the selected endpoints $F(X)$
@@ -689,6 +728,15 @@ the new record.
 Expected answers must not be obtained from the implementation under assessment. Acceptance
 authors' actual inputs must preserve their required independence. Assigning another role label
 to an already exposed agent does not restore that independence.
+
+Independent assessment checks the entire prescribed result relation, including required maps,
+dependent fields and subsequent actions. For provider substitution, the original question and
+independently fixed relation remain unchanged. Where that relation permits choices, each answer
+must satisfy it and later work must consume its actual selected choice; byte equality between
+different permitted choices is not required. A comparison with an existing CAS is evidence
+against that relation, not authority to change it. A protected question must not be changed to
+force a unique answer or match a solver's accidental choice. C3 retains the fixed-context
+qualification, and C10 separates primitive correctness from composition and structural admission.
 
 **Source basis:** [September independent-assessment requirement][S3]; [October
 question-preservation chapter, §9][S5]; [preserved independent acceptance][S9].
@@ -1323,8 +1371,18 @@ check. Completion requires comparable before/after measurements on the same sour
 toolchain and host, including the check outcome. A cached no-edit run, stale-import check, reduced
 workload or helper-only check does not establish this requirement. [S49] [S50]
 
+Fast feedback remains required throughout the work, rather than ending with a historical
+measurement. For an ordinary change, the loop rebuilds its actual affected source and executable
+dependencies and exercises the unchanged public consumer, including the selected continuation
+when that is the capability being changed. When unnecessary coupling, stale artifacts, implicit
+setup or aggregate checks obstruct that loop, repair the responsible boundary as an immediate
+development priority. Preserve completed improvements; a measurement of an earlier revision does
+not establish the current loop. This priority does not require missing category implementations,
+final acceptance or a future delivery tuple before the present functional work can continue.
+
 The task list of the feature, `tasks.md`, governs execution. Its unchecked tasks are executed in
-document order; that order is the [owner's fixed task queue of November 17][S49]. The first
+document order. The [owner's November 17 queue][S49] is the historical baseline; subsequent
+committed changes state their owner-authorized reason, including the November 22 feedback task. The first
 unchecked task is active, and other work must serve it. A wait blocks only the work that needs
 the missing input (C16). When the active task, or a part of it, waits on an input that its role
 must not supply, or on an environment that is not available, the contributor completes the other
@@ -1363,10 +1421,12 @@ owner correction.
 ### C24. Engineering defaults for tests, feedback, logs and timing
 
 These defaults govern how contributors build and check the product. They add no mathematical
-requirement, and they do not gate functional work (C21).
+requirement. They preserve C21's immediate priority for fast development feedback; higher-tier
+evidence and final mathematical/runtime performance do not gate missing functional work.
 
-**Test tiers.** Tests are divided into tiers. Tier 1 is the smallest set that establishes
-implementation correctness through the happy paths and the meaningful branches. Its total run
+**Test tiers.** Tests are divided into tiers. Tier 1 is the smallest set that checks the specified
+observable behavior through the happy paths and meaningful branches of the affected capability.
+It establishes those tested outcomes, under C10, rather than correctness of every computation. Its total run
 time must be seconds or minutes. A slow tier 1 loop is a defect, to be repaired when it is found.
 Higher tiers add evidence: the long tail of examples, permutations, edge cases and unexpected
 combinations.
@@ -1385,6 +1445,24 @@ contribution and, where possible, pairs a defective contribution with its correc
 **Feedback cadence.** Feedback loops of ten minutes or more must be minimized. Necessary long
 runs are reserved for milestones, such as the completion of a batch of work. Where a push starts
 long checks, pushes occur at milestones, and fast commit-only checks are the primary loop.
+
+**Dependency locality.** Category implementations must be independently buildable and testable
+through their published interfaces with the dependencies actually required by their algorithms
+and consumers. Unrelated category implementations and optional engines must not be required for
+an unaffected computation. Verify the actual import, build and execution closure, including
+necessary executable metaprograms; moving files, filtering generated output or hiding imports
+does not establish locality. Setup and dependency refresh are explicit operations outside the
+ordinary source-change loop. A provider-only source change under the same accepted interface and
+released contract builds its actual closure without rebuilding the kernel or unrelated leaves;
+a formal-interface change rebuilds its genuine affected closure. State which change the locality
+observation exercises. This applies C23 without forbidding C22's permitted code reuse.
+
+**Current-run results.** A reported check result must come from the selected input executed
+against the intended current implementation and compatible environment. Missing, skipped,
+stale, partial or failed selected executions cannot inherit an earlier success or become a
+successful run by merging reports. Expected-rejection checks must exercise and establish their
+specified rejection. A protocol peer or an empty-provider installation can establish only its
+corresponding protocol or availability behavior, not the required positive computation.
 
 **Platform scope.** Support for more than one platform is added only on explicit request.
 
@@ -1429,6 +1507,7 @@ Spec Kit constitutions][S51].
 | 1.8.0 | 2026-11-17 | Elaborate C23 under the authorized repository-wide mathematical-model clarification. The prior article required forward realization and retained selections; the expanded obligation specifies category interfaces, public target constructors for both functor actions, correctly typed methods, evidence-based classifier refinement and coexistence of selected structures. The reason is to make these consequences explicit at implementation entrypoints. The local architecture specification records the model and source references; contribution rules and the existing feature contracts carry its application and acceptance conditions. |
 | 2.0.0 | 2026-11-17 | Amend only C21's work ordering under the [explicit owner correction and fixed queue][S49], also [committed in the repository plan][S50]. Old obligation: all performance work followed complete functionality except when a small required example could not finish. New obligation: first complete the measured real source-edit/rebuild/unchanged-public-check loop, with only the first unfinished queued task active and explicit recorded changes before reordering; final mathematical/runtime performance and budgets still follow complete functionality. Reason: the owner explicitly prioritized fast inner feedback and required the written, committed execution order. This is a major version under the existing governance rule because it changes the written scheduling obligation; it changes no mathematical, functional, independent-authorship, acceptance or final-budget requirement. Historical adoption entries remain intact. |
 | 3.0.0 | 2026-11-19 | Amend the authority and scope section, C21 and add C24 under the [owner instruction of 2026-11-19][S51]. Old obligations: plans and work orders remained in issues, and repository feature files were pointers; only the first unfinished task of a numbered queue was active. New obligations: the Spec Kit feature directory holds the specification, plan, research record, data model, contracts, validation guide, checklists and tasks; the unchecked tasks of `tasks.md` are executed in document order, which equals the November 17 queue; a wait on a missing input blocks only the work that needs it, as C16 already required. C24 adds the engineering defaults for test tiers, test design, contribution lessons, feedback cadence, platform scope, logging, timing history, timing triage and construction cost. Reasons: the Spec Kit commands had no specification, plan or task file to read; the queue was a list of bare task numbers kept in three places; its single-active-task rule could stop all work when one input was missing. This is a major version because it changes where the work order lives and the written scheduling obligation; it changes no mathematical, functional, independent-authorship, acceptance or final-budget requirement. |
+| 3.1.0 | 2026-11-22 | Elaborate C0, C9, C21, C23 and C24 under the owner's explicit November 22 direction to incorporate the supplied comparative analyses, make fast feedback a critical roadmap priority and constitutionally preserve the durable principles, recorded in the [completion roadmap][S52]. Old obligations: categorical public interoperability, independently fixed questions, the measured November 17 feedback correction and short test tiers. New explicit obligations: derive the complete category implementation interface from accepted mathematics; distinguish mathematical, public computational and actual software dependencies; require real implementation/build locality; maintain current-source fast feedback and truthful current-run results; assess the complete result relation and actual permitted choices under provider substitution. Correct the overbroad tier-1 wording to the tested-outcome claim already required by C10. This compatible elaboration is a minor version. It preserves C22's computational ownership and private code reuse, independent authorship, all original positive workloads, final budgets and the functional-before-final-evidence ordering. |
 
 ### Provenance
 
@@ -1503,5 +1582,6 @@ evidence of an authorized amendment.
 [S49]: https://github.com/dzackgarza/lean-cas-dsl/blob/b1f5ab6d5c7a0bd68aabef7e9a781d7722894e90/specs/001-categorical-research-language/plan.md#committed-execution-order--owner-correction-of-2026-11-17
 [S50]: https://github.com/dzackgarza/lean-cas-dsl/commit/da8e31db0d9a75bf037207970649c101f8b3fb89
 [S51]: https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-7001905239
+[S52]: https://github.com/dzackgarza/lean-cas-dsl/issues/10
 
-**Version**: 3.0.0 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-19
+**Version**: 3.1.0 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-22

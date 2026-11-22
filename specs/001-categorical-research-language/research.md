@@ -1,6 +1,95 @@
-# Current Phase 0 research decision: selected categorical data, not a universal route quotient
+# Research decisions: selected data and independently implementable category interfaces
 
 **Feature:** `001-categorical-research-language` · **2026-11-07**. This is the current research/decision entry for the [clarified specification](spec.md), [consolidated plan](plan.md) and [mathematical-input contract](contracts/mathematical-input.md). It supersedes the later G1 proposals as normative selection instructions. The original [independent architectural alternatives/reuse ledger](https://github.com/dzackgarza/lean-cas-dsl/issues/85#issuecomment-6664331639) and [adversarial discussions](https://github.com/dzackgarza/lean-cas-dsl/issues/85#issuecomment-6664324222) remain historical evidence, not independent approval of this revision.
+
+## 2026-11-22 — Operational category independence and continuing feedback
+
+**Decision.** Retain independently categorical mathematics, generic forward realization and
+computational-only leaves. Make their software consequence explicit: a category implementation
+receives a generated public interface, constructs complete objects and arrows, and reaches
+unchanged applicable consumers through its actual dependencies. Extend the existing API exporter
+and ports; do not invent another registry or representation translator. Distinguish semantic
+relationships, public computational dependencies and physical build/runtime dependencies.
+Necessary shared code and engines remain permitted under C22.
+
+The two comparative reports are inputs to this analysis, not implementation evidence or
+authority to alter the mathematics. The relevant primary sources were inspected on 2026-11-22:
+
+| Source | Observation and resulting decision |
+| --- | --- |
+| [Sagebrush PR #1529](https://github.com/sagemathinc/sagebrush/pull/1529) | Open PR. Its author records MATLAB comparisons, behavioral corrections and lazy loading after a bundle-size failure. Adopt the concrete changed-capability/public-consumer feedback pattern; this does not establish comparative agent productivity or integrated correctness. |
+| [PassageMath PR #3075](https://github.com/passagemath/passagemath/pull/3075) | Moves optional `bz2` imports to their use sites; reports unaffected imports and computations in a Python installation without that extension. Require actual dependency locality, including operation with unrelated optional engines absent. |
+| [PassageMath PR #3069](https://github.com/passagemath/passagemath/pull/3069/files) | The patch both changes one objective to obtain a unique optimum and replaces incidental solver outputs with relational checks. Adopt relation-based assessment of permitted choices. C9 forbids changing a protected original question to obtain uniqueness or agreement. |
+| [Sagebrush issue #1567](https://github.com/sagemathinc/sagebrush/issues/1567) | Open reported extended-gcd counterexample: the gcd is correct while returned cofactors fail the prescribed identity. Not independently reproduced here. Require the full result relation, including maps/dependent fields and continuation; neither a scalar projection nor provider agreement supplies it. |
+| [Declared computational API](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/blob/main/api/README.md) | Existing generated categories, objects, constructions, functors, signatures and addresses are the implementation starting point. The kernel reads the independent registry. Category-filtering an aggregate export does not establish a smaller Lean import/build closure. |
+
+The reports' `SourceLimit.limitApex?` diagnosis is stale for the inspected local kernel revision
+`5c3231979edb53e994419fcf090291b950e8bd30`: the helper was removed in
+`4c6be22` and the selected row/cone is retained. The remaining source-to-result obligations
+must be checked at their current owners, including selected leg use and the unsupported
+`returnsToSource` path; deleting an old symbol is not the acceptance condition. The maintained
+task bodies preserve this distinction.
+
+The [architecture](../architecture.md#category-interfaces-computational-dependencies-and-build-boundaries)
+states constructor/operation conformance and the conditional composition argument. Categorical
+composition establishes the stated composite relationship only under the independently fixed
+primitive interpretation hypotheses; it does not prove external algorithms correct. Permitted
+different outputs retain their actual selected maps and uses. Fixed selected inputs, exactness,
+normalizations and ordering remain binding.
+
+**Scheduling and constitutional consequence.** Constitution v3.1.0 elaborates C0/C9/C21/C23/C24
+under the owner's explicit request. T114 establishes current fast feedback immediately and
+maintains it; T028 publishes the generated category interface; T061 completes generic actions
+and later use; T104 delivers actual category implementations and their focused build/public
+consumer boundaries after F. T105 publishes the compatible tuple, including #90's image port.
+Independent extension/substitution assessment and final mathematical budgets retain their
+existing later owners. These are requirements to implement, not claims that the current system
+already satisfies them.
+
+## 2026-11-22 — Runtime boundary and compatible release
+
+The further report correctly distinguishes mathematical interfaces, build/package boundaries
+and runtime transport. [Lake](https://lean-lang.org/doc/reference/latest/Build-Tools-and-Distribution/Lake/)
+already provides packages, libraries, executables and selective incremental builds. Those
+facilities do not prove this project's actual import graph is narrow. The
+[Lean module reference](https://lean-lang.org/doc/reference/latest/Source-Files-and-Modules/)
+also requires accounting for executable metaprogram dependencies rather than hiding imports.
+
+Retain the existing process-v2 design and native build tools. Category interfaces, packages,
+processes and ports need not be one-to-one. A provider-only source change under the same accepted
+interface/contract rebuilds its actual implementation closure, without changing or rebuilding
+the generic kernel or mathematical environment. New independently accepted formal modules may
+require imports and affected rebuilds; they must not require a new kernel case or accommodation
+in prior applicable leaves. C23/C24 now state that distinction.
+
+The concrete release concern is verified at these sources, without claiming a runtime test:
+
+| Inspected component | Source-level observation |
+| --- | --- |
+| [Kernel manifest at b1f5ab6d](https://github.com/dzackgarza/lean-cas-dsl/blob/b1f5ab6d5c7a0bd68aabef7e9a781d7722894e90/lake-manifest.json), also local kernel `5c3231979edb53e994419fcf090291b950e8bd30` | Both pin contract `dcb9a15f7caef4157348c02af877029251df3585`. |
+| [Pinned cas_port.py](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/blob/dcb9a15f7caef4157348c02af877029251df3585/python/cas_port.py) and [kernel connection](https://github.com/dzackgarza/lean-cas-dsl/blob/b1f5ab6d5c7a0bd68aabef7e9a781d7722894e90/CasRuntime/Connection.lean) | `serve(backend, backend_version, ops)` takes three arguments and delegates to the v2 session; the kernel invokes `negotiateV2`. |
+| [Published Sage adapter](https://github.com/dzackgarza/lean-cas-dsl-leaves/blob/8b181d7bd23796ddb37a8e7abb1053001c3c012f/backends/sage_modules.py) | Calls `serve` with four positional arguments, including adapter version. That unchanged call does not match the pinned SDK. |
+| [Contract main at ef3771dd](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/blob/ef3771ddf94a1fcf4d694ae577abb6069b0258e5/python/cas_port.py) | Retains the old four-argument entrypoint and defaults to protocol 1. Substituting it does not establish the kernel's v2 contract. |
+
+Importing `cas_port` alone therefore does not identify a protocol version, contrary to the
+report's inference. The actual signature and negotiation requirements determine compatibility.
+T017–T028 repair the exact current contract consumers; T104 migrates retained leaves after F;
+T105 publishes and exercises the coherent tuple. Do not revive retired T024/T025, add a
+compatibility intermediary, or make complete publication a prerequisite to every runnable
+functional task.
+
+The generated category surface must be directly usable through the existing supported SDK,
+rather than a filtered global catalogue that authors interpret manually. Preserve exact
+dependent descriptors, selected endpoints, choices, captures and existing wire encodings.
+Host-language signatures are faithful projections, not a new semantic authority or mathematical
+proof. Supporting new languages is not an extra V1 workload.
+
+A mandatory Rust layer, a Rust-plus-other-language demonstration and standalone Lean leaves are
+not adopted. The last proposal would change the expressly retained no-new-Lean-leaf policy.
+Call/startup/transfer overhead uses existing diagnostics when needed and final performance work
+after functionality; it is not an additional M0 benchmark programme.
+
+The earlier selected-data decision below remains applicable.
 
 ## The requirement, before choosing an algorithm
 
