@@ -19,6 +19,29 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class FeedbackTests(unittest.TestCase):
+    def test_missing_consumer_invalidates_previous_report(self) -> None:
+        module = "CasCatalogue.FeedbackMissingConsumer"
+        source = module.replace(".", "/") + ".lean"
+        self.assertFalse((ROOT / source).exists(), "the missing-source control must be absent")
+        subprocess.run(
+            ["just", "loop", "+CasCatalogue.TestSuite:leanArts", "ellipses"],
+            cwd=ROOT, check=True,
+        )
+        report = ROOT / ".tmp/accept-run.json"
+        previous = report.read_bytes()
+        self.assertIn("ellipses.naturals", {row["id"] for row in json.loads(previous)})
+        result = subprocess.run(["just", "loop", module, "ellipses"], cwd=ROOT, check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(report.exists(), "the missing consumer left an earlier report as current")
+        record = json.loads((ROOT / "timing/runs.jsonl").read_text().splitlines()[-1])
+        self.assertEqual(record["targets"], [module])
+        self.assertEqual(record["status"], 2)
+        self.assertFalse(record["attempted"])
+        self.assertTrue(all(phase["status"] is None for phase in record["phases"].values()))
+        self.assertIsNone(record["inputs"][source])
+        self.assertEqual(Path(ROOT / record["log"]).with_name("prior-accept-run.json").read_bytes(),
+                         previous)
+
     def test_warm_consumer_executes_again(self) -> None:
         manifest = ROOT / ".tmp/kernel-session-leaves.json"
         command = ["just", "loop", "CasRuntime.SessionTests"]
