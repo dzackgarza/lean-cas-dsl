@@ -159,6 +159,139 @@ state observable obligations. They supplement the original mathematical workload
 extension requirements; routing logs, opaque peers and successful helper checks do not establish
 those mathematical results. Acceptance remains independently authored under C9–C12.
 
+## Category interfaces, computational dependencies and build boundaries
+
+Categorical composition fixes mathematical meaning. Public computational interfaces and physical
+build dependencies impose separate obligations. A category label does not establish either of them.
+
+| Boundary | Required relationship | Evidence |
+| --- | --- | --- |
+| Mathematical interface | Independent categories, constructor families, operations, functors, selected data and laws determine the complete request. | Exact upstream declarations, domains and accepted comparisons. |
+| Public computational interface | A realization uses public source operations and public target constructors, including the morphism action. | Actual construction followed by the unchanged target consumer and its required later use. |
+| Compilation and packaging | Focused targets contain the interfaces and executable dependencies they actually consume. Unrelated test, probe and backend aggregates do not enter the production closure. | Actual imports, the affected rebuild and the original public result after a substantive edit. |
+
+Private library reuse remains permitted under C22. Public interoperability must not *require*
+another leaf's private representation, and a claimed independent implementation must be usable
+without that knowledge. Shared implementation dependencies must be stated as such. There is no
+requirement for one process, repository or physical package per category.
+
+### Constructor and operation conformance
+
+For each category boundary exercised by the assigned delivery, use the existing specification
+and acceptance owners to identify its admitted constructor families, applicable operation families,
+immediate functors and required subsequent uses. Every applicable operation has the same complete
+declared interface for results of every admitted constructor. Selected data can differ; the
+mathematical domain and public interface cannot depend on a private representation.
+
+The constructor–operation combinations required by positive workloads must actually execute,
+including their original continuations. A prescribed `NoImplementation` result establishes only
+its negative control. It does not complete a positive computation. Conversely, meaningful
+applicability does not assert a computable algorithm for every possible presentation. Lazy and
+callable interfaces remain valid when they supply the full prescribed behavior.
+
+Use MM001–MM003, MM007–MM011 and the existing independent workload to distinguish these cases:
+
+| Required observation | Behavior exercised |
+| --- | --- |
+| Different admitted constructors reach the same unchanged public consumer. | Constructor-independent use of the target interface, with each result's actual selections. |
+| Functor object, identity and composable-arrow actions use the selected target endpoints. | Both actions of the declared functor are realized; an object assignment alone is insufficient. |
+| Another admitted dependent record uses actual earlier results without a new kernel case. | Dependency handling follows the formal interface. |
+| New categories reach old operations, and new operations reach old constructions. | Both directions of generic growth; final independent trials retain their frozen baseline. |
+| Removing a provider preserves the selected question and gives its prescribed gap. | Meaning is independent of computational availability. |
+| A well-shaped wrong answer fails an independent mathematical assertion. | Structural admission does not certify correctness. |
+
+The released category implementation view is generated from the accepted declarations through
+the existing [computational API exporter](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/blob/main/api/README.md).
+It includes the category's object/morphism constructors, operations at their true domains,
+immediate functor actions and complete dependent signatures. The kernel reads the independent
+registry, while contributors consume this generated public view. T028 extends those existing
+owners without a manually synchronized hierarchy or new manifest ontology.
+
+Provider substitution preserves the original question and independently fixed relation.
+Permitted different bases, presentations or solutions retain their own actual maps and later
+uses; a prescribed exact selection or normalization remains binding. Independent assessment
+checks the full relation, rather than an incidental byte representation or scalar projection.
+
+These observations establish their exercised outcomes. The existing generic preservation arguments
+and independent frozen-extension obligations remain separately required.
+
+This conformance relation uses the existing formal declarations and public ports. It introduces
+neither a second registry nor a new acceptance corpus. Formal authors, leaf authors and independent
+assessors keep their existing inputs and responsibilities.
+
+### Conditional correctness of composition
+
+In the ordinary-functor case, let `F : C → D` and `P : D → E` have realizations
+`F̂` and `P̂`. Suppose the independently fixed interpretation relations supply
+
+$$
+\alpha_x:\llbracket\widehat F(x)\rrbracket\cong F(\llbracket x\rrbracket),
+\qquad
+\beta_y:\llbracket\widehat P(y)\rrbracket\cong P(\llbracket y\rrbracket).
+$$
+
+Then the comparison for the composite is
+
+$$
+P(\alpha_x)\circ\beta_{\widehat F(x)}:
+\llbracket\widehat P(\widehat F(x))\rrbracket
+\cong (P\circ F)(\llbracket x\rrbracket).
+$$
+
+Indeed, the first map reaches `P(⟦F̂(x)⟧)`; the functorial image of `α_x` reaches
+`P(F(⟦x⟧))`. This proves the stated object comparison. The required morphism
+comparisons and functor laws remain part of the independent interpretation; object agreement
+alone does not prove them.
+
+The argument assumes correctness of the primitive realizations. It proves nothing about an
+arbitrary external algorithm and adds no leaf-authored proof or certificate requirement.
+A core-groupoid invariant, dependent operation, slice construction or higher operation uses its
+actual domain and prescribed transport. The ordinary-functor formula is not a substitute for
+those declarations or for the [whole-family agreement contract](https://github.com/dzackgarza/lean-categories/blob/main/LeanCategories/Catalogue/Registry/operation-agreement.md).
+
+### Runtime transport, build tools and formal extension
+
+The current release keeps the existing process-v2 contract and its scoped values, callables,
+dependent requests and lifetime rules. Lake supplies the Lean package/module/executable build
+boundaries; computational implementations use their permitted native tooling. Category,
+package, process and port need not correspond one-to-one. No mandatory Rust intermediary or
+universal FFI layer is needed to obtain these boundaries. Existing leaf-language policy remains
+in force; this design does not authorize leaf-authored Lean modules.
+
+A provider for an existing accepted interface is installed through the released contract and
+permitted realization configuration without changing or rebuilding the generic kernel or formal
+environment merely because its implementation changes. A new formal category or operation must
+make its independently accepted declarations available; its module and genuine dependents may
+need rebuilding. Generic kernel algorithms and prior applicable leaf implementations remain
+unchanged. Runtime isolation, software dependency locality and mathematical authority are
+separate claims.
+
+T028 makes the category view directly consumable through the existing exporter and supported
+SDK. Generated signatures/access helpers preserve complete public dependent descriptors when
+the host type system cannot encode them; they neither prove mathematical laws nor create new
+wire encodings. T104 migrates actual implementations and T105 verifies one published compatible
+tuple. The [dated source finding](001-categorical-research-language/research.md#2026-11-22--runtime-boundary-and-compatible-release)
+identifies an SDK/adapter signature mismatch to repair through those owners. Protocol adoption
+alone does not establish a working category implementation.
+
+### Physical modularity and fast feedback
+
+Production roots and focused checks must preserve necessary executable metaprogram dependencies
+while excluding unrelated test/probe aggregation. An implementation-only change should rebuild
+its actual affected closure. A public-interface change may legitimately rebuild all its clients.
+More files or fewer textual imports do not establish this property.
+
+The development loop is: read the exact mathematical contract; change its responsible owner;
+compile the affected source; execute the original public question and continuation; inspect the
+remaining discrepancy. [FR-041 and SC-013](001-categorical-research-language/spec.md) and
+[T114](001-categorical-research-language/tasks.md#phase-0--fast-edit-to-result-feedback) make
+this a current, continuing requirement under #84. Final mathematical performance remains a
+separate later obligation under C21.
+
+The [completion milestones](001-categorical-research-language/plan.md#completion-milestones)
+connect these obligations to complete kernel functionality, actual category implementations and
+independent V1 acceptance. They preserve the existing full-B0 and later research scope.
+
 ## Reconstructed owner intent: constructors, functors and category-aligned computation
 
 This section is **mathematical design input**, not a claim about the current executable kernel.
@@ -384,14 +517,13 @@ reconstruction functions have already been removed and the reader/kernel
 have been split; [record C](https://github.com/dzackgarza/lean-cas-dsl/issues/91#issuecomment-6942116552)
 gives their exact inspected replacements. Removing a nonexistent function or
 mechanically repeating a past file split is not remediation. The only
-committed work order remains [#10](https://github.com/dzackgarza/lean-cas-dsl/issues/10):
+work order is the [task list](001-categorical-research-language/tasks.md):
 T016/#84 was recorded complete on November 17 in
 [#84](https://github.com/dzackgarza/lean-cas-dsl/issues/84)
-(with its own measured evidence). The current task is the **first unfinished**
-entry of the [fixed #10 queue](https://github.com/dzackgarza/lean-cas-dsl/issues/10),
+(with its own measured evidence). The current task is the first unchecked task of the
+[task list](001-categorical-research-language/tasks.md#execution-order),
 not a permanent re-run of T016. The precise evidence and later acceptance
 belong to the same existing owner issues.
-
 
 ## Owning sources
 
@@ -406,7 +538,7 @@ belong to the same existing owner issues.
 
 - [Project constitution](../.specify/memory/constitution.md)
 - [Current Spec Kit artifact index](001-categorical-research-language/plan.md)
-- [Current architectural decision and status of superseded proposals](https://github.com/dzackgarza/lean-cas-dsl/issues/85#issuecomment-6708266418)
-- [Consolidated implementation plan](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6664354269)
-- [Actual selected-data and independent-source contract](https://github.com/dzackgarza/lean-cas-dsl/issues/66#issuecomment-6664276482)
+- [Current architectural decision and status of superseded proposals](001-categorical-research-language/research.md)
+- [Consolidated implementation plan](001-categorical-research-language/plan.md)
+- [Actual selected-data and independent-source contract](001-categorical-research-language/contracts/mathematical-input.md)
 - [Architecture, ownership and evidence](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6574949858)

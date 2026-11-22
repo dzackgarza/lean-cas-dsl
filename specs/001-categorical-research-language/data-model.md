@@ -1,12 +1,154 @@
-# Data model: categorical research language
+# Data model: retained mathematics, actual selections and computational values
 
-Feature context: `001-categorical-research-language`.
+**Feature:** `001-categorical-research-language` · **Updated:** 2026-11-22
 
-[Current consolidated data model](https://github.com/dzackgarza/lean-cas-dsl/issues/66#issuecomment-6664275536).
+**Requirements:** [clarified scope/scenarios](spec.md) and [FR/SC obligations](spec.md). **Mathematical consumption:** [current consolidated contract](contracts/mathematical-input.md).
 
-Read it with the [mathematical-input contract](contracts/mathematical-input.md), [runtime contract](contracts/computational-runtime.md) and [notebook contract](contracts/notebook-session.md). The consolidated body incorporates the selected-data, staged/committed completion, capture, transport-identity and observation/liveness corrections; earlier amendment narratives are provenance, not an additional model to reconstruct.
+Names below are proposed engineering records, not new mathematical definitions or a claim that the native API is implemented. All subject meanings, laws, choice families and abstract computational obligations remain independently owned by lean-categories. This consolidation incorporates the actual-selection clarification and the existing [staged/suspension](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6684996781), [export-capture/transport-ID](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6706802517), and [observation/liveness](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6707359041) corrections. Their detailed wire transitions remain in the owning runtime/notebook contracts.
 
-The retained-relationship requirements below apply the constitution to this model; they make no implementation claim.
+The platform remains Lean 4.33.0 with accepted lean-categories, compatible CSLib `3951377e5a3f5772737f11cd62bc5bb6a72f95d1` and PolyFun `a5895e454254a400774fa396b64d5b968f0933df`. Source compatibility is research evidence, not a build or acceptance result.
+
+## 1. Authority and distinct identities
+
+| Layer | Owns | Does not establish |
+|---|---|---|
+| Independent mathematical environment | Categories, operations, domains, structures, cells/coherence, admissible choices, abstract computational families and representation/continuation relations | That a backend returns correct data |
+| Semantic program | Complete source question, context, actual selected terms and result roles | Computation availability or an execution occurrence |
+| Compiled program | Faithful operational interpretation, dependent layouts, frames and prepared primitive boundaries | New mathematics or correctness of arbitrary primitives |
+| Runtime value graph | Actual returned candidate data, exact chosen fields/maps/captures and completion associations | Truth from decoding, a tag or a leaf-supplied proof |
+| Live resource ledger | Actual connections/generations, monotone IDs/reservations, active coordination and invalidation | A second completed-result store or restored permission to execute |
+
+Keep mathematical term identity, compiled program identity, execution occurrence identity and returned value identity separate. Definitionally equal expressions or identical bytes may occur in distinct computations or selected roles. Restoring a snapshot or reprinting an expression does not reproduce an old execution or value.
+
+A further distinction is essential: an allowed choice family is not an actual selected member, and a selected comparison is not evidence that every possible route/cell is equal. Its mathematical role and required data are fixed upstream; the runtime retains the actual candidate member supplied under that role.
+
+The category implementation interface is a generated public view of accepted declarations, not
+a new semantic record or manifest authority. Object constructor families into a category remain
+distinct from category-level constructors such as `Arr(C)`. Multiple ports can implement one
+category; common engine code does not identify mathematical objects. Every admitted constructor
+supports the complete applicable target interface, with positive delivery determined by the
+original assigned workloads and actual later uses. See [conformance](../architecture.md#constructor-and-operation-conformance).
+
+## 2. Source environment and complete dependent context
+
+### SourceRef / SourceSnapshot
+
+Retain repository revision, module/declaration, exact universe application, registry reference and complete imported dependency context. Digests are integrity/provenance/cache keys, not equality proofs. Cache inputs include everything that can change elaboration, selected interpretation or compilation. Added declarations can change first bindings or introduce genuine readings; a previously successful selection record is not automatically valid for that changed query.
+
+### ContextTelescope
+
+Each ordered binder retains stable BindingId, parameter/definition/hypothesis/selected-structure/formal-result role, complete type/universe dependencies, binder information, prior dependencies, defining term where present and source provenance. Associate actual computational values in a separate runtime-binding map. Close persistent expressions over the full telescope; reopening creates fresh locals and an explicit bijection to stable IDs. Raw FVarIds and metavariables are not durable identities. Completed questions contain no escaping locals or unresolved expression/universe metavariables.
+
+Hypotheses remain scoped hypotheses. A foreign reply cannot append a proved proposition or law-bearing inhabitant. Universes, instance dictionaries, formal proof arguments and selected structures stay in the semantic program even when no payload is needed. Erase only justified proof fields; a data-bearing subsingleton may contain a mediator/inverse/map and is not erased merely for being subsingleton.
+
+### SemanticQuestion / SelectedCell / RequiredSelection
+
+`SemanticQuestion` retains original source/span, complete context/result family, actual selected operation/route, qualifications, explicit constraints and the source-governed interpretation status. Provider manifests/results do not determine that status.
+
+`SelectedCell` retains its actual independently accepted source term and declaration, complete functorial boundary, parameter substitution, direction, occurrence, whiskering, constructor action, components and required higher witnesses. An ordinary natural isomorphism is one case, not a closed two-dimensional taxonomy. Keep native higher terms at their actual types/dimensions/boundaries. A cell is not a Boolean path-equivalence flag. Invertibility, equality of cells, operation agreement and a selected occurrence are different source data/judgments.
+
+`RequiredSelection` is an operational reference to a requirement already in the accepted interface: exact source role, complete dependent boundary, fixed-versus-choice status, permitted supplier, availability stage and dependent uses. It contains no new leaf-authored admissibility predicate. A formal selected route/cell must be supplied/checkable where the source requires it. A prescribed computational choice is candidate data under the already fixed family. Missing mandatory data prevent their dependent use; they are not populated from a shortest path, provider success or an invented default.
+
+The compiled preparation distinguishes: using an already selected cell, computing a permitted choice, and comparing inherited meanings under a licensed full-family agreement rule. It has no universal all-route cover field required for every selected computation. If a particular source obligation requires a uniform comparison/coherence witness, that exact required datum remains mandatory.
+
+## 3. Result roles and actual choice binding
+
+| Role | Required independent input | Continuation |
+|---|---|---|
+| FixedResultRole | A specified source value/function at full arguments and its accepted representation interface | Candidate data represent that fixed result; actual fields/maps remain retained. Alternative presentation requires the independently fixed interpretation/comparison. |
+| PermittedChoiceRole | A source-declared family actually allowing a selected result, with its exact admissibility and dependent continuation relation | Bind the actual candidate member and all dependent data. Different permitted members need not be equal or canonical. |
+
+A Lean result type alone is not permission to choose. A fixed function using Classical.choice remains fixed. An ordinary ambiguous request is not silently converted into a choice-producing operation. When the independent computational contract assigns a route/cell/choice datum to a leaf, the leaf supplies it as data and may not omit it; the leaf neither defines the family nor proves its laws. Successful structural admission is not proof that the candidate is valid mathematics.
+
+Formal result binders are parameters of a previously specified conditional continuation. Binding candidate data does not add an axiom or prove the source relation. Conditional preservation uses the independently stated primitive/choice relation; actual correctness evidence comes from independent assessment. Provider independence fixes the complete question/context; it does not assert that different legitimate returned choices give identical later contexts.
+
+Result roles also retain exact/approximate qualifications, selected conventions, size/existence hypotheses and complete continuation interfaces. Finite encodings or displays do not reduce infinite/higher scope.
+
+## 4. Computation families and different graphs
+
+Consume `CheckedComputationDerivation` with its exact target reference/declaration, rigid universes, family expression/type, ordered distinct prerequisite references and full types, ordinary template, accepted plan and correctness equality. Validate before specialization. Equal prerequisite types do not merge identities. Compile ordinary required expression forms; a prerequisite closure selects each actual reached invocation, not every argument of a family from one registration.
+
+| Graph | Contents | Purpose |
+|---|---|---|
+| Structural reading representation | Actual source-rule/constructor derivations and first-binding routes with complete contexts | Exact candidate structure; not a selected comparison, semantic quotient or computation |
+| Semantic/compiled program | Native selected expressions, actual cells, required roles, accepted computation templates, layouts and closure code | Fixed mathematical question and faithful operational control, including dormant dependent calls |
+| Realization dependency graph | Exact current demands and primitive/generic/fused alternatives with ordered slots | 0/1/many finite grounded computation analysis only where exact finite closure is justified |
+| Runtime value/occurrence graph | Actual returned values, choices, field/capture dependencies, dispatch occurrences and completion associations | Executed result and later use, not reconstruction from the other graphs |
+| Physical import/build/execution graph | Actual source imports, executable metaprograms, packages, shared libraries and engines of the selected implementation | Focused build and runtime locality; no new applicability, semantic route or mathematical authority |
+
+A result-dependent child remains code plus its actual environment until arguments exist. A unique current realization does not prove availability/uniqueness of every future invocation. Later failure never authorizes replay under another provider.
+
+`PreparedDemand` fixes the source question/result role, full formal parameters and actual argument references, accepted data interface, source operation and route/cell data, mandatory selection gate, transaction and occurrence identity. New operations are not forced onto an input's producer merely because it has an owner; applying an existing native callable uses that actual owner.
+
+## 5. Data interface, storage and liveness
+
+`DataInterface` is mechanically generated from accepted computational roles. Every field retains stable slot, actual source projection, complete dependent role, preceding-field dependencies, storage kind and permitted actions. Formal laws are not reply fields. A required selected map/cell/choice datum cannot be replaced by an existence proof or omitted because several valid choices exist.
+
+| Storage form | Actual content | Owner dependency |
+|---|---|---|
+| PortableData | Immutable scalar/container encoding with fixed interpretation/qualifiers | None solely from supplier; referenced dependencies retain their owners |
+| DependentRecord | Exact ordered field references, roles at actual earlier fields, retained lazy continuations | Per-field and actual-use dependencies, not an unrelated blanket owner |
+| ComputationalClosure | Operational code with exact captured runtime references and formal callable interface | All required captured owners and actual primitive owners when invoked |
+| IndexedInterface | Full index/argument family, callable operations and retained environment | Actual captures/owner; no index enumeration implied |
+| SymbolicData | An accepted representation expression with actual environment/public operations | Its actual retained dependencies; a descriptor alone is not proof of execution |
+| OwnedHandle | Actual local export token, supplying connection generation, prepared interface and ordered retained captures | Supplying generation plus all transitive required capture owners |
+
+The kernel stamps actual owners, not returned owner strings. Returning an input reference preserves its original owners. Hidden native memory grants no undeclared gateway scope; faulty provider dependencies remain computation faults, not semantic authority. Whole-reply admission validates every promised role/reference/export before any field is staged.
+
+Separate three operations:
+
+1. **Visibility:** locate the original committed or same-transaction staged association. No payload is reconstructed from the ledger, name or expression.
+2. **Stored projection/inspection:** read an already stored field or inert metadata. It does not require an unrelated sibling's owner, run a lazy field, or revive a dead handle.
+3. **Computational use:** check the complete owner closure required by this prepared demand before reservation and send. Whole-record use and every export/suspension capture retain their genuine dependencies.
+
+These distinctions preserve both independent portable-field survival and stale-use rejection. They do not allow partial initial admission, partial cell publication, missing-value reconstruction or dropping a real dependency.
+
+## 6. Capture records and exact scope correspondence
+
+A native export stores the actual callable and ordered immutable `(value reference, prepared role)` captures, plus original-proxy-occurrence/capture-index correspondence resolved before the old scope expires. Both published and dependent `$cas.invoke_export` forms carry a fresh capture prefix. Context/arguments follow it without merging equal-valued distinct roles. The SDK uses an invocation-local frame; no global mutation of shared proxies, old numeric-slot interpretation or ambient expired-scope access. All supplying/captured/context/argument owners are checked before send.
+
+An export lease may support repeated fresh invocations; a suspended continuation token has one reserved resume. `SuspensionRecord` stores actual supplying generation, originating occurrence/transaction, its explicitly retained ordered capture/role table and child group. Resume has a fresh scope with captures first and exact child results next. Invocation suspension explicitly transfers current-frame captures, not a kept-alive ambient frame. Child failure/cancellation retires the appropriate descendants; no retry or alternate provider.
+
+Request-local discard revokes only newly introduced leases/continuations and preserves previous committed leases. Disposal does not claim native memory was freed where the engine exposes no release API. A lost cleanup reply cannot authorize resend.
+
+## 7. Concrete source-selected lift
+
+For selected `L : MonoLift U`, retain formal `X,K,i`, monicity, actual `L,U` and these independently defined roles:
+
+| Field | Formal role | Runtime data |
+|---|---|---|
+| Object | `L.obj X i` | Actual returned object representation O |
+| Defining map | `L.hom X i : L.obj X i ⟶ X` | Actual map tied to O and original X |
+| Forward comparison | `(L.iso X i).hom : U.obj (L.obj X i) ⟶ K` | Actual forward map and selected image interface |
+| Backward comparison | `(L.iso X i).inv : K ⟶ U.obj (L.obj X i)` | Actual inverse-direction data, not endpoint-derived identity |
+| Factor callable | `L.factor X i g f hf : Y ⟶ L.obj X i` | Actual retained preceding fields and Y,g,f; hf remains formal premise |
+
+The selected object is fixed by L; do not turn it into an arbitrary lift choice or replace its comparisons. A genuinely choice-bearing source declaration has its own independently fixed role. The first factor's actual output can become the next lift's base map, retaining identity/captures/owners. Existing `factor_comp` and computation equations justify the mathematical composite; Port order/addresses do not supply those proofs.
+
+## 8. Publication, observation and live metadata
+
+`StagedCompletion` exists after a whole reply is validated in the active transaction and allows same-cell reuse. `CommittedReceipt` exists only after whole-cell commit publishes the entire program/value/observation/output delta. Abort removes staged data without restoring consumed dispatch rights. Neither record is correctness evidence for opaque computation.
+
+The live supervisor outside snapshot rollback stores nonce, monotone IDs, reservations, actual connection generations, permits, request-ID admission metadata and active coordination. It stores no completed payload/closure heap or recovery cache; settled promise payloads are removed. Completed values are accessible only through visible immutable state or active staging. A used transport-ID tombstone is not a hidden receipt.
+
+Owner loss changes computational liveness, not mathematical meaning or immutable payload. Old snapshot selection cannot reset owners/reservations or bind old tokens to new processes. A fresh worker nonce does not resurrect old references by replay. Cooperative cancellation, forced loss and indeterminate execution retain their separate outcomes.
+
+`ObservationDescriptor` contains immutable source-derived type/context/selected-map/choice/qualification/provenance data prepared at an authorized compilation/publication boundary. It contains no executable renderer, delaborator, proof procedure, documentation hook or lazy/provider callback. Query success and error paths use data-only lookup/formatting and never execute missing source or revive resources. Required descriptor preparation remains inside the original workload timing; useful full mathematical inspection is still required.
+
+## 9. Compatibility and task consequences
+
+Preserve public syntax/source spans and exact manifest triples. Wire packets remain encodings under independently fixed meanings. Generic scoped fields/callables and explicit lifecycle negotiation do not permit provider-defined schemas or subject mathematics. Delete semantic reconstruction from tags/defaults/trace endpoints/replayed source. Keep prepared recipes, retained lazy callables, actual completed values and receipts distinct.
+
+T007 prepares roles/mandatory slots/observation data; T008–T011 preserve actual values and staging; T014–T015 justify/exercise those boundaries; T018–T023 implement actual scopes/capture/application; T053–T056 implement source-selected interpretation and its mandatory-data errors. T083–T102 implement the notebook/query/display consequences. Current task definitions incorporate those responsibilities; no new task IDs or completion markers are created by this model.
+
+## Sources
+
+- [Independent computation registry and consumer guide](https://github.com/dzackgarza/lean-categories/blob/fc6d3d6961223c75290c93da540c87f17a926cc7/LeanCategories/Catalogue/Registry/computation-derivations.md), with `Computation.lean` at the same pin.
+- [Actual source registry roles](https://github.com/dzackgarza/lean-categories/blob/6c7f6a8f026500da30c00736580c5bd30c87331b/LeanCategories/Catalogue/Registry/Entry.lean) and [whole-operation agreement](https://github.com/dzackgarza/lean-categories/blob/6c7f6a8f026500da30c00736580c5bd30c87331b/LeanCategories/Catalogue/Registry/operation-agreement.md).
+- [Lift/factor definitions and equations](https://github.com/dzackgarza/lean-categories/blob/fc6d3d6961223c75290c93da540c87f17a926cc7/LeanCategories/Catalogue/Lift.lean).
+- [Released Port mechanics](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/blob/f0431bebeb01c93cc65bb3fdc5bd23d9613e4b31/CasContract/Port.lean), not mathematical authority.
+- [CSLib FreeM](https://github.com/leanprover/cslib/blob/3951377e5a3f5772737f11cd62bc5bb6a72f95d1/Cslib/Foundations/Data/PFunctor/Free.lean), [PolyFun handler](https://github.com/Verified-zkEVM/PolyFun/blob/a5895e454254a400774fa396b64d5b968f0933df/PolyFun/PFunctor/Handler/Stateful.lean).
+- [Constitution](https://github.com/dzackgarza/lean-cas-dsl/blob/0db96de6cc73f02d5cefbe0eeba8183f60b7f67f/.specify/memory/constitution.md), clarified specification and current mathematical-input contract linked above.
 
 ## Required retained relationships
 
