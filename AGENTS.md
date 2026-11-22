@@ -1,6 +1,6 @@
 # Constitution and issue references
 
-**Work order:** execute the unchecked tasks of the [task list](specs/001-categorical-research-language/tasks.md#execution-order) in document order. Required functionality precedes final performance, proofs and assessments ([C21](.specify/memory/constitution.md#c21-fast-development-feedback-first-final-performance-after-functionality)). A wait on a missing input blocks only the work that needs it.
+**Work order:** execute the unchecked tasks of the [task list](specs/001-categorical-research-language/tasks.md#execution-order) in document order. T114/#84 establishes current fast feedback first and preserves it throughout functional work. Complete functionality precedes final mathematical/runtime performance, proofs and assessments ([C21](.specify/memory/constitution.md#c21-fast-development-feedback-first-final-performance-after-functionality)). A wait on a missing input blocks only the work that needs it. The [completion milestones](specs/001-categorical-research-language/plan.md#completion-milestones) group complete delivery outcomes; they do not replace task order.
 
 **Source location:** the kernel source (`CasCompiler/`, `CasRuntime/`) is on branch `integration/kernel-v1-20261106` (PR #87), which pins Lean 4.33.0 and Mathlib `v4.33.0`. `main` pins the toolchain and Mathlib of the research image ([#90](https://github.com/dzackgarza/lean-cas-dsl/issues/90)). PR #87 merges after the kernel branch is ported to those pins; #90 owns the port and records which Mathlib the running container holds. The two branches carry the same governing documents: the constitution, this file, `CONTRIBUTING.md` and `specs/`. An edit to one of them is committed on both branches.
 
@@ -40,6 +40,9 @@ own work assignments and evidence. A source implementation is not authority to w
 
 - Resolve the independently declared mathematical operation and its complete dependent interface
   before selecting a provider. Category membership and method applicability come from that source.
+- Generate the public category implementation view from accepted mathematical declarations and
+  the released contract. Reuse existing exporters and ports; a port is not the complete category
+  interface, and generated documentation is not a second semantic registry.
 - Realize functor object and morphism actions through public target constructors and exact selected
   endpoints. Inherited methods use the formal composite, with its actual domain and comparisons.
 - Apply refinements only through formal classifiers, rules and evidence. Retain chosen structures
@@ -79,6 +82,9 @@ correcting the mathematical relationship; moving recovery code into another file
 - Assess encapsulation from actual imports, public declarations and affected consumers. Neither
   file counts nor moving a function establishes an independent compilation boundary. Preserve
   executable metaprogram dependencies when narrowing public imports.
+- Keep mathematical, public computational and physical software dependencies distinct. Shared
+  code/engines remain permitted under C22; unrelated optional implementations must not be required
+  for an unaffected consumer. A current failed, missing or stale run cannot inherit prior success.
 
 The full production, notebook, mathematical and independent-extension obligations remain with
 their existing owners. Focused checks establish only their exercised properties. Independent

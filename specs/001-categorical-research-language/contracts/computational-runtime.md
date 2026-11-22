@@ -246,6 +246,26 @@ Sources retained: [current constitution][C], [independent agreement rule](https:
 
 ## Required realization boundary
 
+A category implementation consumes the generated public category view of accepted mathematical
+declarations: admitted object/morphism constructors, operations at their actual domains,
+immediate functor actions and complete dependent inputs/results. T028 extends the existing
+exporter and reconciles public contract/leaf guidance; the kernel continues to read the
+independent registry. An operation/input/backend port is an invocation registration, not the
+complete category interface. No new wire schema or mathematical authority is introduced.
+
+Different admitted constructor families must reach the same unchanged applicable consumer.
+Required positive combinations execute their complete original continuations. C22 leaves
+algorithm control, established-engine glue and permitted private code reuse with computational
+implementations; public interoperability does not depend on private representation knowledge.
+T104 supplies focused builds and public execution with the actual software dependencies, without
+unrelated optional engines. Generated category filtering alone cannot establish that locality.
+
+Provider substitution preserves the full fixed question and independently specified result
+relation. Actual allowed choices and defining maps remain attached to their subsequent uses;
+an independently prescribed exact selection or normalization stays binding. Structural admission
+or agreement between providers does not establish the whole mathematical obligation.
+
+
 The prepared mathematical request fixes the obligation before provider selection. Functor actions
 construct actual target objects and arrows through public interfaces, with selected endpoints.
 The runtime retains result occurrences, ownership and the dependent associations supplied by

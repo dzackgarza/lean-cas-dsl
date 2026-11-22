@@ -1,8 +1,29 @@
-# Validation entrypoint — functional kernel first, complete evidence and performance retained
+# Validation entrypoint — fast feedback, complete functionality and original acceptance
 
-**Feature:** `001-categorical-research-language` · **Updated:** 2026-11-09 (Asia/Taipei).
+**Feature:** `001-categorical-research-language` · **Updated:** 2026-11-22 (Asia/Taipei).
 
 Use the [current requirements](spec.md), [actual corrected plan](plan.md), [functional tasks](tasks.md), [delivery/evidence tasks](tasks.md), [mathematical-input contract](contracts/mathematical-input.md) and [runtime contract](contracts/computational-runtime.md). The [permanent constitution C6/C21](https://github.com/dzackgarza/lean-cas-dsl/blob/main/.specify/memory/constitution.md) and [owner's current handoff](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6726232237) govern.
+
+## Current development feedback comes first
+
+T114/#84 uses the existing commands in the kernel implementation worktree; locate that checkout
+with `git worktree list` and inspect its actual `justfile`/tuple before running them.
+Documentation on `main` does not establish that implementation commands are present there.
+Use `just loop "TARGETS" [FILE …]` for the changed owner and unchanged affected public consumer,
+within the existing 300-second ordinary-loop bound. Stream diagnostics and retain the current
+source, dependency/environment identity, input, elapsed time and actual outcome.
+
+A substantive change must reach the consumer through fresh affected imports and executable
+dependencies. Missing, skipped, stale, partial or failed selected execution cannot inherit an
+older success. Existing freshness and failure controls must exercise that distinction.
+Keep setup, dependency refresh, optional-engine installation, profiling and unrelated aggregates
+outside the ordinary loop. Compare fixed-input before/after measurements when claiming a gain.
+
+A fast failing mathematical check establishes feedback, not the missing function. T016 retains
+its historical completion; T114 establishes the current loop and maintains it during later work.
+T028/T104 add category-local public-interface/build checks when those implementations exist.
+T105/#90 remains the later delivery port unless an actual unavailable environment blocks the
+active task. See the [completion milestones](plan.md#completion-milestones).
 
 ## Functional observations must exercise the missing production capability
 
@@ -10,7 +31,7 @@ The actual path is public source → selected checked context → production low
 
 Implement the lowerer and concrete executor concurrently against the shared signature, connect the public entrance and actual returned-data continuation, then finish every required generic mechanism and truthful protocol/notebook/interface behavior. This is not an instruction to stop at a first scalar, first RX-LIFT or easier demonstration. The original driver T041 can be adapted before its target is complete; T039's proof, T079's trial and a full exported inventory are not prerequisites to that functional work. All actual source/domain/selection/data/owner checks needed to perform an operation stay in its implementation.
 
-Functional debugging may use whatever time/memory/heartbeat limit is needed under C21. A timeout, red expensive CI job or benchmark does not select work. The narrow C21 cannot-finish-at-all exception permits necessary optimization only to enable the capability, then work returns to functionality. No per-construct export freeze, assessment receipt or preservation-proof checkpoint precedes implementation of the next required function.
+Functional debugging may use whatever time/memory/heartbeat limit is needed under C21. A timeout, red expensive CI job or benchmark does not select work. The continuing development-feedback priority remains active. Outside that priority, C21's narrow cannot-finish-at-all exception permits necessary optimization only to enable the capability, then work returns to functionality. No per-construct export freeze, assessment receipt or preservation-proof checkpoint precedes implementation of the next required function.
 
 ## Required semantic distinctions
 
@@ -66,7 +87,9 @@ Package provisioning must not occur as a side effect of importing a test or prod
 The connected check starts at the public source entrance and follows the original mathematical
 continuation. For the maintained RX-LIFT diagnostic, its driver must use `CasRuntime.KernelSession`
 and the actual independent manifest, preserving the source statements, all 22 prerequisite
-bindings, selected comparisons, assertion order and original shared 200,000-heartbeat budget.
+bindings, selected comparisons and assertion order. The final run retains the original shared
+200,000-heartbeat budget; a higher-limit functional diagnostic must be identified as such and
+cannot discharge that final budget.
 Changing the entrypoint is functional migration; the complete independent assessment remains
 required under #24. Running the historical `CasCatalogue.Realize` driver cannot validate the
 replacement. An opaque protocol peer cannot supply the original lift equations.
@@ -77,6 +100,13 @@ old leaves or expectations. For a refinement, retain the source-authorized evide
 comparison and ambient inclusion; for a functor, consume its public target object and morphism
 interfaces. These are the [MM001–MM012](spec.md#mathematical-model-acceptance) obligations within
 the existing complete workload, not a smaller acceptance suite.
+
+Across admitted constructor families, run the same applicable consumer with each actual selected
+object/map and its required continuation. Use the existing MM and original workloads. For provider
+replacement, check the complete independently specified relation and preserve permitted choices;
+require exact equality only where the original contract requires it. Inspect actual imports and
+run the required category consumer with unrelated optional engines absent when claiming locality.
+These checks neither preselect the later independent contributor's specimen nor supply a new oracle.
 
 This guide states how to validate a change. Observed outcomes and complete acceptance records
 remain in the owning issues.

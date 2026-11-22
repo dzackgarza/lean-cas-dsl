@@ -21,6 +21,13 @@ Keep mathematical term identity, compiled program identity, execution occurrence
 
 A further distinction is essential: an allowed choice family is not an actual selected member, and a selected comparison is not evidence that every possible route/cell is equal. Its mathematical role and required data are fixed upstream; the runtime retains the actual candidate member supplied under that role.
 
+The category implementation interface is a generated public view of accepted declarations, not
+a new semantic record or manifest authority. Object constructor families into a category remain
+distinct from category-level constructors such as `Arr(C)`. Multiple ports can implement one
+category; common engine code does not identify mathematical objects. Every admitted constructor
+supports the complete applicable target interface, with positive delivery determined by the
+original assigned workloads and actual later uses. See [conformance](../architecture.md#constructor-and-operation-conformance).
+
 ## 2. Source environment and complete dependent context
 
 ### SourceRef / SourceSnapshot
@@ -66,6 +73,7 @@ Consume `CheckedComputationDerivation` with its exact target reference/declarati
 | Semantic/compiled program | Native selected expressions, actual cells, required roles, accepted computation templates, layouts and closure code | Fixed mathematical question and faithful operational control, including dormant dependent calls |
 | Realization dependency graph | Exact current demands and primitive/generic/fused alternatives with ordered slots | 0/1/many finite grounded computation analysis only where exact finite closure is justified |
 | Runtime value/occurrence graph | Actual returned values, choices, field/capture dependencies, dispatch occurrences and completion associations | Executed result and later use, not reconstruction from the other graphs |
+| Physical import/build/execution graph | Actual source imports, executable metaprograms, packages, shared libraries and engines of the selected implementation | Focused build and runtime locality; no new applicability, semantic route or mathematical authority |
 
 A result-dependent child remains code plus its actual environment until arguments exist. A unique current realization does not prove availability/uniqueness of every future invocation. Later failure never authorizes replay under another provider.
 

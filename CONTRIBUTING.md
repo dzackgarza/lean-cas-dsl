@@ -48,6 +48,9 @@ test, then repair.
 
 ## Feedback loops
 
+Use the selected toolchain and dependency tuple of the kernel implementation worktree (locate it
+with `git worktree list`). The following recipes describe that implementation checkout; their
+documentation on `main` is not proof that the scripts are implemented there.
 Use the repository's selected toolchain and dependency tuple. Dependency refresh and SDK setup
 are explicit actions; an ordinary source build does not change them.
 
@@ -96,6 +99,12 @@ After a focused change, rebuild its affected public consumer and exercise the sa
 input and continuation. Protocol peers check framing, dispatch, retained values and lifecycle;
 the original mathematical workload still uses its independently supplied computations and
 assertions. A cached elaboration is not a fresh external execution.
+
+T114/#84 makes this a current, continuing obligation under C21. A report from an older revision,
+a skipped input or a failed selected run cannot supply a successful current result. T028 publishes
+the source-derived category interface; T104 must preserve the loop at each actual implementation
+boundary, including operation with unrelated optional engines absent. Shared code and engines
+remain permitted dependencies under C22 and must be stated when claiming locality.
 
 Keep checked source declarations below runtime state, specialized source rules below reader
 assembly, and transport/lifecycle mechanisms below source lowering. Narrow public imports from
