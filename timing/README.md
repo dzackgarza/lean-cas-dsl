@@ -39,6 +39,7 @@ file, including its original definitions and continuations.
 | Interrupted-worker regression | 336.056 s for the whole test | Complete `numbers` invocation followed by an actual Lean-worker termination | Passed: the interrupted run failed and inherited no named rows |
 | Partial-report regression | 357.937 s for the whole test | Both original consumers finished successfully; one generated `ellipses` row was removed before aggregation | Passed: status 1, incomplete coverage, missing ID identified, no historical replacement |
 | Failed parent-build control | 8.851 s | A deliberately absent build target prevented selected acceptance execution | Passed: nonzero status, acceptance unattempted, prior current report archived and absent from the current path |
+| Missing local consumer regression | 159.271 s for the whole test | Complete `ellipses` execution 146.477 s; rejected missing local consumer 5.893 s | Passed: status 2, no build attempted, null source hash, previous report archived and no current report |
 
 The selected provider context and reported outcomes determine what each execution established.
 In particular, the no-provider gaps remain gaps. The phase measurements do not isolate catalogue

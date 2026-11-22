@@ -91,7 +91,6 @@ if [[ "$command" != milestone ]]; then
         die "$module is an aggregate; name the actual test module for a focused run" ;;
     esac
     file=${module//.//}.lean
-    [[ -f "$file" ]] || die "no source for selected module $module: $file"
     sources+=("$file")
     build_targets+=("+$module:deps")
   done
@@ -249,6 +248,14 @@ PY
 trap finish EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+
+# A missing local consumer retires earlier acceptance results and records this failure.
+for file in "${sources[@]}"; do
+  [[ -f "$file" ]] || {
+    printf 'feedback: no local source for selected consumer: %s\n' "$file" | tee -a "$log" >&2
+    exit 2
+  }
+done
 
 # A newer explicit slow run of this exact selection and tuple supersedes older loop evidence.
 if [[ "$command" == loop ]]; then
