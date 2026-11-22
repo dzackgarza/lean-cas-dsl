@@ -154,7 +154,7 @@ cursor += stem_count
 sources = sys.argv[cursor:cursor + source_count]
 cursor += source_count
 digest = lambda data: hashlib.sha256(data).hexdigest()
-def git_state(path: Path) -> dict[str, object]:
+def git_state(path: Path) -> dict[str, str | bool | list[str] | dict[str, str]]:
     def git(*args: str) -> bytes:
         return subprocess.check_output(["git", "-C", str(path), *args])
     revision = git("rev-parse", "HEAD").decode().strip()

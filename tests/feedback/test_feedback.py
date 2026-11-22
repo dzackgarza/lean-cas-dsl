@@ -15,6 +15,8 @@ import time
 import unittest
 from pathlib import Path
 
+type JsonValue = None | bool | int | float | str | list[JsonValue] | dict[str, JsonValue]
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -63,7 +65,7 @@ class SuiteTests(unittest.TestCase):
         directory.mkdir(parents=True, exist_ok=True)
         self.directory = Path(tempfile.mkdtemp(dir=directory))
 
-    def run_suite(self, selection: Path) -> tuple[int, list[dict[str, object]]]:
+    def run_suite(self, selection: Path) -> tuple[int, list[dict[str, JsonValue]]]:
         report = self.directory / "report.json"
         source = self.directory / "consumer.lean"
         source.write_text(
