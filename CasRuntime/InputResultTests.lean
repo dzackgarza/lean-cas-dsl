@@ -157,6 +157,76 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       if ← owners.isLive unrelated.generation then
         throwError "the input-result control did not close its unrelated owner"
 
+      -- A previously produced native field can retain its exact lazy parent directly,
+      -- before any projection index is published. Reuse that occurrence without a resolver.
+      do
+        let directCell ← CellTransaction.begin kernel.ledger
+        try
+          let directRequest ← prepare kernel directCell program context first
+            #[pairTerm] #[lazyPair]
+          let directProjection ← PreparedRequest.forProjection owners.identities program
+            (← kernel.ledger.allocate) context (← directCell.view) lazyPair 0 #[]
+          let directValue ← directCell.stage directProjection.origin (.portable "7".toUTF8)
+          let otherParent ← directCell.stage
+            { program, occurrence := ← kernel.ledger.allocate, role := pairRole, parameters := #[] }
+            (.ownedExport live "another direct-origin input pair" #[])
+          let otherProjection ← PreparedRequest.forProjection owners.identities program
+            (← kernel.ledger.allocate) context (← directCell.view) otherParent 0 #[]
+          let otherValue ← directCell.stage otherProjection.origin (.portable "7".toUTF8)
+          let before ← directCell.view
+          unless lazyPair.value != otherParent.value && directValue.value != otherValue.value do
+            throwError "the direct-origin control merged distinct equal-valued inputs"
+          for parent in #[lazyPair, otherParent] do
+            let .ok none := before.projected? parent #[``Prod.fst]
+              | throwError "the direct-origin control already has a published field baseline"
+            let .ok none := before.projectedAccess? parent #[``Prod.fst]
+              | throwError "the direct-origin control already has a published access"
+          let fixed ← directRequest.resolveFixedResults directCell directRequest.source directValue
+          let #[selected] := fixed
+            | throwError "the direct-origin result lost its one source-selected input"
+          unless selected.path.isEmpty && selected.input.parent.value == lazyPair.value &&
+              selected.input.parent.associationIds == lazyPair.associationIds &&
+              selected.input.path == #[``Prod.fst] &&
+              selected.value.value == directValue.value &&
+              selected.value.associationIds == directValue.associationIds do
+            throwError "direct-origin resolution changed its exact parent, path or baseline"
+          let .ok none := before.projectionBasis otherValue lazyPair #[``Prod.fst]
+            | throwError "a direct origin borrowed an equal-valued field from another parent"
+          -- Leave fixed discovery enabled here; the preflight above supplied no resolver.
+          let (draft, result) ← directRequest.associateResult owners.identities
+            directRequest.source (← directCell.draft) directValue
+          discard <| directRequest.admitResult draft.view result
+          let .ok (some sourceAccess) := draft.view.projectedAccess? lazyPair #[``Prod.fst]
+            | throwError "direct-origin admission did not publish its original native access"
+          let .ok (some (nativeSource, parent, path)) :=
+              draft.view.projectionSelection sourceAccess
+            | throwError "the direct-origin access lost its immutable source selection"
+          unless parent.value == lazyPair.value &&
+              parent.associationIds == lazyPair.associationIds && path == #[``Prod.fst] &&
+              (← nativeSource.source.inContext context) ==
+                (← directProjection.source.source.inContext context) do
+            throwError "direct-origin publication changed its original parent or native source"
+          let .ok (some baseline) := draft.view.projected? lazyPair #[``Prod.fst]
+            | throwError "direct-origin publication lost its selected baseline"
+          unless result.value == directValue.value && sourceAccess.value == directValue.value &&
+              baseline.value == directValue.value &&
+              baseline.associationIds == directValue.associationIds &&
+              directValue.associationIds.toList.isPrefixOf result.associationIds.toList do
+            throwError "direct-origin association replaced or enriched its original baseline"
+          let failure : Option Exception ← try
+              discard <| directRequest.associateResult owners.identities directRequest.source
+                (← directCell.draft) otherValue fixed (complete := true)
+              pure none
+            catch error => pure (some error)
+          let some failure := failure
+            | throwError "direct-origin admission accepted an equal field from another parent"
+          unless CasCatalogue.Exception.stratum? failure == some .malformed &&
+              (← failure.toMessageData.toString).endsWith
+                "the reply changed a fixed source input" do throw failure
+          unless (← directCell.view).sameRevision before && (← kernel.dispatches.get).isEmpty do
+            throwError "direct-origin admission published its isolated draft or invoked a provider"
+        finally discard <| directCell.abort
+
       let wholeCell ← CellTransaction.begin kernel.ledger
       let whole ← prepare kernel wholeCell program context wholeCallable
         #[pairTerm, pairTerm] #[input, equalInput]
@@ -918,6 +988,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             planned.input.parent.associationIds == outer.associationIds &&
             planned.input.path == #[``Prod.fst, ``Prod.fst] do
           throwError "plan preparation changed the retained lazy intermediate field or source path"
+        let beforeAssembly ← consumer.view
+        let .ok none := beforeAssembly.projectedAccess? outer #[``Prod.fst, ``Prod.fst]
+          | throwError "the composed input already has a full-path access before assembly"
         let function ← markValue kernel.marks selected selectTerm
         let result ← kernel.run consumer context {} (mkApp function markedOuter)
         let graph ← consumer.view
@@ -933,6 +1006,50 @@ run_cmd Lean.Elab.Command.liftTermElabM do
               parent.value == outer.value && parent.associationIds == outer.associationIds &&
                 selectedPath == path) do
             throwError "the lazy intermediate result lost its complete original access path"
+        -- The first full-path view must belong to the selected input source, independently
+        -- of the output record. The baseline and the raw lazy parents remain unchanged.
+        for selection in resolved.selections do
+          let input := selection.input
+          let .ok (some sourceAccess) := graph.projectedAccess? input.parent input.path
+            | throwError "input-result assembly omitted its original native source access"
+          let .ok (some (selectedSource, selectedParent, selectedPath)) :=
+              graph.projectionSelection sourceAccess
+            | throwError "the input access lost its immutable native selection"
+          unless selectedParent.value == input.parent.value &&
+              selectedParent.associationIds == input.parent.associationIds &&
+              selectedPath == input.path do
+            throwError "the input access changed its original parent or complete path"
+          let mut nativeSource := input.parent.role
+          let mut specified ← markValue kernel.marks input.parent
+            (← input.source.inContext context)
+          for projection in input.path do
+            let some field := nativeSource.fields.find? (·.projection == projection)
+              | throwError "the original input lost its native field layout"
+            specified ← projectTerm specified field
+            nativeSource ← field.toLayout
+          unless (← selectedSource.source.inContext context) ==
+              (← nativeSource.source.inContext context) do
+            throwError "the first input access borrowed its output record's source role"
+          discard <| request.environment.checkOperand graph nativeSource sourceAccess
+          let .ok actual := RuntimeArgument.ofValue graph 0 sourceAccess (← kernel.marks.get)
+            | throwError "the original input access is outside its admitted graph"
+          discard <| request.environment.checkArgument (← context.close specified) actual
+          let .ok (some (beforeBaseline, #[])) :=
+              beforeAssembly.projectionFrontier input.parent input.path
+            | throwError "the no-resolver input lost its previously available native path"
+          let .ok (some baseline) := graph.projected? input.parent input.path
+            | throwError "source-access publication lost its original cached baseline"
+          let some afterBaseline ← input.storedValue? graph
+            | throwError "source-access publication changed its original stored frontier"
+          for actual in #[beforeBaseline, baseline, afterBaseline] do
+            unless actual.value == selection.value.value &&
+                actual.associationIds == selection.value.associationIds do
+              throwError "source-access publication enriched or replaced an original input baseline"
+        for parent in #[outer, inner] do
+          let some node := graph.find parent.value
+            | throwError "source-access publication lost an original lazy parent"
+          unless node.payload.data.storedFields?.isNone do
+            throwError "source-access publication evaluated an original lazy parent"
         unless (← kernel.dispatches.get).isEmpty do
           throwError "the native lazy intermediate control dispatched a provider"
       finally discard <| consumer.abort

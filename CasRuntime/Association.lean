@@ -124,9 +124,9 @@ private partial def associateCheckedResult (request : PreparedRequest) (supply :
             | throwError "a fixed input lost its exact original pending projection"
         let mut sourceDraft := currentDraft
         if input.path.size > 1 && !remaining.isEmpty then
-          let prefix := input.path.extract 0 (input.path.size - 1)
+          let sourcePrefix := input.path.extract 0 (input.path.size - 1)
           let projection ← PreparedRequest.forStoredProjection supply request.program
-            (← supply.fresh .occurrence) context sourceDraft.view input.parent prefix sourceParameters
+            (← supply.fresh .occurrence) context sourceDraft.view input.parent sourcePrefix sourceParameters
           let (nextDraft, parentAccess) ← publishSource projection sourceDraft parent
           sourceDraft := nextDraft
           let some last := input.path.back?
