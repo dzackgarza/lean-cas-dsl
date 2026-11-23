@@ -132,3 +132,86 @@ run_cmd liftTermElabM do
         written := step.session
     finally liftM (m := IO) bare.close
   finally setEnv environment
+
+/- A failed public definition retains the failure of its one actual invocation. The existing
+SDK peer fails only its first addition; retrying an alias would therefore succeed and emit a
+second request. Explicitly writing a new addition remains a new independent computation. -/
+run_cmd liftTermElabM do
+  let environment ← getEnv
+  try
+    let contract ← liftM (m := IO) <| packageDir contractPackage
+    let root ← liftM (m := IO) IO.currentDir
+    let python := (← liftM (m := IO) <| IO.FS.realPath contract) / ".venv/bin/python"
+    liftM (m := IO) <| IO.FS.createDirAll (root / ".tmp")
+    for (mode, kind) in #[("unavailable", "unavailable"), ("unsupported", "gap")] do
+      setEnv environment
+      let log := root / ".tmp" / s!"kernel-session-{mode}.log"
+      liftM (m := IO) <| IO.FS.writeFile log ""
+      let manifest := Json.mkObj [
+        ("backends", .arr #[Json.mkObj [("name", "peer"), ("command", python.toString),
+          ("args", toJson #[(root / "scripts/probes/kernel_session_peer.py").toString,
+            "--fail-first-add", mode, log.toString])]]),
+        ("registrations", .arr #[Json.mkObj [("operation", "op.rings.add"),
+          ("input", "op.rings.add#input"), ("backend", "peer")]])]
+      let path := root / ".tmp" / s!"kernel-session-{mode}.json"
+      liftM (m := IO) <| IO.FS.writeFile path manifest.compress
+      let mut session ← KernelSession.start (some path)
+      try
+        let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt
+            "let failedSum := 17 + 29 in ℤ" with
+          | .ok statement => pure statement
+          | .error error => throwError "the statement did not parse: {error}"
+        let failed ← withoutErrToSorry <| session.run ⟨statement⟩
+        unless failed.outcome.kind == kind do
+          throwError "the real {mode} reply became {failed.outcome.kind}: {failed.outcome.detail}"
+        session := failed.session
+        let some original := session.source.context.entries.back?
+          | throwError "a failed computation discarded its checked source definition"
+        unless original.userName == `failedSum && original.value.isSome &&
+            (session.value? original.id).isNone do
+          throwError "the failed definition lost its meaning or published a runtime result"
+        let before ← SessionSnapshot.current
+        let traffic ← liftM (m := IO) <| IO.FS.readFile log
+        unless ((traffic.splitOn "\n").filter (!·.isEmpty)).length == 1 do
+          throwError "the initial failure did not come from exactly one real provider request"
+        for text in #["let failedAlias := failedSum", "let failedDependent := failedAlias",
+            "assert implemented failedDependent", "assert implemented failedSum"] do
+          let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
+            | .ok statement => pure statement
+            | .error error => throwError "the statement did not parse: {error}"
+          let declarations := session.source.context.entries.size
+          let run ← withoutErrToSorry <| session.run ⟨statement⟩
+          unless run.outcome.kind == kind &&
+              (run.outcome.detail.splitOn failed.outcome.detail).length > 1 do
+            throwError "`{text}` lost the original {mode} outcome: \
+              {run.outcome.kind} ({run.outcome.detail})"
+          session := run.session
+          if text.startsWith "let" then
+            let some entry := session.source.context.entries.back?
+              | throwError "a failed dependent definition was not retained"
+            unless session.source.context.entries.size == declarations + 1 &&
+                entry.value.isSome && (session.value? entry.id).isNone do
+              throwError "a failed dependent definition published a value or lost its meaning"
+        let unchanged ← SessionSnapshot.current
+        unless unchanged.id == before.id && unchanged.graph.sameRevision before.graph &&
+            unchanged.outputBatches.size == before.outputBatches.size &&
+            (← session.kernel.dispatches.get).map (·.operation) == #["op.rings.add"] &&
+            (← liftM (m := IO) <| IO.FS.readFile log) == traffic do
+          throwError "a later failed-definition use retried or published a computation"
+        -- The failure neither changes the mathematical definition nor poisons a fresh call.
+        for text in #["assert failedSum = 46 in ℤ", "let freshSum := 17 + 29 in ℤ",
+            "assert freshSum = 46 in ℤ"] do
+          let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
+            | .ok statement => pure statement
+            | .error error => throwError "the statement did not parse: {error}"
+          let run ← withoutErrToSorry <| session.run ⟨statement⟩
+          unless run.outcome.kind == "holds" do
+            throwError "`{text}` is {run.outcome.kind} ({run.outcome.detail}), not holds"
+          session := run.session
+        let traffic ← liftM (m := IO) <| IO.FS.readFile log
+        unless (← session.kernel.dispatches.get).map (·.operation) ==
+            #["op.rings.add", "op.rings.add"] &&
+            ((traffic.splitOn "\n").filter (!·.isEmpty)).length == 2 do
+          throwError "a fresh addition did not make exactly its own independent invocation"
+      finally liftM (m := IO) session.close
+  finally setEnv environment

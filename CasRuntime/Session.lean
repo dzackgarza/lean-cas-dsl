@@ -120,9 +120,9 @@ opaque KernelSession.close (session : KernelSession) : IO Unit := session.kernel
 def KernelSession.value? (session : KernelSession) (id : BindingId) : Option ValueBinding :=
   session.bound[id]?
 
-private def commit (transaction : CellTransaction) : MetaM Unit := do
+private def commit (transaction : CellTransaction) : MetaM SessionSnapshot := do
   match ← transaction.commit with
-  | .ok _ => pure ()
+  | .ok snapshot => pure snapshot
   | .error failure =>
     discard <| (transaction.abort : BaseIO Bool)
     Execute.completionFailure failure
@@ -247,23 +247,48 @@ private partial def underBindings : Expr → Expr
   | .mdata _ body => underBindings body
   | expression => expression
 
-/-- Whether a value holds a delayed published computation (a closure of a published family, as a
-lift's fields are) or data owned by a provider, directly or in a field. A value the user wrote,
-such as a lambda or a matrix literal, is read from its definition instead. -/
-private partial def delayedComputation (codes : Std.HashMap (RuntimeId .program) ClosureCode)
-    (graph : ValueGraph) (binding : ValueBinding) : Bool :=
-  match graph.find binding.value with
+/-- Only an actual provider invocation establishes new computed data. A kernel completion
+may merely return pure source data, so its receipt alone does not change that source policy. -/
+private def invoked (snapshot : SessionSnapshot) (occurrence : RuntimeId .occurrence) : Bool :=
+  match snapshot.receipt occurrence with
   | none => false
-  | some node => match node.payload.data with
-    | .closure program _ => match codes[program]? with
-      | some (.family ..) => true
-      | _ => false
-    | .ownedToken .. => true
-    | .product fields => fields.any (delayedComputation codes graph)
-    | .container value =>
-      (value.slots.map (·.binding) ++ value.fields ++ value.callable.toArray).any
-        (delayedComputation codes graph)
-    | .portable _ => false
+  | some receipt => match receipt.association.producer with
+    | .invocation .. => true
+    | .kernel => false
+
+/-- Retain actual computations through aliases, stored fields, captures and selected dependent
+references. Unused source-context values and unrelated access-parent fields are not dependencies.
+Pure written code with no computed captures remains readable from its original definition.
+Reuse: ordinary committed receipts, graph provenance and the existing field/application indices. -/
+private partial def retainedComputation (codes : Std.HashMap (RuntimeId .program) ClosureCode)
+    (snapshot : SessionSnapshot) (binding : ValueBinding) : Bool := Id.run do
+  let some node := snapshot.graph.find binding.value | return false
+  let computed := retainedComputation codes snapshot
+  let selected := fun (indices : Array Nat) (values : Array (Option ValueBinding)) =>
+    indices.any fun index => (values[index]?.bind id).any computed
+  if invoked snapshot node.origin.occurrence then return true
+  for application in binding.applications do
+    if invoked snapshot application.association.occurrence then return true
+    if selected application.association.contextDependencies application.applicationParameters ||
+        selected application.association.dependencies application.arguments then return true
+  for field in binding.instantiations do
+    if invoked snapshot field.association.occurrence then return true
+    if selected field.field.precedingDependencies field.preceding then return true
+  let (dependencies, parameters) := match node.origin.application with
+    | none => (node.origin.role.contextDependencies, node.origin.parameters)
+    | some application => (application.contextDependencies, application.parameters)
+  if selected dependencies parameters then return true
+  if let some application := node.origin.application then
+    if selected application.dependencies application.arguments then return true
+  match node.payload.data with
+  | .closure program captures =>
+    if codes[program]? matches some (.family ..) then return true
+    return captures.any computed
+  | .ownedToken .. => return true
+  | .product fields => return fields.any computed
+  | .container value =>
+    return (value.slots.map (·.binding) ++ value.fields ++ value.callable.toArray).any computed
+  | .portable _ => return false
 
 /-- The result of one statement: its outcome, the session after it and, for a question,
 the proposition that the reader formed. -/
@@ -304,8 +329,7 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
         | throwError "internal: a source definition added no declaration"
       let sourceSnapshot := some (SourceSnapshot.snapshot next value (some entry))
       let transaction ← CellTransaction.begin session.kernel.ledger
-      let sent := (← session.kernel.dispatches.get).size
-      let (binding, dependent, delayed) ← try
+      let (binding, dependent, computed) ← try
           let (binding, dependent) ← next.context.withOpen fun bindings => do
             let context ← ContextTelescope.capture bindings
             let expression ← value.source.inContext context
@@ -318,11 +342,9 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
             return (some (← session.kernel.run transaction context session.bound expression
                 sourceSnapshot),
               dependent)
-          let graph ← transaction.view
           let codes ← session.kernel.codes.get
-          let delayed := binding.any (delayedComputation codes graph)
-          commit transaction
-          pure (binding, dependent, delayed)
+          let published ← commit transaction
+          pure (binding, dependent, binding.any (retainedComputation codes published))
         catch error =>
           -- A read definition keeps its meaning when its computation is a gap or unavailable
           -- at execution or commit (constitution C3); failed runtime data are never published.
@@ -334,7 +356,6 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
       -- A value that no provider computed is its definition: later statements read that
       -- definition. A value with computational provenance, or one that holds a delayed published
       -- computation (a lift's fields), is retained: later uses demand that same occurrence.
-      let computed := (← session.kernel.dispatches.get).size > sent || delayed
       let bound := match binding with
         | some binding => if computed then session.bound.insert entry.id binding else session.bound
         | none => session.bound
@@ -357,7 +378,7 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
         let expression ← value.source.inContext context
         discard <| session.kernel.run transaction context session.bound expression sourceSnapshot
         return toString (← ppExpr expression)
-      commit transaction
+      discard <| commit transaction
       return { outcome := .holds, session, proposition := shown }
     | .question proposition =>
       let sourceSnapshot := some (SourceSnapshot.snapshot session.source proposition)
@@ -379,7 +400,7 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
               | none => compare session transaction context left right sourceSnapshot
             | none => decideComputed session transaction context asked sourceSnapshot
         return (outcome, shown)
-      commit transaction
+      discard <| commit transaction
       return { outcome, session, proposition := shown }
   catch error =>
     let outcome ← Outcome.ofException error

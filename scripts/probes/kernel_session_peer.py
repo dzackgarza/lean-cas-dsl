@@ -8,8 +8,21 @@ answered by a deferred published addition on the caller's own ring parameter.
 
 from __future__ import annotations
 
+import json
+import sys
+
 from cas_port import deferred_call, deferred_data, input_ref, result_ref, serve
-from cas_session import JsonValue
+from cas_session import ComputationError, JsonValue, UnsupportedOperation
+
+
+FIRST_ADD_FAILURE: str | None = None
+LOG: str | None = None
+if len(sys.argv) != 1:
+    if len(sys.argv) != 4 or sys.argv[1] != "--fail-first-add" or \
+            sys.argv[2] not in ("unsupported", "unavailable"):
+        raise SystemExit("usage: kernel_session_peer.py "
+                         "[--fail-first-add unsupported|unavailable LOG]")
+    FIRST_ADD_FAILURE, LOG = sys.argv[2:]
 
 
 def _integer(value: JsonValue) -> int:
@@ -33,6 +46,15 @@ def _operands(context: JsonValue) -> tuple[int, int]:
 
 
 def add(context: JsonValue) -> JsonValue:
+    global FIRST_ADD_FAILURE
+    if LOG is not None:
+        with open(LOG, "a", encoding="utf-8") as log:
+            log.write(json.dumps({"op": "op.rings.add", "context": context}) + "\n")
+    failure, FIRST_ADD_FAILURE = FIRST_ADD_FAILURE, None
+    if failure == "unsupported":
+        raise UnsupportedOperation("op.rings.add")
+    if failure == "unavailable":
+        raise ComputationError("session-failure-control", "first addition unavailable")
     left, right = _operands(context)
     return left + right
 

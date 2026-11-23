@@ -82,7 +82,29 @@ run_cmd liftTermElabM do
         | throwError "the selected lift result did not retain its actual supplying owner"
       let sent := (← session.kernel.dispatches.get).size
       let traffic ← liftM (m := IO) <| IO.FS.readFile log
+      -- The direct return also belongs to the commit's owner closure. Use the original
+      -- full source context and its actual public bindings, then close this same owner.
+      let direct ← CellTransaction.begin session.kernel.ledger
+      let returned ← session.source.context.withOpen fun bindings => do
+        let context ← CasCompiler.ContextTelescope.capture bindings
+        let mut supplied : Std.HashMap CasCompiler.BindingId ValueBinding := {}
+        for binding in bindings do
+          if let some value := session.value? binding.id then
+            supplied := supplied.insert binding.id value
+        let some selected := bindings.find? (·.id == first.id)
+          | throwError "the direct-return control lost the original X1 source binding"
+        session.kernel.run direct context supplied selected.expression none
+      unless returned.value == firstValue.value &&
+          returned.associationIds == firstValue.associationIds do
+        throwError "direct kernel return replaced the public X1 reference"
       liftM (m := IO) <| session.kernel.ledger.owners.close owner
+      match ← direct.commit with
+      | .error .staleOwner => pure ()
+      | _ => throwError "commit lost the owner of the actual returned root"
+      let unchanged ← SessionSnapshot.current
+      unless unchanged.id == before.id && unchanged.graph.sameRevision before.graph &&
+          unchanged.outputBatches.size == before.outputBatches.size do
+        throwError "owner loss between return and commit changed the published snapshot"
       for (text, kind) in #[("assert implemented X1", "unavailable"),
           ("assert implemented Q", "holds")] do
         let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
