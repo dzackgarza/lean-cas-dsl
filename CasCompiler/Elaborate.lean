@@ -2,6 +2,7 @@ module
 
 public import CasCompiler.Context
 public import CasCompiler.Declaration
+public import CasCompiler.LimitInterface
 public import CasCompiler.SourceReference
 public import CasCompiler.Syntax
 public import CasRuntime.Identity
@@ -45,19 +46,26 @@ structure NativeSourceCarrierSelection where
   actions : Array Expr
   comparisons : Array Expr
 
-/-- The registered limit or colimit that a source construction selected: its row, and its cone or
-cocone at the source diagram. A later use (`K.leg(j)`) takes them from here, not from the apex. -/
+/-- The registered limit or colimit at its original diagram. The full source presentation and
+the accepted computation interface survive binding, so later uses never recover them from an apex.
+For a created limit, `interface` belongs to the target presentation and `presentation` to its lift. -/
 structure SourceLimitSelection where
   row : String
   declaration : Name
   cone : ClosedTerm
   colimit : Bool
+  presentation : ClosedTerm
+  diagram : ClosedTerm
+  interface : LimitInterface ClosedTerm
 
 structure NativeSourceLimitSelection where
   row : String
   declaration : Name
   cone : Expr
   colimit : Bool
+  presentation : Expr
+  diagram : Expr
+  interface : NativeLimitInterface
 
 /-- The selected symbolic category and its complete native bundle in the original context. -/
 structure SourceCategoryBinding where
@@ -227,9 +235,13 @@ opaque SourceSession.elaborateJudgements (session : SourceSession) (reference : 
             return (⟨carrier.refs, carrier.target, carrier.identifications, actions, comparisons⟩ :
               SourceCarrierSelection)
           let limit ← selected.limit.mapM fun limit => do
-            let cone ← context.close (← instantiateMVars limit.cone)
-            checkSource cone
-            return (⟨limit.row, limit.declaration, cone, limit.colimit⟩ : SourceLimitSelection)
+            let close : Expr → TermElabM ClosedTerm := fun value => do
+              let closed ← context.close (← instantiateMVars value)
+              checkSource closed
+              return closed
+            let interface ← limit.interface.mapM close
+            return (⟨limit.row, limit.declaration, ← close limit.cone, limit.colimit,
+              ← close limit.presentation, ← close limit.diagram, interface⟩ : SourceLimitSelection)
           term.inCategory selected.expression ⟨category, span, none⟩ selected.role selection limit
 
 /-- Form ordinary checked native terms through the same complete source boundary. -/

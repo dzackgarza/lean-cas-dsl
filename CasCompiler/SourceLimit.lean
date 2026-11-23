@@ -76,6 +76,7 @@ opaque sourceBinaryLimit (left right : NativeSourceJudgement) (colimit : Bool) :
           "source binary construction requires its selected universal presentation"
   let some presentation ← limitPresentation row diagram
     | throwError "the selected universal presentation changed its complete diagram"
+  let interface ← prepareLimitInterface row presentation
   let cone ← mkAppM (if colimit then ``CategoryTheory.Limits.ColimitCocone.cocone
     else ``CategoryTheory.Limits.LimitCone.cone) #[presentation]
   let apex ← mkAppM (if colimit then ``CategoryTheory.Limits.Cocone.pt
@@ -86,7 +87,7 @@ opaque sourceBinaryLimit (left right : NativeSourceJudgement) (colimit : Bool) :
   -- its shape: the lowerer sends it as that row's descriptor, not the presentation record.
   return ⟨sourceReference ``LimitEntry row.id.raw row.declaration apex,
     some ⟨.object, source.expression, source.bundle, none,
-      some ⟨row.id.raw, row.declaration, cone, colimit⟩⟩⟩
+      some ⟨row.id.raw, row.declaration, cone, colimit, presentation, diagram, interface⟩⟩⟩
 
 /-- The limit of shape `shape` of the maps `maps` of a category that only creates it: the
 registered limit of the image diagram along the structural step `U` of a registered creation lift
@@ -115,26 +116,38 @@ private def createdLimit (shape : String) (selected : NativeSourceCategory)
     let functor ← exprToSyntax routed.functor
     discard <| checkedDeclaration lift.evidence
     let evidence ← exprToSyntax (← mkConstWithFreshMVarLevels lift.evidence)
+    let diagram ← mkAppM ``CategoryTheory.Limits.cospan #[left.value, right.value]
+    let mappedDiagram ← mkAppM ``CategoryTheory.Functor.comp #[diagram, routed.functor]
+    let leftImage ← mkAppM ``CategoryTheory.Functor.map #[routed.functor, left.value]
+    let rightImage ← mkAppM ``CategoryTheory.Functor.map #[routed.functor, right.value]
     discard <| checkedDeclaration row.declaration
-    let declaration ← exprToSyntax (← mkConstWithFreshMVarLevels row.declaration)
+    let targetPresentation ← mkAppM row.declaration #[leftImage, rightImage]
+    let interface ← prepareLimitInterface row targetPresentation (some mappedDiagram)
+    let some comparison := interface.standardization
+      | throwUnsupportedSource "the created limit requires its declared diagram standardization"
+    let comparison ← exprToSyntax comparison
+    let targetPresentation ← exprToSyntax targetPresentation
     let (f, g) := (← exprToSyntax left.value, ← exprToSyntax right.value)
-    let cone ← elabTermAndSynthesize (← `(
+    let presentation ← elabTermAndSynthesize (← `(
       letI : CategoryTheory.CreatesLimit (CategoryTheory.Limits.cospan $f $g) $functor :=
         (($evidence : CategoryTheory.CreatesLimitsOfShape CategoryTheory.Limits.WalkingCospan
           $functor).CreatesLimit (K := CategoryTheory.Limits.cospan $f $g))
-      (CategoryTheory.liftLimit (K := CategoryTheory.Limits.cospan $f $g) (F := $functor)
-        ((CategoryTheory.Limits.IsLimit.postcomposeInvEquiv
-            (CategoryTheory.Limits.diagramIsoCospan
-              (CategoryTheory.Functor.comp (CategoryTheory.Limits.cospan $f $g) $functor))
-            ($declaration (CategoryTheory.Functor.map $functor $f) (CategoryTheory.Functor.map $functor $g)).cone).symm
-          ($declaration (CategoryTheory.Functor.map $functor $f) (CategoryTheory.Functor.map $functor $g)).isLimit)))) none
-    let cone ← instantiateMVars cone
-    if cone.hasMVar || cone.hasLevelMVar then
+      let universal :=
+        (CategoryTheory.Limits.IsLimit.postcomposeInvEquiv $comparison
+          ($targetPresentation).cone).symm ($targetPresentation).isLimit
+      (⟨CategoryTheory.liftLimit (K := CategoryTheory.Limits.cospan $f $g) (F := $functor)
+          universal,
+        CategoryTheory.liftedLimitIsLimit
+          (K := CategoryTheory.Limits.cospan $f $g) (F := $functor) universal⟩ :
+        CategoryTheory.Limits.LimitCone (CategoryTheory.Limits.cospan $f $g)))) none
+    let presentation ← instantiateMVars presentation
+    if presentation.hasMVar || presentation.hasLevelMVar then
       throwError "the created {shape} has undetermined parameters"
+    let cone ← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[presentation]
     let apex ← mkAppM ``CategoryTheory.Limits.Cone.pt #[cone]
     return some ⟨sourceReference ``LimitEntry row.id.raw row.declaration apex,
       some ⟨.object, selected.expression, selected.bundle, none,
-        some ⟨row.id.raw, row.declaration, cone, false⟩⟩⟩
+        some ⟨row.id.raw, row.declaration, cone, false, presentation, diagram, interface⟩⟩⟩
   return none
 
 /-- A registered limit or colimit named by its shape and applied to the maps of its diagram
@@ -175,13 +188,15 @@ opaque sourceNamedLimit (shape : String) (maps : Array NativeSourceJudgement) :
         throwUnsupportedSource m!"no registered {shape} accepts these maps"
       else throwSemanticAmbiguity s!"several registered presentations of {shape} accept these maps"
   let presentation ← present row
+  let interface ← prepareLimitInterface row presentation
   let cone ← mkAppM (if row.colimit then ``CategoryTheory.Limits.ColimitCocone.cocone
     else ``CategoryTheory.Limits.LimitCone.cone) #[presentation]
   let apex ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone.pt
     else ``CategoryTheory.Limits.Cone.pt) #[cone]
   return some ⟨sourceReference ``LimitEntry row.id.raw row.declaration apex,
     some ⟨.object, selected.expression, selected.bundle, none,
-      some ⟨row.id.raw, row.declaration, cone, row.colimit⟩⟩⟩
+      some ⟨row.id.raw, row.declaration, cone, row.colimit, presentation,
+        interface.diagram, interface⟩⟩⟩
 
 /-- The object of a diagram's index type that the ordinal `ordinal` names: the number itself in
 `ℕ`, `⟨ordinal, _⟩` in `Fin n` when it is below `n`, else the `ordinal`-th constructor of a closed
@@ -224,43 +239,28 @@ def sourceLimitLeg? (receiver : NativeSourceJudgement) (ordinal : Nat) :
     TermElabM (Option NativeSourceJudgement) := do
   let some category := receiver.category | return none
   let some selection := category.limit | return none
-  let cone := selection.cone
   let colimit := selection.colimit
+  let cone ← mkAppM (if colimit then ``CategoryTheory.Limits.ColimitCocone.cocone
+    else ``CategoryTheory.Limits.LimitCone.cone) #[selection.presentation]
   let leg ← mkAppM (if colimit then ``CategoryTheory.Limits.Cocone.ι
     else ``CategoryTheory.Limits.Cone.π) #[cone]
   let component ← mkAppM ``CategoryTheory.NatTrans.app #[leg]
   let .forallE _ indexType _ _ ← whnf (← inferType component)
     | throwError "the defining leg has no shape index"
-  let hom := mkApp component (← constructionIndex indexType ordinal)
+  let index ← constructionIndex indexType ordinal
+  let hom := mkApp component index
   check hom
-  -- The leg's ends are objects of the diagram (`(parallelPair f 0).obj one`). Each is stated as
-  -- the object the presentation names, to which it is definitionally equal: an object argument,
-  -- an end of a map argument, or the marked apex; the diagram is not unfolded when it is sent.
-  let apex ← mkAppM (if colimit then ``CategoryTheory.Limits.Cocone.pt
-    else ``CategoryTheory.Limits.Cone.pt) #[cone]
-  let presentation := cone.appArg!
-  let .mdata data _ := sourceReference ``LimitEntry selection.row selection.declaration apex
+  -- Preserve the selected diagram and index; do not evaluate its object rule.
+  let object ← mkAppM ``CategoryTheory.Functor.obj #[selection.diagram, index]
+  let .mdata data _ := sourceReference ``LimitEntry selection.row selection.declaration receiver.value
     | throwError "internal: a source reference is not an annotation"
-  let mut named := #[.mdata data apex]
-  for argument in presentation.getAppArgs do
-    let type ← whnfR (← inferType argument)
-    if type.isAppOfArity ``Quiver.Hom 4 then
-      named := named ++ #[type.getAppArgs[2]!, type.getAppArgs[3]!]
-    else if !(← isProof argument) && !(← isType argument) then named := named.push argument
   let arrow ← whnfR (← inferType hom)
   unless arrow.isAppOfArity ``Quiver.Hom 4 do throwError "the defining leg is not a morphism"
-  let mut ends := #[]
-  for index in [2, 3] do
-    let original := arrow.getAppArgs[index]!
-    let mut chosen := original
-    for candidate in named do
-      if ← withoutModifyingState (isDefEq (← inferType candidate) (← inferType original) <&&>
-          isDefEq candidate original) then
-        chosen := candidate
-        break
-    ends := ends.push chosen
-  let stated := mkAppN arrow.getAppFn #[arrow.getAppArgs[0]!, arrow.getAppArgs[1]!, ends[0]!, ends[1]!]
+  let (source, target) := if colimit then (object, receiver.value) else (receiver.value, object)
+  let stated := mkAppN arrow.getAppFn
+    #[arrow.getAppArgs[0]!, arrow.getAppArgs[1]!, source, target]
   let hom ← mkExpectedTypeHint hom stated
+  check hom
   return some ⟨.mdata (data.setNat `CasCompiler.source.leg ordinal) hom,
     some ⟨.morphism, category.expression, category.bundle, none, none⟩⟩
 
