@@ -74,16 +74,80 @@ private partial def associateCheckedResult (request : PreparedRequest) (supply :
     (fixed : Array FixedResult) (complete : Bool) :
     MetaM (CellDraft × ValueBinding) := do
   let retained ← fixedResultAt request draft.view source candidate.root fixed complete
+  let mut draft := draft
   if let some retained := retained then
     unless candidate.root.value == retained.value.value &&
         retained.value.associationIds.toList.isPrefixOf candidate.root.associationIds.toList do
       CasCatalogue.throwStratum .malformed "the reply changed a fixed source input"
+    let input := retained.input
+    if !input.path.isEmpty && (← IO.ofExcept <|
+        (draft.view.projectedAccess? input.parent input.path).mapError IO.userError).isNone then
+      -- Publish the original native input access before an output field can become the
+      -- first full-path view. The saved baseline never acquires output associations.
+      let currentDraft := draft
+      draft ← input.source.withOpen fun bindings _ => do
+        unless input.parameters.size == bindings.size do
+          throwError "a fixed input lost its original complete source context"
+        let context ← ContextTelescope.capture bindings
+        let mut parameters := #[]
+        for (binding, value) in bindings.zip input.parameters do
+          if let some value := value then
+            let .ok parameter := RuntimeParameter.ofValue currentDraft.view binding.id value
+              | throwError "a fixed input parameter is outside its original graph"
+            parameters := parameters.push parameter
+        let sourceParameters := parameters
+        let publishSource := fun (projection : PreparedRequest) (sourceDraft : CellDraft)
+            (baseline : ValueBinding) => do
+          let .project parent field := projection.action
+            | throwError "a fixed input lost its prepared native projection"
+          let checked ← projection.environment.checkProjectionResult sourceDraft.view
+            projection.source baseline parent field
+          let (nextDraft, access) ← associateCheckedResult projection supply
+            projection.source sourceDraft checked #[] true
+          discard <| projection.admitResult nextDraft.view access
+          return (nextDraft, access)
+        let prepareField := fun (sourceDraft : CellDraft) (parent : ValueBinding)
+            (projection : Name) => do
+          let some index := parent.role.fields.findIdx? (·.projection == projection)
+            | throwError "a fixed input lost its original native field position"
+          PreparedRequest.forProjection supply request.program (← supply.fresh .occurrence)
+            context sourceDraft.view parent index sourceParameters
+        let frontier ← IO.ofExcept <|
+          (currentDraft.view.projectionFrontier input.parent input.path).mapError IO.userError
+        let some (parent, remaining) := frontier
+          | throwError "a fixed input has no available native field interface"
+        if !remaining.isEmpty then
+          unless remaining.size == 1 do
+            throwError "a fixed input has no independently available intermediate parent"
+          let some _ ← IO.ofExcept <|
+              (currentDraft.view.projectionBasis retained.value input.parent input.path).mapError IO.userError
+            | throwError "a fixed input lost its exact original pending projection"
+        let mut sourceDraft := currentDraft
+        if input.path.size > 1 && !remaining.isEmpty then
+          let prefix := input.path.extract 0 (input.path.size - 1)
+          let projection ← PreparedRequest.forStoredProjection supply request.program
+            (← supply.fresh .occurrence) context sourceDraft.view input.parent prefix sourceParameters
+          let (nextDraft, parentAccess) ← publishSource projection sourceDraft parent
+          sourceDraft := nextDraft
+          let some last := input.path.back?
+            | throwError "a fixed input lost its original final field"
+          let projection ← prepareField sourceDraft parentAccess last
+          let (nextDraft, _) ← publishSource projection sourceDraft retained.value
+          sourceDraft := nextDraft
+        let projection ← if input.path.size == 1 then do
+            let some field := input.path[0]?
+              | throwError "a fixed input lost its original native field"
+            prepareField sourceDraft input.parent field
+          else
+            PreparedRequest.forStoredProjection supply request.program
+              (← supply.fresh .occurrence) context sourceDraft.view input.parent input.path sourceParameters
+        let (completedDraft, _) ← publishSource projection sourceDraft retained.value
+        return completedDraft
   if request.origin.application.isNone && request.origin.access.isNone && retained.isNone then
     return (← liftM (m := IO) <| draft.retain candidate.root, candidate.root)
   let some node := draft.view.find candidate.root.value
     | throwError "the reused result is outside its isolated graph"
   let stored := node.payload.data.storedFields?.isSome
-  let mut draft := draft
   let mut selected := #[]
   if source.kind == .record && stored then
     let layout ← RecordLayout.ofSource source
