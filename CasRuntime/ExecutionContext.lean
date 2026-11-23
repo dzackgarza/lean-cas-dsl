@@ -2,6 +2,7 @@ module
 
 public import CasRuntime.KernelState
 public import CasRuntime.Transaction
+public import CasRuntime.Association
 
 public section
 
@@ -28,7 +29,13 @@ def transactionFailure (failure : TransactionFailure) : MetaM α :=
 
 def kernelCompletion (request : PreparedRequest) (transaction : CellTransaction)
     (value : ValueBinding) : MetaM (PreparedResponse request) := do
-  let response ← request.admitResult (← transaction.view) value
+  let draft ← transaction.draft
+  let (draft, value) ← request.associateResult transaction.owners.identities
+    request.source draft value
+  let response ← request.admitResult draft.view value
+  match ← transaction.installDraft draft with
+  | .error failure => transactionFailure failure
+  | .ok () => pure ()
   match ← transaction.completeKernel request response with
   | .error failure => transactionFailure failure
   | .ok association => request.admitResult (← transaction.view) association.response.root

@@ -15,6 +15,28 @@ private def nativeTerm (text : String) : TermElabM Term := do
     | throwError "the observer context did not parse"
   return ⟨stx⟩
 
+/- Public hypotheses are source declarations, not injected native test parameters. The
+ordinary question exporter must retain them as the original question's visible provenance. -/
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let file ← SourceFile.parse "observer-scoped-declarations.cas"
+    "let X ∈ Sets\nlet x ∈ X\nlet h : x = x\n\
+     test observer.hypothesis \"scope\": assert x = x\n"
+  let observation ← observeFile file empty
+  unless observation.failures.isEmpty && observation.readings.size == 1 &&
+      !observation.readings[0]!.question.isEmpty do
+    throwError "the ordinary exporter did not read the public hypothetical source scope"
+  let .ok context := observation.readings[0]!.sourceContext.getObjValAs? (Array Json) "context"
+    | throwError "the public hypothesis lost its prepared original context"
+  unless context.map (fun row => row.getObjValAs? String "name") ==
+      #[.ok "X", .ok "x", .ok "h"] &&
+      context.map (fun row => row.getObjValAs? String "role") ==
+        #[.ok "parameter", .ok "parameter", .ok "hypothesis"] &&
+      context.all (fun row => row.getObjValD "value" == Json.null) &&
+      empty.context.entries.isEmpty do
+    throwError "a hypothetical scope was defined, omitted, reordered or leaked"
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let empty ← SourceSession.empty identities
@@ -60,6 +82,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       observation.readings[1]!.question.isEmpty &&
       observation.readings[3]!.question.isEmpty do
     throwError "the observer lost complete readings or manufactured a reading after failure"
+  unless first.question == observation.readings[2]!.question do
+    throwError "a failed question changed the later identity of the same original question"
   unless observation.failures.size == 3 &&
       observation.failures[0]!.kind == "unsupported" &&
       observation.failures[0]!.stage == "interpretation" &&
@@ -192,3 +216,27 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       previousStop := stop
   unless observation.readings[2]!.question != observation.readings[3]!.question do
     throwError "reversing distinct typing judgements did not change their ordered identity"
+
+/- Typed identity keeps binder annotations. Encoding the same accepted native terms in one
+table or in separate tables must yield the same documents, including under a dependent binder. -/
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let writtenExplicit ← withSynthesize <| elabTerm
+    (← nativeTerm "fun (n : Nat) => fun (x : Fin n) => x") none
+  let writtenImplicit ← withSynthesize <| elabTerm
+    (← nativeTerm "fun (n : Nat) => fun {x : Fin n} => x") none
+  let writtenExplicit ← instantiateMVars writtenExplicit
+  let writtenImplicit ← instantiateMVars writtenImplicit
+  checkWithKernel writtenExplicit
+  checkWithKernel writtenImplicit
+  unless writtenExplicit == writtenImplicit && !writtenExplicit.equal writtenImplicit do
+    throwError "the native control did not preserve its distinct binder annotations"
+  let standaloneExplicit ← CasCatalogue.Realize.termIdentity writtenExplicit
+  let standaloneImplicit ← CasCatalogue.Realize.termIdentity writtenImplicit
+  unless standaloneExplicit != standaloneImplicit do
+    throwError "standalone typed identity discarded a native binder annotation"
+  let shared ← CasCatalogue.Realize.TermTable.new
+  let explicitRoot ← shared.encode writtenExplicit
+  let implicitRoot ← shared.encode writtenImplicit
+  unless (← shared.rootIdentity explicitRoot) == standaloneExplicit &&
+      (← shared.rootIdentity implicitRoot) == standaloneImplicit do
+    throwError "shared typed serialization merged distinct native binder annotations"

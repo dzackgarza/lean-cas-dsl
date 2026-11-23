@@ -1,9 +1,11 @@
 module
 
 import CasCompiler.Read
+import CasCompiler.Parse
 import LeanCategories.Catalogue
 public meta import Lean.Elab.Command
 meta import CasCompiler.Read
+meta import CasCompiler.Parse
 meta import LeanCategories.Catalogue
 
 open Lean Meta Elab Term CasCompiler CasCatalogue
@@ -31,3 +33,42 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       if value.hasMVar then throwError "`{text}` left a parameter undetermined: {value}"
       unless (value.find? (·.isConstOf ``CasCatalogue.Algebra.LinearAlgebra.apply)).isSome do
         throwError "`{text}` is not the registered application of Mat: {value}"
+
+/- T030: the original matrix-inverse input supplies its actual admitted unit. Check the
+inverse subterm from that unchanged file through the public reader, without supplying a
+native group, a chosen inverse or an expected numerical answer in the test setup. -/
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let path := "tests/acceptance/inverses.cas"
+  let contents ← liftM (m := IO) <| IO.FS.readFile path
+  let file ← SourceFile.parse path contents
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let mut session ← SourceSession.empty identities
+  let mut written : Option Syntax := none
+  for item in file.items do
+    match item with
+    | `(cas_item| test $id:ident $_:str : $statement:cas_stmt) =>
+      if id.getId.toString (escape := false) != "inverses.value" then continue
+      written := statement.raw.find? (·.isOfKind ``CasCatalogue.Language.casInverse)
+      break
+    | `(cas_item| $statement:cas_stmt) =>
+      let formed ← try file.withContext (session.readStatement statement)
+        catch error =>
+          throwError "the original inverse prefix failed before inversion: {error.toMessageData}"
+      let .definition next _ := formed
+        | throwError "the original inverse prefix changed its declaration kind"
+      session := next
+    | _ => throwError "the original inverse input changed its item kind"
+  let some inverseSyntax := written
+    | throwError "the original inverses.value question lost its inverse expression"
+  let operand ← file.withContext (session.read ⟨inverseSyntax[0]⟩)
+  let inverse ← file.withContext (session.read ⟨inverseSyntax⟩)
+  inverse.source.withOpen fun bindings expression => do
+    let context ← ContextTelescope.capture bindings
+    let operand ← operand.source.inContext context
+    let .fvar original := operand
+      | throwError "the original inverse operand is no longer its source binding"
+    unless expression.containsConst (· == ``CasCatalogue.Algebra.Units.groupInverse) &&
+        expression.containsFVar original do
+      throwError "source inversion lost its registered operation or original admitted operand"
+    unless ← isDefEq (← inferType expression) (← inferType operand) do
+      throwError "the inverse left the registered group of its original operand"

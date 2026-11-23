@@ -2,6 +2,7 @@ module
 
 public import CasRuntime.PreparedRequest
 public import CasRuntime.Transaction
+public import CasRuntime.Association
 public import PolyFun.PFunctor.Handler.Stateful
 
 public section
@@ -100,7 +101,13 @@ private def projectStored (request : PreparedRequest) (transaction : CellTransac
   requireFresh request transaction
   let graph ← transaction.view
   let binding ← IO.ofExcept <| (graph.project operand index).mapError IO.userError
-  let response ← request.admitResult graph binding
+  let draft ← transaction.draft
+  let (draft, binding) ← request.associateResult transaction.owners.identities
+    request.source draft binding
+  let response ← request.admitResult draft.view binding
+  match ← transaction.installDraft draft with
+  | .error failure => completionFailure failure
+  | .ok () => pure ()
   match ← transaction.completeKernel request response with
   | .error failure => completionFailure failure
   | .ok association =>

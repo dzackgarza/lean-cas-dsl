@@ -202,6 +202,14 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
       let arrow := body.getAppArgs.back!
       unless arrow.getAppFn.isConstOf ``CategoryTheory.Arrow.mk do
         throwError "the selected endpoint lost its actual arrow"
+      let some endpoint := selectedEndpoint? expression
+        | throwError "the selected endpoint lost its declared constructor argument"
+      let frame ← read
+      let environment ← RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
+      -- This exact Arrow.mk argument may already name an actual input. Preserve that
+      -- reference; otherwise the endpoint remains a descriptor of its selected arrow.
+      if ← environment.hasRetainedSource frame.context endpoint then
+        return ← lower (← argumentSource environment endpoint)
       let value ← lower arrow.getAppArgs.back!
       let template := Json.mkObj [("ctor", "morphismEndpoint"),
         ("args", .arr #[.null, toJson selector])]
@@ -417,18 +425,49 @@ private partial def project (operand : ValueBinding) (index : Nat) (field : Mess
     (← frame.environment.ledger.allocate) frame.context graph operand index (← parameters)
   demand request
 
+private partial def argumentSource (environment : RuntimeEnvironment) (expression : Expr) :
+    LowerM Expr := do
+  let frame ← read
+  -- Use the same retained constructor argument as endpoint lowering, so native
+  -- argument admission checks its original source reference and association chain.
+  if let some endpoint := selectedEndpoint? expression then
+    if ← environment.hasRetainedSource frame.context endpoint then
+      return ← argumentSource environment endpoint
+  if let .mdata data body := expression then
+    if (markedKey? data).isSome || (data.find `CasCompiler.source.kind).isSome then
+      return expression
+    if (selectedField? data).isSome then
+      let value ← lower expression
+      return ← markValue frame.environment.marks value expression
+    return .mdata data (← argumentSource environment body)
+  let some projection ← SourceProjection.ofExpr? expression | return expression
+  if projection.info.fromClass &&
+      !(← environment.hasRetainedSource frame.context projection.parent) then
+    return expression
+  let parent ← argumentSource environment projection.parent
+  let value ← lower parent
+  let parent ← markValue frame.environment.marks value parent
+  return .proj (← getConstInfoCtor projection.info.ctorName).induct projection.info.i parent
+
 private partial def actualArguments (arguments : Array Expr) :
     LowerM (Array ClosedTerm × Array RuntimeArgument) := do
   let frame ← read
+  let environment ← RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
   let mut values : Array (Nat × ValueBinding) := #[]
+  let mut sources : Array Expr := #[]
   for argument in arguments, index in [:arguments.size] do
-    unless ← isProof argument do values := values.push (index, ← lower argument)
+    if ← isProof argument then sources := sources.push argument
+    else
+      let source ← argumentSource environment argument
+      values := values.push (index, ← lower source)
+      sources := sources.push source
   let graph ← frame.environment.transaction.view
+  let marks ← frame.environment.marks.get
   let actual ← values.mapM fun (index, value) => do
-    let .ok argument := RuntimeArgument.ofValue graph index value
+    let .ok argument := RuntimeArgument.ofValue graph index value marks
       | throwError "internal: a lowered source argument is outside the active graph"
     return argument
-  let closed ← arguments.mapM fun argument => frame.context.close argument
+  let closed ← sources.mapM fun argument => frame.context.close argument
   return (closed, actual)
 
 private partial def apply (callable : ValueBinding) (arguments : Array Expr) :

@@ -137,10 +137,18 @@ def applicationJson (application : ApplicationLayout) : StateM NativeExpression.
     ("resultContextDependencies", toJson application.resultContextDependencies)]
 
 /-- References name the actual node and ordered association chain. They contain no payload. -/
+def valueIdentityJson (value : ValueBinding) : Json :=
+  Json.mkObj [("value", identityJson value.value),
+    ("associations", toJson (value.associationIds.map identityJson))]
+
 def valueReferenceJson (value : ValueBinding) : StateM NativeExpression.Builder Json := do
-  return Json.mkObj [("value", identityJson value.value),
-    ("associations", toJson (value.associationIds.map identityJson)),
-    ("role", ← layoutJson value.role)]
+  return (valueIdentityJson value).setObjVal! "role" (← layoutJson value.role)
+
+def actualArgumentJson (argument : RuntimeArgument) (marks : Array (Nat × ValueBinding)) : Json :=
+  Json.mkObj [("sourceIndex", toJson argument.index),
+    ("reference", valueIdentityJson argument.value),
+    ("marks", toJson (marks.map fun (key, value) =>
+      Json.mkObj [("key", toJson key), ("reference", valueIdentityJson value)]))]
 
 def valuesJson (values : Array (Option ValueBinding)) : StateM NativeExpression.Builder Json := do
   return toJson (← values.mapM fun value => value.mapM valueReferenceJson)
@@ -169,8 +177,11 @@ def valueJson (value : ValueBinding) : StateM NativeExpression.Builder Json := d
       ("arguments", ← valuesJson application.arguments),
       ("callable", toJson (← application.callable.mapM valueReferenceJson)),
       ("access", toJson (← application.access.mapM valueReferenceJson))]
+  let projections ← value.projectionAccesses.mapM fun (parent, path) => do
+    return Json.mkObj [("parent", ← valueReferenceJson parent), ("path", namesJson path)]
   return Json.mkObj [("reference", ← valueReferenceJson value),
-    ("fields", toJson fields), ("applications", toJson applications)]
+    ("fields", toJson fields), ("applications", toJson applications),
+    ("projections", toJson projections)]
 
 def applicationOriginJson (origin : ApplicationOrigin) : StateM NativeExpression.Builder Json := do
   return Json.mkObj [("layout", ← applicationJson origin.layout),
@@ -184,7 +195,8 @@ def originJson (origin : ValueOrigin) : StateM NativeExpression.Builder Json := 
     ("program", identityJson origin.program), ("role", ← layoutJson origin.role),
     ("parameters", ← valuesJson origin.parameters),
     ("application", toJson (← origin.application.mapM applicationOriginJson)),
-    ("access", toJson (← origin.access.mapM valueJson))]
+    ("access", toJson (← origin.access.mapM valueJson)),
+    ("accessPath", namesJson origin.accessPath)]
 
 def roleScopeJson (scope : RoleScope) : Json :=
   Json.mkObj [("program", identityJson scope.program),
@@ -289,8 +301,15 @@ opaque ObservationDescriptor.prepare
     (program : RuntimeId .program) (occurrence : RuntimeId .occurrence) (action : PreparedAction)
     (source : SourceLayout) (scope : Array ValueBinding) (outputs : Array SourceLayout)
     (record : Option RecordLayout) (environment : RuntimeEnvironment) (origin : ValueOrigin)
-    (application : Option ApplicationLayout) (roles : RoleTelescope) :
+    (application : Option ApplicationLayout) (roles : RoleTelescope)
+    (actualArguments : Array RuntimeArgument := #[]) :
     MetaM ObservationDescriptor := do
+  let actualArguments ← actualArguments.mapM fun argument => do
+    let some declared := roles.arguments[argument.index]?
+      | throwError "an observed actual argument is outside its prepared source telescope"
+    let .ok marks := argument.sourceMarks declared.role.source
+      | throwError "the source observation lost a retained occurrence mark"
+    return Observation.actualArgumentJson argument marks
   let build : StateM NativeExpression.Builder (Json × Array Nat) := do
     let action ← Observation.actionJson action
     let sourceDocument ← Observation.layoutJson source
@@ -306,7 +325,8 @@ opaque ObservationDescriptor.prepare
       ("occurrence", Observation.identityJson occurrence),
       ("action", action), ("source", sourceDocument), ("scope", toJson scope),
       ("outputs", toJson outputs), ("record", toJson record), ("environment", environment),
-      ("origin", origin), ("application", toJson application), ("roles", roles)]
+      ("origin", origin), ("application", toJson application), ("roles", roles),
+      ("actualArguments", toJson actualArguments)]
     let expression ← NativeExpression.Builder.add source.source.expression
     let type ← NativeExpression.Builder.add source.source.type
     return (request, #[expression, type])

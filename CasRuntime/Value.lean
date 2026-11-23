@@ -43,13 +43,18 @@ inductive ValueBinding where
       (association : ApplicationAssociation)
       (parameters applicationParameters arguments : Array (Option ValueBinding))
       (callable access : Option ValueBinding) (fields : Array ValueBinding)
+  | private inProjection (id : RuntimeId .association) (binding : ValueBinding)
+      (role : SourceLayout) (parent : ValueBinding) (path : Array Name)
+      (basis : ValueBinding) (fields : Array ValueBinding)
 
 def ValueBinding.value : ValueBinding → RuntimeId .value
   | .direct value _ => value
-  | .atRole binding _ | .inField _ binding .. | .inApplication binding .. => binding.value
+  | .atRole binding _ | .inField _ binding .. | .inApplication binding ..
+  | .inProjection _ binding .. => binding.value
 
 def ValueBinding.role : ValueBinding → SourceLayout
-  | .direct _ role | .atRole _ role | .inField _ _ role .. | .inApplication _ role .. => role
+  | .direct _ role | .atRole _ role | .inField _ _ role .. | .inApplication _ role ..
+  | .inProjection _ _ role .. => role
 
 /-- Retain the actual node and field associations under a prepared consuming source role.
 Reuse: ValueBinding.atRole, shared by graph rebinding and native environment capture. -/
@@ -73,7 +78,7 @@ def ValueBinding.instantiations : ValueBinding → Array FieldInstantiation
   | .atRole binding _ => binding.instantiations
   | .inField id binding _ association field preceding =>
     binding.instantiations.push ⟨id, association, field, preceding⟩
-  | .inApplication binding .. => binding.instantiations
+  | .inApplication binding .. | .inProjection _ binding .. => binding.instantiations
 
 structure ApplicationInstantiation where
   private mk ::
@@ -87,7 +92,8 @@ structure ApplicationInstantiation where
 /-- Retain every consuming application in order, including earlier views of an aliased node. -/
 def ValueBinding.applications : ValueBinding → Array ApplicationInstantiation
   | .direct .. => #[]
-  | .atRole binding _ | .inField _ binding .. => binding.applications
+  | .atRole binding _ | .inField _ binding .. | .inProjection _ binding .. =>
+    binding.applications
   | .inApplication binding _ association parameters applicationParameters arguments callable access _ =>
     binding.applications.push ⟨association, parameters, applicationParameters, arguments, callable, access⟩
 
@@ -97,6 +103,29 @@ def ValueBinding.associationIds : ValueBinding → Array (RuntimeId .association
   | .atRole binding _ => binding.associationIds
   | .inField id binding .. => binding.associationIds.push id
   | .inApplication binding _ association .. => binding.associationIds.push association.id
+  | .inProjection id binding .. => binding.associationIds.push id
+
+/-- The exact record accesses retained in binding order, through later aliases and projections.
+Reuse: the immutable binding chain; no expression or value search selects a parent. -/
+def ValueBinding.projectionAccesses : ValueBinding → Array (ValueBinding × Array Name)
+  | .direct .. => #[]
+  | .atRole binding _ | .inField _ binding .. | .inApplication binding .. =>
+    binding.projectionAccesses
+  | .inProjection _ binding _ parent path _ _ => binding.projectionAccesses.push (parent, path)
+
+private def valueKey : Name := `CasCompiler.lower.value
+
+def markedKey? (data : MData) : Option Nat :=
+  match data.find valueKey with
+  | some (.ofNat key) => some key
+  | _ => none
+
+/-- Associate an actual retained value with one occurrence of its checked source term.
+Reuse: Lean MData, preserved by closure and ignored by kernel conversion, as sourceReference. -/
+def markValue (marks : IO.Ref (Array ValueBinding)) (value : ValueBinding) (expression : Expr) :
+    BaseIO Expr := do
+  let key ← marks.modifyGet fun values => (values.size, values.push value)
+  return .mdata (KVMap.empty.setNat valueKey key) expression
 
 private def selectedReferences (indices : Array Nat) (values : Array (Option ValueBinding)) :
     Except String (Array ValueBinding) := do
@@ -266,6 +295,7 @@ structure ValueOrigin where
   parameters : Array (Option ValueBinding)
   application : Option ApplicationOrigin := none
   access : Option ValueBinding := none
+  accessPath : Array Name := #[]
 
 /-- Visibility keeps the complete context, stored callable and argument reference planes. -/
 def ValueOrigin.references (origin : ValueOrigin) : Array ValueBinding :=
@@ -326,6 +356,14 @@ private partial def ValueGraph.checkBinding (graph : ValueGraph) (binding : Valu
     unless (graph.find value).isSome do throw "the value reference is outside the visible graph"
     return visited
   | .atRole underlying _ => graph.checkBinding underlying visited
+  | .inProjection id underlying _ parent path _ fields =>
+    if visited.contains id then return visited
+    unless graph.associations.contains id && id.worker == graph.worker && !path.isEmpty do
+      throw "the projection association is outside the visible graph"
+    let mut visited ← graph.checkBinding underlying (visited.insert id)
+    visited ← graph.checkBinding parent visited
+    for field in fields do visited ← graph.checkBinding field visited
+    return visited
   | .inField id underlying _ association field preceding =>
     if visited.contains id then return visited
     unless graph.associations.contains id do
@@ -387,6 +425,12 @@ private partial def ValueGraph.bindingOwners (graph : ValueGraph) (binding : Val
           owners := state.owners.push owner }
     return state
   | .atRole underlying _ => graph.bindingOwners underlying state
+  | .inProjection id underlying _ _ _ _ fields =>
+    if state.instantiations.contains id then return state
+    let mut state ← graph.bindingOwners underlying
+      { state with instantiations := state.instantiations.insert id }
+    for field in fields do state ← graph.bindingOwners field state
+    return state
   | .inField id underlying _ _ field preceding =>
     if state.instantiations.contains id then return state
     let mut state ← graph.bindingOwners underlying
@@ -426,6 +470,7 @@ private def ValueBinding.applicationFields : ValueBinding → Option (Array Valu
   | .direct .. => none
   | .atRole binding _ | .inField _ binding .. => binding.applicationFields
   | .inApplication _ _ _ _ _ _ _ _ fields => some fields
+  | .inProjection _ _ _ _ _ _ fields => some fields
 
 /-- Projection selects the retained field view, independently of unrelated field owners. -/
 opaque ValueGraph.project (graph : ValueGraph) (binding : ValueBinding) (index : Nat) :
@@ -577,6 +622,48 @@ opaque ValueGraph.bindApplication (graph : ValueGraph) (supply : IdentitySupply)
   let graph := { graph with
     associations := graph.associations.insert association.id
     revision := some revision }
+  discard <| IO.ofExcept <| (graph.requiredOwners #[binding]).mapError IO.userError
+  return (graph, binding)
+
+/-- Attach an exact prepared projection to an existing node and its stored field views.
+The parent is retained for visibility and source selection, not as a whole-record owner demand.
+Reuse: bindApplication for original application data, CandidateResponse and immutable associations. -/
+opaque ValueGraph.bindProjection (graph : ValueGraph) (supply : IdentitySupply)
+    (origin : ValueOrigin) (value : ValueBinding) (fields : Array ValueBinding) :
+    IO (ValueGraph × ValueBinding) := do
+  unless supply.worker == graph.worker && origin.program.worker == graph.worker &&
+      origin.occurrence.worker == graph.worker do
+    throw <| IO.userError "projection binding belongs to a different worker"
+  let some parent := origin.access
+    | throw <| IO.userError "projection binding requires its selected parent"
+  if origin.accessPath.isEmpty then
+    throw <| IO.userError "projection binding requires its exact source path"
+  discard <| IO.ofExcept <|
+    (graph.requiredOwners origin.references).mapError IO.userError
+  let candidate ← IO.ofExcept <|
+    (CandidateResponse.ofValue origin.role graph value).mapError IO.userError
+  let some node := graph.find candidate.root.value
+    | throw <| IO.userError "the projected value is outside the visible graph"
+  let stored := match origin.role.kind, node.payload.data with
+    | .record, .product values => values.size
+    | .record, .container value => value.fields.size
+    | _, _ => 0
+  unless fields.size == stored do
+    throw <| IO.userError "projection binding requires its complete stored field views"
+  for field in fields, index in [:fields.size] do
+    let original ← IO.ofExcept <| (graph.project candidate.root index).mapError IO.userError
+    unless original.value == field.value &&
+        original.associationIds.toList.isPrefixOf field.associationIds.toList do
+      throw <| IO.userError "a projection field view changed its original stored reference"
+  let (graph, value) ← if origin.application.isSome then
+      graph.bindApplication supply origin candidate.root fields
+    else pure (graph, candidate.root)
+  let id ← supply.fresh .association
+  let binding := ValueBinding.inProjection id value origin.role parent origin.accessPath
+    candidate.root fields
+  let graph := { graph with
+    associations := graph.associations.insert id
+    revision := some (← supply.fresh .revision) }
   discard <| IO.ofExcept <| (graph.requiredOwners #[binding]).mapError IO.userError
   return (graph, binding)
 

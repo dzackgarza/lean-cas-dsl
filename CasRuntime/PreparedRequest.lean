@@ -28,6 +28,7 @@ structure PreparedRequest where
   application : Option ApplicationLayout
   roles : RoleTelescope
   observation : ObservationDescriptor
+  private actualArguments : Array CasRuntime.RuntimeArgument
   selection : Option Name := none
 
 /-- Carry the exact source construction identity into its prepared field demands. -/
@@ -56,7 +57,10 @@ opaque PreparedRequest.originFor (request : PreparedRequest) (source : SourceLay
     MetaM CasRuntime.ValueOrigin := do
   let origin ← request.environment.origin request.program request.occurrence source
   let application ← request.origin.application.mapM (·.forSource request.source source)
-  return { origin with application, access := request.origin.access }
+  let accessPath ← if request.origin.access.isSome then
+      pure (request.origin.accessPath ++ (← request.source.projectionPathTo source))
+    else pure #[]
+  return { origin with application, access := request.origin.access, accessPath }
 
 private def prepareOrigin (program : CasRuntime.RuntimeId .program)
     (occurrence : CasRuntime.RuntimeId .occurrence) (action : PreparedAction)
@@ -79,7 +83,8 @@ private def prepareRequest (identities : CasRuntime.IdentitySupply)
     (occurrence : CasRuntime.RuntimeId .occurrence) (action : PreparedAction)
     (source : SourceLayout) (context : OpenContext) (scope : Array CasRuntime.ValueBinding)
     (environment : CasRuntime.RuntimeEnvironment) (application : Option ApplicationLayout)
-    (origin : CasRuntime.ValueOrigin) : MetaM PreparedRequest := do
+    (origin : CasRuntime.ValueOrigin)
+    (actualArguments : Array CasRuntime.RuntimeArgument := #[]) : MetaM PreparedRequest := do
   unless identities.worker == program.worker && program.worker == occurrence.worker do
     throwError "request preparation mixed worker identities"
   for binding in scope do
@@ -101,9 +106,9 @@ private def prepareRequest (identities : CasRuntime.IdentitySupply)
   -- A projection inherits its original application, while its own roles demand only the operand.
   let application := origin.application.map (·.layout)
   let observation ← ObservationDescriptor.prepare program occurrence action source scope outputs
-    record environment origin application roles
+    record environment origin application roles actualArguments
   return ⟨program, occurrence, action, source, scope, outputs, record, environment, origin,
-    application, roles, observation, none⟩
+    application, roles, observation, actualArguments, none⟩
 
 /-- Check the complete declared input map before execution or wire encoding.
 Preparation may inspect a source telescope before its input producers have supplied values. -/
@@ -116,6 +121,7 @@ opaque PreparedRequest.admitInputs (request : PreparedRequest) (graph : CasRunti
       | some application => application.arguments
     | .project .. => #[]
   CasRuntime.InputRoleMap.admit request.roles request.environment graph arguments request.scope
+    request.actualArguments
 
 /-- Check indexed actual operands against the complete native source argument sequence.
 Reuse: RuntimeEnvironment.checkArgument; primitive and retained applications share this table. -/
@@ -164,7 +170,7 @@ opaque PreparedRequest.forBoundary (identities : CasRuntime.IdentitySupply)
   let action := PreparedAction.primitive boundary universeArguments
   let origin ← prepareOrigin program occurrence action source environment application values
   prepareRequest identities program occurrence action source context
-    (values.filterMap id ++ scope) environment application origin
+    (values.filterMap id ++ scope) environment application origin actual
 
 /-- Prepare the exact source field of the retained operand in the complete current scope. -/
 opaque PreparedRequest.forProjection (identities : CasRuntime.IdentitySupply)
@@ -185,7 +191,10 @@ opaque PreparedRequest.forProjection (identities : CasRuntime.IdentitySupply)
   let application ← original.mapM (·.forProjection field.projection)
   let action := PreparedAction.project operand field
   let origin ← prepareOrigin program occurrence action source environment none #[]
-  let origin := { origin with application, access := some operand }
+  let origin := { origin with
+    application
+    access := some operand
+    accessPath := #[field.projection] }
   prepareRequest identities program occurrence action source context #[operand]
     environment none origin
 
@@ -209,7 +218,7 @@ opaque PreparedRequest.forApplication (identities : CasRuntime.IdentitySupply)
   let action := PreparedAction.apply callable arguments values
   let origin ← prepareOrigin program occurrence action source environment (some application) values
   prepareRequest identities program occurrence action source context
-    (#[callable] ++ values.filterMap id) environment (some application) origin
+    (#[callable] ++ values.filterMap id) environment (some application) origin actual
 
 /-- A checked returned interface with scoped bindings for subsequent computational demands. -/
 structure PreparedResponse (request : PreparedRequest) where

@@ -1,9 +1,11 @@
 module
 
 import CasRuntime.Execute
+import CasRuntime.Kernel
 import CasContract.Port
 public meta import Lean.Elab.Command
 meta import CasRuntime.Execute
+meta import CasRuntime.Kernel
 meta import CasContract.Port
 
 open Lean Meta CasCompiler CasRuntime
@@ -449,8 +451,51 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         let .ok rejected := RuntimeArgument.ofValue graph 0 other.root
           | throwError "the other projection is outside the graph"
         let argument ← context.close (← mkProjection r `fst)
-        discard <| PreparedRequest.forApplication owners.identities program
+        let acceptedRequest ← PreparedRequest.forApplication owners.identities program
           (← ledger.allocate) context callable #[argument] #[accepted] parameters
+        let path := Json.arr #[CasTools.NativeExpression.nameJson ``Prod.fst]
+        let origin := (firstRequest.observation.native.getObjValD "request").getObjValD "origin"
+        unless origin.getObjValD "accessPath" == path do
+          throwError "the projection observation lost its exact native access path"
+        let document := acceptedRequest.observation.native.getObjValD "request"
+        let .ok scope := document.getObjValAs? (Array Json) "scope"
+          | throwError "the application observation lost its actual input scope"
+        let some observedArgument := scope[1]?
+          | throwError "the application observation lost its actual projected operand"
+        let .ok accesses := observedArgument.getObjValAs? (Array Json) "projections"
+          | throwError "the actual operand observation lost its selected parent and path"
+        let some access := accesses[0]?
+          | throwError "the actual operand observation has no selected projection"
+        let expectedParent := Json.mkObj [("worker", toJson first.value.worker),
+          ("serial", toJson first.value.serial)]
+        unless accesses.size == 1 && access.getObjValD "path" == path &&
+            (access.getObjValD "parent").getObjValD "value" == expectedParent do
+          throwError "the actual operand observation changed its retained parent or native path"
+        let marks ← IO.mkRef (#[] : Array ValueBinding)
+        discard <| markValue marks right s
+        let markedParent ← markValue marks left r
+        let markedSource ← context.close (← mkProjection markedParent `fst)
+        let .ok markedArgument := RuntimeArgument.ofValue graph 0 actual.root (← marks.get)
+          | throwError "the marked projection is outside the graph"
+        let markedRequest ← PreparedRequest.forApplication owners.identities program
+          (← ledger.allocate) context callable #[markedSource] #[markedArgument] parameters
+        discard <| markedRequest.admitInputs graph
+        let markedDocument := markedRequest.observation.native.getObjValD "request"
+        let .ok observedArguments := markedDocument.getObjValAs? (Array Json) "actualArguments"
+          | throwError "the native observation lost its indexed actual arguments"
+        let some observedArgument := observedArguments[0]?
+          | throwError "the native observation lost its marked actual argument"
+        let expectedArgument := Json.mkObj [
+          ("value", Observation.identityJson actual.root.value),
+          ("associations", toJson (actual.root.associationIds.map Observation.identityJson))]
+        let expectedMark := Json.mkObj [("key", toJson (1 : Nat)),
+          ("reference", Json.mkObj [("value", expectedParent),
+            ("associations", toJson (left.associationIds.map Observation.identityJson))])]
+        unless observedArguments.size == 1 &&
+            observedArgument.getObjValD "sourceIndex" == toJson (0 : Nat) &&
+            observedArgument.getObjValD "reference" == expectedArgument &&
+            observedArgument.getObjValD "marks" == Json.arr #[expectedMark] do
+          throwError "argument observation changed its source mark or exposed an unrelated mark"
         let failure : Option Exception ← try
           discard <| PreparedRequest.forApplication owners.identities program
             (← ledger.allocate) context callable #[argument] #[rejected] parameters
@@ -461,4 +506,77 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         unless (← failure.toMessageData.toString).startsWith
             "the runtime argument does not retain its specified source value" do throw failure
         let .ok _ ← transaction.commit | throwError "the selected projections could not commit"
+  finally setEnv original
+
+-- A nested native projection demands only its final selected field.
+-- The intermediate record contains a different field whose real owner has exited.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let original ← getEnv
+  try
+    let empty ← ContextTelescope.capture #[]
+    let scalarRole ← SourceLayout.ofTerm (← empty.close (mkNatLit 7))
+    let callableRole ← SourceLayout.ofTerm (← empty.close (mkConst ``Nat.succ))
+    let innerTerm ← mkAppM ``Prod.mk #[mkNatLit 7, mkConst ``Nat.succ]
+    let outerTerm ← mkAppM ``Prod.mk #[innerTerm, mkNatLit 7]
+    let innerRole ← SourceLayout.ofTerm (← empty.close innerTerm)
+    let outerRole ← SourceLayout.ofTerm (← empty.close outerTerm)
+    let owners ← OwnerRegistry.new
+    let kernel ← Kernel.load owners none none 1000
+    try
+      discard <| SessionSnapshot.initialize owners
+      let producer ← CellTransaction.begin kernel.ledger
+      let program ← owners.identities.fresh .program
+      let occurrence ← kernel.ledger.allocate
+      let child ← owners.spawn { cmd := "/bin/cat" }
+      try
+        child.child.stdin.putStr "nested stored callable\n"
+        child.child.stdin.flush
+        let token := (← child.child.stdout.getLine).trimAscii.toString
+        let scalar ← producer.stage
+          { program, occurrence, role := scalarRole, parameters := #[] } (.portable "7".toUTF8)
+        let callable ← producer.stage
+          { program, occurrence, role := callableRole, parameters := #[] } (.ownedExport child token #[])
+        let inner ← producer.stage
+          { program, occurrence, role := innerRole, parameters := #[] } (.product #[scalar, callable])
+        let outer ← producer.stage
+          { program, occurrence, role := outerRole, parameters := #[] } (.product #[inner, scalar])
+        let .ok base ← producer.commit | throwError "the nested projection inputs could not commit"
+        owners.close child.generation
+        if ← owners.isLive child.generation then
+          throwError "the nested projection control did not close its field owner"
+        unless (← base.graph.isAvailable owners scalar) &&
+            !(← base.graph.isAvailable owners inner) do
+          throwError "the nested projection control lost its independent field and unavailable parent"
+        withLetDecl `r (← inferType outerTerm) outerTerm fun r => do
+          let id : BindingId := ⟨"nested-owner-projection", 0⟩
+          let context ← ContextTelescope.capture #[{ id, role := .definition, expression := r }]
+          let .ok parameter := RuntimeParameter.ofValue base.graph id outer
+            | throwError "the nested source record is outside the graph"
+          let environment ← RuntimeEnvironment.capture owners.worker context #[parameter]
+          let .ok (some retained) := environment.lookup id
+            | throwError "the nested source record lost its stable binding"
+          let bound := ({} : Std.HashMap BindingId ValueBinding).insert id retained
+          let innerSource ← mkProjection r `fst
+          let consumer ← CellTransaction.begin kernel.ledger
+          try
+            let selected ← kernel.run consumer context bound (← mkProjection innerSource `fst) none
+            unless selected.value == scalar.value do
+              throwError "nested source projection replaced its actual portable grandchild"
+            let .ok _ ← consumer.commit
+              | throwError "an unrelated nested field owner blocked the selected grandchild's publication"
+          finally discard <| consumer.abort
+          let failed ← CellTransaction.begin kernel.ledger
+          let failure : Option Exception ← try
+            discard <| kernel.run failed context bound (← mkProjection innerSource `snd) none
+            pure none
+          catch error => pure (some error)
+          let some failure := failure
+            | throwError "nested source projection returned its dead owned grandchild"
+          unless (← failure.toMessageData.toString).endsWith "unavailable: stale_owner" do
+            throw failure
+          match ← failed.commit with
+          | .error .settled => pure ()
+          | _ => throwError "failed nested source projection retained a publishable transaction"
+      finally owners.close child.generation
+    finally kernel.close
   finally setEnv original

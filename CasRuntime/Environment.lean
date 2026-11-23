@@ -32,15 +32,48 @@ structure RuntimeArgument where
   index : Nat
   value : ValueBinding
   private origin : ValueOrigin
+  private graph : ValueGraph
+  private marks : Array ValueBinding
 
 /-- Retain operand provenance from the visible graph before native application preparation.
 Reuse: the same graph visibility and immutable producing-origin checks as RuntimeParameter. -/
-opaque RuntimeArgument.ofValue (graph : ValueGraph) (index : Nat) (value : ValueBinding) :
+opaque RuntimeArgument.ofValue (graph : ValueGraph) (index : Nat) (value : ValueBinding)
+    (marks : Array ValueBinding := #[]) :
     Except String RuntimeArgument := do
   discard <| graph.requiredOwners #[value]
   let some node := graph.find value.value
     | throw "the runtime argument is outside the visible graph"
-  return ⟨index, value, node.origin⟩
+  return ⟨index, value, node.origin, graph, marks⟩
+
+/-- Read every native metadata occurrence, including equal terms carrying different marks. -/
+private partial def sourceMarkKeys (expression : Expr) (keys : Array Nat) : Array Nat :=
+  match expression with
+  | .mdata data body =>
+    let keys := match markedKey? data with
+      | some key => if keys.contains key then keys else keys.push key
+      | none => keys
+    sourceMarkKeys body keys
+  | .app function argument => sourceMarkKeys argument (sourceMarkKeys function keys)
+  | .lam _ type body _ | .forallE _ type body _ =>
+    sourceMarkKeys body (sourceMarkKeys type keys)
+  | .letE _ type value body _ =>
+    sourceMarkKeys body (sourceMarkKeys value (sourceMarkKeys type keys))
+  | .proj _ _ body => sourceMarkKeys body keys
+  | _ => keys
+
+/-- Resolve only marks present in this argument's retained native source and complete context.
+The captured argument table is authoritative; observation never consults mutable global marks.
+Reuse: ClosedTerm's existing expression/type/context data and exact ValueBinding references. -/
+opaque RuntimeArgument.sourceMarks (argument : RuntimeArgument) (source : ClosedTerm) :
+    Except String (Array (Nat × ValueBinding)) := do
+  let mut keys := sourceMarkKeys source.type (sourceMarkKeys source.expression #[])
+  for entry in source.context.entries do
+    keys := sourceMarkKeys entry.type keys
+    if let some value := entry.value then keys := sourceMarkKeys value keys
+  keys.mapM fun key => do
+    let some value := argument.marks[key]?
+      | throw "the source observation lost a retained occurrence mark"
+    return (key, value)
 
 /-- The complete semantic telescope and its separate ordered runtime-binding table.
 Formal-only entries retain their source definitions, hypotheses and selected instances.
@@ -176,9 +209,92 @@ opaque RuntimeEnvironment.capture (worker : String) (context : OpenContext)
   let values := context.bindings.map fun binding => supplied[binding.id]?
   return ⟨worker, context.telescope, values, inputProjections⟩
 
+/-- Whether a source parent already has an explicit runtime occurrence.
+Formal selected instances have none; runtime-bound class values keep the same exact identity
+as other values. Reuse: stable binding lookup, retained-value marks and native projections. -/
+partial def RuntimeEnvironment.hasRetainedSource (environment : RuntimeEnvironment)
+    (context : OpenContext) (specified : Expr) : MetaM Bool := do
+  if let .mdata data body := specified then
+    if (markedKey? data).isSome then return true
+    if (data.find `CasCompiler.source.kind).isSome ||
+        (data.find `CasCompiler.selection).isSome then return false
+    return ← environment.hasRetainedSource context body
+  if specified.isFVar then
+    let some binding := context.bindings.find? (·.expression == specified)
+      | throwError "the source argument is outside the complete runtime telescope"
+    match environment.lookup binding.id with
+    | .ok (some _) => return true
+    | .ok none =>
+      if let some definition := (← specified.fvarId!.getDecl).value? then
+        return ← environment.hasRetainedSource context definition
+      return false
+    | .error reason => throwError "the source argument is outside its telescope: {reason}"
+  if let some projection ← SourceProjection.ofExpr? specified then
+    return ← environment.hasRetainedSource context projection.parent
+  return false
+
+/-- Check an operand's retained source selection. Projection names describe the already
+selected path; the parent comes only from that value's association or producing origin.
+Native conversion may check other expressions, but never chooses a projected parent. -/
+private partial def RuntimeEnvironment.retainsSourceReference (environment : RuntimeEnvironment)
+    (context : OpenContext) (graph : ValueGraph) (marks : Array ValueBinding)
+    (specified : Expr) (value : ValueBinding) (requireAnchor : Bool := false)
+    (anchored : Bool := false) : MetaM Bool := do
+  if let .mdata data body := specified then
+    if let some key := markedKey? data then
+      let some selected := marks[key]?
+        | throwError "the source argument lost its retained occurrence mark"
+      let .ok _ := graph.requiredOwners #[selected]
+        | throwError "the source argument's marked occurrence is outside the visible graph"
+      unless retainsReference selected value do return false
+      -- A mark adds an identity constraint; it cannot replace a variable or field constraint.
+      return ← environment.retainsSourceReference context graph marks body value requireAnchor true
+    if (data.find `CasCompiler.source.kind).isNone &&
+        (data.find `CasCompiler.selection).isNone then
+      return ← environment.retainsSourceReference context graph marks body value requireAnchor anchored
+  if specified.isFVar then
+    let some binding := context.bindings.find? (·.expression == specified)
+      | throwError "the source argument is outside the complete runtime telescope"
+    match environment.lookup binding.id with
+    | .ok (some retained) => return retainsReference retained value
+    | .ok none =>
+      let some definition := (← specified.fvarId!.getDecl).value?
+        | throwError "the source argument has no retained runtime binding"
+      return ← environment.retainsSourceReference context graph marks definition value requireAnchor anchored
+    | .error reason => throwError "the source argument is outside its telescope: {reason}"
+  let projection ← SourceProjection.ofExpr? specified
+  let runtimeProjection ← match projection with
+    | none => pure false
+    | some projection =>
+      if !projection.info.fromClass then pure true
+      else environment.hasRetainedSource context projection.parent
+  if runtimeProjection then
+    let some node := graph.find value.value
+      | throwError "the runtime argument is outside the visible graph"
+    let mut selected := value.projectionAccesses
+    if let some parent := node.origin.access then
+      selected := selected.push (parent, node.origin.accessPath)
+    for (parent, path) in selected do
+      if path.isEmpty then continue
+      let mut original := specified
+      let mut matchedPath := true
+      for projection in path.reverse do
+        let some step ← SourceProjection.ofExpr? original
+          | matchedPath := false; break
+        unless step.declaration == projection do
+          matchedPath := false
+          break
+        original := step.parent
+      if matchedPath then
+        if ← environment.retainsSourceReference context graph marks original parent true then return true
+    return false
+  if requireAnchor && !anchored then return false
+  let original ← value.role.source.inContext context
+  return ← isDefEq original specified
+
 /-- Bind the supplied operand to its actual source argument, rather than a same-typed value.
-Source variables use their stable-ID runtime association. Other terms require their retained
-native consuming expression. Reuse: the complete type/dependency checks and native conversion. -/
+Source variables use their stable-ID runtime association. A projection retains the exact path
+and selected parent. Reuse: complete type/dependency checks and native projection metadata. -/
 opaque RuntimeEnvironment.checkArgument (environment : RuntimeEnvironment) (source : ClosedTerm)
     (argument : RuntimeArgument) : MetaM ValueBinding := do
   unless argument.value.value.worker == environment.worker do
@@ -191,26 +307,10 @@ opaque RuntimeEnvironment.checkArgument (environment : RuntimeEnvironment) (sour
     checkNativeType context expected argument.value argument.origin
     checkDependencies context environment.inputProjections environment.bindingMap
       expected argument.value argument.origin
-    -- A source variable with a computed value is that retained value. A definition that no
-    -- provider computed is its definition, so its argument is checked like any other term.
-    let retained ← if specified.isFVar then do
-        let some binding := bindings.find? (·.expression == specified)
-          | throwError "the source argument is outside the complete runtime telescope"
-        match environment.lookup binding.id with
-        | .ok (some retained) => pure (some retained)
-        | .ok none =>
-          if (← specified.fvarId!.getDecl).value?.isNone then
-            throwError "the source argument has no retained runtime binding"
-          pure none
-        | .error reason => throwError "the source argument is outside its telescope: {reason}"
-      else pure none
-    if let some retained := retained then
-      unless retainsReference retained argument.value do
-        throwError "the runtime argument does not retain its specified source value"
-    else
-      let original ← argument.value.role.source.inContext context
-      unless ← isDefEq original specified do
-        throwError "the runtime argument does not retain its specified source value"
+    unless ← environment.retainsSourceReference context argument.graph argument.marks
+        specified argument.value do
+      trace[cas.environment] "argument {argument.index}: {specified}; retained source {← argument.value.role.source.inContext context}"
+      throwError "the runtime argument does not retain its specified source value"
     let role ← SourceLayout.ofTerm (← context.close specified)
     let .ok value := argument.value.withRole role
       | throwError "the source argument has no computational runtime role"

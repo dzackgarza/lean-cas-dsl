@@ -32,7 +32,8 @@ structure InputRoleMap where
 Reuse: native RuntimeEnvironment checks and immutable graph visibility. Proof positions stay
 in the telescope without a runtime payload. This is input-map admission, not result admission. -/
 opaque InputRoleMap.admit (telescope : RoleTelescope) (environment : RuntimeEnvironment)
-    (graph : ValueGraph) (arguments : Array (Option ValueBinding)) (captures : Array ValueBinding) :
+    (graph : ValueGraph) (arguments : Array (Option ValueBinding)) (captures : Array ValueBinding)
+    (actual : Array RuntimeArgument := #[]) :
     MetaM InputRoleMap := do
   unless graph.worker == telescope.scope.program.worker && graph.worker == environment.worker do
     throwError "the computational input map belongs to a different worker"
@@ -45,8 +46,17 @@ opaque InputRoleMap.admit (telescope : RoleTelescope) (environment : RuntimeEnvi
     if declared.wireIndex.isSome then
       let some value := supplied
         | throwError "a demanded computational argument role has no actual binding"
-      let .ok argument := RuntimeArgument.ofValue graph index value
+      let .ok _ := graph.requiredOwners #[value]
         | throwError "a computational argument is outside the visible graph"
+      let argument ← if let some retained := actual.find? (·.index == index) then do
+          unless retained.value.value == value.value &&
+              retained.value.associationIds == value.associationIds do
+            throwError "a computational argument changed its prepared source occurrence"
+          pure retained
+        else do
+          let .ok argument := RuntimeArgument.ofValue graph index value
+            | throwError "a computational argument is outside the visible graph"
+          pure argument
       let value ← environment.checkArgument declared.role.source argument
       bindings := bindings.insert declared.role.id ⟨declared.role.id, .argument index, value⟩
     else
