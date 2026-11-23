@@ -9,8 +9,9 @@ meta import LeanCategories.Catalogue.Semantics.Algebra.FiniteGroups
 open Lean Meta CasCompiler CasRuntime CasCatalogue CasCatalogue.Backend
 
 -- The registered group kernel returns an inclusion into the input arrow's source.
--- Equal endpoint terms have distinct retained nodes. The reply supplies only the new
--- apex and defining map, as in RoutedResultSchemaProbes on work/kernel-v1-20261023.
+-- Equal endpoint terms have distinct retained nodes. The complete three-field reply
+-- names its retained ambient by a scoped reference; changing that reference is malformed.
+-- This is the retained-ambient control from RoutedResultSchemaProbes on work/kernel-v1-20261023.
 -- Opaque payloads exercise field assembly; they assert no computed group-theoretic answer.
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
@@ -75,14 +76,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           transaction.reserve occurrence selected connection #[input]
           | throwError "the fixed-result field assembly could not reserve its reply"
         let scope ← liftM (m := IO) <|
-          RequestScope.issue ledger reservation graph #[input] #[] #[]
+          RequestScope.issue ledger reservation graph #[left, right, input] #[] #[]
         let tokens := #["returned kernel group", "returned kernel inclusion"]
         let values := tokens.map (fun token => ComputationalValue.encode (.opaque token))
         let exports := tokens.map (fun token => Json.mkObj [
           ("token", .str token), ("captures", .arr #[])])
         let frame := Json.mkObj [
           ("request_id", toJson (1 : Nat)), ("status", .str "ok"),
-          ("value", .arr values), ("exports", .arr exports)]
+          ("value", .arr #[values[0]!, (ScopedReference.scope 0).encode, values[1]!]),
+          ("exports", .arr exports)]
         let reply ← liftM (m := IO) <|
           ImmediateReply.parseControl scope reservation graph scope.wireId 1 frame
         let (draft, response) ← reply.materialize request transaction scope connection
@@ -103,6 +105,34 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             | throwError "a new kernel field lost its returned native data"
           unless owner == connection.generation && actual == token do
             throwError "fixed field assembly changed a provider-supplied kernel field"
+        let changedOccurrence ← liftM (m := BaseIO) ledger.allocate
+        let changedRequest ← PreparedRequest.forApplication owners.identities program
+          changedOccurrence context callable #[← context.close receiver] #[argument] #[]
+        let .ok changedReservation ← liftM (m := BaseIO) <|
+          transaction.reserve changedOccurrence selected connection #[input]
+          | throwError "the changed-input control could not reserve its reply"
+        let changedScope ← liftM (m := IO) <|
+          RequestScope.issue ledger changedReservation graph #[left, right, input] #[] #[]
+        let changedTokens := #["candidate kernel group", "candidate kernel inclusion"]
+        let changedValues := changedTokens.map
+          (fun token => ComputationalValue.encode (.opaque token))
+        let changedExports := changedTokens.map (fun token => Json.mkObj [
+          ("token", .str token), ("captures", .arr #[])])
+        let changedFrame := Json.mkObj [
+          ("request_id", toJson (2 : Nat)), ("status", .str "ok"),
+          ("value", .arr #[changedValues[0]!, (ScopedReference.scope 1).encode, changedValues[1]!]),
+          ("exports", .arr changedExports)]
+        let changedReply ← liftM (m := IO) <| ImmediateReply.parseControl changedScope
+          changedReservation graph changedScope.wireId 2 changedFrame
+        let failure : Option Exception ← try
+          discard <| changedReply.materialize changedRequest transaction changedScope connection
+          pure none
+        catch error => pure (some error)
+        let some failure := failure
+          | throwError "fixed result admission accepted a different equal-valued source input"
+        unless CasCatalogue.Exception.stratum? failure == some .malformed do throw failure
+        unless (← failure.toMessageData.toString).endsWith
+            "the reply changed a fixed source input" do throw failure
       finally discard <| liftM (m := BaseIO) transaction.abort
     finally liftM (m := IO) <| owners.close connection.generation
   finally setEnv original
