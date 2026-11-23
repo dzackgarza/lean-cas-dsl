@@ -356,14 +356,58 @@ run_cmd Lean.Elab.Command.liftTermElabM do
               throwError "the public nullary value emitted another demand before its operation"
             let some application := request.origin.application
               | throwError "the nullary operation demand lost its native argument telescope"
-            let arguments := application.arguments
-            unless arguments.size == 2 &&
-                (arguments[0]?.bind id).any (fun value =>
-                  value.value == ring.value && value.associationIds == ring.associationIds) &&
-                (arguments[1]?.bind id).any (fun value =>
-                  value.value == moduleValue.value &&
-                    value.associationIds == moduleValue.associationIds) do
-              throwError "the nullary operation demand replaced its original scalar or module; expected={reprStr #[(ring.value, ring.associationIds), (moduleValue.value, moduleValue.associationIds)]}; actual={reprStr (arguments.map fun argument => argument.map fun value => (value.value, value.associationIds))}; sources={reprStr (application.layout.arguments.map (·.source.source.expression))}"
+            let #[some actualRing, some actualModule] := application.arguments
+              | throwError "the nullary operation changed its complete original argument slots"
+            unless actualRing.value == ring.value &&
+                actualRing.associationIds == ring.associationIds do
+              throwError "the nullary operation changed its original scalar reference"
+            unless actualModule.value == moduleValue.value &&
+                moduleValue.associationIds.toList.isPrefixOf actualModule.associationIds.toList do
+              throwError "the nullary operation changed its original module reference"
+            -- The empty source route applies its declared identity functor to M. Accept
+            -- only that one consuming application over the complete original references.
+            let some identityCall := actualModule.applications.back?
+              | throwError "the nullary module lost its declared identity application"
+            unless actualModule.associationIds ==
+                moduleValue.associationIds.push identityCall.association.id &&
+                identityCall.association.path.isEmpty && identityCall.access.isNone &&
+                identityCall.callable.isSome do
+              throwError "the nullary module acquired another consuming association"
+            let #[some originalModule] := identityCall.arguments
+              | throwError "the nullary identity application changed its original input slots"
+            unless originalModule.value == moduleValue.value &&
+                originalModule.associationIds == moduleValue.associationIds do
+              throwError "the nullary identity application replaced its original module"
+            let #[originalArgument] := identityCall.association.layout.arguments
+              | throwError "the nullary identity family changed its declared argument telescope"
+            let sourceArgument ← originalArgument.source.source.inContext context
+            unless sourceArgument.consumeMData == moduleSource.expression do
+              throwError "the nullary identity application changed its original source binding"
+            let some scalarPosition :=
+                identityCall.association.layout.result.source.context.entries.findIdx?
+                  (·.id == ringSource.id)
+              | throwError "the nullary identity application lost its original scalar context"
+            let some originalRing := identityCall.applicationParameters[scalarPosition]?.bind id
+              | throwError "the nullary identity application lost its actual scalar parameter"
+            unless originalRing.value == ring.value &&
+                originalRing.associationIds == ring.associationIds do
+              throwError "the nullary identity application replaced its original scalar"
+            let some selected ← identityCall.association.layout.inputProjectionAt #[]
+              | throwError "the nullary identity family lost its original input selection"
+            let .argument 0 := selected.target
+              | throwError "the nullary identity family selected another source input"
+            unless selected.path.isEmpty do
+              throwError "the nullary identity family selected a module field"
+            let bundle ← category.value.source.inContext context
+            let carrier ← mkAppM ``CategoryTheory.Bundled.α #[bundle]
+            let structureValue ← mkAppM ``CategoryTheory.Bundled.str #[bundle]
+            let identityFunctor ← mkAppOptM ``CategoryTheory.Functor.id
+              #[some carrier, some structureValue]
+            let identityAction ← mkProjection identityFunctor `obj
+            let family ← identityCall.association.layout.resultTermFamily.inContext context
+            unless (← isDefEq (← inferType family) (← inferType identityAction)) &&
+                (← isDefEq family identityAction) do
+              throwError "the nullary module association changed its whole native identity family"
             observed.set true
             throwError "observed the original nullary operation demand"
           let bound : Std.HashMap BindingId ValueBinding :=
