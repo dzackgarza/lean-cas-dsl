@@ -118,15 +118,24 @@ def sourceAdmission (entry : ObjectEntry) (target : Expr) (read : Expr → TermE
     let proof ← establish entry (← inferType arguments[index]!)
     unless ← isDefEq arguments[index]! proof do
       throwStratum .invalid m!"the evidence of {entry.name} does not apply"
-  let admitted ← instantiateMVars (mkAppN constant (arguments.set! element read))
+  let constant ← instantiateMVars constant
+  let arguments ← (arguments.set! element read).mapM instantiateMVars
+  let admitted := mkAppN constant arguments
   if admitted.hasMVar || admitted.hasLevelMVar then
     throwStratum .invalid m!"the parameters or evidence of {entry.name} are not determined"
-  -- The admitted element's data is the value it admits: the kernel sends that value and does not
-  -- evaluate the admission's definition (constitution C22).
-  let value ← sourcePointValue admitted (some target)
+  -- Keep the complete admission telescope before specializing the point value. Native input
+  -- routing can then select the original element and data-bearing evidence independently;
+  -- inspecting those routes never substitutes or evaluates the actual evidence.
+  let family ← forallTelescope (← inferType constant) fun parameters _ => do
+    let value ← sourcePointValue (mkAppN constant parameters) none
+    mkLambdaFVars parameters value (usedOnly := false) (usedLetOnly := false)
+  let value := mkAppN family arguments
+  unless ← isDefEq (← inferType value) target do
+    throwStratum .invalid m!"the admitted point is not in the selected domain of {entry.name}"
   let .mdata data body := sourceReference ``ObjectEntry.admission entry.id.raw admission value
     | throwError "internal: the admission reference lost its metadata"
-  return .mdata (data.setNat `CasCompiler.source.element element) body
+  return .mdata (data.setNat `CasCompiler.source.element element
+    |>.setNat `CasCompiler.source.admissionArguments arguments.size) body
 
 /-- A binding operator `token` (`∫_{a}^{b} e dt`, `lim_{t → a} e`, `∑_{t ∈ A} e`) through its
 registered rows (Registry.Entry.BinderEntry). The notation's arguments are the operation's last

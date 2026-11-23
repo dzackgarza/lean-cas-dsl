@@ -8,6 +8,8 @@ answered by a deferred published addition on the caller's own ring parameter.
 
 from __future__ import annotations
 
+import sys
+
 from cas_port import deferred_call, deferred_data, input_ref, result_ref, serve
 from cas_session import JsonValue
 
@@ -34,7 +36,8 @@ def _operands(context: JsonValue) -> tuple[int, int]:
 
 def add(context: JsonValue) -> JsonValue:
     left, right = _operands(context)
-    return left + right
+    # Deliberately wrong data only for the explicit proof-discharge regression.
+    return left + right + (1 if "--corrupt-add" in sys.argv[1:] else 0)
 
 
 def multiply(context: JsonValue) -> JsonValue:

@@ -1,6 +1,7 @@
 module
 
 public import CasContract.Registration
+public import CasCatalogue.Admission
 public import CasCompiler.LiftFamily
 public import LeanCategories.Catalogue.Registry.Semantic
 public import LeanCategories.Catalogue.Registry.Computation
@@ -20,6 +21,23 @@ def publishedFamily? (state : SemanticState) (address : String) : Option Computa
   (state.functors.find? (·.id.raw == id) |>.map (.functor ·.id)) <|>
   (state.constructions.find? (·.id.raw == id) |>.map (.construction ·.id)) <|>
   (state.morphisms.find? (·.id.raw == id) |>.map (.morphism ·.id))
+
+/-- A named comparison uses its original full operation address in both directions. -/
+def publishedPresentation? (state : SemanticState) (address : String) :
+    Option PresentationComparisonEntry :=
+  state.presentations.find? (·.id.raw == address)
+
+/-- The public complete-request address and admitted endpoint forms are peers. The own
+address becomes eligible only for a complete presentationApply demand, never for an arrow
+descriptor. Reuse: RegistryState.form?/rejects and the released presentation wire contract. -/
+def presentationFormDefect (state : SemanticState) (row : PresentationComparisonEntry)
+    (input : String) : Option String :=
+  if input == row.id.raw then none
+  else
+    let registry : RegistryState := { toSemanticState := state }
+    match registry.form? input with
+    | none => some s!"{input} is not a published presentation input form"
+    | some form => registry.rejects (.presentation row) form
 
 /-- The selected lift and computation that a lift port names (`<lift id>#<field>`; leaf contract
 api/wire-examples.md, "Prescribed subobject lifts" and "Separate universal factor"). -/
@@ -61,13 +79,18 @@ def admitManifest (parsed : Manifest) : MetaM (Manifest × Array String) := do
     let described :=
       s!"{registration.operation} on {registration.input} by {registration.backend}"
     if (publishedFamily? state registration.operation).isNone &&
-        (publishedLift? state registration.operation).isNone then
+        (publishedLift? state registration.operation).isNone &&
+        (publishedPresentation? state registration.operation).isNone then
       rejected := rejected.push s!"{described}: {registration.operation} is not a published operation"
     else if !parsed.backends.any (·.name == registration.backend) then
       rejected := rejected.push
         s!"{described}: the backend {registration.backend} is not declared in the manifest"
     else if let some defect := registration.preferredRoutes.findSome? (preferenceDefect state) then
       rejected := rejected.push s!"{described}: a declared preferred route is malformed: {defect}"
+    else if let some row := publishedPresentation? state registration.operation then
+      if let some defect := presentationFormDefect state row registration.input then
+        rejected := rejected.push s!"{described}: {defect}"
+      else admitted := admitted.push registration
     else admitted := admitted.push registration
   let installed := { parsed with registrations := admitted }
   return (installed, rejected)

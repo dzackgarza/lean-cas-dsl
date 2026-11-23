@@ -4,7 +4,9 @@ public import CasRuntime.Closure
 public import CasCompiler.Elaborate
 public import CasCompiler.SelectedField
 public import CasCompiler.SelectedMorphism
+public import CasCompiler.InputCoverage
 public import CasRuntime.Transaction
+public import CasRuntime.InputResult
 public import LeanCategories.Catalogue.Registry.Semantic
 public import CasCatalogue.InterpretationFailure
 
@@ -199,12 +201,19 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
       let arrow := body.getAppArgs.back!
       unless arrow.getAppFn.isConstOf ``CategoryTheory.Arrow.mk do
         throwError "the selected endpoint lost its actual arrow"
+      let some endpoint := selectedEndpoint? expression
+        | throwError "the selected endpoint lost its declared constructor argument"
+      let frame ← read
+      let environment ← RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
+      -- This exact Arrow.mk argument may already name an actual input. Preserve that
+      -- reference; otherwise the endpoint remains a descriptor of its selected arrow.
+      if ← environment.hasRetainedSource frame.context endpoint then
+        return ← lower (← argumentSource environment endpoint)
       let value ← lower arrow.getAppArgs.back!
       let template := Json.mkObj [("ctor", "morphismEndpoint"),
         ("args", .arr #[.null, toJson selector])]
-      let .ok payload := ValuePayload.container template
+      let .ok payload := ValuePayload.descriptor template
           #[{ path := #[.field "args", .index 0], binding := value, fieldIndex := none }]
-          (← fieldClosures expression) none
         | throwError "the selected endpoint has an invalid reference layout"
       return ← stage expression payload
     if let some (selection, field) := selectedField? data then
@@ -230,26 +239,15 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
     if data.getName `CasCompiler.source.kind == ``ObjectEntry.application then
       throwStratum .noImplementation
         m!"{data.getString `CasCompiler.source.id}#application has no kernel computation address"
-    -- An admitted element carries the data of the value it admits (ObjectEntry.admission: it
-    -- is determined by that value alone), and keeps its own role, an element of the subobject;
-    -- the admission's definition is not evaluated.
+    -- Admission retains its complete point family, including data-bearing evidence. Only a
+    -- complete native input-result plan may reconstruct its computational record fields.
     if data.getName `CasCompiler.source.kind == ``ObjectEntry.admission then
-      let declaration := data.getName `CasCompiler.source.declaration
-      let some admitted := body.find? (·.getAppFn.isConstOf declaration)
-        | throwError "internal: the admitted element lost its registered admission"
-      let some element := admitted.getAppArgs[data.getNat `CasCompiler.source.element 0]?
-        | throwError "internal: the admitted element lost its value"
-      let value ← lower element
-      -- An element of a subtype is a record whose one computational field is that value.
-      if (← origin expression).role.kind == .record then
-        return ← stageRecord expression #[value]
-      let .ok payload := ValuePayload.container .null
-          #[{ path := #[], binding := value, fieldIndex := none }] #[] none
-        | throwError "internal: the admitted element has an invalid reference layout"
-      return ← stage expression payload
+      return ← admission expression data body
     -- A published computation of a selected lift is sent to its lift's ports, at the
     -- parameters of the lift's evidence; its definition is not unfolded (C22).
     if data.getName `CasCompiler.source.kind == ``LiftFamily then return ← liftFamily data body
+    if data.getName `CasCompiler.source.kind == ``PresentationFamily then
+      return ← presentationFamily data body
     if let some (declaration, address) := namedElement? data then
       let some element := body.find? (·.getAppFn.isConstOf declaration)
         | throwError "internal: the named element lost its registered declaration"
@@ -262,8 +260,11 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
           throwStratum .noImplementation
             m!"the leg {ordinal} of {address} is a map of sets; no published address applies it"
         return ← descriptor expression s!"{address}#leg" (arguments.push (mkNatLit ordinal))
-          (← fieldClosures expression)
-      return ← namedConstant expression address arguments
+      if (← origin expression).role.kind == .function then return ← closure expression
+      -- A published element names its whole value at these arguments. Its native record
+      -- schema does not supply computed fields, and projecting the same named source again
+      -- is not executable field code. Its registered consumers retain the descriptor.
+      return ← descriptor expression address arguments
     match selectedReference? data with
     | some (declaration, _) =>
       if body.isConstOf declaration then application expression
@@ -293,6 +294,13 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
       if (markedKey? data).isSome then
         return ← apply (← lower expression.getAppFn) expression.getAppArgs
       if (selectedReference? data).isSome then return ← application expression
+    -- Select a native constructor field before head reduction can discard its retained-value
+    -- or source-boundary metadata. This reads only the exact selected constructor argument.
+    -- Reuse the metadata-preserving projection step from Layout.inputProjectionHead.
+    if let some projection ← SourceProjection.ofExpr? expression then
+      if projection.parent.getAppFn.constName? == some projection.info.ctorName then
+        if let some selected ← projectCore? projection.parent projection.info.i then
+          return ← lower selected
     if let .proj owner index (.mdata data value) := expression then
       if (markedKey? data).isSome then
         let some info := getStructureInfo? (← getEnv) owner
@@ -307,6 +315,8 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
     unless type.isSort || (type.getAppFn.constName?.map (isStructure (← getEnv))).getD false do
       if let some packet ← literal? expression then
         return ← stage expression (.portable packet.compress.toUTF8)
+    if (type.getAppFn.constName?.map (isStructure (← getEnv))).getD false then
+      if let some value ← nativeInputRecord? expression then return value
     -- Head reduction only: no let substitution and no unfolding under a projection, so a
     -- published family below a field stays a demand and is not replaced by its definition.
     let reduced ← withConfig (fun config =>
@@ -323,14 +333,14 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
       if type.isProp then
         -- A quantified proposition is decided by a published predicate or not at all (C22).
         throwStratum .noImplementation m!"the proposition {expression} has no published predicate"
-      descriptor expression "lean:type" #[] #[]
+      descriptor expression "lean:type" #[]
     | _ => application expression
 
 /-- A descriptor of a named source constant at its actual explicit arguments.
 Reference: CasContract.Port descriptor grammar `{"ctor": address, "args": [...]}`.
 Each argument is lowered and keeps its own retained reference in a typed slot. -/
 private partial def descriptor (expression : Expr) (address : String) (arguments : Array Expr)
-    (fields : Array ValueBinding) : LowerM ValueBinding := do
+    (fields : Option (Array ValueBinding) := none) : LowerM ValueBinding := do
   let mut packets := #[]
   let mut slots := #[]
   for argument in arguments do
@@ -340,7 +350,10 @@ private partial def descriptor (expression : Expr) (address : String) (arguments
       ContainerSlot)
     packets := packets.push Json.null
   let packet := Json.mkObj [("ctor", toJson address), ("args", .arr packets)]
-  let .ok payload := ValuePayload.container packet slots fields none
+  let built := match fields with
+    | some fields => ValuePayload.container packet slots fields none
+    | none => ValuePayload.descriptor packet slots
+  let .ok payload := built
     | throwError "internal: the descriptor of {address} has an invalid reference layout"
   stage expression payload
 
@@ -362,9 +375,10 @@ record value keeps each computational field as a closure beside its descriptor. 
 private partial def namedConstant (expression : Expr) (address : String) (arguments : Array Expr) :
     LowerM ValueBinding := do
   if (← origin expression).role.kind == .function then return ← closure expression
-  descriptor expression address arguments (← fieldClosures expression)
+  descriptor expression address arguments (some (← fieldClosures expression))
 
-/-- The computational fields of a record value named by a descriptor, each retained as code. -/
+/-- Native fields of an ordinary registered constant whose definition `field` may open.
+Published element descriptors do not use these closures: their fields require computation. -/
 private partial def fieldClosures (expression : Expr) : LowerM (Array ValueBinding) := do
   let frame ← read
   let mut fields := #[]
@@ -389,7 +403,9 @@ Lean's reduction of that definition. Any other record is lowered, and the field 
 private partial def field (owner : Name) (index : Nat) (value : Expr) (name : MessageData) :
     LowerM ValueBinding := do
   if let .mdata data _ := value then
-    if (markedKey? data).isSome then return ← project (← lower value) index name
+    if (markedKey? data).isSome ||
+        data.getName `CasCompiler.source.kind == ``PresentationFamily then
+      return ← project (← lower value) index name
   if (← isClass? (← whnf (← inferType value))).isSome then
     let reduced ← whnfCore (.proj owner index (← whnf value))
     if reduced.isProj then
@@ -414,19 +430,166 @@ private partial def project (operand : ValueBinding) (index : Nat) (field : Mess
     (← frame.environment.ledger.allocate) frame.context graph operand index (← parameters)
   demand request
 
-private partial def actualArguments (arguments : Array Expr) :
+/-- Retain each computed projection parent before forming its field access.
+Native metadata distinguishes formal selected instances from runtime class records. Nested
+projections are prepared inside out; no returned field is relabelled as its expected source. -/
+private partial def argumentSource (environment : RuntimeEnvironment) (expression : Expr) :
+    LowerM Expr := do
+  let frame ← read
+  -- Use the same retained constructor argument as endpoint lowering, so native
+  -- argument admission checks its original source reference and association chain.
+  if let some endpoint := selectedEndpoint? expression then
+    if ← environment.hasRetainedSource frame.context endpoint then
+      return ← argumentSource environment endpoint
+  if let .mdata data body := expression then
+    if (markedKey? data).isSome || (data.find `CasCompiler.source.kind).isSome then
+      return expression
+    if (selectedField? data).isSome then
+      let value ← lower expression
+      return ← markValue frame.environment.marks value expression
+    return .mdata data (← argumentSource environment body)
+  if let .fvar id := expression then
+    if let some binding := frame.context.bindings.find? (·.expression.fvarId! == id) then
+      if frame.bound.contains binding.id then return expression
+    if let some value := (← id.getDecl).value? then
+      return ← argumentSource environment value
+  let some projection ← SourceProjection.ofExpr? expression | return expression
+  if projection.info.fromClass &&
+      !(← environment.hasRetainedSource frame.context projection.parent) then
+    return expression
+  let parent ← argumentSource environment projection.parent
+  let value ← lower parent
+  let parent ← markValue frame.environment.marks value parent
+  return .proj (← getConstInfoCtor projection.info.ctorName).induct projection.info.i parent
+
+private partial def actualArguments (arguments : Array Expr)
+    (deferAfter : Option Nat := none) (required : Option (Array Nat) := none) :
     LowerM (Array ClosedTerm × Array RuntimeArgument) := do
   let frame ← read
+  let environment ← RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
   let mut values : Array (Nat × ValueBinding) := #[]
+  let mut sources : Array Expr := #[]
   for argument in arguments, index in [:arguments.size] do
-    unless ← isProof argument do values := values.push (index, ← lower argument)
+    if ← isProof argument then sources := sources.push argument
+    else
+      -- Complete source coverage has already identified unused admission evidence. Keep its
+      -- formal slot without touching its source parent or manufacturing a runtime value.
+      if deferAfter.any (· < index) && required.any (fun needed => !needed.contains index) then
+        sources := sources.push argument
+        continue
+      -- Used evidence follows ordinary retained-source preparation first. A projection of a
+      -- lazy parent is a genuine demand; only unanchored native evidence code remains lazy.
+      let source ← argumentSource environment argument
+      let deferred ← if deferAfter.any (· < index) then
+          environment.hasRetainedSource frame.context source <&> Bool.not
+        else pure false
+      let value ← if deferred then closure source else lower source
+      values := values.push (index, value)
+      sources := sources.push source
   let graph ← frame.environment.transaction.view
+  let marks ← frame.environment.marks.get
   let actual ← values.mapM fun (index, value) => do
-    let .ok argument := RuntimeArgument.ofValue graph index value
+    let .ok argument := RuntimeArgument.ofValue graph index value marks
       | throwError "internal: a lowered source argument is outside the active graph"
     return argument
-  let closed ← arguments.mapM fun argument => frame.context.close argument
+  let closed ← sources.mapM fun argument => frame.context.close argument
   return (closed, actual)
+
+/-- Retain the original admission arguments and use the common application result plan.
+Only Prop hypotheses are erased. Selected lazy fields use ordinary projection demands;
+neither the admission nor its evidence is evaluated to discover a record interface. -/
+private partial def admission (expression : Expr) (data : MData) (body : Expr) :
+    LowerM ValueBinding := do
+  let frame ← read
+  let declaration := data.getName `CasCompiler.source.declaration
+  let arguments := body.getAppArgs
+  let family := body.getAppFn
+  unless family.isLambda && arguments.size ==
+      data.getNat `CasCompiler.source.admissionArguments 0 do
+    throwError "internal: the admitted element lost its complete point family"
+  let element := data.getNat `CasCompiler.source.element 0
+  unless element < arguments.size do
+    throwError "internal: the admitted element lost its value"
+  lambdaBoundedTelescope family arguments.size fun parameters value => do
+    let some admitted := value.find? (·.getAppFn.isConstOf declaration)
+      | throwError "internal: the admitted point family lost its registered declaration"
+    unless parameters.size == arguments.size && admitted.getAppArgs == parameters do
+      throwError "internal: the admitted point family changed its complete argument telescope"
+  -- Establish complete source coverage before preparing any actual argument. The runtime
+  -- independently seals the same formal coverage against its exact prepared role telescope.
+  let sourceArguments ← arguments.mapM fun argument => frame.context.close argument
+  let (_, sourceApplication) ← ApplicationLayout.ofSource
+    (← SourceLayout.ofTerm (← frame.context.close family)) frame.context sourceArguments
+  let required ← sourceApplication.inputResultArguments ((← parameters).map (·.source))
+  if required.isNone then
+    for argument in arguments.extract (element + 1) arguments.size do
+      unless ← isProof argument do
+        throwStratum .noImplementation
+          m!"the admission {data.getString `CasCompiler.source.id} requires unavailable computational evidence fields"
+  let callable ← closure family
+  let (closed, actual) ← actualArguments arguments (some element) required
+  let request ← PreparedRequest.forApplication (← supply) frame.program
+    (← frame.environment.ledger.allocate) frame.context callable closed actual (← parameters)
+  if (← request.inputResultPlan (← frame.environment.transaction.view)).isSome then
+    return ← demand request
+  -- Proof-only admissions also retain a transparent presentation of the original value
+  -- (for example a finite subset's extent). It is a descriptor, not a native field table:
+  -- no result field is invented from its type, and no choice definition is opened.
+  for argument in arguments.extract (element + 1) arguments.size do
+    unless ← isProof argument do
+      throwStratum .noImplementation
+        m!"the admission {data.getString `CasCompiler.source.id} requires unavailable computational evidence fields"
+  let some value := actual.find? (·.index == element)
+    | throwError "internal: the admitted element lost its actual value"
+  let .ok payload := ValuePayload.descriptor .null
+      #[{ path := #[], binding := value.value, fieldIndex := none }]
+    | throwError "internal: the admitted element has an invalid reference layout"
+  stage expression payload
+
+/-- Keep each original formal argument once when a native record conversion returns only
+its input projections. Delta substitution may duplicate a closed record expression beneath
+several dependent fields; the existing prepared application preserves its actual occurrence.
+Source coverage is complete before any argument is touched. Unused computational arguments
+leave this path unchanged, and marked arguments in a resumed native call need no new boundary. -/
+private partial def nativeInputRecord? (expression : Expr) : LowerM (Option ValueBinding) := do
+  let .const declaration _ := expression.getAppFn | return none
+  let arguments := expression.getAppArgs
+  if arguments.isEmpty then return none
+  let state ← semanticState
+  unless (computationRefs state declaration).isEmpty &&
+      (descriptorIds state declaration).isEmpty &&
+      ((← getEnv).getProjectionFnInfo? declaration).isNone do return none
+  let some (.defnInfo _) := (← getEnv).find? declaration | return none
+  let some expanded ← unfoldDefinition? expression | return none
+  let some constructor := expanded.getAppFn.constName? | return none
+  let some (.ctorInfo _) := (← getEnv).find? constructor | return none
+  let frame ← read
+  let sourceArguments ← arguments.mapM fun argument => frame.context.close argument
+  let source ← SourceLayout.ofTerm (← frame.context.close expression.getAppFn)
+  let (result, application) ← ApplicationLayout.ofSource source frame.context sourceArguments
+  unless result.kind == .record && result.fields.any
+      (fun field => field.wireIndex.isSome && !field.precedingDependencies.isEmpty) do return none
+  let actualParameters ← parameters
+  let some required ← application.inputResultArguments (actualParameters.map (·.source))
+    | return none
+  -- Ordinary application admission stays total. This conservative path never evaluates a
+  -- source slot that the complete native result and its type dependencies did not require.
+  for argument in application.arguments do
+    if argument.wireIndex.isSome && !required.contains argument.sourceIndex then return none
+  let environment ← RuntimeEnvironment.capture (← supply).worker frame.context actualParameters
+  let mut allRetained := true
+  for argument in arguments do
+    if ← isProof argument then continue
+    unless ← environment.hasRetainedSource frame.context argument do allRetained := false
+  if allRetained then return none
+  let callable ← closure expression.getAppFn
+  let (closed, actual) ← actualArguments arguments
+  let request ← PreparedRequest.forApplication (← supply) frame.program
+    (← frame.environment.ledger.allocate) frame.context callable closed actual (← parameters)
+  unless (← request.inputResultPlan (← frame.environment.transaction.view)).isSome do
+    throwStratum .noImplementation
+      "the native record conversion requires unavailable input fields"
+  return some (← demand request)
 
 private partial def apply (callable : ValueBinding) (arguments : Array Expr) :
     LowerM ValueBinding := do
@@ -487,15 +650,52 @@ private partial def liftFamily (data : MData) (body : Expr) : LowerM ValueBindin
     frame.context closed actual #[] (← parameters)
   demand request
 
+/-- Prepare the original comparison family and its exact complete endpoint values before any
+point demand. Default endpoints use the same admitted native parameter positions; explicitly
+supplied endpoints retain their own scoped bindings. No endpoint field data is manufactured. -/
+private partial def presentationFamily (data : MData) (body : Expr) : LowerM ValueBinding := do
+  let frame ← read
+  let address := data.getString `CasCompiler.source.id
+  let some row := (← semanticState).presentations.find? (·.id.raw == address)
+    | throwError "the selected presentation {address} is not registered"
+  let family ← PresentationFamily.forEntry row
+  let (applied, supplied) ← family.unmark data body
+  let (head, levels) ← family.instantiate
+  unless ← isDefEq head applied.getAppFn do
+    throwError "the selected presentation changed its native declaration"
+  let (closed, actual) ← actualArguments applied.getAppArgs
+  let endpoints ← match supplied with
+    | some endpoints => pure endpoints
+    | none => do
+      let mut arguments ← closed.mapM (·.inContext frame.context)
+      for argument in actual do
+        arguments := arguments.set! argument.index (← markValue frame.environment.marks
+          argument.value arguments[argument.index]!)
+      family.endpoints (mkAppN applied.getAppFn arguments)
+  let (endpointSources, endpointValues) ← actualArguments #[endpoints.1, endpoints.2]
+  let request ← PreparedRequest.forPresentation (← supply) frame.program
+    (← frame.environment.ledger.allocate) family (← levels.mapM instantiateLevelMVars)
+    frame.context closed actual endpointSources endpointValues (← parameters)
+  demand request
+
 private partial def application (expression : Expr) : LowerM ValueBinding := do
   let frame ← read
   let arguments := expression.getAppArgs
-  let (function, selected) := match expression.getAppFn with
+  let (function, selected, forms) ← match expression.getAppFn with
     | .mdata data head => match selectedReference? data with
       | some (declaration, reference) =>
-        if head.isConstOf declaration then (head, some reference) else (expression.getAppFn, none)
-      | none => (expression.getAppFn, none)
-    | head => (head, none)
+        if !head.isConstOf declaration then pure (expression.getAppFn, none, #[])
+        else do
+          let forms : Array String ← match data.find `CasCompiler.source.inputForms with
+            | none => pure #[]
+            | some (.ofString encoded) =>
+              match Json.parse encoded >>= fromJson? with
+              | .ok forms => pure forms
+              | .error error => throwError "the selected source input forms are malformed: {error}"
+            | _ => throwError "the selected source input forms have an invalid encoding"
+          pure (head, some reference, forms)
+      | none => pure (expression.getAppFn, none, #[])
+    | head => pure (head, none, #[])
   let .const name levels := function
     | return ← apply (← lower function) arguments
   let expression := mkAppN function arguments
@@ -516,7 +716,7 @@ private partial def application (expression : Expr) : LowerM ValueBinding := do
     let request ← PreparedRequest.forBoundary (← supply) frame.program
       (← frame.environment.ledger.allocate) (.registered family) levels frame.context closed actual
       #[] (← parameters)
-    return ← apply (← demand request) (arguments.extract arity arguments.size)
+    return ← apply (← demand (request.withSourceForms forms)) (arguments.extract arity arguments.size)
   if let some info := (← getEnv).getProjectionFnInfo? name then
     if info.numParams < arguments.size then
       if info.fromClass then
@@ -535,13 +735,12 @@ private partial def application (expression : Expr) : LowerM ValueBinding := do
     let fields := arguments.extract constructor.numParams arguments.size
     if isStructure (← getEnv) constructor.induct then return ← record expression fields
     descriptor expression name.getString! (← fields.filterM fun field => return !(← isProof field))
-      #[]
   | some (.inductInfo _) =>
     if (← whnf (← inferType expression)).isProp then
       -- A proposition formed by a type former has no computed truth value of its own (C22).
       throwStratum .noImplementation m!"the proposition {name} has no published predicate"
     -- A type former at its arguments is an object of the category of sets.
-    descriptor expression s!"lean:{name}" (← explicitArguments expression) #[]
+    descriptor expression s!"lean:{name}" (← explicitArguments expression)
   | some (.recInfo _) | some (.quotInfo _) =>
     -- The kernel evaluates no eliminator (constitution C22): branching belongs to the leaf
     -- that implements an operation.

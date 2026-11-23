@@ -10,6 +10,8 @@ namespace CasRuntime
 
 open Lean Meta CasCompiler CasCatalogue CasCatalogue.Backend
 
+mutual
+
 /-- An operand of a child call at its declared type. A scoped reference is its retained value; a
 structure given as an array is read field by field at the constructor's field types, so a
 reference may stand at any position (`[resultRef, 46]` for a pair); anything else is a scalar
@@ -24,6 +26,18 @@ private partial def childOperand (marks : IO.Ref (Array ValueBinding)) (context 
     unless ← isDefEq (← inferType source) domain do
       malformed "a referenced operand has a different declared type"
     return ← markValue marks binding source
+  if let .ok address := packet.getObjValAs? String "ctor" then
+    if let some row := (← semanticState).objects.find? (·.id.raw == address) then
+      match checkServiceFields #["ctor", "args"] packet with
+      | .error reason => malformed reason
+      | .ok () => pure ()
+      let fields ← match (packet.getObjVal? "args").bind (·.getArr?) with
+        | .ok fields => pure fields
+        | .error reason => malformed reason
+      discard <| checkedDeclaration row.declaration
+      let head ← mkConstWithFreshMVarLevels row.declaration
+      let value ← childExplicit marks context retained head fields (some domain)
+      return sourceReference ``ObjectEntry row.id.raw row.declaration value
   let domain ← whnfR (← instantiateMVars domain)
   if let (.arr components, .const owner levels) := (packet, domain.getAppFn) then
     if let some info := getStructureInfo? (← getEnv) owner then
@@ -39,6 +53,36 @@ private partial def childOperand (marks : IO.Ref (Array ValueBinding)) (context 
   let some literal ← ScalarLiteral.readAt domain packet
     | malformed "an inline operand has no scalar reading at its declared type"
   return literal
+
+/-- Apply only the explicitly declared computational parameter positions of a named input
+family. Native implicit parameters stay in the full telescope and must be determined by the
+actual input types. A proof premise is never read from a provider packet. -/
+private partial def childExplicit (marks : IO.Ref (Array ValueBinding)) (context : OpenContext)
+    (retained : Json → MetaM (Option ValueBinding)) (head : Expr) (packets : Array Json)
+    (expected : Option Expr := none) : MetaM Expr := do
+  let malformed : {α : Type} → String → MetaM α := fun reason =>
+    throwStratum .malformed m!"deferred named parameters: {reason}"
+  let (parameters, binders, result) ← forallMetaTelescopeReducing (← inferType head)
+  if let some expected := expected then
+    unless ← isDefEq result expected do
+      malformed "the named input has a different complete declared type"
+  let mut next := 0
+  for parameter in parameters, binder in binders do
+    let domain ← inferType parameter
+    if !binder.isExplicit || (← isProp domain) then continue
+    let some packet := packets[next]?
+      | malformed "the named input is missing an explicit parameter"
+    let value ← childOperand marks context retained domain packet
+    unless ← isDefEq parameter value do
+      malformed "a named input parameter has a different declared type"
+    next := next + 1
+  unless next == packets.size do malformed "the named input has extra parameters"
+  let value ← instantiateMVars (mkAppN head parameters)
+  if value.hasMVar || value.hasLevelMVar then
+    malformed "the named input leaves a complete source parameter undetermined"
+  return value
+
+end
 
 /-- Run one call of a deferred group through the production lowerer and executor.
 Source: execution contract v2 §4 and §6; api/python-sdk.md of the leaf contract.
@@ -94,6 +138,28 @@ partial def Kernel.child (kernel : Kernel) (evaluateSource : SourceEvaluation) (
       else if operation == "$cas.apply" then do
         let (_, source) ← reference ((arguments.getObjVal? "value").toOption.getD .null)
         applied source (← list arguments "arguments")
+      else if let some row := publishedPresentation? (← semanticState) operation then do
+        match checkServiceFields #["ctor", "args"] arguments with
+        | .error reason => malformed reason
+        | .ok () => pure ()
+        let packet ← match PresentationInvocation.decode arguments with
+          | .ok packet => pure packet
+          | .error reason => malformed reason
+        let family ← PresentationFamily.forEntry row
+        let (head, _) ← family.instantiate
+        let iso ← childExplicit kernel.marks context retained head packet.parameters
+        let (first, second) ← family.endpoints iso
+        let (source, target) := if packet.inverse then (second, first) else (first, second)
+        let source ← childOperand kernel.marks context retained (← inferType source) packet.source
+        let target ← childOperand kernel.marks context retained (← inferType target) packet.target
+        let (first, second) := if packet.inverse then (target, source) else (source, target)
+        let iso ← try family.withEndpoints iso first second
+          catch error => malformed s!"the comparison endpoints do not match the selected family: {← error.toMessageData.toString}"
+        let function ← family.function iso packet.inverse
+        let .forallE _ domain _ _ ← whnf (← inferType function)
+          | malformed "the presentation has no native point function"
+        let point ← childOperand kernel.marks context retained domain packet.argument
+        pure (mkApp function point)
       else do
         let state ← semanticState
         let mut term ← if let some (row, port) := publishedLift? state operation then do

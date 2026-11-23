@@ -10,12 +10,17 @@ import CasRuntime.EnvironmentExecutionTests
 import CasRuntime.EnvironmentTests
 import CasRuntime.ExecuteTests
 import CasRuntime.ExportCaptureTests
+import CasRuntime.FixedInputResultTests
+import CasRuntime.FixedInputRouteTests
 import CasRuntime.GroundedRealizationTests
 import CasRuntime.IdentityTests
+import CasRuntime.InputResultTests
 import CasRuntime.LiteralTests
 import CasRuntime.MaterializeTests
+import CasRuntime.NativeProjectionTests
 import CasRuntime.OccurrenceTests
 import CasRuntime.OwnerTests
+import CasRuntime.PartialProjectionRouteTests
 import CasRuntime.ProtocolTests
 import CasRuntime.RealizationProfileTests
 import CasRuntime.RecordTests
@@ -23,6 +28,7 @@ import CasRuntime.ReplyTests
 import CasRuntime.SDKTests
 import CasRuntime.ScopeTests
 import CasRuntime.SessionComputationTests
+import CasRuntime.SessionDependentReferenceTests
 import CasRuntime.SessionEndpointTests
 import CasRuntime.SessionLiftTests
 import CasRuntime.SessionOccurrenceTests

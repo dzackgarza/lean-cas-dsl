@@ -3,6 +3,7 @@ module
 public import CasCompiler.ReadContext
 public import CasCompiler.ReadAdmission
 public import CasCompiler.SourceNumeral
+public import CasCompiler.SourceGenerator
 
 public section
 
@@ -22,10 +23,13 @@ def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
   let expectedCategory := context.expectedCategory
   let admitted := admitted context
   match source with
+  | `(cas_term| generator($object:cas_term)) => do
+    let object ← readExpression categoryOf object none
+    return ⟨← sourceObjectGenerator object, none⟩
   | `(cas_term| $number:num in $domain:cas_term using ($evidence:cas_term,*)) => do
     let domain ← readExpression categoryOf domain none
     let some category := domain.category
-      | throwError "source numeral evidence requires a selected domain object"
+      | throwReadRuleMismatch
     unless category.role == .object do
       throwError "source numeral evidence requires a domain object"
     discard <| getLevel domain.value

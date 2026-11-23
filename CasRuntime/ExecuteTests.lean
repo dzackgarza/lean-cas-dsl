@@ -260,7 +260,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let pair ← mkAppM ``Prod.mk #[mkNatLit 7, mkNatLit 7]
     let recordRole ← SourceLayout.ofTerm (← context.close pair)
     let callable ← withLocalDeclD `n (mkConst ``Nat) fun n => do
-      mkLambdaFVars #[n] (← mkAppM ``Prod.mk #[n, n])
+      let successor ← mkAppM ``Nat.succ #[n]
+      mkLambdaFVars #[n] (← mkAppM ``Prod.mk #[successor, successor])
     let callableRole ← SourceLayout.ofTerm (← context.close callable)
     let owners ← liftM (m := IO) OwnerRegistry.new
     let ledger ← liftM (m := BaseIO) (OccurrenceLedger.new owners)
@@ -325,6 +326,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless message == "the result role has no materialized binding" do throwError message
     | .ok _ => throwError "a lazy result declaration supplied an unexecuted field"
     let nestedRole ← SourceLayout.ofTerm (← context.close (← mkAppM ``Prod.mk #[pair, pair]))
+    let nestedLazy ← transaction.stage
+      { program, occurrence, role := nestedRole, parameters := #[] } (.product #[lazyRecord, lazyRecord])
+    let lazyProjection ← PreparedRequest.forProjection owners.identities program
+      (← ledger.allocate) context (← transaction.view) nestedLazy 0 #[]
+    let retainedLazy ← Execute.run unavailableExecutor
+      (PFunctor.FreeM.lift (P := OperationalSignature) lazyProjection) transaction
+    unless retainedLazy.root.value == lazyRecord.value do
+      throwError "projecting a stored lazy record replaced or prematurely executed its value"
     let nestedValid ← liftM (m := IO) <| transaction.stage
       { program, occurrence, role := nestedRole, parameters := #[] } (.product #[valid, valid])
     let nestedOccurrence ← liftM (m := BaseIO) ledger.allocate
@@ -356,6 +365,12 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       fun request state => do
         let candidate ← request.admitResult (← state.view) malformed
         return (candidate, state)
+    let directFailure : Option Exception ← try
+      discard <| request.admitResult (← transaction.view) malformed
+      pure none
+    catch error => pure (some error)
+    unless directFailure.isSome do
+      throwError "direct malformed result admission accepted a mistyped stored field"
     let failure : Option Exception ← try
       discard <| Execute.run executor
         (PFunctor.FreeM.lift (P := OperationalSignature) request) transaction
@@ -438,6 +453,84 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         catch error => pure (some error)
         let some failure := failure
           | throwError "an equal field from a different record satisfied the selected projection"
+        unless (← failure.toMessageData.toString).startsWith
+            "the runtime argument does not retain its specified source value" do throw failure
+        let repackedSource ← mkAppM ``Prod.mk #[← mkProjection r `fst, mkNatLit 7]
+        let repackedRole ← SourceLayout.ofTerm (← context.close repackedSource)
+        let repackedOrigin ← environment.origin program (← ledger.allocate) repackedRole
+        let repacked ← transaction.stage repackedOrigin (.product #[actual.root, scalar])
+        let repackedRequest ← PreparedRequest.forProjection owners.identities program
+          (← ledger.allocate) context (← transaction.view) repacked 0 parameters
+        let extended ← Execute.run unavailableExecutor
+          (PFunctor.FreeM.lift (P := OperationalSignature) repackedRequest) transaction
+        let .ok extendedArgument := RuntimeArgument.ofValue (← transaction.view) 0 extended.root
+          | throwError "the extended projection is outside the graph"
+        discard <| PreparedRequest.forApplication owners.identities program
+          (← ledger.allocate) context callable #[argument] #[extendedArgument] parameters
+        let siblingRequest ← PreparedRequest.forProjection owners.identities program
+          (← ledger.allocate) context graph left 1 parameters
+        let sibling ← Execute.run unavailableExecutor
+          (PFunctor.FreeM.lift (P := OperationalSignature) siblingRequest) transaction
+        let graph ← transaction.view
+        let .ok siblingArgument := RuntimeArgument.ofValue graph 0 sibling.root
+          | throwError "the sibling projection is outside the graph"
+        let failure : Option Exception ← try
+          discard <| PreparedRequest.forApplication owners.identities program
+            (← ledger.allocate) context callable #[argument] #[siblingArgument] parameters
+          pure none
+        catch error => pure (some error)
+        let some failure := failure
+          | throwError "an equal field at another path satisfied the selected projection"
+        unless (← failure.toMessageData.toString).startsWith
+            "the runtime argument does not retain its specified source value" do throw failure
+        withLetDecl `projected (mkConst ``Nat) (← mkProjection r `fst) fun projected => do
+          let aliasBinding : LocalBinding :=
+            { id := ⟨"projection-input", 2⟩, role := .definition, expression := projected }
+          let aliasedContext ← ContextTelescope.capture (bindings.push aliasBinding)
+          let .ok retainedAlias := RuntimeParameter.ofValue graph aliasBinding.id actual.root
+            | throwError "the projected alias is outside the graph"
+          let aliasSource ← aliasedContext.close projected
+          discard <| PreparedRequest.forApplication owners.identities program
+            (← ledger.allocate) aliasedContext callable #[aliasSource] #[accepted]
+            (parameters.push retainedAlias)
+          let .ok originalScalar := RuntimeArgument.ofValue graph 0 scalar
+            | throwError "the original scalar is outside the graph"
+          let failure : Option Exception ← try
+            discard <| PreparedRequest.forApplication owners.identities program
+              (← ledger.allocate) aliasedContext callable #[aliasSource] #[originalScalar]
+              (parameters.push retainedAlias)
+            pure none
+          catch error => pure (some error)
+          let some failure := failure
+            | throwError "a projected alias accepted a value without its consuming associations"
+          unless (← failure.toMessageData.toString).startsWith
+              "the runtime argument does not retain its specified source value" do throw failure
+        let marks ← liftM (m := IO) <| IO.mkRef (#[] : Array ValueBinding)
+        let markedParent ← markValue marks first pair
+        let markedSource ← context.close (← mkProjection markedParent `fst)
+        let graph ← transaction.view
+        let .ok markedActual := RuntimeArgument.ofValue graph 0 actual.root (← marks.get)
+          | throwError "the marked projection is outside the graph"
+        discard <| environment.checkArgument markedSource markedActual
+        let .ok markedOther := RuntimeArgument.ofValue graph 0 other.root (← marks.get)
+          | throwError "the other marked projection is outside the graph"
+        let failure : Option Exception ← try
+          discard <| environment.checkArgument markedSource markedOther
+          pure none
+        catch error => pure (some error)
+        let some failure := failure
+          | throwError "an equal unnamed parent replaced the explicitly marked occurrence"
+        unless (← failure.toMessageData.toString).startsWith
+            "the runtime argument does not retain its specified source value" do throw failure
+        let relabelled ← context.close (← markValue marks second r)
+        let .ok relabelledArgument := RuntimeArgument.ofValue graph 0 second (← marks.get)
+          | throwError "the relabelled record is outside the graph"
+        let failure : Option Exception ← try
+          discard <| environment.checkArgument relabelled relabelledArgument
+          pure none
+        catch error => pure (some error)
+        let some failure := failure
+          | throwError "an occurrence mark bypassed the original source binder"
         unless (← failure.toMessageData.toString).startsWith
             "the runtime argument does not retain its specified source value" do throw failure
         let .ok _ ← transaction.commit | throwError "the selected projections could not commit"

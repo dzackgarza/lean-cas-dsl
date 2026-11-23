@@ -3,6 +3,7 @@ module
 public import CasCompiler.FamilyConversion
 public import CasCompiler.Elaborate
 import CasCompiler.SourceCarrier
+import CasCatalogue.Admission
 
 public section
 
@@ -116,7 +117,18 @@ opaque sourceMethod (receiver : NativeSourceJudgement) (name : String) :
     value ← withLetDecl (← mkFreshUserName `methodFamilyAgreement) (← inferType proof) proof
       fun binding => mkLetFVars #[binding] value
         (usedLetOnly := false) (generalizeNondepLet := false)
-  let referenced := sourceReference ``MethodEntry first.entry.id.raw first.functor.declaration value
+  -- Keep the actual selected receiver form before Core and inherited functor wrappers.
+  -- A declared refinement transports the form through the same checked source route.
+  let forms ← match ← sourceObjectReference? receiver.value with
+    | some (id, _) => do
+      let some entry := state.objects.find? (·.id == id)
+        | throwError "the source method receiver lost its registered object form"
+      let registry : RegistryState := { toSemanticState := state }
+      let (effective, _) := registry.transport entry first.route.refs
+      pure #[effective.id.raw, effective.category.raw]
+    | none =>
+      pure ((state.categories.filter (·.expression.syntacticEq selected.expression)).map (·.id.raw))
+  let referenced := sourceReference ``MethodEntry first.entry.id.raw first.functor.declaration value forms
   let referenced := Expr.mdata (KVMap.empty.setString `CasCompiler.source.methodRoutes
     (reprStr (families.map fun family => (family.entry.id, family.route.refs)))) referenced
   return some ⟨referenced, some ⟨.object, first.functor.target, target, none, none⟩⟩

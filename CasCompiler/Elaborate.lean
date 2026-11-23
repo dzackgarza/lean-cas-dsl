@@ -275,17 +275,23 @@ opaque SourceSession.proposition (session : SourceSession) (stx : Term) :
     unless ← isProp expression do throwError "a source proposition must have type Prop"
   return term
 
+/-- Check supplied formal evidence at its independently prepared native proposition.
+Both source-session proof intake and constrained-point construction use this same check. -/
+def sourceFormalProof (evidence : Term) (proposition : Expr) : TermElabM Expr :=
+  withRef evidence do
+    unless ← isProp proposition do
+      throwError "a formal proof requires a source proposition"
+    withSynthesize <| elabTermEnsuringType evidence (some proposition)
+
 /-- Check an explicitly supplied source proof at an independently prepared proposition.
 Reuse: native expected-type elaboration and stable-ID context transport. The source hypothesis
 and proof remain formal; this operation accepts no computational response as evidence. -/
 opaque SourceSession.proof (session : SourceSession) (stx : TSyntax `cas_term)
     (obligation : ClosedTerm) : TermElabM SourceTerm := withRef stx do
-  obligation.withOpen fun _ proposition => do
-    unless ← isProp proposition do
-      throwError "a formal proof requires a source proposition"
   let `(cas_term| proof($evidence:term)) := stx
     | throwError "source evidence requires an explicit proof term"
-  session.term evidence (some obligation)
+  session.elaborate evidence fun context => do
+    sourceFormalProof evidence (← obligation.inContext context)
 
 private def assumeIn (session : SourceSession) (context : OpenContext) (name : Name)
     (type : Expr) (span : SourceSpan) (binderInfo : BinderInfo) : MetaM SourceSession := do

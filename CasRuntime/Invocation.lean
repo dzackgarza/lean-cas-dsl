@@ -4,6 +4,7 @@ public import CasRuntime.ChildCall
 public import CasRuntime.Transport
 public import CasRuntime.Materialize
 public import CasRuntime.Encode
+public import CasRuntime.Presentation
 
 public section
 
@@ -30,7 +31,8 @@ partial def Kernel.invoke (kernel : Kernel) (evaluateSource : SourceEvaluation) 
       RequestScope.issue kernel.ledger reservation (← transaction.view) encoded.slots
         encoded.inputs results)
     control
-  match ← reply.stageCompletion request transaction scope wire.connection with
+  match ← reply.stageCompletion request transaction scope wire.connection
+      (some (kernel.resolveFixedInput evaluateSource transaction request.program)) with
   | .error failure => transactionFailure failure
   | .ok association => request.admitResult (← transaction.view) association.response.root
 
@@ -65,6 +67,29 @@ partial def Kernel.invokeRegistration (kernel : Kernel) (evaluateSource : Source
     dependentContext role (encoded.values.extract 0 parameters.size)
       (encoded.values.extract parameters.size leading)
       (encoded.values.extract leading encoded.values.size) (argumentLayouts request) request.source
+
+/-- Invoke a complete named presentation through the ordinary reservation, scope, deferred
+control, reply admission and atomic completion lifecycle. Only its published packet differs
+from a dependentContext invocation. -/
+partial def Kernel.invokePresentation (kernel : Kernel) (evaluateSource : SourceEvaluation)
+    (request : PreparedRequest) (transaction : CellTransaction) (registration : Registration)
+    (invocation : PreparedPresentationInvocation) : MetaM (PreparedResponse request) := do
+  unless registration.operation == invocation.operation &&
+      invocation.forms.contains registration.input do
+    throwError "the presentation invocation changed its selected operation or input form"
+  let wire ← kernel.connections.get registration.backend
+  let graph ← transaction.view
+  discard <| request.admitInputs graph
+  let (encoded, packet) ← IO.ofExcept <|
+    (invocation.encode graph wire.connection.generation).mapError IO.userError
+  let identity : DispatchIdentity := {
+    manifestDigest := kernel.manifestDigest, registration, profileDigest := kernel.profile.sha256 }
+  let reservation ← match ← transaction.reserve request.occurrence identity wire.connection
+      invocation.dependencies with
+    | .ok reservation => pure reservation
+    | .error failure => transactionFailure failure
+  kernel.dispatches.modify (·.push registration)
+  kernel.invoke evaluateSource request transaction wire reservation encoded packet
 
 /-- Invoke a retained native export on its original supplying connection.
 Source: execution contract v2 §4.1. No registration is searched for a selected callable. -/

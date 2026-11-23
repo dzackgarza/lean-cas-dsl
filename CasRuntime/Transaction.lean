@@ -3,6 +3,7 @@ module
 public import CasRuntime.Occurrence
 public import CasRuntime.Connection
 public import CasRuntime.PreparedRequest
+public import CasRuntime.InputResult
 public import CasRuntime.Reply
 public import Lean.Environment
 public import Lean.CoreM
@@ -148,6 +149,12 @@ Reuse: ValueGraph.bindApplication and atomic draft installation. -/
 opaque CellDraft.bindApplication (draft : CellDraft) (origin : ValueOrigin)
     (value : ValueBinding) (fields : Array ValueBinding) : IO (CellDraft × ValueBinding) := do
   let (graph, binding) ← draft.graph.bindApplication draft.identities origin value fields
+  return ({ draft with graph, roots := draft.roots.push binding }, binding)
+
+/-- Keep a prepared projection association in the same isolated append-only reply delta. -/
+opaque CellDraft.bindProjection (draft : CellDraft) (origin : ValueOrigin)
+    (value : ValueBinding) (fields : Array ValueBinding) : IO (CellDraft × ValueBinding) := do
+  let (graph, binding) ← draft.graph.bindProjection draft.identities origin value fields
   return ({ draft with graph, roots := draft.roots.push binding }, binding)
 
 inductive ReuseDecision
@@ -506,15 +513,13 @@ opaque CellTransaction.completeReply (transaction : CellTransaction) (draft : Ce
     if let some (.ok _) := outcome then scope.retire
     return outcome.getD (.error .staleOwner)
 
-/-- Complete a claimed demand that the kernel evaluated from retained code or stored fields.
-No dispatch right is consumed and no frame exists. The occurrence leaves the fresh state,
-so a later demand cannot dispatch it. Later demands in this cell reuse this completion.
-Reuse: the claim, owner gate and completion table of completeReply. -/
-opaque CellTransaction.completeKernel (transaction : CellTransaction)
-    (request : PreparedRequest) (response : PreparedResponse request) :
+private def CellTransaction.finishKernel (transaction : CellTransaction)
+    (request : PreparedRequest) (response : PreparedResponse request) (inputs : InputRoleMap)
+    (includeInputs : Bool) :
     MetaM (Except TransactionFailure CompletionAssociation) := do
   let graph ← transaction.view
-  let inputs ← request.admitInputs graph
+  unless inputs.telescope.scope == request.roles.scope do return .error .invalidCompletion
+  discard <| IO.ofExcept <| (graph.requiredOwners inputs.references).mapError IO.userError
   let response ← request.admitResult graph response.root
   liftM (m := BaseIO) <| transaction.state.atomically do
     let .active cell ← get | return .error .settled
@@ -527,7 +532,8 @@ opaque CellTransaction.completeKernel (transaction : CellTransaction)
     if (← transaction.ledger.pendingFor request.occurrence transaction.id).isSome then
       return .error .invalidCompletion
     let outputs := response.roles.references
-    let .ok dependencies := cell.graph.requiredOwners (outputs ++ inputs.references)
+    let .ok dependencies := cell.graph.requiredOwners
+        (outputs ++ if includeInputs then inputs.references else #[])
       | return .error .referenceOutsideGraph
     let outcome : Option CompletionAssociation ← transaction.owners.atomicallyWhileLive
         (m := Std.AtomicT CellState BaseIO) dependencies do
@@ -543,6 +549,25 @@ opaque CellTransaction.completeKernel (transaction : CellTransaction)
     return match outcome with
       | some association => .ok association
       | none => .error .staleOwner
+
+/-- Complete a claimed demand that the kernel evaluated from retained code or stored fields.
+No dispatch right is consumed and no frame exists. The occurrence leaves the fresh state,
+so a later demand cannot dispatch it. Later demands in this cell reuse this completion.
+Reuse: the claim, owner gate and completion table of completeReply. -/
+opaque CellTransaction.completeKernel (transaction : CellTransaction)
+    (request : PreparedRequest) (response : PreparedResponse request) :
+    MetaM (Except TransactionFailure CompletionAssociation) := do
+  let inputs ← request.admitInputs (← transaction.view)
+  transaction.finishKernel request response inputs true
+
+/-- Complete this certified input result with its selected output owner closure. Its sealed
+plan retains the already checked supplied input map; only source-proven unused argument slots
+may be absent. Unrelated input owners are not execution dependencies.
+Reuse: completeKernel's revision, claim, ledger, completion and waiter transitions. -/
+opaque CellTransaction.completeInputResult (transaction : CellTransaction)
+    (request : PreparedRequest) (completed : InputResultCompletion request) :
+    MetaM (Except TransactionFailure CompletionAssociation) :=
+  transaction.finishKernel request completed.response completed.inputs false
 
 /-- Settle with plain diagnostic/status metadata, dropping every staged value and completion.
 The first settlement wins. Native exception data use Lean's literal KVMap entries, not message callbacks. -/

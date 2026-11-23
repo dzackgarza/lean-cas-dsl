@@ -29,8 +29,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let scalar ← SourceLayout.ofTerm (← context.close (mkNatLit 7))
       let input ← liftM (m := IO) <| producer.stage
         { program, occurrence := producing, role := scalar, parameters := #[] } (.portable "7".toUTF8)
-      let identity ← mkAppOptM ``id #[some (mkConst ``Nat)]
-      let function ← SourceLayout.ofTerm (← context.close identity)
+      let function ← SourceLayout.ofTerm (← context.close (mkConst ``Nat.succ))
       let callable ← liftM (m := IO) <| producer.stage
         { program, occurrence := producing, role := function, parameters := #[] } (.closure program #[])
       let .ok before ← producer.commit | throwError "the failure control inputs could not commit"

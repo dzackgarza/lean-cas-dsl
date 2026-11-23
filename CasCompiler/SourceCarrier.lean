@@ -53,7 +53,7 @@ private partial def carrierCategoryFamily (state : SemanticState) (source : Cate
   let levels : CollectLevelParams.State := {}
   return ⟨value, (levels.collect value).params.toList⟩
 
-private def carrierRoutes (source : CategoryExpr) : TermElabM (Array Route) := do
+private def carrierRoutes (source : CategoryExpr) : MetaM (Array Route) := do
   let sets := CategoryExpr.atom CategoryId.sets
   let routes ← SourceRoutes.forOwner source sets
   let some candidates ← routes.finiteRoutes
@@ -66,7 +66,7 @@ private def carrierRoutes (source : CategoryExpr) : TermElabM (Array Route) := d
 -- or universe is specialized. A natural isomorphism is not used as functor equality.
 -- Reuse: SourceSession.operationConversion's native conversion rule and congrFun.
 def sourceRouteAgreements (state : SemanticState) (source : NativeSourceCategory)
-    (routes : Array Route) : TermElabM (Array Expr) := do
+    (routes : Array Route) : MetaM (Array Expr) := do
   if routes.size == 1 then return #[]
   let family ← carrierCategoryFamily state source.expression
   let functions ← routes.mapM fun route => do
@@ -104,7 +104,7 @@ def sourceRouteAgreements (state : SemanticState) (source : NativeSourceCategory
 
 -- Apply the already selected native functor at the judgement's unchanged role.
 private def carrierAction (role : SourceCategoryRole) (functor value target : Expr) :
-    TermElabM Expr :=
+    MetaM Expr :=
   match role with
   | .object => functorObject functor value target
   | .morphism => mkAppM ``CategoryTheory.Functor.map #[functor, value]
@@ -113,7 +113,7 @@ private def carrierAction (role : SourceCategoryRole) (functor value target : Ex
 Only checked uniform native equality identifies implicit alternatives. Actual functor
 actions, original objects or arrows, route references and equality evidence remain in the term.
 Source: ObjectRefinement, structuralEdges and the native family-conversion rule. -/
-opaque sourceCarrier (source : NativeSourceJudgement) : TermElabM NativeSourceJudgement := do
+opaque sourceCarrier (source : NativeSourceJudgement) : MetaM NativeSourceJudgement := do
   let some category := source.category
     | do
       discard <| getLevel source.value
@@ -259,7 +259,7 @@ def sourceCarrierFamilyObject (source : NativeSourceCategory) (bundle object : E
 
 /-- Apply the selected complete carrier functor to an arrow before taking its function.
 Ordinary native functions retain their original expression and context. -/
-def sourceFunction (source : NativeSourceJudgement) : TermElabM Expr := do
+def sourceFunction (source : NativeSourceJudgement) : MetaM Expr := do
   if source.category.any (·.role == .morphism) then
     let carrier ← sourceCarrier source
     sourceSetFunction carrier.value

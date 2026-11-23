@@ -12,6 +12,27 @@ meta import CasRuntime.Encode
 
 open Lean Meta CasCompiler CasRuntime CasCatalogue.Backend
 
+private def checkStoredProjection (ledger : OccurrenceLedger) (transaction : CellTransaction)
+    (program : RuntimeId .program)
+    (context : OpenContext) (parent : ValueBinding) (index : Nat) (expected : ValueBinding) :
+    MetaM ValueBinding := do
+  let occurrence ← liftM (m := BaseIO) ledger.allocate
+  let graph ← liftM (m := IO) transaction.view
+  let projection ← PreparedRequest.forProjection transaction.owners.identities program occurrence
+    context graph parent index #[]
+  let storedOnly : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
+    fun _ _ => throwError "a stored field projection invoked external execution"
+  let projected ← Execute.run storedOnly
+    (PFunctor.FreeM.lift (P := OperationalSignature) projection) transaction
+  let .ok (some basis) := (← liftM (m := IO) transaction.view).projectionBasis
+      projected.root parent projection.origin.accessPath
+    | throwError "stateful projection lost its actual parent and native field path"
+  unless projected.root.value == expected.value &&
+      expected.associationIds.toList.isPrefixOf projected.root.associationIds.toList &&
+      basis.value == expected.value && basis.associationIds == expected.associationIds do
+    throwError "stateful projection changed the reused field or its consuming associations"
+  return projected.root
+
 -- The public SDK echoes packets and exports a stored diagnostic callable; it computes no mathematics.
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
@@ -32,13 +53,17 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
       let prepare (term : Expr) (occurrence : RuntimeId .occurrence) :
           MetaM PreparedRequest := do
-        let type ← inferType term
-        let identity ← context.close (mkConst ``id [← getLevel type])
-        let layout ← SourceLayout.ofTerm identity
+        let layout ← SourceLayout.ofTerm
+          (← context.close (mkLambda `ignored .default (mkConst ``Nat) term))
+        let dummyRole ← SourceLayout.ofTerm (← context.close (mkNatLit 0))
+        let dummy ← liftM (m := IO) <| transaction.stage
+          { program, occurrence, role := dummyRole, parameters := #[] } (.portable "0".toUTF8)
+        let .ok actual := RuntimeArgument.ofValue (← liftM (m := IO) transaction.view) 0 dummy
+          | throwError "the materialization fixture argument is absent"
         let callable ← liftM (m := IO) <| transaction.stage
           { program, occurrence, role := layout, parameters := #[] } (.closure program #[])
         PreparedRequest.forApplication owners.identities program occurrence context callable
-          #[← context.close type, ← context.close term] #[] #[]
+          #[dummyRole.source] #[actual] #[]
       let nativeOccurrence ← liftM (m := BaseIO) ledger.allocate
       let nativeRequest ← prepare (mkConst ``Nat.succ) nativeOccurrence
       let selected : DispatchIdentity := {
@@ -153,6 +178,12 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         { program, occurrence := productOccurrence, role := request.source, parameters := #[] }
         (.product #[first, second])
       reuseWhole product
+      let (selectedField, selectedSource, retainedMarks) ← do
+        let projected ← checkStoredProjection ledger transaction program context response.root 0 selectedField
+        let marks ← liftM (m := IO) <| IO.mkRef (#[] : Array ValueBinding)
+        let parent ← markValue marks response.root (← request.source.source.inContext context)
+        let source ← context.close (← mkAppM ``Prod.fst #[parent])
+        pure (projected, source, ← liftM (m := IO) marks.get)
       let aliasOccurrence ← liftM (m := BaseIO) ledger.allocate
       let identity ← mkAppOptM ``id #[some (mkConst ``Nat)]
       let identityRole ← SourceLayout.ofTerm (← context.close identity)
@@ -160,10 +191,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         { program, occurrence := aliasOccurrence, role := identityRole, parameters := #[] }
         (.closure program #[])
       let graph ← liftM (m := IO) transaction.view
-      let .ok actualAlias := RuntimeArgument.ofValue graph 0 selectedField
+      let .ok actualAlias := RuntimeArgument.ofValue graph 0 selectedField retainedMarks
         | throwError "the existing scalar input is outside its graph"
       let aliasRequest ← PreparedRequest.forApplication owners.identities program aliasOccurrence context identity
-        #[selectedRole.layout.source] #[actualAlias] #[]
+        #[selectedSource] #[actualAlias] #[]
       let .ok aliasReservation ← liftM (m := BaseIO) <|
         transaction.reserve aliasOccurrence selected wire.connection #[selectedField]
         | throwError "the returned-reference control could not reserve"
@@ -267,7 +298,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let .ok () ← liftM (m := BaseIO) <| transaction.installDraft indexDraft
         | throwError "the native index could not enter the active graph"
       let occurrence ← liftM (m := BaseIO) ledger.allocate
-      let functionRole ← SourceLayout.ofTerm (← context.close (mkConst ``Fin.last))
+      let functionSource ← Elab.Term.elabTermAndSynthesize
+        (← `(fun (n : Nat) => (0 : Fin (n + 1)))) none
+      let functionRole ← SourceLayout.ofTerm (← context.close functionSource)
       let function ← liftM (m := IO) <| transaction.stage
         { program, occurrence, role := functionRole, parameters := #[] } (.closure program #[])
       let graph ← liftM (m := IO) transaction.view
@@ -397,17 +430,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "a consuming application changed its original result's owner requirements"
       unless ← liftM (m := BaseIO) (reusedDraft.view.isAvailable owners reusedNumber) do
         throwError "the reused numeric field acquired its parent application's unrelated owner"
-      let projectionOccurrence ← liftM (m := BaseIO) ledger.allocate
-      let activeGraph ← liftM (m := IO) transaction.view
-      let projection ← PreparedRequest.forProjection owners.identities program projectionOccurrence context
-        activeGraph reused.root 0 #[]
-      let storedOnly : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
-        fun _ _ => throwError "a stored field projection invoked external execution"
-      let projected ← Execute.run storedOnly
-        (PFunctor.FreeM.lift (P := OperationalSignature) projection) transaction
-      unless projected.root.value == reusedNumber.value &&
-          projected.root.associationIds == reusedNumber.associationIds do
-        throwError "stateful projection changed the reused field or its consuming associations"
+      discard <| checkStoredProjection ledger transaction program context reused.root 0 reusedNumber
       discard <| liftM (m := BaseIO) transaction.abort
     finally liftM (m := IO) wire.close
   finally setEnv original

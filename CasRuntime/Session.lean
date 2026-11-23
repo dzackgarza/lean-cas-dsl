@@ -77,6 +77,9 @@ structure KernelSession where
   /-- Compute every question through the kernel, with no discharge in Lean. -/
   computationOnly : Bool
   private bound : Std.HashMap BindingId ValueBinding
+  /-- Successful definitions whose results must be observed, because they dispatched or
+  retain a delayed computation. Source dependencies carry this policy through aliases. -/
+  private observed : Std.HashSet BindingId := {}
   /-- Definitions kept without a runtime value because their computation had no leaf or no
   available backend (constitution C3), and the definitions that use them. -/
   private unavailable : Array (BindingId × Name) := #[]
@@ -111,7 +114,7 @@ opaque KernelSession.start (manifest : Option System.FilePath := none)
   let owners ← OwnerRegistry.new
   discard <| SessionSnapshot.initialize owners
   return ⟨← Kernel.load owners manifest profile timeoutMs,
-    ← SourceSession.empty owners.identities, computationOnly, {}, #[], #[]⟩
+    ← SourceSession.empty owners.identities, computationOnly, {}, {}, #[], #[]⟩
 
 opaque KernelSession.close (session : KernelSession) : IO Unit := session.kernel.close
 
@@ -126,13 +129,16 @@ private def commit (transaction : CellTransaction) : MetaM Unit := do
 
 /-- Decide the closed proposition in Lean, after substituting the session's definitions, by the
 registered literal evaluations and the kernel's decision (`Evaluation.decideEvaluated`).
-A statement about a declaration with a retained computed value is a statement about that
-actual value, so it is compared and not discharged from the definition. -/
+A statement depending on an observed computation is about its actual value, including through
+aliases and captured definitions. Other retained source values remain eligible for proof.
+Reuse: contextDependencies closes native source dependencies through their types and values. -/
 private def discharged (session : KernelSession) (context : OpenContext) (proposition : Expr) :
     TermElabM (Option Bool) := do
-  let retained := context.bindings.any fun binding =>
-    (session.bound[binding.id]?).isSome && proposition.containsFVar binding.expression.fvarId!
-  if retained || session.computationOnly then return none
+  if session.computationOnly then return none
+  for index in (← contextDependencies context.bindings proposition) do
+    let some binding := context.bindings[index]?
+      | throwError "a question dependency is outside its complete source context"
+    if session.observed.contains binding.id then return none
   let proposition ← zetaReduce proposition
   if proposition.hasFVar then return none
   Evaluation.decideEvaluated proposition
@@ -241,8 +247,8 @@ private partial def underBindings : Expr → Expr
   | expression => expression
 
 /-- Whether a value holds a delayed published computation (a closure of a published family, as a
-lift's fields are) or data owned by a provider, directly or in a field. A value the user wrote,
-such as a lambda or a matrix literal, is read from its definition instead. -/
+lift's fields are) or data owned by a provider, directly or in a field. Source-written values
+remain eligible for proof discharge; their runtime retention does not depend on this test. -/
 private partial def delayedComputation (codes : Std.HashMap (RuntimeId .program) ClosureCode)
     (graph : ValueGraph) (binding : ValueBinding) : Bool :=
   match graph.find binding.value with
@@ -254,7 +260,7 @@ private partial def delayedComputation (codes : Std.HashMap (RuntimeId .program)
     | .ownedToken .. => true
     | .product fields => fields.any (delayedComputation codes graph)
     | .container value =>
-      (value.slots.map (·.binding) ++ value.fields ++ value.callable.toArray).any
+      (value.slots.map (·.binding) ++ value.fields.getD #[] ++ value.callable.toArray).any
         (delayedComputation codes graph)
     | .portable _ => false
 
@@ -317,9 +323,9 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
             | throwError "internal: a source definition added no declaration"
           let unavailable := session.unavailable.push (entry.id, entry.userName)
           return { outcome, session := { session with source := next, unavailable } }
-      -- A value that no provider computed is its definition: later statements read that
-      -- definition. A value with computational provenance, or one that holds a delayed published
-      -- computation (a lift's fields), is retained: later uses demand that same occurrence.
+      -- Every successfully produced value keeps its exact source binding across cells.
+      -- Dispatch and delayed-computation provenance determine proof-discharge policy separately;
+      -- they do not discard an actual object needed by later dependent arguments.
       let graph ← transaction.view
       let codes ← session.kernel.codes.get
       let delayed := binding.any (delayedComputation codes graph)
@@ -328,11 +334,12 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
         | throwError "internal: a source definition added no declaration"
       let computed := (← session.kernel.dispatches.get).size > sent || delayed
       let bound := match binding with
-        | some binding => if computed then session.bound.insert entry.id binding else session.bound
+        | some binding => session.bound.insert entry.id binding
         | none => session.bound
+      let observed := if computed then session.observed.insert entry.id else session.observed
       let unavailable := if dependent then session.unavailable.push (entry.id, entry.userName)
         else session.unavailable
-      return { outcome := .holds, session := { session with source := next, bound, unavailable } }
+      return { outcome := .holds, session := { session with source := next, bound, observed, unavailable } }
     | .settled values =>
       let shown ← session.source.context.withOpen fun bindings => do
         let context ← ContextTelescope.capture bindings

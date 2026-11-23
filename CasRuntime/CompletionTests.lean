@@ -86,10 +86,11 @@ run_cmd Lean.Elab.Command.liftTermElabM <| liftM (m := MetaM) do
       let function ← SourceLayout.ofTerm (← context.close (mkConst ``Nat.succ))
       let argument ← liftM (m := IO) <| transaction.stage
         { program, occurrence := nativeOccurrence, role := function, parameters := #[] } (.closure program #[])
-      let identity ← mkAppOptM ``id #[some (← inferType (mkConst ``Nat.succ))]
-      let identityRole ← SourceLayout.ofTerm (← context.close identity)
+      let constant := mkLambda `ignored .default
+        (← inferType (mkConst ``Nat.succ)) (mkConst ``Nat.succ)
+      let constantRole ← SourceLayout.ofTerm (← context.close constant)
       let callable ← liftM (m := IO) <| transaction.stage
-        { program, occurrence := nativeOccurrence, role := identityRole, parameters := #[] } (.closure program #[])
+        { program, occurrence := nativeOccurrence, role := constantRole, parameters := #[] } (.closure program #[])
       let graph ← liftM (m := IO) transaction.view
       let .ok actual := RuntimeArgument.ofValue graph 0 argument
         | throwError "the native completion argument is absent"

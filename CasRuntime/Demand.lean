@@ -25,7 +25,9 @@ category of each argument that is a registered named object. -/
 def inputForms (family : String) (context : OpenContext)
     (arguments : Array ClosedTerm) : MetaM (Array String) := do
   let state ← semanticState
-  let mut forms := #[s!"{family}#input"]
+  -- Named morphisms publish their own raw complete-declaration request address.
+  let own := if state.morphisms.any (·.id.raw == family) then family else s!"{family}#input"
+  let mut forms := #[own]
   for argument in arguments do
     if let some (id, _) ← sourceObjectReference? (← argument.inContext context) then
       if let some entry := state.objects.find? (·.id == id) then
@@ -33,22 +35,24 @@ def inputForms (family : String) (context : OpenContext)
   return forms
 
 /-- Retain a published family, or one more selected field of it, as a delayed demand. -/
-def Kernel.delay (kernel : Kernel) (request : PreparedRequest)
+def Kernel.delay (kernel : Kernel) (evaluateSource : SourceEvaluation) (request : PreparedRequest)
     (transaction : CellTransaction) (family : PreparedRequest) (path : Array FieldLayout)
     (captures : Array ValueBinding) : MetaM (PreparedResponse request) := do
   let program ← kernel.ledger.owners.identities.fresh .program
   kernel.codes.modify (·.insert program (.family family path))
   let value ← transaction.stage (← request.originFor request.source) (.closure program captures)
   kernelCompletion request transaction value
+    (some (kernel.resolveFixedInput evaluateSource transaction request.program))
 
 /-- Evaluate a checked source term for a claimed demand and complete that demand. -/
-private def evaluateRequest (evaluateSource : SourceEvaluation) (request : PreparedRequest)
+private def evaluateRequest (kernel : Kernel) (evaluateSource : SourceEvaluation) (request : PreparedRequest)
     (transaction : CellTransaction)
     (build : OpenContext → MetaM Expr) : MetaM (PreparedResponse request) := do
   let value ← withSourceScope request fun context bound => do
     evaluateSource transaction request.program context bound
       (← build context)
   kernelCompletion request transaction value
+    (some (kernel.resolveFixedInput evaluateSource transaction request.program))
 
 /-- The preceding computational fields of the prepared source record, at its actual inputs.
 The ordered record layout supplies the prefix, including proof erasure. Exact source selection
@@ -87,6 +91,10 @@ partial def Kernel.reach (kernel : Kernel) (evaluateSource : SourceEvaluation) (
   let .primitive boundary universes := family.action
     | throwError "internal: a delayed family demand lost its published boundary"
   let role := "/".intercalate (path.map (·.projection.toString)).toList
+  if let .presentation _ := boundary then
+    let invocation ← PreparedPresentationInvocation.prepare request family path (← transaction.view)
+    let registration ← selectLift kernel.manifest invocation.operation invocation.forms
+    return ← kernel.invokePresentation evaluateSource request transaction registration invocation
   let some reference := boundary.reference
     | let .lift lift := boundary
         | throwError "internal: a delayed family demand has no public address"
@@ -101,11 +109,12 @@ partial def Kernel.reach (kernel : Kernel) (evaluateSource : SourceEvaluation) (
   let address := actionAddress reference path
   let forms ← withSourceScope request fun context _ =>
     inputForms (referenceId reference) context arguments
+  let forms := forms ++ family.sourceForms
   match ← kernel.profile.select kernel.manifest reference address forms with
   | .registration registration =>
     kernel.invokeRegistration evaluateSource request transaction registration role parameters #[]
   | .derivation checked =>
-    evaluateRequest evaluateSource request transaction fun context => do
+    evaluateRequest kernel evaluateSource request transaction fun context => do
       let plan := checked.plan.instantiateLevelParams checked.universeParams universes
       let formal : Array ClosedTerm := match family.application with
         | none => #[]
@@ -134,7 +143,7 @@ partial def Kernel.execute (kernel : Kernel) (evaluateSource : SourceEvaluation)
   match request.action with
   | .primitive .. =>
     if request.source.kind == .function || request.source.kind == .record then
-      return ← kernel.delay request transaction request #[] request.scope
+      return ← kernel.delay evaluateSource request transaction request #[] request.scope
     let arguments : Array ClosedTerm := match request.application with
       | none => #[]
       | some application => application.arguments.map (·.source.source)
@@ -146,13 +155,18 @@ partial def Kernel.execute (kernel : Kernel) (evaluateSource : SourceEvaluation)
     | .closure program captures =>
       match (← kernel.codes.get)[program]? with
       | some (.family family path) =>
-        kernel.delay request transaction family (path.push field) captures
+        kernel.delay evaluateSource request transaction family (path.push field) captures
       | some (.term source) =>
-        evaluateRequest evaluateSource request transaction fun context => do
+        evaluateRequest kernel evaluateSource request transaction fun context => do
           projectTerm (← source.inContext context) field
       | none => throwError "internal: a retained closure has no code"
     | .ownedToken .. =>
       kernel.invokeExport evaluateSource request transaction operand s!"project:{field.projection}"
+    | .container container =>
+      if container.fields.isSome then
+        throwError "internal: a stored field reached the executor"
+      throwStratum .noImplementation
+        m!"the retained descriptor supplies no native data for {field.projection}"
     | _ => throwError "internal: a stored field reached the executor"
   | .apply callable arguments values =>
     let code ← IO.ofExcept <| (graph.callable callable).mapError IO.userError
@@ -164,7 +178,7 @@ partial def Kernel.execute (kernel : Kernel) (evaluateSource : SourceEvaluation)
       | some (.family family path) =>
         kernel.reach evaluateSource request transaction family path captures arguments
       | some (.term source) =>
-        evaluateRequest evaluateSource request transaction fun context => do
+        evaluateRequest kernel evaluateSource request transaction fun context => do
           let mut actual := #[]
           for argument in arguments, index in [:arguments.size] do
             let term ← argument.inContext context

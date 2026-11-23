@@ -23,6 +23,16 @@ def annotated (context : ReadContext) :
   fun (body domain : TSyntax `cas_term) => do
     let domain ← sourceCarrier (← readExpression categoryOf domain none)
     discard <| getLevel domain.value
+    let typeOrigin ← sourceTypeOrigin? domain.value
+    let originalReference ← sourceObjectReference? domain.value
+    let typedReference ← match typeOrigin with
+      | some original => sourceObjectReference? original.object
+      | none => pure none
+    let head := reprStr domain.value.consumeMData.getAppFn.constName?
+    let typeHead := reprStr (typeOrigin.map fun original => original.type.consumeMData.getAppFn.constName?)
+    let originalRef := reprStr (originalReference.map fun original => (original.1.raw, original.2.toString))
+    let typedRef := reprStr (typedReference.map fun original => (original.1.raw, original.2.toString))
+    logInfo m!"admission target: head={head}; typed={typeOrigin.isSome}; typeHead={typeHead}; original={originalRef}; typedObject={typedRef}"
     if let some entry ← sourceAdmissionDomain? domain.value then
       let identifier := body.raw.isIdent && ((← getLCtx).findFromUserName? body.raw.getId).isSome
       let typed ← if identifier then do
@@ -56,6 +66,10 @@ def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
   let source := context.source
   let expected := context.expected
   match source with
+  | `(cas_term| $body:cas_term in $domain:cas_term using ($evidence:cas_term,*)) => do
+    let domain ← sourceCarrier (← readExpression categoryOf domain none)
+    discard <| getLevel domain.value
+    SourceReader.constrained context body domain.value evidence.getElems
   | `(cas_term| $body:cas_term in $category:ident / $base:cas_term) => do
     -- `X in C/Y`: X read in the registered category family C at its base parameter Y.
     let state ← CasCatalogue.semanticState

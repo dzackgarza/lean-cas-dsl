@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.Surface
+public import CasCompiler.PresentationFamily
 
 public section
 
@@ -110,6 +111,8 @@ opaque sourcePresentation (name : String) (inverse : Bool)
   unless ← isDefEq bundle actual do
     throwError "the presentation has a different complete registered category"
   let bundle ← instantiateMVars bundle
+  let family ← PresentationFamily.forEntry entry
+  let iso ← family.mark iso
   let iso ← if inverse then mkAppM ``CategoryTheory.Iso.symm #[iso] else pure iso
   let hom ← mkAppM ``CategoryTheory.Iso.hom #[iso]
   let value ← retainSourceIso iso hom

@@ -40,7 +40,9 @@ def readWithRules (rules : Array ReadRule) (context : ReadContext) :
           return ⟨value, none⟩
     checkRegisteredDomains (← inferType judgement.value) expected
     unless ← isDefEq (← inferType judgement.value) expected do
-      throwError "the source expression does not have its independently declared parameter type"
+      throwError "the source expression does not have its independently declared parameter type; \
+        source={context.source}; expected={expected}; actual={← inferType judgement.value}; \
+        value={judgement.value}; category={(judgement.category.map (fun selected => (toJson selected.expression).compress)).getD "none"}"
     return judgement
   return judgement
 

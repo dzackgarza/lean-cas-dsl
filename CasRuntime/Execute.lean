@@ -2,6 +2,7 @@ module
 
 public import CasRuntime.PreparedRequest
 public import CasRuntime.Transaction
+public import CasRuntime.Association
 public import PolyFun.PFunctor.Handler.Stateful
 
 public section
@@ -62,6 +63,7 @@ private def requireFresh (request : PreparedRequest) (transaction : CellTransact
 
 private def executeDemand
     (executor : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature)
+    (resolve : Option (FixedInput → MetaM ValueBinding))
     (request : PreparedRequest) (transaction : CellTransaction) :
     MetaM (PreparedResponse request × CellTransaction) := do
   if let some response ← reuseResponse request transaction then return (response, transaction)
@@ -74,6 +76,16 @@ private def executeDemand
   | .ok .producer => pure ()
   requireFresh request transaction
   let graph ← transaction.view
+  if let some plan ← request.inputResultPlan graph then
+    let resolved ← plan.resolve (liftM (m := IO) transaction.view) resolve
+    let (draft, completed) ← resolved.assemble transaction
+    match ← transaction.installDraft draft with
+    | .error failure => completionFailure failure
+    | .ok () => pure ()
+    let association ← match ← transaction.completeInputResult request completed with
+      | .error failure => completionFailure failure
+      | .ok association => pure association
+    return (← retainResponse request transaction association.response.root, transaction)
   discard <| request.admitInputs graph
   for binding in request.scope do requireAvailable transaction graph binding
   let (response, state) ← executor request transaction
@@ -88,8 +100,9 @@ Other effects use the required executor under the same prepared request and tran
 Every returned node passes the prepared environment's native type and dependency checks.
 Reuse: PolyFun a5895e45 Handler.Stateful over MetaM, RuntimeEnvironment.checkResult,
 ValueGraph and CellTransaction transitions. -/
-def interpreter
-    (executor : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature) :
+private def interpreterWithInputs
+    (executor : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature)
+    (resolve : Option (FixedInput → MetaM ValueBinding)) :
     PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
   fun request transaction => do
     unless request.program.worker == transaction.id.worker &&
@@ -108,28 +121,50 @@ def interpreter
       discard <| request.environment.checkResult graph operand.role operand
       let some node := graph.find operand.value
         | throwError "unavailable: the projected value is outside the active graph"
-      match node.payload.data with
-      | .product _ | .container _ =>
+      let retained : Option ValueBinding ← if node.payload.data.storedFields?.isSome then do
         let some index := field.wireIndex
           | throwError "internal: a proof field reached computational execution"
-        let binding ← IO.ofExcept <| (graph.project operand index).mapError IO.userError
+        pure (some (← IO.ofExcept <| (graph.project operand index).mapError IO.userError))
+      else do
+        let existing ← IO.ofExcept <|
+          (graph.projected? operand #[field.projection]).mapError IO.userError
+        pure existing
+      if let some binding := retained then
+        let draft ← transaction.draft
+        let (draft, binding) ← request.associateResult transaction.owners.identities
+          request.source draft binding
+        discard <| request.admitResult draft.view binding
+        match ← transaction.installDraft draft with
+        | .ok () => pure ()
+        | .error failure => completionFailure failure
         return (← retainResponse request transaction binding, transaction)
-      | .closure _ _ | .ownedToken _ _ _ => executeDemand executor request transaction
+      match node.payload.data with
+      | .closure .. | .ownedToken .. | .container .. =>
+        executeDemand executor resolve request transaction
+      | .product .. => throwError "internal: a stored field lost its retained projection"
       | .portable _ =>
         throwError "malformed: the retained value has no record access interface"
     | .apply callable _ _ =>
       discard <| request.environment.checkResult graph callable.role callable
-      executeDemand executor request transaction
-    | .primitive _ _ => executeDemand executor request transaction
+      executeDemand executor resolve request transaction
+    | .primitive _ _ => executeDemand executor resolve request transaction
+
+/-- Interpret prepared actions, completing wholly stored input results before external demand.
+Production execution additionally supplies its ordinary lazy-input projection resolver. -/
+def interpreter
+    (executor : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature) :
+    PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
+  interpreterWithInputs executor none
 
 /-- Run the imported dependent FreeM interpreter; failure aborts this cell's entire staging.
 Source: PolyFun Handler.Stateful.run, which delegates to CSLib FreeM.liftM. -/
 def run {α : Type}
     (executor : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature)
-    (program : OperationalProgram α) (transaction : CellTransaction) : MetaM α := do
+    (program : OperationalProgram α) (transaction : CellTransaction)
+    (resolve : Option (FixedInput → MetaM ValueBinding) := none) : MetaM α := do
   try
     discard <| transaction.view
-    let (result, _) ← (interpreter executor).run program transaction
+    let (result, _) ← (interpreterWithInputs executor resolve).run program transaction
     return result
   catch error =>
     let failure : TransactionFailure ← match error with

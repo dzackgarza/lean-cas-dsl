@@ -133,6 +133,47 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         unless CasCatalogue.Exception.stratum? failure == some .malformed do throw failure
         unless (← failure.toMessageData.toString).endsWith
             "the reply changed a fixed source input" do throw failure
+        -- Returning a complete existing record must check its fixed descendant as well.
+        -- Preserve all original fields and replace only the equal-valued ambient occurrence.
+        let .ok () ← liftM (m := BaseIO) <| transaction.installDraft draft
+          | throwError "the valid fixed result could not enter the active graph"
+        let installed ← liftM (m := IO) transaction.view
+        let wholeProduced ← liftM (m := BaseIO) ledger.allocate
+        let arrowFields ← ((← RecordLayout.ofSource arrow.role).fields.filterMap
+          (·.field.wireIndex)).mapM fun index =>
+            IO.ofExcept <| (installed.project arrow index).mapError IO.userError
+        let wholeArrow ← liftM (m := IO) <| transaction.stage
+          { program, occurrence := wholeProduced, role := arrow.role, parameters := #[] }
+          (.product (arrowFields.set! 1 right))
+        let resultFields ← ((← RecordLayout.ofSource request.source).fields.filterMap
+          (·.field.wireIndex)).mapM fun index =>
+            IO.ofExcept <| (installed.project response.root index).mapError IO.userError
+        let wholeCandidate ← liftM (m := IO) <| transaction.stage
+          { program, occurrence := wholeProduced, role := request.source, parameters := #[] }
+          (.product (resultFields.set! 0 wholeArrow))
+        let wholeOccurrence ← liftM (m := BaseIO) ledger.allocate
+        let wholeRequest ← PreparedRequest.forApplication owners.identities program wholeOccurrence
+          context callable #[← context.close receiver] #[argument] #[]
+        let .ok wholeReservation ← liftM (m := BaseIO) <| transaction.reserve wholeOccurrence
+          selected connection (wholeRequest.scope.push wholeCandidate)
+          | throwError "the whole-record fixed-input control could not reserve its reply"
+        let wholeGraph ← liftM (m := IO) transaction.view
+        let wholeScope ← liftM (m := IO) <| RequestScope.issue ledger wholeReservation
+          wholeGraph #[wholeCandidate] #[] #[]
+        let wholeFrame := Json.mkObj [
+          ("request_id", toJson (3 : Nat)), ("status", .str "ok"),
+          ("value", (ScopedReference.scope 0).encode), ("exports", .arr #[])]
+        let wholeReply ← liftM (m := IO) <| ImmediateReply.parseControl wholeScope
+          wholeReservation wholeGraph wholeScope.wireId 3 wholeFrame
+        let wholeFailure : Option Exception ← try
+          discard <| wholeReply.materialize wholeRequest transaction wholeScope connection
+          pure none
+        catch error => pure (some error)
+        let some wholeFailure := wholeFailure
+          | throwError "a whole-record reference bypassed its fixed source input"
+        unless CasCatalogue.Exception.stratum? wholeFailure == some .malformed do throw wholeFailure
+        unless (← wholeFailure.toMessageData.toString).endsWith
+            "the reply changed a fixed source input" do throw wholeFailure
       finally discard <| liftM (m := BaseIO) transaction.abort
     finally liftM (m := IO) <| owners.close connection.generation
   finally setEnv original

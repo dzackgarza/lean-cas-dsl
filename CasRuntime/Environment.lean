@@ -1,6 +1,7 @@
 module
 
 public import CasRuntime.Value
+public import CasCompiler.SelectedMorphism
 
 public section
 
@@ -16,15 +17,16 @@ structure RuntimeParameter where
   source : BindingId
   value : ValueBinding
   private origin : ValueOrigin
+  private graph : ValueGraph
 
-/-- Read the actual producing provenance from the caller's visible immutable graph.
+/-- Read the actual producing provenance and retain its visible graph for stored field checks.
 Reuse: ValueGraph.requiredOwners and ValueGraph.find; no payload copy enters this table. -/
 opaque RuntimeParameter.ofValue (graph : ValueGraph) (source : BindingId) (value : ValueBinding) :
     Except String RuntimeParameter := do
   discard <| graph.requiredOwners #[value]
   let some node := graph.find value.value
     | throw "the runtime parameter is outside the visible graph"
-  return ⟨source, value, node.origin⟩
+  return ⟨source, value, node.origin, graph⟩
 
 /-- An actual operand at an explicit position in the complete source argument list. -/
 structure RuntimeArgument where
@@ -32,15 +34,18 @@ structure RuntimeArgument where
   index : Nat
   value : ValueBinding
   private origin : ValueOrigin
+  private graph : ValueGraph
+  private marks : Array ValueBinding
 
 /-- Retain operand provenance from the visible graph before native application preparation.
 Reuse: the same graph visibility and immutable producing-origin checks as RuntimeParameter. -/
-opaque RuntimeArgument.ofValue (graph : ValueGraph) (index : Nat) (value : ValueBinding) :
+opaque RuntimeArgument.ofValue (graph : ValueGraph) (index : Nat) (value : ValueBinding)
+    (marks : Array ValueBinding := #[]) :
     Except String RuntimeArgument := do
   discard <| graph.requiredOwners #[value]
   let some node := graph.find value.value
     | throw "the runtime argument is outside the visible graph"
-  return ⟨index, value, node.origin⟩
+  return ⟨index, value, node.origin, graph, marks⟩
 
 /-- The complete semantic telescope and its separate ordered runtime-binding table.
 Formal-only entries retain their source definitions, hypotheses and selected instances.
@@ -102,9 +107,240 @@ def missingValueTag (id : BindingId) : Name :=
 def missingValueOf (error : Exception) (id : BindingId) : Bool :=
   error.toMessageData.hasTag (· == missingValueTag id)
 
+/-- Expose only the existing native input-routing head and exact declared arrow endpoints.
+Reclose each step over the original telescope; selected source boundaries and retained lets
+remain intact, including distinct closed definitions with convertible values. -/
+private partial def dependencySource (source : ClosedTerm) : MetaM ClosedTerm := do
+  let source ← source.inputProjectionSource
+  source.withOpen fun bindings stated => do
+    let declared ← declaredEndpoint stated
+    let context ← ContextTelescope.capture bindings
+    if declared != stated then return ← dependencySource (← context.close declared)
+    if let some projection ← SourceProjection.ofExpr? stated then
+      let parent ← dependencySource (← context.close projection.parent)
+      let parent ← parent.inContext context
+      if parent != projection.parent then
+        let constructor ← getConstInfoCtor projection.info.ctorName
+        return ← dependencySource (← context.close (mkProj constructor.induct projection.info.i parent))
+    return source
+
+/-- A let is an alias only when its own source selects an earlier binder or native field.
+Closed or computed definitions keep their distinct binding identities. -/
+private partial def dependencyReference (context : OpenContext) (inputs : Array BindingId)
+    (source : ClosedTerm) (path : Array Name := #[]) :
+    MetaM (Option (BindingId × Array Name)) := do
+  let source ← dependencySource source
+  let some selected ← source.inputProjectionAt path inputs | return none
+  let .context id := selected.target
+    | throwError "a context dependency selected a nonexistent application argument"
+  let some binding := context.bindings.find? (·.id == id)
+    | throwError "a dependent source reference is outside its context"
+  if let some definition := (← getFVarLocalDecl binding.expression).value? then
+    if definition.hasFVar then
+      if let some original ← dependencyReference context inputs
+          (← context.close definition) selected.path then
+        return some original
+  return some (id, selected.path)
+
+/-- Align the original field's abstract prefix slots with their positions in the expected
+native type. Equality of runtime values or convertible source binders never selects a slot.
+Slot domains recover earlier transitive dependencies. The complete native type check already
+validates universes; head normalization exposes type aliases while current let binders stay frozen. -/
+private partial def dependencyTerms (locals : Array Expr) (formal expected : Expr)
+    (binders : Array (Expr × Expr) := #[]) :
+    MetaM (Option (Array (Nat × Expr))) := do
+  let formal := formal.consumeMData
+  let expected := expected.consumeMData
+  if let some index := locals.findIdx? (· == formal) then
+    if expected.hasLooseBVars then return none
+    let proof ← isProof formal
+    let freeVars := collectFVars {} expected
+    if !proof && binders.any (fun (_, bound) => freeVars.fvarSet.contains bound.fvarId!) then
+      return none
+    let some preceding ← dependencyTerms (locals.extract 0 index)
+        (← inferType formal) (← inferType expected) binders | return none
+    if proof then return some preceding
+    return some (preceding.push (index, expected))
+  if let some (_, bound) := binders.find? (fun (source, _) => source == formal) then
+    return if bound == expected then some #[] else none
+  if formal == expected then return some #[]
+  let merge (left right : MetaM (Option (Array (Nat × Expr)))) :
+      MetaM (Option (Array (Nat × Expr))) := do
+    let some left ← left | return none
+    let some right ← right | return none
+    return some (left ++ right)
+  let matched ← match formal, expected with
+    | .sort _, .sort _ => pure (some #[])
+    | .const name _, .const other _ =>
+      if name == other then pure (some #[]) else pure none
+    | .app f a, .app g b =>
+      merge (dependencyTerms locals f g binders) (dependencyTerms locals a b binders)
+    | .forallE name a b info, .forallE other c d otherInfo
+    | .lam name a b info, .lam other c d otherInfo => do
+      let some domains ← dependencyTerms locals a c binders | return none
+      withLocalDecl name info a fun source =>
+        withLocalDecl other otherInfo c fun target => do
+          let some bodies ← dependencyTerms locals (b.instantiate1 source) (d.instantiate1 target)
+              (binders.push (source, target)) | return none
+          return some (domains ++ bodies)
+    | .proj owner index parent, .proj other otherIndex otherParent =>
+      if owner == other && index == otherIndex then
+        dependencyTerms locals parent otherParent binders
+      else pure none
+    | _, _ => pure none
+  if matched.isSome then return matched
+  let normalize := fun (expression : Expr) =>
+    if expression.hasLooseBVars then pure expression
+    else withConfig (fun config => { config with zetaDelta := false }) (whnf expression)
+  let normalizedFormal ← normalize formal
+  let normalizedExpected ← normalize expected
+  if normalizedFormal == formal && normalizedExpected == expected then return none
+  dependencyTerms locals normalizedFormal normalizedExpected binders
+
+/-- Read only actual fields of this exact current context value. A lazy frontier requires a
+published graph relation or recorded access; dependency checking never computes a missing field. -/
+private def storedDependency (graph : ValueGraph) (parent : ValueBinding)
+    (path : Array Name) : MetaM (Option ValueBinding) := do
+  let mut value := parent
+  for projection in path do
+    let some field := value.role.fields.find? (·.projection == projection)
+      | throwError "a consuming dependent reference is outside its native record"
+    let some index := field.wireIndex
+      | throwError "a consuming runtime dependency selected a proof field"
+    let some node := graph.find value.value
+      | throwError "a consuming dependent reference is outside its actual graph"
+    if node.payload.data.storedFields?.isNone then
+      let some retained ← IO.ofExcept <|
+          (graph.projected? value #[projection]).mapError IO.userError
+        | return none
+      value := retained
+      continue
+    value ← IO.ofExcept <| (graph.project value index).mapError IO.userError
+  return some value
+
+/-- The one native edge being completed by this actual projection result. Its candidate is
+fixed before recursive validation; ordinary capture and result checks never receive it. -/
+private structure PendingResultProjection where
+  parent : ValueBinding
+  projection : Name
+  result : ValueBinding
+
+/-- Read the original graph before crossing one prepared, still unpublished projection edge.
+Every existing stored field and cached path constrains the result. After crossing that edge,
+only the candidate's actual stored or previously published descendants may supply a value.
+No source expression or type equality selects a runtime parent. -/
+private partial def pendingDependency (graph : ValueGraph) (parent : ValueBinding)
+    (path : Array Name) (pending : Option PendingResultProjection) :
+    MetaM (Option ValueBinding) := do
+  if path.isEmpty then return some parent
+  let cached ← IO.ofExcept <| (graph.projected? parent path).mapError IO.userError
+  let some projection := path[0]?
+    | throwError "a pending dependent reference lost its native projection"
+  let some field := parent.role.fields.find? (·.projection == projection)
+    | throwError "a consuming dependent reference is outside its native record"
+  let some index := field.wireIndex
+    | throwError "a consuming runtime dependency selected a proof field"
+  let some node := graph.find parent.value
+    | throwError "a consuming dependent reference is outside its actual graph"
+  let existing ← IO.ofExcept <|
+    (graph.projected? parent #[projection]).mapError IO.userError
+  let step ← if node.payload.data.storedFields?.isSome then do
+      let stored ← IO.ofExcept <| (graph.project parent index).mapError IO.userError
+      if let some existing := existing then
+        unless sameReference stored existing do
+          throwError "the runtime value has a different consuming dependent reference \
+            in its retained projection"
+      pure (some stored)
+    else pure existing
+  let rest := path.extract 1 path.size
+  let selected ← match step with
+    | some next => pendingDependency graph next rest pending
+    | none => match pending with
+      | some access =>
+        if projection == access.projection && sameReference parent access.parent then
+          pendingDependency graph access.result rest none
+        else pure none
+      | none => pure none
+  if let some cached := cached then
+    if let some selected := selected then
+      unless sameReference cached selected do
+        throwError "the runtime value has a different consuming dependent reference \
+          in its retained projection"
+    return some cached
+  return selected
+
+/-- Follow only the candidate's recorded access chain to the selected source occurrence.
+The graph contributes immutable producing access, while association prefixes permit aliases. -/
+private partial def hasDependencyAccess (graph : ValueGraph) (value parent : ValueBinding)
+    (path : Array Name) : Bool := Id.run do
+  if path.isEmpty then return sameReference parent value
+  let mut accesses := value.projectionAccesses
+  if let some node := graph.find value.value then
+    if let some original := node.origin.access then
+      accesses := accesses.push (original, node.origin.accessPath)
+  for (original, suffix) in accesses do
+    if suffix.isEmpty || suffix.size > path.size then continue
+    let prefixSize := path.size - suffix.size
+    if path.extract prefixSize path.size == suffix &&
+        hasDependencyAccess graph original parent (path.extract 0 prefixSize) then return true
+  return false
+
+/-- The immediate stored result record whose declared field is being checked.
+Only recursive result validation constructs this witness from its actual candidate parent. -/
+private structure ResultFieldPrefix where
+  parent : ValueBinding
+  layout : RecordLayout
+  field : FieldLayout
+
+/-- Read only an exact current prefix local and its native projection spine. -/
+private partial def prefixProjection (locals : Array Expr) (term : Expr) :
+    MetaM (Option (Nat × Array Name)) := do
+  if let some index := locals.findIdx? (· == term) then return some (index, #[])
+  let some projection ← SourceProjection.ofExpr? term | return none
+  let some (index, path) ← prefixProjection locals projection.parent | return none
+  return some (index, path.push projection.declaration)
+
+/-- Align an original dependency with the current field's abstract native prefix positions.
+All occurrences must resolve to a current prefix route, an explicit context reference, or closed
+source. An unrelated unresolved family cannot borrow another occurrence's prefix witness. -/
+private def currentPrefixRoutes (context : OpenContext) (inputs : Array BindingId)
+    (graph : ValueGraph) (original : FieldInstantiation) (slot : Nat)
+    (current : ResultFieldPrefix) : MetaM (Option (Array (ValueBinding × Array Name))) := do
+  let family ← original.field.typeFamily.inContext context
+  let currentFamily ← current.field.typeFamily.inContext context
+  lambdaBoundedTelescope family original.preceding.size fun locals type => do
+    unless locals.size == original.preceding.size do
+      throwError "a consuming runtime dependency lost its complete native prefix"
+    lambdaBoundedTelescope currentFamily current.field.sourceIndex fun currentLocals currentType => do
+      unless currentLocals.size == current.field.sourceIndex do
+        throwError "the current result field lost its complete native prefix"
+      let some terms ← dependencyTerms locals type currentType | return none
+      let selected := terms.filterMap fun (index, term) => if index == slot then some term else none
+      if selected.isEmpty then return none
+      let mut routes := #[]
+      for term in selected do
+        if let some (index, path) ← prefixProjection currentLocals term then
+          let some prepared := current.layout.fields[index]?
+            | throwError "a current result dependency is outside its declared prefix"
+          let some wireIndex := prepared.field.wireIndex | return none
+          let value ← IO.ofExcept <| (graph.project current.parent wireIndex).mapError IO.userError
+          routes := routes.push (value, path)
+        else
+          let freeVars := collectFVars {} term
+          if currentLocals.any (fun parameter => freeVars.fvarSet.contains parameter.fvarId!) then
+            return none
+          let source ← dependencySource (← context.close term)
+          let term ← source.inContext context
+          if term.hasFVar && (← dependencyReference context inputs source).isNone then return none
+      if routes.isEmpty then return none
+      return some routes
+
 private def checkDependencies (context : OpenContext)
-    (supplied : Std.HashMap BindingId ValueBinding) (expected : Expr)
-    (value : ValueBinding) (origin : ValueOrigin) : MetaM Unit := do
+    (supplied : Std.HashMap BindingId ValueBinding) (graph : ValueGraph)
+    (graphFor : BindingId → MetaM ValueGraph) (expected : Expr)
+    (value : ValueBinding) (origin : ValueOrigin)
+    (currentPrefix : Option ResultFieldPrefix := none)
+    (pending : Option PendingResultProjection := none) : MetaM Unit := do
   for index in origin.role.contextDependencies do
     let some dependency := origin.role.source.context.entries[index]?
       | throwError "a producing runtime dependency is outside its source telescope"
@@ -116,20 +352,48 @@ private def checkDependencies (context : OpenContext)
             m!"the runtime value is missing a retained dependent reference")
       unless sameReference original current do
         throwError "the runtime value has a different retained dependent reference"
+  if value.instantiations.all (·.field.precedingDependencies.isEmpty) then return ()
   let dependencies ← CasCompiler.contextDependencies context.bindings expected
+  let mut inputs := #[]
+  for binding in context.bindings do
+    unless ← isProp (← inferType binding.expression) do inputs := inputs.push binding.id
+  let mut references : Array (LocalBinding × (BindingId × Array Name)) := #[]
+  for index in dependencies do
+    let some dependency := context.bindings[index]?
+      | throwError "a consuming runtime dependency is outside its current source telescope"
+    if let some reference ← dependencyReference context inputs
+        (← context.close dependency.expression) then
+      references := references.push (dependency, reference)
   for instantiation in value.instantiations do
+    if instantiation.field.precedingDependencies.isEmpty then continue
+    let family ← instantiation.field.typeFamily.inContext context
+    let terms ← lambdaBoundedTelescope family instantiation.preceding.size fun locals type => do
+      unless locals.size == instantiation.preceding.size do
+        throwError "a consuming runtime dependency lost its complete native prefix"
+      dependencyTerms locals type expected
     for index in instantiation.field.precedingDependencies do
       let some previous := instantiation.preceding[index]?
         | throwError "a consuming runtime dependency is outside its complete field prefix"
       if let some original := previous then
-        let some prepared := instantiation.association.layout.fields[index]?
-          | throwError "a consuming runtime dependency is outside its source record"
-        let formal ← prepared.field.source.inContext context
-        for index in dependencies do
-          let some dependency := context.bindings[index]?
-            | throwError "a consuming runtime dependency is outside its current source telescope"
-          if ← isDefEq (← inferType dependency.expression) (← inferType formal) <&&>
-              isDefEq dependency.expression formal then
+        unless (instantiation.association.layout.fields[index]?).isSome do
+          throwError "a consuming runtime dependency is outside its source record"
+        let some terms := terms
+          | if references.isEmpty then continue
+            throwError "the runtime value has an unresolved consuming dependent type"
+        let selected := terms.filterMap fun (slot, term) => if slot == index then some term else none
+        if selected.isEmpty && !references.isEmpty then
+          throwError "the runtime value has an unresolved consuming dependent slot"
+        let mut unresolved : Option Expr := none
+        for term in selected do
+          let source ← dependencySource (← context.close term)
+          let term ← source.inContext context
+          let some reference ← dependencyReference context inputs source
+            | if term.hasFVar && unresolved.isNone then unresolved := some term
+              continue
+          let mut matched := false
+          for (dependency, selectedReference) in references do
+            if selectedReference != reference then continue
+            matched := true
             let some current := supplied[dependency.id]?
               | throwError (MessageData.tagged (missingValueTag dependency.id)
                   m!"the runtime value is missing a consuming dependent reference \
@@ -137,11 +401,62 @@ private def checkDependencies (context : OpenContext)
             unless sameReference original current do
               throwError "the runtime value has a different consuming dependent reference \
                 ({dependency.expression})"
+          if !reference.2.isEmpty then
+            let fieldMatched := matched
+            for (dependency, selectedReference) in references do
+              unless selectedReference == (reference.1, #[]) do continue
+              let some parent := supplied[dependency.id]?
+                | if fieldMatched then continue
+                  throwError (MessageData.tagged (missingValueTag dependency.id)
+                    m!"the runtime value is missing a consuming dependent reference \
+                      ({dependency.expression})")
+              let current ← if currentPrefix.isSome && pending.isSome then
+                  pendingDependency (← graphFor dependency.id) parent reference.2 pending
+                else storedDependency (← graphFor dependency.id) parent reference.2
+              match current with
+              | some current =>
+                unless sameReference original current do
+                  throwError "the runtime value has a different consuming dependent reference ({term})"
+              | none =>
+                unless hasDependencyAccess graph original parent reference.2 do
+                  throwError "the runtime value has an unresolved consuming dependent reference ({term})"
+              matched := true
+          unless matched do
+            let some dependency := context.bindings.find? (·.id == reference.1)
+              | throwError "a consuming dependent reference is outside its source telescope"
+            throwError (MessageData.tagged (missingValueTag dependency.id)
+              m!"the runtime value is missing a consuming dependent reference ({dependency.expression})")
+        let routes ← match currentPrefix with
+          | none => pure none
+          | some current => currentPrefixRoutes context inputs graph instantiation index current
+        if let some routes := routes then
+          for (parent, path) in routes do
+            match ← storedDependency graph parent path with
+            | some current =>
+              unless sameReference original current do
+                throwError "the runtime value has a different consuming dependent reference \
+                  in its current result prefix; field={instantiation.field.projection}; \
+                  slot={index}; currentField={currentPrefix.map (·.field.projection)}; \
+                  path={reprStr path}; parent={reprStr parent.value}; \
+                  original={reprStr original.value}; originalAssociations={reprStr original.associationIds}; \
+                  actual={reprStr current.value}; actualAssociations={reprStr current.associationIds}; \
+                  originalSource={(graph.find original.value).map (·.origin.role.source.expression)}; \
+                  actualSource={(graph.find current.value).map (·.origin.role.source.expression)}; \
+                  originalRecord={instantiation.association.layout.source.source.expression}; \
+                  currentRecord={currentPrefix.map (·.layout.source.source.expression)}; \
+                  preceding={reprStr (instantiation.preceding.map (·.map (·.value)))}"
+            | none =>
+              unless hasDependencyAccess graph original parent path do
+                throwError "the runtime value has an unresolved consuming dependent reference \
+                  in its current result prefix"
+        else if let some term := unresolved then
+          throwError "the runtime value has an unresolved consuming dependent reference ({term})"
 
 /-- Associate existing nodes by stable source identity, native type and retained type dependencies.
 Check the complete table before comparing each actual producing dependency with its current
 binding. Reuse: ClosedTerm.inContext, Lean.Meta.isDefEq and SourceLayout.contextDependencies.
-Consuming field dependencies use their actual source projections and retained prefix references.
+Consuming field dependencies align their native prefix slots with the expected type, then check
+the selected source binding or projection against its retained reference.
 Later consuming roles may extend the original reference's complete instantiation chain.
 Whole-reply admission remains a separate check. -/
 opaque RuntimeEnvironment.capture (worker : String) (context : OpenContext)
@@ -166,13 +481,101 @@ opaque RuntimeEnvironment.capture (worker : String) (context : OpenContext)
   for parameter in parameters do
     let some source := context.bindings.find? (·.id == parameter.source)
       | throwError "a consuming runtime binding is outside its source telescope"
-    checkDependencies context supplied (← inferType source.expression) parameter.value parameter.origin
+    let graphFor := fun id => do
+      let some parameter := parameters.find? (·.source == id)
+        | throwError "a retained dependent reference lost its supplying graph"
+      pure parameter.graph
+    checkDependencies context supplied parameter.graph graphFor
+      (← inferType source.expression) parameter.value parameter.origin
   let values := context.bindings.map fun binding => supplied[binding.id]?
   return ⟨worker, context.telescope, values⟩
 
+/-- Whether a source parent already has an explicit runtime occurrence.
+Formal selected instances have none; runtime-bound class values keep the same exact identity
+as other values. Reuse: stable binding lookup, retained-value marks and native projections. -/
+partial def RuntimeEnvironment.hasRetainedSource (environment : RuntimeEnvironment)
+    (context : OpenContext) (specified : Expr) : MetaM Bool := do
+  if let .mdata data body := specified then
+    if (markedKey? data).isSome then return true
+    if (data.find `CasCompiler.source.kind).isSome ||
+        (data.find `CasCompiler.selection).isSome then return false
+    return ← environment.hasRetainedSource context body
+  if specified.isFVar then
+    let some binding := context.bindings.find? (·.expression == specified)
+      | throwError "the source argument is outside the complete runtime telescope"
+    match environment.lookup binding.id with
+    | .ok (some _) => return true
+    | .ok none =>
+      if let some definition := (← specified.fvarId!.getDecl).value? then
+        return ← environment.hasRetainedSource context definition
+      return false
+    | .error reason => throwError "the source argument is outside its telescope: {reason}"
+  if let some projection ← SourceProjection.ofExpr? specified then
+    return ← environment.hasRetainedSource context projection.parent
+  return false
+
+/-- Check an operand's retained source selection. Projection names describe the already
+selected path; the parent comes only from that value's association or producing origin.
+Native conversion may check other expressions, but never chooses a projected parent. -/
+private partial def RuntimeEnvironment.retainsSourceReference (environment : RuntimeEnvironment)
+    (context : OpenContext) (graph : ValueGraph) (marks : Array ValueBinding)
+    (specified : Expr) (value : ValueBinding) (requireAnchor : Bool := false)
+    (anchored : Bool := false) : MetaM Bool := do
+  if let .mdata data body := specified then
+    if let some key := markedKey? data then
+      let some selected := marks[key]?
+        | throwError "the source argument lost its retained occurrence mark"
+      let .ok _ := graph.requiredOwners #[selected]
+        | throwError "the source argument's marked occurrence is outside the visible graph"
+      unless retainsReference selected value do return false
+      -- A mark adds an identity constraint; it cannot replace a variable or field constraint.
+      return ← environment.retainsSourceReference context graph marks body value requireAnchor true
+    if (data.find `CasCompiler.source.kind).isNone &&
+        (data.find `CasCompiler.selection).isNone then
+      return ← environment.retainsSourceReference context graph marks body value requireAnchor anchored
+  if specified.isFVar then
+    let some binding := context.bindings.find? (·.expression == specified)
+      | throwError "the source argument is outside the complete runtime telescope"
+    match environment.lookup binding.id with
+    | .ok (some retained) => return retainsReference retained value
+    | .ok none =>
+      let some definition := (← specified.fvarId!.getDecl).value?
+        | throwError "the source argument has no retained runtime binding"
+      return ← environment.retainsSourceReference context graph marks definition value requireAnchor anchored
+    | .error reason => throwError "the source argument is outside its telescope: {reason}"
+  let projection ← SourceProjection.ofExpr? specified
+  let runtimeProjection ← match projection with
+    | none => pure false
+    | some projection =>
+      if !projection.info.fromClass then pure true
+      else environment.hasRetainedSource context projection.parent
+  if runtimeProjection then
+    let some node := graph.find value.value
+      | throwError "the runtime argument is outside the visible graph"
+    let mut selected := value.projectionAccesses
+    if let some parent := node.origin.access then
+      selected := selected.push (parent, node.origin.accessPath)
+    for (parent, path) in selected do
+      if path.isEmpty then continue
+      let mut original := specified
+      let mut matchedPath := true
+      for projection in path.reverse do
+        let some step ← SourceProjection.ofExpr? original
+          | matchedPath := false; break
+        unless step.declaration == projection do
+          matchedPath := false
+          break
+        original := step.parent
+      if matchedPath then
+        if ← environment.retainsSourceReference context graph marks original parent true then return true
+    return false
+  if requireAnchor && !anchored then return false
+  let original ← value.role.source.inContext context
+  return ← isDefEq original specified
+
 /-- Bind the supplied operand to its actual source argument, rather than a same-typed value.
-Source variables use their stable-ID runtime association. Other terms require their retained
-native consuming expression. Reuse: the complete type/dependency checks and native conversion. -/
+Source variables use their stable-ID runtime association. A projection retains the exact path
+and selected parent. Reuse: complete type/dependency checks and native projection metadata. -/
 opaque RuntimeEnvironment.checkArgument (environment : RuntimeEnvironment) (source : ClosedTerm)
     (argument : RuntimeArgument) : MetaM ValueBinding := do
   unless argument.value.value.worker == environment.worker do
@@ -183,27 +586,12 @@ opaque RuntimeEnvironment.checkArgument (environment : RuntimeEnvironment) (sour
     let expected ← inferType specified
     if ← isProp expected then throwError "a formal proof argument has no runtime value binding"
     checkNativeType context expected argument.value argument.origin
-    checkDependencies context environment.bindingMap expected argument.value argument.origin
-    -- A source variable with a computed value is that retained value. A definition that no
-    -- provider computed is its definition, so its argument is checked like any other term.
-    let retained ← if specified.isFVar then do
-        let some binding := bindings.find? (·.expression == specified)
-          | throwError "the source argument is outside the complete runtime telescope"
-        match environment.lookup binding.id with
-        | .ok (some retained) => pure (some retained)
-        | .ok none =>
-          if (← specified.fvarId!.getDecl).value?.isNone then
-            throwError "the source argument has no retained runtime binding"
-          pure none
-        | .error reason => throwError "the source argument is outside its telescope: {reason}"
-      else pure none
-    if let some retained := retained then
-      unless retainsReference retained argument.value do
-        throwError "the runtime argument does not retain its specified source value"
-    else
-      let original ← argument.value.role.source.inContext context
-      unless ← isDefEq original specified do
-        throwError "the runtime argument does not retain its specified source value"
+    checkDependencies context environment.bindingMap argument.graph (fun _ => pure argument.graph)
+      expected argument.value argument.origin
+    unless ← environment.retainsSourceReference context argument.graph argument.marks
+        specified argument.value do
+      trace[cas.environment] "argument {argument.index}: {specified}; retained source {← argument.value.role.source.inContext context}"
+      throwError "the runtime argument does not retain its specified source value"
     let role ← SourceLayout.ofTerm (← context.close specified)
     let .ok value := argument.value.withRole role
       | throwError "the source argument has no computational runtime role"
@@ -213,7 +601,9 @@ opaque RuntimeEnvironment.checkArgument (environment : RuntimeEnvironment) (sour
 Reuse: the source-binding type/dependency checks and CandidateResponse's operational shape check.
 The graph supplies the immutable producing provenance; liveness and publication are later gates. -/
 private partial def checkResultValue (environment : RuntimeEnvironment) (graph : ValueGraph)
-    (source : SourceLayout) (value : ValueBinding) : MetaM (CandidateResponse source) := do
+    (source : SourceLayout) (value : ValueBinding)
+    (currentPrefix : Option ResultFieldPrefix := none)
+    (pending : Option PendingResultProjection := none) : MetaM (CandidateResponse source) := do
   unless graph.worker == environment.worker do
     throwError "the prepared result belongs to a different worker"
   let .ok _ := graph.requiredOwners (environment.references.push value)
@@ -224,21 +614,21 @@ private partial def checkResultValue (environment : RuntimeEnvironment) (graph :
     let context ← ContextTelescope.capture bindings
     let expected ← inferType (← source.source.inContext context)
     checkNativeType context expected value node.origin
-    checkDependencies context environment.bindingMap expected value node.origin
+    checkDependencies context environment.bindingMap graph (fun _ => pure graph)
+      expected value node.origin currentPrefix pending
     let candidate ← match CandidateResponse.ofValue source graph value with
       | .ok candidate => pure candidate
       | .error reason =>
         throwError "the prepared result has an incompatible computational interface: {reason} \
           at {← source.source.inContext context}"
-    let stored := match node.payload.data with
-      | .product _ | .container _ => true
-      | _ => false
+    let stored := node.payload.data.storedFields?.isSome
     if source.kind == .record && stored then
       let layout ← RecordLayout.ofSource source
       for prepared in layout.fields do
         if let some index := prepared.field.wireIndex then
           let field ← IO.ofExcept <| (graph.project candidate.root index).mapError IO.userError
           discard <| checkResultValue environment graph prepared.layout field
+            (some ⟨candidate.root, layout, prepared.field⟩) pending
     return candidate
 
 /-- Validate the complete stored result through its source-derived native field layouts.
@@ -247,6 +637,24 @@ Exported records retain their lazy interface; stored records validate all retain
 opaque RuntimeEnvironment.checkResult (environment : RuntimeEnvironment) (graph : ValueGraph)
     (source : SourceLayout) (value : ValueBinding) : MetaM (CandidateResponse source) :=
   checkResultValue environment graph source value
+
+/-- Validate the native result of this exact pending field demand, including all stored
+descendants. Only the declared field of the retained operand can be temporarily unavailable;
+existing selections keep their node and association chain. The witness is read-only and lives
+only during this complete check, before any projection association is published. -/
+opaque RuntimeEnvironment.checkProjectionResult (environment : RuntimeEnvironment)
+    (graph : ValueGraph) (source : SourceLayout) (value operand : ValueBinding)
+    (field : FieldLayout) : MetaM (CandidateResponse source) := do
+  let some declared := operand.role.fields[field.sourceIndex]?
+    | throwError "the pending projection is outside its retained source layout"
+  unless declared.projection == field.projection && declared.wireIndex.isSome &&
+      (← operand.role.projectionPathTo source) == #[field.projection] do
+    throwError "the pending projection changed its exact native source field"
+  if let some retained ← pendingDependency graph operand #[field.projection] none then
+    unless retainsReference retained value do
+      throwError "the projection changed its retained field reference"
+  checkResultValue environment graph source value none
+    (some ⟨operand, field.projection, value⟩)
 
 /-- Stamp a produced node with its complete ordered actual context references.
 Reuse: SourceLayout.inContext transports the checked role by stable source identities.

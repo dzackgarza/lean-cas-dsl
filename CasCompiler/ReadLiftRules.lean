@@ -21,6 +21,14 @@ def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
   let source := context.source
   let application := application context
   match source with
+  | `(cas_term| map $point:cas_term along $name:ident) => do
+    let selected ← sourcePresentation name.getId.toString false fun declaration =>
+      application ⟨declaration, none⟩ #[] none
+    return ⟨← application selected #[point] context.expected, none⟩
+  | `(cas_term| map $point:cas_term back along $name:ident) => do
+    let selected ← sourcePresentation name.getId.toString true fun declaration =>
+      application ⟨declaration, none⟩ #[] none
+    return ⟨← application selected #[point] context.expected, none⟩
   | `(cas_term| presentation($name:ident($arguments:cas_term,*))) =>
     sourcePresentation name.getId.toString false fun declaration =>
       application ⟨declaration, none⟩ arguments.getElems none

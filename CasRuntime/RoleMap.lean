@@ -1,6 +1,6 @@
 module
 
-public import CasCompiler.Roles
+public import CasCompiler.InputCoverage
 public import CasRuntime.Environment
 
 public section
@@ -21,18 +21,18 @@ structure InputRoleBinding where
   source : InputRoleSource
   value : ValueBinding
 
-/-- A total map for this request's declared computational arguments and captures.
+/-- Checked actual bindings under this request's complete source telescope. Ordinary input
+admission is total; a sealed whole-input result may leave only source-proven unused arguments
+unbound. Wire enumeration still requires every declared computational argument.
 The map contains references and source roles, never completed payload storage. -/
 structure InputRoleMap where
   private mk ::
   telescope : RoleTelescope
   private bindings : Std.HashMap RoleId InputRoleBinding
 
-/-- Admit every declared wire argument and capture in its source position.
-Reuse: native RuntimeEnvironment checks and immutable graph visibility. Proof positions stay
-in the telescope without a runtime payload. This is input-map admission, not result admission. -/
-opaque InputRoleMap.admit (telescope : RoleTelescope) (environment : RuntimeEnvironment)
-    (graph : ValueGraph) (arguments : Array (Option ValueBinding)) (captures : Array ValueBinding) :
+private def admitInputRoles (telescope : RoleTelescope) (environment : RuntimeEnvironment)
+    (graph : ValueGraph) (arguments : Array (Option ValueBinding)) (captures : Array ValueBinding)
+    (actual : Array RuntimeArgument) (coverage : Option (InputResultSourceCoverage telescope)) :
     MetaM InputRoleMap := do
   unless graph.worker == telescope.scope.program.worker && graph.worker == environment.worker do
     throwError "the computational input map belongs to a different worker"
@@ -43,10 +43,21 @@ opaque InputRoleMap.admit (telescope : RoleTelescope) (environment : RuntimeEnvi
     let some supplied := arguments[index]?
       | throwError "a computational argument is outside its complete source table"
     if declared.wireIndex.isSome then
+      if supplied.isNone && coverage.any (fun selected => !selected.arguments.contains index) then
+        continue
       let some value := supplied
         | throwError "a demanded computational argument role has no actual binding"
-      let .ok argument := RuntimeArgument.ofValue graph index value
+      let .ok _ := graph.requiredOwners #[value]
         | throwError "a computational argument is outside the visible graph"
+      let argument ← if let some retained := actual.find? (·.index == index) then do
+          unless retained.value.value == value.value &&
+              retained.value.associationIds == value.associationIds do
+            throwError "a computational argument changed its prepared source occurrence"
+          pure retained
+        else do
+          let .ok argument := RuntimeArgument.ofValue graph index value
+            | throwError "a computational argument is outside the visible graph"
+          pure argument
       let value ← environment.checkArgument declared.role.source argument
       bindings := bindings.insert declared.role.id ⟨declared.role.id, .argument index, value⟩
     else
@@ -57,6 +68,24 @@ opaque InputRoleMap.admit (telescope : RoleTelescope) (environment : RuntimeEnvi
     let candidate ← environment.checkResult graph declared.layout value
     bindings := bindings.insert declared.role.id ⟨declared.role.id, .capture index, candidate.root⟩
   return ⟨telescope, bindings⟩
+
+/-- Admit every declared wire argument and capture in its source position.
+Reuse: native RuntimeEnvironment checks and immutable graph visibility. Proof positions stay
+in the telescope without a runtime payload. Providers and exports always use this total gate. -/
+opaque InputRoleMap.admit (telescope : RoleTelescope) (environment : RuntimeEnvironment)
+    (graph : ValueGraph) (arguments : Array (Option ValueBinding)) (captures : Array ValueBinding)
+    (actual : Array RuntimeArgument := #[]) : MetaM InputRoleMap :=
+  admitInputRoles telescope environment graph arguments captures actual none
+
+/-- Check all supplied values and every required source slot after complete native coverage
+has been sealed for this exact telescope. This cannot authorize an arbitrary partial map;
+the only omissions are absent from every output value/type and their dependent formal prefix.
+The caller retains this map inside its sealed whole-input result plan/completion. -/
+opaque InputRoleMap.admitInputResult (telescope : RoleTelescope)
+    (coverage : InputResultSourceCoverage telescope) (environment : RuntimeEnvironment)
+    (graph : ValueGraph) (arguments : Array (Option ValueBinding)) (captures : Array ValueBinding)
+    (actual : Array RuntimeArgument := #[]) : MetaM InputRoleMap :=
+  admitInputRoles telescope environment graph arguments captures actual (some coverage)
 
 private def InputRoleMap.checkVisibility (map : InputRoleMap) (graph : ValueGraph) :
     Except String Unit := do
@@ -109,7 +138,9 @@ private def storedResultAt (graph : ValueGraph) (root : ValueBinding) (path : Ar
     let some node := graph.find value.value
       | throw "a result role is outside the visible graph"
     match node.payload.data with
-    | .product _ | .container _ => value ← graph.project value index
+    | .product _ | .container _ =>
+      if node.payload.data.storedFields?.isNone then return none
+      value ← graph.project value index
     | .closure .. | .ownedToken .. => return none
     | .portable _ => throw "a result field has no retained record interface"
   return some value

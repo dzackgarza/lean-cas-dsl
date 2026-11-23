@@ -47,6 +47,8 @@ def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
   | `(cas_term| $left:cas_term • $right:cas_term) => action left right
   | `(cas_term| -$operand:cas_term) =>
     elementOperation "-" #[operand] #[] #[] none
+  | `(cas_term| $operand:cas_term⁻¹) =>
+    elementOperation "⁻¹" #[operand] #[] #[] none
   | _ => throwReadRuleMismatch
 
 end ReadOperationRules

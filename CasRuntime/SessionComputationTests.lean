@@ -30,6 +30,15 @@ meta import LeanCategories.Catalogue.Semantics.Algebra.Series
 
 open Lean Elab Command Term CasRuntime
 
+-- These controls explicitly select an empty provider set for each source session.
+private def emptyComputationManifest : IO System.FilePath := do
+  let root ← IO.currentDir
+  IO.FS.createDirAll (root / ".tmp")
+  let path := root / ".tmp" / "kernel-computation-empty-leaves.json"
+  IO.FS.writeFile path
+    (Json.mkObj [("backends", .arr #[]), ("registrations", .arr #[])]).compress
+  return path
+
 /- Questions computed with no leaf installed end in no implementation (constitution C22).
 A polynomial equality is read with its ring variable bound by a leading `let`; it is computed,
 not refused as a comparison. A property is a proposition with no published predicate; the
@@ -37,7 +46,7 @@ kernel does not evaluate its definition. -/
 run_cmd liftTermElabM do
   let environment ← getEnv
   try
-    let mut session ← KernelSession.start none (computationOnly := true)
+    let mut session ← KernelSession.start (some (← emptyComputationManifest)) (computationOnly := true)
     try
       for text in #["let M := [1, 2; 3, 4] in Mat₂(ℚ)", "let v := (1, 2) in ℚ²",
           "let b := (5, 11) in ℚ²"] do
@@ -82,7 +91,7 @@ With no leaf, a question about it stops at the retained value, which has no scal
 run_cmd liftTermElabM do
   let environment ← getEnv
   try
-    let started ← KernelSession.start none (computationOnly := true)
+    let started ← KernelSession.start (some (← emptyComputationManifest)) (computationOnly := true)
     try
       let mut session := started
       for text in #["let F := {x - 1} in 𝒫_fin(ℤ[x])", "assert F = F"] do
@@ -150,7 +159,7 @@ names the identifier. It is not an internal failure of the kernel (FR-029, outco
 run_cmd liftTermElabM do
   let environment ← getEnv
   try
-    let session ← KernelSession.start none (computationOnly := true)
+    let session ← KernelSession.start (some (← emptyComputationManifest)) (computationOnly := true)
     try
       let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt
           "assert undeclaredName = 1 in ℤ" with
@@ -169,7 +178,7 @@ and its detail names the definition and gives the reason. The name is not an unk
 run_cmd liftTermElabM do
   let environment ← getEnv
   try
-    let mut session ← KernelSession.start none (computationOnly := true)
+    let mut session ← KernelSession.start (some (← emptyComputationManifest)) (computationOnly := true)
     try
       let mut kinds := #[]
       let mut details := #[]
@@ -199,7 +208,7 @@ not a false statement. -/
 run_cmd liftTermElabM do
   let environment ← getEnv
   try
-    let session ← KernelSession.start none (computationOnly := true)
+    let session ← KernelSession.start (some (← emptyComputationManifest)) (computationOnly := true)
     try
       for (text, kind) in #[("assert ℤ ⊆ ℚ and ℚ ⊆ ℝ and ℝ ⊆ ℂ", "holds"),
           ("assert ℕ ⊆ ℂ", "holds"), ("assert ℤ ⊆ ℕ", "invalid")] do
