@@ -295,3 +295,94 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           let some failure := failure
             | throwError "runtime association lost the actual preceding field of a dependent role"
           unless (← failure.toMessageData.toString).startsWith expected do throw failure
+
+-- Conversion of native indexes does not merge their distinct source positions or actual suppliers.
+private structure EqualIndexRecord where
+  leftIndex : Nat
+  rightIndex : Nat
+  operation : Fin leftIndex → Fin rightIndex
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let empty ← ContextTelescope.capture #[]
+  let scalar ← SourceLayout.ofTerm (← empty.close (mkNatLit 7))
+  let finite := mkApp (mkConst ``Fin) (mkNatLit 7)
+  let identity ← withLocalDeclD `element finite fun element => mkLambdaFVars #[element] element
+  let native ← mkAppM ``EqualIndexRecord.mk #[mkNatLit 7, mkNatLit 7, identity]
+  withLetDecl `record (mkConst ``EqualIndexRecord) native fun sourceRecord => do
+    let leftField ← mkProjection sourceRecord `leftIndex
+    let rightField ← mkProjection sourceRecord `rightIndex
+    let sourceOperation ← mkProjection sourceRecord `operation
+    let leftAlias ← mkAppM ``id #[leftField]
+    withLetDecl `left (mkConst ``Nat) leftAlias fun left =>
+      withLetDecl `right (mkConst ``Nat) rightField fun right => do
+        let operationType ← mkArrow (mkApp (mkConst ``Fin) left) (mkApp (mkConst ``Fin) right)
+        withLocalDeclD `operation operationType fun operation => do
+          unless ← isDefEq left right do
+            throwError "the consuming-position control requires definitionally equal native indexes"
+          let bindings : Array LocalBinding := #[
+            { id := ⟨"equal-consuming-positions", 0⟩, role := .result, expression := sourceRecord },
+            { id := ⟨"equal-consuming-positions", 1⟩, role := .definition, expression := left },
+            { id := ⟨"equal-consuming-positions", 2⟩, role := .definition, expression := right },
+            { id := ⟨"equal-consuming-positions", 3⟩, role := .parameter, expression := operation }]
+          let context ← ContextTelescope.capture bindings
+          let recordLayout ← RecordLayout.ofSource
+            (← SourceLayout.ofTerm (← context.close sourceRecord))
+          let callable ← SourceLayout.ofTerm (← context.close sourceOperation)
+          let expected ← SourceLayout.ofTerm (← context.close operation)
+          let owners ← liftM (m := IO) OwnerRegistry.new
+          let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+          let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+          let (graph, firstIndex) ← liftM (m := IO) <|
+            (ValueGraph.empty owners.identities).stage owners.identities
+              { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
+          let (graph, secondIndex) ← liftM (m := IO) <| graph.stage owners.identities
+            { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
+          unless firstIndex.value != secondIndex.value do
+            throwError "the consuming-position control lost its distinct actual suppliers"
+          let (graph, function) ← liftM (m := IO) <| graph.stage owners.identities
+            { program, occurrence, role := callable, parameters := #[none, none, none, none] }
+            (.closure program #[])
+          let record ← liftM (m := IO) <|
+            RecordPrefix.begin owners.identities program occurrence recordLayout
+          let (graph, record, actualLeft) ← liftM (m := IO) <| record.bind graph firstIndex
+          let (graph, record, actualRight) ← liftM (m := IO) <| record.bind graph secondIndex
+          let (graph, record, actualOperation) ← liftM (m := IO) <| record.bind graph function
+          let .ok _ := record.finish
+            | throwError "the consuming-position control did not retain the complete native record"
+          let parameter (source : BindingId) (value : ValueBinding) : MetaM RuntimeParameter := do
+            let .ok parameter := RuntimeParameter.ofValue graph source value
+              | throwError "the consuming-position control lost an actual field"
+            return parameter
+          let correct := #[
+            ← parameter bindings[1]!.id actualLeft,
+            ← parameter bindings[2]!.id actualRight]
+          let suppliedOperation ← parameter bindings[3]!.id actualOperation
+          let captured ← RuntimeEnvironment.capture owners.worker context (correct.push suppliedOperation)
+          let .ok argument := RuntimeArgument.ofValue graph 0 actualOperation
+            | throwError "the consuming-position control lost its actual callable"
+          let retained ← captured.checkArgument (← context.close operation) argument
+          let environment ← RuntimeEnvironment.capture owners.worker context correct
+          let candidate ← environment.checkResult graph expected actualOperation
+          unless retained.value == actualOperation.value &&
+              retained.associationIds == actualOperation.associationIds &&
+              candidate.root.value == actualOperation.value &&
+              candidate.root.associationIds == actualOperation.associationIds do
+            throwError "dependent source preparation changed the correctly positioned actual callable"
+          let swapped := #[
+            ← parameter bindings[1]!.id actualRight,
+            ← parameter bindings[2]!.id actualLeft]
+          let rejectSwapped (action : MetaM Unit) : MetaM Unit := do
+            let failure : Option Exception ← try
+              action
+              pure none
+            catch error => pure (some error)
+            let some failure := failure
+              | throwError "dependent source preparation accepted swapped actual suppliers"
+            unless (← failure.toMessageData.toString).startsWith
+                "the runtime value has a different consuming dependent reference" do throw failure
+          rejectSwapped do
+            discard <| RuntimeEnvironment.capture owners.worker context
+              (swapped.push suppliedOperation)
+          let changed ← RuntimeEnvironment.capture owners.worker context swapped
+          rejectSwapped do
+            discard <| changed.checkResult graph expected actualOperation

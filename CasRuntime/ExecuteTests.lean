@@ -117,10 +117,30 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "stateful execution replaced a stored field node"
       unless result[3]?.map (·.instantiations.size) == some 1 do
         throwError "stateful execution discarded the projected field's runtime instantiation"
+      for (request, binding) in #[left, again, packetProjection, associatedProjection].zip result do
+        let some role := request.roles.results[0]?
+          | throwError "the stored projection lost its prepared result role"
+        match ← liftM (m := BaseIO) <| consumer.reuse request.occurrence role.role.id with
+        | .ok (.ready retained) =>
+          unless retained.value == binding.value &&
+              retained.associationIds == binding.associationIds do
+            throwError "a stored projection completion changed its actual reference"
+        | _ => throwError "a stored projection did not stage its exact completion"
+        if ← liftM (m := BaseIO) <| ledger.isFresh request.occurrence then
+          throwError "a completed stored projection retained a dispatch right"
       let .ok published ← consumer.commit
         | throwError "a dead unrelated field blocked the portable projection"
       unless published.outputBatches.size == 2 do
         throwError "the successful projection cell was not committed"
+      for (request, binding) in #[left, again, packetProjection, associatedProjection].zip result do
+        let some receipt := published.receipt request.occurrence
+          | throwError "a committed stored projection omitted its receipt"
+        unless receipt.association.response.root.value == binding.value &&
+            receipt.association.response.root.associationIds == binding.associationIds do
+          throwError "a stored projection receipt changed its actual reference"
+        match receipt.association.producer with
+        | .kernel => pure ()
+        | .invocation .. => throwError "a stored projection invented an external invocation"
       let failed ← CellTransaction.begin ledger
       let third ← liftM (m := BaseIO) ledger.allocate
       let right ← PreparedRequest.forProjection owners.identities program third context graph associated 1 #[]
