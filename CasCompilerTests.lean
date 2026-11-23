@@ -14,6 +14,7 @@ import CasCompiler.OperationRefinementTests
 import CasCompiler.OperationalTests
 import CasCompiler.ParseTests
 import CasCompiler.ProgramTests
+import CasCompiler.RecursiveLayoutTests
 import CasCompiler.ProofTests
 import CasCompiler.ResolveTests
 import CasCompiler.RouteGrammarTests

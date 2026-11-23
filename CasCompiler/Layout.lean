@@ -1,5 +1,6 @@
 module
 
+import CasContract.Failure
 public import CasCompiler.Context
 public import Lean.Meta.Structure
 public import Lean.Util.CollectFVars
@@ -35,6 +36,8 @@ structure FieldLayout where
   source : ClosedTerm
   typeFamily : ClosedTerm
   kind : ComputationalKind
+  /-- Native ancestor record types, closed over their complete stable source context. -/
+  private recordAncestors : Array ClosedTerm
 
 /-- Mechanical layout of a fixed source value, with its complete dependent source type. -/
 structure SourceLayout where
@@ -44,6 +47,8 @@ structure SourceLayout where
   kind : ComputationalKind
   fields : Array FieldLayout
   contextDependencies : Array Nat
+  /-- The stored-record path above this layout; callable application starts a new path. -/
+  private recordAncestors : Array ClosedTerm
 
 /-- Close dependencies through the selected locals' native types and definitions, in order.
 Reuse: Lean.collectFVars and LocalDecl.value?; callers retain their complete telescopes.
@@ -75,15 +80,23 @@ private def computationalKind (type : Expr) : MetaM ComputationalKind := do
 
 /-- Use Lean's source-ordered structure metadata and constructor telescope.
 Reference: Lean/Structure.lean and Lean/Meta/Structure.lean at Lean v4.33.0.
-Only propositions are erased; no subsingleton test enters field selection. -/
-private def sourceLayout (source : ClosedTerm) (address : Array Name) : MetaM SourceLayout :=
+Only propositions are erased; no subsingleton test enters field selection.
+Reuse the path-local repeated-type guard from RoutedResultPlan.compileSlots at fef6be1;
+closed types preserve its meaning across fresh source contexts and later projections. -/
+private def sourceLayout (source : ClosedTerm) (address : Array Name)
+    (recordAncestors : Array ClosedTerm) : MetaM SourceLayout :=
   source.withOpen fun bindings expression => do
     let context ← ContextTelescope.capture bindings
     let originalType ← inferType expression
     let dependencies ← contextDependencies bindings originalType
     let type ← whnf originalType
     let kind ← computationalKind type
-    if kind != .record then return ⟨address, source, kind, #[], dependencies⟩
+    if kind != .record then return ⟨address, source, kind, #[], dependencies, recordAncestors⟩
+    for ancestor in recordAncestors do
+      if ← isDefEq type (← ancestor.inContext context) then
+        CasCatalogue.throwStratum .noImplementation
+          "the result requires a recursive public record schema"
+    let recordPath := recordAncestors.push (← context.close type)
     let .const name levels := type.getAppFn
       | throwError "record layout requires its source structure declaration"
     let some info := getStructureInfo? (← getEnv) name
@@ -107,17 +120,17 @@ private def sourceLayout (source : ClosedTerm) (address : Array Name) : MetaM So
         let fieldKind ← computationalKind (← inferType value)
         let fieldWireIndex := if fieldKind == .proof then none else some wireIndex
         fields := fields.push ⟨address.push projection, projection, index, fieldWireIndex,
-          dependencies, ← context.close value, ← context.close typeFamily, fieldKind⟩
+          dependencies, ← context.close value, ← context.close typeFamily, fieldKind, recordPath⟩
         if fieldKind != .proof then wireIndex := wireIndex + 1
-      return ⟨address, source, kind, fields, dependencies⟩
+      return ⟨address, source, kind, fields, dependencies, recordAncestors⟩
 
 /-- Derive a fixed-value layout from the checked source, before any provider response. -/
 opaque SourceLayout.ofTerm (source : ClosedTerm) : MetaM SourceLayout :=
-  sourceLayout source #[]
+  sourceLayout source #[] #[]
 
 /-- Inspect the same projected source value, retaining its full projection address. -/
 opaque FieldLayout.toLayout (field : FieldLayout) : MetaM SourceLayout :=
-  sourceLayout field.source field.address
+  sourceLayout field.source field.address field.recordAncestors
 
 /-- A source constructor field and its complete prepared value interface. -/
 structure RecordField where
@@ -142,13 +155,13 @@ opaque RecordLayout.ofSource (source : SourceLayout) : MetaM RecordLayout := do
 
 /-- Reopen in the complete current scope while retaining the source projection address. -/
 opaque SourceLayout.inContext (layout : SourceLayout) (context : OpenContext) : MetaM SourceLayout := do
-  sourceLayout (← context.close (← layout.source.inContext context)) layout.address
+  sourceLayout (← context.close (← layout.source.inContext context)) layout.address layout.recordAncestors
 
 /-- Prepare ordinary source application in the current complete context.
 Arguments are checked source terms; computational candidates enter through the runtime. -/
 opaque SourceLayout.applyIn (function : SourceLayout) (context : OpenContext)
     (arguments : Array ClosedTerm) : MetaM SourceLayout := do
-  sourceLayout (← context.close (← context.apply function.source arguments)) function.address
+  sourceLayout (← context.close (← context.apply function.source arguments)) function.address #[]
 
 /-- A complete native argument position, with proof erasure separated from formal dependency. -/
 structure ArgumentLayout where
