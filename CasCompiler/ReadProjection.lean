@@ -3,6 +3,7 @@ module
 public import CasCompiler.ReadContext
 public import CasCompiler.SourceLift
 public import CasCompiler.SourceLimit
+public import CasCompiler.SourceSubobject
 
 public section
 
@@ -15,6 +16,10 @@ def readProjection (receiver : NativeSourceJudgement) (name : String)
   if let some value ← sourceLiftMember? receiver name then
     unless arguments.isEmpty do
       throwError "a selected lift projection takes no additional source arguments"
+    return some value
+  if let some value ← sourceSubobjectMember? receiver name then
+    unless arguments.isEmpty do
+      throwError "a selected subobject projection takes no additional source arguments"
     return some value
   -- `K.leg(j)`: a defining leg of a registered limit or colimit.
   if name == "leg" then

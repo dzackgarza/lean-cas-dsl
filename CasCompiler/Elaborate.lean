@@ -52,12 +52,16 @@ structure SourceLimitSelection where
   declaration : Name
   cone : ClosedTerm
   colimit : Bool
+  category : CasCatalogue.CategoryExpr
+  bundle : ClosedTerm
 
 structure NativeSourceLimitSelection where
   row : String
   declaration : Name
   cone : Expr
   colimit : Bool
+  category : CasCatalogue.CategoryExpr
+  bundle : Expr
 
 /-- The selected symbolic category and its complete native bundle in the original context. -/
 structure SourceCategoryBinding where
@@ -229,7 +233,10 @@ opaque SourceSession.elaborateJudgements (session : SourceSession) (reference : 
           let limit ← selected.limit.mapM fun limit => do
             let cone ← context.close (← instantiateMVars limit.cone)
             checkSource cone
-            return (⟨limit.row, limit.declaration, cone, limit.colimit⟩ : SourceLimitSelection)
+            let bundle ← context.close (← instantiateMVars limit.bundle)
+            checkSource bundle
+            return (⟨limit.row, limit.declaration, cone, limit.colimit, limit.category, bundle⟩ :
+              SourceLimitSelection)
           term.inCategory selected.expression ⟨category, span, none⟩ selected.role selection limit
 
 /-- Form ordinary checked native terms through the same complete source boundary. -/

@@ -37,10 +37,17 @@ def sourceRegisteredForm (type : Expr) : MetaM Expr := do
   | #[object] => return object
   | _ => return type
 
-/-- The registered object with an admission whose object family, at the parameters that
-reducible unification determines, is the native type `type` (`ℙ` for `Nat.Primes`). -/
+/-- An explicitly retained object selects its own admission. Unmarked native types retain the
+existing reducible-family lookup (`ℙ` for `Nat.Primes`). An abbreviation's carrier need not
+determine the original structured object parameters, so it cannot replace a supplied row. -/
 def sourceAdmissionDomain? (type : Expr) : MetaM (Option ObjectEntry) := do
   let state ← semanticState
+  if let some (id, declaration) ← sourceObjectReference? type then
+    let some entry := state.objects.find? (·.id == id)
+      | throwError "the admission domain lost its original registered object"
+    unless entry.declaration == declaration do
+      throwError "the admission domain changed its original object declaration"
+    return if entry.admission.isSome then some entry else none
   let mut found := #[]
   for entry in state.objects do
     unless entry.admission.isSome do continue
@@ -95,13 +102,26 @@ def sourceAdmission (entry : ObjectEntry) (target : Expr) (read : Expr → TermE
   let type ← whnfR type
   unless type.isAppOfArity ``Quiver.Hom 4 do
     throwError "the admission of {entry.name} is not a point map"
-  unless ← withReducible (isDefEq type.getAppArgs[3]! target) do
-    throwStratum .invalid m!"the admission of {entry.name} does not land in the selected domain"
   let explicit := (List.range arguments.size).toArray.filter (infos[·]!.isExplicit)
   let some element := explicit.find? fun index =>
       (type.findMVar? (· == arguments[index]!.mvarId!)).isNone
     | throwError "the admission of {entry.name} takes no value"
-  let read ← read (← instantiateMVars (← inferType arguments[element]!))
+  let mut retainedArguments : Array (Option Expr) := Array.replicate arguments.size none
+  if let some (id, declaration) ← sourceObjectReference? target then
+    unless id == entry.id && declaration == entry.declaration do
+      throwStratum .invalid m!"the admission of {entry.name} has another selected object"
+    let original ← sourceDomain target
+    -- Registry.Semantic.validateObject checks this exact target head before conversion.
+    let some retained ← alignSourceArguments? entry.declaration arguments type.getAppArgs[3]!
+        original
+      | throwStratum .invalid m!"the admission of {entry.name} has different original target parameters"
+    retainedArguments := retained
+  unless ← withReducible (isDefEq type.getAppArgs[3]! target) do
+    throwStratum .invalid m!"the admission of {entry.name} does not land in the selected domain"
+  let dataType ← instantiateMVars (← inferType arguments[element]!)
+  -- Finish typed elaboration before evidence inspects the complete actual data.
+  -- Native dependent constructors can leave pending synthetic coercion terms.
+  let read ← instantiateMVars (← withSynthesize <| read dataType)
   -- The evidence is stated of a closed value's plumbing-free normal form, which is
   -- definitionally it; the admitted element remains the value as read, so that its registered
   -- operations reach the kernel (constitution C22).
@@ -119,7 +139,12 @@ def sourceAdmission (entry : ObjectEntry) (target : Expr) (read : Expr → TermE
     unless ← isDefEq arguments[index]! proof do
       throwStratum .invalid m!"the evidence of {entry.name} does not apply"
   let constant ← instantiateMVars constant
-  let arguments ← (arguments.set! element read).mapM instantiateMVars
+  let mut arguments ← (arguments.set! element read).mapM instantiateMVars
+  -- Native unification checks the parameter, while the actual source application retains
+  -- its original expression, including source binding and retained-value metadata.
+  for original in retainedArguments, index in [:retainedArguments.size] do
+    if let some original := original then
+      arguments := arguments.set! index (← instantiateMVars original)
   let admitted := mkAppN constant arguments
   if admitted.hasMVar || admitted.hasLevelMVar then
     throwStratum .invalid m!"the parameters or evidence of {entry.name} are not determined"

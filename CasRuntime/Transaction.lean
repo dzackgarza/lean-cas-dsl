@@ -153,7 +153,7 @@ opaque CellDraft.bindApplication (draft : CellDraft) (origin : ValueOrigin)
 
 /-- Keep a prepared projection association in the same isolated append-only reply delta. -/
 opaque CellDraft.bindProjection (draft : CellDraft) (origin : ValueOrigin)
-    (value : ValueBinding) (fields : Array ValueBinding) : IO (CellDraft × ValueBinding) := do
+    (value : ValueBinding) (fields : Array ValueBinding) : MetaM (CellDraft × ValueBinding) := do
   let (graph, binding) ← draft.graph.bindProjection draft.identities origin value fields
   return ({ draft with graph, roots := draft.roots.push binding }, binding)
 
@@ -513,6 +513,22 @@ opaque CellTransaction.completeReply (transaction : CellTransaction) (draft : Ce
     if let some (.ok _) := outcome then scope.retire
     return outcome.getD (.error .staleOwner)
 
+/-- Stored access demands its exact selected field while retaining the full parent input map.
+Only a real stored projection has this owner scope. Its result must retain the selected node
+and every existing consuming association; all other kernel completions demand their inputs. -/
+private def kernelInputReferences (request : PreparedRequest) (graph : ValueGraph)
+    (inputs : InputRoleMap) (response : PreparedResponse request) :
+    Except TransactionFailure (Array ValueBinding) := do
+  let .project operand _ := request.action | return inputs.references
+  let path ← request.projectionPath.mapError (fun _ => .invalidCompletion)
+  let selected ← (graph.projectionFrontier operand path).mapError (fun _ => .invalidCompletion)
+  let some (selected, remaining) := selected | return inputs.references
+  unless remaining.isEmpty do return inputs.references
+  unless selected.value == response.root.value &&
+      selected.associationIds.toList.isPrefixOf response.root.associationIds.toList do
+    throw .invalidCompletion
+  return #[selected]
+
 private def CellTransaction.finishKernel (transaction : CellTransaction)
     (request : PreparedRequest) (response : PreparedResponse request) (inputs : InputRoleMap)
     (includeInputs : Bool) :
@@ -521,6 +537,9 @@ private def CellTransaction.finishKernel (transaction : CellTransaction)
   unless inputs.telescope.scope == request.roles.scope do return .error .invalidCompletion
   discard <| IO.ofExcept <| (graph.requiredOwners inputs.references).mapError IO.userError
   let response ← request.admitResult graph response.root
+  let .ok demanded := if includeInputs then kernelInputReferences request graph inputs response
+      else .ok #[]
+    | return .error .invalidCompletion
   liftM (m := BaseIO) <| transaction.state.atomically do
     let .active cell ← get | return .error .settled
     unless request.program.worker == transaction.id.worker &&
@@ -532,8 +551,7 @@ private def CellTransaction.finishKernel (transaction : CellTransaction)
     if (← transaction.ledger.pendingFor request.occurrence transaction.id).isSome then
       return .error .invalidCompletion
     let outputs := response.roles.references
-    let .ok dependencies := cell.graph.requiredOwners
-        (outputs ++ if includeInputs then inputs.references else #[])
+    let .ok dependencies := cell.graph.requiredOwners (outputs ++ demanded)
       | return .error .referenceOutsideGraph
     let outcome : Option CompletionAssociation ← transaction.owners.atomicallyWhileLive
         (m := Std.AtomicT CellState BaseIO) dependencies do

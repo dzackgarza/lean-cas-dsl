@@ -131,11 +131,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         "let row := [1, 0] in RectangularMatrices(1, 2, Q)",
         "let projection := row_linear_map(2, Q, row)",
         "let restricted := RestrictToModuleKernel(Q, scalarModule, formedSource, scalarModule, projection)",
+        "let formedInclusion := ordinary_kernel_inclusion(Q, scalarModule, formedSource, scalarModule, projection)",
         "let restrictionCarrier := view restricted along «fun.bilin_module.forget»(ℚ, ℚ)",
         "let coordinateData(t) := (0, t) in (ℚ in Sets) → (Vec(Q, 2) in Sets)"] do
       let .ok stx := Parser.runParserCategory (← getEnv) `cas_stmt text
         | throwError "an original RX08 declaration did not parse"
-      let .definition next _ ← session.readStatement ⟨stx⟩
+      let checked ← try session.readStatement ⟨stx⟩
+        catch failure => throwError
+          "the original RX08 declaration did not read: {text}; {failure.toMessageData}"
+      let .definition next _ := checked
         | throwError "an original RX08 declaration changed statement kind"
       session := next
     let text := "coordinateData in restrictionCarrier using (proof(by intro t; exact (CasCatalogue.Modules.Bilinear.Valued.ModuleKernelRestriction.RationalProjection.mem_kernel ![0, t]).2 rfl))"
@@ -166,6 +170,52 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "RX08 changed its original map, full domain, selected target or supplied proof"
     -- A proof at one sample cannot replace the original universally quantified evidence.
     rejected session "coordinateData in restrictionCarrier using (proof((CasCatalogue.Modules.Bilinear.Valued.ModuleKernelRestriction.RationalProjection.mem_kernel ![0, (0 : ℚ)]).2 rfl))"
+    let withPoint ← session.defineTerm `kappa admitted
+    let composite ← try readSource withPoint "formedInclusion(kappa)"
+      catch failure => throwError
+        "the original whole coordinate application did not read: {failure.toMessageData}"
+    let some category := composite.category
+      | throwError "the original whole coordinate inclusion lost its morphism role"
+    unless category.role == .morphism &&
+        category.expression.syntacticEq (.atom CategoryId.sets) do
+      throwError "the original whole coordinate inclusion changed its carrier category"
+    let some inclusionEntry := withPoint.context.entries.find? (·.userName == `formedInclusion)
+      | throwError "the original formed inclusion binding is absent"
+    let some pointEntry := withPoint.context.entries.find? (·.userName == `kappa)
+      | throwError "the original admitted coordinate binding is absent"
+    composite.source.withOpen fun bindings expression => do
+      let some inclusion := bindings.find? (·.id == inclusionEntry.id)
+        | throwError "the original formed inclusion is outside the source context"
+      let some point := bindings.find? (·.id == pointEntry.id)
+        | throwError "the original coordinate map is outside the source context"
+      -- Fixed.forget uses this independently declared underlyingMap. Its full implicit
+      -- parameters, including the chosen Module instance, come from the actual arrow
+      -- before any projection is applied; no instance is synthesized at ↑Q ↑scalarModule.
+      let expected ← try
+          let declaration ← mkConstWithFreshMVarLevels
+            ``LeanCategories.Modules.Bilinear.Valued.BilinModuleCat.underlyingMap
+          let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType declaration)
+          let some arrow := parameters.back?
+            | throwError "the native underlying map has no morphism parameter"
+          unless ← isDefEq arrow inclusion.expression do
+            throwError "the native underlying map changed the actual inclusion type"
+          let linear ← instantiateMVars (mkAppN declaration parameters)
+          if linear.hasMVar || linear.hasLevelMVar then
+            throwError "the native inclusion did not determine its complete parameters"
+          let additive ← mkProjection linear `toAddHom
+          let function ← mkProjection additive `toFun
+          let carrierMap ← mkAppM ``TypeCat.ofHom #[function]
+          mkAppM ``CategoryTheory.CategoryStruct.comp #[point.expression, carrierMap]
+        catch failure => throwError
+          "the native coordinate inclusion composite did not elaborate: {failure.toMessageData}"
+      unless (← isDefEq expression expected) &&
+          expression.containsFVar inclusion.expression.fvarId! &&
+          expression.containsFVar point.expression.fvarId! do
+        throwError "the whole coordinate inclusion replaced its actual source maps"
+    let .ok question := Parser.runParserCategory (← getEnv) `cas_term
+      "formedInclusion(kappa) = coordinateData"
+      | throwError "the original whole coordinate assertion did not parse"
+    discard <| withPoint.readQuestion ⟨question⟩
   finally setEnv original
 
 -- Literal data use the same independently fixed native record constructor. The numeral

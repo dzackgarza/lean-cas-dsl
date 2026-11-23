@@ -5,6 +5,8 @@ public import CasRuntime.Transport
 public import CasRuntime.Materialize
 public import CasRuntime.Encode
 public import CasRuntime.Presentation
+public import CasRuntime.Point
+public import CasRuntime.RoutedMethod
 
 public section
 
@@ -77,6 +79,51 @@ partial def Kernel.invokePresentation (kernel : Kernel) (evaluateSource : Source
   unless registration.operation == invocation.operation &&
       invocation.forms.contains registration.input do
     throwError "the presentation invocation changed its selected operation or input form"
+  let wire ← kernel.connections.get registration.backend
+  let graph ← transaction.view
+  discard <| request.admitInputs graph
+  let (encoded, packet) ← IO.ofExcept <|
+    (invocation.encode graph wire.connection.generation).mapError IO.userError
+  let identity : DispatchIdentity := {
+    manifestDigest := kernel.manifestDigest, registration, profileDigest := kernel.profile.sha256 }
+  let reservation ← match ← transaction.reserve request.occurrence identity wire.connection
+      invocation.dependencies with
+    | .ok reservation => pure reservation
+    | .error failure => transactionFailure failure
+  kernel.dispatches.modify (·.push registration)
+  kernel.invoke evaluateSource request transaction wire reservation encoded packet
+
+/-- Dispatch the unique selected routed-method boundary through the existing reservation,
+scoped input, suspension and reply-admission machinery, using its published method packet. -/
+partial def Kernel.invokeMethod (kernel : Kernel) (evaluateSource : SourceEvaluation)
+    (request : PreparedRequest) (transaction : CellTransaction)
+    (invocation : PreparedMethodInvocation) : MetaM (PreparedResponse request) := do
+  let registration := invocation.registration
+  unless registration.operation == invocation.method.raw do
+    throwError "the selected method registration changed its published address"
+  let graph ← transaction.view
+  discard <| request.admitInputs graph
+  let wire ← kernel.connections.get registration.backend
+  let (encoded, packet) ← IO.ofExcept <|
+    (invocation.encode graph wire.connection.generation).mapError IO.userError
+  let identity : DispatchIdentity := {
+    manifestDigest := kernel.manifestDigest, registration, profileDigest := kernel.profile.sha256 }
+  let reservation ← match ← transaction.reserve request.occurrence identity wire.connection
+      invocation.dependencies with
+    | .ok reservation => pure reservation
+    | .error failure => transactionFailure failure
+  kernel.dispatches.modify (·.push registration)
+  kernel.invoke evaluateSource request transaction wire reservation encoded packet
+
+/-- Send the released named-point packet through the same reservation, scope, deferred-reply
+and complete typed result admission lifecycle. The original arrow and all declared parameter
+owners remain reservation dependencies although the arrow has a named descriptor view. -/
+partial def Kernel.invokePoint (kernel : Kernel) (evaluateSource : SourceEvaluation)
+    (request : PreparedRequest) (transaction : CellTransaction) (registration : Registration)
+    (invocation : PreparedPointInvocation) : MetaM (PreparedResponse request) := do
+  unless registration.operation == invocation.operation &&
+      invocation.forms.contains registration.input do
+    throwError "the named point invocation changed its selected operation or input form"
   let wire ← kernel.connections.get registration.backend
   let graph ← transaction.view
   discard <| request.admitInputs graph

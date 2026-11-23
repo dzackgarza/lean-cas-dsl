@@ -285,12 +285,20 @@ private partial def hasDependencyAccess (graph : ValueGraph) (value parent : Val
         hasDependencyAccess graph original parent (path.extract 0 prefixSize) then return true
   return false
 
-/-- The immediate stored result record whose declared field is being checked.
-Only recursive result validation constructs this witness from its actual candidate parent. -/
+/-- An exact source-path parent and declared field. A prepared projection supplies its
+original operand path; recursive stored-result validation extends that same path. -/
 private structure ResultFieldPrefix where
   parent : ValueBinding
   layout : RecordLayout
   field : FieldLayout
+  view : Option FieldDependencyView := none
+
+/-- Follow only the next declared source field of this same prepared prefix witness. The
+view narrows its original slots to that descendant; introduced native locals stay abstract. -/
+private def ResultFieldPrefix.descend (current : ResultFieldPrefix) (projection : Name) :
+    MetaM ResultFieldPrefix := do
+  let path := ((current.view.map (·.path)).getD #[]).push projection
+  return { current with view := some (← current.field.dependencyView path) }
 
 /-- Read only an exact current prefix local and its native projection spine. -/
 private partial def prefixProjection (locals : Array Expr) (term : Expr) :
@@ -305,41 +313,53 @@ All occurrences must resolve to a current prefix route, an explicit context refe
 source. An unrelated unresolved family cannot borrow another occurrence's prefix witness. -/
 private def currentPrefixRoutes (context : OpenContext) (inputs : Array BindingId)
     (graph : ValueGraph) (original : FieldInstantiation) (slot : Nat)
-    (current : ResultFieldPrefix) : MetaM (Option (Array (ValueBinding × Array Name))) := do
-  let family ← original.field.typeFamily.inContext context
-  let currentFamily ← current.field.typeFamily.inContext context
-  lambdaBoundedTelescope family original.preceding.size fun locals type => do
-    unless locals.size == original.preceding.size do
+    (current : ResultFieldPrefix) : MetaM (Option (Array (ValueBinding × Array Name) × Bool)) := do
+  let family ← original.typeFamily.inContext context
+  let currentFamily ← ((current.view.map (·.typeFamily)).getD
+    current.field.typeFamily).inContext context
+  let inspect := fun locals type => do
+    unless locals.size ≥ original.preceding.size do
       throwError "a consuming runtime dependency lost its complete native prefix"
-    lambdaBoundedTelescope currentFamily current.field.sourceIndex fun currentLocals currentType => do
-      unless currentLocals.size == current.field.sourceIndex do
+    let inspectCurrent := fun currentLocals currentType => do
+      unless currentLocals.size ≥ current.field.sourceIndex do
         throwError "the current result field lost its complete native prefix"
+      let prefixLocals := currentLocals.extract 0 current.field.sourceIndex
       let some terms ← dependencyTerms locals type currentType | return none
       let selected := terms.filterMap fun (index, term) => if index == slot then some term else none
       if selected.isEmpty then return none
       let mut routes := #[]
+      let mut complete := true
       for term in selected do
-        if let some (index, path) ← prefixProjection currentLocals term then
+        if let some (index, path) ← prefixProjection prefixLocals term then
           let some prepared := current.layout.fields[index]?
             | throwError "a current result dependency is outside its declared prefix"
-          let some wireIndex := prepared.field.wireIndex | return none
-          let value ← IO.ofExcept <| (graph.project current.parent wireIndex).mapError IO.userError
+          unless prepared.field.wireIndex.isSome do
+            complete := false
+            continue
+          let some value ← storedDependency graph current.parent #[prepared.field.projection]
+            | throwError "the runtime value is missing a required original dependent prefix field"
           routes := routes.push (value, path)
         else
           let freeVars := collectFVars {} term
           if currentLocals.any (fun parameter => freeVars.fvarSet.contains parameter.fvarId!) then
-            return none
+            complete := false
+            continue
           let source ← dependencySource (← context.close term)
           let term ← source.inContext context
-          if term.hasFVar && (← dependencyReference context inputs source).isNone then return none
+          if term.hasFVar && (← dependencyReference context inputs source).isNone then
+            complete := false
       if routes.isEmpty then return none
-      return some routes
+      return some (routes, complete)
+    if current.view.isSome then lambdaTelescope currentFamily inspectCurrent
+    else lambdaBoundedTelescope currentFamily current.field.sourceIndex inspectCurrent
+  if original.view.isSome then lambdaTelescope family inspect
+  else lambdaBoundedTelescope family original.preceding.size inspect
 
 private def checkDependencies (context : OpenContext)
     (supplied : Std.HashMap BindingId ValueBinding) (graph : ValueGraph)
     (graphFor : BindingId → MetaM ValueGraph) (expected : Expr)
     (value : ValueBinding) (origin : ValueOrigin)
-    (currentPrefix : Option ResultFieldPrefix := none)
+    (currentPrefixes : Array ResultFieldPrefix := #[])
     (pending : Option PendingResultProjection := none) : MetaM Unit := do
   for index in origin.role.contextDependencies do
     let some dependency := origin.role.source.context.entries[index]?
@@ -352,7 +372,7 @@ private def checkDependencies (context : OpenContext)
             m!"the runtime value is missing a retained dependent reference")
       unless sameReference original current do
         throwError "the runtime value has a different retained dependent reference"
-  if value.instantiations.all (·.field.precedingDependencies.isEmpty) then return ()
+  if value.instantiations.all (·.precedingDependencies.isEmpty) then return ()
   let dependencies ← CasCompiler.contextDependencies context.bindings expected
   let mut inputs := #[]
   for binding in context.bindings do
@@ -365,13 +385,15 @@ private def checkDependencies (context : OpenContext)
         (← context.close dependency.expression) then
       references := references.push (dependency, reference)
   for instantiation in value.instantiations do
-    if instantiation.field.precedingDependencies.isEmpty then continue
-    let family ← instantiation.field.typeFamily.inContext context
-    let terms ← lambdaBoundedTelescope family instantiation.preceding.size fun locals type => do
-      unless locals.size == instantiation.preceding.size do
+    if instantiation.precedingDependencies.isEmpty then continue
+    let family ← instantiation.typeFamily.inContext context
+    let inspect := fun locals type => do
+      unless locals.size ≥ instantiation.preceding.size do
         throwError "a consuming runtime dependency lost its complete native prefix"
       dependencyTerms locals type expected
-    for index in instantiation.field.precedingDependencies do
+    let terms ← if instantiation.view.isSome then lambdaTelescope family inspect
+      else lambdaBoundedTelescope family instantiation.preceding.size inspect
+    for index in instantiation.precedingDependencies do
       let some previous := instantiation.preceding[index]?
         | throwError "a consuming runtime dependency is outside its complete field prefix"
       if let some original := previous then
@@ -410,7 +432,7 @@ private def checkDependencies (context : OpenContext)
                   throwError (MessageData.tagged (missingValueTag dependency.id)
                     m!"the runtime value is missing a consuming dependent reference \
                       ({dependency.expression})")
-              let current ← if currentPrefix.isSome && pending.isSome then
+              let current ← if !currentPrefixes.isEmpty && pending.isSome then
                   pendingDependency (← graphFor dependency.id) parent reference.2 pending
                 else storedDependency (← graphFor dependency.id) parent reference.2
               match current with
@@ -426,31 +448,32 @@ private def checkDependencies (context : OpenContext)
               | throwError "a consuming dependent reference is outside its source telescope"
             throwError (MessageData.tagged (missingValueTag dependency.id)
               m!"the runtime value is missing a consuming dependent reference ({dependency.expression})")
-        let routes ← match currentPrefix with
-          | none => pure none
-          | some current => currentPrefixRoutes context inputs graph instantiation index current
-        if let some routes := routes then
-          for (parent, path) in routes do
-            match ← storedDependency graph parent path with
-            | some current =>
-              unless sameReference original current do
-                throwError "the runtime value has a different consuming dependent reference \
-                  in its current result prefix; field={instantiation.field.projection}; \
-                  slot={index}; currentField={currentPrefix.map (·.field.projection)}; \
-                  path={reprStr path}; parent={reprStr parent.value}; \
-                  original={reprStr original.value}; originalAssociations={reprStr original.associationIds}; \
-                  actual={reprStr current.value}; actualAssociations={reprStr current.associationIds}; \
-                  originalSource={(graph.find original.value).map (·.origin.role.source.expression)}; \
-                  actualSource={(graph.find current.value).map (·.origin.role.source.expression)}; \
-                  originalRecord={instantiation.association.layout.source.source.expression}; \
-                  currentRecord={currentPrefix.map (·.layout.source.source.expression)}; \
-                  preceding={reprStr (instantiation.preceding.map (·.map (·.value)))}"
-            | none =>
-              unless hasDependencyAccess graph original parent path do
-                throwError "the runtime value has an unresolved consuming dependent reference \
-                  in its current result prefix"
-        else if let some term := unresolved then
-          throwError "the runtime value has an unresolved consuming dependent reference ({term})"
+        let mut covered := false
+        for current in currentPrefixes do
+          if let some (routes, complete) ← currentPrefixRoutes context inputs graph instantiation index current then
+            covered := covered || complete
+            for (parent, path) in routes do
+              match ← storedDependency graph parent path with
+              | some actual =>
+                unless sameReference original actual do
+                  throwError "the runtime value has a different consuming dependent reference \
+                    in its current result prefix; field={instantiation.field.projection}; \
+                    slot={index}; currentField={current.field.projection}; \
+                    path={reprStr path}; parent={reprStr parent.value}; \
+                    original={reprStr original.value}; originalAssociations={reprStr original.associationIds}; \
+                    actual={reprStr actual.value}; actualAssociations={reprStr actual.associationIds}; \
+                    originalSource={(graph.find original.value).map (·.origin.role.source.expression)}; \
+                    actualSource={(graph.find actual.value).map (·.origin.role.source.expression)}; \
+                    originalRecord={instantiation.association.layout.source.source.expression}; \
+                    currentRecord={current.layout.source.source.expression}; \
+                    preceding={reprStr (instantiation.preceding.map (·.map (·.value)))}"
+              | none =>
+                unless hasDependencyAccess graph original parent path do
+                  throwError "the runtime value has an unresolved consuming dependent reference \
+                    in its current result prefix"
+        if !covered then
+          if let some term := unresolved then
+            throwError "the runtime value has an unresolved consuming dependent reference ({term})"
 
 /-- Associate existing nodes by stable source identity, native type and retained type dependencies.
 Check the complete table before comparing each actual producing dependency with its current
@@ -500,6 +523,8 @@ partial def RuntimeEnvironment.hasRetainedSource (environment : RuntimeEnvironme
     if (data.find `CasCompiler.source.kind).isSome ||
         (data.find `CasCompiler.selection).isSome then return false
     return ← environment.hasRetainedSource context body
+  if let .letE _ _ value body _ := specified then
+    return ← environment.hasRetainedSource context (body.instantiate1 value)
   if specified.isFVar then
     let some binding := context.bindings.find? (·.expression == specified)
       | throwError "the source argument is outside the complete runtime telescope"
@@ -602,7 +627,7 @@ Reuse: the source-binding type/dependency checks and CandidateResponse's operati
 The graph supplies the immutable producing provenance; liveness and publication are later gates. -/
 private partial def checkResultValue (environment : RuntimeEnvironment) (graph : ValueGraph)
     (source : SourceLayout) (value : ValueBinding)
-    (currentPrefix : Option ResultFieldPrefix := none)
+    (currentPrefixes : Array ResultFieldPrefix := #[])
     (pending : Option PendingResultProjection := none) : MetaM (CandidateResponse source) := do
   unless graph.worker == environment.worker do
     throwError "the prepared result belongs to a different worker"
@@ -615,7 +640,7 @@ private partial def checkResultValue (environment : RuntimeEnvironment) (graph :
     let expected ← inferType (← source.source.inContext context)
     checkNativeType context expected value node.origin
     checkDependencies context environment.bindingMap graph (fun _ => pure graph)
-      expected value node.origin currentPrefix pending
+      expected value node.origin currentPrefixes pending
     let candidate ← match CandidateResponse.ofValue source graph value with
       | .ok candidate => pure candidate
       | .error reason =>
@@ -627,8 +652,9 @@ private partial def checkResultValue (environment : RuntimeEnvironment) (graph :
       for prepared in layout.fields do
         if let some index := prepared.field.wireIndex then
           let field ← IO.ofExcept <| (graph.project candidate.root index).mapError IO.userError
+          let prefixes ← currentPrefixes.mapM (·.descend prepared.field.projection)
           discard <| checkResultValue environment graph prepared.layout field
-            (some ⟨candidate.root, layout, prepared.field⟩) pending
+            (prefixes.push ⟨candidate.root, layout, prepared.field, none⟩) pending
     return candidate
 
 /-- Validate the complete stored result through its source-derived native field layouts.
@@ -638,6 +664,86 @@ opaque RuntimeEnvironment.checkResult (environment : RuntimeEnvironment) (graph 
     (source : SourceLayout) (value : ValueBinding) : MetaM (CandidateResponse source) :=
   checkResultValue environment graph source value
 
+/-- Exact original parent/field witnesses along an already chosen path. Ancestors must be
+stored or published; this helper neither evaluates an input nor chooses from candidate history. -/
+private def projectionPrefixes (graph : ValueGraph) (operand : ValueBinding)
+    (path : Array Name) : MetaM (Array ResultFieldPrefix × FieldLayout) := do
+  let mut parent := operand
+  let mut parentSource := operand.role
+  let mut prefixes : Array ResultFieldPrefix := #[]
+  let mut selectedField : Option FieldLayout := none
+  for projection in path, index in [:path.size] do
+    let layout ← RecordLayout.ofSource parentSource
+    let some declared := layout.fields.find? (·.field.projection == projection)
+      | throwError "the pending projection is outside its original native parent"
+    unless declared.field.wireIndex.isSome do
+      throwError "a composed projection passed through a proof field"
+    let some actualField := parent.role.fields.find? (·.projection == projection)
+      | throwError "the retained projection parent lost its declared field"
+    unless actualField.sourceIndex == declared.field.sourceIndex &&
+        actualField.wireIndex == declared.field.wireIndex do
+      throwError "the retained projection parent changed its native field position"
+    prefixes ← prefixes.mapM (·.descend projection)
+    prefixes := prefixes.push ⟨parent, layout, declared.field, none⟩
+    selectedField := some declared.field
+    if index + 1 < path.size then
+      let selected ← IO.ofExcept <|
+        (graph.projectionFrontier parent #[projection]).mapError IO.userError
+      let some (selected, remaining) := selected
+        | throwError "a composed projection lost its retained intermediate parent"
+      unless remaining.isEmpty do
+        throwError "a composed projection cannot manufacture an intermediate parent"
+      parent := selected
+      parentSource := declared.layout
+  let some field := selectedField
+    | throwError "a retained projection requires its original native field path"
+  return (prefixes, field)
+
+/-- Follow only the actual operand's latest projection and its original selected parents.
+Each link must retain its exact native source and complete stored selection before inherited
+prefixes descend through that link. Newer applications stop the retained projection chain. -/
+private partial def retainedOperandPrefixes (environment : RuntimeEnvironment) (graph : ValueGraph)
+    (source : SourceLayout) (operand : ValueBinding) : MetaM (Array ResultFieldPrefix) := do
+  let selected ← IO.ofExcept <| (graph.projectionSelection operand).mapError IO.userError
+  let some (originalSource, parent, path) := selected
+    | return #[]
+  let (prefixes, field) ← projectionPrefixes graph parent path
+  let nativeSource ← field.toLayout
+  let originalMatches ← originalSource.source.withOpen fun bindings _ => do
+    let context ← ContextTelescope.capture bindings
+    let mut previous : Option Nat := none
+    for entry in nativeSource.source.context.entries do
+      let some index := bindings.findIdx? (·.id == entry.id) | return false
+      if let some prior := previous then
+        if index ≤ prior then return false
+      previous := some index
+    return (← originalSource.source.inContext context) ==
+      (← nativeSource.source.inContext context)
+  unless originalMatches do return #[]
+  let authentic ← environment.context.withOpen fun bindings => do
+    let context ← ContextTelescope.capture bindings
+    let mut inputs := #[]
+    for binding in bindings do
+      unless ← isProp (← inferType binding.expression) do inputs := inputs.push binding.id
+    if let some (id, aliasPath) ← dependencyReference context inputs source.source then
+      let some supplied := environment.bindingMap[id]? | return false
+      match ← storedDependency graph supplied aliasPath with
+      | some actual => return retainsReference actual operand
+      | none => return false
+    let stated ← source.source.inContext context
+    let original ← originalSource.source.inContext context
+    return stated == original
+  unless authentic do return #[]
+  let retained ← IO.ofExcept <|
+    (graph.projectionFrontier parent path).mapError IO.userError
+  let some (baseline, remaining) := retained
+    | throwError "the retained operand lost its original selected field"
+  unless remaining.isEmpty && retainsReference baseline operand do
+    throwError "the retained operand changed its original selected field"
+  let mut inherited ← retainedOperandPrefixes environment graph parent.role parent
+  for projection in path do inherited ← inherited.mapM (·.descend projection)
+  return inherited ++ prefixes
+
 /-- Validate the native result of this exact pending field demand, including all stored
 descendants. Only the declared field of the retained operand can be temporarily unavailable;
 existing selections keep their node and association chain. The witness is read-only and lives
@@ -645,16 +751,39 @@ only during this complete check, before any projection association is published.
 opaque RuntimeEnvironment.checkProjectionResult (environment : RuntimeEnvironment)
     (graph : ValueGraph) (source : SourceLayout) (value operand : ValueBinding)
     (field : FieldLayout) : MetaM (CandidateResponse source) := do
-  let some declared := operand.role.fields[field.sourceIndex]?
-    | throwError "the pending projection is outside its retained source layout"
-  unless declared.projection == field.projection && declared.wireIndex.isSome &&
-      (← operand.role.projectionPathTo source) == #[field.projection] do
+  let path ← operand.role.projectionPathTo source
+  unless !path.isEmpty && path.back? == some field.projection do
     throwError "the pending projection changed its exact native source field"
-  if let some retained ← pendingDependency graph operand #[field.projection] none then
-    unless retainsReference retained value do
-      throwError "the projection changed its retained field reference"
-  checkResultValue environment graph source value none
-    (some ⟨operand, field.projection, value⟩)
+  let (current, declared) ← projectionPrefixes graph operand path
+  unless field.sourceIndex == declared.sourceIndex && field.projection == declared.projection do
+    throwError "the pending projection changed its original native field"
+  let mut prefixes ← retainedOperandPrefixes environment graph operand.role operand
+  for projection in path do prefixes ← prefixes.mapM (·.descend projection)
+  prefixes := prefixes ++ current
+  let pending : Option PendingResultProjection ← if path.size > 1 then do
+      let selected ← IO.ofExcept <|
+        (graph.projectionFrontier operand path).mapError IO.userError
+      let some (retained, remaining) := selected
+        | throwError "a composed projection lost its complete stored source path"
+      unless remaining.isEmpty && retainsReference retained value do
+        throwError "a composed projection changed its retained field reference"
+      pure none
+    else do
+      if let some retained ← pendingDependency graph operand #[field.projection] none then
+        unless retainsReference retained value do
+          throwError "the projection changed its retained field reference"
+      pure (some ⟨operand, field.projection, value⟩)
+  -- Every prefix comes from this exact prepared path. All applicable original-slot routes
+  -- must agree; neither a candidate ancestor nor a convertible source chooses a witness.
+  checkResultValue environment graph source value prefixes pending
+
+/-- Admit an already selected operand at its independently prepared input source. Only its
+authenticated original projection chain or exact named alias may supply native prefixes.
+Ordinary candidate output admission never consults this input-only witness. -/
+opaque RuntimeEnvironment.checkOperand (environment : RuntimeEnvironment) (graph : ValueGraph)
+    (source : SourceLayout) (operand : ValueBinding) : MetaM (CandidateResponse source) := do
+  let prefixes ← retainedOperandPrefixes environment graph source operand
+  checkResultValue environment graph source operand prefixes
 
 /-- Stamp a produced node with its complete ordered actual context references.
 Reuse: SourceLayout.inContext transports the checked role by stable source identities.

@@ -38,8 +38,8 @@ def registered (context : ReadContext) :
   fun (name : Ident) (arguments : Array (TSyntax `cas_term)) => do
     if let some declaration := (← getLCtx).findFromUserName? name.getId then
       let selected ← categoryOf declaration.fvarId
-      let value ← application ⟨mkFVar declaration.fvarId, selected⟩ arguments expected
-      return ⟨value, if arguments.isEmpty then selected else none⟩
+      return ← applicationResult context ⟨mkFVar declaration.fvarId, selected⟩
+        arguments expected
     -- `pullback(f, g)`: a registered universal construction named by its shape.
     let spelling := name.getId.toString (escape := false)
     if !arguments.isEmpty && (← CasCatalogue.semanticState).limits.any (·.shape == spelling) then
@@ -135,7 +135,7 @@ def registered (context : ReadContext) :
              if (← synthInstance? (← mkAppM ``Unique #[source])).isSome then
                return ⟨← sourcePointValue value (some expected), none⟩
        if parameterCount < arguments.size then
-         return ⟨← application result (arguments.drop parameterCount) expected, none⟩
+         return ← applicationResult context result (arguments.drop parameterCount) expected
        return result
     let candidates ← selectNamed spelling qualification expected
     if let #[selected] := candidates then return ← readNamed selected

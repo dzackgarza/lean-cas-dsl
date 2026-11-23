@@ -48,6 +48,11 @@ partial def PreparedRequest.resolveFixedResults (request : PreparedRequest)
         match ← IO.ofExcept <| (graph.projectionBasis value input.parent input.path).mapError IO.userError with
         | some selected => pure selected
         | none => select input
+    -- Existing replies must preserve the exact input before later fields are checked.
+    -- Reuse the same baseline guard as association, without staging or changing a path.
+    unless value.value == selected.value &&
+        selected.associationIds.toList.isPrefixOf value.associationIds.toList do
+      CasCatalogue.throwStratum .malformed "the reply changed a fixed source input"
     return #[⟨← request.source.projectionPathTo source, input, selected⟩]
   let graph ← transaction.view
   let some node := graph.find value.value
@@ -111,12 +116,11 @@ private partial def associateCheckedResult (request : PreparedRequest) (supply :
         application := application
         access := some retained.input.parent
         accessPath := retained.input.path }
-      let (next, selectedValue) ← liftM (m := IO) <|
-        draft.bindProjection inputOrigin value selected
+      let (next, selectedValue) ← draft.bindProjection inputOrigin value selected
       draft := next
       value := selectedValue
   if origin.access.isSome then
-    liftM (m := IO) <| draft.bindProjection origin value selected
+    draft.bindProjection origin value selected
   else if origin.application.isSome then
     liftM (m := IO) <| draft.bindApplication origin value selected
   else
@@ -144,7 +148,10 @@ private partial def assembleInputResult (request : PreparedRequest) (source : So
     MetaM (CellDraft × ValueBinding) := do
   let path ← request.source.projectionPathTo source
   if let some selected := fixed.find? (·.path == path) then
-    return ← request.associateResult supply source draft selected.value fixed (complete := true)
+    dbg_trace s!"[input.assemble] before leaf output={reprStr path}; input={reprStr selected.input.path}"
+    let result ← request.associateResult supply source draft selected.value fixed (complete := true)
+    dbg_trace s!"[input.assemble] after leaf output={reprStr path}"
+    return result
   unless source.kind == .record do
     throwError "the complete input result lost a prepared computational field"
   let layout ← RecordLayout.ofSource source
@@ -165,9 +172,12 @@ Reuse: RecordPrefix, associateResult and the sealed input-result admission check
 def ResolvedInputResult.assemble (resolved : ResolvedInputResult request)
     (transaction : CellTransaction) : MetaM (CellDraft × InputResultCompletion request) := do
   let draft ← transaction.draft
+  dbg_trace "[input.assemble] begin"
   let (draft, value) ← assembleInputResult request request.source transaction.owners.identities
     resolved.selections draft
+  dbg_trace "[input.assemble] before whole result admission"
   let response ← request.admitResult draft.view value
+  dbg_trace "[input.assemble] after whole result admission"
   let completed ← IO.ofExcept <| (resolved.admit draft.view response).mapError IO.userError
   return (draft, completed)
 

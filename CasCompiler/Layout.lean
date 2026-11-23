@@ -73,6 +73,15 @@ structure FieldLayout where
   /-- Native ancestor record types, closed over their complete stable source context. -/
   private recordAncestors : Array ClosedTerm
 
+/-- A descendant's type under the original field prefix and its native inner field binders.
+Only original prefix positions have actual values in this view. The original FieldLayout
+stays unchanged; this is the checked dependency interface of its selected descendant. -/
+structure FieldDependencyView where
+  private mk ::
+  path : Array Name
+  typeFamily : ClosedTerm
+  precedingDependencies : Array Nat
+
 /-- Mechanical layout of a fixed source value, with its complete dependent source type. -/
 structure SourceLayout where
   private mk ::
@@ -416,6 +425,25 @@ opaque ApplicationLayout.inputProjectionAt (layout : ApplicationLayout) (path : 
         inputs := inputs.insert argument.fvarId! (.argument index)
       inputProjection inputs result path.toList
 
+/-- Read an original native input reference in the reader's still-open local context.
+Only the supplied exact fvars are inputs; definitions, native projections and source
+metadata follow the same boundary rules as closed runtime input routing. No context is
+published and no actual input is substituted. -/
+opaque sourceInputProjection? (source : Expr) (locals : Array Expr)
+    (path : Array Name := #[]) : MetaM (Option (Nat × Array Name)) := do
+  let mut inputs : Std.HashMap FVarId InputProjectionTarget := {}
+  for input in locals, index in [:locals.size] do
+    let .fvar id := input
+      | throwError "an open source input is not its original local variable"
+    if inputs.contains id || (← isProof input) then
+      throwError "an open source input repeats a binding or selects a proof"
+    inputs := inputs.insert id (.argument index)
+  discard <| projectSource source path
+  let some selected ← inputProjection inputs source path.toList | return none
+  let .argument index := selected.target
+    | throwError "an open source input selected an unavailable context binding"
+  return some (index, selected.path)
+
 /-- Read an exact context reference or native projection from a closed source term.
 The selected context binders remain identities even when they have definitions. This reuses
 the same source-only traversal as application routing without inventing an application slot. -/
@@ -642,35 +670,41 @@ structure ResultDependencies where
   context : Array Nat
   arguments : Array Nat
 
+/-- Close through every native inner prefix before selecting the original source planes.
+Inner locals can name an original dependency only through their types or definitions; they
+have no original runtime slot of their own. Preserve context and argument ordinals separately. -/
+private def originalDependencies (context arguments introduced : Array Expr) (type : Expr) :
+    MetaM ResultDependencies := do
+  let required ← localDependencies (context ++ arguments ++ introduced) type
+  return {
+    context := (Array.range context.size).filter required.contains
+    arguments := (Array.range arguments.size).filter fun index =>
+      required.contains (context.size + index) }
+
 /-- Reflect constructor field domains under abstract preceding fields, as sourceLayout does.
 If source arguments determine the record shape, retain that shape's formal dependencies.
 Reference: Lean.forallBoundedTelescope, ConstructorVal and the native FieldLayout algorithm. -/
-private partial def fieldDependencies (type actual : Expr) (path : List Name)
-    (context arguments : Array Expr) (shapeContext shapeArguments : Array Nat) :
-    MetaM ResultDependencies := do
+private partial def withFieldTypeAt (type actual : Expr) (path : List Name)
+    (context arguments : Array Expr) (introduced : Array Expr) (shape : ResultDependencies)
+    (visit : Array Expr → Expr → ResultDependencies → MetaM α) : MetaM α := do
   match path with
-  | [] =>
-    let contextDependencies ← localDependencies context type
-    let argumentDependencies ← localDependencies arguments type
-    return {
-      context := (Array.range context.size).filter fun index =>
-        shapeContext.contains index || contextDependencies.contains index
-      arguments := (Array.range arguments.size).filter fun index =>
-        shapeArguments.contains index || argumentDependencies.contains index }
+  | [] => visit introduced type shape
   | projection :: rest =>
     let some info := (← getEnv).getProjectionFnInfo? projection
       | throwError "the application result address contains a nonprojection declaration"
     let constructor ← getConstInfoCtor info.ctorName
     let reduced ← whnf type
-    let (type, shapeContext, shapeArguments) ←
+    let (type, shape) ←
       if reduced.getAppFn.constName? == some constructor.induct then
-        pure (reduced, shapeContext, shapeArguments)
+        pure (reduced, shape)
       else do
         let actualType ← whnf (← inferType actual)
         unless actualType.getAppFn.constName? == some constructor.induct do
           throwError "the source field has a different native record interface"
-        pure (actualType, shapeContext ++ (← localDependencies context reduced),
-          shapeArguments ++ (← localDependencies arguments reduced))
+        let dependencies ← originalDependencies context arguments introduced reduced
+        pure (actualType, {
+          context := shape.context ++ dependencies.context
+          arguments := shape.arguments ++ dependencies.arguments })
     let .const _ levels := type.getAppFn
       | throwError "the source field requires its native structure parameters"
     let applied := mkAppN (mkConst constructor.name levels)
@@ -679,8 +713,40 @@ private partial def fieldDependencies (type actual : Expr) (path : List Name)
       let some selected := fields[info.i]?
         | throwError "the native constructor lost a prepared result field"
       let actual ← projectSource actual #[projection]
-      fieldDependencies (← inferType selected) actual rest context arguments
-        shapeContext shapeArguments
+      withFieldTypeAt (← inferType selected) actual rest context arguments
+        (introduced ++ fields.extract 0 info.i) shape visit
+
+private def fieldDependencies (type actual : Expr) (path : List Name)
+    (context arguments : Array Expr) (shapeContext shapeArguments : Array Nat) :
+    MetaM ResultDependencies :=
+  withFieldTypeAt type actual path context arguments #[] ⟨shapeContext, shapeArguments⟩
+    fun introduced type shape => do
+      let dependencies ← originalDependencies context arguments introduced type
+      return {
+        context := (Array.range context.size).filter fun index =>
+          shape.context.contains index || dependencies.context.contains index
+        arguments := (Array.range arguments.size).filter fun index =>
+          shape.arguments.contains index || dependencies.arguments.contains index }
+
+/-- Derive a selected descendant's original-prefix dependencies from the declared field family.
+Inner constructor prefixes remain abstract, so an unrelated sibling cannot become an owner.
+Reuse: the same native projection/telescope traversal as ApplicationLayout.dependenciesAt. -/
+opaque FieldLayout.dependencyView (field : FieldLayout) (path : Array Name) :
+    MetaM FieldDependencyView :=
+  field.typeFamily.withOpen fun bindings family => do
+    let context ← ContextTelescope.capture bindings
+    let actual ← field.source.inContext context
+    lambdaBoundedTelescope family field.sourceIndex fun preceding type => do
+      unless preceding.size == field.sourceIndex do
+        throwError "a dependent field lost its original native prefix"
+      withFieldTypeAt type actual path.toList #[] preceding #[] ⟨#[], #[]⟩
+        fun introduced type shape => do
+          let locals := preceding ++ introduced
+          let dependencies ← localDependencies locals type
+          let required := (Array.range preceding.size).filter fun index =>
+            shape.arguments.contains index || dependencies.contains index
+          let family ← mkLambdaFVars locals type (usedOnly := false) (usedLetOnly := false)
+          return ⟨path, ← context.close family, required⟩
 
 /-- Check a descendant source role in its complete current context.
 Stable source transport retains the parent across later bindings and lexical shadowing. -/

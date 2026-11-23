@@ -390,3 +390,161 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   catch error => pure (CasCatalogue.Exception.isSemanticAmbiguity error)
   unless viewed do throwError "a group was not viewed along its structural monoid route"
   unless rejected do throwError "competing structural views were read without a selection"
+
+/- Bare named constants keep their declared refinement's carrier prefix when the parameter
+category has no row of that name. The resulting complete monoid is the one already supplied
+by the catalogue; existing bindings and explicit Sets qualifications remain fixed. -/
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let expected ← elabTermAndSynthesize (← `(
+    CasCatalogue.Algebra.Ports.ringsMultiplicative.toFunctor.obj
+      CasCatalogue.Algebra.NamedRings.ringRationals)) none
+  for text in #["ℚˣ", "(ℚ)ˣ"] do
+    let units ← readSource empty text
+    units.source.withOpen fun _ expression => do
+      let original ← sourceDomain expression
+      unless original.isAppOfArity ``CasCatalogue.Algebra.Units.units 1 do
+        throwError "the bare units source lost its declared object and parameter"
+      let parameter := original.getAppArgs[0]!
+      unless (← isDefEq parameter expected) && parameter.containsConst
+          (· == ``CasCatalogue.Algebra.Ports.ringsMultiplicative) do
+        throwError "the bare units source changed its complete declared monoid"
+      unless parameter.containsConst
+          (· == ``CasCatalogue.Algebra.NamedRings.ringRationalsIdentification) do
+        throwError "the bare units source erased its named base identification"
+  let rationals ← readSource empty "ℚ"
+  let bound ← empty.defineTerm `Q rationals
+  for text in #["Qˣ", "(ℚ in Sets)ˣ"] do
+    let rejected ← try
+      discard <| readSource bound text
+      pure false
+    catch _ => pure true
+    unless rejected do
+      throwError "parameter reading acquired a new refinement of an already selected source"
+
+/- Admission data are read once at the existing admission declaration's data-field type.
+Lambda and matrix syntax need that type, while an already selected map retains its source
+binding when its carrier function is supplied to the same boundary. -/
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  for (text, admission) in #[
+      ("(t ↦ t) in C", "obj.sets.continuous_maps"),
+      ("[1,2;3,4] in (view (Mat₂(ℚ) in Rings) along «fun.rings.multiplicative_monoid»())ˣ",
+        "obj.sets.units")] do
+    let admitted ← readSource empty text
+    admitted.source.withOpen fun _ expression => do
+      let reference := expression.find? fun expression => match expression with
+        | .mdata data _ => data.getName `CasCompiler.source.kind == ``ObjectEntry.admission &&
+            data.getString `CasCompiler.source.id == admission
+        | _ => false
+      unless reference.isSome do
+        throwError "the typed admission lost its independently registered constructor"
+  let sine ← readSource empty "sin"
+  let functions ← empty.defineTerm `f sine
+  let admitted ← readSource functions "f in C"
+  admitted.source.withOpen fun bindings expression => do
+    unless bindings.size == 1 && expression.containsFVar bindings[0]!.expression.fvarId! do
+      throwError "function admission replaced the original selected map"
+  let finiteIdentity ← readSource empty "id(Fin(2))"
+  let finiteFunctions ← empty.defineTerm `f finiteIdentity
+  let rejected ← try
+    discard <| readSource finiteFunctions "f in C"
+    pure false
+  catch _ => pure true
+  unless rejected do
+    throwError "function admission changed the selected map's actual endpoints"
+
+/- A supplied whole map is a generalized point at its original source. The selected later
+map composes with that actual arrow, while a map-valued native parameter remains a value. -/
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let domains ← empty.assume `A (← nativeSource "Type")
+  let domains ← domains.assume `B (← nativeSource "Type")
+  let domains ← domains.assume `C (← nativeSource "Type")
+  let functions ← domains.assume `rawF (← nativeSource "A → B")
+  let functions ← functions.assume `rawG (← nativeSource "B → C")
+  -- Public lambda formation supplies each selected Sets morphism; native assumptions
+  -- alone intentionally carry no source category in SourceSession.assume.
+  let first ← readSource functions "(x ↦ rawF(x)) in (A → B)"
+  let arrows ← functions.defineTerm `f first
+  let second ← readSource arrows "(x ↦ rawG(x)) in (B → C)"
+  let arrows ← arrows.defineTerm `g second
+  let supplied ← readSource arrows "f"
+  let arrows ← arrows.defineTerm `fAgain supplied
+  for text in #["f", "g", "fAgain"] do
+    let selected ← readSource arrows text
+    unless selected.category.any (·.role == .morphism) do
+      throwError "the public source fixture did not select its native map category"
+  let retained := fun (session : SourceSession) (bindings : Array LocalBinding)
+      (name : Name) => (do
+    let some entry := session.context.entries.find? (·.userName == name)
+      | throwError "the generalized application fixture lost its named source entry"
+    let some binding := bindings.find? (·.id == entry.id)
+      | throwError "the generalized application fixture lost its exact source binding"
+    pure binding.expression : MetaM Expr)
+  for (text, native, used, unused) in #[
+      ("g(f)", "CategoryTheory.CategoryStruct.comp f g", `f, `fAgain),
+      ("g(fAgain)", "CategoryTheory.CategoryStruct.comp fAgain g", `fAgain, `f)] do
+    let composed ← readSource arrows text
+    let expected ← arrows.term (← nativeSource native)
+    let some category := composed.category
+      | throwError "generalized application lost its morphism category"
+    unless category.role == .morphism &&
+        category.expression.syntacticEq (.atom CategoryId.sets) do
+      throwError "generalized application changed its complete source role"
+    composed.source.withOpen fun bindings value => do
+      let expected ← expected.source.inContext (← ContextTelescope.capture bindings)
+      let original ← retained arrows bindings used
+      let other ← retained arrows bindings unused
+      let later ← retained arrows bindings `g
+      unless (← isDefEq value expected) && value.containsFVar original.fvarId! &&
+          value.containsFVar later.fvarId! && !value.containsFVar other.fvarId! do
+        throwError "generalized application substituted an equal native arrow binding"
+  let rejected ← try
+    discard <| readSource arrows "f(g)"
+    pure false
+  catch _ => pure true
+  unless rejected do
+    throwError "generalized application ignored the actual intermediate native object"
+  let nested ← arrows.assume `rawH (← nativeSource "B → B")
+  let middle ← readSource nested "(x ↦ rawH(x)) in (B → B)"
+  let nested ← nested.defineTerm `h middle
+  let composed ← readSource nested "g(h(f))"
+  let expected ← nested.term (← nativeSource
+    "CategoryTheory.CategoryStruct.comp (CategoryTheory.CategoryStruct.comp f h) g")
+  composed.source.withOpen fun bindings value => do
+    let expected ← expected.source.inContext (← ContextTelescope.capture bindings)
+    unless ← isDefEq value expected do
+      throwError "nested generalized application changed its complete native composite"
+    for name in #[`f, `g, `h] do
+      unless value.containsFVar (← retained nested bindings name).fvarId! do
+        throwError "nested generalized application lost an original complete map"
+  let rejected ← try
+    discard <| readSource nested "g(h(g))"
+    pure false
+  catch _ => pure true
+  unless rejected do
+    throwError "nested generalized application changed its actual intermediate object"
+  let consumers ← arrows.assume `rawConsumeMap
+    (← nativeSource "TypeCat.Hom A B → C")
+  let consumers ← consumers.assume `rawConsumeFunction
+    (← nativeSource "(A → B) → C")
+  let consumers ← consumers.define `nativeFunctions (← nativeSource "A → B")
+  let mapConsumer ← readSource consumers "(m ↦ rawConsumeMap(m)) in ((A → B) → C)"
+  let consumers ← consumers.defineTerm `consumeMap mapConsumer
+  let functionConsumer ← readSource consumers
+    "(m ↦ rawConsumeFunction(m)) in (nativeFunctions → C)"
+  let consumers ← consumers.defineTerm `consumeFunction functionConsumer
+  for (text, native) in #[
+      ("consumeMap(f)", "consumeMap.hom.toFun f"),
+      ("consumeFunction(f)", "consumeFunction.hom.toFun f.hom.toFun")] do
+    let applied ← readSource consumers text
+    let expected ← consumers.term (← nativeSource native)
+    applied.source.withOpen fun bindings value => do
+      let expected ← expected.source.inContext (← ContextTelescope.capture bindings)
+      unless (← isDefEq value expected) &&
+          value.containsFVar (← retained consumers bindings `f).fvarId! do
+        throwError "a map-valued native parameter was changed into generalized composition"

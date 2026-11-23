@@ -34,7 +34,8 @@ private def prepare (kernel : Kernel) (transaction : CellTransaction) (context :
     | throwError "the original comparison point is outside its graph"
   let request ← PreparedRequest.forApplication kernel.ledger.owners.identities program
     (← kernel.ledger.allocate) context callable #[← context.close pointSource] #[argument] #[]
-  return (request, ← PreparedPresentationInvocation.prepare request family path graph)
+  return (request, ← PreparedPresentationInvocation.prepare request family path graph
+    (← kernel.marks.get))
 
 private def manifest (inputs : Array String) : MetaM Manifest := do
   let packet := Json.mkObj [
@@ -243,7 +244,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             (← kernel.ledger.allocate) family (← levels.mapM instantiateLevelMVars) context
             #[← context.close firstSource] #[parameter]
             #[← context.close ends.1, ← context.close ends.2]
-            #[sourceArgument, targetArgument] #[]
+            #[sourceArgument, targetArgument] #[] graph marks
         discard <| prepareEnds firstEnds
         let rejected ← try
           discard <| prepareEnds otherEnds

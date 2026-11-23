@@ -16,7 +16,7 @@ private structure OperationDomain where
   comparison : Option Expr
   originEvidence : Array Expr
 
-private def refinementDomain (state : SemanticState) (entry : ObjectEntry) (domain : Expr) :
+private def refinementDomainCandidate (state : SemanticState) (entry : ObjectEntry) (domain : Expr) :
     TermElabM (Option OperationDomain) := do
   let some refinement := entry.refines | return none
   discard <| checkedDeclaration entry.declaration
@@ -27,9 +27,17 @@ private def refinementDomain (state : SemanticState) (entry : ObjectEntry) (doma
   let type ← whnfR (← inferType comparison)
   unless type.isAppOfArity ``CategoryTheory.Iso 4 do
     throwError "the source operation refinement requires its actual isomorphism"
-  -- A parameterized refinement is the declared family at the parameters that the operand's
-  -- actual type determines. Reducible unification fixes them from that type's own spelling:
-  -- unfolding a definition to a coinciding native carrier does not select a parameter.
+  let some base := state.objects.find? (·.id == refinement.base)
+    | throwError "the source refinement lost its declared base object"
+  let original ← sourceDomain domain
+  let declared := type.getAppArgs[3]!.headBeta.consumeMData
+  let mut retainedArguments : Array (Option Expr) := Array.replicate arguments.size none
+  if original.getAppFn.isConstOf base.declaration then
+    let some retained ← alignSourceArguments? base.declaration arguments declared original
+      | return none
+    retainedArguments := retained
+  -- Exact named arguments are fixed before an abbreviation can expose a non-injective
+  -- carrier. Unmarked native forms retain their existing conversion check.
   let determined ← if arguments.isEmpty then isDefEq type.getAppArgs[3]! domain
     else withReducible <| isDefEq type.getAppArgs[3]! domain
   unless determined do return none
@@ -37,8 +45,17 @@ private def refinementDomain (state : SemanticState) (entry : ObjectEntry) (doma
     if info.isInstImplicit && (← instantiateMVars argument).isMVar then
       let some instanceValue ← synthInstance? (← inferType argument) | return none
       unless ← isDefEq argument instanceValue do return none
-  let arguments ← arguments.mapM instantiateMVars
+  let mut arguments ← arguments.mapM instantiateMVars
+  for original in retainedArguments, index in [:retainedArguments.size] do
+    if let some original := original then
+      arguments := arguments.set! index (← instantiateMVars original)
   if arguments.any (fun argument => argument.hasMVar || argument.hasLevelMVar) then return none
+  -- applyObjectParameters uses this complete telescope. Reuse its original constant head
+  -- and the same retained source arguments for both the object and its comparison.
+  let comparison := mkAppN (← instantiateMVars comparison.getAppFn) arguments
+  let type ← whnfR (← inferType comparison)
+  unless type.isAppOfArity ``CategoryTheory.Iso 4 do
+    throwError "the specialized source refinement lost its actual isomorphism"
   -- Registered identities are compared at the determined parameters, not at fresh ones.
   checkRegisteredDomains domain (← instantiateMVars type.getAppArgs[3]!)
   let #[category] := state.categories.filter (·.id == entry.category)
@@ -50,6 +67,15 @@ private def refinementDomain (state : SemanticState) (entry : ObjectEntry) (doma
   let selection ← objectCarrierSelection entry bundle value
   return some ⟨⟨.object, category.expression, bundle, selection, none⟩, value,
     some (← instantiateMVars comparison), #[]⟩
+
+private def refinementDomain (state : SemanticState) (entry : ObjectEntry) (domain : Expr) :
+    TermElabM (Option OperationDomain) := do
+  -- A failed candidate must not constrain a later candidate's source parameters. Probe the
+  -- complete native preparation, then keep successful expressions in the live Meta state.
+  let accepts ← withoutModifyingState do
+    return (← refinementDomainCandidate state entry domain).isSome
+  unless accepts do return none
+  refinementDomainCandidate state entry domain
 
 private def scopedOperationDomains
     (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
@@ -239,6 +265,74 @@ private def retainOperationEvidence (value : Expr) (proofs : Array Expr) : MetaM
       fun binding => mkLetFVars #[binding] body
         (usedLetOnly := false) (generalizeNondepLet := false)
   return value
+
+private structure RefinedConstantParameter where
+  value : Expr
+  category : NativeSourceCategory
+  comparison : Expr
+  evidence : Array Expr
+
+-- A refinement already selects its carrier route. Consume only a prefix of that route;
+-- an unrelated outgoing functor does not acquire authority from the named base.
+private def refinedConstantParameter? (state : SemanticState) (entry : ObjectEntry)
+    (domain : Expr) (target : CategoryExpr) :
+    TermElabM (Option RefinedConstantParameter) := do
+  let some refined ← refinementDomain state entry domain | return none
+  let some carrier := refined.category.carrier
+    | throwError "the named parameter refinement lost its declared carrier"
+  let some comparison := refined.comparison
+    | throwError "the named parameter refinement lost its base identification"
+  let mut routes : Array Route := #[]
+  for count in [:carrier.refs.size + 1] do
+    if let some steps := state.routeEdges? refined.category.expression target
+        (carrier.refs.take count) then
+      routes := routes.push { source := refined.category.expression, target, steps }
+  let some route := routes[0]? | return none
+  let evidence ← sourceRouteAgreements state refined.category routes
+  let selected ← nativeRouteFunctor state route refined.category.bundle
+  let value ← functorObject selected.functor refined.value selected.target
+  let remaining := { carrier with
+    refs := carrier.refs.drop route.refs.size
+    actions := carrier.actions.drop route.refs.size }
+  return some ⟨← instantiateMVars value,
+    ⟨.object, target, ← instantiateMVars selected.target, some remaining, none⟩,
+    comparison, evidence⟩
+
+/-- Read a bare named constant at a parameter category reached by its declared refinement
+carrier. The base row and its complete argument spine are checked by refinementDomain;
+parameterized source families remain on their ordinary expected-type reading path.
+Every applicable complete structure and base identification must agree, with all witnesses
+retained. This does not reinterpret an existing binding or explicitly selected category. -/
+opaque sourceNamedConstantParameter? (domain : Expr) (target : CategoryExpr) :
+    TermElabM (Option NativeSourceJudgement) := do
+  let state ← semanticState
+  let (original, bases) ← registeredDomain domain
+  let #[base] := bases
+    | if bases.isEmpty then return none
+      else throwSemanticAmbiguity "the named parameter requires its exact registered base"
+  unless original.getAppArgs.isEmpty do return none
+  if (← whnfR (← checkedDeclaration base.declaration).type).isForall then return none
+  let mut candidates : Array RefinedConstantParameter := #[]
+  for entry in state.objects do
+    unless entry.refines.any (·.base == base.id) do continue
+    if let some candidate ← refinedConstantParameter? state entry domain target then
+      candidates := candidates.push candidate
+  let some first := candidates[0]? | return none
+  let forward ← mkAppM ``CategoryTheory.Iso.hom #[first.comparison]
+  let mut evidence := #[]
+  for candidate in candidates do
+    let some categoryAgreement ← sourceFamilyConversion
+        first.category.bundle candidate.category.bundle #[]
+      | throwSemanticAmbiguity "the named parameter refinements have different complete categories"
+    let some objectAgreement ← sourceFamilyConversion first.value candidate.value #[]
+      | throwSemanticAmbiguity "the named parameter refinements require their complete structural comparison"
+    let otherForward ← mkAppM ``CategoryTheory.Iso.hom #[candidate.comparison]
+    let some comparisonAgreement ← sourceFamilyConversion forward otherForward #[]
+      | throwSemanticAmbiguity "the named parameter refinements require coherent base identifications"
+    evidence := evidence ++ candidate.evidence ++
+      #[candidate.comparison, categoryAgreement, objectAgreement, comparisonAgreement]
+  let value ← retainOperationEvidence first.value evidence
+  return some ⟨value, some first.category⟩
 
 /-- Prepare first-hit source bindings and their complete rigid morphism families.
 Reuse: SourceRoutes, nativeOperationFamily, native conversion, ObjectRefinement and

@@ -1,9 +1,11 @@
 module
 
 import CasRuntime.Execute
+import CasRuntime.Kernel
 import CasContract.Port
 public meta import Lean.Elab.Command
 meta import CasRuntime.Execute
+meta import CasRuntime.Kernel
 meta import CasContract.Port
 
 open Lean Meta CasCompiler CasRuntime
@@ -117,10 +119,30 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "stateful execution replaced a stored field node"
       unless result[3]?.map (·.instantiations.size) == some 1 do
         throwError "stateful execution discarded the projected field's runtime instantiation"
+      for (request, binding) in #[left, again, packetProjection, associatedProjection].zip result do
+        let some role := request.roles.results[0]?
+          | throwError "the stored projection lost its prepared result role"
+        match ← liftM (m := BaseIO) <| consumer.reuse request.occurrence role.role.id with
+        | .ok (.ready retained) =>
+          unless retained.value == binding.value &&
+              retained.associationIds == binding.associationIds do
+            throwError "a stored projection completion changed its actual reference"
+        | _ => throwError "a stored projection did not stage its exact completion"
+        if ← liftM (m := BaseIO) <| ledger.isFresh request.occurrence then
+          throwError "a completed stored projection retained a dispatch right"
       let .ok published ← consumer.commit
         | throwError "a dead unrelated field blocked the portable projection"
       unless published.outputBatches.size == 2 do
         throwError "the successful projection cell was not committed"
+      for (request, binding) in #[left, again, packetProjection, associatedProjection].zip result do
+        let some receipt := published.receipt request.occurrence
+          | throwError "a committed stored projection omitted its receipt"
+        unless receipt.association.response.root.value == binding.value &&
+            receipt.association.response.root.associationIds == binding.associationIds do
+          throwError "a stored projection receipt changed its actual reference"
+        match receipt.association.producer with
+        | .kernel => pure ()
+        | .invocation .. => throwError "a stored projection invented an external invocation"
       let failed ← CellTransaction.begin ledger
       let third ← liftM (m := BaseIO) ledger.allocate
       let right ← PreparedRequest.forProjection owners.identities program third context graph associated 1 #[]
@@ -434,6 +456,25 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           (← ledger.allocate) context graph right 0 parameters
         let actual ← Execute.run unavailableExecutor
           (PFunctor.FreeM.lift (P := OperationalSignature) firstRequest) transaction
+        -- A new projection may carry an auxiliary input view, but that extra consuming
+        -- association must not replace the exact field already stored by its parent.
+        do
+          let draft ← transaction.draft
+          let (draft, enriched) ← draft.bindProjection
+            (← secondRequest.originFor secondRequest.source) actual.root #[]
+          unless enriched.value == scalar.value &&
+              actual.root.associationIds.toList.isPrefixOf enriched.associationIds.toList do
+            throwError "a projected result discarded its supplied auxiliary associations"
+          let .ok (some baseline) := draft.view.projected? right #[``Prod.fst]
+            | throwError "the second selected field lost its published baseline"
+          unless baseline.value == scalar.value && baseline.associationIds == scalar.associationIds do
+            throwError "a consuming projection view replaced the original stored field baseline"
+          let .ok (some original) := draft.view.projectionBasis enriched right #[``Prod.fst]
+            | throwError "the enriched projection lost its exact original parent path"
+          unless original.value == scalar.value && original.associationIds == scalar.associationIds do
+            throwError "a projection relation retained a new consuming view as its source input"
+          let .ok () ← transaction.installDraft draft
+            | throwError "the auxiliary projection view could not be published"
         let other ← Execute.run unavailableExecutor
           (PFunctor.FreeM.lift (P := OperationalSignature) secondRequest) transaction
         unless actual.root.value == scalar.value && other.root.value == scalar.value do
@@ -535,3 +576,583 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             "the runtime argument does not retain its specified source value" do throw failure
         let .ok _ ← transaction.commit | throwError "the selected projections could not commit"
   finally setEnv original
+
+-- A nested native projection demands only its final selected field.
+-- The intermediate record contains a different field whose real owner has exited.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let original ← getEnv
+  try
+    let empty ← ContextTelescope.capture #[]
+    let scalarRole ← SourceLayout.ofTerm (← empty.close (mkNatLit 7))
+    let callableRole ← SourceLayout.ofTerm (← empty.close (mkConst ``Nat.succ))
+    let innerTerm ← mkAppM ``Prod.mk #[mkNatLit 7, mkConst ``Nat.succ]
+    let outerTerm ← mkAppM ``Prod.mk #[innerTerm, mkNatLit 7]
+    let innerRole ← SourceLayout.ofTerm (← empty.close innerTerm)
+    let outerRole ← SourceLayout.ofTerm (← empty.close outerTerm)
+    let owners ← OwnerRegistry.new
+    let kernel ← Kernel.load owners none none 1000
+    try
+      discard <| SessionSnapshot.initialize owners
+      let producer ← CellTransaction.begin kernel.ledger
+      let program ← owners.identities.fresh .program
+      let occurrence ← kernel.ledger.allocate
+      let child ← owners.spawn { cmd := "/bin/cat" }
+      try
+        child.child.stdin.putStr "nested stored callable\n"
+        child.child.stdin.flush
+        let token := (← child.child.stdout.getLine).trimAscii.toString
+        let scalar ← producer.stage
+          { program, occurrence, role := scalarRole, parameters := #[] } (.portable "7".toUTF8)
+        let callable ← producer.stage
+          { program, occurrence, role := callableRole, parameters := #[] } (.ownedExport child token #[])
+        let inner ← producer.stage
+          { program, occurrence, role := innerRole, parameters := #[] } (.product #[scalar, callable])
+        let outer ← producer.stage
+          { program, occurrence, role := outerRole, parameters := #[] } (.product #[inner, scalar])
+        let identityTerm ← withLocalDeclD `n (mkConst ``Nat) fun n => mkLambdaFVars #[n] n
+        let identityValue ← kernel.run producer empty {} identityTerm
+        let .ok base ← producer.commit | throwError "the nested projection inputs could not commit"
+        owners.close child.generation
+        if ← owners.isLive child.generation then
+          throwError "the nested projection control did not close its field owner"
+        unless (← base.graph.isAvailable owners scalar) &&
+            !(← base.graph.isAvailable owners inner) do
+          throwError "the nested projection control lost its independent field and unavailable parent"
+        withLetDecl `r (← inferType outerTerm) outerTerm fun r => do
+          let id : BindingId := ⟨"nested-owner-projection", 0⟩
+          let context ← ContextTelescope.capture #[{ id, role := .definition, expression := r }]
+          let .ok parameter := RuntimeParameter.ofValue base.graph id outer
+            | throwError "the nested source record is outside the graph"
+          let environment ← RuntimeEnvironment.capture owners.worker context #[parameter]
+          let .ok (some retained) := environment.lookup id
+            | throwError "the nested source record lost its stable binding"
+          let bound := ({} : Std.HashMap BindingId ValueBinding).insert id retained
+          let innerSource ← mkProjection r `fst
+          let consumer ← CellTransaction.begin kernel.ledger
+          try
+            let selected ← kernel.run consumer context bound (← mkProjection innerSource `fst)
+            unless selected.value == scalar.value do
+              throwError "nested source projection replaced its actual portable grandchild"
+            let .ok _ ← consumer.commit
+              | throwError "an unrelated nested field owner blocked the selected grandchild's publication"
+          finally discard <| consumer.abort
+          -- Asking for the whole intermediate record still demands its owned field.
+          let whole ← CellTransaction.begin kernel.ledger
+          let wholeFailure : Option Exception ← try
+            discard <| kernel.run whole context bound innerSource
+            pure none
+          catch error => pure (some error)
+          let some wholeFailure := wholeFailure
+            | throwError "whole intermediate access ignored its dead owned field"
+          unless (← wholeFailure.toMessageData.toString).endsWith "unavailable: stale_owner" do
+            throw wholeFailure
+          match ← whole.commit with
+          | .error .settled => pure ()
+          | _ => throwError "failed whole-record access retained a publishable transaction"
+          -- The retained compiled callable forces actual argument preparation and admission;
+          -- native beta reduction cannot remove this source application before lowering.
+          withLetDecl `g (← inferType identityTerm) identityTerm fun g => do
+            let callableId : BindingId := ⟨"nested-owner-projection", 1⟩
+            let appliedContext ← ContextTelescope.capture #[
+              { id, role := .definition, expression := r },
+              { id := callableId, role := .definition, expression := g }]
+            let supplied := bound.insert callableId identityValue
+            let application ← CellTransaction.begin kernel.ledger
+            try
+              let returned ← kernel.run application appliedContext supplied
+                (mkApp g (← mkProjection innerSource `fst))
+              unless returned.value == scalar.value do
+                throwError "a retained application replaced its actual nested scalar argument"
+              let .ok _ ← application.commit
+                | throwError "an unrelated field owner blocked nested argument publication"
+            finally discard <| application.abort
+          let failed ← CellTransaction.begin kernel.ledger
+          let failure : Option Exception ← try
+            discard <| kernel.run failed context bound (← mkProjection innerSource `snd)
+            pure none
+          catch error => pure (some error)
+          let some failure := failure
+            | throwError "nested source projection returned its dead owned grandchild"
+          unless (← failure.toMessageData.toString).endsWith "unavailable: stale_owner" do
+            throw failure
+          match ← failed.commit with
+          | .error .settled => pure ()
+          | _ => throwError "failed nested source projection retained a publishable transaction"
+      finally owners.close child.generation
+    finally kernel.close
+  finally setEnv original
+
+-- A nested stored result retains the actual index on which its selected type depends.
+-- The other inner field is independent of that index and remains available after its owner exits.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let original ← getEnv
+  try
+    let empty ← ContextTelescope.capture #[]
+    let scalarRole ← SourceLayout.ofTerm (← empty.close (mkNatLit 7))
+    let zeroRole ← SourceLayout.ofTerm (← empty.close (mkNatLit 0))
+    let family ← withLocalDeclD `n (mkConst ``Nat) fun n => do
+      mkLambdaFVars #[n] (← mkAppM ``Prod #[mkApp (mkConst ``Fin) n, mkConst ``Nat])
+    let sigma := mkApp2 (mkConst ``Sigma [.zero, .zero]) (mkConst ``Nat) family
+    let owners ← OwnerRegistry.new
+    let kernel ← Kernel.load owners none none 1000
+    try
+      discard <| SessionSnapshot.initialize owners
+      let producer ← CellTransaction.begin kernel.ledger
+      let program ← owners.identities.fresh .program
+      let occurrence ← kernel.ledger.allocate
+      let child ← owners.spawn { cmd := "/bin/cat" }
+      try
+        child.child.stdin.putStr "retained dependent index\n"
+        child.child.stdin.flush
+        let token := (← child.child.stdout.getLine).trimAscii.toString
+        let index ← producer.stage
+          { program, occurrence, role := scalarRole, parameters := #[] }
+          (.ownedExport child token #[])
+        let scalar ← producer.stage
+          { program, occurrence, role := scalarRole, parameters := #[] } (.portable "7".toUTF8)
+        let zero ← producer.stage
+          { program, occurrence, role := zeroRole, parameters := #[] } (.portable "0".toUTF8)
+        withLocalDeclD `r sigma fun r => do
+          let id : BindingId := ⟨"nested-dependent-owner", 0⟩
+          let context ← ContextTelescope.capture #[{ id, role := .result, expression := r }]
+          let innerSource ← mkProjection r `snd
+          let pointSource ← mkProjection innerSource `fst
+          let independentSource ← mkProjection innerSource `snd
+          let outerRole ← SourceLayout.ofTerm (← context.close r)
+          let innerRole ← SourceLayout.ofTerm (← context.close innerSource)
+          let pointRole ← SourceLayout.ofTerm (← context.close pointSource)
+          let mut draft ← producer.draft
+          let finite ← RecordPrefix.begin owners.identities program occurrence
+            (← RecordLayout.ofSource pointRole)
+          let (next, finite, _) ← draft.bindField finite zero
+          draft := next
+          let .ok finitePayload := finite.finish
+            | throwError "the nested dependent control lost its complete finite interface"
+          let (next, point) ← draft.stage
+            { program, occurrence, role := pointRole, parameters := #[none] } finitePayload
+          draft := next
+          let inner ← RecordPrefix.begin owners.identities program occurrence
+            (← RecordLayout.ofSource innerRole)
+          let (next, inner, _) ← draft.bindField inner point
+          draft := next
+          let (next, inner, _) ← draft.bindField inner scalar
+          draft := next
+          let .ok innerPayload := inner.finish
+            | throwError "the nested dependent control lost its complete inner record"
+          let (next, inner) ← draft.stage
+            { program, occurrence, role := innerRole, parameters := #[none] } innerPayload
+          draft := next
+          let outer ← RecordPrefix.begin owners.identities program occurrence
+            (← RecordLayout.ofSource outerRole)
+          let (next, outer, _) ← draft.bindField outer index
+          draft := next
+          let (next, outer, dependentInner) ← draft.bindField outer inner
+          draft := next
+          unless dependentInner.instantiations.any (·.field.precedingDependencies.contains 0) do
+            throwError "the native outer field lost its declared index dependency"
+          let .ok outerPayload := outer.finish
+            | throwError "the nested dependent control lost its complete outer record"
+          let (finalDraft, outer) ← draft.stage
+            { program, occurrence, role := outerRole, parameters := #[none] } outerPayload
+          let .ok () ← producer.installDraft finalDraft
+            | throwError "the nested dependent control could not install its complete records"
+          let .ok base ← producer.commit
+            | throwError "the nested dependent control could not publish its live inputs"
+          -- The enriched descendant must also retain the same index during later native
+          -- environment admission, even when another actual index has the same native value.
+          let .ok liveParameter := RuntimeParameter.ofValue base.graph id outer
+            | throwError "the live nested dependent record is outside its graph"
+          let liveEnvironment ← RuntimeEnvironment.capture owners.worker context #[liveParameter]
+          let .ok (some liveRoot) := liveEnvironment.lookup id
+            | throwError "the live nested dependent record lost its source binding"
+          let liveBound := ({} : Std.HashMap BindingId ValueBinding).insert id liveRoot
+          let live ← CellTransaction.begin kernel.ledger
+          let selectedPoint ← kernel.run live context liveBound pointSource
+          let .ok liveSnapshot ← live.commit
+            | throwError "the live dependent descendant could not commit"
+          let .ok originalIndex := liveSnapshot.graph.project outer 0
+            | throwError "the live dependent descendant lost its original index"
+          -- An already staged computed source has no context alias for its outer index.
+          -- Its exact composed projection must retain that outer prefix through Prod.fst.
+          withLocalDeclD `computed (← mkArrow sigma sigma) fun function => do
+            let computedContext ← ContextTelescope.capture #[
+              { id, role := .result, expression := r },
+              { id := ⟨id.session, 3⟩, role := .parameter, expression := function }]
+            let computedSource := mkApp function r
+            let computedInnerSource ← mkProjection computedSource `snd
+            let computedPointSource ← mkProjection computedInnerSource `fst
+            let computedRole ← SourceLayout.ofTerm (← computedContext.close computedSource)
+            let computedInnerRole ← SourceLayout.ofTerm (← computedContext.close computedInnerSource)
+            let computedPointRole ← SourceLayout.ofTerm (← computedContext.close computedPointSource)
+            let originalParent := outer
+            let cell ← CellTransaction.begin kernel.ledger
+            try
+              let occurrence ← kernel.ledger.allocate
+              let mut draft ← cell.draft
+              let finite ← RecordPrefix.begin owners.identities program occurrence
+                (← RecordLayout.ofSource computedPointRole)
+              let (next, finite, _) ← draft.bindField finite zero
+              draft := next
+              let .ok finitePayload := finite.finish
+                | throwError "the computed source lost its finite field interface"
+              let (next, computedPoint) ← draft.stage
+                { program, occurrence, role := computedPointRole, parameters := #[none, none] }
+                finitePayload
+              draft := next
+              let inner ← RecordPrefix.begin owners.identities program occurrence
+                (← RecordLayout.ofSource computedInnerRole)
+              let (next, inner, _) ← draft.bindField inner computedPoint
+              draft := next
+              let (next, inner, _) ← draft.bindField inner scalar
+              draft := next
+              let .ok innerPayload := inner.finish
+                | throwError "the computed source lost its inner record"
+              let (next, computedInner) ← draft.stage
+                { program, occurrence, role := computedInnerRole, parameters := #[none, none] }
+                innerPayload
+              draft := next
+              let outer ← RecordPrefix.begin owners.identities program occurrence
+                (← RecordLayout.ofSource computedRole)
+              let (next, outer, _) ← draft.bindField outer originalIndex
+              draft := next
+              let (next, outer, dependentComputedInner) ← draft.bindField outer computedInner
+              draft := next
+              let .ok outerPayload := outer.finish
+                | throwError "the computed source lost its outer record"
+              let (completedDraft, computedParent) ← draft.stage
+                { program, occurrence, role := computedRole, parameters := #[none, none] }
+                outerPayload
+              let .ok () ← cell.installDraft completedDraft
+                | throwError "the computed source fields could not be staged"
+              let graph ← cell.view
+              let .ok parameter := RuntimeParameter.ofValue graph id originalParent
+                | throwError "the computed source lost its original context input"
+              let environment ← RuntimeEnvironment.capture owners.worker computedContext #[parameter]
+              let request ← PreparedRequest.forStoredProjection owners.identities program
+                (← kernel.ledger.allocate) computedContext graph computedParent
+                #[``Sigma.snd, ``Prod.fst] #[parameter]
+              let executor : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
+                fun _ _ => throwError "a stored computed-source projection dispatched an executor"
+              let response ← Execute.run executor
+                (PFunctor.FreeM.lift (P := OperationalSignature) request) cell
+              unless response.root.value == computedPoint.value do
+                throwError "the composed computed-source projection changed its exact field"
+              let wrongParent ← cell.stage
+                { program, occurrence, role := computedRole, parameters := #[none, none] }
+                (.product #[scalar, dependentComputedInner])
+              let some field := computedRole.fields.find? (·.projection == ``Sigma.snd)
+                | throwError "the computed source lost its dependent field"
+              let failure : Option Exception ← try
+                discard <| environment.checkProjectionResult (← cell.view) (← field.toLayout)
+                  dependentComputedInner wrongParent field
+                pure none
+              catch error => pure (some error)
+              let some failure := failure
+                | throwError "a computed source accepted another actual equal-valued prefix"
+              unless (← failure.toMessageData.toString).startsWith
+                  "the runtime value has a different consuming dependent reference" do throw failure
+              -- A stored projection may itself be lazy. Its next native field request must
+              -- retain the original computed parent rather than reconstruct its index.
+              let lazyInner ← cell.stage
+                { program, occurrence, role := computedInnerRole, parameters := #[none, none] }
+                (.closure program #[])
+              let lazyDraft ← cell.draft
+              let lazyPrefix ← RecordPrefix.begin owners.identities program occurrence
+                (← RecordLayout.ofSource computedRole)
+              let (lazyDraft, lazyPrefix, _) ← lazyDraft.bindField lazyPrefix originalIndex
+              let (lazyDraft, lazyPrefix, dependentLazyInner) ←
+                lazyDraft.bindField lazyPrefix lazyInner
+              let .ok lazyPayload := lazyPrefix.finish
+                | throwError "the lazy computed source lost its complete parent"
+              let (lazyDraft, lazyParent) ← lazyDraft.stage
+                { program, occurrence, role := computedRole, parameters := #[none, none] }
+                lazyPayload
+              let .ok () ← cell.installDraft lazyDraft
+                | throwError "the lazy computed source could not install its parent"
+              let graph ← cell.view
+              let lazyRequest ← PreparedRequest.forProjection owners.identities program
+                (← kernel.ledger.allocate) computedContext graph lazyParent 1 #[parameter]
+              let lazyResponse ← Execute.run executor
+                (PFunctor.FreeM.lift (P := OperationalSignature) lazyRequest) cell
+              let graph ← cell.view
+              let admitted ← environment.checkOperand graph lazyRequest.source lazyResponse.root
+              unless admitted.root.value == lazyInner.value &&
+                  admitted.root.associationIds == lazyResponse.root.associationIds do
+                throwError "operand admission changed the retained lazy projection"
+              let graph : ValueGraph ← (show MetaM ValueGraph from do
+                let nextRequest ← PreparedRequest.forProjection owners.identities program
+                  (← kernel.ledger.allocate) computedContext graph lazyResponse.root 0 #[parameter]
+                let .ok .producer ← cell.claim nextRequest.roles.scope
+                  | throwError "the next lazy projection did not claim its occurrence"
+                let nextDraft ← cell.draft
+                let (nextDraft, nextValue) ← nextRequest.associateResult owners.identities
+                  nextRequest.source nextDraft computedPoint
+                let nextResponse ← nextRequest.admitResult nextDraft.view nextValue
+                let .ok () ← cell.installDraft nextDraft
+                  | throwError "the next lazy projection could not publish its checked field"
+                let .ok completed ← cell.completeKernel nextRequest nextResponse
+                  | throwError "the next lazy projection did not retain a completion"
+                let graph ← cell.view
+                let repeated ← nextRequest.admitResult graph completed.response.root
+                unless repeated.root.value == computedPoint.value &&
+                    repeated.root.associationIds == nextResponse.root.associationIds do
+                  throwError "repeated admission changed the completed lazy projection"
+                discard <| PreparedRequest.forProjection owners.identities program
+                  (← kernel.ledger.allocate) computedContext graph repeated.root 0 #[parameter]
+                return graph)
+              -- A convertible computed source is not the original selected source.
+              withLetDecl `otherFunction (← inferType function) function fun otherFunction => do
+                let otherContext ← ContextTelescope.capture #[
+                  { id, role := .result, expression := r },
+                  { id := ⟨id.session, 3⟩, role := .parameter, expression := function },
+                  { id := ⟨id.session, 4⟩, role := .definition, expression := otherFunction }]
+                let otherInnerSource ← mkProjection (mkApp otherFunction r) `snd
+                unless ← isDefEq (← inferType otherInnerSource) (← inferType computedInnerSource) do
+                  throwError "the operand relabel control lost its convertible native type"
+                let otherRole ← SourceLayout.ofTerm (← otherContext.close otherInnerSource)
+                let .ok relabeled := lazyResponse.root.withRole otherRole
+                  | throwError "the operand relabel control lost its computational role"
+                let otherEnvironment ← RuntimeEnvironment.capture owners.worker otherContext #[parameter]
+                let failure : Option Exception ← try
+                  discard <| otherEnvironment.checkOperand graph otherRole relabeled
+                  pure none
+                catch error => pure (some error)
+                let some failure := failure
+                  | throwError "operand admission borrowed a prefix for another computed source"
+                unless (← failure.toMessageData.toString).startsWith
+                    "the runtime value has an unresolved consuming dependent reference" do throw failure
+              -- A separately supplied alias names this exact parent; its native field may
+              -- retain the selected lazy operand, but a wrong or missing prefix must fail.
+              withLetDecl `aliasParent sigma computedSource fun aliasParent => do
+                let aliasId : BindingId := ⟨id.session, 4⟩
+                let aliasContext ← ContextTelescope.capture #[
+                  { id, role := .result, expression := r },
+                  { id := ⟨id.session, 3⟩, role := .parameter, expression := function },
+                  { id := aliasId, role := .definition, expression := aliasParent }]
+                let aliasInnerSource ← mkProjection aliasParent `snd
+                let aliasRole ← SourceLayout.ofTerm (← aliasContext.close aliasInnerSource)
+                let .ok aliasParameter := RuntimeParameter.ofValue graph aliasId lazyParent
+                  | throwError "the exact operand alias is outside its graph"
+                let aliasEnvironment ← RuntimeEnvironment.capture owners.worker aliasContext
+                  #[parameter, aliasParameter]
+                let aliased ← aliasEnvironment.checkOperand graph aliasRole lazyResponse.root
+                unless aliased.root.value == lazyInner.value &&
+                    aliased.root.associationIds == lazyResponse.root.associationIds do
+                  throwError "the explicit operand alias changed its selected field"
+                let .ok aliasOperand := lazyResponse.root.withRole aliasRole
+                  | throwError "the explicit operand alias lost its source role"
+                discard <| PreparedRequest.forProjection owners.identities program
+                  (← kernel.ledger.allocate) aliasContext graph aliasOperand 0
+                  #[parameter, aliasParameter]
+                let wrongLazyParent ← cell.stage
+                  { program, occurrence, role := computedRole, parameters := #[none, none] }
+                  (.product #[scalar, dependentLazyInner])
+                let graph ← cell.view
+                let .ok wrongAlias := RuntimeParameter.ofValue graph aliasId wrongLazyParent
+                  | throwError "the conflicting operand alias is outside its graph"
+                let wrongEnvironment ← RuntimeEnvironment.capture owners.worker aliasContext
+                  #[parameter, wrongAlias]
+                let failure : Option Exception ← try
+                  discard <| wrongEnvironment.checkOperand graph aliasRole aliasOperand
+                  pure none
+                catch error => pure (some error)
+                let some failure := failure
+                  | throwError "an operand alias accepted another actual equal-valued index"
+                unless (← failure.toMessageData.toString).startsWith
+                    "the runtime value has a different consuming dependent reference" do throw failure
+                let missingEnvironment ← RuntimeEnvironment.capture owners.worker aliasContext #[parameter]
+                let failure : Option Exception ← try
+                  discard <| missingEnvironment.checkOperand graph aliasRole aliasOperand
+                  pure none
+                catch error => pure (some error)
+                let some failure := failure
+                  | throwError "an operand alias supplied its own missing parent"
+                unless missingValueOf failure aliasId do throw failure
+              let .ok _ ← cell.commit
+                | throwError "the computed-source projection did not retain a complete receipt"
+            finally discard <| cell.abort
+          withLetDecl `n (mkConst ``Nat) (← mkProjection r `fst) fun n => do
+            withLocalDeclD `point (mkApp (mkConst ``Fin) n) fun suppliedPoint => do
+              let bindings : Array LocalBinding := #[
+                { id, role := .result, expression := r },
+                { id := ⟨id.session, 1⟩, role := .definition, expression := n },
+                { id := ⟨id.session, 2⟩, role := .parameter, expression := suppliedPoint }]
+              let consuming ← ContextTelescope.capture bindings
+              let parameter (position : Nat) (value : ValueBinding) : MetaM RuntimeParameter := do
+                let .ok parameter :=
+                    RuntimeParameter.ofValue liveSnapshot.graph bindings[position]!.id value
+                  | throwError "a nested consuming reference is outside the published graph"
+                return parameter
+              let root ← parameter 0 outer
+              let point ← parameter 2 selectedPoint
+              discard <| RuntimeEnvironment.capture owners.worker consuming
+                #[root, ← parameter 1 originalIndex, point]
+              let failure : Option Exception ← try
+                discard <| RuntimeEnvironment.capture owners.worker consuming
+                  #[root, ← parameter 1 scalar, point]
+                pure none
+              catch error => pure (some error)
+              let some failure := failure
+                | throwError "a different actual index satisfied a nested descendant's native type"
+              unless (← failure.toMessageData.toString).startsWith
+                  "the runtime value has a different consuming dependent reference" do throw failure
+          owners.close child.generation
+          unless !(← base.graph.isAvailable owners dependentInner) &&
+              (← base.graph.isAvailable owners point) &&
+              (← base.graph.isAvailable owners scalar) do
+            throwError "the nested dependent control did not isolate its consuming index owner"
+          let .ok parameter := RuntimeParameter.ofValue base.graph id outer
+            | throwError "the nested dependent record is outside its published graph"
+          let environment ← RuntimeEnvironment.capture owners.worker context #[parameter]
+          let .ok (some retained) := environment.lookup id
+            | throwError "the nested dependent record lost its original source binding"
+          let bound := ({} : Std.HashMap BindingId ValueBinding).insert id retained
+          let independent ← CellTransaction.begin kernel.ledger
+          try
+            let returned ← kernel.run independent context bound independentSource
+            unless returned.value == scalar.value do
+              throwError "nested independent access replaced its original portable value"
+            let .ok _ ← independent.commit
+              | throwError "an unrelated outer index owner blocked the independent nested result"
+          finally discard <| independent.abort
+          let dependent ← CellTransaction.begin kernel.ledger
+          let failure : Option Exception ← try
+            discard <| kernel.run dependent context bound pointSource
+            pure none
+          catch error => pure (some error)
+          let some failure := failure
+            | throwError "nested projection dropped its actual preceding-field owner dependency"
+          unless (← failure.toMessageData.toString).endsWith "unavailable: stale_owner" do
+            throw failure
+          match ← dependent.commit with
+          | .error .settled => pure ()
+          | _ => throwError "failed dependent access retained a publishable transaction"
+      finally owners.close child.generation
+    finally kernel.close
+  finally setEnv original
+
+-- A published field access belongs to its complete parent association, even when
+-- two consuming applications retain the same parent node and its same stored fields.
+-- These native identity/projection requests do not execute a mathematical provider.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let originalEnvironment ← getEnv
+  try
+    let context ← ContextTelescope.capture #[]
+    let owners ← OwnerRegistry.new
+    let program ← owners.identities.fresh .program
+    let pairSource ← mkAppM ``Prod.mk #[mkNatLit 7, mkNatLit 7]
+    let pairRole ← SourceLayout.ofTerm (← context.close pairSource)
+    let scalarRole ← SourceLayout.ofTerm (← context.close (mkNatLit 7))
+    let identitySource ← Elab.Term.elabTermAndSynthesize
+      (← `(fun (p : Nat × Nat) => p)) none
+    let identityRole ← SourceLayout.ofTerm (← context.close identitySource)
+    let (graph, scalar) ← (ValueGraph.empty owners.identities).stage owners.identities
+      { program, occurrence := ← owners.identities.fresh .occurrence,
+        role := scalarRole, parameters := #[] } (.portable "7".toUTF8)
+    let (graph, originalParent) ← graph.stage owners.identities
+      { program, occurrence := ← owners.identities.fresh .occurrence,
+        role := pairRole, parameters := #[] } (.product #[scalar, scalar])
+    let (graph, callable) ← graph.stage owners.identities
+      { program, occurrence := ← owners.identities.fresh .occurrence,
+        role := identityRole, parameters := #[] } (.closure program #[])
+    let parentView (graph : ValueGraph) : MetaM (ValueGraph × ValueBinding) := do
+      let .ok argument := RuntimeArgument.ofValue graph 0 originalParent
+        | throwError "the exact-parent control lost its original input"
+      let request ← PreparedRequest.forApplication owners.identities program
+        (← owners.identities.fresh .occurrence) context callable
+        #[← context.close pairSource] #[argument] #[]
+      graph.bindApplication owners.identities request.origin originalParent #[scalar, scalar]
+    let publish (graph : ValueGraph) (parent : ValueBinding) :
+        MetaM (ValueGraph × ValueBinding) := do
+      let request ← PreparedRequest.forProjection owners.identities program
+        (← owners.identities.fresh .occurrence) context graph parent 0 #[]
+      graph.bindProjection owners.identities (← request.originFor request.source) scalar #[]
+    let environment ← RuntimeEnvironment.capture owners.worker context #[]
+    let checkSource (graph : ValueGraph) (parent access : ValueBinding)
+        (accepted : Bool) : MetaM Unit := do
+      let marks ← IO.mkRef (#[] : Array ValueBinding)
+      let markedParent ← markValue marks parent (← parent.role.source.inContext context)
+      let specified ← context.close (← mkProjection markedParent `fst)
+      let .ok argument := RuntimeArgument.ofValue graph 0 access (← marks.get)
+        | throwError "the exact-parent access is outside its actual graph"
+      let failure : Option Exception ← try
+          discard <| environment.checkArgument specified argument
+          pure none
+        catch error => pure (some error)
+      match accepted, failure with
+      | true, none => pure ()
+      | true, some error => throw error
+      | false, none =>
+        throwError "a projection access dropped a required parent association"
+      | false, some error =>
+        unless (← error.toMessageData.toString).startsWith
+            "the runtime argument does not retain its specified source value" do throw error
+    let (graph, parentA) ← parentView graph
+    let (graph, parentB) ← parentView graph
+    unless originalParent.value == parentA.value && parentA.value == parentB.value &&
+        parentA.associationIds.size == originalParent.associationIds.size + 1 &&
+        parentB.associationIds.size == originalParent.associationIds.size + 1 &&
+        parentA.associationIds != parentB.associationIds do
+      throwError "the control did not retain distinct consuming parent associations"
+    let .ok none := graph.projectedAccess? originalParent #[``Prod.fst]
+      | throwError "stored data fabricated an unpublished projection access"
+    -- A later parent's real access cannot manufacture an earlier parent's publication.
+    do
+      let (laterGraph, _) ← publish graph parentA
+      let .ok none := laterGraph.projectedAccess? originalParent #[``Prod.fst]
+        | throwError "a later parent access fabricated an earlier exact-parent publication"
+      let .ok none := laterGraph.projectedAccess? parentB #[``Prod.fst]
+        | throwError "a later parent access fabricated a sibling publication"
+    let (graph, originalAccess) ← publish graph originalParent
+    let .ok (some retainedOriginal) := graph.projectedAccess? originalParent #[``Prod.fst]
+      | throwError "the original parent lost its published access"
+    unless retainedOriginal.associationIds == originalAccess.associationIds do
+      throwError "the original published access changed its consuming associations"
+    for parent in #[parentA, parentB] do
+      let .ok none := graph.projectedAccess? parent #[``Prod.fst]
+        | throwError "an older baseline access authenticated a later parent association"
+      checkSource graph parent retainedOriginal false
+    let (graph, accessA) ← publish graph parentA
+    let .ok (some retainedA) := graph.projectedAccess? parentA #[``Prod.fst]
+      | throwError "the first associated parent lost its own published access"
+    unless retainedA.associationIds == accessA.associationIds do
+      throwError "the first associated parent reused another access"
+    checkSource graph parentA retainedA true
+    let .ok none := graph.projectedAccess? parentB #[``Prod.fst]
+      | throwError "a sibling parent association authenticated an unpublished access"
+    checkSource graph parentB retainedA false
+    let (graph, accessB) ← publish graph parentB
+    let .ok (some retainedB) := graph.projectedAccess? parentB #[``Prod.fst]
+      | throwError "the second associated parent lost its own published access"
+    unless retainedB.associationIds == accessB.associationIds do
+      throwError "the second associated parent reused another access"
+    checkSource graph parentB retainedB true
+    checkSource graph parentA retainedB false
+    let .ok aliasParent := parentA.withRole parentA.role
+      | throwError "the exact-parent control could not retain an ordinary role alias"
+    let .ok (some aliasAccess) := graph.projectedAccess? aliasParent #[``Prod.fst]
+      | throwError "an ordinary role alias lost its exact published parent"
+    unless aliasAccess.associationIds == accessA.associationIds do
+      throwError "a role alias replaced its original published access"
+    for (parent, access) in #[
+        (originalParent, originalAccess), (parentA, accessA), (parentB, accessB)] do
+      let .ok (some retained) := graph.projectedAccess? parent #[``Prod.fst]
+        | throwError "a later publication hid an earlier exact-parent access"
+      unless retained.value == scalar.value &&
+          retained.associationIds == access.associationIds do
+        throwError "an exact-parent query changed its selected access"
+      let .ok (some (_, selectedParent, path)) := graph.projectionSelection retained
+        | throwError "the published access lost its immutable source selection"
+      unless selectedParent.value == parent.value &&
+          selectedParent.associationIds == parent.associationIds &&
+          path == #[``Prod.fst] do
+        throwError "the published access changed its complete parent or native path"
+      let .ok (some baseline) := graph.projected? parent #[``Prod.fst]
+        | throwError "the exact-parent publication lost the original field baseline"
+      let .ok stored := graph.project parent 0
+        | throwError "the exact-parent publication lost its original stored field"
+      unless baseline.value == scalar.value && stored.value == scalar.value &&
+          baseline.associationIds == scalar.associationIds &&
+          stored.associationIds == scalar.associationIds do
+        throwError "an access publication replaced the original stored field baseline"
+  finally setEnv originalEnvironment

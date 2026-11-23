@@ -16,11 +16,9 @@ private def admissionData (context : ReadContext) (body : TSyntax `cas_term)
     (base : Expr) : TermElabM Expr := do
   let readExpression := @ReadContext.readExpression context
   let categoryOf := context.categoryOf
-  if (← whnfR base).isForall then
-    let value ← readExpression categoryOf body none
-    let type ← whnfR (← inferType value.value)
-    if type.isAppOfArity ``Quiver.Hom 4 || type.isAppOf ``TypeCat.Hom then
-      return ← sourceSetFunction value.value
+  -- The admitted declaration supplies the data's type before its syntax is read.
+  -- Selected morphisms use ReadDispatch's checked carrier-function conversion at this same
+  -- boundary; literals and lambdas receive their declared domain on their only reading.
   return (← readExpression categoryOf body (some base)).value
 
 def admitted (context : ReadContext) (entry : CasCatalogue.ObjectEntry)

@@ -153,7 +153,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         current graph pairValue 0 currentParameters
       let .ok stored := graph.project pairValue 0
         | throwError "the native callable pair lost its stored function"
-      let (graph, projected) ← liftM (m := IO) <|
+      let (graph, projected) ←
         graph.bindProjection owners.identities projection.origin stored #[]
       let .ok (some projectedOrigin) := graph.applicationOrigin projected
         | throwError "the native projected callable lost its application origin"
@@ -243,14 +243,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     context graph original 0 #[]
   let .ok firstStored := graph.project original 0
     | throwError "the nested projection control lost its stored inner pair"
-  let (graph, firstView) ← liftM (m := IO) <|
+  let (graph, firstView) ←
     graph.bindProjection owners.identities first.origin firstStored #[other, selected]
   let secondOccurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
   let second ← PreparedRequest.forProjection owners.identities program secondOccurrence
     context graph firstView 1 #[]
   let .ok secondStored := graph.project firstView 1
     | throwError "the nested projection control lost its selected scalar"
-  let (graph, secondView) ← liftM (m := IO) <|
+  let (graph, secondView) ←
     graph.bindProjection owners.identities second.origin secondStored #[]
   let .ok (some basis) := graph.projectionBasis secondView original #[``Prod.fst, ``Prod.snd]
     | throwError "nested stored projections lost their original composed-path baseline"

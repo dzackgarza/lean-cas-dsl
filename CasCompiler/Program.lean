@@ -5,6 +5,7 @@ public import CasCompiler.Layout
 public import CasCompiler.Declaration
 public import CasCompiler.LiftFamily
 public import CasCompiler.PresentationFamily
+public import CasCompiler.RoutedMethodFamily
 
 @[expose] public section
 
@@ -68,6 +69,7 @@ inductive ProgramBoundary
   | prerequisite (program : SourceProgram) (index : Fin program.source.prerequisites.size)
   | lift (family : LiftFamily)
   | presentation (family : PresentationFamily)
+  | routedMethod (family : RoutedMethodFamily)
 
 /-- The published computation family, whose public address is a `ComputationRef`. A lift's
 computation is addressed by its lift row instead (`ProgramBoundary.lift`). -/
@@ -75,7 +77,7 @@ def ProgramBoundary.reference : ProgramBoundary → Option ComputationRef
   | .registered family => some family.source.reference
   | .target program => some program.source.entry.target
   | .prerequisite program index => some program.source.prerequisites[index.val].reference
-  | .lift _ | .presentation _ => none
+  | .lift _ | .presentation _ | .routedMethod _ => none
 
 def ProgramBoundary.family : ProgramBoundary → Expr
   | .registered family => family.source.family
@@ -83,11 +85,13 @@ def ProgramBoundary.family : ProgramBoundary → Expr
   | .prerequisite program index => program.source.prerequisites[index.val].family
   | .lift family => family.family
   | .presentation family => family.family
+  | .routedMethod family => family.family
 
 def ProgramBoundary.universeParams : ProgramBoundary → List Name
   | .registered family => family.universeParams
   | .target program | .prerequisite program _ => program.source.universeParams
   | .lift family => family.universeParams
   | .presentation family => family.universeParams
+  | .routedMethod family => family.universeParams
 
 end CasCompiler

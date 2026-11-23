@@ -27,7 +27,8 @@ run_cmd liftTermElabM do
     let python := (← liftM (m := IO) <| IO.FS.realPath contract) / ".venv/bin/python"
     let peer := root / "scripts/probes/kernel_session_peer.py"
     let registration := fun (operation : String) => Json.mkObj [("operation", operation),
-      ("input", s!"{operation}#input"), ("backend", "peer")]
+      ("input", if operation == "meth.cardinality" then "obj.sets.fin" else s!"{operation}#input"),
+      ("backend", "peer")]
     let manifest := Json.mkObj [
       ("backends", .arr #[Json.mkObj [("name", "peer"), ("command", python.toString),
         ("args", .arr #[toJson peer.toString])]]),

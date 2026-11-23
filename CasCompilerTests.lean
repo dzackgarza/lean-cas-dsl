@@ -20,6 +20,7 @@ import CasCompiler.ResolveTests
 import CasCompiler.RouteGrammarTests
 import CasCompiler.SourceAbsTests
 import CasCompiler.SourceActionTests
+import CasCompiler.SourceArgumentIdentityTests
 import CasCompiler.SourceAtomArgumentTests
 import CasCompiler.SourceAtomTests
 import CasCompiler.SourceCarrierTests
@@ -28,6 +29,7 @@ import CasCompiler.SourceConstructionTests
 import CasCompiler.SourceDivisionTests
 import CasCompiler.SourceEqualityFormTests
 import CasCompiler.SourceEqualityTests
+import CasCompiler.SourceGeneratorTests
 import CasCompiler.SourceIdentityTests
 import CasCompiler.SourceImageTests
 import CasCompiler.SourceInheritedNumeralTests
@@ -52,6 +54,7 @@ import CasCompiler.SourceRelationTests
 import CasCompiler.SourceRingTests
 import CasCompiler.SourceSetLiteralTests
 import CasCompiler.SourceSpanTests
+import CasCompiler.SourceSubobjectTests
 import CasCompiler.SourceSubsetTests
 import CasCompiler.SourceSyntaxTests
 import CasCompiler.SourceTupleTests

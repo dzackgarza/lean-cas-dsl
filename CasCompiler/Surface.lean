@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.Elaborate
+public import CasCompiler.Layout
 public import CasCompiler.SelectedMorphism
 public import LeanCategories.Catalogue.Registry.Semantic
 public import LeanCategories.Catalogue.Semantics.Foundation.Catalogue
@@ -51,6 +52,57 @@ def registeredDomain (value : Expr) : MetaM (Expr × Array ObjectEntry) := do
   if reference.isSome && owners.isEmpty then
     throwError "the source domain reference is unavailable in the source inventory"
   return (domain, owners)
+
+/-- Follow a let only when its own source selects an earlier input or native field.
+Independently computed lets retain their different fvar identities, even when their
+definitions are convertible. This is the same alias rule as runtime dependency admission. -/
+private partial def sourceArgumentReference (inputs : Array Expr) (source : Expr)
+    (path : Array Name := #[]) : MetaM (Option (Nat × Array Name)) := do
+  let some (index, selected) ← sourceInputProjection? source inputs path | return none
+  let some input := inputs[index]?
+    | throwError "a source argument selected an unavailable original input"
+  if let some definition := (← getFVarLocalDecl input).value? then
+    if definition.hasFVar then
+      if let some original ← sourceArgumentReference inputs definition selected then
+        return some original
+  return some (index, selected)
+
+private def alignSourceArgumentsCore? (declaration : Name) (parameters : Array Expr)
+    (declared original : Expr) : MetaM (Option (Array (Option Expr))) := do
+  let declared := declared.headBeta.consumeMData
+  let original := original.headBeta.consumeMData
+  unless declared.getAppFn.isConstOf declaration &&
+      original.getAppFn.isConstOf declaration do return none
+  let arity ← forallTelescopeReducing (← inferType original.getAppFn)
+    fun arguments _ => pure arguments.size
+  unless declared.getAppNumArgs == arity && original.getAppNumArgs == arity do return none
+  unless ← isDefEq declared.getAppFn original.getAppFn do return none
+  let inputs ← ((← getLCtx).foldl (fun inputs entry => inputs.push (mkFVar entry.fvarId)) #[])
+    |>.filterM fun input => return !(← isProof input)
+  let mut retained : Array (Option Expr) := Array.replicate parameters.size none
+  for parameter in declared.getAppArgs, supplied in original.getAppArgs do
+    if let some index := parameters.findIdx? (· == parameter.consumeMData) then
+      if let some previous := retained[index]! then
+        unless ← isProof parameter do
+          let some first ← sourceArgumentReference inputs previous | return none
+          let some second ← sourceArgumentReference inputs supplied | return none
+          unless first == second do return none
+      else
+        retained := retained.set! index (some supplied)
+    unless ← isDefEq parameter supplied do return none
+  return some retained
+
+/-- Specialize one already selected native target declaration by its complete argument
+positions before carrier conversion. Admission and refinement binders need not be in the
+target's order. Direct formal parameters retain the original supplied expressions; a repeated
+computational formal requires one exact source input/path, not convertible values. Failed
+matches leave the caller's metavariables unchanged. -/
+opaque alignSourceArguments? (declaration : Name) (parameters : Array Expr)
+    (declared original : Expr) : MetaM (Option (Array (Option Expr))) := do
+  let accepts ← withoutModifyingState do
+    return (← alignSourceArgumentsCore? declaration parameters declared original).isSome
+  unless accepts do return none
+  alignSourceArgumentsCore? declaration parameters declared original
 
 /-- The complete named or unary-constructed native category family.
 Reuse: Resolve's categoryFamily/unaryCategoryFamily and the source constructor interface.
@@ -183,13 +235,32 @@ private def throwUnknownSourceName {α : Type} (name : String) : TermElabM α :=
   throwStratum .invalid
     (MessageData.tagged (unknownSourceNameTag name) m!"unregistered source object: {name}")
 
+-- A directly qualified row retains its existing meaning. When no such row exists,
+-- an explicit classifier qualification first names an object of that classifier's
+-- own host; the checked property action is applied by ReadDispatch to that result.
+-- This is a source-name lookup, not a trial after a failed mathematical interpretation.
+private def sourceNameCategory (state : SemanticState) (name : String)
+    (qualification : Option String) : TermElabM (Option NamedCategoryEntry) := do
+  let some required ← qualification.mapM (selectCategory state) | return none
+  let .classifierTotal id := required.expression | return some required
+  if state.objects.any (fun row => row.name == name && row.category == required.id) ||
+      state.morphisms.any (fun row => row.name == name && row.category == required.id) ||
+      state.constructions.any (fun row =>
+        row.name == name && row.target.syntacticEq required.expression) then
+    return some required
+  let some classifier := state.classifier? id
+    | throwError "the explicitly selected classifier is absent"
+  let #[host] := state.categories.filter (·.expression.syntacticEq classifier.host)
+    | throwError "the explicit classifier requires one complete registered host category"
+  return some host
+
 /-- Select a named source row in an explicit category or independently declared parameter type.
 Reuse: native category declaration telescopes, Lean isDefEq and withoutModifyingState.
 Each candidate check has isolated metavariables; lexical bindings bypass this selection. -/
 opaque selectObject (name : String) (category : Option String) (expected : Option Expr := none) :
     TermElabM (ObjectEntry × NamedCategoryEntry) := do
     let state ← semanticState
-    let qualified ← category.mapM (selectCategory state)
+    let qualified ← sourceNameCategory state name category
     let expected ← expected.mapM fun type => do whnf (← instantiateMVars type)
     let parameterType := if qualified.isNone then
         expected.filter (! ·.getAppFn.isMVar)
@@ -227,7 +298,7 @@ only if several do. -/
 opaque selectNamed (name : String) (category : Option String) (expected : Option Expr) :
     TermElabM (Array SourceNamedEntry) := do
   let state ← semanticState
-  let qualified ← category.mapM (selectCategory state)
+  let qualified ← sourceNameCategory state name category
   let morphisms := state.morphisms.filter fun entry =>
     entry.name == name && qualified.all (·.id == entry.category)
   let objects := state.objects.filter fun entry =>

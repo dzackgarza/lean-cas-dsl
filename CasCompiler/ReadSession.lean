@@ -19,7 +19,8 @@ private def sourceCategory (session : SourceSession) (context : OpenContext)
       ← carrier.actions.mapM (·.inContext context),
       ← carrier.comparisons.mapM (·.inContext context)⟩ : NativeSourceCarrierSelection)
   let limit ← category.limit.mapM fun limit => do
-    return (⟨limit.row, limit.declaration, ← limit.cone.inContext context, limit.colimit⟩ :
+    return (⟨limit.row, limit.declaration, ← limit.cone.inContext context, limit.colimit,
+      limit.category, ← limit.bundle.inContext context⟩ :
       NativeSourceLimitSelection)
   return some ⟨category.role, category.expression, ← category.bundle.inContext context,
     carrier, limit⟩

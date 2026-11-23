@@ -3,6 +3,7 @@ module
 public import CasCompiler.ReadContext
 public import CasCompiler.ReadAdmission
 public import CasCompiler.ReadOperation
+public import CasCompiler.SourcePropertyQualification
 import CasCompiler.SourceCarrier
 
 public section
@@ -23,16 +24,6 @@ def annotated (context : ReadContext) :
   fun (body domain : TSyntax `cas_term) => do
     let domain ← sourceCarrier (← readExpression categoryOf domain none)
     discard <| getLevel domain.value
-    let typeOrigin ← sourceTypeOrigin? domain.value
-    let originalReference ← sourceObjectReference? domain.value
-    let typedReference ← match typeOrigin with
-      | some original => sourceObjectReference? original.object
-      | none => pure none
-    let head := reprStr domain.value.consumeMData.getAppFn.constName?
-    let typeHead := reprStr (typeOrigin.map fun original => original.type.consumeMData.getAppFn.constName?)
-    let originalRef := reprStr (originalReference.map fun original => (original.1.raw, original.2.toString))
-    let typedRef := reprStr (typedReference.map fun original => (original.1.raw, original.2.toString))
-    logInfo m!"admission target: head={head}; typed={typeOrigin.isSome}; typeHead={typeHead}; original={originalRef}; typedObject={typedRef}"
     if let some entry ← sourceAdmissionDomain? domain.value then
       let identifier := body.raw.isIdent && ((← getLCtx).findFromUserName? body.raw.getId).isSome
       let typed ← if identifier then do
@@ -113,10 +104,22 @@ def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
       CasCatalogue.throwStratum .invalid m!"the value is not an object of {name} over this base"
     return judgement
   | `(cas_term| $body:cas_term in $category:ident) => do
+    let name := category.getId.toString (escape := false)
+    -- A local binding denotes its actual domain. Among unbound names, only a registered
+    -- category qualifies the body; named objects such as C supply their declared data type.
     if ((← getLCtx).findFromUserName? category.getId).isSome then
       annotated body (← `(cas_term| $category:ident))
+    else if (← CasCatalogue.semanticState).categories.any (·.name == name) then
+      let required ← selectCategory (← CasCatalogue.semanticState) name
+      if required.expression matches .classifierTotal _ then
+        if ← sourcePrincipal body then
+          -- A compound or retained object already has its own complete source category
+          -- and presentation. Refine that whole value; do not qualify its operands.
+          return ← sourcePropertyQualification
+            (← readExpression categoryOf body none) required
+      readExpression categoryOf body expected (some name)
     else
-      readExpression categoryOf body expected (some (category.getId.toString (escape := false)))
+      annotated body (← `(cas_term| $category:ident))
   | `(cas_term| $body:cas_term in $domain:cas_term) =>
     annotated body domain
   | _ => throwReadRuleMismatch

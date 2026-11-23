@@ -21,7 +21,7 @@ def member (context : ReadContext) :
   let categoryOf := context.categoryOf
   let expected := context.expected
   let qualification := context.qualification
-  let application := application context
+  let application := applicationResult context
   fun (receiver : TSyntax `cas_term) (name : String)
       (arguments : Array (TSyntax `cas_term)) => do
     let readArguments : Option (Expr → TermElabM Expr) := if arguments.isEmpty then none
@@ -66,7 +66,7 @@ def member (context : ReadContext) :
         return (⟨value, none⟩ : NativeSourceJudgement)
     if arguments.isEmpty then return family
     if arguments.size == 1 then
-      return (⟨← application family arguments expected, none⟩ : NativeSourceJudgement)
+      return ← application family arguments expected
     let function ← sourceFunction family
     let argument ← mkFreshExprMVar none
     discard <| elabAppArgs function #[] #[Arg.expr argument] expected false false

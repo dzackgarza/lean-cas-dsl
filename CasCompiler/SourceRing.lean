@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.Surface
+public import CasCompiler.SourcePointOrigin
 public import CasCatalogue.Decide
 
 public section
@@ -20,8 +21,9 @@ def sourcePointValue (element : Expr) (expected : Option Expr) : TermElabM Expr 
   let point ← mkAppOptM ``default #[some (← declaredEndpoint type.getAppArgs[2]!), none]
   let function ← sourceSetFunction element
   let value ← elabAppArgs function #[] #[Arg.expr point] expected false false
-  if expected.isSome then return value
-  mkExpectedTypeHint value (← declaredEndpoint type.getAppArgs[3]!)
+  let value ← if expected.isSome then pure value
+    else mkExpectedTypeHint value (← declaredEndpoint type.getAppArgs[3]!)
+  retainSourcePoint element value
 
 /-- The registered generator `∀ params, 1 ⟶ obj params` of the object whose carrier is `type`,
 at its point: the variable `x` of `R[x]`. The parameters are those that reducible unification

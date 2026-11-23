@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.Surface
+public import Mathlib.Data.Fin.VecNotation
 
 public section
 
@@ -25,8 +26,9 @@ private def constructTuple (declaration : Name) (expected : Expr)
   let value ← elabAppArgs function #[] actual (some expected) false false
   mkExpectedTypeHint value expected
 
--- Reuse Fin.cases/Fin.elim0, the native construction underlying Fin.cons.
--- Each component receives its actual dependent type before its source is read.
+-- Nondependent finite data use Mathlib's native vector notation constructors.
+-- Dependent or Sort-polymorphic families retain Fin.cases/Fin.elim0. Every component
+-- receives its actual declared type before its original source is read.
 private partial def finiteTuple (components : Array (Expr → TermElabM Expr))
     (expected : Expr) : TermElabM Expr := do
   let .forallE name domain codomain info ← whnf expected
@@ -36,19 +38,23 @@ private partial def finiteTuple (components : Array (Expr → TermElabM Expr))
     throwError "the source finite tuple requires its declared finite index"
   unless ← isDefEq index.getAppArgs[0]! (mkNatLit components.size) do
     throwError "the source tuple has a different declared finite arity"
+  let homogeneous ← if codomain.hasLooseBVars then pure false
+    else pure ((← getLevel codomain).dec.isSome)
   if components.isEmpty then
+    if homogeneous then return ← constructTuple ``Matrix.vecEmpty expected #[]
     return ← withLocalDecl name info domain fun argument => do
       let value ← mkAppOptM ``Fin.elim0
         #[some (codomain.instantiate1 argument), some argument]
       mkLambdaFVars #[argument] value
   let some first := components[0]?
     | throwError "a nonempty source finite tuple requires its first component"
-  constructTuple ``Fin.cases expected #[first,
+  let constructor := if homogeneous then ``Matrix.vecCons else ``Fin.cases
+  constructTuple constructor expected #[first,
     fun type => finiteTuple (components.drop 1) type]
 
 /-- Construct finite rows at the complete supplied native matrix domain.
-Reuse: the same Fin.cases constructor as sourceTuple. Row and column arities come
-from the actual dependent function type; original cells are read once in order. -/
+Reuse: the same native finite tuple constructors as sourceTuple. Row and column arities
+come from the actual function type; original cells are read once in order. -/
 def sourceMatrix (rows : Array (Array (TSyntax `cas_term))) (expected : Expr)
     (readComponent : TSyntax `cas_term → Expr → TermElabM Expr) : TermElabM Expr := do
   if let some first := rows[0]? then
@@ -58,9 +64,9 @@ def sourceMatrix (rows : Array (Array (TSyntax `cas_term))) (expected : Expr)
     finiteTuple (row.map fun component type => readComponent component type) type) expected
 
 /-- Construct a tuple at its actual declared native domain.
-Reuse: Prod/Sigma/PSigma constructors and Fin.cases, the dependent constructor underlying
-Mathlib.Data.Fin.Tuple.Basic's Fin.cons. Empty tails use native Fin.elim0. Original
-components are read once at their actual dependent types; the domain is never replaced. -/
+Reuse: Prod/Sigma/PSigma, native Matrix.vecCons/vecEmpty for homogeneous finite data,
+and Fin.cases/Fin.elim0 for dependent families. Original components are read once at their
+actual dependent types; the complete declared domain is never replaced. -/
 partial def sourceTuple (components : Array (TSyntax `cas_term)) (expected : Expr)
     (readComponent : TSyntax `cas_term → Expr → TermElabM Expr) : TermElabM Expr := do
   let type ← whnf expected

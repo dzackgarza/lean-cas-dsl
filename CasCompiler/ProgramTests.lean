@@ -129,6 +129,56 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     throwError "the field `value : family index` has preceding dependencies \
       {value.precedingDependencies}; its type names `family` and `index`, whose types name `bound`"
 
+-- A native inner prefix can hide an original index in the types of its family and point.
+-- Neither the unresolved final type p x nor a later known product projection may drop that
+-- index. All source terms here use existing Sigma/Pi constructors; no value is executed.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let empty ← ContextTelescope.capture #[]
+  let source ← Elab.Term.elabTermAndSynthesize
+    (← `(fun (n : Nat) =>
+      (⟨(fun _ : Fin (Nat.succ n) => Nat × Nat),
+        (⟨0, Nat.zero_lt_succ n⟩ : Fin (Nat.succ n)), ((7, 7) : Nat × Nat)⟩ :
+        Σ p : Fin (Nat.succ n) → Type, Σ x : Fin (Nat.succ n), p x))) none
+  let family ← forallTelescope (← inferType source) fun locals type =>
+    mkLambdaFVars locals type (usedOnly := false) (usedLetOnly := false)
+  let value ← mkAppOptM ``Sigma.mk #[
+    some (mkConst ``Nat), some family, some (mkNatLit 0),
+    some (mkApp source (mkNatLit 0))]
+  let layout ← SourceLayout.ofTerm (← empty.close value)
+  let some field := layout.fields.find? (·.projection == ``Sigma.snd)
+    | throwError "the introduced-prefix control lost its original dependent field"
+  let finalPath := #[``Sigma.snd, ``Sigma.snd]
+  let shapePath := finalPath.push ``Prod.fst
+  let fieldView ← field.dependencyView shapePath
+  let orderedSource ← withLocalDeclD `unused (mkConst ``Nat) fun unused =>
+    withLocalDeclD `n (mkConst ``Nat) fun n =>
+      mkLambdaFVars #[unused, n] (mkApp source n) (usedOnly := false) (usedLetOnly := false)
+  let (_, application) ← ApplicationLayout.ofSource
+    (← SourceLayout.ofTerm (← empty.close orderedSource)) empty
+    #[← empty.close (mkNatLit 0), ← empty.close (mkNatLit 0)]
+  let finalDependencies ← application.dependenciesAt finalPath
+  let shapeDependencies ← application.dependenciesAt shapePath
+  unless finalDependencies.context.isEmpty && finalDependencies.arguments == #[1] &&
+      shapeDependencies.context.isEmpty && shapeDependencies.arguments == #[1] &&
+      fieldView.path == shapePath && fieldView.precedingDependencies == #[0] do
+    throwError "introduced native prefixes lost their original dependencies: \
+      final arguments={finalDependencies.arguments}, shape arguments={shapeDependencies.arguments}, \
+      field prefix={fieldView.precedingDependencies}; expected #[1], #[1], #[0]"
+  withLocalDeclD `unused (mkConst ``Nat) fun unused =>
+    withLocalDeclD `n (mkConst ``Nat) fun n => do
+      let context ← ContextTelescope.capture #[
+        { id := ⟨"introduced-prefix-context", 0⟩, role := .parameter, expression := unused },
+        { id := ⟨"introduced-prefix-context", 1⟩, role := .parameter, expression := n }]
+      let capturedSource ← withLocalDeclD `ignored (mkConst ``Nat) fun ignored =>
+        mkLambdaFVars #[ignored] (mkApp source n) (usedOnly := false) (usedLetOnly := false)
+      let (_, application) ← ApplicationLayout.ofSource
+        (← SourceLayout.ofTerm (← context.close capturedSource)) context #[← context.close (mkNatLit 0)]
+      for path in #[finalPath, shapePath] do
+        let dependencies ← application.dependenciesAt path
+        unless dependencies.context == #[1] && dependencies.arguments.isEmpty do
+          throwError "introduced native prefixes changed the original dependency planes: \
+            context={dependencies.context}, arguments={dependencies.arguments}; expected #[1], #[]"
+
 -- The same original prefix remains necessary when its last type names earlier fields only
 -- through their dependent domains. Direct source projections need no separate alias binder.
 open CasRuntime in
@@ -201,7 +251,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throwError "the lazy dependent source lost a captured prefix field"
       unless baseline.projectionAccesses.isEmpty do
         throwError "the captured baseline already carries a lazy projection access"
-      let (next, _) ← liftM (m := IO) <| projectionGraph.bindProjection owners.identities
+      let (next, _) ← projectionGraph.bindProjection owners.identities
         { program, occurrence, role := prepared.layout, parameters := #[none],
           access := some lazyParent, accessPath := #[prepared.field.projection] }
         baseline #[]

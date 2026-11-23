@@ -27,7 +27,8 @@ structure PreparedPresentationInvocation where
 provider. The native carrier path fixes direction; the source endpoint alone supplies endpoint
 forms. The complete request's own form is a peer, with no priority over an endpoint form. -/
 opaque PreparedPresentationInvocation.prepare (request family : PreparedRequest)
-    (path : Array FieldLayout) (graph : ValueGraph) : MetaM PreparedPresentationInvocation := do
+    (path : Array FieldLayout) (graph : ValueGraph) (marks : Array ValueBinding) :
+    MetaM PreparedPresentationInvocation := do
   let .primitive (.presentation selected) _ := family.action
     | throwError "a presentation invocation lost its original named family"
   let some inverse := selected.direction? (path.map (·.projection))
@@ -50,7 +51,7 @@ opaque PreparedPresentationInvocation.prepare (request family : PreparedRequest)
         let some value := original.arguments[parameter.sourceIndex]?.bind id
           | throwError "a presentation family is missing an explicit computational parameter"
         parameters := parameters.push value
-  let (first, second) ← family.presentationEndpoints graph
+  let (first, second) ← family.presentationEndpoints graph marks
   let (source, target) := if inverse then (second, first) else (first, second)
   let endpointForm ← family.environment.context.withOpen fun bindings => do
     let context ← ContextTelescope.capture bindings

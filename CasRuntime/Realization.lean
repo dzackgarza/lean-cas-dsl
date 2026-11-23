@@ -215,12 +215,16 @@ registrations and the profile's checked derivations. A prerequisite is a delayed
 installed registration or a grounded derivation makes it present, and its own realization is
 selected when its actual arguments exist. Zero and many dispatch nothing.
 Reuse: RealizationGraph.grounded and GroundedRealizations.uniqueAlternative. -/
-def RealizationProfile.select (profile : RealizationProfile) (manifest : Manifest)
-    (reference : ComputationRef) (address : String) (forms : Array String) : MetaM Realization := do
-  let eligible := manifest.registrations.filter fun registration =>
-    registration.operation == address && forms.contains registration.input &&
-      manifest.backends.any (·.name == registration.backend) &&
-      profile.allowsPrimitive reference registration
+private def selectBoundaries (profile : RealizationProfile) (manifest : Manifest)
+    (reference : ComputationRef) (address : String) (boundaries : Array (Array String)) :
+    MetaM (Nat × Realization) := do
+  if boundaries.isEmpty then throwError "realization selection requires a complete source boundary"
+  let eligible := (boundaries.mapIdx fun index forms =>
+    (manifest.registrations.filter fun registration =>
+      registration.operation == address && forms.contains registration.input &&
+        manifest.backends.any (·.name == registration.backend) &&
+        profile.allowsPrimitive reference registration).map (index, ·)).flatten
+  let forms := boundaries.flatten
   let mut nodes : Array ComputationRef := #[reference]
   let mut derivations : Array (Array CheckedComputationDerivation) := #[]
   let mut next := 0
@@ -254,14 +258,29 @@ def RealizationProfile.select (profile : RealizationProfile) (manifest : Manifes
   if root : 0 < size then
     match ← IO.ofExcept <| (grounded.uniqueAlternative ⟨0, root⟩).mapError IO.userError with
     | some alternative =>
-      if let some registration := eligible[alternative]? then return .registration registration
+      if let some (boundary, registration) := eligible[alternative]? then
+        return (boundary, .registration registration)
       let some derivation := (derivations[0]?.getD #[])[alternative - eligible.size]?
         | throwError "internal: the selected realization is outside its alternatives"
-      return .derivation derivation
+      return (boundaries.size - 1, .derivation derivation)
     | none =>
       if grounded.counts[(⟨0, root⟩ : Fin size)] == .zero then
         throwStratum .noImplementation m!"{address} on {forms}"
       throwStratum .ambiguousRealization m!"{address} on {forms}"
   else throwError "internal: the realization graph has no root demand"
+
+
+/-- One exact native demand uses the same saturated grounded selection as routed methods. -/
+opaque RealizationProfile.select (profile : RealizationProfile) (manifest : Manifest)
+    (reference : ComputationRef) (address : String) (forms : Array String) : MetaM Realization := do
+  return (← selectBoundaries profile manifest reference address #[forms]).2
+
+/-- Count every admitted registration at every exact route boundary before executing a prefix.
+Two occurrences of one registration at different boundaries are distinct alternatives; a source
+or category-wide row has no priority. A checked derivation belongs to the owner boundary.
+Reuse: the same grounded realization graph and frozen profile as ordinary source demands. -/
+opaque RealizationProfile.selectMethod (profile : RealizationProfile) (manifest : Manifest)
+    (method : MethodId) (boundaries : Array (Array String)) : MetaM (Nat × Realization) :=
+  selectBoundaries profile manifest (.method method) method.raw boundaries
 
 end CasRuntime

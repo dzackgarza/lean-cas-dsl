@@ -38,7 +38,9 @@ A fixed whole root takes precedence over reconstructing its individual fields. -
 opaque PreparedRequest.inputResultPlan (request : PreparedRequest) (graph : ValueGraph) :
     MetaM (Option (InputResultPlan request)) := do
   let some tree ← prepareInputResult request graph request.source | return none
+  dbg_trace "[input.plan] before input admission"
   let inputs ← request.admitInputResultInputs graph
+  dbg_trace "[input.plan] after input admission"
   return some ⟨tree, inputs⟩
 
 private partial def InputResultTree.inputs (tree : InputResultTree) :
@@ -65,7 +67,9 @@ opaque InputResultPlan.resolve (plan : InputResultPlan request) (graphView : Met
     MetaM (ResolvedInputResult request) := do
   let mut selected := #[]
   for (path, input) in plan.tree.inputs do
+    dbg_trace s!"[input.resolve] before output={reprStr path}; input={reprStr input.path}"
     let value ← input.resolveValue graphView resolve
+    dbg_trace s!"[input.resolve] after output={reprStr path}; input={reprStr input.path}"
     selected := selected.push ⟨path, input, value⟩
   return ⟨plan, selected⟩
 

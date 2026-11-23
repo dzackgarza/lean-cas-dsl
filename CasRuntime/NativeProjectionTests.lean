@@ -213,6 +213,102 @@ private def checkQuestion (source : SourceSession) (kernel : Kernel) (text opera
         expectMissing text operation (evaluate transaction context left)
     finally discard <| transaction.abort
 
+-- A selected limit apex retains the exact original map slot. Category recovery composes
+-- the two whole native declarations; the generic pt accessor and an unmarked equal source
+-- are insufficient. This checks source/provenance only, without executing a mathematical leaf.
+private def checkSelectedLimitProducer (source : SourceSession) (kernel : Kernel) :
+    TermElabM Unit := do
+  let .ok parsedSource := Parser.runParserCategory (← getEnv) `cas_term "cokernel(to_dual(1))"
+    | throwError "the original cokernel producer source did not parse"
+  let selected ← source.read ⟨parsedSource⟩
+  let transaction ← CellTransaction.begin kernel.ledger
+  try
+    selected.source.withOpen fun bindings expression => do
+      let context ← ContextTelescope.capture bindings
+      let value ← kernel.run transaction context {} expression
+      let identities := transaction.owners.identities
+      let environment ← RuntimeEnvironment.capture identities.worker context #[]
+      let graph ← transaction.view
+      let some produced ← environment.declaredResultSource? context graph value
+        | throwError "the selected limit lost its original declaration projection"
+      let expectedPath := #[``CategoryTheory.Limits.ColimitCocone.cocone,
+        ``CategoryTheory.Limits.Cocone.pt]
+      unless produced.declaration == ``CasCatalogue.Limits.Registration.bilWFormCokernel &&
+          produced.path == expectedPath && produced.position == 4 do
+        throwError "the selected limit changed its complete native producer or actual input position"
+      let some input ← environment.declaredInputAt? context graph (← kernel.marks.get)
+          produced.declaration produced.position value
+        | throwError "the selected limit lost its original retained map slot"
+      let some node := graph.find value.value
+        | throwError "the selected limit descriptor is outside its actual graph"
+      let .container packet := node.payload.data
+        | throwError "the selected limit lost its original descriptor"
+      let #[slot] := packet.slots
+        | throwError "the selected limit changed its sole actual packet input"
+      unless slot.path == #[.field "args", .index 0] && slot.fieldIndex.isNone &&
+          slot.binding.value == input.value.value &&
+          slot.binding.associationIds == input.value.associationIds do
+        throwError "the selected limit reconstructed its original producer input"
+      let some category := selected.category
+        | throwError "the selected limit lost its original category"
+      let families ← RoutedMethodFamily.atSource category.expression "cardinality"
+      let some family := families[0]?
+        | throwError "the selected limit lost its original cardinality method family"
+      let direct ← family.receiverParameterRoutes ``CategoryTheory.Limits.Cocone.pt
+      unless direct.all (fun route => match route with | .unavailable => true | _ => false) do
+        throwError "a generic apex accessor fabricated a concrete category parameter route"
+      let routes ← family.receiverProjectionInputRoutes produced.declaration produced.path
+        produced.position ``LeanCategories.Lattices.Integral.rootAToDual
+      let #[.fixed scalar, .fixed dictionary] := routes
+        | throwError "the whole original producer families did not fix their declared scalar category"
+      unless (← isDefEq scalar (Lean.mkConst ``Int)) &&
+          (← isDefEq (← inferType dictionary) (← mkAppM ``CommRing #[Lean.mkConst ``Int])) do
+        throwError "the whole original producer families changed their fixed scalar category"
+      checkWithKernel dictionary
+
+      let .mdata selectedData unmarked := expression
+        | throwError "the original cokernel source lost its selected reference"
+      unless selectedData.getName `CasCompiler.source.kind == ``LimitEntry do
+        throwError "the original cokernel source changed its selected reference kind"
+      let bareRole ← SourceLayout.ofTerm (← context.close unmarked)
+      let bareOccurrence ← identities.fresh .occurrence
+      let bare ← transaction.stage
+        { node.origin with occurrence := bareOccurrence, role := bareRole }
+        node.payload
+      if (← environment.declaredResultSource? context (← transaction.view) bare).isSome then
+        throwError "an unselected equal apex recovered a declaration from the registry"
+
+      -- An equal source expression at a different actual node cannot replace a marked
+      -- original map inside the selected producer's descriptor input slot.
+      let some inputNode := graph.find input.value.value
+        | throwError "the original producer input is outside its actual graph"
+      let otherOccurrence ← identities.fresh .occurrence
+      let other ← transaction.stage
+        { inputNode.origin with occurrence := otherOccurrence } inputNode.payload
+      if other.value == input.value.value then
+        throwError "the distinct producer-input control reused its original occurrence"
+      let original ← produced.source.inContext context
+      let marked ← markValue kernel.marks input.value (← input.source.inContext context)
+      let mut markedApex := mkAppN original.getAppFn
+        (original.getAppArgs.set! produced.position marked)
+      for projection in produced.path do markedApex ← mkAppM projection #[markedApex]
+      let markedRole ← SourceLayout.ofTerm (← context.close (.mdata selectedData markedApex))
+      let payload ← IO.ofExcept <| (ValuePayload.descriptor packet.template
+        #[{ slot with binding := other }]).mapError IO.userError
+      let changedOccurrence ← identities.fresh .occurrence
+      let changed ← transaction.stage
+        { node.origin with occurrence := changedOccurrence, role := markedRole } payload
+      let failure : Option Exception ← try
+          discard <| environment.declaredInputAt? context (← transaction.view) (← kernel.marks.get)
+            produced.declaration produced.position changed
+          pure none
+        catch error => pure (some error)
+      let some failure := failure
+        | throwError "the selected producer accepted a different equal original input"
+      unless (← failure.toMessageData.toString).endsWith
+          "the runtime argument does not retain its specified source value" do throw failure
+  finally discard <| transaction.abort
+
 run_cmd liftTermElabM do
   let environment ← getEnv
   try
@@ -224,6 +320,32 @@ run_cmd liftTermElabM do
       ("assert |cokernel(to_dual(1))| = 2", "fun.bil_wform.carrier"),
       ("assert |Fin(2) ⊔ Fin(3)| = 5", "meth.cardinality")]
     try
+      checkSelectedLimitProducer source kernel
+      -- The outer carrier projection must cross the existing native definition of the
+      -- unretained classifier total. Reprojecting its field closure is the same computation.
+      let context ← ContextTelescope.capture #[]
+      let info ← getConstInfo ``LeanCategories.Algebra.associative
+      let classifier := Lean.mkConst info.name (info.levelParams.map (fun _ => Level.zero))
+      let total ← mkAppM ``LeanCategories.Classifier.total #[classifier]
+      let carrier ← mkAppM ``CategoryTheory.Bundled.α #[total]
+      for bounded in #[true, false] do
+        let transaction ← CellTransaction.begin kernel.ledger
+        try
+          let before := (← kernel.dispatches.get).size
+          let value ← if bounded then do
+              let guard : ProjectionGuard := ⟨← IO.mkRef #[], ← IO.mkRef 0⟩
+              let program ← owners.identities.fresh .program
+              evaluateBounded kernel guard transaction program context {} carrier
+            else kernel.run transaction context {} carrier
+          let some node := (← transaction.view).find value.value
+            | throwError "the native classifier carrier is outside its actual graph"
+          if let .closure .. := node.payload.data then
+            throwError "the native classifier carrier retained unevaluated projection code"
+          unless ← isDefEq (← node.origin.role.source.inContext context) carrier do
+            throwError "the nested native projection changed its declared carrier"
+          unless (← kernel.dispatches.get).size == before do
+            throwError "a nested native definition projection dispatched a computation"
+        finally discard <| transaction.abort
       for (text, operation) in cases do
         let guard : ProjectionGuard := ⟨← IO.mkRef #[], ← IO.mkRef 0⟩
         checkQuestion source kernel text operation fun transaction context expression => do

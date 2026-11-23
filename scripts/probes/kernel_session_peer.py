@@ -1,7 +1,7 @@
 """Protocol-v2 traffic provider for kernel session tests.
 
 It answers integer-ring addition and multiplication and the cardinality of a
-named finite set from the dependent invocation context. A numeral operand arrives
+named finite set from its complete published method invocation. A numeral operand arrives
 as its registered descriptor; the peer reads its integer. Multiplication by two is
 answered by a deferred published addition on the caller's own ring parameter.
 """
@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import sys
 
-from cas_port import deferred_call, deferred_data, input_ref, result_ref, serve
+from cas_port import deferred_call, deferred_data, input_ref, method_invocation, result_ref, serve
 from cas_session import JsonValue
 
 
@@ -55,9 +55,8 @@ def multiply(context: JsonValue) -> JsonValue:
 
 def cardinality(context: JsonValue) -> JsonValue:
     assert isinstance(context, dict)
-    arguments = context["arguments"]
-    assert isinstance(arguments, list)
-    receiver = arguments[0]
+    _, actions, receiver = method_invocation(context, "meth.cardinality", "fun.sets.cardinality")
+    assert actions == [{"ctor": "fun.sets.cardinality", "args": []}], actions
     assert isinstance(receiver, dict) and receiver["ctor"] == "obj.sets.fin"
     size = receiver["args"]
     assert isinstance(size, list)

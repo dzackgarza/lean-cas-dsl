@@ -65,7 +65,7 @@ private def admitInputRoles (telescope : RoleTelescope) (environment : RuntimeEn
   for declared in telescope.captures, index in [:telescope.captures.size] do
     let some value := captures[index]?
       | throwError "a demanded capture role has no actual binding"
-    let candidate ← environment.checkResult graph declared.layout value
+    let candidate ← environment.checkOperand graph declared.layout value
     bindings := bindings.insert declared.role.id ⟨declared.role.id, .capture index, candidate.root⟩
   return ⟨telescope, bindings⟩
 
@@ -146,12 +146,18 @@ private def storedResultAt (graph : ValueGraph) (root : ValueBinding) (path : Ar
   return some value
 
 /-- Check the complete stored interface, then bind each declared materialized result position.
-Reuse: native whole-result admission and exact graph projections. The map owns no payloads. -/
+A projection request supplies its original operand and field for every admission of that result.
+Ordinary results receive no projection authority. The map owns no payloads.
+Reuse: native whole-result admission and the exact prepared projection check. -/
 opaque ResultRoleMap.admit (telescope : RoleTelescope) (environment : RuntimeEnvironment)
-    (graph : ValueGraph) (value : ValueBinding) : MetaM ResultRoleMap := do
+    (graph : ValueGraph) (value : ValueBinding)
+    (projectionContext : Option (ValueBinding × FieldLayout) := none) : MetaM ResultRoleMap := do
   unless graph.worker == telescope.scope.program.worker do
     throwError "the result role map belongs to a different worker"
-  let candidate ← environment.checkResult graph telescope.source value
+  let candidate ← match projectionContext with
+    | some (operand, field) =>
+      environment.checkProjectionResult graph telescope.source value operand field
+    | none => environment.checkResult graph telescope.source value
   let mut bindings : Std.HashMap RoleId ValueBinding := {}
   for declared in telescope.results do
     if let some path := declared.wirePath then

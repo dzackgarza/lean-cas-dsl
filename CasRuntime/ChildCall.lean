@@ -3,6 +3,9 @@ module
 public import CasRuntime.ExecutionContext
 public import CasCompiler.SourceReference
 public import CasRuntime.Literal
+public import CasRuntime.Encode
+public import CasCompiler.PointFamily
+public import CasRuntime.RoutedMethod
 
 public section
 
@@ -38,6 +41,17 @@ private partial def childOperand (marks : IO.Ref (Array ValueBinding)) (context 
       let head ← mkConstWithFreshMVarLevels row.declaration
       let value ← childExplicit marks context retained head fields (some domain)
       return sourceReference ``ObjectEntry row.id.raw row.declaration value
+    if let some row := (← semanticState).morphisms.find? (·.id.raw == address) then
+      match checkServiceFields #["ctor", "args"] packet with
+      | .error reason => malformed reason
+      | .ok () => pure ()
+      let fields ← match (packet.getObjVal? "args").bind (·.getArr?) with
+        | .ok fields => pure fields
+        | .error reason => malformed reason
+      discard <| checkedDeclaration row.declaration
+      let head ← mkConstWithFreshMVarLevels row.declaration
+      let value ← childExplicit marks context retained head fields (some domain)
+      return sourceReference ``MorphismEntry row.id.raw row.declaration value
   let domain ← whnfR (← instantiateMVars domain)
   if let (.arr components, .const owner levels) := (packet, domain.getAppFn) then
     if let some info := getStructureInfo? (← getEnv) owner then
@@ -83,6 +97,152 @@ private partial def childExplicit (marks : IO.Ref (Array ValueBinding)) (context
   return value
 
 end
+
+/-- Read only the complete parameter array of the already decoded public action descriptor.
+The outer method decoder owns the grammar; this follows the exact selected native edge. -/
+private partial def childActionParameters (edge : EdgeRef) (descriptor : Json) :
+    MetaM (Array Json) := do
+  let malformed : {α : Type} → String → MetaM α := fun reason =>
+    throwStratum .malformed m!"deferred method action: {reason}"
+  let fields ← match (descriptor.getObjVal? "args").bind (·.getArr?) with
+    | .ok fields => pure fields
+    | .error reason => malformed reason
+  let parameters ← match edge with
+    | .functor _ => pure fields
+    | .classifierForget _ =>
+      let #[_, .arr parameters] := fields
+        | malformed "classifier forgetting lost its complete parameter array"
+      pure parameters
+    | .constructMap _ inner =>
+      let #[_, action] := fields
+        | malformed "the constructor action lost its complete inner action"
+      childActionParameters inner action
+  unless routedActionDescriptor edge parameters == descriptor do
+    malformed "the action descriptor differs from its exact selected edge"
+  return parameters
+
+/-- A named method child uses the same checked whole family and actual receiver as source
+reading. The packet supplies no mathematical agreement: every alternative is compared before
+specialization. Native declaration positions retain every supplied action parameter, and the
+ordinary lowerer subsequently performs complete all-boundary realization selection. -/
+private def Kernel.childMethod (kernel : Kernel) (evaluateSource : SourceEvaluation)
+    (request : PreparedRequest) (transaction : CellTransaction) (context : OpenContext)
+    (bound : Std.HashMap BindingId ValueBinding) (retained : Json → MetaM (Option ValueBinding))
+    (entry : MethodEntry) (input : String) (arguments : Json) : MetaM Expr := do
+  let malformed : {α : Type} → String → MetaM α := fun reason =>
+    throwStratum .malformed m!"deferred method {entry.id.raw}: {reason}"
+  let state ← semanticState
+  let registry : RegistryState := { toSemanticState := state }
+  let some form := registry.form? input
+    | malformed "the explicit input form is not published"
+  let some category := state.categories.find? (·.id == form.category)
+    | malformed "the input form has no independently selected source category"
+  match checkServiceFields #["ctor", "args", "receiver"] arguments with
+  | .error reason => malformed reason
+  | .ok () => pure ()
+  let packet ← match ConstructionInvocation.decodeMethod entry.id.raw entry.functor.raw arguments with
+    | .ok packet => pure packet
+    | .error reason => malformed reason
+  let identities ← packet.parameters.mapM fun descriptor =>
+    match descriptorActionIdentity descriptor with
+    | .ok identity => pure identity
+    | .error reason => malformed reason
+  let families ← RoutedMethodFamily.atSource category.expression entry.name
+  let #[family] := families.filter (fun family => family.entry.id == entry.id &&
+      (family.route.refs.push (.functor family.functor.id)).map edgeImageDescriptor == identities)
+    | malformed "the residual actions are not one complete first-hit method route"
+  let mut evidence := #[]
+  for binding in context.bindings do
+    if ← isProof binding.expression then evidence := evidence.push binding.expression
+  let agreements ← family.agreements evidence
+  let (_, levels) ← family.instantiate
+  let categoryFamily := family.categoryFamily.instantiateLevelParams family.universeParams levels
+  let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType categoryFamily)
+  let domain ← mkAppM ``CategoryTheory.Bundled.α #[mkAppN categoryFamily parameters]
+  let receiverPacket ← if (packet.receiver.getObjValAs? String "ctor").toOption == some "arrow" then do
+      let .construct constructor #[.category _] := category.expression
+        | malformed "an Arrow receiver requires its published Arrow source category"
+      unless (state.constructors.find? (·.id == constructor)).any
+          (·.semantics == `CasCatalogue.Constructors.arrow) do
+        malformed "the receiver descriptor does not belong to this source constructor"
+      match checkServiceFields #["ctor", "args"] packet.receiver with
+      | .error reason => malformed reason
+      | .ok () => pure ()
+      let .ok fields := (packet.receiver.getObjVal? "args").bind (·.getArr?)
+        | malformed "the Arrow receiver lost its complete native fields"
+      unless fields.size == 3 do malformed "the Arrow receiver requires both endpoints and its hom"
+      pure (Json.arr fields)
+    else pure packet.receiver
+  let receiverSource ← childOperand kernel.marks context retained domain receiverPacket
+  let receiverSource ← instantiateMVars receiverSource
+  let parameters ← parameters.mapM instantiateMVars
+  let levels ← levels.mapM instantiateLevelMVars
+  if receiverSource.hasMVar || receiverSource.hasLevelMVar ||
+      parameters.any (fun parameter => parameter.hasMVar || parameter.hasLevelMVar) then
+    malformed "the receiver leaves the complete method category undetermined"
+  dbg_trace "[routed.phase] child form admission"
+  unless ← CasRuntime.RoutedMethodFamily.admitsSourceForm family receiverSource input do
+    malformed "the input form is not the original receiver's source boundary"
+  dbg_trace "[routed.phase] child receiver"
+  let receiver ← evaluateSource transaction request.program context bound receiverSource
+  let edges := family.route.refs.push (.functor family.functor.id)
+  let actions ← family.specializeActions levels parameters
+  let inputs ← family.actionParameterInputs
+  let mut selected := parameters
+  let mut supplied : Array (Array ValueBinding) := #[]
+  let mut selectedSlots : Std.HashSet Nat := {}
+  for edge in edges, action in actions, descriptor in packet.parameters, routes in inputs do
+    let expected ← routedActionParameters edge action
+    let packets ← childActionParameters edge descriptor
+    unless packets.size == expected.size && routes.size == expected.size do
+      malformed "an action changed its complete native parameter arity"
+    let mut values := #[]
+    for (_, source) in expected, packet in packets, route in routes do
+      let term ← childOperand kernel.marks context retained (← inferType source) packet
+      let term ← instantiateMVars term
+      if term.hasMVar || term.hasLevelMVar then
+        malformed "an action parameter leaves its native type undetermined"
+      let value ← evaluateSource transaction request.program context bound term
+      values := values.push value
+      if let some index := route then
+        unless selectedSlots.contains index do
+          let some source := selected[index]?
+            | malformed "the action lost its original category parameter position"
+          selected := selected.set! index (← markValue kernel.marks value source)
+          selectedSlots := selectedSlots.insert index
+    supplied := supplied.push values
+  dbg_trace "[routed.phase] child category parameters"
+  selected ← try
+      request.environment.methodParameters context transaction kernel.marks kernel.ledger.allocate
+        family selected receiver
+        (evaluateSource transaction request.program context bound)
+    catch error =>
+      malformed s!"the original receiver's category inputs disagree: {← error.toMessageData.toString}"
+  let checkedActions ← family.specializeActions levels selected
+  let mut retainedInputs := #[]
+  for edge in edges, action in checkedActions, values in supplied do
+    let expected ← routedActionParameters edge action
+    let mut inputs := #[]
+    for (_, source) in expected, value in values do
+      try
+        request.environment.checkDeclaredInput context (← transaction.view)
+          (← kernel.marks.get) source value
+      catch error =>
+        malformed s!"a complete action parameter disagrees: {← error.toMessageData.toString}"
+      inputs := inputs.push (← markValue kernel.marks value source)
+    retainedInputs := retainedInputs.push inputs
+  dbg_trace "[routed.phase] child source prepared"
+  let marked ← markValue kernel.marks receiver receiverSource
+  let mut term ← family.markInputs (mkAppN
+    (family.family.instantiateLevelParams family.universeParams levels) (selected.push marked)) retainedInputs
+  for proof in agreements.reverse do
+    let mut proof := proof.instantiateLevelParams family.universeParams levels
+    for parameter in selected do proof ← mkAppM ``congrFun #[proof, parameter]
+    checkWithKernel proof
+    term ← withLetDecl (← mkFreshUserName `methodFamilyAgreement) (← inferType proof) proof
+      fun binding => mkLetFVars #[binding] term
+        (usedLetOnly := false) (generalizeNondepLet := false)
+  return term
 
 /-- Run one call of a deferred group through the production lowerer and executor.
 Source: execution contract v2 §4 and §6; api/python-sdk.md of the leaf contract.
@@ -138,6 +298,53 @@ partial def Kernel.child (kernel : Kernel) (evaluateSource : SourceEvaluation) (
       else if operation == "$cas.apply" then do
         let (_, source) ← reference ((arguments.getObjVal? "value").toOption.getD .null)
         applied source (← list arguments "arguments")
+      else if let some entry := (← semanticState).methods.find? (·.id.raw == operation) then do
+        let input ← match call.getObjValAs? String "input" with
+          | .ok input => pure input
+          | .error reason => malformed reason
+        kernel.childMethod evaluateSource request transaction context bound retained entry input arguments
+      else if (arguments.getObjValAs? String "ctor").toOption == some "apply" then do
+        let some row := (← semanticState).morphisms.find? (·.id.raw == operation)
+          | malformed "the point request does not name a released morphism"
+        match checkServiceFields #["ctor", "args"] arguments with
+        | .error reason => malformed reason
+        | .ok () => pure ()
+        let packet ← match PointInvocation.decode arguments with
+          | .ok packet => pure packet
+          | .error reason => malformed reason
+        unless packet.operation == operation do
+          malformed "the point packet changed its released operation"
+        let family ← PointFamily.forEntry row
+        let head ← mkConstWithFreshMVarLevels row.declaration
+        let expectedArrow ← childExplicit kernel.marks context retained head packet.parameters
+        let (expectedSource, expectedTarget) ← family.endpoints expectedArrow
+        let expectedFunction ← family.function expectedArrow
+        let .forallE _ pointType _ _ ← whnfR (← inferType expectedFunction)
+          | malformed "the named morphism has no complete point-function interface"
+        let point ← childOperand kernel.marks context retained pointType packet.argument
+        let some original ← sourcePointOrigin? point
+          | malformed "the operand has no retained original generalized-point domain"
+        let domain ← childOperand kernel.marks context retained (← inferType original.domain)
+          packet.domain
+        let source ← childOperand kernel.marks context retained (← inferType expectedSource)
+          packet.source
+        let target ← childOperand kernel.marks context retained (← inferType expectedTarget)
+          packet.target
+        let arrow ← if let some binding ← retained packet.arrow then do
+            discard <| InputDescriptorView.requireMorphism graph (← kernel.codes.get) binding row.id
+            markValue kernel.marks binding (← binding.role.source.inContext context)
+          else do
+            match checkServiceFields #["ctor", "args"] packet.arrow with
+            | .error reason => malformed reason
+            | .ok () => pure ()
+            unless (packet.arrow.getObjValAs? String "ctor").toOption == some operation do
+              malformed "the arrow descriptor belongs to a different released family"
+            let value ← childExplicit kernel.marks context retained head (← list packet.arrow "args")
+            pure (sourceReference ``MorphismEntry row.id.raw row.declaration value)
+        let point ← try family.withRequest expectedArrow domain source target point
+          catch error => malformed s!"the complete named point inputs disagree: {← error.toMessageData.toString}"
+        let function ← family.function arrow
+        pure (mkApp function point)
       else if let some row := publishedPresentation? (← semanticState) operation then do
         match checkServiceFields #["ctor", "args"] arguments with
         | .error reason => malformed reason
@@ -171,11 +378,11 @@ partial def Kernel.child (kernel : Kernel) (evaluateSource : SourceEvaluation) (
             let some family := publishedFamily? state operation
               | malformed "the operation is not a published address"
             let declaration ← family.declaration state
-            let selected := match family with
-              | .method id => sourceReference ``MethodEntry id.raw declaration
-              | .construction id => sourceReference ``ConstructionEntry id.raw declaration
-              | .functor id => sourceReference ``EdgeRef.functor id.raw declaration
-              | .operation _ | .morphism _ => id
+            let selected ← match family with
+              | .method _ => malformed "a method requires its complete routed invocation"
+              | .construction id => pure (sourceReference ``ConstructionEntry id.raw declaration)
+              | .functor id => pure (sourceReference ``EdgeRef.functor id.raw declaration)
+              | .operation _ | .morphism _ => pure id
             applied (selected (← mkConstWithFreshMVarLevels declaration))
               (← list arguments "parameters")
         let role ← match arguments.getObjValAs? String "prepared_role" with

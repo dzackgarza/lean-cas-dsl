@@ -1,9 +1,11 @@
 module
 
+import CasRuntime.AdmissionInputTests
 import CasRuntime.ApplicationOriginTests
 import CasRuntime.CompletionFailureTests
 import CasRuntime.CompletionTests
 import CasRuntime.CompletionWaiterTests
+import CasRuntime.ConstrainedPointTests
 import CasRuntime.ContainerTests
 import CasRuntime.EncodeTests
 import CasRuntime.EnvironmentExecutionTests
@@ -17,14 +19,20 @@ import CasRuntime.IdentityTests
 import CasRuntime.InputResultTests
 import CasRuntime.LiteralTests
 import CasRuntime.MaterializeTests
+import CasRuntime.NativePointInvocationTests
 import CasRuntime.NativeProjectionTests
+import CasRuntime.NativeRecordConversionTests
 import CasRuntime.OccurrenceTests
 import CasRuntime.OwnerTests
 import CasRuntime.PartialProjectionRouteTests
+import CasRuntime.PendingProjectionTests
+import CasRuntime.PresentationTests
+import CasRuntime.ProjectionRecordDependencyTests
 import CasRuntime.ProtocolTests
 import CasRuntime.RealizationProfileTests
 import CasRuntime.RecordTests
 import CasRuntime.ReplyTests
+import CasRuntime.RoutedMethodTests
 import CasRuntime.SDKTests
 import CasRuntime.ScopeTests
 import CasRuntime.SessionComputationTests

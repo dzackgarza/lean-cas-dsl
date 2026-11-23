@@ -11,12 +11,10 @@ open Lean Meta
 
 /-- Retain an actual selected catalogue reference beside its complete native expression.
 Reuse: Lean MData/KVMap, preserved by native closure and ignored by kernel conversion. -/
-def sourceReference (kind : Name) (id : String) (declaration : Name) (value : Expr)
-    (inputForms : Array String := #[]) : Expr :=
+def sourceReference (kind : Name) (id : String) (declaration : Name) (value : Expr) : Expr :=
   .mdata (KVMap.empty |>.setName `CasCompiler.source.kind kind
     |>.setString `CasCompiler.source.id id
-    |>.setName `CasCompiler.source.declaration declaration
-    |>.setString `CasCompiler.source.inputForms (toJson inputForms).compress) value
+    |>.setName `CasCompiler.source.declaration declaration) value
 
 /-- Read an object reference through original native aliases and verify its retained declaration. -/
 partial def sourceObjectReference? (value : Expr) : MetaM (Option (CasCatalogue.ObjectId × Name)) := do

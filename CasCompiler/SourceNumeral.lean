@@ -2,6 +2,7 @@ module
 
 public import CasCompiler.OperationFamily
 public import CasCompiler.FamilyConversion
+public import CasCompiler.SourcePointOrigin
 import CasCompiler.SourceCarrier
 
 public section
@@ -16,7 +17,8 @@ private structure RoutedNumeral where
   categoryFamily : Expr
   family : NativeOwnedFamily
   evidence : Array Expr := #[]
-  alternatives : Array (LiteralId × Array EdgeRef) := #[]
+  alternatives : Array (String × Array EdgeRef) := #[]
+  terminal : Option Expr := none
 
 private inductive NumeralContext where
   | direct
@@ -106,7 +108,8 @@ private def numeralCandidate (row : NumeralEntry) (context : NumeralContext)
       unless type.isAppOfArity ``CategoryTheory.Iso 4 do
         throwError "a source numeral refinement requires its complete native isomorphism"
       unless ← isDefEq type.getAppArgs[3]! expected do return none
-      let some proofIndex ← completePointParameters parameters binders proofs 0 | return none
+      let some proofIndex ← completePointParameters parameters binders proofs 0
+        | throwError "the source numeral's declared domain obligation is not established"
       let object := sourceReference ``ObjectEntry entry.id.raw entry.declaration
         (mkAppN declaration parameters)
       pure (some object, some comparison, proofIndex)
@@ -139,7 +142,8 @@ private def numeralCandidate (row : NumeralEntry) (context : NumeralContext)
     let proposition ← instantiateMVars (← inferType arguments[index]!)
     unless ← isProp proposition do
       throwError "a registered numeral's trailing obligations must be propositions"
-  let some proofIndex ← completePointParameters arguments binders proofs proofIndex | return none
+  let some proofIndex ← completePointParameters arguments binders proofs proofIndex
+    | throwError "the source numeral's declared domain obligation is not established"
   unless proofIndex == proofs.size do
     throwError "the source numeral has evidence beyond its declared domain obligations"
   let point ← instantiateMVars (mkAppN declaration arguments)
@@ -163,6 +167,7 @@ private def numeralCandidate (row : NumeralEntry) (context : NumeralContext)
   let terminalPoint ← mkAppOptM ``default #[some source, none]
   let function ← sourceSetFunction point
   let value ← elabAppArgs function #[] #[Arg.expr terminalPoint] (some expected) false false
+  let value ← retainSourcePoint point value
   let value ← match context with
     | .carrier owner _ =>
       withLetDecl (← mkFreshUserName `numeralCarrierAgreement)
@@ -180,6 +185,141 @@ private def numeralCandidate (row : NumeralEntry) (context : NumeralContext)
           (reprStr routed.alternatives)) value
     | _ => pure value
   return some value
+
+-- A nullary row's arity does not itself prove that its complete native source is
+-- terminal. Retain the existing Unique dictionary at the rigid family, before an
+-- actual object or category parameter is substituted.
+private def nullaryPointTerminal (family : Expr) : TermElabM Expr := do
+  let value ← lambdaTelescope family fun parameters body => do
+    let type ← whnfR (← inferType body)
+    unless type.isAppOfArity ``Quiver.Hom 4 do
+      throwError "the nullary point family lost its complete native map"
+    let source ← declaredEndpoint type.getAppArgs[2]!
+    let some unique ← synthInstance? (← mkAppM ``Unique #[source])
+      | throwUnsupportedSource "the nullary operation requires its complete terminal-source witness"
+    mkLambdaFVars parameters unique (usedOnly := false) (usedLetOnly := false)
+  if value.hasMVar || value.hasLevelMVar then
+    throwError "the nullary terminal family has undetermined native parameters"
+  checkWithKernel value
+  return value
+
+-- Apply the native default field of this already checked Unique dictionary.
+-- No unrelated Inhabited or OfNat instance can replace its selected point.
+private def uniquePoint (unique : Expr) : MetaM Expr := do
+  let inhabited ← mkProjection unique `toInhabited
+  mkProjection inhabited `default
+
+-- Specialize only the already checked nullary family, against the complete
+-- selected category and its exact original object. The terminal dictionary is
+-- specialized with the same arguments, rather than inferred again from a value.
+private def nullaryNumeralCandidate (routed : RoutedNumeral) (expected : Expr)
+    (proofs : Array Term) : TermElabM Expr := do
+  unless proofs.isEmpty do
+    throwError "the nullary source operation has no numeral obligations"
+  let some terminal := routed.terminal
+    | throwError "the nullary source operation lost its terminal family"
+  let mut collected : CollectLevelParams.State := {}
+  collected := collected.collect routed.categoryFamily
+  collected := collected.collect routed.family.value
+  collected := collected.collect terminal
+  let universes := collected.params.toList
+  let levels ← universes.mapM fun _ => mkFreshLevelMVar
+  let categoryFamily := routed.categoryFamily.instantiateLevelParams universes levels
+  let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType categoryFamily)
+  unless ← isDefEq (mkAppN categoryFamily parameters) routed.owner.category.bundle do
+    throwError "the nullary operation has a different complete selected category"
+  let family := routed.family.value.instantiateLevelParams universes levels
+  let function := mkAppN family parameters
+  let (arguments, binders, _) ← forallMetaTelescopeReducing (← inferType function)
+  let objectIndex := routed.family.objectIndex - parameters.size
+  let some object := arguments[objectIndex]?
+    | throwError "the nullary operation lost its selected object parameter"
+  unless ← isDefEq object routed.owner.value do
+    throwError "the nullary operation changed its actual selected object"
+  let some _ ← completePointParameters arguments binders #[] 0
+    | throwError "the nullary operation has unestablished native obligations"
+  let actual ← (parameters ++ arguments).mapM instantiateMVars
+  let point ← instantiateMVars (mkAppN family actual)
+  let terminal ← instantiateMVars
+    (mkAppN (terminal.instantiateLevelParams universes levels) actual)
+  if point.hasMVar || point.hasLevelMVar || terminal.hasMVar || terminal.hasLevelMVar then
+    throwError "the nullary operation requires its complete original parameters"
+  let type ← whnfR (← inferType point)
+  unless type.isAppOfArity ``Quiver.Hom 4 do
+    throwError "the nullary operation lost its complete native point"
+  unless ← isDefEq (← inferType terminal)
+      (← mkAppM ``Unique #[← declaredEndpoint type.getAppArgs[2]!]) do
+    throwError "the nullary operation changed its complete terminal source"
+  unless ← isDefEq type.getAppArgs[3]! expected do
+    throwError "the nullary operation has a different complete selected carrier"
+  let argument ← uniquePoint terminal
+  let function ← sourceSetFunction point
+  let value ← elabAppArgs function #[] #[Arg.expr argument] (some expected) false false
+  let mut value ← retainSourcePoint point value
+  for evidence in (routed.evidence.push routed.owner.evidence).reverse do
+    let body := value
+    value ← withLetDecl (← mkFreshUserName `numeralOwnerAgreement)
+      (← inferType evidence) evidence fun binding =>
+        mkLetFVars #[binding] body (usedLetOnly := false) (generalizeNondepLet := false)
+  return .mdata
+    (KVMap.empty.setString `CasCompiler.source.numeralRoutes (reprStr routed.alternatives)) value
+
+-- T034's existing numeric syntax resolves registered numerals before an inherited
+-- nullary operation (Language at 92916e1, lines 8015-8017 and 8143-8154). Enter
+-- this lookup only when no numeral reading applies; semantic failures are not
+-- absence. The exact token selects first-hit operations, whose complete native
+-- families must agree before any actual source object is supplied.
+private def sourceNullaryNumeral (state : SemanticState)
+    (ownerFamilies : Array (NativeSourceElementOwner × Expr))
+    (number : Nat) (expected : Expr) (proofs : Array Term) : TermElabM Expr := do
+  let mut candidates : Array (OperationEntry × RoutedNumeral) := #[]
+  let mut hasBinding := false
+  for (selected, categoryFamily) in ownerFamilies do
+    let paths ← SourceRoutes.forOperation selected.category.expression (toString number)
+    let some routes ← paths.finiteRoutes
+      | throwUnsupportedSource "nullary numeral inheritance requires its supplied uniform comparison"
+    for route in routes do
+      for row in state.operationBindings route.target (toString number) do
+        hasBinding := true
+        unless row.arity == 0 && row.numerals == 0 do continue
+        let family ← nativeOwnedFamily state selected.category.expression categoryFamily route
+          row.declaration (fun infos => if infos.isEmpty then none else some (infos.size - 1))
+        candidates := candidates.push
+          (row, ⟨selected, route, categoryFamily, family,
+            #[], #[(row.id.raw, route.refs)], none⟩)
+  for (_, routed) in candidates do
+    discard <| levelMVarToParam (← instantiateMVars routed.family.value)
+  candidates ← candidates.mapM fun (row, routed) => do
+    let value ← instantiateMVars routed.family.value
+    if value.hasMVar || value.hasLevelMVar then
+      throwError "the complete nullary point family has undetermined parameters"
+    let routed := { routed with
+      categoryFamily := ← instantiateMVars routed.categoryFamily
+      family := { routed.family with value } }
+    let proof ← numeralCarrierAgreement routed
+    let terminal ← nullaryPointTerminal value
+    return (row, { routed with evidence := #[proof], terminal := some terminal })
+  let some (row, first) := candidates[0]?
+    | if hasBinding then
+        throwError "the first source numeral operation has a different nullary signature"
+      else
+        throwError "no declared source point numeral was admitted in the supplied domain"
+  let mut evidence := first.evidence
+  let mut alternatives := #[]
+  for (_, other) in candidates do
+    unless first.owner.value == other.owner.value &&
+        first.owner.category.expression.syntacticEq other.owner.category.expression &&
+        (← isDefEq first.owner.category.bundle other.owner.category.bundle) do
+      throwSemanticAmbiguity "the source numeral requires its selected original structure"
+    let comparisons := first.owner.category.carrier.toArray.flatMap (·.comparisons) ++
+      other.owner.category.carrier.toArray.flatMap (·.comparisons)
+    let some proof ← sourceFamilyConversion first.family.value other.family.value comparisons
+      | throwSemanticAmbiguity
+          s!"inherited point families require their supplied whole agreement: {repr first.alternatives} and {repr other.alternatives}"
+    evidence := evidence ++ other.evidence.push proof
+    alternatives := alternatives ++ other.alternatives
+  let value ← nullaryNumeralCandidate { first with evidence, alternatives } expected proofs
+  return sourceReference ``OperationEntry row.id.raw row.declaration value
 
 /-- First-binding lookup for numerals (constitution C6): an inherited numeral route is a reading
 only when no numeral row binds at a category before its target. This is the rule that
@@ -233,7 +373,7 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
             row.declaration (fun infos => infos.findIdx? (·.isExplicit))
           candidates := candidates.push
             (row, .selected ⟨selected, route, categoryFamily, family,
-              #[], #[(row.id, route.refs)]⟩)
+              #[], #[(row.id.raw, route.refs)], none⟩)
       for entry in state.objects.filter (·.category == owner) do
         if let some refinement := entry.refines then
           if bases.any (·.id == refinement.base) then
@@ -271,7 +411,7 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
     if applicable then
       admitted := admitted.push (row, context)
   let some (row, context) := admitted[0]?
-    | throwError "no declared source point numeral was admitted in the supplied domain"
+    | return ← sourceNullaryNumeral state ownerFamilies number expected proofs
   let context ← if admitted.size == 1 then pure context else do
     let .selected first := context
       | throwSemanticAmbiguity "several declared source point numerals apply in this domain"

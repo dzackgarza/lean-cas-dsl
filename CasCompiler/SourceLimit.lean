@@ -86,7 +86,7 @@ opaque sourceBinaryLimit (left right : NativeSourceJudgement) (colimit : Bool) :
   -- its shape: the lowerer sends it as that row's descriptor, not the presentation record.
   return ⟨sourceReference ``LimitEntry row.id.raw row.declaration apex,
     some ⟨.object, source.expression, source.bundle, none,
-      some ⟨row.id.raw, row.declaration, cone, colimit⟩⟩⟩
+      some ⟨row.id.raw, row.declaration, cone, colimit, source.expression, source.bundle⟩⟩⟩
 
 /-- The limit of shape `shape` of the maps `maps` of a category that only creates it: the
 registered limit of the image diagram along the structural step `U` of a registered creation lift
@@ -134,7 +134,7 @@ private def createdLimit (shape : String) (selected : NativeSourceCategory)
     let apex ← mkAppM ``CategoryTheory.Limits.Cone.pt #[cone]
     return some ⟨sourceReference ``LimitEntry row.id.raw row.declaration apex,
       some ⟨.object, selected.expression, selected.bundle, none,
-        some ⟨row.id.raw, row.declaration, cone, false⟩⟩⟩
+        some ⟨row.id.raw, row.declaration, cone, false, selected.expression, selected.bundle⟩⟩⟩
   return none
 
 /-- A registered limit or colimit named by its shape and applied to the maps of its diagram
@@ -181,16 +181,25 @@ opaque sourceNamedLimit (shape : String) (maps : Array NativeSourceJudgement) :
     else ``CategoryTheory.Limits.Cone.pt) #[cone]
   return some ⟨sourceReference ``LimitEntry row.id.raw row.declaration apex,
     some ⟨.object, selected.expression, selected.bundle, none,
-      some ⟨row.id.raw, row.declaration, cone, row.colimit⟩⟩⟩
+      some ⟨row.id.raw, row.declaration, cone, row.colimit,
+        selected.expression, selected.bundle⟩⟩⟩
 
 /-- The object of a diagram's index type that the ordinal `ordinal` names: the number itself in
 `ℕ`, `⟨ordinal, _⟩` in `Fin n` when it is below `n`, else the `ordinal`-th constructor of a closed
-enumeration. Any other index, or an ordinal outside it, is invalid.
+enumeration. A native Discrete index wraps that same underlying selection by Discrete.mk.
+Any other index, or an ordinal outside it, is invalid.
 Reference: the original reader's `constructionIndex` (CasCatalogue/Language.lean). -/
-private def constructionIndex (indexType : Expr) (ordinal : Nat) : TermElabM Expr := do
+private partial def constructionIndex (indexType : Expr) (ordinal : Nat) : TermElabM Expr := do
   let indexType ← instantiateMVars (← whnfR indexType)
   if indexType.hasMVar || indexType.hasLevelMVar then
     throwStratum .invalid m!"the construction index type is not determined"
+  if indexType.isAppOfArity ``CategoryTheory.Discrete 1 then
+    let selected ← constructionIndex indexType.appArg! ordinal
+    let index ← mkAppOptM ``CategoryTheory.Discrete.mk
+      #[some indexType.appArg!, some selected]
+    unless ← isDefEq (← inferType index) indexType do
+      throwStratum .invalid m!"the index constructor does not inhabit {indexType}"
+    return index
   if indexType.isConstOf ``Nat then return mkNatLit ordinal
   if indexType.isAppOfArity ``Fin 1 then
     let bound := indexType.appArg!
@@ -233,35 +242,13 @@ def sourceLimitLeg? (receiver : NativeSourceJudgement) (ordinal : Nat) :
     | throwError "the defining leg has no shape index"
   let hom := mkApp component (← constructionIndex indexType ordinal)
   check hom
-  -- The leg's ends are objects of the diagram (`(parallelPair f 0).obj one`). Each is stated as
-  -- the object the presentation names, to which it is definitionally equal: an object argument,
-  -- an end of a map argument, or the marked apex; the diagram is not unfolded when it is sent.
+  -- The native component already states the endpoints of this exact retained diagram.
+  -- Keep that complete type: convertible diagram objects remain distinct source inputs.
   let apex ← mkAppM (if colimit then ``CategoryTheory.Limits.Cocone.pt
     else ``CategoryTheory.Limits.Cone.pt) #[cone]
-  let presentation := cone.appArg!
   let .mdata data _ := sourceReference ``LimitEntry selection.row selection.declaration apex
     | throwError "internal: a source reference is not an annotation"
-  let mut named := #[.mdata data apex]
-  for argument in presentation.getAppArgs do
-    let type ← whnfR (← inferType argument)
-    if type.isAppOfArity ``Quiver.Hom 4 then
-      named := named ++ #[type.getAppArgs[2]!, type.getAppArgs[3]!]
-    else if !(← isProof argument) && !(← isType argument) then named := named.push argument
-  let arrow ← whnfR (← inferType hom)
-  unless arrow.isAppOfArity ``Quiver.Hom 4 do throwError "the defining leg is not a morphism"
-  let mut ends := #[]
-  for index in [2, 3] do
-    let original := arrow.getAppArgs[index]!
-    let mut chosen := original
-    for candidate in named do
-      if ← withoutModifyingState (isDefEq (← inferType candidate) (← inferType original) <&&>
-          isDefEq candidate original) then
-        chosen := candidate
-        break
-    ends := ends.push chosen
-  let stated := mkAppN arrow.getAppFn #[arrow.getAppArgs[0]!, arrow.getAppArgs[1]!, ends[0]!, ends[1]!]
-  let hom ← mkExpectedTypeHint hom stated
   return some ⟨.mdata (data.setNat `CasCompiler.source.leg ordinal) hom,
-    some ⟨.morphism, category.expression, category.bundle, none, none⟩⟩
+    some ⟨.morphism, selection.category, selection.bundle, none, none⟩⟩
 
 end CasCompiler

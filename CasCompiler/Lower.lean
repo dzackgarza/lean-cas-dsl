@@ -7,6 +7,7 @@ public import CasCompiler.SelectedMorphism
 public import CasCompiler.InputCoverage
 public import CasRuntime.Transaction
 public import CasRuntime.InputResult
+public import CasRuntime.RoutedMethod
 public import LeanCategories.Catalogue.Registry.Semantic
 public import CasCatalogue.InterpretationFailure
 
@@ -92,7 +93,8 @@ private def selectedReference? (data : MData) : Option (Name × ComputationRef) 
   let id := data.getString `CasCompiler.source.id
   if declaration.isAnonymous || id.isEmpty then none
   let kind := data.getName `CasCompiler.source.kind
-  if kind == ``MethodEntry then some (declaration, .method ⟨id⟩)
+  if kind == ``OperationEntry then some (declaration, .operation ⟨id⟩)
+  else if kind == ``MethodEntry then some (declaration, .method ⟨id⟩)
   else if kind == ``ConstructionEntry then some (declaration, .construction ⟨id⟩)
   else if kind == ``EdgeRef.functor then some (declaration, .functor ⟨id⟩)
   else none
@@ -245,6 +247,8 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
       return ← admission expression data body
     -- A published computation of a selected lift is sent to its lift's ports, at the
     -- parameters of the lift's evidence; its definition is not unfolded (C22).
+    if data.getName `CasCompiler.source.kind == ``RoutedMethodFamily then
+      return ← routedMethodFamily data body
     if data.getName `CasCompiler.source.kind == ``LiftFamily then return ← liftFamily data body
     if data.getName `CasCompiler.source.kind == ``PresentationFamily then
       return ← presentationFamily data body
@@ -290,14 +294,46 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
   | _ =>
     -- Lean's head reduction drops metadata. A retained value at the head is applied as that
     -- same value, a retained record gives its field, and a selected family head is dispatched.
-    if let .mdata data _ := expression.getAppFn then
-      if (markedKey? data).isSome then
+    if let .mdata data head := expression.getAppFn then
+      if (markedKey? data).isSome ||
+          data.getName `CasCompiler.source.kind == ``RoutedMethodFamily then
         return ← apply (← lower expression.getAppFn) expression.getAppArgs
       if (selectedReference? data).isSome then return ← application expression
+      if !data.contains `CasCompiler.source.kind &&
+          !data.contains `CasCompiler.lower.value &&
+          !data.contains `CasCompiler.selection &&
+          !data.contains `CasCompiler.endpoint then
+        return ← lower (mkAppN head expression.getAppArgs)
+    -- Select a retained native field before head reduction can erase its actual parent.
+    -- Both projection syntaxes retain their complete application suffix. Formal class fields
+    -- remain definitions until their exact parent has a runtime reference.
+    let arguments := expression.getAppArgs
+    let nativeEnvironment ← getEnv
+    let projectionSource := match expression.getAppFn with
+      | .proj .. => expression.getAppFn
+      | .const declaration _ =>
+        match nativeEnvironment.getProjectionFnInfo? declaration with
+        | some info =>
+          if info.numParams < arguments.size then
+            mkAppN expression.getAppFn (arguments.extract 0 (info.numParams + 1))
+          else expression
+        | none => expression
+      | _ => expression
+    if let some projection ← SourceProjection.ofExpr? projectionSource then
+      let frame ← read
+      let environment ← RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
+      if ← environment.hasRetainedSource frame.context projection.parent then
+        let (parent, path) ← projectionSourcePath environment projectionSource
+        let selected ← projectPath (← lower parent) path
+        return ← apply selected (arguments.extract projectionSource.getAppNumArgs arguments.size)
     -- Select a native constructor field before head reduction can discard its retained-value
     -- or source-boundary metadata. This reads only the exact selected constructor argument.
     -- Reuse the metadata-preserving projection step from Layout.inputProjectionHead.
     if let some projection ← SourceProjection.ofExpr? expression then
+      if let .mdata data _ := projection.parent.getAppFn then
+        if data.getName `CasCompiler.source.kind == ``RoutedMethodFamily then
+          return ← project (← lower projection.parent) projection.info.i
+            m!"{projection.declaration}"
       if projection.parent.getAppFn.constName? == some projection.info.ctorName then
         if let some selected ← projectCore? projection.parent projection.info.i then
           return ← lower selected
@@ -415,7 +451,27 @@ private partial def field (owner : Name) (index : Nat) (value : Expr) (name : Me
     unless (descriptorIds (← semanticState) declaration).isEmpty do
       if let some unfolded ← unfoldDefinition? value.consumeMData then
         return ← lower (.proj owner index unfolded)
-  project (← lower value) index name
+  let frame ← read
+  let environment ← RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
+  -- An unretained inner projection still owns its native definition boundary. Lower it
+  -- before the outer demand; flattening through its named field closure would re-enter
+  -- that same projection code. Actual retained roots keep their complete selected path.
+  if !(← environment.hasRetainedSource frame.context value) then
+    return ← project (← lower value) index name
+  let (parent, path) ← projectionSourcePath environment (.proj owner index value)
+  if path.isEmpty then return ← project (← lower value) index name
+  projectPath (← lower parent) path
+
+/-- Read only the exact native projection chain, stopping at source selections and formal
+class definitions. No intermediate projected record is lowered while discovering the path. -/
+private partial def projectionSourcePath (environment : RuntimeEnvironment) (expression : Expr) :
+    LowerM (Expr × Array Name) := do
+  let some projection ← SourceProjection.ofExpr? expression | return (expression, #[])
+  if projection.info.fromClass &&
+      !(← environment.hasRetainedSource (← read).context projection.parent) then
+    return (expression, #[])
+  let (parent, path) ← projectionSourcePath environment projection.parent
+  return (parent, path.push projection.declaration)
 
 private partial def project (operand : ValueBinding) (index : Nat) (field : MessageData) :
     LowerM ValueBinding := do
@@ -430,9 +486,48 @@ private partial def project (operand : ValueBinding) (index : Nat) (field : Mess
     (← frame.environment.ledger.allocate) frame.context graph operand index (← parameters)
   demand request
 
-/-- Retain each computed projection parent before forming its field access.
-Native metadata distinguishes formal selected instances from runtime class records. Nested
-projections are prepared inside out; no returned field is relabelled as its expected source. -/
+/-- Complete the longest already stored prefix as one selected demand. A lazy frontier keeps
+the ordinary one-field execution boundary, including its provider's atomic reply admission. -/
+private partial def projectPath (operand : ValueBinding) (path : Array Name) :
+    LowerM ValueBinding := do
+  if path.isEmpty then return operand
+  let frame ← read
+  let graph ← frame.environment.transaction.view
+  let frontier ← IO.ofExcept <| (graph.projectionFrontier operand path).mapError IO.userError
+  if let some (_, remaining) := frontier then
+    let count := path.size - remaining.size
+    if count > 0 then
+      let request ← PreparedRequest.forStoredProjection (← supply) frame.program
+        (← frame.environment.ledger.allocate) frame.context graph operand
+        (path.extract 0 count) (← parameters)
+      return ← projectPath (← demand request) remaining
+  let projection := path[0]!
+  let some field := operand.role.fields.find? (·.projection == projection)
+    | throwError "the native projection path is outside its retained record interface"
+  projectPath (← project operand field.sourceIndex m!"{projection}") (path.extract 1 path.size)
+
+/-- Keep a source argument's native projection chain while marking only its actual root.
+Inert metadata stays in place; source boundaries and formal class fields are lowered normally. -/
+private partial def projectionArgumentSource (environment : RuntimeEnvironment)
+    (expression : Expr) : LowerM Expr := do
+  let frame ← read
+  if let .mdata data body := expression then
+    -- Match SourceProjection's boundary rule before traversing any parent projection.
+    if !data.contains `CasCompiler.lower.value && !data.contains `CasCompiler.source.kind &&
+        !data.contains `CasCompiler.selection then
+      return .mdata data (← projectionArgumentSource environment body)
+  if let some projection ← SourceProjection.ofExpr? expression then
+    if !projection.info.fromClass ||
+        (← environment.hasRetainedSource frame.context projection.parent) then
+      let parent ← projectionArgumentSource environment projection.parent
+      return .proj (← getConstInfoCtor projection.info.ctorName).induct projection.info.i parent
+  let source ← argumentSource environment expression
+  let value ← lower source
+  return ← markValue frame.environment.marks value source
+
+/-- Retain each actual projection root before preparing the complete selected path.
+Native metadata distinguishes formal selected instances from runtime class records. No
+intermediate whole-record demand is manufactured for a nested stored source argument. -/
 private partial def argumentSource (environment : RuntimeEnvironment) (expression : Expr) :
     LowerM Expr := do
   let frame ← read
@@ -457,9 +552,7 @@ private partial def argumentSource (environment : RuntimeEnvironment) (expressio
   if projection.info.fromClass &&
       !(← environment.hasRetainedSource frame.context projection.parent) then
     return expression
-  let parent ← argumentSource environment projection.parent
-  let value ← lower parent
-  let parent ← markValue frame.environment.marks value parent
+  let parent ← projectionArgumentSource environment projection.parent
   return .proj (← getConstInfoCtor projection.info.ctorName).induct projection.info.i parent
 
 private partial def actualArguments (arguments : Array Expr)
@@ -550,7 +643,8 @@ private partial def admission (expression : Expr) (data : MData) (body : Expr) :
 its input projections. Delta substitution may duplicate a closed record expression beneath
 several dependent fields; the existing prepared application preserves its actual occurrence.
 Source coverage is complete before any argument is touched. Unused computational arguments
-leave this path unchanged, and marked arguments in a resumed native call need no new boundary. -/
+leave this path unchanged. Retained arguments still require this boundary: unfolding their
+source expressions would replace unavailable actual fields with reconstructed source fields. -/
 private partial def nativeInputRecord? (expression : Expr) : LowerM (Option ValueBinding) := do
   let .const declaration _ := expression.getAppFn | return none
   let arguments := expression.getAppArgs
@@ -576,12 +670,6 @@ private partial def nativeInputRecord? (expression : Expr) : LowerM (Option Valu
   -- source slot that the complete native result and its type dependencies did not require.
   for argument in application.arguments do
     if argument.wireIndex.isSome && !required.contains argument.sourceIndex then return none
-  let environment ← RuntimeEnvironment.capture (← supply).worker frame.context actualParameters
-  let mut allRetained := true
-  for argument in arguments do
-    if ← isProof argument then continue
-    unless ← environment.hasRetainedSource frame.context argument do allRetained := false
-  if allRetained then return none
   let callable ← closure expression.getAppFn
   let (closed, actual) ← actualArguments arguments
   let request ← PreparedRequest.forApplication (← supply) frame.program
@@ -676,26 +764,52 @@ private partial def presentationFamily (data : MData) (body : Expr) : LowerM Val
   let request ← PreparedRequest.forPresentation (← supply) frame.program
     (← frame.environment.ledger.allocate) family (← levels.mapM instantiateLevelMVars)
     frame.context closed actual endpointSources endpointValues (← parameters)
+    (← frame.environment.transaction.view) (← frame.environment.marks.get)
   demand request
+
+/-- Retain the original receiver once, then its exact category inputs and ordinary delayed
+callable/application. The result request still contains the complete native composite family,
+so whole input-projection results complete before any registration is inspected. -/
+private partial def routedMethodFamily (data : MData) (body : Expr) : LowerM ValueBinding := do
+  let frame ← read
+  let (body, supplied) ← routedMethodInputs data body
+  let family ← RoutedMethodFamily.fromMark data
+  let (head, levels) ← family.instantiate
+  unless body.getAppNumArgs == family.parameterCount + 1 &&
+      (← isDefEq head body.getAppFn) do
+    throwError "the selected routed method changed its complete native family application"
+  let some source := body.getAppArgs[family.parameterCount]?
+    | throwError "the routed method lost its original receiver"
+  let receiver ← lower source
+  let environment ← RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
+  let arguments ← environment.methodParameters frame.context frame.environment.transaction
+    frame.environment.marks frame.environment.ledger.allocate family
+    (body.getAppArgs.extract 0 family.parameterCount) receiver
+    (fun expression => lower expression frame)
+  let (closed, actual) ← actualArguments arguments
+  let levels ← levels.mapM instantiateLevelMVars
+  let mut scope := #[]
+  if let some supplied := supplied then
+    let actions ← family.specializeActions levels arguments
+    let inputs ← supplied.mapM (·.mapM lower)
+    discard <| environment.methodActionsWithInputs frame.context
+      (← frame.environment.transaction.view) frame.environment.marks family actions inputs
+    scope := inputs.flatten
+  let request ← PreparedRequest.forBoundary (← supply) frame.program
+    (← frame.environment.ledger.allocate) (.routedMethod family)
+    levels frame.context closed actual scope (← parameters)
+  let callable ← demand request
+  apply callable #[← markValue frame.environment.marks receiver source]
 
 private partial def application (expression : Expr) : LowerM ValueBinding := do
   let frame ← read
   let arguments := expression.getAppArgs
-  let (function, selected, forms) ← match expression.getAppFn with
+  let (function, selected) := match expression.getAppFn with
     | .mdata data head => match selectedReference? data with
       | some (declaration, reference) =>
-        if !head.isConstOf declaration then pure (expression.getAppFn, none, #[])
-        else do
-          let forms : Array String ← match data.find `CasCompiler.source.inputForms with
-            | none => pure #[]
-            | some (.ofString encoded) =>
-              match Json.parse encoded >>= fromJson? with
-              | .ok forms => pure forms
-              | .error error => throwError "the selected source input forms are malformed: {error}"
-            | _ => throwError "the selected source input forms have an invalid encoding"
-          pure (head, some reference, forms)
-      | none => pure (expression.getAppFn, none, #[])
-    | head => pure (head, none, #[])
+        if head.isConstOf declaration then (head, some reference) else (expression.getAppFn, none)
+      | none => (expression.getAppFn, none)
+    | head => (head, none)
   let .const name levels := function
     | return ← apply (← lower function) arguments
   let expression := mkAppN function arguments
@@ -716,7 +830,7 @@ private partial def application (expression : Expr) : LowerM ValueBinding := do
     let request ← PreparedRequest.forBoundary (← supply) frame.program
       (← frame.environment.ledger.allocate) (.registered family) levels frame.context closed actual
       #[] (← parameters)
-    return ← apply (← demand (request.withSourceForms forms)) (arguments.extract arity arguments.size)
+    return ← apply (← demand request) (arguments.extract arity arguments.size)
   if let some info := (← getEnv).getProjectionFnInfo? name then
     if info.numParams < arguments.size then
       if info.fromClass then
@@ -739,6 +853,8 @@ private partial def application (expression : Expr) : LowerM ValueBinding := do
     if (← whnf (← inferType expression)).isProp then
       -- A proposition formed by a type former has no computed truth value of its own (C22).
       throwStratum .noImplementation m!"the proposition {name} has no published predicate"
+    -- An unapplied type family retains its native callable code, as other functions do.
+    if (← origin expression).role.kind == .function then return ← closure expression
     -- A type former at its arguments is an object of the category of sets.
     descriptor expression s!"lean:{name}" (← explicitArguments expression)
   | some (.recInfo _) | some (.quotInfo _) =>

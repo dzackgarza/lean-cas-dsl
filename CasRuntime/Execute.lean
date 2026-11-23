@@ -93,6 +93,33 @@ private def executeDemand
     throwError "internal: execution changed the active transaction"
   return (← retainResponse request state response.root, state)
 
+/-- A stored field is a completed demand with its own occurrence and receipt.
+Claim it before selection, and publish the same node under its prepared result role.
+The completion derives owner dependencies from the selected field, not its whole parent. -/
+private def projectStored (request : PreparedRequest) (transaction : CellTransaction)
+    (binding : ValueBinding) :
+    MetaM (PreparedResponse request × CellTransaction) := do
+  if let some response ← reuseResponse request transaction then return (response, transaction)
+  match ← transaction.claim request.roles.scope with
+  | .error failure => completionFailure failure
+  | .ok .waiter =>
+    let some response ← reuseResponse request transaction
+      | throwError "internal: a claimed occurrence lost its producer"
+    return (response, transaction)
+  | .ok .producer => pure ()
+  requireFresh request transaction
+  let draft ← transaction.draft
+  let (draft, binding) ← request.associateResult transaction.owners.identities
+    request.source draft binding
+  let response ← request.admitResult draft.view binding
+  match ← transaction.installDraft draft with
+  | .error failure => completionFailure failure
+  | .ok () => pure ()
+  match ← transaction.completeKernel request response with
+  | .error failure => completionFailure failure
+  | .ok association =>
+    return (← retainResponse request transaction association.response.root, transaction)
+
 /-- Interpret prepared value actions against the active transaction and current owners.
 Visible receipts and staged completions supply actual roots; pending occurrences share a waiter.
 Stored projection selects its exact field node before checking that field's dependencies.
@@ -117,27 +144,17 @@ private def interpreterWithInputs
     discard <| IO.ofExcept <|
       (graph.requiredOwners (request.scope ++ request.environment.references)).mapError IO.userError
     match request.action with
-    | .project operand field =>
-      discard <| request.environment.checkResult graph operand.role operand
+    | .project operand _ =>
+      discard <| request.environment.checkOperand graph operand.role operand
       let some node := graph.find operand.value
         | throwError "unavailable: the projected value is outside the active graph"
-      let retained : Option ValueBinding ← if node.payload.data.storedFields?.isSome then do
-        let some index := field.wireIndex
-          | throwError "internal: a proof field reached computational execution"
-        pure (some (← IO.ofExcept <| (graph.project operand index).mapError IO.userError))
-      else do
-        let existing ← IO.ofExcept <|
-          (graph.projected? operand #[field.projection]).mapError IO.userError
-        pure existing
-      if let some binding := retained then
-        let draft ← transaction.draft
-        let (draft, binding) ← request.associateResult transaction.owners.identities
-          request.source draft binding
-        discard <| request.admitResult draft.view binding
-        match ← transaction.installDraft draft with
-        | .ok () => pure ()
-        | .error failure => completionFailure failure
-        return (← retainResponse request transaction binding, transaction)
+      let path ← IO.ofExcept <| request.projectionPath.mapError IO.userError
+      let selected ← IO.ofExcept <|
+        (graph.projectionFrontier operand path).mapError IO.userError
+      if let some (binding, remaining) := selected then
+        if remaining.isEmpty then return ← projectStored request transaction binding
+      unless path.size == 1 do
+        throwError "internal: a composed stored projection lost its retained field path"
       match node.payload.data with
       | .closure .. | .ownedToken .. | .container .. =>
         executeDemand executor resolve request transaction
@@ -145,7 +162,7 @@ private def interpreterWithInputs
       | .portable _ =>
         throwError "malformed: the retained value has no record access interface"
     | .apply callable _ _ =>
-      discard <| request.environment.checkResult graph callable.role callable
+      discard <| request.environment.checkOperand graph callable.role callable
       executeDemand executor resolve request transaction
     | .primitive _ _ => executeDemand executor resolve request transaction
 

@@ -3,6 +3,7 @@ module
 public import CasCompiler.ReadContext
 public import CasCompiler.SourceSubset
 public import CasCompiler.SourceAdmission
+public import CasCompiler.SourcePropertyQualification
 import CasCompiler.SourceCarrier
 
 public section
@@ -18,12 +19,10 @@ def readWithRules (rules : Array ReadRule) (context : ReadContext) :
   let expected := context.expected
   let qualification := context.qualification
   let judgement ← go rules.toList
-  if let some name := qualification then
+  let judgement ← if let some name := qualification then
     let required ← selectCategory (← CasCatalogue.semanticState) name
-    let some selected := judgement.category
-      | throwError "the retained source value has no selected category"
-    unless selected.expression.syntacticEq required.expression do
-      throwError "the retained source value has a different selected category"
+    sourcePropertyQualification judgement required
+  else pure judgement
   if let some expected := expected then
     -- A native type parameter consumes the actual selected object's carrier.
     -- Reuse the same checked source action as public function domains.
@@ -32,6 +31,13 @@ def readWithRules (rules : Array ReadRule) (context : ReadContext) :
       else match ← sourceExtent? judgement with
         | some extent => sourceCarrier extent
         | none => pure judgement
+    else pure judgement
+    -- A native function parameter consumes the actual selected morphism's carrier map.
+    -- Its source category was checked above; sourceFunction retains the complete selected
+    -- action and map before the ordinary native type and registered-domain checks below.
+    let judgement ← if (← whnfR (← instantiateMVars expected)).isForall &&
+        judgement.category.any (·.role == .morphism) then
+      pure (⟨← sourceFunction judgement, none⟩ : NativeSourceJudgement)
     else pure judgement
     unless ← withoutModifyingState (isDefEq (← inferType judgement.value) expected) do
       -- An element of a related named set is read through the registered maps between them.

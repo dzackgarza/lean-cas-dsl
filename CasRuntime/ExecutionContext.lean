@@ -55,32 +55,40 @@ def projectTerm (value : Expr) (field : FieldLayout) : MetaM Expr := do
     | throwError "internal: a prepared field has no native projection"
   return .proj (← getConstInfoCtor info.ctorName).induct info.i value
 
+/-- Resolve an already selected input in a compatible source context through ordinary marked
+projections. Every step retains its original baseline before output associations are added. -/
+def FixedInput.resolveInContext (input : FixedInput) (context : OpenContext)
+    (graphView : MetaM ValueGraph) (marks : IO.Ref (Array ValueBinding))
+    (evaluate : Expr → MetaM ValueBinding) : MetaM ValueBinding := do
+  let mut parent := input.parent
+  let mut term ← input.source.inContext context
+  for projection in input.path do
+    let some field := parent.role.fields.find? (·.projection == projection)
+      | throwError "a fixed input lost its prepared native projection"
+    let marked ← markValue marks parent term
+    let value ← evaluate (← projectTerm marked field)
+    let graph ← graphView
+    let some _ ← IO.ofExcept <|
+        (graph.projectionBasis value parent #[projection]).mapError IO.userError
+      | throwError "a fixed input demand lost its actual projection association"
+    parent := value
+    term ← projectTerm term field
+  return parent
+
 /-- Resolve the selected input in its own retained source scope through ordinary marked
 projections. Return the enriched access, so input-side validation can recover its original
 baseline before output association adds any new access or application wrappers. -/
 def Kernel.resolveFixedInput (kernel : Kernel) (evaluateSource : SourceEvaluation)
     (transaction : CellTransaction) (program : RuntimeId .program) (input : FixedInput) :
     MetaM ValueBinding := do
-  input.source.withOpen fun bindings expression => do
+  input.source.withOpen fun bindings _ => do
     unless input.parameters.size == input.source.context.entries.size do
       throwError "a fixed input lost its original source context table"
     let context ← ContextTelescope.capture bindings
     let mut bound : Std.HashMap BindingId ValueBinding := {}
     for (entry, value) in input.source.context.entries.zip input.parameters do
       if let some value := value then bound := bound.insert entry.id value
-    let mut parent := input.parent
-    let mut term := expression
-    for projection in input.path do
-      let some field := parent.role.fields.find? (·.projection == projection)
-        | throwError "a fixed input lost its prepared native projection"
-      let marked ← markValue kernel.marks parent term
-      let value ← evaluateSource transaction program context bound (← projectTerm marked field)
-      let graph ← transaction.view
-      let some _ ← IO.ofExcept <|
-          (graph.projectionBasis value parent #[projection]).mapError IO.userError
-        | throwError "a fixed input demand lost its actual projection association"
-      parent := value
-      term ← projectTerm term field
-    return parent
+    input.resolveInContext context (liftM (m := IO) transaction.view) kernel.marks
+      (evaluateSource transaction program context bound)
 
 end CasRuntime

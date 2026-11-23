@@ -90,9 +90,21 @@ partial def Kernel.reach (kernel : Kernel) (evaluateSource : SourceEvaluation) (
     MetaM (PreparedResponse request) := do
   let .primitive boundary universes := family.action
     | throwError "internal: a delayed family demand lost its published boundary"
+  if let .routedMethod _ := boundary then
+    let route ← PreparedMethodRoute.prepare kernel (← transaction.view)
+      request family path parameters
+    let selection ← route.select kernel.profile kernel.manifest
+    let selected ← selection.materialize kernel evaluateSource request transaction
+    return ← match selection.realization with
+      | .registration _ => do
+        let invocation ← selected.invocation kernel evaluateSource request transaction
+        kernel.invokeMethod evaluateSource request transaction invocation
+      | .derivation _ =>
+        selected.derivation kernel evaluateSource request transaction
   let role := "/".intercalate (path.map (·.projection.toString)).toList
   if let .presentation _ := boundary then
     let invocation ← PreparedPresentationInvocation.prepare request family path (← transaction.view)
+      (← kernel.marks.get)
     let registration ← selectLift kernel.manifest invocation.operation invocation.forms
     return ← kernel.invokePresentation evaluateSource request transaction registration invocation
   let some reference := boundary.reference
@@ -106,13 +118,18 @@ partial def Kernel.reach (kernel : Kernel) (evaluateSource : SourceEvaluation) (
       let earlier ← kernel.earlierOutputs evaluateSource request transaction family field arguments
       kernel.invokeRegistration evaluateSource request transaction (← selectLift kernel.manifest address forms) role
         parameters earlier
-  let address := actionAddress reference path
-  let forms ← withSourceScope request fun context _ =>
-    inputForms (referenceId reference) context arguments
-  let forms := forms ++ family.sourceForms
+  let point ← PreparedPointInvocation.prepare? kernel evaluateSource request family path transaction
+  let address := point.map (·.operation) |>.getD (actionAddress reference path)
+  let forms ← match point with
+    | some point => pure point.forms
+    | none => withSourceScope request fun context _ => do
+      return (← inputForms (referenceId reference) context arguments)
   match ← kernel.profile.select kernel.manifest reference address forms with
   | .registration registration =>
-    kernel.invokeRegistration evaluateSource request transaction registration role parameters #[]
+    match point with
+    | some point => kernel.invokePoint evaluateSource request transaction registration point
+    | none =>
+      kernel.invokeRegistration evaluateSource request transaction registration role parameters #[]
   | .derivation checked =>
     evaluateRequest kernel evaluateSource request transaction fun context => do
       let plan := checked.plan.instantiateLevelParams checked.universeParams universes

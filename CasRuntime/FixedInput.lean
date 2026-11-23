@@ -238,12 +238,16 @@ private partial def fixedFromExpression (graph : ValueGraph) (source : InputExpr
   fixedFromResult graph context parameters arguments traced
 
 /-- Compose only the selected callable's own retained source history.
-A callable returned through an input route resumes at that exact binding, preserving aliases. -/
+A projected callable resumes at its recorded parent/path before source inspection; a newer
+application retains its own continuation. Input routes preserve those exact binding aliases. -/
 private partial def fixedFromCallable (graph : ValueGraph) (value : ValueBinding)
     (selection : Array Name) (steps : Array InputRuntimeStep) (path : Array Name) :
     MetaM (Option FixedInput) := do
   let some next := steps[0]?
     | throwError "a composed callable route has no remaining application"
+  let projected ← IO.ofExcept <| (graph.projectionOrigin value).mapError IO.userError
+  if let some (parent, accessPath) := projected then
+    return ← fixedFromCallable graph parent (accessPath ++ selection) steps path
   let original ← IO.ofExcept <| (graph.applicationOrigin value).mapError IO.userError
   if let some original := original then
     let steps := steps.set! 0 {
@@ -279,10 +283,11 @@ private partial def fixedFromApplication (graph : ValueGraph) (layout : Applicat
 end
 
 /-- Select fixed fields without executing a lazy input or invoking a resolver. A selected
-callable follows its latest retained application or its original producing role and context.
+callable follows its retained projection/application history or original producing role and context.
 Original parameter bindings and formal argument ordinals remain separate through every step.
 The optional resolver is retained for caller compatibility and is never invoked here.
-Reuse: ApplicationLayout.inputProjectionThrough, ValueGraph.applicationOrigin and native paths. -/
+Reuse: ApplicationLayout.inputProjectionThrough, ValueGraph.projectionOrigin,
+ValueGraph.applicationOrigin and native paths. -/
 opaque PreparedRequest.fixedInputFor (request : PreparedRequest) (graph : ValueGraph)
     (source : SourceLayout)
     (resolve : Option (FixedInput → MetaM (ValueGraph × ValueBinding)) := none) :

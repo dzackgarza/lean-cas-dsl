@@ -18,14 +18,14 @@ def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
   let categoryOf := context.categoryOf
   let source := context.source
   let expected := context.expected
-  let application := application context
+  let application := applicationResult context
   match source with
   | `(cas_term| ($function:cas_term)($arguments:cas_term,*)) => do
     let function ← readExpression categoryOf function none
-    pure ⟨← application function arguments.getElems expected, none⟩
+    application function arguments.getElems expected
   | `(cas_term| $function:cas_term($arguments:cas_term,*)) => do
     let function ← readExpression categoryOf function none
-    pure ⟨← application function arguments.getElems expected, none⟩
+    application function arguments.getElems expected
   | _ => do
     if source.raw.isOfKind ``CasCatalogue.Language.casMatrix then
       let some expected := expected
