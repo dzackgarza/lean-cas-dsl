@@ -102,3 +102,32 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       then throw error
     pure true
   unless rejected do throwError "the source product merged independently selected scalar rings"
+
+/- Equal objects in distinct source bindings remain distinct occurrences in the selected
+diagram. The leg at one targets the codomain of the original map after the limit is stored. -/
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let groups ← empty.namedCategory Syntax.missing "Groups" [.zero] #[]
+  let session ← empty.assume `G (← nativeTerm "GrpCat.{0}")
+  let session ← session.defineTerm `H (← session.term (← nativeTerm "G"))
+  let session ← session.assume `f (← nativeTerm "@Quiver.Hom GrpCat.{0} _ G H")
+  let morphism ← session.term (← nativeTerm "f")
+  let morphism ← morphism.inCategory groups.expression groups.value .morphism
+  let session ← session.defineTerm `k morphism
+  let kernel ← session.read (← sourceTerm "kernel(k)")
+  let session ← session.defineTerm `K kernel
+  let session ← session.defineTerm `retainedKernel (← session.read (← sourceTerm "K"))
+  let session ← session.assume `G (← nativeTerm "GrpCat.{0}")
+  for (ordinal, expectedIndex) in #[(0, 0), (1, 1)] do
+    let leg ← session.read (← sourceTerm s!"retainedKernel.leg({ordinal})")
+    leg.source.withOpen fun bindings value => do
+      unless bindings[0]!.id != bindings[1]!.id &&
+          (← isDefEq bindings[0]!.expression bindings[1]!.expression) do
+        throwError "the endpoint control requires distinct bindings of equal objects"
+      let type ← whnfR (← inferType value)
+      unless type.isAppOfArity ``Quiver.Hom 4 do
+        throwError "the selected kernel leg is not a native morphism"
+      let endpoint ← declaredEndpoint type.getAppArgs[3]!
+      unless endpoint.consumeMData == bindings[expectedIndex]!.expression do
+        throwError "kernel leg {ordinal} replaced its selected diagram-object binding"
