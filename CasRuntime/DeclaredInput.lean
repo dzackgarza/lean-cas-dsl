@@ -222,6 +222,7 @@ partial def RuntimeEnvironment.checkDeclaredInput (environment : RuntimeEnvironm
     throw error
   if ← environment.hasRetainedSource context expected then return
   unless ← containsRetained environment context expected do return
+  let specified := expected
   let expected ← sourceDomain expected
   let .const declaration _ := expected.getAppFn
     | throwStratum .malformed "a declared input has no exact native family for its retained parameters"
@@ -233,7 +234,9 @@ partial def RuntimeEnvironment.checkDeclaredInput (environment : RuntimeEnvironm
     | some slots => pure (some slots)
     | none => applicationSlots? graph context node.origin declaration expected.getAppNumArgs
   let some slots := slots
-    | throwStratum .malformed "the declared input has no original parameter reference slots"
+    | do
+      dbg_trace s!"[declared.check] no slots node={reprStr value.value}; declaration={declaration}; specified={← ppExpr specified}; normalized={← ppExpr expected}; syntax={reprStr specified}; producer={← ppExpr (← node.origin.role.source.inContext context)}; application={reprStr (node.origin.application.map (fun application => (application.path, application.layout.resultTermFamily.expression)))}; accesses={reprStr (value.projectionAccesses.map (fun (parent, path) => (parent.value, path)))}"
+      throwStratum .malformed "the declared input has no original parameter reference slots"
   for source in expected.getAppArgs, index in [:expected.getAppNumArgs] do
     if ← isProof source then continue
     let required ← containsRetained environment context source

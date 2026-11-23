@@ -116,15 +116,17 @@ opaque InputDescriptorView.nativeArrow (graph : ValueGraph) (binding : ValueBind
     let arrow ← mkAppM ``CategoryTheory.Arrow.mk #[selected]
     unless ← isDefEq (← inferType expression) (← inferType arrow) do
       throwError "the selected method receiver is a different complete native record"
+  let some node := graph.find binding.value
+    | throwError "the native Arrow lost its visible original node"
   for (field, value) in fields.zip values do
     let some wireIndex := field.wireIndex
       | throwError "the native Arrow field lost its computational position"
-    match graph.project binding wireIndex with
-    | .ok original =>
+    if node.payload.data.storedFields?.isSome then
+      let original ← IO.ofExcept <| (graph.project binding wireIndex).mapError IO.userError
       unless original.value == value.value &&
           original.associationIds.toList.isPrefixOf value.associationIds.toList do
         throwError "the method arrow changed an actual stored field"
-    | .error _ =>
+    else
       let .ok (some _) := graph.projectionBasis value binding #[field.projection]
         | throwError "the method arrow field has no exact original projection access"
   let slots := values.mapIdx fun index value =>

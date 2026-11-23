@@ -358,9 +358,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
               | throwError "the nullary operation demand lost its native argument telescope"
             let arguments := application.arguments
             unless arguments.size == 2 &&
-                arguments[0]?.flatten.any (fun value =>
+                (arguments[0]?.bind id).any (fun value =>
                   value.value == ring.value && value.associationIds == ring.associationIds) &&
-                arguments[1]?.flatten.any (fun value =>
+                (arguments[1]?.bind id).any (fun value =>
                   value.value == moduleValue.value &&
                     value.associationIds == moduleValue.associationIds) do
               throwError "the nullary operation demand replaced its original scalar or module"

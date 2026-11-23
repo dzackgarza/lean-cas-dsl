@@ -416,12 +416,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let rationals ← readSource empty "ℚ"
   let bound ← empty.defineTerm `Q rationals
   for text in #["Qˣ", "(ℚ in Sets)ˣ"] do
-    let rejected ← try
+    let failure : Option Exception ← try
       discard <| readSource bound text
-      pure false
-    catch _ => pure true
-    unless rejected do
-      throwError "parameter reading acquired a new refinement of an already selected source"
+      pure none
+    catch error => pure (some error)
+    let some failure := failure
+      | throwError "parameter reading acquired a new refinement of an already selected source"
+    unless (← failure.toMessageData.toString).startsWith
+        "the source expression does not have its independently declared parameter type" do
+      throw failure
 
 /- Admission data are read once at the existing admission declaration's data-field type.
 Lambda and matrix syntax need that type, while an already selected map retains its source
@@ -449,12 +452,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       throwError "function admission replaced the original selected map"
   let finiteIdentity ← readSource empty "id(Fin(2))"
   let finiteFunctions ← empty.defineTerm `f finiteIdentity
-  let rejected ← try
+  let failure : Option Exception ← try
     discard <| readSource finiteFunctions "f in C"
-    pure false
-  catch _ => pure true
-  unless rejected do
-    throwError "function admission changed the selected map's actual endpoints"
+    pure none
+  catch error => pure (some error)
+  let some failure := failure
+    | throwError "function admission changed the selected map's actual endpoints"
+  unless (← failure.toMessageData.toString).startsWith
+      "the source expression does not have its independently declared parameter type" do
+    throw failure
 
 /- A supplied whole map is a generalized point at its original source. The selected later
 map composes with that actual arrow, while a map-valued native parameter remains a value. -/
@@ -503,12 +509,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless (← isDefEq value expected) && value.containsFVar original.fvarId! &&
           value.containsFVar later.fvarId! && !value.containsFVar other.fvarId! do
         throwError "generalized application substituted an equal native arrow binding"
-  let rejected ← try
+  let failure : Option Exception ← try
     discard <| readSource arrows "f(g)"
-    pure false
-  catch _ => pure true
-  unless rejected do
-    throwError "generalized application ignored the actual intermediate native object"
+    pure none
+  catch error => pure (some error)
+  let some failure := failure
+    | throwError "generalized application ignored the actual intermediate native object"
+  unless (← failure.toMessageData.toString).startsWith
+      "Application type mismatch: The " do
+    throw failure
   let nested ← arrows.assume `rawH (← nativeSource "B → B")
   let middle ← readSource nested "(x ↦ rawH(x)) in (B → B)"
   let nested ← nested.defineTerm `h middle
@@ -522,12 +531,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     for name in #[`f, `g, `h] do
       unless value.containsFVar (← retained nested bindings name).fvarId! do
         throwError "nested generalized application lost an original complete map"
-  let rejected ← try
+  let failure : Option Exception ← try
     discard <| readSource nested "g(h(g))"
-    pure false
-  catch _ => pure true
-  unless rejected do
-    throwError "nested generalized application changed its actual intermediate object"
+    pure none
+  catch error => pure (some error)
+  let some failure := failure
+    | throwError "nested generalized application changed its actual intermediate object"
+  unless (← failure.toMessageData.toString).startsWith
+      "Application type mismatch: The " do
+    throw failure
   let consumers ← arrows.assume `rawConsumeMap
     (← nativeSource "TypeCat.Hom A B → C")
   let consumers ← consumers.assume `rawConsumeFunction
