@@ -76,8 +76,10 @@ read a mutable environment. Callers retain its result for later observation. -/
 def snapshot (session : SourceSession) (term : SourceTerm)
     (definedBinding : Option ContextEntry := none) : Json := Id.run do
   let build : StateM NativeExpression.Builder (List (String × Json) × Array Nat) := do
-    let native ← closedTermJson term.source
     let context ← contextJson term.source.context
+    let expression ← NativeExpression.Builder.add term.source.expression
+    let type ← NativeExpression.Builder.add term.source.type
+    let native := termJson term.source context expression type
     let categories ← term.source.context.entries.mapM fun entry =>
       (session.categoryFor entry.id).mapM categoryJson
     let rings ← term.source.context.entries.mapM fun entry => do
@@ -92,8 +94,6 @@ def snapshot (session : SourceSession) (term : SourceTerm)
         ("span", toJson (bindingSpan session entry.id)),
         ("category", toJson category), ("ringVariables", rings)]
     let category ← term.category.mapM categoryJson
-    let expression ← NativeExpression.Builder.add term.source.expression
-    let type ← NativeExpression.Builder.add term.source.type
     pure ([("native", native), ("context", context),
       ("instances", instancesJson term.source.context),
       ("categories", toJson categories), ("category", toJson category),

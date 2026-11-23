@@ -83,17 +83,21 @@ private def blocked (where_ : Location) (stage : String) (cause : Failure) : Fai
 private def unread (where_ : Location) (provenance : String) : Reading :=
   ⟨where_.id, where_.file, where_.sourceLine, where_.source, provenance, "", "", "", Json.null⟩
 
+/-- The retained telescope already supplies the exact de Bruijn scopes. Close it directly
+instead of reopening fresh locals and abstracting them again for each category field.
+Reuse: ContextTelescope.capture and Lean.MetavarContext.MkBinding.mkBinding at v4.33.0;
+its non-let domains use headBeta, with every let retained and no eta reduction. -/
+private def closedLambda (term : ClosedTerm) : Expr :=
+  term.context.entries.foldr (init := term.expression) fun entry body =>
+    match entry.value with
+    | none => .lam entry.userName entry.type.headBeta body entry.binderInfo
+    | some value => .letE entry.userName entry.type value body entry.nondep
+
 private def canonicalCategory (table : CasCatalogue.Realize.TermTable)
     (category : SourceCategoryBinding) : TermElabM Json := do
-  let bundle ← category.bundle.withOpen fun bindings value =>
-    mkLambdaFVars (bindings.map (·.expression)) value
-      (usedLetOnly := false) (generalizeNondepLet := false)
+  let bundle := closedLambda category.bundle
   let carrier ← category.carrier.mapM fun carrier => do
-    let encode := fun (term : ClosedTerm) => do
-      let value ← term.withOpen fun bindings value =>
-        mkLambdaFVars (bindings.map (·.expression)) value
-          (usedLetOnly := false) (generalizeNondepLet := false)
-      table.encode value
+    let encode := fun (term : ClosedTerm) => table.encode (closedLambda term)
     let actions ← carrier.actions.mapM encode
     let comparisons ← carrier.comparisons.mapM encode
     return Json.mkObj [("refs", toJson (reprStr carrier.refs)),

@@ -210,6 +210,23 @@ run_cmd Lean.Elab.Command.liftTermElabM do
                       observedContext[0]?.map (·.getObjValD "name") == some (toJson "n") &&
                       observedContext[1]?.map (·.getObjValD "name") == some (toJson "n") do
                     throwError "observation merged shadowed names or omitted unused bindings"
+                  let checkSourceAddress (prepared : PreparedRequest) (path : Array Name) :
+                      MetaM Unit := do
+                    let requestDocument := prepared.observation.native.getObjValD "request"
+                    let nativeSource := requestDocument.getObjValD "source"
+                    let nativeAddress := nativeSource.getObjValD "inputProjection"
+                    let sourceText := prepared.observation.readable.getObjValD "source"
+                    let readableAddress := sourceText.getObjValD "inputProjection"
+                    let target := Json.mkObj [("context", expectedIds[3]!)]
+                    let nativePath := Json.arr (path.map CasTools.NativeExpression.nameJson)
+                    unless nativeAddress.getObjValD "target" == target &&
+                        nativeAddress.getObjValD "path" == nativePath &&
+                        readableAddress.getObjValD "target" == target &&
+                        readableAddress.getObjValD "path" == nativePath &&
+                        readableAddress.getObjValD "displayPath" ==
+                          toJson (path.map (·.toString (escape := false))) do
+                      throwError "projection observation changed its exact source binding or native path"
+                  checkSourceAddress projection #[``Prod.snd]
                   let observedOrigin := document.getObjValD "origin"
                   let observedApplication := observedOrigin.getObjValD "application"
                   let observedAccess := (observedOrigin.getObjValD "access").getObjValD "reference"
@@ -242,6 +259,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
                       inner.dependencies.isEmpty && inner.contextDependencies.isEmpty &&
                       innerOrigin.access.map (·.value) == some point.value do
                     throwError "nested projection changed its original path or independent role"
+                  checkSourceAddress nested #[``Prod.snd, ``Fin.val]
                   let hidden ← liftM (m := IO) do
                     try
                       discard <| graph.stage owners.identities innerOrigin (.portable "0".toUTF8)

@@ -33,6 +33,18 @@ def identityJson {kind : IdentityKind} (id : RuntimeId kind) : Json :=
 
 def namesJson (names : Array Name) : Json := Json.arr (names.map NativeExpression.nameJson)
 
+/-- Preserve the original source plane and exact native projection path. -/
+def inputProjectionJson (projection : InputProjection) : Json :=
+  let target := match projection.target with
+    | .argument index => Json.mkObj [("argument", toJson index)]
+    | .context binding => Json.mkObj [("context", ContextSnapshot.bindingJson binding)]
+  Json.mkObj [("target", target), ("path", namesJson projection.path)]
+
+/-- Display names supplement, rather than replace, the exact native source address. -/
+def readableInputProjectionJson (projection : InputProjection) : Json :=
+  (inputProjectionJson projection).setObjVal! "displayPath"
+    (toJson (projection.path.map (·.toString (escape := false))))
+
 def referenceJson (reference : ComputationRef) : Json :=
   let (kind, id) := match reference with
     | .operation id => ("operation", id.raw)
@@ -102,7 +114,8 @@ def layoutJson (layout : SourceLayout) : StateM NativeExpression.Builder Json :=
     ("source", ← ContextSnapshot.closedTermJson layout.source),
     ("kind", toJson (reprStr layout.kind)),
     ("actions", toJson (layout.kind.actions.map reprStr)),
-    ("fields", toJson fields), ("contextDependencies", toJson layout.contextDependencies)]
+    ("fields", toJson fields), ("contextDependencies", toJson layout.contextDependencies),
+    ("inputProjection", toJson (layout.inputProjection.map inputProjectionJson))]
 
 def recordJson (record : RecordLayout) : StateM NativeExpression.Builder Json := do
   let fields ← record.fields.mapM fun prepared => do
@@ -232,6 +245,12 @@ def readableTerm (term : ClosedTerm) : MetaM Json :=
     return Json.mkObj [("expression", toJson (← ppExpr expression).pretty),
       ("type", toJson (← ppExpr type).pretty)]
 
+/-- Add the retained source address without reopening or rendering the term a second time. -/
+def readableLayout (layout : SourceLayout) : MetaM Json := do
+  let source ← readableTerm layout.source
+  return source.setObjVal! "inputProjection"
+    (toJson (layout.inputProjection.map readableInputProjectionJson))
+
 def readableContext (context : ContextTelescope) : MetaM Json :=
   context.withOpen fun bindings => do
     let entries ← bindings.mapM fun binding => do
@@ -242,19 +261,24 @@ def readableContext (context : ContextTelescope) : MetaM Json :=
         ("type", toJson (← ppExpr declaration.type).pretty), ("value", toJson value)]
     return toJson entries
 
-def readableRole (role : ComputationalRole) : MetaM Json := do
-  return Json.mkObj [("id", roleIdJson role.id), ("source", ← readableTerm role.source),
+def readableRole (role : ComputationalRole) (layout : Option SourceLayout := none) :
+    MetaM Json := do
+  let mut source ← readableTerm role.source
+  if let some layout := layout then
+    source := source.setObjVal! "inputProjection"
+      (toJson (layout.inputProjection.map readableInputProjectionJson))
+  return Json.mkObj [("id", roleIdJson role.id), ("source", source),
     ("typeFamily", ← readableTerm role.typeFamily)]
 
 def readableApplication (application : ApplicationLayout) : MetaM Json := do
   let arguments ← application.arguments.mapM fun argument => do
     return Json.mkObj [("sourceIndex", toJson argument.sourceIndex),
       ("wireIndex", toJson argument.wireIndex),
-      ("source", ← readableTerm argument.source.source),
+      ("source", ← readableLayout argument.source),
       ("typeFamily", ← readableTerm argument.typeFamily)]
   return Json.mkObj [("arguments", toJson arguments),
     ("resultTypeFamily", ← readableTerm application.resultTypeFamily),
-    ("result", ← readableTerm application.result.source)]
+    ("result", ← readableLayout application.result)]
 
 end Observation
 
@@ -290,9 +314,11 @@ opaque ObservationDescriptor.prepare
   let native := Json.mkObj [("request", request), ("nativeExpressions", builder.finish roots)]
   let context ← Observation.readableContext environment.context
   let arguments ← roles.arguments.mapM fun argument => Observation.readableRole argument.role
-  let results ← roles.results.mapM fun result => Observation.readableRole result.role
-  let captures ← roles.captures.mapM fun capture => Observation.readableRole capture.role
-  let sourceText ← Observation.readableTerm source.source
+  let results ← roles.results.mapM fun result =>
+    Observation.readableRole result.role (some result.layout)
+  let captures ← roles.captures.mapM fun capture =>
+    Observation.readableRole capture.role (some capture.layout)
+  let sourceText ← Observation.readableLayout source
   let applicationText ← application.mapM Observation.readableApplication
   let readable := Json.mkObj [("source", sourceText),
     ("context", context), ("arguments", toJson arguments),

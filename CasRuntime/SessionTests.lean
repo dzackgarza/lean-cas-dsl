@@ -65,6 +65,35 @@ run_cmd liftTermElabM do
         unless run.outcome.kind == kind do
           throwError "`{text}` is {run.outcome.kind} ({run.outcome.detail}), not {kind}"
         session := run.session
+      -- A source alias of an actual computed value retains that exact value, even when
+      -- reading the alias dispatches nothing and the value has no live-owner requirement.
+      let some original := session.source.context.entries.find? (·.userName == `a)
+        | throwError "the public arithmetic control lost its original source binding"
+      let some actual := session.value? original.id
+        | throwError "the public arithmetic control lost its computed value"
+      let aliasStatement ← match Parser.runParserCategory (← getEnv) `cas_stmt
+          "let retainedAlias := a" with
+        | .ok statement => pure statement
+        | .error error => throwError "the alias statement did not parse: {error}"
+      let aliased ← withoutErrToSorry <| session.run ⟨aliasStatement⟩
+      unless aliased.outcome.kind == "holds" do
+        throwError "the public alias is {aliased.outcome.kind} ({aliased.outcome.detail})"
+      let some named := aliased.session.source.context.entries.back?
+        | throwError "the public alias lost its original source declaration"
+      let some retained := aliased.session.value? named.id
+        | throwError "a public alias discarded its actual computed value"
+      unless named.userName == `retainedAlias && retained.value == actual.value &&
+          retained.associationIds == actual.associationIds do
+        throwError "a public alias replaced its original computed reference"
+      session := aliased.session
+      let question ← match Parser.runParserCategory (← getEnv) `cas_stmt
+          "assert retainedAlias = 46 in ℤ" with
+        | .ok statement => pure statement
+        | .error error => throwError "the alias question did not parse: {error}"
+      let observed ← withoutErrToSorry <| session.run ⟨question⟩
+      unless observed.outcome.kind == "holds" do
+        throwError "the alias question is {observed.outcome.kind}: {observed.outcome.detail}"
+      session := observed.session
       -- The retained sum is sent again as data. The deferred addition is a real dispatch.
       let dispatched := (← session.kernel.dispatches.get).map (·.operation)
       unless dispatched == #["op.rings.add", "op.rings.mul", "op.rings.mul", "op.rings.add",

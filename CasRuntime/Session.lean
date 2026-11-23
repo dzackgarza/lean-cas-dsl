@@ -123,7 +123,9 @@ def KernelSession.value? (session : KernelSession) (id : BindingId) : Option Val
 private def commit (transaction : CellTransaction) : MetaM Unit := do
   match ← transaction.commit with
   | .ok _ => pure ()
-  | .error failure => throwError "internal: the cell did not commit: {repr failure}"
+  | .error failure =>
+    discard <| (transaction.abort : BaseIO Bool)
+    Execute.completionFailure failure
 
 /-- Decide the closed proposition in Lean, after substituting the session's definitions, by the
 registered literal evaluations and the kernel's decision (`Evaluation.decideEvaluated`).
@@ -303,8 +305,8 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
       let sourceSnapshot := some (SourceSnapshot.snapshot next value (some entry))
       let transaction ← CellTransaction.begin session.kernel.ledger
       let sent := (← session.kernel.dispatches.get).size
-      let (binding, dependent) ← try
-          next.context.withOpen fun bindings => do
+      let (binding, dependent, delayed) ← try
+          let (binding, dependent) ← next.context.withOpen fun bindings => do
             let context ← ContextTelescope.capture bindings
             let expression ← value.source.inContext context
             -- A definition that uses a definition with no computed value depends on that gap.
@@ -316,21 +318,22 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
             return (some (← session.kernel.run transaction context session.bound expression
                 sourceSnapshot),
               dependent)
+          let graph ← transaction.view
+          let codes ← session.kernel.codes.get
+          let delayed := binding.any (delayedComputation codes graph)
+          commit transaction
+          pure (binding, dependent, delayed)
         catch error =>
           -- A read definition keeps its meaning when its computation is a gap or unavailable
-          -- (constitution C3): later statements read it from its definition.
+          -- at execution or commit (constitution C3); failed runtime data are never published.
+          discard <| (transaction.abort : BaseIO Bool)
           let outcome ← Outcome.ofException error
           if outcome.fails then throw error
-          discard <| (transaction.abort : BaseIO Bool)
           let unavailable := session.unavailable.push (entry.id, entry.userName)
           return { outcome, session := { session with source := next, unavailable } }
       -- A value that no provider computed is its definition: later statements read that
       -- definition. A value with computational provenance, or one that holds a delayed published
       -- computation (a lift's fields), is retained: later uses demand that same occurrence.
-      let graph ← transaction.view
-      let codes ← session.kernel.codes.get
-      let delayed := binding.any (delayedComputation codes graph)
-      commit transaction
       let computed := (← session.kernel.dispatches.get).size > sent || delayed
       let bound := match binding with
         | some binding => if computed then session.bound.insert entry.id binding else session.bound

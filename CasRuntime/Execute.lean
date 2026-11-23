@@ -10,7 +10,8 @@ namespace CasRuntime.Execute
 
 open Lean Meta CasCompiler
 
-private def requireAvailable (transaction : CellTransaction) (graph : ValueGraph)
+/-- Check only the actual retained root's transitive owners, including direct kernel returns. -/
+def requireAvailable (transaction : CellTransaction) (graph : ValueGraph)
     (binding : ValueBinding) : MetaM Unit := do
   unless ← graph.isAvailable transaction.owners binding do
     CasCatalogue.throwStratum .unavailable "stale_owner"
@@ -23,7 +24,8 @@ private def retainResponse (request : PreparedRequest) (transaction : CellTransa
   transaction.retain candidate.root
   return candidate
 
-private def completionFailure (failure : TransactionFailure) : MetaM α :=
+/-- Preserve the transaction failure's existing stratum at execution and final publication. -/
+def completionFailure (failure : TransactionFailure) : MetaM α :=
   match failure with
   | .settled => CasCatalogue.throwStratum .unavailable "cancelled"
   | .staleOwner => CasCatalogue.throwStratum .unavailable "stale_owner"
@@ -81,6 +83,29 @@ private def executeDemand
     throwError "internal: execution changed the active transaction"
   return (← retainResponse request state response.root, state)
 
+/-- A stored field is a completed demand with its own occurrence and receipt.
+Claim it before selection, and publish the same node under its prepared result role.
+The completion derives owner dependencies from the selected field, not its whole parent. -/
+private def projectStored (request : PreparedRequest) (transaction : CellTransaction)
+    (operand : ValueBinding) (index : Nat) :
+    MetaM (PreparedResponse request × CellTransaction) := do
+  if let some response ← reuseResponse request transaction then return (response, transaction)
+  match ← transaction.claim request.roles.scope with
+  | .error failure => completionFailure failure
+  | .ok .waiter =>
+    let some response ← reuseResponse request transaction
+      | throwError "internal: a claimed occurrence lost its producer"
+    return (response, transaction)
+  | .ok .producer => pure ()
+  requireFresh request transaction
+  let graph ← transaction.view
+  let binding ← IO.ofExcept <| (graph.project operand index).mapError IO.userError
+  let response ← request.admitResult graph binding
+  match ← transaction.completeKernel request response with
+  | .error failure => completionFailure failure
+  | .ok association =>
+    return (← retainResponse request transaction association.response.root, transaction)
+
 /-- Interpret prepared value actions against the active transaction and current owners.
 Visible receipts and staged completions supply actual roots; pending occurrences share a waiter.
 Stored projection selects its exact field node before checking that field's dependencies.
@@ -112,8 +137,7 @@ def interpreter
       | .product _ | .container _ =>
         let some index := field.wireIndex
           | throwError "internal: a proof field reached computational execution"
-        let binding ← IO.ofExcept <| (graph.project operand index).mapError IO.userError
-        return (← retainResponse request transaction binding, transaction)
+        projectStored request transaction operand index
       | .closure _ _ | .ownedToken _ _ _ => executeDemand executor request transaction
       | .portable _ =>
         throwError "malformed: the retained value has no record access interface"

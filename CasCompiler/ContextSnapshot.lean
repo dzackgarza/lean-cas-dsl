@@ -38,15 +38,19 @@ def contextJson (context : ContextTelescope) : StateM NativeExpression.Builder J
       ("value", toJson value), ("nondep", toJson entry.nondep)]
   return toJson entries
 
+/-- Assemble the exact term document from its already encoded context and native roots. -/
+def termJson (term : ClosedTerm) (context : Json) (expression type : Nat) : Json :=
+  Json.mkObj [
+    ("context", context), ("instances", instancesJson term.context),
+    ("universeParams", Json.arr (term.universeParams.map NativeExpression.nameJson)),
+    ("expression", toJson expression), ("type", toJson type)]
+
 /-- The exact closed term, its complete type, telescope, selected instances and universes.
 The ordered telescope supplies the de Bruijn scopes of all stored native expressions. -/
 def closedTermJson (term : ClosedTerm) : StateM NativeExpression.Builder Json := do
   let context ← contextJson term.context
   let expression ← NativeExpression.Builder.add term.expression
   let type ← NativeExpression.Builder.add term.type
-  return Json.mkObj [
-    ("context", context), ("instances", instancesJson term.context),
-    ("universeParams", Json.arr (term.universeParams.map NativeExpression.nameJson)),
-    ("expression", toJson expression), ("type", toJson type)]
+  return termJson term context expression type
 
 end CasCompiler.ContextSnapshot

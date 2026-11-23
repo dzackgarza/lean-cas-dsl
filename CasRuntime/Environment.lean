@@ -50,6 +50,7 @@ structure RuntimeEnvironment where
   worker : String
   context : ContextTelescope
   values : Array (Option ValueBinding)
+  private inputProjections : Std.HashMap BindingId InputProjection
 
 def RuntimeEnvironment.references (environment : RuntimeEnvironment) : Array ValueBinding :=
   environment.values.filterMap id
@@ -103,6 +104,7 @@ def missingValueOf (error : Exception) (id : BindingId) : Bool :=
   error.toMessageData.hasTag (· == missingValueTag id)
 
 private def checkDependencies (context : OpenContext)
+    (inputProjections : Std.HashMap BindingId InputProjection)
     (supplied : Std.HashMap BindingId ValueBinding) (expected : Expr)
     (value : ValueBinding) (origin : ValueOrigin) : MetaM Unit := do
   for index in origin.role.contextDependencies do
@@ -124,12 +126,13 @@ private def checkDependencies (context : OpenContext)
       if let some original := previous then
         let some prepared := instantiation.association.layout.fields[index]?
           | throwError "a consuming runtime dependency is outside its source record"
-        let formal ← prepared.field.source.inContext context
+        let some formal := prepared.layout.inputProjection | continue
         for index in dependencies do
           let some dependency := context.bindings[index]?
             | throwError "a consuming runtime dependency is outside its current source telescope"
-          if ← isDefEq (← inferType dependency.expression) (← inferType formal) <&&>
-              isDefEq dependency.expression formal then
+          let some projection := inputProjections[dependency.id]?
+            | throwError "a consuming runtime dependency is outside its retained source-position table"
+          if projection == formal then
             let some current := supplied[dependency.id]?
               | throwError (MessageData.tagged (missingValueTag dependency.id)
                   m!"the runtime value is missing a consuming dependent reference \
@@ -141,12 +144,14 @@ private def checkDependencies (context : OpenContext)
 /-- Associate existing nodes by stable source identity, native type and retained type dependencies.
 Check the complete table before comparing each actual producing dependency with its current
 binding. Reuse: ClosedTerm.inContext, Lean.Meta.isDefEq and SourceLayout.contextDependencies.
-Consuming field dependencies use their actual source projections and retained prefix references.
+Consuming field dependencies join their retained source positions to the original context
+projection table, then compare the actual retained prefix references.
 Later consuming roles may extend the original reference's complete instantiation chain.
 Whole-reply admission remains a separate check. -/
 opaque RuntimeEnvironment.capture (worker : String) (context : OpenContext)
     (parameters : Array RuntimeParameter) : MetaM RuntimeEnvironment := do
   if worker.isEmpty then throwError "runtime association requires an actual worker identity"
+  let inputProjections ← context.inputProjections
   let mut supplied : Std.HashMap BindingId ValueBinding := {}
   for parameter in parameters do
     if supplied.contains parameter.source then
@@ -166,9 +171,10 @@ opaque RuntimeEnvironment.capture (worker : String) (context : OpenContext)
   for parameter in parameters do
     let some source := context.bindings.find? (·.id == parameter.source)
       | throwError "a consuming runtime binding is outside its source telescope"
-    checkDependencies context supplied (← inferType source.expression) parameter.value parameter.origin
+    checkDependencies context inputProjections supplied
+      (← inferType source.expression) parameter.value parameter.origin
   let values := context.bindings.map fun binding => supplied[binding.id]?
-  return ⟨worker, context.telescope, values⟩
+  return ⟨worker, context.telescope, values, inputProjections⟩
 
 /-- Bind the supplied operand to its actual source argument, rather than a same-typed value.
 Source variables use their stable-ID runtime association. Other terms require their retained
@@ -183,7 +189,8 @@ opaque RuntimeEnvironment.checkArgument (environment : RuntimeEnvironment) (sour
     let expected ← inferType specified
     if ← isProp expected then throwError "a formal proof argument has no runtime value binding"
     checkNativeType context expected argument.value argument.origin
-    checkDependencies context environment.bindingMap expected argument.value argument.origin
+    checkDependencies context environment.inputProjections environment.bindingMap
+      expected argument.value argument.origin
     -- A source variable with a computed value is that retained value. A definition that no
     -- provider computed is its definition, so its argument is checked like any other term.
     let retained ← if specified.isFVar then do
@@ -224,7 +231,8 @@ private partial def checkResultValue (environment : RuntimeEnvironment) (graph :
     let context ← ContextTelescope.capture bindings
     let expected ← inferType (← source.source.inContext context)
     checkNativeType context expected value node.origin
-    checkDependencies context environment.bindingMap expected value node.origin
+    checkDependencies context environment.inputProjections environment.bindingMap
+      expected value node.origin
     let candidate ← match CandidateResponse.ofValue source graph value with
       | .ok candidate => pure candidate
       | .error reason =>

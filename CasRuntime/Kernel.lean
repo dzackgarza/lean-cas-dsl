@@ -29,11 +29,20 @@ partial def Kernel.executor (kernel : Kernel) :
 end
 
 /-- Lower and execute a checked term in the active cell with its actual source bindings
-and the original frontend snapshot, when supplied by the source session. -/
+and the original frontend snapshot, when supplied by the source session. Validate the returned
+root even when lowering performs no demand, and retain it for the commit-time owner check. -/
 opaque Kernel.run (kernel : Kernel) (transaction : CellTransaction) (context : OpenContext)
     (bound : Std.HashMap BindingId ValueBinding) (expression : Expr)
     (sourceSnapshot : Option Json) : MetaM ValueBinding := do
-  let program ← kernel.ledger.owners.identities.fresh .program
-  kernel.evaluateSource sourceSnapshot transaction program context bound expression
+  try
+    let program ← kernel.ledger.owners.identities.fresh .program
+    let value ← kernel.evaluateSource sourceSnapshot transaction program context bound expression
+    let graph ← transaction.view
+    Execute.requireAvailable transaction graph value
+    transaction.retain value
+    return value
+  catch error =>
+    discard <| (transaction.abort : BaseIO Bool)
+    throw error
 
 end CasRuntime

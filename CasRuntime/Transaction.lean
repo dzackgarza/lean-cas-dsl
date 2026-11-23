@@ -506,6 +506,24 @@ opaque CellTransaction.completeReply (transaction : CellTransaction) (draft : Ce
     if let some (.ok _) := outcome then scope.retire
     return outcome.getD (.error .staleOwner)
 
+/-- Stored access demands its exact selected field while retaining the full parent input map.
+Only a real stored projection has this owner scope. Its result must retain the selected node
+and every existing consuming association; all other kernel completions demand their inputs. -/
+private def kernelInputReferences (request : PreparedRequest) (graph : ValueGraph)
+    (inputs : InputRoleMap) (response : PreparedResponse request) :
+    Except TransactionFailure (Array ValueBinding) := do
+  let .project operand field := request.action | return inputs.references
+  let some node := graph.find operand.value | throw .referenceOutsideGraph
+  match node.payload.data with
+  | .product _ | .container _ =>
+    let some index := field.wireIndex | throw .invalidCompletion
+    let selected ← (graph.project operand index).mapError (fun _ => .invalidCompletion)
+    unless selected.value == response.root.value &&
+        selected.associationIds.toList.isPrefixOf response.root.associationIds.toList do
+      throw .invalidCompletion
+    return #[selected]
+  | .closure _ _ | .ownedToken _ _ _ | .portable _ => return inputs.references
+
 /-- Complete a claimed demand that the kernel evaluated from retained code or stored fields.
 No dispatch right is consumed and no frame exists. The occurrence leaves the fresh state,
 so a later demand cannot dispatch it. Later demands in this cell reuse this completion.
@@ -516,6 +534,8 @@ opaque CellTransaction.completeKernel (transaction : CellTransaction)
   let graph ← transaction.view
   let inputs ← request.admitInputs graph
   let response ← request.admitResult graph response.root
+  let .ok demanded := kernelInputReferences request graph inputs response
+    | return .error .invalidCompletion
   liftM (m := BaseIO) <| transaction.state.atomically do
     let .active cell ← get | return .error .settled
     unless request.program.worker == transaction.id.worker &&
@@ -527,7 +547,7 @@ opaque CellTransaction.completeKernel (transaction : CellTransaction)
     if (← transaction.ledger.pendingFor request.occurrence transaction.id).isSome then
       return .error .invalidCompletion
     let outputs := response.roles.references
-    let .ok dependencies := cell.graph.requiredOwners (outputs ++ inputs.references)
+    let .ok dependencies := cell.graph.requiredOwners (outputs ++ demanded)
       | return .error .referenceOutsideGraph
     let outcome : Option CompletionAssociation ← transaction.owners.atomicallyWhileLive
         (m := Std.AtomicT CellState BaseIO) dependencies do
