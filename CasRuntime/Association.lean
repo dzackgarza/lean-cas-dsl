@@ -148,10 +148,9 @@ private partial def assembleInputResult (request : PreparedRequest) (source : So
     MetaM (CellDraft × ValueBinding) := do
   let path ← request.source.projectionPathTo source
   if let some selected := fixed.find? (·.path == path) then
-    dbg_trace s!"[input.assemble] before leaf output={reprStr path}; input={reprStr selected.input.path}"
-    let result ← request.associateResult supply source draft selected.value fixed (complete := true)
-    dbg_trace s!"[input.assemble] after leaf output={reprStr path}"
-    return result
+    -- Keep the sealed input occurrence unchanged while building the isolated record.
+    -- Its consuming dependency check needs the complete actual result prefix below.
+    return (draft, selected.value)
   unless source.kind == .record do
     throwError "the complete input result lost a prepared computational field"
   let layout ← RecordLayout.ofSource source
@@ -168,13 +167,17 @@ private partial def assembleInputResult (request : PreparedRequest) (source : So
   liftM (m := IO) <| draft.stage (← request.originFor source) payload
 
 /-- Assemble the complete source-selected result after all selected lazy inputs have settled.
-Reuse: RecordPrefix, associateResult and the sealed input-result admission check. -/
+Validate its stored fields together with their actual native prefixes before adding consuming
+associations. The isolated draft remains unpublished until the complete result is admitted.
+Reuse: RecordPrefix, whole-result associateResult and the sealed input-result admission check. -/
 def ResolvedInputResult.assemble (resolved : ResolvedInputResult request)
     (transaction : CellTransaction) : MetaM (CellDraft × InputResultCompletion request) := do
   let draft ← transaction.draft
   dbg_trace "[input.assemble] begin"
   let (draft, value) ← assembleInputResult request request.source transaction.owners.identities
     resolved.selections draft
+  let (draft, value) ← request.associateResult transaction.owners.identities
+    request.source draft value resolved.selections (complete := true)
   dbg_trace "[input.assemble] before whole result admission"
   let response ← request.admitResult draft.view value
   dbg_trace "[input.assemble] after whole result admission"

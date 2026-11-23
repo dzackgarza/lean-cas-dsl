@@ -363,7 +363,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
                 (arguments[1]?.bind id).any (fun value =>
                   value.value == moduleValue.value &&
                     value.associationIds == moduleValue.associationIds) do
-              throwError "the nullary operation demand replaced its original scalar or module"
+              throwError "the nullary operation demand replaced its original scalar or module; expected={reprStr #[(ring.value, ring.associationIds), (moduleValue.value, moduleValue.associationIds)]}; actual={reprStr (arguments.map fun argument => argument.map fun value => (value.value, value.associationIds))}; sources={reprStr (application.layout.arguments.map (·.source.source.expression))}"
             observed.set true
             throwError "observed the original nullary operation demand"
           let bound : Std.HashMap BindingId ValueBinding :=

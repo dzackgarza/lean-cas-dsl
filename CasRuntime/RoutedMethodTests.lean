@@ -601,6 +601,33 @@ run_cmd liftTermElabM do
           let #[(_, source)] ← routedActionParameters (.functor route.family.functor.id)
               (← action.inContext context)
             | throwError "the original method lost its single native category parameter"
+          -- The native Ring instance is a projection hidden by its original instance
+          -- wrapper. Its retained parent remains the first scalar even when another
+          -- independently supplied scalar has definitionally equal native fields.
+          do
+            let nativeSource ← sourceDomain source
+            unless nativeSource.getAppFn.isConstOf ``RingCat.of do
+              throwError "the native category view lost its original RingCat.of source"
+            let #[_, structureSource] := nativeSource.getAppArgs
+              | throwError "the native ring view lost its original structure argument"
+            let graph ← transaction.view
+            let path := #[``CommRingCat.commRing, ``CommRing.toRing]
+            let .ok (some originalStructure) := graph.projectedAccess? firstScalar path
+              | throwError "the first scalar lost its published native ring access"
+            let .ok (some otherStructure) := graph.projectedAccess? secondScalar path
+              | throwError "the second scalar lost its published native ring access"
+            request.environment.checkDeclaredInput context graph (← session.kernel.marks.get)
+              structureSource originalStructure
+            let changedFailure : Option Exception ← try
+              request.environment.checkDeclaredInput context graph (← session.kernel.marks.get)
+                structureSource otherStructure
+              pure none
+            catch error => pure (some error)
+            let some changedFailure := changedFailure
+              | throwError "an equal scalar satisfied another scalar's wrapped native field"
+            unless (← changedFailure.toMessageData.toString).startsWith
+                "the runtime argument does not retain its specified source value" do
+              throw changedFailure
           let evaluate := session.kernel.run transaction context bound
           let supplied ← markValue session.kernel.marks original source
           let #[retained] ← request.environment.methodParameters context transaction

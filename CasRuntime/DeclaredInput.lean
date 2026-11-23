@@ -222,6 +222,12 @@ partial def RuntimeEnvironment.checkDeclaredInput (environment : RuntimeEnvironm
     throw error
   if ← environment.hasRetainedSource context expected then return
   unless ← containsRetained environment context expected do return
+  -- Native instance wrappers can conceal the same original field path. Re-admit that
+  -- source-only path before accepting its retained occurrence; equality is insufficient.
+  let retainedSource ← (← context.close expected).inputProjectionSource
+  if ← environment.hasRetainedSource context (← retainedSource.inContext context) then
+    discard <| environment.checkArgument retainedSource argument
+    return
   let specified := expected
   let expected ← sourceDomain expected
   let .const declaration _ := expected.getAppFn
