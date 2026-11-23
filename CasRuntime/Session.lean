@@ -79,8 +79,9 @@ structure KernelSession where
   computationOnly : Bool
   private bound : Std.HashMap BindingId ValueBinding
   /-- Definitions kept without a runtime value because their computation had no leaf or no
-  available backend (constitution C3), and the definitions that use them. -/
-  private unavailable : Array (BindingId × Name) := #[]
+  available backend (constitution C3), with the actual outcome of that computation.
+  Dependent definitions keep the same cause without repeating the invocation. -/
+  private unavailable : Array (BindingId × Name × Outcome) := #[]
   /-- Definitions whose statement did not read, by declared name, with the outcome of that
   statement. A later use of such a name has the outcome of its definition. -/
   private unread : Array (String × Outcome) := #[]
@@ -139,6 +140,20 @@ private def discharged (session : KernelSession) (context : OpenContext) (propos
   let proposition ← zetaReduce proposition
   if proposition.hasFVar then return none
   Evaluation.decideEvaluated proposition
+
+/-- Follow only the retained source bindings' declared dependencies. A failed computation
+keeps its outcome by BindingId; later executable uses do not lower its definition again.
+Mathematical questions may still be discharged from their source before this execution gate.
+Reuse: contextDependencies closes dependencies through native types and definitions. -/
+private def failedComputation (session : KernelSession) (context : OpenContext)
+    (expression : Expr) : MetaM (Option Outcome) := do
+  for index in ← contextDependencies context.bindings expression do
+    let some binding := context.bindings[index]?
+      | throwError "internal: a source dependency is outside its retained context"
+    if let some (_, name, outcome) := session.unavailable.find? fun (id, _, _) =>
+        id == binding.id then
+      return some (outcome.withDetail s!"{name} has no computed value: {outcome.detail}")
+  return none
 
 /-- The literal value of a side that is a registered literal form's denotation `denote L`.
 Source: LiteralEntry, "a statement comparing a computed value with a literal compares it
@@ -328,40 +343,39 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
       let some entry := next.context.entries.back?
         | throwError "internal: a source definition added no declaration"
       let sourceSnapshot := some (SourceSnapshot.snapshot next value (some entry))
-      let transaction ← CellTransaction.begin session.kernel.ledger
-      let (binding, dependent, computed) ← try
-          let (binding, dependent) ← next.context.withOpen fun bindings => do
-            let context ← ContextTelescope.capture bindings
-            let expression ← value.source.inContext context
-            -- A definition that uses a definition with no computed value depends on that gap.
-            let dependent := context.bindings.any fun binding =>
-              session.unavailable.any (·.1 == binding.id) &&
-                expression.containsFVar binding.expression.fvarId!
-            let type ← whnf (← inferType expression)
-            if (← isProp type) || type.isSort then return (none, dependent)
-            return (some (← session.kernel.run transaction context session.bound expression
-                sourceSnapshot),
-              dependent)
-          let codes ← session.kernel.codes.get
-          let published ← commit transaction
-          pure (binding, dependent, binding.any (retainedComputation codes published))
-        catch error =>
-          -- A read definition keeps its meaning when its computation is a gap or unavailable
-          -- at execution or commit (constitution C3); failed runtime data are never published.
-          discard <| (transaction.abort : BaseIO Bool)
-          let outcome ← Outcome.ofException error
-          if outcome.fails then throw error
-          let unavailable := session.unavailable.push (entry.id, entry.userName)
-          return { outcome, session := { session with source := next, unavailable } }
-      -- A value that no provider computed is its definition: later statements read that
-      -- definition. A value with computational provenance, or one that holds a delayed published
-      -- computation (a lift's fields), is retained: later uses demand that same occurrence.
-      let bound := match binding with
-        | some binding => if computed then session.bound.insert entry.id binding else session.bound
-        | none => session.bound
-      let unavailable := if dependent then session.unavailable.push (entry.id, entry.userName)
-        else session.unavailable
-      return { outcome := .holds, session := { session with source := next, bound, unavailable } }
+      next.context.withOpen fun bindings => do
+        let context ← ContextTelescope.capture bindings
+        let expression ← value.source.inContext context
+        let type ← whnf (← inferType expression)
+        let formal := (← isProp type) || type.isSort
+        unless formal do
+          if let some outcome ← failedComputation session context expression then
+            let unavailable := session.unavailable.push (entry.id, entry.userName, outcome)
+            return { outcome, session := { session with source := next, unavailable } }
+        let transaction ← CellTransaction.begin session.kernel.ledger
+        let (binding, computed) ← try
+            let binding ← if formal then pure none else
+              pure (some (← session.kernel.run transaction context session.bound expression
+                sourceSnapshot))
+            let codes ← session.kernel.codes.get
+            let published ← commit transaction
+            pure (binding, binding.any (retainedComputation codes published))
+          catch error =>
+            -- A read definition keeps its meaning when its computation is a gap or unavailable
+            -- at execution or commit (constitution C3); failed runtime data are never published.
+            discard <| (transaction.abort : BaseIO Bool)
+            let outcome ← Outcome.ofException error
+            if outcome.fails then throw error
+            let unavailable := session.unavailable.push (entry.id, entry.userName, outcome)
+            return { outcome, session := { session with source := next, unavailable } }
+        -- A value that no provider computed is its definition: later statements read that
+        -- definition. A value with computational provenance, or one that holds a delayed published
+        -- computation (a lift's fields), is retained: later uses demand that same occurrence.
+        let bound := match binding with
+          | some binding =>
+            if computed then session.bound.insert entry.id binding else session.bound
+          | none => session.bound
+        return { outcome := .holds, session := { session with source := next, bound } }
     | .settled values =>
       let shown ← session.source.context.withOpen fun bindings => do
         let context ← ContextTelescope.capture bindings
@@ -372,22 +386,28 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
     | .implemented value =>
       -- The value is computed in its own cell. A gap or a failed computation is the outcome.
       let sourceSnapshot := some (SourceSnapshot.snapshot session.source value)
-      let transaction ← CellTransaction.begin session.kernel.ledger
-      let shown ← session.source.context.withOpen fun bindings => do
+      session.source.context.withOpen fun bindings => do
         let context ← ContextTelescope.capture bindings
         let expression ← value.source.inContext context
+        let shown := toString (← ppExpr expression)
+        if let some outcome ← failedComputation session context expression then
+          return { outcome, session, proposition := shown }
+        let transaction ← CellTransaction.begin session.kernel.ledger
         discard <| session.kernel.run transaction context session.bound expression sourceSnapshot
-        return toString (← ppExpr expression)
-      discard <| commit transaction
-      return { outcome := .holds, session, proposition := shown }
+        discard <| commit transaction
+        return { outcome := .holds, session, proposition := shown }
     | .question proposition =>
       let sourceSnapshot := some (SourceSnapshot.snapshot session.source proposition)
-      let transaction ← CellTransaction.begin session.kernel.ledger
-      let (outcome, shown) ← session.source.context.withOpen fun bindings => do
+      session.source.context.withOpen fun bindings => do
         let context ← ContextTelescope.capture bindings
         let asked ← proposition.source.inContext context
         let shown := toString (← ppExpr asked)
-        let outcome ← match ← discharged session context asked with
+        let settled ← discharged session context asked
+        if settled.isNone then
+          if let some outcome ← failedComputation session context asked then
+            return { outcome, session, proposition := shown }
+        let transaction ← CellTransaction.begin session.kernel.ledger
+        let outcome ← match settled with
           | some true => pure .holds
           | some false => pure (.wrong "Lean decides the negation of the statement")
           | none =>
@@ -399,9 +419,8 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
                 decideComputed session transaction context proposition sourceSnapshot
               | none => compare session transaction context left right sourceSnapshot
             | none => decideComputed session transaction context asked sourceSnapshot
-        return (outcome, shown)
-      discard <| commit transaction
-      return { outcome, session, proposition := shown }
+        discard <| commit transaction
+        return { outcome, session, proposition := shown }
   catch error =>
     let outcome ← Outcome.ofException error
     saved.restore
@@ -415,11 +434,13 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
     let session := match definedName? statement with
       | some name => { session with unread := session.unread.push (name, outcome) }
       | none => session
-    -- A statement that needs the value of a definition whose computation had no leaf has that
-    -- gap, named, not an internal defect (constitution C3). The dependency check names the
-    -- binding that has no value.
-    if let some (_, name) := session.unavailable.find? fun (id, _) => missingValueOf error id then
-      return { outcome := .gap s!"{name} has no computed value: {outcome.detail}", session }
+    -- Native dependency validation names the same stable binding. Preserve its original
+    -- failure kind and cause rather than relabeling an unavailable computation as a gap.
+    if let some (_, name, definition) := session.unavailable.find? fun (id, _, _) =>
+        missingValueOf error id then
+      let outcome := definition.withDetail
+        s!"{name} has no computed value: {definition.detail}"
+      return { outcome, session }
     return { outcome, session }
 
 end CasRuntime
