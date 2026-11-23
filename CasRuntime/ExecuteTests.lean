@@ -540,6 +540,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           { program, occurrence, role := innerRole, parameters := #[] } (.product #[scalar, callable])
         let outer ← producer.stage
           { program, occurrence, role := outerRole, parameters := #[] } (.product #[inner, scalar])
+        let identityTerm ← withLocalDeclD `n (mkConst ``Nat) fun n => mkLambdaFVars #[n] n
+        let identityValue ← kernel.run producer empty {} identityTerm none
         let .ok base ← producer.commit | throwError "the nested projection inputs could not commit"
         owners.close child.generation
         if ← owners.isLive child.generation then
@@ -565,6 +567,36 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             let .ok _ ← consumer.commit
               | throwError "an unrelated nested field owner blocked the selected grandchild's publication"
           finally discard <| consumer.abort
+          -- Asking for the whole intermediate record still demands its owned field.
+          let whole ← CellTransaction.begin kernel.ledger
+          let wholeFailure : Option Exception ← try
+            discard <| kernel.run whole context bound innerSource none
+            pure none
+          catch error => pure (some error)
+          let some wholeFailure := wholeFailure
+            | throwError "whole intermediate access ignored its dead owned field"
+          unless (← wholeFailure.toMessageData.toString).endsWith "unavailable: stale_owner" do
+            throw wholeFailure
+          match ← whole.commit with
+          | .error .settled => pure ()
+          | _ => throwError "failed whole-record access retained a publishable transaction"
+          -- The retained compiled callable forces actual argument preparation and admission;
+          -- native beta reduction cannot remove this source application before lowering.
+          withLetDecl `g (← inferType identityTerm) identityTerm fun g => do
+            let callableId : BindingId := ⟨"nested-owner-projection", 1⟩
+            let appliedContext ← ContextTelescope.capture #[
+              { id, role := .definition, expression := r },
+              { id := callableId, role := .definition, expression := g }]
+            let supplied := bound.insert callableId identityValue
+            let application ← CellTransaction.begin kernel.ledger
+            try
+              let returned ← kernel.run application appliedContext supplied
+                (mkApp g (← mkProjection innerSource `fst)) none
+              unless returned.value == scalar.value do
+                throwError "a retained application replaced its actual nested scalar argument"
+              let .ok _ ← application.commit
+                | throwError "an unrelated field owner blocked nested argument publication"
+            finally discard <| application.abort
           let failed ← CellTransaction.begin kernel.ledger
           let failure : Option Exception ← try
             discard <| kernel.run failed context bound (← mkProjection innerSource `snd) none

@@ -93,11 +93,11 @@ private def closedLambda (term : ClosedTerm) : Expr :=
     | none => .lam entry.userName entry.type.headBeta body entry.binderInfo
     | some value => .letE entry.userName entry.type value body entry.nondep
 
-private def canonicalCategory (table : CasCatalogue.Realize.TermTable)
+private def canonicalCategory (remap : CasCatalogue.Realize.TermRemap)
     (category : SourceCategoryBinding) : TermElabM Json := do
   let bundle := closedLambda category.bundle
   let carrier ← category.carrier.mapM fun carrier => do
-    let encode := fun (term : ClosedTerm) => table.encode (closedLambda term)
+    let encode := fun (term : ClosedTerm) => remap.encodeTerm (closedLambda term)
     let actions ← carrier.actions.mapM encode
     let comparisons ← carrier.comparisons.mapM encode
     return Json.mkObj [("refs", toJson (reprStr carrier.refs)),
@@ -107,13 +107,14 @@ private def canonicalCategory (table : CasCatalogue.Realize.TermTable)
   return Json.mkObj [("role", toJson <| match category.role with
       | .object => "object" | .morphism => "morphism"),
     ("expression", toJson (reprStr category.expression)),
-    ("bundle", toJson (← table.encode bundle)),
+    ("bundle", toJson (← remap.encodeTerm bundle)),
     ("carrier", toJson carrier)]
 
 /-- A question is its proposition. A settled typing question retains every term read at its
 declared type, in conjunct order. Singleton identity and snapshot formats remain unchanged.
 Source: SourceStatement.settled and settledJudgements? in CasCompiler/ReadSession.lean. -/
-private def reading (session : SourceSession) (where_ : Location) (provenance : String)
+private def reading (shared : CasCatalogue.Realize.TermTable) (session : SourceSession)
+    (where_ : Location) (provenance : String)
     (terms : Array SourceTerm) (settled : Bool) : TermElabM Reading := do
   if terms.isEmpty then throwError "an exported question must retain its source terms"
   unless settled || terms.size == 1 do
@@ -122,6 +123,7 @@ private def reading (session : SourceSession) (where_ : Location) (provenance : 
   -- binder spelling and proofs of the same proposition; the unquotiented snapshot stays below.
   -- Source: CasCatalogue/QuestionIdentity.lean, QuestionIdentity.encode and TermTable.
   let table ← CasCatalogue.Realize.TermTable.new
+  let remap ← CasCatalogue.Realize.TermRemap.new shared table
   let retained ← terms.mapM fun term => do
     let proposition ← term.source.withOpen fun bindings expression => do
       -- Retain unused parameters, hypotheses and lets; do not generalize a let into a parameter.
@@ -133,10 +135,10 @@ private def reading (session : SourceSession) (where_ : Location) (provenance : 
       unless ← isProp expression do throwError "an exported question must be a proposition"
       mkForallFVars (bindings.map (·.expression)) expression
         (usedLetOnly := false) (generalizeNondepLet := false)
-    let root ← table.encode proposition
+    let root ← remap.encodeTerm proposition
     let categories ← term.source.context.entries.mapM fun entry =>
-      (session.categoryFor entry.id).mapM (canonicalCategory table)
-    let category ← term.category.mapM (canonicalCategory table)
+      (session.categoryFor entry.id).mapM (canonicalCategory remap)
+    let category ← term.category.mapM (canonicalCategory remap)
     let instances ← term.source.context.instances.mapM fun selected => do
       let some index := term.source.context.entries.findIdx? (·.id == selected.binding)
         | throwError "an exported instance is outside its actual source telescope"
@@ -171,6 +173,9 @@ opaque observeFile (file : SourceFile) (initial : SourceSession) : TermElabM Obs
     let mut session := initial
     let mut observation : Observation := {}
     let mut rootFailure : Option Failure := none
+    -- Retained closed categories recur in later questions. Encode their typed syntax once;
+    -- TermRemap reproduces each reading's original independent table and insertion order.
+    let mut shared ← CasCatalogue.Realize.TermTable.new
     for item in file.items do
       let (identity, provenance, statement) ← match item with
         | `(cas_item| test $id:ident $label:str : $statement:cas_stmt) =>
@@ -201,8 +206,9 @@ opaque observeFile (file : SourceFile) (initial : SourceSession) : TermElabM Obs
         match formed with
         | .definition next _ => pure (.ok (Sum.inl next))
         | .question term | .implemented term =>
-          pure (.ok (Sum.inr (← reading session where_ provenance #[term] false)))
-        | .settled terms => pure (.ok (Sum.inr (← reading session where_ provenance terms true)))
+          pure (.ok (Sum.inr (← reading shared session where_ provenance #[term] false)))
+        | .settled terms =>
+          pure (.ok (Sum.inr (← reading shared session where_ provenance terms true)))
       catch error =>
         saved.restore
         pure (.error (← failure where_ stage error))
@@ -211,6 +217,8 @@ opaque observeFile (file : SourceFile) (initial : SourceSession) : TermElabM Obs
       | .ok (.inr row) =>
         observation := { observation with readings := observation.readings.push row }
       | .error error =>
+        -- Encoding refs are outside Lean's saved state; discard them after its rollback.
+        shared ← CasCatalogue.Realize.TermTable.new
         observation := { observation with failures := observation.failures.push error }
         if name.isSome then rootFailure := some error
         else observation := { observation with

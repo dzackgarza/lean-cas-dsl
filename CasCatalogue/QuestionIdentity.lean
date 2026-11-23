@@ -17,14 +17,16 @@ partial def level : Level → Json
   | .param n => Json.arr #[toJson "param", toJson (reprStr n)]
   | .mvar _ => Json.arr #[toJson "unresolved"]
 
-abbrev BinderContext := Array (Expr × Option Expr)
+/-- Cache keys retain binder annotations. The canonical node encoding still ignores metadata
+and binder spelling and identifies proofs by their proposition. -/
+abbrev BinderContext := Array (ExprStructEq × Option ExprStructEq)
 
 /-- Encode the unopened syntax alongside its locally opened form. The unopened expression and
 its ordered binder types and let values identify a contextual subterm across fresh local IDs;
 the opened form is used only where Lean must inspect a proof or create another local binder. -/
 partial def encodeInContext (intern : Json → TermElabM Nat)
-    (closed : IO.Ref (Std.HashMap Expr Nat))
-    (contextual : IO.Ref (Std.HashMap (Expr × BinderContext) Nat))
+    (closed : IO.Ref (ExprStructMap Nat))
+    (contextual : IO.Ref (Std.HashMap (ExprStructEq × BinderContext) Nat))
     (raw opened : Expr) (bound : Array FVarId) (context : BinderContext) : TermElabM Nat := do
   let raw ← instantiateMVars raw
   let opened ← instantiateMVars opened
@@ -32,9 +34,9 @@ partial def encodeInContext (intern : Json → TermElabM Nat)
     throwError "question contains unresolved typed terms"
   let independent := !raw.hasFVar && !raw.hasLooseBVars
   if independent then
-    if let some index := (← closed.get)[raw]? then return index
+    if let some index := (← closed.get)[ExprStructEq.mk raw]? then return index
   else
-    if let some index := (← contextual.get)[(raw, context)]? then return index
+    if let some index := (← contextual.get)[(ExprStructEq.mk raw, context)]? then return index
   let index ← if ← isProof opened then
     let type ← instantiateMVars (← inferType opened)
     let rawType := type.abstract (bound.map Expr.fvar)
@@ -63,7 +65,7 @@ partial def encodeInContext (intern : Json → TermElabM Nat)
       withLocalDecl .anonymous info openedType fun binder => do
         let body ← encodeInContext intern closed contextual body
           (openedBody.instantiate1 binder) (bound.push binder.fvarId!)
-          (context.push (type, none))
+          (context.push (⟨type⟩, none))
         return ← intern <| Json.arr #[toJson "lam", toJson domain, toJson body,
           toJson (reprStr info)]
   | .forallE _ type body info, .forallE _ openedType openedBody _ =>
@@ -71,7 +73,7 @@ partial def encodeInContext (intern : Json → TermElabM Nat)
       withLocalDecl .anonymous info openedType fun binder => do
         let body ← encodeInContext intern closed contextual body
           (openedBody.instantiate1 binder) (bound.push binder.fvarId!)
-          (context.push (type, none))
+          (context.push (⟨type⟩, none))
         return ← intern <| Json.arr #[toJson "forall", toJson domain, toJson body,
           toJson (reprStr info)]
   | .letE _ type value body nondep, .letE _ openedType openedValue openedBody _ =>
@@ -80,7 +82,7 @@ partial def encodeInContext (intern : Json → TermElabM Nat)
       withLetDecl .anonymous openedType openedValue fun binder => do
         let body ← encodeInContext intern closed contextual body
           (openedBody.instantiate1 binder) (bound.push binder.fvarId!)
-          (context.push (type, some value))
+          (context.push (⟨type⟩, some ⟨value⟩))
         return ← intern <| Json.arr #[toJson "let", toJson domain, toJson valueNode,
           toJson body, toJson nondep]
   | .lit literal, .lit _ => intern <| Json.arr #[toJson "literal", toJson (reprStr literal)]
@@ -89,17 +91,17 @@ partial def encodeInContext (intern : Json → TermElabM Nat)
         toJson (← encodeInContext intern closed contextual value openedValue bound context)]
   | _, _ => throwError "question changed shape while opening its typed binders"
   if independent then
-    closed.modify (·.insert raw index)
+    closed.modify (·.insert ⟨raw⟩ index)
   else
-    contextual.modify (·.insert (raw, context) index)
+    contextual.modify (·.insert (⟨raw⟩, context) index)
   return index
 
 /-- Serialize typed syntax, quotienting only metadata, binder spelling and proofs of the
 same proposition. No reduction of data, propositions, relations, or selected dictionaries
 is performed; a dependent proof token retains its proposition with de Bruijn indices. -/
 def encode (intern : Json → TermElabM Nat)
-    (closed : IO.Ref (Std.HashMap Expr Nat))
-    (contextual : IO.Ref (Std.HashMap (Expr × BinderContext) Nat))
+    (closed : IO.Ref (ExprStructMap Nat))
+    (contextual : IO.Ref (Std.HashMap (ExprStructEq × BinderContext) Nat))
     (term : Expr) : TermElabM Nat :=
   encodeInContext intern closed contextual term term #[] #[]
 
@@ -112,15 +114,15 @@ open Lean Meta Elab Term
 /-- Exact structural serialization with shared subterms. Hash maps are only indexes:
 equality is checked on expressions or complete node encodings, never on a digest. -/
 structure TermTable where
-  terms : IO.Ref (Std.HashMap Expr Nat)
-  contextualTerms : IO.Ref (Std.HashMap (Expr × QuestionIdentity.BinderContext) Nat)
+  terms : IO.Ref (ExprStructMap Nat)
+  contextualTerms : IO.Ref (Std.HashMap (ExprStructEq × QuestionIdentity.BinderContext) Nat)
   nodes : IO.Ref (Array Json)
   canonicalNodes : IO.Ref (Std.HashMap String Nat)
 
 def TermTable.new : IO TermTable := do
-  let terms ← IO.mkRef ({} : Std.HashMap Expr Nat)
+  let terms ← IO.mkRef ({} : ExprStructMap Nat)
   let contextualTerms ← IO.mkRef ({} : Std.HashMap
-    (Expr × QuestionIdentity.BinderContext) Nat)
+    (ExprStructEq × QuestionIdentity.BinderContext) Nat)
   let nodes ← IO.mkRef (#[] : Array Json)
   let canonicalNodes ← IO.mkRef ({} : Std.HashMap String Nat)
   return { terms, contextualTerms, nodes, canonicalNodes }
@@ -196,7 +198,7 @@ partial def TermRemap.encode (remap : TermRemap) (root : Nat) : TermElabM Nat :=
 insertion order. Closed source terms already encountered by another root require no Lean-term
 traversal. -/
 def TermRemap.encodeTerm (remap : TermRemap) (term : Expr) : TermElabM Nat := do
-  let root ← if let some root := (← remap.source.terms.get)[term]? then pure root
+  let root ← if let some root := (← remap.source.terms.get)[ExprStructEq.mk term]? then pure root
     else remap.source.encode term
   remap.encode root
 
