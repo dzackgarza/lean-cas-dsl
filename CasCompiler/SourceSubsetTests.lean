@@ -52,8 +52,12 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     (10, #[powerSets ++ `extent])]
   for (index, declarations) in expectations do
     let some statement := formed[index]? | throwError "a subset statement was not formed"
-    let term := match statement with
-      | .definition _ value | .question value | .implemented value | .settled value => value
+    let term ← match statement with
+      | .definition _ value | .question value | .implemented value => pure value
+      | .settled values =>
+        let #[value] := values
+          | throwError "an individual subset typing judgement did not retain exactly one term"
+        pure value
     unless ← denotes term declarations do
       throwError "subset statement {index} lost its registered power-object declaration"
   for index in [2, 3, 4, 5, 10] do

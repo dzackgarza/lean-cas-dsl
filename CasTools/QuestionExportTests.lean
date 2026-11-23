@@ -118,3 +118,77 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let second ← observe "second-tuple.cas" "second tuple source" "-- tuple provenance\n"
   unless first.question == second.question && first.sourceContext != second.sourceContext do
     throwError "tuple observation changed its native question or discarded source provenance"
+
+/- SourceStatement.settled retains every conjunct. The public observer must retain those
+ordered terms, their original scopes and spans, under one original assertion identity. -/
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let firstParameter ← empty.assume `n (← nativeTerm "Nat")
+  let initial ← firstParameter.assume `m (← nativeTerm "Nat")
+  let file ← SourceFile.parse "observer-conjunction.cas"
+    "let X := Fin(n)\n\
+     test observer.first_settled \"typing\": assert n ∈ ℕ\n\
+     test observer.second_settled \"typing\": assert m ∈ ℕ\n\
+     test observer.conjunction \"typing\": assert n ∈ ℕ and m ∈ ℕ\n\
+     test observer.reversed \"typing\": assert m ∈ ℕ and n ∈ ℕ\n"
+  let observation ← observeFile file initial
+  unless observation.failures.isEmpty && observation.readings.map (·.id) ==
+      #["observer.first_settled", "observer.second_settled", "observer.conjunction",
+        "observer.reversed"] do
+    throwError "compound typing observation lost an original assertion or failed to read it"
+  let nativeRoots (row : Reading) : TermElabM (Array Expr) := do
+    let .ok graph := Json.parse row.proposition
+      | throwError "a typing observation lost its native graph document"
+    let .ok roots := CasTools.NativeExpression.decode graph
+      | throwError "a typing observation's native graph did not decode"
+    return roots
+  let #[first] ← nativeRoots observation.readings[0]!
+    | throwError "an individual typing judgement changed its singleton native graph"
+  let #[second] ← nativeRoots observation.readings[1]!
+    | throwError "an individual typing judgement changed its singleton native graph"
+  if ← isDefEq first second then
+    throwError "the two source parameters no longer distinguish conjunct order"
+  for row in observation.readings.extract 0 2 do
+    let .ok question := Json.parse row.question | throwError "a singleton identity did not parse"
+    let .ok roots := question.getObjVal? "roots" | throwError "a singleton identity lost its root"
+    let .ok _ := roots.getObjValAs? Nat "proposition"
+      | throwError "a singleton typing identity changed its existing proposition shape"
+    let .error _ := roots.getObjVal? "conjuncts"
+      | throwError "a singleton typing identity acquired an aggregate wrapper"
+  for (row, expected) in #[(observation.readings[2]!, #[first, second]),
+      (observation.readings[3]!, #[second, first])] do
+    let actual ← nativeRoots row
+    unless actual.size == expected.size do
+      throwError "a typing conjunction lost a native term"
+    for index in [:expected.size] do
+      checkWithKernel actual[index]!
+      unless ← isDefEq actual[index]! expected[index]! do
+        throwError "a typing conjunction changed or reordered its original terms"
+    let .ok question := Json.parse row.question | throwError "a compound identity did not parse"
+    let .ok roots := question.getObjVal? "roots" | throwError "a compound identity lost its roots"
+    let .ok conjuncts := roots.getObjValAs? (Array Json) "conjuncts"
+      | throwError "a compound identity lost its ordered judgements"
+    let .ok snapshots := row.sourceContext.getObjValAs? (Array Json) "conjuncts"
+      | throwError "a compound observation lost its source snapshots"
+    unless conjuncts.size == 2 && snapshots.size == 2 do
+      throwError "a compound identity or source snapshot lost a conjunct"
+    let mut previousStop := 0
+    for snapshot in snapshots do
+      let .ok context := snapshot.getObjValAs? (Array Json) "context"
+        | throwError "a typing conjunct lost its complete source context"
+      unless context.size == 3 && (context[2]!.getObjValAs? String "name") == .ok "X" do
+        throwError "a typing conjunct discarded the unused original let binding"
+      let .ok graph := snapshot.getObjVal? "nativeExpressions"
+        | throwError "a typing conjunct lost its exact source graph"
+      let .ok #[_, _] := CasTools.NativeExpression.decode graph
+        | throwError "a typing conjunct lost its source expression or type"
+      let .ok start := snapshot.getObjValAs? Nat "startByte"
+        | throwError "a typing conjunct lost its original start position"
+      let .ok stop := snapshot.getObjValAs? Nat "stopByte"
+        | throwError "a typing conjunct lost its original end position"
+      unless previousStop ≤ start && start < stop do
+        throwError "a typing conjunction changed its ordered original source spans"
+      previousStop := stop
+  unless observation.readings[2]!.question != observation.readings[3]!.question do
+    throwError "reversing distinct typing judgements did not change their ordered identity"

@@ -27,11 +27,13 @@ structure Reading where
   provenance : String
   /-- The canonical typed reading in the fixed mathematical source environment. -/
   question : String
-  /-- NativeExpression graph document for the exact whole closed proposition. -/
+  /-- NativeExpression graph document for the exact whole closed proposition or the ordered
+  closed terms of a settled typing conjunction. -/
   proposition : String
   prettyProposition : String
   /-- Complete native source terms, binding identities, selections and original spans.
-  Expression indices refer to this snapshot's `nativeExpressions` node table. -/
+  Expression indices refer to this snapshot's `nativeExpressions` node table. A settled
+  conjunction retains one complete snapshot per ordered conjunct. -/
   sourceContext : Json
   deriving Inhabited, ToJson
 
@@ -175,42 +177,56 @@ private def canonicalCategory (table : CasCatalogue.Realize.TermTable)
     ("bundle", toJson (← table.encode bundle)),
     ("carrier", toJson carrier)]
 
-/-- A question is its proposition. A settled typing question (`x ∈ Y` for an object `Y`) is the
-element read at its declared type, whose reading settled it. -/
+/-- A question is its proposition. A settled typing question retains every term read at its
+declared type, in conjunct order. Singleton identity and snapshot formats remain unchanged.
+Source: SourceStatement.settled and settledJudgements? in CasCompiler/ReadSession.lean. -/
 private def reading (session : SourceSession) (where_ : Location) (provenance : String)
-    (term : SourceTerm) (settled : Bool) : TermElabM Reading := do
-  let proposition ← term.source.withOpen fun bindings expression => do
-    -- Retain unused parameters, hypotheses and lets; do not generalize a let into a parameter.
-    -- Reuse: Lean.Meta.mkForallFVars at v4.33.0, with its explicit retention controls.
-    if settled then
-      let typed ← mkExpectedTypeHint expression (← inferType expression)
-      return ← mkLambdaFVars (bindings.map (·.expression)) typed
-        (usedLetOnly := false) (generalizeNondepLet := false)
-    unless ← isProp expression do throwError "an exported question must be a proposition"
-    mkForallFVars (bindings.map (·.expression)) expression
-      (usedLetOnly := false) (generalizeNondepLet := false)
+    (terms : Array SourceTerm) (settled : Bool) : TermElabM Reading := do
+  if terms.isEmpty then throwError "an exported question must retain its source terms"
+  unless settled || terms.size == 1 do
+    throwError "a proposition question must retain exactly one source term"
   -- Reuse the existing typed canonical serializer. It erases only native metadata,
   -- binder spelling and proofs of the same proposition; the unquotiented snapshot stays below.
   -- Source: CasCatalogue/QuestionIdentity.lean, QuestionIdentity.encode and TermTable.
   let table ← CasCatalogue.Realize.TermTable.new
-  let root ← table.encode proposition
-  let categories ← term.source.context.entries.mapM fun entry =>
-    (session.categoryFor entry.id).mapM (canonicalCategory table)
-  let category ← term.category.mapM (canonicalCategory table)
-  let instances ← term.source.context.instances.mapM fun selected => do
-    let some index := term.source.context.entries.findIdx? (·.id == selected.binding)
-      | throwError "an exported instance is outside its actual source telescope"
-    return Json.mkObj [("class", toJson (selected.className.toString (escape := false))),
-      ("binding", toJson index)]
+  let retained ← terms.mapM fun term => do
+    let proposition ← term.source.withOpen fun bindings expression => do
+      -- Retain unused parameters, hypotheses and lets; do not generalize a let into a parameter.
+      -- Reuse: Lean.Meta.mkForallFVars at v4.33.0, with its explicit retention controls.
+      if settled then
+        let typed ← mkExpectedTypeHint expression (← inferType expression)
+        return ← mkLambdaFVars (bindings.map (·.expression)) typed
+          (usedLetOnly := false) (generalizeNondepLet := false)
+      unless ← isProp expression do throwError "an exported question must be a proposition"
+      mkForallFVars (bindings.map (·.expression)) expression
+        (usedLetOnly := false) (generalizeNondepLet := false)
+    let root ← table.encode proposition
+    let categories ← term.source.context.entries.mapM fun entry =>
+      (session.categoryFor entry.id).mapM (canonicalCategory table)
+    let category ← term.category.mapM (canonicalCategory table)
+    let instances ← term.source.context.instances.mapM fun selected => do
+      let some index := term.source.context.entries.findIdx? (·.id == selected.binding)
+        | throwError "an exported instance is outside its actual source telescope"
+      return Json.mkObj [("class", toJson (selected.className.toString (escape := false))),
+        ("binding", toJson index)]
+    return (proposition, [("proposition", toJson root),
+      ("roles", toJson (term.source.context.entries.map (reprStr ·.role))),
+      ("instances", toJson instances), ("categories", toJson categories),
+      ("category", toJson category)])
   -- A settled reading is marked; a proposition keeps its existing identity document.
   let judgement := if settled then [("judgement", toJson "settled")] else []
-  let question ← table.finish <| Json.mkObj <| judgement ++ [("proposition", toJson root),
-    ("roles", toJson (term.source.context.entries.map (reprStr ·.role))),
-    ("instances", toJson instances), ("categories", toJson categories),
-    ("category", toJson category)]
+  let roots := match retained with
+    | #[(_, fields)] => fields
+    | _ => [("conjuncts", toJson (retained.map fun (_, fields) => Json.mkObj fields))]
+  let question ← table.finish <| Json.mkObj (judgement ++ roots)
+  let propositions := retained.map (·.1)
+  let shown ← propositions.mapM fun proposition => return (← ppExpr proposition).pretty
+  let sourceContext := match terms with
+    | #[term] => snapshot session term
+    | _ => Json.mkObj [("conjuncts", toJson (terms.map (snapshot session)))]
   return ⟨where_.id, where_.file, where_.sourceLine, where_.source, provenance,
-    question, (NativeExpression.encode #[proposition]).compress,
-    (← ppExpr proposition).pretty, snapshot session term⟩
+    question, (NativeExpression.encode propositions).compress,
+    " and ".intercalate shown.toList, sourceContext⟩
 
 /-- Observe each original item through the native source session. A failed definition blocks
 the remaining file scope; a failed question leaves the preceding scope available. Native
@@ -251,8 +267,8 @@ opaque observeFile (file : SourceFile) (initial : SourceSession) : TermElabM Obs
         match formed with
         | .definition next _ => pure (.ok (Sum.inl next))
         | .question term | .implemented term =>
-          pure (.ok (Sum.inr (← reading session where_ provenance term false)))
-        | .settled term => pure (.ok (Sum.inr (← reading session where_ provenance term true)))
+          pure (.ok (Sum.inr (← reading session where_ provenance #[term] false)))
+        | .settled terms => pure (.ok (Sum.inr (← reading session where_ provenance terms true)))
       catch error =>
         saved.restore
         pure (.error (← failure where_ stage error))

@@ -35,8 +35,12 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       return (← instantiateMVars expression).containsConst (· == evaluation)
     unless evaluated do throwError "a polynomial value was not applied by its registered evaluation"
   for statement in formed.extract 0 3 do
-    let term := match statement with
-      | .definition _ value | .question value | .implemented value | .settled value => value
+    let term ← match statement with
+      | .definition _ value | .question value | .implemented value => pure value
+      | .settled values =>
+        let #[value] := values
+          | throwError "an individual ring typing judgement did not retain exactly one term"
+        pure value
     let uses ← term.source.withOpen fun _ expression => do
       return (← instantiateMVars expression).containsConst (· == generator)
     unless uses do throwError "a ring variable was not read as the registered generator"
