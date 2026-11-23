@@ -368,3 +368,77 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless (← liftM (m := BaseIO) transaction.activeGraph).isNone do
       throwError "stored field rejection retained a publishable transaction"
   finally setEnv original
+
+-- T007 / C23: a projected operand belongs to its selected record, even when another
+-- record has the same source definition and stores the very same scalar node.
+-- This is source-association acceptance, not a mathematical oracle for a provider.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let original ← getEnv
+  try
+    let empty ← ContextTelescope.capture #[]
+    let pair ← mkAppM ``Prod.mk #[mkNatLit 7, mkNatLit 7]
+    let recordRole ← SourceLayout.ofTerm (← empty.close pair)
+    let scalarRole ← SourceLayout.ofTerm (← empty.close (mkNatLit 7))
+    let callableRole ← SourceLayout.ofTerm (← empty.close (mkConst ``Nat.succ))
+    let owners ← liftM (m := IO) OwnerRegistry.new
+    let ledger ← liftM (m := BaseIO) (OccurrenceLedger.new owners)
+    discard <| SessionSnapshot.initialize owners
+    let producer ← CellTransaction.begin ledger
+    let program ← owners.identities.fresh .program
+    let occurrence ← ledger.allocate
+    let scalar ← producer.stage
+      { program, occurrence, role := scalarRole, parameters := #[] } (.portable "7".toUTF8)
+    let callable ← producer.stage
+      { program, occurrence, role := callableRole, parameters := #[] } (.closure program #[])
+    let first ← producer.stage
+      { program, occurrence, role := recordRole, parameters := #[] } (.product #[scalar, scalar])
+    let second ← producer.stage
+      { program, occurrence, role := recordRole, parameters := #[] } (.product #[scalar, scalar])
+    let .ok _ ← producer.commit | throwError "the projection inputs could not commit"
+    withLetDecl `r (← inferType pair) pair fun r => do
+      withLetDecl `s (← inferType pair) pair fun s => do
+        let bindings : Array LocalBinding := #[
+          { id := ⟨"projection-input", 0⟩, role := .definition, expression := r },
+          { id := ⟨"projection-input", 1⟩, role := .definition, expression := s }]
+        let context ← ContextTelescope.capture bindings
+        let transaction ← CellTransaction.begin ledger
+        let graph ← transaction.view
+        let .ok left := RuntimeParameter.ofValue graph bindings[0]!.id first
+          | throwError "the first record is outside the graph"
+        let .ok right := RuntimeParameter.ofValue graph bindings[1]!.id second
+          | throwError "the second record is outside the graph"
+        let parameters := #[left, right]
+        let environment ← RuntimeEnvironment.capture owners.worker context parameters
+        let .ok (some left) := environment.lookup bindings[0]!.id
+          | throwError "the first record lost its source binding"
+        let .ok (some right) := environment.lookup bindings[1]!.id
+          | throwError "the second record lost its source binding"
+        let firstRequest ← PreparedRequest.forProjection owners.identities program
+          (← ledger.allocate) context graph left 0 parameters
+        let secondRequest ← PreparedRequest.forProjection owners.identities program
+          (← ledger.allocate) context graph right 0 parameters
+        let actual ← Execute.run unavailableExecutor
+          (PFunctor.FreeM.lift (P := OperationalSignature) firstRequest) transaction
+        let other ← Execute.run unavailableExecutor
+          (PFunctor.FreeM.lift (P := OperationalSignature) secondRequest) transaction
+        unless actual.root.value == scalar.value && other.root.value == scalar.value do
+          throwError "projection replaced the shared stored scalar"
+        let graph ← transaction.view
+        let .ok accepted := RuntimeArgument.ofValue graph 0 actual.root
+          | throwError "the selected projection is outside the graph"
+        let .ok rejected := RuntimeArgument.ofValue graph 0 other.root
+          | throwError "the other projection is outside the graph"
+        let argument ← context.close (← mkProjection r `fst)
+        discard <| PreparedRequest.forApplication owners.identities program
+          (← ledger.allocate) context callable #[argument] #[accepted] parameters
+        let failure : Option Exception ← try
+          discard <| PreparedRequest.forApplication owners.identities program
+            (← ledger.allocate) context callable #[argument] #[rejected] parameters
+          pure none
+        catch error => pure (some error)
+        let some failure := failure
+          | throwError "an equal field from a different record satisfied the selected projection"
+        unless (← failure.toMessageData.toString).startsWith
+            "the runtime argument does not retain its specified source value" do throw failure
+        let .ok _ ← transaction.commit | throwError "the selected projections could not commit"
+  finally setEnv original
