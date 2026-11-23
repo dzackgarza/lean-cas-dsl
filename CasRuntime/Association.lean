@@ -110,12 +110,11 @@ partial def PreparedRequest.associateResult (request : PreparedRequest) (supply 
         application := application
         access := some retained.input.parent
         accessPath := retained.input.path }
-      let (next, selectedValue) ← liftM (m := IO) <|
-        draft.bindProjection inputOrigin value selected
+      let (next, selectedValue) ← draft.bindProjection inputOrigin value selected
       draft := next
       value := selectedValue
   if origin.access.isSome then
-    liftM (m := IO) <| draft.bindProjection origin value selected
+    draft.bindProjection origin value selected
   else if origin.application.isSome then
     liftM (m := IO) <| draft.bindApplication origin value selected
   else

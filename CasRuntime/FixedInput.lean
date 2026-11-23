@@ -1,7 +1,6 @@
 module
 
 public import CasRuntime.PreparedRequest
-public import CasRuntime.StoredProjection
 public import CasCatalogue.InterpretationFailure
 
 public section

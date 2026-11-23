@@ -159,12 +159,17 @@ Their ordered operands remain references to the existing graph, not copied retur
 def valueJson (value : ValueBinding) : StateM NativeExpression.Builder Json := do
   let fields ← value.instantiations.mapM fun field => do
     let association := field.association
+    let view ← field.view.mapM fun view => do
+      return Json.mkObj [("path", namesJson view.path),
+        ("typeFamily", ← ContextSnapshot.closedTermJson view.typeFamily),
+        ("precedingDependencies", toJson view.precedingDependencies)]
     return Json.mkObj [("id", identityJson field.id),
       ("association", Json.mkObj [("id", identityJson association.id),
         ("program", identityJson association.program),
         ("occurrence", identityJson association.occurrence),
         ("layout", ← recordJson association.layout)]),
-      ("field", ← fieldJson field.field), ("preceding", ← valuesJson field.preceding)]
+      ("field", ← fieldJson field.field), ("preceding", ← valuesJson field.preceding),
+      ("dependencyView", toJson view)]
   let applications ← value.applications.mapM fun application => do
     let association := application.association
     return Json.mkObj [("association", Json.mkObj [("id", identityJson association.id),

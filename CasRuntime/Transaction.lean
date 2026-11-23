@@ -153,7 +153,8 @@ opaque CellDraft.bindApplication (draft : CellDraft) (origin : ValueOrigin)
 
 /-- Keep a prepared projection association in the same isolated append-only reply delta. -/
 opaque CellDraft.bindProjection (draft : CellDraft) (origin : ValueOrigin)
-    (value : ValueBinding) (fields : Array ValueBinding) : IO (CellDraft × ValueBinding) := do
+    (value : ValueBinding) (fields : Array ValueBinding) :
+    Lean.Meta.MetaM (CellDraft × ValueBinding) := do
   let (graph, binding) ← draft.graph.bindProjection draft.identities origin value fields
   return ({ draft with graph, roots := draft.roots.push binding }, binding)
 

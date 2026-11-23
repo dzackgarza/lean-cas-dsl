@@ -3,7 +3,7 @@ module
 import CasContract.Failure
 import Lean.Meta.WHNF
 public import CasCompiler.Context
-public import Lean.Meta.Structure
+public import CasCompiler.SelectedField
 public import Lean.Util.CollectFVars
 
 @[expose] public section
@@ -25,39 +25,6 @@ def ComputationalKind.actions : ComputationalKind → Array ComputationalAction
   | .function => #[.retain, .apply]
   | .record => #[.retain, .project]
   | .typeValue | .data => #[.retain]
-
-private partial def projectionBody? : Expr → Option Expr
-  | .mdata data body =>
-    if data.contains `CasCompiler.source.kind || data.contains `CasCompiler.lower.value ||
-        data.contains `CasCompiler.selection then
-      none
-    else projectionBody? body
-  | expression => some expression
-
-/-- An exact native source projection, including its class-field metadata. -/
-structure SourceProjection where
-  private mk ::
-  declaration : Name
-  parent : Expr
-  info : ProjectionFunctionInfo
-
-/-- Read either native projection syntax without unfolding its parent or a source boundary.
-Reuse: StructureInfo.getProjFn? and Environment.getProjectionFnInfo? at Lean v4.33.0.
-Published source boundaries, selected fields and retained-value marks require admission first. -/
-opaque SourceProjection.ofExpr? (source : Expr) : MetaM (Option SourceProjection) := do
-  let some expression := projectionBody? source | return none
-  match expression with
-  | .proj owner index parent =>
-    let some structureInfo := getStructureInfo? (← getEnv) owner | return none
-    let some declaration := structureInfo.getProjFn? index | return none
-    let some info := (← getEnv).getProjectionFnInfo? declaration | return none
-    return some ⟨declaration, parent, info⟩
-  | _ =>
-    let .const declaration _ := expression.getAppFn | return none
-    let some info := (← getEnv).getProjectionFnInfo? declaration | return none
-    let arguments := expression.getAppArgs
-    unless arguments.size == info.numParams + 1 do return none
-    return some ⟨declaration, arguments[info.numParams]!, info⟩
 
 /-- Fixed source inputs retain their original argument or captured-context plane. -/
 inductive InputProjectionTarget where
@@ -251,6 +218,15 @@ structure FieldLayout where
   kind : ComputationalKind
   /-- Native ancestor record types, closed over their complete stable source context. -/
   private recordAncestors : Array ClosedTerm
+
+/-- A descendant's type under the original field prefix and its native inner field binders.
+Only original prefix positions have actual values in this view. The original FieldLayout
+stays unchanged; this is the checked dependency interface of its selected descendant. -/
+structure FieldDependencyView where
+  private mk ::
+  path : Array Name
+  typeFamily : ClosedTerm
+  precedingDependencies : Array Nat
 
 /-- Mechanical layout of a fixed source value, with its complete dependent source type. -/
 structure SourceLayout where
@@ -681,32 +657,26 @@ structure ResultDependencies where
 /-- Reflect constructor field domains under abstract preceding fields, as sourceLayout does.
 If source arguments determine the record shape, retain that shape's formal dependencies.
 Reference: Lean.forallBoundedTelescope, ConstructorVal and the native FieldLayout algorithm. -/
-private partial def fieldDependencies (type actual : Expr) (path : List Name)
-    (context arguments : Array Expr) (shapeContext shapeArguments : Array Nat) :
-    MetaM ResultDependencies := do
+private partial def withFieldTypeAt (type actual : Expr) (path : List Name)
+    (context arguments : Array Expr) (introduced : Array Expr) (shape : ResultDependencies)
+    (visit : Array Expr → Expr → ResultDependencies → MetaM α) : MetaM α := do
   match path with
-  | [] =>
-    let contextDependencies ← localDependencies context type
-    let argumentDependencies ← localDependencies arguments type
-    return {
-      context := (Array.range context.size).filter fun index =>
-        shapeContext.contains index || contextDependencies.contains index
-      arguments := (Array.range arguments.size).filter fun index =>
-        shapeArguments.contains index || argumentDependencies.contains index }
+  | [] => visit introduced type shape
   | projection :: rest =>
     let some info := (← getEnv).getProjectionFnInfo? projection
       | throwError "the application result address contains a nonprojection declaration"
     let constructor ← getConstInfoCtor info.ctorName
     let reduced ← whnf type
-    let (type, shapeContext, shapeArguments) ←
+    let (type, shape) ←
       if reduced.getAppFn.constName? == some constructor.induct then
-        pure (reduced, shapeContext, shapeArguments)
+        pure (reduced, shape)
       else do
         let actualType ← whnf (← inferType actual)
         unless actualType.getAppFn.constName? == some constructor.induct do
           throwError "the source field has a different native record interface"
-        pure (actualType, shapeContext ++ (← localDependencies context reduced),
-          shapeArguments ++ (← localDependencies arguments reduced))
+        pure (actualType, {
+          context := shape.context ++ (← localDependencies context reduced)
+          arguments := shape.arguments ++ (← localDependencies arguments reduced) })
     let .const _ levels := type.getAppFn
       | throwError "the source field requires its native structure parameters"
     let applied := mkAppN (mkConst constructor.name levels)
@@ -715,8 +685,41 @@ private partial def fieldDependencies (type actual : Expr) (path : List Name)
       let some selected := fields[info.i]?
         | throwError "the native constructor lost a prepared result field"
       let actual ← projectSource actual #[projection]
-      fieldDependencies (← inferType selected) actual rest context arguments
-        shapeContext shapeArguments
+      withFieldTypeAt (← inferType selected) actual rest context arguments
+        (introduced ++ fields.extract 0 info.i) shape visit
+
+private def fieldDependencies (type actual : Expr) (path : List Name)
+    (context arguments : Array Expr) (shapeContext shapeArguments : Array Nat) :
+    MetaM ResultDependencies :=
+  withFieldTypeAt type actual path context arguments #[] ⟨shapeContext, shapeArguments⟩
+    fun _ type shape => do
+      let contextDependencies ← localDependencies context type
+      let argumentDependencies ← localDependencies arguments type
+      return {
+        context := (Array.range context.size).filter fun index =>
+          shape.context.contains index || contextDependencies.contains index
+        arguments := (Array.range arguments.size).filter fun index =>
+          shape.arguments.contains index || argumentDependencies.contains index }
+
+/-- Derive a selected descendant's original-prefix dependencies from the declared field family.
+Inner constructor prefixes remain abstract, so an unrelated sibling cannot become an owner.
+Reuse: the same native projection/telescope traversal as ApplicationLayout.dependenciesAt. -/
+opaque FieldLayout.dependencyView (field : FieldLayout) (path : Array Name) :
+    MetaM FieldDependencyView :=
+  field.typeFamily.withOpen fun bindings family => do
+    let context ← ContextTelescope.capture bindings
+    let actual ← field.source.inContext context
+    lambdaBoundedTelescope family field.sourceIndex fun preceding type => do
+      unless preceding.size == field.sourceIndex do
+        throwError "a dependent field lost its original native prefix"
+      withFieldTypeAt type actual path.toList #[] preceding #[] ⟨#[], #[]⟩
+        fun introduced type shape => do
+          let locals := preceding ++ introduced
+          let dependencies ← localDependencies locals type
+          let required := (Array.range preceding.size).filter fun index =>
+            shape.arguments.contains index || dependencies.contains index
+          let family ← mkLambdaFVars locals type (usedOnly := false) (usedLetOnly := false)
+          return ⟨path, ← context.close family, required⟩
 
 /-- Check a descendant source role in its complete current context.
 Stable source transport retains the parent across later bindings and lexical shadowing. -/

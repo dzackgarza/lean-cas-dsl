@@ -1,7 +1,6 @@
 module
 
 public import CasCompiler.SelectedField
-public import CasCompiler.Layout
 public import Mathlib.CategoryTheory.Comma.Arrow
 
 public section

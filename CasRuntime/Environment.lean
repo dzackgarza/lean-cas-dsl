@@ -263,7 +263,7 @@ private def checkDependencies (context : OpenContext)
             m!"the runtime value is missing a retained dependent reference")
       unless sameReference original current do
         throwError "the runtime value has a different retained dependent reference"
-  if value.instantiations.all (·.field.precedingDependencies.isEmpty) then return ()
+  if value.instantiations.all (·.precedingDependencies.isEmpty) then return ()
   let dependencies ← CasCompiler.contextDependencies context.bindings expected
   let mut inputs := #[]
   for binding in context.bindings do
@@ -276,13 +276,15 @@ private def checkDependencies (context : OpenContext)
         (← context.close dependency.expression) then
       references := references.push (dependency, reference)
   for instantiation in value.instantiations do
-    if instantiation.field.precedingDependencies.isEmpty then continue
-    let family ← instantiation.field.typeFamily.inContext context
-    let terms ← lambdaBoundedTelescope family instantiation.preceding.size fun locals type => do
-      unless locals.size == instantiation.preceding.size do
+    if instantiation.precedingDependencies.isEmpty then continue
+    let family ← instantiation.typeFamily.inContext context
+    let inspect := fun locals type => do
+      unless locals.size ≥ instantiation.preceding.size do
         throwError "a consuming runtime dependency lost its complete native prefix"
       dependencyTerms locals type expected
-    for index in instantiation.field.precedingDependencies do
+    let terms ← if instantiation.view.isSome then lambdaTelescope family inspect
+      else lambdaBoundedTelescope family instantiation.preceding.size inspect
+    for index in instantiation.precedingDependencies do
       let some previous := instantiation.preceding[index]?
         | throwError "a consuming runtime dependency is outside its complete field prefix"
       if let some original := previous then

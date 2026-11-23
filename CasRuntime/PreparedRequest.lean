@@ -2,7 +2,6 @@ module
 
 public import CasCompiler.Program
 public import CasRuntime.Value
-public import CasRuntime.StoredProjection
 public import CasRuntime.Environment
 public import CasRuntime.RoleMap
 public import CasRuntime.Observation

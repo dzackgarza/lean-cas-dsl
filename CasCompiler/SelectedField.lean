@@ -8,6 +8,43 @@ namespace CasCompiler
 
 open Lean Meta
 
+@[expose] section
+
+partial def projectionBody? : Expr → Option Expr
+  | .mdata data body =>
+    if data.contains `CasCompiler.source.kind || data.contains `CasCompiler.lower.value ||
+        data.contains `CasCompiler.selection then
+      none
+    else projectionBody? body
+  | expression => some expression
+
+/-- An exact native source projection, including its class-field metadata. -/
+structure SourceProjection where
+  private mk ::
+  declaration : Name
+  parent : Expr
+  info : ProjectionFunctionInfo
+
+/-- Read either native projection syntax without unfolding its parent or a source boundary.
+Reuse: StructureInfo.getProjFn? and Environment.getProjectionFnInfo? at Lean v4.33.0.
+Published source boundaries, selected fields and retained-value marks require admission first. -/
+opaque SourceProjection.ofExpr? (source : Expr) : MetaM (Option SourceProjection) := do
+  let some expression := projectionBody? source | return none
+  match expression with
+  | .proj owner index parent =>
+    let some structureInfo := getStructureInfo? (← getEnv) owner | return none
+    let some declaration := structureInfo.getProjFn? index | return none
+    let some info := (← getEnv).getProjectionFnInfo? declaration | return none
+    return some ⟨declaration, parent, info⟩
+  | _ =>
+    let .const declaration _ := expression.getAppFn | return none
+    let some info := (← getEnv).getProjectionFnInfo? declaration | return none
+    let arguments := expression.getAppArgs
+    unless arguments.size == info.numParams + 1 do return none
+    return some ⟨declaration, arguments[info.numParams]!, info⟩
+
+end
+
 /-- An exact field of one source-selected construction. Metadata is ignored by conversion;
 the selection and projection identify a computational use, not a mathematical equality.
 Reuse: Lean MData, as for sourceReference and retained runtime-value marks. -/

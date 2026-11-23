@@ -8,7 +8,7 @@ public section
 
 namespace CasRuntime
 
-open Lean CasCompiler CasCatalogue.Backend
+open Lean Meta CasCompiler CasCatalogue.Backend
 
 /-- One exact record occurrence's prepared source and runtime association identity. -/
 structure RecordAssociation where
@@ -30,6 +30,26 @@ structure ApplicationAssociation where
   dependencies : Array Nat
   contextDependencies : Array Nat
 
+/-- Original consuming field data, with an optional checked descendant dependency view.
+The parameter permits the same data to be retained inside a recursive ValueBinding.
+Creating this record cannot attach an association to a value; that boundary remains private. -/
+structure FieldInstantiationData (binding : Type) where
+  id : RuntimeId .association
+  association : RecordAssociation
+  field : FieldLayout
+  preceding : Array (Option binding)
+  view : Option FieldDependencyView := none
+
+def FieldInstantiationData.typeFamily (value : FieldInstantiationData binding) : ClosedTerm :=
+  (value.view.map (·.typeFamily)).getD value.field.typeFamily
+
+def FieldInstantiationData.precedingDependencies (value : FieldInstantiationData binding) :
+    Array Nat :=
+  (value.view.map (·.precedingDependencies)).getD value.field.precedingDependencies
+
+def FieldInstantiationData.projectionPath (value : FieldInstantiationData binding) : Array Name :=
+  (value.view.map (·.path)).getD #[]
+
 /-- A consuming role retains its underlying binding and actual dependent prefix.
 The recursive data keep earlier associations when an existing node fills another role.
 Source: the data model's ResultBinding and dependency-ordered DataInterface contract. -/
@@ -46,6 +66,7 @@ inductive ValueBinding where
   | private inProjection (id : RuntimeId .association) (binding : ValueBinding)
       (role : SourceLayout) (parent : ValueBinding) (path : Array Name)
       (basis : ValueBinding) (fields : Array ValueBinding)
+      (dependencies : Array (FieldInstantiationData ValueBinding))
 
 def ValueBinding.value : ValueBinding → RuntimeId .value
   | .direct value _ => value
@@ -65,20 +86,16 @@ opaque ValueBinding.withRole (binding : ValueBinding) (role : SourceLayout) :
     | .atRole underlying _ => .atRole underlying role
     | _ => .atRole binding role
 
-structure FieldInstantiation where
-  private mk ::
-  id : RuntimeId .association
-  association : RecordAssociation
-  field : FieldLayout
-  preceding : Array (Option ValueBinding)
+abbrev FieldInstantiation := FieldInstantiationData ValueBinding
 
 /-- Source type families are instantiated by these exact references, never decoded Lean terms. -/
 def ValueBinding.instantiations : ValueBinding → Array FieldInstantiation
   | .direct .. => #[]
   | .atRole binding _ => binding.instantiations
   | .inField id binding _ association field preceding =>
-    binding.instantiations.push ⟨id, association, field, preceding⟩
-  | .inApplication binding .. | .inProjection _ binding .. => binding.instantiations
+    binding.instantiations.push ⟨id, association, field, preceding, none⟩
+  | .inApplication binding .. => binding.instantiations
+  | .inProjection _ binding _ _ _ _ _ dependencies => binding.instantiations ++ dependencies
 
 structure ApplicationInstantiation where
   private mk ::
@@ -111,7 +128,7 @@ def ValueBinding.projectionAccesses : ValueBinding → Array (ValueBinding × Ar
   | .direct .. => #[]
   | .atRole binding _ | .inField _ binding .. | .inApplication binding .. =>
     binding.projectionAccesses
-  | .inProjection _ binding _ parent path _ _ => binding.projectionAccesses.push (parent, path)
+  | .inProjection _ binding _ parent path _ _ _ => binding.projectionAccesses.push (parent, path)
 
 /-- The selected binding before this access added consuming associations.
 Reuse: the exact projection producer, retained parent identities and native paths. This baseline
@@ -122,7 +139,7 @@ def ValueBinding.projectionBasis (value parent : ValueBinding) (path : Array Nam
   | .direct .. => none
   | .atRole binding _ | .inField _ binding .. | .inApplication binding .. =>
     binding.projectionBasis parent path
-  | .inProjection _ binding _ selected selectedPath basis _ =>
+  | .inProjection _ binding _ selected selectedPath basis _ _ =>
     if selected.value == parent.value && selected.associationIds == parent.associationIds &&
         selectedPath == path then some basis
     else binding.projectionBasis parent path
@@ -131,7 +148,7 @@ def ValueBinding.projectionBasis (value parent : ValueBinding) (path : Array Nam
 intermediate parent without erasing unrelated field or application associations. -/
 private def ValueBinding.projectionParent : ValueBinding → ValueBinding
   | .atRole binding _ => binding.projectionParent
-  | .inProjection _ _ _ _ _ basis _ => basis.projectionParent
+  | .inProjection _ _ _ _ _ basis _ _ => basis.projectionParent
   | binding => binding
 
 private def valueKey : Name := `CasCompiler.lower.value
@@ -396,13 +413,20 @@ private partial def ValueGraph.checkBinding (graph : ValueGraph) (binding : Valu
     unless (graph.find value).isSome do throw "the value reference is outside the visible graph"
     return visited
   | .atRole underlying _ => graph.checkBinding underlying visited
-  | .inProjection id underlying _ parent path _ fields =>
+  | .inProjection id underlying _ parent path _ fields dependencies =>
     if visited.contains id then return visited
     unless graph.associations.contains id && id.worker == graph.worker && !path.isEmpty do
       throw "the projection association is outside the visible graph"
     let mut visited ← graph.checkBinding underlying (visited.insert id)
     visited ← graph.checkBinding parent visited
     for field in fields do visited ← graph.checkBinding field visited
+    for dependency in dependencies do
+      unless graph.associations.contains dependency.id && dependency.id.worker == graph.worker &&
+          dependency.association.id.worker == graph.worker &&
+          dependency.field.sourceIndex == dependency.preceding.size do
+        throw "a projected field dependency lost its original association or prefix"
+      for previous in dependency.preceding do
+        if let some previous := previous then visited ← graph.checkBinding previous visited
     return visited
   | .inField id underlying _ association field preceding =>
     if visited.contains id then return visited
@@ -448,7 +472,7 @@ opaque ValueGraph.projected? (graph : ValueGraph) (parent : ValueBinding) (path 
   discard <| graph.require parent
   let mut selected : Option (Nat × ValueBinding) := none
   for retained in graph.projections[parent.value]?.getD #[] do
-    let .inProjection _ _ _ original selectedPath basis _ := retained
+    let .inProjection _ _ _ original selectedPath basis _ _ := retained
       | throw "the retained projection index has no actual projection relation"
     let original := original.projectionParent
     unless original.value == parent.value && selectedPath == path &&
@@ -512,11 +536,15 @@ private partial def ValueGraph.bindingOwners (graph : ValueGraph) (binding : Val
           owners := state.owners.push owner }
     return state
   | .atRole underlying _ => graph.bindingOwners underlying state
-  | .inProjection id underlying _ _ _ _ fields =>
+  | .inProjection id underlying _ _ _ _ fields dependencies =>
     if state.instantiations.contains id then return state
     let mut state ← graph.bindingOwners underlying
       { state with instantiations := state.instantiations.insert id }
     for field in fields do state ← graph.bindingOwners field state
+    for dependency in dependencies do
+      let references ← selectedReferences dependency.precedingDependencies dependency.preceding
+      for previous in references do
+        state ← graph.bindingOwners previous state
     return state
   | .inField id underlying _ _ field preceding =>
     if state.instantiations.contains id then return state
@@ -557,7 +585,7 @@ private def ValueBinding.applicationFields : ValueBinding → Option (Array Valu
   | .direct .. => none
   | .atRole binding _ | .inField _ binding .. => binding.applicationFields
   | .inApplication _ _ _ _ _ _ _ _ fields => some fields
-  | .inProjection _ _ _ _ _ _ fields => some fields
+  | .inProjection _ _ _ _ _ _ fields _ => some fields
 
 /-- Projection selects the retained field view, independently of unrelated field owners. -/
 opaque ValueGraph.project (graph : ValueGraph) (binding : ValueBinding) (index : Nat) :
@@ -577,6 +605,57 @@ opaque ValueGraph.project (graph : ValueGraph) (binding : ValueBinding) (index :
       | throw "the projection is outside the retained container"
     return field
   | _ => throw "the retained payload has no stored product fields"
+
+/-- One pure traversal supplies both the stored frontier and the exact visited parent bindings.
+The temporary parents are used only while preparing descendant dependency views. -/
+private def projectionWalk (graph : ValueGraph) (parent : ValueBinding) (path : Array Name) :
+    Except String (Option (ValueBinding × Array Name) × Array (ValueBinding × Array Name)) := do
+  discard <| graph.requiredOwners #[parent]
+  let mut value := parent
+  let mut parents := #[]
+  for projection in path, offset in [:path.size] do
+    let remaining := path.extract offset path.size
+    parents := parents.push (value, remaining)
+    let some field := value.role.fields.find? (·.projection == projection)
+      | throw "a native field path lost its actual record interface"
+    let some index := field.wireIndex
+      | throw "a computational field path selected a proof field"
+    let some node := graph.find value.value
+      | throw "the selected value is outside the visible graph"
+    if node.payload.data.storedFields?.isNone then
+      if let some retained ← graph.projected? value #[projection] then
+        value := retained
+        continue
+    match node.payload.data with
+    | .closure .. | .ownedToken .. => return (some (value, remaining), parents)
+    | .container container =>
+      if container.fields.isNone then return (none, parents)
+      value ← graph.project value index
+    | .product .. => value ← graph.project value index
+    | .portable .. => throw "the selected value has no native record access interface"
+  return (some (value, #[]), parents)
+
+/-- Follow an exact native path through stored or already published fields without execution.
+The returned baseline and remaining lazy path keep the existing read-only query contract. -/
+opaque ValueGraph.projectionFrontier (graph : ValueGraph) (parent : ValueBinding)
+    (path : Array Name) : Except String (Option (ValueBinding × Array Name)) := do
+  return (← projectionWalk graph parent path).1
+
+/-- Carry only the original field-prefix requirements of this selected descendant.
+The source paths and original associations select these views; no payload equality is used. -/
+private def projectionFieldDependencies (graph : ValueGraph) (parent : ValueBinding)
+    (path : Array Name) (selected : ValueBinding) : MetaM (Array FieldInstantiation) := do
+  let (_, parents) ← IO.ofExcept <| (projectionWalk graph parent path).mapError IO.userError
+  let mut dependencies : Array FieldInstantiation := #[]
+  for (parent, remaining) in parents do
+    for field in parent.instantiations do
+      if field.field.precedingDependencies.isEmpty then continue
+      let path := field.projectionPath ++ remaining
+      if (selected.instantiations ++ dependencies).any (fun previous =>
+          previous.id == field.id && previous.projectionPath == path) then continue
+      let view ← field.field.dependencyView path
+      dependencies := dependencies.push { field with view := some view }
+  return dependencies
 
 /-- Follow stored callable slots to actual code/token data, retaining the complete outer value.
 The append-only graph supplies existing references; no source expression reconstructs a callable.
@@ -719,42 +798,43 @@ The parent is retained for visibility and source selection, not as a whole-recor
 Reuse: bindApplication for original application data, CandidateResponse and immutable associations. -/
 opaque ValueGraph.bindProjection (graph : ValueGraph) (supply : IdentitySupply)
     (origin : ValueOrigin) (value : ValueBinding) (fields : Array ValueBinding) :
-    IO (ValueGraph × ValueBinding) := do
+    MetaM (ValueGraph × ValueBinding) := do
   unless supply.worker == graph.worker && origin.program.worker == graph.worker &&
       origin.occurrence.worker == graph.worker do
-    throw <| IO.userError "projection binding belongs to a different worker"
+    throwError "projection binding belongs to a different worker"
   let some parent := origin.access
-    | throw <| IO.userError "projection binding requires its selected parent"
+    | throwError "projection binding requires its selected parent"
   if origin.accessPath.isEmpty then
-    throw <| IO.userError "projection binding requires its exact source path"
+    throwError "projection binding requires its exact source path"
   discard <| IO.ofExcept <|
     (graph.requiredOwners origin.references).mapError IO.userError
   let candidate ← IO.ofExcept <|
     (CandidateResponse.ofValue origin.role graph value).mapError IO.userError
   let some node := graph.find candidate.root.value
-    | throw <| IO.userError "the projected value is outside the visible graph"
+    | throwError "the projected value is outside the visible graph"
   let prior ← IO.ofExcept <|
     (graph.projected? parent origin.accessPath).mapError IO.userError
   if let some prior := prior then
     unless candidate.root.value == prior.value &&
         prior.associationIds.toList.isPrefixOf candidate.root.associationIds.toList do
-      throw <| IO.userError "the projection changed its retained field reference"
+      throwError "the projection changed its retained field reference"
   let stored := if origin.role.kind == .record then
       (node.payload.data.storedFields?.getD #[]).size
     else 0
   unless fields.size == stored do
-    throw <| IO.userError "projection binding requires its complete stored field views"
+    throwError "projection binding requires its complete stored field views"
   for field in fields, index in [:fields.size] do
     let original ← IO.ofExcept <| (graph.project candidate.root index).mapError IO.userError
     unless original.value == field.value &&
         original.associationIds.toList.isPrefixOf field.associationIds.toList do
-      throw <| IO.userError "a projection field view changed its original stored reference"
+      throwError "a projection field view changed its original stored reference"
+  let dependencies ← projectionFieldDependencies graph parent origin.accessPath candidate.root
   let (graph, value) ← if origin.application.isSome then
       graph.bindApplication supply origin candidate.root fields
     else pure (graph, candidate.root)
   let id ← supply.fresh .association
   let binding := ValueBinding.inProjection id value origin.role parent origin.accessPath
-    candidate.root fields
+    candidate.root fields dependencies
   let projections := if prior.isSome then graph.projections else
     let key := parent.projectionParent.value
     graph.projections.insert key ((graph.projections[key]?.getD #[]).push binding)

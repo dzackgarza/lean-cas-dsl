@@ -782,6 +782,45 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             | throwError "the nested dependent control could not install its complete records"
           let .ok base ← producer.commit
             | throwError "the nested dependent control could not publish its live inputs"
+          -- The enriched descendant must also retain the same index during later native
+          -- environment admission, even when another actual index has the same native value.
+          let .ok liveParameter := RuntimeParameter.ofValue base.graph id outer
+            | throwError "the live nested dependent record is outside its graph"
+          let liveEnvironment ← RuntimeEnvironment.capture owners.worker context #[liveParameter]
+          let .ok (some liveRoot) := liveEnvironment.lookup id
+            | throwError "the live nested dependent record lost its source binding"
+          let liveBound := ({} : Std.HashMap BindingId ValueBinding).insert id liveRoot
+          let live ← CellTransaction.begin kernel.ledger
+          let selectedPoint ← kernel.run live context liveBound pointSource none
+          let .ok liveSnapshot ← live.commit
+            | throwError "the live dependent descendant could not commit"
+          let .ok originalIndex := liveSnapshot.graph.project outer 0
+            | throwError "the live dependent descendant lost its original index"
+          withLetDecl `n (mkConst ``Nat) (← mkProjection r `fst) fun n => do
+            withLocalDeclD `point (mkApp (mkConst ``Fin) n) fun suppliedPoint => do
+              let bindings : Array LocalBinding := #[
+                { id, role := .result, expression := r },
+                { id := ⟨id.session, 1⟩, role := .definition, expression := n },
+                { id := ⟨id.session, 2⟩, role := .parameter, expression := suppliedPoint }]
+              let consuming ← ContextTelescope.capture bindings
+              let parameter (position : Nat) (value : ValueBinding) : MetaM RuntimeParameter := do
+                let .ok parameter :=
+                    RuntimeParameter.ofValue liveSnapshot.graph bindings[position]!.id value
+                  | throwError "a nested consuming reference is outside the published graph"
+                return parameter
+              let root ← parameter 0 outer
+              let point ← parameter 2 selectedPoint
+              discard <| RuntimeEnvironment.capture owners.worker consuming
+                #[root, ← parameter 1 originalIndex, point]
+              let failure : Option Exception ← try
+                discard <| RuntimeEnvironment.capture owners.worker consuming
+                  #[root, ← parameter 1 scalar, point]
+                pure none
+              catch error => pure (some error)
+              let some failure := failure
+                | throwError "a different actual index satisfied a nested descendant's native type"
+              unless (← failure.toMessageData.toString).startsWith
+                  "the runtime value has a different consuming dependent reference" do throw failure
           owners.close child.generation
           unless !(← base.graph.isAvailable owners dependentInner) &&
               (← base.graph.isAvailable owners point) &&
