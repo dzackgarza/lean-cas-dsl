@@ -1029,7 +1029,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             nativeSource ← field.toLayout
           unless (← selectedSource.source.inContext context) ==
               (← nativeSource.source.inContext context) do
-            throwError "the first input access borrowed its output record's source role"
+            throwError "the first input access borrowed its output record's source role; path={reprStr selectedPath}; selected={reprStr selectedSource.source.expression}; expected={reprStr nativeSource.source.expression}; selectedParent={reprStr selectedParent.role.source.expression}; inputParent={reprStr input.parent.role.source.expression}"
           discard <| request.environment.checkOperand graph nativeSource sourceAccess
           let .ok actual := RuntimeArgument.ofValue graph 0 sourceAccess (← kernel.marks.get)
             | throwError "the original input access is outside its admitted graph"
