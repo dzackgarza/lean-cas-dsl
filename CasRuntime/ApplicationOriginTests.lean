@@ -193,6 +193,36 @@ run_cmd Lean.Elab.Command.liftTermElabM do
                       (application.arguments[0]?.bind id).map (·.value) == some index.value &&
                       access.value == parent.value && (← access.role.source.inContext current) == r do
                     throwError "projection changed its source planes, path or actual later-bound operand"
+                  let document := projection.observation.native.getObjValD "request"
+                  let .ok observedContext :=
+                      (document.getObjValD "environment").getObjValAs? (Array Json) "context"
+                    | throwError "projection observation lost its complete current source context"
+                  let expectedIds := #[
+                    Json.mkObj [("session", toJson "lazy-current"), ("serial", toJson (0 : Nat))],
+                    Json.mkObj [("session", toJson "lazy-origin"), ("serial", toJson (0 : Nat))],
+                    Json.mkObj [("session", toJson "lazy-origin"), ("serial", toJson (1 : Nat))],
+                    Json.mkObj [("session", toJson "lazy-current"), ("serial", toJson (1 : Nat))]]
+                  let .ok readable :=
+                      projection.observation.readable.getObjValAs? (Array Json) "context"
+                    | throwError "projection observation lost its prepared readable context"
+                  unless observedContext.map (·.getObjValD "id") == expectedIds &&
+                      readable.map (·.getObjValD "id") == expectedIds &&
+                      observedContext[0]?.map (·.getObjValD "name") == some (toJson "n") &&
+                      observedContext[1]?.map (·.getObjValD "name") == some (toJson "n") do
+                    throwError "observation merged shadowed names or omitted unused bindings"
+                  let observedOrigin := document.getObjValD "origin"
+                  let observedApplication := observedOrigin.getObjValD "application"
+                  let observedAccess := (observedOrigin.getObjValD "access").getObjValD "reference"
+                  unless (observedOrigin.getObjValAs? (Array Json) "parameters").toOption.map
+                        (·.size) == some 4 &&
+                      (observedApplication.getObjValAs? (Array Json) "parameters").toOption.map
+                        (·.size) == some 2 &&
+                      observedApplication.getObjValD "path" ==
+                        Json.arr #[CasTools.NativeExpression.nameJson ``Prod.snd] &&
+                      observedAccess.getObjValD "value" == Json.mkObj [
+                        ("worker", toJson parent.value.worker),
+                        ("serial", toJson parent.value.serial)] do
+                    throwError "observation lost its final application or access origin"
                   let (projected, point) ← liftM (m := IO) <|
                     graph.stage owners.identities origin (.product #[number])
                   let .ok dependencies := projected.requiredOwners #[point]

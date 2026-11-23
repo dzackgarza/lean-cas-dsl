@@ -8,6 +8,22 @@ meta import CasRuntime.Transport
 
 open Lean Meta CasCompiler CasRuntime CasCatalogue.Backend
 
+private def checkNativeObservation (retained : CommittedReceipt) (nativeRequest : PreparedRequest)
+    (nativeObservation : Json) : MetaM Unit := do
+  unless retained.association.request.observation.toJson == nativeObservation do
+    throwError "completion publication or owner loss changed the prepared observation"
+  let .ok nativeRoots := CasTools.NativeExpression.decode
+      (retained.association.request.observation.native.getObjValD "nativeExpressions")
+    | throwError "the committed observation lost its exact native source graph"
+  unless nativeRoots ==
+      #[nativeRequest.source.source.expression, nativeRequest.source.source.type] do
+    throwError "the inert receipt no longer describes the original native request"
+  let readableSource := retained.association.request.observation.readable.getObjValD "source"
+  let .ok readable := readableSource.getObjValAs? String "expression"
+    | throwError "the committed observation lost its prepared readable source"
+  unless !readable.isEmpty && retained.association.request.observation.sourceSnapshot.isNone do
+    throwError "native receipt observation is empty or invents a frontend source snapshot"
+
 private def perform (ledger : OccurrenceLedger) (program : RuntimeId .program)
     (selected : DispatchIdentity) (transaction : CellTransaction) (peer : FramedConnection) :
     MetaM CompletionAssociation := do
@@ -95,6 +111,7 @@ run_cmd Lean.Elab.Command.liftTermElabM <| liftM (m := MetaM) do
         | throwError "the native completion argument is absent"
       let nativeRequest ← PreparedRequest.forApplication owners.identities program nativeOccurrence context callable
         #[function.source] #[actual] #[]
+      let nativeObservation := nativeRequest.observation.toJson
       discard <| nativeRequest.admitInputs graph
       let .ok nativeReservation ← liftM (m := BaseIO) <| transaction.reserve nativeOccurrence
         { selected with registration := { selected.registration with operation := "stored" } }
@@ -196,8 +213,9 @@ run_cmd Lean.Elab.Command.liftTermElabM <| liftM (m := MetaM) do
       match ← liftM (m := BaseIO) <| published.reuse owners nativeOccurrence nativeRole.role.id with
       | .error .staleOwner => pure ()
       | _ => throwError "an owned receipt remained reusable after its actual owner died"
-      unless (published.receipt nativeOccurrence).isSome do
-        throwError "owner loss hid inert receipt metadata"
+      let some retained := published.receipt nativeOccurrence
+        | throwError "owner loss hid inert receipt metadata"
+      checkNativeObservation retained nativeRequest nativeObservation
       let .ok (some portable) ← liftM (m := BaseIO) <|
         published.reuse owners first.request.occurrence firstRole.role.id
         | throwError "an independent portable completion acquired its former provider's owner"

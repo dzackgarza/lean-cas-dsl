@@ -20,6 +20,9 @@ run_cmd do
     (key, if key == `syntaxValue then .ofSyntax shiftedSyntax else value) }
   let level := Level.imax (.max (.param name) (.succ .zero)) (.mvar ⟨name⟩)
   let leaf := Expr.const name [level]
+  let annotated := Expr.mdata metadata leaf
+  let shifted := Expr.mdata shiftedMetadata leaf
+  let reordered := Expr.mdata { entries := metadata.entries.reverse } leaf
   let roots : Array Expr := #[leaf, .sort level, .bvar 3, .fvar ⟨name⟩, .mvar ⟨name⟩,
     .app leaf leaf, .lam name (.sort .zero) (.bvar 0) .implicit,
     .lam `other (.sort .zero) (.bvar 0) .instImplicit,
@@ -28,7 +31,13 @@ run_cmd do
     .letE name (.sort .zero) leaf (.bvar 0) false,
     .lit (.natVal 5), .lit (.strVal "α"), .mdata metadata leaf,
     .mdata shiftedMetadata leaf, .mdata { entries := metadata.entries.reverse } leaf,
-    .proj name 2 leaf]
+    .proj name 2 leaf,
+    .app annotated shifted,
+    .lam name annotated reordered .implicit,
+    .forallE name shifted reordered .strictImplicit,
+    .letE name annotated shifted reordered false,
+    .mdata metadata (.app shifted reordered),
+    .proj name 2 reordered]
   let document := encode roots
   let .ok json := Json.parse document.compress | throwError "native graph JSON did not parse"
   let .ok restored := decode json | throwError "native graph JSON did not decode"

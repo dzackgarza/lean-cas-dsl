@@ -25,6 +25,7 @@ import CasRuntime.ScopeTests
 import CasRuntime.SessionComputationTests
 import CasRuntime.SessionEndpointTests
 import CasRuntime.SessionLiftTests
+import CasRuntime.SessionLimitObservationTests
 import CasRuntime.SessionOccurrenceTests
 import CasRuntime.SessionPredicateTests
 import CasRuntime.SessionPreferenceTests

@@ -72,8 +72,9 @@ partial def metadataKey (expression : Expr) : Expr :=
       (KVMap.empty.setString `nativeMetadata (toJson data).compress) (metadataKey body))
     | _ => none
 
-partial def Builder.add (expression : Expr) : StateM Builder Nat := do
-  let key := metadataKey expression
+/-- metadataKey preserves every expression constructor. Reuse its corresponding child keys
+while retaining the original native payload and the existing depth-first node order. -/
+private partial def Builder.addWithKey (expression key : Expr) : StateM Builder Nat := do
   if let some index := (← get).indices[ExprStructEq.mk key]? then return index
   let node : Node ← match expression with
     | .bvar index => pure (.bvar index)
@@ -81,21 +82,29 @@ partial def Builder.add (expression : Expr) : StateM Builder Nat := do
     | .mvar id => pure (.mvar id.name)
     | .sort level => pure (.sort level)
     | .const name levels => pure (.const name levels)
-    | .app function argument => pure (.app (← Builder.add function) (← Builder.add argument))
+    | .app function argument => pure (.app (← Builder.addWithKey function key.appFn!)
+        (← Builder.addWithKey argument key.appArg!))
     | .lam name type body info =>
-      pure (.lam name (← Builder.add type) (← Builder.add body) info)
+      pure (.lam name (← Builder.addWithKey type key.bindingDomain!)
+        (← Builder.addWithKey body key.bindingBody!) info)
     | .forallE name type body info =>
-      pure (.forallE name (← Builder.add type) (← Builder.add body) info)
+      pure (.forallE name (← Builder.addWithKey type key.bindingDomain!)
+        (← Builder.addWithKey body key.bindingBody!) info)
     | .letE name type value body nondep =>
-      pure (.letE name (← Builder.add type) (← Builder.add value) (← Builder.add body) nondep)
+      pure (.letE name (← Builder.addWithKey type key.letType!)
+        (← Builder.addWithKey value key.letValue!) (← Builder.addWithKey body key.letBody!) nondep)
     | .lit value => pure (.lit value)
-    | .mdata data body => pure (.mdata data (← Builder.add body))
-    | .proj name index body => pure (.proj name index (← Builder.add body))
+    | .mdata data body => pure (.mdata data (← Builder.addWithKey body key.mdataExpr!))
+    | .proj name index body => pure (.proj name index (← Builder.addWithKey body key.projExpr!))
   let index := (← get).nodes.size
   modify fun state => { state with
     indices := state.indices.insert ⟨key⟩ index
     nodes := state.nodes.push node }
   return index
+
+/-- Transform metadata once for this submitted root; recursive nodes reuse that key tree. -/
+opaque Builder.add (expression : Expr) : StateM Builder Nat :=
+  Builder.addWithKey expression (metadataKey expression)
 
 def Builder.finish (builder : Builder) (roots : Array Nat) : Json :=
   Json.mkObj [("roots", toJson roots), ("nodes", toJson builder.nodes)]

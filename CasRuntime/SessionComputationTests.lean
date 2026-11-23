@@ -99,52 +99,6 @@ run_cmd liftTermElabM do
     finally liftM (m := IO) started.close
   finally setEnv environment
 
-/- A defining leg of a registered limit is that limit's named leg at its maps (constitution C7),
-not the apex and not the presentation's definition (C22): the base-change functor's map action on
-`C.leg(1)` receives the descriptor `colim.bil_w_form.cokernel#leg` with the limit's map and the
-ordinal 1. A real protocol-v2 process answers; its log records each request. -/
-run_cmd liftTermElabM do
-  let environment ← getEnv
-  try
-    let contract ← liftM (m := IO) <| CasCatalogue.Backend.packageDir
-      CasCatalogue.Backend.contractPackage
-    let root ← liftM (m := IO) IO.currentDir
-    let python := (← liftM (m := IO) <| IO.FS.realPath contract) / ".venv/bin/python"
-    liftM (m := IO) <| IO.FS.createDirAll (root / ".tmp")
-    let log := root / ".tmp" / "kernel-leg-peer.log"
-    liftM (m := IO) <| IO.FS.writeFile log ""
-    let operation := "fun.bil_wform.base_change#map"
-    let manifest := Json.mkObj [
-      ("backends", .arr #[Json.mkObj [("name", "peer"), ("command", python.toString),
-        ("args", .arr #[toJson (root / "scripts/probes/kernel_lift_peer.py").toString,
-          toJson log.toString, toJson operation])]]),
-      ("registrations", .arr #[Json.mkObj [("operation", toJson operation),
-        ("input", "fun.bil_wform.base_change#input"), ("backend", "peer")]])]
-    let path := root / ".tmp" / "kernel-leg-leaves.json"
-    liftM (m := IO) <| IO.FS.writeFile path manifest.compress
-    let mut session ← KernelSession.start (some path)
-    try
-      for text in #["let C := cokernel(to_dual(1))",
-          "let r := map C.leg(1) along «fun.bil_wform.base_change»(ℤ, ℚ)"] do
-        let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
-          | .ok statement => pure statement
-          | .error error => throwError "the statement did not parse: {error}"
-        let run ← withoutErrToSorry <| session.run ⟨statement⟩
-        unless run.outcome.kind == "holds" do
-          throwError "`{text}` is {run.outcome.kind} ({run.outcome.detail}), not holds"
-        session := run.session
-      let requests := ((← liftM (m := IO) <| IO.FS.readFile log).splitOn "\n").filter (!·.isEmpty)
-      let some line := requests.head? | throwError "the base change's map action was not dispatched"
-      let .ok request := Json.parse line | throwError "the peer log is malformed: {line}"
-      let .ok arguments := (request.getObjValD "context").getObjValAs? (Array Json) "arguments"
-        | throwError "the map action has no arguments: {line}"
-      let leg := arguments.back?.getD .null
-      unless (leg.getObjValAs? String "ctor").toOption == some "colim.bil_w_form.cokernel#leg" &&
-          ((leg.getObjValD "args").getArr?.toOption.bind (·.back?)) == some (toJson (1 : Nat)) do
-        throwError "the map action did not receive C's leg 1: {line}"
-    finally liftM (m := IO) session.close
-  finally setEnv environment
-
 /- A statement that names nothing registered and nothing bound is invalid source, and its outcome
 names the identifier. It is not an internal failure of the kernel (FR-029, outcome separation). -/
 run_cmd liftTermElabM do

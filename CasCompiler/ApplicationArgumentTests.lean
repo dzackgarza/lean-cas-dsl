@@ -85,23 +85,26 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         discard <| PreparedRequest.forApplication owners.identities program occurrence context callable
           #[← context.close (mkNatLit 2), ← context.close (mkNatLit 3)]
           #[← argument 0 rightValue, ← argument 1 leftValue] parameters
-      let function ← Elab.Term.elabTermAndSynthesize (← `(fun (_h : True) (n : Nat) => n)) none
+      let function ← Elab.Term.elabTermAndSynthesize
+        (← `(fun (_h : True) (n : Nat) (_unused : Nat) => n)) none
       let layout ← SourceLayout.ofTerm (← context.close function)
       let (graph, function) ← liftM (m := IO) <| graph.stage owners.identities
         { program, occurrence, role := layout, parameters := #[some leftValue, some rightValue] }
         (.closure program #[])
-      let formal := #[← context.close (mkConst ``True.intro), ← context.close left]
-      let request ← PreparedRequest.forApplication owners.identities program occurrence context function formal
-        #[← argument 1 leftValue] parameters
+      let formal := #[
+        ← context.close (mkConst ``True.intro), ← context.close left, ← context.close right]
+      let request ← PreparedRequest.forApplication owners.identities program occurrence context
+        function formal #[← argument 1 leftValue, ← argument 2 rightValue] parameters
       let some layout := request.application
         | throwError "proof-bearing application lost its complete source argument layout"
-      unless layout.arguments.map (·.wireIndex) == #[none, some 0] &&
+      unless layout.arguments.map (·.wireIndex) == #[none, some 0, some 1] &&
           layout.arguments[0]?.map (·.source.kind) == some .proof do
         throwError "formal proof erasure changed the native application's wire positions"
       let .apply _ _ actual := request.action
         | throwError "proof erasure changed the application action"
-      unless actual.size == 2 && (actual[0]?.bind id).isNone &&
-          (actual[1]?.bind id).map (·.value) == some leftValue.value do
+      unless actual.size == 3 && (actual[0]?.bind id).isNone &&
+          (actual[1]?.bind id).map (·.value) == some leftValue.value &&
+          (actual[2]?.bind id).map (·.value) == some rightValue.value do
         throwError "a formal proof displaced a later actual application argument"
       let admitted ← request.admitInputs graph
       let .ok values := admitted.arguments graph
@@ -112,16 +115,52 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throwError "the source data role is absent"
       let .ok bound := admitted.lookup graph valueRole.role.id
         | throwError "the source data role lost its actual binding"
-      unless values.map (·.value) == #[leftValue.value] &&
+      unless values.map (·.value) == #[leftValue.value, rightValue.value] &&
           valueRole.role.id.address == .argument 1 && bound.source == .argument 1 do
         throwError "proof erasure changed the admitted source argument position"
       if (admitted.lookup graph proofRole.role.id).isOk then
         throwError "a formal proof acquired a computational input binding"
+      let document := request.observation.native.getObjValD "request"
+      let .ok observedArguments :=
+          (document.getObjValD "application").getObjValAs? (Array Json) "arguments"
+        | throwError "observation lost the complete native argument telescope"
+      unless observedArguments.map (·.getObjValD "sourceIndex") ==
+            #[toJson (0 : Nat), toJson (1 : Nat), toJson (2 : Nat)] &&
+          observedArguments.map (·.getObjVal? "wireIndex" |>.toOption) ==
+            #[some Json.null, some (toJson (0 : Nat)), some (toJson (1 : Nat))] do
+        throwError "observation erased or renumbered a proof or unused native argument"
+      let .ok nodes := CasTools.NativeExpression.decodeNodes
+          (request.observation.native.getObjValD "nativeExpressions")
+        | throwError "observation lost its exact native expression graph"
+      for observed in observedArguments, original in formal do
+        let source := (observed.getObjValD "source").getObjValD "source"
+        let .ok expression := source.getObjValAs? Nat "expression"
+          | throwError "an observed argument lost its native expression"
+        let .ok type := source.getObjValAs? Nat "type"
+          | throwError "an observed argument lost its native type"
+        unless nodes[expression]? == some original.expression &&
+            nodes[type]? == some original.type do
+          throwError "observation changed an original proof or data argument"
+      let .ok observedContext :=
+          (document.getObjValD "environment").getObjValAs? (Array Json) "context"
+        | throwError "observation lost the complete source context"
+      let expectedIds := #[
+        Json.mkObj [("session", toJson "application-context"), ("serial", toJson (0 : Nat))],
+        Json.mkObj [("session", toJson "application-context"), ("serial", toJson (1 : Nat))]]
+      let .ok readableContext := request.observation.readable.getObjValAs? (Array Json) "context"
+        | throwError "observation lost its prepared readable context"
+      let readableApplication := request.observation.readable.getObjValD "application"
+      let .ok readableArguments := readableApplication.getObjValAs? (Array Json) "arguments"
+        | throwError "observation lost its prepared readable arguments"
+      unless observedContext.map (·.getObjValD "id") == expectedIds &&
+          readableContext.map (·.getObjValD "id") == expectedIds && readableArguments.size == 3 do
+        throwError "observation omitted a source binding, proof argument or unused argument"
       let .ok suppliedProof := RuntimeArgument.ofValue graph 0 leftValue
         | throwError "the proof-position rejection control is absent"
       reject "a formal proof argument has no runtime value binding" do
-        discard <| PreparedRequest.forApplication owners.identities program occurrence context function formal
-          #[suppliedProof, ← argument 1 leftValue] parameters
+        discard <| PreparedRequest.forApplication owners.identities program occurrence context
+          function formal #[suppliedProof, ← argument 1 leftValue, ← argument 2 rightValue]
+          parameters
 
 -- A source callable and its let alias retain their own native application heads.
 run_cmd Lean.Elab.Command.liftTermElabM do

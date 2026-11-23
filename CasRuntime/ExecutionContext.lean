@@ -9,8 +9,9 @@ namespace CasRuntime
 
 open Lean Meta CasCompiler CasCatalogue CasCatalogue.Backend
 
-/-- Execute a checked term in an existing cell, preserving its program and binding identities. -/
-abbrev SourceEvaluation := CellTransaction → RuntimeId .program → OpenContext →
+/-- Execute a checked term in an existing cell, preserving its original source snapshot,
+program and binding identities. Native callers explicitly supply no frontend snapshot. -/
+abbrev SourceEvaluation := Option Json → CellTransaction → RuntimeId .program → OpenContext →
   Std.HashMap BindingId ValueBinding → Expr → MetaM ValueBinding
 
 

@@ -122,6 +122,6 @@ partial def Kernel.child (kernel : Kernel) (evaluateSource : SourceEvaluation) (
         applied term (← list arguments "arguments")
     let term ← instantiateMVars term
     if term.hasMVar || term.hasLevelMVar then malformed "the call leaves a parameter undetermined"
-    evaluateSource transaction request.program context bound term
+    evaluateSource request.observation.sourceSnapshot transaction request.program context bound term
 
 end CasRuntime

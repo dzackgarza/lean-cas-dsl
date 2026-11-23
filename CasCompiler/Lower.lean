@@ -23,6 +23,7 @@ structure LowerEnvironment where
   transaction : CellTransaction
   codes : IO.Ref (Std.HashMap (RuntimeId .program) ClosureCode)
   marks : IO.Ref (Array ValueBinding)
+  sourceSnapshot : Option Json
   run : OperationalProgram ValueBinding → MetaM ValueBinding
 
 private structure Frame where
@@ -59,8 +60,10 @@ private def stage (expression : Expr) (payload : ValuePayload) : LowerM ValueBin
   (← read).environment.transaction.stage (← origin expression) payload
 
 private def demand (request : PreparedRequest) : LowerM ValueBinding := do
-  let request := request.withSelection (← read).selection
-  (← read).environment.run do
+  let frame ← read
+  let request := (request.withSelection frame.selection).withSourceSnapshot
+    frame.environment.sourceSnapshot
+  frame.environment.run do
     let response ← PFunctor.FreeM.lift (P := OperationalSignature) request
     pure response.root
 

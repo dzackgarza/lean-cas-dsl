@@ -3,7 +3,7 @@ module
 public import CasCompiler.Parse
 public import CasCompiler.Read
 public import CasCatalogue.QuestionIdentity
-public import CasTools.NativeExpression
+public import CasCompiler.SourceSnapshot
 public import Lean.Elab.Command
 
 @[expose] public section
@@ -51,77 +51,6 @@ structure Failure where
 structure Observation where
   readings : Array Reading := #[]
   failures : Array Failure := #[]
-
-private def bindingJson (id : BindingId) : Json :=
-  Json.mkObj [("session", toJson id.session), ("serial", toJson id.serial)]
-
-private def contextJson (context : ContextTelescope) : StateM NativeExpression.Builder Json := do
-  let entries ← context.entries.mapM fun entry => do
-    let type ← NativeExpression.Builder.add entry.type
-    let value ← entry.value.mapM NativeExpression.Builder.add
-    return Json.mkObj [
-      ("id", bindingJson entry.id), ("name", toJson (entry.userName.toString (escape := false))),
-      ("nativeName", NativeExpression.nameJson entry.userName),
-      ("role", toJson <| match entry.role with
-        | .parameter => "parameter" | .definition => "definition" | .hypothesis => "hypothesis"
-        | .instance => "instance" | .selectedStructure => "selectedStructure" | .result => "result"),
-      ("binderInfo", toJson (reprStr entry.binderInfo)),
-      ("nativeBinderInfo", toJson entry.binderInfo),
-      ("kind", toJson (reprStr entry.kind)), ("type", toJson type),
-      ("value", toJson value), ("nondep", toJson entry.nondep)]
-  return toJson entries
-
--- NativeExpression retains every constructor and metadata value in a shared node table.
--- The ordered closed telescope supplies each de Bruijn scope.
-private def closedTermJson (term : ClosedTerm) : StateM NativeExpression.Builder Json := do
-  let context ← contextJson term.context
-  let expression ← NativeExpression.Builder.add term.expression
-  let type ← NativeExpression.Builder.add term.type
-  return Json.mkObj [
-    ("context", context),
-    ("instances", toJson <| term.context.instances.map fun selected => Json.mkObj [
-      ("class", toJson (selected.className.toString (escape := false))),
-      ("nativeClass", NativeExpression.nameJson selected.className),
-      ("binding", bindingJson selected.binding)]),
-    ("universeParams", Json.arr (term.universeParams.map NativeExpression.nameJson)),
-    ("expression", toJson expression), ("type", toJson type)]
-
-private def carrierJson (carrier : SourceCarrierSelection) : StateM NativeExpression.Builder Json := do
-  let actions ← carrier.actions.mapM closedTermJson
-  let comparisons ← carrier.comparisons.mapM closedTermJson
-  return Json.mkObj [("refs", toJson (reprStr carrier.refs)),
-    ("target", toJson (reprStr carrier.target)),
-    ("identifications", Json.arr (carrier.identifications.map NativeExpression.nameJson)),
-    ("actions", toJson actions), ("comparisons", toJson comparisons)]
-
-private def categoryJson (category : SourceCategoryBinding) : StateM NativeExpression.Builder Json := do
-  let bundle ← closedTermJson category.bundle
-  let carrier ← category.carrier.mapM carrierJson
-  return Json.mkObj [("role", toJson <| match category.role with
-      | .object => "object" | .morphism => "morphism"),
-    ("expression", toJson (reprStr category.expression)),
-    ("bundle", bundle), ("carrier", toJson carrier)]
-
-private def snapshot (session : SourceSession) (term : SourceTerm) : Json := Id.run do
-  let build : StateM NativeExpression.Builder (List (String × Json) × Array Nat) := do
-    let native ← closedTermJson term.source
-    let context ← contextJson term.source.context
-    let categories ← term.source.context.entries.mapM fun entry =>
-      (session.categoryFor entry.id).mapM categoryJson
-    let category ← term.category.mapM categoryJson
-    let expression ← NativeExpression.Builder.add term.source.expression
-    let type ← NativeExpression.Builder.add term.source.type
-    pure ([("native", native), ("context", context),
-      ("instances", toJson <| term.source.context.instances.map fun selected => Json.mkObj [
-        ("class", toJson (selected.className.toString (escape := false))),
-        ("nativeClass", NativeExpression.nameJson selected.className),
-        ("binding", bindingJson selected.binding)]),
-      ("categories", toJson categories), ("category", toJson category),
-      ("file", toJson term.span.fileName),
-      ("startByte", toJson (term.span.start.map (·.byteIdx))),
-      ("stopByte", toJson (term.span.stop.map (·.byteIdx)))], #[expression, type])
-  let ((fields, roots), builder) := build.run {}
-  return Json.mkObj (fields ++ [("nativeExpressions", builder.finish roots)])
 
 private def location (file : SourceFile) (id : String) (stx : Syntax) : TermElabM Location := do
   let some start := stx.getPos? | throwError "an original source item has no start position"
@@ -222,8 +151,9 @@ private def reading (session : SourceSession) (where_ : Location) (provenance : 
   let propositions := retained.map (·.1)
   let shown ← propositions.mapM fun proposition => return (← ppExpr proposition).pretty
   let sourceContext := match terms with
-    | #[term] => snapshot session term
-    | _ => Json.mkObj [("conjuncts", toJson (terms.map (snapshot session)))]
+    | #[term] => SourceSnapshot.snapshot session term none
+    | _ => Json.mkObj [
+        ("conjuncts", toJson (terms.map fun term => SourceSnapshot.snapshot session term none))]
   return ⟨where_.id, where_.file, where_.sourceLine, where_.source, provenance,
     question, (NativeExpression.encode propositions).compress,
     " and ".intercalate shown.toList, sourceContext⟩

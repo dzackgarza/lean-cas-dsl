@@ -46,7 +46,7 @@ private def evaluateRequest (evaluateSource : SourceEvaluation) (request : Prepa
     (transaction : CellTransaction)
     (build : OpenContext → MetaM Expr) : MetaM (PreparedResponse request) := do
   let value ← withSourceScope request fun context bound => do
-    evaluateSource transaction request.program context bound
+    evaluateSource request.observation.sourceSnapshot transaction request.program context bound
       (← build context)
   kernelCompletion request transaction value
 
@@ -74,7 +74,8 @@ partial def Kernel.earlierOutputs (kernel : Kernel) (evaluateSource : SourceEval
       let term := match family.selection with
         | some selection => selectedField selection preceding.projection term
         | none => term
-      outputs := outputs.push (← evaluateSource transaction request.program context bound term)
+      outputs := outputs.push (← evaluateSource request.observation.sourceSnapshot
+        transaction request.program context bound term)
     return outputs
 
 /-- Dispatch a delayed family demand whose action has reached its actual arguments.

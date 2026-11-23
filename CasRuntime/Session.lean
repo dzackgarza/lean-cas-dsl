@@ -3,6 +3,7 @@ module
 public import CasRuntime.Kernel
 public import CasCompiler.ReadSession
 public import CasCatalogue.Evaluation
+public import CasCompiler.SourceSnapshot
 import CasCompiler.SourceCarrier
 
 public section
@@ -157,8 +158,9 @@ private def numeralForm? (side : Expr) : Option Expr :=
   | _ => none
 
 private def packetOf (session : KernelSession) (transaction : CellTransaction)
-    (context : OpenContext) (side : Expr) : MetaM (Except String Json) := do
-  let binding ← session.kernel.run transaction context session.bound side
+    (context : OpenContext) (side : Expr) (sourceSnapshot : Option Json) :
+    MetaM (Except String Json) := do
+  let binding ← session.kernel.run transaction context session.bound side sourceSnapshot
   let graph ← transaction.view
   match ← IO.ofExcept <| (graph.packet? binding).mapError IO.userError with
   | some packet => return .ok packet
@@ -169,7 +171,8 @@ The comparison reads the actual returned packets at their source type, or at the
 literal type when one side is a literal form, and decides equality of those values in Lean's
 kernel. It is an observation of candidates, not a proof. -/
 private def compare (session : KernelSession) (transaction : CellTransaction)
-    (context : OpenContext) (left right : Expr) : MetaM Outcome := do
+    (context : OpenContext) (left right : Expr) (sourceSnapshot : Option Json) :
+    MetaM Outcome := do
   let literals ← #[left, right].mapM fun side => do
     if let some literal ← literalForm? side then return some literal
     return numeralForm? side
@@ -179,7 +182,7 @@ private def compare (session : KernelSession) (transaction : CellTransaction)
     if let some literal := literal then
       values := values.push (literal, toString (← ppExpr literal))
       continue
-    let packet ← match ← packetOf session transaction context side with
+    let packet ← match ← packetOf session transaction context side sourceSnapshot with
       | .ok packet => pure packet
       | .error reason => return .gap reason
     -- A candidate outside the representation of its reading type is a malformed answer.
@@ -204,13 +207,15 @@ computation of the leaf that implements it (constitution C22); the kernel lowers
 reads the returned Boolean, and applies the proposition's negation, which is logic on that
 answer, not a computation. -/
 private partial def decideComputed (session : KernelSession) (transaction : CellTransaction)
-    (context : OpenContext) (proposition : Expr) : MetaM Outcome := do
+    (context : OpenContext) (proposition : Expr) (sourceSnapshot : Option Json) :
+    MetaM Outcome := do
   if proposition.isAppOfArity ``Not 1 then
-    return match ← decideComputed session transaction context proposition.appArg! with
+    return match ← decideComputed session transaction context proposition.appArg!
+        sourceSnapshot with
       | .holds => .wrong "the computed predicate holds, so its negation does not"
       | .wrong _ => .holds
       | outcome => outcome
-  let packet ← match ← packetOf session transaction context proposition with
+  let packet ← match ← packetOf session transaction context proposition sourceSnapshot with
     | .ok packet => pure packet
     | .error reason => return .gap reason
   match packet with
@@ -293,6 +298,9 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
   try
     match ← session.source.readStatement statement with
     | .definition next value =>
+      let some entry := next.context.entries.back?
+        | throwError "internal: a source definition added no declaration"
+      let sourceSnapshot := some (SourceSnapshot.snapshot next value (some entry))
       let transaction ← CellTransaction.begin session.kernel.ledger
       let sent := (← session.kernel.dispatches.get).size
       let (binding, dependent) ← try
@@ -305,7 +313,8 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
                 expression.containsFVar binding.expression.fvarId!
             let type ← whnf (← inferType expression)
             if (← isProp type) || type.isSort then return (none, dependent)
-            return (some (← session.kernel.run transaction context session.bound expression),
+            return (some (← session.kernel.run transaction context session.bound expression
+                sourceSnapshot),
               dependent)
         catch error =>
           -- A read definition keeps its meaning when its computation is a gap or unavailable
@@ -313,8 +322,6 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
           let outcome ← Outcome.ofException error
           if outcome.fails then throw error
           discard <| (transaction.abort : BaseIO Bool)
-          let some entry := next.context.entries.back?
-            | throwError "internal: a source definition added no declaration"
           let unavailable := session.unavailable.push (entry.id, entry.userName)
           return { outcome, session := { session with source := next, unavailable } }
       -- A value that no provider computed is its definition: later statements read that
@@ -324,8 +331,6 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
       let codes ← session.kernel.codes.get
       let delayed := binding.any (delayedComputation codes graph)
       commit transaction
-      let some entry := next.context.entries.back?
-        | throwError "internal: a source definition added no declaration"
       let computed := (← session.kernel.dispatches.get).size > sent || delayed
       let bound := match binding with
         | some binding => if computed then session.bound.insert entry.id binding else session.bound
@@ -342,15 +347,17 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
                proposition := s!"settled: {" and ".intercalate shown.toList}" }
     | .implemented value =>
       -- The value is computed in its own cell. A gap or a failed computation is the outcome.
+      let sourceSnapshot := some (SourceSnapshot.snapshot session.source value)
       let transaction ← CellTransaction.begin session.kernel.ledger
       let shown ← session.source.context.withOpen fun bindings => do
         let context ← ContextTelescope.capture bindings
         let expression ← value.source.inContext context
-        discard <| session.kernel.run transaction context session.bound expression
+        discard <| session.kernel.run transaction context session.bound expression sourceSnapshot
         return toString (← ppExpr expression)
       commit transaction
       return { outcome := .holds, session, proposition := shown }
     | .question proposition =>
+      let sourceSnapshot := some (SourceSnapshot.snapshot session.source proposition)
       let transaction ← CellTransaction.begin session.kernel.ledger
       let (outcome, shown) ← session.source.context.withOpen fun bindings => do
         let context ← ContextTelescope.capture bindings
@@ -364,9 +371,10 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
             match asked.eq? with
             | some (type, left, right) =>
               match ← truthCase? type left right with
-              | some proposition => decideComputed session transaction context proposition
-              | none => compare session transaction context left right
-            | none => decideComputed session transaction context asked
+              | some proposition =>
+                decideComputed session transaction context proposition sourceSnapshot
+              | none => compare session transaction context left right sourceSnapshot
+            | none => decideComputed session transaction context asked sourceSnapshot
         return (outcome, shown)
       commit transaction
       return { outcome, session, proposition := shown }

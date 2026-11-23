@@ -73,5 +73,27 @@ run_cmd liftTermElabM do
           | throwError "the repeated selected use has no retained occurrence"
         unless value.value == firstValue.value do
           throwError "a repeated use changed the selected lift's returned occurrence"
+      -- A direct public use of this retained result must check its actual owner even when
+      -- lowering returns a binding without dispatching another request.
+      let before ← SessionSnapshot.current
+      let some node := before.graph.find firstValue.value
+        | throwError "the selected lift result is outside its committed graph"
+      let .ownedToken owner _ _ := node.payload.data
+        | throwError "the selected lift result did not retain its actual supplying owner"
+      let sent := (← session.kernel.dispatches.get).size
+      let traffic ← liftM (m := IO) <| IO.FS.readFile log
+      liftM (m := IO) <| session.kernel.ledger.owners.close owner
+      for (text, kind) in #[("assert implemented X1", "unavailable"),
+          ("assert implemented Q", "holds")] do
+        let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
+          | .ok statement => pure statement
+          | .error error => throwError "the owner-loss control did not parse: {error}"
+        let run ← withoutErrToSorry <| session.run ⟨statement⟩
+        unless run.outcome.kind == kind do
+          throwError "`{text}` is {run.outcome.kind} ({run.outcome.detail}), not {kind}"
+        session := run.session
+      unless (← session.kernel.dispatches.get).size == sent &&
+          (← liftM (m := IO) <| IO.FS.readFile log) == traffic do
+        throwError "a retained-value owner check dispatched or replayed provider traffic"
     finally liftM (m := IO) session.close
   finally setEnv environment
