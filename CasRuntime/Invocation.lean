@@ -30,7 +30,9 @@ partial def Kernel.invoke (kernel : Kernel) (evaluateSource : SourceEvaluation) 
       RequestScope.issue kernel.ledger reservation (← transaction.view) encoded.slots
         encoded.inputs results)
     control
-  match ← reply.stageCompletion request transaction scope wire.connection with
+  match ← reply.stageCompletion request transaction scope wire.connection
+      (some (kernel.resolveFixedInput evaluateSource request.observation.sourceSnapshot
+        transaction request.program)) with
   | .error failure => transactionFailure failure
   | .ok association => request.admitResult (← transaction.view) association.response.root
 

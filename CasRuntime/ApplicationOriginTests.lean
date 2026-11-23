@@ -39,6 +39,33 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throwError "the actual source index is outside its graph"
       let request ← PreparedRequest.forApplication owners.identities program occurrence context callable
         #[← context.close (mkNatLit 7)] #[argument] #[]
+      -- The native result program retains the original formal slot, not the supplied numeral.
+      let expectedFamily ← context.close
+        (mkLambda `n .default (mkConst ``Nat) (mkApp f (.bvar 0)))
+      let observedApplication :=
+        (request.observation.native.getObjValD "request").getObjValD "application"
+      let observedFamily := observedApplication.getObjValD "resultTermFamily"
+      let .ok expressionIndex := observedFamily.getObjValAs? Nat "expression"
+        | throwError "the native application observation lost its original result term family"
+      let .ok typeIndex := observedFamily.getObjValAs? Nat "type"
+        | throwError "the native result term family lost its complete dependent type"
+      let .ok nodes := CasTools.NativeExpression.decodeNodes
+          (request.observation.native.getObjValD "nativeExpressions")
+        | throwError "the result term family is outside its exact native expression graph"
+      unless nodes[expressionIndex]? == some expectedFamily.expression &&
+          nodes[typeIndex]? == some expectedFamily.type do
+        throwError "the application observation substituted an actual result for its original family"
+      let .ok familyContext := observedFamily.getObjValAs? (Array Json) "context"
+        | throwError "the original result family lost its source binding table"
+      unless familyContext.size == 1 && familyContext[0]!.getObjValD "id" ==
+          Json.mkObj [("session", toJson "application-origin"), ("serial", toJson (0 : Nat))] do
+        throwError "the original result family changed its captured callable binding"
+      let expectedReadable ← expectedFamily.withOpen fun _ expression =>
+        return (← ppExpr expression).pretty
+      let readableFamily := (request.observation.readable.getObjValD "application").getObjValD
+        "resultTermFamily"
+      unless readableFamily.getObjValD "expression" == toJson expectedReadable do
+        throwError "the readable application observation changed its original result term family"
       let some record := request.record | throwError "the source result record is absent"
       let some first := record.fields[0]? | throwError "the independent source field is absent"
       let some second := record.fields[1]? | throwError "the dependent source field is absent"

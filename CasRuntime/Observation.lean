@@ -133,6 +133,7 @@ def applicationJson (application : ApplicationLayout) : StateM NativeExpression.
   return Json.mkObj [("arguments", toJson arguments),
     ("resultDependencies", toJson application.resultDependencies),
     ("resultTypeFamily", ← ContextSnapshot.closedTermJson application.resultTypeFamily),
+    ("resultTermFamily", ← ContextSnapshot.closedTermJson application.resultTermFamily),
     ("result", ← layoutJson application.result),
     ("resultContextDependencies", toJson application.resultContextDependencies)]
 
@@ -290,6 +291,7 @@ def readableApplication (application : ApplicationLayout) : MetaM Json := do
       ("typeFamily", ← readableTerm argument.typeFamily)]
   return Json.mkObj [("arguments", toJson arguments),
     ("resultTypeFamily", ← readableTerm application.resultTypeFamily),
+    ("resultTermFamily", ← readableTerm application.resultTermFamily),
     ("result", ← readableLayout application.result)]
 
 end Observation

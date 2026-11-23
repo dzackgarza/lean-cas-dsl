@@ -17,11 +17,12 @@ from cas_session import ComputationError, JsonValue, UnsupportedOperation
 
 FIRST_ADD_FAILURE: str | None = None
 LOG: str | None = None
-if len(sys.argv) != 1:
+CORRUPT_ADD = sys.argv[1:] == ["--corrupt-add"]
+if len(sys.argv) != 1 and not CORRUPT_ADD:
     if len(sys.argv) != 4 or sys.argv[1] != "--fail-first-add" or \
             sys.argv[2] not in ("unsupported", "unavailable"):
         raise SystemExit("usage: kernel_session_peer.py "
-                         "[--fail-first-add unsupported|unavailable LOG]")
+                         "[--corrupt-add | --fail-first-add unsupported|unavailable LOG]")
     FIRST_ADD_FAILURE, LOG = sys.argv[2:]
 
 
@@ -56,7 +57,8 @@ def add(context: JsonValue) -> JsonValue:
     if failure == "unavailable":
         raise ComputationError("session-failure-control", "first addition unavailable")
     left, right = _operands(context)
-    return left + right
+    # Deliberately wrong data only for the explicit proof-discharge regression.
+    return left + right + (1 if CORRUPT_ADD else 0)
 
 
 def multiply(context: JsonValue) -> JsonValue:

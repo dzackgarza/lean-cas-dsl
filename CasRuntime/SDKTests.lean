@@ -161,6 +161,58 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           later.reserveExport nativeOccurrence retainedCallable wire.connection #[operand] with
       | .error (.reservation .consumed) => pure ()
       | _ => throwError "a native invocation acquired a second dispatch right"
+      -- A record projection has no current arguments. Its producing application's
+      -- original operand remains provenance, without entering the invocation telescope.
+      let recordTerm ← Elab.Term.elabTermAndSynthesize
+        (← `(fun (value : Nat) => (value, value))) none
+      let recordFunction ← SourceLayout.ofTerm (← context.close recordTerm)
+      let producer ← liftM (m := IO) <| later.stage
+        { program, occurrence := storedOccurrence, role := recordFunction, parameters := #[] }
+        (.closure program #[])
+      let recordOccurrence ← liftM (m := BaseIO) ledger.allocate
+      let application ← PreparedRequest.forApplication owners.identities program recordOccurrence
+        context producer #[layout.source] #[actual] #[]
+      unless (argumentLayouts application).size == 1 do
+        throwError "the native record control lost its producing argument layout"
+      let record ← liftM (m := IO) <| later.stage application.origin
+        (.ownedExport wire.connection exported.token exported.captures)
+      let projectionOccurrence ← liftM (m := BaseIO) ledger.allocate
+      let graph ← liftM (m := IO) later.view
+      let projection ← PreparedRequest.forProjection owners.identities program projectionOccurrence
+        context graph record 0 #[]
+      let some sourceApplication := projection.origin.application
+        | throwError "native projection discarded its producing application provenance"
+      unless sourceApplication.arguments.map (·.map (·.value)) == #[some operand.value] &&
+          sourceApplication.callable.map (·.value) == some producer.value &&
+          sourceApplication.path == #[``Prod.fst] &&
+          projection.origin.access.map (·.value) == some record.value &&
+          projection.origin.accessPath == #[``Prod.fst] do
+        throwError "native projection changed its original argument, callable or field access"
+      let admitted ← projection.admitInputs graph
+      let arguments ← IO.ofExcept <| (admitted.arguments graph).mapError IO.userError
+      let roots : Array InputPosition := arguments.mapIdx fun index binding =>
+        { path := #[.field "arguments", .index index], binding }
+      let .ok encoded := graph.encodeExportInputs wire.connection.generation record roots
+        | throwError "the retained native projection could not encode its current inputs"
+      let .ok reservation ← liftM (m := BaseIO) <|
+          later.reserveExport projectionOccurrence record wire.connection arguments
+        | throwError "the retained native record projection could not reserve"
+      let scope ← liftM (m := IO) <|
+        RequestScope.issue ledger reservation graph encoded.slots encoded.inputs #[]
+      let invocation := dependentContext "native-projection-control" #[] #[] encoded.values
+        (argumentLayouts projection) projection.source
+      let projected ← match ← liftM (m := IO) <|
+          wire.invokeBefore ledger later reservation scope invocation 5000 with
+        | .ok reply => pure reply
+        | .error failure => throwError "native projection SDK invocation failed: {failure.render}"
+      let .ok receivedContext := projected.value.getObjValAs? String "context"
+        | throwError "the native projection handler did not receive its invocation context"
+      unless (projected.value.getObjValAs? String "stored").toOption ==
+          some "actual retained handler" &&
+          (Json.parse receivedContext).toOption == some invocation &&
+          projected.references.isEmpty && encoded.values.isEmpty &&
+          (argumentLayouts projection).isEmpty && projection.application.isNone do
+        throwError "native projection mixed its producing arguments with its current invocation"
       discard <| liftM (m := BaseIO) later.abort
     finally liftM (m := IO) wire.close
   finally setEnv environment

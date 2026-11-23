@@ -386,3 +386,151 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           let changed ← RuntimeEnvironment.capture owners.worker context swapped
           rejectSwapped do
             discard <| changed.checkResult graph expected actualOperation
+
+
+-- Distinct equal-valued lets occupy different dependent type positions. A closed formal
+-- index also has to retain the actual binding named at that position in the expected type.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let empty ← ContextTelescope.capture #[]
+  let scalar ← SourceLayout.ofTerm (← empty.close (mkNatLit 7))
+  let owners ← liftM (m := IO) OwnerRegistry.new
+  let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+  let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+  let (graph, firstIndex) ← liftM (m := IO) <|
+    (ValueGraph.empty owners.identities).stage owners.identities
+      { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
+  let (graph, secondIndex) ← liftM (m := IO) <| graph.stage owners.identities
+    { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
+  unless firstIndex.value != secondIndex.value do
+    throwError "the distinct-let control merged its original runtime nodes"
+  withLetDecl `n (mkConst ``Nat) (mkNatLit 7) fun n =>
+    withLetDecl `m (mkConst ``Nat) (mkNatLit 7) fun m =>
+      withLetDecl `alias (mkConst ``Nat) n fun alias => do
+        let indexed := fun index => mkAppM ``Prod
+          #[mkApp (mkConst ``Fin) index, mkApp (mkConst ``Fin) m]
+        withLocalDeclD `point (← indexed n) fun point => do
+          withLocalDeclD `aliasPoint (← indexed alias) fun aliasPoint => do
+            withLocalDeclD `changedPoint (← indexed m) fun changedPoint => do
+              let bindings : Array LocalBinding := #[
+                { id := ⟨"distinct-consuming-context", 0⟩, role := .definition, expression := n },
+                { id := ⟨"distinct-consuming-context", 1⟩, role := .definition, expression := m },
+                { id := ⟨"distinct-consuming-context", 2⟩, role := .definition, expression := alias },
+                { id := ⟨"distinct-consuming-context", 3⟩, role := .parameter, expression := point },
+                { id := ⟨"distinct-consuming-context", 4⟩, role := .parameter, expression := aliasPoint },
+                { id := ⟨"distinct-consuming-context", 5⟩, role := .parameter, expression := changedPoint }]
+              let context ← ContextTelescope.capture bindings
+              unless ← isDefEq n m do
+                throwError "the distinct-let control lost its equal native definitions"
+              let family ← withLocalDeclD `width (mkConst ``Nat) fun width => do
+                mkLambdaFVars #[width] (← indexed width)
+              let pointRole ← SourceLayout.ofTerm (← context.close point)
+              let (graph, pointValue) ← liftM (m := IO) <| graph.stage owners.identities
+                { program, occurrence, role := pointRole,
+                  parameters := Array.replicate bindings.size none } (.closure program #[])
+              for formal in #[n, mkNatLit 7] do
+                let source := mkApp4 (mkConst ``Sigma.mk [.zero, .zero])
+                  (mkConst ``Nat) family formal point
+                let layout ← RecordLayout.ofSource (← SourceLayout.ofTerm (← context.close source))
+                let record ← liftM (m := IO) <|
+                  RecordPrefix.begin owners.identities program occurrence layout
+                let (graph, record, originalIndex) ← liftM (m := IO) <| record.bind graph firstIndex
+                let (graph, _, consumed) ← liftM (m := IO) <| record.bind graph pointValue
+                let parameter (index : Nat) (value : ValueBinding) : MetaM RuntimeParameter := do
+                  let .ok parameter := RuntimeParameter.ofValue graph bindings[index]!.id value
+                    | throwError "the distinct-let parameter is outside its graph"
+                  return parameter
+                let actual ← parameter 3 consumed
+                let first ← parameter 0 originalIndex
+                let second ← parameter 1 secondIndex
+                let accepted ← RuntimeEnvironment.capture owners.worker context #[actual, first, second]
+                unless ((accepted.lookup bindings[3]!.id).toOption.bind id).map (·.value) ==
+                    some consumed.value do
+                  throwError "the exact dependent position lost its original value"
+                let aliasEnvironment ← RuntimeEnvironment.capture owners.worker context
+                  #[first, second, ← parameter 2 originalIndex]
+                let aliasRole ← SourceLayout.ofTerm (← context.close aliasPoint)
+                let aliased ← aliasEnvironment.checkResult graph aliasRole consumed
+                unless aliased.root.value == consumed.value do
+                  throwError "a true dependent alias changed its original value"
+                let invalid := #[
+                  (#[actual, ← parameter 0 secondIndex, second],
+                    "the runtime value has a different consuming dependent reference"),
+                  (#[actual, second], "the runtime value is missing a consuming dependent reference")]
+                for (parameters, expected) in invalid do
+                  let failure : Option Exception ← try
+                    discard <| RuntimeEnvironment.capture owners.worker context parameters
+                    pure none
+                  catch error => pure (some error)
+                  let some failure := failure
+                    | throwError "an equal-valued unrelated binding replaced the required dependent reference"
+                  unless (← failure.toMessageData.toString).startsWith expected do throw failure
+                let changedRole ← SourceLayout.ofTerm (← context.close changedPoint)
+                let failure : Option Exception ← try
+                  discard <| accepted.checkResult graph changedRole consumed
+                  pure none
+                catch error => pure (some error)
+                let some failure := failure
+                  | throwError "native type conversion changed the retained dependent occurrence"
+                unless (← failure.toMessageData.toString).startsWith
+                    "the runtime value has a different consuming dependent reference" do throw failure
+
+-- A whole-record alias cannot fill a missing named source root of a dependent type.
+-- This differs from the earlier n := r.fst control, which supplies the actual field itself.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let empty ← ContextTelescope.capture #[]
+  let scalar ← SourceLayout.ofTerm (← empty.close (mkNatLit 7))
+  let pairType ← mkAppM ``Prod #[mkConst ``Nat, mkConst ``Nat]
+  let owners ← liftM (m := IO) OwnerRegistry.new
+  let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+  let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+  let (graph, number) ← liftM (m := IO) <|
+    (ValueGraph.empty owners.identities).stage owners.identities
+      { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
+  withLocalDeclD `r pairType fun r =>
+    withLetDecl `alias pairType r fun alias => do
+      let width ← mkProjection r `fst
+      let aliasWidth ← mkProjection alias `fst
+      let indexed := fun index => mkAppM ``Prod
+        #[mkApp (mkConst ``Fin) index, mkApp (mkConst ``Fin) aliasWidth]
+      withLocalDeclD `point (← indexed width) fun point => do
+        let bindings : Array LocalBinding := #[
+          { id := ⟨"projected-alias-context", 0⟩, role := .parameter, expression := r },
+          { id := ⟨"projected-alias-context", 1⟩, role := .definition, expression := alias },
+          { id := ⟨"projected-alias-context", 2⟩, role := .parameter, expression := point }]
+        let context ← ContextTelescope.capture bindings
+        let pair ← RecordLayout.ofSource (← SourceLayout.ofTerm (← context.close r))
+        let record ← liftM (m := IO) <| RecordPrefix.begin owners.identities program occurrence pair
+        let (graph, record, index) ← liftM (m := IO) <| record.bind graph number
+        let (graph, record, _) ← liftM (m := IO) <| record.bind graph number
+        let .ok payload := record.finish | throwError "the alias control lost its source record"
+        let (graph, parent) ← liftM (m := IO) <| graph.stage owners.identities
+          { program, occurrence, role := pair.source, parameters := #[none, none, none] } payload
+        let pointRole ← SourceLayout.ofTerm (← context.close point)
+        let (graph, value) ← liftM (m := IO) <| graph.stage owners.identities
+          { program, occurrence, role := pointRole, parameters := #[none, none, none] }
+          (.closure program #[])
+        let family ← withLocalDeclD `bound (mkConst ``Nat) fun bound => do
+          mkLambdaFVars #[bound] (← indexed bound)
+        let source := mkApp4 (mkConst ``Sigma.mk [.zero, .zero])
+          (mkConst ``Nat) family width point
+        let layout ← RecordLayout.ofSource (← SourceLayout.ofTerm (← context.close source))
+        let record ← liftM (m := IO) <| RecordPrefix.begin owners.identities program occurrence layout
+        let (graph, record, _) ← liftM (m := IO) <| record.bind graph index
+        let (graph, _, consumed) ← liftM (m := IO) <| record.bind graph value
+        let parameter (index : Nat) (value : ValueBinding) : MetaM RuntimeParameter := do
+          let .ok parameter := RuntimeParameter.ofValue graph bindings[index]!.id value
+            | throwError "the projected alias parameter is outside its graph"
+          return parameter
+        let actual ← parameter 2 consumed
+        let original ← parameter 0 parent
+        let aliased ← parameter 1 parent
+        discard <| RuntimeEnvironment.capture owners.worker context #[actual, original, aliased]
+        for (parameters, missing) in #[(#[actual, aliased], bindings[0]!.id),
+            (#[actual, original], bindings[1]!.id)] do
+          let failure : Option Exception ← try
+            discard <| RuntimeEnvironment.capture owners.worker context parameters
+            pure none
+          catch error => pure (some error)
+          let some failure := failure
+            | throwError "a whole-record alias replaced a missing dependent source root"
+          unless missingValueOf failure missing do throw failure

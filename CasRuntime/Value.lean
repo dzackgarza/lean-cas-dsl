@@ -113,6 +113,27 @@ def ValueBinding.projectionAccesses : ValueBinding → Array (ValueBinding × Ar
     binding.projectionAccesses
   | .inProjection _ binding _ parent path _ _ => binding.projectionAccesses.push (parent, path)
 
+/-- The selected binding before this access added consuming associations.
+Reuse: the exact projection producer, retained parent identities and native paths. This baseline
+lets a later reply retain an already visible captured value without naming fresh access IDs. -/
+def ValueBinding.projectionBasis (value parent : ValueBinding) (path : Array Name) :
+    Option ValueBinding :=
+  match value with
+  | .direct .. => none
+  | .atRole binding _ | .inField _ binding .. | .inApplication binding .. =>
+    binding.projectionBasis parent path
+  | .inProjection _ binding _ selected selectedPath basis _ =>
+    if selected.value == parent.value && selected.associationIds == parent.associationIds &&
+        selectedPath == path then some basis
+    else binding.projectionBasis parent path
+
+/-- A projection view retains its exact pre-access binding. This relation identifies an
+intermediate parent without erasing unrelated field or application associations. -/
+private def ValueBinding.projectionParent : ValueBinding → ValueBinding
+  | .atRole binding _ => binding.projectionParent
+  | .inProjection _ _ _ _ _ basis _ => basis.projectionParent
+  | binding => binding
+
 private def valueKey : Name := `CasCompiler.lower.value
 
 def markedKey? (data : MData) : Option Nat :=
@@ -142,12 +163,14 @@ structure ContainerSlot where
   /-- Computational field position, or an independent retained reference. -/
   fieldIndex : Option Nat
 
-/-- Literal packet structure, typed substitution slots and retained field/callable bindings. -/
+/-- Literal packet structure, typed substitution slots and any actual field/callable bindings.
+`none` fields denotes a descriptor without native field data; `some #[]` is an actual empty
+record. A source record schema alone does not create computational field identities. -/
 structure ValueContainer where
   private mk ::
   template : Json
   slots : Array ContainerSlot
-  fields : Array ValueBinding
+  fields : Option (Array ValueBinding)
   callable : Option ValueBinding
 
 /-- Replace only a previously located JSON position.
@@ -178,12 +201,15 @@ partial def checkLiteral (json : Json) : Except String Unit := do
   | _ => pure ()
 
 private def makeContainer (template : Json) (slots : Array ContainerSlot)
-    (fields : Array ValueBinding) (callable : Option ValueBinding) : Except String ValueContainer := do
+    (fields : Option (Array ValueBinding)) (callable : Option ValueBinding) :
+    Except String ValueContainer := do
   let mut paths : Array (List InputPathStep) := #[]
   let mut template := template
   for slot in slots do
     if let some index := slot.fieldIndex then
-      let some field := fields[index]?
+      let some stored := fields
+        | throw "a descriptor slot cannot claim an unavailable native field"
+      let some field := stored[index]?
         | throw "the container slot is outside its source field table"
       unless slot.binding.value == field.value &&
           slot.binding.associationIds == field.associationIds do
@@ -216,6 +242,13 @@ inductive ValueData
   | closure (program : RuntimeId .program) (captures : Array ValueBinding)
   | ownedToken (owner : ConnectionGeneration) (token : String) (captures : Array ValueBinding)
 
+/-- The actual stored record table, distinct from a descriptor's native source schema.
+Closures and native tokens keep their existing lazy interfaces outside this table. -/
+def ValueData.storedFields? : ValueData → Option (Array ValueBinding)
+  | .product fields => some fields
+  | .container value => value.fields
+  | _ => none
+
 /-- Payload construction stamps native exports from the actual supplying connection. -/
 structure ValuePayload where
   private mk ::
@@ -227,7 +260,13 @@ def ValuePayload.product (fields : Array ValueBinding) : ValuePayload := ⟨.pro
 
 opaque ValuePayload.container (template : Json) (slots : Array ContainerSlot)
     (fields : Array ValueBinding) (callable : Option ValueBinding) : Except String ValuePayload := do
-  return ⟨.container (← makeContainer template slots fields callable)⟩
+  return ⟨.container (← makeContainer template slots (some fields) callable)⟩
+
+/-- Retain a named source value and its actual packet inputs without fabricating its fields.
+The public packet grammar is unchanged; no native projection or callable export is supplied. -/
+opaque ValuePayload.descriptor (template : Json) (slots : Array ContainerSlot) :
+    Except String ValuePayload := do
+  return ⟨.container (← makeContainer template slots none none)⟩
 
 def ValuePayload.closure (program : RuntimeId .program)
     (captures : Array ValueBinding) : ValuePayload := ⟨.closure program captures⟩
@@ -319,7 +358,7 @@ structure ValueNode where
 private def ValueData.references : ValueData → Array ValueBinding
   | .portable _ => #[]
   | .product fields => fields
-  | .container value => value.slots.map (·.binding) ++ value.fields ++
+  | .container value => value.slots.map (·.binding) ++ value.fields.getD #[] ++
       match value.callable with | none => #[] | some binding => #[binding]
   | .closure _ captures | .ownedToken _ _ captures => captures
 
@@ -333,9 +372,10 @@ structure ValueGraph where
   worker : String
   private nodes : Std.HashMap (RuntimeId .value) ValueNode
   private associations : Std.HashSet (RuntimeId .association)
+  private projections : Std.HashMap (RuntimeId .value) (Array ValueBinding)
   private revision : Option (RuntimeId .revision)
 
-def ValueGraph.empty (supply : IdentitySupply) : ValueGraph := ⟨supply.worker, {}, {}, none⟩
+def ValueGraph.empty (supply : IdentitySupply) : ValueGraph := ⟨supply.worker, {}, {}, {}, none⟩
 
 /-- Every value or association append has a fresh revision.
 Reference: IdentitySupply monotone allocation and persistent HashMap/HashSet insertion. -/
@@ -397,12 +437,59 @@ private def ValueGraph.require (graph : ValueGraph) (binding : ValueBinding) :
     | throw "the value reference is outside the visible graph"
   return node
 
+/-- Read only a projection relation published in this immutable graph. Later consuming
+aliases may extend its exact parent chain; divergent chains cannot select each other's fields.
+Intermediate projection views use their recorded basis, never native declarations or values.
+The returned baseline keeps its own owner closure; the parent supplies visibility only. -/
+opaque ValueGraph.projected? (graph : ValueGraph) (parent : ValueBinding) (path : Array Name) :
+    Except String (Option ValueBinding) := do
+  discard <| graph.require parent
+  let parent := parent.projectionParent
+  discard <| graph.require parent
+  let mut selected : Option (Nat × ValueBinding) := none
+  for retained in graph.projections[parent.value]?.getD #[] do
+    let .inProjection _ _ _ original selectedPath basis _ := retained
+      | throw "the retained projection index has no actual projection relation"
+    let original := original.projectionParent
+    unless original.value == parent.value && selectedPath == path &&
+        original.associationIds.toList.isPrefixOf parent.associationIds.toList do continue
+    if let some (length, _) := selected then
+      if original.associationIds.size ≤ length then continue
+    discard <| graph.require retained
+    discard <| graph.require basis
+    selected := some (original.associationIds.size, basis)
+  return selected.map (·.2)
+
 /-- Read source application provenance only from the visible binding and its immutable node. -/
 opaque ValueGraph.applicationOrigin (graph : ValueGraph) (binding : ValueBinding) :
     Except String (Option ApplicationOrigin) := do
   let node ← graph.require binding
   if let some application := binding.applications.back? then return some application.origin
   return node.origin.application
+
+/-- Recover only the baseline recorded by this exact access, including a directly staged reply.
+An origin fallback is permitted only for its actual retained parent and native path. -/
+partial def ValueGraph.projectionBasis (graph : ValueGraph) (binding parent : ValueBinding)
+    (path : Array Name) : Except String (Option ValueBinding) := do
+  let node ← graph.require binding
+  discard <| graph.require parent
+  if let some basis := binding.projectionBasis parent path then return some basis
+  for (selected, suffix) in binding.projectionAccesses.reverse do
+    if suffix.isEmpty || suffix.size ≥ path.size then continue
+    let initialPath := path.extract 0 (path.size - suffix.size)
+    unless path.extract initialPath.size path.size == suffix do continue
+    if (← graph.projectionBasis selected parent initialPath).isNone then continue
+    if let some basis := binding.projectionBasis selected suffix then return some basis
+  let some selected := node.origin.access | return none
+  let produced := ValueBinding.direct node.id node.origin.role
+  if selected.value == parent.value && selected.associationIds == parent.associationIds &&
+      node.origin.accessPath == path then return some produced
+  let suffix := node.origin.accessPath
+  if suffix.isEmpty || suffix.size ≥ path.size then return none
+  let initialPath := path.extract 0 (path.size - suffix.size)
+  if path.extract initialPath.size path.size == suffix &&
+      (← graph.projectionBasis selected parent initialPath).isSome then return some produced
+  return none
 
 private structure BindingOwners where
   instantiations : Std.HashSet (RuntimeId .association) := {}
@@ -483,7 +570,9 @@ opaque ValueGraph.project (graph : ValueGraph) (binding : ValueBinding) (index :
       | throw "the projection is outside the retained product"
     return field
   | .container value =>
-    let fields := binding.applicationFields.getD value.fields
+    let some stored := value.fields
+      | throw "the descriptor has no stored native fields"
+    let fields := binding.applicationFields.getD stored
     let some field := fields[index]?
       | throw "the projection is outside the retained container"
     return field
@@ -575,9 +664,10 @@ opaque CandidateResponse.ofValue (source : SourceLayout) (graph : ValueGraph)
     unless fields.size == expected.size do
       throw "the candidate record does not match its prepared field arity"
   | .record, .container container =>
-    let expected := source.fields.filter (·.wireIndex.isSome)
-    unless container.fields.size == expected.size do
-      throw "the candidate container does not match its prepared field arity"
+    if let some fields := container.fields then
+      let expected := source.fields.filter (·.wireIndex.isSome)
+      unless fields.size == expected.size do
+        throw "the candidate container does not match its prepared field arity"
   | .record, .closure _ _ | .record, .ownedToken _ _ _ => pure ()
   | .record, _ => throw "the candidate has no retained record interface"
   | .data, _ | .typeValue, _ => pure ()
@@ -600,10 +690,9 @@ opaque ValueGraph.bindApplication (graph : ValueGraph) (supply : IdentitySupply)
     (CandidateResponse.ofValue origin.role graph value).mapError IO.userError
   let some node := graph.find candidate.root.value
     | throw <| IO.userError "the application result is outside the visible graph"
-  let stored := match origin.role.kind, node.payload.data with
-    | .record, .product values => values.size
-    | .record, .container value => value.fields.size
-    | _, _ => 0
+  let stored := if origin.role.kind == .record then
+      (node.payload.data.storedFields?.getD #[]).size
+    else 0
   unless fields.size == stored do
     throw <| IO.userError "the application result requires its complete stored field views"
   for field in fields, index in [:fields.size] do
@@ -644,10 +733,15 @@ opaque ValueGraph.bindProjection (graph : ValueGraph) (supply : IdentitySupply)
     (CandidateResponse.ofValue origin.role graph value).mapError IO.userError
   let some node := graph.find candidate.root.value
     | throw <| IO.userError "the projected value is outside the visible graph"
-  let stored := match origin.role.kind, node.payload.data with
-    | .record, .product values => values.size
-    | .record, .container value => value.fields.size
-    | _, _ => 0
+  let prior ← IO.ofExcept <|
+    (graph.projected? parent origin.accessPath).mapError IO.userError
+  if let some prior := prior then
+    unless candidate.root.value == prior.value &&
+        prior.associationIds.toList.isPrefixOf candidate.root.associationIds.toList do
+      throw <| IO.userError "the projection changed its retained field reference"
+  let stored := if origin.role.kind == .record then
+      (node.payload.data.storedFields?.getD #[]).size
+    else 0
   unless fields.size == stored do
     throw <| IO.userError "projection binding requires its complete stored field views"
   for field in fields, index in [:fields.size] do
@@ -661,8 +755,12 @@ opaque ValueGraph.bindProjection (graph : ValueGraph) (supply : IdentitySupply)
   let id ← supply.fresh .association
   let binding := ValueBinding.inProjection id value origin.role parent origin.accessPath
     candidate.root fields
+  let projections := if prior.isSome then graph.projections else
+    let key := parent.projectionParent.value
+    graph.projections.insert key ((graph.projections[key]?.getD #[]).push binding)
   let graph := { graph with
     associations := graph.associations.insert id
+    projections
     revision := some (← supply.fresh .revision) }
   discard <| IO.ofExcept <| (graph.requiredOwners #[binding]).mapError IO.userError
   return (graph, binding)

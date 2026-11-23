@@ -78,6 +78,9 @@ structure KernelSession where
   /-- Compute every question through the kernel, with no discharge in Lean. -/
   computationOnly : Bool
   private bound : Std.HashMap BindingId ValueBinding
+  /-- Retained definitions whose actual producing/capture provenance requires observation.
+  Source dependencies carry this policy through aliases independently of value retention. -/
+  private observed : Std.HashSet BindingId := {}
   /-- Definitions kept without a runtime value because their computation had no leaf or no
   available backend (constitution C3), with the actual outcome of that computation.
   Dependent definitions keep the same cause without repeating the invocation. -/
@@ -113,7 +116,7 @@ opaque KernelSession.start (manifest : Option System.FilePath := none)
   let owners ← OwnerRegistry.new
   discard <| SessionSnapshot.initialize owners
   return ⟨← Kernel.load owners manifest profile timeoutMs,
-    ← SourceSession.empty owners.identities, computationOnly, {}, #[], #[]⟩
+    ← SourceSession.empty owners.identities, computationOnly, {}, {}, #[], #[]⟩
 
 opaque KernelSession.close (session : KernelSession) : IO Unit := session.kernel.close
 
@@ -130,13 +133,16 @@ private def commit (transaction : CellTransaction) : MetaM SessionSnapshot := do
 
 /-- Decide the closed proposition in Lean, after substituting the session's definitions, by the
 registered literal evaluations and the kernel's decision (`Evaluation.decideEvaluated`).
-A statement about a declaration with a retained computed value is a statement about that
-actual value, so it is compared and not discharged from the definition. -/
+A statement depending on an observed computation is about its actual value, including through
+aliases and captured definitions. Other retained source values remain eligible for proof.
+Reuse: contextDependencies closes native source dependencies through their types and values. -/
 private def discharged (session : KernelSession) (context : OpenContext) (proposition : Expr) :
     TermElabM (Option Bool) := do
-  let retained := context.bindings.any fun binding =>
-    (session.bound[binding.id]?).isSome && proposition.containsFVar binding.expression.fvarId!
-  if retained || session.computationOnly then return none
+  if session.computationOnly then return none
+  for index in (← contextDependencies context.bindings proposition) do
+    let some binding := context.bindings[index]?
+      | throwError "a question dependency is outside its complete source context"
+    if session.observed.contains binding.id then return none
   let proposition ← zetaReduce proposition
   if proposition.hasFVar then return none
   Evaluation.decideEvaluated proposition
@@ -302,7 +308,7 @@ private partial def retainedComputation (codes : Std.HashMap (RuntimeId .program
   | .ownedToken .. => return true
   | .product fields => return fields.any computed
   | .container value =>
-    return (value.slots.map (·.binding) ++ value.fields ++ value.callable.toArray).any computed
+    return (value.slots.map (·.binding) ++ value.fields.getD #[] ++ value.callable.toArray).any computed
   | .portable _ => return false
 
 /-- The result of one statement: its outcome, the session after it and, for a question,
@@ -368,14 +374,13 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
             if outcome.fails then throw error
             let unavailable := session.unavailable.push (entry.id, entry.userName, outcome)
             return { outcome, session := { session with source := next, unavailable } }
-        -- A value that no provider computed is its definition: later statements read that
-        -- definition. A value with computational provenance, or one that holds a delayed published
-        -- computation (a lift's fields), is retained: later uses demand that same occurrence.
+        -- Every successfully produced value keeps its exact source binding for later inputs.
+        -- Actual committed producer/capture provenance controls proof discharge separately.
         let bound := match binding with
-          | some binding =>
-            if computed then session.bound.insert entry.id binding else session.bound
+          | some binding => session.bound.insert entry.id binding
           | none => session.bound
-        return { outcome := .holds, session := { session with source := next, bound } }
+        let observed := if computed then session.observed.insert entry.id else session.observed
+        return { outcome := .holds, session := { session with source := next, bound, observed } }
     | .settled values =>
       let shown ← session.source.context.withOpen fun bindings => do
         let context ← ContextTelescope.capture bindings

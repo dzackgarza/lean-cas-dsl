@@ -2,6 +2,7 @@ module
 
 public import CasCompiler.Program
 public import CasRuntime.Value
+public import CasRuntime.StoredProjection
 public import CasRuntime.Environment
 public import CasRuntime.RoleMap
 public import CasRuntime.Observation
@@ -50,6 +51,23 @@ def PreparedRequest.universeArguments (request : PreparedRequest) : Option (List
   match request.action with
   | .primitive _ arguments => some arguments
   | .project .. | .apply .. => none
+
+/-- The exact native path from the retained operand to this prepared field.
+Only preparation establishes the source address and matching access provenance. -/
+def PreparedRequest.projectionPath (request : PreparedRequest) : Except String (Array Name) := do
+  let .project operand field := request.action
+    | throw "the prepared action is not a native projection"
+  unless operand.role.address.toList.isPrefixOf field.address.toList do
+    throw "the prepared field is outside its retained operand"
+  let path := field.address.extract operand.role.address.size field.address.size
+  unless !path.isEmpty && path.back? == some field.projection &&
+      request.origin.accessPath == path do
+    throw "the prepared projection lost its exact native field path"
+  let some parent := request.origin.access
+    | throw "the prepared projection lost its retained operand"
+  unless parent.value == operand.value && parent.associationIds == operand.associationIds do
+    throw "the prepared projection changed its retained operand"
+  return path
 
 /-- Stamp a result or nested field with the same complete actual argument table.
 Reuse: native ApplicationLayout projection dependencies and RuntimeEnvironment.origin. -/
@@ -103,8 +121,7 @@ private def prepareRequest (identities : CasRuntime.IdentitySupply)
   else outputs := #[source]
   let roles ← RoleTelescope.ofRequest identities program occurrence context application source
     (scope.map (·.role))
-  -- A projection inherits its original application, while its own roles demand only the operand.
-  let application := origin.application.map (·.layout)
+  -- The current invocation's arguments are separate from its producing provenance in origin.
   let observation ← ObservationDescriptor.prepare program occurrence action source scope outputs
     record environment origin application roles actualArguments
   return ⟨program, occurrence, action, source, scope, outputs, record, environment, origin,
@@ -172,6 +189,39 @@ opaque PreparedRequest.forBoundary (identities : CasRuntime.IdentitySupply)
   prepareRequest identities program occurrence action source context
     (values.filterMap id ++ scope) environment application origin actual
 
+private def prepareProjection (identities : CasRuntime.IdentitySupply)
+    (program : CasRuntime.RuntimeId .program)
+    (occurrence : CasRuntime.RuntimeId .occurrence) (context : OpenContext)
+    (graph : CasRuntime.ValueGraph)
+    (operand : CasRuntime.ValueBinding) (path : Array Name)
+    (parameters : Array CasRuntime.RuntimeParameter) : MetaM PreparedRequest := do
+  let mut layout := operand.role
+  let mut selected : Option FieldLayout := none
+  for projection in path do
+    let some field := layout.fields.find? (·.projection == projection)
+      | throwError "the projection is outside the retained source layout"
+    unless field.wireIndex.isSome do
+      throwError "a source proof field has no computational projection"
+    selected := some field
+    layout ← field.toLayout
+  let some field := selected | throwError "a projection requires a native field path"
+  let source ← layout.inContext context
+  let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters
+  discard <| environment.checkResult graph operand.role operand
+  let .ok original := graph.applicationOrigin operand
+    | throwError "the projected operand is outside the visible graph"
+  let mut application := original
+  for projection in path do
+    application ← application.mapM (·.forProjection projection)
+  let action := PreparedAction.project operand field
+  let origin ← prepareOrigin program occurrence action source environment none #[]
+  let origin := { origin with
+    application
+    access := some operand
+    accessPath := path }
+  prepareRequest identities program occurrence action source context #[operand]
+    environment none origin
+
 /-- Prepare the exact source field of the retained operand in the complete current scope. -/
 opaque PreparedRequest.forProjection (identities : CasRuntime.IdentitySupply)
     (program : CasRuntime.RuntimeId .program)
@@ -181,22 +231,23 @@ opaque PreparedRequest.forProjection (identities : CasRuntime.IdentitySupply)
     (parameters : Array CasRuntime.RuntimeParameter) : MetaM PreparedRequest := do
   let some field := operand.role.fields[index]?
     | throwError "the projection is outside the retained source layout"
-  unless field.wireIndex.isSome do
-    throwError "a source proof field has no computational projection"
-  let source ← (← field.toLayout).inContext context
-  let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters
-  discard <| environment.checkResult graph operand.role operand
-  let .ok original := graph.applicationOrigin operand
-    | throwError "the projected operand is outside the visible graph"
-  let application ← original.mapM (·.forProjection field.projection)
-  let action := PreparedAction.project operand field
-  let origin ← prepareOrigin program occurrence action source environment none #[]
-  let origin := { origin with
-    application
-    access := some operand
-    accessPath := #[field.projection] }
-  prepareRequest identities program occurrence action source context #[operand]
-    environment none origin
+  prepareProjection identities program occurrence context graph operand
+    #[field.projection] parameters
+
+/-- Compose a wholly stored native path without completing its intermediate record values.
+The graph must already supply every step; a lazy access remains an ordinary single-field demand. -/
+opaque PreparedRequest.forStoredProjection (identities : CasRuntime.IdentitySupply)
+    (program : CasRuntime.RuntimeId .program)
+    (occurrence : CasRuntime.RuntimeId .occurrence) (context : OpenContext)
+    (graph : CasRuntime.ValueGraph)
+    (operand : CasRuntime.ValueBinding) (path : Array Name)
+    (parameters : Array CasRuntime.RuntimeParameter) : MetaM PreparedRequest := do
+  let selected ← IO.ofExcept <| (graph.projectionFrontier operand path).mapError IO.userError
+  let some (_, remaining) := selected
+    | throwError "the native projection path has no stored field interface"
+  unless remaining.isEmpty do
+    throwError "a composed projection cannot pass a lazy field boundary"
+  prepareProjection identities program occurrence context graph operand path parameters
 
 /-- Apply the retained function with complete formal arguments and indexed actual operands.
 Source coercions are lowered before this boundary. Preparation retains empty slots for source

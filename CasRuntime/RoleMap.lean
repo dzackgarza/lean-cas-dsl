@@ -119,7 +119,9 @@ private def storedResultAt (graph : ValueGraph) (root : ValueBinding) (path : Ar
     let some node := graph.find value.value
       | throw "a result role is outside the visible graph"
     match node.payload.data with
-    | .product _ | .container _ => value ← graph.project value index
+    | .product _ | .container _ =>
+      if node.payload.data.storedFields?.isNone then return none
+      value ← graph.project value index
     | .closure .. | .ownedToken .. => return none
     | .portable _ => throw "a result field has no retained record interface"
   return some value

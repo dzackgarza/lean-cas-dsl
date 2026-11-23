@@ -102,9 +102,12 @@ run_cmd liftTermElabM do
           "meth.cardinality", "meth.cardinality"] do
         throwError "the session dispatched {dispatched}"
     finally liftM (m := IO) session.close
-    -- With no manifest the same source has the same reading and no realization.
+    -- An explicit empty manifest gives the same source its reading without a realization.
     setEnv environment
-    let bare ← KernelSession.start none
+    let emptyPath := root / ".tmp" / "kernel-session-empty-leaves.json"
+    liftM (m := IO) <| IO.FS.writeFile emptyPath
+      (Json.mkObj [("backends", .arr #[]), ("registrations", .arr #[])]).compress
+    let bare ← KernelSession.start (some emptyPath)
     try
       let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt "let a := 17 + 29 in ℤ" with
         | .ok statement => pure statement

@@ -213,9 +213,8 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
       let value ← lower arrow.getAppArgs.back!
       let template := Json.mkObj [("ctor", "morphismEndpoint"),
         ("args", .arr #[.null, toJson selector])]
-      let .ok payload := ValuePayload.container template
+      let .ok payload := ValuePayload.descriptor template
           #[{ path := #[.field "args", .index 0], binding := value, fieldIndex := none }]
-          (← fieldClosures expression) none
         | throwError "the selected endpoint has an invalid reference layout"
       return ← stage expression payload
     if let some (selection, field) := selectedField? data then
@@ -273,8 +272,11 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
           throwStratum .noImplementation
             m!"the leg {ordinal} of {address} is a map of sets; no published address applies it"
         return ← descriptor expression s!"{address}#leg" (arguments.push (mkNatLit ordinal))
-          (← fieldClosures expression)
-      return ← namedConstant expression address arguments
+      if (← origin expression).role.kind == .function then return ← closure expression
+      -- A published element names its whole value at these arguments. Its native record
+      -- schema does not supply computed fields, and projecting the same named source again
+      -- is not executable field code. Its registered consumers retain the descriptor.
+      return ← descriptor expression address arguments
     match selectedReference? data with
     | some (declaration, _) =>
       if body.isConstOf declaration then application expression
@@ -304,6 +306,13 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
       if (markedKey? data).isSome then
         return ← apply (← lower expression.getAppFn) expression.getAppArgs
       if (selectedReference? data).isSome then return ← application expression
+    -- Select a native constructor field before head reduction can discard its retained-value
+    -- or source-boundary metadata. This reads only the exact selected constructor argument.
+    -- Reuse the metadata-preserving projection step from Layout.inputProjectionHead.
+    if let some projection ← SourceProjection.ofExpr? expression then
+      if projection.parent.getAppFn.constName? == some projection.info.ctorName then
+        if let some selected ← projectCore? projection.parent projection.info.i then
+          return ← lower selected
     if let .proj owner index (.mdata data value) := expression then
       if (markedKey? data).isSome then
         let some info := getStructureInfo? (← getEnv) owner
@@ -334,14 +343,14 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
       if type.isProp then
         -- A quantified proposition is decided by a published predicate or not at all (C22).
         throwStratum .noImplementation m!"the proposition {expression} has no published predicate"
-      descriptor expression "lean:type" #[] #[]
+      descriptor expression "lean:type" #[]
     | _ => application expression
 
 /-- A descriptor of a named source constant at its actual explicit arguments.
 Reference: CasContract.Port descriptor grammar `{"ctor": address, "args": [...]}`.
 Each argument is lowered and keeps its own retained reference in a typed slot. -/
 private partial def descriptor (expression : Expr) (address : String) (arguments : Array Expr)
-    (fields : Array ValueBinding) : LowerM ValueBinding := do
+    (fields : Option (Array ValueBinding) := none) : LowerM ValueBinding := do
   let mut packets := #[]
   let mut slots := #[]
   for argument in arguments do
@@ -351,7 +360,10 @@ private partial def descriptor (expression : Expr) (address : String) (arguments
       ContainerSlot)
     packets := packets.push Json.null
   let packet := Json.mkObj [("ctor", toJson address), ("args", .arr packets)]
-  let .ok payload := ValuePayload.container packet slots fields none
+  let built := match fields with
+    | some fields => ValuePayload.container packet slots fields none
+    | none => ValuePayload.descriptor packet slots
+  let .ok payload := built
     | throwError "internal: the descriptor of {address} has an invalid reference layout"
   stage expression payload
 
@@ -373,9 +385,10 @@ record value keeps each computational field as a closure beside its descriptor. 
 private partial def namedConstant (expression : Expr) (address : String) (arguments : Array Expr) :
     LowerM ValueBinding := do
   if (← origin expression).role.kind == .function then return ← closure expression
-  descriptor expression address arguments (← fieldClosures expression)
+  descriptor expression address arguments (some (← fieldClosures expression))
 
-/-- The computational fields of a record value named by a descriptor, each retained as code. -/
+/-- Native fields of an ordinary registered constant whose definition `field` may open.
+Published element descriptors do not use these closures: their fields require computation. -/
 private partial def fieldClosures (expression : Expr) : LowerM (Array ValueBinding) := do
   let frame ← read
   let mut fields := #[]
@@ -410,7 +423,22 @@ private partial def field (owner : Name) (index : Nat) (value : Expr) (name : Me
     unless (descriptorIds (← semanticState) declaration).isEmpty do
       if let some unfolded ← unfoldDefinition? value.consumeMData then
         return ← lower (.proj owner index unfolded)
-  project (← lower value) index name
+  let frame ← read
+  let environment ← RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
+  let (parent, path) ← projectionSourcePath environment (.proj owner index value)
+  if path.isEmpty then return ← project (← lower value) index name
+  projectPath (← lower parent) path
+
+/-- Read only the exact native projection chain, stopping at source selections and formal
+class definitions. No intermediate projected record is lowered while discovering the path. -/
+private partial def projectionSourcePath (environment : RuntimeEnvironment) (expression : Expr) :
+    LowerM (Expr × Array Name) := do
+  let some projection ← SourceProjection.ofExpr? expression | return (expression, #[])
+  if projection.info.fromClass &&
+      !(← environment.hasRetainedSource (← read).context projection.parent) then
+    return (expression, #[])
+  let (parent, path) ← projectionSourcePath environment projection.parent
+  return (parent, path.push projection.declaration)
 
 private partial def project (operand : ValueBinding) (index : Nat) (field : MessageData) :
     LowerM ValueBinding := do
@@ -425,6 +453,48 @@ private partial def project (operand : ValueBinding) (index : Nat) (field : Mess
     (← frame.environment.ledger.allocate) frame.context graph operand index (← parameters)
   demand request
 
+/-- Complete the longest already stored prefix as one selected demand. A lazy frontier keeps
+the ordinary one-field execution boundary, including its provider's atomic reply admission. -/
+private partial def projectPath (operand : ValueBinding) (path : Array Name) :
+    LowerM ValueBinding := do
+  if path.isEmpty then return operand
+  let frame ← read
+  let graph ← frame.environment.transaction.view
+  let frontier ← IO.ofExcept <| (graph.projectionFrontier operand path).mapError IO.userError
+  if let some (_, remaining) := frontier then
+    let count := path.size - remaining.size
+    if count > 0 then
+      let request ← PreparedRequest.forStoredProjection (← supply) frame.program
+        (← frame.environment.ledger.allocate) frame.context graph operand
+        (path.extract 0 count) (← parameters)
+      return ← projectPath (← demand request) remaining
+  let projection := path[0]!
+  let some field := operand.role.fields.find? (·.projection == projection)
+    | throwError "the native projection path is outside its retained record interface"
+  projectPath (← project operand field.sourceIndex m!"{projection}") (path.extract 1 path.size)
+
+/-- Keep a source argument's native projection chain while marking only its actual root.
+Inert metadata stays in place; source boundaries and formal class fields are lowered normally. -/
+private partial def projectionArgumentSource (environment : RuntimeEnvironment)
+    (expression : Expr) : LowerM Expr := do
+  let frame ← read
+  if let .mdata data body := expression then
+    -- Match SourceProjection's boundary rule before traversing any parent projection.
+    if !data.contains `CasCompiler.lower.value && !data.contains `CasCompiler.source.kind &&
+        !data.contains `CasCompiler.selection then
+      return .mdata data (← projectionArgumentSource environment body)
+  if let some projection ← SourceProjection.ofExpr? expression then
+    if !projection.info.fromClass ||
+        (← environment.hasRetainedSource frame.context projection.parent) then
+      let parent ← projectionArgumentSource environment projection.parent
+      return .proj (← getConstInfoCtor projection.info.ctorName).induct projection.info.i parent
+  let source ← argumentSource environment expression
+  let value ← lower source
+  return ← markValue frame.environment.marks value source
+
+/-- Retain each actual projection root before preparing the complete selected path.
+Native metadata distinguishes formal selected instances from runtime class records. No
+intermediate whole-record demand is manufactured for a nested stored source argument. -/
 private partial def argumentSource (environment : RuntimeEnvironment) (expression : Expr) :
     LowerM Expr := do
   let frame ← read
@@ -434,9 +504,9 @@ private partial def argumentSource (environment : RuntimeEnvironment) (expressio
     if ← environment.hasRetainedSource frame.context endpoint then
       return ← argumentSource environment endpoint
   if let .mdata data body := expression then
-    if (markedKey? data).isSome || (data.find `CasCompiler.source.kind).isSome then
+    if data.contains `CasCompiler.lower.value || data.contains `CasCompiler.source.kind then
       return expression
-    if (selectedField? data).isSome then
+    if data.contains `CasCompiler.selection then
       let value ← lower expression
       return ← markValue frame.environment.marks value expression
     return .mdata data (← argumentSource environment body)
@@ -444,9 +514,7 @@ private partial def argumentSource (environment : RuntimeEnvironment) (expressio
   if projection.info.fromClass &&
       !(← environment.hasRetainedSource frame.context projection.parent) then
     return expression
-  let parent ← argumentSource environment projection.parent
-  let value ← lower parent
-  let parent ← markValue frame.environment.marks value parent
+  let parent ← projectionArgumentSource environment projection.parent
   return .proj (← getConstInfoCtor projection.info.ctorName).induct projection.info.i parent
 
 private partial def actualArguments (arguments : Array Expr) :
@@ -577,13 +645,12 @@ private partial def application (expression : Expr) : LowerM ValueBinding := do
     let fields := arguments.extract constructor.numParams arguments.size
     if isStructure (← getEnv) constructor.induct then return ← record expression fields
     descriptor expression name.getString! (← fields.filterM fun field => return !(← isProof field))
-      #[]
   | some (.inductInfo _) =>
     if (← whnf (← inferType expression)).isProp then
       -- A proposition formed by a type former has no computed truth value of its own (C22).
       throwStratum .noImplementation m!"the proposition {name} has no published predicate"
     -- A type former at its arguments is an object of the category of sets.
-    descriptor expression s!"lean:{name}" (← explicitArguments expression) #[]
+    descriptor expression s!"lean:{name}" (← explicitArguments expression)
   | some (.recInfo _) | some (.quotInfo _) =>
     -- The kernel evaluates no eliminator (constitution C22): branching belongs to the leaf
     -- that implements an operation.

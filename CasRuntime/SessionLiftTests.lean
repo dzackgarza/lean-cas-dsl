@@ -17,27 +17,33 @@ open Lean Elab Command Term CasRuntime
 /- RX-LIFT's first selected lift (tests/acceptance/proposals/independent-extension-reconstruction-
 20261024/completion/rx-lift-prescribed-stages.cas) through the public path with no leaf. The lift
 is a record of delayed fields: defining it dispatches nothing, and its fields are then projected
-from that same retained record. A computation that needs a leaf is a gap, and so is a
-projection whose dependent type needs such a value; reading holds. Functional work may use the
-heartbeats it needs (constitution C21). -/
+from that same retained record. The setup views select actual input fields before registration
+selection (T026); the lift's object and map ports still require their missing leaves.
+Functional work may use the heartbeats it needs (constitution C21). -/
 set_option maxHeartbeats 2000000 in
 run_cmd liftTermElabM do
   let environment ← getEnv
   try
-    let mut session ← KernelSession.start none
+    let root ← liftM (m := IO) IO.currentDir
+    liftM (m := IO) <| IO.FS.createDirAll (root / ".tmp")
+    let path := root / ".tmp" / "kernel-lift-empty-leaves.json"
+    liftM (m := IO) <| IO.FS.writeFile path
+      (Json.mkObj [("backends", .arr #[]), ("registrations", .arr #[])]).compress
+    let mut session ← KernelSession.start (some path)
     try
-      for (text, kind) in #[
+      let statements := #[
           ("let Q := ℚ in CommutativeRings", "holds"),
-          ("let Qring := view Q along «fun.commutative_rings.ring»()", "gap"),
-          ("let scalarModule := RegularModule(Qring)", "gap"),
+          ("let Qring := view Q along «fun.commutative_rings.ring»()", "holds"),
+          ("let scalarModule := RegularModule(Qring)", "holds"),
           ("let X := DegeneratePlane()", "holds"),
-          ("let sourceModule := view X along «fun.bilin_module.forget»(ℚ, ℚ)", "gap"),
+          ("let sourceModule := view X along «fun.bilin_module.forget»(ℚ, ℚ)", "holds"),
           ("let i0(t) := (2*t, -2*t) in scalarModule → sourceModule", "holds"),
           ("let first := lift(X) along «lift.bilin_module.restrict»(ℚ, ℚ) with i0 using proof(CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneLifts.kernelInclusion_mono)", "holds"),
-          -- The lift's fields depend on the module scalarModule, whose computation has no
-          -- leaf here: projecting them is that gap.
+          -- These two fields demand their published lift ports after the input-only setup.
           ("let X1 := first.obj()", "gap"),
-          ("let i1 := first.hom()", "gap")] do
+          ("let i1 := first.hom()", "gap")]
+      let mut originalQ : Option (CasCompiler.BindingId × ValueBinding) := none
+      for (text, kind) in statements, index in [:statements.size] do
         let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
           | .ok statement => pure statement
           | .error error => throwError "the statement did not parse: {error}"
@@ -45,6 +51,66 @@ run_cmd liftTermElabM do
         unless run.outcome.kind == kind do
           throwError "`{text}` is {run.outcome.kind} ({run.outcome.detail}), not {kind}"
         session := run.session
+        if index == 0 then
+          let some entry := session.source.context.entries.back?
+            | throwError "the Q declaration did not publish its source binding"
+          unless entry.userName == `Q do
+            throwError "the first lift declaration did not publish Q"
+          let some value := session.value? entry.id
+            | throwError "the Q declaration discarded its actual runtime value"
+          originalQ := some (entry.id, value)
+        if index == 1 then
+          -- The registered ring view has exactly these two native input routes. Keep
+          -- their actual field identities; no ring operation or provider answer is used.
+          let some (qId, q) := originalQ
+            | throwError "the ring view lost its original Q input"
+          let some currentQ := session.value? qId
+            | throwError "the ring view discarded its original Q binding"
+          unless currentQ.value == q.value && currentQ.associationIds == q.associationIds do
+            throwError "the ring view changed the retained Q occurrence"
+          let some entry := session.source.context.entries.back?
+            | throwError "the ring view did not publish its source binding"
+          unless entry.userName == `Qring do
+            throwError "the ring view published a different source binding"
+          let some ring := session.value? entry.id
+            | throwError "the wholly input-projected ring view has no actual value"
+          let graph := (← SessionSnapshot.current).graph
+          let some node := graph.find ring.value
+            | throwError "the ring view is outside the committed graph"
+          let some fields := node.payload.data.storedFields?
+            | throwError "the ring view did not retain its complete native fields"
+          unless fields.size == 2 do
+            throwError "the ring view changed its complete native field arity"
+          let select (parent : ValueBinding) (projection : Name) : MetaM ValueBinding := do
+            let some field := parent.role.fields.find? (·.projection == projection)
+              | throwError "the ring view lost the native field {projection}"
+            let some index := field.wireIndex
+              | throwError "the ring view erased a computational field {projection}"
+            let .ok value := graph.project parent index
+              | throwError "the ring view has no stored field {projection}"
+            return value
+          let originalCarrier ← select q ``CommRingCat.carrier
+          let carrier ← select ring ``RingCat.carrier
+          let ringStructure ← select ring ``RingCat.ring
+          unless carrier.value == originalCarrier.value &&
+              originalCarrier.associationIds.toList.isPrefixOf carrier.associationIds.toList do
+            throwError "the ring view replaced Q's actual carrier"
+          for (field, path) in #[(carrier, #[``CommRingCat.carrier]),
+              (ringStructure, #[``CommRingCat.commRing, ``CommRing.toRing])] do
+            let .ok (some baseline) := graph.projectionBasis field q path
+              | throwError "the ring view lost an exact original Q projection"
+            unless field.value == baseline.value &&
+                baseline.associationIds.toList.isPrefixOf field.associationIds.toList do
+              throwError "the ring view changed its source-selected field occurrence"
+          unless (← session.kernel.dispatches.get).isEmpty do
+            throwError "a wholly input-projected ring view dispatched a registration"
+        if index ≥ 7 then
+          let port := if index == 7 then "obj" else "hom"
+          unless (run.outcome.detail.splitOn "NoImplementation").length > 1 &&
+              (run.outcome.detail.splitOn s!"lift.bilin_module.restrict#{port}").length > 1 do
+            throwError "`{text}` did not reach its missing lift port: {run.outcome.detail}"
+          unless (← session.kernel.dispatches.get).isEmpty do
+            throwError "the missing lift port dispatched a registration"
     finally liftM (m := IO) session.close
   finally setEnv environment
 

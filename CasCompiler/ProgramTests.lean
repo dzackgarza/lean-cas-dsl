@@ -2,11 +2,13 @@ module
 
 import CasCompiler.Program
 import CasCompiler.Context
+import CasRuntime.Environment
 import LeanCategories.Catalogue.Semantics.Algebra.ComputationDerivations
 import Mathlib.CategoryTheory.Limits.IsLimit
 public meta import Lean.Elab.Command
 meta import CasCompiler.Program
 meta import CasCompiler.Context
+meta import CasRuntime.Environment
 meta import LeanCategories.Catalogue.Semantics.Algebra.ComputationDerivations
 meta import Mathlib.CategoryTheory.Limits.IsLimit
 
@@ -126,3 +128,110 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   unless value.precedingDependencies == #[0, 1, 2] do
     throwError "the field `value : family index` has preceding dependencies \
       {value.precedingDependencies}; its type names `family` and `index`, whose types name `bound`"
+
+-- The same original prefix remains necessary when its last type names earlier fields only
+-- through their dependent domains. Direct source projections need no separate alias binder.
+open CasRuntime in
+run_cmd Lean.Elab.Command.liftTermElabM do
+  withLocalDeclD `r (mkConst ``ChainedFieldsFixture) fun r => do
+    let binding : LocalBinding := {
+      id := ⟨"chained-runtime-prefix", 0⟩, role := .parameter, expression := r }
+    let context ← ContextTelescope.capture #[binding]
+    let layout ← RecordLayout.ofSource (← SourceLayout.ofTerm (← context.close r))
+    let some callableField := layout.fields[1]?
+      | throwError "the chained source lost its callable field layout"
+    let some valueField := layout.fields[3]?
+      | throwError "the chained source lost its final field layout"
+    let owners ← liftM (m := IO) OwnerRegistry.new
+    let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+    let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+    let mut fieldGraph := ValueGraph.empty owners.identities
+    let mut fieldValues := #[]
+    for prepared in layout.fields do
+      let (next, value) ← liftM (m := IO) <| fieldGraph.stage owners.identities
+        { program, occurrence, role := prepared.layout, parameters := #[none] }
+        (.closure program #[])
+      fieldGraph := next
+      fieldValues := fieldValues.push value
+    let retain (graph : ValueGraph) (fields : Array ValueBinding) :
+        MetaM (ValueGraph × ValueBinding) := do
+      let mut graph := graph
+      let mut record ← liftM (m := IO) <|
+        RecordPrefix.begin owners.identities program occurrence layout
+      for field in fields do
+        let (next, recordPrefix, _) ← liftM (m := IO) <| record.bind graph field
+        graph := next
+        record := recordPrefix
+      let .ok payload := record.finish | throwError "the chained input record is incomplete"
+      liftM (m := IO) <| graph.stage owners.identities
+        { program, occurrence, role := layout.source, parameters := #[none] } payload
+    let (graph, original) ← retain fieldGraph fieldValues
+    let .ok parameter := RuntimeParameter.ofValue graph binding.id original
+      | throwError "the original chained source record is outside its graph"
+    let environment ← RuntimeEnvironment.capture owners.worker context #[parameter]
+    let .ok callable := graph.project original 1
+      | throwError "the dependent callable field is absent"
+    let .ok value := graph.project original 3
+      | throwError "the transitively dependent final field is absent"
+    discard <| environment.checkResult graph callableField.layout callable
+    discard <| environment.checkResult graph valueField.layout value
+    let originalFields ← (Array.range 4).mapM fun index =>
+      IO.ofExcept <| (graph.project original index).mapError IO.userError
+    -- A published lazy projection retains its captured baseline in the graph. The baseline
+    -- itself need not carry the fresh access view that published that exact relation.
+    let (lazyGraph, lazyParent) ← liftM (m := IO) <| graph.stage owners.identities
+      { program, occurrence, role := layout.source, parameters := #[none] } (.closure program #[])
+    let .ok unresolvedParameter := RuntimeParameter.ofValue lazyGraph binding.id lazyParent
+      | throwError "the lazy dependent source is outside its graph"
+    let unresolved ← RuntimeEnvironment.capture owners.worker context #[unresolvedParameter]
+    let beforeFailure : Option Exception ← try
+      discard <| unresolved.checkResult lazyGraph valueField.layout value
+      pure none
+    catch error => pure (some error)
+    let some beforeFailure := beforeFailure
+      | throwError "an unpublished lazy source fabricated its dependent fields"
+    unless (← beforeFailure.toMessageData.toString).startsWith
+        "the runtime value has an unresolved consuming dependent reference" do throw beforeFailure
+    let mut projectionGraph := lazyGraph
+    for index in #[0, 1, 2] do
+      let some prepared := layout.fields[index]?
+        | throwError "the lazy dependent source lost a prefix field layout"
+      let some baseline := originalFields[index]?
+        | throwError "the lazy dependent source lost a captured prefix field"
+      unless baseline.projectionAccesses.isEmpty do
+        throwError "the captured baseline already carries a lazy projection access"
+      let (next, _) ← liftM (m := IO) <| projectionGraph.bindProjection owners.identities
+        { program, occurrence, role := prepared.layout, parameters := #[none],
+          access := some lazyParent, accessPath := #[prepared.field.projection] }
+        baseline #[]
+      projectionGraph := next
+    let .ok retainedParameter := RuntimeParameter.ofValue projectionGraph binding.id lazyParent
+      | throwError "the published lazy source is outside its graph"
+    let retained ← RuntimeEnvironment.capture owners.worker context #[retainedParameter]
+    discard <| retained.checkResult projectionGraph valueField.layout value
+    for changed in #[0, 1, 2] do
+      let some prepared := layout.fields[changed]?
+        | throwError "the changed source lost a prefix field layout"
+      let (graph, replacement) ← liftM (m := IO) <| graph.stage owners.identities
+        { program, occurrence, role := prepared.layout, parameters := #[none] }
+        (.closure program #[])
+      let (graph, replaced) ← retain graph (originalFields.set! changed replacement)
+      let .ok parameter := RuntimeParameter.ofValue graph binding.id replaced
+        | throwError "the changed chained source record is outside its graph"
+      let changedEnvironment ← RuntimeEnvironment.capture owners.worker context #[parameter]
+      let failure : Option Exception ← try
+        discard <| changedEnvironment.checkResult graph valueField.layout value
+        pure none
+      catch error => pure (some error)
+      let some failure := failure
+        | throwError "the dependent final field accepted a changed prefix at {changed}"
+      unless (← failure.toMessageData.toString).startsWith
+          "the runtime value has a different consuming dependent reference" do throw failure
+    let missing ← RuntimeEnvironment.capture owners.worker context #[]
+    let failure : Option Exception ← try
+      discard <| missing.checkResult graph valueField.layout value
+      pure none
+    catch error => pure (some error)
+    let some failure := failure
+      | throwError "the dependent final field accepted a missing source record"
+    unless missingValueOf failure binding.id do throw failure

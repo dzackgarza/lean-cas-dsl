@@ -17,7 +17,8 @@ private partial def Kernel.evaluateSource (kernel : Kernel) : SourceEvaluation :
     lowerTerm {
       ledger := kernel.ledger, transaction, codes := kernel.codes, marks := kernel.marks
       sourceSnapshot
-      run := fun program => Execute.run kernel.executor program transaction }
+      run := fun computation => Execute.run kernel.executor computation transaction
+        (some (kernel.resolveFixedInput kernel.evaluateSource sourceSnapshot transaction program)) }
       program context bound expression
 
 /-- Compose prepared demand execution with checked-source lowering for subsequent calls. -/
