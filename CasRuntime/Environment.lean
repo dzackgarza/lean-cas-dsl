@@ -461,6 +461,80 @@ private def checkDependencies (context : OpenContext)
               | some current =>
                 unless sameReference original current do
                   dbg_trace "[dependent.identity] field={instantiation.field.projection} slot={index} source={repr reference.1} path={repr reference.2} parent={repr parent.value} parentAssociations={repr parent.associationIds} original={repr original.value} originalAssociations={repr original.associationIds} current={repr current.value} currentAssociations={repr current.associationIds}"
+                  -- Failure-only inspection of the exact field occurrence. Native checks,
+                  -- input routing and the rejection below are unchanged.
+                  try
+                    withoutModifyingState do
+                      let rec shape (locals : Array Expr) (fuel : Nat) (expression : Expr) :
+                          String :=
+                        match fuel with
+                        | 0 =>
+                          match expression.getAppFn with
+                          | .const name _ => s!"{name}"
+                          | .fvar id => s!"fvar({id.name})"
+                          | .forallE .. => "forall"
+                          | .lam .. => "lambda"
+                          | .mdata .. => "metadata"
+                          | .proj name field _ => s!"projection({name},{field})"
+                          | _ => "..."
+                        | remaining + 1 =>
+                          match expression with
+                          | .fvar id =>
+                            match locals.findIdx? (· == expression) with
+                            | some position => s!"prefix({position})"
+                            | none =>
+                              match context.bindings.find? (·.expression == expression) with
+                              | some binding => s!"context({reprStr binding.id})"
+                              | none => s!"fvar({id.name})"
+                          | .bvar position => s!"bound({position})"
+                          | .sort levelValue => s!"sort({reprStr levelValue})"
+                          | .const name levels => s!"constant({name},{levels.length})"
+                          | .lit literal => s!"literal({reprStr literal})"
+                          | .mvar id => s!"metavariable({id.name})"
+                          | .mdata _ body => s!"metadata({shape locals remaining body})"
+                          | .proj name field body =>
+                            s!"projection({name},{field},{shape locals remaining body})"
+                          | .app .. =>
+                            let arguments := expression.getAppArgs
+                            let shown := (arguments.extract 0 4).map
+                              (shape locals remaining)
+                            s!"application({shape locals remaining expression.getAppFn};arity={arguments.size};{String.intercalate "," shown.toList})"
+                          | .forallE name domain body info =>
+                            s!"forall({name},{reprStr info};{shape locals remaining domain};{shape locals remaining body})"
+                          | .lam name domain body info =>
+                            s!"lambda({name},{reprStr info};{shape locals remaining domain};{shape locals remaining body})"
+                          | .letE name domain assigned body _ =>
+                            s!"let({name};{shape locals remaining domain};{shape locals remaining assigned};{shape locals remaining body})"
+                      dbg_trace "[dependent.detail] candidate={repr value.value} associationCount={value.associationIds.size} associations={repr (value.associationIds.extract 0 8)} kind={repr value.role.kind} fieldView={repr instantiation.projectionPath} precedingCount={instantiation.preceding.size} required={repr instantiation.precedingDependencies} currentPrefixCount={currentPrefixes.size}"
+                      let payloadKind (binding : ValueBinding) : Option String :=
+                        (graph.find binding.value).map fun node =>
+                          match node.payload.data with
+                          | .portable _ => "portable"
+                          | .product fields => s!"product({fields.size})"
+                          | .container packet => s!"container(fields={packet.fields.map (·.size)})"
+                          | .closure program captures =>
+                            s!"closure({reprStr program};captures={captures.size})"
+                          | .ownedToken _ _ captures => s!"owned(captures={captures.size})"
+                      dbg_trace "[dependent.detail] candidatePayload={payloadKind value} prefixPayload={payloadKind original} suppliedPayload={payloadKind current}"
+                      dbg_trace "[dependent.detail] candidateSource={shape #[] 4 value.role.source.expression}"
+                      dbg_trace "[dependent.detail] producingSource={shape #[] 4 origin.role.source.expression}"
+                      dbg_trace "[dependent.detail] prefixSource={shape #[] 4 original.role.source.expression}"
+                      dbg_trace "[dependent.detail] prefixProducer={(graph.find original.value).map (fun node => shape #[] 4 node.origin.role.source.expression)}"
+                      dbg_trace "[dependent.detail] suppliedSource={shape #[] 4 current.role.source.expression}"
+                      dbg_trace "[dependent.detail] fieldSource={shape #[] 4 instantiation.field.source.expression}"
+                      dbg_trace "[dependent.detail] recordSource={shape #[] 4 instantiation.association.layout.source.source.expression}"
+                      dbg_trace "[dependent.detail] expected={shape #[] 5 expected}"
+                      dbg_trace "[dependent.detail] selectedCount={selected.size} selected={repr ((selected.extract 0 6).map (shape #[] 5))}"
+                      let inspectFailure := fun locals body => do
+                        dbg_trace "[dependent.detail] formalPrefixCount={locals.size} formalType={shape locals 5 body}"
+                        for parameter in locals, position in [:locals.size] do
+                          if position < instantiation.preceding.size && position < 8 then
+                            dbg_trace "[dependent.detail] prefixSlot={position} type={shape locals 4 (← inferType parameter)} original={repr (((instantiation.preceding[position]?).bind id).map (·.value))}"
+                      if instantiation.view.isSome then
+                        lambdaTelescope family inspectFailure
+                      else
+                        lambdaBoundedTelescope family instantiation.preceding.size inspectFailure
+                  catch _ => pure ()
                   throwError (MessageData.tagged
                     `CasRuntime.RuntimeEnvironment.dependentReferenceMismatch
                     m!"the runtime value has a different consuming dependent reference ({term})")

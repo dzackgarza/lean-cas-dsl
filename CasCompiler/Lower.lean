@@ -51,17 +51,59 @@ private def parameters : LowerM (Array RuntimeParameter) := do
       result := result.push parameter
   return result
 
+-- Temporary bounded source-cost inspection. The timer never changes or resets the budget.
+private def sourceCostHead (expression : Expr) : String :=
+  match expression.consumeMData.getAppFn.consumeMData with
+  | .const name _ => s!"constant:{name}"
+  | .proj name position parent =>
+    s!"projection:{name}.{position};parent={reprStr parent.consumeMData.getAppFn.constName?}"
+  | .fvar _ => "fvar"
+  | .bvar _ => "bound"
+  | .sort _ => "sort"
+  | .forallE .. => "forall"
+  | .lam .. => "lambda"
+  | .letE .. => "let"
+  | .lit _ => "literal"
+  | .mvar _ => "metavariable"
+  | .mdata .. => "metadata"
+  | .app .. => "application"
+
+private def traceExpensiveLower {α : Type} (phase : String) (expression : Expr)
+    (contextSize : Nat) (action : LowerM α) : LowerM α := do
+  let started ← IO.getNumHeartbeats
+  try
+    action
+  finally
+    -- Diagnostics must not replace the original success, failure or interrupt.
+    try
+      let finished ← IO.getNumHeartbeats
+      let elapsed := finished - started
+      if elapsed ≥ 10000000 then
+        dbg_trace "[lower.cost] phase={phase} head={sourceCostHead expression} arguments={expression.getAppNumArgs} context={contextSize} rawTicks={elapsed} start={started} finish={finished}"
+    catch _ => pure ()
+
 -- Stamp an already checked source layout with the current actual runtime context.
 -- Reusing native layout data never reuses an earlier occurrence or parameter table.
 private def originFor (role : SourceLayout) : LowerM ValueOrigin := do
   let frame ← read
   let identities ← supply
-  let environment ← RuntimeEnvironment.capture identities.worker frame.context (← parameters)
-  environment.origin frame.program (← identities.fresh .occurrence) role
+  let actual ← traceExpensiveLower "origin.parameters" role.source.expression
+      frame.context.bindings.size do
+    parameters
+  let environment ← traceExpensiveLower "origin.capture" role.source.expression
+      frame.context.bindings.size do
+    RuntimeEnvironment.capture identities.worker frame.context actual
+  traceExpensiveLower "origin.transport" role.source.expression frame.context.bindings.size do
+    environment.origin frame.program (← identities.fresh .occurrence) role
 
 private def origin (expression : Expr) : LowerM ValueOrigin := do
   let frame ← read
-  originFor (← SourceLayout.ofTerm (← frame.context.close expression))
+  traceExpensiveLower "origin.total" expression frame.context.bindings.size do
+    let source ← traceExpensiveLower "origin.close" expression frame.context.bindings.size do
+      frame.context.close expression
+    let role ← traceExpensiveLower "origin.layout" expression frame.context.bindings.size do
+      SourceLayout.ofTerm source
+    originFor role
 
 private def stage (expression : Expr) (payload : ValuePayload) : LowerM ValueBinding := do
   (← read).environment.transaction.stage (← origin expression) payload
@@ -181,11 +223,17 @@ private partial def captured (frame : Frame) (marks : Array ValueBinding) (expre
 Its fields and applications are lowered when a demand reaches them. -/
 private def closure (expression : Expr) : LowerM ValueBinding := do
   let frame ← read
-  let program ← (← supply).fresh .program
-  let captures := captured frame (← frame.environment.marks.get) expression #[]
-  let code := ClosureCode.term (← frame.context.close expression)
-  frame.environment.codes.modify (·.insert program code)
-  stage expression (.closure program captures)
+  traceExpensiveLower "closure.total" expression frame.context.bindings.size do
+    let program ← (← supply).fresh .program
+    let captures ← traceExpensiveLower "closure.captures" expression
+        frame.context.bindings.size do
+      return captured frame (← frame.environment.marks.get) expression #[]
+    let source ← traceExpensiveLower "closure.close" expression frame.context.bindings.size do
+      frame.context.close expression
+    let code := ClosureCode.term source
+    frame.environment.codes.modify (·.insert program code)
+    traceExpensiveLower "closure.stage" expression frame.context.bindings.size do
+      stage expression (.closure program captures)
 
 mutual
 
