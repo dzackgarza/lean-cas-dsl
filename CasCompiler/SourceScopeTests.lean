@@ -188,9 +188,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
        test scoped.local \"local hypothesis\": assert x = x using (proof(h))\nend"
     | throwError "the public context block did not retain its typed children"
   unless children.size == 4 do throwError "the block lost an original child statement"
-  let some (_, .assumption inner) := children[2]?
+  let some (_, innerStatement) : Option (TSyntax `cas_item × SourceStatement) := children[2]?
     | throwError "the block lost its actual local hypothesis scope"
-  let some (question, .proved proposition evidence) := children[3]?
+  let .assumption inner := innerStatement
+    | throwError "the block lost its actual local hypothesis scope"
+  let some (question, proofStatement) : Option (TSyntax `cas_item × SourceStatement) := children[3]?
+    | throwError "the block lost its actual conditional conclusion"
+  let .proved proposition evidence := proofStatement
     | throwError "the block lost its actual conditional conclusion"
   let `(cas_item| test $identity:ident $label:str : $_:cas_stmt) := question
     | throwError "the block discarded the original question label"
