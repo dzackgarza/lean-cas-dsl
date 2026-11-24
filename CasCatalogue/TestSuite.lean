@@ -95,7 +95,7 @@ private def runOne (session : KernelSession) (statement : TSyntax `cas_stmt)
 private partial def unexecutedScope (statement : TSyntax `cas_stmt) :
     Array StatementObservation := Id.run do
   let some items := sourceContextItems? statement | return #[]
-  return items.flatMap fun item =>
+  return items.flatMap fun (item : TSyntax `cas_item) =>
     let child : TSyntax `cas_stmt := match item with
       | `(cas_item| test $_:ident $_:str : $statement:cas_stmt)
       | `(cas_item| $statement:cas_stmt) => statement
@@ -152,7 +152,8 @@ def runFile (session : KernelSession) (path : System.FilePath) :
       question := run.proposition, proposition := run.proposition
       dispatches, milliseconds, setupMilliseconds }
     result.writeProgress
-    let scopedObservations := if run.observations.isEmpty && (sourceContextItems? statement).isSome then
+    let scopedObservations :=
+      if run.observations.isEmpty && (sourceContextItems? statement).isSome then
         unexecutedScope statement
       else run.observations
     if !scopedObservations.isEmpty then
@@ -179,7 +180,8 @@ def runFile (session : KernelSession) (path : System.FilePath) :
         if childId.isNone && child.outcome.isNone then
           setupMilliseconds := setupMilliseconds + child.milliseconds
           continue
-        let availability := if child.attempted then "attempted but not published" else "not executed"
+        let availability :=
+          if child.attempted then "attempted but not published" else "not executed"
         let outcome := child.outcome.getD (.unavailable
           s!"{availability}; stopped at {cause}: {run.outcome.kind}: {run.outcome.detail}")
         let row : TestResult := {
