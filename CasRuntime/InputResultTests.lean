@@ -1019,7 +1019,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
               selectedParent.associationIds == input.parent.associationIds &&
               selectedPath == input.path do
             throwError "the input access changed its original parent or complete path"
-          let mut nativeSource := input.parent.role
+          let mut nativeSource := selectedParent.role
           let mut specified ← markValue kernel.marks input.parent
             (← input.source.inContext context)
           for projection in input.path do
@@ -1029,7 +1029,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             nativeSource ← field.toLayout
           unless (← selectedSource.source.inContext context) ==
               (← nativeSource.source.inContext context) do
-            throwError "the first input access borrowed its output record's source role; path={reprStr selectedPath}; selected={reprStr selectedSource.source.expression}; expected={reprStr nativeSource.source.expression}; selectedParent={reprStr selectedParent.role.source.expression}; inputParent={reprStr input.parent.role.source.expression}"
+            throwError "the first input access borrowed its output record's source role"
           discard <| request.environment.checkOperand graph nativeSource sourceAccess
           let .ok actual := RuntimeArgument.ofValue graph 0 sourceAccess (← kernel.marks.get)
             | throwError "the original input access is outside its admitted graph"
