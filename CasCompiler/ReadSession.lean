@@ -270,7 +270,13 @@ private def abstractDeclaration (session : SourceSession) (name : Name)
 `in`. A non-category right side remains the original membership expression. -/
 private def definedValue (session : SourceSession) (body : TSyntax `cas_term) :
     TermElabM SourceTerm := do
-  let `(cas_term| $value:cas_term ∈ $domain:cas_term) := body | return ← session.read body
+  -- Inspect through transparent grouping while retaining the complete original source span.
+  let mut qualification := body
+  while true do
+    let `(cas_term| ($inner:cas_term)) := qualification | break
+    qualification := inner
+  let `(cas_term| $value:cas_term ∈ $domain:cas_term) := qualification
+    | return ← session.read body
   let some (entry, arguments) ← categoryApplication? session domain
     | return ← session.read body
   let #[term] ← session.elaborateJudgements body fun context => do
