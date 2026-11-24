@@ -65,7 +65,13 @@ private def atBase (power : NativePowerObject) (declaration : Name) (arguments :
     TermElabM Expr := do
   discard <| checkedDeclaration declaration
   let function ← mkConstWithFreshMVarLevels declaration
-  elabAppArgs function #[] ((#[power.base] ++ arguments).map Arg.expr) none false false
+  let actual := #[power.base] ++ arguments
+  let references := Array.replicate actual.size (← getRef)
+  let (result, _) ← elabSourceApplication function references none fun index _ => do
+    let some value := actual[index]?
+      | throwError "the power-object application lost an original argument"
+    return value
+  return result
 
 /-- The value of a global element `1 ⟶ Y` at the power object's registered point.
 Source: PowerObjectEntry.point, the declaration consumers use to extract a value from a global
@@ -96,9 +102,7 @@ def sourceSubsetLiteral (power : NativePowerObject) (elements : Array Expr) (exp
     | .some instanceValue => pure instanceValue
     | .none | .undef => throwFailedToSynthesize equalityType
   let literal ← mkAppOptM ``List.toFinset #[some power.base, some equality, some list]
-  dbg_trace "[source.literal] before declared denotation"
   let element ← atBase power row.denotation #[literal]
-  dbg_trace "[source.literal] after declared denotation"
   let value ← sourceGlobalValue power element (some expected)
   return sourceReference ``SubsetLiteralEntry row.id.raw row.denotation value
 

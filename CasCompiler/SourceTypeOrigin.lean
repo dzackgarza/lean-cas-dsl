@@ -7,7 +7,7 @@ public section
 
 namespace CasCompiler
 
-open Lean Meta CasCatalogue
+open Lean Meta Elab Term CasCatalogue
 
 /-- The actual object and checked whole carrier family that supply an element type. -/
 structure NativeSourceElementOwner where
@@ -193,20 +193,67 @@ the returned dictionary is checked at the complete retained goal. Stuck native g
 remain stuck, and failed native search is not an alternative source interpretation.
 Reuse: sourceObjectOrigin?, Meta.transform and Lean.Meta.trySynthInstance. -/
 opaque trySourceInstance (type : Expr) : MetaM (LOption Expr) := do
-  let rawType := type
   let type ← instantiateMVars type
-  let native ← sourceInstanceType type
-  let hasOwner := fun (expression : Expr) => (expression.find? fun term => match term with
-    | .mdata data _ => data.contains `CasCompiler.source.objectOrigin
-    | _ => false).isSome
-  dbg_trace "[source.instance] head={repr type.getAppFn.constName?} rawOwner={hasOwner rawType} owner={hasOwner type} nativeOwner={hasOwner native} rawMVars={rawType.hasMVar} raw={(reprStr rawType).take 1500} goal={(reprStr type).take 1500} native={(reprStr native).take 1500}"
-  let result ← trySynthInstance native
-  let tag := match result with | .some _ => "some" | .none => "none" | .undef => "undef"
-  dbg_trace "[source.instance.result] head={repr type.getAppFn.constName?} result={tag}"
+  let result ← trySynthInstance (← sourceInstanceType type)
   if let .some instanceValue := result then
     unless ← isDefEq (← inferType instanceValue) type do
       throwError "the native instance has a different complete source goal"
   return result
+
+/-- Elaborate a native application with the original explicit and implicit positions.
+The reader sees each dependent type after its preceding actual arguments have been assigned.
+Only this application's registered class slots use the checked source-object inference view.
+Successful slots are retired exactly as Lean's synthetic-goal resolver does; stuck slots remain
+pending. The returned source spine keeps every original annotated explicit argument.
+Reuse: Lean.Elab.Term.elabAppArgs and SyntheticMVars.markAsResolved's state transition. -/
+opaque elabSourceApplication (function : Expr) (references : Array Syntax)
+    (expected : Option Expr) (readArgument : Nat → Expr → TermElabM Expr) :
+    TermElabM (Expr × Array Expr) := do
+  let holes ← references.mapM fun _ => mkFreshExprMVar none
+  let prepared ← elabAppArgs function #[] (holes.map Arg.expr) expected false false
+  for hole in holes do
+    unless (prepared.find? (· == hole)).isSome do
+      throwError "the native application lost an original explicit argument"
+  let instanceSlots ← (← getMVars prepared).filterM fun slot => do
+    let some declaration ← getSyntheticMVarDecl? slot | return false
+    return declaration.kind matches .typeClass _
+  let mut actual := #[]
+  for reference in references, hole in holes do
+    let value ← withRef reference do
+      let type ← instantiateMVars (← inferType hole)
+      let value ← readArgument actual.size type
+      unless ← isDefEq hole value do
+        throwError "the source argument does not match its dependent native type"
+      return value
+    actual := actual.push value
+  for slot in instanceSlots do
+    let solved ← slot.withContext do
+      let type ← instantiateMVars (← slot.getType)
+      match ← trySourceInstance type with
+      | .some instanceValue =>
+        if ← slot.isAssigned then
+          let previous ← instantiateMVars (mkMVar slot)
+          unless ← isDefEq previous instanceValue do
+            if (← containsPendingMVar previous <||> containsPendingMVar instanceValue) then
+              return false
+            throwError "the native application changed its original instance slot"
+        else
+          unless ← isDefEq (mkMVar slot) instanceValue do
+            throwError "the native application could not retain its original instance slot"
+        return true
+      | .undef => return false
+      | .none => do
+        discard <| throwFailedToSynthesize type
+        return false
+    if solved then
+      -- Assigning the dictionary alone leaves Lean's registered goal queued for another
+      -- search at its wrapped type. Retire only this successfully checked original slot;
+      -- the native pending-goal loop removes its queued ID through the ordinary path.
+      modify fun state => { state with syntheticMVars := state.syntheticMVars.erase slot }
+  let result := prepared.replace fun expression =>
+    (holes.findIdx? (· == expression)).bind fun index => actual[index]?
+  check result
+  return (result, actual)
 
 end
 

@@ -89,19 +89,9 @@ def application (context : ReadContext) :
             (← declaredEndpoint type.getAppArgs[2]!)))
         else pure none
       else pure none
-    let holes ← arguments.mapM fun _ => mkFreshExprMVar none
-    let prepared ← elabAppArgs function #[] (holes.map Arg.expr) expected false false
-    for hole in holes do
-      unless (prepared.find? (· == hole)).isSome do
-        throwError "the native application lost an original explicit argument"
-    let instanceSlots ← (← getMVars prepared).filterM fun slot => do
-      let some declaration ← getSyntheticMVarDecl? slot | return false
-      return declaration.kind matches .typeClass _
-    if !instanceSlots.isEmpty then
-      dbg_trace "[source.app.prepare] head={repr function.getAppFn.constName?} slots={repr (instanceSlots.map (·.name))}"
-    let mut actual := #[]
-    for argument in arguments, hole in holes do
-      let type ← instantiateMVars (← inferType hole)
+    let (result, actual) ← elabSourceApplication function (arguments.map (·.raw)) expected fun index type => do
+      let some argument := arguments[index]?
+        | throwError "the source application lost an original argument"
       let type ← match namedDomain with
         | some domain =>
           unless ← isDefEq type domain do
@@ -143,46 +133,12 @@ def application (context : ReadContext) :
       let value ← match viewed with
         | some value => pure value
         | none => readExpression categoryOf argument (some type)
-      if !instanceSlots.isEmpty then
-        let assigned ← instanceSlots.mapM (·.isAssigned)
-        let pending := (← get).pendingMVars
-        dbg_trace "[source.app.read] index={actual.size} assigned={repr assigned} queued={repr (instanceSlots.map pending.contains)}"
       let parameter ← match value.category with
         | some category =>
           if category.role == .object then annotateSourceObject category value.value
           else pure value.value
         | none => pure value.value
-      unless ← isDefEq hole parameter do
-        throwErrorAt argument "the source argument does not match its dependent native type"
-      actual := actual.push parameter
-      if !instanceSlots.isEmpty then
-        let assigned ← instanceSlots.mapM (·.isAssigned)
-        let pending := (← get).pendingMVars
-        dbg_trace "[source.app.assigned] index={actual.size - 1} assigned={repr assigned} queued={repr (instanceSlots.map pending.contains)}"
-    -- These are the native elaborator's original implicit positions. Keep the actual
-    -- source argument assignments for dependent reading, and synthesize only their
-    -- registered class goals through the checked native object view.
-    for slot in instanceSlots do
-      if ← slot.isAssigned then
-        dbg_trace "[source.app.skip] slot={repr slot.name} queued={(← get).pendingMVars.contains slot}"
-        continue
-      slot.withContext do
-        let rawType ← slot.getType
-        dbg_trace "[source.app.slot] slot={repr slot.name} raw={(reprStr rawType).take 1500}"
-        let type ← instantiateMVars rawType
-        match ← trySourceInstance type with
-        | .some instanceValue =>
-          unless ← isDefEq (mkMVar slot) instanceValue do
-            throwError "the native application could not retain its original instance slot"
-        | .undef => pure ()
-        | .none => discard <| throwFailedToSynthesize type
-      dbg_trace "[source.app.after] slot={repr slot.name} assigned={← slot.isAssigned} queued={(← get).pendingMVars.contains slot} registered={(← getSyntheticMVarDecl? slot).isSome}"
-    -- The saved spine still contains the fresh argument holes even when native
-    -- unification assigned a convertible expression. Restore only these exact holes;
-    -- no implicit dictionary or original callable is selected by value equality.
-    let result := prepared.replace fun expression =>
-      (holes.findIdx? (· == expression)).bind fun index => actual[index]?
-    check result
+      return parameter
     if let #[argument] := actual then
       if source.category.any (·.role == .morphism) then
         if let some original ← sourcePointOrigin? argument then
