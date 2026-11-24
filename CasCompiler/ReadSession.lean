@@ -226,7 +226,8 @@ private def categoryBundle (session : SourceSession) (context : OpenContext)
     (arguments : Array (TSyntax `cas_term)) : TermElabM Expr := do
   discard <| checkedDeclaration entry.declaration
   let reader : ReadContext := ⟨sourceCategory session context, source, none, none, none,
-    readProjection, readExpression⟩
+    readProjection, fun categoryOf source expected qualification expectedCategory =>
+      readExpression categoryOf source expected qualification expectedCategory⟩
   let value ← SourceReader.application reader
     ⟨← mkConstWithFreshMVarLevels entry.declaration, none⟩ arguments none
   discard <| categoryIdentity value

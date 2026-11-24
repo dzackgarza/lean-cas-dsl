@@ -176,7 +176,7 @@ declare_syntax_cat cas_pair
 syntax cas_term:51 " ↦ " cas_term:51 : cas_pair
 syntax:40 "{" cas_pair,* "}" " : " cas_term:51 : cas_term
 
-declare_syntax_cat cas_stmt
+declare_syntax_cat cas_stmt (behavior := symbol)
 declare_syntax_cat cas_item
 syntax (name := casAbstractDeclaration) "let " ident " ∈ " cas_term : cas_stmt
 syntax (name := casAbstractInDeclaration) "let " ident " in " cas_term : cas_stmt
