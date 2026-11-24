@@ -138,18 +138,20 @@ run_cmd do
                   | throwError "the property lost its exact selected scalar identity"
                 let some scalar := bindings.find? (·.id == scalarEntry.id)
                   | throwError "the property lost its chosen scalar binder"
-                unless parameters == #[scalar.expression] do
-                  try
-                    let stderr ← IO.getStderr
-                    stderr.putStrLn s!"[property.parameter] case={text} expected={reprStr scalar.expression} count={parameters.size}"
-                    for parameter in parameters do
-                      stderr.putStrLn s!"[property.parameter] actual={(reprStr parameter).take 12000}"
-                      if let .mdata marker _ := parameter then
-                        if marker.contains `CasCompiler.source.objectOrigin then
-                          if let some (category, object) ← sourceObjectOrigin? parameter then
-                            stderr.putStrLn s!"[property.parameter] original={reprStr object} category={reprStr category.expression} exact={object == scalar.expression}"
-                    stderr.flush
-                  catch _ => pure ()
+                let #[parameter] := parameters
+                  | throwError "the property changed its exact category parameter arity"
+                let .mdata marker _ := parameter
+                  | throwError "the property lost its selected category parameter wrapper"
+                unless marker.contains `CasCompiler.source.objectOrigin do
+                  throwError "the property lost its explicit category parameter origin"
+                let some (parameterCategory, parameterSource) ← sourceObjectOrigin? parameter
+                  | throwError "the property lost its original category parameter"
+                let some selectedCategory := session.source.categoryFor scalarEntry.id
+                  | throwError "the property lost its original scalar category"
+                unless parameterSource == scalar.expression && parameterCategory.role == .object &&
+                    parameterCategory.expression.syntacticEq (.atom CategoryId.rings) &&
+                    parameterCategory.expression.syntacticEq selectedCategory.expression &&
+                    parameterCategory.bundle == (← selectedCategory.bundle.inContext context) do
                   throwError "the property source replaced its exact category parameter"
               else unless parameters.isEmpty do
                 throwError "the group property invented a category parameter"

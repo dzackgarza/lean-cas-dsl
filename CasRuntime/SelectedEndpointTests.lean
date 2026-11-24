@@ -75,7 +75,7 @@ run_cmd liftTermElabM do
           left.value == right.value && left.associationIds == right.associationIds
         let transaction ← CellTransaction.begin session.kernel.ledger
         try
-          let inspected ← do
+          let inspected ← (show MetaM (Array (Expr × ValueBinding × ValueBinding × Array ValueBinding)) from do
             let mut inspected : Array (Expr × ValueBinding × ValueBinding × Array ValueBinding) := #[]
             for (mapName, rowName) in #[(`projection, `row), (`projectionAgain, `rowAgain)] do
               let (mapBinding, mapValue) ← originalBinding mapName
@@ -136,7 +136,7 @@ run_cmd liftTermElabM do
               let some (.term _) := (← session.kernel.codes.get)[code]?
                 | throwError "the endpoint field is not its retained original source code"
               inspected := inspected.push (endpointSource, endpoint, dimension, captures)
-            return inspected
+            return inspected)
           let #[(endpointSource, endpoint, dimension, captures),
               (otherSource, otherEndpoint, otherDimension, otherCaptures)] := inspected
             | throwError "the endpoint control did not inspect both original maps"
