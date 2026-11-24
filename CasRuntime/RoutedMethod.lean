@@ -694,9 +694,9 @@ def MaterializedMethodBoundary.derivation (selected : MaterializedMethodBoundary
     let declared ← routedActionApplication (.functor selected.route.family.functor.id) action
     let .const _ levels := declared.getAppFn
       | throwError "the method derivation lost its declaration universes"
-    unless checked.entry.target == .method selected.route.family.entry.id do
+    unless checked.source.entry.target == .method selected.route.family.entry.id do
       throwError "the selected method derivation belongs to another published target"
-    let plan := checked.plan.instantiateLevelParams checked.universeParams levels
+    let plan ← checked.instantiate levels
     let function := mkAppN plan declared.getAppArgs
     let function ← if (← whnfR (← inferType function)).isAppOf ``CategoryTheory.Cat.Hom then
         mkAppM ``CategoryTheory.Cat.Hom.toFunctor #[function]

@@ -53,7 +53,7 @@ opaque InputDescriptorView.namedPoint? (graph : ValueGraph)
       let some row := (← semanticState).morphisms.find? (·.id == morphismId)
         | throwError "the delayed named arrow lost its released declaration"
       unless family.source.declaration == row.declaration &&
-          family.source.family.getAppFn.isConstOf row.declaration do
+          family.source.family.consumeMData.getAppFn.isConstOf row.declaration do
         throwError "the delayed named arrow changed its checked family"
       pure (some (row.declaration, row.id.raw))
     | .application family => do
@@ -69,7 +69,7 @@ opaque InputDescriptorView.namedPoint? (graph : ValueGraph)
     | _ => pure none
   let some (declaration, operation) := selected | return none
   let complete ← request.source.source.withOpen fun _ source => do
-    unless source.getAppFn.isConstOf declaration do
+    unless source.getAppFn.consumeMData.isConstOf declaration do
       throwError "the named arrow changed its original complete source application"
     return (← whnfR (← inferType source)).isAppOfArity ``Quiver.Hom 4
   unless complete do return none

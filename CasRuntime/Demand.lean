@@ -156,11 +156,20 @@ partial def Kernel.reach (kernel : Kernel) (evaluateSource : SourceEvaluation) (
       kernel.invokeRegistration evaluateSource request transaction registration role parameters inputs
   | .derivation checked =>
     evaluateRequest kernel evaluateSource request transaction fun context => do
-      let plan := checked.plan.instantiateLevelParams checked.universeParams universes
+      let plan ← checked.instantiate universes
       let formal : Array ClosedTerm := match family.application with
         | none => #[]
         | some application => application.arguments.map (·.source.source)
-      let mut term := mkAppN plan (← formal.mapM (·.inContext context))
+      let supplied := family.origin.application.map (·.arguments) |>.getD #[]
+      unless formal.size == supplied.size do
+        throwError "the source derivation lost its original complete parameter references"
+      let mut parameters := #[]
+      for parameter in formal, index in [:formal.size] do
+        let source ← parameter.inContext context
+        parameters := parameters.push (← match supplied[index]?.bind id with
+          | some value => markValue kernel.marks value source
+          | none => pure source)
+      let mut term := plan.betaRev parameters.reverse (preserveMData := true)
       for field in path do term ← projectTerm term field
       let values := match request.action with
         | .apply _ _ values => values
@@ -171,7 +180,7 @@ partial def Kernel.reach (kernel : Kernel) (evaluateSource : SourceEvaluation) (
         actual := actual.push (← match values[index]?.bind id with
           | some value => markValue kernel.marks value source
           | none => pure source)
-      return (mkAppN term actual).headBeta
+      return term.betaRev actual.reverse (preserveMData := true)
 
 /-- The kernel-owned concrete executor of prepared demands (T013).
 A published family whose value is a callable or a record is retained as a delayed demand.

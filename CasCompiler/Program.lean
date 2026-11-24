@@ -8,6 +8,7 @@ public import CasCompiler.PresentationFamily
 public import CasCompiler.RoutedMethodFamily
 public import CasCompiler.PropertyFamily
 public import CasCompiler.PointFamily
+public import CasCompiler.SourceReference
 
 @[expose] public section
 
@@ -25,6 +26,17 @@ structure PrerequisiteSlot where
   index : Nat
   source : CheckedComputationPrerequisite
   expression : Expr
+
+/-- The checked slot supplies its exact address before any substitution or native projection.
+Metadata retains the original whole family and its rigid universe application. -/
+private def selectedComputationFamily (source : CheckedComputationPrerequisite) : Expr :=
+  let (kind, id) := match source.reference with
+    | .operation id => (``OperationEntry, id.raw)
+    | .functor id => (``EdgeRef.functor, id.raw)
+    | .method id => (``MethodEntry, id.raw)
+    | .construction id => (``ConstructionEntry, id.raw)
+    | .morphism id => (``MorphismEntry, id.raw)
+  sourceReference kind id source.declaration source.family
 
 /-- Read every published alternative through the upstream safety and axiom checks.
 The upstream checked packet is retained intact, including rigid universes and equality.
@@ -46,6 +58,17 @@ def SourceProgram.withPrerequisites (program : SourceProgram)
       { index, source := prerequisite, expression := locals[index]! : PrerequisiteSlot }
     action slots (mkAppN source.template locals).headBeta
 
+/-- Instantiate the accepted template with its original ordered primitive families.
+Only the independently checked template supplies composition; each prerequisite keeps its
+own public reference. No declaration search or source equality selects a primitive. -/
+opaque SourceProgram.instantiate (program : SourceProgram) (universes : List Level) : MetaM Expr := do
+  unless universes.length == program.source.universeParams.length do
+    throwError "the source program lost its complete universe substitution"
+  let family ← program.withPrerequisites fun slots body => do
+    return body.replaceFVars (slots.map (·.expression))
+      (slots.map (selectedComputationFamily ∘ PrerequisiteSlot.source))
+  return family.instantiateLevelParams program.source.universeParams universes
+
 /-- A directly registered family, checked before any specialization or provider selection. -/
 structure SourceFamily where
   private mk ::
@@ -60,8 +83,9 @@ opaque SourceFamily.forReference (reference : ComputationRef) : MetaM SourceFami
   let family ← withLCtx {} #[] do
     let context ← ContextTelescope.capture #[]
     context.close (mkConst declaration (info.levelParams.map Level.param))
-  return ⟨{ reference, declaration, family := family.expression, familyType := family.type },
-    info.levelParams⟩
+  let source : CheckedComputationPrerequisite :=
+    { reference, declaration, family := family.expression, familyType := family.type }
+  return ⟨{ source with family := selectedComputationFamily source }, info.levelParams⟩
 
 /-- A complete accepted source interface: a registered family, checked derivation target,
 ordered primitive slot, selected lift/presentation/method, or native property observation. -/

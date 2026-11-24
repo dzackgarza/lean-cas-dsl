@@ -16,10 +16,12 @@ namespace CasCompiler
 
 open Lean Meta Elab Term CasCatalogue
 
-/-- The function of the actual set map, using its fixed native category structure.
-Reuse: Mathlib.CategoryTheory.Category.Types.Basic, TypeCat.Hom.hom and Fun.toFun. -/
+/-- The function of the actual set map, through its two native record fields.
+Reuse: Mathlib.CategoryTheory.Types.Basic, TypeCat.Hom.hom' and Fun.toFun.
+The public hom abbreviation selects the same field through ConcreteCategory;
+the direct projection retains that map without an extra dictionary application. -/
 def sourceSetFunction (value : Expr) : MetaM Expr := do
-  let function ← mkAppM ``TypeCat.Hom.hom #[value]
+  let function ← mkAppM ``TypeCat.Hom.hom' #[value]
   mkAppM ``TypeCat.Fun.toFun #[function]
 
 /-- Expose the native constructor fields of undetermined structure parameters.

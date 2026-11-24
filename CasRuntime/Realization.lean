@@ -1,6 +1,7 @@
 module
 
 public import LeanCategories.Catalogue.Registry.Computation
+public import CasCompiler.Program
 public import CasContract.Registration
 public import CasContract.Failure
 public import CasRuntime.GroundedRealizations
@@ -11,7 +12,7 @@ import CasContract.Port
 
 namespace CasRuntime
 
-open Lean Meta CasCatalogue
+open Lean Meta CasCatalogue CasCompiler
 
 private inductive Selection (α : Type)
   | all
@@ -276,7 +277,7 @@ def selectLift (profile : RealizationProfile) (manifest : Manifest)
 
 inductive Realization
   | registration (selected : Registration)
-  | derivation (checked : CheckedComputationDerivation)
+  | derivation (checked : SourceProgram)
 
 /-- Select the realization of one exact demand by the saturated grounded count.
 Source: execution contract v2 §5.1 and §5.2. The root alternatives are the eligible
@@ -295,14 +296,14 @@ private def selectBoundaries (profile : RealizationProfile) (manifest : Manifest
         profile.allowsPrimitive reference registration).map (index, ·)).flatten
   let forms := boundaries.flatten
   let mut nodes : Array ComputationRef := #[reference]
-  let mut derivations : Array (Array CheckedComputationDerivation) := #[]
+  let mut derivations : Array (Array SourceProgram) := #[]
   let mut next := 0
   while next < nodes.size do
     let some node := nodes[next]? | break
-    let checked := (← checkedComputationDerivations node).filter fun derivation =>
-      profile.allowsDerivation derivation.entry
+    let checked := (← SourceProgram.forTarget node).filter fun derivation =>
+      profile.allowsDerivation derivation.source.entry
     for derivation in checked do
-      for prerequisite in derivation.prerequisites do
+      for prerequisite in derivation.source.prerequisites do
         unless nodes.contains prerequisite.reference do nodes := nodes.push prerequisite.reference
     derivations := derivations.push checked
     next := next + 1
@@ -317,7 +318,7 @@ private def selectBoundaries (profile : RealizationProfile) (manifest : Manifest
       if index == 0 then eligible.map fun _ => #[]
       else if present node then #[#[]] else #[]
     primitive ++ (derivations[index]?.getD #[]).map fun derivation =>
-      derivation.prerequisites.filterMap fun prerequisite =>
+      derivation.source.prerequisites.filterMap fun prerequisite =>
         nodes.findIdx? (· == prerequisite.reference)
   let graph : RealizationGraph size := ⟨Vector.ofFn fun node =>
     (rows[node.val]?.getD #[]).map fun children =>

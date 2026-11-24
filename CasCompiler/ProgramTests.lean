@@ -23,6 +23,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     check source.correctness
     unless ← isDefEq (← inferType source.correctness) (← mkEq source.plan source.target) do
       throwError "source intake lost the checked whole-family equality"
+    let selected ← program.instantiate (source.universeParams.map Level.param)
+    checkWithKernel (← mkExpectedTypeHint (← mkEqRefl selected) (← mkEq selected source.plan))
+    for prerequisite in source.prerequisites do
+      unless (selected.find? fun expression => match expression with
+          | .mdata data _ =>
+            data.getName `CasCompiler.source.declaration == prerequisite.declaration &&
+            data.contains `CasCompiler.source.id
+          | _ => false).isSome do
+        throwError "the source program erased an original prerequisite selection"
     let previous ← program.withPrerequisites fun slots body => do
       unless slots.size == source.prerequisites.size do
         throwError "source intake changed the prerequisite arity"
