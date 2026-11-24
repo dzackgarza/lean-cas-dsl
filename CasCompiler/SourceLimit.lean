@@ -242,8 +242,16 @@ def sourceLimitLeg? (receiver : NativeSourceJudgement) (ordinal : Nat) :
     | throwError "the defining leg has no shape index"
   let hom := mkApp component (← constructionIndex indexType ordinal)
   check hom
-  -- The native component already states the endpoints of this exact retained diagram.
-  -- Keep that complete type: convertible diagram objects remain distinct source inputs.
+  -- The component belongs to this cone, while its apex is the actual selected source
+  -- occurrence. Preserve that occurrence in the native hom type before a functor action
+  -- reads its implicit endpoints. The other endpoint remains the original diagram object.
+  let homType ← inferType hom
+  let homType ← if homType.isAppOfArity ``Quiver.Hom 4 then pure homType else whnfR homType
+  unless homType.isAppOfArity ``Quiver.Hom 4 do
+    throwError "the defining leg lost its complete native morphism type"
+  let endpoints := homType.getAppArgs.set! (if colimit then 3 else 2) receiver.value
+  let hom ← mkExpectedTypeHint hom (mkAppN homType.getAppFn endpoints)
+  check hom
   let apex ← mkAppM (if colimit then ``CategoryTheory.Limits.Cocone.pt
     else ``CategoryTheory.Limits.Cone.pt) #[cone]
   let .mdata data _ := sourceReference ``LimitEntry selection.row selection.declaration apex

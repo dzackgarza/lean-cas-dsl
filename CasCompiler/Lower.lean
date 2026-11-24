@@ -340,35 +340,60 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
     -- Select a native constructor field before head reduction can discard its retained-value
     -- or source-boundary metadata. This reads only the exact selected constructor argument.
     -- Reuse the metadata-preserving projection step from Layout.inputProjectionHead.
+    let traceInclusion := (expression.find? (·.isConstOf
+      `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
+    if traceInclusion then dbg_trace "[inclusion.lower] before constructor projection"
     if let some projection ← SourceProjection.ofExpr? expression then
+      if traceInclusion then dbg_trace "[inclusion.lower] constructor projection {projection.declaration}"
       if let .mdata data _ := projection.parent.getAppFn then
         if data.getName `CasCompiler.source.kind == ``RoutedMethodFamily then
+          if traceInclusion then dbg_trace "[inclusion.lower] routed projection selected"
           return ← project (← lower projection.parent) projection.info.i
             m!"{projection.declaration}"
       if projection.parent.getAppFn.constName? == some projection.info.ctorName then
         if let some selected ← projectCore? projection.parent projection.info.i then
+          if traceInclusion then dbg_trace "[inclusion.lower] native constructor field selected"
           return ← lower selected
+    if traceInclusion then dbg_trace "[inclusion.lower] after constructor projection"
     if let .proj owner index (.mdata data value) := expression then
       if (markedKey? data).isSome then
         let some info := getStructureInfo? (← getEnv) owner
           | throwError "internal: a source projection has no structure metadata"
+        if traceInclusion then dbg_trace "[inclusion.lower] marked projection selected"
         return ← project (← lower (.mdata data value)) index m!"{info.fieldNames[index]?}"
-    let type ← whnf (← inferType expression)
+    if traceInclusion then dbg_trace "[inclusion.lower] before inferType head={repr expression.getAppFn.constName?} arity={expression.getAppNumArgs}"
+    let inferredType ← inferType expression
+    if traceInclusion then dbg_trace "[inclusion.lower] after inferType; before type whnf head={repr inferredType.getAppFn.constName?} arity={inferredType.getAppNumArgs}"
+    let type ← whnf inferredType
+    if traceInclusion then dbg_trace "[inclusion.lower] after type whnf head={repr type.getAppFn.constName?} arity={type.getAppNumArgs}"
     trace[cas.lower] "{expression.getAppFn} [{expression.getAppNumArgs}] : {type}"
-    if ← isProp type then throwError "internal: a source proof has no computational value"
-    if (← isClass? type).isSome then return ← closure expression
+    if traceInclusion then dbg_trace "[inclusion.lower] before isProp"
+    let proofType ← isProp type
+    if traceInclusion then dbg_trace "[inclusion.lower] after isProp result={proofType}; before isClass"
+    if proofType then throwError "internal: a source proof has no computational value"
+    let typeClass ← isClass? type
+    if traceInclusion then dbg_trace "[inclusion.lower] after isClass result={typeClass.isSome}"
+    if typeClass.isSome then return ← closure expression
     -- A structure value is a dependent record of its fields. Only data-kind terms are packets.
     -- A type is an object of the category of sets, and is lowered like any other term.
+    if traceInclusion then dbg_trace "[inclusion.lower] before literal/record dispatch"
     unless type.isSort || (type.getAppFn.constName?.map (isStructure (← getEnv))).getD false do
       if let some packet ← literal? expression then
         return ← stage expression (.portable packet.compress.toUTF8)
     if (type.getAppFn.constName?.map (isStructure (← getEnv))).getD false then
-      if let some value ← nativeInputRecord? expression then return value
+      if traceInclusion then dbg_trace "[inclusion.lower] before nativeInputRecord"
+      if let some value ← nativeInputRecord? expression then
+        if traceInclusion then dbg_trace "[inclusion.lower] nativeInputRecord selected"
+        return value
+      if traceInclusion then dbg_trace "[inclusion.lower] after nativeInputRecord none"
     -- Head reduction only: no let substitution and no unfolding under a projection, so a
     -- published family below a field stays a demand and is not replaced by its definition.
+    if traceInclusion then dbg_trace "[inclusion.lower] before whnfCore"
     let reduced ← withConfig (fun config =>
       { config with zeta := false, zetaDelta := false, proj := .yes }) (whnfCore expression)
+    if traceInclusion then dbg_trace "[inclusion.lower] after whnfCore changed={reduced != expression} head={repr reduced.getAppFn.constName?} arity={reduced.getAppNumArgs}"
     if reduced != expression then return ← lower reduced
+    if traceInclusion then dbg_trace "[inclusion.lower] before final native dispatch"
     match expression with
     | .proj owner index value => do
       let some info := getStructureInfo? (← getEnv) owner
@@ -497,29 +522,67 @@ A selected instance and a registered named constant are definitions, so the fiel
 Lean's reduction of that definition. Any other record is lowered, and the field is a demand. -/
 private partial def field (owner : Name) (index : Nat) (value : Expr) (name : MessageData) :
     LowerM ValueBinding := do
+  let traceInclusion := (value.find? (·.isConstOf
+    `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
+  if traceInclusion then dbg_trace "[inclusion.field] enter owner={owner} index={index}"
   if let .mdata data _ := value then
     if (markedKey? data).isSome ||
         data.getName `CasCompiler.source.kind == ``PresentationFamily then
-      return ← project (← lower value) index name
-  if (← isClass? (← whnf (← inferType value))).isSome then
-    let reduced ← whnfCore (.proj owner index (← whnf value))
+      if traceInclusion then dbg_trace "[inclusion.field] marked parent: before lower"
+      let loweredParent ← lower value
+      if traceInclusion then dbg_trace "[inclusion.field] marked parent: after lower; before project"
+      return ← project loweredParent index name
+  if traceInclusion then dbg_trace "[inclusion.field] before inferType"
+  let inferredType ← inferType value
+  if traceInclusion then dbg_trace "[inclusion.field] after inferType; before type whnf"
+  let normalizedType ← whnf inferredType
+  if traceInclusion then dbg_trace "[inclusion.field] after type whnf; before isClass head={repr normalizedType.getAppFn.constName?}"
+  let selectedClass ← isClass? normalizedType
+  if traceInclusion then dbg_trace "[inclusion.field] after isClass result={selectedClass.isSome}"
+  if selectedClass.isSome then
+    if traceInclusion then dbg_trace "[inclusion.field] class parent: before value whnf"
+    let normalizedParent ← whnf value
+    if traceInclusion then dbg_trace "[inclusion.field] class parent: after value whnf; before projection whnfCore"
+    let reduced ← whnfCore (.proj owner index normalizedParent)
+    if traceInclusion then dbg_trace "[inclusion.field] class parent: after projection whnfCore"
     if reduced.isProj then
       throwUnsupportedSource m!"the selected instance field {name} has no definition in this context"
+    if traceInclusion then dbg_trace "[inclusion.field] class parent: before reduced lower"
     return ← lower reduced
   if let .const declaration _ := value.consumeMData.getAppFn then
+    if traceInclusion then dbg_trace "[inclusion.field] declaration {declaration}: before authorization"
     unless (descriptorIds (← semanticState) declaration).isEmpty do
+      if traceInclusion then dbg_trace "[inclusion.field] declaration {declaration}: before unfolding"
       if let some unfolded ← unfoldDefinition? value.consumeMData then
+        if traceInclusion then dbg_trace "[inclusion.field] declaration {declaration}: unfolded; before lower"
         return ← lower (.proj owner index unfolded)
+    if traceInclusion then dbg_trace "[inclusion.field] declaration {declaration}: unchanged"
   let frame ← read
+  if traceInclusion then dbg_trace "[inclusion.field] before environment"
   let environment ← RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
+  if traceInclusion then dbg_trace "[inclusion.field] after environment; before retained-source check"
   -- An unretained inner projection still owns its native definition boundary. Lower it
   -- before the outer demand; flattening through its named field closure would re-enter
   -- that same projection code. Actual retained roots keep their complete selected path.
-  if !(← environment.hasRetainedSource frame.context value) then
-    return ← project (← lower value) index name
+  let retained ← environment.hasRetainedSource frame.context value
+  if traceInclusion then dbg_trace "[inclusion.field] after retained-source check result={retained}"
+  if !retained then
+    if traceInclusion then dbg_trace "[inclusion.field] unretained parent: before lower"
+    let loweredParent ← lower value
+    if traceInclusion then dbg_trace "[inclusion.field] unretained parent: after lower; before project"
+    return ← project loweredParent index name
+  if traceInclusion then dbg_trace "[inclusion.field] before projection source path"
   let (parent, path) ← projectionSourcePath environment (.proj owner index value)
-  if path.isEmpty then return ← project (← lower value) index name
-  projectPath (← lower parent) path
+  if traceInclusion then dbg_trace "[inclusion.field] after projection source path length={path.size}"
+  if path.isEmpty then
+    if traceInclusion then dbg_trace "[inclusion.field] empty path: before parent lower"
+    let loweredParent ← lower value
+    if traceInclusion then dbg_trace "[inclusion.field] empty path: after parent lower; before project"
+    return ← project loweredParent index name
+  if traceInclusion then dbg_trace "[inclusion.field] selected path: before parent lower"
+  let loweredParent ← lower parent
+  if traceInclusion then dbg_trace "[inclusion.field] selected path: after parent lower; before projectPath"
+  projectPath loweredParent path
 
 /-- Read only the exact native projection chain, stopping at source selections and formal
 class definitions. No intermediate projected record is lowered while discovering the path. -/
@@ -615,7 +678,8 @@ private partial def argumentSource (environment : RuntimeEnvironment) (expressio
   return .proj (← getConstInfoCtor projection.info.ctorName).induct projection.info.i parent
 
 private partial def actualArguments (arguments : Array Expr)
-    (deferAfter : Option Nat := none) (required : Option (Array Nat) := none) :
+    (deferAfter : Option Nat := none) (required : Option (Array Nat) := none)
+    (traceArguments : Bool := false) :
     LowerM (Array ClosedTerm × Array RuntimeArgument) := do
   let frame ← read
   let environment ← RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
@@ -631,11 +695,24 @@ private partial def actualArguments (arguments : Array Expr)
         continue
       -- Used evidence follows ordinary retained-source preparation first. A projection of a
       -- lazy parent is a genuine demand; only unanchored native evidence code remains lazy.
+      if traceArguments then
+        dbg_trace "[basechange.argument] before source index={index} head={repr argument.consumeMData.getAppFn.constName?}"
       let source ← argumentSource environment argument
+      if traceArguments then
+        let selected := source.find? fun term => match term with
+          | .mdata data _ => !(data.getName `CasCompiler.source.kind).isAnonymous
+          | _ => false
+        let selection := selected.map fun term => match term with
+          | .mdata data _ =>
+            (data.getName `CasCompiler.source.kind, data.getString `CasCompiler.source.id,
+              data.getName `CasCompiler.source.declaration)
+          | _ => (Name.anonymous, "", Name.anonymous)
+        dbg_trace "[basechange.argument] before lower index={index} head={repr source.consumeMData.getAppFn.constName?} selected={repr selection}"
       let deferred ← if deferAfter.any (· < index) then
           environment.hasRetainedSource frame.context source <&> Bool.not
         else pure false
       let value ← if deferred then closure source else lower source
+      if traceArguments then dbg_trace "[basechange.argument] after lower index={index} value={repr value.value}"
       values := values.push (index, value)
       sources := sources.push source
   let graph ← frame.environment.transaction.view
@@ -742,7 +819,11 @@ private partial def apply (callable : ValueBinding) (arguments : Array Expr) :
     LowerM ValueBinding := do
   if arguments.isEmpty then return callable
   let frame ← read
-  let (closed, actual) ← actualArguments arguments
+  let traceArguments := (callable.role.source.expression.find? (·.isConstOf
+    `CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilWFormBaseChangeDeclaration)).isSome
+  if traceArguments then dbg_trace "[basechange.application] callable={repr callable.value} arguments={arguments.size}"
+  let (closed, actual) ← actualArguments arguments (traceArguments := traceArguments)
+  if traceArguments then dbg_trace "[basechange.application] actual inputs prepared"
   let request ← PreparedRequest.forApplication (← supply) frame.program
     (← frame.environment.ledger.allocate) frame.context callable closed actual (← parameters)
   demand request
@@ -907,7 +988,10 @@ private partial def application (expression : Expr) : LowerM ValueBinding := do
     let arity ← forallBoundedTelescope family.source.familyType (some arguments.size)
       fun locals _ => pure locals.size
     if traced then dbg_trace "[inclusion.stage] registered family: before actual arguments"
+    let traceArguments := name ==
+      `CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilWFormBaseChangeDeclaration
     let (closed, actual) ← actualArguments (arguments.extract 0 arity)
+      (traceArguments := traceArguments)
     if traced then dbg_trace "[inclusion.stage] registered family: before request preparation"
     let request ← PreparedRequest.forBoundary (← supply) frame.program
       (← frame.environment.ledger.allocate) (.registered family) levels frame.context closed actual
@@ -943,6 +1027,11 @@ private partial def application (expression : Expr) : LowerM ValueBinding := do
   | some (.recInfo _) | some (.quotInfo _) =>
     -- The kernel evaluates no eliminator (constitution C22): branching belongs to the leaf
     -- that implements an operation.
+    if name == ``Quot then
+      let heads := arguments.map fun argument => match argument.consumeMData with
+        | .lam _ type body _ => ("lambda", type.getAppFn.constName?, body.getAppFn.constName?)
+        | value => ("value", value.getAppFn.constName?, none)
+      dbg_trace "[basechange.quot] arity={arguments.size} argumentHeads={repr heads}"
     throwStratum .noImplementation m!"{name} is an eliminator with no published operation"
   | _ =>
     if ← isMatcher name then

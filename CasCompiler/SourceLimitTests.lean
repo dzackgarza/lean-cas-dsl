@@ -45,6 +45,19 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "the source limit replaced its declared presentation or original objects"
       checkWithKernel (← mkExpectedTypeHint (← mkEqRefl value) (← mkEq value expected))
 
+    let selected ← session.defineTerm `K object
+    let selected ← selected.defineTerm `KAgain object
+    for (name, index) in #[("K", 2), ("KAgain", 3)] do
+      let leg ← selected.read (← sourceTerm s!"{name}.leg(0)")
+      leg.source.withOpen fun bindings value => do
+        let type ← inferType value
+        let type ← if type.isAppOfArity ``Quiver.Hom 4 then pure type else whnfR type
+        unless type.isAppOfArity ``Quiver.Hom 4 do
+          throwError "the selected defining leg lost its native endpoints"
+        let apex ← declaredEndpoint type.getAppArgs[if colimit then 3 else 2]!
+        unless apex == bindings[index]!.expression do
+          throwError "the defining leg replaced its selected construction occurrence"
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let empty ← SourceSession.empty identities
