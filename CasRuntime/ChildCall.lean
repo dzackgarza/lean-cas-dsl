@@ -213,7 +213,7 @@ private def Kernel.childMethod (kernel : Kernel) (evaluateSource : SourceEvaluat
   selected ← try
       request.environment.methodParameters context transaction kernel.marks kernel.ledger.allocate
         family selected receiver
-        (evaluateSource transaction request.program context bound)
+        (evaluateSource transaction request.program context bound) request.observation.sourceSnapshot
     catch error =>
       malformed s!"the original receiver's category inputs disagree: {← error.toMessageData.toString}"
   let checkedActions ← family.specializeActions levels selected

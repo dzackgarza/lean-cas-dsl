@@ -39,6 +39,33 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throwError "the actual source index is outside its graph"
       let request ← PreparedRequest.forApplication owners.identities program occurrence context callable
         #[← context.close (mkNatLit 7)] #[argument] #[]
+      -- The native result program retains the original formal slot, not the supplied numeral.
+      let expectedFamily ← context.close
+        (mkLambda `n .default (mkConst ``Nat) (mkApp f (.bvar 0)))
+      let observedApplication :=
+        (request.observation.native.getObjValD "request").getObjValD "application"
+      let observedFamily := observedApplication.getObjValD "resultTermFamily"
+      let .ok expressionIndex := observedFamily.getObjValAs? Nat "expression"
+        | throwError "the native application observation lost its original result term family"
+      let .ok typeIndex := observedFamily.getObjValAs? Nat "type"
+        | throwError "the native result term family lost its complete dependent type"
+      let .ok nodes := CasTools.NativeExpression.decodeNodes
+          (request.observation.native.getObjValD "nativeExpressions")
+        | throwError "the result term family is outside its exact native expression graph"
+      unless nodes[expressionIndex]? == some expectedFamily.expression &&
+          nodes[typeIndex]? == some expectedFamily.type do
+        throwError "the application observation substituted an actual result for its original family"
+      let .ok familyContext := observedFamily.getObjValAs? (Array Json) "context"
+        | throwError "the original result family lost its source binding table"
+      unless familyContext.size == 1 && familyContext[0]!.getObjValD "id" ==
+          Json.mkObj [("session", toJson "application-origin"), ("serial", toJson (0 : Nat))] do
+        throwError "the original result family changed its captured callable binding"
+      let expectedReadable ← expectedFamily.withOpen fun _ expression =>
+        return (← ppExpr expression).pretty
+      let readableFamily := (request.observation.readable.getObjValD "application").getObjValD
+        "resultTermFamily"
+      unless readableFamily.getObjValD "expression" == toJson expectedReadable do
+        throwError "the readable application observation changed its original result term family"
       let some record := request.record | throwError "the source result record is absent"
       let some first := record.fields[0]? | throwError "the independent source field is absent"
       let some second := record.fields[1]? | throwError "the dependent source field is absent"
@@ -193,6 +220,53 @@ run_cmd Lean.Elab.Command.liftTermElabM do
                       (application.arguments[0]?.bind id).map (·.value) == some index.value &&
                       access.value == parent.value && (← access.role.source.inContext current) == r do
                     throwError "projection changed its source planes, path or actual later-bound operand"
+                  let document := projection.observation.native.getObjValD "request"
+                  let .ok observedContext :=
+                      (document.getObjValD "environment").getObjValAs? (Array Json) "context"
+                    | throwError "projection observation lost its complete current source context"
+                  let expectedIds := #[
+                    Json.mkObj [("session", toJson "lazy-current"), ("serial", toJson (0 : Nat))],
+                    Json.mkObj [("session", toJson "lazy-origin"), ("serial", toJson (0 : Nat))],
+                    Json.mkObj [("session", toJson "lazy-origin"), ("serial", toJson (1 : Nat))],
+                    Json.mkObj [("session", toJson "lazy-current"), ("serial", toJson (1 : Nat))]]
+                  let .ok readable :=
+                      projection.observation.readable.getObjValAs? (Array Json) "context"
+                    | throwError "projection observation lost its prepared readable context"
+                  unless observedContext.map (·.getObjValD "id") == expectedIds &&
+                      readable.map (·.getObjValD "id") == expectedIds &&
+                      observedContext[0]?.map (·.getObjValD "name") == some (toJson "n") &&
+                      observedContext[1]?.map (·.getObjValD "name") == some (toJson "n") do
+                    throwError "observation merged shadowed names or omitted unused bindings"
+                  let checkSourceAddress (prepared : PreparedRequest) (path : Array Name) :
+                      MetaM Unit := do
+                    let requestDocument := prepared.observation.native.getObjValD "request"
+                    let nativeSource := requestDocument.getObjValD "source"
+                    let nativeAddress := nativeSource.getObjValD "inputProjection"
+                    let sourceText := prepared.observation.readable.getObjValD "source"
+                    let readableAddress := sourceText.getObjValD "inputProjection"
+                    let target := Json.mkObj [("context", expectedIds[3]!)]
+                    let nativePath := Json.arr (path.map CasTools.NativeExpression.nameJson)
+                    unless nativeAddress.getObjValD "target" == target &&
+                        nativeAddress.getObjValD "path" == nativePath &&
+                        readableAddress.getObjValD "target" == target &&
+                        readableAddress.getObjValD "path" == nativePath &&
+                        readableAddress.getObjValD "displayPath" ==
+                          toJson (path.map (·.toString (escape := false))) do
+                      throwError "projection observation changed its exact source binding or native path"
+                  checkSourceAddress projection #[``Prod.snd]
+                  let observedOrigin := document.getObjValD "origin"
+                  let observedApplication := observedOrigin.getObjValD "application"
+                  let observedAccess := (observedOrigin.getObjValD "access").getObjValD "reference"
+                  unless (observedOrigin.getObjValAs? (Array Json) "parameters").toOption.map
+                        (·.size) == some 4 &&
+                      (observedApplication.getObjValAs? (Array Json) "parameters").toOption.map
+                        (·.size) == some 2 &&
+                      observedApplication.getObjValD "path" ==
+                        Json.arr #[CasTools.NativeExpression.nameJson ``Prod.snd] &&
+                      observedAccess.getObjValD "value" == Json.mkObj [
+                        ("worker", toJson parent.value.worker),
+                        ("serial", toJson parent.value.serial)] do
+                    throwError "observation lost its final application or access origin"
                   let (projected, point) ← liftM (m := IO) <|
                     graph.stage owners.identities origin (.product #[number])
                   let .ok dependencies := projected.requiredOwners #[point]
@@ -212,6 +286,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
                       inner.dependencies.isEmpty && inner.contextDependencies.isEmpty &&
                       innerOrigin.access.map (·.value) == some point.value do
                     throwError "nested projection changed its original path or independent role"
+                  checkSourceAddress nested #[``Prod.snd, ``Fin.val]
                   let hidden ← liftM (m := IO) do
                     try
                       discard <| graph.stage owners.identities innerOrigin (.portable "0".toUTF8)

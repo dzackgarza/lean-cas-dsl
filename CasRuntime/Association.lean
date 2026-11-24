@@ -98,6 +98,7 @@ private partial def associateCheckedResult (request : PreparedRequest) (supply :
         let sourceParameters := parameters
         let publishSource := fun (projection : PreparedRequest) (sourceDraft : CellDraft)
             (baseline : ValueBinding) => do
+          let projection := projection.withSourceSnapshot request.observation.sourceSnapshot
           let .project parent field := projection.action
             | throwError "a fixed input lost its prepared native projection"
           let checked ← projection.environment.checkProjectionResult sourceDraft.view

@@ -76,6 +76,7 @@ opaque sourceBinaryLimit (left right : NativeSourceJudgement) (colimit : Bool) :
           "source binary construction requires its selected universal presentation"
   let some presentation ← limitPresentation row diagram
     | throwError "the selected universal presentation changed its complete diagram"
+  let interface ← prepareLimitInterface row presentation
   let cone ← mkAppM (if colimit then ``CategoryTheory.Limits.ColimitCocone.cocone
     else ``CategoryTheory.Limits.LimitCone.cone) #[presentation]
   let apex ← mkAppM (if colimit then ``CategoryTheory.Limits.Cocone.pt
@@ -86,7 +87,8 @@ opaque sourceBinaryLimit (left right : NativeSourceJudgement) (colimit : Bool) :
   -- its shape: the lowerer sends it as that row's descriptor, not the presentation record.
   return ⟨sourceReference ``LimitEntry row.id.raw row.declaration apex,
     some ⟨.object, source.expression, source.bundle, none,
-      some ⟨row.id.raw, row.declaration, cone, colimit, source.expression, source.bundle⟩⟩⟩
+      some ⟨row.id.raw, row.declaration, cone, colimit, source.expression, source.bundle,
+        presentation, diagram, interface⟩⟩⟩
 
 /-- The limit of shape `shape` of the maps `maps` of a category that only creates it: the
 registered limit of the image diagram along the structural step `U` of a registered creation lift
@@ -115,26 +117,39 @@ private def createdLimit (shape : String) (selected : NativeSourceCategory)
     let functor ← exprToSyntax routed.functor
     discard <| checkedDeclaration lift.evidence
     let evidence ← exprToSyntax (← mkConstWithFreshMVarLevels lift.evidence)
+    let diagram ← mkAppM ``CategoryTheory.Limits.cospan #[left.value, right.value]
+    let mappedDiagram ← mkAppM ``CategoryTheory.Functor.comp #[diagram, routed.functor]
+    let leftImage ← mkAppM ``CategoryTheory.Functor.map #[routed.functor, left.value]
+    let rightImage ← mkAppM ``CategoryTheory.Functor.map #[routed.functor, right.value]
     discard <| checkedDeclaration row.declaration
-    let declaration ← exprToSyntax (← mkConstWithFreshMVarLevels row.declaration)
+    let targetPresentation ← mkAppM row.declaration #[leftImage, rightImage]
+    let interface ← prepareLimitInterface row targetPresentation (some mappedDiagram)
+    let some comparison := interface.standardization
+      | throwUnsupportedSource "the created limit requires its declared diagram standardization"
+    let comparison ← exprToSyntax comparison
+    let targetPresentation ← exprToSyntax targetPresentation
     let (f, g) := (← exprToSyntax left.value, ← exprToSyntax right.value)
-    let cone ← elabTermAndSynthesize (← `(
+    let presentation ← elabTermAndSynthesize (← `(
       letI : CategoryTheory.CreatesLimit (CategoryTheory.Limits.cospan $f $g) $functor :=
         (($evidence : CategoryTheory.CreatesLimitsOfShape CategoryTheory.Limits.WalkingCospan
           $functor).CreatesLimit (K := CategoryTheory.Limits.cospan $f $g))
-      (CategoryTheory.liftLimit (K := CategoryTheory.Limits.cospan $f $g) (F := $functor)
-        ((CategoryTheory.Limits.IsLimit.postcomposeInvEquiv
-            (CategoryTheory.Limits.diagramIsoCospan
-              (CategoryTheory.Functor.comp (CategoryTheory.Limits.cospan $f $g) $functor))
-            ($declaration (CategoryTheory.Functor.map $functor $f) (CategoryTheory.Functor.map $functor $g)).cone).symm
-          ($declaration (CategoryTheory.Functor.map $functor $f) (CategoryTheory.Functor.map $functor $g)).isLimit)))) none
-    let cone ← instantiateMVars cone
-    if cone.hasMVar || cone.hasLevelMVar then
+      let universal :=
+        (CategoryTheory.Limits.IsLimit.postcomposeInvEquiv $comparison
+          ($targetPresentation).cone).symm ($targetPresentation).isLimit
+      (⟨CategoryTheory.liftLimit (K := CategoryTheory.Limits.cospan $f $g) (F := $functor)
+          universal,
+        CategoryTheory.liftedLimitIsLimit
+          (K := CategoryTheory.Limits.cospan $f $g) (F := $functor) universal⟩ :
+        CategoryTheory.Limits.LimitCone (CategoryTheory.Limits.cospan $f $g)))) none
+    let presentation ← instantiateMVars presentation
+    if presentation.hasMVar || presentation.hasLevelMVar then
       throwError "the created {shape} has undetermined parameters"
+    let cone ← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[presentation]
     let apex ← mkAppM ``CategoryTheory.Limits.Cone.pt #[cone]
     return some ⟨sourceReference ``LimitEntry row.id.raw row.declaration apex,
       some ⟨.object, selected.expression, selected.bundle, none,
-        some ⟨row.id.raw, row.declaration, cone, false, selected.expression, selected.bundle⟩⟩⟩
+        some ⟨row.id.raw, row.declaration, cone, false,
+          selected.expression, selected.bundle, presentation, diagram, interface⟩⟩⟩
   return none
 
 /-- A registered limit or colimit named by its shape and applied to the maps of its diagram
@@ -186,6 +201,7 @@ opaque sourceNamedLimit (shape : String) (maps : Array NativeSourceJudgement) :
       else throwSemanticAmbiguity s!"several registered presentations of {shape} accept these maps"
   let some presentation ← present row
     | throwError "the selected universal presentation no longer accepts its original maps"
+  let interface ← prepareLimitInterface row presentation
   let cone ← mkAppM (if row.colimit then ``CategoryTheory.Limits.ColimitCocone.cocone
     else ``CategoryTheory.Limits.LimitCone.cone) #[presentation]
   let apex ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone.pt
@@ -193,7 +209,7 @@ opaque sourceNamedLimit (shape : String) (maps : Array NativeSourceJudgement) :
   return some ⟨sourceReference ``LimitEntry row.id.raw row.declaration apex,
     some ⟨.object, selected.expression, selected.bundle, none,
       some ⟨row.id.raw, row.declaration, cone, row.colimit,
-        selected.expression, selected.bundle⟩⟩⟩
+        selected.expression, selected.bundle, presentation, interface.diagram, interface⟩⟩⟩
 
 /-- The object of a diagram's index type that the ordinal `ordinal` names: the number itself in
 `ℕ`, `⟨ordinal, _⟩` in `Fin n` when it is below `n`, else the `ordinal`-th constructor of a closed

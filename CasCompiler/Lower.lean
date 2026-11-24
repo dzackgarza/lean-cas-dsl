@@ -26,6 +26,7 @@ structure LowerEnvironment where
   transaction : CellTransaction
   codes : IO.Ref (Std.HashMap (RuntimeId .program) ClosureCode)
   marks : IO.Ref (Array ValueBinding)
+  sourceSnapshot : Option Json := none
   run : OperationalProgram ValueBinding → MetaM ValueBinding
 
 private structure Frame where
@@ -109,8 +110,10 @@ private def stage (expression : Expr) (payload : ValuePayload) : LowerM ValueBin
   (← read).environment.transaction.stage (← origin expression) payload
 
 private def demand (request : PreparedRequest) : LowerM ValueBinding := do
-  let request := request.withSelection (← read).selection
-  (← read).environment.run do
+  let frame ← read
+  let request := (request.withSelection frame.selection).withSourceSnapshot
+    frame.environment.sourceSnapshot
+  frame.environment.run do
     let response ← PFunctor.FreeM.lift (P := OperationalSignature) request
     pure response.root
 
@@ -1168,7 +1171,7 @@ private partial def routedMethodFamily (data : MData) (body : Expr) : LowerM Val
   let arguments ← environment.methodParameters frame.context frame.environment.transaction
     frame.environment.marks frame.environment.ledger.allocate family
     (body.getAppArgs.extract 0 family.parameterCount) receiver
-    (fun expression => lower expression frame)
+    (fun expression => lower expression frame) frame.environment.sourceSnapshot
   let (closed, actual) ← actualArguments arguments
   let levels ← levels.mapM instantiateLevelMVars
   let mut scope := #[]
@@ -1195,7 +1198,7 @@ private partial def propertyObservation (data : MData) (body : Expr) : LowerM Va
   let arguments ← environment.sourceCategoryParameters frame.context frame.environment.transaction
     frame.environment.marks frame.environment.ledger.allocate family.route.source
     family.categoryFamily family.universeParams family.parameterCount arguments receiver
-    (fun expression => lower expression frame)
+    (fun expression => lower expression frame) frame.environment.sourceSnapshot
   let marked ← markValue frame.environment.marks receiver source
   let (closed, actual) ← actualArguments (arguments.push marked)
   let request ← PreparedRequest.forBoundary (← supply) frame.program

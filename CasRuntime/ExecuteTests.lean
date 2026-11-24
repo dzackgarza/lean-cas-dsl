@@ -485,8 +485,51 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         let .ok rejected := RuntimeArgument.ofValue graph 0 other.root
           | throwError "the other projection is outside the graph"
         let argument ← context.close (← mkProjection r `fst)
-        discard <| PreparedRequest.forApplication owners.identities program
+        let acceptedRequest ← PreparedRequest.forApplication owners.identities program
           (← ledger.allocate) context callable #[argument] #[accepted] parameters
+        let path := Json.arr #[CasTools.NativeExpression.nameJson ``Prod.fst]
+        let origin := (firstRequest.observation.native.getObjValD "request").getObjValD "origin"
+        unless origin.getObjValD "accessPath" == path do
+          throwError "the projection observation lost its exact native access path"
+        let document := acceptedRequest.observation.native.getObjValD "request"
+        let .ok scope := document.getObjValAs? (Array Json) "scope"
+          | throwError "the application observation lost its actual input scope"
+        let some observedArgument := scope[1]?
+          | throwError "the application observation lost its actual projected operand"
+        let .ok accesses := observedArgument.getObjValAs? (Array Json) "projections"
+          | throwError "the actual operand observation lost its selected parent and path"
+        let some access := accesses[0]?
+          | throwError "the actual operand observation has no selected projection"
+        let expectedParent := Json.mkObj [("worker", toJson first.value.worker),
+          ("serial", toJson first.value.serial)]
+        unless accesses.size == 1 && access.getObjValD "path" == path &&
+            (access.getObjValD "parent").getObjValD "value" == expectedParent do
+          throwError "the actual operand observation changed its retained parent or native path"
+        let marks ← IO.mkRef (#[] : Array ValueBinding)
+        discard <| markValue marks right s
+        let markedParent ← markValue marks left r
+        let markedSource ← context.close (← mkProjection markedParent `fst)
+        let .ok markedArgument := RuntimeArgument.ofValue graph 0 actual.root (← marks.get)
+          | throwError "the marked projection is outside the graph"
+        let markedRequest ← PreparedRequest.forApplication owners.identities program
+          (← ledger.allocate) context callable #[markedSource] #[markedArgument] parameters
+        discard <| markedRequest.admitInputs graph
+        let markedDocument := markedRequest.observation.native.getObjValD "request"
+        let .ok observedArguments := markedDocument.getObjValAs? (Array Json) "actualArguments"
+          | throwError "the native observation lost its indexed actual arguments"
+        let some observedArgument := observedArguments[0]?
+          | throwError "the native observation lost its marked actual argument"
+        let expectedArgument := Json.mkObj [
+          ("value", Observation.identityJson actual.root.value),
+          ("associations", toJson (actual.root.associationIds.map Observation.identityJson))]
+        let expectedMark := Json.mkObj [("key", toJson (1 : Nat)),
+          ("reference", Json.mkObj [("value", expectedParent),
+            ("associations", toJson (left.associationIds.map Observation.identityJson))])]
+        unless observedArguments.size == 1 &&
+            observedArgument.getObjValD "sourceIndex" == toJson (0 : Nat) &&
+            observedArgument.getObjValD "reference" == expectedArgument &&
+            observedArgument.getObjValD "marks" == Json.arr #[expectedMark] do
+          throwError "argument observation changed its source mark or exposed an unrelated mark"
         let failure : Option Exception ← try
           discard <| PreparedRequest.forApplication owners.identities program
             (← ledger.allocate) context callable #[argument] #[rejected] parameters

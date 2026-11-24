@@ -6,6 +6,7 @@ public import CasRuntime.Environment
 public import CasRuntime.DeclaredInput
 public import CasRuntime.RoleMap
 public import CasRuntime.Literal
+public import CasRuntime.Observation
 public import Cslib.Foundations.Data.PFunctor.Free
 
 @[expose] public section
@@ -13,12 +14,6 @@ public import Cslib.Foundations.Data.PFunctor.Free
 namespace CasRuntime
 
 open Lean Meta CasCompiler CasCatalogue
-
-inductive PreparedAction
-  | primitive (boundary : ProgramBoundary) (universeArguments : List Level)
-  | project (operand : CasRuntime.ValueBinding) (field : FieldLayout)
-  | apply (callable : CasRuntime.ValueBinding) (arguments : Array ClosedTerm)
-      (values : Array (Option CasRuntime.ValueBinding))
 
 /-- Complete source roles and ordered runtime scope, fixed before a computational reply. -/
 structure PreparedRequest where
@@ -34,12 +29,19 @@ structure PreparedRequest where
   origin : CasRuntime.ValueOrigin
   application : Option ApplicationLayout
   roles : RoleTelescope
+  observation : ObservationDescriptor
   private actualArguments : Array CasRuntime.RuntimeArgument
   selection : Option Name := none
 
 /-- Carry the exact source construction identity into its prepared field demands. -/
 opaque PreparedRequest.withSelection (request : PreparedRequest) (selection : Option Name) :
-    PreparedRequest := { request with selection }
+    PreparedRequest :=
+  { request with selection, observation := request.observation.withSelection selection }
+
+/-- Carry the already prepared frontend document without changing the reached native request. -/
+opaque PreparedRequest.withSourceSnapshot (request : PreparedRequest)
+    (sourceSnapshot : Option Json) : PreparedRequest :=
+  { request with observation := request.observation.withSourceSnapshot sourceSnapshot }
 
 /-- A prepared invocation belongs to one complete request scope, including its fresh
 preparation identity when the source occurrence is rebuilt. -/
@@ -90,12 +92,28 @@ opaque PreparedRequest.originFor (request : PreparedRequest) (source : SourceLay
     else pure #[]
   return { origin with application, access := request.origin.access, accessPath }
 
+private def prepareOrigin (program : CasRuntime.RuntimeId .program)
+    (occurrence : CasRuntime.RuntimeId .occurrence) (action : PreparedAction)
+    (source : SourceLayout) (environment : CasRuntime.RuntimeEnvironment)
+    (application : Option ApplicationLayout) (arguments : Array (Option CasRuntime.ValueBinding)) :
+    MetaM CasRuntime.ValueOrigin := do
+  let origin ← environment.origin program occurrence source
+  if let some layout := application then
+    let callable := match action with | .apply callable .. => some callable | _ => none
+    let .ok application :=
+        CasRuntime.ApplicationOrigin.ofArguments layout environment.values arguments callable
+      | throwError "the prepared application has an incompatible actual argument table"
+    return { origin with application := some application }
+  unless arguments.isEmpty do
+    throwError "actual arguments require a prepared native application telescope"
+  return origin
+
 private def prepareRequest (identities : CasRuntime.IdentitySupply)
     (program : CasRuntime.RuntimeId .program)
     (occurrence : CasRuntime.RuntimeId .occurrence) (action : PreparedAction)
     (source : SourceLayout) (context : OpenContext) (scope : Array CasRuntime.ValueBinding)
     (environment : CasRuntime.RuntimeEnvironment) (application : Option ApplicationLayout)
-    (arguments : Array (Option CasRuntime.ValueBinding))
+    (origin : CasRuntime.ValueOrigin)
     (actualArguments : Array CasRuntime.RuntimeArgument := #[]) :
     MetaM PreparedRequest := do
   unless identities.worker == program.worker && program.worker == occurrence.worker do
@@ -107,18 +125,6 @@ private def prepareRequest (identities : CasRuntime.IdentitySupply)
   if source.kind == .proof then
     throwError "a source proof has no computational response positions"
   let traced := (source.source.expression.find? (·.isConstOf `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
-  if traced then dbg_trace "[inclusion.stage] request {repr occurrence}: before origin"
-  let origin ← environment.origin program occurrence source
-  if traced then dbg_trace "[inclusion.stage] request {repr occurrence}: after origin"
-  let origin ← if let some layout := application then do
-      let callable := match action with | .apply callable .. => some callable | _ => none
-      let .ok application := CasRuntime.ApplicationOrigin.ofArguments layout environment.values arguments callable
-        | throwError "the prepared application has an incompatible actual argument table"
-      pure { origin with application := some application }
-    else do
-      unless arguments.isEmpty do
-        throwError "actual arguments require a prepared native application telescope"
-      pure origin
   if traced then dbg_trace "[inclusion.stage] request {repr occurrence}: before output layouts"
   let mut outputs : Array SourceLayout := #[]
   let record ← if source.kind == .record then
@@ -132,8 +138,11 @@ private def prepareRequest (identities : CasRuntime.IdentitySupply)
   let roles ← RoleTelescope.ofRequest identities program occurrence context application source
     (scope.map (·.role))
   if traced then dbg_trace "[inclusion.stage] request {repr occurrence}: prepared"
+  -- Snapshot only after the exact current invocation and its producer provenance are fixed.
+  let observation ← ObservationDescriptor.prepare program occurrence action source scope outputs
+    record environment origin application roles actualArguments
   return ⟨program, occurrence, action, source, scope, outputs, record, environment, origin,
-    application, roles, actualArguments, none⟩
+    application, roles, observation, actualArguments, none⟩
 
 private def PreparedRequest.inputValues (request : PreparedRequest) :
     Array (Option CasRuntime.ValueBinding) :=
@@ -223,8 +232,10 @@ opaque PreparedRequest.forBoundary (identities : CasRuntime.IdentitySupply)
   if traced then dbg_trace "[inclusion.stage] primitive {repr occurrence}: before argument admission"
   let values ← prepareArguments environment arguments actual
   if traced then dbg_trace "[inclusion.stage] primitive {repr occurrence}: arguments admitted"
-  prepareRequest identities program occurrence (.primitive boundary universeArguments) source context
-    (values.filterMap id ++ scope) environment application values actual
+  let action := PreparedAction.primitive boundary universeArguments
+  let origin ← prepareOrigin program occurrence action source environment application values
+  prepareRequest identities program occurrence action source context
+    (values.filterMap id ++ scope) environment application origin actual
 
 private def checkPresentationInputs (request : PreparedRequest) (graph : ValueGraph)
     (source target : ValueBinding) (marks : Array ValueBinding) : MetaM Unit := do
@@ -318,10 +329,11 @@ private def prepareProjection (identities : CasRuntime.IdentitySupply)
   let mut application := original
   for projection in path do
     application ← application.mapM (·.forProjection projection)
-  let request ← prepareRequest identities program occurrence (.project operand field) source context
-    #[operand] environment none #[]
-  return { request with
-    origin := { request.origin with application, access := some operand, accessPath := path } }
+  let action := PreparedAction.project operand field
+  let origin ← prepareOrigin program occurrence action source environment none #[]
+  let origin := { origin with application, access := some operand, accessPath := path }
+  prepareRequest identities program occurrence action source context
+    #[operand] environment none origin
 
 /-- Prepare the exact source field of the retained operand in the complete current scope. -/
 opaque PreparedRequest.forProjection (identities : CasRuntime.IdentitySupply)
@@ -373,8 +385,10 @@ opaque PreparedRequest.forApplication (identities : CasRuntime.IdentitySupply)
   if traced then dbg_trace "[inclusion.stage] application {repr occurrence}: before argument admission"
   let values ← prepareArguments environment arguments actual
   if traced then dbg_trace "[inclusion.stage] application {repr occurrence}: arguments admitted"
-  prepareRequest identities program occurrence (.apply callable arguments values) source context
-    (#[callable] ++ values.filterMap id) environment (some application) values actual
+  let action := PreparedAction.apply callable arguments values
+  let origin ← prepareOrigin program occurrence action source environment (some application) values
+  prepareRequest identities program occurrence action source context
+    (#[callable] ++ values.filterMap id) environment (some application) origin actual
 
 /-- A checked returned interface with scoped bindings for subsequent computational demands. -/
 structure PreparedResponse (request : PreparedRequest) where

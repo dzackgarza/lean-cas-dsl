@@ -48,6 +48,35 @@ opaque RuntimeArgument.ofValue (graph : ValueGraph) (index : Nat) (value : Value
     | throw "the runtime argument is outside the visible graph"
   return ⟨index, value, node.origin, graph, marks⟩
 
+private partial def sourceMarkKeys (expression : Expr) (keys : Array Nat) : Array Nat :=
+  match expression with
+  | .mdata data body =>
+    let keys := match markedKey? data with
+      | some key => if keys.contains key then keys else keys.push key
+      | none => keys
+    sourceMarkKeys body keys
+  | .app function argument => sourceMarkKeys argument (sourceMarkKeys function keys)
+  | .lam _ type body _ | .forallE _ type body _ =>
+    sourceMarkKeys body (sourceMarkKeys type keys)
+  | .letE _ type value body _ =>
+    sourceMarkKeys body (sourceMarkKeys value (sourceMarkKeys type keys))
+  | .proj _ _ body => sourceMarkKeys body keys
+  | _ => keys
+
+/-- Resolve only marks present in this argument's retained native source and complete context.
+The captured argument table is authoritative; observation never consults mutable global marks.
+Reuse: ClosedTerm's existing expression/type/context data and exact ValueBinding references. -/
+opaque RuntimeArgument.sourceMarks (argument : RuntimeArgument) (source : ClosedTerm) :
+    Except String (Array (Nat × ValueBinding)) := do
+  let mut keys := sourceMarkKeys source.type (sourceMarkKeys source.expression #[])
+  for entry in source.context.entries do
+    keys := sourceMarkKeys entry.type keys
+    if let some value := entry.value then keys := sourceMarkKeys value keys
+  keys.mapM fun key => do
+    let some value := argument.marks[key]?
+      | throw "the source observation lost a retained occurrence mark"
+    return (key, value)
+
 /-- The complete semantic telescope and its separate ordered runtime-binding table.
 Formal-only entries retain their source definitions, hypotheses and selected instances.
 Source: data model section 2, ContextTelescope and its runtime-binding table. -/

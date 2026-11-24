@@ -25,8 +25,8 @@ private def methodParameterAssembly (environment : RuntimeEnvironment) (context 
     (transaction : CellTransaction) (marks : IO.Ref (Array ValueBinding))
     (allocate : BaseIO (RuntimeId .occurrence))
     (declaration : Name) (produced source : Expr) (receiver : ValueBinding)
-    (assembly : MethodCategoryAssembly) (evaluate : Expr → MetaM ValueBinding) :
-    MetaM ValueBinding := do
+    (assembly : MethodCategoryAssembly) (evaluate : Expr → MetaM ValueBinding)
+    (sourceSnapshot : Option Json) : MetaM ValueBinding := do
   let .const _ levels := produced.getAppFn
     | throwError "a native method parameter view lost its declaration universes"
   unless produced.getAppNumArgs == assembly.arity do
@@ -64,6 +64,7 @@ private def methodParameterAssembly (environment : RuntimeEnvironment) (context 
   let request ← PreparedRequest.forApplication transaction.owners.identities
     (← transaction.owners.identities.fresh .program) (← allocate)
     context callable arguments actual parameters
+  let request := request.withSourceSnapshot sourceSnapshot
   let some plan ← request.inputResultPlan graph
     | throwStratum .noImplementation
         "the method category parameter requires unavailable native input fields"
@@ -89,7 +90,8 @@ partial def RuntimeEnvironment.sourceCategoryParameters (environment : RuntimeEn
     (allocate : BaseIO (RuntimeId .occurrence))
     (categorySource : CategoryExpr) (categoryFamily : Expr) (universeParams : List Name)
     (parameterCount : Nat) (arguments : Array Expr) (receiver : ValueBinding)
-    (evaluate : Expr → MetaM ValueBinding) : MetaM (Array Expr) := do
+    (evaluate : Expr → MetaM ValueBinding) (sourceSnapshot : Option Json := none) :
+    MetaM (Array Expr) := do
   let graph ← transaction.view
   let some node := graph.find receiver.value
     | throwError "the method receiver is outside its original graph"
@@ -194,7 +196,7 @@ partial def RuntimeEnvironment.sourceCategoryParameters (environment : RuntimeEn
         selected := selected.push source
     | some declaration, .assembly assembly =>
       let value ← methodParameterAssembly environment context transaction marks allocate
-        declaration produced source producer assembly evaluate
+        declaration produced source producer assembly evaluate sourceSnapshot
       let graph ← transaction.view
       environment.checkDeclaredInput context graph (← marks.get) source value
       selected := selected.push (← markValue marks value source)
@@ -218,10 +220,11 @@ partial def RuntimeEnvironment.sourceCategoryParameters (environment : RuntimeEn
 def RuntimeEnvironment.methodParameters (environment : RuntimeEnvironment)
     (context : OpenContext) (transaction : CellTransaction) (marks : IO.Ref (Array ValueBinding))
     (allocate : BaseIO (RuntimeId .occurrence)) (family : RoutedMethodFamily)
-    (arguments : Array Expr) (receiver : ValueBinding) (evaluate : Expr → MetaM ValueBinding) :
-    MetaM (Array Expr) :=
+    (arguments : Array Expr) (receiver : ValueBinding) (evaluate : Expr → MetaM ValueBinding)
+    (sourceSnapshot : Option Json := none) : MetaM (Array Expr) :=
   environment.sourceCategoryParameters context transaction marks allocate family.route.source
     family.categoryFamily family.universeParams family.parameterCount arguments receiver evaluate
+    sourceSnapshot
 
 /-- Re-admit a complete positioned action-input table and install its exact references in the
 already selected native actions. The caller's ordinary prepared scope owns every supplied

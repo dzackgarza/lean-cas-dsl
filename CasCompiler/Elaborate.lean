@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.Context
+public import CasCompiler.LimitInterface
 public import CasCompiler.Declaration
 public import CasCompiler.NativeProof
 public import CasCompiler.SourceReference
@@ -54,6 +55,9 @@ structure SourceLimitSelection where
   colimit : Bool
   category : CasCatalogue.CategoryExpr
   bundle : ClosedTerm
+  presentation : ClosedTerm
+  diagram : ClosedTerm
+  interface : LimitInterface ClosedTerm
 
 structure NativeSourceLimitSelection where
   row : String
@@ -62,6 +66,9 @@ structure NativeSourceLimitSelection where
   colimit : Bool
   category : CasCatalogue.CategoryExpr
   bundle : Expr
+  presentation : Expr
+  diagram : Expr
+  interface : NativeLimitInterface
 
 /-- The selected symbolic category and its complete native bundle in the original context. -/
 structure SourceCategoryBinding where
@@ -120,16 +127,23 @@ structure SourceContextObservation where
   context : ContextTelescope
   spans : Array SourceSpan
   categories : Array (Option SourceCategoryBinding)
+  rings : Array (Array SourceRingVariable)
   descriptions : Array String
 
 /-- Freeze the actual context and its selected category table without opening or evaluating it. -/
 def SourceSession.observation (session : SourceSession) : SourceContextObservation :=
-  ⟨session.context, session.spans, session.categories, session.descriptions⟩
+  ⟨session.context, session.spans, session.categories, session.rings, session.descriptions⟩
 
 def SourceContextObservation.categoryFor (observation : SourceContextObservation)
     (id : BindingId) : Option SourceCategoryBinding := do
   let index ← observation.context.entries.findIdx? (·.id == id)
   observation.categories[index]?.bind fun category => category
+
+/-- The original ring-variable table, aligned with the complete source scope by identity. -/
+def SourceContextObservation.ringsFor (observation : SourceContextObservation) (id : BindingId) :
+    Array SourceRingVariable := Id.run do
+  let some index := observation.context.entries.findIdx? (·.id == id) | return #[]
+  return observation.rings[index]?.getD #[]
 
 /-- Explicit assumption inspection uses only frozen declaration displays and stable identities.
 Definitions remain in the native context but are not presented as hypothetical assumptions. -/
@@ -296,12 +310,17 @@ opaque SourceSession.elaborateJudgements (session : SourceSession) (reference : 
             return (⟨carrier.refs, carrier.target, carrier.identifications, actions, comparisons⟩ :
               SourceCarrierSelection)
           let limit ← selected.limit.mapM fun limit => do
-            let cone ← context.close (← instantiateMVars limit.cone)
-            checkSource cone
-            let bundle ← context.close (← instantiateMVars limit.bundle)
-            checkSource bundle
-            return (⟨limit.row, limit.declaration, cone, limit.colimit, limit.category, bundle⟩ :
-              SourceLimitSelection)
+            let close := fun value => do
+              let value ← context.close (← instantiateMVars value)
+              checkSource value
+              return value
+            let cone ← close limit.cone
+            let bundle ← close limit.bundle
+            let presentation ← close limit.presentation
+            let diagram ← close limit.diagram
+            let interface ← limit.interface.mapM close
+            return (⟨limit.row, limit.declaration, cone, limit.colimit, limit.category, bundle,
+              presentation, diagram, interface⟩ : SourceLimitSelection)
           term.inCategory selected.expression ⟨category, span, none⟩ selected.role selection limit
 
 /-- Form ordinary checked native terms through the same complete source boundary. -/
@@ -460,8 +479,10 @@ private def SourceCategoryBinding.ensureDeclarations (category : SourceCategoryB
   if let some carrier := category.carrier then
     for action in carrier.actions ++ carrier.comparisons do action.ensureDeclarations
   if let some limit := category.limit then
-    limit.cone.ensureDeclarations
-    limit.bundle.ensureDeclarations
+    for term in #[limit.cone, limit.bundle, limit.presentation, limit.diagram,
+        limit.interface.presentation, limit.interface.diagram] ++
+        limit.interface.standardization.toArray ++ limit.interface.dataConstructor.toArray do
+      term.ensureDeclarations
 
 /-- Reattach all checked native dependencies of the original selected source term. -/
 opaque SourceTerm.ensureDeclarations (term : SourceTerm) : MetaM Unit := do
@@ -474,6 +495,8 @@ opaque SourceContextObservation.ensureDeclarations (context : SourceContextObser
   context.context.ensureDeclarations
   for category in context.categories do
     if let some category := category then category.ensureDeclarations
+  for rings in context.rings do
+    for ring in rings do ring.carrier.ensureDeclarations
 
 def SourceSession.ensureDeclarations (session : SourceSession) : MetaM Unit := do
   session.observation.ensureDeclarations

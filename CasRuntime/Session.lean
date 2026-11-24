@@ -3,6 +3,7 @@ module
 public import CasRuntime.Kernel
 public import CasCompiler.ReadSession
 public import CasCatalogue.Evaluation
+public import CasCompiler.SourceSnapshot
 import CasCompiler.SourceCarrier
 
 public section
@@ -81,8 +82,9 @@ structure KernelSession where
   retain a delayed computation. Source dependencies carry this policy through aliases. -/
   private observed : Std.HashSet BindingId := {}
   /-- Definitions kept without a runtime value because their computation had no leaf or no
-  available backend (constitution C3), and the definitions that use them. -/
-  private unavailable : Array (BindingId × Name) := #[]
+  available backend (constitution C3), with the actual outcome of that computation.
+  Dependent definitions keep the same cause without repeating the invocation. -/
+  private unavailable : Array (BindingId × Name × Outcome) := #[]
   /-- Definitions whose statement did not read, by declared name, with the outcome of that
   statement. A later use of such a name has the outcome of its definition. -/
   private unread : Array (String × Outcome) := #[]
@@ -150,6 +152,20 @@ private def discharged (session : KernelSession) (context : OpenContext) (propos
   if proposition.hasFVar then return none
   Evaluation.decideEvaluated proposition
 
+/-- Follow only the retained source bindings' declared dependencies. A failed computation
+keeps its outcome by BindingId; later executable uses do not lower its definition again.
+Mathematical questions may still be discharged from their source before this execution gate.
+Reuse: contextDependencies closes dependencies through native types and definitions. -/
+private def failedComputation (session : KernelSession) (context : OpenContext)
+    (expression : Expr) : MetaM (Option Outcome) := do
+  for index in ← contextDependencies context.bindings expression do
+    let some binding := context.bindings[index]?
+      | throwError "internal: a source dependency is outside its retained context"
+    if let some (_, name, outcome) := session.unavailable.find? fun (id, _, _) =>
+        id == binding.id then
+      return some (outcome.withDetail s!"{name} has no computed value: {outcome.detail}")
+  return none
+
 /-- The literal value of a side that is a registered literal form's denotation `denote L`.
 Source: LiteralEntry, "a statement comparing a computed value with a literal compares it
 with this denotation". -/
@@ -189,8 +205,9 @@ private def requireSuppliedParameters (session : KernelSession) (context : OpenC
       m!"the abstract parameter {name} has no supplied runtime value")
 
 private def packetOf (session : KernelSession) (transaction : CellTransaction)
-    (context : OpenContext) (side : Expr) : MetaM (Except String Json) := do
-  let binding ← session.kernel.run transaction context session.bound side
+    (context : OpenContext) (side : Expr) (sourceSnapshot : Option Json) :
+    MetaM (Except String Json) := do
+  let binding ← session.kernel.run transaction context session.bound side sourceSnapshot
   let graph ← transaction.view
   match ← IO.ofExcept <| (graph.packet? binding).mapError IO.userError with
   | some packet => return .ok packet
@@ -201,7 +218,8 @@ The comparison reads the actual returned packets at their source type, or at the
 literal type when one side is a literal form, and decides equality of those values in Lean's
 kernel. It is an observation of candidates, not a proof. -/
 private def compare (session : KernelSession) (transaction : CellTransaction)
-    (context : OpenContext) (left right : Expr) : MetaM Outcome := do
+    (context : OpenContext) (left right : Expr) (sourceSnapshot : Option Json) :
+    MetaM Outcome := do
   let literals ← #[left, right].mapM fun side => do
     if let some literal ← literalForm? side then return some literal
     return numeralForm? side
@@ -211,7 +229,7 @@ private def compare (session : KernelSession) (transaction : CellTransaction)
     if let some literal := literal then
       values := values.push (literal, toString (← ppExpr literal))
       continue
-    let packet ← match ← packetOf session transaction context side with
+    let packet ← match ← packetOf session transaction context side sourceSnapshot with
       | .ok packet => pure packet
       | .error reason => return .gap reason
     -- A candidate outside the representation of its reading type is a malformed answer.
@@ -235,14 +253,15 @@ private def compare (session : KernelSession) (transaction : CellTransaction)
 Boolean; registered properties retain their released Option Bool observation contract.
 Negation applies logic to that answer, and an unknown property observation stays unknown. -/
 private partial def decideComputed (session : KernelSession) (transaction : CellTransaction)
-    (context : OpenContext) (proposition : Expr) : MetaM Outcome := do
+    (context : OpenContext) (proposition : Expr) (sourceSnapshot : Option Json) :
+    MetaM Outcome := do
   let logical := proposition.consumeMData
   if logical.isAppOfArity ``Not 1 then
-    return match ← decideComputed session transaction context logical.appArg! with
+    return match ← decideComputed session transaction context logical.appArg! sourceSnapshot with
       | .holds => .wrong "the computed predicate holds, so its negation does not"
       | .wrong _ => .holds
       | outcome => outcome
-  let packet ← match ← packetOf session transaction context proposition with
+  let packet ← match ← packetOf session transaction context proposition sourceSnapshot with
     | .ok packet => pure packet
     | .error reason => return .gap reason
   if (← propertySource? proposition).isSome then
@@ -530,64 +549,77 @@ private partial def executePrepared (session : KernelSession)
       proposition := shown
       conclusions }, false⟩
   | .definition next value =>
+    let some sourceEntry := next.context.entries.back?
+      | throwError "internal: a source definition added no declaration"
+    let sourceSnapshot := some (SourceSnapshot.snapshot next.observation value (some sourceEntry))
     let transaction ← requiredCell transaction
     let sent := (← session.kernel.dispatches.get).size
-    let (binding, dependent) ← try
+    let result : Except Outcome (Option ValueBinding) ← try
         next.context.withOpen fun bindings => do
           let context ← ContextTelescope.capture bindings
           let expression ← value.source.inContext context
-          let dependent := context.bindings.any fun binding =>
-            session.unavailable.any (·.1 == binding.id) &&
-              expression.containsFVar binding.expression.fvarId!
           let type ← whnf (← inferType expression)
-          if (← isProp type) || type.isSort then return (none, dependent)
+          if (← isProp type) || type.isSort then return .ok none
           -- A definition over hypothetical parameters retains its complete native meaning;
           -- it does not turn a formal-variable descriptor into a concrete backend input.
           if (← unsuppliedParameter? session context expression).isSome then
-            return (none, dependent)
-          return (some (← session.kernel.run transaction context session.bound expression), dependent)
+            return .ok none
+          if let some outcome ← failedComputation session context expression then
+            return .error outcome
+          return .ok (some (← session.kernel.run transaction context session.bound expression
+            sourceSnapshot))
       catch error =>
         -- A direct read definition retains its source meaning on an unavailable computation.
         -- A containing block instead aborts the entire shared cell at its result boundary.
         let outcome ← Outcome.ofException error
         if outcome.fails then throw error
+        pure (.error outcome)
+    match result with
+    | .error outcome =>
         let some entry := next.context.entries.back?
           | throwError "internal: a source definition added no declaration"
-        let unavailable := session.unavailable.push (entry.id, entry.userName)
+        let unavailable := session.unavailable.push (entry.id, entry.userName, outcome)
         return ⟨{
           outcome
           session := { session with source := next, unavailable }
           conclusions }, false⟩
-    let graph ← transaction.view
-    let codes ← session.kernel.codes.get
-    let delayed := binding.any (delayedComputation codes graph)
-    let some entry := next.context.entries.back?
-      | throwError "internal: a source definition added no declaration"
-    let computed := (← session.kernel.dispatches.get).size > sent || delayed
-    let bound := match binding with
-      | some binding => session.bound.insert entry.id binding
-      | none => session.bound
-    let observed := if computed then session.observed.insert entry.id else session.observed
-    let unavailable := if dependent then session.unavailable.push (entry.id, entry.userName)
-      else session.unavailable
-    return ⟨{
-      outcome := .holds
-      session := { session with source := next, bound, observed, unavailable }
-      conclusions }, true⟩
+    | .ok binding =>
+      let graph ← transaction.view
+      let codes ← session.kernel.codes.get
+      let delayed := binding.any (delayedComputation codes graph)
+      let some entry := next.context.entries.back?
+        | throwError "internal: a source definition added no declaration"
+      let computed := (← session.kernel.dispatches.get).size > sent || delayed
+      let bound := match binding with
+        | some binding => session.bound.insert entry.id binding
+        | none => session.bound
+      let observed := if computed then session.observed.insert entry.id else session.observed
+      return ⟨{
+        outcome := .holds
+        session := { session with source := next, bound, observed }
+        conclusions }, true⟩
   | .implemented value =>
+    let sourceSnapshot := some (SourceSnapshot.snapshot session.source.observation value)
     let transaction ← requiredCell transaction
     session.source.context.withOpen fun bindings => do
       let context ← ContextTelescope.capture bindings
       let expression ← value.source.inContext context
+      if let some outcome ← failedComputation session context expression then
+        return ⟨{ outcome, session, proposition := shown, conclusions }, false⟩
       requireSuppliedParameters session context expression
-      discard <| session.kernel.run transaction context session.bound expression
-    return ⟨{ outcome := .holds, session, proposition := shown, conclusions }, true⟩
+      discard <| session.kernel.run transaction context session.bound expression sourceSnapshot
+      return ⟨{ outcome := .holds, session, proposition := shown, conclusions }, true⟩
   | .question proposition =>
+    let sourceSnapshot := some (SourceSnapshot.snapshot session.source.observation proposition)
     let transaction ← requiredCell transaction
-    let outcome ← session.source.context.withOpen fun bindings => do
+    session.source.context.withOpen fun bindings => do
       let context ← ContextTelescope.capture bindings
       let asked ← proposition.source.inContext context
-      let outcome ← match ← discharged session context asked with
+      let settled ← discharged session context asked
+      if settled.isNone then
+        if let some outcome ← failedComputation session context asked then
+          return ⟨{ outcome, session, proposition := shown, conclusions }, false⟩
+      let outcome ← match settled with
         | some true => pure .holds
         | some false => pure (.wrong "Lean decides the negation of the statement")
         | none =>
@@ -597,12 +629,11 @@ private partial def executePrepared (session : KernelSession)
           match asked.consumeMData.eq? with
           | some (type, left, right) =>
             match ← truthCase? type left right with
-            | some proposition => decideComputed session transaction context proposition
-            | none => compare session transaction context left right
-          | none => decideComputed session transaction context asked
-      return outcome
-    -- A direct question preserves its existing commit policy for returned wrong/gap outcomes.
-    return ⟨{ outcome, session, proposition := shown, conclusions }, true⟩
+            | some proposition => decideComputed session transaction context proposition sourceSnapshot
+            | none => compare session transaction context left right sourceSnapshot
+          | none => decideComputed session transaction context asked sourceSnapshot
+      -- A direct question preserves its existing commit policy for returned wrong/gap outcomes.
+      return ⟨{ outcome, session, proposition := shown, conclusions }, true⟩
   | .contextBlock _ =>
     discard <| requiredCell transaction
     let .contextBlock _ items := prepared
@@ -620,8 +651,9 @@ private partial def executePrepared (session : KernelSession)
           -- Native interruption is not caught by this ordinary exception handler. An
           -- ordinary child failure retains its actual item and failure stratum until abort.
           let outcome ← Outcome.ofException error
-          let outcome := match current.unavailable.find? (fun (id, _) => missingValueOf error id) with
-            | some (_, name) => .gap s!"{name} has no computed value: {outcome.detail}"
+          let outcome := match current.unavailable.find? (fun (id, _, _) => missingValueOf error id) with
+            | some (_, name, definition) => definition.withDetail
+                s!"{name} has no computed value: {definition.detail}"
             | none => outcome
           return (⟨{
             outcome
@@ -695,12 +727,12 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
     let session := match definedName? statement with
       | some name => { session with unread := session.unread.push (name, outcome) }
       | none => session
-    -- A statement that needs the value of a definition whose computation had no leaf has that
-    -- gap, named, not an internal defect (constitution C3). The dependency check names the
-    -- binding that has no value.
-    if let some (_, name) := session.unavailable.find? fun (id, _) => missingValueOf error id then
+    -- Native dependency validation names the same stable binding. Preserve its original
+    -- failure kind and cause rather than relabeling an unavailable computation as a gap.
+    if let some (_, name, definition) := session.unavailable.find? fun (id, _, _) =>
+        missingValueOf error id then
       return {
-        outcome := .gap s!"{name} has no computed value: {outcome.detail}"
+        outcome := definition.withDetail s!"{name} has no computed value: {definition.detail}"
         session
         attempted
         conclusions
