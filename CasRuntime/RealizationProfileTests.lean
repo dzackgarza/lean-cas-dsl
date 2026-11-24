@@ -80,6 +80,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     (only "entries" #[registrationJson registrations[0]!, registrationJson registrations[0]!]) all])
   rejected manifest (configuration #[rule (target "method" "meth.cardinality")
     (only "entries" #[registrationJson { registrations[0]! with backend := "unregistered" }]) all])
+  rejected manifest (configuration #[rule (target "operation" "op.rings.mul")
+    (only "entries" #[registrationJson registrations[0]!]) all])
   rejected manifest (configuration #[rule (target "operation" "op.rings.mul") all
     (only "ids" #[toJson selected.raw, toJson selected.raw])])
   rejected manifest (configuration #[rule (target "method" "meth.cardinality") all
