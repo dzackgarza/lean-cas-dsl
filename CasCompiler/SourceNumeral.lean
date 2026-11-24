@@ -303,7 +303,7 @@ private def sourceNullaryNumeral (state : SemanticState)
     | if hasBinding then
         throwError "the first source numeral operation has a different nullary signature"
       else
-        throwError "no declared source point numeral was admitted in the supplied domain"
+        throwError "no declared source point numeral was admitted in the supplied domain; numeral={number}; expected={expected}; owners={ownerFamilies.map (fun (owner, _) => (toJson owner.category.expression).compress)}; values={ownerFamilies.map (fun (owner, _) => owner.value)}"
   let mut evidence := first.evidence
   let mut alternatives := #[]
   for (_, other) in candidates do

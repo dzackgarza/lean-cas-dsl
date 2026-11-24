@@ -147,22 +147,52 @@ native type. Equality of runtime values or convertible source binders never sele
 Slot domains recover earlier transitive dependencies. The complete native type check already
 validates universes; head normalization exposes type aliases while current let binders stay frozen. -/
 private partial def dependencyTerms (locals : Array Expr) (formal expected : Expr)
-    (binders : Array (Expr × Expr) := #[]) :
+    (binders : Array (Expr × Expr) := #[])
+    (diagnostic : Option (IO.Ref (Option String)) := none) :
     MetaM (Option (Array (Nat × Expr))) := do
+  let diagnosticBefore ← match diagnostic with
+    | none => pure none
+    | some output => output.get
   let formal := formal.consumeMData
   let expected := expected.consumeMData
+  -- Temporary diagnostics are rendered inside this exact telescope. A caller enables them
+  -- only when the ordinary comparison has already failed; ordinary admission is unchanged.
+  let recordMismatch (reason : String) : MetaM (Option (Array (Nat × Expr))) := do
+    if let some output := diagnostic then
+      if (← output.get).isNone then
+        let describe (term : Expr) : MetaM String := do
+          if term.hasLooseBVars then
+            return s!"{reprStr term}; type=<loose bound variable>; proof=<unknown>"
+          let type ← inferType term
+          return s!"{← ppExpr term}; type={← ppExpr type}; proof={← isProof term}; raw={reprStr term}"
+        let mut localDetails : Array String := #[]
+        for parameter in locals, position in [:locals.size] do
+          localDetails := localDetails.push s!"local[{position}]={← describe parameter}"
+        let mut binderDetails : Array String := #[]
+        for (source, target) in binders, position in [:binders.size] do
+          binderDetails := binderDetails.push
+            s!"binder[{position}].formal={← describe source}; expected={← describe target}"
+        output.set (some s!"reason={reason}; formal={← describe formal}; expected={← describe expected}; \
+          formalPrefix={reprStr (locals.findIdx? (· == formal))}; \
+          expectedPrefix={reprStr (locals.findIdx? (· == expected))}; \
+          formalBinder={reprStr (binders.findIdx? (fun pair => pair.1 == formal))}; \
+          expectedBinder={reprStr (binders.findIdx? (fun pair => pair.2 == expected))}; \
+          locals={String.intercalate "; " localDetails.toList}; \
+          binders={String.intercalate "; " binderDetails.toList}")
+    return (none : Option (Array (Nat × Expr)))
   if let some index := locals.findIdx? (· == formal) then
-    if expected.hasLooseBVars then return none
+    if expected.hasLooseBVars then return ← recordMismatch "loose expected variable at prefix slot"
     let proof ← isProof formal
     let freeVars := collectFVars {} expected
     if !proof && binders.any (fun (_, bound) => freeVars.fvarSet.contains bound.fvarId!) then
-      return none
+      return ← recordMismatch "computational prefix slot depends on an introduced expected binder"
     let some preceding ← dependencyTerms (locals.extract 0 index)
-        (← inferType formal) (← inferType expected) binders | return none
+        (← inferType formal) (← inferType expected) binders diagnostic | return none
     if proof then return some preceding
     return some (preceding.push (index, expected))
   if let some (_, bound) := binders.find? (fun (source, _) => source == formal) then
-    return if bound == expected then some #[] else none
+    if bound == expected then return some #[]
+    return ← recordMismatch "introduced binder correspondence differs"
   if formal == expected then return some #[]
   let merge (left right : MetaM (Option (Array (Nat × Expr)))) :
       MetaM (Option (Array (Nat × Expr))) := do
@@ -174,18 +204,19 @@ private partial def dependencyTerms (locals : Array Expr) (formal expected : Exp
     | .const name _, .const other _ =>
       if name == other then pure (some #[]) else pure none
     | .app f a, .app g b =>
-      merge (dependencyTerms locals f g binders) (dependencyTerms locals a b binders)
+      merge (dependencyTerms locals f g binders diagnostic)
+        (dependencyTerms locals a b binders diagnostic)
     | .forallE name a b info, .forallE other c d otherInfo
     | .lam name a b info, .lam other c d otherInfo => do
-      let some domains ← dependencyTerms locals a c binders | return none
+      let some domains ← dependencyTerms locals a c binders diagnostic | return none
       withLocalDecl name info a fun source =>
         withLocalDecl other otherInfo c fun target => do
           let some bodies ← dependencyTerms locals (b.instantiate1 source) (d.instantiate1 target)
-              (binders.push (source, target)) | return none
+              (binders.push (source, target)) diagnostic | return none
           return some (domains ++ bodies)
     | .proj owner index parent, .proj other otherIndex otherParent =>
       if owner == other && index == otherIndex then
-        dependencyTerms locals parent otherParent binders
+        dependencyTerms locals parent otherParent binders diagnostic
       else pure none
     | _, _ => pure none
   if matched.isSome then return matched
@@ -194,8 +225,12 @@ private partial def dependencyTerms (locals : Array Expr) (formal expected : Exp
     else withConfig (fun config => { config with zetaDelta := false }) (whnf expression)
   let normalizedFormal ← normalize formal
   let normalizedExpected ← normalize expected
-  if normalizedFormal == formal && normalizedExpected == expected then return none
-  dependencyTerms locals normalizedFormal normalizedExpected binders
+  if normalizedFormal == formal && normalizedExpected == expected then
+    return ← recordMismatch "irreducible native mismatch"
+  -- A provisional structural mismatch is not the diagnostic when native normalization
+  -- changes this comparison. Keep only the failure of the final normalized comparison.
+  if let some output := diagnostic then output.set diagnosticBefore
+  dependencyTerms locals normalizedFormal normalizedExpected binders diagnostic
 
 /-- Read only actual fields of this exact current context value. A lazy frontier requires a
 published graph relation or recorded access; dependency checking never computes a missing field. -/
@@ -387,12 +422,12 @@ private def checkDependencies (context : OpenContext)
   for instantiation in value.instantiations do
     if instantiation.precedingDependencies.isEmpty then continue
     let family ← instantiation.typeFamily.inContext context
-    let inspect := fun locals type => do
+    let inspect := fun diagnostic locals type => do
       unless locals.size ≥ instantiation.preceding.size do
         throwError "a consuming runtime dependency lost its complete native prefix"
-      dependencyTerms locals type expected
-    let terms ← if instantiation.view.isSome then lambdaTelescope family inspect
-      else lambdaBoundedTelescope family instantiation.preceding.size inspect
+      dependencyTerms locals type expected #[] diagnostic
+    let terms ← if instantiation.view.isSome then lambdaTelescope family (inspect none)
+      else lambdaBoundedTelescope family instantiation.preceding.size (inspect none)
     for index in instantiation.precedingDependencies do
       let some previous := instantiation.preceding[index]?
         | throwError "a consuming runtime dependency is outside its complete field prefix"
@@ -401,7 +436,26 @@ private def checkDependencies (context : OpenContext)
           throwError "a consuming runtime dependency is outside its source record"
         let some terms := terms
           | if references.isEmpty then continue
-            throwError "the runtime value has an unresolved consuming dependent type"
+            -- Diagnose this exact failed family only, without retaining metavariable effects
+            -- or letting any diagnostic failure replace the original admission exception.
+            try
+              let diagnostic ← IO.mkRef (none : Option String)
+              discard <| withoutModifyingState do
+                if instantiation.view.isSome then
+                  lambdaTelescope family (inspect (some diagnostic))
+                else
+                  lambdaBoundedTelescope family instantiation.preceding.size
+                    (inspect (some diagnostic))
+              dbg_trace "[dependent.type.mismatch] field={instantiation.field.projection} slot={index} originalPrefixSize={instantiation.preceding.size} {(← diagnostic.get).getD "no irreducible mismatch recorded"}"
+            catch _ =>
+              dbg_trace "[dependent.type.mismatch] diagnostic failed; original admission exception retained"
+            throwError "the runtime value has an unresolved consuming dependent type; \
+              expected={expected}; family={family}; field={instantiation.field.projection}; \
+              slot={index}; originalRecord={instantiation.association.layout.source.source.expression}; \
+              candidate={reprStr value.value}; candidateSource={value.role.source.expression}; \
+              producingSource={origin.role.source.expression}; \
+              preceding={reprStr (instantiation.preceding.map (·.map (·.value)))}; \
+              references={reprStr (references.map fun (binding, reference) => (binding.id, reference))}"
         let selected := terms.filterMap fun (slot, term) => if slot == index then some term else none
         if selected.isEmpty && !references.isEmpty then
           throwError "the runtime value has an unresolved consuming dependent slot"

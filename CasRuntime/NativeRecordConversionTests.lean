@@ -2,9 +2,13 @@ module
 
 import CasRuntime.Kernel
 import LeanCategories.Foundation.Mathlib
+import LeanCategories.Catalogue.Semantics.Modules.CatalogueRegistration
+import LeanCategories.Catalogue.Semantics.Algebra.NamedRings
 public meta import Lean.Elab.Command
 meta import CasRuntime.Kernel
 meta import LeanCategories.Foundation.Mathlib
+meta import LeanCategories.Catalogue.Semantics.Modules.CatalogueRegistration
+meta import LeanCategories.Catalogue.Semantics.Algebra.NamedRings
 
 namespace CasRuntime.NativeRecordConversionTests
 
@@ -212,6 +216,99 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             unless (← kernel.dispatches.get).isEmpty do
               throwError "a missing native projection field dispatched a provider"
           finally discard <| transaction.abort
+    finally kernel.close
+  finally setEnv original
+
+-- The published total-module additive-group object action selects only the original
+-- module's carrier and class fields. Check the symbolic paths before running that same
+-- registered action, then compare its actual returned fields with those original inputs.
+-- No provider data or expected additive-group value is constructed by this control.
+set_option maxHeartbeats 2000000 in
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let original ← getEnv
+  try
+    let context ← ContextTelescope.capture #[]
+    let owners ← OwnerRegistry.new
+    let kernel ← Kernel.load owners none none 1000
+    discard <| SessionSnapshot.initialize owners
+    try
+      let transaction ← CellTransaction.begin kernel.ledger
+      try
+        let scalarTerm := mkConst ``CasCatalogue.Algebra.NamedRings.ringIntegers
+        let scalarValue ← kernel.run transaction context {} scalarTerm
+        let scalarSource ← markValue kernel.marks scalarValue scalarTerm
+        let moduleTerm ← mkAppM
+          ``CasCatalogue.Modules.CatalogueRegistration.regularModule #[scalarSource]
+        let moduleValue ← kernel.run transaction context {} moduleTerm
+        let moduleSource ← markValue kernel.marks moduleValue moduleTerm
+        let inclusionInfo ← getConstInfo
+          ``CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration
+        let inclusion := mkApp
+          (mkConst inclusionInfo.name (inclusionInfo.levelParams.map fun _ => Level.zero))
+          scalarSource
+        let inclusionPrefunctor ← mkAppM ``CategoryTheory.Functor.toPrefunctor #[inclusion]
+        let totalTerm ← mkAppM ``Prefunctor.obj #[inclusionPrefunctor, moduleSource]
+        let totalValue ← kernel.run transaction context {} totalTerm
+        let totalSource ← markValue kernel.marks totalValue totalTerm
+        let some fibreField := totalValue.role.fields.find?
+            (·.projection == ``CategoryTheory.Pseudofunctor.CoGrothendieck.fiber)
+          | throwError "the native total module lost its original fibre field"
+        let some fibreIndex := fibreField.wireIndex
+          | throwError "the original module fibre became a proof field"
+        let fibreValue ← IO.ofExcept <|
+          ((← transaction.view).project totalValue fibreIndex).mapError IO.userError
+        unless fibreValue.value == moduleValue.value &&
+            moduleValue.associationIds.toList.isPrefixOf fibreValue.associationIds.toList do
+          throwError "the native fibre inclusion replaced its actual original module"
+        let actionInfo ← getConstInfo
+          ``CasCatalogue.Modules.CatalogueRegistration.modulesAdditiveGroupDeclaration
+        let action := mkConst actionInfo.name (actionInfo.levelParams.map fun _ => Level.zero)
+        let actionPrefunctor ← mkAppM ``CategoryTheory.Functor.toPrefunctor #[action]
+        let objectAction ← mkAppM ``Prefunctor.obj #[actionPrefunctor]
+        let functionLayout ← SourceLayout.ofTerm (← context.close objectAction)
+        let (outputLayout, applicationLayout) ← ApplicationLayout.ofSource
+          functionLayout context #[← context.close totalSource]
+        let originalPaths : Array (Name × Array Name) := #[
+          (``AddGrpCat.carrier,
+            #[``CategoryTheory.Pseudofunctor.CoGrothendieck.fiber, ``ModuleCat.carrier]),
+          (``AddGrpCat.str,
+            #[``CategoryTheory.Pseudofunctor.CoGrothendieck.fiber,
+              ``ModuleCat.isAddCommGroup, ``AddCommGroup.toAddGroup])]
+        unless outputLayout.kind == .record &&
+            (outputLayout.fields.filter (·.wireIndex.isSome)).size == originalPaths.size do
+          throwError "the published additive-group object action changed its native field interface"
+        for (projection, originalPath) in originalPaths do
+          let some selected ← applicationLayout.inputProjectionAt #[projection]
+            | throwError "the published native object field {projection} has no original input route"
+          let .argument 0 := selected.target
+            | throwError "the native object field {projection} selected a different formal input"
+          unless selected.path == originalPath do
+            throwError "the native object field {projection} changed its original input path: {selected.path}"
+        -- Do not evaluate the expected input projections first: the actual object action must
+        -- discover and preserve them through its ordinary complete input-result plan.
+        let outputTerm := mkApp objectAction totalSource
+        let outputValue ← kernel.run transaction context {} outputTerm
+        let outputSource ← markValue kernel.marks outputValue outputTerm
+        for (projection, originalPath) in originalPaths do
+          let some field := outputValue.role.fields.find? (·.projection == projection)
+            | throwError "the native additive-group output lost its selected field"
+          let selectedValue ← kernel.run transaction context {}
+            (← projectTerm outputSource field)
+          let graph ← transaction.view
+          let some originalValue ← IO.ofExcept <|
+              (graph.projected? totalValue originalPath).mapError IO.userError
+            | throwError "the native view did not publish its original input path {originalPath}"
+          let some selectedBasis ← IO.ofExcept <|
+              (graph.projectionBasis selectedValue totalValue originalPath).mapError IO.userError
+            | throwError "the native view lost the selected field's exact original parent and path"
+          unless selectedValue.value == originalValue.value &&
+              originalValue.associationIds.toList.isPrefixOf selectedValue.associationIds.toList &&
+              selectedBasis.value == originalValue.value &&
+              selectedBasis.associationIds == originalValue.associationIds do
+            throwError "the native additive-group view replaced an original field occurrence"
+        unless (← kernel.dispatches.get).isEmpty do
+          throwError "the complete native module view dispatched a provider"
+      finally discard <| transaction.abort
     finally kernel.close
   finally setEnv original
 

@@ -121,7 +121,16 @@ def sourceAdmission (entry : ObjectEntry) (target : Expr) (read : Expr → TermE
   let dataType ← instantiateMVars (← inferType arguments[element]!)
   -- Finish typed elaboration before evidence inspects the complete actual data.
   -- Native dependent constructors can leave pending synthetic coercion terms.
-  let read ← instantiateMVars (← withSynthesize <| read dataType)
+  let read ← try instantiateMVars (← withSynthesize <| read dataType)
+    catch error => do
+      try
+        let actualArguments ← arguments.mapM instantiateMVars
+        let output ← liftM (m := IO) IO.getStderr
+        liftM (m := IO) <| output.putStrLn
+          s!"admission data failure: {entry.id.raw}\noriginalTargetRaw={repr target}\nretainedArgumentsRaw={repr retainedArguments}\nactualArgumentsRaw={repr actualArguments}\ndataTypeRaw={repr dataType}"
+        liftM (m := IO) output.flush
+      catch _ => pure ()
+      throw error
   -- The evidence is stated of a closed value's plumbing-free normal form, which is
   -- definitionally it; the admitted element remains the value as read, so that its registered
   -- operations reach the kernel (constitution C22).

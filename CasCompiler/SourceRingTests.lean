@@ -78,3 +78,24 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     throwError "a natural was not read in ℤ through the registered inclusion"
   unless ← uses 2 ``CasCatalogue.Algebra.Polynomials.coefficients do
     throwError "a natural was not read in ℚ[x] through the registered constants"
+
+-- Read the complete unchanged B0 unit assertion through its original source positions.
+-- This checks source formation only; the full public consumer still owes its computation.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let session ← SourceSession.empty identities
+  let path := "tests/acceptance/b0-required-positives.cas.proposed"
+  let file ← SourceFile.parse path (← IO.FS.readFile path)
+  let mut found := false
+  for item in file.items do
+    let `(cas_item| test $id:ident $_:str : $statement:cas_stmt) := item
+      | continue
+    unless id.getId.toString == "units.rationals.three_inverse" do continue
+    if found then throwError "the original unit assertion is repeated"
+    let .question proposition ← file.withContext (session.readStatement statement)
+      | throwError "the complete original unit assertion did not remain a question"
+    proposition.source.withOpen fun _ expression => do
+      unless expression.isAppOfArity ``Eq 3 do
+        throwError "the original unit equality was not retained"
+    found := true
+  unless found do throwError "the complete original unit assertion is absent"
