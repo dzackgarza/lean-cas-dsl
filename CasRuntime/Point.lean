@@ -72,6 +72,28 @@ opaque PreparedPointInvocation.prepare? (kernel : Kernel) (evaluateSource : Sour
         | .mdata data _ => data.contains `CasCompiler.source.pointOrigin
         | _ => false
       dbg_trace "[point.prepare] operation={morphismId.raw} sourceHead={repr expression.getAppFn.constName?} sourceFVar={expression.isFVar} nestedPoint={marker.isSome} actualCount={actuals.size} path={repr (path.map (·.projection))}"
+      dbg_trace "[point.source.raw] {String.ofList ((reprStr expression).toList.take 2400)}"
+      let mut headShape := expression.getAppFn
+      for depth in [:4] do
+        match headShape with
+        | .mdata data body =>
+          dbg_trace "[point.source.shape] depth={depth} metadata valueMark={data.contains `CasCompiler.lower.value} pointMark={data.contains `CasCompiler.source.pointOrigin} sourceKind={data.getName `CasCompiler.source.kind} bodyArgs={body.getAppNumArgs}"
+          headShape := body.getAppFn
+        | .proj owner index parent =>
+          dbg_trace "[point.source.shape] depth={depth} projection={owner}.{index} parentArgs={parent.getAppNumArgs} parentHead={repr parent.getAppFn.constName?}"
+          headShape := parent.getAppFn
+        | .const name _ =>
+          dbg_trace "[point.source.shape] depth={depth} constant={name}"
+          break
+        | .fvar id =>
+          dbg_trace "[point.source.shape] depth={depth} fvar={id.name}"
+          break
+        | .letE name _ _ _ _ =>
+          dbg_trace "[point.source.shape] depth={depth} nativeLet={name}"
+          break
+        | other =>
+          dbg_trace "[point.source.shape] depth={depth} other={String.ofList ((reprStr other).toList.take 200)}"
+          break
       for actual in actuals do
         if let some actual := actual then
           actual.role.source.withOpen fun _ original => do

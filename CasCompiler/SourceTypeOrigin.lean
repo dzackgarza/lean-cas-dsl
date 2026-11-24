@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.Elaborate
+import Lean.Meta.Transform
 
 public section
 
@@ -174,6 +175,30 @@ opaque sourceObjectOrigin? (value : Expr) : MetaM (Option (NativeSourceCategory 
   unless object == body do
     throwError "the source object provenance changed its original parameter"
   return some (category, object)
+
+-- Typeclass inference sees the unchanged native objects inside typed owner envelopes.
+-- The source expression is not rewritten: fvars and every other metadata key stay intact.
+private def sourceInstanceType (type : Expr) : MetaM Expr :=
+  Meta.transform type (pre := fun expression => do
+    if let .mdata data _ := expression then
+      if data.contains `CasCompiler.source.objectOrigin then
+        let some (_, original) ← sourceObjectOrigin? expression
+          | throwError "the native instance input lost its explicit source object"
+        return .visit original
+    return .continue)
+
+/-- Use native instance search at the original objects carried by explicit source owners.
+Only the temporary instance goal is viewed without those checked identity envelopes;
+the returned dictionary is checked at the complete retained goal. Stuck native goals
+remain stuck, and failed native search is not an alternative source interpretation.
+Reuse: sourceObjectOrigin?, Meta.transform and Lean.Meta.trySynthInstance. -/
+opaque trySourceInstance (type : Expr) : MetaM (LOption Expr) := do
+  let type ← instantiateMVars type
+  let result ← trySynthInstance (← sourceInstanceType type)
+  if let .some instanceValue := result then
+    unless ← isDefEq (← inferType instanceValue) type do
+      throwError "the native instance has a different complete source goal"
+  return result
 
 end
 

@@ -90,7 +90,13 @@ def application (context : ReadContext) :
         else pure none
       else pure none
     let holes ← arguments.mapM fun _ => mkFreshExprMVar none
-    discard <| elabAppArgs function #[] (holes.map Arg.expr) expected false false
+    let prepared ← elabAppArgs function #[] (holes.map Arg.expr) expected false false
+    for hole in holes do
+      unless (prepared.find? (· == hole)).isSome do
+        throwError "the native application lost an original explicit argument"
+    let instanceSlots ← (← getMVars prepared).filterM fun slot => do
+      let some declaration ← getSyntheticMVarDecl? slot | return false
+      return declaration.kind matches .typeClass _
     let mut actual := #[]
     for argument in arguments, hole in holes do
       let type ← instantiateMVars (← inferType hole)
@@ -142,9 +148,27 @@ def application (context : ReadContext) :
         | none => pure value.value
       unless ← isDefEq hole parameter do
         throwErrorAt argument "the source argument does not match its dependent native type"
-      actual := actual.push (Arg.expr parameter)
-    let result ← elabAppArgs function #[] actual expected false false
-    if let #[Arg.expr argument] := actual then
+      actual := actual.push parameter
+    -- These are the native elaborator's original implicit positions. Keep the actual
+    -- source argument assignments for dependent reading, and synthesize only their
+    -- registered class goals through the checked native object view.
+    for slot in instanceSlots do
+      if ← slot.isAssigned then continue
+      slot.withContext do
+        let type ← instantiateMVars (← slot.getType)
+        match ← trySourceInstance type with
+        | .some instanceValue =>
+          unless ← isDefEq (mkMVar slot) instanceValue do
+            throwError "the native application could not retain its original instance slot"
+        | .undef => pure ()
+        | .none => discard <| throwFailedToSynthesize type
+    -- The saved spine still contains the fresh argument holes even when native
+    -- unification assigned a convertible expression. Restore only these exact holes;
+    -- no implicit dictionary or original callable is selected by value equality.
+    let result := prepared.replace fun expression =>
+      (holes.findIdx? (· == expression)).bind fun index => actual[index]?
+    check result
+    if let #[argument] := actual then
       if source.category.any (·.role == .morphism) then
         if let some original ← sourcePointOrigin? argument then
           -- Retain the ordinary native composition of the already selected point and

@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.Surface
+import CasCompiler.SourceTypeOrigin
 
 public section
 
@@ -90,7 +91,11 @@ def sourceSubsetLiteral (power : NativePowerObject) (elements : Array Expr) (exp
   unless row.type == ``Finset do
     throwUnsupportedSource m!"the subset-literal form {row.id.raw} has an unread literal type"
   let list ← mkListLit power.base elements.toList
-  let literal ← mkAppM ``List.toFinset #[list]
+  let equalityType ← mkAppM ``DecidableEq #[power.base]
+  let equality ← match ← trySourceInstance equalityType with
+    | .some instanceValue => pure instanceValue
+    | .none | .undef => throwFailedToSynthesize equalityType
+  let literal ← mkAppOptM ``List.toFinset #[some power.base, some equality, some list]
   let element ← atBase power row.denotation #[literal]
   let value ← sourceGlobalValue power element (some expected)
   return sourceReference ``SubsetLiteralEntry row.id.raw row.denotation value
