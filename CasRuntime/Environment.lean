@@ -475,7 +475,7 @@ private def capturedTypeReferences (context : OpenContext)
     else pure expression
   if let some (key, path) ← markedProjection? expression then
     let some (_, parent) := marks.find? (·.1 == key)
-      | throwError "a native type lost its captured occurrence mark"
+      | throwError "the runtime value has an unresolved consuming dependent type"
     return #[(parent, path)]
   let reference ← if reduce then
       dependencyReference context inputs (← context.close expression)
@@ -547,6 +547,15 @@ private def checkDependencies (context : OpenContext)
     let originalMarked ← markedProjection? originalSource
     let currentMarked ← markedProjection? currentSource
     if originalMarked.isNone && currentMarked.isNone then return none
+    -- A closed native fragment introduces no competing runtime supplier. Let the
+    -- existing structural/closed-fragment checks validate its native conversion;
+    -- do not resolve a descriptive producer mark merely to decide that comparison.
+    let currentHasMetadata := (currentSource.find? fun
+      | .mdata .. => true
+      | _ => false).isSome
+    if !currentSource.hasFVar && !currentSource.hasLooseBVars &&
+        !currentSource.hasExprMVar && !currentSource.hasLevelMVar &&
+        !currentHasMetadata then return none
     let left ←
       capturedTypeReferences context inputProjections retainedInputs supplied marks
         originalSource reduce
@@ -569,12 +578,21 @@ private def checkDependencies (context : OpenContext)
         throwError "the runtime value has an unresolved consuming dependent type"
       throw error
   let expectedMarks ← typeReferences expected
+  let typeHasMarks := fun (expression : Expr) => do
+    if hasSourceMarks expression then return true
+    let dependencies ← computationalDependencies (context.bindings.map (·.expression)) expression
+    for index in dependencies do
+      let some binding := context.bindings[index]?
+        | throwError "a native type dependency is outside its complete context"
+      let declaration ← getFVarLocalDecl binding.expression
+      if hasSourceMarks declaration.type ||
+          (declaration.value? true).any hasSourceMarks then return true
+    return false
   let typeSources := #[value.role.source, origin.role.source] ++
     value.markedTypeRoles.map (·.source)
   for source in typeSources do
     let originalType ← inferType (← source.inContext context)
-    let originalMarks ← typeReferences originalType
-    if !originalMarks.isEmpty || !expectedMarks.isEmpty then
+    if !expectedMarks.isEmpty || (← typeHasMarks originalType) then
       let some _ ← dependencyTerms sameContextReference #[] originalType expected #[]
           (some compareCaptured) (some sourceView)
         | throwError "the runtime value has a different marked source type dependency"

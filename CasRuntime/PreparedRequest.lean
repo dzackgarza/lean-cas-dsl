@@ -302,7 +302,11 @@ opaque PreparedRequest.forPresentation (identities : IdentitySupply)
   let sourceMarks ← IO.ofExcept <| (mergeSourceMarks sourceMarks endpointMarks).mapError IO.userError
   let contextMarks ← IO.ofExcept <|
     (captureContextSourceMarks marks context.telescope).mapError IO.userError
-  let sourceMarks ← IO.ofExcept <| (mergeSourceMarks sourceMarks contextMarks).mapError IO.userError
+  let mut sourceMarks ← IO.ofExcept <|
+    (mergeSourceMarks sourceMarks contextMarks).mapError IO.userError
+  for source in arguments ++ endpoints do
+    let selected ← IO.ofExcept <| (captureSourceMarks marks source).mapError IO.userError
+    sourceMarks ← IO.ofExcept <| (mergeSourceMarks sourceMarks selected).mapError IO.userError
   let environment ← RuntimeEnvironment.capture program.worker context parameters sourceMarks (some graph)
   let values ← prepareArguments environment endpoints endpointValues
   let #[some source, some target] := values

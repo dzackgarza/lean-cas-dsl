@@ -710,13 +710,13 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
   let saved ← saveState
   let executionEntered ← IO.mkRef false
   let failed (error : Exception) (prepared : Option RetainedStatement)
-      (prefix : Array RetainedStatement) :
+      (completedItems : Array RetainedStatement) :
       TermElabM StatementRun := do
     let outcome ← Outcome.ofException error
     saved.restore
     -- Make the checked native names present before any later source read can reuse
     -- them. The captured owners restore declarations only, never runtime state.
-    for retained in prepared.toArray ++ prefix do retained.ensureDeclarations
+    for retained in prepared.toArray ++ completedItems do retained.ensureDeclarations
     let attempted ← executionEntered.get
     let conclusions := (prepared.map (·.conclusions)).getD #[]
     let proposition := (prepared.map (·.proposition)).getD ""
@@ -748,8 +748,8 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
     catch error => return ← failed error none #[]
   match reading with
   | .failed error items =>
-    let (observed, prefix) ← observeReadFailure session.source items
-    let run ← failed error none prefix
+    let (observed, completedItems) ← observeReadFailure session.source items
+    let run ← failed error none completedItems
     let observations := observed.map fun (isFailure, observation) =>
       if isFailure then { observation with outcome := some run.outcome } else observation
     return { run with
