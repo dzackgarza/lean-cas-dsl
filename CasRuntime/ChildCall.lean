@@ -180,10 +180,8 @@ private def Kernel.childMethod (kernel : Kernel) (evaluateSource : SourceEvaluat
   if receiverSource.hasMVar || receiverSource.hasLevelMVar ||
       parameters.any (fun parameter => parameter.hasMVar || parameter.hasLevelMVar) then
     malformed "the receiver leaves the complete method category undetermined"
-  dbg_trace "[routed.phase] child form admission"
   unless ← CasRuntime.RoutedMethodFamily.admitsSourceForm family receiverSource input do
     malformed "the input form is not the original receiver's source boundary"
-  dbg_trace "[routed.phase] child receiver"
   let receiver ← evaluateSource transaction request.program context bound receiverSource
   let edges := family.route.refs.push (.functor family.functor.id)
   let actions ← family.specializeActions levels parameters
@@ -211,7 +209,6 @@ private def Kernel.childMethod (kernel : Kernel) (evaluateSource : SourceEvaluat
           selected := selected.set! index (← markValue kernel.marks value source)
           selectedSlots := selectedSlots.insert index
     supplied := supplied.push values
-  dbg_trace "[routed.phase] child category parameters"
   selected ← try
       request.environment.methodParameters context transaction kernel.marks kernel.ledger.allocate
         family selected receiver
@@ -231,7 +228,6 @@ private def Kernel.childMethod (kernel : Kernel) (evaluateSource : SourceEvaluat
         malformed s!"a complete action parameter disagrees: {← error.toMessageData.toString}"
       inputs := inputs.push (← markValue kernel.marks value source)
     retainedInputs := retainedInputs.push inputs
-  dbg_trace "[routed.phase] child source prepared"
   let marked ← markValue kernel.marks receiver receiverSource
   let mut term ← family.markInputs (mkAppN
     (family.family.instantiateLevelParams family.universeParams levels) (selected.push marked)) retainedInputs

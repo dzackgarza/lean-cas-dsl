@@ -281,9 +281,7 @@ private def prepareProjection (identities : CasRuntime.IdentitySupply)
   let some field := selected | throwError "a projection requires a native field path"
   let source ← layout.inContext context
   let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters
-  dbg_trace s!"[projection.operand] before admission path={reprStr path}; fields={reprStr (operand.role.fields.map (·.projection))}"
   discard <| environment.checkOperand graph operand.role operand
-  dbg_trace s!"[projection.operand] after admission path={reprStr path}"
   let .ok original := graph.applicationOrigin operand
     | throwError "the projected operand is outside the visible graph"
   let mut application := original

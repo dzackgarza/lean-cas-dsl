@@ -192,10 +192,8 @@ partial def RuntimeEnvironment.methodParameters (environment : RuntimeEnvironmen
           throwStratum .noImplementation "the method category parameter has no original producer slot"
         selected := selected.push source
     | some declaration, .assembly assembly =>
-      dbg_trace s!"[method.parameters] before assembly declaration={declaration}; node={reprStr producer.value}; positions={reprStr assembly.positions}"
       let value ← methodParameterAssembly environment context transaction marks allocate
         declaration produced source producer assembly evaluate
-      dbg_trace s!"[method.parameters] after assembly declaration={declaration}; node={reprStr value.value}"
       let graph ← transaction.view
       environment.checkDeclaredInput context graph (← marks.get) source value
       selected := selected.push (← markValue marks value source)
@@ -437,11 +435,8 @@ opaque PreparedMethodRoute.prepare (kernel : Kernel) (graph : ValueGraph)
   unless captures.size == original.scope.size &&
       (captures.zip original.scope).all (fun (left, right) => exactMethodInput left right) do
     throwError "the routed method changed its original complete captures"
-  dbg_trace "[routed.phase] route original input admission"
   discard <| original.admitInputs graph
-  dbg_trace "[routed.phase] route application input admission"
   discard <| request.admitInputs graph
-  dbg_trace "[routed.phase] route inputs admitted"
   let .apply _ arguments values := request.action
     | throwError "a routed method requires its actual original receiver"
   let #[source] := arguments
@@ -537,9 +532,7 @@ def SelectedMethodBoundary.materialize (selection : SelectedMethodBoundary) (ker
       let (_, target) ← functorCategoryBundles action
       let marked ← markValue kernel.marks receiver source
       let image ← functorObject action marked target
-      dbg_trace s!"[routed.prefix] {index} before evaluate"
       receiver ← evaluateSource transaction request.program context bound image
-      dbg_trace s!"[routed.prefix] {index} after evaluate before source admission"
       source ← functorObject action source target
       let some edge := route.family.route.refs[index]?
         | throwError "the method prefix lost its original selected edge"

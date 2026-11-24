@@ -237,14 +237,11 @@ Reuse: RecordPrefix, whole-result associateResult and the sealed input-result ad
 def ResolvedInputResult.assemble (resolved : ResolvedInputResult request)
     (transaction : CellTransaction) : MetaM (CellDraft × InputResultCompletion request) := do
   let draft ← transaction.draft
-  dbg_trace "[input.assemble] begin"
   let (draft, value) ← assembleInputResult request request.source transaction.owners.identities
     resolved.selections draft
   let (draft, value) ← request.associateResult transaction.owners.identities
     request.source draft value resolved.selections (complete := true)
-  dbg_trace "[input.assemble] before whole result admission"
   let response ← request.admitResult draft.view value
-  dbg_trace "[input.assemble] after whole result admission"
   let completed ← IO.ofExcept <| (resolved.admit draft.view response).mapError IO.userError
   return (draft, completed)
 

@@ -210,16 +210,7 @@ partial def RuntimeEnvironment.checkDeclaredInput (environment : RuntimeEnvironm
     (expected : Expr) (value : ValueBinding) : MetaM Unit := do
   let .ok argument := RuntimeArgument.ofValue graph 0 value marks
     | throwStratum .malformed "a declared input is outside its visible graph"
-  try
-    discard <| environment.checkArgument (← context.close expected) argument
-  catch error =>
-    let marked := expected.find? fun term => match term with
-      | .mdata data _ => (markedKey? data).isSome | _ => false
-    let anchor := marked.bind fun term => match term with
-      | .mdata data _ => (markedKey? data).bind (fun key => marks[key]?.map (·.value))
-      | _ => none
-    dbg_trace s!"[declared.check] argument node={reprStr value.value}; expected={← ppExpr expected}; retained={← ppExpr (← value.role.source.inContext context)}; firstMark={reprStr anchor}; accesses={reprStr (value.projectionAccesses.map (fun (parent, path) => (parent.value, path)))}"
-    throw error
+  discard <| environment.checkArgument (← context.close expected) argument
   if ← environment.hasRetainedSource context expected then return
   unless ← containsRetained environment context expected do return
   -- Native instance wrappers can conceal the same original field path. Re-admit that
@@ -228,7 +219,6 @@ partial def RuntimeEnvironment.checkDeclaredInput (environment : RuntimeEnvironm
   if ← environment.hasRetainedSource context (← retainedSource.inContext context) then
     discard <| environment.checkArgument retainedSource argument
     return
-  let specified := expected
   let expected ← sourceDomain expected
   let .const declaration _ := expected.getAppFn
     | throwStratum .malformed "a declared input has no exact native family for its retained parameters"
@@ -240,9 +230,7 @@ partial def RuntimeEnvironment.checkDeclaredInput (environment : RuntimeEnvironm
     | some slots => pure (some slots)
     | none => applicationSlots? graph context node.origin declaration expected.getAppNumArgs
   let some slots := slots
-    | do
-      dbg_trace s!"[declared.check] no slots node={reprStr value.value}; declaration={declaration}; specified={← ppExpr specified}; normalized={← ppExpr expected}; syntax={reprStr specified}; producer={← ppExpr (← node.origin.role.source.inContext context)}; application={reprStr (node.origin.application.map (fun application => (application.path, application.layout.resultTermFamily.expression)))}; accesses={reprStr (value.projectionAccesses.map (fun (parent, path) => (parent.value, path)))}"
-      throwStratum .malformed "the declared input has no original parameter reference slots"
+    | throwStratum .malformed "the declared input has no original parameter reference slots"
   for source in expected.getAppArgs, index in [:expected.getAppNumArgs] do
     if ← isProof source then continue
     let required ← containsRetained environment context source
@@ -253,11 +241,7 @@ partial def RuntimeEnvironment.checkDeclaredInput (environment : RuntimeEnvironm
     | some slot =>
       let .ok argument := RuntimeArgument.ofValue graph index slot.value marks
         | throwStratum .malformed "a declared parameter is outside its visible graph"
-      try
-        discard <| environment.checkArgument (← context.close slot.source) argument
-      catch error =>
-        dbg_trace s!"[declared.check] stored slot={index}; node={reprStr slot.value.value}; expected={← ppExpr source}; originalSource={← ppExpr slot.source}; retained={← ppExpr (← slot.value.role.source.inContext context)}; accesses={reprStr (slot.value.projectionAccesses.map (fun (parent, path) => (parent.value, path)))}"
-        throw error
+      discard <| environment.checkArgument (← context.close slot.source) argument
       environment.checkDeclaredInput context graph marks source slot.value
 
 /-- One original producing declaration argument at its exact native position. The source and
@@ -277,11 +261,9 @@ opaque RuntimeEnvironment.declaredInputAt? (environment : RuntimeEnvironment)
     (context : OpenContext) (graph : ValueGraph) (marks : Array ValueBinding)
     (declaration : Name) (index : Nat) (value : ValueBinding) :
     MetaM (Option DeclaredInputSlot) := do
-  dbg_trace s!"[declared.input] before producer admission declaration={declaration}; index={index}; node={reprStr value.value}"
   -- This is an actual already selected producer input. Its authenticated native projection
   -- may carry the original dependent prefix; ordinary candidate result admission is separate.
   discard <| environment.checkOperand graph value.role value
-  dbg_trace s!"[declared.input] after producer admission declaration={declaration}; index={index}"
   let info ← checkedDeclaration declaration
   let arity ← forallTelescopeReducing info.type fun parameters _ => pure parameters.size
   if index >= arity then return none

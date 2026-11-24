@@ -957,6 +957,100 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let .ok _ ← producer.commit
         | throwError "the lazy intermediate control could not publish its original records"
 
+      -- A real first projection supplies the intermediate parent; its final field is an
+      -- already produced direct reply. Association must publish the full original path.
+      do
+        let pendingCell ← CellTransaction.begin kernel.ledger
+        try
+          let initialSnapshot ← SessionSnapshot.current
+          let markedOuter ← markValue kernel.marks outer outerTerm
+          let prefixAccess ← kernel.run pendingCell context {} (mkProj ``Prod 0 markedOuter)
+          let beforeFinal ← pendingCell.view
+          let .ok (some originalPrefix) := beforeFinal.projected? outer #[``Prod.fst]
+            | throwError "the pending-final control lost its ordinary first projection"
+          unless prefixAccess.value == inner.value && originalPrefix.value == inner.value &&
+              originalPrefix.associationIds == inner.associationIds do
+            throwError "the pending-final control replaced its original intermediate parent"
+          let program ← owners.identities.fresh .program
+          let finalProjection ← PreparedRequest.forProjection owners.identities program
+            (← kernel.ledger.allocate) context beforeFinal prefixAccess 0 #[]
+          let finalValue ← pendingCell.stage finalProjection.origin (.portable "7".toUTF8)
+          let before ← pendingCell.view
+          let inputPath := #[``Prod.fst, ``Prod.fst]
+          let .ok (some (frontier, remaining)) := before.projectionFrontier outer inputPath
+            | throwError "the pending-final control lost its actual native frontier"
+          unless frontier.value == originalPrefix.value &&
+              frontier.associationIds == originalPrefix.associationIds &&
+              remaining == #[``Prod.fst] do
+            throwError "the pending-final control did not retain exactly one unavailable field"
+          let .ok (some directBaseline) := before.projectionBasis finalValue outer inputPath
+            | throwError "the direct final reply lost its original composed parent and path"
+          unless directBaseline.value == finalValue.value &&
+              directBaseline.associationIds == finalValue.associationIds do
+            throwError "the direct final reply changed its original baseline"
+          let .ok none := before.projected? prefixAccess #[``Prod.fst]
+            | throwError "the pending-final field was already indexed"
+          let .ok none := before.projectedAccess? outer inputPath
+            | throwError "the pending-final control already has a full-path source access"
+          let request ← prepare kernel pendingCell program context selected #[outerTerm] #[outer]
+          let outputRecord ← RecordLayout.ofSource request.source
+          let some outputField := outputRecord.fields.find? (·.field.wireIndex == some 0)
+            | throwError "the source-fixed result lost its first native field"
+          let fixed ← request.resolveFixedResults pendingCell outputField.layout finalValue
+          let #[selection] := fixed
+            | throwError "the pending-final result lost its single fixed source selection"
+          unless selection.path == #[``Prod.fst] &&
+              selection.input.parent.value == outer.value &&
+              selection.input.parent.associationIds == outer.associationIds &&
+              selection.input.path == inputPath &&
+              selection.value.value == finalValue.value &&
+              selection.value.associationIds == finalValue.associationIds do
+            throwError "pending-final resolution changed its original input or result position"
+          let (draft, result) ← request.associateResult owners.identities outputField.layout
+            (← pendingCell.draft) finalValue fixed (complete := true)
+          discard <| request.environment.checkResult draft.view outputField.layout result
+          let .ok (some sourceAccess) := draft.view.projectedAccess? outer inputPath
+            | throwError "pending-final association omitted its complete original source access"
+          let .ok (some (selectedSource, selectedParent, selectedPath)) :=
+              draft.view.projectionSelection sourceAccess
+            | throwError "the composed source access lost its immutable native selection"
+          unless selectedParent.value == outer.value &&
+              selectedParent.associationIds == outer.associationIds &&
+              selectedPath == inputPath do
+            throwError "the composed source access changed its original parent or native path"
+          let mut nativeSource := selectedParent.role
+          for projection in inputPath do
+            let some field := nativeSource.fields.find? (·.projection == projection)
+              | throwError "the composed source access lost its original field layout"
+            nativeSource ← field.toLayout
+          unless (← selectedSource.source.inContext context) ==
+              (← nativeSource.source.inContext context) do
+            throwError "the composed source access acquired an output-derived source role"
+          let .ok actual := RuntimeArgument.ofValue draft.view 0 sourceAccess (← kernel.marks.get)
+            | throwError "the pending-final source access is outside its isolated graph"
+          discard <| request.environment.checkArgument
+            (← context.close (mkProj ``Prod 0 (mkProj ``Prod 0 markedOuter))) actual
+          for (parent, path, expected) in #[
+              (outer, #[``Prod.fst], originalPrefix),
+              (prefixAccess, #[``Prod.fst], finalValue),
+              (outer, inputPath, finalValue)] do
+            let .ok (some baseline) := draft.view.projected? parent path
+              | throwError "pending-final association lost an original projection baseline"
+            unless baseline.value == expected.value &&
+                baseline.associationIds == expected.associationIds do
+              throwError "pending-final association enriched or replaced an original baseline"
+          unless result.value == finalValue.value && sourceAccess.value == finalValue.value &&
+              finalValue.associationIds.toList.isPrefixOf result.associationIds.toList do
+            throwError "pending-final association replaced its actual returned field"
+          let some innerNode := draft.view.find inner.value
+            | throwError "pending-final association lost its actual intermediate node"
+          unless innerNode.payload.data.storedFields?.isNone &&
+              (← pendingCell.view).sameRevision before &&
+              (← SessionSnapshot.current).id == initialSnapshot.id &&
+              (← kernel.dispatches.get).isEmpty do
+            throwError "pending-final association forced, installed or published its isolated work"
+        finally discard <| pendingCell.abort
+
       let consumer ← CellTransaction.begin kernel.ledger
       try
         let markedOuter ← markValue kernel.marks outer outerTerm

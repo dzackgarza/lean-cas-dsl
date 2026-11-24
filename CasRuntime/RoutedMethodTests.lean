@@ -248,11 +248,9 @@ run_cmd liftTermElabM do
         let ordinary : SourceEvaluation := fun cell program context bound expression => do
           calls.modify (· + 1)
           evaluate session.kernel cell program context bound expression
-        dbg_trace "[routed.phase] intermediate materialize"
         let selected ← selection.materialize session.kernel ordinary request transaction
         unless (← calls.get) == offset do
           throwError "the method executed more than the uniquely selected prefix"
-        dbg_trace "[routed.phase] intermediate invocation"
         let invocation ← selected.invocation session.kernel (evaluate session.kernel) request transaction
         let expected := (route.family.route.refs.extract offset route.family.route.refs.size).push
           (.functor route.family.functor.id)
@@ -266,7 +264,6 @@ run_cmd liftTermElabM do
             | some (.functorImage ..) | some (.edgeImage ..) => true
             | _ => false)
           | throwError "the selected intermediate route lost its published image form"
-        dbg_trace "[routed.phase] native image form"
         withSourceScope request fun context _ => do
           let source ← selected.receiverSource.inContext context
           let childFamily ← RoutedMethodFamily.forSelection intermediate.category
@@ -316,7 +313,6 @@ run_cmd liftTermElabM do
             let packet := { decoded with receiver := inputRef #[.field "receiver"] }
             let call := Json.mkObj [("op", toJson route.family.entry.id.raw),
               ("input", toJson imageForm), ("args", packet.encode)]
-            dbg_trace "[routed.phase] image child"
             let (_, childRoute) ← captureMethod session.kernel transaction fun evaluate =>
               session.kernel.child evaluate request transaction reservation scope call
             unless childRoute.family.route.refs ==
@@ -327,20 +323,16 @@ run_cmd liftTermElabM do
               | throwError "the image-form child lost its prepared source boundary"
             unless childSource.forms.contains imageForm do
               throwError "the image-form child discarded its admitted intermediate source form"
-            dbg_trace "[routed.phase] image child selection"
             let childSelection ← select childRoute #[imageForm]
             unless childSelection.boundary.offset == 0 do
               throwError "the original image form moved after the deferred round trip"
           finally scope.retire
         finally session.kernel.ledger.owners.close connection.generation
-        dbg_trace "[routed.phase] original boundary"
         let original ← (← select route #[sourceForm]).materialize session.kernel ordinary request transaction
         unless sameExactInput original.receiver route.receiver && (← calls.get) == offset do
           throwError "a source-composite registration transported or replaced its receiver"
-        dbg_trace "[routed.phase] owner materialize"
         let owner ← (← select route #[ownerForm]).materialize session.kernel
           (evaluate session.kernel) request transaction
-        dbg_trace "[routed.phase] owner invocation"
         let ownerInvocation ← owner.invocation session.kernel (evaluate session.kernel) request transaction
         unless ownerInvocation.edges == #[.functor route.family.functor.id] &&
             sameExactInput ownerInvocation.receiver owner.receiver do
@@ -351,7 +343,6 @@ run_cmd liftTermElabM do
 
       -- The actual group-arrow method sends one Arrow view rooted at the original native
       -- parent. Its equal but separately declared endpoints remain distinct scoped values.
-      dbg_trace "[routed.phase] group arrow controls"
       let term ← readTerm session "equal_ends.ker()"
       let transaction ← CellTransaction.begin session.kernel.ledger
       let connection ← session.kernel.ledger.owners.spawn { cmd := "/bin/cat" }
@@ -431,7 +422,6 @@ run_cmd liftTermElabM do
 
       -- The rank functor's explicit ring parameter is the actual selected RingCat value.
       -- These independent equal source definitions must retain distinct parameter nodes.
-      dbg_trace "[routed.phase] rank controls"
       for text in #["let Qfirst := ℚ in CommutativeRings", "let Qsecond := ℚ in CommutativeRings",
           "let Rfirst := view Qfirst along «fun.commutative_rings.ring»()",
           "let Rsecond := view Qsecond along «fun.commutative_rings.ring»()",
@@ -454,15 +444,6 @@ run_cmd liftTermElabM do
           let invocation ← selected.invocation session.kernel (evaluate session.kernel) request transaction
           let #[#[parameter]] := invocation.parameters
             | throwError "the complete rank declaration lost its explicit ring parameter"
-          let originalModule ← value session moduleName
-          dbg_trace s!"[routed.rank] parameter={sameInput ring parameter}; receiver={sameInput originalModule invocation.receiver}; ring={reprStr ring.value}/{reprStr ring.associationIds}; actual={reprStr parameter.value}/{reprStr parameter.associationIds}; module={reprStr originalModule.value}/{reprStr originalModule.associationIds}; receiverNode={reprStr invocation.receiver.value}/{reprStr invocation.receiver.associationIds}"
-          withSourceScope request fun context _ => do
-            let some action := route.actions.back?
-              | throwError "the rank diagnostic lost its final action"
-            let parameters ← routedActionParameters (.functor route.family.functor.id)
-              (← action.inContext context)
-            for (position, source) in parameters do
-              dbg_trace s!"[routed.rank] declaration slot={position}; source={← ppExpr source}"
           unless sameInput ring parameter && sameInput (← value session moduleName) invocation.receiver do
             throwError "rank framing changed an actual parameter or introduced a synthetic Core input"
           if moduleName == `Mfirst then
