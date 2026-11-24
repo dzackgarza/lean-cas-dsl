@@ -775,7 +775,8 @@ opaque ValueGraph.project (graph : ValueGraph) (binding : ValueBinding) (index :
 
 /-- One pure traversal supplies both the stored frontier and the exact visited parent bindings.
 The temporary parents are used only while preparing descendant dependency views. -/
-private def projectionWalk (graph : ValueGraph) (parent : ValueBinding) (path : Array Name) :
+private def projectionWalk (graph : ValueGraph) (parent : ValueBinding) (path : Array Name)
+    (usePublished : Bool := true) :
     Except String (Option (ValueBinding × Array Name) × Array (ValueBinding × Array Name)) := do
   discard <| graph.requiredOwners #[parent]
   let mut value := parent
@@ -789,7 +790,7 @@ private def projectionWalk (graph : ValueGraph) (parent : ValueBinding) (path : 
       | throw "a computational field path selected a proof field"
     let some node := graph.find value.value
       | throw "the selected value is outside the visible graph"
-    if node.payload.data.storedFields?.isNone then
+    if usePublished && node.payload.data.storedFields?.isNone then
       if let some retained ← graph.projected? value #[projection] then
         value := retained
         continue
@@ -1101,6 +1102,25 @@ opaque ValueGraph.bindProjection (graph : ValueGraph) (supply : IdentitySupply)
           pure prior
         else throwError "the projection changed its retained field reference"
     | _ => pure (prior.getD candidate.root)
+  -- The baseline index identifies the pre-access parent. A repeated projection of a
+  -- stored record gives its descendants fresh consuming views; those views cannot
+  -- become the original field of every sibling projection of that same parent.
+  -- Keep the current-parent and prior-cache constraints above, then retain the exact
+  -- stored field of the already recorded pre-access parent when its path is complete.
+  -- A lazy path has no independently stored baseline and keeps the existing result.
+  let originalParent := parent.projectionParent
+  let baseline ← if originalParent.associationIds == parent.associationIds then pure baseline
+    else do
+      let (original, _) ← IO.ofExcept <|
+        (projectionWalk graph originalParent origin.accessPath (usePublished := false)).mapError
+          IO.userError
+      match original with
+      | some (selected, #[]) =>
+        unless selected.value == baseline.value &&
+            selected.associationIds.toList.isPrefixOf baseline.associationIds.toList do
+          throwError "the projection changed its retained field reference"
+        pure selected
+      | _ => pure baseline
   let stored := if origin.role.kind == .record then
       (node.payload.data.storedFields?.getD #[]).size
     else 0

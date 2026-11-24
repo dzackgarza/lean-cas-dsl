@@ -931,7 +931,24 @@ private partial def RuntimeEnvironment.retainsSourceReference (environment : Run
           break
         original := step.parent
       if matchedPath then
-        if ← environment.retainsSourceReference context graph marks original parent true then return true
+        -- An authenticated occurrence also anchors its exact retained projection ancestry.
+        -- Recursion still checks each intervening source binder or occurrence mark.
+        if ← environment.retainsSourceReference context graph marks original parent true anchored then
+          return true
+    -- A fresh native type may be stated using a projection of a source-only
+    -- constructor (e.g. the carrier of an explicitly formed Under object).
+    -- Such a type has no projected runtime parent to identify. Require its
+    -- exact producing term, not convertibility of carriers. This rule cannot
+    -- discharge an anchored field demand or a retained parent, and does not
+    -- authorize ordinary projected data.
+    if !requireAnchor && value.role.kind == .typeValue &&
+        node.origin.role.kind == .typeValue then
+      if let some projection := projection then
+        unless ← environment.hasRetainedSource context projection.parent do
+          let original ← value.role.source.inContext context
+          let producing ← node.origin.role.source.inContext context
+          if specified == original && specified == producing then return true
+    trace[cas.environment] "unmatched projection: {repr (projection.map (·.declaration))}; parent retained: {← environment.hasRetainedSource context (projection.map (·.parent) |>.getD specified)}; access paths: {repr (selected.map (fun (parent, path) => (parent.value, path)))}"
     return false
   if requireAnchor && !anchored then return false
   let original ← value.role.source.inContext context
