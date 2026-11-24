@@ -83,9 +83,11 @@ def PreparedRequest.projectionPath (request : PreparedRequest) : Except String (
 
 /-- Stamp a result or nested field with the same complete actual argument table.
 Reuse: native ApplicationLayout projection dependencies and RuntimeEnvironment.origin. -/
-opaque PreparedRequest.originFor (request : PreparedRequest) (source : SourceLayout) :
+opaque PreparedRequest.originFor (request : PreparedRequest) (source : SourceLayout)
+    (graph : Option ValueGraph := none) :
     MetaM CasRuntime.ValueOrigin := do
-  let origin ← request.environment.origin request.program request.occurrence source
+  let environment ← request.environment.withSourceMarks #[] graph
+  let origin ← environment.origin request.program request.occurrence source
   let application ← request.origin.application.mapM (·.forSource request.source source)
   let accessPath ← if request.origin.access.isSome then
       pure (request.origin.accessPath ++ (← request.source.projectionPathTo source))
@@ -195,6 +197,24 @@ private def prepareArguments (environment : CasRuntime.RuntimeEnvironment)
     values := values.set! argument.index (some value)
   return values
 
+/-- Only referenced native mark keys enter preparation from immutable argument snapshots and
+already retained source views. Conflicting occurrence identities fail. -/
+private def preparedSourceMarks (arguments : Array ClosedTerm)
+    (actual : Array CasRuntime.RuntimeArgument) (retained : Array CasRuntime.ValueBinding) :
+    MetaM (Array (Nat × CasRuntime.ValueBinding)) := do
+  let mut marks := #[]
+  for value in retained do
+    marks ← IO.ofExcept <|
+      (CasRuntime.mergeSourceMarks marks value.sourceMarks).mapError IO.userError
+  for argument in actual do
+    let some source := arguments[argument.index]?
+      | throwError "a runtime argument is outside the complete source telescope"
+    let captured ← IO.ofExcept <| (argument.sourceMarks source).mapError IO.userError
+    marks ← IO.ofExcept <| (CasRuntime.mergeSourceMarks marks captured).mapError IO.userError
+    marks ← IO.ofExcept <|
+      (CasRuntime.mergeSourceMarks marks argument.value.sourceMarks).mapError IO.userError
+  return marks
+
 /-- Apply the exact checked source family in the complete current context.
 Result positions retain the source's ordered computational fields and dependent roles.
 Indexed actual operands use the same checked provenance table as retained callables.
@@ -205,8 +225,9 @@ opaque PreparedRequest.forBoundary (identities : CasRuntime.IdentitySupply)
     (universeArguments : List Level)
     (context : OpenContext) (arguments : Array ClosedTerm)
     (actual : Array CasRuntime.RuntimeArgument)
-    (scope : Array CasRuntime.ValueBinding) (parameters : Array CasRuntime.RuntimeParameter) :
-    MetaM PreparedRequest := do
+    (scope : Array CasRuntime.ValueBinding) (parameters : Array CasRuntime.RuntimeParameter)
+    (graph : Option CasRuntime.ValueGraph := none)
+    (sourceMarks : Array (Nat × CasRuntime.ValueBinding) := #[]) : MetaM PreparedRequest := do
   if let .property family := boundary then
     unless arguments.size == family.parameterCount + 1 do
       throwError "a property observation requires its complete original source application"
@@ -228,7 +249,9 @@ opaque PreparedRequest.forBoundary (identities : CasRuntime.IdentitySupply)
       let (source, application) ← ApplicationLayout.ofSource layout context arguments
       pure (source, some application)
   if traced then dbg_trace "[inclusion.stage] primitive {repr occurrence}: before environment"
-  let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters
+  let marks ← preparedSourceMarks arguments actual scope
+  let marks ← IO.ofExcept <| (CasRuntime.mergeSourceMarks sourceMarks marks).mapError IO.userError
+  let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters marks graph
   if traced then dbg_trace "[inclusion.stage] primitive {repr occurrence}: before argument admission"
   let values ← prepareArguments environment arguments actual
   if traced then dbg_trace "[inclusion.stage] primitive {repr occurrence}: arguments admitted"
@@ -274,12 +297,18 @@ opaque PreparedRequest.forPresentation (identities : IdentitySupply)
     (marks : Array ValueBinding) : MetaM PreparedRequest := do
   let #[_, _] := endpoints
     | throwError "the presentation request requires both complete original endpoints"
-  let environment ← RuntimeEnvironment.capture program.worker context parameters
+  let sourceMarks ← preparedSourceMarks arguments actual #[]
+  let endpointMarks ← preparedSourceMarks endpoints endpointValues #[]
+  let sourceMarks ← IO.ofExcept <| (mergeSourceMarks sourceMarks endpointMarks).mapError IO.userError
+  let contextMarks ← IO.ofExcept <|
+    (captureContextSourceMarks marks context.telescope).mapError IO.userError
+  let sourceMarks ← IO.ofExcept <| (mergeSourceMarks sourceMarks contextMarks).mapError IO.userError
+  let environment ← RuntimeEnvironment.capture program.worker context parameters sourceMarks (some graph)
   let values ← prepareArguments environment endpoints endpointValues
   let #[some source, some target] := values
     | throwError "the presentation request is missing an actual endpoint value"
   let request ← PreparedRequest.forBoundary identities program occurrence (.presentation family)
-    universes context arguments actual #[source, target] parameters
+    universes context arguments actual #[source, target] parameters (some graph) sourceMarks
   discard <| request.admitInputs graph
   checkPresentationInputs request graph source target marks
   return request
@@ -321,6 +350,7 @@ private def prepareProjection (identities : CasRuntime.IdentitySupply)
   let source ← layout.inContext context
   if traced then dbg_trace "[inclusion.stage] projection {repr occurrence}: before environment"
   let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters
+    operand.sourceMarks (some graph)
   if traced then dbg_trace "[inclusion.stage] projection {repr occurrence}: before operand admission"
   discard <| environment.checkOperand graph operand.role operand
   if traced then dbg_trace "[inclusion.stage] projection {repr occurrence}: operand admitted"
@@ -372,8 +402,9 @@ opaque PreparedRequest.forApplication (identities : CasRuntime.IdentitySupply)
     (occurrence : CasRuntime.RuntimeId .occurrence) (context : OpenContext)
     (callable : CasRuntime.ValueBinding) (arguments : Array ClosedTerm)
     (actual : Array CasRuntime.RuntimeArgument)
-    (parameters : Array CasRuntime.RuntimeParameter) :
-    MetaM PreparedRequest := do
+    (parameters : Array CasRuntime.RuntimeParameter)
+    (graph : Option CasRuntime.ValueGraph := none)
+    (sourceMarks : Array (Nat × CasRuntime.ValueBinding) := #[]) : MetaM PreparedRequest := do
   unless callable.role.kind == .function do
     throwError "the retained value has no prepared callable interface"
   if arguments.isEmpty then throwError "callable application requires a source argument"
@@ -381,7 +412,9 @@ opaque PreparedRequest.forApplication (identities : CasRuntime.IdentitySupply)
   if traced then dbg_trace "[inclusion.stage] application {repr occurrence}: before layout"
   let (source, application) ← ApplicationLayout.ofSource callable.role context arguments
   if traced then dbg_trace "[inclusion.stage] application {repr occurrence}: before environment"
-  let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters
+  let marks ← preparedSourceMarks arguments actual #[callable]
+  let marks ← IO.ofExcept <| (CasRuntime.mergeSourceMarks sourceMarks marks).mapError IO.userError
+  let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters marks graph
   if traced then dbg_trace "[inclusion.stage] application {repr occurrence}: before argument admission"
   let values ← prepareArguments environment arguments actual
   if traced then dbg_trace "[inclusion.stage] application {repr occurrence}: arguments admitted"

@@ -152,8 +152,8 @@ private partial def associateCheckedResult (request : PreparedRequest) (supply :
   let mut selected := #[]
   if source.kind == .record && stored then
     let layout ← RecordLayout.ofSource source
-    let mut record ← liftM (m := IO) <|
-      RecordPrefix.begin supply request.program request.occurrence layout
+    let mut record ← RecordPrefix.prepare supply request.program request.occurrence layout
+      draft.view request.environment.sourceMarks
     for prepared in layout.fields do
       if let some index := prepared.field.wireIndex then
         let actual ← IO.ofExcept <|
@@ -168,7 +168,7 @@ private partial def associateCheckedResult (request : PreparedRequest) (supply :
         record := nextRecord
         selected := selected.push binding
     discard <| IO.ofExcept <| record.finish.mapError IO.userError
-  let origin ← request.originFor source
+  let origin ← request.originFor source (some draft.view)
   let mut value := candidate.root
   if let some retained := retained then
     if !retained.input.path.isEmpty then
@@ -219,8 +219,8 @@ private partial def assembleInputResult (request : PreparedRequest) (source : So
   unless source.kind == .record do
     throwError "the complete input result lost a prepared computational field"
   let layout ← RecordLayout.ofSource source
-  let mut record ← liftM (m := IO) <|
-    RecordPrefix.begin supply request.program request.occurrence layout
+  let mut record ← RecordPrefix.prepare supply request.program request.occurrence layout
+    draft.view request.environment.sourceMarks
   let mut draft := draft
   for prepared in layout.fields do
     if prepared.field.wireIndex.isNone then continue
@@ -229,7 +229,7 @@ private partial def assembleInputResult (request : PreparedRequest) (source : So
     draft := nextDraft
     record := nextRecord
   let payload ← IO.ofExcept <| record.finish.mapError IO.userError
-  liftM (m := IO) <| draft.stage (← request.originFor source) payload
+  liftM (m := IO) <| draft.stage (← request.originFor source (some draft.view)) payload
 
 /-- Assemble the complete source-selected result after all selected lazy inputs have settled.
 Validate its stored fields together with their actual native prefixes before adding consuming

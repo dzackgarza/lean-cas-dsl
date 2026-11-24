@@ -165,6 +165,16 @@ opaque ResultRoleMap.admit (telescope : RoleTelescope) (environment : RuntimeEnv
       let actual ← IO.ofExcept <| (storedResultAt graph candidate.root path).mapError IO.userError
       if let some actual := actual then
         let actual ← IO.ofExcept <| (graph.rebind actual declared.layout).mapError IO.userError
+        -- The complete admission above already checked this stored path with its original
+        -- projection authority. Retain that role's selected type suppliers without replacing
+        -- the whole-result check by an independent field check that loses its pending prefix.
+        let marks ← IO.ofExcept <|
+          (mergeSourceMarks environment.sourceMarks actual.sourceMarks).mapError IO.userError
+        let marks ← IO.ofExcept <|
+          (retainedSourceMarks marks declared.layout.source).mapError IO.userError
+        let dependencies ← markedTypeReferences (some graph) declared.layout.source marks
+        let actual ← IO.ofExcept <|
+          (actual.withRole declared.layout marks dependencies).mapError IO.userError
         bindings := bindings.insert declared.role.id actual
   return ⟨telescope, candidate.root, bindings⟩
 

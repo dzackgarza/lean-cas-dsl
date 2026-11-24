@@ -52,6 +52,21 @@ private def parameters : LowerM (Array RuntimeParameter) := do
       result := result.push parameter
   return result
 
+private def sourceMarks (sources : Array ClosedTerm) : LowerM (Array (Nat × ValueBinding)) := do
+  let frame ← read
+  let actual ← frame.environment.marks.get
+  let mut marks ← IO.ofExcept <|
+    (captureContextSourceMarks actual frame.context.telescope).mapError IO.userError
+  for source in sources do
+    let selected ← IO.ofExcept <| (captureSourceMarks actual source).mapError IO.userError
+    marks ← IO.ofExcept <| (mergeSourceMarks marks selected).mapError IO.userError
+  return marks
+
+private def runtimeEnvironment : LowerM RuntimeEnvironment := do
+  let frame ← read
+  RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
+    (← sourceMarks #[]) (some (← frame.environment.transaction.view))
+
 -- Temporary bounded source-cost inspection. The timer never changes or resets the budget.
 private def sourceCostHead (expression : Expr) : String :=
   match expression.consumeMData.getAppFn.consumeMData with
@@ -94,6 +109,7 @@ private def originFor (role : SourceLayout) : LowerM ValueOrigin := do
   let environment ← traceExpensiveLower "origin.capture" role.source.expression
       frame.context.bindings.size do
     RuntimeEnvironment.capture identities.worker frame.context actual
+      (← sourceMarks #[role.source]) (some (← frame.environment.transaction.view))
   traceExpensiveLower "origin.transport" role.source.expression frame.context.bindings.size do
     environment.origin frame.program (← identities.fresh .occurrence) role
 
@@ -199,15 +215,13 @@ private partial def literal? (expression : Expr) : MetaM (Option Json) := do
     return some (.arr packets)
   return some (Json.mkObj [("ctor", toJson name.getString!), ("args", .arr packets)])
 
-private partial def captured (frame : Frame) (marks : Array ValueBinding) (expression : Expr)
+private partial def captured (frame : Frame) (graph : ValueGraph)
+    (marks : Array (Nat × ValueBinding)) (expression : Expr)
     (found : Array ValueBinding) : MetaM (Array ValueBinding) := do
   match expression with
   | .mdata data body =>
-    match markedKey? data with
-    | some key => match marks[key]? with
-      | some value => return found.push value
-      | none => return found
-    | none => captured frame marks body found
+    if (markedKey? data).isSome then return found
+    captured frame graph marks body found
   | .fvar id =>
     match frame.context.bindings.find? (·.expression.fvarId! == id) with
     | some binding => match frame.bound[binding.id]? with
@@ -216,16 +230,19 @@ private partial def captured (frame : Frame) (marks : Array ValueBinding) (expre
         -- Only this exact source definition may expose an earlier captured reference.
         -- A directly retained value above remains authoritative, even for a definition.
         match (← id.getDecl).value? with
-        | some value => captured frame marks value found
+        | some value =>
+          let selected ← markedSourceReferences (some graph) frame.context marks value
+          captured frame graph marks value (found ++ selected)
         | none => return found
     | none => return found
   | .app function argument =>
-    captured frame marks argument (← captured frame marks function found)
+    captured frame graph marks argument (← captured frame graph marks function found)
   | .lam _ type body _ | .forallE _ type body _ =>
-    captured frame marks body (← captured frame marks type found)
+    captured frame graph marks body (← captured frame graph marks type found)
   | .letE _ type value body _ =>
-    captured frame marks body (← captured frame marks value (← captured frame marks type found))
-  | .proj _ _ value => captured frame marks value found
+    captured frame graph marks body
+      (← captured frame graph marks value (← captured frame graph marks type found))
+  | .proj _ _ value => captured frame graph marks value found
   | _ => return found
 
 /-- Retain a checked source term as code with its actual captured references.
@@ -234,11 +251,14 @@ private def closure (expression : Expr) : LowerM ValueBinding := do
   let frame ← read
   traceExpensiveLower "closure.total" expression frame.context.bindings.size do
     let program ← (← supply).fresh .program
-    let captures ← traceExpensiveLower "closure.captures" expression
-        frame.context.bindings.size do
-      captured frame (← frame.environment.marks.get) expression #[]
     let source ← traceExpensiveLower "closure.close" expression frame.context.bindings.size do
       frame.context.close expression
+    let captures ← traceExpensiveLower "closure.captures" expression
+        frame.context.bindings.size do
+      let marks ← sourceMarks #[source]
+      let graph ← frame.environment.transaction.view
+      let selected ← markedSourceReferences (some graph) frame.context marks expression
+      captured frame graph marks expression selected
     let code := ClosureCode.term source
     frame.environment.codes.modify (·.insert program code)
     traceExpensiveLower "closure.stage" expression frame.context.bindings.size do
@@ -268,7 +288,7 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
       let some endpoint := selectedEndpoint? expression
         | throwError "the selected endpoint lost its declared constructor argument"
       let frame ← read
-      let environment ← RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
+      let environment ← runtimeEnvironment
       -- This exact Arrow.mk argument may already name an actual input. Preserve that
       -- reference; otherwise the endpoint remains a descriptor of its selected arrow.
       if ← environment.hasRetainedSource frame.context endpoint then
@@ -393,7 +413,7 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
       let traced := (expression.find? (·.isConstOf `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
       if traced then dbg_trace "[inclusion.stage] lower projection {projection.declaration}: before environment"
       let frame ← read
-      let environment ← RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
+      let environment ← runtimeEnvironment
       if traced then dbg_trace "[inclusion.stage] lower projection {projection.declaration}: after environment"
       if ← environment.hasRetainedSource frame.context projection.parent then
         if traced then dbg_trace "[inclusion.stage] lower projection {projection.declaration}: retained parent"
@@ -536,8 +556,7 @@ private partial def fieldClosures (role : SourceLayout)
             -- this branch never asks an executor for an unavailable native field.
             let selected ← projectPath operand path
             let graph ← frame.environment.transaction.view
-            let environment ← RuntimeEnvironment.capture (← supply).worker frame.context
-              (← parameters)
+            let environment ← runtimeEnvironment
             let checked ← environment.checkResult graph (← prepared.toLayout) selected
             retained := some checked.root
       match retained with
@@ -676,7 +695,7 @@ private partial def field (owner : Name) (index : Nat) (value : Expr) (name : Me
     if traceInclusion then dbg_trace "[inclusion.field] declaration {declaration}: unchanged"
   let frame ← read
   if traceInclusion then dbg_trace "[inclusion.field] before environment"
-  let environment ← RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
+  let environment ← runtimeEnvironment
   if traceInclusion then dbg_trace "[inclusion.field] after environment; before retained-source check"
   -- An unretained inner projection still owns its native definition boundary. Lower it
   -- before the outer demand; flattening through its named field closure would re-enter
@@ -802,7 +821,7 @@ private partial def actualArguments (arguments : Array Expr)
   if traceArguments then
     let ticks ← IO.getNumHeartbeats
     dbg_trace "[lower.arguments] before environment context={frame.context.bindings.size} arguments={arguments.size} ticks={ticks}"
-  let environment ← RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
+  let environment ← runtimeEnvironment
   if traceArguments then
     let ticks ← IO.getNumHeartbeats
     dbg_trace "[lower.arguments] after environment ticks={ticks}"
@@ -918,6 +937,7 @@ private partial def admission (expression : Expr) (data : MData) (body : Expr) :
   let (closed, actual) ← actualArguments arguments (some element) required
   let request ← PreparedRequest.forApplication (← supply) frame.program
     (← frame.environment.ledger.allocate) frame.context callable closed actual (← parameters)
+    (some (← frame.environment.transaction.view)) (← sourceMarks closed)
   if (← request.inputResultPlan (← frame.environment.transaction.view)).isSome then
     return ← demand request
   -- Proof-only admissions also retain a transparent presentation of the original value
@@ -1019,6 +1039,7 @@ private partial def nativeInputRecord? (expression : Expr) : LowerM (Option Valu
     dbg_trace "[inclusion.record] actualArguments ready; before prepared application ticks={ticks}"
   let request ← PreparedRequest.forApplication (← supply) frame.program
     (← frame.environment.ledger.allocate) frame.context callable closed actual (← parameters)
+    (some (← frame.environment.transaction.view)) (← sourceMarks closed)
   if traceInclusion then
     let ticks ← IO.getNumHeartbeats
     dbg_trace "[inclusion.record] prepared application ready; before actual inputResultPlan ticks={ticks}"
@@ -1045,6 +1066,7 @@ private partial def apply (callable : ValueBinding) (arguments : Array Expr) :
   if traceArguments then dbg_trace "[basechange.application] actual inputs prepared"
   let request ← PreparedRequest.forApplication (← supply) frame.program
     (← frame.environment.ledger.allocate) frame.context callable closed actual (← parameters)
+    (some (← frame.environment.transaction.view)) (← sourceMarks closed)
   demand request
 
 private partial def record (expression : Expr) (fields : Array Expr) : LowerM ValueBinding := do
@@ -1081,7 +1103,8 @@ private partial def stageRecord (layout : RecordLayout) (values : Array ValueBin
       frame.environment.transaction.draft
     let mut selected ← traceExpensiveLower "record.prefix.begin" expression
         frame.context.bindings.size do
-      RecordPrefix.begin identities produced.program produced.occurrence layout
+      RecordPrefix.prepare identities produced.program produced.occurrence layout
+        draft.view produced.sourceMarks
     for value in values, wireIndex in [:values.size] do
       -- Metadata is read only to label this timed call; binding still uses the original prefix.
       let projection := (layout.fields.find? (fun prepared =>
@@ -1122,6 +1145,7 @@ private partial def liftFamily (data : MData) (body : Expr) : LowerM ValueBindin
   let request ← PreparedRequest.forBoundary (← supply) frame.program
     (← frame.environment.ledger.allocate) (.lift family) (← levels.mapM instantiateLevelMVars)
     frame.context closed actual #[] (← parameters)
+    (some (← frame.environment.transaction.view)) (← sourceMarks closed)
   demand request
 
 /-- Prepare the original comparison family and its exact complete endpoint values before any
@@ -1167,7 +1191,7 @@ private partial def routedMethodFamily (data : MData) (body : Expr) : LowerM Val
   let some source := body.getAppArgs[family.parameterCount]?
     | throwError "the routed method lost its original receiver"
   let receiver ← lower source
-  let environment ← RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
+  let environment ← runtimeEnvironment
   let arguments ← environment.methodParameters frame.context frame.environment.transaction
     frame.environment.marks frame.environment.ledger.allocate family
     (body.getAppArgs.extract 0 family.parameterCount) receiver
@@ -1184,6 +1208,7 @@ private partial def routedMethodFamily (data : MData) (body : Expr) : LowerM Val
   let request ← PreparedRequest.forBoundary (← supply) frame.program
     (← frame.environment.ledger.allocate) (.routedMethod family)
     levels frame.context closed actual scope (← parameters)
+    (some (← frame.environment.transaction.view)) (← sourceMarks closed)
   let callable ← demand request
   apply callable #[← markValue frame.environment.marks receiver source]
 
@@ -1194,7 +1219,7 @@ private partial def propertyObservation (data : MData) (body : Expr) : LowerM Va
   let family ← PropertyFamily.fromMark data
   let (levels, arguments, source) ← family.application body
   let receiver ← lower source
-  let environment ← RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
+  let environment ← runtimeEnvironment
   let arguments ← environment.sourceCategoryParameters frame.context frame.environment.transaction
     frame.environment.marks frame.environment.ledger.allocate family.route.source
     family.categoryFamily family.universeParams family.parameterCount arguments receiver
@@ -1204,6 +1229,7 @@ private partial def propertyObservation (data : MData) (body : Expr) : LowerM Va
   let request ← PreparedRequest.forBoundary (← supply) frame.program
     (← frame.environment.ledger.allocate) (.property family) levels frame.context closed actual
     #[] (← parameters)
+    (some (← frame.environment.transaction.view)) (← sourceMarks closed)
   demand request
 
 private partial def application (expression : Expr) : LowerM ValueBinding := do
@@ -1242,6 +1268,7 @@ private partial def application (expression : Expr) : LowerM ValueBinding := do
     let request ← PreparedRequest.forBoundary (← supply) frame.program
       (← frame.environment.ledger.allocate) (.registered family) levels frame.context closed actual
       #[] (← parameters)
+      (some (← frame.environment.transaction.view)) (← sourceMarks closed)
     if traced then dbg_trace "[inclusion.stage] registered family: before demand"
     return ← apply (← demand request) (arguments.extract arity arguments.size)
   if let some info := (← getEnv).getProjectionFnInfo? name then

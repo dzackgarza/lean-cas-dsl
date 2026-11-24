@@ -771,16 +771,19 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let actual ← liftM (m := IO) marks.get
   let .ok capturedArgument := RuntimeArgument.ofValue graph 0 first actual
     | throwError "the marked type control lost its actual occurrence table"
+  let mut captured := #[]
   for role in #[original, changed, aliasRole] do
     let .ok _ := capturedArgument.sourceMarks role.source
       | throwError "the marked type control lost a source occurrence mark"
-  let producing ← RuntimeEnvironment.capture owners.worker context #[]
+    let selected ← IO.ofExcept <| (captureSourceMarks actual role.source).mapError IO.userError
+    captured ← IO.ofExcept <| (mergeSourceMarks captured selected).mapError IO.userError
+  let producing ← RuntimeEnvironment.capture owners.worker context #[] captured (some graph)
   let origin ← producing.origin program occurrence original
   let (graph, value) ← liftM (m := IO) <|
     graph.stage owners.identities origin (.closure program #[])
   unless value.instantiations.isEmpty do
     throwError "the direct marked type control unexpectedly acquired a field association"
-  let consuming ← RuntimeEnvironment.capture owners.worker context #[]
+  let consuming ← RuntimeEnvironment.capture owners.worker context #[] captured (some graph)
   for role in #[original, aliasRole] do
     let accepted ← consuming.checkResult graph role value
     unless accepted.root.value == value.value do
@@ -792,6 +795,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let .ok parameter := RuntimeParameter.ofValue graph binding.id first
       | throwError "the same-supplier alias is outside its actual graph"
     let environment ← RuntimeEnvironment.capture owners.worker aliased #[parameter]
+      captured (some graph)
     let role ← SourceLayout.ofTerm (← aliased.close (source width))
     discard <| environment.checkResult graph role value
   let failure : Option Exception ← try
@@ -811,7 +815,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let arithmeticOrigin ← consuming.origin program occurrence arithmetic
   let (graph, arithmeticValue) ← liftM (m := IO) <|
     graph.stage owners.identities arithmeticOrigin (.closure program #[])
-  let arithmeticEnvironment ← RuntimeEnvironment.capture owners.worker context #[]
+  let arithmeticEnvironment ←
+    RuntimeEnvironment.capture owners.worker context #[] captured (some graph)
   discard <| arithmeticEnvironment.checkResult graph arithmeticAlias arithmeticValue
   let failure : Option Exception ← try
     discard <| arithmeticEnvironment.checkResult graph arithmeticChanged arithmeticValue
@@ -834,13 +839,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         let firstRole ← SourceLayout.ofTerm (← complete.close (source firstWidth))
         let secondRole ← SourceLayout.ofTerm (← complete.close (source secondWidth))
         let sameRole ← SourceLayout.ofTerm (← complete.close (source sameWidth))
-        let producing ← RuntimeEnvironment.capture owners.worker complete #[]
+        let producing ← RuntimeEnvironment.capture owners.worker complete #[] captured (some graph)
         unless producing.values.all (·.isNone) do
           throwError "a formal marked width acquired a runtime parameter"
         let origin ← producing.origin program occurrence firstRole
         let (graph, formalValue) ← liftM (m := IO) <|
           graph.stage owners.identities origin (.closure program #[])
-        let environment ← RuntimeEnvironment.capture owners.worker complete #[]
+        let environment ← RuntimeEnvironment.capture owners.worker complete #[] captured (some graph)
         discard <| environment.checkResult graph firstRole formalValue
         discard <| environment.checkResult graph sameRole formalValue
         let failure : Option Exception ← try
@@ -866,7 +871,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let complete ← ContextTelescope.capture bindings
       let firstRole ← SourceLayout.ofTerm (← complete.close (source firstMark))
       let secondRole ← SourceLayout.ofTerm (← complete.close (source secondMark))
-      let environment ← RuntimeEnvironment.capture owners.worker complete #[]
+      let environment ← RuntimeEnvironment.capture owners.worker complete #[] captured (some graph)
       let admitted ← environment.checkResult graph firstRole plain
       let (observed, _) := (Observation.valueReferenceJson admitted.root).run {}
       let .ok dependencies := observed.getObjValAs? (Array Json) "sourceDependencies"

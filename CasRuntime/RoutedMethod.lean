@@ -63,7 +63,7 @@ private def methodParameterAssembly (environment : RuntimeEnvironment) (context 
       parameters := parameters.push parameter
   let request ← PreparedRequest.forApplication transaction.owners.identities
     (← transaction.owners.identities.fresh .program) (← allocate)
-    context callable arguments actual parameters
+    context callable arguments actual parameters (some graph)
   let request := request.withSourceSnapshot sourceSnapshot
   let some plan ← request.inputResultPlan graph
     | throwStratum .noImplementation
