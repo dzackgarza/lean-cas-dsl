@@ -39,7 +39,7 @@ private def finishProofLetRecs (proof : Expr) : TermElabM Expr := do
   let proof ← instantiateMVars proof
   return proof.replace fun expression =>
     match expression with
-    | .const name _ => (levels.find? name).map (mkConst name)
+    | .const name _ => (levels.find? name).map (fun universes => Lean.mkConst name universes)
     | _ => none
 
 /-- Complete one formal proof through Lean's native declaration machinery before it is

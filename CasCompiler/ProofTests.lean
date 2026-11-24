@@ -103,7 +103,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let obligation ← session.proposition (← nativeSyntax "xAlias = x")
   let evidence ← nativeSyntax
     "by\n  let rec witness (k : Nat) : xAlias = x :=\n    match k with\n    | 0 => rfl\n    | Nat.succ k => witness k\n  exact witness n"
-  let proof ← withCurrHeartbeats <| session.elaborate evidence fun context =>
+  let proof ← withCurrHeartbeats <| session.elaborate evidence fun context => do
     sourceFormalProof evidence (← obligation.source.inContext context)
   unless proof.source.universeParams.contains `nativeProofScope &&
       proof.source.nativeDeclarations.constants.any (fun declaration =>

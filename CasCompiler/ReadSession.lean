@@ -366,11 +366,11 @@ private partial def readStatementCore (session : SourceSession) (stx : TSyntax `
         | .definition next _ | .assumption next => current := next
         | _ => pure ()
       | .failed error _ =>
-        let prefix := items.map fun (item, statement) =>
+        let completedItems := items.map fun (item, statement) =>
           (item, some (SourceStatementRead.complete statement))
         let suffix : Array (TSyntax `cas_item × Option SourceStatementRead) :=
           (children.drop (index + 1)).map fun item => (item, none)
-        return .failed error (prefix ++ #[(item, some result)] ++ suffix)
+        return .failed error (completedItems ++ #[(item, some result)] ++ suffix)
     return .complete (.contextBlock items)
   try
     return .complete (← readStatementLeaf session stx)
