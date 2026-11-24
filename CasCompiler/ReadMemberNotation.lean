@@ -13,14 +13,20 @@ namespace ReadMemberNotation
 
 open SourceReader
 
-def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
+def ruleCompleting (context : ReadContext) (complete : ReadCompletion) :
+    TermElabM (Except MessageData NativeSourceJudgement) := do
   let source := context.source
-  let member := member context
+  let member := memberCompleting context complete
   if source.raw.getKind == ``CasCatalogue.Language.casCallWith then do
     let arguments := source.raw[4].getSepArgs.map fun argument =>
       (⟨argument⟩ : TSyntax `cas_term)
     member ⟨source.raw[0]⟩ (source.raw[2].getId.toString (escape := false)) arguments
   else throwReadRuleMismatch
+
+def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
+  match ← ruleCompleting context (fun value => pure (.ok value)) with
+  | .ok value => pure value
+  | .error message => throwError message
 
 end ReadMemberNotation
 

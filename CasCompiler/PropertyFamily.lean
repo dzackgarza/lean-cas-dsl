@@ -103,8 +103,30 @@ def PropertyFamily.mark (family : PropertyFamily) (applied : Expr) : MetaM Expr 
     |>.setString `CasCompiler.source.propertyRoute (toJson family.route.refs).compress)
     (mkApp proposition.appFn! image)
 
+/-- Specialize one already selected complete property family at its original source object.
+This is the common native producer for source competition and deferred property calls. -/
+opaque PropertyFamily.atReceiver (family : PropertyFamily) (selected : NativeSourceCategory)
+    (receiver : Expr) : MetaM Expr := do
+  unless selected.role == .object do
+    throwError "a property requires its selected source object category"
+  unless family.route.source.syntacticEq selected.expression do
+    throwError "the property changed its complete selected source category"
+  let (head, levels) ← family.instantiate
+  let category := family.categoryFamily.instantiateLevelParams family.universeParams levels
+  let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType category)
+  unless ← isDefEq (mkAppN category parameters) selected.bundle do
+    throwError "the property changed its complete selected category parameters"
+  let domain ← mkAppM ``CategoryTheory.Bundled.α #[selected.bundle]
+  unless ← isDefEq (← inferType receiver) domain do
+    throwError "the property receiver has a different complete native source category"
+  let applied ← instantiateMVars (mkAppN head (parameters.push receiver))
+  if applied.hasMVar || applied.hasLevelMVar then
+    throwError "the property leaves a complete source parameter undetermined"
+  family.mark applied
+
 /-- The source reader and deferred children form the same complete native proposition.
-Route alternatives are compared before specializing any category parameter or receiver. -/
+Route alternatives are compared before specializing any category parameter or receiver.
+An admitted preferred route selects only its actual family, without asserting an equality. -/
 opaque PropertyFamily.forReceiver (selected : NativeSourceCategory) (id : PropertyId)
     (receiver : Expr) : MetaM (PropertyFamily × Expr) := do
   unless selected.role == .object do
@@ -117,22 +139,15 @@ opaque PropertyFamily.forReceiver (selected : NativeSourceCategory) (id : Proper
   let query ← SourceRoutes.forOwner selected.expression classifier.host
   let some routes ← query.finiteRoutes
     | throwUnsupportedSource "the property route family requires its supplied uniform comparison"
+  let preferred ← preferredRoute? state selected.expression entry.name routes
+  let routes := match preferred with
+    | none => routes
+    | some route => routes.filter (·.refs == route.refs)
   let some route := routes[0]?
     | throwError "the property is not reachable from the receiver's category"
   let agreements ← sourceRouteAgreements state selected routes
   let family ← PropertyFamily.forSelection selected.expression entry.id route.refs
-  let (head, levels) ← family.instantiate
-  let category := family.categoryFamily.instantiateLevelParams family.universeParams levels
-  let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType category)
-  unless ← isDefEq (mkAppN category parameters) selected.bundle do
-    throwError "the property changed its complete selected category parameters"
-  let domain ← mkAppM ``CategoryTheory.Bundled.α #[selected.bundle]
-  unless ← isDefEq (← inferType receiver) domain do
-    throwError "the property receiver has a different complete native source category"
-  let applied ← instantiateMVars (mkAppN head (parameters.push receiver))
-  if applied.hasMVar || applied.hasLevelMVar then
-    throwError "the property leaves a complete source parameter undetermined"
-  let .mdata data proposition ← family.mark applied
+  let .mdata data proposition ← family.atReceiver selected receiver
     | throwError "the property lost its complete source marker"
   let mut proposition := proposition
   for proof in agreements.reverse do

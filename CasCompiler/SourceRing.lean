@@ -77,7 +77,8 @@ def sourceGeneratorAt? (type : Expr) (index : Option Nat) : TermElabM (Option Ex
   | #[] => return none
   | #[(entry, element)] =>
     let value ← sourcePointValue element (some type)
-    return some (sourceReference ``ObjectEntry.generator entry.id.raw (entry.generator.getD .anonymous) value)
+    return some (← sourceReferenceAt ``ObjectEntry.generator entry.id.raw
+      (entry.generator.getD .anonymous) element value)
   | _ => throwSemanticAmbiguity "several registered objects have a generator at this carrier"
 
 /-- `x_3` as `("x_", 3)`. -/
@@ -187,16 +188,9 @@ other argument in the unique registered `R`-algebra whose carrier is its set.
 Source: ObjectEntry.application. `read` reads the argument, at the coefficient set when given. -/
 private def objectApplication? (value : Expr) :
     TermElabM (Option (ObjectEntry × Name)) := do
-  let type ← instantiateMVars (← inferType value)
-  let state ← semanticState
-  let mut applications := #[]
-  for entry in state.objects do
-    let some application := entry.application | continue
-    discard <| checkedDeclaration entry.declaration
-    let family ← mkConstWithFreshMVarLevels entry.declaration
-    let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
-    if ← withoutModifyingState (withReducible (isDefEq (mkAppN family parameters) type)) then
-      applications := applications.push (entry, application)
+  let (_, owners) ← registeredDomain (← inferType value)
+  let applications := owners.filterMap fun entry =>
+    entry.application.map fun application => (entry, application)
   let some found := applications[0]? | return none
   unless applications.size == 1 do
     throwSemanticAmbiguity "several registered applications act on this element"
@@ -236,7 +230,8 @@ def sourceDirectApplicationApplicable? (value : Expr)
     throwError "the application of {entry.name} is not determined"
   let function ← sourceSetFunction (sourceReference ``ObjectEntry.application entry.id.raw
     application applied)
-  return .ok (some (← elabAppArgs function #[] #[Arg.expr (← mkAppM ``Prod.mk #[value, argument])]
+  let pair ← sourcePairPoint value argument
+  return .ok (some (← elabAppArgs function #[] #[Arg.expr pair]
     none false false))
 
 /-- Required element application preserves its callback and selected application. -/
@@ -308,7 +303,8 @@ def sourceObjectApplication? (value : Expr) (numeral : Bool)
     throwError "the application of {entry.name} is not determined"
   let function ← sourceSetFunction (sourceReference ``ObjectEntry.application entry.id.raw
     application applied)
-  let result ← elabAppArgs function #[] #[Arg.expr (← mkAppM ``Prod.mk #[value, argument])]
+  let pair ← sourcePairPoint value argument
+  let result ← elabAppArgs function #[] #[Arg.expr pair]
     none false false
   -- The value lies in the argument's own set, as the reader formed it.
   mkExpectedTypeHint result argumentType

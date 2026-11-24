@@ -29,6 +29,17 @@ inductive CompletionProducer
   | invocation (dispatch : DispatchReservation) (scope : RuntimeId .scope) (requestId : Nat)
   | kernel
 
+/-- Observational data from one actual received transport frame, including each
+resume of a suspended invocation. Nothing in these observations can select an
+implementation, validate a result, or extend a scope's authority. -/
+structure RoutineInvocation where
+  private mk ::
+  occurrence : RuntimeId .occurrence
+  connection : ConnectionGeneration
+  scope : RuntimeId .scope
+  requestId : Nat
+  observations : Option (Array Json)
+
 /-- Completed native interface admission and its exact provenance.
 References point into the ordinary graph; this record owns no second payload heap. -/
 structure CompletionAssociation where
@@ -37,6 +48,7 @@ structure CompletionAssociation where
   response : PreparedResponse request
   inputs : InputRoleMap
   producer : CompletionProducer
+  routines : Array RoutineInvocation
 
 structure StagedCompletion where
   private mk ::
@@ -56,6 +68,7 @@ structure OutputBatch where
   commit : RuntimeId .commit
   transaction : RuntimeId .transaction
   events : Array Json
+  roots : Array (RuntimeId .value)
 
 /-- The Environment owns the immutable published graph and complete output batches. -/
 structure SessionSnapshot where
@@ -80,6 +93,11 @@ opaque SessionSnapshot.current : CoreM SessionSnapshot := do
     | throwError "the runtime Environment has not been initialized"
   return snapshot
 
+/-- An explicitly isolated scratch consumer starts its own session. Its caller
+must restore the original Environment, not merge the scratch graph. -/
+def SessionSnapshot.clear : CoreM Unit :=
+  modifyEnv (snapshotExtension.setState · none)
+
 opaque SessionSnapshot.initialize (owners : OwnerRegistry) : CoreM SessionSnapshot := do
   let environment ← getEnv
   if (snapshotExtension.getState environment).isSome then
@@ -96,6 +114,7 @@ private structure ActiveCell where
   events : Array Json := #[]
   reservations : Array DispatchReservation := #[]
   leases : Array RequestLease := #[]
+  routines : Array RoutineInvocation := #[]
   installedDrafts : Std.HashSet (RuntimeId .draft) := {}
   completions : Array StagedCompletion := #[]
   readySignals : Std.HashMap (RuntimeId .occurrence) (IO.Promise Unit) := {}
@@ -105,10 +124,10 @@ private structure ActiveCell where
 private inductive CellState
   | active (cell : ActiveCell)
   | committed (snapshot : RuntimeId .snapshot)
-  | aborted (failure : TransactionFailure)
+  | aborted (failure : TransactionFailure) (drainers : Array RequestLease)
 
 private def CellState.failure : CellState → TransactionFailure
-  | .aborted failure => failure
+  | .aborted failure _ => failure
   | _ => .settled
 
 /-- Isolated tentative reply fields, rooted in one exact active graph revision.
@@ -203,6 +222,15 @@ opaque CellTransaction.activeGraph (transaction : CellTransaction) : BaseIO (Opt
   transaction.state.atomically do
     let .active cell ← get | return none
     return some cell.graph
+
+/-- Read the actual producer during authorized preparation, never from a tombstone. -/
+opaque CellTransaction.completionFor? (transaction : CellTransaction)
+    (occurrence : RuntimeId .occurrence) : BaseIO (Option CompletionAssociation) :=
+  transaction.state.atomically do
+    let .active cell ← get | return none
+    if let some result := cell.completions.find? (·.association.request.occurrence == occurrence) then
+      return some result.association
+    return (cell.parent.receipt occurrence).map (·.association)
 
 opaque CellTransaction.view (transaction : CellTransaction) : IO ValueGraph := do
   let some graph ← transaction.activeGraph
@@ -462,6 +490,32 @@ opaque CellTransaction.commitResume (transaction : CellTransaction)
     set (CellState.active { cell with leases := cell.leases.push lease })
     return .ok ()
 
+/-- Stage inert routine observations only at the actual received-frame
+boundary. The scope, lease and reservation are already authoritative; the
+observation payload never supplies any of these identities. Unnegotiated
+observations are absent, not an invented description of a provider call. -/
+opaque CellTransaction.recordRoutineInvocation (transaction : CellTransaction)
+    (scope : RequestScope) (lease : RequestLease) (observations : Option (Array Json)) :
+    BaseIO (Except TransactionFailure Unit) :=
+  transaction.state.atomically do
+    let .active cell ← get | return .error .settled
+    let dispatch := scope.reservation
+    unless dispatch.transaction == transaction.id && lease.transaction == transaction.id &&
+        lease.occurrence == dispatch.occurrence && lease.owner == dispatch.connection &&
+        cell.reservations.any (fun tracked => tracked.occurrence == dispatch.occurrence &&
+          tracked.connection == dispatch.connection && tracked.selected == dispatch.selected) &&
+        cell.leases.any (fun tracked => tracked.requestId == lease.requestId &&
+          tracked.occurrence == lease.occurrence && tracked.owner == lease.owner) do
+      return .error .invalidCompletion
+    unless ← lease.canCommit do return .error .settled
+    if cell.routines.any (fun frame => frame.connection == lease.owner &&
+        frame.requestId == lease.requestId) then
+      return .error .invalidCompletion
+    let frame : RoutineInvocation :=
+      ⟨dispatch.occurrence, dispatch.connection, scope.id, lease.requestId, observations⟩
+    set (CellState.active { cell with routines := cell.routines.push frame })
+    return .ok ()
+
 /-- Install an admitted whole reply and its transaction-local completion together.
 Reuse: prepared input/result admission, isolated drafts, actual received leases and owner gating.
 The parsed reply and request scope identify the exact transport invocation. -/
@@ -498,13 +552,15 @@ opaque CellTransaction.completeReply (transaction : CellTransaction) (draft : Ce
         (m := Std.AtomicT CellState BaseIO) dependencies do
       unless ← transaction.ledger.retire dispatch do return .error .invalidCompletion
       let association : CompletionAssociation :=
-        ⟨request, response, inputs, .invocation dispatch scope.id reply.requestId⟩
+        ⟨request, response, inputs, .invocation dispatch scope.id reply.requestId,
+          cell.routines.filter (·.occurrence == request.occurrence)⟩
       let completion : StagedCompletion := ⟨transaction.id, association⟩
       if let some signal := cell.readySignals[request.occurrence]? then signal.resolve ()
       set (CellState.active { cell with
         graph := draft.graph
         roots := cell.roots ++ draft.roots ++ outputs
         reservations := cell.reservations.filter (·.occurrence != request.occurrence)
+        routines := cell.routines.filter (·.occurrence != request.occurrence)
         installedDrafts := cell.installedDrafts.insert draft.id
         completions := cell.completions.push completion
         readySignals := cell.readySignals.erase request.occurrence
@@ -556,7 +612,7 @@ private def CellTransaction.finishKernel (transaction : CellTransaction)
     let outcome : Option CompletionAssociation ← transaction.owners.atomicallyWhileLive
         (m := Std.AtomicT CellState BaseIO) dependencies do
       transaction.ledger.abandon request.occurrence
-      let association : CompletionAssociation := ⟨request, response, inputs, .kernel⟩
+      let association : CompletionAssociation := ⟨request, response, inputs, .kernel, #[]⟩
       if let some signal := cell.readySignals[request.occurrence]? then signal.resolve ()
       set (CellState.active { cell with
         roots := cell.roots ++ outputs
@@ -597,12 +653,38 @@ opaque CellTransaction.fail (transaction : CellTransaction) (failure : Transacti
       discard <| transaction.ledger.retire reservation
     for lease in cell.leases do lease.cancel
     for signal in cell.readySignals.toArray do signal.2.resolve ()
-    set (CellState.aborted failure)
+    set (CellState.aborted failure cell.leases)
     return true
 
 /-- Abort discards staging and leaves every reserved dispatch right consumed. -/
 opaque CellTransaction.abort (transaction : CellTransaction) : BaseIO Bool :=
   transaction.fail .settled
+
+/-- Settlement retains only resource drain handles, not the staged graph,
+programs, results or source. A cooperative abort can be followed by explicit
+force even after the evaluator has returned. -/
+private def CellTransaction.drainLeases (transaction : CellTransaction) :
+    BaseIO (Array RequestLease) :=
+  transaction.state.atomically do
+    match ← get with
+    | .active cell => return cell.leases
+    | .aborted _ drainers => return drainers
+    | .committed _ => return #[]
+
+opaque CellTransaction.draining (transaction : CellTransaction) : BaseIO Bool := do
+  for lease in ← transaction.drainLeases do
+    if ← lease.draining then return true
+  return false
+
+/-- Explicit force applies only to the affected request's still-live drainer.
+The transaction gate is released before process termination. -/
+opaque CellTransaction.force (transaction : CellTransaction) : IO (Array ConnectionGeneration) := do
+  discard <| (transaction.abort : BaseIO Bool)
+  let mut revoked := #[]
+  for lease in ← transaction.drainLeases do
+    if let some owner ← lease.force then
+      revoked := revoked.push owner
+  return revoked
 
 /-- Preserve the released port classifier when a wire failure settles the producer. -/
 opaque CellTransaction.failPort (transaction : CellTransaction) (failure : CasCatalogue.Backend.PortError) :
@@ -631,7 +713,7 @@ opaque CellTransaction.commit (transaction : CellTransaction) :
         let commit ← owners.identities.fresh .commit
         let snapshotId ← owners.identities.fresh .snapshot
         let batch : OutputBatch :=
-          ⟨← owners.identities.fresh .outputBatch, commit, transaction.id, cell.events⟩
+          ⟨← owners.identities.fresh .outputBatch, commit, transaction.id, cell.events, cell.roots.map (·.value)⟩
         let mut receipts := cell.parent.receipts
         for completion in cell.completions do
           let association := completion.association
@@ -646,11 +728,11 @@ opaque CellTransaction.commit (transaction : CellTransaction) :
     match result with
     | none =>
       for lease in cell.leases do lease.cancel
-      set (CellState.aborted .staleOwner)
+      set (CellState.aborted .staleOwner cell.leases)
       return .error .staleOwner
     | some none =>
       for lease in cell.leases do lease.cancel
-      set (CellState.aborted .invalidCompletion)
+      set (CellState.aborted .invalidCompletion cell.leases)
       return .error .invalidCompletion
     | some (some snapshot) => return .ok snapshot
   match outcome with

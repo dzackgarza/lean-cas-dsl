@@ -45,6 +45,6 @@ def sourceObjectGenerator (object : NativeSourceJudgement) : TermElabM Expr := d
       pure object.value
     else annotateSourceType category object.value carrier
   let value ← mkAppOptM ``id #[some type, some value]
-  return sourceReference ``ObjectEntry.generator entry.id.raw generator value
+  sourceReferenceAt ``ObjectEntry.generator entry.id.raw generator point value
 
 end CasCompiler

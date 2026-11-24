@@ -296,6 +296,8 @@ partial def Kernel.child (kernel : Kernel) (evaluateSource : SourceEvaluation) (
   let operation ← match call.getObjValAs? String "op" with
     | .ok operation => pure operation
     | .error reason => malformed reason
+  if applicationAddressConflict (← semanticState) operation then
+    malformed "the application address also names another registered row"
   let arguments ← match call.getObjVal? "args" with
     | .ok arguments => pure arguments
     | .error reason => malformed reason
@@ -338,8 +340,15 @@ partial def Kernel.child (kernel : Kernel) (evaluateSource : SourceEvaluation) (
           | .error reason => malformed reason
         kernel.childProperty context retained entry input arguments
       else if (arguments.getObjValAs? String "ctor").toOption == some "apply" then do
-        let some row := (← semanticState).morphisms.find? (·.id.raw == operation)
-          | malformed "the point request does not name a released morphism"
+        let state ← semanticState
+        let morphisms := state.morphisms.filter (·.id.raw == operation)
+        let applications := state.objects.filter fun entry =>
+          entry.application.isSome && entry.applicationAddress == operation
+        let family ← match morphisms, applications with
+          | #[row], #[] => PointFamily.forEntry row
+          | #[], #[row] => PointFamily.forApplication row
+          | #[], #[] => malformed "the point request does not name a released callable"
+          | _, _ => malformed "the point request has several released callable owners"
         match checkServiceFields #["ctor", "args"] arguments with
         | .error reason => malformed reason
         | .ok () => pure ()
@@ -348,8 +357,7 @@ partial def Kernel.child (kernel : Kernel) (evaluateSource : SourceEvaluation) (
           | .error reason => malformed reason
         unless packet.operation == operation do
           malformed "the point packet changed its released operation"
-        let family ← PointFamily.forEntry row
-        let head ← mkConstWithFreshMVarLevels row.declaration
+        let head ← mkConstWithFreshMVarLevels family.declaration
         let expectedArrow ← childExplicit kernel.marks context retained head packet.parameters
         let (expectedSource, expectedTarget) ← family.endpoints expectedArrow
         let expectedFunction ← family.function expectedArrow
@@ -365,7 +373,11 @@ partial def Kernel.child (kernel : Kernel) (evaluateSource : SourceEvaluation) (
         let target ← childOperand kernel.marks context retained (← inferType expectedTarget)
           packet.target
         let arrow ← if let some binding ← retained packet.arrow then do
-            discard <| InputDescriptorView.requireMorphism graph (← kernel.codes.get) binding row.id
+            match family.owner with
+            | .morphism row =>
+              discard <| InputDescriptorView.requireMorphism graph (← kernel.codes.get) binding row.id
+            | .application row =>
+              discard <| InputDescriptorView.requireApplication graph (← kernel.codes.get) binding row.id
             markValue kernel.marks binding (← binding.role.source.inContext context)
           else do
             match checkServiceFields #["ctor", "args"] packet.arrow with
@@ -374,7 +386,7 @@ partial def Kernel.child (kernel : Kernel) (evaluateSource : SourceEvaluation) (
             unless (packet.arrow.getObjValAs? String "ctor").toOption == some operation do
               malformed "the arrow descriptor belongs to a different released family"
             let value ← childExplicit kernel.marks context retained head (← list packet.arrow "args")
-            pure (sourceReference ``MorphismEntry row.id.raw row.declaration value)
+            pure (family.mark value)
         let point ← try family.withRequest expectedArrow domain source target point
           catch error => malformed s!"the complete named point inputs disagree: {← error.toMessageData.toString}"
         let function ← family.function arrow
@@ -416,7 +428,8 @@ partial def Kernel.child (kernel : Kernel) (evaluateSource : SourceEvaluation) (
               | .method _ => malformed "a method requires its complete routed invocation"
               | .construction id => pure (sourceReference ``ConstructionEntry id.raw declaration)
               | .functor id => pure (sourceReference ``EdgeRef.functor id.raw declaration)
-              | .operation _ | .morphism _ => pure id
+              | .operation id => pure (sourceReference ``OperationEntry id.raw declaration)
+              | .morphism id => pure (sourceReference ``MorphismEntry id.raw declaration)
             applied (selected (← mkConstWithFreshMVarLevels declaration))
               (← list arguments "parameters")
         let role ← match arguments.getObjValAs? String "prepared_role" with

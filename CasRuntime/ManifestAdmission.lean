@@ -31,6 +31,29 @@ def publishedPresentation? (state : SemanticState) (address : String) :
 def publishedProperty? (state : SemanticState) (address : String) : Option PropertyEntry :=
   state.properties.find? (·.id.raw == address)
 
+/-- The existing object-application address names one exact registered field. No suffix is
+ignored and no native carrier comparison can supply another object owner. -/
+def publishedApplication? (state : SemanticState) (address : String) : Option ObjectEntry :=
+  match state.objects.filter (fun entry => entry.application.isSome &&
+      entry.applicationAddress == address) with
+  | #[entry] => some entry
+  | _ => none
+
+/-- A generated application port cannot silently take another row's authored address.
+The existing raw-ID registry guard does not include these generated field addresses. -/
+def applicationAddressConflict (state : SemanticState) (address : String) : Bool :=
+  (publishedApplication? state address).isSome &&
+    state.entries.any (·.stableId == address)
+
+/-- Reuse the released .application operation and form admission, including its complete
+own-address request and the original owner's compatible object/category forms. -/
+def applicationFormDefect (state : SemanticState) (row : ObjectEntry)
+    (input : String) : Option String :=
+  let registry : RegistryState := { toSemanticState := state }
+  match registry.form? input with
+  | none => some s!"{input} is not a published application input form"
+  | some form => registry.rejects (.application row) form
+
 /-- The exact source registry admits property forms by the same classifier/receiver route
 that source reading uses. Unknown or differently selected forms create no registration. -/
 def propertyFormDefect (state : SemanticState) (row : PropertyEntry)
@@ -94,13 +117,20 @@ def admitManifest (parsed : Manifest) : MetaM (Manifest × Array String) := do
     if (publishedFamily? state registration.operation).isNone &&
         (publishedLift? state registration.operation).isNone &&
         (publishedPresentation? state registration.operation).isNone &&
-        (publishedProperty? state registration.operation).isNone then
+        (publishedProperty? state registration.operation).isNone &&
+        (publishedApplication? state registration.operation).isNone then
       rejected := rejected.push s!"{described}: {registration.operation} is not a published operation"
     else if !parsed.backends.any (·.name == registration.backend) then
       rejected := rejected.push
         s!"{described}: the backend {registration.backend} is not declared in the manifest"
     else if let some defect := registration.preferredRoutes.findSome? (preferenceDefect state) then
       rejected := rejected.push s!"{described}: a declared preferred route is malformed: {defect}"
+    else if applicationAddressConflict state registration.operation then
+      rejected := rejected.push s!"{described}: the application address also names another registered row"
+    else if let some row := publishedApplication? state registration.operation then
+      if let some defect := applicationFormDefect state row registration.input then
+        rejected := rejected.push s!"{described}: {defect}"
+      else admitted := admitted.push registration
     else if let some row := publishedProperty? state registration.operation then
       if let some defect := propertyFormDefect state row registration.input then
         rejected := rejected.push s!"{described}: {defect}"

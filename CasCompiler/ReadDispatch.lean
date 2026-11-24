@@ -21,7 +21,9 @@ def checkReadJudgementApplicable (context : ReadContext) (judgement : NativeSour
   let qualification := context.qualification
   let judgement ← if let some name := qualification then
     let required ← selectCategory (← CasCatalogue.semanticState) name
-    sourcePropertyQualification judgement required
+    match ← sourcePropertyQualificationApplicable judgement required with
+    | .ok value => pure value
+    | .error message => return .error message
   else pure judgement
   if let some expected := expected then
     -- A native type parameter consumes the actual selected object's carrier.
@@ -57,23 +59,32 @@ def checkReadJudgementApplicable (context : ReadContext) (judgement : NativeSour
 
 /-- Native elaborator-style dispatch. Unmatched syntax tries the next rule; a matched rule's
 semantic error is retained. No rule registry contains mathematical declarations. -/
-def readWithApplicableRules (rules : Array ReadApplicableRule) (context : ReadContext) :
+def readWithCompletingRules (rules : Array ReadCompletingRule) (context : ReadContext) :
     TermElabM (Except MessageData NativeSourceJudgement) := withRef context.source do
-  match ← go rules.toList with
-  | .ok judgement => checkReadJudgementApplicable context judgement
-  | .error message => return .error message
+  go rules.toList
 
 where
-  go : List ReadApplicableRule → TermElabM (Except MessageData NativeSourceJudgement)
+  go : List ReadCompletingRule → TermElabM (Except MessageData NativeSourceJudgement)
     | [] => CasCatalogue.throwUnsupportedSource
         m!"source translation is not implemented for expression {context.source}"
     | rule :: rest => do
-      try rule context
+      -- Native candidate rollback does not turn a matched syntax rule back into an
+      -- unmatched one. Once a rule invokes completion, every exception is its actual
+      -- failure, including an internal identifier equal to the private mismatch marker.
+      let matched ← liftM (m := IO) <| IO.mkRef false
+      try rule context fun judgement => do
+        matched.set true
+        checkReadJudgementApplicable context judgement
       catch exception =>
         match exception with
         | .internal id _ =>
-          if id == readRuleMismatch then go rest else throw exception
+          if id == readRuleMismatch && !(← matched.get) then go rest else throw exception
         | _ => throw exception
+
+/-- Ordinary applicable rules produce one judgement and complete it exactly once. -/
+def readWithApplicableRules (rules : Array ReadApplicableRule) (context : ReadContext) :
+    TermElabM (Except MessageData NativeSourceJudgement) :=
+  readWithCompletingRules (rules.map ReadApplicableRule.completing) context
 
 /-- Ordinary rules have no expected-type absence before producing their judgement. -/
 def readWithRulesApplicable (rules : Array ReadRule) (context : ReadContext) :

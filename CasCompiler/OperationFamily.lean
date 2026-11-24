@@ -33,7 +33,8 @@ Reuse: nativeOperationFamily's source telescope and withRigidArguments; the actu
 or numeral signature determines its object position. -/
 def nativeOwnedFamily (state : SemanticState) (source : CategoryExpr)
     (categoryFamily : Expr) (route : Route) (declaration : Name)
-    (objectPosition : Array BinderInfo → Option Nat) : MetaM NativeOwnedFamily := do
+    (objectPosition : Array BinderInfo → Option Nat)
+    (reference : Option (Name × String) := none) : MetaM NativeOwnedFamily := do
   unless source.syntacticEq route.source do
     throwError "the declaration family has a different complete symbolic source"
   discard <| checkedDeclaration declaration
@@ -43,8 +44,7 @@ def nativeOwnedFamily (state : SemanticState) (source : CategoryExpr)
     let functor := selected.functor
     let carrier ← mkAppM ``CategoryTheory.Bundled.α #[category]
     withLocalDeclD `sourceObject carrier fun object => do
-      let prefunctor ← mkAppM ``CategoryTheory.Functor.toPrefunctor #[functor]
-      let image ← mkAppM ``Prefunctor.obj #[prefunctor, object]
+      let image ← functorObject functor object selected.target (some category)
       let constant ← mkConstWithFreshMVarLevels declaration
       let (arguments, infos, result) ← forallMetaTelescopeReducing (← inferType constant)
       let some position := objectPosition infos
@@ -57,7 +57,15 @@ def nativeOwnedFamily (state : SemanticState) (source : CategoryExpr)
       withRigidArguments arguments infos 0 position fun prefixParameters => do
         withRigidArguments arguments infos (position + 1) arguments.size
             fun suffixParameters => do
+          -- Definitional equality fixes the argument's type and metavariables, but
+          -- its assignment is not a source-selection transport. The actual image
+          -- contains the selected route applications and the rigid original object.
+          let arguments := arguments.set! position image
           let body ← instantiateMVars (mkAppN constant arguments)
+          check body
+          let body := match reference with
+            | some (kind, id) => sourceReference kind id declaration body
+            | none => body
           let value ← mkLambdaFVars
             (parameters ++ prefixParameters ++ #[object] ++ suffixParameters) body
           return ⟨value, parameters.size + prefixParameters.size⟩
@@ -66,8 +74,10 @@ def nativeOwnedFamily (state : SemanticState) (source : CategoryExpr)
 Reuse: validateOperation's object/numeral boundary and nativeOwnedFamily. -/
 def nativeOperationFamily (state : SemanticState) (source : CategoryExpr)
     (categoryFamily : Expr) (route : Route) (binding : OperationEntry) : MetaM Expr := do
-  let family ← nativeOwnedFamily state source categoryFamily route binding.declaration fun infos =>
-    if infos.size > binding.numerals then some (infos.size - 1 - binding.numerals) else none
+  let family ← nativeOwnedFamily state source categoryFamily route binding.declaration
+    (fun infos =>
+      if infos.size > binding.numerals then some (infos.size - 1 - binding.numerals) else none)
+    (some (``OperationEntry, binding.id.raw))
   return family.value
 
 end CasCompiler

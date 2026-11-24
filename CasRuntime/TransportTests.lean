@@ -13,11 +13,18 @@ import sys, signal
 from cas_port import read_frame, write_frame
 signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGUSR1})
 mode = sys.argv[1]
+routines = mode in ('routine_missing', 'routine_invalid')
+features = ['scoped-values/2', 'deferred/2', 'suspend-resume/2', 'export-capture-frames/2']
+if routines:
+    features.append('routine-observations/1')
 write_frame({'op': 'ready', 'protocol': 2, 'contract': 'cas-computation/2',
-             'features': ['scoped-values/2', 'deferred/2', 'suspend-resume/2', 'export-capture-frames/2'],
+             'features': features,
              'backend': 'resource framing peer', 'backend_version': '0'})
 hello = read_frame()
-if hello != {'op': 'hello', 'protocol': 2, 'contract': 'cas-computation/2'}:
+expected = {'op': 'hello', 'protocol': 2, 'contract': 'cas-computation/2'}
+if routines:
+    expected['routine_observations'] = True
+if hello != expected:
     raise ValueError('missing negotiation')
 write_frame(dict(hello, status='ok'))
 last = -1
@@ -56,10 +63,15 @@ while (request := read_frame()) is not None:
     if mode == 'invalid':
         write_frame({'request_id': rid, 'status': 'invalid'})
         continue
-    write_frame({'request_id': rid + (1 if mode == 'wrong_id' else 0),
-                 'status': 'ok', 'value': {'ctor': 'valueData', 'args': [
-                     {'requests': requests, 'discards': discards}]},
-                 'exports': []})
+    reply = {'request_id': rid + (1 if mode == 'wrong_id' else 0),
+             'status': 'ok', 'value': {'ctor': 'valueData', 'args': [
+                 {'requests': requests, 'discards': discards}]},
+             'exports': []}
+    if mode == 'routine_invalid':
+        reply['routines'] = [{'role': 'entrypoint', 'qualified_name': 'not-a-complete-observation'}]
+    if mode == 'routine_unnegotiated':
+        reply['routines'] = []
+    write_frame(reply)
 "
 
 run_cmd Lean.Elab.Command.liftTermElabM do
@@ -121,6 +133,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "cooperative cancellation did not win the active cell"
       unless ← liftM (m := BaseIO) wire.isDraining do
         throwError "cancellation released an outstanding frame's permit"
+      unless ← liftM (m := BaseIO) cancelled.draining do
+        throwError "the settled cell lost its actual request-local drainer"
       let expired ← CellTransaction.begin ledger
       let waiting ← liftM (m := BaseIO) ledger.allocate
       let .ok waitingReservation ← liftM (m := BaseIO) <|
@@ -183,6 +197,36 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           throw <| IO.userError "received reply cleanup remained pending"
         unless (← wire.cleanupFailures).isEmpty do
           throw <| IO.userError "cleanup of received uncommitted replies failed"
+      unless (← liftM (m := IO) cancelled.force).isEmpty do
+        throwError "forcing a fully drained request invalidated a later owner"
+      -- Force the exact still-draining request, not a different transaction or
+      -- a generation that has only historical work on it.
+      let doomed ← CellTransaction.begin ledger
+      let occurrence ← liftM (m := BaseIO) ledger.allocate
+      let .ok reservation ← liftM (m := BaseIO) <|
+        doomed.reserve occurrence selected wire.connection #[]
+        | throwError "the force control could not reserve"
+      let graph ← liftM (m := IO) doomed.view
+      let scope ← liftM (m := IO) <| RequestScope.issue ledger reservation graph #[] #[] #[]
+      let outstanding ← liftM (m := IO) <| IO.asTask (prio := .dedicated) <|
+        wire.invoke ledger doomed reservation scope (.str "slow")
+      liftM (m := IO) do
+        for _ in [:1000] do
+          if ← wire.hasOutstanding then break
+          IO.sleep 1
+        unless ← wire.hasOutstanding do
+          throw <| IO.userError "the force control never sent its frame"
+      discard <| liftM (m := BaseIO) doomed.abort
+      let revoked ← liftM (m := IO) doomed.force
+      unless revoked == #[wire.connection.generation] do
+        throwError "force did not revoke precisely the affected generation"
+      unless (← liftM (m := IO) doomed.force).isEmpty do
+        throwError "a repeated force invented a new revocation"
+      if ← liftM (m := BaseIO) (owners.isLive wire.connection.generation) then
+        throwError "forced generation remained available"
+      match ← liftM (m := IO) <| IO.ofExcept (← IO.wait outstanding) with
+      | .error (.unavailable _ _) => pure ()
+      | _ => throwError "a forced request returned usable data"
     finally liftM (m := IO) wire.close
   finally setEnv original
 
@@ -193,7 +237,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let ledger ← liftM (m := BaseIO) (OccurrenceLedger.new owners)
     discard <| SessionSnapshot.initialize owners
     let contract ← liftM (m := IO) <| packageDir contractPackage
-    for mode in #["wrong_id", "error", "unsupported", "invalid"] do
+    for mode in #["wrong_id", "error", "unsupported", "invalid",
+        "routine_missing", "routine_invalid", "routine_unnegotiated"] do
       let arguments : IO.Process.SpawnArgs := {
         cmd := "/usr/bin/python3", args := #["-c", framingPeer, mode]
         env := #[("PYTHONPATH", some (contract / "python").toString)] }
@@ -214,7 +259,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         let scope ← liftM (m := IO) <| RequestScope.issue ledger reservation graph #[] #[] #[]
         match ← liftM (m := IO) <| wire.invoke ledger transaction reservation scope .null with
         | .error (.protocol _) =>
-          unless mode == "wrong_id" || mode == "invalid" do
+          unless #["wrong_id", "invalid", "routine_missing", "routine_invalid",
+              "routine_unnegotiated"].contains mode do
             throwError "a well-framed execution failure became malformed"
         | .error (.backend kind message) =>
           unless mode == "error" && kind == "ResourceFailure" && message == "peer error" do

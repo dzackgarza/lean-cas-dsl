@@ -18,7 +18,8 @@ structure NativeSourcePointOrigin where
 
 private def nativePointOrigin (point value : Expr) : MetaM NativeSourcePointOrigin := do
   let point ← instantiateMVars point
-  let type ← whnfR (← inferType point)
+  let type ← inferType point
+  let type ← if type.isAppOfArity ``Quiver.Hom 4 then pure type else whnfR type
   unless type.isAppOfArity ``Quiver.Hom 4 do
     throwError "a retained source point requires its complete native map"
   let domain ← declaredEndpoint type.getAppArgs[2]!
@@ -73,5 +74,41 @@ partial def sourcePointOrigin? (expression : Expr) : MetaM (Option NativeSourceP
     let reduced := expression.headBeta
     if reduced == expression then return none
     sourcePointOrigin? reduced
+
+/-- Form the global point written by an ordinary DSL element expression. The public language
+fixes this source as the registered Fin(1) (Language.oneObject); it is not recovered from the
+value's carrier. A supplied complete generalized point keeps its original domain and map. -/
+def retainGlobalSourcePoint (value : Expr) : Elab.Term.TermElabM Expr := do
+  if (← sourcePointOrigin? value).isSome then return value
+  let (entry, _) ← selectObject "Fin" (some "Sets")
+  discard <| checkedDeclaration entry.declaration
+  let domain ← mkAppM entry.declaration #[mkNatLit 1]
+  let domain := sourceReference ``ObjectEntry entry.id.raw entry.declaration domain
+  let point ← withLocalDeclD `globalPoint domain fun input => do
+    let function ← mkLambdaFVars #[input] value (usedOnly := false) (usedLetOnly := false)
+    mkAppM ``TypeCat.ofHom #[function]
+  retainSourcePoint point value
+
+/-- Pair the original point maps, retaining their common authored domain. Ordinary elements
+acquire the explicit global-point convention above. Distinct supplied domains need an actual
+source comparison; equality of their carriers cannot silently replace either one. -/
+def sourcePairPoint (first second : Expr) : Elab.Term.TermElabM Expr := do
+  let firstSource ← retainGlobalSourcePoint first
+  let secondSource ← retainGlobalSourcePoint second
+  let some left ← sourcePointOrigin? firstSource
+    | throwError "the first application operand lost its original source point"
+  let some right ← sourcePointOrigin? secondSource
+    | throwError "the second application operand lost its original source point"
+  checkRegisteredDomains left.domain right.domain
+  unless left.domain.consumeMData == right.domain.consumeMData do
+    throwError "application operands require the same original generalized-point domain"
+  let value ← mkAppM ``Prod.mk #[first, second]
+  let point ← withLocalDeclD `applicationPoint left.domain fun input => do
+    let first ← sourceSetFunction left.point
+    let second ← sourceSetFunction right.point
+    let pair ← mkAppM ``Prod.mk #[mkApp first input, mkApp second input]
+    let function ← mkLambdaFVars #[input] pair (usedOnly := false) (usedLetOnly := false)
+    mkAppM ``TypeCat.ofHom #[function]
+  retainSourcePoint point value
 
 end CasCompiler

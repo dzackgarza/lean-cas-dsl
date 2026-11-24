@@ -394,8 +394,20 @@ opaque sourceOperation
   let levels ← universes.mapM fun _ => mkFreshLevelMVar
   let actualCategoryFamily := categoryFamily.instantiateLevelParams universes levels
   let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType actualCategoryFamily)
+  let supplied := root.domain.category.bundle.consumeMData
+  let declared := mkAppN actualCategoryFamily.consumeMData parameters
+  let mut originals : Array (Option Expr) := Array.replicate parameters.size none
+  if let some declaration := declared.getAppFn.constName? then
+    if supplied.getAppFn.isConstOf declaration then
+      let some aligned ← alignSourceArguments? declaration parameters declared supplied
+        | throwError "the source operation lost its exact category arguments"
+      originals := aligned
   unless ← isDefEq (mkAppN actualCategoryFamily parameters) root.domain.category.bundle do
     throwError "the source operation has a different complete selected category"
+  let mut parameters ← parameters.mapM instantiateMVars
+  for original in originals, index in [:originals.size] do
+    if let some original := original then
+      parameters := parameters.set! index (← instantiateMVars original)
   let value := first.value.instantiateLevelParams universes levels
   let value := mkAppN value parameters
   let (arguments, _, _) ← forallMetaTelescopeReducing (← inferType value)
@@ -404,11 +416,17 @@ opaque sourceOperation
   let objectIndex := arguments.size - 1 - first.binding.numerals
   unless ← isDefEq arguments[objectIndex]! root.domain.value do
     throwError "the source operation changed its actual selected object"
+  -- Keep the source expressions supplied at these exact positions, not Lean's
+  -- potentially reduced assignments to the metavariables used to check them.
+  let mut actualArguments := arguments.set! objectIndex root.domain.value
   for numeral in numerals, index in [:numerals.size] do
-    let argument := arguments[objectIndex + 1 + index]!
+    let position := objectIndex + 1 + index
+    let argument := arguments[position]!
     let value ← numeral (← instantiateMVars (← inferType argument))
     unless ← isDefEq argument value do
       throwError "the source operation numeral has a different complete parameter type"
+    actualArguments := actualArguments.set! position value
+  let arguments ← actualArguments.mapM instantiateMVars
   let allArguments ← (parameters ++ arguments).mapM instantiateMVars
   let mut evidence := #[]
   for proof in proofs do
@@ -465,8 +483,10 @@ opaque sourceOperation
   let mut operation := mkAppN value arguments
   operation ← retainOperationEvidence operation evidence
   let refs := reprStr (families.map fun family => (family.route.refs, family.binding.id))
-  operation := sourceReference ``OperationEntry first.binding.id.raw first.binding.declaration
-    operation
+  -- The whole family retained its selected declaration application before specialization;
+  -- the original arguments and agreement evidence keep their own source references.
+  operation := sourceDerivedReference ``OperationEntry first.binding.id.raw
+    first.binding.declaration operation
   operation := .mdata (KVMap.empty.setString `CasCompiler.source.operationRoutes refs) operation
   let cone := (root.domains.zip root.images).map fun (domain, routes) =>
     (domain.category.expression, routes.map Route.refs)

@@ -39,7 +39,34 @@ def readFunctorAction (context : ReadContext) :
           let function ← mkAppM ``CategoryTheory.Functor.map #[selected.functor]
           -- AppBuilder protects pre-existing metavariables. Native source application must
           -- solve the selected declaration's levels at the actual arrow in this context.
-          elabAppArgs function #[] #[Arg.expr receiver.value] none false false
+          let image ← elabAppArgs function #[] #[Arg.expr receiver.value] none false false
+          -- The inferred implicit endpoints are convertible, not necessarily the exact
+          -- selected occurrences. Retain the original arrow's complete stated Hom type
+          -- (including selected Arrow projections) at the very same native action slots.
+          let stated ← instantiateMVars (← inferType receiver.value)
+          let type ← if stated.isAppOfArity ``Quiver.Hom 4 then pure stated else whnfR stated
+          unless image.getAppFn.isConstOf ``CategoryTheory.Functor.map do
+            throwError "the selected functor map lost its native arrow interface"
+          let arguments := image.getAppArgs
+          unless arguments.size >= 3 do
+            throwError "the selected functor map lost its endpoint slots"
+          -- A native implementation of Hom (e.g. a formal TypeCat.Hom or
+          -- CommRingCat.Hom parameter) need not have a Quiver.Hom head.
+          -- In that case the checked application already supplies the native
+          -- endpoints. Do not invent a new category or select a new arrow.
+          let arguments := if type.isAppOfArity ``Quiver.Hom 4 then
+              (arguments.set! (arguments.size - 3) type.getAppArgs[2]!).set!
+                (arguments.size - 2) type.getAppArgs[3]!
+            else if type.isAppOfArity ``TypeCat.Hom 2 then
+              (arguments.set! (arguments.size - 3) type.getAppArgs[0]!).set!
+                (arguments.size - 2) type.getAppArgs[1]!
+            else arguments
+          let retained := mkAppN image.getAppFn (arguments.set! (arguments.size - 1) receiver.value)
+          let retained ← instantiateMVars retained
+          check retained
+          unless ← isDefEq retained image do
+            throwError "the selected functor map changed its native action"
+          pure retained
       let (kind, id) := match selected.reference with
         | .inl id => (``CasCatalogue.EdgeRef.functor, id.raw)
         | .inr id => (``CasCatalogue.EdgeRef.classifierForget, id.raw)
@@ -64,8 +91,9 @@ def readFunctorAction (context : ReadContext) :
             pure <| if agrees then
               some { carrier with refs := carrier.refs.drop 1, actions := carrier.actions.drop 1 }
             else none
-      -- Keep the selected reference beside its actual action for source inspection.
-      return (⟨sourceReference kind id selected.declaration image,
+      -- The selected functor already retains its exact declaration reference. The image
+      -- keeps that application and the receiver's independent source selections.
+      return (⟨sourceDerivedReference kind id selected.declaration image,
         some ⟨role, selected.target, selected.targetBundle, carrier, none⟩⟩ : NativeSourceJudgement)
 
 end SourceReader

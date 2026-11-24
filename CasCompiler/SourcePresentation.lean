@@ -107,7 +107,8 @@ opaque sourcePresentation (name : String) (inverse : Bool)
   let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
   unless ← expandSourceStructures parameters do
     throwError "the presentation category has inconsistent native parameters"
-  let bundle := mkAppN family parameters
+  let bundle := sourceReference ``NamedCategoryEntry category.id.raw category.declaration
+    (mkAppN family parameters)
   unless ← isDefEq bundle actual do
     throwError "the presentation has a different complete registered category"
   let bundle ← instantiateMVars bundle
@@ -116,7 +117,7 @@ opaque sourcePresentation (name : String) (inverse : Bool)
   let iso ← if inverse then mkAppM ``CategoryTheory.Iso.symm #[iso] else pure iso
   let hom ← mkAppM ``CategoryTheory.Iso.hom #[iso]
   let value ← retainSourceIso iso hom
-  return ⟨sourceReference ``PresentationComparisonEntry entry.id.raw entry.declaration value,
+  return ⟨sourceDerivedReference ``PresentationComparisonEntry entry.id.raw entry.declaration value,
     some ⟨.morphism, category.expression, bundle, none, none⟩⟩
 
 end CasCompiler

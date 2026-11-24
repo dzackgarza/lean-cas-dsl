@@ -31,7 +31,7 @@ opaque SourceSession.namedCategory (session : SourceSession) (reference : Syntax
       return Arg.expr (← argument.source.inContext context)
     let value ← elabAppArgs (← constant.source.inContext context) #[] arguments none false false
     discard <| categoryIdentity value
-    return value
+    return sourceReference ``NamedCategoryEntry entry.id.raw entry.declaration value
   return ⟨entry.expression, value⟩
 
 /-- Form an actual registered unary category constructor at the retained category bundle.
@@ -47,7 +47,7 @@ opaque SourceSession.unaryCategory (session : SourceSession) (reference : Syntax
     let category ← argument.value.source.inContext context
     let value ← applyConstructorInterface entry.semantics #[category] #[category]
     discard <| categoryIdentity value
-    return value
+    return sourceReference ``ConstructorEntry id.raw entry.semantics value
   return ⟨.construct id #[.category argument.expression], value⟩
 
 /-- Retain the exact category already formed by registered object intake. -/
@@ -161,7 +161,7 @@ opaque SourceSession.constructFunctor (session : SourceSession) (reference : Syn
     unless ← isDefEq domain (← source.value.source.inContext context) <&&>
         isDefEq codomain (← target.value.source.inContext context) do
       throwError "the constructor functor has different complete native category endpoints"
-    return value
+    return sourceReference ``ConstructorEntry.functorialAction id.raw action value
   return ⟨.constructed constructor functor.derivation, source, target, value⟩
 
 /-- An actual functor image retains the original native functor and source object. -/
@@ -192,7 +192,11 @@ structure SourceCategoryFamily where
 opaque SourceSession.categoryFamily (session : SourceSession) (reference : Syntax) (name : String)
     (universes : List Level) : TermElabM SourceCategoryFamily := do
   let entry ← selectCategory (← semanticState) name
-  return ⟨entry.expression, ← session.constant reference entry.declaration universes⟩
+  let constant ← session.constant reference entry.declaration universes
+  let family ← session.elaborate reference fun context => do
+    return sourceReference ``NamedCategoryEntry entry.id.raw entry.declaration
+      (← constant.source.inContext context)
+  return ⟨entry.expression, family⟩
 
 /-- Apply unary semantics under the whole native parameter telescope. -/
 opaque SourceSession.unaryCategoryFamily (session : SourceSession) (reference : Syntax)
@@ -208,7 +212,7 @@ opaque SourceSession.unaryCategoryFamily (session : SourceSession) (reference : 
       let category := mkAppN function parameters
       let value ← applyConstructorInterface entry.semantics #[category] #[category]
       discard <| categoryIdentity value
-      mkLambdaFVars parameters value
+      mkLambdaFVars parameters (sourceReference ``ConstructorEntry id.raw entry.semantics value)
   return ⟨.construct id #[.category argument.expression], family⟩
 
 /-- Exact source binding and route, with the entire generic morphism family. -/
@@ -438,10 +442,15 @@ opaque SourceSession.cell (session : SourceSession) (reference : Syntax)
       return Arg.expr (← parameter.source.inContext context)
     let constant ← mkConstWithFreshMVarLevels entry.declaration
     let cell ← elabAppArgs constant #[] arguments none false false
+    let cell := sourceReference ``CellEntry id.raw entry.declaration cell
     let transformation ← if entry.invertible then
         mkAppM (if inverse then ``CategoryTheory.Iso.inv else ``CategoryTheory.Iso.hom) #[cell]
       else pure cell
-    let (declaredLeft, declaredRight) ← state.cellEndpoints entry.left entry.right
+    if entry.left.isEmpty && entry.right.isEmpty then
+      throwError "a cell between two identity functors is an endomorphism of 𝟭"
+    let declaredLeft ← nativeEdgePathFunctor state entry.left category
+    let declaredRight ← nativeEdgePathFunctor state entry.right category
+    let (declaredLeft, declaredRight) := (declaredLeft.functor, declaredRight.functor)
     let (left, right) := if inverse then (declaredRight, declaredLeft)
       else (declaredLeft, declaredRight)
     let (leftSource, leftTarget) ← functorCategoryBundles left
@@ -660,6 +669,9 @@ opaque SourceSession.constructCell (session : SourceSession) (reference : Syntax
     let right ← applyConstructorInterface action categories #[← cell.right.source.inContext context]
     let isomorphism ← applyConstructorInterface comparison categories
       #[← original.source.inContext context]
+    let left := sourceReference ``ConstructorEntry.functorialAction id.raw action left
+    let right := sourceReference ``ConstructorEntry.functorialAction id.raw action right
+    let isomorphism := sourceReference ``ConstructorEntry.comparisonAction id.raw comparison isomorphism
     checkConstructorComparison (← source.value.source.inContext context)
       (← target.value.source.inContext context) left right isomorphism
     return #[← mkAppM ``CategoryTheory.Iso.hom #[isomorphism], left, right, isomorphism]
@@ -703,8 +715,10 @@ opaque SourceSession.constructorCoherence (session : SourceSession) (reference :
         let category ← category.value.source.inContext context
         let left ← applyConstructorInterface action #[category, category]
           #[← categoryIdentity category]
+        let left := sourceReference ``ConstructorEntry.functorialAction id.raw action left
         let right ← categoryIdentity (← source.value.source.inContext context)
         let isomorphism ← applyConstructorInterface law #[category] #[category]
+        let isomorphism := sourceReference ``ConstructorEntry.identityComparison id.raw law isomorphism
         pure (left, right, isomorphism)
       | .composition first second => do
         let C ← first.source.value.source.inContext context
@@ -715,9 +729,14 @@ opaque SourceSession.constructorCoherence (session : SourceSession) (reference :
         let F ← first.functor.source.inContext context
         let G ← second.functor.source.inContext context
         let left ← applyConstructorInterface action #[C, E] #[← mkFunctorComp F G]
-        let right ← mkFunctorComp (← applyConstructorInterface action #[C, D] #[F])
-          (← applyConstructorInterface action #[D, E] #[G])
+        let left := sourceReference ``ConstructorEntry.functorialAction id.raw action left
+        let first ← applyConstructorInterface action #[C, D] #[F]
+        let second ← applyConstructorInterface action #[D, E] #[G]
+        let right ← mkFunctorComp
+          (sourceReference ``ConstructorEntry.functorialAction id.raw action first)
+          (sourceReference ``ConstructorEntry.functorialAction id.raw action second)
         let isomorphism ← applyConstructorInterface law #[C, D, E] #[F, G]
+        let isomorphism := sourceReference ``ConstructorEntry.compositionComparison id.raw law isomorphism
         pure (left, right, isomorphism)
     checkConstructorComparison (← source.value.source.inContext context)
       (← target.value.source.inContext context) left right isomorphism

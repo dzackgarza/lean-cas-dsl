@@ -105,7 +105,27 @@ private def annotateSourceOwner (key : Name) (category : NativeSourceCategory)
     for name in carrier.identifications, index in [:carrier.identifications.size] do
       data := data.setName (.num `CasCompiler.source.typeOrigin.identification index) name
     fields := fields ++ carrier.actions ++ carrier.comparisons
-  let mut value := value
+  -- A selected construction is part of this same original owner. Its whole presentation,
+  -- diagram and interface are typed fields; abstraction transports every actual parameter.
+  -- Ordinary owners add no metadata or fields and keep the existing envelope unchanged.
+  if let some limit := category.limit then
+    data := data.setString `CasCompiler.source.typeOrigin.limit.row limit.row
+    data := data.setName `CasCompiler.source.typeOrigin.limit.declaration limit.declaration
+    data := data.setBool `CasCompiler.source.typeOrigin.limit.colimit limit.colimit
+    data := data.setString `CasCompiler.source.typeOrigin.limit.category
+      (toJson limit.category).compress
+    data := data.setBool `CasCompiler.source.typeOrigin.limit.standardization
+      limit.interface.standardization.isSome
+    data := data.setBool `CasCompiler.source.typeOrigin.limit.dataConstructor
+      limit.interface.dataConstructor.isSome
+    fields := fields ++ #[limit.cone, limit.bundle, limit.presentation, limit.diagram,
+      limit.interface.presentation, limit.interface.diagram] ++
+      limit.interface.standardization.toArray ++ limit.interface.dataConstructor.toArray
+  -- The delimiter distinguishes the original native value from an accidentally omitted
+  -- optional interface field. No delimiter is added to the legacy owner-only format.
+  let mut value := if category.limit.isSome then
+    .mdata (KVMap.empty.setBool `CasCompiler.source.typeOrigin.limit.payload true) value
+    else value
   for field in fields.reverse do
     value ← mkAppM ``Function.const #[← inferType field, value, field]
   return .mdata data value
@@ -131,8 +151,33 @@ private partial def sourceOwnerOrigin? (key : Name) (value : Expr) :
       | throwError "the native source type has malformed provenance data"
     let .ok (descriptor : OwnerDescriptor) := fromJson? document
       | throwError "the native source type has a different provenance layout"
-    let count := 2 + (descriptor.carrier.map (fun carrier =>
+    let carrierEnd := 2 + (descriptor.carrier.map (fun carrier =>
       carrier.actions + carrier.comparisons) |>.getD 0)
+    let limitKeys := #[`CasCompiler.source.typeOrigin.limit.row,
+      `CasCompiler.source.typeOrigin.limit.declaration,
+      `CasCompiler.source.typeOrigin.limit.colimit,
+      `CasCompiler.source.typeOrigin.limit.category,
+      `CasCompiler.source.typeOrigin.limit.standardization,
+      `CasCompiler.source.typeOrigin.limit.dataConstructor]
+    let hasLimit := limitKeys.any data.contains
+    unless !hasLimit || limitKeys.all data.contains do
+      throwError "the native source owner lost part of its selected construction"
+    let standardization ← if hasLimit then do
+      let some present :=
+          (data.get? `CasCompiler.source.typeOrigin.limit.standardization : Option Bool)
+        | throwError "the native source construction has a different standardization field"
+      pure present
+    else pure false
+    let dataConstructor ← if hasLimit then do
+      let some present :=
+          (data.get? `CasCompiler.source.typeOrigin.limit.dataConstructor : Option Bool)
+        | throwError "the native source construction has a different data-constructor field"
+      pure present
+    else pure false
+    let interfaceEnd := carrierEnd + 6
+    let count := if hasLimit then
+      interfaceEnd + (if standardization then 1 else 0) + (if dataConstructor then 1 else 0)
+      else carrierEnd
     let mut fields := #[]
     let mut body := body
     for _ in [:count] do
@@ -140,6 +185,13 @@ private partial def sourceOwnerOrigin? (key : Name) (value : Expr) :
         throwError "the native source type lost a typed provenance field"
       fields := fields.push body.getAppArgs[3]!
       body := body.getAppArgs[2]!
+    if hasLimit then
+      let .mdata delimiter original := body
+        | throwError "the native source construction has a different typed field count"
+      unless delimiter.size == 1 &&
+          (delimiter.get? `CasCompiler.source.typeOrigin.limit.payload : Option Bool) == some true do
+        throwError "the native source construction lost its original payload boundary"
+      body := original
     let carrier ← descriptor.carrier.mapM fun carrier => do
       let names ← (Array.range carrier.identifications).mapM fun index => do
         let name := data.getName (.num `CasCompiler.source.typeOrigin.identification index)
@@ -147,9 +199,32 @@ private partial def sourceOwnerOrigin? (key : Name) (value : Expr) :
         return name
       return (⟨carrier.refs, carrier.target, names,
         fields.extract 2 (2 + carrier.actions),
-        fields.extract (2 + carrier.actions) count⟩ : NativeSourceCarrierSelection)
+        fields.extract (2 + carrier.actions) carrierEnd⟩ : NativeSourceCarrierSelection)
+    let limit ← if hasLimit then do
+      let some row := (data.get? `CasCompiler.source.typeOrigin.limit.row : Option String)
+        | throwError "the native source construction has a different row field"
+      let some declaration := (data.get? `CasCompiler.source.typeOrigin.limit.declaration : Option Name)
+        | throwError "the native source construction has a different declaration field"
+      let some colimit := (data.get? `CasCompiler.source.typeOrigin.limit.colimit : Option Bool)
+        | throwError "the native source construction has a different cone role"
+      let some encoded := (data.get? `CasCompiler.source.typeOrigin.limit.category : Option String)
+        | throwError "the native source construction has a different category field"
+      let .ok document := Json.parse encoded
+        | throwError "the native source construction has malformed category data"
+      let .ok (category : CategoryExpr) := fromJson? document
+        | throwError "the native source construction has a different category layout"
+      let interface : NativeLimitInterface := {
+        presentation := fields[carrierEnd + 4]!
+        diagram := fields[carrierEnd + 5]!
+        standardization := if standardization then some fields[interfaceEnd]! else none
+        dataConstructor := if dataConstructor then
+          some fields[interfaceEnd + (if standardization then 1 else 0)]! else none }
+      pure (some (⟨row, declaration, fields[carrierEnd]!, colimit, category,
+        fields[carrierEnd + 1]!, fields[carrierEnd + 2]!, fields[carrierEnd + 3]!,
+        interface⟩ : NativeSourceLimitSelection))
+    else pure none
     let category : NativeSourceCategory :=
-      ⟨.object, descriptor.category, fields[0]!, carrier, none⟩
+      ⟨.object, descriptor.category, fields[0]!, carrier, limit⟩
     unless ← isDefEq (← inferType fields[1]!)
         (← mkAppM ``CategoryTheory.Bundled.α #[category.bundle]) do
       throwError "the native source type has a different complete owner category"

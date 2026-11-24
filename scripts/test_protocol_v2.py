@@ -87,16 +87,18 @@ class Peer:
         self.process.stdin.write(str(len(payload)).encode() + b"\n" + payload)
         return self.read()
 
-    def negotiate(self) -> None:
+    def negotiate(self, *, routines: bool = False) -> None:
         self.test.assertEqual(self.read(), {
             "op": "ready", "protocol": 2, "contract": "cas-computation/2",
-            "features": ["scoped-values/2", "deferred/2", "suspend-resume/2", "export-capture-frames/2"],
+            "features": ["scoped-values/2", "deferred/2", "suspend-resume/2", "export-capture-frames/2",
+                         "routine-observations/1"],
             "backend": "protocol-peer", "backend_version": "0",
         })
-        self.test.assertEqual(self.send({"op": "hello", "protocol": 2,
-                                        "contract": "cas-computation/2"}),
-                              {"op": "hello", "status": "ok", "protocol": 2,
-                               "contract": "cas-computation/2"})
+        hello: dict[str, JsonValue] = {
+            "op": "hello", "protocol": 2, "contract": "cas-computation/2"}
+        if routines:
+            hello["routine_observations"] = True
+        self.test.assertEqual(self.send(hello), {**hello, "status": "ok"})
 
     def invoke(self, request: int, operation: str, arguments: JsonValue) -> dict[str, JsonValue]:
         return self.send({"protocol": 2, "request_id": request, "op": operation,
@@ -130,6 +132,44 @@ class ProtocolV2(unittest.TestCase):
         self.assertEqual(reply, {"request_id": 1, "status": "ok", "exports": [],
                                  "value": {"original": scope_ref(0), "child": scope_ref(1)}})
         self.assertEqual(peer.invoke(2, "expired", {})["status"], "error")
+
+    def test_negotiated_routine_observations_are_actual_invocations(self) -> None:
+        from hashlib import sha256
+        peer = Peer(self)
+        peer.negotiate(routines=True)
+        echo = peer.invoke(0, "echo", "original")
+        self.assertEqual(echo["value"], "original")
+        self.assertEqual(len(echo["routines"]), 1)
+        routine = echo["routines"][0]
+        self.assertEqual(routine["role"], "entrypoint")
+        self.assertEqual(routine["qualified_name"], "echo")
+        source = routine["source"]
+        self.assertTrue(source["path"].endswith("scripts/probes/protocol_v2_peer.py"))
+        self.assertIn("def echo(", source["text"])
+        self.assertEqual(source["sha256"], sha256(Path(source["path"]).read_bytes()).hexdigest())
+        self.assertEqual(len(routine["code_sha256"]), 64)
+        stored = peer.invoke(1, "stored", "retained")
+        self.assertEqual(stored["routines"][0]["qualified_name"], "stored")
+        token = stored["value"]["args"][0]
+        context = {"kind": "dependent", "prepared_role": "role", "parameters": [],
+                   "bindings": [], "arguments": [], "argument_layouts": [], "result_layout": {}}
+        invoked = peer.send({"protocol": 2, "request_id": 2, "op": "$cas.invoke_export",
+                             "scope_id": "invoke", "token": token, "captures": [], "context": context})
+        self.assertEqual(invoked["value"]["stored"], "retained")
+        self.assertEqual(invoked["routines"][0]["qualified_name"], "stored.<locals>.invoke")
+        suspended = peer.invoke(3, "adaptive", {"value": scope_ref(0)})
+        self.assertEqual(suspended["status"], "suspended")
+        self.assertEqual(suspended["routines"][0]["qualified_name"], "adaptive")
+        resumed = peer.send({"protocol": 2, "request_id": 4, "op": "$cas.resume",
+                             "continuation": suspended["continuation"], "scope_id": "resumed",
+                             "captures": [scope_ref(0)], "results": [scope_ref(1)]})
+        self.assertEqual(resumed["status"], "ok")
+        self.assertEqual(resumed["routines"], [])
+        delegated = peer.invoke(5, "delegated", "once")
+        self.assertEqual(delegated["value"], "once")
+        self.assertEqual([(item["role"], item["qualified_name"])
+                          for item in delegated["routines"]],
+                         [("entrypoint", "delegated"), ("delegated", "echo")])
 
     def test_actual_native_exports_and_request_local_disposal(self) -> None:
         peer = Peer(self)

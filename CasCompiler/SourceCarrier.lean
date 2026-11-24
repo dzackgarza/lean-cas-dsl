@@ -25,7 +25,7 @@ def setPreferredRoutes (routes : Array PreferredRoute) : CoreM Unit :=
 one that the admitted registrations declare preferred. None when no preference applies; two
 different applicable preferences are not ranked (contract api/manifest.md). -/
 def preferredRoute? (state : SemanticState) (receiver : CategoryExpr) (name : String)
-    (routes : Array Route) : TermElabM (Option Route) := do
+    (routes : Array Route) : MetaM (Option Route) := do
   let applicable := (preferredRoutesExtension.getState (← getEnv)).filter fun preference =>
     preference.name == name && state.categories.any fun entry =>
       entry.id.raw == preference.receiver && entry.expression.syntacticEq receiver

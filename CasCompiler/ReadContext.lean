@@ -58,6 +58,25 @@ abbrev ReadApplicableRule :=
 def ReadRule.applicable (rule : ReadRule) : ReadApplicableRule := fun context => do
   return .ok (← rule context)
 
+/-- The ordinary final qualification, carrier and declared-domain check for one produced
+judgement. A competing rule invokes it in that candidate's native state. -/
+abbrev ReadCompletion :=
+  NativeSourceJudgement → TermElabM (Except MessageData NativeSourceJudgement)
+
+/-- A rule which carries its completed result directly to the dispatcher. The continuation
+is the dispatcher's actual final check; choosing a completed candidate never reruns it. -/
+abbrev ReadCompletingRule :=
+  ReadContext → ReadCompletion → TermElabM (Except MessageData NativeSourceJudgement)
+
+def ReadApplicableRule.completing (rule : ReadApplicableRule) : ReadCompletingRule :=
+  fun context complete => do
+    match ← rule context with
+    | .ok value => complete value
+    | .error message => pure (.error message)
+
+def ReadRule.completing (rule : ReadRule) : ReadCompletingRule :=
+  ReadApplicableRule.completing (ReadRule.applicable rule)
+
 initialize readRuleMismatch : InternalExceptionId ← registerInternalExceptionId `cas.readRuleMismatch
 
 /-- Used only at a rule's unmatched syntax branch, never for a failed interpretation. -/

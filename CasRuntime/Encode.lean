@@ -33,10 +33,10 @@ def InputDescriptorView.slots (descriptorView : InputDescriptorView) : Array Con
 private def exactInput (left right : ValueBinding) : Bool :=
   left.value == right.value && left.associationIds == right.associationIds
 
-/-- The exact root of a delayed registered named morphism has its released declaration packet.
+/-- The exact root of a delayed registered named callable has its released declaration packet.
 The code must name that family at the empty native path, and its complete original input table
 is admitted before any view is produced. Opaque arrows and projected code are left untouched. -/
-opaque InputDescriptorView.namedMorphism? (graph : ValueGraph)
+opaque InputDescriptorView.namedPoint? (graph : ValueGraph)
     (codes : Std.HashMap (RuntimeId .program) ClosureCode) (binding : ValueBinding) :
     MetaM (Option InputDescriptorView) := do
   let .ok _ := graph.requiredOwners #[binding]
@@ -46,15 +46,30 @@ opaque InputDescriptorView.namedMorphism? (graph : ValueGraph)
   let .closure program captures := node.payload.data | return none
   let some (.family request path) := codes[program]? | return none
   unless path.isEmpty do return none
-  let .primitive (.registered family) _ := request.action | return none
-  let .morphism morphismId := family.source.reference | return none
-  let some row := (← semanticState).morphisms.find? (·.id == morphismId)
-    | throwError "the delayed named arrow lost its released declaration"
-  unless family.source.declaration == row.declaration &&
-      family.source.family.getAppFn.isConstOf row.declaration do
-    throwError "the delayed named arrow changed its checked family"
+  let .primitive boundary _ := request.action | return none
+  let selected : Option (Name × String) ← match boundary with
+    | .registered family => do
+      let .morphism morphismId := family.source.reference | pure none
+      let some row := (← semanticState).morphisms.find? (·.id == morphismId)
+        | throwError "the delayed named arrow lost its released declaration"
+      unless family.source.declaration == row.declaration &&
+          family.source.family.getAppFn.isConstOf row.declaration do
+        throwError "the delayed named arrow changed its checked family"
+      pure (some (row.declaration, row.id.raw))
+    | .application family => do
+      let .application entry := family.owner
+        | throwError "the object application lost its original owner kind"
+      let #[row] := (← semanticState).objects.filter (·.id == entry.id)
+        | throwError "the delayed object application lost its exact registered owner"
+      unless row.application == some family.declaration && row.category == entry.category &&
+          row.declaration == entry.declaration &&
+          family.family.getAppFn.isConstOf family.declaration do
+        throwError "the delayed object application changed its checked family"
+      pure (some (family.declaration, family.operation))
+    | _ => pure none
+  let some (declaration, operation) := selected | return none
   let complete ← request.source.source.withOpen fun _ source => do
-    unless source.getAppFn.isConstOf row.declaration do
+    unless source.getAppFn.isConstOf declaration do
       throwError "the named arrow changed its original complete source application"
     return (← whnfR (← inferType source)).isAppOfArity ``Quiver.Hom 4
   unless complete do return none
@@ -73,7 +88,7 @@ opaque InputDescriptorView.namedMorphism? (graph : ValueGraph)
         parameters := parameters.push value
   let slots := parameters.mapIdx fun index binding =>
     ({ path := #[.field "args", .index index], binding, fieldIndex := none } : ContainerSlot)
-  let template := Json.mkObj [("ctor", toJson row.id.raw),
+  let template := Json.mkObj [("ctor", toJson operation),
     ("args", .arr (Array.replicate parameters.size Json.null))]
   let .ok payload := ValuePayload.descriptor template slots
     | throwError "the named arrow has an invalid declared descriptor layout"
@@ -81,6 +96,26 @@ opaque InputDescriptorView.namedMorphism? (graph : ValueGraph)
     | throwError "the declared descriptor lost its checked packet structure"
   return some ⟨binding, packet, some request, parameters,
     request.scope.push binding⟩
+
+/-- Preserve the morphism-only entrance used by native endpoint inspection. -/
+opaque InputDescriptorView.namedMorphism? (graph : ValueGraph)
+    (codes : Std.HashMap (RuntimeId .program) ClosureCode) (binding : ValueBinding) :
+    MetaM (Option InputDescriptorView) := do
+  let some view ← InputDescriptorView.namedPoint? graph codes binding | return none
+  let some family := view.family | throwError "the named descriptor lost its prepared family"
+  match family.reference with
+  | some (.morphism _) => pure (some view)
+  | _ => pure none
+
+/-- The checked descriptor of the exact delayed ObjectEntry.application occurrence. -/
+opaque InputDescriptorView.namedApplication? (graph : ValueGraph)
+    (codes : Std.HashMap (RuntimeId .program) ClosureCode) (binding : ValueBinding) :
+    MetaM (Option InputDescriptorView) := do
+  let some view ← InputDescriptorView.namedPoint? graph codes binding | return none
+  let some family := view.family | throwError "the named descriptor lost its prepared family"
+  match family.action with
+  | .primitive (.application _) _ => pure (some view)
+  | _ => pure none
 
 /-- Require the caller's released named family at an actual scoped arrow. This is an identity
 check on its original prepared code; equal native endpoints cannot change the operation. -/
@@ -94,6 +129,22 @@ def InputDescriptorView.requireMorphism (graph : ValueGraph)
   unless family.reference == some (.morphism expected) do
     throwStratum .malformed "the supplied arrow belongs to a different released family"
   return descriptorView
+
+/-- Require the original object owner on the actual retained callable, independently of
+convertible native carrier types or another application with the same endpoints. -/
+def InputDescriptorView.requireApplication (graph : ValueGraph)
+    (codes : Std.HashMap (RuntimeId .program) ClosureCode) (binding : ValueBinding)
+    (expected : ObjectId) : MetaM InputDescriptorView := do
+  let some view ← InputDescriptorView.namedApplication? graph codes binding
+    | throwStratum .malformed "the arrow is not its original complete released object application"
+  let some request := view.family | throwError "the application descriptor lost its checked family"
+  let .primitive (.application family) _ := request.action
+    | throwError "the application descriptor changed its prepared boundary"
+  let .application entry := family.owner
+    | throwError "the application descriptor changed its original owner kind"
+  unless entry.id == expected do
+    throwStratum .malformed "the supplied arrow belongs to a different released object application"
+  return view
 
 /-- The public Arrow packet is a view of one actual native Arrow record. Its three supplied
 fields must already be the exact stored or ordinarily demanded projections of that parent.
@@ -150,7 +201,7 @@ private partial def collectDescriptorViews (graph : ValueGraph)
   if let some descriptorView := views.find? (fun descriptorView =>
       exactInput descriptorView.binding binding) then
     children := descriptorView.slots.map (·.binding)
-  else if let some descriptorView ← InputDescriptorView.namedMorphism? graph codes binding then
+  else if let some descriptorView ← InputDescriptorView.namedPoint? graph codes binding then
     views := views.push descriptorView
     children := descriptorView.slots.map (·.binding)
   else

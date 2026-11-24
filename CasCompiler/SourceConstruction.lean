@@ -64,6 +64,7 @@ opaque sourceConstruction (entry : ConstructionEntry) (receiver : NativeSourceJu
   let function ← instantiateMVars (mkAppN declaration actual)
   if function.hasMVar || function.hasLevelMVar then
     throwError "the source construction has undetermined native declaration parameters"
+  let function := sourceReference ``ConstructionEntry entry.id.raw entry.declaration function
   let (_, target) ← functorCategoryBundles function
   let value ← match selected.role with
     | .object => do
@@ -80,7 +81,7 @@ opaque sourceConstruction (entry : ConstructionEntry) (receiver : NativeSourceJu
       if let some iso ← sourceMorphismIso? input then
         retainSourceIso (← mkAppM ``CategoryTheory.Functor.mapIso #[function, iso]) value
       else pure value
-  return ⟨sourceReference ``ConstructionEntry entry.id.raw entry.declaration value,
+  return ⟨sourceDerivedReference ``ConstructionEntry entry.id.raw entry.declaration value,
     some ⟨selected.role, entry.target, target, none, none⟩⟩
 
 end CasCompiler

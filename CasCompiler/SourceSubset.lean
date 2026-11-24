@@ -104,7 +104,7 @@ def sourceSubsetLiteral (power : NativePowerObject) (elements : Array Expr) (exp
   let literal ← mkAppOptM ``List.toFinset #[some power.base, some equality, some list]
   let element ← atBase power row.denotation #[literal]
   let value ← sourceGlobalValue power element (some expected)
-  return sourceReference ``SubsetLiteralEntry row.id.raw row.denotation value
+  sourceReferenceAt ``SubsetLiteralEntry row.id.raw row.denotation element value
 
 /-- A subset `A ⊆ X` used as an object is the set of its members, through the registered extent
 of its power object. The global element of `𝒫(X)` at the point is the constant map with value

@@ -10,7 +10,7 @@ namespace CasCompiler
 
 open Lean Meta Elab Term
 
-private def sourceCategory (session : SourceSession) (context : OpenContext)
+def SourceSession.openCategory (session : SourceSession) (context : OpenContext)
     (id : FVarId) : TermElabM (Option NativeSourceCategory) := do
   let some binding := context.bindings.find? (·.expression.fvarId! == id)
     | return none
@@ -45,7 +45,7 @@ private def writtenRings (session : SourceSession) (stx : Syntax) :
   for (name, ring, index) in sourceRingVariables stx do
     if found.any (fun (written : SourceRingVariable) => written.name == name) then continue
     let carrier ← session.elaborate ring fun context => do
-      let object ← readExpression (sourceCategory session context) ⟨ring⟩ none
+      let object ← readExpression (session.openCategory context) ⟨ring⟩ none
       return (← sourceCarrier object).value
     found := found.push ⟨name, carrier.source, index⟩
   return found
@@ -61,7 +61,7 @@ private def SourceSession.readAt (session : SourceSession) (reference : Syntax)
     (expected : Option ClosedTerm := none) : TermElabM SourceTerm := do
   let #[term] ← session.elaborateJudgements reference fun context => do
     let expected ← expected.mapM (·.inContext context)
-    return #[← readSourceTerm (sourceCategory session context)
+    return #[← readSourceTerm (session.openCategory context)
       (← recordedRings session context stx) stx expected]
     | throwError "source reading returned an invalid number of judgements"
   return term
@@ -95,7 +95,7 @@ retain the actual terms. Formation does not decide the question or add a hypothe
 opaque SourceSession.readQuestion (session : SourceSession) (stx : TSyntax `cas_term) :
     TermElabM SourceTerm :=
   session.elaborate stx fun context => do
-    let categoryOf := sourceCategory session context
+    let categoryOf := session.openCategory context
     return (← withRingVariables categoryOf (← recordedRings session context stx) stx do
       return ⟨← questionExpression categoryOf stx, none⟩).value
 
@@ -155,7 +155,7 @@ private def inclusionJudgement? (session : SourceSession) (stx left right : TSyn
     TermElabM (Option SourceTerm) := do
   try
     return some (← session.elaborate stx fun context => do
-      let categoryOf := sourceCategory session context
+      let categoryOf := session.openCategory context
       let rings ← recordedRings session context stx
       let source ← readSourceTerm categoryOf rings left none
       let target ← readSourceTerm categoryOf rings right none
@@ -242,13 +242,13 @@ private def categoryBundle (session : SourceSession) (context : OpenContext)
     (source : TSyntax `cas_term) (entry : CasCatalogue.NamedCategoryEntry)
     (arguments : Array (TSyntax `cas_term)) : TermElabM Expr := do
   discard <| checkedDeclaration entry.declaration
-  let reader : ReadContext := ⟨sourceCategory session context, source, none, none, none,
+  let reader : ReadContext := ⟨session.openCategory context, source, none, none, none,
     readProjection, fun categoryOf source expected qualification expectedCategory =>
       readExpressionApplicable categoryOf source expected qualification expectedCategory⟩
   let value ← SourceReader.application reader
     ⟨← mkConstWithFreshMVarLevels entry.declaration, none⟩ arguments none
   discard <| categoryIdentity value
-  return value
+  return sourceReference ``CasCatalogue.NamedCategoryEntry entry.id.raw entry.declaration value
 
 private def abstractDeclaration (session : SourceSession) (name : Name)
     (domain : TSyntax `cas_term) : TermElabM SourceStatement := do
@@ -260,7 +260,7 @@ private def abstractDeclaration (session : SourceSession) (name : Name)
       return bundle
     return .assumption (← session.assumeObject name entry.expression category)
   let type ← session.elaborate domain fun context => do
-    let selected ← readExpression (sourceCategory session context) domain none
+    let selected ← readExpression (session.openCategory context) domain none
     let domain ← sourceCarrier selected
     discard <| getLevel domain.value
     return domain.value
@@ -283,7 +283,7 @@ private def definedValue (session : SourceSession) (body : TSyntax `cas_term) :
     let bundle ← categoryBundle session context domain entry arguments
     let carrier ← mkAppM ``CategoryTheory.Bundled.α #[bundle]
     let selected : NativeSourceCategory := ⟨.object, entry.expression, bundle, none, none⟩
-    let actual ← readExpression (sourceCategory session context) value (some carrier)
+    let actual ← readExpression (session.openCategory context) value (some carrier)
       (some entry.name) (some selected)
     let some category := actual.category
       | throwError "the defined object lost its explicitly selected category"

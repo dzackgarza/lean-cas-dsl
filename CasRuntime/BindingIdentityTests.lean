@@ -194,4 +194,49 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     kernel.close
     setEnv original
 
+-- An explicit runtime mark promises an actual captured reference. Its native expression
+-- stays type-correct if that reference table is lost, so source closure alone cannot check it.
+-- Preserve the ordinary complete capture; reject its absence before code or graph admission.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let original ← getEnv
+  let owners ← OwnerRegistry.new
+  let kernel ← Kernel.load owners none none 1000
+  discard <| SessionSnapshot.initialize owners
+  let transaction ← CellTransaction.begin kernel.ledger
+  try
+    let context ← ContextTelescope.capture #[]
+    let source := mkNatLit 7
+    let actual ← kernel.run transaction context {} source
+    let marked ← markValue kernel.marks actual source
+    let callable ← withLocalDeclD `unused (mkConst ``Unit) fun argument =>
+      mkLambdaFVars #[argument] marked
+    checkWithKernel callable
+    let retained ← kernel.run transaction context {} callable
+    let graph ← transaction.view
+    let some node := graph.find retained.value
+      | throwError "the ordinary marked closure was not retained"
+    let .closure _ captures := node.payload.data
+      | throwError "the marked native function lost its callable code"
+    unless captures.map (·.value) == #[actual.value] do
+      throwError "the marked native function lost its exact actual capture"
+    let codeCount := (← kernel.codes.get).size
+    kernel.marks.set #[]
+    -- Erasing the runtime table changes no native mathematical type or term.
+    checkWithKernel callable
+    let failed : Option Exception ← try
+      discard <| kernel.run transaction context {} callable
+      pure none
+    catch error => pure (some error)
+    let some failed := failed
+      | throwError "a closure silently discarded its missing actual runtime capture"
+    unless (← failed.toMessageData.toString).endsWith
+        "the source lost a retained occurrence mark" do throw failed
+    unless graph.sameRevision (← transaction.view) &&
+        (← kernel.codes.get).size == codeCount && (← kernel.dispatches.get).isEmpty do
+      throwError "a lost capture published closure code, graph data or an external demand"
+  finally
+    discard <| transaction.abort
+    kernel.close
+    setEnv original
+
 end CasRuntime.BindingIdentityTests

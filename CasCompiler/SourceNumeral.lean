@@ -164,6 +164,7 @@ private def numeralCandidate (row : NumeralEntry) (context : NumeralContext)
   let point ← instantiateMVars (mkAppN declaration arguments)
   if point.hasMVar || point.hasLevelMVar then
     throwError "the registered source numeral is not determined at its complete boundary"
+  let application := point
   let point ← match comparison with
     | none => pure point
     | some comparison => do
@@ -207,7 +208,7 @@ private def numeralCandidate (row : NumeralEntry) (context : NumeralContext)
         (KVMap.empty.setString `CasCompiler.source.numeralRoutes
           (reprStr routed.alternatives)) value
     | _ => pure value
-  return some value
+  return some (← sourceReferenceAt ``NumeralEntry row.id.raw row.declaration application value)
 
 -- A nullary row's arity does not itself prove that its complete native source is
 -- terminal. Retain the existing Unique dictionary at the rigid family, before an
@@ -307,6 +308,7 @@ private def sourceNullaryNumeral (state : SemanticState)
         unless row.arity == 0 && row.numerals == 0 do continue
         let family ← nativeOwnedFamily state selected.category.expression categoryFamily route
           row.declaration (fun infos => if infos.isEmpty then none else some (infos.size - 1))
+          (some (``OperationEntry, row.id.raw))
         candidates := candidates.push
           (row, ⟨selected, route, categoryFamily, family,
             #[], #[(row.id.raw, route.refs)], none⟩)
@@ -342,7 +344,7 @@ private def sourceNullaryNumeral (state : SemanticState)
     evidence := evidence ++ other.evidence.push proof
     alternatives := alternatives ++ other.alternatives
   let value ← nullaryNumeralCandidate { first with evidence, alternatives } expected proofs
-  return some (sourceReference ``OperationEntry row.id.raw row.declaration value)
+  return some (sourceDerivedReference ``OperationEntry row.id.raw row.declaration value)
 
 /-- First-binding lookup for numerals (constitution C6): an inherited numeral route is a reading
 only when no numeral row binds at a category before its target. This is the rule that
@@ -479,7 +481,7 @@ opaque sourceNumeral? (categoryOf : FVarId → TermElabM (Option NativeSourceCat
     pure (.selected { first with evidence, alternatives })
   let some value ← numeralCandidate row context number expected proofs
     | throwError "the selected source numeral changed its admitted boundary"
-  return some (sourceReference ``NumeralEntry row.id.raw row.declaration value)
+  return some value
 
 /-- An ordinary numeral reading requires a declared source point. The optional producer
 reports only actual absence; its original family, domain and proof failures propagate. -/

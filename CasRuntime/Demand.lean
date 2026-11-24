@@ -116,6 +116,14 @@ partial def Kernel.reach (kernel : Kernel) (evaluateSource : SourceEvaluation) (
     let registration ← selectLift kernel.profile kernel.manifest (.presentation selected.entry.id)
       invocation.operation invocation.forms
     return ← kernel.invokePresentation evaluateSource request transaction registration invocation
+  if let .application selected := boundary then
+    let .application entry := selected.owner
+      | throwError "the delayed object application changed its exact owner kind"
+    let some invocation ← PreparedPointInvocation.prepare? kernel evaluateSource request family path transaction
+      | throwError "the object application lost its complete original point interface"
+    let registration ← selectLift kernel.profile kernel.manifest (.application entry.id)
+      invocation.operation invocation.forms
+    return ← kernel.invokePoint evaluateSource request transaction registration invocation
   let some reference := boundary.reference
     | let .lift lift := boundary
         | throwError "internal: a delayed family demand has no public address"

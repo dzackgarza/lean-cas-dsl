@@ -746,8 +746,17 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "the bound variable replaced an earlier same-named source parameter"
       let ordinal ← argumentReads.get
       let name ← mkAuxDeclName (.num `binderBodyOccurrence ordinal)
-      addDecl (.defnDecl { name, levelParams := [], type := identityType,
-        value := identity, hints := .abbrev, safety := .safe })
+      addDecl (.defnDecl {
+        name := name
+        levelParams := []
+        type := identityType
+        value := identity
+        hints := .abbrev
+        safety := .safe })
+      -- Match the native reducibility status of an elaborated abbrev, not
+      -- just its kernel reduction hint. The independent evidence procedure
+      -- deliberately uses reducible transparency.
+      setReducibilityStatus name .reducible
       declarations.modify (·.push (ordinal, name))
       pure (mkApp (mkConst name) (mkApp family.expression parameter))
     unless (← argumentReads.get) == rows.size do
@@ -779,8 +788,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     discard <| withCurrHeartbeats <| sourceBinder "∑"
       #[nativeBinderArgument (mkConst ``Nat)] `n fun _ => do
         let name ← mkAuxDeclName `failedBinderBody
-        addDecl (.defnDecl { name, levelParams := [], type := mkConst ``Nat,
-          value := mkNatLit 1, hints := .abbrev, safety := .safe })
+        addDecl (.defnDecl {
+          name := name
+          levelParams := []
+          type := Lean.mkConst ``Nat
+          value := mkNatLit 1
+          hints := .abbrev
+          safety := .safe })
         introduced.set (some name)
         throw (Exception.internal originalFailure)
     pure none

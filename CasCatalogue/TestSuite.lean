@@ -5,11 +5,17 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasRuntime.Session
+import CasRuntime.Inspect
 public import CasCompiler.Parse
 public import CasTools.QuestionObservation
+import Worker.Cell
+import Worker.Output
 public meta import CasRuntime.Session
+public meta import CasRuntime.Inspect
 public meta import CasCompiler.Parse
 public meta import CasTools.QuestionObservation
+public meta import Worker.Cell
+public meta import Worker.Output
 
 public section
 
@@ -102,12 +108,13 @@ private def dispatchJson (registration : Registration) : Json :=
 /-- Run one parsed statement in its own heartbeat budget and report its dispatches.
 A statement of a file is read against that file's original positions. -/
 private def runOne (session : KernelSession) (statement : TSyntax `cas_stmt)
-    (source : Option SourceFile := none) : CommandElabM (StatementRun × Array Json) := do
+    (source : Option SourceFile := none) (owningCell : Option CellTransaction := none) :
+    CommandElabM (StatementRun × Array Json) := do
   let start := (← session.kernel.dispatches.get).size
   let result ← liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats <|
     match source with
-    | some file => file.withContext (session.run statement)
-    | none => session.run statement
+    | some file => file.withContext (session.run statement owningCell)
+    | none => session.run statement owningCell
   let calls ← session.kernel.dispatches.get
   return (result, (calls.extract start calls.size).map dispatchJson)
 
@@ -237,6 +244,7 @@ def withSession (manifest? : Option System.FilePath) (computationOnly : Bool)
     (action : KernelSession → CommandElabM α) : CommandElabM α := do
   let environment ← getEnv
   try
+    liftCoreM KernelSession.clear
     let session ← liftTermElabM <| KernelSession.start manifest? computationOnly
     for rejected in session.kernel.rejected do
       logWarning m!"registration not admitted: {rejected}"
@@ -318,11 +326,12 @@ def runSuite (manifest? : Option System.FilePath) (computationOnly : Bool)
   return results
 
 /-- Runs one statement of the language, given as text, in `session`. -/
-def runStatement (session : KernelSession) (text : String) : CommandElabM StatementRun := do
+def runStatement (session : KernelSession) (text : String)
+    (owningCell : Option CellTransaction := none) : CommandElabM StatementRun := do
   let parsed ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
     | .ok statement => pure statement
     | .error error => throwError "not a statement of the language: {error}\n{text}"
-  return (← runOne session ⟨parsed⟩).1
+  return (← runOne session ⟨parsed⟩ none owningCell).1
 
 syntax (name := casTestsCommand)
   "#cas_tests " str (&" manifest " str)? (&" reporting " str)? (&" inventory " str)?
@@ -348,13 +357,36 @@ syntax (name := casStatementCommand) "#cas " str (&" manifest " str)? : command
 @[command_elab casStatementCommand] def elabCasStatement : CommandElab := fun stx => do
   let some text := stx[1].isStrLit? | throwUnsupportedSyntax
   let manifest? := stx[2][1].isStrLit?.map fun s => (s : System.FilePath)
-  let run ← withSession manifest? false fun session => runStatement session text
+  let owningCell ← liftCoreM KernelSession.active?
+  let session ← match ← liftCoreM KernelSession.current? with
+    | some session =>
+      if manifest?.isSome then
+        throwError "the session manifest is frozen at startup"
+      if owningCell.isSome then pure session else session.fork
+    | none => liftTermElabM <| KernelSession.start manifest?
+  let run ← runStatement session text owningCell
   let outcome := run.outcome
   let shown := if outcome matches .holds then outcome.kind else s!"{outcome.kind}: {outcome.detail}"
-  if outcome.fails then throwError shown
+  if outcome.fails || (owningCell.isSome && !(outcome matches .holds)) then
+    if owningCell.isSome then
+      Worker.Cell.reportFailure { stratum := outcome.stratum?, reason := outcome.detail }
+    throwError shown
   else
-    logInfo shown
-    for output in run.inspectionOutput do logInfo output
+    liftCoreM (KernelSession.install run.session)
+    if let some transaction := owningCell then
+      let definitions ← liftTermElabM (CasRuntime.Inspect.newBindings session run.session transaction)
+      let rendered := if run.proposition.isEmpty then shown else s!"{shown}: {run.proposition}"
+      let rendered := "\n".intercalate (rendered :: run.inspectionOutput.toList)
+      let metadata := Json.mkObj [
+        ("cas_source", toJson text),
+        ("cas_definitions", toJson definitions),
+        ("conclusions", toJson (run.conclusions.map CasTools.QuestionExport.observeConclusion))]
+      let bundle : Worker.Output :=
+        { data := [("text/plain", toJson rendered)], metadata }
+      Worker.emitOutput bundle
+    else
+      logInfo shown
+      for output in run.inspectionOutput do logInfo output
 
 end
 

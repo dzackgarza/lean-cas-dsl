@@ -19,7 +19,7 @@ private partial def namedPointRoot? (graph : ValueGraph)
     (codes : Std.HashMap (RuntimeId .program) ClosureCode) (family : PreparedRequest)
     (value : ValueBinding) (path : Array Name) : MetaM (Option InputDescriptorView) := do
   if path.isEmpty then
-    let some descriptorView ← InputDescriptorView.namedMorphism? graph codes value | return none
+    let some descriptorView ← InputDescriptorView.namedPoint? graph codes value | return none
     let some original := descriptorView.family | return none
     if original.roles.scope != family.roles.scope then return none
     return some descriptorView
@@ -60,16 +60,21 @@ original inputs are admitted before lowering the source-declared descriptor capt
 opaque PreparedPointInvocation.prepare? (kernel : Kernel) (evaluateSource : SourceEvaluation)
     (request family : PreparedRequest) (path : Array FieldLayout)
     (transaction : CellTransaction) : MetaM (Option PreparedPointInvocation) := do
-  let .primitive (.registered declared) universes := family.action | return none
-  let .morphism morphismId := declared.source.reference | return none
+  let .primitive boundary universes := family.action | return none
   let .apply callable arguments _ := request.action | return none
   let #[argumentSource] := arguments | return none
   let retainsPoint ← withSourceScope request fun context _ => do
     return (← sourcePointOrigin? (← argumentSource.inContext context)).isSome
   unless retainsPoint do return none
-  let some entry := (← semanticState).morphisms.find? (·.id == morphismId)
-    | throwError "the named point action lost its released morphism"
-  let selected ← PointFamily.forEntry entry
+  let selected : Option PointFamily ← match boundary with
+    | .registered declared => do
+      let .morphism morphismId := declared.source.reference | pure none
+      let some entry := (← semanticState).morphisms.find? (·.id == morphismId)
+        | throwError "the named point action lost its released morphism"
+      pure (some (← PointFamily.forEntry entry))
+    | .application selected => pure (some selected)
+    | _ => pure none
+  let some selected := selected | return none
   unless path.map (·.projection) == selected.path do return none
   let graph ← transaction.view
   discard <| family.admitInputs graph
@@ -131,19 +136,24 @@ opaque PreparedPointInvocation.prepare? (kernel : Kernel) (evaluateSource : Sour
     let graph ← transaction.view
     discard <| family.admitInputs graph
     discard <| request.admitInputs graph
-    let mut forms := #[entry.id.raw]
+    let admittedOperation : CasCatalogue.Operation := match selected.owner with
+      | .morphism entry => .morphism entry
+      | .application entry => .application entry
+    let mut forms := match selected.owner with
+      | .morphism _ => #[selected.operation]
+      | .application entry => #[selected.operation, entry.id.raw, entry.category.raw]
     if let some (objectId, _) ← sourceObjectReference? (← source.role.source.inContext context) then
       let registry : RegistryState := { toSemanticState := ← semanticState }
       let some form := registry.form? objectId.raw
         | throwError "the named point source lost its registered object form"
-      if let some reason := registry.rejects (.morphism entry) form then
+      if let some reason := registry.rejects admittedOperation form then
         throwError "the named point source has an incompatible input form: {reason}"
       let some object := registry.objects.find? (·.id == objectId)
         | throwError "the named point source lost its original object category"
       forms := forms ++ #[objectId.raw, object.category.raw]
     let roots := arrowView.parameters ++ #[arrowView.binding, domain, source, target, argument]
     let views ← InputDescriptorView.collect graph codes roots #[arrowView]
-    return some ⟨request.roles.scope, entry.id.raw, arrowView.parameters, arrowView.binding,
+    return some ⟨request.roles.scope, selected.operation, arrowView.parameters, arrowView.binding,
       domain, source, target, argument, forms, family.scope ++ request.scope ++ roots ++
         views.flatMap (·.dependencies), views⟩
 

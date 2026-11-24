@@ -7,6 +7,7 @@ public import CasCompiler.LiftFamily
 public import CasCompiler.PresentationFamily
 public import CasCompiler.RoutedMethodFamily
 public import CasCompiler.PropertyFamily
+public import CasCompiler.PointFamily
 
 @[expose] public section
 
@@ -72,6 +73,7 @@ inductive ProgramBoundary
   | presentation (family : PresentationFamily)
   | routedMethod (family : RoutedMethodFamily)
   | property (family : PropertyFamily)
+  | application (family : PointFamily)
 
 /-- A published computation-family address, when this boundary has one. Other accepted
 source interfaces retain their own exact registered address in the boundary witness. -/
@@ -79,7 +81,7 @@ def ProgramBoundary.reference : ProgramBoundary → Option ComputationRef
   | .registered family => some family.source.reference
   | .target program => some program.source.entry.target
   | .prerequisite program index => some program.source.prerequisites[index.val].reference
-  | .lift _ | .presentation _ | .routedMethod _ | .property _ => none
+  | .lift _ | .presentation _ | .routedMethod _ | .property _ | .application _ => none
 
 def ProgramBoundary.family : ProgramBoundary → Expr
   | .registered family => family.source.family
@@ -89,6 +91,7 @@ def ProgramBoundary.family : ProgramBoundary → Expr
   | .presentation family => family.family
   | .routedMethod family => family.family
   | .property family => family.family
+  | .application family => family.family
 
 def ProgramBoundary.universeParams : ProgramBoundary → List Name
   | .registered family => family.universeParams
@@ -97,5 +100,6 @@ def ProgramBoundary.universeParams : ProgramBoundary → List Name
   | .presentation family => family.universeParams
   | .routedMethod family => family.universeParams
   | .property family => family.universeParams
+  | .application family => family.universeParams
 
 end CasCompiler

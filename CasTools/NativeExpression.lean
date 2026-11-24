@@ -56,7 +56,7 @@ inductive Node where
   | lit (value : Literal)
   | mdata (data : MData) (body : Nat)
   | proj (name : Name) (index body : Nat)
-  deriving ToJson, FromJson
+  deriving ToJson, FromJson, Inhabited
 
 structure Builder where
   indices : ExprStructMap Nat := {}
@@ -72,30 +72,44 @@ partial def metadataKey (expression : Expr) : Expr :=
       (KVMap.empty.setString `nativeMetadata (toJson data).compress) (metadataKey body))
     | _ => none
 
-partial def Builder.add (expression : Expr) : StateM Builder Nat := do
-  let key := metadataKey expression
-  if let some index := (← get).indices[ExprStructEq.mk key]? then return index
-  let node : Node ← match expression with
-    | .bvar index => pure (.bvar index)
-    | .fvar id => pure (.fvar id.name)
-    | .mvar id => pure (.mvar id.name)
-    | .sort level => pure (.sort level)
-    | .const name levels => pure (.const name levels)
-    | .app function argument => pure (.app (← Builder.add function) (← Builder.add argument))
-    | .lam name type body info =>
-      pure (.lam name (← Builder.add type) (← Builder.add body) info)
-    | .forallE name type body info =>
-      pure (.forallE name (← Builder.add type) (← Builder.add body) info)
-    | .letE name type value body nondep =>
-      pure (.letE name (← Builder.add type) (← Builder.add value) (← Builder.add body) nondep)
-    | .lit value => pure (.lit value)
-    | .mdata data body => pure (.mdata data (← Builder.add body))
-    | .proj name index body => pure (.proj name index (← Builder.add body))
-  let index := (← get).nodes.size
-  modify fun state => { state with
-    indices := state.indices.insert ⟨key⟩ index
-    nodes := state.nodes.push node }
-  return index
+/-- Normalize each complete supplied root once, retaining exact native metadata
+and the same child-before-parent interning order. Descending through the
+corresponding children of the original and normalized key avoids renormalizing
+the entire shared subtree for every child visited. -/
+partial def Builder.add (expression : Expr) : StateM Builder Nat :=
+  go expression (metadataKey expression)
+where
+  go (expression key : Expr) : StateM Builder Nat := do
+    if let some index := (← get).indices[ExprStructEq.mk key]? then return index
+    let node : Node ← match expression, key with
+      | .bvar index, .bvar _ => pure (.bvar index)
+      | .fvar id, .fvar _ => pure (.fvar id.name)
+      | .mvar id, .mvar _ => pure (.mvar id.name)
+      | .sort level, .sort _ => pure (.sort level)
+      | .const name levels, .const .. => pure (.const name levels)
+      | .app function argument, .app functionKey argumentKey =>
+        pure (.app (← go function functionKey) (← go argument argumentKey))
+      | .lam name type body info, .lam _ typeKey bodyKey _ =>
+        pure (.lam name (← go type typeKey) (← go body bodyKey) info)
+      | .forallE name type body info, .forallE _ typeKey bodyKey _ =>
+        pure (.forallE name (← go type typeKey) (← go body bodyKey) info)
+      | .letE name type value body nondep, .letE _ typeKey valueKey bodyKey _ =>
+        pure (.letE name (← go type typeKey) (← go value valueKey)
+          (← go body bodyKey) nondep)
+      | .lit value, .lit _ => pure (.lit value)
+      | .mdata data body, .mdata _ bodyKey =>
+        pure (.mdata data (← go body bodyKey))
+      | .proj name index body, .proj _ _ bodyKey =>
+        pure (.proj name index (← go body bodyKey))
+      | _, _ =>
+        -- This branch cannot arise from metadataKey, which changes only
+        -- metadata payloads. An internal invariant violation is not a node.
+        unreachable!
+    let index := (← get).nodes.size
+    modify fun state => { state with
+      indices := state.indices.insert ⟨key⟩ index
+      nodes := state.nodes.push node }
+    return index
 
 def Builder.finish (builder : Builder) (roots : Array Nat) : Json :=
   Json.mkObj [("roots", toJson roots), ("nodes", toJson builder.nodes)]

@@ -46,6 +46,13 @@ opaque Kernel.load (owners : OwnerRegistry) (manifest : Option System.FilePath)
     ← BackendConnections.new owners root installed.backends timeoutMs,
     ← IO.mkRef {}, ← IO.mkRef #[], ← IO.mkRef #[]⟩
 
+/-- Branch preparation copies the retained code and mark tables. A committed
+parent is never mutated by a child cell; occurrence/connection authority and
+dispatch observations remain shared resource state. -/
+def Kernel.fork (kernel : Kernel) : BaseIO Kernel := do
+  return { kernel with codes := ← IO.mkRef (← kernel.codes.get),
+                       marks := ← IO.mkRef (← kernel.marks.get) }
+
 /-- Close every started process and invalidate its generation. -/
 opaque Kernel.close (kernel : Kernel) : IO Unit := kernel.connections.close
 

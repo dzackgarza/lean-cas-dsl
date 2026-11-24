@@ -193,30 +193,43 @@ private def FramedConnection.exchange (wire : FramedConnection) (ledger : Occurr
     catch error =>
       wire.close
       let failure := PortError.disconnected s!"connection_lost_after_send: {error}"
-      discard <| transaction.failPort failure
+      let won ← transaction.failPort failure
       scope.retire
-      return .error failure
+      return .error (if won then failure else .unavailable wire.backend "request_already_settled")
     let frame ← match ← readFrame wire.connection.child.stdout with
       | .ok frame => pure frame
       | .error error =>
         wire.close
-        discard <| transaction.failPort error
+        let won ← transaction.failPort error
         scope.retire
-        return .error error
+        return .error (if won then error else .unavailable wire.backend "request_already_settled")
     unless (frame.getObjValAs? Nat "request_id").toOption == some lease.requestId do
       wire.close
       let failure := PortError.protocol "the reply does not answer its exact outstanding request"
-      discard <| transaction.failPort failure
+      let won ← transaction.failPort failure
       scope.retire
-      return .error failure
+      return .error (if won then failure else .unavailable wire.backend "request_already_settled")
     unless ← lease.readCompleted do
       lease.discardAfterDrain
       scope.retire
       return .error (unavailable "cancelled")
     let some current ← transaction.activeGraph
       | scope.retire; return .error (unavailable "cancelled")
+    let status := (frame.getObjValAs? String "status").toOption
+    let success := status == some "suspended" || status == some "ok"
+    let (frame, observations) ←
+      if success then
+        match splitRoutineObservations wire.ready.routineObservations frame with
+        | .ok (control, routines) =>
+          pure (control, if wire.ready.routineObservations then some routines else none)
+        | .error reason =>
+          let failure := PortError.protocol reason
+          let won ← transaction.failPort failure
+          scope.retire
+          return .error (if won then failure else .unavailable wire.backend "request_already_settled")
+      else pure (frame, none)
     let result : Except PortError InvocationReply ←
-      if (frame.getObjValAs? String "status").toOption == some "suspended" then
+      if status == some "suspended" then
         try
           pure (.ok (← suspendedControl scope reservation current lease.requestId frame))
         catch error => pure (.error (.protocol error.toString))
@@ -236,10 +249,16 @@ private def FramedConnection.exchange (wire : FramedConnection) (ledger : Occurr
         | .ok () => .error (.protocol "the control has no immediate result")
     match result with
     | .ok reply =>
-      if (← transaction.activeGraph).isNone then
+      match ← transaction.recordRoutineInvocation scope lease observations with
+      | .ok () => return .ok reply
+      | .error .settled =>
         scope.retire
         return .error (unavailable "cancelled")
-      return .ok reply
+      | .error _ =>
+        let failure := PortError.protocol "routine observation lost its actual received-frame identity"
+        let won ← transaction.failPort failure
+        scope.retire
+        return .error (if won then failure else .unavailable wire.backend "request_already_settled")
     | .error error =>
       let won ← transaction.failPort error
       scope.retire
@@ -272,18 +291,18 @@ private def FramedConnection.before (wire : FramedConnection) (transaction : Cel
   if timeoutMs == 0 then
     let draining ← wire.isDraining
     let failure := PortError.unavailable wire.backend (if draining then "busy_draining" else "deadline")
-    discard <| transaction.failPort failure
+    let won ← transaction.failPort failure
     scope.retire
-    return .error failure
+    return .error (if won then failure else .unavailable wire.backend "request_already_settled")
   let worker ← IO.asTask (prio := .dedicated) exchange
   match ← awaitBefore worker timeoutMs with
   | some result => IO.ofExcept result
   | none =>
     let draining ← wire.isDraining
     let failure := PortError.unavailable wire.backend (if draining then "busy_draining" else "deadline")
-    discard <| transaction.failPort failure
+    let won ← transaction.failPort failure
     scope.retire
-    return .error failure
+    return .error (if won then failure else .unavailable wire.backend "request_already_settled")
 
 opaque FramedConnection.invokeControlBefore (wire : FramedConnection) (ledger : OccurrenceLedger)
     (transaction : CellTransaction) (reservation : DispatchReservation) (scope : RequestScope)
@@ -299,26 +318,26 @@ opaque FramedConnection.resumeControlBefore (wire : FramedConnection) (ledger : 
     (wire.resumeControl ledger transaction reservation scope continuation captures results)
 
 /-- An invocation whose prepared consumer accepts only an immediate value. -/
-private def immediateOnly (transaction : CellTransaction) (scope : RequestScope)
+private def immediateOnly (wire : FramedConnection) (transaction : CellTransaction) (scope : RequestScope)
     (control : Except PortError InvocationReply) : IO (Except PortError ImmediateReply) := do
   match control with
   | .error error => return .error error
   | .ok (.immediate reply) => return .ok reply
   | .ok (.deferred ..) | .ok (.suspended ..) =>
     let failure := PortError.protocol "a deferred control is not an immediate result value"
-    discard <| transaction.failPort failure
+    let won ← transaction.failPort failure
     scope.retire
-    return .error failure
+    return .error (if won then failure else .unavailable wire.backend "request_already_settled")
 
 opaque FramedConnection.invoke (wire : FramedConnection) (ledger : OccurrenceLedger)
     (transaction : CellTransaction) (reservation : DispatchReservation) (scope : RequestScope)
     (arguments : Json) : IO (Except PortError ImmediateReply) := do
-  immediateOnly transaction scope (← wire.invokeControl ledger transaction reservation scope arguments)
+  immediateOnly wire transaction scope (← wire.invokeControl ledger transaction reservation scope arguments)
 
 opaque FramedConnection.invokeBefore (wire : FramedConnection) (ledger : OccurrenceLedger)
     (transaction : CellTransaction) (reservation : DispatchReservation) (scope : RequestScope)
     (arguments : Json) (timeoutMs : UInt32) : IO (Except PortError ImmediateReply) := do
-  immediateOnly transaction scope
+  immediateOnly wire transaction scope
     (← wire.invokeControlBefore ledger transaction reservation scope arguments timeoutMs)
 
 end CasRuntime

@@ -18,6 +18,8 @@ inductive Outcome
   | holds
   | wrong (message : String)
   | gap (reason : String)
+  | noImplementation (reason : String)
+  | ambiguousRealization (reason : String)
   | unavailable (reason : String)
   | malformed (reason : String)
   | invalid (reason : String)
@@ -28,7 +30,7 @@ inductive Outcome
 def Outcome.kind : Outcome → String
   | .holds => "holds"
   | .wrong _ => "wrong"
-  | .gap _ => "gap"
+  | .gap _ | .noImplementation _ | .ambiguousRealization _ => "gap"
   | .unavailable _ => "unavailable"
   | .malformed _ => "malformed"
   | .invalid _ => "invalid"
@@ -37,7 +39,8 @@ def Outcome.kind : Outcome → String
 
 def Outcome.detail : Outcome → String
   | .holds => ""
-  | .wrong message | .gap message | .unavailable message | .malformed message
+  | .wrong message | .gap message | .noImplementation message | .ambiguousRealization message
+  | .unavailable message | .malformed message
   | .invalid message | .ambiguous message | .internal message => message
 
 /-- The same kind of outcome with another detail. An outcome that holds has no detail. -/
@@ -45,6 +48,8 @@ def Outcome.withDetail : Outcome → String → Outcome
   | .holds, _ => .holds
   | .wrong _, detail => .wrong detail
   | .gap _, detail => .gap detail
+  | .noImplementation _, detail => .noImplementation detail
+  | .ambiguousRealization _, detail => .ambiguousRealization detail
   | .unavailable _, detail => .unavailable detail
   | .malformed _, detail => .malformed detail
   | .invalid _, detail => .invalid detail
@@ -52,7 +57,17 @@ def Outcome.withDetail : Outcome → String → Outcome
   | .internal _, detail => .internal detail
 
 def Outcome.fails (outcome : Outcome) : Bool :=
-  !(outcome matches .holds | .gap _ | .unavailable _)
+  !(outcome matches .holds | .gap _ | .noImplementation _ | .ambiguousRealization _ | .unavailable _)
+
+/-- Preserve actual released failure strata separately from suite outcome kinds. -/
+def Outcome.stratum? : Outcome → Option String
+  | .invalid _ => some "invalid"
+  | .ambiguous _ => some "semanticAmbiguity"
+  | .noImplementation _ => some "noImplementation"
+  | .ambiguousRealization _ => some "ambiguousRealization"
+  | .unavailable _ => some "unavailable"
+  | .malformed _ => some "malformed"
+  | _ => none
 
 /-- Classify a reader ambiguity, an unfinished source form or a stratified failure.
 An exception without a stratum is an internal failure, never mathematical invalidity. -/
@@ -63,7 +78,8 @@ def Outcome.ofException (error : Exception) : MetaM Outcome := do
   return match CasCatalogue.Exception.stratum? error with
     | some .invalid => .invalid message
     | some .semanticAmbiguity => .ambiguous message
-    | some .noImplementation | some .ambiguousRealization => .gap message
+    | some .noImplementation => .noImplementation message
+    | some .ambiguousRealization => .ambiguousRealization message
     | some .unavailable => .unavailable message
     | some .malformed => .malformed message
     | none => .internal message
@@ -123,6 +139,34 @@ opaque KernelSession.start (manifest : Option System.FilePath := none)
     ← SourceSession.empty owners.identities, computationOnly, {}, {}, #[], #[]⟩
 
 opaque KernelSession.close (session : KernelSession) : IO Unit := session.kernel.close
+
+/-- Retained source declarations and the selected kernel belong to the
+Environment, not a process-global name or completed-value heap. -/
+private initialize sessionExtension : EnvExtension (Option KernelSession) ←
+  registerEnvExtension (pure none)
+
+private initialize activeExtension : EnvExtension (Option CellTransaction) ←
+  registerEnvExtension (pure none)
+
+def KernelSession.current? : CoreM (Option KernelSession) :=
+  return sessionExtension.getState (← getEnv)
+
+def KernelSession.install (session : KernelSession) : CoreM Unit :=
+  modifyEnv (sessionExtension.setState · (some session))
+
+def KernelSession.active? : CoreM (Option CellTransaction) :=
+  return activeExtension.getState (← getEnv)
+
+def KernelSession.setActive (transaction : Option CellTransaction) : CoreM Unit :=
+  modifyEnv (activeExtension.setState · transaction)
+
+def KernelSession.clear : CoreM Unit := do
+  modifyEnv (sessionExtension.setState · none)
+  KernelSession.setActive none
+  SessionSnapshot.clear
+
+def KernelSession.fork (session : KernelSession) : BaseIO KernelSession :=
+  return { session with kernel := ← session.kernel.fork }
 
 /-- The retained value of a source declaration, when it has computational content. -/
 def KernelSession.value? (session : KernelSession) (id : BindingId) : Option ValueBinding :=
@@ -701,8 +745,8 @@ private partial def executePrepared (session : KernelSession)
 /-- Run one completely prepared public statement in one publication cell. A scoped block
 reads all children before dispatch, stages them in order and commits once. Native interruption
 runs the same finally-abort path and never becomes a mathematical outcome. -/
-opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stmt) :
-    TermElabM StatementRun :=
+opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stmt)
+    (owningCell : Option CellTransaction := none) : TermElabM StatementRun :=
   withCurrHeartbeats <|
   withTheReader Core.Context (fun context => { context with maxHeartbeats := statementHeartbeats * 1000 }) do
   CasCompiler.setPreferredRoutes
@@ -766,6 +810,13 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
       if !needsCell then
         executionEntered.set true
         return (← executePrepared session none prepared).run
+      -- Notebook statements stage into the already-open cell. In particular,
+      -- an earlier successful command cannot commit before a later command fails.
+      if let some transaction := owningCell then
+        executionEntered.set true
+        let result ← executePrepared session (some transaction) prepared
+        Core.checkSystem "source statement staging"
+        return result.run
       let transaction ← CellTransaction.begin session.kernel.ledger
       let result ← try
           executionEntered.set true

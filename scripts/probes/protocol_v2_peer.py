@@ -6,12 +6,16 @@ from collections.abc import Generator
 import json
 import sys
 
-from cas_session import JsonValue, Proxy, Suspension, export, proxy, suspend
+from cas_session import JsonValue, Proxy, Suspension, export, invoke_routine, proxy, suspend
 from cas_port import serve
 
 
 def echo(arguments: JsonValue) -> JsonValue:
     return arguments
+
+
+def delegated(arguments: JsonValue) -> JsonValue:
+    return invoke_routine(echo, arguments)
 
 
 def stored(arguments: JsonValue) -> JsonValue:
@@ -105,7 +109,7 @@ def repeated(arguments: JsonValue) -> Generator[Suspension, list[Proxy], JsonVal
     return [first.reference(), second.reference(), result[0].reference()]
 
 
-serve("protocol-peer", "0", {"echo": echo, "stored": stored,
+serve("protocol-peer", "0", {"echo": echo, "delegated": delegated, "stored": stored,
                               "captured": captured,
                               "adaptive": adaptive, "expired": expired,
                               "references": references, "deferred": deferred,

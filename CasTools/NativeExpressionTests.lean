@@ -51,3 +51,22 @@ run_cmd do
   let json := Json.mkObj [("roots", toJson #[0]), ("nodes", toJson #[Node.app 0 0])]
   if let .ok _ := decode json then
     throwError "the native graph accepted a forward or cyclic reference"
+
+-- A shared subtree can carry several different complete metadata records.
+-- Preserve the exact child-before-parent wire order, including repeated roots.
+run_cmd do
+  let leaf := Expr.const `retained []
+  let first : MData := { entries := [(`x, .ofNat 1), (`y, .ofNat 2)] }
+  let second : MData := { entries := first.entries.reverse }
+  let a := Expr.mdata first leaf
+  let b := Expr.mdata second leaf
+  let pair := Expr.app a b
+  let nested := Expr.mdata first pair
+  let root := Expr.app nested pair
+  let actual := encode #[root, b, pair, a, root]
+  let expected := Json.mkObj [
+    ("roots", toJson (#[5, 2, 3, 1, 5] : Array Nat)),
+    ("nodes", toJson #[Node.const `retained [], Node.mdata first 0,
+      Node.mdata second 0, Node.app 1 2, Node.mdata first 3, Node.app 4 3])]
+  unless actual.compress == expected.compress do
+    throwError "the shared native graph changed its exact metadata or wire order"

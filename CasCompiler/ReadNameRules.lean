@@ -14,7 +14,7 @@ namespace ReadNameRules
 
 open SourceReader
 
-def ruleApplicable (context : ReadContext) :
+def ruleCompleting (context : ReadContext) (complete : ReadCompletion) :
     TermElabM (Except MessageData NativeSourceJudgement) := do
   let readExpression := @ReadContext.readExpression context
   let categoryOf := context.categoryOf
@@ -22,8 +22,11 @@ def ruleApplicable (context : ReadContext) :
   let expected := context.expected
   let qualification := context.qualification
   let expectedCategory := context.expectedCategory
-  let registered := registeredApplicable context
-  let member := member context
+  let registered := fun name arguments => do
+    match ← registeredApplicable context name arguments with
+    | .ok value => complete value
+    | .error message => pure (.error message)
+  let member := memberCompleting context complete
   -- `m(X)` for a registered method or property `m` is `X.m()`. The rule applies when the name
   -- names no object, map, construction or limit shape, so no kind takes priority.
   let registeredOrMember := fun (name : TSyntax `ident) (arguments : Array (TSyntax `cas_term)) => do
@@ -36,12 +39,12 @@ def ruleApplicable (context : ReadContext) :
       state.constructions.any (·.name == spelling) ||
       state.limits.any (·.shape == spelling)
     match memberName && !otherKind, arguments with
-    | true, #[receiver] => return .ok (← member receiver spelling #[])
+    | true, #[receiver] => member receiver spelling #[]
     | _, _ => registered name arguments
   match source with
   | `(cas_term| $name:ident) =>
     if let some declaration := (← getLCtx).findFromUserName? name.getId then
-      return .ok ⟨mkFVar declaration.fvarId, ← categoryOf declaration.fvarId⟩
+      complete ⟨mkFVar declaration.fvarId, ← categoryOf declaration.fvarId⟩
     else if let some generator ← (sourceDifferentialOf? name.getId).filterM fun generator =>
         return ((← getLCtx).findFromUserName? generator).isSome then
       -- `dv` for a bound variable `v` is its differential `d(v)` (public language contract).
@@ -49,8 +52,8 @@ def ruleApplicable (context : ReadContext) :
         (← `(cas_term| $(mkIdentFrom name `d):ident($(mkIdentFrom name generator):ident)))
         expected qualification
         expectedCategory)
-    else if name.getId == `false then return .ok ⟨mkConst ``False, none⟩
-    else if name.getId == `true then return .ok ⟨mkConst ``True, none⟩
+    else if name.getId == `false then complete ⟨mkConst ``False, none⟩
+    else if name.getId == `true then complete ⟨mkConst ``True, none⟩
     else registered name #[]
   | `(cas_term| $name:ident($arguments:cas_term,*)) =>
     if ((← getLCtx).findFromUserName? name.getId).isSome then
@@ -58,7 +61,7 @@ def ruleApplicable (context : ReadContext) :
     else if let .str receiver field := name.getId then do
       if !receiver.isAnonymous &&
           ((← getLCtx).findFromUserName? receiver).isSome then
-        return .ok (← member (← `(cas_term| $(mkIdentFrom name receiver):ident)) field arguments.getElems)
+        member (← `(cas_term| $(mkIdentFrom name receiver):ident)) field arguments.getElems
       else
         -- `ℤ.is_finite()` lexes as one identifier. When the whole dotted name is not
         -- registered, the receiver is a term of the language read before the member.
@@ -69,10 +72,14 @@ def ruleApplicable (context : ReadContext) :
         let parsed := Parser.runParserCategory (← getEnv) `cas_term
           (receiver.toString (escape := false))
         match named || receiver.isAnonymous, parsed with
-        | false, .ok source => return .ok (← member ⟨source⟩ field arguments.getElems)
+        | false, .ok source => member ⟨source⟩ field arguments.getElems
         | _, _ => registeredOrMember name arguments.getElems
     else registeredOrMember name arguments.getElems
   | _ => throwReadRuleMismatch
+
+def ruleApplicable (context : ReadContext) :
+    TermElabM (Except MessageData NativeSourceJudgement) :=
+  ruleCompleting context (fun value => pure (.ok value))
 
 def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
   match ← ruleApplicable context with

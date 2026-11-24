@@ -253,6 +253,22 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "the actual map action discarded the selected original apex input"
       let some actualLeg := arguments.back?
         | throwError "the actual base-change map lost its original leg input"
+      -- The map consumes its selected leg's source endpoint, rather than a native
+      -- reconstruction of the diagram object at that index. Its Arrow constructor
+      -- and the explicit morphism argument must carry the same selection identity.
+      let .mdata legData _ := actualLeg
+        | throwError "the actual map argument lost its leg occurrence"
+      let some legSelection := selectedField? legData
+        | throwError "the actual map argument has no selected leg identity"
+      let some source := arguments[arguments.size - 3]?
+        | throwError "the actual map action lost its source input"
+      unless (selectedEndpoint? source).isSome do
+        throwError "the actual map source is not its selected leg endpoint"
+      let arrow := source.consumeMData.getAppArgs.back!
+      let .mdata endpointData _ := arrow.getAppArgs.back!
+        | throwError "the selected endpoint lost its exact leg occurrence"
+      unless selectedField? endpointData == some legSelection do
+        throwError "the selected endpoint refers to a different leg occurrence"
       let some (legSource, legTarget) ← SourceReader.mapEnds actualLeg
         | throwError "the actual map action lost its leg's complete native endpoints"
       unless legSource == originalSource && legTarget == receiver.expression do

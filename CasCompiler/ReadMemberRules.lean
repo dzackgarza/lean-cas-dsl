@@ -14,11 +14,12 @@ namespace ReadMemberRules
 
 open SourceReader
 
-def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
+def ruleCompleting (context : ReadContext) (complete : ReadCompletion) :
+    TermElabM (Except MessageData NativeSourceJudgement) := do
   let readExpression := @ReadContext.readExpression context
   let categoryOf := context.categoryOf
   let source := context.source
-  let member := member context
+  let member := memberCompleting context complete
   match source with
   | `(cas_term| $receiver.$method:ident()) =>
     member receiver method.getId.toString #[]
@@ -27,13 +28,17 @@ def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
     -- The bars of an element are its registered absolute value `abs` (`|z|` for z in ℂ);
     -- those of an object are its cardinality.
     if !receiver.category.any (·.role == .object) then
-      readExpression categoryOf (← `(cas_term| $(mkIdentFrom source `abs):ident($operand:cas_term)))
-        context.expected context.qualification context.expectedCategory
+      return .ok (← readExpression categoryOf
+        (← `(cas_term| $(mkIdentFrom source `abs):ident($operand:cas_term)))
+        context.expected context.qualification context.expectedCategory)
     else
-      let some value ← sourceMethod receiver "cardinality"
-        | throwError "the selected source object has no declared cardinality method"
-      pure value
+      methodCompleting context complete receiver "cardinality"
   | _ => throwReadRuleMismatch
+
+def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
+  match ← ruleCompleting context (fun value => pure (.ok value)) with
+  | .ok value => pure value
+  | .error message => throwError message
 
 end ReadMemberRules
 

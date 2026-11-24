@@ -29,6 +29,12 @@ open CategoryTheory CasCatalogue
 
 #cas "assert |Fin(3)| = 3"
 
+-- Successive public commands share the retained source declaration, including when
+-- its optional runtime computation has no installed realization.
+#cas "let retainedAcrossCommands := 17 + 29 in ℤ"
+
+#cas "assert retainedAcrossCommands = 46 in ℤ"
+
 #resolve cardinality in "cat.finite_sets"
 
 #methods "cat.finite_sets"

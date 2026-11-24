@@ -67,18 +67,19 @@ private def propertyClassifierAt (entry : ClassifierEntry) (host : Expr) :
 Reuse: Classifier.holds_ofProperty, the native FullSubcategory constructor, and checked native
 family conversion. Only an existing proof-class instance is discharged; an inhabited fibre
 never supplies a chosen structure. The original object and universal presentation survive. -/
-def sourcePropertyQualification (source : NativeSourceJudgement)
-    (required : NamedCategoryEntry) : TermElabM NativeSourceJudgement := do
+def sourcePropertyQualificationApplicable (source : NativeSourceJudgement)
+    (required : NamedCategoryEntry) :
+    TermElabM (Except MessageData NativeSourceJudgement) := do
   let some selected := source.category
-    | throwError "the retained source value has no selected category"
-  if selected.expression.syntacticEq required.expression then return source
+    | return .error m!"the retained source value has no selected category"
+  if selected.expression.syntacticEq required.expression then return .ok source
   let .classifierTotal id := required.expression
-    | throwError "the retained source value has a different selected category"
+    | return .error m!"the retained source value has a different selected category"
   let state ← semanticState
   let some entry := state.classifier? id
     | throwError "the explicitly selected classifier is absent"
   unless selected.role == .object && selected.expression.syntacticEq entry.host do
-    throwError "the explicit refinement has a different selected base category"
+    return .error m!"the explicit refinement has a different selected base category"
   let (classifier, agreement) ← propertyClassifierAt entry selected.bundle
   let total ← instantiateMVars (← mkAppM ``LeanCategories.Classifier.total #[classifier])
   discard <| checkedDeclaration required.declaration
@@ -143,6 +144,14 @@ def sourcePropertyQualification (source : NativeSourceJudgement)
     | some original =>
       ⟨#[.classifierForget id] ++ original.refs, original.target, original.identifications,
         #[forget] ++ original.actions, original.comparisons⟩
-  return ⟨value, some ⟨.object, required.expression, bundle, some carrier, selected.limit⟩⟩
+  return .ok ⟨value, some ⟨.object, required.expression, bundle, some carrier, selected.limit⟩⟩
+
+/-- Ordinary qualification requires its own category match. Classifier formation, proof
+search, universe, retained-presentation and native errors remain the original exceptions. -/
+def sourcePropertyQualification (source : NativeSourceJudgement)
+    (required : NamedCategoryEntry) : TermElabM NativeSourceJudgement := do
+  match ← sourcePropertyQualificationApplicable source required with
+  | .ok value => pure value
+  | .error message => throwError message
 
 end CasCompiler

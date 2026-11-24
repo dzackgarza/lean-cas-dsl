@@ -231,6 +231,9 @@ opaque PreparedRequest.forBoundary (identities : CasRuntime.IdentitySupply)
   if let .property family := boundary then
     unless arguments.size == family.parameterCount + 1 do
       throwError "a property observation requires its complete original source application"
+  if let .application family := boundary then
+    unless family.owner matches .application _ do
+      throwError "an object application boundary requires its exact registered object owner"
   unless universeArguments.length == boundary.universeParams.length do
     throwError "request universe arguments do not match the checked source family"
   let universeArguments ← universeArguments.mapM instantiateLevelMVars

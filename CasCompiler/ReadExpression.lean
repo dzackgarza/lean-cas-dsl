@@ -32,28 +32,28 @@ namespace CasCompiler
 
 open Lean Meta Elab Term
 
-private def sourceRules : Array ReadApplicableRule := #[
-  ReadAtomNotation.ruleApplicable,
-  ReadRule.applicable ReadMemberNotation.rule,
-  ReadRule.applicable ReadSubsetNotation.rule,
-  ReadRule.applicable ReadRingNotation.rule,
-  ReadRule.applicable ReadBinderNotation.rule,
-  ReadRule.applicable ReadProductNotation.rule,
-  ReadRule.applicable ReadLiftRules.rule,
-  ReadRule.applicable ReadLimitRules.rule,
-  ReadRule.applicable ReadOperationRules.rule,
-  ReadRule.applicable ReadSubsetRules.rule,
-  ReadRule.applicable ReadPowerRules.rule,
-  ReadRule.applicable ReadGraphRules.rule,
-  ReadRule.applicable ReadEquationRules.rule,
-  ReadRule.applicable ReadMemberRules.rule,
-  ReadRule.applicable ReadLambdaRules.rule,
-  ReadRule.applicable ReadNumeralRules.rule,
-  ReadRule.applicable ReadFunctorRules.rule,
-  ReadRule.applicable ReadTupleRules.rule,
-  ReadNameRules.ruleApplicable,
-  ReadRule.applicable ReadAnnotationRules.rule,
-  ReadRule.applicable ReadApplicationRules.rule
+private def sourceRules : Array ReadCompletingRule := #[
+  ReadApplicableRule.completing ReadAtomNotation.ruleApplicable,
+  ReadMemberNotation.ruleCompleting,
+  ReadRule.completing ReadSubsetNotation.rule,
+  ReadRule.completing ReadRingNotation.rule,
+  ReadRule.completing ReadBinderNotation.rule,
+  ReadRule.completing ReadProductNotation.rule,
+  ReadRule.completing ReadLiftRules.rule,
+  ReadRule.completing ReadLimitRules.rule,
+  ReadRule.completing ReadOperationRules.rule,
+  ReadRule.completing ReadSubsetRules.rule,
+  ReadRule.completing ReadPowerRules.rule,
+  ReadRule.completing ReadGraphRules.rule,
+  ReadRule.completing ReadEquationRules.rule,
+  ReadMemberRules.ruleCompleting,
+  ReadRule.completing ReadLambdaRules.rule,
+  ReadRule.completing ReadNumeralRules.rule,
+  ReadRule.completing ReadFunctorRules.rule,
+  ReadRule.completing ReadTupleRules.rule,
+  ReadNameRules.ruleCompleting,
+  ReadRule.completing ReadAnnotationRules.rule,
+  ReadRule.completing ReadApplicationRules.rule
 ]
 
 partial def readExpressionApplicable
@@ -62,7 +62,7 @@ partial def readExpressionApplicable
     (qualification : Option String := none)
     (expectedCategory : Option NativeSourceCategory := none) :
     TermElabM (Except MessageData NativeSourceJudgement) :=
-  readWithApplicableRules sourceRules ⟨categoryOf, source, expected, qualification, expectedCategory,
+  readWithCompletingRules sourceRules ⟨categoryOf, source, expected, qualification, expectedCategory,
     readProjection, fun categoryOf source expected qualification expectedCategory =>
       readExpressionApplicable categoryOf source expected qualification expectedCategory⟩
 

@@ -289,10 +289,14 @@ private def checkSelectedLimitProducer (source : SourceSession) (kernel : Kernel
         throwError "the distinct producer-input control reused its original occurrence"
       let original ← produced.source.inContext context
       let marked ← markValue kernel.marks input.value (← input.source.inContext context)
-      let mut markedApex := mkAppN original.getAppFn
+      let markedProducer := mkAppN original.getAppFn
         (original.getAppArgs.set! produced.position marked)
+      let mut markedApex := markedProducer
       for projection in produced.path do markedApex ← mkAppM projection #[markedApex]
-      let markedRole ← SourceLayout.ofTerm (← context.close (.mdata selectedData markedApex))
+      -- A source application witness is required by the current reader. The
+      -- projection spine must refer to that very producer, including its marks.
+      let witnessed ← retainSourceApplication produced.declaration markedProducer markedApex
+      let markedRole ← SourceLayout.ofTerm (← context.close (.mdata selectedData witnessed))
       let payload ← IO.ofExcept <| (ValuePayload.descriptor packet.template
         #[{ slot with binding := other }]).mapError IO.userError
       let changedOccurrence ← identities.fresh .occurrence
@@ -307,6 +311,23 @@ private def checkSelectedLimitProducer (source : SourceSession) (kernel : Kernel
         | throwError "the selected producer accepted a different equal original input"
       unless failure.toMessageData.hasTag
           (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do throw failure
+
+      -- Changing only the ignored witness is not authority for the marked
+      -- producer: both the native apex and the retained application must
+      -- name the same exact occurrence before input-slot recovery.
+      let forged ← retainSourceApplication produced.declaration original markedApex
+      let forgedRole ← SourceLayout.ofTerm (← context.close (.mdata selectedData forged))
+      let forgedOccurrence ← identities.fresh .occurrence
+      let forgedValue ← transaction.stage
+        { node.origin with occurrence := forgedOccurrence, role := forgedRole } node.payload
+      let failure : Option Exception ← try
+          discard <| environment.declaredResultSource? context (← transaction.view) forgedValue
+          pure none
+        catch error => pure (some error)
+      let some failure := failure
+        | throwError "a definitionally equal but different producer witness was accepted"
+      unless ((← failure.toMessageData.toString).splitOn
+          "changed its original producer application").length > 1 do throw failure
   finally discard <| transaction.abort
 
 run_cmd liftTermElabM do

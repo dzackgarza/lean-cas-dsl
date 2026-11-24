@@ -296,3 +296,52 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         withLocalDeclD `opaquePair (← inferType pair) fun opaquePair => do
           if (← sourcePointOrigin? (mkProj ``Prod 0 opaquePair)).isSome then
             throwError "point provenance was inferred without an actual source constructor"
+
+-- The polynomial question's algebra-to-ring operation is formed over a rigid selected
+-- algebra category. Its actual routed object argument retains that category selection,
+-- the two declared functors and the original object at their native positions. Inference
+-- of convertible category projections must not replace that source selection.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let state ← semanticState
+  let source := CasCatalogue.Algebra.Algebras.AlgebrasExpr
+  let target := CategoryExpr.atom CategoryId.rings
+  let refs : Array EdgeRef := #[.functor FunctorId.algebrasForget,
+    .functor FunctorId.commutativeRingsRings]
+  let some steps := state.routeEdges? source target refs
+    | throwError "the original polynomial operation lost its declared route"
+  let route : Route := { source, target, steps }
+  let family ← nativeCategoryFamily state source fun _ => pure .zero
+  let native ← nativeOwnedFamily state source family route
+    ``CasCatalogue.Algebra.NamedRings.add (fun infos => some (infos.size - 1))
+    (some (``OperationEntry, "op.rings.add"))
+  lambdaTelescope native.value fun parameters body => do
+    let .mdata data application := body
+      | throwError "the polynomial operation lost its exact source declaration"
+    unless data.getString `CasCompiler.source.id == "op.rings.add" &&
+        application.getAppFn.isConstOf ``CasCatalogue.Algebra.NamedRings.add do
+      throwError "the polynomial operation changed its selected addition"
+    let some image := application.getAppArgs.back?
+      | throwError "the polynomial operation lost its original routed object"
+    unless image.isAppOfArity ``CategoryTheory.Functor.obj 6 do
+      throwError "the polynomial operation does not retain its actual native object projection"
+    let arguments := image.getAppArgs
+    unless arguments.back! == parameters[native.objectIndex]! do
+      throwError "the polynomial operation replaced its rigid original object"
+    let category := mkApp family parameters[0]!
+    let carrier ← mkAppM ``CategoryTheory.Bundled.α #[category]
+    unless arguments[0]! == carrier do
+      throwError "the polynomial operation lost its selected algebra category parameter"
+    let composite := arguments[4]!
+    unless composite.isAppOfArity ``CategoryTheory.Functor.comp 8 &&
+        composite.getAppArgs[0]! == carrier do
+      throwError "the polynomial operation changed the selected composition source"
+    unless (carrier.find? (fun term => match term with
+      | .mdata data _ => data.getName `CasCompiler.source.kind == ``NamedCategoryEntry &&
+          data.getString `CasCompiler.source.id == "cat.algebras" &&
+          data.getName `CasCompiler.source.declaration ==
+            ``CasCatalogue.Algebra.Algebras.algebrasCategory
+      | _ => false)).isSome do
+      throwError "the polynomial operation has a bare inferred algebra category"
+    let prefunctor ← mkAppM ``CategoryTheory.Functor.toPrefunctor #[composite]
+    let original ← mkAppM ``Prefunctor.obj #[prefunctor, parameters[native.objectIndex]!]
+    checkWithKernel (← mkExpectedTypeHint (← mkEqRefl image) (← mkEq image original))

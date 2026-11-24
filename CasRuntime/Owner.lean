@@ -86,7 +86,7 @@ def OwnerRegistry.allAlive (owners : OwnerRegistry) (generations : Array Connect
   return (← owners.atomicallyWhileLive generations (pure ())).isSome
 
 /-- Revoke the generation before terminating its process. Repeated cleanup is inert. -/
-opaque OwnerRegistry.close (owners : OwnerRegistry) (generation : ConnectionGeneration) : IO Unit := do
+opaque OwnerRegistry.revoke (owners : OwnerRegistry) (generation : ConnectionGeneration) : IO Bool := do
   if generation.worker != owners.worker then
     throw <| IO.userError "connection cleanup belongs to a different worker"
   let child ← owners.state.atomically do
@@ -105,5 +105,9 @@ opaque OwnerRegistry.close (owners : OwnerRegistry) (generation : ConnectionGene
       | .noSuchThing _ code _ =>
         if code == 3 then pure () else throw error
       | _ => throw error
+  return child.isSome
+
+opaque OwnerRegistry.close (owners : OwnerRegistry) (generation : ConnectionGeneration) : IO Unit := do
+  discard <| owners.revoke generation
 
 end CasRuntime

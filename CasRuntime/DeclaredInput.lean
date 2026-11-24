@@ -98,15 +98,23 @@ private partial def selectedLimitDeclaration? (source : Expr) :
       let path := if row.colimit then
           #[``CategoryTheory.Limits.ColimitCocone.cocone, ``CategoryTheory.Limits.Cocone.pt]
         else #[``CategoryTheory.Limits.LimitCone.cone, ``CategoryTheory.Limits.Cone.pt]
-      let mut original := body
+      -- SourceLimit now retains the complete producer application as the
+      -- ignored argument of a typed Function.const witness. Read that exact
+      -- witness before inspecting its value's native projection spine.
+      -- Neither reduction of the wrapper nor equality of result carriers
+      -- can supply another producer.
+      let some producer ← sourceApplication? row.declaration body
+        | throwError "the selected limit result lost its retained producer application"
+      let mut original := body.consumeMData.getAppArgs[2]!
       for declaration in path.reverse do
         let some selected ← SourceProjection.ofExpr? original
           | throwError "the selected limit result lost its native apex projection"
         unless selected.declaration == declaration do
           throwError "the selected limit result changed its native apex projection"
         original := selected.parent
-      unless original.getAppFn.isConstOf row.declaration do
+      unless original.consumeMData.equal producer.consumeMData do
         throwError "the selected limit result changed its original producer application"
+      original := producer.consumeMData
       let arity ← forallTelescopeReducing (← inferType original.getAppFn)
         fun parameters _ => pure parameters.size
       unless original.getAppNumArgs == arity do
@@ -132,8 +140,15 @@ private def descriptorDeclaration? (context : OpenContext) (origin : ValueOrigin
     return some selected
   let original ← sourceDomain source
   let some declaration := original.getAppFn.constName? | return none
-  let addresses := ((← semanticState).objects.filter (·.declaration == declaration)).map (·.id.raw)
   let some address := (packet.template.getObjValAs? String "ctor").toOption | return none
+  -- Native binary object products have a released descriptor with two original
+  -- typed argument slots. The checked producer's exact Prod head, not equality
+  -- to some other object, authorizes this descriptor schema.
+  if declaration == ``Prod then
+    unless address == "objectProduct" && original.getAppNumArgs == 2 &&
+        packet.fields.isNone && packet.callable.isNone do return none
+    return some ⟨declaration, original, #[], address⟩
+  let addresses := ((← semanticState).objects.filter (·.declaration == declaration)).map (·.id.raw)
   unless addresses.contains address do return none
   return some ⟨declaration, original, #[], address⟩
 

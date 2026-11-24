@@ -85,7 +85,9 @@ opaque sourceBinaryLimit (left right : NativeSourceJudgement) (colimit : Bool) :
     throwError "the universal presentation changed its complete selected category"
   -- The apex is the registered limit's named object at its diagram, as for a limit named by
   -- its shape: the lowerer sends it as that row's descriptor, not the presentation record.
-  return ⟨sourceReference ``LimitEntry row.id.raw row.declaration apex,
+  let value ← sourceReferenceAt ``LimitEntry row.id.raw row.declaration presentation apex
+  let cone ← retainSourceApplication row.declaration presentation cone
+  return ⟨value,
     some ⟨.object, source.expression, source.bundle, none,
       some ⟨row.id.raw, row.declaration, cone, colimit, source.expression, source.bundle,
         presentation, diagram, interface⟩⟩⟩
@@ -127,6 +129,7 @@ private def createdLimit (shape : String) (selected : NativeSourceCategory)
     let some comparison := interface.standardization
       | throwUnsupportedSource "the created limit requires its declared diagram standardization"
     let comparison ← exprToSyntax comparison
+    let declaredPresentation := targetPresentation
     let targetPresentation ← exprToSyntax targetPresentation
     let (f, g) := (← exprToSyntax left.value, ← exprToSyntax right.value)
     let presentation ← elabTermAndSynthesize (← `(
@@ -146,7 +149,9 @@ private def createdLimit (shape : String) (selected : NativeSourceCategory)
       throwError "the created {shape} has undetermined parameters"
     let cone ← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[presentation]
     let apex ← mkAppM ``CategoryTheory.Limits.Cone.pt #[cone]
-    return some ⟨sourceReference ``LimitEntry row.id.raw row.declaration apex,
+    let value ← sourceReferenceAt ``LimitEntry row.id.raw row.declaration declaredPresentation apex
+    let cone ← retainSourceApplication row.declaration declaredPresentation cone
+    return some ⟨value,
       some ⟨.object, selected.expression, selected.bundle, none,
         some ⟨row.id.raw, row.declaration, cone, false,
           selected.expression, selected.bundle, presentation, diagram, interface⟩⟩⟩
@@ -206,7 +211,9 @@ opaque sourceNamedLimit (shape : String) (maps : Array NativeSourceJudgement) :
     else ``CategoryTheory.Limits.LimitCone.cone) #[presentation]
   let apex ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone.pt
     else ``CategoryTheory.Limits.Cone.pt) #[cone]
-  return some ⟨sourceReference ``LimitEntry row.id.raw row.declaration apex,
+  let value ← sourceReferenceAt ``LimitEntry row.id.raw row.declaration presentation apex
+  let cone ← retainSourceApplication row.declaration presentation cone
+  return some ⟨value,
     some ⟨.object, selected.expression, selected.bundle, none,
       some ⟨row.id.raw, row.declaration, cone, row.colimit,
         selected.expression, selected.bundle, presentation, interface.diagram, interface⟩⟩⟩
@@ -261,6 +268,8 @@ def sourceLimitLeg? (receiver : NativeSourceJudgement) (ordinal : Nat) :
   let some category := receiver.category | return none
   let some selection := category.limit | return none
   let cone := selection.cone
+  let some presentation ← sourceApplication? selection.declaration cone
+    | throwError "the selected construction lost its original registered application"
   let colimit := selection.colimit
   let leg ← mkAppM (if colimit then ``CategoryTheory.Limits.Cocone.ι
     else ``CategoryTheory.Limits.Cone.π) #[cone]
@@ -279,11 +288,15 @@ def sourceLimitLeg? (receiver : NativeSourceJudgement) (ordinal : Nat) :
   let endpoints := homType.getAppArgs.set! (if colimit then 3 else 2) receiver.value
   let hom ← mkExpectedTypeHint hom (mkAppN homType.getAppFn endpoints)
   check hom
-  let apex ← mkAppM (if colimit then ``CategoryTheory.Limits.Cocone.pt
-    else ``CategoryTheory.Limits.Cone.pt) #[cone]
-  let .mdata data _ := sourceReference ``LimitEntry selection.row selection.declaration apex
+  let .mdata data body ←
+      sourceReferenceAt ``LimitEntry selection.row selection.declaration presentation hom
     | throwError "internal: a source reference is not an annotation"
-  return some ⟨.mdata (data.setNat `CasCompiler.source.leg ordinal) hom,
-    some ⟨.morphism, selection.category, selection.bundle, none, none⟩⟩
+  -- The diagram endpoint is a projection of this actual selected leg, just as the
+  -- endpoint of a named map is a projection of that map. In particular, a functor
+  -- action must not have to execute the diagram's object selector to reconstruct it.
+  -- The selected apex remains its original binding in the Arrow constructor. The
+  -- selection identity also makes the endpoint and the map share the same leg occurrence.
+  let hom ← selectMorphism (.mdata (data.setNat `CasCompiler.source.leg ordinal) body)
+  return some ⟨hom, some ⟨.morphism, selection.category, selection.bundle, none, none⟩⟩
 
 end CasCompiler

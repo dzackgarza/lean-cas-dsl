@@ -498,7 +498,8 @@ run_cmd do
     let #[gapTerm] := gapConclusion.terms
       | throwError "the failed block changed its actual implementation request"
     let some failedChild := gap.observations.find? fun row =>
-        row.outcome.any (fun outcome => outcome matches .gap _)
+        row.outcome.any (fun outcome => outcome.kind == "gap" &&
+          outcome.stratum? == some "noImplementation")
       | throwError "the failed block lost its actual failing item"
     let #[childConclusion] := failedChild.conclusions
       | throwError "the failed child discarded its original typed conclusion"

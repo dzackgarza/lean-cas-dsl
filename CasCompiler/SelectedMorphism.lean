@@ -60,6 +60,19 @@ def selectMorphism (value : Expr) : MetaM Expr := do
   let selection ← mkFreshUserName `selectedMorphism
   let selected := selectedField selection ``CategoryTheory.Arrow.hom value
   let arrow ← mkAppM ``CategoryTheory.Arrow.mk #[selected]
+  -- Inference checks the constructor's complete native type, but its implicit
+  -- endpoint assignments need not retain the original arrow's stated expressions.
+  -- Put those exact endpoints back at the constructor's own declared positions.
+  let arguments := arrow.getAppArgs
+  unless arguments.size >= 3 do
+    throwError "the selected morphism lost its native Arrow constructor endpoints"
+  let arguments := (arguments.set! (arguments.size - 3) type.getAppArgs[2]!).set!
+    (arguments.size - 2) type.getAppArgs[3]!
+  let retained := mkAppN arrow.getAppFn (arguments.set! (arguments.size - 1) selected)
+  check retained
+  unless ← isDefEq retained arrow do
+    throwError "the selected morphism changed its native Arrow constructor"
+  let arrow := retained
   let endpoint := fun projection selector => do
     let value ← mkAppM projection #[arrow]
     return Expr.mdata (KVMap.empty.setString `CasCompiler.endpoint selector) value

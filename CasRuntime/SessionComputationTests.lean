@@ -60,6 +60,10 @@ run_cmd liftTermElabM do
       for (text, reached) in #[("assert x + 1 = 1 + x in ℚ[x]", "NoImplementation"),
           ("assert Fin(3).is_finite()", "NoImplementation"),
           ("assert ℤ.is_finite() = false", "NoImplementation"),
+          -- The unchanged numbers.gcd question is an explicit computed observation in this
+          -- session. Its selected morphism must reach the public demand; native reduction of
+          -- the closed GCD expression cannot replace the absent registered computation.
+          ("assert gcd(84, 30) = 6", "mor.sets.gcd"),
           -- The apex of a registered presentation is a construction for a leaf: its
           -- cardinality is reached through the structural carrier functor of the form's
           -- category, not through an eliminator inside the apex.
@@ -81,6 +85,8 @@ run_cmd liftTermElabM do
         unless run.outcome.kind == "gap" && (run.outcome.detail.splitOn "NoImplementation").length > 1 &&
             (run.outcome.detail.splitOn reached).length > 1 do
           throwError "`{text}` is not a computation without a leaf: {run.outcome.kind} ({run.outcome.detail})"
+      unless (← session.kernel.dispatches.get).isEmpty do
+        throwError "an empty-provider computed question dispatched a registration"
     finally liftM (m := IO) session.close
   finally setEnv environment
 

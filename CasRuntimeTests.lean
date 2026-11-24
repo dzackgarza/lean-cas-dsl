@@ -19,11 +19,15 @@ import CasRuntime.FixedInputRouteTests
 import CasRuntime.GroundedRealizationTests
 import CasRuntime.IdentityTests
 import CasRuntime.InputResultTests
+import CasRuntime.InspectTests
 import CasRuntime.LiteralTests
 import CasRuntime.MaterializeTests
+import CasRuntime.NamedApplicationTests
 import CasRuntime.NativePointInvocationTests
 import CasRuntime.NativeProjectionTests
 import CasRuntime.NativeRecordConversionTests
+import CasRuntime.NotebookStagingTests
+import CasRuntime.ObjectApplicationTests
 import CasRuntime.OccurrenceTests
 import CasRuntime.OwnerTests
 import CasRuntime.PartialProjectionRouteTests

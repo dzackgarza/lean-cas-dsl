@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.SourceCarrier
+public import CasCompiler.RoutedMethodReturn
 public import CasCompiler.Layout
 public import CasCompiler.InputCoverage
 public import CasCompiler.FamilyConversion
@@ -26,6 +27,7 @@ structure RoutedMethodFamily where
   actions : Array Expr
   universeParams : List Name
   parameterCount : Nat
+  returns : Option RoutedMethodReturn := none
 
 /-- Generalize and canonically order the universes of one complete native source family.
 The input expressions remain closed together; no actual receiver or runtime data participates. -/
@@ -52,8 +54,8 @@ opaque closeRoutedUniverses (expressions : Array Expr) : MetaM (Array Expr × Li
 /-- Check a selected first-hit route and retain all its original native declaration applications.
 The formal receiver remains abstract while the result family is prepared. No registration,
 runtime value or equality of specialized receivers chooses this source family. -/
-opaque RoutedMethodFamily.forRoute (route : Route) (method : MethodEntry) :
-    MetaM RoutedMethodFamily := withLCtx {} #[] do
+private opaque routedMethodWithReturns (route : Route) (method : MethodEntry)
+    (returnRows : Array LiftEntry) (returning : Route) : MetaM RoutedMethodFamily := withLCtx {} #[] do
   let state ← semanticState
   let some registered := state.methods.find? (·.id == method.id)
     | throwError "the routed method is not registered"
@@ -70,7 +72,15 @@ opaque RoutedMethodFamily.forRoute (route : Route) (method : MethodEntry) :
   -- A validated identity route has no return leg. Its declared result already belongs
   -- to the source; nonidentity routes still require their actual selected lifting data.
   if method.returnsToSource && !route.refs.isEmpty then
-    throwUnsupportedSource "source method lifting requires its actual selected return data"
+    unless !returning.refs.isEmpty && returnRows.size == returning.refs.size do
+      throwUnsupportedSource "source method lifting requires its actual selected return data"
+    unless returning.source.syntacticEq route.source &&
+        returning.target.syntacticEq route.target &&
+        routes.any (fun selected => selected.refs == returning.refs &&
+          selected.target.syntacticEq returning.target) do
+      throwError "the selected method return route is not an original first-hit source route"
+  else unless returnRows.isEmpty do
+    throwError "the method has no declared return positions"
   let some entry := state.functor? method.functor
     | throwError "the source method has no registered functor"
   discard <| checkedDeclaration entry.declaration
@@ -78,7 +88,7 @@ opaque RoutedMethodFamily.forRoute (route : Route) (method : MethodEntry) :
   -- owner may have more universe parameters (for example the two ModuleCat levels), whose
   -- relations are determined only by the complete unapplied native functor boundary below.
   let categoryFamily ← nativeCategoryFamily state route.source fun _ => mkFreshLevelMVar
-  let (functorFamily, family, actions, count) ←
+  let (functorFamily, family, actions, returns, count) ←
       forallTelescopeReducing (← inferType categoryFamily) fun parameters _ => do
     let bundle := mkAppN categoryFamily parameters
     let selected ← nativeRouteFunctor state route bundle
@@ -114,15 +124,116 @@ opaque RoutedMethodFamily.forRoute (route : Route) (method : MethodEntry) :
         (usedOnly := false) (usedLetOnly := false)
     let close := fun term => mkLambdaFVars parameters term
       (usedOnly := false) (usedLetOnly := false)
-    return (← close complete, ← close callable, ← actions.mapM close, parameters.size)
+    let returns ← if returnRows.isEmpty then pure none else do
+      let returnSelected ← if returning.refs == route.refs then pure selected
+        else nativeRouteFunctor state returning bundle
+      let agreement ← if returning.refs == route.refs then pure none else do
+        let some proof ← methodReturnRouteAgreement? state route returning bundle
+          | throwSemanticAmbiguity "method return routes require whole-family equality"
+        unless ← isDefEq (← inferType proof)
+            (← mkEq (← instantiateMVars selected.functor)
+              (← instantiateMVars returnSelected.functor)) do
+          throwError "the method return agreement changed the actual transport"
+        pure (some proof)
+      let evidences ← (returnRows.zip (returning.refs.zip returnSelected.actions)).mapM
+        fun (row, edge, action) => methodReturnEvidence state row edge action
+      let (resultCategory, resultBundle) ← methodReturnCategory state route.source bundle
+      let resultFamily ← withLocalDeclD `methodReceiver sourceType fun receiver => do
+        let result ← applyMethodReturns returnRows evidences returnSelected.actions receiver
+          (mkApp callable receiver)
+        let result ← retainMethodReturnAgreement agreement result
+        unless ← isDefEq (← inferType result)
+            (← mkAppM ``CategoryTheory.Bundled.α #[resultBundle]) do
+          throwError "the returning method changed its complete selected result category"
+        mkLambdaFVars #[receiver] result (usedOnly := false) (usedLetOnly := false)
+      pure (some ({
+        route := returning
+        rows := returnRows
+        actions := ← returnSelected.actions.mapM close
+        agreement := ← agreement.mapM close
+        evidences := ← evidences.mapM close
+        category := resultCategory
+        categoryFamily := ← close resultBundle
+        resultFamily := ← close resultFamily } : RoutedMethodReturn))
+    return (← close complete, ← close callable, ← actions.mapM close, returns, parameters.size)
+  let returnExpressions := returns.toArray.flatMap fun returned =>
+    #[returned.categoryFamily, returned.resultFamily] ++ returned.evidences ++
+      returned.actions ++ returned.agreement.toArray
   let (expressions, universes) ← closeRoutedUniverses
-    (#[categoryFamily, functorFamily, family] ++ actions)
+    (#[categoryFamily, functorFamily, family] ++ actions ++ returnExpressions)
+  -- The return proofs are formed under the original category telescope.
+  -- Kernel checking occurs only after that telescope and every universe
+  -- metavariable have been closed, including the monicity and route proofs.
+  if returns.isSome then
+    for expression in expressions do checkWithKernel expression
+  let returns := returns.map fun returned =>
+    let start := 5 + actions.size
+    let afterEvidence := start + returned.evidences.size
+    let afterActions := afterEvidence + returned.actions.size
+    { returned with
+      categoryFamily := expressions[3 + actions.size]!
+      resultFamily := expressions[4 + actions.size]!
+      evidences := expressions.extract start afterEvidence
+      actions := expressions.extract afterEvidence afterActions
+      agreement := if returned.agreement.isSome then expressions[afterActions]? else none }
   return ⟨method, route, entry, expressions[0]!, expressions[1]!,
-    expressions[2]!, expressions.drop 3, universes, count⟩
+    expressions[2]!, expressions.extract 3 (3 + actions.size), universes, count, returns⟩
+
+/-- A route alone cannot invent its return data. Callers retaining those data
+use forRouteWithReturns; the original missing-data rejection remains unchanged. -/
+opaque RoutedMethodFamily.forRoute (route : Route) (method : MethodEntry) :
+    MetaM RoutedMethodFamily :=
+  routedMethodWithReturns route method #[] route
+
+/-- Form a whole returning family using these exact independently registered
+return rows, checked against every original native route action. -/
+opaque RoutedMethodFamily.forRouteWithReturns (route : Route) (method : MethodEntry)
+    (rows : Array LiftEntry) : MetaM RoutedMethodFamily :=
+  routedMethodWithReturns route method rows route
+
+/-- An explicitly supplied different return route must retain its actual lift rows
+and a checked equality of the complete transport families. -/
+opaque RoutedMethodFamily.forComparedReturn (route : Route) (method : MethodEntry)
+    (returning : Route) (rows : Array LiftEntry) : MetaM RoutedMethodFamily :=
+  routedMethodWithReturns route method rows returning
+
+def RoutedMethodFamily.returnIdentities (family : RoutedMethodFamily) : Array String :=
+  family.returns.toArray.flatMap fun returned => returned.rows.map (·.id.raw)
+
+def RoutedMethodFamily.resultCategory (family : RoutedMethodFamily) : CategoryExpr :=
+  family.returns.map (·.category) |>.getD family.functor.target
+
+def RoutedMethodFamily.comparisonFamily (family : RoutedMethodFamily) : Expr :=
+  family.returns.map (·.resultFamily) |>.getD family.functorFamily
+
+/-- Specialize the retained whole return plan at the actual source arguments.
+Each application allocates its own selected field identities; no receiver is
+used to choose a lift or to prove agreement between complete method families. -/
+def RoutedMethodFamily.resultAt (family : RoutedMethodFamily) (levels : List Level)
+    (parameters : Array Expr) (receiver forward : Expr) : MetaM (Expr × Expr) := do
+  unless levels.length == family.universeParams.length &&
+      parameters.size == family.parameterCount do
+    throwError "the returning method changed its complete native parameter telescope"
+  let specialize := fun expression =>
+    (mkAppN (expression.instantiateLevelParams family.universeParams levels) parameters).headBeta
+  match family.returns with
+  | none =>
+    let (_, target) ← functorCategoryBundles (specialize family.functorFamily)
+    return (forward, target)
+  | some returned =>
+    let result ← applyMethodReturns returned.rows (returned.evidences.map specialize)
+      (returned.actions.map specialize) receiver forward
+    let result ← retainMethodReturnAgreement (returned.agreement.map specialize) result
+    let bundle := specialize returned.categoryFamily
+    unless ← isDefEq (← inferType result)
+        (← mkAppM ``CategoryTheory.Bundled.α #[bundle]) do
+      throwError "the returning method changed its complete actual result category"
+    return (result, bundle)
 
 /-- Recover only an independently registered first-hit route from the retained source syntax. -/
 def RoutedMethodFamily.forSelection (source : CategoryExpr) (method : String)
-    (refs : Array EdgeRef) : MetaM RoutedMethodFamily := do
+    (refs : Array EdgeRef) (returnIds : Array String := #[])
+    (returnRefs : Option (Array EdgeRef) := none) : MetaM RoutedMethodFamily := do
   let some entry := (← semanticState).methods.find? (·.id.raw == method)
     | throwError "the selected routed method is absent from the source registry"
   let query ← SourceRoutes.forMethod source entry.name
@@ -131,7 +242,18 @@ def RoutedMethodFamily.forSelection (source : CategoryExpr) (method : String)
   let #[route] := routes.filter (fun route => route.refs == refs &&
       route.target.syntacticEq entry.owner)
     | throwError "the selected routed method lost its exact first-hit route"
-  RoutedMethodFamily.forRoute route entry
+  let state ← semanticState
+  let rows ← returnIds.mapM fun id => do
+    let #[row] := state.lifts.filter (·.id.raw == id)
+      | throwSemanticAmbiguity "the selected method return lost its exact registered identity"
+    pure row
+  match returnRefs with
+  | none => RoutedMethodFamily.forRouteWithReturns route entry rows
+  | some refs =>
+    let #[returning] := routes.filter (fun candidate => candidate.refs == refs &&
+        candidate.target.syntacticEq entry.owner)
+      | throwError "the selected method return lost its original route"
+    RoutedMethodFamily.forComparedReturn route entry returning rows
 
 /-- All independently read first-hit method families at the nominal source category. Provider
 availability and a particular receiver play no part in this source inventory. -/
@@ -145,23 +267,66 @@ def RoutedMethodFamily.atSource (source : CategoryExpr) (name : String) :
   for route in routes do
     for entry in state.methods do
       if entry.name == name && entry.owner.syntacticEq route.target then
-        families := families.push (← RoutedMethodFamily.forRoute route entry)
+        if entry.returnsToSource && !route.refs.isEmpty then
+          if let some alternatives := methodReturnRows? state route then
+            for rows in alternatives do
+              families := families.push (← RoutedMethodFamily.forRouteWithReturns route entry rows)
+          else
+            let category ← nativeCategoryFamily state source fun _ => mkFreshLevelMVar
+            let mut returned := false
+            for returning in routes do
+              unless returning.target.syntacticEq route.target do continue
+              let some alternatives := methodReturnRows? state returning | continue
+              let agrees ← withoutModifyingState <| forallTelescopeReducing (← inferType category) fun parameters _ => do
+                return (← methodReturnRouteAgreement? state route returning
+                  (mkAppN category parameters)).isSome
+              unless agrees do continue
+              for rows in alternatives do
+                families := families.push (← RoutedMethodFamily.forComparedReturn route entry returning rows)
+                returned := true
+            unless returned do
+              throwUnsupportedSource "source method lifting requires its actual selected return data"
+        else
+          families := families.push (← RoutedMethodFamily.forRoute route entry)
   return families
 
-/-- A complete family is usable only with the same source agreement required by ordinary
-method reading. Evidence consists solely of actual supplied proof terms. -/
-def RoutedMethodFamily.agreements (family : RoutedMethodFamily) (evidence : Array Expr) :
+/-- Compare the complete surviving source families before any receiver specialization.
+The caller supplies actual checked families; no equality of receiver images is an agreement. -/
+def RoutedMethodFamily.agreementsWith (family : RoutedMethodFamily)
+    (families : Array RoutedMethodFamily) (evidence : Array Expr) :
     MetaM (Array Expr) := do
-  let families ← RoutedMethodFamily.atSource family.route.source family.entry.name
   let mut proofs := #[]
   for other in families do
-    if other.entry.id == family.entry.id && other.route.refs == family.route.refs then continue
-    unless family.functor.target.syntacticEq other.functor.target do
+    unless family.route.source.syntacticEq other.route.source &&
+        family.entry.name == other.entry.name do
+      throwError "the compared method families have different source questions"
+    if other.entry.id == family.entry.id && other.route.refs == family.route.refs &&
+        other.returnIdentities == family.returnIdentities &&
+        other.returns.map (·.route.refs) == family.returns.map (·.route.refs) then continue
+    unless family.resultCategory.syntacticEq other.resultCategory do
       throwSemanticAmbiguity "method families have different complete result categories"
-    let some proof ← sourceFamilyConversion family.functorFamily other.functorFamily evidence
+    let some proof ← sourceFamilyConversion family.comparisonFamily other.comparisonFamily evidence
       | throwSemanticAmbiguity "inherited methods require their supplied whole-family agreement"
     proofs := proofs.push proof
   return proofs
+
+/-- Deferred native method calls use the same admitted route preference as source reading.
+A preference chooses an actual surviving route and asserts no equality with other routes;
+several entries on that route still require their whole native family agreement. -/
+def RoutedMethodFamily.agreements (family : RoutedMethodFamily) (evidence : Array Expr) :
+    MetaM (Array Expr) := do
+  let families ← RoutedMethodFamily.atSource family.route.source family.entry.name
+  let preferred ← preferredRoute? (← semanticState) family.route.source family.entry.name
+    (families.map (·.route))
+  let surviving := match preferred with
+    | none => families
+    | some route => families.filter (·.route.refs == route.refs)
+  unless surviving.any (fun other => other.entry.id == family.entry.id &&
+      other.route.refs == family.route.refs &&
+      other.returnIdentities == family.returnIdentities &&
+      other.returns.map (·.route.refs) == family.returns.map (·.route.refs)) do
+    throwStratum .invalid "the selected method does not use its declared preferred route"
+  family.agreementsWith surviving evidence
 
 def RoutedMethodFamily.instantiate (family : RoutedMethodFamily) : MetaM (Expr × List Level) := do
   let levels ← family.universeParams.mapM fun _ => mkFreshLevelMVar
@@ -174,7 +339,10 @@ def RoutedMethodFamily.mark (family : RoutedMethodFamily) (applied : Expr) : Exp
     |>.setName `CasCompiler.source.kind ``RoutedMethodFamily
     |>.setString `CasCompiler.source.id family.entry.id.raw
     |>.setString `CasCompiler.source.methodSource (toJson family.route.source).compress
-    |>.setString `CasCompiler.source.methodRoute (toJson family.route.refs).compress) applied
+    |>.setString `CasCompiler.source.methodRoute (toJson family.route.refs).compress
+    |>.setString `CasCompiler.source.methodReturns (toJson family.returnIdentities).compress
+    |>.setString `CasCompiler.source.methodReturnRoute
+      (toJson (family.returns.map (·.route.refs))).compress) applied
 
 /-- Retain complete actual action inputs of a deferred call as typed native source data.
 Function.const leaves the mathematical method application unchanged; metadata contains only
@@ -218,7 +386,15 @@ def RoutedMethodFamily.fromMark (data : MData) : MetaM RoutedMethodFamily := do
     (fromJson? (α := CategoryExpr))).mapError IO.userError
   let route ← IO.ofExcept <| ((Json.parse (data.getString `CasCompiler.source.methodRoute)).bind
     (fromJson? (α := Array EdgeRef))).mapError IO.userError
-  RoutedMethodFamily.forSelection source (data.getString `CasCompiler.source.id) route
+  let encodedReturns := data.getString `CasCompiler.source.methodReturns
+  let returns ← if encodedReturns.isEmpty then pure #[] else
+    IO.ofExcept <| ((Json.parse encodedReturns).bind
+      (fromJson? (α := Array String))).mapError IO.userError
+  let encodedReturnRoute := data.getString `CasCompiler.source.methodReturnRoute
+  let returning ← if encodedReturnRoute.isEmpty then pure none else
+    IO.ofExcept <| ((Json.parse encodedReturnRoute).bind
+      (fromJson? (α := Option (Array EdgeRef)))).mapError IO.userError
+  RoutedMethodFamily.forSelection source (data.getString `CasCompiler.source.id) route returns returning
 
 /-- Specialize the same complete actions in their original source order, including the final
 registered method functor. Only native beta substitution is performed. -/

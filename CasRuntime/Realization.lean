@@ -29,6 +29,7 @@ inductive ProfileTarget
   | lift (id : LiftId)
   | presentation (id : NaturalTransformationId)
   | property (id : PropertyId)
+  | application (id : ObjectId)
   deriving DecidableEq, Repr
 
 private structure ProfileRule where
@@ -63,6 +64,7 @@ private def targetJson : ProfileTarget → Json
   | .lift id => Json.mkObj [("kind", toJson "lift"), ("id", toJson id.raw)]
   | .presentation id => Json.mkObj [("kind", toJson "presentation"), ("id", toJson id.raw)]
   | .property id => Json.mkObj [("kind", toJson "property"), ("id", toJson id.raw)]
+  | .application id => Json.mkObj [("kind", toJson "application"), ("id", toJson id.raw)]
 
 private def parseTarget (json : Json) : Except String ProfileTarget := do
   fields #["kind", "id"] json
@@ -76,6 +78,7 @@ private def parseTarget (json : Json) : Except String ProfileTarget := do
   | "lift" => return .lift ⟨id⟩
   | "presentation" => return .presentation ⟨id⟩
   | "property" => return .property ⟨id⟩
+  | "application" => return .application ⟨id⟩
   | _ => throw "realization profile: unknown availability target kind"
 
 /-- A registration's record: its triple, and its declared preferred routes when it has any
@@ -173,6 +176,7 @@ private def ProfileTarget.containsAddress (target : ProfileTarget) (state : Sema
   | .lift id => (publishedLift? state address).any (·.1.id == id)
   | .presentation id => (publishedPresentation? state address).any (·.id == id)
   | .property id => (publishedProperty? state address).any (·.id == id)
+  | .application id => (publishedApplication? state address).any (·.id == id)
 
 /-- Validate exact published targets, installed triples and checked target-specific derivations.
 Normalize set order once and retain the SHA-256 of that immutable configuration.
@@ -196,6 +200,11 @@ opaque RealizationProfile.prepare (manifest : Manifest) (configuration : Option 
     | .property id =>
       unless (publishedProperty? state id.raw).isSome do
         throwError "realization profile: unregistered property {id.raw}"
+    | .application id =>
+      unless (publishedApplication? state s!"{id.raw}#application").isSome do
+        throwError "realization profile: unregistered object application {id.raw}"
+      if applicationAddressConflict state s!"{id.raw}#application" then
+        throwError "realization profile: the application address also names another registered row"
     if let .only entries := rule.primitives then
       for entry in entries do
         unless manifest.registrations.contains entry do

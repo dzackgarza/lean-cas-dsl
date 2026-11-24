@@ -18,4 +18,5 @@ public import CasCatalogue.Resolve
 public import CasCatalogue.ResolveSyntax
 public import CasCatalogue.Semantic
 public import CasCatalogue.TestSuite
+public import CasCatalogue.NotebookSession
 public import CasCatalogue.Trace

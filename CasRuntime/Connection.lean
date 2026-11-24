@@ -211,6 +211,30 @@ opaque RequestLease.cancel (lease : RequestLease) : BaseIO Unit :=
       set { state with requests := state.requests.insert lease.requestId { status := .abandoned } }
     | _ => pure ()
 
+/-- Only this request's live frame or pending disposal authorizes force.
+The check and wire revocation are atomic, so a later request cannot enter the
+connection between the check and the actual owner revocation. -/
+private def RequestLease.needsDrain (lease : RequestLease) (state : FramedState) : Bool :=
+  if state.closed then false else
+    match state.requests[lease.requestId]? with
+    | some resource => (resource.status matches .sent | .draining | .discardQueued | .discarding)
+    | none => false
+
+opaque RequestLease.draining (lease : RequestLease) : BaseIO Bool :=
+  lease.wire.state.atomically do
+    return lease.needsDrain (← get)
+
+opaque RequestLease.force (lease : RequestLease) : IO (Option ConnectionGeneration) := do
+  let closing ← lease.wire.state.atomically do
+    let state ← get
+    unless lease.needsDrain state do return false
+    set { state with closed := true }
+    return true
+  unless closing do return none
+  if ← lease.wire.owners.revoke lease.owner then
+    return some lease.owner
+  return none
+
 opaque RequestLease.canCommit (lease : RequestLease) : BaseIO Bool :=
   lease.wire.state.atomically do
     let some resource := (← get).requests[lease.requestId]? | return false

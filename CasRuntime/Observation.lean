@@ -109,6 +109,18 @@ def boundaryJson (boundary : ProgramBoundary) : StateM NativeExpression.Builder 
       ("familyType", toJson (← NativeExpression.Builder.add family.familyType)),
       ("forwardPath", namesJson family.forwardPath), ("inversePath", namesJson family.inversePath)]
   | .routedMethod family =>
+    let returning ← family.returns.mapM fun returned => do
+      return Json.mkObj [
+        ("route", Json.mkObj [("source", toJson (reprStr returned.route.source)),
+          ("target", toJson (reprStr returned.route.target)),
+          ("refs", toJson (reprStr returned.route.refs))]),
+        ("rows", toJson (returned.rows.map fun row => row.id.raw)),
+        ("category", toJson (reprStr returned.category)),
+        ("categoryFamily", toJson (← NativeExpression.Builder.add returned.categoryFamily)),
+        ("resultFamily", toJson (← NativeExpression.Builder.add returned.resultFamily)),
+        ("actions", toJson (← returned.actions.mapM NativeExpression.Builder.add)),
+        ("evidences", toJson (← returned.evidences.mapM NativeExpression.Builder.add)),
+        ("agreement", toJson (← returned.agreement.mapM NativeExpression.Builder.add))]
     return Json.mkObj [("kind", toJson "routedMethod"),
       ("entry", toJson (reprStr family.entry)), ("functor", toJson (reprStr family.functor)),
       ("route", Json.mkObj [("source", toJson (reprStr family.route.source)),
@@ -119,7 +131,8 @@ def boundaryJson (boundary : ProgramBoundary) : StateM NativeExpression.Builder 
       ("categoryFamily", toJson (← NativeExpression.Builder.add family.categoryFamily)),
       ("functorFamily", toJson (← NativeExpression.Builder.add family.functorFamily)),
       ("family", toJson (← NativeExpression.Builder.add family.family)),
-      ("actions", toJson (← family.actions.mapM NativeExpression.Builder.add))]
+      ("actions", toJson (← family.actions.mapM NativeExpression.Builder.add)),
+      ("return", toJson returning)]
   | .property family =>
     return Json.mkObj [("kind", toJson "property"),
       ("entry", toJson (reprStr family.entry)), ("classifier", toJson (reprStr family.classifier)),
@@ -131,6 +144,18 @@ def boundaryJson (boundary : ProgramBoundary) : StateM NativeExpression.Builder 
       ("categoryFamily", toJson (← NativeExpression.Builder.add family.categoryFamily)),
       ("family", toJson (← NativeExpression.Builder.add family.family)),
       ("actions", toJson (← family.actions.mapM NativeExpression.Builder.add))]
+  | .application family =>
+    let owner := match family.owner with
+      | .morphism entry => Json.mkObj [("kind", toJson "morphism"), ("entry", toJson (reprStr entry))]
+      | .application entry => Json.mkObj [("kind", toJson "application"), ("entry", toJson (reprStr entry))]
+    return Json.mkObj [("kind", toJson "application"), ("owner", owner),
+      ("operation", toJson family.operation),
+      ("declaration", NativeExpression.nameJson family.declaration),
+      ("category", toJson (reprStr family.category)),
+      ("universeParams", namesJson family.universeParams.toArray),
+      ("family", toJson (← NativeExpression.Builder.add family.family)),
+      ("familyType", toJson (← NativeExpression.Builder.add family.familyType)),
+      ("path", namesJson family.path)]
 
 def fieldJson (field : FieldLayout) : StateM NativeExpression.Builder Json := do
   return Json.mkObj [("address", namesJson field.address),
