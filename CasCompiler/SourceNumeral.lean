@@ -453,30 +453,7 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
         return (← numeralCandidate row context number expected proofs).isSome
       if applicable then admitted := admitted.push (row, context)
   let some (row, context) := admitted[0]?
-    | do
-      let rec outline : Nat → Expr → String
-        | 0, _ => "…"
-        | fuel + 1, expression =>
-          match expression with
-          | .mdata data body => s!"mdata(type={!(data.getString `CasCompiler.source.typeOrigin).isEmpty},object={!(data.getString `CasCompiler.source.objectOrigin).isEmpty},kind={data.getName `CasCompiler.source.kind};{outline fuel body})"
-          | .app .. =>
-            if expression.isAppOfArity ``Function.const 4 then
-              s!"const(result={outline fuel expression.getAppArgs[2]!};payload={outline fuel expression.getAppArgs[3]!})"
-            else s!"app({expression.getAppFn.constName?.getD Name.anonymous};{expression.getAppNumArgs};{String.intercalate "," ((expression.getAppArgs.take 3).map (outline fuel)).toList})"
-          | .proj name index parent => s!"proj({name},{index};{outline fuel parent})"
-          | .fvar id => s!"fvar({id.name})"
-          | .const name _ => s!"const({name})"
-          | .sort _ => "sort"
-          | .lam _ _ _ _ => "lambda"
-          | .forallE _ _ _ _ => "forall"
-          | .letE _ _ value body _ => s!"let({outline fuel value};{outline fuel body})"
-          | .mvar id => s!"mvar({id.name})"
-          | .bvar index => s!"bvar({index})"
-          | .lit .. => "literal"
-      dbg_trace "[coordinate.numeral] n={number} bases={bases.map (·.id.raw)} owners={owners.map (fun owner => (toJson owner.category.expression).compress)} candidates={candidates.size} carrierRefinements={carrierRefinements.size}"
-      dbg_trace "[coordinate.numeral] expected={outline 5 expected}"
-      dbg_trace "[coordinate.numeral] domain={outline 4 domain}"
-      return ← sourceNullaryNumeral state ownerFamilies number expected proofs
+    | return ← sourceNullaryNumeral state ownerFamilies number expected proofs
   let context ← if admitted.size == 1 then pure context else do
     let .selected first := context
       | throwSemanticAmbiguity "several declared source point numerals apply in this domain"

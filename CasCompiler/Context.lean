@@ -45,6 +45,29 @@ structure ContextTelescope where
   entries : Array ContextEntry
   instances : Array ContextInstance
 
+/-- Compare every captured declaration and selected instance without native conversion.
+This is an exact closed-context check: binder names, annotations and source metadata count.
+It only permits reuse of data that is already checked in that same complete telescope. -/
+opaque ContextTelescope.exactlyMatches (left right : ContextTelescope) : Bool := Id.run do
+  unless left.entries.size == right.entries.size &&
+      left.instances.size == right.instances.size do
+    return false
+  for first in left.entries, second in right.entries do
+    unless first.id == second.id && first.role == second.role &&
+        first.userName == second.userName && first.binderInfo == second.binderInfo &&
+        first.kind == second.kind && first.nondep == second.nondep &&
+        first.type.equal second.type do
+      return false
+    match first.value, second.value with
+    | none, none => pure ()
+    | some original, some current =>
+      unless original.equal current do return false
+    | _, _ => return false
+  for first in left.instances, second in right.instances do
+    unless first.className == second.className && first.binding == second.binding do
+      return false
+  return true
+
 structure OpenContext where
   private mk ::
   telescope : ContextTelescope

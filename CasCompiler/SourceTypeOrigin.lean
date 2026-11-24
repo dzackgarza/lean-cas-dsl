@@ -161,12 +161,6 @@ private partial def sourceOwnerOrigin? (key : Name) (value : Expr) :
     | none => pure none
   | _ => pure none
 
-/-- Read only the typed carrier provenance emitted by annotateSourceType.
-Aliases follow their retained native definitions; source syntax is never replayed. -/
-opaque sourceTypeOrigin? (type : Expr) : MetaM (Option NativeSourceTypeOrigin) := do
-  return (← sourceOwnerOrigin? `CasCompiler.source.typeOrigin type).map fun
-    (category, object, type) => ⟨category, object, type⟩
-
 /-- Read only a parameter's explicit source mark. Equal-valued objects cannot replace the
 original occurrence carried by that mark; the consumer still checks its whole carrier family. -/
 opaque sourceObjectOrigin? (value : Expr) : MetaM (Option (NativeSourceCategory × Expr)) := do
@@ -175,6 +169,22 @@ opaque sourceObjectOrigin? (value : Expr) : MetaM (Option (NativeSourceCategory 
   unless object == body do
     throwError "the source object provenance changed its original parameter"
   return some (category, object)
+
+-- An object supplied as a native type parameter may carry its own explicit owner
+-- envelope around a previously selected carrier type. Consume only that checked
+-- envelope's original object, then read the inner carrier provenance unchanged.
+private partial def sourceTypeOriginCore? (type : Expr) :
+    MetaM (Option NativeSourceTypeOrigin) := do
+  if let some (category, object, body) ← sourceOwnerOrigin? `CasCompiler.source.typeOrigin type then
+    return some ⟨category, object, body⟩
+  let some (_, object) ← sourceObjectOrigin? type | return none
+  sourceTypeOriginCore? object
+
+/-- Read the typed carrier provenance emitted by annotateSourceType, including through
+validated object-argument envelopes. Aliases follow their retained native definitions;
+no owner is inferred from a reduced carrier or a convertible object. -/
+opaque sourceTypeOrigin? (type : Expr) : MetaM (Option NativeSourceTypeOrigin) :=
+  sourceTypeOriginCore? type
 
 -- Typeclass inference sees the unchanged native objects inside typed owner envelopes.
 -- The source expression is not rewritten: fvars and every other metadata key stay intact.

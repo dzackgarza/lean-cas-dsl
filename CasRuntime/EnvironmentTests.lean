@@ -638,3 +638,107 @@ run_cmd Lean.Elab.Command.liftTermElabM do
                   else
                     unless (← failure.toMessageData.toString).startsWith
                         "the runtime value has a different retained dependent reference" do throw failure
+
+-- Origin reuse preserves the actual captured scope; a changed scope still uses native transport.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let owners ← liftM (m := IO) OwnerRegistry.new
+  let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+  let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+  let empty ← ContextTelescope.capture #[]
+  let scalar ← SourceLayout.ofTerm (← empty.close (mkNatLit 7))
+  let (graph, originalNumber) ← liftM (m := IO) <|
+    (ValueGraph.empty owners.identities).stage owners.identities
+      { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
+  let (graph, otherNumber) ← liftM (m := IO) <| graph.stage owners.identities
+    { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
+  let scalarId : BindingId := ⟨"origin-transport", 0⟩
+  let .ok supplied := RuntimeParameter.ofValue graph scalarId originalNumber
+    | throwError "the original transport parameter is absent"
+  let .ok originalArgument := RuntimeArgument.ofValue graph 0 originalNumber
+    | throwError "the original transport argument is absent"
+  let .ok otherArgument := RuntimeArgument.ofValue graph 0 otherNumber
+    | throwError "the equal other transport argument is absent"
+  let nat := mkConst ``Nat
+  let instanceType := mkApp (mkConst ``Inhabited [.zero]) nat
+  let functionType ← mkArrow nat nat
+  let prepare (typeMarker valueMarker : Nat) (binderName : Name)
+      (annotation : BinderInfo) (reverseInstances extended : Bool) :
+      MetaM (RuntimeEnvironment × SourceLayout) :=
+    withLCtx {} #[] <|
+      withLocalDeclD `n (.mdata (KVMap.empty.setNat `control.originType typeMarker) nat) fun n =>
+        withLocalDeclD `first instanceType fun first =>
+          withLocalDeclD `second instanceType fun second =>
+            withLetDecl `identity functionType
+                (.mdata (KVMap.empty.setNat `control.originValue valueMarker)
+                  (.lam binderName nat (mkBVar 0) annotation)) fun identity => do
+              let bindings : Array LocalBinding := #[
+                { id := scalarId, role := .parameter, expression := n },
+                { id := ⟨"origin-transport", 1⟩, role := .instance, expression := first },
+                { id := ⟨"origin-transport", 2⟩, role := .instance, expression := second },
+                { id := ⟨"origin-transport", 3⟩, role := .definition, expression := identity }]
+              let selected : LocalInstances := if reverseInstances then
+                  #[⟨``Inhabited, second⟩, ⟨``Inhabited, first⟩]
+                else #[⟨``Inhabited, first⟩, ⟨``Inhabited, second⟩]
+              let finish (bindings : Array LocalBinding) :
+                  MetaM (RuntimeEnvironment × SourceLayout) := do
+                let context ← ContextTelescope.capture bindings
+                let environment ← RuntimeEnvironment.capture owners.worker context #[supplied]
+                let role ← SourceLayout.ofTerm (← context.close n)
+                return (environment, role)
+              withLCtx (← getLCtx) selected do
+                if extended then
+                  withLocalDeclD `later nat fun later =>
+                    finish (bindings.push {
+                      id := ⟨"origin-transport", 4⟩, role := .parameter, expression := later })
+                else finish bindings
+  let (_, originalRole) ← prepare 0 0 `original .default false false
+  let cases : Array (Nat × Nat × Name × BinderInfo × Bool × Bool) := #[
+    (0, 0, `original, .default, false, false),
+    (1, 0, `original, .default, false, false),
+    (0, 1, `original, .default, false, false),
+    (0, 0, `renamed, .implicit, false, false),
+    (0, 0, `original, .default, true, false),
+    (0, 0, `original, .default, false, true)]
+  for (typeMarker, valueMarker, binderName, annotation, reverseInstances, extended) in cases do
+    let (environment, targetRole) ←
+      prepare typeMarker valueMarker binderName annotation reverseInstances extended
+    let produced ← environment.origin program occurrence originalRole
+    unless produced.role.source.expression.equal targetRole.source.expression &&
+        produced.role.source.type.equal targetRole.source.type &&
+        produced.parameters.size == (if extended then 5 else 4) do
+      throwError "origin preparation did not transport into the complete actual target scope"
+    let some (some original) := produced.parameters[0]?
+      | throwError "origin preparation dropped its original actual parameter"
+    unless original.value == originalNumber.value &&
+        original.associationIds == originalNumber.associationIds &&
+        (produced.parameters.extract 1 produced.parameters.size).all Option.isNone do
+      throwError "origin preparation replaced or invented a captured runtime argument"
+    produced.role.source.withOpen fun bindings expression => do
+      unless expression == bindings[0]!.expression && bindings[0]!.id == scalarId &&
+          bindings.size == (if extended then 5 else 4) do
+        throwError "origin transport changed the original source binding or declaration order"
+      let scalarDecl ← getFVarLocalDecl bindings[0]!.expression
+      unless scalarDecl.type.equal
+          (.mdata (KVMap.empty.setNat `control.originType typeMarker) nat) do
+        throwError "origin transport kept obsolete source type metadata"
+      let identityDecl ← getFVarLocalDecl bindings[3]!.expression
+      let some definition := identityDecl.value? true
+        | throwError "origin transport changed its original definition into a parameter"
+      unless definition.equal
+          (.mdata (KVMap.empty.setNat `control.originValue valueMarker)
+            (.lam binderName nat (mkBVar 0) annotation)) do
+        throwError "origin transport discarded source definition metadata or binder annotations"
+      let expectedInstances := if reverseInstances then
+          #[bindings[2]!.expression, bindings[1]!.expression]
+        else #[bindings[1]!.expression, bindings[2]!.expression]
+      unless (← getLocalInstances).map (·.fvar) == expectedInstances do
+        throwError "origin transport retained an obsolete local-instance selection"
+    discard <| environment.checkArgument produced.role.source originalArgument
+    let failure : Option Exception ← try
+      discard <| environment.checkArgument produced.role.source otherArgument
+      pure none
+    catch error => pure (some error)
+    let some failure := failure
+      | throwError "origin transport admitted the distinct equal-valued source argument"
+    unless failure.toMessageData.hasTag
+        (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do throw failure

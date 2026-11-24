@@ -824,6 +824,8 @@ opaque RuntimeEnvironment.origin (environment : RuntimeEnvironment)
     (role : SourceLayout) : MetaM ValueOrigin := do
   unless program.worker == environment.worker && occurrence.worker == environment.worker do
     throwError "the producing runtime context belongs to a different worker"
+  if role.source.context.exactlyMatches environment.context then
+    return { program, occurrence, role, parameters := environment.values }
   environment.context.withOpen fun bindings => do
     let context ← ContextTelescope.capture bindings
     let role ← role.inContext context
