@@ -236,7 +236,7 @@ associations. The isolated draft remains unpublished until the complete result i
 Reuse: RecordPrefix, whole-result associateResult and the sealed input-result admission check. -/
 def ResolvedInputResult.assemble (resolved : ResolvedInputResult request)
     (transaction : CellTransaction) : MetaM (CellDraft × InputResultCompletion request) := do
-  let traced := request.source.source.expression.containsConst (· == `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)
+  let traced := (request.source.source.expression.find? (·.isConstOf `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
   let draft ← transaction.draft
   if traced then dbg_trace "[inclusion.stage] assembly {repr request.occurrence}: before raw tree"
   let (draft, value) ← assembleInputResult request request.source transaction.owners.identities

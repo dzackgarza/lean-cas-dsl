@@ -95,7 +95,7 @@ private def prepareRequest (identities : CasRuntime.IdentitySupply)
     discard <| binding.role.source.inContext context
   if source.kind == .proof then
     throwError "a source proof has no computational response positions"
-  let traced := source.source.expression.containsConst (· == `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)
+  let traced := (source.source.expression.find? (·.isConstOf `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
   if traced then dbg_trace "[inclusion.stage] request {repr occurrence}: before origin"
   let origin ← environment.origin program occurrence source
   if traced then dbg_trace "[inclusion.stage] request {repr occurrence}: after origin"
@@ -195,7 +195,7 @@ opaque PreparedRequest.forBoundary (identities : CasRuntime.IdentitySupply)
   let universeArguments ← universeArguments.mapM instantiateLevelMVars
   if universeArguments.any (·.hasMVar) then
     throwError "request preparation requires resolved universe arguments"
-  let traced := boundary.family.containsConst (· == `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)
+  let traced := (boundary.family.find? (·.isConstOf `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
   if traced then dbg_trace "[inclusion.stage] primitive {repr occurrence}: before family layout"
   let family ← withLCtx {} #[] do
     let empty ← ContextTelescope.capture #[]
@@ -284,7 +284,7 @@ private def prepareProjection (identities : CasRuntime.IdentitySupply)
     (graph : CasRuntime.ValueGraph)
     (operand : CasRuntime.ValueBinding) (path : Array Name)
     (parameters : Array CasRuntime.RuntimeParameter) : MetaM PreparedRequest := do
-  let traced := operand.role.source.expression.containsConst (· == `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)
+  let traced := (operand.role.source.expression.find? (·.isConstOf `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
   if traced then dbg_trace "[inclusion.stage] projection {repr occurrence} {repr path}: before layout"
   let mut layout := operand.role
   let mut selected : Option FieldLayout := none
@@ -354,7 +354,7 @@ opaque PreparedRequest.forApplication (identities : CasRuntime.IdentitySupply)
   unless callable.role.kind == .function do
     throwError "the retained value has no prepared callable interface"
   if arguments.isEmpty then throwError "callable application requires a source argument"
-  let traced := callable.role.source.expression.containsConst (· == `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)
+  let traced := (callable.role.source.expression.find? (·.isConstOf `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
   if traced then dbg_trace "[inclusion.stage] application {repr occurrence}: before layout"
   let (source, application) ← ApplicationLayout.ofSource callable.role context arguments
   if traced then dbg_trace "[inclusion.stage] application {repr occurrence}: before environment"

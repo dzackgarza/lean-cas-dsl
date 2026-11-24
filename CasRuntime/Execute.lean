@@ -19,7 +19,7 @@ private def requireAvailable (transaction : CellTransaction) (graph : ValueGraph
 private def retainResponse (request : PreparedRequest) (transaction : CellTransaction)
     (binding : ValueBinding) : MetaM (PreparedResponse request) := do
   let graph ← transaction.view
-  let traced := request.source.source.expression.containsConst (· == `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)
+  let traced := (request.source.source.expression.find? (·.isConstOf `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
   if traced then dbg_trace "[inclusion.stage] retain {repr request.occurrence}: before result admission"
   let candidate ← request.admitResult graph binding
   if traced then dbg_trace "[inclusion.stage] retain {repr request.occurrence}: result admitted"
@@ -79,7 +79,7 @@ private def executeDemand
   | .ok .producer => pure ()
   requireFresh request transaction
   let graph ← transaction.view
-  let traced := request.source.source.expression.containsConst (· == `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)
+  let traced := (request.source.source.expression.find? (·.isConstOf `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
   if traced then dbg_trace "[inclusion.stage] execute {repr request.occurrence}: before input plan"
   if let some plan ← request.inputResultPlan graph then
     if traced then dbg_trace "[inclusion.stage] execute {repr request.occurrence}: before input resolution"

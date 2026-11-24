@@ -326,7 +326,7 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
         | none => expression
       | _ => expression
     if let some projection ← SourceProjection.ofExpr? projectionSource then
-      let traced := expression.containsConst (· == `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)
+      let traced := (expression.find? (·.isConstOf `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
       if traced then dbg_trace "[inclusion.stage] lower projection {projection.declaration}: before environment"
       let frame ← read
       let environment ← RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
