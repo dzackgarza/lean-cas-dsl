@@ -290,7 +290,25 @@ def sourceFormalProof (evidence : Term) (proposition : Expr) : TermElabM Expr :=
   withRef evidence do
     unless ← isProp proposition do
       throwError "a formal proof requires a source proposition"
-    withSynthesize <| elabTermEnsuringType evidence (some proposition)
+    withSynthesize do
+      let proof ← elabTerm evidence (some proposition)
+      if ← isDefEq (← inferType proof) proposition then return proof
+      -- Preserve native expected-type elaboration and coercions. Only an explicit
+      -- native no-coercion result identifies a rejected proof obligation.
+      -- Reuse: Lean.Elab.Term.ensureHasType / mkCoe at the pinned Lean version.
+      match ← coerceCollectingNames? proof proposition with
+      | .some (coerced, expandedCoeDecls) =>
+        pushInfoLeaf (.ofCustomInfo {
+          stx := ← getRef
+          value := Dynamic.mk (CoeExpansionTrace.mk expandedCoeDecls)
+        })
+        return coerced
+      | .none =>
+        throwError (MessageData.tagged `CasCompiler.sourceFormalProof.typeMismatch
+          (← mkTypeMismatchError none proof (← inferType proof) proposition))
+      | .undef =>
+        -- Pending native coercions retain the ordinary synthesis/error lifecycle.
+        ensureHasType (some proposition) proof
 
 /-- Check an explicitly supplied source proof at an independently prepared proposition.
 Reuse: native expected-type elaboration and stable-ID context transport. The source hypothesis

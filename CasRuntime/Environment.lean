@@ -646,7 +646,8 @@ opaque RuntimeEnvironment.checkArgument (environment : RuntimeEnvironment) (sour
     unless ← environment.retainsSourceReference context argument.graph argument.marks
         specified argument.value do
       trace[cas.environment] "argument {argument.index}: {specified}; retained source {← argument.value.role.source.inContext context}"
-      throwError "the runtime argument does not retain its specified source value"
+      throwError (MessageData.tagged `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch
+        "the runtime argument does not retain its specified source value")
     let role ← SourceLayout.ofTerm (← context.close specified)
     let .ok value := argument.value.withRole role
       | throwError "the source argument has no computational runtime role"

@@ -229,7 +229,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         let otherIso := mkApp head otherSource
         let firstEnds ← family.endpoints firstIso
         let otherEnds ← family.endpoints otherIso
-        let prepareEnds := fun (ends : Expr × Expr) => do
+        let prepareEnds (ends : Expr × Expr) : MetaM (MetaM PreparedRequest) := do
           let source ← kernel.run transaction context {} ends.1
           let target ← kernel.run transaction context {} ends.2
           let graph ← transaction.view
@@ -240,18 +240,25 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             | throwError "the original comparison source is outside its graph"
           let .ok targetArgument := RuntimeArgument.ofValue graph 1 target marks
             | throwError "the original comparison target is outside its graph"
-          PreparedRequest.forPresentation owners.identities (← owners.identities.fresh .program)
-            (← kernel.ledger.allocate) family (← levels.mapM instantiateLevelMVars) context
-            #[← context.close firstSource] #[parameter]
-            #[← context.close ends.1, ← context.close ends.2]
-            #[sourceArgument, targetArgument] #[] graph marks
-        discard <| prepareEnds firstEnds
-        let rejected ← try
-          discard <| prepareEnds otherEnds
-          pure false
-        catch _ => pure true
-        unless rejected do
-          throwError "the presentation accepted endpoint descriptors with another equal parameter node"
+          let program ← owners.identities.fresh .program
+          let occurrence ← kernel.ledger.allocate
+          let universes ← levels.mapM instantiateLevelMVars
+          let parameterSources := #[← context.close firstSource]
+          let endpointSources := #[← context.close ends.1, ← context.close ends.2]
+          return PreparedRequest.forPresentation owners.identities program
+            occurrence family universes context parameterSources #[parameter]
+            endpointSources #[sourceArgument, targetArgument] #[] graph marks
+        let firstRequest ← prepareEnds firstEnds
+        discard firstRequest
+        let otherRequest ← prepareEnds otherEnds
+        let failure : Option Exception ← try
+          discard otherRequest
+          pure none
+        catch error => pure (some error)
+        let some failure := failure
+          | throwError "the presentation accepted endpoint descriptors with another equal parameter node"
+        unless failure.toMessageData.hasTag
+            (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do throw failure
         unless (← kernel.dispatches.get).isEmpty do
           throwError "the parameter identity control dispatched a comparison"
       finally discard <| transaction.abort

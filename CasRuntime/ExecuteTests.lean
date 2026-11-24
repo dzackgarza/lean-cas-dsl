@@ -494,8 +494,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         catch error => pure (some error)
         let some failure := failure
           | throwError "an equal field from a different record satisfied the selected projection"
-        unless (← failure.toMessageData.toString).startsWith
-            "the runtime argument does not retain its specified source value" do throw failure
+        unless failure.toMessageData.hasTag
+            (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do throw failure
         let repackedSource ← mkAppM ``Prod.mk #[← mkProjection r `fst, mkNatLit 7]
         let repackedRole ← SourceLayout.ofTerm (← context.close repackedSource)
         let repackedOrigin ← environment.origin program (← ledger.allocate) repackedRole
@@ -522,8 +522,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         catch error => pure (some error)
         let some failure := failure
           | throwError "an equal field at another path satisfied the selected projection"
-        unless (← failure.toMessageData.toString).startsWith
-            "the runtime argument does not retain its specified source value" do throw failure
+        unless failure.toMessageData.hasTag
+            (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do throw failure
         withLetDecl `projected (mkConst ``Nat) (← mkProjection r `fst) fun projected => do
           let aliasBinding : LocalBinding :=
             { id := ⟨"projection-input", 2⟩, role := .definition, expression := projected }
@@ -544,8 +544,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           catch error => pure (some error)
           let some failure := failure
             | throwError "a projected alias accepted a value without its consuming associations"
-          unless (← failure.toMessageData.toString).startsWith
-              "the runtime argument does not retain its specified source value" do throw failure
+          unless failure.toMessageData.hasTag
+              (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do throw failure
         let marks ← liftM (m := IO) <| IO.mkRef (#[] : Array ValueBinding)
         let markedParent ← markValue marks first pair
         let markedSource ← context.close (← mkProjection markedParent `fst)
@@ -561,8 +561,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         catch error => pure (some error)
         let some failure := failure
           | throwError "an equal unnamed parent replaced the explicitly marked occurrence"
-        unless (← failure.toMessageData.toString).startsWith
-            "the runtime argument does not retain its specified source value" do throw failure
+        unless failure.toMessageData.hasTag
+            (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do throw failure
         let relabelled ← context.close (← markValue marks second r)
         let .ok relabelledArgument := RuntimeArgument.ofValue graph 0 second (← marks.get)
           | throwError "the relabelled record is outside the graph"
@@ -572,8 +572,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         catch error => pure (some error)
         let some failure := failure
           | throwError "an occurrence mark bypassed the original source binder"
-        unless (← failure.toMessageData.toString).startsWith
-            "the runtime argument does not retain its specified source value" do throw failure
+        unless failure.toMessageData.hasTag
+            (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do throw failure
         let .ok _ ← transaction.commit | throwError "the selected projections could not commit"
   finally setEnv original
 
@@ -1085,8 +1085,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       | false, none =>
         throwError "a projection access dropped a required parent association"
       | false, some error =>
-        unless (← error.toMessageData.toString).startsWith
-            "the runtime argument does not retain its specified source value" do throw error
+        unless error.toMessageData.hasTag
+            (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do throw error
     let (graph, parentA) ← parentView graph
     let (graph, parentB) ← parentView graph
     unless originalParent.value == parentA.value && parentA.value == parentB.value &&

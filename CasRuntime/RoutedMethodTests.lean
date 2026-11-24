@@ -606,8 +606,8 @@ run_cmd liftTermElabM do
             catch error => pure (some error)
             let some changedFailure := changedFailure
               | throwError "an equal scalar satisfied another scalar's wrapped native field"
-            unless (← changedFailure.toMessageData.toString).startsWith
-                "the runtime argument does not retain its specified source value" do
+            unless changedFailure.toMessageData.hasTag
+                (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do
               throw changedFailure
           let evaluate := session.kernel.run transaction context bound
           let supplied ← markValue session.kernel.marks original source
@@ -628,7 +628,7 @@ run_cmd liftTermElabM do
             | throwError "a separately produced equal scalar satisfied the original category input"
           let message ← failure.toMessageData.toString
           unless message.endsWith "the input result changed its original selected occurrence" ||
-              message.startsWith "the runtime argument does not retain its specified source value" do
+              failure.toMessageData.hasTag (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do
             throw failure
       finally discard <| transaction.abort
       unless (← session.kernel.dispatches.get).isEmpty do

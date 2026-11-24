@@ -305,8 +305,8 @@ private def checkSelectedLimitProducer (source : SourceSession) (kernel : Kernel
         catch error => pure (some error)
       let some failure := failure
         | throwError "the selected producer accepted a different equal original input"
-      unless (← failure.toMessageData.toString).endsWith
-          "the runtime argument does not retain its specified source value" do throw failure
+      unless failure.toMessageData.hasTag
+          (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do throw failure
   finally discard <| transaction.abort
 
 run_cmd liftTermElabM do

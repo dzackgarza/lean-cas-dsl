@@ -274,8 +274,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         catch error => pure (some error)
         let some failure := failure
           | throwError "the named point action accepted a different equal endpoint node"
-        unless (← failure.toMessageData.toString).startsWith
-            "the runtime argument does not retain its specified source value" do
+        unless failure.toMessageData.hasTag
+            (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do
           throw failure
         unless (← kernel.dispatches.get).isEmpty do
           throwError "the original endpoint control dispatched a mathematical provider"

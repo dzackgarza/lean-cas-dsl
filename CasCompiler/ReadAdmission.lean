@@ -30,7 +30,8 @@ def constrained (context : ReadContext) (body : TSyntax `cas_term)
     TermElabM NativeSourceJudgement := do
   let proofs ← evidence.mapM fun evidence => do
     let `(cas_term| proof($proof:term)) := evidence
-      | throwError "a constrained point requires explicit native proof terms"
+      | throwError (MessageData.tagged `CasCompiler.SourceReader.explicitProof
+          "a constrained point requires explicit native proof terms")
     pure proof
   sourceConstrainedPoint domain proofs (admissionData context body)
     (context.readExpression context.categoryOf body none)

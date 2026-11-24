@@ -417,8 +417,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         catch error => pure (some error)
         let some failure := failure
           | throwError "source argument checking erased the retained consuming application identity"
-        unless (← failure.toMessageData.toString).startsWith
-            "the runtime argument does not retain its specified source value" do throw failure
+        unless failure.toMessageData.hasTag
+            (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do throw failure
       liftM (m := IO) wire.close
       if ← liftM (m := BaseIO) (draft.view.isAvailable owners point.root) then
         throwError "a materialized dependent point survived its actual index owner"

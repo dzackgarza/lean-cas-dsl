@@ -172,8 +172,8 @@ run_cmd liftTermElabM do
           catch error => pure (some error)
           let some failure := failure
             | throwError "the native view accepted a different equal endpoint occurrence"
-          unless (← failure.toMessageData.toString).startsWith
-              "the runtime argument does not retain its specified source value" do throw failure
+          unless failure.toMessageData.hasTag
+              (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do throw failure
           let some declaredEndpointSource := selectedEndpoint? endpointSource
             | throwError "the original map lost its declared endpoint argument"
           unless declaredEndpointSource.getAppFn.isConstOf

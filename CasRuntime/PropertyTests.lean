@@ -252,8 +252,14 @@ run_cmd do
               let replacement ← match scalarName with
                 | some scalar => originalValue (if scalar == `Rfirst then `Rsecond else `Rfirst)
                 | none => originalValue (if name == "C3" then `C3again else `C3)
-              failWith "the runtime argument does not retain its specified source value" do
+              let failure : Option Exception ← try
                 discard <| rebuild (some (0, replacement))
+                pure none
+              catch error => pure (some error)
+              let some failure := failure
+                | throwError "the property identity negative was accepted"
+              unless failure.toMessageData.hasTag
+                  (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do throw failure
             if name == "C3" then
               let some originalBoundary := route.boundaries[0]?
                 | throwError "the property has no original source boundary"

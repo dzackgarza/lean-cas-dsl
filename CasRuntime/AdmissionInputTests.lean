@@ -315,12 +315,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           | throwError "the unused computational argument disappeared from the telescope"
         unless missingRole.wireIndex == some 1 do
           throwError "unused data were relabeled as a formal proof"
-        let totalRejected ← try
+        let failure : Option Exception ← try
           discard <| request.admitInputs graph
-          pure false
-        catch _ => pure true
-        unless totalRejected do
-          throwError "ordinary input admission accepted an absent computational argument"
+          pure none
+        catch error => pure (some error)
+        let some failure := failure
+          | throwError "ordinary input admission accepted an absent computational argument"
+        unless failure.toMessageData.hasTag
+            (· == `CasRuntime.InputRoleMap.missingArgument) do throw failure
         let resolverCalls ← IO.mkRef 0
         let executorCalls ← IO.mkRef 0
         let response ← Execute.run
@@ -363,7 +365,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           throwError "an unknown result field acquired complete input coverage"
         let resolverCalls ← IO.mkRef 0
         let executorCalls ← IO.mkRef 0
-        let refusedBeforeEffects ← try
+        let failure : Option Exception ← try
           discard <| Execute.run
             (fun _ _ => do
               executorCalls.modify (· + 1)
@@ -372,10 +374,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             (some (fun _ => do
               resolverCalls.modify (· + 1)
               throwError "incomplete inputs forced a partial input-result route"))
-          pure false
-        catch _ => pure true
-        unless refusedBeforeEffects && (← resolverCalls.get) == 0 &&
-            (← executorCalls.get) == 0 do
+          pure none
+        catch error => pure (some error)
+        let some failure := failure
+          | throwError "an incomplete result bypassed total input admission before effects"
+        unless failure.toMessageData.hasTag
+            (· == `CasRuntime.InputRoleMap.missingArgument) do throw failure
+        unless (← resolverCalls.get) == 0 && (← executorCalls.get) == 0 do
           throwError "an incomplete result bypassed total input admission before effects"
         unless ((← SessionSnapshot.current).receipt request.occurrence).isNone do
           throwError "the incomplete result published a completion"

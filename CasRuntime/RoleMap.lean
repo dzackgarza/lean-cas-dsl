@@ -46,7 +46,8 @@ private def admitInputRoles (telescope : RoleTelescope) (environment : RuntimeEn
       if supplied.isNone && coverage.any (fun selected => !selected.arguments.contains index) then
         continue
       let some value := supplied
-        | throwError "a demanded computational argument role has no actual binding"
+        | throwError (MessageData.tagged `CasRuntime.InputRoleMap.missingArgument
+            "a demanded computational argument role has no actual binding")
       let .ok _ := graph.requiredOwners #[value]
         | throwError "a computational argument is outside the visible graph"
       let argument ← if let some retained := actual.find? (·.index == index) then do

@@ -22,13 +22,17 @@ private def readSource (session : SourceSession) (text : String) : TermElabM Sou
     | throwError "the constrained-point source control did not parse"
   session.read ⟨stx⟩
 
-private def rejected (session : SourceSession) (text : String) : TermElabM Unit := do
-  let failed ← withoutModifyingState do
+private def rejected (session : SourceSession) (text : String) (tag : Name) : TermElabM Unit := do
+  let .ok stx := Parser.runParserCategory (← getEnv) `cas_term text
+    | throwError "the constrained-point source control did not parse"
+  let failure : Option Exception ← withoutModifyingState do
     try
-      discard <| readSource session text
-      pure false
-    catch _ => pure true
-  unless failed do throwError "the constrained-point source was incorrectly admitted: {text}"
+      discard <| session.read ⟨stx⟩
+      pure none
+    catch error => pure (some error)
+  let some failure := failure
+    | throwError "the constrained-point source was incorrectly admitted: {text}"
+  unless failure.toMessageData.hasTag (· == tag) do throw failure
 
 -- The same native Hom endpoint inspection as SourceReader.mapEnds, in the MetaM context
 -- of ClosedTerm.withOpen. This fixture adds no source interpretation or chosen endpoint.
@@ -55,16 +59,18 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let dataSource ← empty.assume `datum (← nativeSyntax "Nat")
       let source ← dataSource.define `target (← nativeSyntax "{ n : Nat // n = datum }")
       let admitted ← readSource source "datum in target using (proof(rfl))"
-      for text in #[
-          "datum in target using (proof(True.intro))",
-          "datum in target using (proof(rfl), proof(rfl))",
-          "datum in target using (rfl)",
-          "datum in target"] do
-        rejected source text
+      for (text, tag) in #[
+          ("datum in target using (proof(True.intro))", `CasCompiler.sourceFormalProof.typeMismatch),
+          ("datum in target using (proof(rfl), proof(rfl))", `CasCompiler.sourceConstrainedPoint.proofCount),
+          ("datum in target using (rfl)", `CasCompiler.SourceReader.explicitProof),
+          ("datum in target", `CasCompiler.SourceReader.declaredParameterType)] do
+        rejected source text tag
       let twoFields ← source.define `target (← nativeSyntax "Nat × Nat")
       rejected twoFields "datum in target using (proof(True.intro))"
+        `CasCompiler.sourceConstrainedPoint.dataFieldCount
       let recursiveSource ← source.define `target (← nativeSyntax "List Nat")
       rejected recursiveSource "datum in target using (proof(True.intro))"
+        `CasCompiler.sourceConstrainedPoint.structureShape
       admitted.source.withOpen fun bindings expression => do
         let context ← ContextTelescope.capture bindings
         let some datum := bindings[0]?
@@ -170,6 +176,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "RX08 changed its original map, full domain, selected target or supplied proof"
     -- A proof at one sample cannot replace the original universally quantified evidence.
     rejected session "coordinateData in restrictionCarrier using (proof((CasCatalogue.Modules.Bilinear.Valued.ModuleKernelRestriction.RationalProjection.mem_kernel ![0, (0 : ℚ)]).2 rfl))"
+      `CasCompiler.sourceFormalProof.typeMismatch
     let withPoint ← session.defineTerm `kappa admitted
     let composite ← try readSource withPoint "formedInclusion(kappa)"
       catch failure => throwError
@@ -231,7 +238,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless expression.containsConst (· == ``Subtype.mk) do
         throwError "the constrained literal lost its native record constructor"
     rejected source "3 in numericTarget using (proof(True.intro))"
+      `CasCompiler.sourceFormalProof.typeMismatch
     rejected source "3 in numericTarget using (proof(rfl), proof(rfl))"
+      `CasCompiler.sourceConstrainedPoint.proofCount
   finally setEnv original
 
 end CasRuntime.ConstrainedPointTests

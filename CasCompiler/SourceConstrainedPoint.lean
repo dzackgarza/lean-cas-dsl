@@ -27,7 +27,8 @@ private def constrainedPointSchema (target : Expr) : MetaM ConstrainedPointSchem
   let .inductInfo info ← checkedDeclaration name
     | throwError "a constrained point requires its actual native structure"
   unless isStructure (← getEnv) name && !info.isRec && info.numIndices == 0 do
-    throwError "a constrained point requires a nonrecursive structure with no indices"
+    throwError (MessageData.tagged `CasCompiler.sourceConstrainedPoint.structureShape
+      "a constrained point requires a nonrecursive structure with no indices")
   let [constructor] := info.ctors
     | throwError "a constrained point requires exactly one native constructor"
   let .ctorInfo declaration ← checkedDeclaration constructor
@@ -42,7 +43,8 @@ private def constrainedPointSchema (target : Expr) : MetaM ConstrainedPointSchem
     for field in fields, index in [:fields.size] do
       unless ← isProp (← inferType field) do dataFields := dataFields.push index
     let #[dataIndex] := dataFields
-      | throwError "a constrained point requires exactly one data field and only proof fields otherwise"
+      | throwError (MessageData.tagged `CasCompiler.sourceConstrainedPoint.dataFieldCount
+          "a constrained point requires exactly one data field and only proof fields otherwise")
     return ⟨constructor, dataIndex, fields.size - 1⟩
 
 private def constructConstrainedPoint (schema : ConstrainedPointSchema) (target : Expr)
@@ -81,7 +83,8 @@ def sourceConstrainedPoint (target : Expr) (proofs : Array Term)
     TermElabM NativeSourceJudgement := do
   let schema ← constrainedPointSchema target
   unless proofs.size == schema.proofCount do
-    throwError "the constrained point requires exactly {schema.proofCount} explicit source proofs"
+    throwError (MessageData.tagged `CasCompiler.sourceConstrainedPoint.proofCount
+      m!"the constrained point requires exactly {schema.proofCount} explicit source proofs")
   -- Test only the data's declared type here. A wrong proof must never choose another reading.
   let direct ← withoutModifyingState do
     try
