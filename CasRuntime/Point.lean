@@ -62,15 +62,29 @@ opaque PreparedPointInvocation.prepare? (kernel : Kernel) (evaluateSource : Sour
     (transaction : CellTransaction) : MetaM (Option PreparedPointInvocation) := do
   let .primitive (.registered declared) universes := family.action | return none
   let .morphism morphismId := declared.source.reference | return none
-  let .apply callable arguments _ := request.action | return none
+  let .apply callable arguments actuals := request.action | return none
   let #[argumentSource] := arguments | return none
   let retainsPoint ← withSourceScope request fun context _ => do
-    return (← sourcePointOrigin? (← argumentSource.inContext context)).isSome
+    let expression ← argumentSource.inContext context
+    let retains := (← sourcePointOrigin? expression).isSome
+    unless retains do
+      let marker := expression.find? fun term => match term with
+        | .mdata data _ => data.contains `CasCompiler.source.pointOrigin
+        | _ => false
+      dbg_trace "[point.prepare] operation={morphismId.raw} sourceHead={repr expression.getAppFn.constName?} sourceFVar={expression.isFVar} nestedPoint={marker.isSome} actualCount={actuals.size} path={repr (path.map (·.projection))}"
+      for actual in actuals do
+        if let some actual := actual then
+          actual.role.source.withOpen fun _ original => do
+            let retains := (← sourcePointOrigin? original).isSome
+            dbg_trace "[point.actual] operation={morphismId.raw} head={repr original.getAppFn.constName?} originalFVar={original.isFVar} originalPoint={retains}"
+    return retains
   unless retainsPoint do return none
   let some entry := (← semanticState).morphisms.find? (·.id == morphismId)
     | throwError "the named point action lost its released morphism"
   let selected ← PointFamily.forEntry entry
-  unless path.map (·.projection) == selected.path do return none
+  unless path.map (·.projection) == selected.path do
+    dbg_trace "[point.path] operation={morphismId.raw} actual={repr (path.map (·.projection))} expected={repr selected.path}"
+    return none
   let graph ← transaction.view
   discard <| family.admitInputs graph
   let inputs ← request.admitInputs graph

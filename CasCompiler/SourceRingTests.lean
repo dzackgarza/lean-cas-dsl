@@ -226,12 +226,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           term.isAppOfArity ``CasCatalogue.Algebra.Units.groupUnits 1
         | throwError "division lost the declared group of the original units set"
       let groupParameter := group.getAppArgs[0]!
-      let groupSource ← match groupParameter with
-        | .mdata data _ => do
-          if !data.contains `CasCompiler.source.objectOrigin then return groupParameter
-          let some (_, object) ← sourceObjectOrigin? groupParameter
-            | throwError "the quotient lost its explicit original object mark"
-          pure object
+      let groupSource : Expr ← match groupParameter with
+        | .mdata data _ =>
+          if data.contains `CasCompiler.source.objectOrigin then do
+            let some (_, object) ← sourceObjectOrigin? groupParameter
+              | throwError "the quotient lost its explicit original object mark"
+            pure object
+          else pure groupParameter
         | _ => pure groupParameter
       unless groupSource == original.expression && groupSource != other.expression do
         throwError "the quotient group changed its actual original Monoid argument"

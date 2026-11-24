@@ -131,7 +131,19 @@ def sourceAdmission (entry : ObjectEntry) (target : Expr) (read : Expr → TermE
   let dataType ← instantiateMVars dataType
   -- Finish typed elaboration before evidence inspects the complete actual data.
   -- Native dependent constructors can leave pending synthetic coercion terms.
-  let read ← instantiateMVars (← withSynthesize <| read dataType)
+  let read ← try instantiateMVars (← withSynthesize <| read dataType)
+    catch error => do
+      try
+        let hasOwner := fun (term : Expr) => (term.find? fun
+          | .mdata data _ => data.contains `CasCompiler.source.objectOrigin
+          | _ => false).isSome
+        let head := fun (term : Expr) =>
+          term.consumeMData.getAppFn.constName?.getD .anonymous
+        let prefixHeads ← parameterPrefix.mapM fun term => do
+          return head (← sourceDomain term)
+        dbg_trace "[units.admission] entry={entry.id.raw} targetHead={head original} targetArity={original.getAppNumArgs} targetArgs={original.getAppArgs.map head} targetOwners={original.getAppArgs.map hasOwner} retained={retainedArguments.map (·.isSome)} prefixHeads={prefixHeads} prefixOwners={parameterPrefix.map hasOwner} datumHead={head dataType} datumArgs={dataType.getAppArgs.map head} datumOwner={hasOwner dataType}"
+      catch _ => pure ()
+      throw error
   -- The evidence is stated of a closed value's plumbing-free normal form, which is
   -- definitionally it; the admitted element remains the value as read, so that its registered
   -- operations reach the kernel (constitution C22).

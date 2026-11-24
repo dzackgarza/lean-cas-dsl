@@ -325,7 +325,12 @@ private def sourceNullaryNumeral (state : SemanticState)
   let some (row, first) := candidates[0]?
     | if hasBinding then
         throwError "the first source numeral operation has a different nullary signature"
-      else
+      else do
+        try
+          let head := fun (term : Expr) =>
+            term.consumeMData.getAppFn.constName?.getD .anonymous
+          dbg_trace "[units.numeral] numeral={number} head={head expected} args={expected.getAppArgs.map head} owners={ownerFamilies.map (fun (owner, _) => (toJson owner.category.expression).compress)} comparisons={ownerFamilies.map (fun (owner, _) => owner.category.carrier.map (·.comparisons.size))}"
+        catch _ => pure ()
         throwError "no declared source point numeral was admitted in the supplied domain"
   let mut evidence := first.evidence
   let mut alternatives := #[]
