@@ -96,7 +96,9 @@ def sourceSubsetLiteral (power : NativePowerObject) (elements : Array Expr) (exp
     | .some instanceValue => pure instanceValue
     | .none | .undef => throwFailedToSynthesize equalityType
   let literal ← mkAppOptM ``List.toFinset #[some power.base, some equality, some list]
+  dbg_trace "[source.literal] before declared denotation"
   let element ← atBase power row.denotation #[literal]
+  dbg_trace "[source.literal] after declared denotation"
   let value ← sourceGlobalValue power element (some expected)
   return sourceReference ``SubsetLiteralEntry row.id.raw row.denotation value
 

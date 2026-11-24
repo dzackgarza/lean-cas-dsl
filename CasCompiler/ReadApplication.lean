@@ -97,6 +97,8 @@ def application (context : ReadContext) :
     let instanceSlots ← (← getMVars prepared).filterM fun slot => do
       let some declaration ← getSyntheticMVarDecl? slot | return false
       return declaration.kind matches .typeClass _
+    if !instanceSlots.isEmpty then
+      dbg_trace "[source.app.prepare] head={repr function.getAppFn.constName?} slots={repr (instanceSlots.map (·.name))}"
     let mut actual := #[]
     for argument in arguments, hole in holes do
       let type ← instantiateMVars (← inferType hole)
@@ -141,6 +143,10 @@ def application (context : ReadContext) :
       let value ← match viewed with
         | some value => pure value
         | none => readExpression categoryOf argument (some type)
+      if !instanceSlots.isEmpty then
+        let assigned ← instanceSlots.mapM (·.isAssigned)
+        let pending := (← get).pendingMVars
+        dbg_trace "[source.app.read] index={actual.size} assigned={repr assigned} queued={repr (instanceSlots.map pending.contains)}"
       let parameter ← match value.category with
         | some category =>
           if category.role == .object then annotateSourceObject category value.value
@@ -149,19 +155,28 @@ def application (context : ReadContext) :
       unless ← isDefEq hole parameter do
         throwErrorAt argument "the source argument does not match its dependent native type"
       actual := actual.push parameter
+      if !instanceSlots.isEmpty then
+        let assigned ← instanceSlots.mapM (·.isAssigned)
+        let pending := (← get).pendingMVars
+        dbg_trace "[source.app.assigned] index={actual.size - 1} assigned={repr assigned} queued={repr (instanceSlots.map pending.contains)}"
     -- These are the native elaborator's original implicit positions. Keep the actual
     -- source argument assignments for dependent reading, and synthesize only their
     -- registered class goals through the checked native object view.
     for slot in instanceSlots do
-      if ← slot.isAssigned then continue
+      if ← slot.isAssigned then
+        dbg_trace "[source.app.skip] slot={repr slot.name} queued={(← get).pendingMVars.contains slot}"
+        continue
       slot.withContext do
-        let type ← instantiateMVars (← slot.getType)
+        let rawType ← slot.getType
+        dbg_trace "[source.app.slot] slot={repr slot.name} raw={(reprStr rawType).take 1500}"
+        let type ← instantiateMVars rawType
         match ← trySourceInstance type with
         | .some instanceValue =>
           unless ← isDefEq (mkMVar slot) instanceValue do
             throwError "the native application could not retain its original instance slot"
         | .undef => pure ()
         | .none => discard <| throwFailedToSynthesize type
+      dbg_trace "[source.app.after] slot={repr slot.name} assigned={← slot.isAssigned} queued={(← get).pendingMVars.contains slot} registered={(← getSyntheticMVarDecl? slot).isSome}"
     -- The saved spine still contains the fresh argument holes even when native
     -- unification assigned a convertible expression. Restore only these exact holes;
     -- no implicit dictionary or original callable is selected by value equality.

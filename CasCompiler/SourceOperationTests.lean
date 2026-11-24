@@ -253,3 +253,46 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     | throwError "the monoid unit invented a general numeral family"
   unless (← failure.toMessageData.toString).startsWith
       "no declared source point numeral was admitted in the supplied domain" do throw failure
+
+
+-- A native projection retains only its own constructor component's original point.
+-- The two equal native arrows remain distinct source occurrences.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let point ← empty.read (← sourceTerm "7 in ℕ")
+  point.source.withOpen fun _ expression => do
+    let some original ← sourcePointOrigin? expression
+      | throwError "the projected-point control lost its original numeral map"
+    let pointType ← inferType original.point
+    withLetDecl `firstPoint pointType original.point fun firstPoint => do
+      withLetDecl `secondPoint pointType original.point fun secondPoint => do
+        unless firstPoint != secondPoint && (← isDefEq firstPoint secondPoint) do
+          throwError "the projected-point control needs distinct equal native arrows"
+        let first ← retainSourcePoint firstPoint expression
+        let second ← retainSourcePoint secondPoint expression
+        let pair ← mkAppM ``Prod.mk #[first, second]
+        let firstKernel := mkProj ``Prod 0 pair
+        let secondKernel := mkProj ``Prod 1 pair
+        let firstFunction ← mkAppM ``Prod.fst #[pair]
+        let secondFunction ← mkAppM ``Prod.snd #[pair]
+        for (selected, expectedPoint, otherPoint) in #[
+            (firstKernel, firstPoint, secondPoint),
+            (secondKernel, secondPoint, firstPoint),
+            (firstFunction, firstPoint, secondPoint),
+            (secondFunction, secondPoint, firstPoint)] do
+          let some retained ← sourcePointOrigin? selected
+            | throwError "the selected native constructor field lost its point origin"
+          unless retained.point == expectedPoint && retained.point != otherPoint &&
+              (← isDefEq retained.domain original.domain) &&
+              (← isDefEq retained.target original.target) do
+            throwError "the native projection selected another point or changed its endpoints"
+          check selected
+        -- The unrelated component is the same native number, with no point authority.
+        let mixed ← mkAppM ``Prod.mk #[first, mkNatLit 7]
+        let unrelated := mkProj ``Prod 1 mixed
+        if (← sourcePointOrigin? unrelated).isSome then
+          throwError "a native projection borrowed its sibling's point origin"
+        withLocalDeclD `opaquePair (← inferType pair) fun opaquePair => do
+          if (← sourcePointOrigin? (mkProj ``Prod 0 opaquePair)).isSome then
+            throwError "point provenance was inferred without an actual source constructor"

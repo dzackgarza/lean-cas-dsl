@@ -147,6 +147,22 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           body.getAppArgs.size == data.getNat `CasCompiler.source.admissionArguments do
         throwError "the units admission changed its complete native argument positions"
       let parameter := body.getAppArgs[0]!
+      -- Native operation outputs retain the authored units family without a
+      -- surface object reference. That exact family must select its own admission.
+      let nativeTarget ← inferType expression
+      let originalTarget ← sourceDomain nativeTarget
+      unless originalTarget.isAppOfArity ``CasCatalogue.Algebra.Units.units 1 do
+        throwError "the admitted value lost its authored native units domain"
+      unless originalTarget.getAppArgs[0]! == parameter do
+        throwError "the native units domain changed its actual admission parameter"
+      unless (← sourceObjectReference? nativeTarget).isNone do
+        throwError "the native units control retained a surface object reference"
+      let some selectedAdmission ← sourceAdmissionDomain? nativeTarget
+        | throwError "the exact native units domain did not select its declared admission"
+      unless selectedAdmission.id.raw == "obj.sets.units" &&
+          selectedAdmission.declaration == ``CasCatalogue.Algebra.Units.units &&
+          selectedAdmission.admission == some ``CasCatalogue.Algebra.Units.admit do
+        throwError "the native units domain selected another admission row"
       let some (category, object) ← sourceObjectOrigin? parameter
         | throwError "the units admission lost its original selected parameter"
       unless object == original.expression && object != other.expression do

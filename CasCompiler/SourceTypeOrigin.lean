@@ -193,8 +193,16 @@ the returned dictionary is checked at the complete retained goal. Stuck native g
 remain stuck, and failed native search is not an alternative source interpretation.
 Reuse: sourceObjectOrigin?, Meta.transform and Lean.Meta.trySynthInstance. -/
 opaque trySourceInstance (type : Expr) : MetaM (LOption Expr) := do
+  let rawType := type
   let type ← instantiateMVars type
-  let result ← trySynthInstance (← sourceInstanceType type)
+  let native ← sourceInstanceType type
+  let hasOwner := fun (expression : Expr) => (expression.find? fun term => match term with
+    | .mdata data _ => data.contains `CasCompiler.source.objectOrigin
+    | _ => false).isSome
+  dbg_trace "[source.instance] head={repr type.getAppFn.constName?} rawOwner={hasOwner rawType} owner={hasOwner type} nativeOwner={hasOwner native} rawMVars={rawType.hasMVar} raw={(reprStr rawType).take 1500} goal={(reprStr type).take 1500} native={(reprStr native).take 1500}"
+  let result ← trySynthInstance native
+  let tag := match result with | .some _ => "some" | .none => "none" | .undef => "undef"
+  dbg_trace "[source.instance.result] head={repr type.getAppFn.constName?} result={tag}"
   if let .some instanceValue := result then
     unless ← isDefEq (← inferType instanceValue) type do
       throwError "the native instance has a different complete source goal"

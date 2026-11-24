@@ -48,6 +48,14 @@ def sourceAdmissionDomain? (type : Expr) : MetaM (Option ObjectEntry) := do
     unless entry.declaration == declaration do
       throwError "the admission domain changed its original object declaration"
     return if entry.admission.isSome then some entry else none
+  -- An authored native application selects the same exact object row without a
+  -- surface marker. Its original target remains untouched; sourceAdmission checks
+  -- the complete argument alignment before reading data or establishing evidence.
+  let (_, declared) ← registeredDomain type
+  if !declared.isEmpty then
+    let #[entry] := declared
+      | throwSemanticAmbiguity "several registered objects declare this admission domain"
+    return if entry.admission.isSome then some entry else none
   let mut found := #[]
   for entry in state.objects do
     unless entry.admission.isSome do continue
@@ -107,11 +115,12 @@ def sourceAdmission (entry : ObjectEntry) (target : Expr) (read : Expr → TermE
       (type.findMVar? (· == arguments[index]!.mvarId!)).isNone
     | throwError "the admission of {entry.name} takes no value"
   let mut retainedArguments : Array (Option Expr) := Array.replicate arguments.size none
-  if let some (id, declaration) ← sourceObjectReference? target then
+  let reference ← sourceObjectReference? target
+  if let some (id, declaration) := reference then
     unless id == entry.id && declaration == entry.declaration do
       throwStratum .invalid m!"the admission of {entry.name} has another selected object"
   let original ← sourceDomain target
-  if original.getAppFn.isConstOf entry.declaration then
+  if reference.isSome || original.getAppFn.isConstOf entry.declaration then
     -- The actual native factor of a registered map can state this same admitted family
     -- without surface metadata. Its complete authored argument spine is equally retained.
     -- Registry.Semantic.validateObject checks this exact target head before conversion.
