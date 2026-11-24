@@ -2,6 +2,7 @@ module
 
 public import CasCompiler.Elaborate
 public import CasCompiler.SourceCarrier
+public import CasCompiler.SourceTypeOrigin
 
 public section
 
@@ -78,8 +79,9 @@ private def constructConstrainedPoint (schema : ConstrainedPointSchema) (target 
 /-- Build the existing native constrained constructor at the supplied original data.
 For a generalized point, each proof is checked over the whole original domain before it
 is applied pointwise. No membership procedure, representative, or backend reply is used. -/
-def sourceConstrainedPoint (target : Expr) (proofs : Array Term)
-    (readData : Expr → TermElabM Expr) (readMap : TermElabM NativeSourceJudgement) :
+def sourceConstrainedPointApplicable (target : Expr) (proofs : Array Term)
+    (readData : Expr → TermElabM (Except MessageData Expr))
+    (readMap : TermElabM NativeSourceJudgement) :
     TermElabM NativeSourceJudgement := do
   let schema ← constrainedPointSchema target
   unless proofs.size == schema.proofCount do
@@ -87,17 +89,19 @@ def sourceConstrainedPoint (target : Expr) (proofs : Array Term)
       m!"the constrained point requires exactly {schema.proofCount} explicit source proofs")
   -- Test only the data's declared type here. A wrong proof must never choose another reading.
   let direct ← withoutModifyingState do
-    try
-      let (arguments, _, _) ← forallMetaTelescopeReducing (← inferType schema.constructor)
-      let some original := arguments[schema.dataIndex]?
-        | throwError "the constrained constructor lost its original data field"
-      let actual ← withSynthesize <| readData (← inferType original)
-      isDefEq (← inferType actual) (← inferType original)
-    catch error => do
-      CasCatalogue.keepTrialAmbiguity error
-      pure false
+    let (arguments, _, _) ← forallMetaTelescopeReducing (← inferType schema.constructor)
+    let some original := arguments[schema.dataIndex]?
+      | throwError "the constrained constructor lost its original data field"
+    let actual ← withSynthesizeApplicable <| readData (← inferType original)
+    match actual with
+    | .error _ => return false
+    | .ok actual => isDefEq (← inferType actual) (← inferType original)
   if direct then
-    return ⟨← constructConstrainedPoint schema target proofs readData sourceFormalProof, none⟩
+    let requiredData : Expr → TermElabM Expr := fun expected => do
+      match ← readData expected with
+      | .ok value => pure value
+      | .error message => throwError message
+    return ⟨← constructConstrainedPoint schema target proofs requiredData sourceFormalProof, none⟩
   let original ← withSynthesize readMap
   let function ← sourceFunction original
   let .forallE _ domain _ binderInfo ← whnfR (← inferType function)
@@ -121,5 +125,13 @@ def sourceConstrainedPoint (target : Expr) (proofs : Array Term)
   let mappedArrow ← elabAppArgs (← mkConstWithFreshMVarLevels ``TypeCat.ofHom)
     #[] #[Arg.expr mapped] none false false
   sourceSetJudgement .morphism mappedArrow
+
+/-- Required data readers preserve their ordinary API. The public source adapter uses the
+explicit applicability callback above; exceptions in either form never select a map reading. -/
+def sourceConstrainedPoint (target : Expr) (proofs : Array Term)
+    (readData : Expr → TermElabM Expr) (readMap : TermElabM NativeSourceJudgement) :
+    TermElabM NativeSourceJudgement :=
+  sourceConstrainedPointApplicable target proofs
+    (fun expected => do return .ok (← readData expected)) readMap
 
 end CasCompiler

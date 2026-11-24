@@ -12,13 +12,13 @@ namespace CasCompiler
 
 open Lean Meta Elab Term
 
-/-- Native elaborator-style dispatch. Unmatched syntax tries the next rule; a matched rule's
-semantic error is retained. No rule registry contains mathematical declarations. -/
-def readWithRules (rules : Array ReadRule) (context : ReadContext) :
-    TermElabM NativeSourceJudgement := withRef context.source do
+/-- Complete a source rule's judgement using the ordinary qualification, carrier,
+registered-domain and native expected-type checks. Already read numeric inclusion sources
+use these same checks without replaying their syntax or suppressing a failed reading. -/
+def checkReadJudgementApplicable (context : ReadContext) (judgement : NativeSourceJudgement) :
+    TermElabM (Except MessageData NativeSourceJudgement) := withRef context.source do
   let expected := context.expected
   let qualification := context.qualification
-  let judgement ← go rules.toList
   let judgement ← if let some name := qualification then
     let required ← selectCategory (← CasCatalogue.semanticState) name
     sourcePropertyQualification judgement required
@@ -43,18 +43,28 @@ def readWithRules (rules : Array ReadRule) (context : ReadContext) :
       -- An element of a related named set is read through the registered maps between them.
       if judgement.category.isNone then
         if let some value ← sourceCoercion? judgement.value (← instantiateMVars expected) then
-          return ⟨value, none⟩
-    checkRegisteredDomains (← inferType judgement.value) expected
+          return .ok ⟨value, none⟩
+    match ← registeredDomainsApplicable (← inferType judgement.value) expected with
+    | .error message => return .error message
+    | .ok () => pure ()
     unless ← isDefEq (← inferType judgement.value) expected do
-      throwError (MessageData.tagged `CasCompiler.SourceReader.declaredParameterType
+      return .error (MessageData.tagged `CasCompiler.SourceReader.declaredParameterType
         m!"the source expression does not have its independently declared parameter type; \
         source={context.source}; expected={expected}; actual={← inferType judgement.value}; \
         value={judgement.value}; category={(judgement.category.map (fun selected => (toJson selected.expression).compress)).getD "none"}")
-    return judgement
-  return judgement
+    return .ok judgement
+  return .ok judgement
+
+/-- Native elaborator-style dispatch. Unmatched syntax tries the next rule; a matched rule's
+semantic error is retained. No rule registry contains mathematical declarations. -/
+def readWithApplicableRules (rules : Array ReadApplicableRule) (context : ReadContext) :
+    TermElabM (Except MessageData NativeSourceJudgement) := withRef context.source do
+  match ← go rules.toList with
+  | .ok judgement => checkReadJudgementApplicable context judgement
+  | .error message => return .error message
 
 where
-  go : List ReadRule → TermElabM NativeSourceJudgement
+  go : List ReadApplicableRule → TermElabM (Except MessageData NativeSourceJudgement)
     | [] => CasCatalogue.throwUnsupportedSource
         m!"source translation is not implemented for expression {context.source}"
     | rule :: rest => do
@@ -64,5 +74,19 @@ where
         | .internal id _ =>
           if id == readRuleMismatch then go rest else throw exception
         | _ => throw exception
+
+/-- Ordinary rules have no expected-type absence before producing their judgement. -/
+def readWithRulesApplicable (rules : Array ReadRule) (context : ReadContext) :
+    TermElabM (Except MessageData NativeSourceJudgement) :=
+  readWithApplicableRules (rules.map ReadRule.applicable) context
+
+/-- Ordinary source reading requires its own native expected-type check to succeed.
+The applicability variant returns only that check's explicit mismatch, never an exception
+from a matched rule, nested operand, selected carrier, or native type operation. -/
+def readWithRules (rules : Array ReadRule) (context : ReadContext) :
+    TermElabM NativeSourceJudgement := withRef context.source do
+  match ← readWithRulesApplicable rules context with
+  | .ok value => pure value
+  | .error message => throwError message
 
 end CasCompiler

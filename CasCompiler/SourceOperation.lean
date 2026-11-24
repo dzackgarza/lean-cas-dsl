@@ -166,14 +166,14 @@ private partial def operationInputs (type : Expr) (arity : Nat) : MetaM (Array E
     throwUnsupportedSource "the source operation requires its declared product mediation"
   return #[pair.getAppArgs[0]!] ++ (← operationInputs pair.getAppArgs[1]! (arity - 1))
 
-/-- Resolve element juxtaposition from selected owners and whole input families.
+/-- Form every element-juxtaposition role from selected owners and whole input families.
 Reuse: Language.juxtapose's common-object rule, first-hit operation routes and
 nativeOperationFamily. A pending numeral has no selected object; heterogeneous action
 roles are compared before any actual scalar or module is substituted. -/
-def sourceJuxtapositionName
+def sourceJuxtapositionNames
     (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
     (left : Option NativeSourceJudgement) (right : NativeSourceJudgement) :
-    TermElabM String := do
+    TermElabM (Array String) := do
   let state ← semanticState
   let rightType ← inferType right.value
   let rightDomains ← sourceOperationDomains categoryOf rightType none #[rightType]
@@ -182,6 +182,7 @@ def sourceJuxtapositionName
     | some left => do
       let type ← inferType left.value
       sourceOperationDomains categoryOf type none #[type]
+  let mut names : Array String := #[]
   if !leftDomains.isEmpty && !rightDomains.isEmpty then
     let domains := leftDomains ++ rightDomains
     for root in domains do
@@ -192,12 +193,7 @@ def sourceJuxtapositionName
         let some routes ← family.finiteRoutes
           | throwUnsupportedSource "juxtaposition requires its uniform source comparison"
         if routes.isEmpty then common := false
-      if common then return "·"
-  if let some left := left then
-    if leftDomains.isEmpty && (left.category.any (·.role == .morphism) ||
-        (← whnf (← inferType left.value)).isForall) then
-      throwUnsupportedSource
-        "callable juxtaposition requires its declared action and application comparison"
+      if common && !names.contains "·" then names := names.push "·"
   let mut heterogeneous := #[]
   for domain in rightDomains do
     let routes ← operationRoutes domain.category.expression "•"
@@ -223,10 +219,15 @@ def sourceJuxtapositionName
           withoutModifyingState <| isDefEq (← inferType first) (← inferType second) <&&>
             isDefEq first second
         heterogeneous := heterogeneous.push (!same)
-  if heterogeneous.isEmpty || heterogeneous.all (! ·) then return "·"
-  unless heterogeneous.all id do
-    throwSemanticAmbiguity "juxtaposition requires its selected whole action family"
-  return "•"
+  if heterogeneous.isEmpty || heterogeneous.all (! ·) then
+    for domain in rightDomains do
+      unless (← operationRoutes domain.category.expression "·").isEmpty do
+        if !names.contains "·" then names := names.push "·"
+  else
+    unless heterogeneous.all id do
+      throwSemanticAmbiguity "juxtaposition requires its selected whole action family"
+    names := names.push "•"
+  return names
 
 -- Classify transport roles at the entire rigid source family. A scalar argument and
 -- an object argument remain distinct even if their carriers coincide after substitution.

@@ -22,6 +22,23 @@ def subscripted? (s : String) : Option (String × Nat) :=
   else some (String.ofList base, suffix.foldl (fun n c => 10 * n + digits.idxOf c) 0)
 
 declare_syntax_cat cas_term
+meta def casAssumeKeyword : Lean.Parser.Parser :=
+  Lean.Parser.nonReservedSymbol "assume " true
+meta def casContextKeyword : Lean.Parser.Parser :=
+  Lean.Parser.nonReservedSymbol "context " true
+meta def casInspectKeyword : Lean.Parser.Parser :=
+  Lean.Parser.nonReservedSymbol "inspect " true
+
+-- Recognize complete contextual command headers without reserving their words.
+-- The negative lookahead below has arity zero and leaves the original identifier node.
+meta def casStatementStart : Lean.Parser.Parser :=
+  (casAssumeKeyword >> Lean.Parser.ident >> Lean.Parser.symbol ":") <|>
+  (casContextKeyword >> Lean.Parser.nonReservedSymbol "do" true) <|>
+  (casInspectKeyword >> Lean.Parser.nonReservedSymbol "assumptions" true)
+
+meta def casJuxtaposedIdentifier : Lean.Parser.Parser :=
+  Lean.Parser.notFollowedBy casStatementStart "source statement" >> Lean.Parser.ident
+
 syntax:max num : cas_term
 /-- A decimal `1.4142`: the fraction `14142/10⁴`. -/
 syntax:max scientific : cas_term
@@ -134,7 +151,7 @@ syntax:max (name := casSelectedBinder) "binder(" ident
 syntax:max (name := casCoefficient) "(" cas_term ")" noWs ident (noWs ("²" <|> "³"))? : cas_term
 /-- `a dx`, `f dx`: juxtaposition, the product in a set both are in, else the registered action
 `•` (a polynomial times a differential). -/
-syntax:70 (name := casActed) cas_term:71 ident : cas_term
+syntax:70 (name := casActed) cas_term:71 casJuxtaposedIdentifier : cas_term
 /-- `M * v`: juxtaposition written out. -/
 syntax:70 (name := casTimes) cas_term:70 " * " cas_term:71 : cas_term
 /-- Explicit application of a registered action, with its independently typed operands. -/
@@ -178,12 +195,6 @@ syntax:40 "{" cas_pair,* "}" " : " cas_term:51 : cas_term
 
 declare_syntax_cat cas_stmt
 declare_syntax_cat cas_item
-meta def casAssumeKeyword : Lean.Parser.Parser :=
-  Lean.Parser.nonReservedSymbol "assume " true
-meta def casContextKeyword : Lean.Parser.Parser :=
-  Lean.Parser.nonReservedSymbol "context " true
-meta def casInspectKeyword : Lean.Parser.Parser :=
-  Lean.Parser.nonReservedSymbol "inspect " true
 syntax (name := casAbstractDeclaration) "let " ident " ∈ " cas_term : cas_stmt
 syntax (name := casAbstractInDeclaration) "let " ident " in " cas_term : cas_stmt
 syntax (name := casHypothesis) casAssumeKeyword ident " : " cas_term : cas_stmt

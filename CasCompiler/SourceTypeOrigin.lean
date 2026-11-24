@@ -210,15 +210,34 @@ opaque trySourceInstance (type : Expr) : MetaM (LOption Expr) := do
       throwError "the native instance has a different complete source goal"
   return result
 
+/-- Isolate the synthetic goals created by an applicability read and solve them only when
+that read returned actual data. Reuse Lean 4.33's `withSynthesizeImp` queue isolation and
+`finally` restoration. A returned native mismatch has no data to synthesize; exceptions
+from the reader or from synthesis propagate unchanged. -/
+def withSynthesizeApplicable {α : Type} (read : TermElabM (Except MessageData α)) :
+    TermElabM (Except MessageData α) := do
+  let pendingMVarsSaved := (← get).pendingMVars
+  modify fun state => { state with pendingMVars := [] }
+  try
+    let result : Except MessageData α ← read
+    match result with
+    | .error message => return .error message
+    | .ok value =>
+      synthesizeSyntheticMVars (postpone := .no)
+      return .ok value
+  finally
+    modify fun state => { state with pendingMVars := state.pendingMVars ++ pendingMVarsSaved }
+
 /-- Elaborate a native application with the original explicit and implicit positions.
 The reader sees each dependent type after its preceding actual arguments have been assigned.
 Only this application's registered class slots use the checked source-object inference view.
 Successful slots are retired exactly as Lean's synthetic-goal resolver does; stuck slots remain
 pending. The returned source spine keeps every original annotated explicit argument.
 Reuse: Lean.Elab.Term.elabAppArgs and SyntheticMVars.markAsResolved's state transition. -/
-opaque elabSourceApplication (function : Expr) (references : Array Syntax)
-    (expected : Option Expr) (readArgument : Nat → Expr → TermElabM Expr) :
-    TermElabM (Expr × Array Expr) := do
+opaque elabSourceApplicationApplicable (function : Expr) (references : Array Syntax)
+    (expected : Option Expr)
+    (readArgument : Nat → Expr → TermElabM (Except MessageData Expr)) :
+    TermElabM (Except MessageData (Expr × Array Expr)) := do
   let holes ← references.mapM fun _ => mkFreshExprMVar none
   let prepared ← elabAppArgs function #[] (holes.map Arg.expr) expected false false
   for hole in holes do
@@ -229,13 +248,20 @@ opaque elabSourceApplication (function : Expr) (references : Array Syntax)
     return declaration.kind matches .typeClass _
   let mut actual := #[]
   for reference in references, hole in holes do
-    let value ← withRef reference do
+    let value : Except MessageData Expr ← withRef reference do
       let type ← instantiateMVars (← inferType hole)
       let value ← readArgument actual.size type
+      let value ← match value with
+        | .ok value => pure value
+        | .error message => return .error message
+      unless ← isDefEq (← inferType value) type do
+        return .error m!"the source argument does not match its dependent native type"
       unless ← isDefEq hole value do
-        throwError "the source argument does not match its dependent native type"
-      return value
-    actual := actual.push value
+        return .error m!"the source argument does not match its dependent native type"
+      return .ok value
+    match value with
+    | .ok value => actual := actual.push value
+    | .error message => return .error message
   for slot in instanceSlots do
     let solved ← slot.withContext do
       let type ← instantiateMVars (← slot.getType)
@@ -263,7 +289,19 @@ opaque elabSourceApplication (function : Expr) (references : Array Syntax)
   let result := prepared.replace fun expression =>
     (holes.findIdx? (· == expression)).bind fun index => actual[index]?
   check result
-  return (result, actual)
+  return .ok (result, actual)
+
+/-- Ordinary native application requires every explicit applicability check to succeed.
+Only the application's own argument-reader result or native type comparison can
+return a mismatch. Exceptions from readers, inference and chosen instance slots propagate. -/
+opaque elabSourceApplication (function : Expr) (references : Array Syntax)
+    (expected : Option Expr) (readArgument : Nat → Expr → TermElabM Expr) :
+    TermElabM (Expr × Array Expr) := do
+  let applied ← elabSourceApplicationApplicable function references expected fun index type => do
+    return .ok (← readArgument index type)
+  match applied with
+  | .ok value => pure value
+  | .error message => throwError message
 
 end
 

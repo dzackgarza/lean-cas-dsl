@@ -31,3 +31,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       if value.hasMVar then throwError "`{text}` left a parameter undetermined: {value}"
       unless (value.find? (·.isConstOf ``CasCatalogue.Algebra.LinearAlgebra.apply)).isSome do
         throwError "`{text}` is not the registered application of Mat: {value}"
+
+  -- The original public juxtaposition spelling reaches the same independently
+  -- registered matrix application; a rejected scalar-action input cannot hide it.
+  let product ← session.read (← sourceTerm "M v")
+  product.source.withOpen fun _ value => do
+    let value ← instantiateMVars value
+    unless !value.hasMVar &&
+        (value.find? (·.isConstOf ``CasCatalogue.Algebra.LinearAlgebra.apply)).isSome do
+      throwError "matrix juxtaposition lost its actual registered application"
+    check value

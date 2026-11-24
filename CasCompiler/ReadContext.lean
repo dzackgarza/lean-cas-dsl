@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.Elaborate
+public import CasCompiler.Syntax
 
 public section
 
@@ -22,18 +23,40 @@ structure ReadContext where
   project : NativeSourceJudgement → String → Array (TSyntax `cas_term) →
     TermElabM (Option NativeSourceJudgement)
   read : (FVarId → TermElabM (Option NativeSourceCategory)) → TSyntax `cas_term →
-    Option Expr → Option String → Option NativeSourceCategory → TermElabM NativeSourceJudgement
+    Option Expr → Option String → Option NativeSourceCategory →
+      TermElabM (Except MessageData NativeSourceJudgement)
+
+/-- The result of this operand's own native expected-type check. Recursive source readings
+remain ordinary readings: their exceptions cannot reject a containing candidate. -/
+def ReadContext.readExpressionApplicable (context : ReadContext)
+    (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
+    (source : TSyntax `cas_term) (expected : Option Expr)
+    (qualification : Option String := none)
+    (expectedCategory : Option NativeSourceCategory := none) :
+    TermElabM (Except MessageData NativeSourceJudgement) :=
+  context.read categoryOf source expected qualification expectedCategory
 
 def ReadContext.readExpression (context : ReadContext)
     (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
     (source : TSyntax `cas_term) (expected : Option Expr)
     (qualification : Option String := none)
     (expectedCategory : Option NativeSourceCategory := none) : TermElabM NativeSourceJudgement :=
-  context.read categoryOf source expected qualification expectedCategory
+  withRef source do
+    match ← context.readExpressionApplicable categoryOf source expected qualification expectedCategory with
+    | .ok value => pure value
+    | .error message => throwError message
 
 /-- A syntax rule rejects only unmatched syntax with its private dispatch exception.
 Errors from a matched construction propagate through the assembled reader. -/
 abbrev ReadRule := ReadContext → TermElabM NativeSourceJudgement
+
+/-- A matched rule may reject only its own explicit native expected-type comparison.
+Unmatched syntax and semantic exceptions keep the ordinary rule contract. -/
+abbrev ReadApplicableRule :=
+  ReadContext → TermElabM (Except MessageData NativeSourceJudgement)
+
+def ReadRule.applicable (rule : ReadRule) : ReadApplicableRule := fun context => do
+  return .ok (← rule context)
 
 initialize readRuleMismatch : InternalExceptionId ← registerInternalExceptionId `cas.readRuleMismatch
 

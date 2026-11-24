@@ -292,3 +292,82 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   unless CasCatalogue.Exception.stratum? failure == some .invalid &&
       (message.splitOn "not established by the evidence of").length > 1 do
     throw failure
+
+private def numeralAbsenceFailure (action : TermElabM α) : TermElabM Exception := do
+  let failure : Option Exception ← withoutModifyingState do
+    try
+      discard action
+      pure none
+    catch error => pure (some error)
+  let some failure := failure
+    | throwError "a rejected numeral reading was reported as absence or success"
+  return failure
+
+-- Absence belongs to the actual point producer. Its ordinary consumer still rejects
+-- that absence, and explicit evidence errors retain their original diagnostic.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let noCategory : FVarId → TermElabM (Option NativeSourceCategory) := fun _ => pure none
+  unless (← sourceNumeral? noCategory 4 (mkConst ``Nat)) == some (mkNatLit 4) do
+    throwError "the optional numeral producer changed the native natural literal"
+  let evidence : Term ← `(term| rfl)
+  let rejected ← numeralAbsenceFailure <|
+    sourceNumeral? noCategory 4 (mkConst ``Nat) #[evidence]
+  unless (← rejected.toMessageData.toString) ==
+      "a natural parameter literal has no domain obligations" do throw rejected
+
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let native : String → TermElabM Term := fun text => do
+    let .ok parsed := Parser.runParserCategory (← getEnv) `term text
+      | throwError "the native numeral absence control did not parse"
+    return ⟨parsed⟩
+  let session ← empty.assume `M (← native "MonCat.{0}")
+  let object ← session.term (← native "M")
+  let #[category] := (← semanticState).categories.filter (·.id == CategoryId.monoids)
+    | throwError "the numeral absence control lost its independently registered Monoid category"
+  let bundle ← session.constant Syntax.missing category.declaration [.zero]
+  let object ← object.inCategory category.expression bundle
+  let session ← session.defineTerm `S object
+  let type ← session.term (← native "(S : Type)")
+  session.context.withOpen fun bindings => do
+    let context ← ContextTelescope.capture bindings
+    let target ← type.source.inContext context
+    let some selectedBinding := bindings[1]?
+      | throwError "the numeral absence control lost its original selected Monoid"
+    let some selected := session.categoryFor selectedBinding.id
+      | throwError "the numeral absence control lost its actual category selection"
+    unless selected.carrier.isNone && selected.limit.isNone do
+      throwError "the absence control acquired a supplied carrier comparison or limit"
+    let bundle ← selected.bundle.inContext context
+    let categoryOf : FVarId → TermElabM (Option NativeSourceCategory) := fun id =>
+      pure (if id == selectedBinding.expression.fvarId! then
+        some (⟨selected.role, selected.expression, bundle, none, none⟩ : NativeSourceCategory)
+      else none)
+    unless (← sourceNumeral? categoryOf 4 target).isNone do
+      throwError "the selected Monoid acquired an undeclared numeral"
+    let failure ← numeralAbsenceFailure <| sourceNumeral categoryOf 4 target
+    unless (← failure.toMessageData.toString) ==
+        "no declared source point numeral was admitted in the supplied domain" do throw failure
+  let source : TSyntax `cas_term ← `(cas_term| 4)
+  let failure ← numeralAbsenceFailure <| session.read source (some type.source)
+  unless (← failure.toMessageData.toString) ==
+      "no declared source point numeral was admitted in the supplied domain" do throw failure
+
+-- The original coercion control establishes the registered natural-to-integer inclusion.
+-- A genuine rejection by its numeral producer must cross the inclusion probe unchanged;
+-- it cannot select another inclusion or turn into a missing numeral.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let noCategory : FVarId → TermElabM (Option NativeSourceCategory) := fun _ => pure none
+  let evidence : Term ← `(term| rfl)
+  let observed : IO.Ref (Option Exception) ← IO.mkRef none
+  let failure ← numeralAbsenceFailure <|
+    sourceIncludedNumeral (mkConst ``Int) fun source => do
+      try sourceNumeral? noCategory 4 source #[evidence]
+      catch error => do
+        observed.set (some error)
+        throw error
+  let some original ← observed.get
+    | throwError "the inclusion error control did not reach an original numeral producer"
+  unless (← failure.toMessageData.toString) == (← original.toMessageData.toString) &&
+      CasCatalogue.Exception.stratum? failure == CasCatalogue.Exception.stratum? original do
+    throwError "inclusion search replaced a rejected chosen numeral interpretation"

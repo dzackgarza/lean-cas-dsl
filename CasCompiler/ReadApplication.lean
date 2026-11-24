@@ -38,9 +38,11 @@ private partial def bareObjectName? (source : TSyntax `cas_term) :
     return some (name.getId.toString (escape := false))
   | _ => return none
 
-def application (context : ReadContext) :
-    NativeSourceJudgement → Array (TSyntax `cas_term) → Option Expr → TermElabM Expr :=
+def applicationApplicable (context : ReadContext) :
+    NativeSourceJudgement → Array (TSyntax `cas_term) → Option Expr →
+      TermElabM (Except MessageData Expr) :=
   let readExpression := @ReadContext.readExpression context
+  let readArgument := @ReadContext.readExpressionApplicable context
   let categoryOf := context.categoryOf
   fun (source : NativeSourceJudgement) (arguments : Array (TSyntax `cas_term))
       (expected : Option Expr) => do
@@ -53,7 +55,7 @@ def application (context : ReadContext) :
           if object.category.any (·.role == .object) then
             if ← isDefEq object.value domain then
               let target ← sourcePowerObjectAt codomain
-              return ← sourceImageOf target domain source.value expected
+              return .ok (← sourceImageOf target domain source.value expected)
     -- An element with a registered application (a polynomial `p(a)`).
     if let #[argument] := arguments then
       if source.category.isNone then
@@ -61,7 +63,7 @@ def application (context : ReadContext) :
         unless type.isForall || type.isAppOfArity ``Quiver.Hom 4 || type.isAppOf ``TypeCat.Hom do
           if let some value ← sourceObjectApplication? source.value (sourceNumeric argument.raw)
               fun expected => do return (← readExpression categoryOf argument expected).value then
-            return value
+            return .ok value
     let function ← if arguments.isEmpty then pure source.value else sourceFunction source
     -- Several arguments of a map on a product are the components of one tuple (`gcd(84, 30)`).
     if arguments.size > 1 then
@@ -76,7 +78,7 @@ def application (context : ReadContext) :
         let type ← declaredEndpoint (← inferType hole)
         let tuple ← sourceTuple arguments type fun component type => do
           return (← readExpression categoryOf component (some type)).value
-        return ← elabAppArgs function #[] #[Arg.expr tuple] expected false false
+        return .ok (← elabAppArgs function #[] #[Arg.expr tuple] expected false false)
     -- A named spelling for the actual declared source of a Sets arrow is checked at the
     -- entire native family before its parameters are applied. This can guide its point's
     -- existing literal reader without choosing another runtime object by carrier equality.
@@ -89,7 +91,7 @@ def application (context : ReadContext) :
             (← declaredEndpoint type.getAppArgs[2]!)))
         else pure none
       else pure none
-    let (result, actual) ← elabSourceApplication function (arguments.map (·.raw)) expected fun index type => do
+    let applied ← elabSourceApplicationApplicable function (arguments.map (·.raw)) expected fun index type => do
       let some argument := arguments[index]?
         | throwError "the source application lost an original argument"
       let type ← match namedDomain with
@@ -131,14 +133,20 @@ def application (context : ReadContext) :
                   entry.name == spelling && entry.category == category.id) then pure none
               else sourceNamedConstantParameter? object.value category.expression
       let value ← match viewed with
-        | some value => pure value
-        | none => readExpression categoryOf argument (some type)
+        | some value => pure (.ok value)
+        | none => readArgument categoryOf argument (some type)
+      let value ← match value with
+        | .ok value => pure value
+        | .error message => return .error message
       let parameter ← match value.category with
         | some category =>
           if category.role == .object then annotateSourceObject category value.value
           else pure value.value
         | none => pure value.value
-      return parameter
+      return .ok parameter
+    let (result, actual) ← match applied with
+      | .ok value => pure value
+      | .error message => return .error message
     if let #[argument] := actual then
       if source.category.any (·.role == .morphism) then
         if let some original ← sourcePointOrigin? argument then
@@ -155,8 +163,15 @@ def application (context : ReadContext) :
             #[some carrier, some categoryStructure]
           let point ← elabAppArgs composition #[] #[Arg.expr original.point, Arg.expr mapped.value]
             none false false
-          return ← retainSourcePoint point result
-    return result
+          return .ok (← retainSourcePoint point result)
+    return .ok result
+
+def application (context : ReadContext)
+    (source : NativeSourceJudgement) (arguments : Array (TSyntax `cas_term))
+    (expected : Option Expr) : TermElabM Expr := do
+  match ← applicationApplicable context source arguments expected with
+  | .ok value => pure value
+  | .error message => throwError message
 
 -- A call of an already selected native map has its domain from that receiver. This
 -- extends principal reading through nested actual calls without selecting an overloaded
@@ -188,9 +203,10 @@ Principal source maps retain their original category and complete arrow before n
 composition. A map-valued parameter still uses ordinary application at its declared type.
 Reuse: sourceCarrier's checked whole-family actions and CategoryStruct.comp, the same
 native operation used by explicit source composition. No endpoint selects another map. -/
-def applicationResult (context : ReadContext) (source : NativeSourceJudgement)
-    (arguments : Array (TSyntax `cas_term)) (expected : Option Expr) :
-    TermElabM NativeSourceJudgement := do
+private def applicationResultCore (context : ReadContext) (source : NativeSourceJudgement)
+    (arguments : Array (TSyntax `cas_term)) (expected : Option Expr)
+    (checkApplicability : Bool) :
+    TermElabM (Except MessageData NativeSourceJudgement) := do
   if let #[argument] := arguments then
     if source.category.any (·.role == .morphism) && (← principalApplication context argument) then
       let point ← context.readExpression context.categoryOf argument none
@@ -213,12 +229,17 @@ def applicationResult (context : ReadContext) (source : NativeSourceJudgement)
           unless category.role == .morphism && suppliedCategory.role == .morphism &&
               category.expression.syntacticEq suppliedCategory.expression &&
               (← isDefEq category.bundle suppliedCategory.bundle) do
-            throwError "generalized application has different complete carrier categories"
+            return .error m!"generalized application has different complete carrier categories"
           let some (_, pointTarget) ← mapEnds supplied.value
             | throwError "the supplied generalized point lost its native endpoints"
           let some (mapSource, _) ← mapEnds mapped.value
             | throwError "the selected map lost its native endpoints"
-          checkRegisteredDomains pointTarget mapSource
+          match ← registeredDomainsApplicable pointTarget mapSource with
+          | .error message => return .error message
+          | .ok () => pure ()
+          if checkApplicability then
+            unless ← isDefEq pointTarget mapSource do
+              return .error m!"the generalized point does not have the selected map's source"
           let carrier ← mkAppM ``CategoryTheory.Bundled.α #[category.bundle]
           let instanceValue ← mkAppM ``CategoryTheory.Bundled.str #[category.bundle]
           let structureValue ← mkAppOptM ``CategoryTheory.Category.toCategoryStruct
@@ -227,9 +248,26 @@ def applicationResult (context : ReadContext) (source : NativeSourceJudgement)
             #[some carrier, some structureValue]
           let value ← elabAppArgs composition #[]
             #[Arg.expr supplied.value, Arg.expr mapped.value] expected false false
-          return ⟨value, some category⟩
-  let value ← application context source arguments expected
-  return ⟨value, if arguments.isEmpty then source.category else none⟩
+          return .ok ⟨value, some category⟩
+  match ← applicationApplicable context source arguments expected with
+  | .ok value => return .ok ⟨value, if arguments.isEmpty then source.category else none⟩
+  | .error message => return .error message
+
+/-- Candidate application can reject its own false endpoint comparison without catching a
+native elaboration exception. All selected source and recursive-reader failures propagate. -/
+def applicationResultApplicable (context : ReadContext) (source : NativeSourceJudgement)
+    (arguments : Array (TSyntax `cas_term)) (expected : Option Expr) :
+    TermElabM (Except MessageData NativeSourceJudgement) :=
+  applicationResultCore context source arguments expected true
+
+/-- Required application keeps Lean's original composition type checking and diagnostic.
+It uses the same already read source objects; no candidate or source syntax is replayed. -/
+def applicationResult (context : ReadContext) (source : NativeSourceJudgement)
+    (arguments : Array (TSyntax `cas_term)) (expected : Option Expr) :
+    TermElabM NativeSourceJudgement := do
+  match ← applicationResultCore context source arguments expected false with
+  | .ok value => pure value
+  | .error message => throwError message
 
 end SourceReader
 

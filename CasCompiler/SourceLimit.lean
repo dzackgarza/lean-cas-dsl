@@ -151,22 +151,32 @@ opaque sourceNamedLimit (shape : String) (maps : Array NativeSourceJudgement) :
     | throwError "the universal construction {shape} requires maps of a selected category"
   unless maps.all (·.category.any (·.role == .morphism)) do
     throwError "the universal construction {shape} is applied to the maps of its diagram"
-  let present := fun (row : LimitEntry) => do
+  let references := Array.replicate maps.size (← getRef)
+  let present (row : LimitEntry) : TermElabM (Option Expr) := do
     discard <| checkedDeclaration row.declaration
     let declaration ← mkConstWithFreshMVarLevels row.declaration
-    let value ← elabAppArgs declaration #[] (maps.map (Arg.expr ·.value)) none false false
+    let explicitCount ← withoutModifyingState do
+      let (_, binders, result) ← forallMetaTelescopeReducing (← inferType declaration)
+      let constructor := if row.colimit then ``CategoryTheory.Limits.ColimitCocone
+        else ``CategoryTheory.Limits.LimitCone
+      unless (← whnfR result).isAppOf constructor do
+        throwError "the registered universal presentation has a different native result family"
+      return (binders.filter (·.isExplicit)).size
+    unless maps.size == explicitCount do return none
+    let applied ← elabSourceApplicationApplicable declaration references none fun index _ => do
+      let some map := maps[index]?
+        | throwError "the universal presentation lost an original map"
+      return .ok map.value
+    let .ok (value, _) := applied | return none
     let value ← instantiateMVars value
     if value.hasMVar || value.hasLevelMVar then
       throwError "the presentation of {shape} has undetermined parameters"
-    return value
+    return some value
   let mut candidates := #[]
   for row in rows do
     -- Applicability is the declaration's own typing at the actual maps.
     let accepts ← withoutModifyingState do
-      try discard <| present row; pure true
-      catch error => do
-        CasCatalogue.keepTrialAmbiguity error
-        pure false
+      return (← present row).isSome
     if accepts then candidates := candidates.push row
   if candidates.isEmpty then
     if let some created ← createdLimit shape selected maps then return some created
@@ -174,7 +184,8 @@ opaque sourceNamedLimit (shape : String) (maps : Array NativeSourceJudgement) :
     | if candidates.isEmpty then
         throwUnsupportedSource m!"no registered {shape} accepts these maps"
       else throwSemanticAmbiguity s!"several registered presentations of {shape} accept these maps"
-  let presentation ← present row
+  let some presentation ← present row
+    | throwError "the selected universal presentation no longer accepts its original maps"
   let cone ← mkAppM (if row.colimit then ``CategoryTheory.Limits.ColimitCocone.cocone
     else ``CategoryTheory.Limits.LimitCone.cone) #[presentation]
   let apex ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone.pt

@@ -299,6 +299,8 @@ private partial def delayedComputation (codes : Std.HashMap (RuntimeId .program)
 
 /-- An original block item observed during this cell. A missing outcome is explicitly
 unpublished: `attempted` distinguishes a rolled-back stage from an unexecuted continuation.
+Source-preflight failures have their actual outcome with `attempted := false`; reading a
+typed prefix does not enter execution or establish any of its mathematical outcomes.
 No successful child outcome is returned as committed when its enclosing block aborts. -/
 structure StatementObservation where
   item : TSyntax `cas_item
@@ -314,6 +316,8 @@ the proposition that the reader formed. -/
 structure StatementRun where
   outcome : Outcome
   session : KernelSession
+  /-- Whether prepared source entered execution. Source-preflight failures remain false. -/
+  attempted : Bool := true
   proposition : String := ""
   /-- Original terms and complete inner scopes survive lexical exit. -/
   conclusions : Array SourceConclusion := #[]
@@ -341,20 +345,76 @@ private structure StagedStatement where
   run : StatementRun
   publish : Bool
 
+/-- The already read statement and its original source observations. A block keeps the
+same typed child tree; no source syntax is replayed when execution stops or rolls back. -/
+private inductive RetainedStatement where
+  | statement (source : SourceStatement) (conclusions : Array SourceConclusion)
+      (proposition : String)
+  | contextBlock (source : SourceStatement)
+      (items : Array (TSyntax `cas_item × RetainedStatement))
+
+private def RetainedStatement.source : RetainedStatement → SourceStatement
+  | .statement source _ _ | .contextBlock source _ => source
+
+private def RetainedStatement.conclusions : RetainedStatement → Array SourceConclusion
+  | .statement _ conclusions _ => conclusions
+  | .contextBlock _ _ => #[]
+
+private def RetainedStatement.proposition : RetainedStatement → String
+  | .statement _ _ proposition => proposition
+  | .contextBlock _ _ => ""
+
+/-- Restore only declarations captured by the original checked source owners. Runtime
+extensions remain at their restored snapshot; unread or rejected source has no such tree. -/
+private partial def RetainedStatement.ensureDeclarations : RetainedStatement → MetaM Unit
+  | .contextBlock _ items =>
+    items.forM fun (_, child) => child.ensureDeclarations
+  | .statement source conclusions _ => do
+    for conclusion in conclusions do conclusion.ensureDeclarations
+    match source with
+    | .definition next _ | .assumption next => next.ensureDeclarations
+    | .inspection scope => scope.ensureDeclarations
+    | _ => pure ()
+
 private def requiredCell (transaction : Option CellTransaction) : MetaM CellTransaction := do
   let some transaction := transaction
     | throwError "an executable statement has no owning cell transaction"
   return transaction
 
-private partial def unobservedItems (item : TSyntax `cas_item) (statement : SourceStatement) :
+/-- Original unexecuted item identities, with no invented source reading. A labeled
+container retains its own identity as well as the original items nested inside it. -/
+partial def unreadSourceItems (item : TSyntax `cas_item) : Array StatementObservation :=
+  let row : Array StatementObservation := #[{ item, attempted := false }]
+  match sourceItemStatement? item with
+  | none => row
+  | some statement => match sourceContextItems? statement with
+    | none => row
+    | some items =>
+      let nested := items.flatMap unreadSourceItems
+      match item with
+      | `(cas_item| test $_:ident $_:str : $_:cas_stmt) => row ++ nested
+      | _ => nested
+
+private partial def unobservedItems (item : TSyntax `cas_item) (statement : RetainedStatement) :
     Array StatementObservation :=
   match statement with
-  | .contextBlock items => items.flatMap fun (item, child) => unobservedItems item child
-  | _ => #[{ item, attempted := false }]
+  | .contextBlock _ items =>
+    let nested := items.flatMap fun (item, child) => unobservedItems item child
+    match item with
+    | `(cas_item| test $_:ident $_:str : $_:cas_stmt) =>
+      #[{ item, attempted := false }] ++ nested
+    | _ => nested
+  | .statement _ conclusions proposition =>
+    #[{ item, attempted := false, conclusions, proposition }]
+
+private def unobservedChildren : RetainedStatement → Array StatementObservation
+  | .contextBlock _ items => items.flatMap fun (item, child) => unobservedItems item child
+  | .statement _ _ _ => #[]
 
 private def unpublishedObservation (observation : StatementObservation) : StatementObservation :=
   match observation.outcome with
-  | some .holds => { observation with outcome := none, conclusions := #[] }
+  -- Withhold the runtime outcome; the original typed source is independent of publication.
+  | some .holds => { observation with outcome := none }
   | _ => observation
 
 /-- Supplied native evidence concerns its original source proposition. When that proposition
@@ -366,11 +426,91 @@ private def proofRequiresObservation (session : KernelSession) (proposition : So
     let context ← ContextTelescope.capture bindings
     requiresComputedObservation session context (← proposition.source.inContext context)
 
+/-- Retain the original checked reading before its execution can throw. The same record
+serves successful execution and the existing failure boundary; it asserts no runtime outcome.
+Block children are retained in their actual preceding source sessions before dispatch. -/
+private def preparedConclusions (session : SourceSession) (statement : SourceStatement) :
+    MetaM (Array SourceConclusion) := do
+  match statement with
+  | .definition _ value | .question value | .implemented value =>
+    return #[← session.conclusion #[value]]
+  | .settled values => return #[← session.conclusion values]
+  | .proved proposition proof => return #[← session.conclusion #[proposition] (some proof)]
+  | .assumption _ | .inspection _ | .contextBlock _ => return #[]
+
+/-- Freeze conclusions and their existing display in the source scopes already produced
+by reading. Only the stored next-session values advance scope; this does not read or execute
+any child again. Unexecuted children therefore retain exactly the same source observations. -/
+private partial def retainStatement (session : SourceSession) (statement : SourceStatement) :
+    MetaM RetainedStatement := do
+  match statement with
+  | .contextBlock items =>
+    let mut current := session
+    let mut retained := #[]
+    for (item, child) in items do
+      retained := retained.push (item, ← retainStatement current child)
+      match child with
+      | .definition next _ | .assumption next => current := next
+      | _ => pure ()
+    return .contextBlock statement retained
+  | _ =>
+    let conclusions ← preparedConclusions session statement
+    let proposition ← match statement with
+      | .question value | .implemented value =>
+        session.context.withOpen fun bindings => do
+          let context ← ContextTelescope.capture bindings
+          return toString (← ppExpr (← value.source.inContext context))
+      | .proved proposition _ =>
+        proposition.source.withOpen fun _ expression => return (← ppExpr expression).pretty
+      | .settled values => do
+        let shown ← session.context.withOpen fun bindings => do
+          let context ← ContextTelescope.capture bindings
+          values.mapM fun value => do
+            return toString (← ppExpr (← value.source.inContext context))
+        pure s!"settled: {" and ".intercalate shown.toList}"
+      | _ => pure ""
+    return .statement statement conclusions proposition
+
+/-- Freeze only the original completed source prefix. The Boolean marks the original
+failed item so the existing failure boundary can attach its unchanged classified outcome
+after restoring the outer session. Every item is unattempted at runtime. -/
+private partial def observeReadFailure (session : SourceSession)
+    (items : Array (TSyntax `cas_item × Option SourceStatementRead)) :
+    MetaM (Array (Bool × StatementObservation) × Array RetainedStatement) := do
+  let mut current := session
+  let mut observations : Array (Bool × StatementObservation) := #[]
+  let mut completed : Array RetainedStatement := #[]
+  for (item, reading) in items do
+    match reading with
+    | none =>
+      observations := observations ++ (unreadSourceItems item).map (false, ·)
+    | some (.complete statement) =>
+      let retained ← retainStatement current statement
+      completed := completed.push retained
+      observations := observations ++ (unobservedItems item retained).map (false, ·)
+      match statement with
+      | .definition next _ | .assumption next => current := next
+      | _ => pure ()
+    | some (.failed _ children) =>
+      if children.isEmpty then
+        observations := observations.push (true, { item, attempted := false })
+      else
+        match item with
+        | `(cas_item| test $_:ident $_:str : $_:cas_stmt) =>
+          observations := observations.push (false, { item, attempted := false })
+        | _ => pure ()
+        let (nested, retained) ← observeReadFailure current children
+        observations := observations ++ nested
+        completed := completed ++ retained
+  return (observations, completed)
+
 private partial def executePrepared (session : KernelSession)
-    (transaction : Option CellTransaction) (statement : SourceStatement) :
+    (transaction : Option CellTransaction) (prepared : RetainedStatement) :
     TermElabM StagedStatement := do
   Core.checkSystem "source statement execution"
-  match statement with
+  let conclusions := prepared.conclusions
+  let shown := prepared.proposition
+  match prepared.source with
   | .assumption next =>
     -- A hypothetical source binding has no corresponding concrete runtime value.
     return ⟨{ outcome := .holds, session := { session with source := next } }, false⟩
@@ -378,27 +518,19 @@ private partial def executePrepared (session : KernelSession)
     -- Inspection consumes only frozen data. A containing block withholds this output until
     -- its outer success boundary; a direct inspection allocates no transaction or ledger ID.
     return ⟨{ outcome := .holds, session, inspectionOutput := #[scope.assumptionsText] }, false⟩
-  | .proved proposition proof =>
-    let conclusion ← session.source.conclusion #[proposition] (some proof)
+  | .proved proposition _ =>
     if ← proofRequiresObservation session proposition then
-      let result ← executePrepared session transaction (.question proposition)
-      return { result with run := { result.run with conclusions := #[conclusion] } }
-    let shown ← proposition.source.withOpen fun _ expression => return (← ppExpr expression).pretty
-    return ⟨{ outcome := .holds, session, proposition := shown, conclusions := #[conclusion] }, false⟩
-  | .settled values =>
-    let conclusion ← session.source.conclusion values
-    let shown ← session.source.context.withOpen fun bindings => do
-      let context ← ContextTelescope.capture bindings
-      values.mapM fun value => do
-        return toString (← ppExpr (← value.source.inContext context))
+      return ← executePrepared session transaction
+        (.statement (.question proposition) conclusions shown)
+    return ⟨{ outcome := .holds, session, proposition := shown, conclusions }, false⟩
+  | .settled _ =>
     return ⟨{
       outcome := .holds
       session
-      proposition := s!"settled: {" and ".intercalate shown.toList}"
-      conclusions := #[conclusion] }, false⟩
+      proposition := shown
+      conclusions }, false⟩
   | .definition next value =>
     let transaction ← requiredCell transaction
-    let conclusion ← session.source.conclusion #[value]
     let sent := (← session.kernel.dispatches.get).size
     let (binding, dependent) ← try
         next.context.withOpen fun bindings => do
@@ -425,7 +557,7 @@ private partial def executePrepared (session : KernelSession)
         return ⟨{
           outcome
           session := { session with source := next, unavailable }
-          conclusions := #[conclusion] }, false⟩
+          conclusions }, false⟩
     let graph ← transaction.view
     let codes ← session.kernel.codes.get
     let delayed := binding.any (delayedComputation codes graph)
@@ -441,24 +573,20 @@ private partial def executePrepared (session : KernelSession)
     return ⟨{
       outcome := .holds
       session := { session with source := next, bound, observed, unavailable }
-      conclusions := #[conclusion] }, true⟩
+      conclusions }, true⟩
   | .implemented value =>
     let transaction ← requiredCell transaction
-    let conclusion ← session.source.conclusion #[value]
-    let shown ← session.source.context.withOpen fun bindings => do
+    session.source.context.withOpen fun bindings => do
       let context ← ContextTelescope.capture bindings
       let expression ← value.source.inContext context
       requireSuppliedParameters session context expression
       discard <| session.kernel.run transaction context session.bound expression
-      return toString (← ppExpr expression)
-    return ⟨{ outcome := .holds, session, proposition := shown, conclusions := #[conclusion] }, true⟩
+    return ⟨{ outcome := .holds, session, proposition := shown, conclusions }, true⟩
   | .question proposition =>
     let transaction ← requiredCell transaction
-    let conclusion ← session.source.conclusion #[proposition]
-    let (outcome, shown) ← session.source.context.withOpen fun bindings => do
+    let outcome ← session.source.context.withOpen fun bindings => do
       let context ← ContextTelescope.capture bindings
       let asked ← proposition.source.inContext context
-      let shown := toString (← ppExpr asked)
       let outcome ← match ← discharged session context asked with
         | some true => pure .holds
         | some false => pure (.wrong "Lean decides the negation of the statement")
@@ -472,11 +600,13 @@ private partial def executePrepared (session : KernelSession)
             | some proposition => decideComputed session transaction context proposition
             | none => compare session transaction context left right
           | none => decideComputed session transaction context asked
-      return (outcome, shown)
+      return outcome
     -- A direct question preserves its existing commit policy for returned wrong/gap outcomes.
-    return ⟨{ outcome, session, proposition := shown, conclusions := #[conclusion] }, true⟩
-  | .contextBlock items =>
+    return ⟨{ outcome, session, proposition := shown, conclusions }, true⟩
+  | .contextBlock _ =>
     discard <| requiredCell transaction
+    let .contextBlock _ items := prepared
+      | throwError "a retained context block lost its original typed children"
     let mut current := session
     let mut conclusions := #[]
     let mut output := #[]
@@ -486,14 +616,19 @@ private partial def executePrepared (session : KernelSession)
       let start ← IO.monoMsNow
       let sent := (← session.kernel.dispatches.get).size
       let result ← try executePrepared current transaction child
-        catch error =>
+        catch error => do
           -- Native interruption is not caught by this ordinary exception handler. An
           -- ordinary child failure retains its actual item and failure stratum until abort.
           let outcome ← Outcome.ofException error
           let outcome := match current.unavailable.find? (fun (id, _) => missingValueOf error id) with
             | some (_, name) => .gap s!"{name} has no computed value: {outcome.detail}"
             | none => outcome
-          pure (⟨{ outcome, session := current }, false⟩ : StagedStatement)
+          return (⟨{
+            outcome
+            session := current
+            conclusions := child.conclusions
+            proposition := child.proposition
+          }, false⟩ : StagedStatement)
       let milliseconds := (← IO.monoMsNow) - start
       let calls ← session.kernel.dispatches.get
       let observed : Array StatementObservation := if result.run.observations.isEmpty then
@@ -504,7 +639,8 @@ private partial def executePrepared (session : KernelSession)
             proposition := result.run.proposition
             conclusions := result.run.conclusions
             milliseconds
-            dispatches := calls.extract sent calls.size }]
+            dispatches := calls.extract sent calls.size }] ++
+            (if result.run.outcome matches .holds then #[] else unobservedChildren child)
         else result.run.observations
       observations := observations ++ observed
       unless result.run.outcome matches .holds do
@@ -536,34 +672,25 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
   CasCompiler.setPreferredRoutes
     (session.kernel.manifest.registrations.flatMap (·.preferredRoutes))
   let saved ← saveState
-  try
-    let prepared ← session.source.readStatement statement
-    let needsCell ← match prepared with
-      | .settled _ | .assumption _ | .inspection _ => pure false
-      | .proved proposition _ => proofRequiresObservation session proposition
-      | _ => pure true
-    if !needsCell then return (← executePrepared session none prepared).run
-    let transaction ← CellTransaction.begin session.kernel.ledger
-    let result ← try
-        let result ← executePrepared session (some transaction) prepared
-        Core.checkSystem "source statement publication"
-        -- All throwing result/conclusion construction precedes the only commit.
-        if result.publish then commit transaction
-        pure result
-      finally
-        discard <| (transaction.abort : BaseIO Bool)
-    unless result.publish do
-      if prepared matches .contextBlock _ then saved.restore
-    return { result.run with published := result.publish }
-  catch error =>
+  let executionEntered ← IO.mkRef false
+  let failed (error : Exception) (prepared : Option RetainedStatement)
+      (prefix : Array RetainedStatement) :
+      TermElabM StatementRun := do
     let outcome ← Outcome.ofException error
     saved.restore
+    -- Make the checked native names present before any later source read can reuse
+    -- them. The captured owners restore declarations only, never runtime state.
+    for retained in prepared.toArray ++ prefix do retained.ensureDeclarations
+    let attempted ← executionEntered.get
+    let conclusions := (prepared.map (·.conclusions)).getD #[]
+    let proposition := (prepared.map (·.proposition)).getD ""
+    let observations := (prepared.map unobservedChildren).getD #[]
     -- A use of a name whose own definition did not read has the outcome of that definition.
     if let some (name, definition) := session.unread.find? fun (name, _) =>
         CasCatalogue.Exception.isUnknownSourceName error name then
       return { outcome := definition.withDetail
                  s!"the definition of {name} did not read: {definition.detail}",
-               session }
+               session, attempted, conclusions, proposition, observations }
     -- A definition that did not read declares no name. Its declared name is kept with its outcome.
     let session := match definedName? statement with
       | some name => { session with unread := session.unread.push (name, outcome) }
@@ -572,7 +699,53 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
     -- gap, named, not an internal defect (constitution C3). The dependency check names the
     -- binding that has no value.
     if let some (_, name) := session.unavailable.find? fun (id, _) => missingValueOf error id then
-      return { outcome := .gap s!"{name} has no computed value: {outcome.detail}", session }
-    return { outcome, session }
+      return {
+        outcome := .gap s!"{name} has no computed value: {outcome.detail}"
+        session
+        attempted
+        conclusions
+        proposition
+        observations
+      }
+    return { outcome, session, attempted, conclusions, proposition, observations }
+  let reading ← try session.source.readStatementObserved statement
+    catch error => return ← failed error none #[]
+  match reading with
+  | .failed error items =>
+    let (observed, prefix) ← observeReadFailure session.source items
+    let run ← failed error none prefix
+    let observations := observed.map fun (isFailure, observation) =>
+      if isFailure then { observation with outcome := some run.outcome } else observation
+    return { run with
+      conclusions := observations.flatMap (·.conclusions)
+      observations }
+  | .complete source =>
+    let prepared ← try retainStatement session.source source
+      catch error => return ← failed error none #[]
+    try
+      let needsCell ← match source with
+        | .settled _ | .assumption _ | .inspection _ => pure false
+        | .proved proposition _ => proofRequiresObservation session proposition
+        | _ => pure true
+      if !needsCell then
+        executionEntered.set true
+        return (← executePrepared session none prepared).run
+      let transaction ← CellTransaction.begin session.kernel.ledger
+      let result ← try
+          executionEntered.set true
+          let result ← executePrepared session (some transaction) prepared
+          Core.checkSystem "source statement publication"
+          -- All throwing result/conclusion construction precedes the only commit.
+          if result.publish then commit transaction
+          pure result
+        finally
+          discard <| (transaction.abort : BaseIO Bool)
+      unless result.publish do
+        if source matches .contextBlock _ then
+          saved.restore
+          prepared.ensureDeclarations
+      return { result.run with published := result.publish }
+    catch error =>
+      failed error (some prepared) #[]
 
 end CasRuntime

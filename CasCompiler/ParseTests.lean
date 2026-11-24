@@ -85,3 +85,43 @@ run_cmd do
     | throwError "the source-negative admission request changed syntax"
   unless name.getId == `impossibleAdmission do
     throwError "the original source-negative admission identity changed"
+
+-- Contextual command words keep their ordinary identifier uses, while complete
+-- statement headers cannot become a preceding expression's juxtaposed operand.
+run_cmd do
+  for (text, count) in #[
+      ("let f := x ↦ x in X → X\nlet g(x) := f(x) in X → X\n\
+        let k := g ∘ f\nassert k(i) = i\n", 4),
+      ("let context := 1\nlet assume := context\nlet inspect := assume\n\
+        assert inspect = context\n", 4),
+      ("let result := inspect assumptions\nassert result = result\n", 2),
+      ("let result := x inspect\nassert result = result\n", 2),
+      ("let result := x context\nassert result = result\n", 2),
+      ("let result := x assume\nassert result = result\n", 2),
+      ("let x := 1\ncontext do\nlet y := x\nend\ninspect assumptions\n", 3)] do
+    let source ← liftCoreM <| SourceFile.parse "statement-boundaries.cas" text
+    unless source.items.size == count && source.context.inputString == text do
+      throwError "contextual commands changed original item boundaries: {text}"
+  let text := "context do\nlet A ∈ Sets\nlet x ∈ A\nassume h : x = x\n\
+    assert (x = x) using (proof(h))\ninspect assumptions\nend"
+  let source ← liftCoreM <| SourceFile.parse "nested-statements.cas" text
+  let #[item] := source.items
+    | throwError "one source context was split into separate file items"
+  let `(cas_item| $statement:cas_stmt) := item
+    | throwError "the source context lost its statement node"
+  unless statement.raw.isOfKind ``casContextBlock && statement.raw[2].getArgs.size == 5 do
+    throwError "a contextual command was swallowed by an earlier nested expression"
+  let children := statement.raw[2].getArgs
+  let `(cas_item| $hypothesis:cas_stmt) := children[2]!
+    | throwError "the original hypothesis lost its item node"
+  let `(cas_item| $proved:cas_stmt) := children[3]!
+    | throwError "the original supplied-proof assertion lost its item node"
+  unless hypothesis.raw.isOfKind ``casHypothesis && proved.raw.isOfKind ``casProvedAssertion do
+    throwError "the contextual statement boundary changed a hypothesis or supplied proof"
+  for text in #["context do\nlet x := 1\n",
+      "context do\nassume h x = x\nend", "inspect"] do
+    let rejected ← try
+      discard <| liftCoreM <| SourceFile.parse "malformed-context.cas" text
+      pure false
+    catch _ => pure true
+    unless rejected do throwError "an incomplete contextual statement was accepted: {text}"

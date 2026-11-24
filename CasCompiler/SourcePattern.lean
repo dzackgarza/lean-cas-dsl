@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.Surface
+public import CasCompiler.Syntax
 
 public section
 

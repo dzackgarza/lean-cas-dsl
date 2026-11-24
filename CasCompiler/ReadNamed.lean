@@ -16,35 +16,46 @@ open Lean Meta Elab Term
 
 namespace SourceReader
 
-def object (context : ReadContext) :
-    String → Option String → Array (TSyntax `cas_term) → TermElabM NativeSourceJudgement :=
+def objectApplicable (context : ReadContext) :
+    String → Option String → Array (TSyntax `cas_term) →
+      TermElabM (Except MessageData NativeSourceJudgement) :=
   let expected := context.expected
   let application := application context
   fun (name : String) (category : Option String)
       (arguments : Array (TSyntax `cas_term)) => do
-    let (entry, categoryEntry) ← selectObject name category expected
+    let selected ← selectObjectApplicable name category expected
+    let (entry, categoryEntry) ← match selected with
+      | .ok selected => pure selected
+      | .error message => return .error message
     let (bundle, value) ← registeredExpressions (.inl entry) categoryEntry fun function expected =>
       application ⟨function, none⟩ arguments expected
-    return (⟨value, some ⟨.object, categoryEntry.expression, bundle,
+    return .ok (⟨value, some ⟨.object, categoryEntry.expression, bundle,
       ← objectCarrierSelection entry bundle value, none⟩⟩ : NativeSourceJudgement)
 
-def registered (context : ReadContext) :
-    Ident → Array (TSyntax `cas_term) → TermElabM NativeSourceJudgement :=
+def object (context : ReadContext) :
+    String → Option String → Array (TSyntax `cas_term) → TermElabM NativeSourceJudgement :=
+  fun name category arguments => do
+    match ← objectApplicable context name category arguments with
+    | .ok value => pure value
+    | .error message => throwError message
+
+def registeredApplicable (context : ReadContext) :
+    Ident → Array (TSyntax `cas_term) → TermElabM (Except MessageData NativeSourceJudgement) :=
   let readExpression := @ReadContext.readExpression context
   let categoryOf := context.categoryOf
   let expected := context.expected
   let qualification := context.qualification
-  let application := application context
+  let application := applicationApplicable context
   fun (name : Ident) (arguments : Array (TSyntax `cas_term)) => do
     if let some declaration := (← getLCtx).findFromUserName? name.getId then
       let selected ← categoryOf declaration.fvarId
-      return ← applicationResult context ⟨mkFVar declaration.fvarId, selected⟩
-        arguments expected
+      return .ok (← applicationResult context ⟨mkFVar declaration.fvarId, selected⟩
+        arguments expected)
     -- `pullback(f, g)`: a registered universal construction named by its shape.
     let spelling := name.getId.toString (escape := false)
     if !arguments.isEmpty && (← CasCatalogue.semanticState).limits.any (·.shape == spelling) then
       let maps ← arguments.mapM (readExpression categoryOf · none)
-      if let some limit ← sourceNamedLimit spelling maps then return limit
+      if let some limit ← sourceNamedLimit spelling maps then return .ok limit
     if name.getId == `id then
       let #[argument] := arguments
         | throwError "source identity requires one object"
@@ -61,7 +72,7 @@ def registered (context : ReadContext) :
       let function ← mkAppOptM ``CategoryTheory.CategoryStruct.id
         #[some carrier, some structureValue]
       let value ← elabAppArgs function #[] #[Arg.expr object.value] expected false false
-      return ⟨value, some { category with role := .morphism, carrier := none, limit := none }⟩
+      return .ok ⟨value, some { category with role := .morphism, carrier := none, limit := none }⟩
     let spelling := name.getId.toString (escape := false)
     let (spelling, arguments) ← do
       let state ← CasCatalogue.semanticState
@@ -76,15 +87,15 @@ def registered (context : ReadContext) :
         let literal : TSyntax `num := ⟨Syntax.mkNumLit (toString number)⟩
         let leading ← `(cas_term| $literal:num)
         pure (base, #[leading] ++ arguments)
-    let readNamed := fun (selected : SourceNamedEntry) => do
+    let readNamed : SourceNamedEntry → TermElabM (Except MessageData NativeSourceJudgement) := fun selected => do
      match selected with
      | .construction entry => do
        let some receiver := arguments.back?
          | throwError "a source construction requires its actual receiver"
        let receiver ← readExpression categoryOf receiver none
-       sourceConstruction entry receiver
+       return .ok (← sourceConstruction entry receiver
          ((arguments.pop).map fun parameter type => do
-           return (← readExpression categoryOf parameter (some type)).value)
+           return (← readExpression categoryOf parameter (some type)).value))
      | .registered entry categoryEntry => do
        let declaration := match entry with
          | .inl entry => entry.declaration
@@ -109,12 +120,17 @@ def registered (context : ReadContext) :
            -- (`dimension(ℚ[x, y])`): it is read at the declared parameter type below.
            let indexing := element.category.any (·.role == .object)
            unless indexing || (← withoutModifyingState (isDefEq type parameterType)) do
-             let some morphism ← sourceMorphismFrom? row.name type
-               | throwError "the named map {row.name} does not leave the set of its argument"
+             let some morphism ← sourceMorphismFrom? row.name type (some row)
+               | return .error m!"the named map {row.name} does not leave the set of its argument"
              let function ← sourceSetFunction morphism
-             return ⟨← elabAppArgs function #[] #[Arg.expr element.value] expected false false, none⟩
-       let (bundle, value) ← registeredExpressions entry categoryEntry fun function expected =>
+             return .ok ⟨← elabAppArgs function #[] #[Arg.expr element.value] expected false false, none⟩
+       if arguments.size < parameterCount then
+         return .error m!"the registered source declaration requires {parameterCount} explicit parameters"
+       let formed ← registeredExpressionsApplicable entry categoryEntry fun function expected =>
          application ⟨function, none⟩ (arguments.take parameterCount) expected
+       let (bundle, value) ← match formed with
+         | .ok value => pure value
+         | .error message => return .error message
        let role := match entry with
          | .inl _ => SourceCategoryRole.object
          | .inr _ => SourceCategoryRole.morphism
@@ -133,24 +149,49 @@ def registered (context : ReadContext) :
                !(← whnfR expected).isAppOfArity ``Quiver.Hom 4 then
              let source ← declaredEndpoint type.getAppArgs[2]!
              if (← synthInstance? (← mkAppM ``Unique #[source])).isSome then
-               return ⟨← sourcePointValue value (some expected), none⟩
+               return .ok ⟨← sourcePointValue value (some expected), none⟩
        if parameterCount < arguments.size then
-         return ← applicationResult context result (arguments.drop parameterCount) expected
-       return result
-    let candidates ← selectNamed spelling qualification expected
-    if let #[selected] := candidates then return ← readNamed selected
-    -- Kinds sharing a name: the reading is the one candidate that accepts the arguments.
-    let mut accepted := #[]
-    for selected in candidates do
-      let reads ← withoutModifyingState do
-        try discard <| readNamed selected; pure true
-        catch error => do
-          CasCatalogue.keepTrialAmbiguity error
-          pure false
-      if reads then accepted := accepted.push selected
-    let #[selected] := accepted
-      | CasCatalogue.throwSemanticAmbiguity m!"source name {spelling} requires a category qualification"
-    readNamed selected
+         return ← applicationResultApplicable context result (arguments.drop parameterCount) expected
+       return .ok result
+    let selection ← selectNamedApplicable spelling qualification expected
+    let candidates ← match selection with
+      | .ok selected => pure selected
+      | .error message => return .error message
+    let requireNamed := fun selected => do
+      match ← readNamed selected with
+      | .ok value => pure value
+      | .error message => throwError message
+    if let #[selected] := candidates then return .ok (← requireNamed selected)
+    -- Reject only explicit native applicability mismatches. A matched candidate's reader,
+    -- selected structure, instance, or construction failure remains its actual exception.
+    let original ← saveState
+    let mut accepted : Array (NativeSourceJudgement × Lean.Elab.Term.SavedState) := #[]
+    try
+      for selected in candidates do
+        original.restore
+        match ← readNamed selected with
+        | .ok value => accepted := accepted.push (value, ← saveState)
+        | .error _ => pure ()
+    catch error =>
+      original.restore
+      throw error
+    original.restore
+    match accepted with
+    | #[] =>
+      CasCatalogue.throwStratum .invalid m!"no registered reading of source name {spelling} accepts its actual arguments"
+    | #[(value, selected)] =>
+      selected.restore
+      return .ok value
+    | _ =>
+      CasCatalogue.throwSemanticAmbiguity m!"source name {spelling} requires a category qualification"
+
+/-- Required named readings keep actual operand and construction errors at their source. -/
+def registered (context : ReadContext) :
+    Ident → Array (TSyntax `cas_term) → TermElabM NativeSourceJudgement :=
+  fun name arguments => do
+    match ← registeredApplicable context name arguments with
+    | .ok value => pure value
+    | .error message => throwError message
 
 def notationObject (context : ReadContext) :
     String → Array (TSyntax `cas_term) → TermElabM (Option NativeSourceJudgement) :=

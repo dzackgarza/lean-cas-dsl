@@ -294,7 +294,7 @@ private def nullaryNumeralCandidate (routed : RoutedNumeral) (expected : Expr)
 -- families must agree before any actual source object is supplied.
 private def sourceNullaryNumeral (state : SemanticState)
     (ownerFamilies : Array (NativeSourceElementOwner × Expr))
-    (number : Nat) (expected : Expr) (proofs : Array Term) : TermElabM Expr := do
+    (number : Nat) (expected : Expr) (proofs : Array Term) : TermElabM (Option Expr) := do
   let mut candidates : Array (OperationEntry × RoutedNumeral) := #[]
   let mut hasBinding := false
   for (selected, categoryFamily) in ownerFamilies do
@@ -326,7 +326,7 @@ private def sourceNullaryNumeral (state : SemanticState)
     | if hasBinding then
         throwError "the first source numeral operation has a different nullary signature"
       else
-        throwError "no declared source point numeral was admitted in the supplied domain"
+        return none
   let mut evidence := first.evidence
   let mut alternatives := #[]
   for (_, other) in candidates do
@@ -342,7 +342,7 @@ private def sourceNullaryNumeral (state : SemanticState)
     evidence := evidence ++ other.evidence.push proof
     alternatives := alternatives ++ other.alternatives
   let value ← nullaryNumeralCandidate { first with evidence, alternatives } expected proofs
-  return sourceReference ``OperationEntry row.id.raw row.declaration value
+  return some (sourceReference ``OperationEntry row.id.raw row.declaration value)
 
 /-- First-binding lookup for numerals (constitution C6): an inherited numeral route is a reading
 only when no numeral row binds at a category before its target. This is the rule that
@@ -355,12 +355,14 @@ private def firstNumeralBinding (state : SemanticState) (route : Route) : Bool :
 /-- Read a numeral from its independent point declarations, not a host OfNat instance.
 Nat parameters use the kernel's natural literal. Point domains retain their original source
 object identity; refinements require the actual registered object and directed comparison.
+Only the absence of an applicable numeral and a numeric operation binding returns `none`.
+Failures of a selected family, native boundary or required evidence remain errors.
 Source: Registry.Entry.NumeralEntry and ObjectRefinement, LC-15; #66 source intake contract. -/
-opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
-    (number : Nat) (expected : Expr) (proofs : Array Term := #[]) : TermElabM Expr := do
+opaque sourceNumeral? (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
+    (number : Nat) (expected : Expr) (proofs : Array Term := #[]) : TermElabM (Option Expr) := do
   if expected.headBeta.isConstOf ``Nat then
     unless proofs.isEmpty do throwError "a natural parameter literal has no domain obligations"
-    return mkNatLit number
+    return some (mkNatLit number)
   let state ← semanticState
   let (domain, bases) ← registeredDomain expected
   let owners ← if bases.isEmpty then sourceElementOwners categoryOf expected #[expected]
@@ -477,7 +479,15 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
     pure (.selected { first with evidence, alternatives })
   let some value ← numeralCandidate row context number expected proofs
     | throwError "the selected source numeral changed its admitted boundary"
-  return sourceReference ``NumeralEntry row.id.raw row.declaration value
+  return some (sourceReference ``NumeralEntry row.id.raw row.declaration value)
+
+/-- An ordinary numeral reading requires a declared source point. The optional producer
+reports only actual absence; its original family, domain and proof failures propagate. -/
+opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
+    (number : Nat) (expected : Expr) (proofs : Array Term := #[]) : TermElabM Expr := do
+  let some value ← sourceNumeral? categoryOf number expected proofs
+    | throwError "no declared source point numeral was admitted in the supplied domain"
+  return value
 
 -- Reuse Registry.Entry.LiteralEntry: category identity selects the complete literal
 -- boundary before elaborating either existing literal syntax form at its native type.

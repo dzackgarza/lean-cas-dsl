@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.ReadExpression
+public import CasCompiler.SourceProof
 import CasCompiler.SourceCarrier
 
 public section
@@ -112,6 +113,15 @@ inductive SourceStatement where
   is retained only for original item identity/span reporting, never runtime replay. -/
   | contextBlock (items : Array (TSyntax `cas_item × SourceStatement))
 
+/-- The actual source-preflight result. A failed block retains its completed children,
+the original failed child result and every remaining original item in order. `none` means
+that item's source was not read; it carries no inferred judgement. The exception is the
+reader's original exception, not a replacement interpretation or runtime outcome. -/
+inductive SourceStatementRead where
+  | complete (statement : SourceStatement)
+  | failed (error : Exception)
+      (items : Array (TSyntax `cas_item × Option SourceStatementRead))
+
 /-- Original item syntax of a lexical block, shared by statement preparation and source
 observation. These exact nodes retain question labels and original file positions. -/
 def sourceContextItems? (statement : TSyntax `cas_stmt) : Option (Array (TSyntax `cas_item)) :=
@@ -119,14 +129,20 @@ def sourceContextItems? (statement : TSyntax `cas_stmt) : Option (Array (TSyntax
     some (statement.raw[2].getArgs.map (⟨·⟩))
   else none
 
+/-- The original statement node of one parsed item, without reading or rewriting it. -/
+def sourceItemStatement? (item : TSyntax `cas_item) : Option (TSyntax `cas_stmt) :=
+  match item with
+  | `(cas_item| test $_:ident $_:str : $statement:cas_stmt)
+  | `(cas_item| $statement:cas_stmt) => some statement
+  | _ => none
+
 /-- Read an asserted membership or annotation. Membership in a subset is a proposition; in an
 object it is the element's reading there, whose success settles the question.
 Source: mathematical-input contract §1; the original reader's settled typing judgements. -/
 private def typingQuestion (session : SourceSession) (stx : TSyntax `cas_term) :
     TermElabM SourceStatement := do
-  let term ← session.elaborate stx fun context =>
-    return (← readSourceTerm (sourceCategory session context)
-      (← recordedRings session context stx) stx none).value
+  -- Retain the original selected category, carrier and cone of fresh values too.
+  let term ← session.read stx
   let proposition ← term.source.withOpen fun _ expression => isProp expression
   return if proposition then .question term else .settled #[term]
 
@@ -227,7 +243,7 @@ private def categoryBundle (session : SourceSession) (context : OpenContext)
   discard <| checkedDeclaration entry.declaration
   let reader : ReadContext := ⟨sourceCategory session context, source, none, none, none,
     readProjection, fun categoryOf source expected qualification expectedCategory =>
-      readExpression categoryOf source expected qualification expectedCategory⟩
+      readExpressionApplicable categoryOf source expected qualification expectedCategory⟩
   let value ← SourceReader.application reader
     ⟨← mkConstWithFreshMVarLevels entry.declaration, none⟩ arguments none
   discard <| categoryIdentity value
@@ -275,7 +291,7 @@ private def definedValue (session : SourceSession) (body : TSyntax `cas_term) :
 /-- Read public statements through the checked source session, retaining actual let bindings.
 Reuse: SourceSession.read/defineTerm and native expected-type checking. Source annotations
 are read in the preceding scope; the new name is inserted only after its value is checked. -/
-private partial def readStatementCore (session : SourceSession) (stx : TSyntax `cas_stmt) :
+private def readStatementLeaf (session : SourceSession) (stx : TSyntax `cas_stmt) :
     TermElabM SourceStatement := withRef stx do
   -- Public let-function syntax expands once. The native value retains its actual preceding
   -- bindings; its span refers to the original statement, not generated syntax.
@@ -287,20 +303,6 @@ private partial def readStatementCore (session : SourceSession) (stx : TSyntax `
       | _ => patternFunction parameter value
     let value ← session.readAt stx translated
     return SourceStatement.definition (← session.defineWritten translated name.getId value) value
-  if let some children := sourceContextItems? stx then
-    let mut current := session
-    let mut items := #[]
-    for item in children do
-      let child ← match item with
-        | `(cas_item| test $_:ident $_:str : $statement:cas_stmt) => pure statement
-        | `(cas_item| $statement:cas_stmt) => pure statement
-        | _ => throwError "a context block changed its original item syntax"
-      let prepared ← readStatementCore current child
-      items := items.push (item, prepared)
-      match prepared with
-      | .definition next _ | .assumption next => current := next
-      | _ => pure ()
-    return .contextBlock items
   match stx with
   | `(cas_stmt| let $name:ident ∈ $domain:cas_term)
   | `(cas_stmt| let $name:ident in $domain:cas_term) =>
@@ -343,9 +345,50 @@ private partial def readStatementCore (session : SourceSession) (stx : TSyntax `
     CasCatalogue.throwUnsupportedSource
       "source translation is not implemented for this statement form"
 
+/-- The same reader retains successful source work when a later child fails. A block
+advances only through its completed stored source sessions and stops at its first error;
+no suffix is read, no source is replayed, and no child session escapes its lexical block. -/
+private partial def readStatementCore (session : SourceSession) (stx : TSyntax `cas_stmt) :
+    TermElabM SourceStatementRead := withRef stx do
+  if let some children := sourceContextItems? stx then
+    let mut current := session
+    let mut items : Array (TSyntax `cas_item × SourceStatement) := #[]
+    for item in children, index in [:children.size] do
+      let result : SourceStatementRead ← try
+          let some child := sourceItemStatement? item
+            | throwError "a context block changed its original item syntax"
+          readStatementCore current child
+        catch error => pure (.failed error #[])
+      match result with
+      | .complete prepared =>
+        items := items.push (item, prepared)
+        match prepared with
+        | .definition next _ | .assumption next => current := next
+        | _ => pure ()
+      | .failed error _ =>
+        let prefix := items.map fun (item, statement) =>
+          (item, some (SourceStatementRead.complete statement))
+        let suffix : Array (TSyntax `cas_item × Option SourceStatementRead) :=
+          (children.drop (index + 1)).map fun item => (item, none)
+        return .failed error (prefix ++ #[(item, some result)] ++ suffix)
+    return .complete (.contextBlock items)
+  try
+    return .complete (← readStatementLeaf session stx)
+  catch error =>
+    return .failed error #[]
+
+/-- Read once and expose the actual completed prefix if source preflight fails. Consumers
+may observe these original typed terms, but a failed result cannot enter execution. -/
+opaque SourceSession.readStatementObserved (session : SourceSession) (stx : TSyntax `cas_stmt) :
+    TermElabM SourceStatementRead := readStatementCore session stx
+
 /-- Read one complete source statement before any computational cell is opened. Context
-blocks retain typed children in order, including their original item labels and spans. -/
+blocks retain typed children in order, including their original item labels and spans.
+The ordinary API still throws the exact original error when any child fails. -/
 opaque SourceSession.readStatement (session : SourceSession) (stx : TSyntax `cas_stmt) :
-    TermElabM SourceStatement := readStatementCore session stx
+    TermElabM SourceStatement := do
+  match ← session.readStatementObserved stx with
+  | .complete statement => return statement
+  | .failed error _ => throw error
 
 end CasCompiler

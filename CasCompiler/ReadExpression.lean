@@ -32,38 +32,49 @@ namespace CasCompiler
 
 open Lean Meta Elab Term
 
-private def sourceRules : Array ReadRule := #[
-  ReadAtomNotation.rule,
-  ReadMemberNotation.rule,
-  ReadSubsetNotation.rule,
-  ReadRingNotation.rule,
-  ReadBinderNotation.rule,
-  ReadProductNotation.rule,
-  ReadLiftRules.rule,
-  ReadLimitRules.rule,
-  ReadOperationRules.rule,
-  ReadSubsetRules.rule,
-  ReadPowerRules.rule,
-  ReadGraphRules.rule,
-  ReadEquationRules.rule,
-  ReadMemberRules.rule,
-  ReadLambdaRules.rule,
-  ReadNumeralRules.rule,
-  ReadFunctorRules.rule,
-  ReadTupleRules.rule,
-  ReadNameRules.rule,
-  ReadAnnotationRules.rule,
-  ReadApplicationRules.rule
+private def sourceRules : Array ReadApplicableRule := #[
+  ReadAtomNotation.ruleApplicable,
+  ReadRule.applicable ReadMemberNotation.rule,
+  ReadRule.applicable ReadSubsetNotation.rule,
+  ReadRule.applicable ReadRingNotation.rule,
+  ReadRule.applicable ReadBinderNotation.rule,
+  ReadRule.applicable ReadProductNotation.rule,
+  ReadRule.applicable ReadLiftRules.rule,
+  ReadRule.applicable ReadLimitRules.rule,
+  ReadRule.applicable ReadOperationRules.rule,
+  ReadRule.applicable ReadSubsetRules.rule,
+  ReadRule.applicable ReadPowerRules.rule,
+  ReadRule.applicable ReadGraphRules.rule,
+  ReadRule.applicable ReadEquationRules.rule,
+  ReadRule.applicable ReadMemberRules.rule,
+  ReadRule.applicable ReadLambdaRules.rule,
+  ReadRule.applicable ReadNumeralRules.rule,
+  ReadRule.applicable ReadFunctorRules.rule,
+  ReadRule.applicable ReadTupleRules.rule,
+  ReadNameRules.ruleApplicable,
+  ReadRule.applicable ReadAnnotationRules.rule,
+  ReadRule.applicable ReadApplicationRules.rule
 ]
 
-partial def readExpression
+partial def readExpressionApplicable
+    (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
+    (source : TSyntax `cas_term) (expected : Option Expr)
+    (qualification : Option String := none)
+    (expectedCategory : Option NativeSourceCategory := none) :
+    TermElabM (Except MessageData NativeSourceJudgement) :=
+  readWithApplicableRules sourceRules ⟨categoryOf, source, expected, qualification, expectedCategory,
+    readProjection, fun categoryOf source expected qualification expectedCategory =>
+      readExpressionApplicable categoryOf source expected qualification expectedCategory⟩
+
+def readExpression
     (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
     (source : TSyntax `cas_term) (expected : Option Expr)
     (qualification : Option String := none)
     (expectedCategory : Option NativeSourceCategory := none) : TermElabM NativeSourceJudgement :=
-  readWithRules sourceRules ⟨categoryOf, source, expected, qualification, expectedCategory,
-    readProjection, fun categoryOf source expected qualification expectedCategory =>
-      readExpression categoryOf source expected qualification expectedCategory⟩
+  withRef source do
+    match ← readExpressionApplicable categoryOf source expected qualification expectedCategory with
+    | .ok value => pure value
+    | .error message => throwError message
 
 /-- Read a whole source term. Each variable of a ring `R[v]` that the term writes and uses free is
 bound to that ring's registered generator for this term only.
@@ -124,4 +135,3 @@ def sourceEquation (categoryOf : FVarId → TermElabM (Option NativeSourceCatego
   return (← readExpression categoryOf equation (some (mkSort .zero))).value
 
 end CasCompiler
-

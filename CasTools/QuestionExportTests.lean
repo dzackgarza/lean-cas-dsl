@@ -1,12 +1,16 @@
 module
 
 import CasTools.QuestionExport
+import LeanCategories.Catalogue.Semantics.Foundation.Objects
 import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
 import LeanCategories.Catalogue.Semantics.Algebra.LinearAlgebra
+import LeanCategories.Catalogue.Semantics.Limits.Registration
 public meta import Lean.Elab.Command
 meta import CasTools.QuestionExport
+meta import LeanCategories.Catalogue.Semantics.Foundation.Objects
 meta import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
 meta import LeanCategories.Catalogue.Semantics.Algebra.LinearAlgebra
+meta import LeanCategories.Catalogue.Semantics.Limits.Registration
 
 open Lean Meta Elab Term CasCompiler CasTools.QuestionExport
 
@@ -297,3 +301,210 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       observation.failures[1]!.id == "scoped.blocked" &&
       observation.failures[1]!.cause.map (·.id) == some "bad" do
     throwError "scoped export lost the exact failed declaration and its local blocking cause"
+
+private def exportedDocument (text : String) : TermElabM Json := do
+  let .ok document := Json.parse text
+    | throwError "an exported native or canonical document did not parse"
+  return document
+
+private def exportedNativeRoots (reading : Reading) : TermElabM (Array Expr) := do
+  let .ok roots := CasTools.NativeExpression.decode (← exportedDocument reading.proposition)
+    | throwError "an exported typed reading did not decode"
+  return roots
+
+-- These controls deliberately have empty native scopes, so a ClosedTerm descriptor's
+-- body is closed and can be compared directly with the canonical lambda closure.
+private def exportedClosedBody (nodes : Array Expr) (descriptor : Json) : TermElabM Expr := do
+  let .ok context := descriptor.getObjValAs? (Array Json) "context"
+    | throwError "an exported selected term lost its original context"
+  unless context.isEmpty do
+    throwError "the closed-selection control unexpectedly acquired local assumptions"
+  let .ok index := descriptor.getObjValAs? Nat "expression"
+    | throwError "an exported selected term lost its exact expression reference"
+  let some expression := nodes[index]?
+    | throwError "an exported selected expression is outside its native graph"
+  checkWithKernel expression
+  return expression
+
+private def checkCanonicalRoot (table : CasCatalogue.Realize.TermTable)
+    (fields : Json) (field : String) (expression : Expr) : TermElabM Unit := do
+  let .ok index := fields.getObjValAs? Nat field
+    | throwError "an exported canonical selection lost its {field} root"
+  unless (← table.rootIdentity index) == (← CasCatalogue.Realize.termIdentity expression) do
+    throwError "the canonical {field} changed its original native term"
+
+-- An implementation request retains its non-propositional value and its own judgement.
+-- The neighboring ordinary proposition keeps its existing singleton identity shape.
+run_cmd Lean.Elab.Command.liftTermElabM <| withCurrHeartbeats do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let file ← SourceFile.parse "implemented-export.cas"
+    "test observer.implemented_value \"typed value\": assert implemented Fin(2)\n\
+     test observer.ordinary_proposition \"ordinary question\": assert true\n"
+  let observation ← observeFile file empty
+  unless observation.failures.isEmpty && observation.readings.map (·.id) ==
+      #["observer.implemented_value", "observer.ordinary_proposition"] do
+    throwError "implementation observation rejected a typed value or changed original identities"
+  let implementation := observation.readings[0]!
+  let #[value] ← exportedNativeRoots implementation
+    | throwError "an implementation request lost its original singleton typed value"
+  unless !(← isProp value) do
+    throwError "an implementation request was replaced by a fabricated proposition"
+  let expected ← mkAppM ``CasCatalogue.Foundation.Objects.fin #[mkNatLit 2]
+  unless ← isDefEq value expected do
+    throwError "the implementation request changed its original finite object"
+  checkWithKernel value
+  let document ← exportedDocument implementation.question
+  let .ok roots := document.getObjVal? "roots"
+    | throwError "an implementation identity lost its roots"
+  unless roots.getObjValAs? String "judgement" == .ok "implemented" do
+    throwError "the implementation request changed its distinct judgement kind"
+  let .error _ := roots.getObjVal? "conjuncts"
+    | throwError "a singleton implementation request acquired a conjunction wrapper"
+  let .ok category := roots.getObjVal? "category"
+    | throwError "the implementation identity lost its selected category"
+  let .error _ := category.getObjVal? "limit"
+    | throwError "a category without a chosen limit acquired a canonical limit field"
+  let .ok nativeCategory := implementation.sourceContext.getObjVal? "category"
+    | throwError "the implementation snapshot lost its selected category"
+  let .error _ := nativeCategory.getObjVal? "limit"
+    | throwError "a category without a chosen limit acquired a native limit field"
+  let .ok encodedNodes := document.getObjValAs? (Array Json) "terms"
+    | throwError "the implementation identity lost its canonical node table"
+  let canonical ← CasCatalogue.Realize.TermTable.new
+  canonical.nodes.set encodedNodes
+  checkCanonicalRoot canonical roots "proposition" value
+  let ordinary := observation.readings[1]!
+  let #[proposition] ← exportedNativeRoots ordinary
+    | throwError "an ordinary question changed its singleton native root"
+  unless ← isProp proposition do
+    throwError "an ordinary proposition acquired implementation-value semantics"
+  let ordinaryDocument ← exportedDocument ordinary.question
+  let .ok ordinaryRoots := ordinaryDocument.getObjVal? "roots"
+    | throwError "the ordinary proposition lost its canonical roots"
+  let .ok _ := ordinaryRoots.getObjValAs? Nat "proposition"
+    | throwError "the ordinary proposition changed its original root shape"
+  for field in #["judgement", "conjuncts"] do
+    let .error _ := ordinaryRoots.getObjVal? field
+      | throwError "an ordinary proposition acquired a new {field} wrapper"
+
+-- Selected presentations survive all three actual consumers: fresh typing
+-- values, categories of original definitions, and inert post-scope conclusions.
+run_cmd Lean.Elab.Command.liftTermElabM <| withCurrHeartbeats do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let file ← SourceFile.parse "selected-cone-export.cas"
+    "test observer.fresh_product \"selected cone\": assert (Fin(2) × Fin(3)) in Sets\n\
+     let P := Fin(2) × Fin(3)\n\
+     test observer.stored_product \"selected scope\": assert P = P\n"
+  let observation ← observeFile file empty
+  unless observation.failures.isEmpty && observation.readings.map (·.id) ==
+      #["observer.fresh_product", "observer.stored_product"] do
+    throwError "selected-cone observation rejected or omitted an original assertion"
+  let fresh := observation.readings[0]!
+  let stored := observation.readings[1]!
+  let state ← CasCatalogue.semanticState
+  let sets ← selectCategory state "Sets"
+  let left ← mkAppM ``CasCatalogue.Foundation.Objects.fin #[mkNatLit 2]
+  let right ← mkAppM ``CasCatalogue.Foundation.Objects.fin #[mkNatLit 3]
+  let presentation ← mkAppM ``CasCatalogue.Limits.Registration.setsProduct #[left, right]
+  let expectedCone ← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[presentation]
+  let expectedApex ← mkAppM ``CategoryTheory.Limits.Cone.pt #[expectedCone]
+  let inspectSelection := fun (sourceContext category : Json)
+      (canonical? : Option (CasCatalogue.Realize.TermTable × Json)) => do
+    let .ok graph := sourceContext.getObjVal? "nativeExpressions"
+      | throwError "the selected-cone snapshot lost its native graph"
+    let .ok nodes := CasTools.NativeExpression.decodeNodes graph
+      | throwError "the selected-cone native graph did not decode"
+    let .ok limit := category.getObjVal? "limit"
+      | throwError "an exported category discarded its chosen cone"
+    let .ok rowId := limit.getObjValAs? String "row"
+      | throwError "an exported chosen cone lost its original row"
+    let #[row] := state.limits.filter (·.id.raw == rowId)
+      | throwError "the exported chosen cone no longer identifies one original presentation"
+    let .ok declarationJson := limit.getObjVal? "declaration"
+      | throwError "the chosen cone lost its native declaration name"
+    let .ok declaration := CasTools.NativeExpression.nameFromJson declarationJson
+      | throwError "the chosen cone's native declaration name did not decode"
+    unless row.category == sets.id && row.shape == "product" && !row.colimit &&
+        declaration == ``CasCatalogue.Limits.Registration.setsProduct &&
+        row.declaration == declaration && limit.getObjValAs? Bool "colimit" == .ok false &&
+        category.getObjValAs? String "role" == .ok "object" &&
+        category.getObjValAs? String "expression" == .ok (reprStr sets.expression) &&
+        limit.getObjValAs? String "category" == .ok (reprStr sets.expression) do
+      throwError "the exported cone changed its original row, category or presentation kind"
+    let .ok bundleJson := category.getObjVal? "bundle"
+      | throwError "the exported category lost its complete native bundle"
+    let bundle ← exportedClosedBody nodes bundleJson
+    let .ok chosenBundleJson := limit.getObjVal? "bundle"
+      | throwError "the exported cone lost its complete native category bundle"
+    let chosenBundle ← exportedClosedBody nodes chosenBundleJson
+    let .ok coneJson := limit.getObjVal? "cone"
+      | throwError "the exported cone lost its native term"
+    let cone ← exportedClosedBody nodes coneJson
+    unless bundle == chosenBundle && cone.containsConst (· == declaration) &&
+        (← isDefEq cone expectedCone) do
+      throwError "the exported cone changed its complete bundle or original finite operands"
+    if let some (canonical, fields) := canonical? then
+      let .ok chosen := fields.getObjVal? "limit"
+        | throwError "the canonical category discarded its chosen cone"
+      let .ok chosenDeclarationJson := chosen.getObjVal? "declaration"
+        | throwError "the canonical cone lost its native declaration name"
+      let .ok chosenDeclaration := CasTools.NativeExpression.nameFromJson chosenDeclarationJson
+        | throwError "the canonical cone's declaration name did not decode"
+      unless chosen.getObjValAs? String "row" == .ok rowId &&
+          chosenDeclaration == declaration &&
+          chosen.getObjValAs? Bool "colimit" == .ok false &&
+          chosen.getObjValAs? String "category" == .ok (reprStr sets.expression) do
+        throwError "the canonical cone changed its selected presentation fields"
+      checkCanonicalRoot canonical fields "bundle" bundle
+      checkCanonicalRoot canonical chosen "bundle" chosenBundle
+      checkCanonicalRoot canonical chosen "cone" cone
+  for (reading, isFresh) in #[(fresh, true), (stored, false)] do
+    let document ← exportedDocument reading.question
+    let .ok roots := document.getObjVal? "roots"
+      | throwError "a selected-cone identity lost its canonical roots"
+    if isFresh then
+      unless roots.getObjValAs? String "judgement" == .ok "settled" do
+        throwError "the fresh product typing changed its original settled judgement"
+    let .ok encodedNodes := document.getObjValAs? (Array Json) "terms"
+      | throwError "a selected-cone identity lost its canonical node table"
+    let canonical ← CasCatalogue.Realize.TermTable.new
+    canonical.nodes.set encodedNodes
+    let category ← if isFresh then do
+        let .ok category := reading.sourceContext.getObjVal? "category"
+          | throwError "the fresh product lost its selected category snapshot"
+        pure category
+      else do
+        let .ok #[category] := reading.sourceContext.getObjValAs? (Array Json) "categories"
+          | throwError "the stored product lost its original declaration's selected category"
+        pure category
+    let canonicalCategory ← if isFresh then do
+        let .ok category := roots.getObjVal? "category"
+          | throwError "the fresh product lost its canonical selected category"
+        pure category
+      else do
+        let .ok #[category] := roots.getObjValAs? (Array Json) "categories"
+          | throwError "the stored product lost its original canonical declaration selection"
+        pure category
+    inspectSelection reading.sourceContext category (some (canonical, canonicalCategory))
+  let #[value] ← exportedNativeRoots fresh
+    | throwError "the fresh product lost its original native typing value"
+  unless ← isDefEq value expectedApex do
+    throwError "the fresh product typing changed its original apex"
+  -- Construct one conclusion through the public source boundary, then inspect the
+  -- frozen result through observeConclusion without any current session or evaluation.
+  let `(cas_item| test $_:ident $_:str : $statement:cas_stmt) := file.items[0]!
+    | throwError "the selected-conclusion control lost its original source item"
+  let .settled #[term] ← file.withContext (empty.readStatement statement)
+    | throwError "the selected-conclusion control changed its typed statement kind"
+  let conclusion ← empty.conclusion #[term]
+  let observed := observeConclusion conclusion
+  let .ok #[snapshot] := observed.getObjValAs? (Array Json) "terms"
+    | throwError "the inert conclusion observer lost its original selected term"
+  let .ok proof := observed.getObjVal? "proof"
+    | throwError "the inert conclusion observer changed its proof field"
+  unless proof.isNull do throwError "a typing conclusion fabricated proof evidence"
+  let .ok category := snapshot.getObjVal? "category"
+    | throwError "the inert conclusion observer lost its selected category"
+  inspectSelection snapshot category none

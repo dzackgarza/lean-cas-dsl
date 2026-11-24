@@ -105,6 +105,109 @@ def encode (expressions : Array Expr) : Json :=
   let (roots, builder) := (expressions.mapM Builder.add).run {}
   builder.finish roots
 
+/-- Encode the complete native declaration payload using the caller's existing expression
+table. The same serializer serves exact snapshots and the typed canonical table; it never
+substitutes an axiom for a definition or evaluates the declaration's value. -/
+def constantInfoJson [Monad m] (encode : Expr → m Nat) (info : ConstantInfo) : m Json := do
+  let common := [("name", nameJson info.name),
+    ("universeParams", Json.arr (info.levelParams.toArray.map nameJson)),
+    ("type", toJson (← encode info.type))]
+  let names : List Name → Json := fun values => Json.arr (values.toArray.map nameJson)
+  let fields ← match info with
+    | .axiomInfo value =>
+      pure [("kind", toJson "axiom"), ("unsafe", toJson value.isUnsafe)]
+    | .defnInfo value => do
+      let hints := match value.hints with
+        | .opaque => Json.arr #[toJson "opaque"]
+        | .abbrev => Json.arr #[toJson "abbrev"]
+        | .regular height => Json.arr #[toJson "regular", toJson height.toNat]
+      let safety := match value.safety with
+        | .safe => "safe" | .unsafe => "unsafe" | .partial => "partial"
+      pure [("kind", toJson "definition"), ("value", toJson (← encode value.value)),
+        ("hints", hints), ("safety", toJson safety), ("all", names value.all)]
+    | .thmInfo value =>
+      pure [("kind", toJson "theorem"), ("value", toJson (← encode value.value)),
+        ("all", names value.all)]
+    | .opaqueInfo value =>
+      pure [("kind", toJson "opaque"), ("value", toJson (← encode value.value)),
+        ("unsafe", toJson value.isUnsafe), ("all", names value.all)]
+    | .inductInfo value =>
+      pure [("kind", toJson "inductive"), ("parameters", toJson value.numParams),
+        ("indices", toJson value.numIndices), ("all", names value.all),
+        ("constructors", names value.ctors), ("nested", toJson value.numNested),
+        ("recursive", toJson value.isRec), ("unsafe", toJson value.isUnsafe),
+        ("reflexive", toJson value.isReflexive)]
+    | .ctorInfo value =>
+      pure [("kind", toJson "constructor"), ("inductive", nameJson value.induct),
+        ("index", toJson value.cidx), ("parameters", toJson value.numParams),
+        ("fields", toJson value.numFields), ("unsafe", toJson value.isUnsafe)]
+    | .recInfo value => do
+      let rules ← value.rules.toArray.mapM fun rule => do
+        pure <| Json.mkObj [("constructor", nameJson rule.ctor),
+          ("fields", toJson rule.nfields), ("rhs", toJson (← encode rule.rhs))]
+      pure [("kind", toJson "recursor"), ("all", names value.all),
+        ("parameters", toJson value.numParams), ("indices", toJson value.numIndices),
+        ("motives", toJson value.numMotives), ("minors", toJson value.numMinors),
+        ("rules", Json.arr rules), ("k", toJson value.k), ("unsafe", toJson value.isUnsafe)]
+    | .quotInfo value =>
+      let kind := match value.kind with
+        | .type => "type" | .ctor => "constructor" | .lift => "lift" | .ind => "induction"
+      pure [("kind", toJson "quotient"), ("quotientKind", toJson kind)]
+  return Json.mkObj (common ++ fields)
+
+/-- Retain local native definitions beside the same shared expression graph. An empty
+declaration closure uses the original document exactly. Decode still returns the original
+ordered roots; declaration type/value indices refer to this same graph's node table. -/
+def encodeWithDeclarations (expressions : Array Expr) (declarations : Array ConstantInfo) :
+    Json := Id.run do
+  if declarations.isEmpty then return encode expressions
+  let build : StateM Builder (Array Nat × Array Json) := do
+    let roots ← expressions.mapM Builder.add
+    let declarations ← declarations.mapM (constantInfoJson Builder.add)
+    return (roots, declarations)
+  let ((roots, declarations), builder) := build.run {}
+  return Json.mkObj [("roots", toJson roots), ("nodes", toJson builder.nodes),
+    ("declarations", Json.arr declarations)]
+
+/-- Reconstruct a stored native value declaration from the shared exact expression graph.
+This is a codec, not an admission: callers must use the native kernel's declaration checker.
+Ambient axioms and inductive families have no value-declaration replay through this API. -/
+def valueDeclarationFromJson (document : Json) (expressions : Array Expr) :
+    Except String Declaration := do
+  let name ← document.getObjValAs? Name "name"
+  let levelParams ← document.getObjValAs? (List Name) "universeParams"
+  let expression (field : String) : Except String Expr := do
+    let index ← document.getObjValAs? Nat field
+    let some value := expressions[index]?
+      | .error "a native declaration refers outside its shared expression graph"
+    return value
+  let type ← expression "type"
+  let value ← expression "value"
+  let all ← document.getObjValAs? (List Name) "all"
+  let constant : ConstantVal := { name, levelParams, type }
+  match ← document.getObjValAs? String "kind" with
+  | "definition" =>
+    let safety ← match ← document.getObjValAs? String "safety" with
+      | "safe" => pure DefinitionSafety.safe
+      | "unsafe" => pure DefinitionSafety.unsafe
+      | "partial" => pure DefinitionSafety.partial
+      | _ => .error "a native definition has an invalid safety constructor"
+    let hints ← match ← document.getObjVal? "hints" with
+      | .arr #[.str "opaque"] => pure ReducibilityHints.opaque
+      | .arr #[.str "abbrev"] => pure ReducibilityHints.abbrev
+      | .arr #[.str "regular", height] => do
+        let height ← (fromJson? height : Except String Nat)
+        if height > 4294967295 then
+          throw "a native reducibility height is outside UInt32"
+        pure (ReducibilityHints.regular height.toUInt32)
+      | _ => .error "a native definition has invalid reducibility hints"
+    return .defnDecl { toConstantVal := constant, value, hints, safety, all }
+  | "theorem" => return .thmDecl { toConstantVal := constant, value, all }
+  | "opaque" =>
+    let isUnsafe ← document.getObjValAs? Bool "unsafe"
+    return .opaqueDecl { toConstantVal := constant, value, isUnsafe, all }
+  | _ => .error "the stored native declaration is not a value declaration"
+
 /-- Decode only topological references. Native constructors restore every stored field. -/
 def decodeNodes (document : Json) : Except String (Array Expr) := do
   let nodes ← document.getObjValAs? (Array Node) "nodes"

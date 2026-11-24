@@ -115,3 +115,55 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       then throw error
     pure true
   unless rejected do throwError "the source product merged independently selected scalar rings"
+
+/- A native cone declaration can accept all supplied maps and still require declaration
+data that those maps do not determine. The helper control below preserves that distinction
+without adding a downstream registry row. The public named pullback remains an independent
+consumer control of the actual registered presentation. -/
+open CategoryTheory CategoryTheory.Limits
+
+def nativeTrialUnresolvedPullback {_extra : Type}
+    {X Y Z : LeanCategories.Foundation.Mathlib.Sets.{0}} (f : X ⟶ Z) (g : Y ⟶ Z) :
+    LimitCone (cospan f g) :=
+  CasCatalogue.Limits.Registration.setsPullback f g
+
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let session ← empty.assume `X (← nativeTerm "Type")
+  let original ← session.read (← sourceTerm "pullback(id(X), id(X))")
+  let some category := original.category
+    | throwError "the named pullback lost its original selected category"
+  let some limit := category.limit
+    | throwError "the named pullback lost its original cone"
+  unless limit.row == "lim.sets.pullback" &&
+      limit.declaration == ``CasCatalogue.Limits.Registration.setsPullback &&
+      !limit.colimit && limit.category.syntacticEq (.atom CategoryId.sets) do
+    throwError "the named pullback changed its complete selected presentation"
+  original.source.withOpen fun bindings apex => do
+    let context ← ContextTelescope.capture bindings
+    let cone ← limit.cone.inContext context
+    unless cone.containsConst (· == ``CasCatalogue.Limits.Registration.setsPullback) &&
+        cone.containsFVar bindings[0]!.expression.fvarId! do
+      throwError "the named pullback replaced its original source objects or declaration"
+    let expected ← mkAppM ``CategoryTheory.Limits.Cone.pt #[cone]
+    unless ← isDefEq apex expected do
+      throwError "the named pullback lost its selected cone's apex"
+    checkWithKernel (← mkExpectedTypeHint (← mkEqRefl apex) (← mkEq apex expected))
+  let identity ← session.read (← sourceTerm "id(X)")
+  session.context.withOpen fun bindings => do
+    let context ← ContextTelescope.capture bindings
+    let originalMap ← identity.source.inContext context
+    let declaration ← mkConstWithFreshMVarLevels ``nativeTrialUnresolvedPullback
+    let arguments := #[originalMap, originalMap]
+    let result ← elabSourceApplicationApplicable declaration
+      (Array.replicate arguments.size Syntax.missing) none fun index _ => do
+        let some argument := arguments[index]?
+          | throwError "the native limit control lost an original supplied map"
+        return .ok argument
+    let .ok (presentation, actual) := result
+      | throwError "the native limit control confused undetermined data with a domain mismatch"
+    let presentation ← instantiateMVars presentation
+    unless actual == arguments && presentation.hasMVar &&
+        presentation.getAppFn.isConstOf ``nativeTrialUnresolvedPullback do
+      throwError "the native limit helper changed or silently completed the original application"

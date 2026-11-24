@@ -147,21 +147,29 @@ def sourceLiteralDomains (domain : Expr) : TermElabM (Array ObjectEntry) := do
 Where both endpoints name registered objects, their exact row and actual declaration
 parameters must agree. Native carrier equality cannot supply a cross-domain comparison.
 Reuse: ObjectEntry, sourceObjectReference? and the original native definition bindings. -/
-opaque checkRegisteredDomains (left right : Expr) : MetaM Unit := do
+opaque registeredDomainsApplicable (left right : Expr) : MetaM (Except MessageData Unit) := do
   let (left, leftOwners) ← registeredDomain left
   let (right, rightOwners) ← registeredDomain right
-  if leftOwners.isEmpty || rightOwners.isEmpty then return
+  if leftOwners.isEmpty || rightOwners.isEmpty then return .ok ()
   unless leftOwners.any fun first => rightOwners.any (·.id == first.id) do
-    throwError "the source values have different registered domains \
+    return .error m!"the source values have different registered domains \
       ({left}: {leftOwners.map (·.id.raw)}, {right}: {rightOwners.map (·.id.raw)})"
   let leftParameters := left.getAppArgs
   let rightParameters := right.getAppArgs
   unless leftParameters.size == rightParameters.size do
-    throwError "the source domains have different complete declaration parameters"
+    return .error m!"the source domains have different complete declaration parameters"
   for left in leftParameters, right in rightParameters do
     unless ← isDefEq left right do
-      throwError "the source domains have different complete declaration parameters \
+      return .error m!"the source domains have different complete declaration parameters \
         ({left} : {← inferType left}, {right} : {← inferType right})"
+  return .ok ()
+
+/-- Require the original registered domains to agree. Only the explicit comparison result
+above is a candidate mismatch; errors while recovering either original domain propagate. -/
+opaque checkRegisteredDomains (left right : Expr) : MetaM Unit := do
+  match ← registeredDomainsApplicable left right with
+  | .ok () => pure ()
+  | .error message => throwError message
 
 /-- Canonical native indices at the complete finite arity supplied by the source type.
 Reuse: Lean.Meta.LitValues.litToCtor's Fin construction and native Boolean proof. -/
@@ -257,8 +265,9 @@ private def sourceNameCategory (state : SemanticState) (name : String)
 /-- Select a named source row in an explicit category or independently declared parameter type.
 Reuse: native category declaration telescopes, Lean isDefEq and withoutModifyingState.
 Each candidate check has isolated metavariables; lexical bindings bypass this selection. -/
-opaque selectObject (name : String) (category : Option String) (expected : Option Expr := none) :
-    TermElabM (ObjectEntry × NamedCategoryEntry) := do
+opaque selectObjectApplicable (name : String) (category : Option String)
+    (expected : Option Expr := none) :
+    TermElabM (Except MessageData (ObjectEntry × NamedCategoryEntry)) := do
     let state ← semanticState
     let qualified ← sourceNameCategory state name category
     let expected ← expected.mapM fun type => do whnf (← instantiateMVars type)
@@ -269,6 +278,9 @@ opaque selectObject (name : String) (category : Option String) (expected : Optio
       entry.name == name && match qualified with
         | some category => entry.category == category.id
         | none => parameterType.isSome || unqualifiedObjectName state entry
+    -- Absence of an independently registered source name is an error. Only the native
+    -- parameter-type comparison below can make a known name inapplicable to this reader.
+    if entries.isEmpty then throwUnknownSourceName name
     let entries ← entries.filterM fun entry => do
       let #[categoryEntry] := state.categories.filter (·.id == entry.category)
         | throwError "the source object requires one registered category"
@@ -281,11 +293,21 @@ opaque selectObject (name : String) (category : Option String) (expected : Optio
       else return true
     let entry ← match entries with
       | #[entry] => pure entry
-      | #[] => throwUnknownSourceName name
+      | #[] =>
+        if let some expected := parameterType then
+          return .error m!"the source object {name} does not have its independently declared parameter type {expected}"
+        else throwUnknownSourceName name
       | _ => throwSemanticAmbiguity m!"source object {name} requires a category qualification"
     let #[categoryEntry] := state.categories.filter (·.id == entry.category)
       | throwError "the source object requires one registered category"
-    return (entry, categoryEntry)
+    return .ok (entry, categoryEntry)
+
+/-- Required lookup retains the source error when no compatible native object is available. -/
+opaque selectObject (name : String) (category : Option String) (expected : Option Expr := none) :
+    TermElabM (ObjectEntry × NamedCategoryEntry) := do
+  match ← selectObjectApplicable name category expected with
+  | .ok selected => pure selected
+  | .error message => throwError message
 
 inductive SourceNamedEntry where
   | registered (entry : ObjectEntry ⊕ MorphismEntry) (category : NamedCategoryEntry)
@@ -295,8 +317,8 @@ inductive SourceNamedEntry where
 morphism and a registered object share the name, every one of them is a candidate; the reader
 keeps those that accept the actual arguments (`span({u₁, u₂})`), and the name is ambiguous
 only if several do. -/
-opaque selectNamed (name : String) (category : Option String) (expected : Option Expr) :
-    TermElabM (Array SourceNamedEntry) := do
+opaque selectNamedApplicable (name : String) (category : Option String) (expected : Option Expr) :
+    TermElabM (Except MessageData (Array SourceNamedEntry)) := do
   let state ← semanticState
   let qualified ← sourceNameCategory state name category
   let morphisms := state.morphisms.filter fun entry =>
@@ -311,10 +333,11 @@ opaque selectNamed (name : String) (category : Option String) (expected : Option
       throwSemanticAmbiguity m!"source name {name} has distinct registered kinds"
     let #[entry] := constructions
       | throwSemanticAmbiguity m!"source construction {name} has several registrations"
-    return #[.construction entry]
+    return .ok #[.construction entry]
   if morphisms.isEmpty then
-    let (entry, category) ← selectObject name category expected
-    return #[.registered (.inl entry) category]
+    match ← selectObjectApplicable name category expected with
+    | .ok (entry, category) => return .ok #[.registered (.inl entry) category]
+    | .error message => return .error message
   let category := fun (id : CategoryId) => do
     let #[categoryEntry] := state.categories.filter (·.id == id)
       | throwError "the source name requires one registered category"
@@ -322,17 +345,25 @@ opaque selectNamed (name : String) (category : Option String) (expected : Option
   unless objects.isEmpty do
     let kinds ← morphisms.mapM fun entry => do
       return SourceNamedEntry.registered (.inr entry) (← category entry.category)
-    return kinds ++ (← objects.mapM fun entry => do
-      return SourceNamedEntry.registered (.inl entry) (← category entry.category))
+    return .ok (kinds ++ (← objects.mapM fun entry => do
+      return SourceNamedEntry.registered (.inl entry) (← category entry.category)))
   let #[entry] := morphisms
     | throwSemanticAmbiguity m!"source name {name} requires a category qualification"
-  return #[.registered (.inr entry) (← category entry.category)]
+  return .ok #[.registered (.inr entry) (← category entry.category)]
+
+/-- Required named selection preserves all registered kinds and genuine ambiguity. -/
+opaque selectNamed (name : String) (category : Option String) (expected : Option Expr) :
+    TermElabM (Array SourceNamedEntry) := do
+  match ← selectNamedApplicable name category expected with
+  | .ok selected => pure selected
+  | .error message => throwError message
 
 /-- Form the actual registered value and check its declared object or morphism role.
 Reuse: the source's declaration/category pair, native application and the identity functor. -/
-opaque registeredExpressions (entry : ObjectEntry ⊕ MorphismEntry)
+opaque registeredExpressionsApplicable (entry : ObjectEntry ⊕ MorphismEntry)
     (categoryEntry : NamedCategoryEntry)
-    (application : Expr → Option Expr → TermElabM Expr) : TermElabM (Expr × Expr) := do
+    (application : Expr → Option Expr → TermElabM (Except MessageData Expr)) :
+    TermElabM (Except MessageData (Expr × Expr)) := do
   let (declaration, role, kind, id) := match entry with
     | .inl entry => (entry.declaration, SourceCategoryRole.object, ``ObjectEntry, entry.id.raw)
     | .inr entry => (entry.declaration, SourceCategoryRole.morphism, ``MorphismEntry, entry.id.raw)
@@ -344,6 +375,9 @@ opaque registeredExpressions (entry : ObjectEntry ⊕ MorphismEntry)
   let carrier ← mkAppM ``CategoryTheory.Bundled.α #[category]
   let function ← mkConstWithFreshMVarLevels declaration
   let value ← application function (if role == .object then some carrier else none)
+  let value ← match value with
+    | .ok value => pure value
+    | .error message => return .error message
   unless value.consumeMData.getAppFn.constName? == some declaration do
     throwError "registered source formation did not retain its actual declaration"
   match role with
@@ -355,7 +389,17 @@ opaque registeredExpressions (entry : ObjectEntry ⊕ MorphismEntry)
     let function ← mkAppM ``CategoryTheory.Functor.map #[identity]
     discard <| elabAppArgs function #[] #[Arg.expr value] none false false
   let value := sourceReference kind id declaration value
-  return (category, ← if role == .morphism then selectMorphism value else pure value)
+  return .ok (category, ← if role == .morphism then selectMorphism value else pure value)
+
+/-- Form a required registered source value, retaining ordinary failure diagnostics. -/
+opaque registeredExpressions (entry : ObjectEntry ⊕ MorphismEntry)
+    (categoryEntry : NamedCategoryEntry)
+    (application : Expr → Option Expr → TermElabM Expr) : TermElabM (Expr × Expr) := do
+  let formed ← registeredExpressionsApplicable entry categoryEntry fun function expected => do
+    return .ok (← application function expected)
+  match formed with
+  | .ok value => pure value
+  | .error message => throwError message
 
 /-- Retain the registered category of a set or set map formed by public function syntax.
 Reuse: the actual Sets declaration, Bundled projections and Functor.map. The supplied

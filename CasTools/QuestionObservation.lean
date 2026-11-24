@@ -27,8 +27,8 @@ structure Reading where
   provenance : String
   /-- The canonical typed reading in the fixed mathematical source environment. -/
   question : String
-  /-- NativeExpression graph document for the exact whole closed proposition or the ordered
-  closed terms of a settled typing conjunction. -/
+  /-- NativeExpression graph document for the exact whole closed proposition, typed
+  implementation value, or ordered closed terms of a settled typing conjunction. -/
   proposition : String
   prettyProposition : String
   /-- Complete native source terms, binding identities, selections and original spans.
@@ -55,6 +55,22 @@ structure Observation where
 private def bindingJson (id : BindingId) : Json :=
   Json.mkObj [("session", toJson id.session), ("serial", toJson id.serial)]
 
+private def retainedDeclarations (terms : Array ClosedTerm) : Array ConstantInfo := Id.run do
+  let mut declarations := #[]
+  for term in terms do
+    for declaration in term.context.nativeDeclarations.constants ++
+        term.nativeDeclarations.constants do
+      unless declarations.any (nativeConstantExactlyMatches declaration) do
+        declarations := declarations.push declaration
+  return declarations
+
+private def declarationFields [Monad m] (encode : Expr → m Nat) (terms : Array ClosedTerm) :
+    m (List (String × Json)) := do
+  let declarations := retainedDeclarations terms
+  if declarations.isEmpty then return []
+  let declarations ← declarations.mapM (NativeExpression.constantInfoJson encode)
+  return [("declarations", Json.arr declarations)]
+
 private def contextJson (context : ContextTelescope) : StateM NativeExpression.Builder Json := do
   let entries ← context.entries.mapM fun entry => do
     let type ← NativeExpression.Builder.add entry.type
@@ -77,7 +93,7 @@ private def closedTermJson (term : ClosedTerm) : StateM NativeExpression.Builder
   let context ← contextJson term.context
   let expression ← NativeExpression.Builder.add term.expression
   let type ← NativeExpression.Builder.add term.type
-  return Json.mkObj [
+  let fields := [
     ("context", context),
     ("instances", toJson <| term.context.instances.map fun selected => Json.mkObj [
       ("class", toJson (selected.className.toString (escape := false))),
@@ -85,6 +101,7 @@ private def closedTermJson (term : ClosedTerm) : StateM NativeExpression.Builder
       ("binding", bindingJson selected.binding)]),
     ("universeParams", Json.arr (term.universeParams.map NativeExpression.nameJson)),
     ("expression", toJson expression), ("type", toJson type)]
+  return Json.mkObj (fields ++ (← declarationFields NativeExpression.Builder.add #[term]))
 
 private def carrierJson (carrier : SourceCarrierSelection) : StateM NativeExpression.Builder Json := do
   let actions ← carrier.actions.mapM closedTermJson
@@ -97,10 +114,18 @@ private def carrierJson (carrier : SourceCarrierSelection) : StateM NativeExpres
 private def categoryJson (category : SourceCategoryBinding) : StateM NativeExpression.Builder Json := do
   let bundle ← closedTermJson category.bundle
   let carrier ← category.carrier.mapM carrierJson
-  return Json.mkObj [("role", toJson <| match category.role with
+  let limit ← category.limit.mapM fun limit => do
+    let cone ← closedTermJson limit.cone
+    let bundle ← closedTermJson limit.bundle
+    return Json.mkObj [("row", toJson limit.row),
+      ("declaration", NativeExpression.nameJson limit.declaration), ("cone", cone),
+      ("colimit", toJson limit.colimit), ("category", toJson (reprStr limit.category)),
+      ("bundle", bundle)]
+  let fields := [("role", toJson <| match category.role with
       | .object => "object" | .morphism => "morphism"),
     ("expression", toJson (reprStr category.expression)),
     ("bundle", bundle), ("carrier", toJson carrier)]
+  return Json.mkObj (fields ++ limit.toList.map ("limit", ·))
 
 private def snapshot (session : SourceContextObservation) (term : SourceTerm) : Json := Id.run do
   let build : StateM NativeExpression.Builder (List (String × Json) × Array Nat) := do
@@ -169,32 +194,51 @@ private def canonicalCategory (table : CasCatalogue.Realize.TermTable)
   let bundle ← category.bundle.withOpen fun bindings value =>
     mkLambdaFVars (bindings.map (·.expression)) value
       (usedLetOnly := false) (generalizeNondepLet := false)
+  let encode := fun (term : ClosedTerm) => do
+    let value ← term.withOpen fun bindings value =>
+      mkLambdaFVars (bindings.map (·.expression)) value
+        (usedLetOnly := false) (generalizeNondepLet := false)
+    table.encode value
   let carrier ← category.carrier.mapM fun carrier => do
-    let encode := fun (term : ClosedTerm) => do
-      let value ← term.withOpen fun bindings value =>
-        mkLambdaFVars (bindings.map (·.expression)) value
-          (usedLetOnly := false) (generalizeNondepLet := false)
-      table.encode value
     let actions ← carrier.actions.mapM encode
     let comparisons ← carrier.comparisons.mapM encode
     return Json.mkObj [("refs", toJson (reprStr carrier.refs)),
       ("target", toJson (reprStr carrier.target)),
       ("identifications", toJson (carrier.identifications.map (·.toString (escape := false)))),
       ("actions", toJson actions), ("comparisons", toJson comparisons)]
-  return Json.mkObj [("role", toJson <| match category.role with
+  let limit ← category.limit.mapM fun limit => do
+    let cone ← encode limit.cone
+    let bundle ← encode limit.bundle
+    return Json.mkObj [("row", toJson limit.row),
+      ("declaration", NativeExpression.nameJson limit.declaration),
+      ("cone", toJson cone), ("colimit", toJson limit.colimit),
+      ("category", toJson (reprStr limit.category)), ("bundle", toJson bundle)]
+  let fields := [("role", toJson <| match category.role with
       | .object => "object" | .morphism => "morphism"),
     ("expression", toJson (reprStr category.expression)),
     ("bundle", toJson (← table.encode bundle)),
     ("carrier", toJson carrier)]
+  let nativeTerms := #[category.bundle] ++
+    category.carrier.toArray.flatMap (fun carrier => carrier.actions ++ carrier.comparisons) ++
+    category.limit.toArray.flatMap (fun limit => #[limit.cone, limit.bundle])
+  return Json.mkObj (fields ++ limit.toList.map ("limit", ·) ++
+    (← declarationFields table.encode nativeTerms))
+
+private inductive ReadingJudgement where
+  | proposition
+  | settled
+  | implemented
+  deriving BEq
 
 /-- A question is its proposition. A settled typing question retains every term read at its
-declared type, in conjunct order. Singleton identity and snapshot formats remain unchanged.
+declared type, in conjunct order. An implementation request retains its original typed value.
+Singleton proposition and settled identity/snapshot formats remain unchanged.
 Source: SourceStatement.settled and settledJudgements? in CasCompiler/ReadSession.lean. -/
 private def reading (session : SourceContextObservation) (where_ : Location) (provenance : String)
-    (terms : Array SourceTerm) (settled : Bool) : TermElabM Reading := do
+    (terms : Array SourceTerm) (judgement : ReadingJudgement) : TermElabM Reading := do
   if terms.isEmpty then throwError "an exported question must retain its source terms"
-  unless settled || terms.size == 1 do
-    throwError "a proposition question must retain exactly one source term"
+  unless judgement == .settled || terms.size == 1 do
+    throwError "a proposition or implementation request must retain exactly one source term"
   -- Reuse the existing typed canonical serializer. It erases only native metadata,
   -- binder spelling and proofs of the same proposition; the unquotiented snapshot stays below.
   -- Source: CasCatalogue/QuestionIdentity.lean, QuestionIdentity.encode and TermTable.
@@ -203,7 +247,7 @@ private def reading (session : SourceContextObservation) (where_ : Location) (pr
     let proposition ← term.source.withOpen fun bindings expression => do
       -- Retain unused parameters, hypotheses and lets; do not generalize a let into a parameter.
       -- Reuse: Lean.Meta.mkForallFVars at v4.33.0, with its explicit retention controls.
-      if settled then
+      if judgement != .proposition then
         let typed ← mkExpectedTypeHint expression (← inferType expression)
         return ← mkLambdaFVars (bindings.map (·.expression)) typed
           (usedLetOnly := false) (generalizeNondepLet := false)
@@ -219,12 +263,16 @@ private def reading (session : SourceContextObservation) (where_ : Location) (pr
         | throwError "an exported instance is outside its actual source telescope"
       return Json.mkObj [("class", toJson (selected.className.toString (escape := false))),
         ("binding", toJson index)]
-    return (proposition, [("proposition", toJson root),
+    let fields := [("proposition", toJson root),
       ("roles", toJson (term.source.context.entries.map (reprStr ·.role))),
       ("instances", toJson instances), ("categories", toJson categories),
-      ("category", toJson category)])
-  -- A settled reading is marked; a proposition keeps its existing identity document.
-  let judgement := if settled then [("judgement", toJson "settled")] else []
+      ("category", toJson category)]
+    return (proposition, fields ++ (← declarationFields table.encode #[term.source]))
+  -- Value judgements keep distinct meanings; a proposition retains its existing document.
+  let judgement := match judgement with
+    | .proposition => []
+    | .settled => [("judgement", toJson "settled")]
+    | .implemented => [("judgement", toJson "implemented")]
   let roots := match retained with
     | #[(_, fields)] => fields
     | _ => [("conjuncts", toJson (retained.map fun (_, fields) => Json.mkObj fields))]
@@ -235,7 +283,8 @@ private def reading (session : SourceContextObservation) (where_ : Location) (pr
     | #[term] => snapshot session term
     | _ => Json.mkObj [("conjuncts", toJson (terms.map (snapshot session)))]
   return ⟨where_.id, where_.file, where_.sourceLine, where_.source, provenance,
-    question, (NativeExpression.encode propositions).compress,
+    question, (NativeExpression.encodeWithDeclarations propositions
+      (retainedDeclarations (terms.map (·.source)))).compress,
     " and ".intercalate shown.toList, sourceContext⟩
 
 /-- Observe original items once in their actual lexical scopes. Blocks add no mathematical
@@ -287,10 +336,12 @@ private partial def observeItems (file : SourceFile) (initial : SourceSession)
       let formed ← session.readStatement statement
       match formed with
       | .definition next _ | .assumption next => pure (.ok (Sum.inl next))
-      | .question term | .implemented term | .proved term _ =>
-        pure (.ok (Sum.inr (← reading session.observation where_ provenance #[term] false)))
+      | .question term | .proved term _ =>
+        pure (.ok (Sum.inr (← reading session.observation where_ provenance #[term] .proposition)))
+      | .implemented term =>
+        pure (.ok (Sum.inr (← reading session.observation where_ provenance #[term] .implemented)))
       | .settled terms =>
-        pure (.ok (Sum.inr (← reading session.observation where_ provenance terms true)))
+        pure (.ok (Sum.inr (← reading session.observation where_ provenance terms .settled)))
       | .inspection _ | .contextBlock _ =>
         throwError "a structural source item changed its original syntax"
     catch error =>

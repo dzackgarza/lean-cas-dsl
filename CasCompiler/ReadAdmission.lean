@@ -21,6 +21,10 @@ private def admissionData (context : ReadContext) (body : TSyntax `cas_term)
   -- boundary; literals and lambdas receive their declared domain on their only reading.
   return (← readExpression categoryOf body (some base)).value
 
+private def admissionDataApplicable (context : ReadContext) (body : TSyntax `cas_term)
+    (base : Expr) : TermElabM (Except MessageData Expr) := do
+  return (← context.readExpressionApplicable context.categoryOf body (some base)).map (·.value)
+
 def admitted (context : ReadContext) (entry : CasCatalogue.ObjectEntry)
     (body : TSyntax `cas_term) (domain : Expr) : TermElabM Expr :=
   sourceAdmission entry domain (admissionData context body)
@@ -33,7 +37,7 @@ def constrained (context : ReadContext) (body : TSyntax `cas_term)
       | throwError (MessageData.tagged `CasCompiler.SourceReader.explicitProof
           "a constrained point requires explicit native proof terms")
     pure proof
-  sourceConstrainedPoint domain proofs (admissionData context body)
+  sourceConstrainedPointApplicable domain proofs (admissionDataApplicable context body)
     (context.readExpression context.categoryOf body none)
 
 end SourceReader

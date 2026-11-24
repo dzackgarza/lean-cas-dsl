@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.SourceRing
+public import CasCompiler.SourceTypeOrigin
 public import CasCatalogue.Evaluation
 public import CasContract.Failure
 
@@ -100,8 +101,9 @@ hypothesis is established by the domain's evidence, and the admitted point is re
 The element is the first explicit binder that the admission's target does not depend on; the
 explicit binders after it are its hypotheses. Source: ObjectEntry.admission and the original
 reader's `admit`. A value that is not established to lie in `D` is not an element of it. -/
-def sourceAdmission (entry : ObjectEntry) (target : Expr) (read : Expr → TermElabM Expr) :
-    TermElabM Expr := do
+def sourceAdmissionApplicable (entry : ObjectEntry) (target : Expr)
+    (read : Expr → TermElabM (Except MessageData Expr)) :
+    TermElabM (Except MessageData Expr) := do
   let some admission := entry.admission
     | throwStratum .invalid m!"{entry.name} registers no admission"
   discard <| checkedDeclaration admission
@@ -140,7 +142,10 @@ def sourceAdmission (entry : ObjectEntry) (target : Expr) (read : Expr → TermE
   let dataType ← instantiateMVars dataType
   -- Finish typed elaboration before evidence inspects the complete actual data.
   -- Native dependent constructors can leave pending synthetic coercion terms.
-  let read ← instantiateMVars (← withSynthesize <| read dataType)
+  let datum ← withSynthesizeApplicable <| read dataType
+  let read ← match datum with
+    | .ok value => instantiateMVars value
+    | .error message => return .error message
   -- The evidence is stated of a closed value's plumbing-free normal form, which is
   -- definitionally it; the admitted element remains the value as read, so that its registered
   -- operations reach the kernel (constitution C22).
@@ -178,8 +183,19 @@ def sourceAdmission (entry : ObjectEntry) (target : Expr) (read : Expr → TermE
     throwStratum .invalid m!"the admitted point is not in the selected domain of {entry.name}"
   let .mdata data body := sourceReference ``ObjectEntry.admission entry.id.raw admission value
     | throwError "internal: the admission reference lost its metadata"
-  return .mdata (data.setNat `CasCompiler.source.element element
-    |>.setNat `CasCompiler.source.admissionArguments arguments.size) body
+  return .ok (.mdata (data.setNat `CasCompiler.source.element element
+    |>.setNat `CasCompiler.source.admissionArguments arguments.size) body)
+
+/-- Required admission keeps its original public callback and diagnostics. Only a datum
+reader's explicit applicability result can reject a candidate; selected target, admission,
+instance and evidence failures in the owner above remain exceptions. -/
+def sourceAdmission (entry : ObjectEntry) (target : Expr) (read : Expr → TermElabM Expr) :
+    TermElabM Expr := do
+  let admitted ← sourceAdmissionApplicable entry target fun type => do
+    return .ok (← read type)
+  match admitted with
+  | .ok value => pure value
+  | .error message => throwStratum .invalid message
 
 /-- A binding operator `token` (`∫_{a}^{b} e dt`, `lim_{t → a} e`, `∑_{t ∈ A} e`) through its
 registered rows (Registry.Entry.BinderEntry). The notation's arguments are the operation's last
@@ -188,28 +204,42 @@ variable ranges over the row's domain at the same parameters; the map `t ↦ e` 
 the operation's source object with that object's evidence; the operation is applied to it.
 `readArgument` reads an argument at a type, `readBody` the body with the bound variable. Every
 parameter must be fixed by the arguments and the body; one row must read the statement. -/
-def sourceBinder (token : String) (arguments : Array (Expr → TermElabM Expr))
+def sourceBinder (token : String)
+    (arguments : Array (Expr → TermElabM (Except MessageData Expr)))
     (bound : Name) (readBody : Expr → TermElabM Expr) : TermElabM Expr := do
   let state ← semanticState
   let rows := state.binders.filter (·.token == token)
-  let attempt := fun (row : BinderEntry) => do
+  let attempt : BinderEntry → TermElabM (Except MessageData Expr) := fun row => do
     discard <| checkedDeclaration row.operation
     discard <| checkedDeclaration row.domain
     let operation ← mkConstWithFreshMVarLevels row.operation
     let (parameters, infos, arrow) ← forallMetaTelescopeReducing (← inferType operation)
     let explicit := (parameters.zip infos).filter (·.2.isExplicit) |>.map (·.1)
-    unless arguments.size ≤ explicit.size do throwError "the binder takes fewer arguments"
+    unless arguments.size ≤ explicit.size do
+      return .error m!"the binder takes fewer arguments"
     for parameter in explicit.extract (explicit.size - arguments.size) explicit.size,
         read in arguments do
       let type ← whnfR (← instantiateMVars (← inferType parameter))
-      let value ← if type.isAppOfArity ``Quiver.Hom 4 then do
-          let element ← read (← instantiateMVars type.getAppArgs[3]!)
+      let value : Except MessageData Expr ← if type.isAppOfArity ``Quiver.Hom 4 then do
+          let expected ← instantiateMVars type.getAppArgs[3]!
+          let datum ← read expected
+          let element ← match datum with
+            | .ok value => pure value
+            | .error message => return .error message
+          unless ← isDefEq (← inferType element) expected do
+            return .error m!"the binder argument has another type"
           let constant ← withLocalDeclD `point type.getAppArgs[2]! fun point =>
             mkLambdaFVars #[point] element
-          elabAppArgs (← mkConstWithFreshMVarLevels ``TypeCat.ofHom) #[] #[Arg.expr constant]
-            (some type) false false
+          pure (.ok (← elabAppArgs (← mkConstWithFreshMVarLevels ``TypeCat.ofHom)
+            #[] #[Arg.expr constant] (some type) false false))
         else read type
-      unless ← isDefEq parameter value do throwError "the binder argument has another type"
+      let value ← match value with
+        | .ok value => pure value
+        | .error message => return .error message
+      unless ← isDefEq (← inferType value) type do
+        return .error m!"the binder argument has another type"
+      unless ← isDefEq parameter value do
+        return .error m!"the binder argument has another type"
     let domainConstant ← mkConstWithFreshMVarLevels row.domain
     -- The bound variable lies in the registered form of the domain (`ℝ` for `∫_{a}^{b}`).
     let domain ← sourceRegisteredForm (← instantiateMVars (mkAppN domainConstant parameters))
@@ -217,32 +247,45 @@ def sourceBinder (token : String) (arguments : Array (Expr → TermElabM Expr))
     unless arrow.isAppOfArity ``Quiver.Hom 4 do throwError "the binder operation is not a map"
     let some entry ← sourceAdmissionDomain? (← instantiateMVars arrow.getAppArgs[2]!)
       | throwError "the binder operation does not act on an admitted object of maps"
-    let point ← sourceAdmission entry (← instantiateMVars arrow.getAppArgs[2]!) fun base => do
+    let admitted ← sourceAdmissionApplicable entry (← instantiateMVars arrow.getAppArgs[2]!) fun base => do
       withLocalDeclD bound domain fun parameter => do
         let body ← readBody parameter
         let function ← mkLambdaFVars #[parameter] body
         unless ← isDefEq (← inferType function) base do
-          throwError "the binder body is not a map of the operation's source"
-        return function
+          return .error m!"the binder body is not a map of the operation's source"
+        return .ok function
+    let point ← match admitted with
+      | .ok value => pure value
+      | .error message => return .error message
     let applied ← instantiateMVars (mkAppN operation parameters)
     if applied.hasMVar || applied.hasLevelMVar then
       throwUnsupportedSource m!"the binder {token} has parameters its arguments do not determine"
     let function ← sourceSetFunction (sourceReference ``BinderEntry row.id.raw row.operation applied)
-    elabAppArgs function #[] #[Arg.expr point] none false false
-  let mut readings := #[]
+    return .ok (← elabAppArgs function #[] #[Arg.expr point] none false false)
+  let require : BinderEntry → TermElabM Expr := fun row => do
+    match ← attempt row with
+    | .ok value => pure value
+    | .error message => throwStratum .invalid message
+  if let #[row] := rows then return ← require row
+  -- Keep the checked bound body and its native state. Re-reading the selected row
+  -- would create another occurrence of its local declarations and dependent choices.
+  let original ← saveState
+  let mut readings : Array (Expr × Lean.Elab.Term.SavedState) := #[]
   for row in rows do
-    let reading ← withoutModifyingState do
-      try pure (some (← attempt row))
-      catch error => do
-        CasCatalogue.keepTrialAmbiguity error
-        pure none
-    if reading.isSome then readings := readings.push row
+    original.restore
+    let result ← try attempt row
+      catch error =>
+        original.restore
+        throw error
+    match result with
+    | .ok value => readings := readings.push (value, ← saveState)
+    | .error _ => pure ()
+  original.restore
   match readings with
-  | #[row] => attempt row
-  | #[] =>
-    match rows with
-    | #[row] => attempt row
-    | _ => throwStratum .invalid m!"no registered binder {token} reads these arguments and body"
+  | #[(value, selected)] =>
+    selected.restore
+    return value
+  | #[] => throwStratum .invalid m!"no registered binder {token} reads these arguments and body"
   | _ => throwSemanticAmbiguity m!"several registered binders {token} read this statement"
 
 
@@ -363,25 +406,24 @@ def sourceCommonDomain (types : Array Expr) : TermElabM (Option Expr) := do
 
 /-- A numeral in a set with no numeral of its own (`2` in `ℕ ∪ {-∞}`): the image, under the
 unique registered inclusion into that set whose source reads the numeral, of the numeral there.
-`readAt` reads the numeral at a type. Source: InclusionEntry and the original reader's
-numerals of related sets. -/
-def sourceIncludedNumeral (target : Expr) (readAt : Expr → TermElabM Expr) :
+`readAt` returns `none` only for explicit absence of a numeral at that type. Errors in a
+chosen reading remain errors. Source: InclusionEntry and the original reader's numerals
+of related sets. -/
+def sourceIncludedNumeral (target : Expr) (readAt : Expr → TermElabM (Option Expr)) :
     TermElabM (Option Expr) := do
   let target ← sourceRegisteredForm target
   let mut readings := #[]
   for inclusion in (← semanticState).inclusions do
     let some (arrow, source) ← mapInto? inclusion.declaration target | continue
-    let numeral ← withoutModifyingState do
-      try pure (some (← readAt source))
-      catch error => do
-        CasCatalogue.keepTrialAmbiguity error
-        pure none
+    let numeral ← withoutModifyingState <| readAt source
     if numeral.isSome then readings := readings.push (arrow, source)
   match readings with
   | #[] => return none
   | #[(arrow, source)] =>
     let function ← sourceSetFunction arrow
-    let value ← elabAppArgs function #[] #[Arg.expr (← readAt source)] none false false
+    let some numeral ← readAt source
+      | throwError "the selected inclusion lost its admitted source numeral"
+    let value ← elabAppArgs function #[] #[Arg.expr numeral] none false false
     return some (← mkExpectedTypeHint value target)
   | _ => throwSemanticAmbiguity "several registered inclusions read this numeral"
 

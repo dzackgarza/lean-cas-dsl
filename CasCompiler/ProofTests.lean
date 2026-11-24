@@ -1,11 +1,11 @@
 module
 
 import CasCompiler.Parse
-import CasCompiler.Elaborate
+import CasCompiler.SourceProof
 import CasCompiler.Layout
 public meta import Lean.Elab.Command
 meta import CasCompiler.Parse
-meta import CasCompiler.Elaborate
+meta import CasCompiler.SourceProof
 meta import CasCompiler.Layout
 
 open Lean Meta Elab Term CasCompiler CasCatalogue.Language
@@ -55,3 +55,108 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     pure false
   catch _ => pure true
   unless rejected do throwError "a non-proposition was accepted as a formal proof obligation"
+
+private def checkOriginalProof (session : SourceSession) (obligation proof : SourceTerm) :
+    MetaM Unit := withCurrHeartbeats do
+  unless proof.source.context.exactlyMatches session.context do
+    throwError "native proof completion changed an original source declaration"
+  proof.source.withOpen fun bindings expression => do
+    let context ← ContextTelescope.capture bindings
+    let expected ← obligation.source.inContext context
+    check expression
+    checkWithKernel expression
+    unless ← isDefEq (← inferType expression) expected do
+      throwError "native proof completion changed the independently prepared proposition"
+
+/- The original standalone proof has a native recursive helper. Term synthesis alone leaves
+its let-rec placeholder unresolved; the proof owner must complete it before source closure. -/
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let session ← empty.assume `n (← nativeSyntax "Nat")
+  let obligation ← session.proposition (← nativeSyntax "True")
+  let original ← getEnv
+  let proof ← withCurrHeartbeats <| session.proof (← suppliedProof
+    "proof(by\n  let rec witness (k : Nat) : True :=\n    match k with\n    | 0 => True.intro\n    | Nat.succ k => witness k\n  exact witness n)") obligation.source
+  let declarations := proof.source.nativeDeclarations.constants
+  unless !declarations.isEmpty && declarations.any (fun declaration =>
+      proof.source.expression.containsConst (· == declaration.name)) do
+    throwError "the standalone let-rec proof lost its actual checked helper"
+  checkOriginalProof session obligation proof
+  setEnv original
+  checkOriginalProof session obligation proof
+  for declaration in declarations do
+    unless nativeConstantExactlyMatches declaration (← getConstInfo declaration.name) do
+      throwError "reopening changed the completed native recursive helper"
+
+/- The shared formal-evidence owner also serves constrained-point proofs. Its recursive
+helper must retain rigid universe parameters, formal assumptions and native let definitions. -/
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let type ← empty.elaborate Syntax.missing fun _ =>
+    pure (mkSort (.succ (.param `nativeProofScope)))
+  let session ← empty.assumeTerm `α type
+  let session ← session.assume `x (← nativeSyntax "α")
+  let session ← session.assume `n (← nativeSyntax "Nat")
+  let session ← session.define `xAlias (← nativeSyntax "x")
+  let obligation ← session.proposition (← nativeSyntax "xAlias = x")
+  let evidence ← nativeSyntax
+    "by\n  let rec witness (k : Nat) : xAlias = x :=\n    match k with\n    | 0 => rfl\n    | Nat.succ k => witness k\n  exact witness n"
+  let proof ← withCurrHeartbeats <| session.elaborate evidence fun context =>
+    sourceFormalProof evidence (← obligation.source.inContext context)
+  unless proof.source.universeParams.contains `nativeProofScope &&
+      proof.source.nativeDeclarations.constants.any (fun declaration =>
+        declaration.levelParams.contains `nativeProofScope) do
+    throwError "native let-rec completion lost the source's rigid universe parameter"
+  checkOriginalProof session obligation proof
+
+/- Native closure conversion handles nested and mutually recursive local proofs, rather
+than replacing them by another proof of the same proposition. Repeated user spellings in
+separate source proofs must receive distinct native declaration occurrences. -/
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let session ← empty.assume `n (← nativeSyntax "Nat")
+  let session ← session.assume `P (← nativeSyntax "Prop")
+  let session ← session.assume `h (← nativeSyntax "P")
+  let obligation ← session.proposition (← nativeSyntax "P")
+  let nested ← withCurrHeartbeats <| session.proof (← suppliedProof
+    "proof(by\n  let rec witness (k : Nat) : P :=\n    let rec inner (j : Nat) : P :=\n      match j with\n      | 0 => h\n      | Nat.succ j => inner j\n    match k with\n    | 0 => inner n\n    | Nat.succ k => witness k\n  exact witness n)") obligation.source
+  let mutualProof ← withCurrHeartbeats <| session.proof (← suppliedProof
+    "proof(let rec witness (k : Nat) : P := match k with | 0 => h | Nat.succ k => partner k, partner (k : Nat) : P := match k with | 0 => h | Nat.succ k => witness k; witness n)") obligation.source
+  checkOriginalProof session obligation nested
+  checkOriginalProof session obligation mutualProof
+  let nestedDeclarations := nested.source.nativeDeclarations.constants.filter fun declaration =>
+    nested.source.expression.containsConst (· == declaration.name)
+  let mutualDeclarations := mutualProof.source.nativeDeclarations.constants.filter fun declaration =>
+    mutualProof.source.expression.containsConst (· == declaration.name)
+  unless !nestedDeclarations.isEmpty && !mutualDeclarations.isEmpty &&
+      nestedDeclarations.all (fun first =>
+        mutualDeclarations.all (fun second => first.name != second.name)) do
+    throwError "separate source proofs reused a checked native helper occurrence"
+
+/- Native termination and evidence failures remain failures, even when an invalid local
+helper is unused by the final proof. Expected negative controls restore their test state. -/
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let session ← empty.assume `n (← nativeSyntax "Nat")
+  let obligation ← session.proposition (← nativeSyntax "True")
+  for text in #[
+      "proof(by\n  let rec invalid (k : Nat) : True := invalid k\n  exact invalid n)",
+      "proof(by\n  let rec invalid (k : Nat) : True := invalid k\n  exact True.intro)",
+      "proof(by\n  let rec invalid (k : Nat) : True := False.elim (by exact True.intro)\n  exact invalid n)"] do
+    let saved : Term.SavedState ← saveState
+    let failure : Option Exception ← try
+      discard <| withCurrHeartbeats <| session.proof (← suppliedProof text) obligation.source
+      pure none
+    catch error => pure (some error)
+    saved.restore
+    unless failure.isSome do
+      throwError "native formal evidence accepted an invalid recursive declaration: {text}"
+  let proof ← withCurrHeartbeats <| session.proof (← suppliedProof "proof(True.intro)")
+    obligation.source
+  checkOriginalProof session obligation proof
+  unless (← getLetRecsToLift).isEmpty do
+    throwError "failed native proof completion left pending local recursive declarations"

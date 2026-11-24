@@ -1,6 +1,8 @@
 module
 
 import CasCompiler.Read
+import CasCompiler.SourceConstrainedPoint
+import CasCompiler.SourceAdmission
 import LeanCategories.Catalogue.Semantics.Foundation.Lists
 import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
 import LeanCategories.Catalogue.Semantics.Algebra.Fields
@@ -8,6 +10,8 @@ import LeanCategories.Catalogue.Semantics.Modules.CatalogueRegistration
 import LeanCategories.Catalogue
 public meta import Lean.Elab.Command
 meta import CasCompiler.Read
+meta import CasCompiler.SourceConstrainedPoint
+meta import CasCompiler.SourceAdmission
 meta import LeanCategories.Catalogue.Semantics.Foundation.Lists
 meta import LeanCategories.Catalogue.Semantics.Foundation.FiniteObjects
 meta import LeanCategories.Catalogue.Semantics.Algebra.Fields
@@ -560,3 +564,232 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless (← isDefEq value expected) &&
           value.containsFVar (← retained consumers bindings `f).fvarId! do
         throwError "a map-valued native parameter was changed into generalized composition"
+
+/- A direct datum and a generalized datum retain their actual constructor fields and proofs.
+Only their own native type comparison distinguishes the two readings. -/
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let direct ← empty.assume `n (← nativeSource "Nat")
+  let direct ← direct.assume `k (← nativeSource "Nat")
+  let direct ← direct.assume `h (← nativeSource "k < n")
+  let point ← withCurrHeartbeats <| readSource direct "k in Fin(n) using (proof(h))"
+  let original ← direct.term (← nativeSource "(⟨k, h⟩ : Fin n)")
+  point.source.withOpen fun bindings value => do
+    let original ← original.source.inContext (← ContextTelescope.capture bindings)
+    unless ← isDefEq value original do
+      throwError "the direct constrained datum changed its original native constructor"
+    for index in [0:3] do
+      unless value.containsFVar bindings[index]!.expression.fvarId! do
+        throwError "the direct constrained datum lost an original parameter or proof"
+  let generalized ← empty.assume `D (← nativeSource "Type")
+  let generalized ← generalized.assume `n (← nativeSource "Nat")
+  let generalized ← generalized.assume `rawF (← nativeSource "D → Nat")
+  let generalized ← generalized.assume `h (← nativeSource "∀ d, rawF d < n")
+  let mapped ← withCurrHeartbeats <| readSource generalized "rawF in Fin(n) using (proof(h))"
+  unless mapped.category.any (·.role == .morphism) do
+    throwError "the generalized constrained datum lost its selected native map role"
+  let original ← generalized.term (← nativeSource
+    "TypeCat.ofHom (fun d : D => (⟨rawF d, h d⟩ : Fin n))")
+  mapped.source.withOpen fun bindings value => do
+    let original ← original.source.inContext (← ContextTelescope.capture bindings)
+    unless ← isDefEq value original do
+      throwError "the generalized constrained datum changed its original native map"
+    for index in [0:4] do
+      unless value.containsFVar bindings[index]!.expression.fvarId! do
+        throwError "the generalized constrained datum lost an original domain, map or proof"
+
+private def originalReaderFailure {α : Type} (action : TermElabM α) :
+    TermElabM Exception := do
+  let failure : Option Exception ← try
+    discard <| withCurrHeartbeats <| withoutModifyingState action
+    pure none
+  catch failure => pure (some failure)
+  let some failure := failure | throwError "the negative reader control unexpectedly succeeded"
+  pure failure
+
+/- A reader failure is not evidence that the same datum is a map. Proof failure is checked
+only after choosing the direct datum and cannot invoke the generalized reader either. -/
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let originalDataFailure ← liftM (m := IO) <|
+    registerInternalExceptionId `CasCompiler.tests.originalConstrainedDataFailure
+  let target := mkApp (mkConst ``Fin) (mkNatLit 3)
+  let mapCalls ← liftM (m := IO) <| IO.mkRef (0 : Nat)
+  let unexpectedMap : TermElabM NativeSourceJudgement := do
+    mapCalls.modify (· + 1)
+    throwError "the failed direct datum was retried as a map"
+  let validProof ← nativeSource "by decide"
+  let failedData : Expr → TermElabM (Except MessageData Expr) := fun _ =>
+    throw (Exception.internal originalDataFailure)
+  let failure ← originalReaderFailure <| sourceConstrainedPointApplicable target
+    #[validProof] failedData unexpectedMap
+  match failure with
+  | .internal id _ =>
+    unless id == originalDataFailure do
+      throwError "the constrained datum changed its original internal exception"
+  | _ => throwError "the constrained datum replaced its reader's original internal exception"
+  unless (← mapCalls.get) == 0 do
+    throwError "the failed constrained datum invoked another interpretation"
+  let wrongProof ← nativeSource "True.intro"
+  discard <| originalReaderFailure <| sourceConstrainedPointApplicable target #[wrongProof]
+    (fun _ => pure (.ok (mkNatLit 0))) unexpectedMap
+  unless (← mapCalls.get) == 0 do
+    throwError "a failed constrained proof invoked another interpretation"
+
+private def nativeBinderArgument (value expected : Expr) :
+    TermElabM (Except MessageData Expr) := do
+  unless ← isDefEq (← inferType value) expected do
+    return .error "the test argument has another native type"
+  return .ok value
+
+/- Use the existing real/complex/power-series rows. Their original data-field types select
+the real geometric family; the existing catalogue evidence establishes its admission. -/
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let integral ← withCurrHeartbeats <| readSource empty "∫_{0}^{1} t dt"
+  integral.source.withOpen fun _ value => do
+    check value
+    unless value.containsConst (· == ``CasCatalogue.Algebra.Calculus.integral) &&
+        value.containsConst (· == ``CasCatalogue.Algebra.Calculus.admitContinuous) do
+      throwError "a binder returned its point argument instead of the original admitted operation"
+  let functions ← empty.define `g
+    (← nativeSource "fun n : Nat => ((1 : Real) / 2) ^ n")
+  let selected ← withCurrHeartbeats <| readSource functions "∑_{n ∈ ℕ} g(n)"
+  selected.source.withOpen fun bindings value => do
+    check value
+    unless value.containsConst (· == ``CasCatalogue.Algebra.Series.realSeriesSum) &&
+        value.containsConst (· == ``CasCatalogue.Algebra.Series.admit) &&
+        value.containsFVar bindings[0]!.expression.fvarId! do
+      throwError "the selected binder changed its original operation, family or map admission"
+    let reference := value.find? fun expression => match expression with
+      | .mdata data _ => data.getName `CasCompiler.source.kind == ``BinderEntry &&
+          data.getString `CasCompiler.source.id == "bind.sets.real_series"
+      | _ => false
+    unless reference.isSome do
+      throwError "the selected binder lost its original registered row"
+
+/- In the same actual overloaded family, failed argument/body reads and selected admission
+evidence are errors. Only an explicit own-type mismatch can remove a candidate. -/
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let originalDataFailure ← liftM (m := IO) <|
+    registerInternalExceptionId `CasCompiler.tests.originalBinderDataFailure
+  unless ((← semanticState).binders.filter (·.token == "∑")).size > 1 do
+    throwError "the binder failure control requires the original overloaded family"
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let missing ← originalReaderFailure <|
+    readSource empty "∑_{n ∈ ℕ} unregistered_binder_body"
+  unless CasCatalogue.Exception.stratum? missing == some .invalid &&
+      CasCatalogue.Exception.isUnknownSourceName missing "unregistered_binder_body" do
+    throwError "the binder replaced its body's original unknown-name failure"
+  let index := nativeBinderArgument (mkConst ``Nat)
+  let failedBody : Expr → TermElabM Expr := fun _ =>
+    throw (Exception.internal originalDataFailure)
+  let bodyFailure ← originalReaderFailure <| sourceBinder "∑" #[index] `n failedBody
+  match bodyFailure with
+  | .internal id _ =>
+    unless id == originalDataFailure do
+      throwError "the binder changed its original body exception"
+  | _ => throwError "the binder swallowed its original body exception"
+  let failedArgument : Expr → TermElabM (Except MessageData Expr) := fun _ =>
+    throw (Exception.internal originalDataFailure)
+  let argumentFailure ← originalReaderFailure <|
+    sourceBinder "∑" #[failedArgument] `n failedBody
+  match argumentFailure with
+  | .internal id _ =>
+    unless id == originalDataFailure do
+      throwError "the binder changed its original argument exception"
+  | _ => throwError "the binder swallowed its original argument exception"
+  let mismatch : Expr → TermElabM (Except MessageData Expr) := fun _ =>
+    pure (.error "the supplied argument has another native type")
+  let absent ← originalReaderFailure <| sourceBinder "∑" #[mismatch] `n failedBody
+  unless CasCatalogue.Exception.stratum? absent == some .invalid &&
+      !CasCatalogue.Exception.isSemanticAmbiguity absent do
+    throwError "zero applicable binder rows were reported as ambiguity"
+  let family ← elabTermAndSynthesize (← nativeSource "fun _ : Nat => (1 : Real)") none
+  let bodies ← liftM (m := IO) <| IO.mkRef (0 : Nat)
+  let admissionFailure ← originalReaderFailure <| sourceBinder "∑" #[index] `n fun n => do
+    bodies.modify (· + 1)
+    pure (mkApp family n)
+  unless (← bodies.get) == 1 &&
+      CasCatalogue.Exception.stratum? admissionFailure == some .invalid do
+    throwError "a selected binder admission failure retried another body interpretation"
+
+/- Overload selection keeps the original checked body occurrence and its native state.
+The declarations below are checked aliases of the identity function, not new binder rows;
+their distinct names expose a replay even though every candidate has the same value. -/
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let rows := (← semanticState).binders.filter (·.token == "∑")
+  unless rows.size > 1 do throwError "the binder retention control requires the actual overloads"
+  let some selectedIndex := rows.findIdx? (·.id.raw == "bind.sets.real_series")
+    | throwError "the binder retention control lost the original real-series row"
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let parameters ← empty.assume `n (← nativeSource "Nat")
+  let hypotheses ← parameters.assume `h (← nativeSource "n = n")
+  let session ← hypotheses.define `g
+    (← nativeSource "fun n : Nat => ((1 : Real) / 2) ^ n")
+  let identity ← elabTermAndSynthesize (← nativeSource "fun x : Real => x") none
+  let identityType ← inferType identity
+  let argumentReads ← liftM (m := IO) <| IO.mkRef (0 : Nat)
+  let declarations ← liftM (m := IO) <| IO.mkRef (#[] : Array (Nat × Name))
+  let index : Expr → TermElabM (Except MessageData Expr) := fun expected => do
+    argumentReads.modify (· + 1)
+    nativeBinderArgument (mkConst ``Nat) expected
+  let retained ← withCurrHeartbeats <| session.context.withOpen fun bindings => do
+    let #[outer, _, family] := bindings
+      | throwError "the binder retention control changed its original source scope"
+    let context ← ContextTelescope.capture bindings
+    let value ← sourceBinder "∑" #[index] `n fun parameter => do
+      unless parameter.isFVar && parameter.fvarId! != outer.expression.fvarId! do
+        throwError "the bound variable replaced an earlier same-named source parameter"
+      let ordinal ← argumentReads.get
+      let name ← mkAuxDeclName (.num `binderBodyOccurrence ordinal)
+      addDecl (.defnDecl { name, levelParams := [], type := identityType,
+        value := identity, hints := .abbrev, safety := .safe })
+      declarations.modify (·.push (ordinal, name))
+      pure (mkApp (mkConst name) (mkApp family.expression parameter))
+    unless (← argumentReads.get) == rows.size do
+      throwError "binder selection replayed an original argument or bound body"
+    let created ← declarations.get
+    let some (_, selectedName) := created.find? (·.1 == selectedIndex + 1)
+      | throwError "the original selected binder body was not retained"
+    unless value.containsConst (· == selectedName) &&
+        value.containsFVar family.expression.fvarId! &&
+        !value.containsFVar outer.expression.fvarId! do
+      throwError "binder selection replaced its checked body or captured source occurrence"
+    let environment := (← getEnv).setExporting false
+    for (ordinal, name) in created do
+      unless environment.contains name == (ordinal == selectedIndex + 1) do
+        throwError "binder selection lost the selected native state or kept a rejected state"
+    check value
+    context.close value
+  unless retained.context.exactlyMatches session.context do
+    throwError "binder selection shortened its complete context or changed stable binding identities"
+  retained.withOpen fun _ value => checkWithKernel value
+
+/- Native exceptions restore a speculative row's state and retain the original exception.
+The public source failure controls above continue to check the same error classifications. -/
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let originalFailure ← liftM (m := IO) <|
+    registerInternalExceptionId `CasCompiler.tests.originalBinderStateFailure
+  let introduced ← liftM (m := IO) <| IO.mkRef (none : Option Name)
+  let failure : Option Exception ← try
+    discard <| withCurrHeartbeats <| sourceBinder "∑"
+      #[nativeBinderArgument (mkConst ``Nat)] `n fun _ => do
+        let name ← mkAuxDeclName `failedBinderBody
+        addDecl (.defnDecl { name, levelParams := [], type := mkConst ``Nat,
+          value := mkNatLit 1, hints := .abbrev, safety := .safe })
+        introduced.set (some name)
+        throw (Exception.internal originalFailure)
+    pure none
+  catch error => pure (some error)
+  let some (.internal actual _) := failure
+    | throwError "a binder state failure lost its original native exception"
+  unless actual == originalFailure do
+    throwError "a binder state failure was replaced by another exception"
+  let some name ← introduced.get
+    | throwError "the binder state control never reached its original body"
+  unless !((← getEnv).setExporting false).contains name do
+    throwError "a failed binder row left its speculative native declaration behind"

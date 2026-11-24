@@ -2,6 +2,7 @@ module
 
 public import CasCompiler.Surface
 public import CasCompiler.SourcePointOrigin
+public import CasCompiler.Syntax
 public import CasCatalogue.Decide
 
 public section
@@ -204,9 +205,10 @@ private def objectApplication? (value : Expr) :
 /-- An element's registered application that takes no argument object (`(M, v) ↦ M v` on
 `Mat n K × Kⁿ`): the element fixes every parameter of the application, and with them the set
 its argument is read in. `read` reads the argument at that set. -/
-def sourceDirectApplication? (value : Expr) (read : Expr → TermElabM Expr) :
-    TermElabM (Option Expr) := do
-  let some (entry, application) ← objectApplication? value | return none
+def sourceDirectApplicationApplicable? (value : Expr)
+    (read : Expr → TermElabM (Except MessageData Expr)) :
+    TermElabM (Except MessageData (Option Expr)) := do
+  let some (entry, application) ← objectApplication? value | return .ok none
   discard <| checkedDeclaration application
   let type ← instantiateMVars (← inferType value)
   let constant ← mkConstWithFreshMVarLevels application
@@ -219,19 +221,30 @@ def sourceDirectApplication? (value : Expr) (read : Expr → TermElabM Expr) :
     throwError "the application of {entry.name} does not act on a pair"
   unless ← withReducible (isDefEq pair.getAppArgs[0]! type) do
     throwError "the application of {entry.name} does not act on this element"
-  let some last := parameters.back? | return none
-  if (← instantiateMVars (← inferType last)).isAppOf ``CategoryTheory.Under then return none
+  let some last := parameters.back? | return .ok none
+  if (← instantiateMVars (← inferType last)).isAppOf ``CategoryTheory.Under then return .ok none
   let argumentSet ← instantiateMVars pair.getAppArgs[1]!
   if argumentSet.hasMVar then
     throwUnsupportedSource m!"the application of {entry.name} acts at an unread argument object"
-  let argument ← read argumentSet
+  let argument ← match ← read argumentSet with
+    | .ok value => pure value
+    | .error message => return .error message
+  unless ← isDefEq (← inferType argument) argumentSet do
+    return .error m!"the application argument has another declared native type"
   let applied ← instantiateMVars (mkAppN constant parameters)
   if applied.hasMVar || applied.hasLevelMVar then
     throwError "the application of {entry.name} is not determined"
   let function ← sourceSetFunction (sourceReference ``ObjectEntry.application entry.id.raw
     application applied)
-  return some (← elabAppArgs function #[] #[Arg.expr (← mkAppM ``Prod.mk #[value, argument])]
-    none false false)
+  return .ok (some (← elabAppArgs function #[] #[Arg.expr (← mkAppM ``Prod.mk #[value, argument])]
+    none false false))
+
+/-- Required element application preserves its callback and selected application. -/
+def sourceDirectApplication? (value : Expr) (read : Expr → TermElabM Expr) :
+    TermElabM (Option Expr) := do
+  match ← sourceDirectApplicationApplicable? value (fun type => do return .ok (← read type)) with
+  | .ok value => pure value
+  | .error message => throwError message
 
 def sourceObjectApplication? (value : Expr) (numeral : Bool)
     (read : Option Expr → TermElabM Expr) : TermElabM (Option Expr) := do

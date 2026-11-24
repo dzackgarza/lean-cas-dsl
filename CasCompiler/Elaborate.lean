@@ -2,8 +2,8 @@ module
 
 public import CasCompiler.Context
 public import CasCompiler.Declaration
+public import CasCompiler.NativeProof
 public import CasCompiler.SourceReference
-public import CasCompiler.Syntax
 public import CasRuntime.Identity
 public import LeanCategories.Catalogue.Syntax
 public import LeanCategories.Catalogue.Registry.Entry
@@ -353,7 +353,7 @@ def sourceFormalProof (evidence : Term) (proposition : Expr) : TermElabM Expr :=
   withRef evidence do
     unless ← isProp proposition do
       throwError "a formal proof requires a source proposition"
-    withSynthesize do
+    completeNativeProof proposition <| withSynthesize do
       let proof ← elabTerm evidence (some proposition)
       if ← isDefEq (← inferType proof) proposition then return proof
       -- Preserve native expected-type elaboration and coercions. Only an explicit
@@ -372,16 +372,6 @@ def sourceFormalProof (evidence : Term) (proposition : Expr) : TermElabM Expr :=
       | .undef =>
         -- Pending native coercions retain the ordinary synthesis/error lifecycle.
         ensureHasType (some proposition) proof
-
-/-- Check an explicitly supplied source proof at an independently prepared proposition.
-Reuse: native expected-type elaboration and stable-ID context transport. The source hypothesis
-and proof remain formal; this operation accepts no computational response as evidence. -/
-opaque SourceSession.proof (session : SourceSession) (stx : TSyntax `cas_term)
-    (obligation : ClosedTerm) : TermElabM SourceTerm := withRef stx do
-  let `(cas_term| proof($evidence:term)) := stx
-    | throwError "source evidence requires an explicit proof term"
-  session.elaborate evidence fun context => do
-    sourceFormalProof evidence (← obligation.inContext context)
 
 private def assumeIn (session : SourceSession) (context : OpenContext) (name : Name)
     (type : Expr) (span : SourceSpan) (binderInfo : BinderInfo)
@@ -463,5 +453,37 @@ opaque SourceSession.apply (session : SourceSession) (reference : Syntax) (funct
     (arguments : Array SourceTerm) : TermElabM SourceTerm :=
   session.elaborate reference fun context => do
     context.apply function.source (arguments.map (·.source))
+
+private def SourceCategoryBinding.ensureDeclarations (category : SourceCategoryBinding) :
+    MetaM Unit := do
+  category.bundle.ensureDeclarations
+  if let some carrier := category.carrier then
+    for action in carrier.actions ++ carrier.comparisons do action.ensureDeclarations
+  if let some limit := category.limit then
+    limit.cone.ensureDeclarations
+    limit.bundle.ensureDeclarations
+
+/-- Reattach all checked native dependencies of the original selected source term. -/
+opaque SourceTerm.ensureDeclarations (term : SourceTerm) : MetaM Unit := do
+  term.source.ensureDeclarations
+  if let some category := term.category then category.ensureDeclarations
+
+/-- Retain the original scope's declarations and complete selected categories across rollback. -/
+opaque SourceContextObservation.ensureDeclarations (context : SourceContextObservation) :
+    MetaM Unit := do
+  context.context.ensureDeclarations
+  for category in context.categories do
+    if let some category := category then category.ensureDeclarations
+
+def SourceSession.ensureDeclarations (session : SourceSession) : MetaM Unit := do
+  session.observation.ensureDeclarations
+  for ringVariables in session.rings do
+    for ringVariable in ringVariables do ringVariable.carrier.ensureDeclarations
+
+/-- Runtime rollback calls this before the next source read, keeping checked auxiliary names
+occupied for Lean's native declaration-name allocator without retaining any runtime cell. -/
+def SourceConclusion.ensureDeclarations (conclusion : SourceConclusion) : MetaM Unit := do
+  conclusion.context.ensureDeclarations
+  for term in conclusion.terms ++ conclusion.proof.toArray do term.ensureDeclarations
 
 end CasCompiler

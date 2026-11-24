@@ -6,8 +6,10 @@ module
 
 public import CasRuntime.Session
 public import CasCompiler.Parse
+public import CasTools.QuestionObservation
 public meta import CasRuntime.Session
 public meta import CasCompiler.Parse
+public meta import CasTools.QuestionObservation
 
 public section
 
@@ -59,6 +61,9 @@ structure TestResult where
   /-- The proposition that the reader formed; empty when the statement was not read. -/
   question : String := ""
   proposition : String := ""
+  /-- Original checked native terms, scopes, selections and supplied evidence. These source
+  observations remain available when execution fails or the owning cell does not publish. -/
+  conclusions : Array Json := #[]
   /-- Registrations actually dispatched during this statement; not mathematical evidence. -/
   dispatches : Array Json := #[]
   /-- Wall time of this statement, in milliseconds (constitution C24, timing history). -/
@@ -67,6 +72,20 @@ structure TestResult where
   setup that this statement uses, in milliseconds. -/
   setupMilliseconds : Nat := 0
   deriving ToJson, FromJson, Inhabited
+
+-- The native source field is additive. Lean's derived decoder does not use structure
+-- defaults, so preserve older reports by supplying only this absent field. Present values
+-- still pass through the complete generated decoder, including its normal type checks.
+attribute [-instance] instFromJsonTestResult
+
+instance instFromJsonTestResultCompatible : FromJson TestResult where
+  fromJson? json :=
+    let normalized := match json with
+      | .obj fields =>
+        if (fields.get? "conclusions").isSome then json
+        else .obj (fields.insert "conclusions" (.arr #[]))
+      | _ => json
+    @fromJson? TestResult instFromJsonTestResult normalized
 
 /-- Report a completed statement. `-DstderrAsMessages=false` enables live stderr output. -/
 private def TestResult.writeProgress (result : TestResult) : CommandElabM Unit := do
@@ -95,13 +114,7 @@ private def runOne (session : KernelSession) (statement : TSyntax `cas_stmt)
 private partial def unexecutedScope (statement : TSyntax `cas_stmt) :
     Array StatementObservation := Id.run do
   let some items := sourceContextItems? statement | return #[]
-  return items.flatMap fun (item : TSyntax `cas_item) =>
-    let child : TSyntax `cas_stmt := match item with
-      | `(cas_item| test $_:ident $_:str : $statement:cas_stmt)
-      | `(cas_item| $statement:cas_stmt) => statement
-      | _ => ⟨item.raw⟩
-    if (sourceContextItems? child).isSome then unexecutedScope child
-    else #[{ item, attempted := false }]
+  return items.flatMap unreadSourceItems
 
 /-- Runs the file `path` of the suite in `session`: the outcome of each test, and the session
 after the file. A `let` or statement that does not hold is reported as a statement of the file.
@@ -148,8 +161,9 @@ def runFile (session : KernelSession) (path : System.FilePath) :
     for output in run.inspectionOutput do logInfo output
     let result : TestResult := {
       file, id, kind := run.outcome.kind, detail := run.outcome.detail
-      fails := run.outcome.fails, published := run.published,
+      fails := run.outcome.fails, attempted := run.attempted, published := run.published,
       question := run.proposition, proposition := run.proposition
+      conclusions := run.conclusions.map CasTools.QuestionExport.observeConclusion
       dispatches, milliseconds, setupMilliseconds }
     result.writeProgress
     let scopedObservations :=
@@ -162,8 +176,9 @@ def runFile (session : KernelSession) (path : System.FilePath) :
       let elapsed := scopedObservations.foldl (fun total child => total + child.milliseconds) 0
       setupMilliseconds := setupMilliseconds + (milliseconds - elapsed)
       let beforeRows := results.size
-      let cause := match scopedObservations.find? (fun child =>
-          child.outcome.any (fun outcome => !(outcome matches .holds))) with
+      let failedChild := scopedObservations.find? fun child =>
+        child.outcome.any (fun outcome => !(outcome matches .holds))
+      let cause := match failedChild with
         | some child => match child.item with
           | `(cas_item| test $name:ident $_:str : $_:cas_stmt) =>
             name.getId.toString (escape := false)
@@ -190,13 +205,16 @@ def runFile (session : KernelSession) (path : System.FilePath) :
           attempted := child.attempted, published := run.published,
           blockedBy := if child.outcome.isNone then some cause else none,
           question := child.proposition, proposition := child.proposition,
+          conclusions := child.conclusions.map CasTools.QuestionExport.observeConclusion,
           dispatches := child.dispatches.map dispatchJson,
           milliseconds := child.milliseconds, setupMilliseconds }
         row.writeProgress
         results := results.push row
         setupMilliseconds := 0
+      -- Source-only observations do not replace the actual root failure when no child
+      -- reported it. They carry typed readings, not evidence that a child executed.
       if id?.isSome || (results.size == beforeRows && !(run.outcome matches .holds)) ||
-          (run.observations.isEmpty && !(run.outcome matches .holds)) then
+          (failedChild.isNone && !(run.outcome matches .holds)) then
         results := results.push result
       continue
     if id?.isNone && run.outcome matches .holds then

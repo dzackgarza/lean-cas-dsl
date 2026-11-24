@@ -4,6 +4,7 @@ public import Lean.Meta.Basic
 public import Lean.Meta.Check
 public import Lean.Meta.Coe
 public import Lean.Util.CollectLevelParams
+public import CasCompiler.NativeDeclarations
 
 @[expose] public section
 
@@ -44,13 +45,15 @@ structure ContextTelescope where
   private mk ::
   entries : Array ContextEntry
   instances : Array ContextInstance
+  nativeDeclarations : NativeDeclarations
 
 /-- Compare every captured declaration and selected instance without native conversion.
 This is an exact closed-context check: binder names, annotations and source metadata count.
 It only permits reuse of data that is already checked in that same complete telescope. -/
 opaque ContextTelescope.exactlyMatches (left right : ContextTelescope) : Bool := Id.run do
   unless left.entries.size == right.entries.size &&
-      left.instances.size == right.instances.size do
+      left.instances.size == right.instances.size &&
+      left.nativeDeclarations.exactlyMatches right.nativeDeclarations do
     return false
   for first in left.entries, second in right.entries do
     unless first.id == second.id && first.role == second.role &&
@@ -79,6 +82,7 @@ structure ClosedTerm where
   expression : Expr
   type : Expr
   universeParams : Array Name
+  nativeDeclarations : NativeDeclarations
 
 private def resolve (expression : Expr) : MetaM Expr := do
   let expression ← instantiateMVars expression
@@ -126,7 +130,9 @@ opaque ContextTelescope.capture (bindings : Array LocalBinding) : MetaM OpenCont
     unless (← isClass? (← inferType selected.fvar)) == some selected.className do
       throwError "a selected local instance has an incompatible source class"
     instances := instances.push ⟨selected.className, binding⟩
-  return ⟨⟨entries, instances⟩, bindings⟩
+  let declarations ← NativeDeclarations.capture <|
+    entries.flatMap fun entry => #[entry.type] ++ entry.value.toArray
+  return ⟨⟨entries, instances, declarations⟩, bindings⟩
 
 /-- Close a checked term and its full type over the captured ordered telescope. -/
 opaque OpenContext.close (context : OpenContext) (expression : Expr) : MetaM ClosedTerm := do
@@ -141,7 +147,18 @@ opaque OpenContext.close (context : OpenContext) (expression : Expr) : MetaM Clo
     levels := levels.collect entry.type
     if let some value := entry.value then levels := levels.collect value
   levels := (levels.collect expression).collect type
-  return ⟨context.telescope, expression, type, levels.params⟩
+  let declarations ← NativeDeclarations.capture #[expression, type]
+  return ⟨context.telescope, expression, type, levels.params, declarations⟩
+
+/-- Make this original telescope's native dependencies available without replacing the
+caller's environment or its runtime snapshot extensions. -/
+def ContextTelescope.ensureDeclarations (context : ContextTelescope) : MetaM Unit :=
+  context.nativeDeclarations.ensure
+
+/-- Preserve the exact native meaning of the term and its complete source telescope. -/
+def ClosedTerm.ensureDeclarations (term : ClosedTerm) : MetaM Unit := do
+  term.context.ensureDeclarations
+  term.nativeDeclarations.ensure
 
 /-- Reopen with fresh Lean locals, preserving stable identities, definitions and instances. -/
 def ContextTelescope.withOpen [Monad m] [MonadControlT MetaM m] (context : ContextTelescope)
@@ -165,17 +182,21 @@ def ContextTelescope.withOpen [Monad m] [MonadControlT MetaM m] (context : Conte
         withLetDecl entry.userName type (value.instantiateRev locals) next
           (nondep := entry.nondep) (kind := entry.kind)
       | none => withLocalDecl entry.userName entry.binderInfo type next (kind := entry.kind)
-  withLCtx {} #[] <| visit context.entries.toList #[]
+  mapMetaM (fun action => do
+    context.ensureDeclarations
+    action) <| withLCtx {} #[] <| visit context.entries.toList #[]
 
 /-- Open the stored term only within the scope of its freshly reopened context. -/
 def ClosedTerm.withOpen (term : ClosedTerm)
-    (action : Array LocalBinding → Expr → MetaM α) : MetaM α :=
+    (action : Array LocalBinding → Expr → MetaM α) : MetaM α := do
+  term.ensureDeclarations
   term.context.withOpen fun bindings =>
     action bindings (term.expression.instantiateRev (bindings.map (·.expression)))
 
 /-- Transport into an existing scope by stable identity, preserving the ordered telescope.
 Lean checks the substituted types and definitions; names and expression matches do not bind locals. -/
 opaque ClosedTerm.inContext (term : ClosedTerm) (target : OpenContext) : MetaM Expr := do
+  term.ensureDeclarations
   let mut available : Std.HashMap BindingId (Nat × LocalBinding) := {}
   for binding in target.bindings, index in [:target.bindings.size] do
     available := available.insert binding.id (index, binding)

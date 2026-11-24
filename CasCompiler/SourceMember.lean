@@ -104,10 +104,15 @@ def synthesizeDeclared (parameters : Array (Expr × BinderInfo)) : TermElabM Boo
 
 /-- The registered morphism named `name` whose source is the set `type`, at the declaration
 parameters that reducible unification determines (`d/dx` on `ℚ[x]`). -/
-def sourceMorphismFrom? (name : String) (type : Expr) : TermElabM (Option Expr) := do
+def sourceMorphismFrom? (name : String) (type : Expr)
+    (selected : Option MorphismEntry := none) : TermElabM (Option Expr) := do
+  let rows ← match selected with
+    | some row => do
+      unless row.name == name do throwError "the selected morphism has another source name"
+      pure #[row]
+    | none => do pure ((← semanticState).morphisms.filter (·.name == name))
   let mut found := #[]
-  for row in (← semanticState).morphisms do
-    unless row.name == name do continue
+  for row in rows do
     let (morphism, source, parameters) ← morphismAtSource row
     let applicable ← withoutModifyingState do
       unless ← withReducible (isDefEq source type) do return false
@@ -124,8 +129,7 @@ def sourceMorphismFrom? (name : String) (type : Expr) : TermElabM (Option Expr) 
     -- (`obj.fields.rationals` over `obj.sets.rationals`). Its source must then agree with the set
     -- through that refinement's identification, which holds definitionally for these rows.
     let state ← semanticState
-    for row in state.morphisms do
-      unless row.name == name do continue
+    for row in rows do
       for object in state.objects do
         let some refinement := object.refines | continue
         let some base := state.objects.find? (·.id == refinement.base) | continue

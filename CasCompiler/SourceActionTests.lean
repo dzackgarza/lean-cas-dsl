@@ -80,3 +80,25 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "source action {source} changed its generic scalar or module role"
       checkWithKernel
         (← mkExpectedTypeHint (← mkEqRefl expression) (← mkEq expression expected))
+
+  -- The same original regular-module value admits two explicitly named operations:
+  -- its inherited monoid product and its selected scalar action. Juxtaposition must
+  -- retain both readings as an ambiguity; declaration order cannot choose one.
+  for (source, operation) in #[
+      ("v · v", "op.monoids.mul"), ("v • v", "op.modules.scalar_action")] do
+    let term ← session.read (← sourceTerm source)
+    term.source.withOpen fun _ expression => do
+      unless (expression.find? fun expression => match expression with
+          | .mdata data _ => data.getName `CasCompiler.source.kind == ``OperationEntry &&
+              data.getString `CasCompiler.source.id == operation
+          | _ => false).isSome do
+        throwError "the explicit operation control changed its original selected family"
+      check expression
+  let failure : Option Exception ← withoutModifyingState do
+    try
+      discard <| session.read (← sourceTerm "v v")
+      pure none
+    catch error => pure (some error)
+  let some failure := failure
+    | throwError "juxtaposition selected one of two admitted original operations"
+  unless CasCatalogue.Exception.isSemanticAmbiguity failure do throw failure

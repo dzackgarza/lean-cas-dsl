@@ -16,8 +16,22 @@ open Lean Meta Elab Term
 
 namespace SourceReader
 
-def elementOperation (context : ReadContext) :
-    String → Array (TSyntax `cas_term) → Array (TSyntax `cas_term) → Array (Option Expr) → Option Expr → TermElabM NativeSourceJudgement :=
+/-- Reuse an already read operand at its declared operation input. The same registered
+coercions and exact-domain checks as ordinary operations apply; only their own explicit
+native mismatch is a rejected candidate. The source expression is never read again. -/
+private def retainedOperandApplicable (reference : Syntax) (value expected : Expr) :
+    TermElabM (Except MessageData Expr) := withRef reference do
+  unless ← withoutModifyingState (isDefEq (← inferType value) expected) do
+    if let some mapped ← sourceCoercion? value expected then return .ok mapped
+  match ← registeredDomainsApplicable (← inferType value) expected with
+  | .error message => return .error message
+  | .ok () => pure ()
+  unless ← isDefEq (← inferType value) expected do
+    return .error m!"the retained operand has a different declared domain"
+  return .ok value
+
+private def elementOperationCore (context : ReadContext) :
+    String → Array (TSyntax `cas_term) → Array (TSyntax `cas_term) → Array (Option Expr) → Option Expr → ExceptT MessageData TermElabM NativeSourceJudgement :=
   let readExpression := @ReadContext.readExpression context
   let categoryOf := context.categoryOf
   let expected := context.expected
@@ -69,20 +83,17 @@ def elementOperation (context : ReadContext) :
     let argument ← mkFreshExprMVar none
     discard <| elabAppArgs function #[] #[Arg.expr argument] none false false
     let cursor : IO.Ref Nat ← liftM (m := IO) (IO.mkRef 0)
-    let readOperand : TSyntax `cas_term → Expr → TermElabM Expr := fun source type => do
+    let readOperand : TSyntax `cas_term → Expr → ExceptT MessageData TermElabM Expr := fun source type => do
       let index : Nat ← liftM (m := IO) cursor.get
       liftM (m := IO) (cursor.set (index + 1))
       let some transport := operation.inputTransports[index]?
         | throwError "the source operation lost its declared operand position"
-      let read : Expr → TermElabM Expr := fun expected => do
+      let read : Expr → ExceptT MessageData TermElabM Expr := fun expected => do
         if let some (some value) := originalOperand[index]? then
-          unless ← withoutModifyingState (isDefEq (← inferType value) expected) do
-            if let some mapped ← sourceCoercion? value expected then return mapped
-          checkRegisteredDomains (← inferType value) expected
-          unless ← isDefEq (← inferType value) expected do
-            throwErrorAt source "the retained operand has a different declared domain"
-          return value
-        return (← readExpression categoryOf source (some expected)).value
+          return ← ExceptT.mk <| retainedOperandApplicable source value expected
+        let result ← ExceptT.mk <|
+          context.readExpressionApplicable categoryOf source (some expected)
+        return result.value
       if transport then
         let some comparison := operation.comparison
           | throwError "the source operand lost its supplied comparison"
@@ -98,7 +109,8 @@ def elementOperation (context : ReadContext) :
         let some operand := operands[0]?
           | throwError "the source operation requires its original operand"
         readOperand operand type
-      else sourceTuple operands type readOperand
+      else ExceptT.mk <| sourceTupleApplicable operands type fun source type =>
+        (readOperand source type).run
     let value ← elabAppArgs function #[] #[Arg.expr value] none false false
     let value ← if operation.outputTransport then do
         let some comparison := operation.comparison
@@ -109,6 +121,22 @@ def elementOperation (context : ReadContext) :
       else if operation.outputDomain then mkExpectedTypeHint value domain
       else pure value
     return (⟨value, none⟩ : NativeSourceJudgement)
+
+/-- Ordinary operation formation with explicit applicability of its own typed operands.
+Selected family, evidence, instance and recursive-reader errors remain exceptions. -/
+def elementOperationApplicable (context : ReadContext)
+    (name : String) (operands numerals : Array (TSyntax `cas_term))
+    (known : Array (Option Expr)) (domainHint : Option Expr) :
+    TermElabM (Except MessageData NativeSourceJudgement) :=
+  (elementOperationCore context name operands numerals known domainHint).run
+
+def elementOperation (context : ReadContext)
+    (name : String) (operands numerals : Array (TSyntax `cas_term))
+    (known : Array (Option Expr)) (domainHint : Option Expr) :
+    TermElabM NativeSourceJudgement := do
+  match ← elementOperationApplicable context name operands numerals known domainHint with
+  | .ok value => pure value
+  | .error message => throwError message
 
 def action (context : ReadContext) :
     TSyntax `cas_term → TSyntax `cas_term → TermElabM NativeSourceJudgement :=
@@ -122,34 +150,67 @@ def action (context : ReadContext) :
     elementOperation "•" #[left, right] #[] #[none, some value.value]
       (some (← inferType value.value))
 
+/-- All declared juxtaposition readings compete at the same original typed operands.
+Every successful native state is retained, so the unique chosen reading is not replayed.
+An exception from a matched reader is never discarded to choose another interpretation. -/
 def juxtapose (context : ReadContext) :
     TSyntax `cas_term → TSyntax `cas_term → TermElabM NativeSourceJudgement :=
   let readExpression := @ReadContext.readExpression context
   let categoryOf := context.categoryOf
   let expected := context.expected
-  let elementOperation := elementOperation context
   fun (left right : TSyntax `cas_term) => do
     let rightExpected := if sourceNumeric right.raw then expected else none
     let rightValue ← readExpression categoryOf right rightExpected
     let leftValue ← if sourceNumeric left.raw then pure none
       else pure (some (← readExpression categoryOf left none))
-    -- A registered action map `•` on exactly the pair of the operands' sets (a polynomial
-    -- times a differential, `(6x + 1) dx`).
-    if let some leftValue := leftValue then
-      let pair ← mkAppM ``Prod #[← inferType leftValue.value, ← inferType rightValue.value]
-      if let some action ← sourceMorphismFrom? "•" pair then
+    let mut trials : Array (TermElabM (Option NativeSourceJudgement)) := #[]
+    if let some originalLeft := leftValue then
+      trials := trials.push do
+        let pair ← mkAppM ``Prod #[← inferType originalLeft.value, ← inferType rightValue.value]
+        let some action ← sourceMorphismFrom? "•" pair | return none
         let function ← sourceSetFunction action
-        let argument ← mkAppM ``Prod.mk #[leftValue.value, rightValue.value]
-        return ⟨← elabAppArgs function #[] #[Arg.expr argument] expected false false, none⟩
-      -- An element whose registered application takes no argument object acts on the
-      -- operand (`M v`, `M*v` for a matrix and a vector).
-      if let some applied ← sourceDirectApplication? leftValue.value fun set => do
-          return (← readExpression categoryOf right (some set)).value then
-        return ⟨applied, none⟩
-    let name ← sourceJuxtapositionName categoryOf leftValue rightValue
-    let owner ← if name == "•" then pure (some (← inferType rightValue.value)) else pure none
-    elementOperation name #[left, right] #[] #[leftValue.map (·.value), some rightValue.value]
-      owner
+        let argument ← mkAppM ``Prod.mk #[originalLeft.value, rightValue.value]
+        return some ⟨← elabAppArgs function #[] #[Arg.expr argument] none false false, none⟩
+      trials := trials.push do
+        let result ← sourceDirectApplicationApplicable? originalLeft.value fun domain =>
+          retainedOperandApplicable right rightValue.value domain
+        match result with
+        | .ok value => return value.map fun value => ⟨value, none⟩
+        | .error _ => return none
+    for name in ← sourceJuxtapositionNames categoryOf leftValue rightValue do
+      trials := trials.push do
+        let owner ← if name == "•" then pure (some (← inferType rightValue.value)) else pure none
+        match ← elementOperationApplicable context name #[left, right] #[]
+            #[leftValue.map (·.value), some rightValue.value] owner with
+        | .ok value => return some value
+        | .error _ => return none
+    let original ← saveState
+    let mut readings : Array (NativeSourceJudgement × Lean.Elab.Term.SavedState) := #[]
+    try
+      for trial in trials do
+        original.restore
+        if let some value ← trial then readings := readings.push (value, ← saveState)
+    catch error =>
+      original.restore
+      throw error
+    original.restore
+    match readings with
+    | #[(value, selected)] =>
+      selected.restore
+      return value
+    | #[] =>
+      if let some left := leftValue then
+        let type ← inferType left.value
+        let domains ← sourceOperationDomains categoryOf type none #[type]
+        if domains.isEmpty && (left.category.any (·.role == .morphism) ||
+            (← whnf type).isForall) then
+          CasCatalogue.throwUnsupportedSource
+            "callable juxtaposition requires its declared action and application comparison"
+      CasCatalogue.throwStratum .invalid
+        "no declared juxtaposition reading accepts the original operands"
+    | _ =>
+      CasCatalogue.throwSemanticAmbiguity
+        "juxtaposition has several declared readings of its original operands"
 
 def relation (context : ReadContext) :
     String → TSyntax `cas_term → TSyntax `cas_term → TermElabM NativeSourceJudgement :=
