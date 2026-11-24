@@ -126,7 +126,7 @@ private def snapshot (session : SourceContextObservation) (term : SourceTerm) : 
 /-- Inspect the exact native source/context/category records retained by a completed
 statement, including a conclusion returned after lexical scope exit. This is an inert
 serialization of already checked records; it performs no elaboration or provider operation. -/
-def observeConclusion (conclusion : SourceConclusion) : Json :=
+opaque observeConclusion (conclusion : SourceConclusion) : Json :=
   Json.mkObj [("terms", toJson (conclusion.terms.map (snapshot conclusion.context))),
     ("proof", toJson (conclusion.proof.map (snapshot conclusion.context)))]
 
@@ -257,7 +257,8 @@ private partial def observeItems (file : SourceFile) (initial : SourceSession)
     if let some children := sourceContextItems? statement then
       if identity.isSome then throwError "a labeled export item must be a question"
       let (_, localObservation) ← observeItems file session children rootFailure
-      observation := { readings := observation.readings ++ localObservation.readings,
+      observation := {
+        readings := observation.readings ++ localObservation.readings
         failures := observation.failures ++ localObservation.failures }
       continue
     if statement.raw.isOfKind ``CasCatalogue.Language.casAssumptionInspection then

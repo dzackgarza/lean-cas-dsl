@@ -369,7 +369,7 @@ private def proofRequiresObservation (session : KernelSession) (proposition : So
 private partial def executePrepared (session : KernelSession)
     (transaction : Option CellTransaction) (statement : SourceStatement) :
     TermElabM StagedStatement := do
-  checkInterrupted
+  Core.checkSystem "source statement execution"
   match statement with
   | .assumption next =>
     -- A hypothetical source binding has no corresponding concrete runtime value.
@@ -391,8 +391,10 @@ private partial def executePrepared (session : KernelSession)
       let context ← ContextTelescope.capture bindings
       values.mapM fun value => do
         return toString (← ppExpr (← value.source.inContext context))
-    return ⟨{ outcome := .holds, session,
-      proposition := s!"settled: {" and ".intercalate shown.toList}",
+    return ⟨{
+      outcome := .holds
+      session
+      proposition := s!"settled: {" and ".intercalate shown.toList}"
       conclusions := #[conclusion] }, false⟩
   | .definition next value =>
     let transaction ← requiredCell transaction
@@ -420,7 +422,9 @@ private partial def executePrepared (session : KernelSession)
         let some entry := next.context.entries.back?
           | throwError "internal: a source definition added no declaration"
         let unavailable := session.unavailable.push (entry.id, entry.userName)
-        return ⟨{ outcome, session := { session with source := next, unavailable },
+        return ⟨{
+          outcome
+          session := { session with source := next, unavailable }
           conclusions := #[conclusion] }, false⟩
     let graph ← transaction.view
     let codes ← session.kernel.codes.get
@@ -434,7 +438,9 @@ private partial def executePrepared (session : KernelSession)
     let observed := if computed then session.observed.insert entry.id else session.observed
     let unavailable := if dependent then session.unavailable.push (entry.id, entry.userName)
       else session.unavailable
-    return ⟨{ outcome := .holds, session := { session with source := next, bound, observed, unavailable },
+    return ⟨{
+      outcome := .holds
+      session := { session with source := next, bound, observed, unavailable }
       conclusions := #[conclusion] }, true⟩
   | .implemented value =>
     let transaction ← requiredCell transaction
@@ -491,14 +497,21 @@ private partial def executePrepared (session : KernelSession)
       let milliseconds := (← IO.monoMsNow) - start
       let calls ← session.kernel.dispatches.get
       let observed : Array StatementObservation := if result.run.observations.isEmpty then
-          #[{ item, attempted := true, outcome := some result.run.outcome,
-            proposition := result.run.proposition, conclusions := result.run.conclusions,
-            milliseconds, dispatches := calls.extract sent calls.size }]
+          #[{
+            item
+            attempted := true
+            outcome := some result.run.outcome
+            proposition := result.run.proposition
+            conclusions := result.run.conclusions
+            milliseconds
+            dispatches := calls.extract sent calls.size }]
         else result.run.observations
       observations := observations ++ observed
       unless result.run.outcome matches .holds do
         let rest := (items.drop (index + 1)).flatMap fun (item, child) => unobservedItems item child
-        return ⟨{ result.run with session, inspectionOutput := #[],
+        return ⟨{ result.run with
+          session
+          inspectionOutput := #[]
           observations := (observations.map unpublishedObservation) ++ rest }, false⟩
       current := result.run.session
       conclusions := conclusions ++ result.run.conclusions
@@ -506,7 +519,11 @@ private partial def executePrepared (session : KernelSession)
       proposition := result.run.proposition
     -- Values/code retain their complete contexts, while no local source name, runtime
     -- binding or availability/discharge policy escapes this lexical scope.
-    return ⟨{ outcome := .holds, session, proposition, conclusions,
+    return ⟨{
+      outcome := .holds
+      session
+      proposition
+      conclusions
       inspectionOutput := output, observations }, true⟩
 
 /-- Run one completely prepared public statement in one publication cell. A scoped block
@@ -529,7 +546,7 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
     let transaction ← CellTransaction.begin session.kernel.ledger
     let result ← try
         let result ← executePrepared session (some transaction) prepared
-        checkInterrupted
+        Core.checkSystem "source statement publication"
         -- All throwing result/conclusion construction precedes the only commit.
         if result.publish then commit transaction
         pure result
