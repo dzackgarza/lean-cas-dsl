@@ -318,10 +318,12 @@ private def layoutJson (layout : SourceLayout) : Json :=
 
 /-- The dependent invocation context of execution contract v2 §4.1, for a published operation
 and for a retained native export. Parameters and arguments keep their source order. -/
-def dependentContext (role : String) (parameters bindings arguments : Array Json)
+def dependentContext (role : String) (parameters : Array Json)
+    (bindings : Array (Nat × Json)) (arguments : Array Json)
     (argumentLayouts : Array SourceLayout) (result : SourceLayout) : Json :=
   Json.mkObj [("kind", "dependent"), ("prepared_role", toJson role),
-    ("parameters", .arr parameters), ("bindings", .arr bindings), ("arguments", .arr arguments),
+    ("parameters", .arr parameters), ("bindings", .arr (bindings.map fun (slot, value) =>
+      Json.mkObj [("slot", toJson slot), ("value", value)])), ("arguments", .arr arguments),
     ("argument_layouts", .arr (argumentLayouts.map layoutJson)),
     ("result_layout", layoutJson result)]
 

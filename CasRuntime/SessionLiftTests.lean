@@ -232,14 +232,24 @@ run_cmd liftTermElabM do
         throwError "the lift request does not carry the evidence parameters (ℚ, ℚ): {line}"
       -- Each later lift port receives the earlier outputs, in the order of the contract's ports
       -- (api/wire-examples.md, "Prescribed subobject lifts"): `#hom` the returned X1, `#forward`
-      -- X1 and i1, `#backward` X1, i1 and the forward comparison, as its context `bindings`.
+      -- X1 and i1, `#backward` X1, i1 and the forward comparison, with their original
+      -- computational source-field slots in the complete dependent `bindings` envelope.
       let bindings := fun (port : String) => do
         let some line := requests.find? (·.startsWith s!"\{\"op\": \"lift.bilin_module.restrict#{port}\"")
           | throwError "the peer received no request for #{port}: {requests}"
         let .ok request := Json.parse line | throwError "the peer log is malformed: {line}"
         let .ok values := (request.getObjValD "context").getObjValAs? (Array Json) "bindings"
           | throwError "the #{port} request has no bindings: {line}"
-        pure values
+        let mut retained := #[]
+        for value in values, index in [:values.size] do
+          let .ok () := CasCatalogue.Backend.checkServiceFields #["slot", "value"] value
+            | throwError "the #{port} binding lost its exact dependent envelope"
+          unless (value.getObjValAs? Nat "slot").toOption == some index do
+            throwError "the #{port} binding changed its original source-field slot"
+          let .ok data := value.getObjVal? "value"
+            | throwError "the #{port} binding lost its original retained value"
+          retained := retained.push data
+        pure retained
       let hom ← bindings "hom"
       let forward ← bindings "forward"
       let backward ← bindings "backward"

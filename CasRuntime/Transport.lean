@@ -76,31 +76,67 @@ inductive InvocationReply
   | suspended (requestId : Nat) (continuation : String) (captures calls : Array Json)
       (exports : Json)
 
-/-- Read the whole deferred control: exact fields, the envelope, and backward-only result
-references. Reuse: checkServiceFields and validateResultRefs of the released port. -/
-private def deferredControl (requestId : Nat) (frame value : Json) : Except String InvocationReply := do
-  checkServiceFields #["request_id", "status", "value", "exports"] frame
-  checkServiceFields #["ctor", "args"] value
-  let #[calls, template] ← (← value.getObjVal? "args").getArr?
-    | throw "a deferred computation requires its ordered calls and final result template"
-  let calls ← calls.getArr?
-  for call in calls, index in [:calls.size] do
-    validateResultRefs index (← call.getObjVal? "args")
-  validateResultRefs calls.size template
-  return .deferred requestId calls template (← frame.getObjVal? "exports")
+/-- Exact released ordinary and graph-control records. This is framing only; complete
+native role and argument admission remains at the original child-execution boundary. -/
+private def controlArguments (call : Json) : Except String Json := do
+  let operation ← call.getObjValAs? String "op"
+  if operation == "$cas.project" || operation == "$cas.apply" then
+    checkServiceFields #["op", "args"] call
+    let arguments ← call.getObjVal? "args"
+    if operation == "$cas.project" then
+      checkServiceFields #["value", "field"] arguments
+      discard <| (← arguments.getObjVal? "field").getNat?
+    else
+      checkServiceFields #["value", "arguments"] arguments
+      discard <| (← arguments.getObjVal? "arguments").getArr?
+    let some _ ← ScopedReference.parse? (← arguments.getObjVal? "value")
+      | throw "a graph control requires an actual scoped value reference"
+    return arguments
+  if operation.startsWith "$cas." then
+    throw "an ordinary child call cannot use a reserved graph-control address"
+  return (← DeferredCall.decode call).arguments
 
-/-- Read the whole suspension control: exact fields, a nonempty call group with backward-only
-result references, and its continuation token. Reuse: checkServiceFields and validateResultRefs. -/
-private def suspendedControl (requestId : Nat) (frame : Json) : Except String InvocationReply := do
-  checkServiceFields #["request_id", "status", "continuation", "captures", "calls", "exports"] frame
-  let continuation ← frame.getObjValAs? String "continuation"
-  if continuation.isEmpty then throw "a suspension requires its continuation token"
-  let captures ← (← frame.getObjVal? "captures").getArr?
-  let calls ← (← frame.getObjVal? "calls").getArr?
-  if calls.isEmpty then throw "a suspension requires a nonempty call group"
+/-- Read and validate the complete deferred control before any child is scheduled.
+Exports retain the original scope; only backward child-result positions remain unresolved. -/
+private def deferredControl (scope : RequestScope) (actual : DispatchReservation)
+    (graph : ValueGraph) (requestId : Nat) (frame value : Json) : IO InvocationReply := do
+  IO.ofExcept <| (checkServiceFields #["request_id", "status", "value", "exports"] frame).mapError IO.userError
+  IO.ofExcept <| (checkServiceFields #["ctor", "args"] value).mapError IO.userError
+  let arguments ← IO.ofExcept <| ((value.getObjVal? "args").bind (·.getArr?)).mapError IO.userError
+  let #[calls, template] := arguments
+    | throw <| IO.userError "a deferred computation requires its ordered calls and final result template"
+  let calls ← IO.ofExcept <| calls.getArr?.mapError IO.userError
+  let exports ← IO.ofExcept <| (frame.getObjVal? "exports").mapError IO.userError
+  let declared ← ReplyExport.parseControl scope actual graph scope.wireId exports
   for call in calls, index in [:calls.size] do
-    validateResultRefs index (← call.getObjVal? "args")
-  return .suspended requestId continuation captures calls (← frame.getObjVal? "exports")
+    let arguments ← IO.ofExcept <| (controlArguments call).mapError IO.userError
+    scope.validateReplyTemplate actual graph scope.wireId declared index arguments
+  scope.validateReplyTemplate actual graph scope.wireId declared calls.size template
+  return .deferred requestId calls template exports
+
+/-- Validate the complete original captures, exports and finite nonempty child group before
+retiring its source scope or scheduling a child. Captures use the same exact-address owner as
+immediate export captures, retaining distinct equal-valued positions. -/
+private def suspendedControl (scope : RequestScope) (actual : DispatchReservation)
+    (graph : ValueGraph) (requestId : Nat) (frame : Json) : IO InvocationReply := do
+  IO.ofExcept <| (checkServiceFields
+    #["request_id", "status", "continuation", "captures", "calls", "exports"] frame).mapError IO.userError
+  let continuation ← IO.ofExcept <| (frame.getObjValAs? String "continuation").mapError IO.userError
+  if continuation.isEmpty then throw <| IO.userError "a suspension requires its continuation token"
+  let captures ← IO.ofExcept <| ((frame.getObjVal? "captures").bind (·.getArr?)).mapError IO.userError
+  let references ← captures.mapM fun capture => do
+    let some reference ← IO.ofExcept <| (ScopedReference.parse? capture).mapError IO.userError
+      | throw <| IO.userError "a declared capture must be a scoped reference"
+    return reference
+  discard <| scope.capture actual graph scope.wireId references
+  let calls ← IO.ofExcept <| ((frame.getObjVal? "calls").bind (·.getArr?)).mapError IO.userError
+  if calls.isEmpty then throw <| IO.userError "a suspension requires a nonempty call group"
+  let exports ← IO.ofExcept <| (frame.getObjVal? "exports").mapError IO.userError
+  let declared ← ReplyExport.parseControl scope actual graph scope.wireId exports
+  for call in calls, index in [:calls.size] do
+    let arguments ← IO.ofExcept <| (controlArguments call).mapError IO.userError
+    scope.validateReplyTemplate actual graph scope.wireId declared index arguments
+  return .suspended requestId continuation captures calls exports
 
 /-- Cooperative cancellation settles the cell; its resource leases retain exact frame drainers. -/
 opaque FramedConnection.cancel (wire : FramedConnection) (transaction : CellTransaction)
@@ -181,11 +217,15 @@ private def FramedConnection.exchange (wire : FramedConnection) (ledger : Occurr
       | scope.retire; return .error (unavailable "cancelled")
     let result : Except PortError InvocationReply ←
       if (frame.getObjValAs? String "status").toOption == some "suspended" then
-        pure ((suspendedControl lease.requestId frame).mapError PortError.protocol)
+        try
+          pure (.ok (← suspendedControl scope reservation current lease.requestId frame))
+        catch error => pure (.error (.protocol error.toString))
       else if (frame.getObjValAs? String "status").toOption == some "ok" then
         let value := (frame.getObjVal? "value").toOption.getD .null
         if (value.getObjValAs? String "ctor").toOption == some "deferredData" then
-          pure ((deferredControl lease.requestId frame value).mapError PortError.protocol)
+          try
+            pure (.ok (← deferredControl scope reservation current lease.requestId frame value))
+          catch error => pure (.error (.protocol error.toString))
         else
           try
             pure (.ok (.immediate (← ImmediateReply.parseControl scope reservation current
@@ -201,8 +241,9 @@ private def FramedConnection.exchange (wire : FramedConnection) (ledger : Occurr
         return .error (unavailable "cancelled")
       return .ok reply
     | .error error =>
-      discard <| transaction.failPort error
+      let won ← transaction.failPort error
       scope.retire
+      if !won then return .error (unavailable "request_already_settled")
       return .error error
   finally wire.release
 

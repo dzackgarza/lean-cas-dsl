@@ -44,7 +44,8 @@ partial def Kernel.invoke (kernel : Kernel) (evaluateSource : SourceEvaluation) 
 field depends on; the request supplies the action arguments. -/
 partial def Kernel.invokeRegistration (kernel : Kernel) (evaluateSource : SourceEvaluation) (request : PreparedRequest)
     (transaction : CellTransaction) (registration : Registration) (role : String)
-    (parameters bindings : Array ValueBinding) : MetaM (PreparedResponse request) := do
+    (parameters : Array ValueBinding) (bindings : Array (Nat × ValueBinding)) :
+    MetaM (PreparedResponse request) := do
   let wire ← kernel.connections.get registration.backend
   let graph ← transaction.view
   let inputs ← request.admitInputs graph
@@ -53,7 +54,7 @@ partial def Kernel.invokeRegistration (kernel : Kernel) (evaluateSource : Source
     parameters.mapIdx (fun index binding =>
       { path := #[.field "parameters", .index index], binding }) ++
     bindings.mapIdx (fun index binding =>
-      { path := #[.field "bindings", .index index], binding }) ++
+      { path := #[.field "bindings", .index index, .field "value"], binding := binding.2 }) ++
     arguments.mapIdx (fun index binding =>
       { path := #[.field "arguments", .index index], binding })
   let encoded ← IO.ofExcept <|
@@ -61,14 +62,15 @@ partial def Kernel.invokeRegistration (kernel : Kernel) (evaluateSource : Source
   let identity : DispatchIdentity := {
     manifestDigest := kernel.manifestDigest, registration, profileDigest := kernel.profile.sha256 }
   let reservation ← match ← transaction.reserve request.occurrence identity wire.connection
-      (parameters ++ bindings ++ arguments) with
+      (parameters ++ bindings.map (·.2) ++ arguments) with
     | .ok reservation => pure reservation
     | .error failure => transactionFailure failure
   kernel.dispatches.modify (·.push registration)
   let leading := parameters.size + bindings.size
   kernel.invoke evaluateSource request transaction wire reservation encoded <|
     dependentContext role (encoded.values.extract 0 parameters.size)
-      (encoded.values.extract parameters.size leading)
+      (bindings.zipWith (fun binding packet => (binding.1, packet))
+        (encoded.values.extract parameters.size leading))
       (encoded.values.extract leading encoded.values.size) (argumentLayouts request) request.source
 
 /-- Invoke a complete named presentation through the ordinary reservation, scope, deferred
@@ -215,7 +217,7 @@ partial def Kernel.settle (kernel : Kernel) (evaluateSource : SourceEvaluation) 
       | .ok (some reference) => references := references.push reference
       | .ok none => malformed "a declared capture must be a scoped reference"
       | .error reason => malformed reason
-    let captured ← scope.resolveMany reservation graph scope.wireId references
+    let captured ← scope.capture reservation graph scope.wireId references
     scope.retire
     let mut results : Array ValueBinding := #[]
     for call in calls do

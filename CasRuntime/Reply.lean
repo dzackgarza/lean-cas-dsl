@@ -56,22 +56,10 @@ private partial def scanReply (value : Json) (path : Array InputPathStep) : Exce
   | _ => pure ()
   return found
 
-/-- Validate the complete immediate control record before any graph materialization.
-Owner identity comes from the actual invocation; capture/reference authority comes from its scope.
-Source: execution contract v2 §4.2 and the retained-capture amendment. -/
-opaque ImmediateReply.parseControl (scope : RequestScope) (actual : DispatchReservation)
-    (graph : ValueGraph) (wireId : String) (expectedRequestId : Nat) (frame : Json) :
-    IO ImmediateReply := do
-  IO.ofExcept <|
-    (checkServiceFields #["request_id", "status", "value", "exports"] frame).mapError IO.userError
-  let requestValue ← IO.ofExcept <| (frame.getObjVal? "request_id").mapError IO.userError
-  let requestId ← IO.ofExcept <| requestValue.getNat?.mapError IO.userError
-  unless requestId == expectedRequestId do
-    throw <| IO.userError "the reply request identity does not match its invocation"
-  let status ← IO.ofExcept <| (frame.getObjValAs? String "status").mapError IO.userError
-  unless status == "ok" do throw <| IO.userError "the control is not an immediate successful reply"
-  let value ← IO.ofExcept <| (frame.getObjVal? "value").mapError IO.userError
-  let exportValue ← IO.ofExcept <| (frame.getObjVal? "exports").mapError IO.userError
+/-- Read every export and its exact immutable capture table while its request scope is live.
+Immediate, deferred and suspended controls share this original export-admission boundary. -/
+opaque ReplyExport.parseControl (scope : RequestScope) (actual : DispatchReservation)
+    (graph : ValueGraph) (wireId : String) (exportValue : Json) : IO (Array ReplyExport) := do
   let declarations ← IO.ofExcept <| exportValue.getArr?.mapError IO.userError
   let mut tokens : Std.HashSet String := {}
   let mut exports : Array ReplyExport := #[]
@@ -89,9 +77,47 @@ opaque ImmediateReply.parseControl (scope : RequestScope) (actual : DispatchRese
       return reference
     let retained ← scope.capture actual graph wireId references
     exports := exports.push { token, owner := actual.connection, captures := retained }
+  return exports
+
+/-- Check a whole child/template packet before scheduling a group. Result references remain
+relative to its completed prefix; all other references must already denote original input
+positions in this exact request. This performs no mathematical operand interpretation. -/
+opaque RequestScope.validateReplyTemplate (scope : RequestScope) (actual : DispatchReservation)
+    (graph : ValueGraph) (wireId : String) (exports : Array ReplyExport)
+    (resultBound : Nat) (value : Json) : IO Unit := do
   let found ← IO.ofExcept <| (scanReply value #[]).mapError IO.userError
   for token in found.tokens do
-    unless tokens.contains token do
+    unless exports.any (·.token == token) do
+      throw <| IO.userError "an opaque control operand has no declaration in this reply"
+  let mut original := #[]
+  for (_, reference) in found.references do
+    match reference with
+    | .result index =>
+      unless index < resultBound do
+        throw <| IO.userError "a result reference is self, forward or outside its program"
+    | _ => original := original.push reference
+  discard <| scope.resolveMany actual graph wireId original
+
+/-- Validate the complete immediate control record before any graph materialization.
+Owner identity comes from the actual invocation; capture/reference authority comes from its scope.
+Source: execution contract v2 §4.2 and the retained-capture amendment. -/
+opaque ImmediateReply.parseControl (scope : RequestScope) (actual : DispatchReservation)
+    (graph : ValueGraph) (wireId : String) (expectedRequestId : Nat) (frame : Json) :
+    IO ImmediateReply := do
+  IO.ofExcept <|
+    (checkServiceFields #["request_id", "status", "value", "exports"] frame).mapError IO.userError
+  let requestValue ← IO.ofExcept <| (frame.getObjVal? "request_id").mapError IO.userError
+  let requestId ← IO.ofExcept <| requestValue.getNat?.mapError IO.userError
+  unless requestId == expectedRequestId do
+    throw <| IO.userError "the reply request identity does not match its invocation"
+  let status ← IO.ofExcept <| (frame.getObjValAs? String "status").mapError IO.userError
+  unless status == "ok" do throw <| IO.userError "the control is not an immediate successful reply"
+  let value ← IO.ofExcept <| (frame.getObjVal? "value").mapError IO.userError
+  let exportValue ← IO.ofExcept <| (frame.getObjVal? "exports").mapError IO.userError
+  let exports ← ReplyExport.parseControl scope actual graph wireId exportValue
+  let found ← IO.ofExcept <| (scanReply value #[]).mapError IO.userError
+  for token in found.tokens do
+    unless exports.any (·.token == token) do
       throw <| IO.userError "an opaque result token has no declaration in this reply"
   let bindings ← scope.resolveMany actual graph wireId (found.references.map (·.2))
   let references := found.references.zipWith (fun position binding =>

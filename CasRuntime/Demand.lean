@@ -59,7 +59,7 @@ The ordered record layout supplies the prefix, including proof erasure. Exact so
 identities reuse completed fields; no mathematical construction name determines dependencies. -/
 partial def Kernel.earlierOutputs (kernel : Kernel) (evaluateSource : SourceEvaluation)
     (request : PreparedRequest) (transaction : CellTransaction) (family : PreparedRequest)
-    (field : FieldLayout) (arguments : Array ClosedTerm) : MetaM (Array ValueBinding) := do
+    (field : FieldLayout) (arguments : Array ClosedTerm) : MetaM (Array (Nat × ValueBinding)) := do
   withSourceScope request fun context bound => do
     let values := match request.action with
       | .apply _ _ values => values
@@ -78,7 +78,8 @@ partial def Kernel.earlierOutputs (kernel : Kernel) (evaluateSource : SourceEval
       let term := match family.selection with
         | some selection => selectedField selection preceding.projection term
         | none => term
-      outputs := outputs.push (← evaluateSource transaction request.program context bound term)
+      outputs := outputs.push (preceding.sourceIndex,
+        ← evaluateSource transaction request.program context bound term)
     return outputs
 
 /-- Dispatch a delayed family demand whose action has reached its actual arguments.

@@ -8,6 +8,7 @@ import CasRuntime.CompletionTests
 import CasRuntime.CompletionWaiterTests
 import CasRuntime.ConstrainedPointTests
 import CasRuntime.ContainerTests
+import CasRuntime.ControlAdmissionTests
 import CasRuntime.EncodeTests
 import CasRuntime.EnvironmentExecutionTests
 import CasRuntime.EnvironmentTests
