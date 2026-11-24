@@ -26,6 +26,7 @@ import CasCompiler.SourceAtomArgumentTests
 import CasCompiler.SourceAtomTests
 import CasCompiler.SourceCarrierTests
 import CasCompiler.SourceCategoryBindingTests
+import CasCompiler.SourceCellTests
 import CasCompiler.SourceConstructionTests
 import CasCompiler.SourceDivisionTests
 import CasCompiler.SourceEqualityFormTests

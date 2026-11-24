@@ -4,6 +4,7 @@ public import CasCompiler.SourceRoutes
 public import CasCompiler.OperationFamily
 public import CasCompiler.FamilyConversion
 public import CasCompiler.Surface
+public import CasCompiler.SourceCell
 public import LeanCategories.Catalogue.Registry.Semantic
 public import Mathlib.CategoryTheory.NatIso
 public import Mathlib.CategoryTheory.Whiskering
@@ -431,44 +432,17 @@ opaque SourceSession.cell (session : SourceSession) (reference : Syntax)
     | throwError "a source cell component requires one registered cell"
   unless source.expression.syntacticEq entry.source do
     throwError "the cell has a different complete symbolic source category"
-  if inverse && !entry.invertible then
-    throwError "the source cell has no registered inverse"
-  discard <| checkedDeclaration entry.declaration
-  for ref in entry.left ++ entry.right do checkEdgeDeclarations state ref
-  let terms ← session.elaborateMany reference
-      fun context => do
+  let terms ← session.elaborateMany reference fun context => do
     let category ← source.value.source.inContext context
     let arguments ← parameters.mapM fun parameter => do
       return Arg.expr (← parameter.source.inContext context)
     let constant ← mkConstWithFreshMVarLevels entry.declaration
-    let cell ← elabAppArgs constant #[] arguments none false false
-    let cell := sourceReference ``CellEntry id.raw entry.declaration cell
-    let transformation ← if entry.invertible then
-        mkAppM (if inverse then ``CategoryTheory.Iso.inv else ``CategoryTheory.Iso.hom) #[cell]
-      else pure cell
-    if entry.left.isEmpty && entry.right.isEmpty then
-      throwError "a cell between two identity functors is an endomorphism of 𝟭"
-    let declaredLeft ← nativeEdgePathFunctor state entry.left category
-    let declaredRight ← nativeEdgePathFunctor state entry.right category
-    let (declaredLeft, declaredRight) := (declaredLeft.functor, declaredRight.functor)
-    let (left, right) := if inverse then (declaredRight, declaredLeft)
-      else (declaredLeft, declaredRight)
-    let (leftSource, leftTarget) ← functorCategoryBundles left
-    let (rightSource, rightTarget) ← functorCategoryBundles right
-    unless ← isDefEq leftSource category <&&> isDefEq rightSource category <&&>
-        isDefEq leftTarget rightTarget do
-      throwError "the source cell routes have different complete native categories"
-    let expected ← mkAppM ``CategoryTheory.NatTrans #[left, right]
-    unless ← isDefEq (← inferType transformation) expected do
-      throwError "the source cell has different complete native functor endpoints"
-    if entry.invertible then
-      let isomorphism ← if inverse then mkAppM ``CategoryTheory.Iso.symm #[cell] else pure cell
-      let expected ← mkAppM ``CategoryTheory.Iso #[left, right]
-      unless ← isDefEq (← inferType isomorphism) expected <&&>
-          isDefEq (← mkAppM ``CategoryTheory.Iso.hom #[isomorphism]) transformation do
-        throwError "the source isomorphism does not witness its complete directed transformation"
-      return #[transformation, left, right, leftTarget, isomorphism]
-    return #[transformation, left, right, leftTarget]
+    let application ← elabAppArgs constant #[] arguments none false false
+    let cell ← nativeSourceCell entry application inverse
+    unless ← isDefEq cell.sourceBundle category do
+      throwError "the source cell has a different complete native source category"
+    let terms := #[cell.transformation, cell.left.functor, cell.right.functor, cell.targetBundle]
+    return terms ++ cell.isomorphism.toArray
   match terms with
   | #[transformation, left, right, target] =>
     return ⟨.registered entry parameters inverse, source, ⟨entry.target, target⟩,

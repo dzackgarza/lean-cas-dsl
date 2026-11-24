@@ -17,6 +17,7 @@ public import CasCompiler.ReadMemberRules
 public import CasCompiler.ReadLambdaRules
 public import CasCompiler.ReadNumeralRules
 public import CasCompiler.ReadFunctorRules
+public import CasCompiler.ReadCellRules
 public import CasCompiler.ReadTupleRules
 public import CasCompiler.ReadNameRules
 public import CasCompiler.ReadAnnotationRules
@@ -50,6 +51,7 @@ private def sourceRules : Array ReadCompletingRule := #[
   ReadRule.completing ReadLambdaRules.rule,
   ReadRule.completing ReadNumeralRules.rule,
   ReadRule.completing ReadFunctorRules.rule,
+  ReadRule.completing ReadCellRules.rule,
   ReadRule.completing ReadTupleRules.rule,
   ReadNameRules.ruleCompleting,
   ReadRule.completing ReadAnnotationRules.rule,
