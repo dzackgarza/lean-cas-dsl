@@ -55,6 +55,8 @@ opaque completeNativeProof (proposition : Expr) (elaborate : TermElabM Expr) : T
   try
     let proof ← withoutExporting do
       let name ← mkAuxDeclName (kind := `_sourceProof)
+      -- This is a naming scope, so no declaration at `name` will reserve the index.
+      setDeclNGen (← getDeclNGen).next
       withDeclName name <| withOptions (Elab.async.set · false) do
         finishProofLetRecs (← elaborate)
     let messages ← Core.getMessageLog
