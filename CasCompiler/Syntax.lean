@@ -185,7 +185,7 @@ syntax (name := casContextBlock) &"context " &"do" ppLine cas_item* &"end" : cas
 syntax (name := casAssumptionInspection) &"inspect " &"assumptions" : cas_stmt
 -- Existing constrained-point terms retain their original assertion parse.
 syntax (name := casProvedAssertion) (priority := 999)
-  "assert " cas_term " using (" cas_term ")" : cas_stmt
+  "assert " cas_term " using " "(" cas_term ")" : cas_stmt
 syntax "let " ident " := " cas_term : cas_stmt
 syntax "let " ident " : " cas_term " := " cas_term : cas_stmt
 /-- `let f(t) := e in X → Y`: `let f := t ↦ e in X → Y`. -/
