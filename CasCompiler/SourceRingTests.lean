@@ -207,8 +207,12 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     | throwError "the missing-comparison control lost its selected category"
   let some firstCarrier := firstCategory.carrier
     | throwError "the missing-comparison control lost its original carrier route"
-  let withoutComparison := { first with category := some { firstCategory with
-    carrier := some { firstCarrier with comparisons := #[], identifications := #[] } } }
+  let categoryTerm ← empty.elaborate Syntax.missing fun context =>
+    firstCategory.bundle.inContext context
+  let withoutComparison ← first.inCategory firstCategory.expression categoryTerm
+    firstCategory.role
+    (some { firstCarrier with comparisons := #[], identifications := #[] })
+    firstCategory.limit
   let unpresented ← session.defineTerm `MWithoutComparison withoutComparison
   let failure : Option Exception ← withoutModifyingState do
     try

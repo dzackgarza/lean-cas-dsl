@@ -51,7 +51,14 @@ opaque PropertyFamily.forSelection (source : CategoryExpr) (id : PropertyId)
       classifierValue `propertyUniverse
     setMCtx rigid.mctx
     let classifierValue := rigid.expr
-    let expected ← mkAppM ``LeanCategories.Classifier #[selected.target]
+    let declared ← inferType classifierValue
+    let declared ← if declared.isAppOfArity ``LeanCategories.Classifier 1 then pure declared
+      else whnfR declared
+    unless declared.isAppOfArity ``LeanCategories.Classifier 1 do
+      throwError "the accepted property declaration lost its complete native classifier type"
+    -- The accepted declaration fixes these universe arguments. The source route's host
+    -- levels are constrained by the whole-type comparison below, before final closure.
+    let expected := mkApp declared.getAppFn selected.target
     unless ← withoutModifyingState <| isDefEq (← inferType classifierValue) expected do
       unless ← expandSourceStructures ((← getMVars classifierValue).map mkMVar) do
         throwError "the property's classifier has inconsistent native category parameters"

@@ -381,6 +381,7 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
       let (_, namedBases) ← registeredDomain type.getAppArgs[3]!
       carrierBases := carrierBases.push (owner, comparison, namedBases)
   let mut candidates : Array (NumeralEntry × NumeralContext) := #[]
+  let mut carrierRefinements : Array (NumeralEntry × NumeralContext) := #[]
   for row in state.numerals do
     discard <| checkedDeclaration row.declaration
     match row.over with
@@ -408,7 +409,8 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
             candidates := candidates.push (row, .refinement entry)
           for (selected, comparison, namedBases) in carrierBases do
             if namedBases.any (·.id == refinement.base) then
-              candidates := candidates.push (row, .carrier selected comparison (some entry))
+              carrierRefinements := carrierRefinements.push
+                (row, .carrier selected comparison (some entry))
   let hasSelectedStructure := candidates.any fun (_, context) =>
     match context with
     | .selected _ => true
@@ -441,6 +443,15 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
       return (← numeralCandidate row context number expected proofs).isSome
     if applicable then
       admitted := admitted.push (row, context)
+  -- T034's selected and derived structure readings return before ordinary named-base
+  -- reading (Language at 92916e1, 8083-8138 and 8143-8146). A supplied base comparison
+  -- supplies this later reading only on actual absence; ambiguity and proof failures
+  -- above are not absence, and no sampled numeral identifies different families.
+  if admitted.isEmpty then
+    for (row, context) in carrierRefinements do
+      let applicable ← withoutModifyingState do
+        return (← numeralCandidate row context number expected proofs).isSome
+      if applicable then admitted := admitted.push (row, context)
   let some (row, context) := admitted[0]?
     | return ← sourceNullaryNumeral state ownerFamilies number expected proofs
   let context ← if admitted.size == 1 then pure context else do
