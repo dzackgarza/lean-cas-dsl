@@ -1,11 +1,13 @@
 module
 
 import CasRuntime.Environment
+import CasRuntime.Observation
 import CasCompiler.SourceTypeOrigin
 import LeanCategories.Foundation.Mathlib
 import LeanCategories.Catalogue.Semantics.Foundation.Catalogue
 public meta import Lean.Elab.Command
 meta import CasRuntime.Environment
+meta import CasRuntime.Observation
 meta import CasCompiler.SourceTypeOrigin
 meta import LeanCategories.Foundation.Mathlib
 meta import LeanCategories.Catalogue.Semantics.Foundation.Catalogue
@@ -742,3 +744,148 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       | throwError "origin transport admitted the distinct equal-valued source argument"
     unless failure.toMessageData.hasTag
         (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do throw failure
+
+-- A direct value keeps its actual marked type suppliers without any record-field association.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let context ← ContextTelescope.capture #[]
+  let owners ← liftM (m := IO) OwnerRegistry.new
+  let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+  let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+  let written := mkNatLit 7
+  let scalar ← SourceLayout.ofTerm (← context.close written)
+  let (graph, first) ← liftM (m := IO) <|
+    (ValueGraph.empty owners.identities).stage owners.identities
+      { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
+  let (graph, second) ← liftM (m := IO) <| graph.stage owners.identities
+    { program, occurrence, role := scalar, parameters := #[] } (.portable "7".toUTF8)
+  unless first.value != second.value do
+    throwError "the marked type control did not retain two distinct actual suppliers"
+  let marks ← liftM (m := IO) <| IO.mkRef (#[] : Array ValueBinding)
+  let firstMark ← markValue marks first written
+  let secondMark ← markValue marks second written
+  let aliasMark ← markValue marks first written
+  let source := fun width => Expr.lam `x (mkApp (mkConst ``Fin) width) (mkBVar 0) .default
+  let original ← SourceLayout.ofTerm (← context.close (source firstMark))
+  let changed ← SourceLayout.ofTerm (← context.close (source secondMark))
+  let aliasRole ← SourceLayout.ofTerm (← context.close (source aliasMark))
+  let actual ← liftM (m := IO) marks.get
+  let .ok capturedArgument := RuntimeArgument.ofValue graph 0 first actual
+    | throwError "the marked type control lost its actual occurrence table"
+  for role in #[original, changed, aliasRole] do
+    let .ok _ := capturedArgument.sourceMarks role.source
+      | throwError "the marked type control lost a source occurrence mark"
+  let producing ← RuntimeEnvironment.capture owners.worker context #[]
+  let origin ← producing.origin program occurrence original
+  let (graph, value) ← liftM (m := IO) <|
+    graph.stage owners.identities origin (.closure program #[])
+  unless value.instantiations.isEmpty do
+    throwError "the direct marked type control unexpectedly acquired a field association"
+  let consuming ← RuntimeEnvironment.capture owners.worker context #[]
+  for role in #[original, aliasRole] do
+    let accepted ← consuming.checkResult graph role value
+    unless accepted.root.value == value.value do
+      throwError "marked type admission changed the original actual value"
+  withLetDecl `width (mkConst ``Nat) written fun width => do
+    let binding : LocalBinding :=
+      { id := ⟨"marked-direct-alias", 0⟩, role := .definition, expression := width }
+    let aliased ← ContextTelescope.capture #[binding]
+    let .ok parameter := RuntimeParameter.ofValue graph binding.id first
+      | throwError "the same-supplier alias is outside its actual graph"
+    let environment ← RuntimeEnvironment.capture owners.worker aliased #[parameter]
+    let role ← SourceLayout.ofTerm (← aliased.close (source width))
+    discard <| environment.checkResult graph role value
+  let failure : Option Exception ← try
+    discard <| consuming.checkResult graph changed value
+    pure none
+  catch error => pure (some error)
+  let some failure := failure
+    | throwError "a direct native value accepted a different equal-valued marked type supplier"
+  unless (← failure.toMessageData.toString).startsWith
+      "the runtime value has a different marked source type dependency" do throw failure
+
+  -- A surrounding native reduction cannot erase a failed marked supplier comparison.
+  let plusZero := fun width => mkApp2 (mkConst ``Nat.add) (mkNatLit 0) width
+  let arithmetic ← SourceLayout.ofTerm (← context.close (source (plusZero firstMark)))
+  let arithmeticAlias ← SourceLayout.ofTerm (← context.close (source (plusZero aliasMark)))
+  let arithmeticChanged ← SourceLayout.ofTerm (← context.close (source (plusZero secondMark)))
+  let arithmeticOrigin ← consuming.origin program occurrence arithmetic
+  let (graph, arithmeticValue) ← liftM (m := IO) <|
+    graph.stage owners.identities arithmeticOrigin (.closure program #[])
+  let arithmeticEnvironment ← RuntimeEnvironment.capture owners.worker context #[]
+  discard <| arithmeticEnvironment.checkResult graph arithmeticAlias arithmeticValue
+  let failure : Option Exception ← try
+    discard <| arithmeticEnvironment.checkResult graph arithmeticChanged arithmeticValue
+    pure none
+  catch error => pure (some error)
+  let some failure := failure
+    | throwError "native Nat.add reduction erased a different marked type supplier"
+  unless (← failure.toMessageData.toString).startsWith
+      "the runtime value has a different marked source type dependency" do throw failure
+
+  -- Formal source lets retain the same authority without acquiring runtime parameters.
+  withLetDecl `firstWidth (mkConst ``Nat) firstMark fun firstWidth =>
+    withLetDecl `secondWidth (mkConst ``Nat) secondMark fun secondWidth =>
+      withLetDecl `sameWidth (mkConst ``Nat) aliasMark fun sameWidth => do
+        let bindings : Array LocalBinding := #[
+          { id := ⟨"formal-marked-widths", 0⟩, role := .definition, expression := firstWidth },
+          { id := ⟨"formal-marked-widths", 1⟩, role := .definition, expression := secondWidth },
+          { id := ⟨"formal-marked-widths", 2⟩, role := .definition, expression := sameWidth }]
+        let complete ← ContextTelescope.capture bindings
+        let firstRole ← SourceLayout.ofTerm (← complete.close (source firstWidth))
+        let secondRole ← SourceLayout.ofTerm (← complete.close (source secondWidth))
+        let sameRole ← SourceLayout.ofTerm (← complete.close (source sameWidth))
+        let producing ← RuntimeEnvironment.capture owners.worker complete #[]
+        unless producing.values.all (·.isNone) do
+          throwError "a formal marked width acquired a runtime parameter"
+        let origin ← producing.origin program occurrence firstRole
+        let (graph, formalValue) ← liftM (m := IO) <|
+          graph.stage owners.identities origin (.closure program #[])
+        let environment ← RuntimeEnvironment.capture owners.worker complete #[]
+        discard <| environment.checkResult graph firstRole formalValue
+        discard <| environment.checkResult graph sameRole formalValue
+        let failure : Option Exception ← try
+          discard <| environment.checkResult graph secondRole formalValue
+          pure none
+        catch error => pure (some error)
+        let some failure := failure
+          | throwError "formal source definitions erased a different marked type supplier"
+        unless (← failure.toMessageData.toString).startsWith
+            "the runtime value has a different marked source type dependency" do throw failure
+
+  -- A later native role can add a marked type to a node whose original type was closed.
+  -- A subsequent raw role rebind must not erase that earlier, admitted type supplier.
+  let plainRole ← SourceLayout.ofTerm (← context.close (source written))
+  let plainOrigin ← consuming.origin program occurrence plainRole
+  let (graph, plain) ← liftM (m := IO) <|
+    graph.stage owners.identities plainOrigin (.closure program #[])
+  withLetDecl `writtenFirst (mkConst ``Nat) firstMark fun writtenFirst =>
+    withLetDecl `writtenSecond (mkConst ``Nat) secondMark fun writtenSecond => do
+      let bindings : Array LocalBinding := #[
+        { id := ⟨"marked-role-context", 0⟩, role := .definition, expression := writtenFirst },
+        { id := ⟨"marked-role-context", 1⟩, role := .definition, expression := writtenSecond }]
+      let complete ← ContextTelescope.capture bindings
+      let firstRole ← SourceLayout.ofTerm (← complete.close (source firstMark))
+      let secondRole ← SourceLayout.ofTerm (← complete.close (source secondMark))
+      let environment ← RuntimeEnvironment.capture owners.worker complete #[]
+      let admitted ← environment.checkResult graph firstRole plain
+      let (observed, _) := (Observation.valueReferenceJson admitted.root).run {}
+      let .ok dependencies := observed.getObjValAs? (Array Json) "sourceDependencies"
+        | throwError "the later role control lost its selected native type dependencies"
+      let .ok retainedMarks := observed.getObjValAs? (Array Json) "sourceMarks"
+        | throwError "the later role control lost its inert complete-context marks"
+      unless !dependencies.isEmpty &&
+          retainedMarks.any (fun mark => mark.getObjValD "key" == toJson (1 : Nat)) do
+        throwError "the later role control lost its selected type or inert complete-context mark"
+      let .ok same := graph.rebind admitted.root firstRole
+        | throwError "the unchanged marked source role could not be retained"
+      discard <| environment.checkResult graph firstRole same
+      let .ok rebound := graph.rebind admitted.root secondRole
+        | throwError "the existing coarse role rebind could not be prepared"
+      let failure : Option Exception ← try
+        discard <| environment.checkResult graph secondRole rebound
+        pure none
+      catch error => pure (some error)
+      let some failure := failure
+        | throwError "a later role rebind erased an admitted marked type supplier"
+      unless (← failure.toMessageData.toString).startsWith
+          "the runtime value has a different marked source type dependency" do throw failure

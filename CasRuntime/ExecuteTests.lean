@@ -654,7 +654,16 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           { program, occurrence, role := outerRole, parameters := #[] } (.product #[inner, scalar])
         let identityTerm ← withLocalDeclD `n (mkConst ``Nat) fun n => mkLambdaFVars #[n] n
         let identityValue ← kernel.run producer empty {} identityTerm
+        -- The actual source type selects only the first field of this retained parent.
+        -- Its second field belongs to the unrelated process closed below.
+        let markedInner ← markValue kernel.marks inner innerTerm
+        let markedIndex ← mkProjection markedInner `fst
+        let indexedIdentityTerm ← withLocalDeclD `n
+            (mkApp (mkConst ``Fin) markedIndex) fun n => mkLambdaFVars #[n] n
+        let indexedIdentity ← kernel.run producer empty {} indexedIdentityTerm
         let .ok base ← producer.commit | throwError "the nested projection inputs could not commit"
+        unless ← base.graph.isAvailable owners indexedIdentity do
+          throwError "the marked-type control did not produce its live callable"
         owners.close child.generation
         if ← owners.isLive child.generation then
           throwError "the nested projection control did not close its field owner"
@@ -721,6 +730,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           match ← failed.commit with
           | .error .settled => pure ()
           | _ => throwError "failed nested source projection retained a publishable transaction"
+        unless ← base.graph.isAvailable owners indexedIdentity do
+          throwError "a marked native type retained its unrelated sibling owner"
       finally owners.close child.generation
     finally kernel.close
   finally setEnv original

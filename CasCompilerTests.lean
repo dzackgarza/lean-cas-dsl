@@ -8,6 +8,7 @@ import CasCompiler.ElaborateTests
 import CasCompiler.EqualityEvidenceTests
 import CasCompiler.FormationTests
 import CasCompiler.FunctorExpressionTests
+import CasCompiler.NativeDeclarationTests
 import CasCompiler.NativeRouteTests
 import CasCompiler.OperationFamilyTests
 import CasCompiler.OperationRefinementTests
@@ -64,3 +65,6 @@ import CasCompiler.SourceViewTests
 import CasCompiler.SurfaceTests
 import CasCompiler.ValueRequestTests
 import CasCompiler.WhiskeringTests
+import CasTools.NativeExpressionTests
+import CasTools.QuestionExportTests
+import CasTools.SourceSnapshotTests

@@ -162,6 +162,39 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let context ← ContextTelescope.capture bindings
     checkWithKernel (← mkExpectedTypeHint (← mkEqRefl expression)
       (← mkEq expression (← expected.source.inContext context)))
+  -- Transparent parentheses retain the complete original body span and the same
+  -- declared rational ring, including when the category itself is parenthesized.
+  for text in #["(ℚ ∈ CommutativeRings)", "((ℚ ∈ (CommutativeRings)))"] do
+    let file ← SourceFile.parse "parenthesized-category.cas"
+      s!"-- original qualification\nlet Q := {text}\n"
+    let #[item] := file.items
+      | throwError "the parenthesized qualification changed its statement count"
+    let `(cas_item| $statement:cas_stmt) := item
+      | throwError "the parenthesized qualification changed its public statement"
+    let `(cas_stmt| let $_:ident := $body:cas_term) := statement
+      | throwError "the parenthesized qualification lost its original body"
+    let .definition bounded actual ← file.withContext <| empty.readStatement statement
+      | throwError "the parenthesized Unicode qualification did not remain a definition"
+    let some bound := bounded.context.entries.back?
+      | throwError "the parenthesized declaration lost its original binding"
+    let some selected := bounded.categoryFor bound.id
+      | throwError "the parenthesized declaration lost its selected category"
+    unless bound.role == .definition && bound.value == some actual.source.expression &&
+        selected.role == .object &&
+        selected.expression.syntacticEq expectedCategory.expression do
+      throwError "parentheses changed the concrete value or its selected category"
+    unless actual.span.fileName == "parenthesized-category.cas" &&
+        actual.span.start.isSome && actual.span.stop.isSome &&
+        actual.span.start == body.raw.getPos? && actual.span.stop == body.raw.getTailPos? do
+      throwError "category qualification discarded the original outer parentheses span"
+    actual.source.withOpen fun bindings expression => do
+      let context ← ContextTelescope.capture bindings
+      unless expression == (← value.source.inContext context) &&
+          expression.containsConst (· == ``CasCatalogue.Algebra.NamedCommutativeRings.rationals) &&
+          (← selected.bundle.inContext context) == (← category.bundle.inContext context) do
+        throwError "parentheses replaced the actual rational ring or its complete category"
+      checkWithKernel (← mkExpectedTypeHint (← mkEqRefl expression)
+        (← mkEq expression (← expected.source.inContext context)))
   let .definition subsets _ ← readScopedStatement concrete
       "let CommutativeRings := {1, 2} in 𝒫(ℤ)"
     | throwError "the membership domain did not define its original subset"
@@ -175,6 +208,30 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     | throwError "the membership proposition lost its definition"
   unless member.role == .definition && member.value.isSome do
     throwError "the membership proposition was promoted to a hypothesis"
+  let some subset := subsets.context.entries.back?
+    | throwError "the shadowing membership domain lost its original binding"
+  for text in #["(1 ∈ CommutativeRings)", "((1 ∈ (CommutativeRings)))"] do
+    let file ← SourceFile.parse "parenthesized-membership.cas" s!"let member := {text}\n"
+    let #[item] := file.items
+      | throwError "the parenthesized membership changed its statement count"
+    let `(cas_item| $statement:cas_stmt) := item
+      | throwError "the parenthesized membership changed its public statement"
+    let `(cas_stmt| let $_:ident := $body:cas_term) := statement
+      | throwError "the parenthesized membership lost its original body"
+    let .definition _ actual ← file.withContext <| subsets.readStatement statement
+      | throwError "parentheses reinterpreted ordinary membership as category qualification"
+    unless actual.span.fileName == "parenthesized-membership.cas" &&
+        actual.span.start.isSome && actual.span.stop.isSome &&
+        actual.span.start == body.raw.getPos? && actual.span.stop == body.raw.getTailPos? do
+      throwError "ordinary membership discarded the original outer parentheses span"
+    actual.source.withOpen fun bindings expression => do
+      let some originalSubset := bindings.find? (·.id == subset.id)
+        | throwError "parenthesized membership lost its actual shadowing domain"
+      let context ← ContextTelescope.capture bindings
+      unless (← isProp expression) &&
+          expression == (← proposition.source.inContext context) &&
+          expression.containsFVar originalSubset.expression.fvarId! do
+        throwError "parentheses changed membership in the original same-name local subset"
 
 -- A block keeps typed children and original labels without extending its parent
 -- source scope. Its retained local conclusion remains conditional after that boundary.
