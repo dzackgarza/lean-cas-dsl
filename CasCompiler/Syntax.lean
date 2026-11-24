@@ -177,6 +177,15 @@ syntax cas_term:51 " ↦ " cas_term:51 : cas_pair
 syntax:40 "{" cas_pair,* "}" " : " cas_term:51 : cas_term
 
 declare_syntax_cat cas_stmt
+declare_syntax_cat cas_item
+syntax (name := casAbstractDeclaration) "let " ident " ∈ " cas_term : cas_stmt
+syntax (name := casAbstractInDeclaration) "let " ident " in " cas_term : cas_stmt
+syntax (name := casHypothesis) &"assume " ident " : " cas_term : cas_stmt
+syntax (name := casContextBlock) &"context " &"do" ppLine cas_item* &"end" : cas_stmt
+syntax (name := casAssumptionInspection) &"inspect " &"assumptions" : cas_stmt
+-- Existing constrained-point terms retain their original assertion parse.
+syntax (name := casProvedAssertion) (priority := 999)
+  "assert " cas_term " using (" cas_term ")" : cas_stmt
 syntax "let " ident " := " cas_term : cas_stmt
 syntax "let " ident " : " cas_term " := " cas_term : cas_stmt
 /-- `let f(t) := e in X → Y`: `let f := t ↦ e in X → Y`. -/
@@ -186,7 +195,6 @@ syntax (priority := high) "assert " &"implemented " cas_term : cas_stmt
 syntax "assert " cas_term : cas_stmt
 
 /-- A test item: a statement with its id and the provenance of its expected value. -/
-declare_syntax_cat cas_item
 syntax "test " ident str ": " cas_stmt : cas_item
 syntax cas_stmt : cas_item
 

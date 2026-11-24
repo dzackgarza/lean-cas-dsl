@@ -127,18 +127,25 @@ private def commit (transaction : CellTransaction) : MetaM Unit := do
   | .ok _ => pure ()
   | .error failure => throwError "internal: the cell did not commit: {repr failure}"
 
-/-- Decide the closed proposition in Lean, after substituting the session's definitions, by the
-registered literal evaluations and the kernel's decision (`Evaluation.decideEvaluated`).
-A statement depending on an observed computation is about its actual value, including through
-aliases and captured definitions. Other retained source values remain eligible for proof.
-Reuse: contextDependencies closes native source dependencies through their types and values. -/
-private def discharged (session : KernelSession) (context : OpenContext) (proposition : Expr) :
-    TermElabM (Option Bool) := do
-  if session.computationOnly then return none
+/-- A question depending on an observed computation concerns its actual value, including
+through aliases and captured definitions. Computation-only sessions use that observation path
+for every proposition. Reuse: contextDependencies closes native source dependencies through
+their types and values. -/
+private def requiresComputedObservation (session : KernelSession) (context : OpenContext)
+    (proposition : Expr) : MetaM Bool := do
+  if session.computationOnly then return true
   for index in (← contextDependencies context.bindings proposition) do
     let some binding := context.bindings[index]?
       | throwError "a question dependency is outside its complete source context"
-    if session.observed.contains binding.id then return none
+    if session.observed.contains binding.id then return true
+  return false
+
+/-- Decide an eligible closed source proposition through the existing registered literal
+evaluations and kernel decision. Supplied local evidence uses the same observation policy
+without requiring its proposition to be closed. -/
+private def discharged (session : KernelSession) (context : OpenContext) (proposition : Expr) :
+    TermElabM (Option Bool) := do
+  if ← requiresComputedObservation session context proposition then return none
   let proposition ← zetaReduce proposition
   if proposition.hasFVar then return none
   Evaluation.decideEvaluated proposition
@@ -161,6 +168,25 @@ private def numeralForm? (side : Expr) : Option Expr :=
     if data.getName `CasCompiler.source.kind == ``CasCatalogue.NumeralEntry then some side
     else numeralForm? body
   | _ => none
+
+/-- Exact unsupplied formal parameters of this source, including dependencies through
+native types and definitions. Hypotheses/dictionaries remain formal; no value is selected by
+its name or by conversion of its carrier. -/
+private def unsuppliedParameter? (session : KernelSession) (context : OpenContext)
+    (expression : Expr) : MetaM (Option LocalBinding) := do
+  for index in (← contextDependencies context.bindings expression) do
+    let some binding := context.bindings[index]?
+      | throwError "a formal dependency is outside its complete source context"
+    if binding.role == .parameter && !session.bound.contains binding.id then
+      return some binding
+  return none
+
+private def requireSuppliedParameters (session : KernelSession) (context : OpenContext)
+    (expression : Expr) : MetaM Unit := do
+  if let some binding ← unsuppliedParameter? session context expression then
+    let name ← binding.expression.fvarId!.getUserName
+    throwStratum .noImplementation (MessageData.tagged (missingValueTag binding.id)
+      m!"the abstract parameter {name} has no supplied runtime value")
 
 private def packetOf (session : KernelSession) (transaction : CellTransaction)
     (context : OpenContext) (side : Expr) : MetaM (Except String Json) := do
@@ -271,12 +297,30 @@ private partial def delayedComputation (codes : Std.HashMap (RuntimeId .program)
         (delayedComputation codes graph)
     | .portable _ => false
 
+/-- An original block item observed during this cell. A missing outcome is explicitly
+unpublished: `attempted` distinguishes a rolled-back stage from an unexecuted continuation.
+No successful child outcome is returned as committed when its enclosing block aborts. -/
+structure StatementObservation where
+  item : TSyntax `cas_item
+  attempted : Bool
+  outcome : Option Outcome := none
+  proposition : String := ""
+  conclusions : Array SourceConclusion := #[]
+  milliseconds : Nat := 0
+  dispatches : Array Registration := #[]
+
 /-- The result of one statement: its outcome, the session after it and, for a question,
 the proposition that the reader formed. -/
 structure StatementRun where
   outcome : Outcome
   session : KernelSession
   proposition : String := ""
+  /-- Original terms and complete inner scopes survive lexical exit. -/
+  conclusions : Array SourceConclusion := #[]
+  /-- Explicit inspection output only; ordinary results remain silent about assumptions. -/
+  inspectionOutput : Array String := #[]
+  observations : Array StatementObservation := #[]
+  published : Bool := false
 
 /-- The heartbeat limit of one statement, in thousands. Functional work may use any heartbeat
 limit that it needs (constitution C21); the limit stays finite so that a statement that does not
@@ -291,99 +335,209 @@ private def definedName? (statement : TSyntax `cas_stmt) : Option String :=
     if name.isIdent then some name.getId.toString else none
   | _, _ => none
 
-/-- Run one public statement through the production reader, lowerer and executor.
-A definition extends the source session and retains its computed value for later statements.
-A question is discharged in Lean when it is decidable there, and is otherwise computed.
-Each statement is one cell: its results are published together or not at all. -/
+/-- A prepared statement carries its ordinary direct-statement publication policy.
+A containing block can reject a non-holding child without publishing any staged child. -/
+private structure StagedStatement where
+  run : StatementRun
+  publish : Bool
+
+private def requiredCell (transaction : Option CellTransaction) : MetaM CellTransaction := do
+  let some transaction := transaction
+    | throwError "an executable statement has no owning cell transaction"
+  return transaction
+
+private partial def unobservedItems (item : TSyntax `cas_item) (statement : SourceStatement) :
+    Array StatementObservation :=
+  match statement with
+  | .contextBlock items => items.flatMap fun (item, child) => unobservedItems item child
+  | _ => #[{ item, attempted := false }]
+
+private def unpublishedObservation (observation : StatementObservation) : StatementObservation :=
+  match observation.outcome with
+  | some .holds => { observation with outcome := none, conclusions := #[] }
+  | _ => observation
+
+/-- Supplied native evidence concerns its original source proposition. When that proposition
+uses an observed runtime value (also through aliases/captures), or the session requests
+computation only, the ordinary question path must still observe the actual candidate. -/
+private def proofRequiresObservation (session : KernelSession) (proposition : SourceTerm) :
+    MetaM Bool :=
+  session.source.context.withOpen fun bindings => do
+    let context ← ContextTelescope.capture bindings
+    requiresComputedObservation session context (← proposition.source.inContext context)
+
+private partial def executePrepared (session : KernelSession)
+    (transaction : Option CellTransaction) (statement : SourceStatement) :
+    TermElabM StagedStatement := do
+  checkInterrupted
+  match statement with
+  | .assumption next =>
+    -- A hypothetical source binding has no corresponding concrete runtime value.
+    return ⟨{ outcome := .holds, session := { session with source := next } }, false⟩
+  | .inspection scope =>
+    -- Inspection consumes only frozen data. A containing block withholds this output until
+    -- its outer success boundary; a direct inspection allocates no transaction or ledger ID.
+    return ⟨{ outcome := .holds, session, inspectionOutput := #[scope.assumptionsText] }, false⟩
+  | .proved proposition proof =>
+    let conclusion ← session.source.conclusion #[proposition] (some proof)
+    if ← proofRequiresObservation session proposition then
+      let result ← executePrepared session transaction (.question proposition)
+      return { result with run := { result.run with conclusions := #[conclusion] } }
+    let shown ← proposition.source.withOpen fun _ expression => return (← ppExpr expression).pretty
+    return ⟨{ outcome := .holds, session, proposition := shown, conclusions := #[conclusion] }, false⟩
+  | .settled values =>
+    let conclusion ← session.source.conclusion values
+    let shown ← session.source.context.withOpen fun bindings => do
+      let context ← ContextTelescope.capture bindings
+      values.mapM fun value => do
+        return toString (← ppExpr (← value.source.inContext context))
+    return ⟨{ outcome := .holds, session,
+      proposition := s!"settled: {" and ".intercalate shown.toList}",
+      conclusions := #[conclusion] }, false⟩
+  | .definition next value =>
+    let transaction ← requiredCell transaction
+    let conclusion ← session.source.conclusion #[value]
+    let sent := (← session.kernel.dispatches.get).size
+    let (binding, dependent) ← try
+        next.context.withOpen fun bindings => do
+          let context ← ContextTelescope.capture bindings
+          let expression ← value.source.inContext context
+          let dependent := context.bindings.any fun binding =>
+            session.unavailable.any (·.1 == binding.id) &&
+              expression.containsFVar binding.expression.fvarId!
+          let type ← whnf (← inferType expression)
+          if (← isProp type) || type.isSort then return (none, dependent)
+          -- A definition over hypothetical parameters retains its complete native meaning;
+          -- it does not turn a formal-variable descriptor into a concrete backend input.
+          if (← unsuppliedParameter? session context expression).isSome then
+            return (none, dependent)
+          return (some (← session.kernel.run transaction context session.bound expression), dependent)
+      catch error =>
+        -- A direct read definition retains its source meaning on an unavailable computation.
+        -- A containing block instead aborts the entire shared cell at its result boundary.
+        let outcome ← Outcome.ofException error
+        if outcome.fails then throw error
+        let some entry := next.context.entries.back?
+          | throwError "internal: a source definition added no declaration"
+        let unavailable := session.unavailable.push (entry.id, entry.userName)
+        return ⟨{ outcome, session := { session with source := next, unavailable },
+          conclusions := #[conclusion] }, false⟩
+    let graph ← transaction.view
+    let codes ← session.kernel.codes.get
+    let delayed := binding.any (delayedComputation codes graph)
+    let some entry := next.context.entries.back?
+      | throwError "internal: a source definition added no declaration"
+    let computed := (← session.kernel.dispatches.get).size > sent || delayed
+    let bound := match binding with
+      | some binding => session.bound.insert entry.id binding
+      | none => session.bound
+    let observed := if computed then session.observed.insert entry.id else session.observed
+    let unavailable := if dependent then session.unavailable.push (entry.id, entry.userName)
+      else session.unavailable
+    return ⟨{ outcome := .holds, session := { session with source := next, bound, observed, unavailable },
+      conclusions := #[conclusion] }, true⟩
+  | .implemented value =>
+    let transaction ← requiredCell transaction
+    let conclusion ← session.source.conclusion #[value]
+    let shown ← session.source.context.withOpen fun bindings => do
+      let context ← ContextTelescope.capture bindings
+      let expression ← value.source.inContext context
+      requireSuppliedParameters session context expression
+      discard <| session.kernel.run transaction context session.bound expression
+      return toString (← ppExpr expression)
+    return ⟨{ outcome := .holds, session, proposition := shown, conclusions := #[conclusion] }, true⟩
+  | .question proposition =>
+    let transaction ← requiredCell transaction
+    let conclusion ← session.source.conclusion #[proposition]
+    let (outcome, shown) ← session.source.context.withOpen fun bindings => do
+      let context ← ContextTelescope.capture bindings
+      let asked ← proposition.source.inContext context
+      let shown := toString (← ppExpr asked)
+      let outcome ← match ← discharged session context asked with
+        | some true => pure .holds
+        | some false => pure (.wrong "Lean decides the negation of the statement")
+        | none =>
+          -- Prepare the complete question before either computed side can dispatch.
+          requireSuppliedParameters session context asked
+          let asked := underBindings asked
+          match asked.consumeMData.eq? with
+          | some (type, left, right) =>
+            match ← truthCase? type left right with
+            | some proposition => decideComputed session transaction context proposition
+            | none => compare session transaction context left right
+          | none => decideComputed session transaction context asked
+      return (outcome, shown)
+    -- A direct question preserves its existing commit policy for returned wrong/gap outcomes.
+    return ⟨{ outcome, session, proposition := shown, conclusions := #[conclusion] }, true⟩
+  | .contextBlock items =>
+    discard <| requiredCell transaction
+    let mut current := session
+    let mut conclusions := #[]
+    let mut output := #[]
+    let mut observations := #[]
+    let mut proposition := ""
+    for (item, child) in items, index in [:items.size] do
+      let start ← IO.monoMsNow
+      let sent := (← session.kernel.dispatches.get).size
+      let result ← try executePrepared current transaction child
+        catch error =>
+          -- Native interruption is not caught by this ordinary exception handler. An
+          -- ordinary child failure retains its actual item and failure stratum until abort.
+          let outcome ← Outcome.ofException error
+          let outcome := match current.unavailable.find? (fun (id, _) => missingValueOf error id) with
+            | some (_, name) => .gap s!"{name} has no computed value: {outcome.detail}"
+            | none => outcome
+          pure (⟨{ outcome, session := current }, false⟩ : StagedStatement)
+      let milliseconds := (← IO.monoMsNow) - start
+      let calls ← session.kernel.dispatches.get
+      let observed : Array StatementObservation := if result.run.observations.isEmpty then
+          #[{ item, attempted := true, outcome := some result.run.outcome,
+            proposition := result.run.proposition, conclusions := result.run.conclusions,
+            milliseconds, dispatches := calls.extract sent calls.size }]
+        else result.run.observations
+      observations := observations ++ observed
+      unless result.run.outcome matches .holds do
+        let rest := (items.drop (index + 1)).flatMap fun (item, child) => unobservedItems item child
+        return ⟨{ result.run with session, inspectionOutput := #[],
+          observations := (observations.map unpublishedObservation) ++ rest }, false⟩
+      current := result.run.session
+      conclusions := conclusions ++ result.run.conclusions
+      output := output ++ result.run.inspectionOutput
+      proposition := result.run.proposition
+    -- Values/code retain their complete contexts, while no local source name, runtime
+    -- binding or availability/discharge policy escapes this lexical scope.
+    return ⟨{ outcome := .holds, session, proposition, conclusions,
+      inspectionOutput := output, observations }, true⟩
+
+/-- Run one completely prepared public statement in one publication cell. A scoped block
+reads all children before dispatch, stages them in order and commits once. Native interruption
+runs the same finally-abort path and never becomes a mathematical outcome. -/
 opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stmt) :
     TermElabM StatementRun :=
   withCurrHeartbeats <|
   withTheReader Core.Context (fun context => { context with maxHeartbeats := statementHeartbeats * 1000 }) do
-  -- The reading uses the declared preferred routes of the admitted registrations (C6).
   CasCompiler.setPreferredRoutes
     (session.kernel.manifest.registrations.flatMap (·.preferredRoutes))
   let saved ← saveState
   try
-    match ← session.source.readStatement statement with
-    | .definition next value =>
-      let transaction ← CellTransaction.begin session.kernel.ledger
-      let sent := (← session.kernel.dispatches.get).size
-      let (binding, dependent) ← try
-          next.context.withOpen fun bindings => do
-            let context ← ContextTelescope.capture bindings
-            let expression ← value.source.inContext context
-            -- A definition that uses a definition with no computed value depends on that gap.
-            let dependent := context.bindings.any fun binding =>
-              session.unavailable.any (·.1 == binding.id) &&
-                expression.containsFVar binding.expression.fvarId!
-            let type ← whnf (← inferType expression)
-            if (← isProp type) || type.isSort then return (none, dependent)
-            return (some (← session.kernel.run transaction context session.bound expression),
-              dependent)
-        catch error =>
-          -- A read definition keeps its meaning when its computation is a gap or unavailable
-          -- (constitution C3): later statements read it from its definition.
-          let outcome ← Outcome.ofException error
-          if outcome.fails then throw error
-          discard <| (transaction.abort : BaseIO Bool)
-          let some entry := next.context.entries.back?
-            | throwError "internal: a source definition added no declaration"
-          let unavailable := session.unavailable.push (entry.id, entry.userName)
-          return { outcome, session := { session with source := next, unavailable } }
-      -- Every successfully produced value keeps its exact source binding across cells.
-      -- Dispatch and delayed-computation provenance determine proof-discharge policy separately;
-      -- they do not discard an actual object needed by later dependent arguments.
-      let graph ← transaction.view
-      let codes ← session.kernel.codes.get
-      let delayed := binding.any (delayedComputation codes graph)
-      commit transaction
-      let some entry := next.context.entries.back?
-        | throwError "internal: a source definition added no declaration"
-      let computed := (← session.kernel.dispatches.get).size > sent || delayed
-      let bound := match binding with
-        | some binding => session.bound.insert entry.id binding
-        | none => session.bound
-      let observed := if computed then session.observed.insert entry.id else session.observed
-      let unavailable := if dependent then session.unavailable.push (entry.id, entry.userName)
-        else session.unavailable
-      return { outcome := .holds, session := { session with source := next, bound, observed, unavailable } }
-    | .settled values =>
-      let shown ← session.source.context.withOpen fun bindings => do
-        let context ← ContextTelescope.capture bindings
-        values.mapM fun value => do
-          return toString (← ppExpr (← value.source.inContext context))
-      return { outcome := .holds, session,
-               proposition := s!"settled: {" and ".intercalate shown.toList}" }
-    | .implemented value =>
-      -- The value is computed in its own cell. A gap or a failed computation is the outcome.
-      let transaction ← CellTransaction.begin session.kernel.ledger
-      let shown ← session.source.context.withOpen fun bindings => do
-        let context ← ContextTelescope.capture bindings
-        let expression ← value.source.inContext context
-        discard <| session.kernel.run transaction context session.bound expression
-        return toString (← ppExpr expression)
-      commit transaction
-      return { outcome := .holds, session, proposition := shown }
-    | .question proposition =>
-      let transaction ← CellTransaction.begin session.kernel.ledger
-      let (outcome, shown) ← session.source.context.withOpen fun bindings => do
-        let context ← ContextTelescope.capture bindings
-        let asked ← proposition.source.inContext context
-        let shown := toString (← ppExpr asked)
-        let outcome ← match ← discharged session context asked with
-          | some true => pure .holds
-          | some false => pure (.wrong "Lean decides the negation of the statement")
-          | none =>
-            let asked := underBindings asked
-            match asked.consumeMData.eq? with
-            | some (type, left, right) =>
-              match ← truthCase? type left right with
-              | some proposition => decideComputed session transaction context proposition
-              | none => compare session transaction context left right
-            | none => decideComputed session transaction context asked
-        return (outcome, shown)
-      commit transaction
-      return { outcome, session, proposition := shown }
+    let prepared ← session.source.readStatement statement
+    let needsCell ← match prepared with
+      | .settled _ | .assumption _ | .inspection _ => pure false
+      | .proved proposition _ => proofRequiresObservation session proposition
+      | _ => pure true
+    if !needsCell then return (← executePrepared session none prepared).run
+    let transaction ← CellTransaction.begin session.kernel.ledger
+    let result ← try
+        let result ← executePrepared session (some transaction) prepared
+        checkInterrupted
+        -- All throwing result/conclusion construction precedes the only commit.
+        if result.publish then commit transaction
+        pure result
+      finally
+        discard <| (transaction.abort : BaseIO Bool)
+    unless result.publish do
+      if prepared matches .contextBlock _ then saved.restore
+    return { result.run with published := result.publish }
   catch error =>
     let outcome ← Outcome.ofException error
     saved.restore

@@ -102,7 +102,7 @@ private def categoryJson (category : SourceCategoryBinding) : StateM NativeExpre
     ("expression", toJson (reprStr category.expression)),
     ("bundle", bundle), ("carrier", toJson carrier)]
 
-private def snapshot (session : SourceSession) (term : SourceTerm) : Json := Id.run do
+private def snapshot (session : SourceContextObservation) (term : SourceTerm) : Json := Id.run do
   let build : StateM NativeExpression.Builder (List (String × Json) × Array Nat) := do
     let native ← closedTermJson term.source
     let context ← contextJson term.source.context
@@ -123,6 +123,13 @@ private def snapshot (session : SourceSession) (term : SourceTerm) : Json := Id.
   let ((fields, roots), builder) := build.run {}
   return Json.mkObj (fields ++ [("nativeExpressions", builder.finish roots)])
 
+/-- Inspect the exact native source/context/category records retained by a completed
+statement, including a conclusion returned after lexical scope exit. This is an inert
+serialization of already checked records; it performs no elaboration or provider operation. -/
+def observeConclusion (conclusion : SourceConclusion) : Json :=
+  Json.mkObj [("terms", toJson (conclusion.terms.map (snapshot conclusion.context))),
+    ("proof", toJson (conclusion.proof.map (snapshot conclusion.context)))]
+
 private def location (file : SourceFile) (id : String) (stx : Syntax) : TermElabM Location := do
   let some start := stx.getPos? | throwError "an original source item has no start position"
   let some stop := stx.getTailPos? | throwError "an original source item has no end position"
@@ -135,7 +142,10 @@ private def bindingName? (stx : TSyntax `cas_stmt) : Option Ident :=
   | `(cas_stmt| let $name:ident := $_:cas_term)
   | `(cas_stmt| let $name:ident : $_:cas_term := $_:cas_term)
   | `(cas_stmt| let $name:ident($_:cas_term) := $_:cas_term)
-  | `(cas_stmt| let $name:ident($_:ident, $_:ident,*) := $_:cas_term) => some name
+  | `(cas_stmt| let $name:ident($_:ident, $_:ident,*) := $_:cas_term)
+  | `(cas_stmt| let $name:ident ∈ $_:cas_term)
+  | `(cas_stmt| let $name:ident in $_:cas_term)
+  | `(cas_stmt| assume $name:ident : $_:cas_term) => some name
   | _ => none
 
 private def failure (where_ : Location) (stage : String) (error : Exception) :
@@ -180,7 +190,7 @@ private def canonicalCategory (table : CasCatalogue.Realize.TermTable)
 /-- A question is its proposition. A settled typing question retains every term read at its
 declared type, in conjunct order. Singleton identity and snapshot formats remain unchanged.
 Source: SourceStatement.settled and settledJudgements? in CasCompiler/ReadSession.lean. -/
-private def reading (session : SourceSession) (where_ : Location) (provenance : String)
+private def reading (session : SourceContextObservation) (where_ : Location) (provenance : String)
     (terms : Array SourceTerm) (settled : Bool) : TermElabM Reading := do
   if terms.isEmpty then throwError "an exported question must retain its source terms"
   unless settled || terms.size == 1 do
@@ -228,59 +238,77 @@ private def reading (session : SourceSession) (where_ : Location) (provenance : 
     question, (NativeExpression.encode propositions).compress,
     " and ".intercalate shown.toList, sourceContext⟩
 
-/-- Observe each original item through the native source session. A failed definition blocks
-the remaining file scope; a failed question leaves the preceding scope available. Native
-saved-state restoration discards failed elaboration state without replaying source bindings.
-Source: T029 complete-reading boundary and Lean.Elab.Term.saveState/restore. -/
-opaque observeFile (file : SourceFile) (initial : SourceSession) : TermElabM Observation :=
-  file.withContext do
-    let mut session := initial
-    let mut observation : Observation := {}
-    let mut rootFailure : Option Failure := none
-    for item in file.items do
-      let (identity, provenance, statement) ← match item with
-        | `(cas_item| test $id:ident $label:str : $statement:cas_stmt) =>
-          pure (some (id.getId.toString (escape := false)), label.getString, statement)
-        | `(cas_item| $statement:cas_stmt) => pure (none, "", statement)
-        | _ => throwError "an original source item changed its syntax category"
-      let name := bindingName? statement
-      if identity.isSome && name.isSome then
-        throwError "a labeled export item must be a question"
-      if identity.isNone && name.isNone then
-        throwError "question export requires each assertion's original identity"
-      let id ← match identity, name with
-        | some id, _ => pure id
-        | none, some name => pure (name.getId.toString (escape := false))
-        | none, none => throwError "the source item has no question or binding identity"
-      let where_ ← location file id item
-      let stage := if name.isSome then "binding" else "interpretation"
-      if let some cause := rootFailure then
+/-- Observe original items once in their actual lexical scopes. Blocks add no mathematical
+item identity of their own; every contained question keeps its original label and position.
+Unlike execution, this path only reads source, so a local source error can still report all
+original blocked question identities without dispatching or publishing anything. -/
+private partial def observeItems (file : SourceFile) (initial : SourceSession)
+    (items : Array (TSyntax `cas_item)) (initialFailure : Option Failure := none) :
+    TermElabM (SourceSession × Observation) := do
+  let mut session := initial
+  let mut observation : Observation := {}
+  let mut rootFailure := initialFailure
+  for item in items do
+    let (identity, provenance, statement) ← match item with
+      | `(cas_item| test $id:ident $label:str : $statement:cas_stmt) =>
+        pure (some (id.getId.toString (escape := false)), label.getString, statement)
+      | `(cas_item| $statement:cas_stmt) => pure (none, "", statement)
+      | _ => throwError "an original source item changed its syntax category"
+    if let some children := sourceContextItems? statement then
+      if identity.isSome then throwError "a labeled export item must be a question"
+      let (_, localObservation) ← observeItems file session children rootFailure
+      observation := { readings := observation.readings ++ localObservation.readings,
+        failures := observation.failures ++ localObservation.failures }
+      continue
+    if statement.raw.isOfKind ``CasCatalogue.Language.casAssumptionInspection then
+      if identity.isSome then throwError "a labeled export item must be a question"
+      continue
+    let name := bindingName? statement
+    if identity.isSome && name.isSome then
+      throwError "a labeled export item must be a question"
+    if identity.isNone && name.isNone then
+      throwError "question export requires each assertion's original identity"
+    let id ← match identity, name with
+      | some id, _ => pure id
+      | none, some name => pure (name.getId.toString (escape := false))
+      | none, none => throwError "the source item has no question or binding identity"
+    let where_ ← location file id item
+    let stage := if name.isSome then "binding" else "interpretation"
+    if let some cause := rootFailure then
+      observation := { observation with
+        failures := observation.failures.push (blocked where_ stage cause) }
+      if identity.isSome then
         observation := { observation with
-          failures := observation.failures.push (blocked where_ stage cause) }
-        if identity.isSome then
-          observation := { observation with
-            readings := observation.readings.push (unread where_ provenance) }
-        continue
-      let saved ← saveState
-      let result : Except Failure (SourceSession ⊕ Reading) ← try
-        let formed ← session.readStatement statement
-        match formed with
-        | .definition next _ => pure (.ok (Sum.inl next))
-        | .question term | .implemented term =>
-          pure (.ok (Sum.inr (← reading session where_ provenance #[term] false)))
-        | .settled terms => pure (.ok (Sum.inr (← reading session where_ provenance terms true)))
-      catch error =>
-        saved.restore
-        pure (.error (← failure where_ stage error))
-      match result with
-      | .ok (.inl next) => session := next
-      | .ok (.inr row) =>
-        observation := { observation with readings := observation.readings.push row }
-      | .error error =>
-        observation := { observation with failures := observation.failures.push error }
-        if name.isSome then rootFailure := some error
-        else observation := { observation with
           readings := observation.readings.push (unread where_ provenance) }
-    return observation
+      continue
+    let saved ← saveState
+    let result : Except Failure (SourceSession ⊕ Reading) ← try
+      let formed ← session.readStatement statement
+      match formed with
+      | .definition next _ | .assumption next => pure (.ok (Sum.inl next))
+      | .question term | .implemented term | .proved term _ =>
+        pure (.ok (Sum.inr (← reading session.observation where_ provenance #[term] false)))
+      | .settled terms =>
+        pure (.ok (Sum.inr (← reading session.observation where_ provenance terms true)))
+      | .inspection _ | .contextBlock _ =>
+        throwError "a structural source item changed its original syntax"
+    catch error =>
+      saved.restore
+      pure (.error (← failure where_ stage error))
+    match result with
+    | .ok (.inl next) => session := next
+    | .ok (.inr row) =>
+      observation := { observation with readings := observation.readings.push row }
+    | .error error =>
+      observation := { observation with failures := observation.failures.push error }
+      if name.isSome then rootFailure := some error
+      else observation := { observation with
+        readings := observation.readings.push (unread where_ provenance) }
+  return (session, observation)
+
+/-- Observe the original file through the shared reader, preserving all local assumptions
+and categories in each universally closed question before leaving its lexical scope. -/
+opaque observeFile (file : SourceFile) (initial : SourceSession) : TermElabM Observation :=
+  file.withContext do return (← observeItems file initial file.items).2
 
 end CasTools.QuestionExport

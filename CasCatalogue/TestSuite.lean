@@ -50,6 +50,12 @@ structure TestResult where
   detail : String := ""
   /-- Whether the outcome fails the suite (`Outcome.fails`). -/
   fails : Bool := false
+  /-- Whether this original item entered execution; false for an unexecuted continuation. -/
+  attempted : Bool := true
+  /-- Whether the item's owning runtime cell committed. Pure source observations have no cell. -/
+  published : Bool := false
+  /-- Original failing item in this file when an enclosing scope withheld this result. -/
+  blockedBy : Option String := none
   /-- The proposition that the reader formed; empty when the statement was not read. -/
   question : String := ""
   proposition : String := ""
@@ -85,6 +91,17 @@ private def runOne (session : KernelSession) (statement : TSyntax `cas_stmt)
     | none => session.run statement
   let calls ← session.kernel.dispatches.get
   return (result, (calls.extract start calls.size).map dispatchJson)
+
+private partial def unexecutedScope (statement : TSyntax `cas_stmt) :
+    Array StatementObservation := Id.run do
+  let some items := sourceContextItems? statement | return #[]
+  return items.flatMap fun item =>
+    let child : TSyntax `cas_stmt := match item with
+      | `(cas_item| test $_:ident $_:str : $statement:cas_stmt)
+      | `(cas_item| $statement:cas_stmt) => statement
+      | _ => ⟨item.raw⟩
+    if (sourceContextItems? child).isSome then unexecutedScope child
+    else #[{ item, attempted := false }]
 
 /-- Runs the file `path` of the suite in `session`: the outcome of each test, and the session
 after the file. A `let` or statement that does not hold is reported as a statement of the file.
@@ -128,11 +145,58 @@ def runFile (session : KernelSession) (path : System.FilePath) :
     let milliseconds := (← IO.monoMsNow) - start
     let some (run, dispatches) := execution | continue
     session := run.session
+    for output in run.inspectionOutput do logInfo output
     let result : TestResult := {
       file, id, kind := run.outcome.kind, detail := run.outcome.detail
-      fails := run.outcome.fails, question := run.proposition, proposition := run.proposition
+      fails := run.outcome.fails, published := run.published,
+      question := run.proposition, proposition := run.proposition
       dispatches, milliseconds, setupMilliseconds }
     result.writeProgress
+    let scopedObservations := if run.observations.isEmpty && (sourceContextItems? statement).isSome then
+        unexecutedScope statement
+      else run.observations
+    if !scopedObservations.isEmpty then
+      -- Child time/calls are measured by the same shared execution cell. Source preflight
+      -- and block overhead are charged once as setup, never invented per-question timings.
+      let elapsed := scopedObservations.foldl (fun total child => total + child.milliseconds) 0
+      setupMilliseconds := setupMilliseconds + (milliseconds - elapsed)
+      let beforeRows := results.size
+      let cause := match scopedObservations.find? (fun child =>
+          child.outcome.any (fun outcome => !(outcome matches .holds))) with
+        | some child => match child.item with
+          | `(cas_item| test $name:ident $_:str : $_:cas_stmt) =>
+            name.getId.toString (escape := false)
+          | _ => s!"(statement) {child.item.raw.reprint.getD ""}"
+        | none => id
+      for child in scopedObservations do
+        let childId := match child.item with
+          | `(cas_item| test $name:ident $_:str : $_:cas_stmt) =>
+            some (name.getId.toString (escape := false))
+          | _ => none
+        if childId.isNone && child.outcome.any (fun outcome => outcome matches .holds) then
+          setupMilliseconds := setupMilliseconds + child.milliseconds
+          continue
+        if childId.isNone && child.outcome.isNone then
+          setupMilliseconds := setupMilliseconds + child.milliseconds
+          continue
+        let availability := if child.attempted then "attempted but not published" else "not executed"
+        let outcome := child.outcome.getD (.unavailable
+          s!"{availability}; stopped at {cause}: {run.outcome.kind}: {run.outcome.detail}")
+        let row : TestResult := {
+          file, id := childId.getD s!"(statement) {child.item.raw.reprint.getD ""}",
+          kind := outcome.kind, detail := outcome.detail, fails := outcome.fails,
+          attempted := child.attempted, published := run.published,
+          blockedBy := if child.outcome.isNone then some cause else none,
+          question := child.proposition, proposition := child.proposition,
+          dispatches := child.dispatches.map dispatchJson,
+          milliseconds := child.milliseconds, setupMilliseconds }
+        row.writeProgress
+        results := results.push row
+        setupMilliseconds := 0
+      if id?.isSome || (results.size == beforeRows && !(run.outcome matches .holds)) ||
+          (run.observations.isEmpty && !(run.outcome matches .holds)) then
+        results := results.push result
+      continue
     if id?.isNone && run.outcome matches .holds then
       setupMilliseconds := setupMilliseconds + milliseconds
       continue
@@ -267,7 +331,10 @@ syntax (name := casStatementCommand) "#cas " str (&" manifest " str)? : command
   let run ← withSession manifest? false fun session => runStatement session text
   let outcome := run.outcome
   let shown := if outcome matches .holds then outcome.kind else s!"{outcome.kind}: {outcome.detail}"
-  if outcome.fails then throwError shown else logInfo shown
+  if outcome.fails then throwError shown
+  else
+    logInfo shown
+    for output in run.inspectionOutput do logInfo output
 
 end
 

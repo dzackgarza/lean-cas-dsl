@@ -116,9 +116,11 @@ run_cmd liftTermElabM do
       let expected : Array (String × String) := #[
         ("let a := 17 + 29 in ℤ", "holds"),
         ("assert a = 46 in ℤ", "wrong"),
+        ("assert (a = 46 in ℤ) using (proof(rfl))", "wrong"),
         ("let copy := a", "holds"),
         ("let copy2 := copy", "holds"),
-        ("assert copy2 = 46 in ℤ", "wrong")]
+        ("assert copy2 = 46 in ℤ", "wrong"),
+        ("assert (copy2 = 46 in ℤ) using (proof(rfl))", "wrong")]
       for (text, kind) in expected do
         let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
           | .ok statement => pure statement
@@ -128,6 +130,10 @@ run_cmd liftTermElabM do
           failures := failures.push
             s!"`{text}` is {run.outcome.kind} ({run.outcome.detail}), not {kind}"
         session := run.session
+        if (text.splitOn "using (proof").length > 1 then
+          unless run.published && run.conclusions.any (·.proof.isSome) do
+            failures := failures.push
+              s!"`{text}` did not retain source evidence through actual candidate observation"
         if text.startsWith "let" then
           let some entry := session.source.context.entries.back?
             | throwError "the scalar observation control lost its declared source binding"

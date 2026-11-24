@@ -36,6 +36,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless evaluated do throwError "a polynomial value was not applied by its registered evaluation"
   for statement in formed.extract 0 3 do
     let term ← match statement with
+      | .assumption _ | .proved .. | .inspection _ | .contextBlock _ =>
+        throwError "this original source control contains no scoped declaration or explicit proof"
       | .definition _ value | .question value | .implemented value => pure value
       | .settled values =>
         let #[value] := values

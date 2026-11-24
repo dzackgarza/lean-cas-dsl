@@ -197,27 +197,33 @@ private partial def literal? (expression : Expr) : MetaM (Option Json) := do
   return some (Json.mkObj [("ctor", toJson name.getString!), ("args", .arr packets)])
 
 private partial def captured (frame : Frame) (marks : Array ValueBinding) (expression : Expr)
-    (found : Array ValueBinding) : Array ValueBinding :=
+    (found : Array ValueBinding) : MetaM (Array ValueBinding) := do
   match expression with
   | .mdata data body =>
     match markedKey? data with
     | some key => match marks[key]? with
-      | some value => found.push value
-      | none => found
+      | some value => return found.push value
+      | none => return found
     | none => captured frame marks body found
   | .fvar id =>
     match frame.context.bindings.find? (·.expression.fvarId! == id) with
     | some binding => match frame.bound[binding.id]? with
-      | some value => found.push value
-      | none => found
-    | none => found
-  | .app function argument => captured frame marks argument (captured frame marks function found)
+      | some value => return found.push value
+      | none =>
+        -- Only this exact source definition may expose an earlier captured reference.
+        -- A directly retained value above remains authoritative, even for a definition.
+        match (← id.getDecl).value? with
+        | some value => captured frame marks value found
+        | none => return found
+    | none => return found
+  | .app function argument =>
+    captured frame marks argument (← captured frame marks function found)
   | .lam _ type body _ | .forallE _ type body _ =>
-    captured frame marks body (captured frame marks type found)
+    captured frame marks body (← captured frame marks type found)
   | .letE _ type value body _ =>
-    captured frame marks body (captured frame marks value (captured frame marks type found))
+    captured frame marks body (← captured frame marks value (← captured frame marks type found))
   | .proj _ _ value => captured frame marks value found
-  | _ => found
+  | _ => return found
 
 /-- Retain a checked source term as code with its actual captured references.
 Its fields and applications are lowered when a demand reaches them. -/
@@ -227,7 +233,7 @@ private def closure (expression : Expr) : LowerM ValueBinding := do
     let program ← (← supply).fresh .program
     let captures ← traceExpensiveLower "closure.captures" expression
         frame.context.bindings.size do
-      return captured frame (← frame.environment.marks.get) expression #[]
+      captured frame (← frame.environment.marks.get) expression #[]
     let source ← traceExpensiveLower "closure.close" expression frame.context.bindings.size do
       frame.context.close expression
     let code := ClosureCode.term source
@@ -336,14 +342,16 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
     | none => lower body
   | .fvar id =>
     let frame ← read
-    if let some binding := frame.context.bindings.find? (·.expression.fvarId! == id) then
-      if let some value := frame.bound[binding.id]? then return value
+    let some binding := frame.context.bindings.find? (·.expression.fvarId! == id)
+      | throwError "a source variable is outside its complete binding context"
+    if let some value := frame.bound[binding.id]? then return value
     match (← id.getDecl).value? with
     | some value => lower value
     | none =>
-      -- A formal parameter of the source has no computed value. Its descriptor names it.
+      -- Keep the existing one-string symbolic descriptor. Its opaque identity uses the
+      -- same nonce:serial convention as RequestScope.wireId; display names stay in context.
       let packet := Json.mkObj [("ctor", "variable"),
-        ("args", .arr #[toJson (← id.getUserName).toString])]
+        ("args", .arr #[toJson s!"{binding.id.session}:{binding.id.serial}"])]
       stage expression (.portable packet.compress.toUTF8)
   | .letE _ _ value body _ =>
     if (← isProof value) || (← isType value) then return ← lower (body.instantiate1 value)
@@ -505,12 +513,33 @@ private partial def namedConstant (expression : Expr) (address : String) (argume
 
 /-- Native fields of an ordinary registered constant whose definition `field` may open.
 Published element descriptors do not use these closures: their fields require computation. -/
-private partial def fieldClosures (role : SourceLayout) : LowerM (Array ValueBinding) := do
+private partial def fieldClosures (role : SourceLayout)
+    (inputFields : Array (Name × ValueBinding × Array Name) := #[]) :
+    LowerM (Array ValueBinding) := do
   let frame ← read
   let mut fields := #[]
   for prepared in role.fields do
     if prepared.wireIndex.isSome then
-      fields := fields.push (← closure (← prepared.source.inContext frame.context))
+      let mut retained : Option ValueBinding := none
+      if let some (_, operand, path) := inputFields.find?
+          (fun selected => selected.1 == prepared.projection) then
+        let graph ← frame.environment.transaction.view
+        let frontier ← IO.ofExcept <|
+          (graph.projectionFrontier operand path).mapError IO.userError
+        if let some (_, remaining) := frontier then
+          if remaining.isEmpty then
+            -- The rigid producer selected this exact input path, and every field is
+            -- already available. Normal projection publishes its original reference;
+            -- this branch never asks an executor for an unavailable native field.
+            let selected ← projectPath operand path
+            let graph ← frame.environment.transaction.view
+            let environment ← RuntimeEnvironment.capture (← supply).worker frame.context
+              (← parameters)
+            let checked ← environment.checkResult graph (← prepared.toLayout) selected
+            retained := some checked.root
+      match retained with
+      | some value => fields := fields.push value
+      | none => fields := fields.push (← closure (← prepared.source.inContext frame.context))
   return fields
 
 /-- Retain the native field code of an endpoint declared by this actual named morphism.
@@ -531,8 +560,8 @@ private partial def selectedEndpointFields? (sourceEnd : Bool) (hom : ValueBindi
   let some application := request.application | return none
   let state ← semanticState
   let declaredType := family.source.familyType.instantiateLevelParams family.universeParams levels
-  let endpointCode? ← forallBoundedTelescope declaredType (some application.arguments.size)
-      fun formals result => do
+  let endpointCode? : Option (Expr × Array (Name × Nat × Array Name)) ←
+      forallBoundedTelescope declaredType (some application.arguments.size) fun formals result => do
     unless formals.size == application.arguments.size do
       throwError "the selected endpoint lost its complete original parameter telescope"
     -- Keep the authored Hom spine when it is already explicit. Its native projection
@@ -542,9 +571,31 @@ private partial def selectedEndpointFields? (sourceEnd : Bool) (hom : ValueBindi
     let endpoint := result.getAppArgs[if sourceEnd then 2 else 3]!
     let .const declaration _ := endpoint.getAppFn | return none
     if (descriptorIds state declaration).isEmpty then return none
-    return some (← mkLambdaFVars formals endpoint
-      (usedOnly := false) (usedLetOnly := false))
-  let some endpointCode := endpointCode? | return none
+    -- Only this original rigid endpoint family can authorize an input-backed field.
+    -- Keep a separate full-index map because proof formals are not runtime inputs.
+    let mut computational := #[]
+    let mut sourceIndices : Array Nat := #[]
+    for formal in formals, sourceIndex in [:formals.size] do
+      unless ← isProof formal do
+        computational := computational.push formal
+        sourceIndices := sourceIndices.push sourceIndex
+    let mut routes : Array (Name × Nat × Array Name) := #[]
+    let endpointType ← whnf (← inferType endpoint)
+    if let some structureName := endpointType.getAppFn.constName? then
+      if let some info := getStructureInfo? (← getEnv) structureName then
+        for fieldName in info.fieldNames, fieldIndex in [:info.fieldNames.size] do
+          let some projection := info.getProjFn? fieldIndex
+            | throwError "the declared endpoint lost its original field projection"
+          let fieldValue ← mkProjection endpoint fieldName
+          unless ← isProof fieldValue do
+            if let some (position, path) ← sourceInputProjection? fieldValue computational then
+              let some sourceIndex := sourceIndices[position]?
+                | throwError "the declared endpoint lost its complete original input position"
+              routes := routes.push (projection, sourceIndex, path)
+    let code ← mkLambdaFVars formals endpoint
+      (usedOnly := false) (usedLetOnly := false)
+    return some (code, routes)
+  let some (endpointCode, routes) := endpointCode? | return none
   let some original := request.origin.application
     | throwError "the selected endpoint lost its complete original argument table"
   unless original.arguments.size == application.arguments.size do
@@ -560,7 +611,15 @@ private partial def selectedEndpointFields? (sourceEnd : Bool) (hom : ValueBindi
         pure source
     arguments := arguments.push source
   let endpoint := (mkAppN endpointCode arguments).headBeta
-  return some (← fieldClosures (← origin endpoint).role)
+  let role := (← origin endpoint).role
+  let mut inputFields := #[]
+  for (projection, sourceIndex, path) in routes do
+    unless role.fields.any (·.projection == projection) do
+      throwError "the selected endpoint changed a declared original field"
+    let some operand := original.arguments[sourceIndex]?.bind id
+      | throwError "the selected endpoint lost its original field input"
+    inputFields := inputFields.push (projection, operand, path)
+  return some (← fieldClosures role inputFields)
 
 /-- The explicit arguments of an application that are not proofs. -/
 private partial def explicitArguments (expression : Expr) : LowerM (Array Expr) := do
@@ -986,35 +1045,62 @@ private partial def apply (callable : ValueBinding) (arguments : Array Expr) :
   demand request
 
 private partial def record (expression : Expr) (fields : Array Expr) : LowerM ValueBinding := do
-  let layout ← RecordLayout.ofSource (← origin expression).role
-  let mut values := #[]
-  for prepared in layout.fields do
-    if prepared.field.wireIndex.isSome then
-      let some field := fields[prepared.field.sourceIndex]?
-        | throwError "internal: a source constructor lost a computational field"
-      values := values.push (← lower field)
-  stageRecord layout values
+  let frame ← read
+  traceExpensiveLower "record.total" expression frame.context.bindings.size do
+    let role := (← origin expression).role
+    let layout ← traceExpensiveLower "record.layout" expression frame.context.bindings.size do
+      RecordLayout.ofSource role
+    let mut values := #[]
+    for prepared in layout.fields do
+      if prepared.field.wireIndex.isSome then
+        let some field := fields[prepared.field.sourceIndex]?
+          | throwError "internal: a source constructor lost a computational field"
+        let value ← traceExpensiveLower
+            s!"record.lowerField.{prepared.field.projection}[{prepared.field.sourceIndex}]"
+            field frame.context.bindings.size do
+          lower field
+        values := values.push value
+    stageRecord layout values
 
 /-- Stage the same prepared record from its computational fields, in source order.
 The initial layout remains sealed; actual runtime context capture occurs after field lowering. -/
 private partial def stageRecord (layout : RecordLayout) (values : Array ValueBinding) :
     LowerM ValueBinding := do
   let frame ← read
-  let identities ← supply
-  let produced ← originFor layout.source
-  unless values.size == (layout.fields.filter (·.field.wireIndex.isSome)).size do
-    throwError "internal: a source record has a different number of computational fields"
-  let mut draft ← frame.environment.transaction.draft
-  let mut selected ← RecordPrefix.begin identities produced.program produced.occurrence layout
-  for value in values do
-    let (next, extended, _) ← draft.bindField selected value
-    draft := next
-    selected := extended
-  let payload ← IO.ofExcept <| selected.finish.mapError IO.userError
-  let (complete, binding) ← draft.stage produced payload
-  match ← frame.environment.transaction.installDraft complete with
-  | .ok () => return binding
-  | .error failure => throwError "internal: a source record could not be retained: {repr failure}"
+  let expression := layout.source.source.expression
+  traceExpensiveLower "record.stage.total" expression frame.context.bindings.size do
+    let identities ← supply
+    let produced ← originFor layout.source
+    unless values.size == (layout.fields.filter (·.field.wireIndex.isSome)).size do
+      throwError "internal: a source record has a different number of computational fields"
+    let mut draft ← traceExpensiveLower "record.stage.draft" expression
+        frame.context.bindings.size do
+      frame.environment.transaction.draft
+    let mut selected ← traceExpensiveLower "record.prefix.begin" expression
+        frame.context.bindings.size do
+      RecordPrefix.begin identities produced.program produced.occurrence layout
+    for value in values, wireIndex in [:values.size] do
+      -- Metadata is read only to label this timed call; binding still uses the original prefix.
+      let projection := (layout.fields.find? (fun prepared =>
+        prepared.field.wireIndex == some wireIndex)).map (·.field.projection)
+      let (next, extended, _) ← traceExpensiveLower
+          s!"record.prefix.bindField.{repr projection}[{wireIndex}]"
+          value.role.source.expression frame.context.bindings.size do
+        draft.bindField selected value
+      draft := next
+      selected := extended
+    let payload ← traceExpensiveLower "record.prefix.finish" expression
+        frame.context.bindings.size do
+      IO.ofExcept <| selected.finish.mapError IO.userError
+    let (complete, binding) ← traceExpensiveLower "record.stage.store" expression
+        frame.context.bindings.size do
+      draft.stage produced payload
+    let installed ← traceExpensiveLower "record.stage.install" expression
+        frame.context.bindings.size do
+      frame.environment.transaction.installDraft complete
+    match installed with
+    | .ok () => return binding
+    | .error failure => throwError "internal: a source record could not be retained: {repr failure}"
 
 /-- A published computation of a selected lift (`LiftFamily.mark`) at its evidence parameters: a
 prepared demand on the lift boundary, whose fields are the lift's ports. -/

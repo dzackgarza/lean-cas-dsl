@@ -137,6 +137,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless category.role == .morphism do
         throwError "a source function binding changed its morphism role"
       session := next
+    | .assumption _ | .proved .. | .inspection _ | .contextBlock _ =>
+      throwError "these original source statements contain no scoped declaration or explicit proof"
     | .implemented _ => throwError "these source statements contain no implementation request"
     | .settled _ => throwError "these source statements contain no typing question"
     | .question proposition =>

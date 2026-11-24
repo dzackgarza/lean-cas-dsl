@@ -192,3 +192,108 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       previousStop := stop
   unless observation.readings[2]!.question != observation.readings[3]!.question do
     throwError "reversing distinct typing judgements did not change their ordered identity"
+
+
+-- Public lexical scopes retain the exact inner telescope/categories in the exported
+-- question and restore the outer source scope for the next original labeled item.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let file ← SourceFile.parse "scoped-export.cas"
+    "let outside := Fin(3)\ncontext do\n  let R ∈ CommutativeRings\n  let x ∈ R\n  \
+     let one := 1 in R\n  assume h : x = one\n  \
+     test scoped.inside \"local hypothesis\": assert x = one using (proof(h))\nend\n\
+     test scoped.after \"outer scope\": assert outside = outside\n"
+  let observation ← observeFile file empty
+  unless observation.failures.isEmpty &&
+      observation.readings.map (·.id) == #["scoped.inside", "scoped.after"] do
+    throwError "scoped export changed the original questions or failed their source readings"
+  let inside := observation.readings[0]!
+  let afterScope := observation.readings[1]!
+  unless inside.file == "scoped-export.cas" && inside.sourceLine == 7 &&
+      inside.source ==
+        "test scoped.inside \"local hypothesis\": assert x = one using (proof(h))" &&
+      inside.provenance == "local hypothesis" do
+    throwError "scoped export changed the original local assertion's source provenance"
+  let .ok entries := inside.sourceContext.getObjValAs? (Array Json) "context"
+    | throwError "the scoped question omitted its original telescope"
+  let names := #["outside", "R", "x", "one", "h"]
+  let roles := #["definition", "parameter", "parameter", "definition", "hypothesis"]
+  unless entries.size == names.size do
+    throwError "scoped export shortened the original conditional context"
+  for entry in entries, name in names, role in roles do
+    unless entry.getObjValAs? String "name" == .ok name &&
+        entry.getObjValAs? String "role" == .ok role do
+      throwError "scoped export changed an original declaration or assumption role"
+  let .ok categories := inside.sourceContext.getObjValAs? (Array Json) "categories"
+    | throwError "the scoped question omitted its original category selections"
+  let category ← selectCategory (← CasCatalogue.semanticState) "CommutativeRings"
+  unless categories.size == entries.size &&
+      categories[1]!.getObjValAs? String "expression" == .ok (reprStr category.expression) do
+    throwError "scope exit replaced the abstract ring's actual selected category"
+  let .ok afterEntries := afterScope.sourceContext.getObjValAs? (Array Json) "context"
+    | throwError "the following outer question omitted its source telescope"
+  unless afterEntries.size == 1 &&
+      afterEntries[0]!.getObjValAs? String "name" == .ok "outside" &&
+      empty.context.entries.isEmpty do
+    throwError "scoped export leaked a child binding or mutated its input session"
+  let .ok document := Json.parse inside.proposition
+    | throwError "the complete scoped proposition is not a native graph"
+  let .ok #[proposition] := CasTools.NativeExpression.decode document
+    | throwError "the complete scoped proposition did not decode"
+  unless !proposition.hasFVar && !proposition.hasLooseBVars do
+    throwError "the scoped proposition escaped its original local hypotheses"
+  checkWithKernel proposition
+  let .ok graph := inside.sourceContext.getObjVal? "nativeExpressions"
+    | throwError "the scoped snapshot omitted its exact native graph"
+  let .ok nodes := CasTools.NativeExpression.decodeNodes graph
+    | throwError "the scoped source graph did not decode"
+  let .ok native := inside.sourceContext.getObjVal? "native"
+    | throwError "the scoped snapshot omitted the original source term"
+  let .ok index := native.getObjValAs? Nat "expression"
+    | throwError "the scoped snapshot omitted its original expression reference"
+  let some body := nodes[index]? | throwError "the scoped expression is outside its graph"
+  let mut closed := body
+  for entry in entries.reverse do
+    let .ok nameJson := entry.getObjVal? "nativeName"
+      | throwError "a scoped native binder lost its name"
+    let .ok name := CasTools.NativeExpression.nameFromJson nameJson
+      | throwError "a scoped native binder name did not decode"
+    let .ok typeIndex := entry.getObjValAs? Nat "type"
+      | throwError "a scoped native binder lost its type"
+    let some type := nodes[typeIndex]? | throwError "a scoped binder type is outside its graph"
+    let .ok valueIndex := entry.getObjValAs? (Option Nat) "value"
+      | throwError "a scoped native binder lost its declaration kind"
+    let .ok nondep := entry.getObjValAs? Bool "nondep"
+      | throwError "a scoped native let lost its dependency information"
+    let .ok info := entry.getObjValAs? BinderInfo "nativeBinderInfo"
+      | throwError "a scoped native binder lost its annotation"
+    match valueIndex with
+    | none => closed := .forallE name type closed info
+    | some valueIndex =>
+      let some value := nodes[valueIndex]? | throwError "a scoped definition is outside its graph"
+      closed := .letE name type value closed nondep
+  unless closed.equal proposition do
+    throwError "the exported proposition discarded or changed its actual local assumptions"
+  checkWithKernel closed
+
+-- A source error blocks its actual local continuation without poisoning the parent
+-- scope or dropping the original identity of the blocked question.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let file ← SourceFile.parse "scoped-export-failure.cas"
+    "let outside := Fin(3)\ncontext do\n  let X ∈ Sets\n  \
+     let bad := t030_unregistered_input\n  \
+     test scoped.blocked \"local failure\": assert X = X\nend\n\
+     test scoped.recovered \"outer scope\": assert outside = outside\n"
+  let observation ← observeFile file empty
+  unless observation.readings.map (·.id) == #["scoped.blocked", "scoped.recovered"] &&
+      observation.readings[0]!.question.isEmpty &&
+      !observation.readings[1]!.question.isEmpty do
+    throwError "a local source failure changed or falsely established an original question"
+  unless observation.failures.size == 2 && observation.failures[0]!.id == "bad" &&
+      observation.failures[0]!.kind == "invalid" && observation.failures[0]!.stage == "binding" &&
+      observation.failures[1]!.id == "scoped.blocked" &&
+      observation.failures[1]!.cause.map (·.id) == some "bad" do
+    throwError "scoped export lost the exact failed declaration and its local blocking cause"

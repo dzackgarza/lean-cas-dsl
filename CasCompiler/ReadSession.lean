@@ -105,6 +105,19 @@ inductive SourceStatement where
   | question (proposition : SourceTerm)
   | implemented (value : SourceTerm)
   | settled (values : Array SourceTerm)
+  | assumption (session : SourceSession)
+  | proved (proposition : SourceTerm) (proof : SourceTerm)
+  | inspection (scope : SourceContextObservation)
+  /-- Every child has already been read in its actual preceding lexical scope. The syntax
+  is retained only for original item identity/span reporting, never runtime replay. -/
+  | contextBlock (items : Array (TSyntax `cas_item × SourceStatement))
+
+/-- Original item syntax of a lexical block, shared by statement preparation and source
+observation. These exact nodes retain question labels and original file positions. -/
+def sourceContextItems? (statement : TSyntax `cas_stmt) : Option (Array (TSyntax `cas_item)) :=
+  if statement.raw.isOfKind ``CasCatalogue.Language.casContextBlock then
+    some (statement.raw[2].getArgs.map (⟨·⟩))
+  else none
 
 /-- Read an asserted membership or annotation. Membership in a subset is a proposition; in an
 object it is the element's reading there, whose success settles the question.
@@ -173,10 +186,95 @@ private partial def patternFunction (pattern body : TSyntax `cas_term) :
   | `(cas_term| ($inner:cas_term)) => patternFunction inner body
   | _ => throwErrorAt pattern "a source function parameter must be a name or tuple pattern"
 
+/-- A category spelling is selected before interpreting its arguments. A local binding
+shadows a catalogue spelling, so ordinary subset membership keeps its existing meaning. -/
+private partial def categoryApplication? (session : SourceSession) (source : TSyntax `cas_term) :
+    TermElabM (Option (CasCatalogue.NamedCategoryEntry × Array (TSyntax `cas_term))) := do
+  let (name, arguments) ← match source with
+    | `(cas_term| ($inner:cas_term)) => return ← categoryApplication? session inner
+    | `(cas_term| $name:ident) => pure (name, #[])
+    | `(cas_term| $name:ident($arguments:cas_term,*)) => pure (name, arguments.getElems)
+    | _ => return none
+  if session.context.entries.any (·.userName == name.getId) then return none
+  let spelling := name.getId.toString (escape := false)
+  let state ← CasCatalogue.semanticState
+  unless state.categories.any (·.name == spelling) do return none
+  return some (← selectCategory state spelling, arguments)
+
+/-- Seal only unresolved native universe levels after the complete actual application.
+Existing context parameters remain rigid; no mathematical universe is defaulted to zero. -/
+private def closeDeclarationUniverses (context : OpenContext) (values : Array Expr) :
+    MetaM (Array Expr) := do
+  let mut used : CollectLevelParams.State := {}
+  for binding in context.bindings do
+    let declaration ← binding.expression.fvarId!.getDecl
+    used := used.collect declaration.type
+    if let some value := declaration.value? then used := used.collect value
+  for value in values do used := used.collect (← instantiateMVars value)
+  for value in values do
+    let generalized := (← getMCtx).levelMVarToParam used.params.contains (fun _ => false)
+      (← instantiateMVars value) `sourceScopeUniverse
+    setMCtx generalized.mctx
+    used := used.collect generalized.expr
+  let values ← values.mapM instantiateMVars
+  if values.any (fun value => value.hasMVar || value.hasLevelMVar) then
+    throwError "a source declaration requires its complete native category parameters"
+  return values
+
+private def categoryBundle (session : SourceSession) (context : OpenContext)
+    (source : TSyntax `cas_term) (entry : CasCatalogue.NamedCategoryEntry)
+    (arguments : Array (TSyntax `cas_term)) : TermElabM Expr := do
+  discard <| checkedDeclaration entry.declaration
+  let reader : ReadContext := ⟨sourceCategory session context, source, none, none, none,
+    readProjection, readExpression⟩
+  let value ← SourceReader.application reader
+    ⟨← mkConstWithFreshMVarLevels entry.declaration, none⟩ arguments none
+  discard <| categoryIdentity value
+  return value
+
+private def abstractDeclaration (session : SourceSession) (name : Name)
+    (domain : TSyntax `cas_term) : TermElabM SourceStatement := do
+  if let some (entry, arguments) ← categoryApplication? session domain then
+    let category ← session.elaborate domain fun context => do
+      let bundle ← categoryBundle session context domain entry arguments
+      let #[bundle] ← closeDeclarationUniverses context #[bundle]
+        | throwError "the abstract category lost its native bundle"
+      return bundle
+    return .assumption (← session.assumeObject name entry.expression category)
+  let type ← session.elaborate domain fun context => do
+    let selected ← readExpression (sourceCategory session context) domain none
+    let domain ← sourceCarrier selected
+    discard <| getLevel domain.value
+    return domain.value
+  return .assumption (← session.assumeTerm name type)
+
+/-- Unicode category-qualified definitions use the same selected catalogue judgement as
+`in`. A non-category right side remains the original membership expression. -/
+private def definedValue (session : SourceSession) (body : TSyntax `cas_term) :
+    TermElabM SourceTerm := do
+  let `(cas_term| $value:cas_term ∈ $domain:cas_term) := body | return ← session.read body
+  let some (entry, arguments) ← categoryApplication? session domain
+    | return ← session.read body
+  let #[term] ← session.elaborateJudgements body fun context => do
+    let bundle ← categoryBundle session context domain entry arguments
+    let carrier ← mkAppM ``CategoryTheory.Bundled.α #[bundle]
+    let selected : NativeSourceCategory := ⟨.object, entry.expression, bundle, none, none⟩
+    let actual ← readExpression (sourceCategory session context) value (some carrier)
+      (some entry.name) (some selected)
+    let some category := actual.category
+      | throwError "the defined object lost its explicitly selected category"
+    unless category.role == .object && category.expression.syntacticEq entry.expression &&
+        (← isDefEq category.bundle bundle) do
+      throwError "the defined object has a different complete selected category"
+    discard <| closeDeclarationUniverses context #[actual.value, category.bundle]
+    return #[actual]
+    | throwError "the defined object returned an invalid number of judgements"
+  return term
+
 /-- Read public statements through the checked source session, retaining actual let bindings.
 Reuse: SourceSession.read/defineTerm and native expected-type checking. Source annotations
 are read in the preceding scope; the new name is inserted only after its value is checked. -/
-opaque SourceSession.readStatement (session : SourceSession) (stx : TSyntax `cas_stmt) :
+private partial def readStatementCore (session : SourceSession) (stx : TSyntax `cas_stmt) :
     TermElabM SourceStatement := withRef stx do
   -- Public let-function syntax expands once. The native value retains its actual preceding
   -- bindings; its span refers to the original statement, not generated syntax.
@@ -188,9 +286,33 @@ opaque SourceSession.readStatement (session : SourceSession) (stx : TSyntax `cas
       | _ => patternFunction parameter value
     let value ← session.readAt stx translated
     return SourceStatement.definition (← session.defineWritten translated name.getId value) value
+  if let some children := sourceContextItems? stx then
+    let mut current := session
+    let mut items := #[]
+    for item in children do
+      let child ← match item with
+        | `(cas_item| test $_:ident $_:str : $statement:cas_stmt) => pure statement
+        | `(cas_item| $statement:cas_stmt) => pure statement
+        | _ => throwError "a context block changed its original item syntax"
+      let prepared ← readStatementCore current child
+      items := items.push (item, prepared)
+      match prepared with
+      | .definition next _ | .assumption next => current := next
+      | _ => pure ()
+    return .contextBlock items
   match stx with
+  | `(cas_stmt| let $name:ident ∈ $domain:cas_term)
+  | `(cas_stmt| let $name:ident in $domain:cas_term) =>
+    abstractDeclaration session name.getId domain
+  | `(cas_stmt| assume $name:ident : $proposition:cas_term) =>
+    let proposition ← session.readQuestion proposition
+    return .assumption (← session.assumeTerm name.getId proposition)
+  | `(cas_stmt| inspect assumptions) => return .inspection session.observation
+  | `(cas_stmt| assert $body:cas_term using ($evidence:cas_term)) =>
+    let proposition ← session.readQuestion body
+    return .proved proposition (← session.proof evidence proposition.source)
   | `(cas_stmt| let $name:ident := $body:cas_term) =>
-    let value ← session.read body
+    let value ← definedValue session body
     return .definition (← session.defineWritten body name.getId value) value
   | `(cas_stmt| let $name:ident : $annotation:cas_term := $body:cas_term) =>
     let type ← session.read annotation
@@ -219,5 +341,10 @@ opaque SourceSession.readStatement (session : SourceSession) (stx : TSyntax `cas
   | _ =>
     CasCatalogue.throwUnsupportedSource
       "source translation is not implemented for this statement form"
+
+/-- Read one complete source statement before any computational cell is opened. Context
+blocks retain typed children in order, including their original item labels and spans. -/
+opaque SourceSession.readStatement (session : SourceSession) (stx : TSyntax `cas_stmt) :
+    TermElabM SourceStatement := readStatementCore session stx
 
 end CasCompiler

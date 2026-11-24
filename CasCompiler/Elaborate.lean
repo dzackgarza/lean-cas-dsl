@@ -110,6 +110,68 @@ structure SourceSession where
   private categories : Array (Option SourceCategoryBinding)
   /-- The ring variables each definition's source wrote, by entry position. -/
   private rings : Array (Array SourceRingVariable)
+  /-- Inert declaration-time type displays; native entries remain the authority. -/
+  private descriptions : Array String
+
+/-- An immutable observation of the original complete source scope. Display strings are
+formed when declarations enter the session; inspecting this record performs no elaboration. -/
+structure SourceContextObservation where
+  private mk ::
+  context : ContextTelescope
+  spans : Array SourceSpan
+  categories : Array (Option SourceCategoryBinding)
+  descriptions : Array String
+
+/-- Freeze the actual context and its selected category table without opening or evaluating it. -/
+def SourceSession.observation (session : SourceSession) : SourceContextObservation :=
+  ⟨session.context, session.spans, session.categories, session.descriptions⟩
+
+def SourceContextObservation.categoryFor (observation : SourceContextObservation)
+    (id : BindingId) : Option SourceCategoryBinding := do
+  let index ← observation.context.entries.findIdx? (·.id == id)
+  observation.categories[index]?.bind fun category => category
+
+/-- Explicit assumption inspection uses only frozen declaration displays and stable identities.
+Definitions remain in the native context but are not presented as hypothetical assumptions. -/
+def SourceContextObservation.assumptionsText (observation : SourceContextObservation) : String :=
+  Id.run do
+    let mut lines := #[]
+    for entry in observation.context.entries, index in [:observation.context.entries.size] do
+      if entry.role == .parameter || entry.role == .hypothesis || entry.role == .instance then
+        let role := if entry.role == .hypothesis then "hypothesis"
+          else if entry.role == .instance then "instance" else "parameter"
+        let type := observation.descriptions[index]?.getD ""
+        lines := lines.push s!"{role} {entry.userName}: {type} [{entry.id.session}:{entry.id.serial}]"
+    return if lines.isEmpty then "No local assumptions." else "\n".intercalate lines.toList
+
+/-- A statement's original source terms and scope, retained even after lexical scope exit.
+The optional proof is only explicitly checked native evidence, never a computational response. -/
+structure SourceConclusion where
+  private mk ::
+  terms : Array SourceTerm
+  context : SourceContextObservation
+  proof : Option SourceTerm := none
+
+/-- Attach the already checked statement to the actual source scope that formed it. -/
+opaque SourceSession.conclusion (session : SourceSession) (terms : Array SourceTerm)
+    (proof : Option SourceTerm := none) : MetaM SourceConclusion := do
+  for term in terms ++ proof.toArray do
+    unless term.source.context.exactlyMatches session.context do
+      throwError "a retained conclusion changed its complete source scope"
+  if let some evidence := proof then
+    let #[proposition] := terms
+      | throwError "explicit evidence requires one retained proposition"
+    session.context.withOpen fun bindings => do
+      let context ← ContextTelescope.capture bindings
+      let proposition ← proposition.source.inContext context
+      unless (← isProp proposition) &&
+          (← isDefEq (← inferType (← evidence.source.inContext context)) proposition) do
+        throwError "a retained proof has a different original proposition"
+  return ⟨terms, session.observation, proof⟩
+
+/-- Public post-scope inspection of a retained conclusion; no current session is consulted. -/
+def SourceConclusion.inspectAssumptions (conclusion : SourceConclusion) : String :=
+  conclusion.context.assumptionsText
 
 /-- The ring variables written by the source of the declaration `id`. -/
 def SourceSession.ringsFor (session : SourceSession) (id : BindingId) :
@@ -188,11 +250,12 @@ private def defineIn (session : SourceSession) (context : OpenContext) (name : N
     let context ← ContextTelescope.capture
       (context.bindings.push { id, role := .definition, expression })
     return ⟨session.identities, context.telescope, session.spans.push span,
-      session.categories.push category, session.rings.push #[]⟩
+      session.categories.push category, session.rings.push #[],
+      session.descriptions.push ""⟩
 
 opaque SourceSession.empty (identities : CasRuntime.IdentitySupply) : MetaM SourceSession := do
   let context ← withLCtx {} #[] <| ContextTelescope.capture #[]
-  return ⟨identities, context.telescope, #[], #[], #[]⟩
+  return ⟨identities, context.telescope, #[], #[], #[], #[]⟩
 
 /-- Apply the release's safety and axiom policy to the newly completed source term and type.
 Reuse: Lean.collectAxioms and the existing source-family intake policy in Program.lean.
@@ -321,7 +384,8 @@ opaque SourceSession.proof (session : SourceSession) (stx : TSyntax `cas_term)
     sourceFormalProof evidence (← obligation.inContext context)
 
 private def assumeIn (session : SourceSession) (context : OpenContext) (name : Name)
-    (type : Expr) (span : SourceSpan) (binderInfo : BinderInfo) : MetaM SourceSession := do
+    (type : Expr) (span : SourceSpan) (binderInfo : BinderInfo)
+    (category : Option SourceCategoryBinding := none) : MetaM SourceSession := do
   discard <| getLevel type
   let role ← if binderInfo == .instImplicit then do
       unless (← isClass? type).isSome do
@@ -329,11 +393,13 @@ private def assumeIn (session : SourceSession) (context : OpenContext) (name : N
       pure BindingRole.instance
     else if ← isProp type then pure BindingRole.hypothesis
     else pure BindingRole.parameter
+  let description := (← ppExpr type).pretty
   let id ← session.freshBinding
   withLocalDecl name binderInfo type fun expression => do
     let context ← ContextTelescope.capture (context.bindings.push { id, role, expression })
     return ⟨session.identities, context.telescope, session.spans.push span,
-      session.categories.push none, session.rings.push #[]⟩
+      session.categories.push category, session.rings.push #[],
+      session.descriptions.push description⟩
 
 /-- Add one native parameter, hypothesis or selected instance with a fresh stable source ID.
 Reuse: Lean.elabType and Meta.withLocalDecl, including native local-instance registration. -/
@@ -354,6 +420,20 @@ opaque SourceSession.assumeTerm (session : SourceSession) (name : Name) (type : 
   session.context.withOpen fun bindings => do
     let context ← ContextTelescope.capture bindings
     assumeIn session context name (← type.source.inContext context) type.span binderInfo
+
+/-- Bind an abstract object of the explicitly selected complete native category.
+The fresh local has no definition or catalogue value; only the supplied category is retained. -/
+opaque SourceSession.assumeObject (session : SourceSession) (name : Name)
+    (expression : CasCatalogue.CategoryExpr) (category : SourceTerm) : MetaM SourceSession :=
+  session.context.withOpen fun bindings => do
+    let context ← ContextTelescope.capture bindings
+    let bundle ← category.source.inContext context
+    discard <| categoryIdentity bundle
+    let type ← mkAppM ``CategoryTheory.Bundled.α #[bundle]
+    let source ← context.close type
+    checkSource source
+    assumeIn session context name type category.span .default
+      (some ⟨expression, category.source, .object, none, none⟩)
 
 /-- Retain an elaborated definition as a native let declaration for all subsequent source use.
 Reuse: Term.elabTermEnsuringType and Meta.withLetDecl; no expansion/replay table is stored. -/

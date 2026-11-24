@@ -52,6 +52,7 @@ import CasCompiler.SourceProductArgumentTests
 import CasCompiler.SourcePropertyTests
 import CasCompiler.SourceRelationTests
 import CasCompiler.SourceRingTests
+import CasCompiler.SourceScopeTests
 import CasCompiler.SourceInstanceTests
 import CasCompiler.SourceSetLiteralTests
 import CasCompiler.SourceSpanTests

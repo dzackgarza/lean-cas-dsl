@@ -2,6 +2,7 @@ module
 
 import CasRuntime.AdmissionInputTests
 import CasRuntime.ApplicationOriginTests
+import CasRuntime.BindingIdentityTests
 import CasRuntime.CompletionFailureTests
 import CasRuntime.CompletionTests
 import CasRuntime.CompletionWaiterTests
@@ -35,6 +36,7 @@ import CasRuntime.RecordTests
 import CasRuntime.ReplyTests
 import CasRuntime.RoutedMethodTests
 import CasRuntime.SDKTests
+import CasRuntime.ScopedDeclarationTests
 import CasRuntime.ScopeTests
 import CasRuntime.SessionComputationTests
 import CasRuntime.SessionDependentReferenceTests
