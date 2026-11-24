@@ -310,7 +310,7 @@ opaque SourceSession.elaborateJudgements (session : SourceSession) (reference : 
             return (⟨carrier.refs, carrier.target, carrier.identifications, actions, comparisons⟩ :
               SourceCarrierSelection)
           let limit ← selected.limit.mapM fun limit => do
-            let close := fun value => do
+            let close : Expr → TermElabM ClosedTerm := fun value => do
               let value ← context.close (← instantiateMVars value)
               checkSource value
               return value
