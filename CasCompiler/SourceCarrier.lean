@@ -292,9 +292,12 @@ def sourceElementOwners
           origin.type.replace fun part => if part == origin.object then some object else none)
       | none => elementTypeOrigin hint
     let some (value, typeAt) := candidate | continue
-    let category ← match origin with
-      | some origin => pure (some origin.category)
-      | none => if let .fvar id := value then categoryOf id else pure none
+    let retained ← if origin.isSome then pure none else sourceObjectOrigin? value
+    let value := retained.map (·.2) |>.getD value
+    let category ← match origin, retained with
+      | some origin, _ => pure (some origin.category)
+      | none, some (category, _) => pure (some category)
+      | none, none => if let .fvar id := value then categoryOf id else pure none
     let category ← match category with
       | some category => pure (some category)
       | none => do

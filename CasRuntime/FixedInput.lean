@@ -61,9 +61,7 @@ private def FixedInput.storedFrontier (input : FixedInput) (graph : ValueGraph) 
     | .closure .. | .ownedToken .. =>
       return some (value, input.path.extract offset input.path.size)
     | .container container =>
-      if container.fields.isNone then
-        dbg_trace "[fixed.input.frontier.none] parent={repr input.parent.value} current={repr value.value} path={input.path} remaining={input.path.extract offset input.path.size} source={input.source.expression} currentSource={value.role.source.expression}"
-        return none
+      if container.fields.isNone then return none
       value ← IO.ofExcept <| (graph.project value index).mapError IO.userError
     | .product .. =>
       value ← IO.ofExcept <| (graph.project value index).mapError IO.userError
@@ -236,9 +234,7 @@ private partial def fixedFromExpression (graph : ValueGraph) (source : InputExpr
   let arguments := actual ++ steps.flatMap (·.arguments)
   let some traced ← source.inputProjectionThrough
       (steps.map fun step => (step.selection, step.arguments.size)) path contextInputs
-    | do
-      dbg_trace "[fixed.input.route.none] kind=expression path={path} steps={steps.map (fun step => (step.selection, step.arguments.size))} arity={source.argumentCount} context={repr contextInputs}"
-      return none
+    | return none
   fixedFromResult graph context parameters arguments traced
 
 /-- Compose only the selected callable's own retained source history.
@@ -281,9 +277,7 @@ private partial def fixedFromApplication (graph : ValueGraph) (layout : Applicat
   let arguments := actual ++ steps.flatMap (·.arguments)
   let some traced ← layout.inputProjectionThrough
       (steps.map fun step => (step.selection, step.arguments.size)) path contextInputs
-    | do
-      dbg_trace "[fixed.input.route.none] kind=application path={path} steps={steps.map (fun step => (step.selection, step.arguments.size))} family={layout.resultTermFamily.expression} context={repr contextInputs}"
-      return none
+    | return none
   fixedFromResult graph context parameters arguments traced
 
 end

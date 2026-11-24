@@ -5,6 +5,7 @@ public import CasRuntime.Value
 public import CasRuntime.Environment
 public import CasRuntime.DeclaredInput
 public import CasRuntime.RoleMap
+public import CasRuntime.Literal
 public import Cslib.Foundations.Data.PFunctor.Free
 
 @[expose] public section
@@ -180,6 +181,9 @@ opaque PreparedRequest.forBoundary (identities : CasRuntime.IdentitySupply)
     (actual : Array CasRuntime.RuntimeArgument)
     (scope : Array CasRuntime.ValueBinding) (parameters : Array CasRuntime.RuntimeParameter) :
     MetaM PreparedRequest := do
+  if let .property family := boundary then
+    unless arguments.size == family.parameterCount + 1 do
+      throwError "a property observation requires its complete original source application"
   unless universeArguments.length == boundary.universeParams.length do
     throwError "request universe arguments do not match the checked source family"
   let universeArguments ← universeArguments.mapM instantiateLevelMVars
@@ -352,6 +356,16 @@ def PreparedResponse.root (response : PreparedResponse request) : CasRuntime.Val
 Every admission of a projection result retains the same prepared operand and native field. -/
 opaque PreparedRequest.admitResult (request : PreparedRequest) (graph : CasRuntime.ValueGraph)
     (value : CasRuntime.ValueBinding) : MetaM (PreparedResponse request) := do
+  if let .primitive (.property _) _ := request.action then
+    let malformed : {α : Type} → String → MetaM α := fun reason =>
+      throwStratum .malformed m!"property observation: {reason}"
+    let packet ← match graph.packet? value with
+      | .ok (some packet) => pure packet
+      | .ok none => malformed "the answer has no complete Option Bool packet"
+      | .error reason => malformed reason
+    match PropertyObservation.decode packet with
+    | .ok _ => pure ()
+    | .error reason => malformed reason
   let projectionContext := match request.action with
     | .project operand field => some (operand, field)
     | .primitive .. | .apply .. => none

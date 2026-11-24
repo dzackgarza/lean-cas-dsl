@@ -27,6 +27,28 @@ structure RoutedMethodFamily where
   universeParams : List Name
   parameterCount : Nat
 
+/-- Generalize and canonically order the universes of one complete native source family.
+The input expressions remain closed together; no actual receiver or runtime data participates. -/
+opaque closeRoutedUniverses (expressions : Array Expr) : MetaM (Array Expr × List Name) := do
+  let mut used : CollectLevelParams.State := {}
+  for expression in expressions do used := used.collect (← instantiateMVars expression)
+  for expression in expressions do
+    let generalized := (← getMCtx).levelMVarToParam used.params.contains (fun _ => false)
+      (← instantiateMVars expression) `methodUniverse
+    setMCtx generalized.mctx
+    used := used.collect generalized.expr
+  let expressions ← expressions.mapM instantiateMVars
+  if expressions.any (fun expression =>
+      expression.hasFVar || expression.hasMVar || expression.hasLevelMVar) then
+    throwUnsupportedSource "the source family requires its complete declaration parameters"
+  let mut levels : CollectLevelParams.State := {}
+  for expression in expressions do levels := levels.collect expression
+  let originalUniverses := levels.params.toList
+  let universes := (List.range originalUniverses.length).map fun index =>
+    (`routedUniverse).appendIndexAfter index
+  return (expressions.map (fun expression =>
+    expression.instantiateLevelParams originalUniverses (universes.map Level.param)), universes)
+
 /-- Check a selected first-hit route and retain all its original native declaration applications.
 The formal receiver remains abstract while the result family is prepared. No registration,
 runtime value or equality of specialized receivers chooses this source family. -/
@@ -93,33 +115,10 @@ opaque RoutedMethodFamily.forRoute (route : Route) (method : MethodEntry) :
     let close := fun term => mkLambdaFVars parameters term
       (usedOnly := false) (usedLetOnly := false)
     return (← close complete, ← close callable, ← actions.mapM close, parameters.size)
-  -- Reuse Lean's universe generalizer, as source operations and numerals do. Any levels
-  -- not constrained by the declaration stay universally quantified; no actual receiver or
-  -- category parameter is substituted before every complete family is rigid.
-  let expressions := #[categoryFamily, functorFamily, family] ++ actions
-  let mut used : CollectLevelParams.State := {}
-  for expression in expressions do used := used.collect (← instantiateMVars expression)
-  for expression in expressions do
-    let generalized := (← getMCtx).levelMVarToParam used.params.contains (fun _ => false)
-      (← instantiateMVars expression) `methodUniverse
-    setMCtx generalized.mctx
-    used := used.collect generalized.expr
-  let expressions ← expressions.mapM instantiateMVars
-  if expressions.any (fun expression =>
-      expression.hasFVar || expression.hasMVar || expression.hasLevelMVar) then
-    throwUnsupportedSource "the source method requires its complete declaration parameters"
-  -- Canonical names follow the source category, then the full actions. Independently read
-  -- families therefore compare at the same rigid universe positions, including equalities
-  -- imposed by a declaration with fewer universe parameters than its nominal owner.
-  let mut levels : CollectLevelParams.State := {}
-  for expression in expressions do levels := levels.collect expression
-  let originalUniverses := levels.params.toList
-  let universes := (List.range originalUniverses.length).map fun index =>
-    (`routedUniverse).appendIndexAfter index
-  let closeLevels := fun (expression : Expr) =>
-    expression.instantiateLevelParams originalUniverses (universes.map Level.param)
-  return ⟨method, route, entry, closeLevels expressions[0]!, closeLevels expressions[1]!,
-    closeLevels expressions[2]!, (expressions.drop 3).map closeLevels, universes, count⟩
+  let (expressions, universes) ← closeRoutedUniverses
+    (#[categoryFamily, functorFamily, family] ++ actions)
+  return ⟨method, route, entry, expressions[0]!, expressions[1]!,
+    expressions[2]!, expressions.drop 3, universes, count⟩
 
 /-- Recover only an independently registered first-hit route from the retained source syntax. -/
 def RoutedMethodFamily.forSelection (source : CategoryExpr) (method : String)
@@ -263,12 +262,12 @@ private def methodCategoryAssembly? (context : OpenContext) (originals : Array E
   if family.hasFVar || family.hasMVar || family.hasLevelMVar then return none
   return some ⟨originals.size, required, family⟩
 
-private def methodCategoryRoutesAt (family : RoutedMethodFamily) (originals : Array Expr)
-    (result : Expr) : MetaM (Array MethodCategoryParameter) := do
-  let levels ← family.universeParams.mapM fun _ => mkFreshLevelMVar
-  let category := family.categoryFamily.instantiateLevelParams family.universeParams levels
+private def sourceCategoryRoutesAt (categoryFamily : Expr) (universeParams : List Name)
+    (parameterCount : Nat) (originals : Array Expr) (result : Expr) : MetaM (Array MethodCategoryParameter) := do
+  let levels ← universeParams.mapM fun _ => mkFreshLevelMVar
+  let category := categoryFamily.instantiateLevelParams universeParams levels
   let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType category)
-  unless parameters.size == family.parameterCount do
+  unless parameters.size == parameterCount do
     throwError "the routed method lost its complete abstract category telescope"
   let expected ← mkAppM ``CategoryTheory.Bundled.α #[mkAppN category parameters]
   unless ← isDefEq expected result do return Array.replicate parameters.size .unavailable
@@ -298,8 +297,8 @@ Only this abstract type family determines the positions. A source projection rou
 an original slot; complete native record views retain their original input positions. For the
 reader's Arrow wrapper, inspect the original hom declaration under that same native wrapper.
 No actual receiver expression participates in this correspondence. -/
-opaque RoutedMethodFamily.receiverParameterRoutes (family : RoutedMethodFamily)
-    (declaration : Name) (morphism : Bool := false) : MetaM (Array MethodCategoryParameter) :=
+opaque sourceCategoryParameterRoutes (categoryFamily : Expr) (universeParams : List Name)
+    (parameterCount : Nat) (declaration : Name) (morphism : Bool := false) : MetaM (Array MethodCategoryParameter) :=
     withLCtx {} #[] do
   let information ← checkedDeclaration declaration
   let declared := mkConst declaration (information.levelParams.map Level.param)
@@ -307,17 +306,17 @@ opaque RoutedMethodFamily.receiverParameterRoutes (family : RoutedMethodFamily)
     let result ← if morphism then
         inferType (← mkAppM ``CategoryTheory.Arrow.mk #[mkAppN declared originals])
       else pure result
-    methodCategoryRoutesAt family originals result
+    sourceCategoryRoutesAt categoryFamily universeParams parameterCount originals result
 
 /-- Compose an original selected result projection with its sole actual declared input.
 Both declarations stay abstract over the input producer's complete rigid telescope. Only
 native typing determines the outer declaration's parameters; no actual input or result is
 substituted, and no missing argument is synthesized. The returned routes name the input
 producer's original positions, using the same coverage rules as direct receivers. -/
-opaque RoutedMethodFamily.receiverProjectionInputRoutes (family : RoutedMethodFamily)
-    (declaration : Name) (path : Array Name) (position : Nat) (inputDeclaration : Name) :
+opaque sourceCategoryProjectionInputRoutes (categoryFamily : Expr)
+    (universeParams : List Name) (parameterCount : Nat) (declaration : Name) (path : Array Name) (position : Nat) (inputDeclaration : Name) :
     MetaM (Array MethodCategoryParameter) := withLCtx {} #[] do
-  let unavailable := Array.replicate family.parameterCount MethodCategoryParameter.unavailable
+  let unavailable := Array.replicate parameterCount MethodCategoryParameter.unavailable
   let information ← checkedDeclaration inputDeclaration
   let input := mkConst inputDeclaration (information.levelParams.map Level.param)
   forallTelescopeReducing (← inferType input) fun originals _ => do
@@ -339,7 +338,19 @@ opaque RoutedMethodFamily.receiverProjectionInputRoutes (family : RoutedMethodFa
       unless ((← getEnv).getProjectionFnInfo? projection).isSome do
         throwError "the selected producer result lost its native projection declaration"
       result ← mkAppM projection #[result]
-    methodCategoryRoutesAt family originals (← inferType result)
+    sourceCategoryRoutesAt categoryFamily universeParams parameterCount originals (← inferType result)
+
+/-- Method callers use the same original category-parameter correspondence as properties. -/
+def RoutedMethodFamily.receiverParameterRoutes (family : RoutedMethodFamily)
+    (declaration : Name) (morphism : Bool := false) : MetaM (Array MethodCategoryParameter) :=
+  sourceCategoryParameterRoutes family.categoryFamily family.universeParams family.parameterCount
+    declaration morphism
+
+def RoutedMethodFamily.receiverProjectionInputRoutes (family : RoutedMethodFamily)
+    (declaration : Name) (path : Array Name) (position : Nat) (inputDeclaration : Name) :
+    MetaM (Array MethodCategoryParameter) :=
+  sourceCategoryProjectionInputRoutes family.categoryFamily family.universeParams family.parameterCount
+    declaration path position inputDeclaration
 
 private def projectionArgument (name : Name) (expression : Expr) : MetaM Expr := do
   unless expression.getAppFn.isConstOf name do

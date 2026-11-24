@@ -2,6 +2,7 @@ module
 
 public import CasRuntime.Value
 public import CasCompiler.SelectedMorphism
+public import CasCompiler.SourceTypeOrigin
 
 public section
 
@@ -574,6 +575,10 @@ partial def RuntimeEnvironment.hasRetainedSource (environment : RuntimeEnvironme
     (context : OpenContext) (specified : Expr) : MetaM Bool := do
   if let .mdata data body := specified then
     if (markedKey? data).isSome then return true
+    if data.contains `CasCompiler.source.objectOrigin then
+      let some (_, original) ← sourceObjectOrigin? specified
+        | throwError "the source object lost its retained original parameter"
+      return ← environment.hasRetainedSource context original
     if (data.find `CasCompiler.source.kind).isSome ||
         (data.find `CasCompiler.selection).isSome then return false
     return ← environment.hasRetainedSource context body
@@ -609,6 +614,10 @@ private partial def RuntimeEnvironment.retainsSourceReference (environment : Run
       unless retainsReference selected value do return false
       -- A mark adds an identity constraint; it cannot replace a variable or field constraint.
       return ← environment.retainsSourceReference context graph marks body value requireAnchor true
+    if data.contains `CasCompiler.source.objectOrigin then
+      let some (_, original) ← sourceObjectOrigin? specified
+        | throwError "the source object lost its retained original parameter"
+      return ← environment.retainsSourceReference context graph marks original value requireAnchor anchored
     if (data.find `CasCompiler.source.kind).isNone &&
         (data.find `CasCompiler.selection).isNone then
       return ← environment.retainsSourceReference context graph marks body value requireAnchor anchored

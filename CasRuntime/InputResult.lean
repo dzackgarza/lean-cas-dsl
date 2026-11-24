@@ -24,9 +24,7 @@ private partial def prepareInputResult (request : PreparedRequest) (graph : Valu
     (source : SourceLayout) : MetaM (Option InputResultTree) := do
   if let some input ← request.fixedInputFor graph source then
     return some (.input (← request.source.projectionPathTo source) input)
-  if source.kind != .record then
-    dbg_trace "[input.result.uncovered] path={source.address} kind={repr source.kind} source={source.source.expression}"
-    return none
+  if source.kind != .record then return none
   let layout ← RecordLayout.ofSource source
   let mut children := #[]
   for field in layout.fields do

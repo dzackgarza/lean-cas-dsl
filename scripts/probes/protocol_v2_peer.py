@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Generator
 import json
+import sys
 
 from cas_session import JsonValue, Proxy, Suspension, export, proxy, suspend
 from cas_port import serve
@@ -108,4 +109,9 @@ serve("protocol-peer", "0", {"echo": echo, "stored": stored,
                               "captured": captured,
                               "adaptive": adaptive, "expired": expired,
                               "references": references, "deferred": deferred,
-                              "hidden": hidden, "repeated": repeated})
+                              "hidden": hidden, "repeated": repeated,
+                              # An opt-in fixed packet tests property observation framing only.
+                              # It never inspects a group or computes a property.
+                              **({"prop.is_abelian": lambda _arguments: json.loads(sys.argv[2])}
+                                 if len(sys.argv) == 3 and sys.argv[1] == "--property-observation"
+                                 else {})})

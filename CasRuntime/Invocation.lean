@@ -7,6 +7,7 @@ public import CasRuntime.Encode
 public import CasRuntime.Presentation
 public import CasRuntime.Point
 public import CasRuntime.RoutedMethod
+public import CasRuntime.Property
 
 public section
 
@@ -101,6 +102,30 @@ partial def Kernel.invokeMethod (kernel : Kernel) (evaluateSource : SourceEvalua
   let registration := invocation.registration
   unless registration.operation == invocation.method.raw do
     throwError "the selected method registration changed its published address"
+  let graph ← transaction.view
+  discard <| request.admitInputs graph
+  let wire ← kernel.connections.get registration.backend
+  let (encoded, packet) ← IO.ofExcept <|
+    (invocation.encode graph wire.connection.generation).mapError IO.userError
+  let identity : DispatchIdentity := {
+    manifestDigest := kernel.manifestDigest, registration, profileDigest := kernel.profile.sha256 }
+  let reservation ← match ← transaction.reserve request.occurrence identity wire.connection
+      invocation.dependencies with
+    | .ok reservation => pure reservation
+    | .error failure => transactionFailure failure
+  kernel.dispatches.modify (·.push registration)
+  kernel.invoke evaluateSource request transaction wire reservation encoded packet
+
+/-- Properties use their released raw receiver packet and the ordinary scoped reply lifecycle.
+The prepared property's Option Bool result check runs before any reusable completion. -/
+partial def Kernel.invokeProperty (kernel : Kernel) (evaluateSource : SourceEvaluation)
+    (request : PreparedRequest) (transaction : CellTransaction)
+    (invocation : PreparedPropertyInvocation) : MetaM (PreparedResponse request) := do
+  unless request.roles.scope == invocation.preparation do
+    throwError "the property invocation belongs to a different original request preparation"
+  let registration := invocation.registration
+  unless registration.operation == invocation.property.raw do
+    throwError "the selected property registration changed its accepted address"
   let graph ← transaction.view
   discard <| request.admitInputs graph
   let wire ← kernel.connections.get registration.backend

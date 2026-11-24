@@ -3,6 +3,7 @@ module
 public import CasCompiler.FamilyConversion
 public import CasCompiler.Elaborate
 import CasCompiler.RoutedMethodFamily
+import CasCompiler.PropertyFamily
 import CasCatalogue.Admission
 
 public section
@@ -84,27 +85,7 @@ opaque sourceProperty (receiver : NativeSourceJudgement) (name : String) :
   let #[row] := rows
     | if rows.isEmpty then return none
       else throwSemanticAmbiguity s!"several properties named {name} accept this receiver"
-  let some classifier := state.classifiers.find? (·.id == row.classifier)
-    | throwError "the property {name} has no registered classifier"
-  discard <| checkedDeclaration classifier.declaration
-  let query ← SourceRoutes.forOwner selected.expression classifier.host
-  let some routes ← query.finiteRoutes
-    | throwUnsupportedSource "the property route family requires its supplied uniform comparison"
-  let some route := routes[0]?
-    | throwError "the property {name} is not reachable from the receiver's category"
-  let agreements ← sourceRouteAgreements state selected routes
-  let object ← if route.refs.isEmpty then pure receiver.value else do
-    let image ← nativeRouteFunctor state route selected.bundle
-    functorObject image.functor receiver.value image.target
-  -- AppBuilder protects the classifier's fresh universe metavariables; native application
-  -- solves them at the actual receiver.
-  let mut value ← elabAppArgs (← mkConstWithFreshMVarLevels ``CasCatalogue.Classifier.Holds) #[]
-    #[Arg.expr (← classifierInstance classifier), Arg.expr object] none false false
-  value ← instantiateMVars value
-  for proof in agreements.reverse do
-    value ← withLetDecl (← mkFreshUserName `propertyRouteAgreement) (← inferType proof) proof
-      fun binding => mkLetFVars #[binding] value
-        (usedLetOnly := false) (generalizeNondepLet := false)
-  return some ⟨sourceReference ``PropertyEntry row.id.raw classifier.declaration value, none⟩
+  let (_, value) ← PropertyFamily.forReceiver selected row.id receiver.value
+  return some ⟨value, none⟩
 
 end CasCompiler

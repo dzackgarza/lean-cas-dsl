@@ -27,6 +27,19 @@ def publishedPresentation? (state : SemanticState) (address : String) :
     Option PresentationComparisonEntry :=
   state.presentations.find? (·.id.raw == address)
 
+/-- Properties keep their accepted public address independently of ComputationRef families. -/
+def publishedProperty? (state : SemanticState) (address : String) : Option PropertyEntry :=
+  state.properties.find? (·.id.raw == address)
+
+/-- The exact source registry admits property forms by the same classifier/receiver route
+that source reading uses. Unknown or differently selected forms create no registration. -/
+def propertyFormDefect (state : SemanticState) (row : PropertyEntry)
+    (input : String) : Option String :=
+  let registry : RegistryState := { toSemanticState := state }
+  match registry.form? input with
+  | none => some s!"{input} is not a published property input form"
+  | some form => registry.rejects (.property row) form
+
 /-- The public complete-request address and admitted endpoint forms are peers. The own
 address becomes eligible only for a complete presentationApply demand, never for an arrow
 descriptor. Reuse: RegistryState.form?/rejects and the released presentation wire contract. -/
@@ -80,13 +93,18 @@ def admitManifest (parsed : Manifest) : MetaM (Manifest × Array String) := do
       s!"{registration.operation} on {registration.input} by {registration.backend}"
     if (publishedFamily? state registration.operation).isNone &&
         (publishedLift? state registration.operation).isNone &&
-        (publishedPresentation? state registration.operation).isNone then
+        (publishedPresentation? state registration.operation).isNone &&
+        (publishedProperty? state registration.operation).isNone then
       rejected := rejected.push s!"{described}: {registration.operation} is not a published operation"
     else if !parsed.backends.any (·.name == registration.backend) then
       rejected := rejected.push
         s!"{described}: the backend {registration.backend} is not declared in the manifest"
     else if let some defect := registration.preferredRoutes.findSome? (preferenceDefect state) then
       rejected := rejected.push s!"{described}: a declared preferred route is malformed: {defect}"
+    else if let some row := publishedProperty? state registration.operation then
+      if let some defect := propertyFormDefect state row registration.input then
+        rejected := rejected.push s!"{described}: {defect}"
+      else admitted := admitted.push registration
     else if let some row := publishedPresentation? state registration.operation then
       if let some defect := presentationFormDefect state row registration.input then
         rejected := rejected.push s!"{described}: {defect}"

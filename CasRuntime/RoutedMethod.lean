@@ -84,10 +84,11 @@ private def methodParameterAssembly (environment : RuntimeEnvironment) (context 
 /-- Reuse category parameters at the receiver producer's exact native declaration positions.
 The abstract source type family determines each slot/path before actual values are inspected.
 A missing required slot cannot be replaced by re-evaluating an equal closed source expression. -/
-partial def RuntimeEnvironment.methodParameters (environment : RuntimeEnvironment)
+partial def RuntimeEnvironment.sourceCategoryParameters (environment : RuntimeEnvironment)
     (context : OpenContext) (transaction : CellTransaction) (marks : IO.Ref (Array ValueBinding))
     (allocate : BaseIO (RuntimeId .occurrence))
-    (family : RoutedMethodFamily) (arguments : Array Expr) (receiver : ValueBinding)
+    (categorySource : CategoryExpr) (categoryFamily : Expr) (universeParams : List Name)
+    (parameterCount : Nat) (arguments : Array Expr) (receiver : ValueBinding)
     (evaluate : Expr → MetaM ValueBinding) : MetaM (Array Expr) := do
   let graph ← transaction.view
   let some node := graph.find receiver.value
@@ -95,13 +96,13 @@ partial def RuntimeEnvironment.methodParameters (environment : RuntimeEnvironmen
   let produced ← sourceDomain (← node.origin.role.source.inContext context)
   let declaration := produced.getAppFn.constName?
   let routes ← match declaration with
-    | some declaration => family.receiverParameterRoutes declaration
+    | some declaration => sourceCategoryParameterRoutes categoryFamily universeParams parameterCount declaration
     | none => pure (Array.replicate arguments.size MethodCategoryParameter.unavailable)
   unless routes.size == arguments.size do
     throwError "the method category parameters changed their original formal arity"
   let mut origins := routes.map fun route => (receiver, produced, declaration, route)
   if routes.any (fun route => match route with | .unavailable => true | _ => false) &&
-      (← methodIsArrow family.route.source) then
+      (← methodIsArrow categorySource) then
     let some field := receiver.role.fields.find? (·.projection == ``CategoryTheory.Comma.hom)
       | throwError "the native method Arrow lost its original hom field"
     let retained ← IO.ofExcept <|
@@ -120,7 +121,7 @@ partial def RuntimeEnvironment.methodParameters (environment : RuntimeEnvironmen
         | throwError "the original method hom is outside its producing graph"
       let homSource ← sourceDomain (← homNode.origin.role.source.inContext context)
       if let some homDeclaration := homSource.getAppFn.constName? then
-        let homRoutes ← family.receiverParameterRoutes homDeclaration (morphism := true)
+        let homRoutes ← sourceCategoryParameterRoutes categoryFamily universeParams parameterCount homDeclaration (morphism := true)
         unless homRoutes.size == routes.size do
           throwError "the method hom changed its original category parameter arity"
         origins ← origins.mapIdxM fun index original => do
@@ -147,7 +148,7 @@ partial def RuntimeEnvironment.methodParameters (environment : RuntimeEnvironmen
             fun parameters _ => pure parameters.size
           unless inputSource.getAppNumArgs == arity do
             throwError "the selected producer input lost its complete declaration telescope"
-          let inputRoutes ← family.receiverProjectionInputRoutes selectedSource.declaration
+          let inputRoutes ← sourceCategoryProjectionInputRoutes categoryFamily universeParams parameterCount selectedSource.declaration
             selectedSource.path selectedSource.position inputDeclaration
           unless inputRoutes.size == origins.size do
             throwError "the selected producer input changed its category parameter arity"
@@ -213,6 +214,15 @@ partial def RuntimeEnvironment.methodParameters (environment : RuntimeEnvironmen
       selected := selected.push source
   return selected
 
+/-- Retain the established method API while sharing exact source-parameter admission. -/
+def RuntimeEnvironment.methodParameters (environment : RuntimeEnvironment)
+    (context : OpenContext) (transaction : CellTransaction) (marks : IO.Ref (Array ValueBinding))
+    (allocate : BaseIO (RuntimeId .occurrence)) (family : RoutedMethodFamily)
+    (arguments : Array Expr) (receiver : ValueBinding) (evaluate : Expr → MetaM ValueBinding) :
+    MetaM (Array Expr) :=
+  environment.sourceCategoryParameters context transaction marks allocate family.route.source
+    family.categoryFamily family.universeParams family.parameterCount arguments receiver evaluate
+
 /-- Re-admit a complete positioned action-input table and install its exact references in the
 already selected native actions. The caller's ordinary prepared scope owns every supplied
 value; a missing entry cannot be replaced by replaying an equal source expression. -/
@@ -237,7 +247,7 @@ def RuntimeEnvironment.methodActionsWithInputs (environment : RuntimeEnvironment
 
 /-- One exact source position. Its forms are read before any prefix is evaluated; the full
 native source family fixes the receiver type and the residual route at this offset. -/
-structure RoutedMethodBoundary where
+structure RoutedSourceBoundary where
   private mk ::
   offset : Nat
   category : CategoryExpr
@@ -250,7 +260,7 @@ structure PreparedMethodRoute where
   actions : Array ClosedTerm
   receiverSource : ClosedTerm
   receiver : ValueBinding
-  boundaries : Array RoutedMethodBoundary
+  boundaries : Array RoutedSourceBoundary
   dependencies : Array ValueBinding
 
 private def exactMethodInput (left right : ValueBinding) : Bool :=
@@ -367,8 +377,8 @@ private def methodSourceImageForms (state : SemanticState) (schema : NamedCatego
   unless category.id == schema.id do return #[]
   return #[(methodImageForm state edge schema).id]
 
-private def methodBoundaryForms (family : RoutedMethodFamily) (receiver : Expr) :
-    MetaM (Array RoutedMethodBoundary) := do
+opaque routedSourceBoundaries (route : Route) (receiver : Expr) :
+    MetaM (Array RoutedSourceBoundary) := do
   let state ← semanticState
   let registry : RegistryState := { toSemanticState := state }
   let named ← match ← sourceObjectReference? receiver with
@@ -379,8 +389,8 @@ private def methodBoundaryForms (family : RoutedMethodFamily) (receiver : Expr) 
       unless entry.declaration == declaration do
         throwError "the method receiver changed its selected object declaration"
       pure (some entry)
-  let categories := #[family.route.source] ++ family.route.steps.map (·.target)
-  unless categories.size == family.route.refs.size + 1 do
+  let categories := #[route.source] ++ route.steps.map (·.target)
+  unless categories.size == route.refs.size + 1 do
     throwError "the method source lost a complete route boundary"
   let mut boundaries := #[]
   for category in categories, offset in [:categories.size] do
@@ -394,7 +404,7 @@ private def methodBoundaryForms (family : RoutedMethodFamily) (receiver : Expr) 
       let mut object : Option ObjectEntry := none
       if let some original := named then
         let (selected, remaining) := registry.transport original
-          (family.route.refs.extract 0 offset)
+          (route.refs.extract 0 offset)
         if remaining.isEmpty then
           let some declared := state.categories.find? (·.id == selected.category)
             | throwError "the method source object lost its complete selected category"
@@ -403,12 +413,12 @@ private def methodBoundaryForms (family : RoutedMethodFamily) (receiver : Expr) 
           -- CC-TRANSPORT admits the named form only at the boundary where its remaining
           -- refinement is consumed. The actual prefix is still executed after selection.
           let (effective, _) := registry.transport selected
-            (family.route.refs.extract offset family.route.refs.size)
+            (route.refs.extract offset route.refs.size)
           if effective.id == selected.id then object := some selected
       if let some selectedObject := object then
         unless forms.contains selectedObject.id.raw do forms := forms.push selectedObject.id.raw
       else if 0 < offset then
-        let some edge := family.route.refs[offset - 1]?
+        let some edge := route.refs[offset - 1]?
           | throwError "the method image lost its original edge position"
         let form := methodImageForm state edge schema
         unless forms.contains form.id do forms := forms.push form.id
@@ -419,7 +429,7 @@ private def methodBoundaryForms (family : RoutedMethodFamily) (receiver : Expr) 
 source category, using the same boundary inventory that realization selection consumes. -/
 def RoutedMethodFamily.admitsSourceForm (family : RoutedMethodFamily) (receiver : Expr)
     (input : String) : MetaM Bool := do
-  let some source := (← methodBoundaryForms family receiver)[0]? | return false
+  let some source := (← routedSourceBoundaries family.route receiver)[0]? | return false
   return source.forms.contains input
 
 /-- Seal original captures, formal slots and the receiver before inspecting any registration.
@@ -476,7 +486,7 @@ opaque PreparedMethodRoute.prepare (kernel : Kernel) (graph : ValueGraph)
       actions ← request.environment.methodActionsWithInputs context graph kernel.marks
         family actions inputs
     let receiverTerm ← source.inContext context
-    let boundaries ← methodBoundaryForms family receiverTerm
+    let boundaries ← routedSourceBoundaries family.route receiverTerm
     return ⟨family, ← actions.mapM (fun action => context.close action), source, receiver, boundaries,
       original.scope ++ request.scope⟩
 
@@ -485,7 +495,7 @@ can create this witness; materialization cannot be requested at an arbitrary rou
 structure SelectedMethodBoundary where
   private mk ::
   route : PreparedMethodRoute
-  boundary : RoutedMethodBoundary
+  boundary : RoutedSourceBoundary
   realization : Realization
 
 /-- Collect every exact boundary before permitting any selected prefix to execute. -/
@@ -511,22 +521,24 @@ structure MaterializedMethodBoundary where
 def MaterializedMethodBoundary.route (selected : MaterializedMethodBoundary) : PreparedMethodRoute :=
   selected.selection.route
 
-def MaterializedMethodBoundary.boundary (selected : MaterializedMethodBoundary) : RoutedMethodBoundary :=
+def MaterializedMethodBoundary.boundary (selected : MaterializedMethodBoundary) : RoutedSourceBoundary :=
   selected.selection.boundary
 
 /-- Selection precedes this function. No missing registration can fall back to a prepared
 boundary, and no failed prefix can be skipped by sending the original source receiver. -/
-def SelectedMethodBoundary.materialize (selection : SelectedMethodBoundary) (kernel : Kernel)
-    (evaluateSource : SourceEvaluation) (request : PreparedRequest)
-    (transaction : CellTransaction) : MetaM MaterializedMethodBoundary := do
-  let route := selection.route
-  let offset := selection.boundary.offset
+def materializeSourcePrefix (kernel : Kernel) (evaluateSource : SourceEvaluation)
+    (request : PreparedRequest) (transaction : CellTransaction) (route : Route)
+    (actions : Array ClosedTerm) (receiverSource : ClosedTerm) (originalReceiver : ValueBinding)
+    (originalDependencies : Array ValueBinding) (offset : Nat) :
+    MetaM (ValueBinding × ClosedTerm × Array ValueBinding) := do
+  unless offset <= route.refs.size && route.refs.size <= actions.size do
+    throwError "the selected source prefix is outside its complete native route"
   withSourceScope request fun context bound => do
-    let mut receiver := route.receiver
-    let mut source ← route.receiverSource.inContext context
-    let mut dependencies := route.dependencies
+    let mut receiver := originalReceiver
+    let mut source ← receiverSource.inContext context
+    let mut dependencies := originalDependencies
     for index in [:offset] do
-      let some action := route.actions[index]?
+      let some action := actions[index]?
         | throwError "the method prefix lost an original native action"
       let action ← action.inContext context
       let (_, target) ← functorCategoryBundles action
@@ -534,7 +546,7 @@ def SelectedMethodBoundary.materialize (selection : SelectedMethodBoundary) (ker
       let image ← functorObject action marked target
       receiver ← evaluateSource transaction request.program context bound image
       source ← functorObject action source target
-      let some edge := route.family.route.refs[index]?
+      let some edge := route.refs[index]?
         | throwError "the method prefix lost its original selected edge"
       let .const declaration _ := (← routedActionApplication edge action).getAppFn
         | throwError "the method image lost its original declaration application"
@@ -544,7 +556,16 @@ def SelectedMethodBoundary.materialize (selection : SelectedMethodBoundary) (ker
       receiver := (← request.environment.checkResult (← transaction.view)
         (← SourceLayout.ofTerm (← context.close source)) receiver).root
       dependencies := dependencies.push receiver
-    return ⟨selection, receiver, ← context.close source, dependencies.push receiver⟩
+    return (receiver, ← context.close source, dependencies.push receiver)
+
+def SelectedMethodBoundary.materialize (selection : SelectedMethodBoundary) (kernel : Kernel)
+    (evaluateSource : SourceEvaluation) (request : PreparedRequest)
+    (transaction : CellTransaction) : MetaM MaterializedMethodBoundary := do
+  let route := selection.route
+  let (receiver, source, dependencies) ← materializeSourcePrefix kernel evaluateSource request
+    transaction route.family.route route.actions route.receiverSource route.receiver
+    route.dependencies selection.boundary.offset
+  return ⟨selection, receiver, source, dependencies⟩
 
 /-- Exact positioned public data of a selected method invocation. The final action is always
 the registered method functor, including the zero-parameter and zero-residual cases. -/
@@ -559,6 +580,24 @@ structure PreparedMethodInvocation where
   dependencies : Array ValueBinding
   views : Array InputDescriptorView
 
+
+/-- The selected native Arrow receiver uses its ordinary complete field interface. This is a
+descriptor view of the actual receiver, shared by routed source invocations. -/
+def sourceReceiverViews (kernel : Kernel) (evaluateSource : SourceEvaluation)
+    (request : PreparedRequest) (transaction : CellTransaction) (category : CategoryExpr)
+    (receiverSource : ClosedTerm) (receiver : ValueBinding) : MetaM (Array InputDescriptorView) := do
+  unless ← methodIsArrow category do return #[]
+  withSourceScope request fun context bound => do
+    let mut fields := #[]
+    let parentTerm ← receiverSource.inContext context
+    for projection in #[``CategoryTheory.Comma.left, ``CategoryTheory.Comma.right,
+        ``CategoryTheory.Comma.hom] do
+      let some field := receiver.role.fields.find? (·.projection == projection)
+        | throwError "the selected Arrow lost its complete native fields"
+      let marked ← markValue kernel.marks receiver parentTerm
+      fields := fields.push (← evaluateSource transaction request.program context bound
+        (← projectTerm marked field))
+    return #[← InputDescriptorView.nativeArrow (← transaction.view) receiver fields]
 
 /-- After unique selection, read the declaration's exact original explicit parameter slots.
 The selected Arrow view reads its genuine native fields; it creates no record or hom value.
@@ -591,19 +630,8 @@ def MaterializedMethodBoundary.invocation (selected : MaterializedMethodBoundary
       parameters := parameters.push actual
     unless edges.size == count - offset + 1 && parameters.size == edges.size do
       throwError "the complete method request lost its final functor or parameter positions"
-    let mut preparedViews := #[]
-    if ← methodIsArrow selected.boundary.category then
-      let mut fields := #[]
-      let parentTerm ← selected.receiverSource.inContext context
-      for projection in #[``CategoryTheory.Comma.left, ``CategoryTheory.Comma.right,
-          ``CategoryTheory.Comma.hom] do
-        let some field := selected.receiver.role.fields.find? (·.projection == projection)
-          | throwError "the selected arrow lost its complete native fields"
-        let marked ← markValue kernel.marks selected.receiver parentTerm
-        fields := fields.push (← evaluateSource transaction request.program context bound
-          (← projectTerm marked field))
-      let descriptorView ← InputDescriptorView.nativeArrow (← transaction.view) selected.receiver fields
-      preparedViews := #[descriptorView]
+    let preparedViews ← sourceReceiverViews kernel evaluateSource request transaction
+      selected.boundary.category selected.receiverSource selected.receiver
     let roots := parameters.flatten.push selected.receiver
     let views ← InputDescriptorView.collect (← transaction.view) (← kernel.codes.get)
       roots preparedViews

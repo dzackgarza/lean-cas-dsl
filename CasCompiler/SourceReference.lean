@@ -34,6 +34,8 @@ partial def sourceObjectReference? (value : Expr) : MetaM (Option (CasCatalogue.
     | some value => sourceObjectReference? value
     | none => pure none
   | _ =>
+    if value.isAppOfArity ``Function.const 4 then
+      return ← sourceObjectReference? value.getAppArgs[2]!
     let reduced := value.headBeta
     if reduced == value then return none
     sourceObjectReference? reduced

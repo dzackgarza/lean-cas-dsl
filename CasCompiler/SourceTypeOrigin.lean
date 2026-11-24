@@ -90,34 +90,42 @@ structure NativeSourceTypeOrigin where
   object : Expr
   type : Expr
 
-/-- Preserve type provenance as typed native arguments, using Function.const's identity law.
-Native abstraction/substitution transports every captured term. Metadata holds only source
-syntax and declaration names; it contains no encoded expression or local-variable identity.
-Reuse: Function.const, native MData/KVMap and Lean's derived JSON codecs. -/
-def annotateSourceType (category : NativeSourceCategory) (object type : Expr) : MetaM Expr := do
-  unless category.role == .object do throwError "source type provenance requires an object"
+-- The same typed owner fields travel with carrier types and with actual object parameters.
+-- The marker distinguishes their consumers; neither representation infers an owner from an image.
+private def annotateSourceOwner (key : Name) (category : NativeSourceCategory)
+    (object value : Expr) : MetaM Expr := do
+  unless category.role == .object do throwError "source provenance requires an object"
   let descriptor : OwnerDescriptor := ⟨category.expression, category.carrier.map fun carrier =>
     ⟨carrier.refs, carrier.target, carrier.identifications.size,
       carrier.actions.size, carrier.comparisons.size⟩⟩
-  let mut data := KVMap.empty.setString `CasCompiler.source.typeOrigin (toJson descriptor).compress
+  let mut data := KVMap.empty.setString key (toJson descriptor).compress
   let mut fields := #[category.bundle, object]
   if let some carrier := category.carrier then
     for name in carrier.identifications, index in [:carrier.identifications.size] do
       data := data.setName (.num `CasCompiler.source.typeOrigin.identification index) name
     fields := fields ++ carrier.actions ++ carrier.comparisons
-  let mut value := type
+  let mut value := value
   for field in fields.reverse do
     value ← mkAppM ``Function.const #[← inferType field, value, field]
   return .mdata data value
 
-/-- Read only the typed provenance emitted by annotateSourceType.
-Reuse: Function.const's native argument layout, complete category bundles and source codecs.
-Aliases follow their retained native definitions; source syntax is never replayed. -/
-partial def sourceTypeOrigin? (type : Expr) : MetaM (Option NativeSourceTypeOrigin) := do
-  match ← instantiateMVars type with
+/-- Preserve carrier type provenance as typed native arguments. Native abstraction and
+substitution transport every captured term; metadata contains only source syntax and names.
+Reuse: Function.const, native MData/KVMap and the complete owner codec above. -/
+def annotateSourceType (category : NativeSourceCategory) (object type : Expr) : MetaM Expr :=
+  annotateSourceOwner `CasCompiler.source.typeOrigin category object type
+
+/-- Retain the complete selected category beside its unchanged native object parameter.
+The original object is both the identity wrapper's result and its typed owner field. -/
+def annotateSourceObject (category : NativeSourceCategory) (object : Expr) : MetaM Expr :=
+  annotateSourceOwner `CasCompiler.source.objectOrigin category object object
+
+private partial def sourceOwnerOrigin? (key : Name) (value : Expr) :
+    MetaM (Option (NativeSourceCategory × Expr × Expr)) := do
+  match ← instantiateMVars value with
   | .mdata data body =>
-    let encoded := data.getString `CasCompiler.source.typeOrigin
-    if encoded.isEmpty then return ← sourceTypeOrigin? body
+    let encoded := data.getString key
+    if encoded.isEmpty then return ← sourceOwnerOrigin? key body
     let .ok document := Json.parse encoded
       | throwError "the native source type has malformed provenance data"
     let .ok (descriptor : OwnerDescriptor) := fromJson? document
@@ -144,13 +152,28 @@ partial def sourceTypeOrigin? (type : Expr) : MetaM (Option NativeSourceTypeOrig
     unless ← isDefEq (← inferType fields[1]!)
         (← mkAppM ``CategoryTheory.Bundled.α #[category.bundle]) do
       throwError "the native source type has a different complete owner category"
-    return some ⟨category, fields[1]!, body⟩
-  | .letE _ _ value body _ => sourceTypeOrigin? (body.instantiate1 value)
+    return some (category, fields[1]!, body)
+  | .letE _ _ value body _ => sourceOwnerOrigin? key (body.instantiate1 value)
   | .fvar id =>
     match (← id.getDecl).value? with
-    | some value => sourceTypeOrigin? value
+    | some value => sourceOwnerOrigin? key value
     | none => pure none
   | _ => pure none
+
+/-- Read only the typed carrier provenance emitted by annotateSourceType.
+Aliases follow their retained native definitions; source syntax is never replayed. -/
+def sourceTypeOrigin? (type : Expr) : MetaM (Option NativeSourceTypeOrigin) := do
+  return (← sourceOwnerOrigin? `CasCompiler.source.typeOrigin type).map fun
+    (category, object, type) => ⟨category, object, type⟩
+
+/-- Read only a parameter's explicit source mark. Equal-valued objects cannot replace the
+original occurrence carried by that mark; the consumer still checks its whole carrier family. -/
+def sourceObjectOrigin? (value : Expr) : MetaM (Option (NativeSourceCategory × Expr)) := do
+  let some (category, object, body) ← sourceOwnerOrigin? `CasCompiler.source.objectOrigin value
+    | return none
+  unless object == body do
+    throwError "the source object provenance changed its original parameter"
+  return some (category, object)
 
 end
 

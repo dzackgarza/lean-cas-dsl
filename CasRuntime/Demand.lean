@@ -90,6 +90,13 @@ partial def Kernel.reach (kernel : Kernel) (evaluateSource : SourceEvaluation) (
     MetaM (PreparedResponse request) := do
   let .primitive boundary universes := family.action
     | throwError "internal: a delayed family demand lost its published boundary"
+  if let .property _ := boundary then
+    unless path.isEmpty && parameters.isEmpty && request.occurrence == family.occurrence do
+      throwError "a property observation lost its complete original primitive request"
+    let route ← PreparedPropertyRoute.prepare kernel (← transaction.view) request
+    let selected ← route.select kernel.manifest
+    let invocation ← selected.materialize kernel evaluateSource request transaction
+    return ← kernel.invokeProperty evaluateSource request transaction invocation
   if let .routedMethod _ := boundary then
     let route ← PreparedMethodRoute.prepare kernel (← transaction.view)
       request family path parameters

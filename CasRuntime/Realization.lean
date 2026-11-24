@@ -192,18 +192,25 @@ def referenceId : ComputationRef → String
   | .construction id => id.raw
   | .morphism id => id.raw
 
-/-- Select the registration of one exact lift-port demand. **M** publishes no derivation of a
-lift's computation, so the alternatives are the eligible registrations (execution contract v2
-§5.1); zero and many dispatch nothing. -/
-def selectLift (manifest : Manifest) (address : String) (forms : Array String) :
-    MetaM Registration := do
-  let eligible := manifest.registrations.filter fun registration =>
-    registration.operation == address && forms.contains registration.input &&
-      manifest.backends.any (·.name == registration.backend)
+/-- Select only among exact registrations at all source boundaries of an interface with no
+published derivation family. Repeated occurrences at different boundaries remain distinct. -/
+def selectRegistrationBoundary (manifest : Manifest) (address : String)
+    (boundaries : Array (Array String)) : MetaM (Nat × Registration) := do
+  if boundaries.isEmpty then throwError "registration selection requires a source boundary"
+  let eligible := (boundaries.mapIdx fun index forms =>
+    (manifest.registrations.filter fun registration =>
+      registration.operation == address && forms.contains registration.input &&
+        manifest.backends.any (·.name == registration.backend)).map (index, ·)).flatten
+  let forms := boundaries.flatten
   match eligible with
   | #[registration] => return registration
   | #[] => throwStratum .noImplementation m!"{address} on {forms}"
   | _ => throwStratum .ambiguousRealization m!"{address} on {forms}"
+
+/-- A lift-port or presentation has one complete input boundary and no derivation family. -/
+def selectLift (manifest : Manifest) (address : String) (forms : Array String) :
+    MetaM Registration := do
+  return (← selectRegistrationBoundary manifest address #[forms]).2
 
 inductive Realization
   | registration (selected : Registration)

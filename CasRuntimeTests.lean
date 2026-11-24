@@ -29,6 +29,7 @@ import CasRuntime.PendingProjectionTests
 import CasRuntime.PresentationTests
 import CasRuntime.ProjectionRecordDependencyTests
 import CasRuntime.ProtocolTests
+import CasRuntime.PropertyTests
 import CasRuntime.RealizationProfileTests
 import CasRuntime.RecordTests
 import CasRuntime.ReplyTests

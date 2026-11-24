@@ -136,3 +136,27 @@ opaque readAt (type : Expr) (packet : Json) : MetaM (Option Expr) := do
   decode type packet
 
 end CasRuntime.ScalarLiteral
+
+namespace CasRuntime.PropertyObservation
+
+open Lean CasCatalogue.Backend
+
+/-- The released property observation packet is Option Bool, with no native proof reading.
+This exact constructor grammar is shared by response admission and question observation. -/
+def decode (packet : Json) : Except String (Option Bool) := do
+  checkServiceFields #["ctor", "args"] packet
+  let label ← packet.getObjValAs? String "ctor"
+  let fields ← (packet.getObjVal? "args").bind (·.getArr?)
+  if label == "none" && fields.isEmpty then return none
+  unless label == "some" do throw "a property answer requires an Option Bool constructor"
+  let #[answer] := fields
+    | throw "a property answer requires exactly one Boolean field"
+  checkServiceFields #["ctor", "args"] answer
+  let label ← answer.getObjValAs? String "ctor"
+  let fields ← (answer.getObjVal? "args").bind (·.getArr?)
+  unless fields.isEmpty do throw "a property Boolean constructor has no fields"
+  if label == "true" then return some true
+  if label == "false" then return some false
+  throw "a property answer requires the declared Boolean constructor"
+
+end CasRuntime.PropertyObservation

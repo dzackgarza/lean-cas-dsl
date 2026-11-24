@@ -6,6 +6,7 @@ public import CasRuntime.Literal
 public import CasRuntime.Encode
 public import CasCompiler.PointFamily
 public import CasRuntime.RoutedMethod
+public import CasRuntime.Property
 
 public section
 
@@ -240,6 +241,38 @@ private def Kernel.childMethod (kernel : Kernel) (evaluateSource : SourceEvaluat
         (usedLetOnly := false) (generalizeNondepLet := false)
   return term
 
+/-- A deferred property uses the same source proposition and complete route comparison as
+ordinary source reading. Its raw receiver is independently read in the named source form;
+the subsequent lowerer admits that exact retained value before selecting any registration. -/
+private def Kernel.childProperty (kernel : Kernel) (context : OpenContext)
+    (retained : Json → MetaM (Option ValueBinding)) (entry : PropertyEntry)
+    (input : String) (arguments : Json) : MetaM Expr := do
+  let malformed : {α : Type} → String → MetaM α := fun reason =>
+    throwStratum .malformed m!"deferred property {entry.id.raw}: {reason}"
+  let state ← semanticState
+  if let some reason := propertyFormDefect state entry input then malformed reason
+  let registry : RegistryState := { toSemanticState := state }
+  let some form := registry.form? input
+    | malformed "the explicit input form is not published"
+  let some category := state.categories.find? (·.id == form.category)
+    | malformed "the input form has no independently selected source category"
+  let categoryFamily ← nativeCategoryFamily state category.expression fun _ => mkFreshLevelMVar
+  let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType categoryFamily)
+  let bundle := mkAppN categoryFamily parameters
+  let domain ← mkAppM ``CategoryTheory.Bundled.α #[bundle]
+  let receiver ← childOperand kernel.marks context retained domain arguments
+  let receiver ← instantiateMVars receiver
+  let bundle ← instantiateMVars bundle
+  if receiver.hasMVar || receiver.hasLevelMVar || bundle.hasMVar || bundle.hasLevelMVar then
+    malformed "the receiver leaves the complete property category undetermined"
+  let (family, source) ← PropertyFamily.forReceiver
+    ⟨.object, category.expression, bundle, none, none⟩ entry.id receiver
+  let some sourceBoundary := (← routedSourceBoundaries family.route receiver)[0]?
+    | malformed "the property lost its original source boundary"
+  unless sourceBoundary.forms.contains input do
+    malformed "the input form is not the original receiver's source boundary"
+  return source
+
 /-- Run one call of a deferred group through the production lowerer and executor.
 Source: execution contract v2 §4 and §6; api/python-sdk.md of the leaf contract.
 A reference is resolved in the call's own scope and keeps its retained value. An inline
@@ -299,6 +332,11 @@ partial def Kernel.child (kernel : Kernel) (evaluateSource : SourceEvaluation) (
           | .ok input => pure input
           | .error reason => malformed reason
         kernel.childMethod evaluateSource request transaction context bound retained entry input arguments
+      else if let some entry := publishedProperty? (← semanticState) operation then do
+        let input ← match call.getObjValAs? String "input" with
+          | .ok input => pure input
+          | .error reason => malformed reason
+        kernel.childProperty context retained entry input arguments
       else if (arguments.getObjValAs? String "ctor").toOption == some "apply" then do
         let some row := (← semanticState).morphisms.find? (·.id.raw == operation)
           | malformed "the point request does not name a released morphism"

@@ -118,19 +118,17 @@ def sourceAdmission (entry : ObjectEntry) (target : Expr) (read : Expr → TermE
     retainedArguments := retained
   unless ← withReducible (isDefEq type.getAppArgs[3]! target) do
     throwStratum .invalid m!"the admission of {entry.name} does not land in the selected domain"
-  let dataType ← instantiateMVars (← inferType arguments[element]!)
+  -- Infer the datum binder at the actual declared prefix, including implicit arguments.
+  -- Native unification may erase identity wrappers, so restore only parameters supplied by
+  -- the original target alignment before their selected category is needed by the reader.
+  let parameterPrefix ← ((arguments.take element).mapIdx fun index argument =>
+    retainedArguments[index]!.getD argument).mapM instantiateMVars
+  let .forallE _ dataType _ _ ← whnfR (← inferType (mkAppN constant parameterPrefix))
+    | throwError "the admission of {entry.name} lost its declared datum binder"
+  let dataType ← instantiateMVars dataType
   -- Finish typed elaboration before evidence inspects the complete actual data.
   -- Native dependent constructors can leave pending synthetic coercion terms.
-  let read ← try instantiateMVars (← withSynthesize <| read dataType)
-    catch error => do
-      try
-        let actualArguments ← arguments.mapM instantiateMVars
-        let output ← liftM (m := IO) IO.getStderr
-        liftM (m := IO) <| output.putStrLn
-          s!"admission data failure: {entry.id.raw}\noriginalTargetRaw={repr target}\nretainedArgumentsRaw={repr retainedArguments}\nactualArgumentsRaw={repr actualArguments}\ndataTypeRaw={repr dataType}"
-        liftM (m := IO) output.flush
-      catch _ => pure ()
-      throw error
+  let read ← instantiateMVars (← withSynthesize <| read dataType)
   -- The evidence is stated of a closed value's plumbing-free normal form, which is
   -- definitionally it; the admitted element remains the value as read, so that its registered
   -- operations reach the kernel (constitution C22).

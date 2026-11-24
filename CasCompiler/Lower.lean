@@ -252,6 +252,8 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
     if data.getName `CasCompiler.source.kind == ``LiftFamily then return ← liftFamily data body
     if data.getName `CasCompiler.source.kind == ``PresentationFamily then
       return ← presentationFamily data body
+    if data.getName `CasCompiler.source.kind == ``PropertyEntry then
+      return ← propertyObservation data body
     if let some (declaration, address) := namedElement? data then
       let some element := body.find? (·.getAppFn.isConstOf declaration)
         | throwError "internal: the named element lost its registered declaration"
@@ -800,6 +802,25 @@ private partial def routedMethodFamily (data : MData) (body : Expr) : LowerM Val
     levels frame.context closed actual scope (← parameters)
   let callable ← demand request
   apply callable #[← markValue frame.environment.marks receiver source]
+
+/-- A property remains one complete primitive observation of its accepted native proposition.
+The original receiver fixes every source category slot before the request is emitted. -/
+private partial def propertyObservation (data : MData) (body : Expr) : LowerM ValueBinding := do
+  let frame ← read
+  let family ← PropertyFamily.fromMark data
+  let (levels, arguments, source) ← family.application body
+  let receiver ← lower source
+  let environment ← RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
+  let arguments ← environment.sourceCategoryParameters frame.context frame.environment.transaction
+    frame.environment.marks frame.environment.ledger.allocate family.route.source
+    family.categoryFamily family.universeParams family.parameterCount arguments receiver
+    (fun expression => lower expression frame)
+  let marked ← markValue frame.environment.marks receiver source
+  let (closed, actual) ← actualArguments (arguments.push marked)
+  let request ← PreparedRequest.forBoundary (← supply) frame.program
+    (← frame.environment.ledger.allocate) (.property family) levels frame.context closed actual
+    #[] (← parameters)
+  demand request
 
 private partial def application (expression : Expr) : LowerM ValueBinding := do
   let frame ← read

@@ -99,3 +99,100 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "the original unit equality was not retained"
     found := true
   unless found do throwError "the complete original unit assertion is absent"
+
+-- Equal native monoids retain their separately selected source occurrences and complete
+-- carrier comparisons when they become parameters of the declared units admission.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let read := fun (session : SourceSession) (text : String) => do
+    let .ok parsed := Parser.runParserCategory (← getEnv) `cas_term text
+      | throwError "the units parameter control did not parse"
+    session.read ⟨parsed⟩
+  let first ← read empty "view (ℚ in Rings) along «fun.rings.multiplicative_monoid»()"
+  let session ← empty.defineTerm `MFirst first
+  let second ← read session "view (ℚ in Rings) along «fun.rings.multiplicative_monoid»()"
+  let session ← session.defineTerm `MSecond second
+  for (name, otherName, text) in #[
+      (`MFirst, `MSecond, "3 in MFirstˣ"),
+      (`MSecond, `MFirst, "3 in MSecondˣ")] do
+    let selected ← read session name.toString
+    let some selectedCategory := selected.category
+      | throwError "the units parameter lost its selected category"
+    let some selectedCarrier := selectedCategory.carrier
+      | throwError "the units parameter lost its declared base comparison"
+    let admitted ← read session text
+    admitted.source.withOpen fun bindings expression => do
+      let findNamed := fun name => bindings.findM? fun binding =>
+        return (← binding.expression.fvarId!.getUserName) == name
+      let some original ← findNamed name
+        | throwError "the units parameter lost its original binding"
+      let some other ← findNamed otherName
+        | throwError "the units parameter lost its distinct equal binding"
+      unless original.expression != other.expression &&
+          (← isDefEq original.expression other.expression) do
+        throwError "the units parameter control does not have distinct equal native objects"
+      let some reference := expression.find? fun term =>
+          match term with
+          | .mdata data _ => data.getName `CasCompiler.source.kind ==
+                ``CasCatalogue.ObjectEntry.admission &&
+              data.getString `CasCompiler.source.id == "obj.sets.units"
+          | _ => false
+        | throwError "the units value lost its original registered admission"
+      let .mdata data body := reference
+        | throwError "the units admission has no source reference"
+      unless data.getName `CasCompiler.source.declaration ==
+          ``CasCatalogue.Algebra.Units.admit &&
+          data.getNat `CasCompiler.source.element == 1 &&
+          body.getAppArgs.size == data.getNat `CasCompiler.source.admissionArguments do
+        throwError "the units admission changed its complete native argument positions"
+      let parameter := body.getAppArgs[0]!
+      let some (category, object) ← sourceObjectOrigin? parameter
+        | throwError "the units admission lost its original selected parameter"
+      unless object == original.expression && object != other.expression do
+        throwError "the units admission replaced its original parameter by an equal object"
+      let context ← ContextTelescope.capture bindings
+      unless category.role == .object &&
+          category.expression.syntacticEq selectedCategory.expression &&
+          category.bundle == (← selectedCategory.bundle.inContext context) do
+        throwError "the units admission changed its complete selected category"
+      let some carrier := category.carrier
+        | throwError "the units admission discarded its selected carrier"
+      unless carrier.refs == selectedCarrier.refs &&
+          carrier.target.syntacticEq selectedCarrier.target &&
+          carrier.identifications == selectedCarrier.identifications &&
+          carrier.actions == (← selectedCarrier.actions.mapM (·.inContext context)) &&
+          carrier.comparisons == (← selectedCarrier.comparisons.mapM (·.inContext context)) do
+        throwError "the units admission changed its actual carrier or base comparison"
+      -- Replacing only the typed owner field by an equal-valued different source is invalid.
+      let .mdata mark fields := parameter
+        | throwError "the units parameter lost its typed object wrapper"
+      unless fields.isAppOfArity ``Function.const 4 do
+        throwError "the units parameter lost its complete category field"
+      let ownerField := fields.getAppArgs[2]!
+      unless ownerField.isAppOfArity ``Function.const 4 do
+        throwError "the units parameter lost its original object field"
+      let wrongOwner := mkAppN ownerField.getAppFn
+        (ownerField.getAppArgs.set! 3 other.expression)
+      let forged := Expr.mdata mark
+        (mkAppN fields.getAppFn (fields.getAppArgs.set! 2 wrongOwner))
+      let failure : Option Exception ← withoutModifyingState do
+        try
+          discard <| sourceObjectOrigin? forged
+          pure none
+        catch error => pure (some error)
+      let some failure := failure
+        | throwError "object provenance accepted a different equal source occurrence"
+      unless (← failure.toMessageData.toString) ==
+          "the source object provenance changed its original parameter" do throw failure
+  let failure : Option Exception ← withoutModifyingState do
+    try
+      discard <| read session "0 in MFirstˣ"
+      pure none
+    catch error => pure (some error)
+  let some failure := failure
+    | throwError "units admission accepted zero without its prescribed evidence"
+  let message ← failure.toMessageData.toString
+  unless CasCatalogue.Exception.stratum? failure == some .invalid &&
+      (message.splitOn "not established by the evidence of").length > 1 do
+    throw failure

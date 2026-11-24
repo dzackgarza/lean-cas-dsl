@@ -135,9 +135,14 @@ def application (context : ReadContext) :
       let value ← match viewed with
         | some value => pure value
         | none => readExpression categoryOf argument (some type)
-      unless ← isDefEq hole value.value do
+      let parameter ← match value.category with
+        | some category =>
+          if category.role == .object then annotateSourceObject category value.value
+          else pure value.value
+        | none => pure value.value
+      unless ← isDefEq hole parameter do
         throwErrorAt argument "the source argument does not match its dependent native type"
-      actual := actual.push (Arg.expr value.value)
+      actual := actual.push (Arg.expr parameter)
     let result ← elabAppArgs function #[] actual expected false false
     if let #[Arg.expr argument] := actual then
       if source.category.any (·.role == .morphism) then

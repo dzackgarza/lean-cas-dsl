@@ -205,20 +205,26 @@ private def compare (session : KernelSession) (transaction : CellTransaction)
   | some false => return .wrong s!"computed {shown}, compared with {expected}"
   | none => return .gap "equality of the computed values is not decided in Lean"
 
-/-- Decide a question that is not an equality from its computed truth value. A predicate is a
-computation of the leaf that implements it (constitution C22); the kernel lowers the proposition,
-reads the returned Boolean, and applies the proposition's negation, which is logic on that
-answer, not a computation. -/
+/-- Observe a question through its original native proposition. Published predicates return a
+Boolean; registered properties retain their released Option Bool observation contract.
+Negation applies logic to that answer, and an unknown property observation stays unknown. -/
 private partial def decideComputed (session : KernelSession) (transaction : CellTransaction)
     (context : OpenContext) (proposition : Expr) : MetaM Outcome := do
-  if proposition.isAppOfArity ``Not 1 then
-    return match ← decideComputed session transaction context proposition.appArg! with
+  let logical := proposition.consumeMData
+  if logical.isAppOfArity ``Not 1 then
+    return match ← decideComputed session transaction context logical.appArg! with
       | .holds => .wrong "the computed predicate holds, so its negation does not"
       | .wrong _ => .holds
       | outcome => outcome
   let packet ← match ← packetOf session transaction context proposition with
     | .ok packet => pure packet
     | .error reason => return .gap reason
+  if (← propertySource? proposition).isSome then
+    return match PropertyObservation.decode packet with
+      | .ok (some true) => .holds
+      | .ok (some false) => .wrong "the computed property is false"
+      | .ok none => .gap "the property observation returned no decision"
+      | .error reason => .malformed s!"{packet.compress}: {reason}"
   match packet with
   | .bool true => return .holds
   | .bool false => return .wrong "the computed predicate is false"
@@ -240,10 +246,11 @@ private def truthCase? (type left right : Expr) : MetaM (Option Expr) := do
   | none, none => return none
 
 /-- The proposition under the reader's leading bindings, such as a ring variable bound to its
-registered generator. Reuse: Lean Expr.instantiate1, the substitution of one let. -/
+registered generator. Source metadata stays attached through ordinary let substitution;
+logical inspection uses a transparent view while execution retains the original source. -/
 private partial def underBindings : Expr → Expr
   | .letE _ _ value body _ => underBindings (body.instantiate1 value)
-  | .mdata _ body => underBindings body
+  | .mdata data body => .mdata data (underBindings body)
   | expression => expression
 
 /-- Whether a value holds a delayed published computation (a closure of a published family, as a
@@ -368,7 +375,7 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
           | some false => pure (.wrong "Lean decides the negation of the statement")
           | none =>
             let asked := underBindings asked
-            match asked.eq? with
+            match asked.consumeMData.eq? with
             | some (type, left, right) =>
               match ← truthCase? type left right with
               | some proposition => decideComputed session transaction context proposition

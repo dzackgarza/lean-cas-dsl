@@ -146,6 +146,8 @@ partial def sourceDomain (value : Expr) : MetaM Expr := do
   if let some endpoint := selectedEndpoint? (← instantiateMVars value) then
     return ← sourceDomain endpoint
   let value := (← instantiateMVars value).headBeta.consumeMData
+  if value.isAppOfArity ``Function.const 4 then
+    return ← sourceDomain value.getAppArgs[2]!
   if let .fvar id := value then
     if let some definition := (← id.getDecl).value? then return ← sourceDomain definition
   return value

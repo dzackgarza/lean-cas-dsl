@@ -1,8 +1,10 @@
 module
 
 import CasRuntime.Environment
+import LeanCategories.Foundation.Mathlib
 public meta import Lean.Elab.Command
 meta import CasRuntime.Environment
+meta import LeanCategories.Foundation.Mathlib
 
 open Lean Meta CasCompiler CasRuntime
 
@@ -442,3 +444,81 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           let some failure := failure
             | throwError "a whole-record alias replaced a missing dependent source root"
           unless missingValueOf failure missing do throw failure
+
+-- Typed object provenance keeps the original runtime argument authoritative. These two
+-- source objects have equal native definitions but separate actual nodes. The new identity
+-- wrapper and a named definition containing it must both retain their exact source binding.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let empty ← ContextTelescope.capture #[]
+  let nativeObject := mkConst ``Nat
+  let objectType ← inferType nativeObject
+  let sourceRole ← SourceLayout.ofTerm (← empty.close nativeObject)
+  let categoryInfo ← getConstInfo ``LeanCategories.Foundation.Mathlib.Sets
+  let category : NativeSourceCategory :=
+    ⟨.object, .atom CasCatalogue.CategoryId.sets,
+      mkConst categoryInfo.name (categoryInfo.levelParams.map fun _ => Level.zero), none, none⟩
+  let markedDefinition ← annotateSourceObject category nativeObject
+  let owners ← liftM (m := IO) OwnerRegistry.new
+  let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+  let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+  let .ok payload := ValuePayload.descriptor
+      (Json.mkObj [("ctor", "lean:type"), ("args", .arr #[])]) #[]
+    | throwError "the object-origin control descriptor is malformed"
+  let (graph, firstValue) ← liftM (m := IO) <|
+    (ValueGraph.empty owners.identities).stage owners.identities
+      { program, occurrence, role := sourceRole, parameters := #[] } payload
+  let (graph, secondValue) ← liftM (m := IO) <| graph.stage owners.identities
+    { program, occurrence, role := sourceRole, parameters := #[] } payload
+  unless firstValue.value != secondValue.value do
+    throwError "the object-origin control merged distinct original objects"
+  withLetDecl `firstObject objectType markedDefinition fun firstObject =>
+    withLetDecl `secondObject objectType markedDefinition fun secondObject => do
+      let bindings : Array LocalBinding := #[
+        { id := ⟨"object-origin-arguments", 0⟩, role := .definition, expression := firstObject },
+        { id := ⟨"object-origin-arguments", 1⟩, role := .definition, expression := secondObject }]
+      let context ← ContextTelescope.capture bindings
+      unless ← isDefEq firstObject secondObject do
+        throwError "the object-origin control lost its equal native definitions"
+      let .ok firstParameter := RuntimeParameter.ofValue graph bindings[0]!.id firstValue
+        | throwError "the first source object is outside its graph"
+      let .ok secondParameter := RuntimeParameter.ofValue graph bindings[1]!.id secondValue
+        | throwError "the second source object is outside its graph"
+      let environment ← RuntimeEnvironment.capture owners.worker context
+        #[firstParameter, secondParameter]
+      let .ok originalArgument := RuntimeArgument.ofValue graph 0 firstValue
+        | throwError "the original object argument is outside its graph"
+      let .ok otherArgument := RuntimeArgument.ofValue graph 0 secondValue
+        | throwError "the other object argument is outside its graph"
+      let wrapped ← annotateSourceObject category firstObject
+      -- Inspect a wrapper only at its own metadata branch. A current named source has its
+      -- own actual runtime binding even when its definition also contains such a wrapper.
+      for specified in #[firstObject, wrapped] do
+        let source ← context.close specified
+        let accepted ← environment.checkArgument source originalArgument
+        unless accepted.value == firstValue.value &&
+            accepted.associationIds == firstValue.associationIds &&
+            (← accepted.role.source.inContext context) == specified do
+          throwError "object provenance changed the original value, associations or wrapped role"
+        let failure : Option Exception ← try
+          discard <| environment.checkArgument source otherArgument
+          pure none
+        catch error => pure (some error)
+        let some failure := failure
+          | throwError "object provenance admitted another equal-valued source argument"
+        unless (← failure.toMessageData.toString).startsWith
+            "the runtime argument does not retain its specified source value" do throw failure
+        unless ← environment.hasRetainedSource context specified do
+          throwError "object provenance hid the original retained source binding"
+      -- An outer value mark adds a constraint; it cannot replace the wrapped source binder.
+      let marks ← liftM (m := IO) <| IO.mkRef (#[] : Array ValueBinding)
+      let relabelled ← markValue marks secondValue wrapped
+      let .ok markedOther := RuntimeArgument.ofValue graph 0 secondValue (← marks.get)
+        | throwError "the other marked object is outside its graph"
+      let failure : Option Exception ← try
+        discard <| environment.checkArgument (← context.close relabelled) markedOther
+        pure none
+      catch error => pure (some error)
+      let some failure := failure
+        | throwError "an outer occurrence mark bypassed the wrapped source object"
+      unless (← failure.toMessageData.toString).startsWith
+          "the runtime argument does not retain its specified source value" do throw failure

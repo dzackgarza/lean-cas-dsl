@@ -6,6 +6,7 @@ public import CasCompiler.Declaration
 public import CasCompiler.LiftFamily
 public import CasCompiler.PresentationFamily
 public import CasCompiler.RoutedMethodFamily
+public import CasCompiler.PropertyFamily
 
 @[expose] public section
 
@@ -61,8 +62,8 @@ opaque SourceFamily.forReference (reference : ComputationRef) : MetaM SourceFami
   return ⟨{ reference, declaration, family := family.expression, familyType := family.type },
     info.levelParams⟩
 
-/-- Exact registered family, checked derivation target, ordered primitive slot, or a published
-computation of a selected lift. -/
+/-- A complete accepted source interface: a registered family, checked derivation target,
+ordered primitive slot, selected lift/presentation/method, or native property observation. -/
 inductive ProgramBoundary
   | registered (family : SourceFamily)
   | target (program : SourceProgram)
@@ -70,14 +71,15 @@ inductive ProgramBoundary
   | lift (family : LiftFamily)
   | presentation (family : PresentationFamily)
   | routedMethod (family : RoutedMethodFamily)
+  | property (family : PropertyFamily)
 
-/-- The published computation family, whose public address is a `ComputationRef`. A lift's
-computation is addressed by its lift row instead (`ProgramBoundary.lift`). -/
+/-- A published computation-family address, when this boundary has one. Other accepted
+source interfaces retain their own exact registered address in the boundary witness. -/
 def ProgramBoundary.reference : ProgramBoundary → Option ComputationRef
   | .registered family => some family.source.reference
   | .target program => some program.source.entry.target
   | .prerequisite program index => some program.source.prerequisites[index.val].reference
-  | .lift _ | .presentation _ | .routedMethod _ => none
+  | .lift _ | .presentation _ | .routedMethod _ | .property _ => none
 
 def ProgramBoundary.family : ProgramBoundary → Expr
   | .registered family => family.source.family
@@ -86,6 +88,7 @@ def ProgramBoundary.family : ProgramBoundary → Expr
   | .lift family => family.family
   | .presentation family => family.family
   | .routedMethod family => family.family
+  | .property family => family.family
 
 def ProgramBoundary.universeParams : ProgramBoundary → List Name
   | .registered family => family.universeParams
@@ -93,5 +96,6 @@ def ProgramBoundary.universeParams : ProgramBoundary → List Name
   | .lift family => family.universeParams
   | .presentation family => family.universeParams
   | .routedMethod family => family.universeParams
+  | .property family => family.universeParams
 
 end CasCompiler
