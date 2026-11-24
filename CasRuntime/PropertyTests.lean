@@ -106,15 +106,22 @@ run_cmd do
         throwError "the property control merged separately declared equal inputs"
       let connection ← session.kernel.ledger.owners.spawn { cmd := "/bin/cat" }
       try
-        let cases : Array (String × String × Option Name) := #[
-          ("C3", "is_abelian", none), ("C3again", "is_abelian", none),
-          ("S3", "is_abelian", none), ("Mfirst", "is_finite", some `Rfirst),
-          ("Msecond", "is_finite", some `Rsecond)]
-        for (name, propertyName, scalarName) in cases do
+        let cases : Array (String × String × Option Name × Option String) := #[
+          ("C3", "is_abelian", none, some "C3again"),
+          ("C3again", "is_abelian", none, some "C3"),
+          ("S3", "is_abelian", none, none),
+          ("Mfirst", "is_finite", some `Rfirst, some "Msecond"),
+          ("Msecond", "is_finite", some `Rsecond, some "Mfirst")]
+        for (name, propertyName, scalarName, peerName) in cases do
           let text := s!"{name}.{propertyName}()"
           let .ok parsed := Parser.runParserCategory (← getEnv) `cas_term text
             | throwError "the original property expression did not parse"
           let term ← session.source.read ⟨parsed⟩
+          let peer ← peerName.mapM fun peerName => do
+            let .ok parsed := Parser.runParserCategory (← getEnv) `cas_term
+                s!"{peerName}.{propertyName}()"
+              | throwError "the equal-source property expression did not parse"
+            session.source.read ⟨parsed⟩
           let original ← originalValue (Name.mkSimple name)
           let some originalEntry := session.source.context.entries.find?
               (·.userName == Name.mkSimple name)
@@ -155,6 +162,42 @@ run_cmd do
                   throwError "the property source replaced its exact category parameter"
               else unless parameters.isEmpty do
                 throwError "the group property invented a category parameter"
+              -- A well-typed but inconsistent payload must not substitute an equal
+              -- receiver or complete category argument behind the literal Holds image.
+              if let some peer := peer then
+                let (_, peerParameters, peerReceiver) ← family.application
+                  (← peer.source.inContext context)
+                let (position, replacement) ← match scalarName with
+                  | none => pure (family.parameterCount, peerReceiver)
+                  | some _ => do
+                    let #[parameter] := peerParameters
+                      | throwError "the equal-source property changed its complete parameter arity"
+                    pure (0, parameter)
+                let some witness := expression.find? fun term => match term with
+                    | .mdata marker _ => marker.getName
+                        `CasCompiler.source.propertyApplication == ``PropertyFamily
+                    | _ => false
+                  | throwError "the original property lost its application witness"
+                let .mdata witnessData retained := witness
+                  | throwError "the original property witness lost its metadata"
+                unless retained.isAppOfArity ``Function.const 4 do
+                  throwError "the original property witness changed its typed field shape"
+                let applied := retained.getAppArgs[3]!
+                let some originalArgument := applied.getAppArgs[position]?
+                  | throwError "the original property witness lost its complete argument position"
+                unless originalArgument != replacement &&
+                    (← isDefEq originalArgument replacement) do
+                  throwError "the property witness control needs distinct equal source arguments"
+                let changedApplication := mkAppN applied.getAppFn
+                  (applied.getAppArgs.set! position replacement)
+                let changedWitness := Expr.mdata witnessData (mkAppN retained.getAppFn
+                  (retained.getAppArgs.set! 3 changedApplication))
+                let forged := expression.replace fun term =>
+                  if term == witness then some changedWitness else none
+                check forged
+                withoutModifyingState <|
+                  failWith "the property source witness changed its original native proposition" do
+                    discard <| family.application forged
               let mut bound : Std.HashMap BindingId ValueBinding := {}
               for binding in bindings do
                 if let some actual := session.value? binding.id then

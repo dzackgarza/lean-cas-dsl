@@ -236,12 +236,17 @@ associations. The isolated draft remains unpublished until the complete result i
 Reuse: RecordPrefix, whole-result associateResult and the sealed input-result admission check. -/
 def ResolvedInputResult.assemble (resolved : ResolvedInputResult request)
     (transaction : CellTransaction) : MetaM (CellDraft × InputResultCompletion request) := do
+  let traced := request.source.source.expression.containsConst (· == `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)
   let draft ← transaction.draft
+  if traced then dbg_trace "[inclusion.stage] assembly {repr request.occurrence}: before raw tree"
   let (draft, value) ← assembleInputResult request request.source transaction.owners.identities
     resolved.selections draft
+  if traced then dbg_trace "[inclusion.stage] assembly {repr request.occurrence}: before whole association"
   let (draft, value) ← request.associateResult transaction.owners.identities
     request.source draft value resolved.selections (complete := true)
+  if traced then dbg_trace "[inclusion.stage] assembly {repr request.occurrence}: before result admission"
   let response ← request.admitResult draft.view value
+  if traced then dbg_trace "[inclusion.stage] assembly {repr request.occurrence}: result admitted"
   let completed ← IO.ofExcept <| (resolved.admit draft.view response).mapError IO.userError
   return (draft, completed)
 

@@ -19,7 +19,10 @@ private def requireAvailable (transaction : CellTransaction) (graph : ValueGraph
 private def retainResponse (request : PreparedRequest) (transaction : CellTransaction)
     (binding : ValueBinding) : MetaM (PreparedResponse request) := do
   let graph ← transaction.view
+  let traced := request.source.source.expression.containsConst (· == `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)
+  if traced then dbg_trace "[inclusion.stage] retain {repr request.occurrence}: before result admission"
   let candidate ← request.admitResult graph binding
+  if traced then dbg_trace "[inclusion.stage] retain {repr request.occurrence}: result admitted"
   requireAvailable transaction graph candidate.root
   transaction.retain candidate.root
   return candidate
@@ -76,9 +79,14 @@ private def executeDemand
   | .ok .producer => pure ()
   requireFresh request transaction
   let graph ← transaction.view
+  let traced := request.source.source.expression.containsConst (· == `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)
+  if traced then dbg_trace "[inclusion.stage] execute {repr request.occurrence}: before input plan"
   if let some plan ← request.inputResultPlan graph then
+    if traced then dbg_trace "[inclusion.stage] execute {repr request.occurrence}: before input resolution"
     let resolved ← plan.resolve (liftM (m := IO) transaction.view) resolve
+    if traced then dbg_trace "[inclusion.stage] execute {repr request.occurrence}: before assembly"
     let (draft, completed) ← resolved.assemble transaction
+    if traced then dbg_trace "[inclusion.stage] execute {repr request.occurrence}: assembled"
     match ← transaction.installDraft draft with
     | .error failure => completionFailure failure
     | .ok () => pure ()
@@ -86,9 +94,12 @@ private def executeDemand
       | .error failure => completionFailure failure
       | .ok association => pure association
     return (← retainResponse request transaction association.response.root, transaction)
+  if traced then dbg_trace "[inclusion.stage] execute {repr request.occurrence}: no complete input plan"
   discard <| request.admitInputs graph
+  if traced then dbg_trace "[inclusion.stage] execute {repr request.occurrence}: before executor"
   for binding in request.scope do requireAvailable transaction graph binding
   let (response, state) ← executor request transaction
+  if traced then dbg_trace "[inclusion.stage] execute {repr request.occurrence}: executor returned"
   unless state.id == transaction.id do
     throwError "internal: execution changed the active transaction"
   return (← retainResponse request state response.root, state)

@@ -326,12 +326,17 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
         | none => expression
       | _ => expression
     if let some projection ← SourceProjection.ofExpr? projectionSource then
+      let traced := expression.containsConst (· == `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)
+      if traced then dbg_trace "[inclusion.stage] lower projection {projection.declaration}: before environment"
       let frame ← read
       let environment ← RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
+      if traced then dbg_trace "[inclusion.stage] lower projection {projection.declaration}: after environment"
       if ← environment.hasRetainedSource frame.context projection.parent then
+        if traced then dbg_trace "[inclusion.stage] lower projection {projection.declaration}: retained parent"
         let (parent, path) ← projectionSourcePath environment projectionSource
         let selected ← projectPath (← lower parent) path
         return ← apply selected (arguments.extract projectionSource.getAppNumArgs arguments.size)
+      if traced then dbg_trace "[inclusion.stage] lower projection {projection.declaration}: unretained parent"
     -- Select a native constructor field before head reduction can discard its retained-value
     -- or source-boundary metadata. This reads only the exact selected constructor argument.
     -- Reuse the metadata-preserving projection step from Layout.inputProjectionHead.
@@ -896,13 +901,18 @@ private partial def application (expression : Expr) : LowerM ValueBinding := do
   if let some reference := references[0]? then
     unless references.all (· == reference) do
       throwError "internal: the declaration {name} has several published computation addresses"
+    let traced := name == `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration
+    if traced then dbg_trace "[inclusion.stage] registered family: before source family"
     let family ← SourceFamily.forReference reference
     let arity ← forallBoundedTelescope family.source.familyType (some arguments.size)
       fun locals _ => pure locals.size
+    if traced then dbg_trace "[inclusion.stage] registered family: before actual arguments"
     let (closed, actual) ← actualArguments (arguments.extract 0 arity)
+    if traced then dbg_trace "[inclusion.stage] registered family: before request preparation"
     let request ← PreparedRequest.forBoundary (← supply) frame.program
       (← frame.environment.ledger.allocate) (.registered family) levels frame.context closed actual
       #[] (← parameters)
+    if traced then dbg_trace "[inclusion.stage] registered family: before demand"
     return ← apply (← demand request) (arguments.extract arity arguments.size)
   if let some info := (← getEnv).getProjectionFnInfo? name then
     if info.numParams < arguments.size then

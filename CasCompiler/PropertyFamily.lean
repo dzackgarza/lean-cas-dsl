@@ -178,6 +178,11 @@ opaque PropertyFamily.application (family : PropertyFamily) (source : Expr) :
       retained.isAppOfArity ``Function.const 4 do
     throwError "the property changed its typed source application witness"
   let applied := retained.getAppArgs[3]!
+  -- mark changes only the literal image argument of applied.headBeta. Check that
+  -- exact producer relation before conversion can erase distinct source occurrences.
+  let stated := mkApp body.appFn! retained.getAppArgs[2]!
+  unless applied.headBeta == stated do
+    throwError "the property source witness changed its original native proposition"
   let (head, levels) ← family.instantiate
   unless applied.getAppNumArgs == family.parameterCount + 1 &&
       (← isDefEq head applied.getAppFn) do

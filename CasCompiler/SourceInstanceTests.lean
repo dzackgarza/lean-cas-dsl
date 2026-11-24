@@ -2,11 +2,13 @@ module
 
 import CasCompiler.Read
 import CasCompiler.Parse
+import Lean.Meta.Transform
 import LeanCategories.Catalogue
 import LeanCategories.Catalogue.Semantics.Independent.ScalarAndFormExtensions
 public meta import Lean.Elab.Command
 meta import CasCompiler.Read
 meta import CasCompiler.Parse
+meta import Lean.Meta.Transform
 meta import LeanCategories.Catalogue
 meta import LeanCategories.Catalogue.Semantics.Independent.ScalarAndFormExtensions
 
@@ -104,24 +106,31 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   -- polynomial parameter, while both original owner envelopes remain in its source.
   let (_, finite) ← define session "let F := {x - 1} in 𝒫_fin(ℤ[x])"
   finite.source.withOpen fun _ expression => do
-    let some literal := expression.find? (·.isAppOfArity ``List.toFinset 3)
-      | throwError "the original finite subset lost its native quotient application"
-    let arguments := literal.getAppArgs
-    let .mdata outer _ := arguments[0]!
-      | throwError "the finite-subset dictionary erased its original base envelope"
-    unless outer.contains `CasCompiler.source.objectOrigin do
-      throwError "the finite-subset dictionary erased its original base origin"
-    let some (_, polynomial) ← sourceObjectOrigin? arguments[0]!
-      | throwError "the finite subset lost its original polynomial object"
-    let some nested := polynomial.find? (fun term => match term with
-      | .mdata marker _ => marker.contains `CasCompiler.source.objectOrigin
-      | _ => false)
-      | throwError "native inference erased the polynomial's original scalar envelope"
-    let some _ ← sourceObjectOrigin? nested
-      | throwError "the polynomial's retained scalar origin is malformed"
-    check literal
-    if literal.hasMVar || literal.hasLevelMVar then
-      throwError "the finite-subset dictionary is unresolved"
+    check expression
+    let observed ← IO.mkRef false
+    discard <| Meta.transform expression (pre := fun literal => do
+      if ← observed.get then return .done literal
+      unless literal.isAppOfArity ``List.toFinset 3 do return .continue
+      let arguments := literal.getAppArgs
+      let .mdata outer _ := arguments[0]!
+        | throwError "the finite-subset dictionary erased its original base envelope"
+      unless outer.contains `CasCompiler.source.objectOrigin do
+        throwError "the finite-subset dictionary erased its original base origin"
+      let some (_, polynomial) ← sourceObjectOrigin? arguments[0]!
+        | throwError "the finite subset lost its original polynomial object"
+      let some nested := polynomial.find? (fun term => match term with
+        | .mdata marker _ => marker.contains `CasCompiler.source.objectOrigin
+        | _ => false)
+        | throwError "native inference erased the polynomial's original scalar envelope"
+      let some _ ← sourceObjectOrigin? nested
+        | throwError "the polynomial's retained scalar origin is malformed"
+      check literal
+      if literal.hasMVar || literal.hasLevelMVar then
+        throwError "the finite-subset dictionary is unresolved"
+      observed.set true
+      return .done literal)
+    unless ← observed.get do
+      throwError "the original finite subset lost its native quotient application"
   let failure : Option Exception ← withoutModifyingState do
     try
       discard <| define session

@@ -95,7 +95,10 @@ private def prepareRequest (identities : CasRuntime.IdentitySupply)
     discard <| binding.role.source.inContext context
   if source.kind == .proof then
     throwError "a source proof has no computational response positions"
+  let traced := source.source.expression.containsConst (· == `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)
+  if traced then dbg_trace "[inclusion.stage] request {repr occurrence}: before origin"
   let origin ← environment.origin program occurrence source
+  if traced then dbg_trace "[inclusion.stage] request {repr occurrence}: after origin"
   let origin ← if let some layout := application then do
       let callable := match action with | .apply callable .. => some callable | _ => none
       let .ok application := CasRuntime.ApplicationOrigin.ofArguments layout environment.values arguments callable
@@ -105,6 +108,7 @@ private def prepareRequest (identities : CasRuntime.IdentitySupply)
       unless arguments.isEmpty do
         throwError "actual arguments require a prepared native application telescope"
       pure origin
+  if traced then dbg_trace "[inclusion.stage] request {repr occurrence}: before output layouts"
   let mut outputs : Array SourceLayout := #[]
   let record ← if source.kind == .record then
       pure (some (← RecordLayout.ofSource source))
@@ -113,8 +117,10 @@ private def prepareRequest (identities : CasRuntime.IdentitySupply)
     for prepared in record.fields do
       if prepared.field.wireIndex.isSome then outputs := outputs.push prepared.layout
   else outputs := #[source]
+  if traced then dbg_trace "[inclusion.stage] request {repr occurrence}: before role telescope"
   let roles ← RoleTelescope.ofRequest identities program occurrence context application source
     (scope.map (·.role))
+  if traced then dbg_trace "[inclusion.stage] request {repr occurrence}: prepared"
   return ⟨program, occurrence, action, source, scope, outputs, record, environment, origin,
     application, roles, actualArguments, none⟩
 
@@ -189,6 +195,8 @@ opaque PreparedRequest.forBoundary (identities : CasRuntime.IdentitySupply)
   let universeArguments ← universeArguments.mapM instantiateLevelMVars
   if universeArguments.any (·.hasMVar) then
     throwError "request preparation requires resolved universe arguments"
+  let traced := boundary.family.containsConst (· == `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)
+  if traced then dbg_trace "[inclusion.stage] primitive {repr occurrence}: before family layout"
   let family ← withLCtx {} #[] do
     let empty ← ContextTelescope.capture #[]
     empty.close (boundary.family.instantiateLevelParams
@@ -199,8 +207,11 @@ opaque PreparedRequest.forBoundary (identities : CasRuntime.IdentitySupply)
     else do
       let (source, application) ← ApplicationLayout.ofSource layout context arguments
       pure (source, some application)
+  if traced then dbg_trace "[inclusion.stage] primitive {repr occurrence}: before environment"
   let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters
+  if traced then dbg_trace "[inclusion.stage] primitive {repr occurrence}: before argument admission"
   let values ← prepareArguments environment arguments actual
+  if traced then dbg_trace "[inclusion.stage] primitive {repr occurrence}: arguments admitted"
   prepareRequest identities program occurrence (.primitive boundary universeArguments) source context
     (values.filterMap id ++ scope) environment application values actual
 
@@ -273,6 +284,8 @@ private def prepareProjection (identities : CasRuntime.IdentitySupply)
     (graph : CasRuntime.ValueGraph)
     (operand : CasRuntime.ValueBinding) (path : Array Name)
     (parameters : Array CasRuntime.RuntimeParameter) : MetaM PreparedRequest := do
+  let traced := operand.role.source.expression.containsConst (· == `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)
+  if traced then dbg_trace "[inclusion.stage] projection {repr occurrence} {repr path}: before layout"
   let mut layout := operand.role
   let mut selected : Option FieldLayout := none
   for projection in path do
@@ -284,8 +297,11 @@ private def prepareProjection (identities : CasRuntime.IdentitySupply)
     layout ← field.toLayout
   let some field := selected | throwError "a projection requires a native field path"
   let source ← layout.inContext context
+  if traced then dbg_trace "[inclusion.stage] projection {repr occurrence}: before environment"
   let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters
+  if traced then dbg_trace "[inclusion.stage] projection {repr occurrence}: before operand admission"
   discard <| environment.checkOperand graph operand.role operand
+  if traced then dbg_trace "[inclusion.stage] projection {repr occurrence}: operand admitted"
   let .ok original := graph.applicationOrigin operand
     | throwError "the projected operand is outside the visible graph"
   let mut application := original
@@ -338,9 +354,14 @@ opaque PreparedRequest.forApplication (identities : CasRuntime.IdentitySupply)
   unless callable.role.kind == .function do
     throwError "the retained value has no prepared callable interface"
   if arguments.isEmpty then throwError "callable application requires a source argument"
+  let traced := callable.role.source.expression.containsConst (· == `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)
+  if traced then dbg_trace "[inclusion.stage] application {repr occurrence}: before layout"
   let (source, application) ← ApplicationLayout.ofSource callable.role context arguments
+  if traced then dbg_trace "[inclusion.stage] application {repr occurrence}: before environment"
   let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters
+  if traced then dbg_trace "[inclusion.stage] application {repr occurrence}: before argument admission"
   let values ← prepareArguments environment arguments actual
+  if traced then dbg_trace "[inclusion.stage] application {repr occurrence}: arguments admitted"
   prepareRequest identities program occurrence (.apply callable arguments values) source context
     (#[callable] ++ values.filterMap id) environment (some application) values actual
 
