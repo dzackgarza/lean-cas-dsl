@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.ReadContext
+public import CasCompiler.PublishedSource
 public import CasCompiler.ReadApplication
 public import CasCompiler.SourceLimit
 public import CasCompiler.SourceConstruction
@@ -126,7 +127,7 @@ def registeredApplicable (context : ReadContext) :
              return .ok ⟨← elabAppArgs function #[] #[Arg.expr element.value] expected false false, none⟩
        if arguments.size < parameterCount then
          return .error m!"the registered source declaration requires {parameterCount} explicit parameters"
-       let formed ← registeredExpressionsApplicable entry categoryEntry fun function expected =>
+       let formed ← PublishedSource.namedApplicable entry categoryEntry fun function expected =>
          application ⟨function, none⟩ (arguments.take parameterCount) expected
        let (bundle, value) ← match formed with
          | .ok value => pure value

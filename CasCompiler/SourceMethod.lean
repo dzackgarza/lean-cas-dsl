@@ -66,8 +66,7 @@ where
       if callable.hasMVar || callable.hasLevelMVar then
         throwError "the specialized source method has undetermined parameters"
       -- Core and the exact return plan are inside the checked whole family.
-      let forward := chosen.mark (mkApp callable receiver.value)
-      let (value, target) ← chosen.resultAt levels parameters receiver.value forward
+      let (value, target) ← chosen.applyAt levels parameters receiver.value
       let value := Expr.mdata (KVMap.empty.setString `CasCompiler.source.methodRoutes
         (reprStr (families.map fun family => (family.entry.id, family.route.refs)))) value
       choices := choices.push {

@@ -70,6 +70,7 @@ import CasCompiler.SourceViewTests
 import CasCompiler.SurfaceTests
 import CasCompiler.ValueRequestTests
 import CasCompiler.WhiskeringTests
+import CasTools.InterfaceExportTests
 import CasTools.NativeExpressionTests
 import CasTools.QuestionExportTests
 import CasTools.SourceSnapshotTests

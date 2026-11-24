@@ -170,13 +170,13 @@ def sha256Hex (text : String) : IO String := do
 /-- Check the original published address through the same grammar as manifest and child-call
 admission. In particular, lift ports retain their exact published field component. -/
 private def ProfileTarget.containsAddress (target : ProfileTarget) (state : SemanticState)
-    (address : String) : Bool :=
+    (address : String) : MetaM Bool := do
   match target with
-  | .computation reference => publishedFamily? state address == some reference
-  | .lift id => (publishedLift? state address).any (·.1.id == id)
-  | .presentation id => (publishedPresentation? state address).any (·.id == id)
-  | .property id => (publishedProperty? state address).any (·.id == id)
-  | .application id => (publishedApplication? state address).any (·.id == id)
+  | .computation reference => return (← publishedFamily? state address) == some reference
+  | .lift id => return (← publishedLift? state address).any (·.1.id == id)
+  | .presentation id => return (publishedPresentation? state address).any (·.id == id)
+  | .property id => return (publishedProperty? state address).any (·.id == id)
+  | .application id => return (publishedApplication? state address).any (·.id == id)
 
 /-- Validate exact published targets, installed triples and checked target-specific derivations.
 Normalize set order once and retain the SHA-256 of that immutable configuration.
@@ -192,7 +192,12 @@ opaque RealizationProfile.prepare (manifest : Manifest) (configuration : Option 
     match rule.target with
     | .computation reference => discard <| reference.declaration state
     | .lift id =>
-      unless (publishedLift? state s!"{id.raw}#obj").isSome do
+      let some row := state.lifts.find? (·.id == id)
+        | throwError "realization profile: unregistered callable lift {id.raw}"
+      if row.computation.isNone then
+        throwError "realization profile: unregistered callable lift {id.raw}"
+      let family ← CasCompiler.LiftFamily.forLift row .computation
+      if (← family.projections).isEmpty then
         throwError "realization profile: unregistered callable lift {id.raw}"
     | .presentation id =>
       unless (publishedPresentation? state id.raw).isSome do
@@ -209,7 +214,7 @@ opaque RealizationProfile.prepare (manifest : Manifest) (configuration : Option 
       for entry in entries do
         unless manifest.registrations.contains entry do
           throwError "realization profile: unknown primitive registration {repr entry}"
-        unless rule.target.containsAddress state entry.operation do
+        unless ← rule.target.containsAddress state entry.operation do
           throwError "realization profile: wrong-target primitive registration {repr entry}"
     if let .only ids := rule.derivations then
       let checked ← match rule.target with

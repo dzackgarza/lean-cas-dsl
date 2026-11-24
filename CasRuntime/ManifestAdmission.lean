@@ -3,6 +3,7 @@ module
 public import CasContract.Registration
 public import CasCatalogue.Admission
 public import CasCompiler.LiftFamily
+public import CasCompiler.PublishedPorts
 public import LeanCategories.Catalogue.Registry.Semantic
 public import LeanCategories.Catalogue.Registry.Computation
 
@@ -14,13 +15,8 @@ open Lean Meta CasCompiler CasCatalogue
 
 /-- The published family that an operation address names: the family address itself, or the
 address of one of its fields (`<id>#map`). An unknown address creates no operation. -/
-def publishedFamily? (state : SemanticState) (address : String) : Option ComputationRef :=
-  let id := (address.splitOn "#").head!
-  (state.operations.find? (·.id.raw == id) |>.map (.operation ·.id)) <|>
-  (state.methods.find? (·.id.raw == id) |>.map (.method ·.id)) <|>
-  (state.functors.find? (·.id.raw == id) |>.map (.functor ·.id)) <|>
-  (state.constructions.find? (·.id.raw == id) |>.map (.construction ·.id)) <|>
-  (state.morphisms.find? (·.id.raw == id) |>.map (.morphism ·.id))
+def publishedFamily? (state : SemanticState) (address : String) : MetaM (Option ComputationRef) :=
+  PublishedPorts.family? state address
 
 /-- A named comparison uses its original full operation address in both directions. -/
 def publishedPresentation? (state : SemanticState) (address : String) :
@@ -78,13 +74,20 @@ def presentationFormDefect (state : SemanticState) (row : PresentationComparison
 /-- The selected lift and computation that a lift port names (`<lift id>#<field>`; leaf contract
 api/wire-examples.md, "Prescribed subobject lifts" and "Separate universal factor"). -/
 def publishedLift? (state : SemanticState) (address : String) :
-    Option (LiftEntry × LiftPort) := do
-  let [id, field] := address.splitOn "#" | none
-  let row ← state.lifts.find? (·.id.raw == id)
-  if row.computation.isNone then none
-  if #["obj", "hom", "forward", "backward"].contains field then some (row, .computation)
-  else if field == "factor" then some (row, .factor)
-  else none
+    MetaM (Option (LiftEntry × LiftPort)) := do
+  return (← LiftFamily.forAddress? state address).map fun (row, family, _) => (row, family.port)
+
+/-- The exact public address boundary shared by manifest installation and export. Recursive
+constructor paths use the released grammar and their complete registered source owners. -/
+def publishedOperation (state : SemanticState) (address : String) : MetaM Bool := do
+  return (← publishedFamily? state address).isSome ||
+    (← publishedLift? state address).isSome ||
+    (publishedPresentation? state address).isSome ||
+    (publishedProperty? state address).isSome ||
+    ((publishedApplication? state address).isSome && !applicationAddressConflict state address) ||
+    ((PublishedPorts.component? state address).toOption.bind id).isSome ||
+    ((PublishedPorts.cartesian? state address).toOption.bind id).isSome ||
+    ((PublishedPorts.edge? state address).toOption.bind id).isSome
 
 /-- Why a declared preferred route is malformed, if it is: its receiver is a registered category,
 its name a registered surface name, and its route a chain of structural edges from the receiver
@@ -114,11 +117,7 @@ def admitManifest (parsed : Manifest) : MetaM (Manifest × Array String) := do
   for registration in parsed.registrations do
     let described :=
       s!"{registration.operation} on {registration.input} by {registration.backend}"
-    if (publishedFamily? state registration.operation).isNone &&
-        (publishedLift? state registration.operation).isNone &&
-        (publishedPresentation? state registration.operation).isNone &&
-        (publishedProperty? state registration.operation).isNone &&
-        (publishedApplication? state registration.operation).isNone then
+    if !(← publishedOperation state registration.operation) then
       rejected := rejected.push s!"{described}: {registration.operation} is not a published operation"
     else if !parsed.backends.any (·.name == registration.backend) then
       rejected := rejected.push

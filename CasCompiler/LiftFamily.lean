@@ -3,6 +3,7 @@ module
 public import CasCompiler.Declaration
 public import LeanCategories.Catalogue.Lift
 public import LeanCategories.Catalogue.Registry.Entry
+public import LeanCategories.Catalogue.Registry.Semantic
 
 @[expose] public section
 
@@ -60,6 +61,46 @@ opaque LiftFamily.forLift (row : LiftEntry) (port : LiftPort) : MetaM LiftFamily
 def LiftFamily.instantiate (family : LiftFamily) : MetaM (Expr × List Level) := do
   let levels ← family.universeParams.mapM fun _ => mkFreshLevelMVar
   return (family.family.instantiateLevelParams family.universeParams levels, levels)
+
+/-- Exact native data-field projections of the published result record. Proof fields
+are absent; names and order come from Lean's source structure metadata. -/
+opaque LiftFamily.projections (family : LiftFamily) : MetaM (Array Name) := do
+  forallTelescope family.familyType fun parameters resultType => do
+    let type ← whnf resultType
+    let .const owner _ := type.getAppFn
+      | throwError "the published computation has no native record result"
+    let some information := getStructureInfo? (← getEnv) owner
+      | throwError "the published computation has no native record interface"
+    let result := mkAppN family.family parameters
+    let mut projections := #[]
+    for name in information.fieldNames, index in [:information.fieldNames.size] do
+      let some projection := information.getProjFn? index
+        | throwError "the published record lost a native field projection"
+      let value ← mkProjection result name
+      unless ← isProof value do projections := projections.push projection
+    return projections
+
+/-- Resolve an exact lift port from the independently checked native result record.
+The factor remains its separate accepted family. Conflicting native ports are rejected. -/
+opaque LiftFamily.forAddress? (state : SemanticState) (address : String) :
+    MetaM (Option (LiftEntry × LiftFamily × Array Name)) := do
+  let [id, field] := address.splitOn "#" | return none
+  let rows := state.lifts.filter (·.id.raw == id)
+  if rows.isEmpty then return none
+  let #[row] := rows | throwError "a published lift address has more than one source row"
+  if row.computation.isNone then return none
+  let ports := if row.kind == .subobjects then #[LiftPort.computation, .factor]
+    else #[LiftPort.computation]
+  let mut selectedPorts := #[]
+  for port in ports do
+    let family ← LiftFamily.forLift row port
+    for projection in ← family.projections do
+      if projection.getString! == field then
+        selectedPorts := selectedPorts.push (row, family, #[projection])
+  match selectedPorts with
+  | #[] => return none
+  | #[selected] => return some selected
+  | _ => throwError "a published lift address names more than one native data field"
 
 /-- The family applied to the evidence parameters `arguments`, marked so that the lowerer sends
 it to its ports and does not unfold it (constitution C22). -/

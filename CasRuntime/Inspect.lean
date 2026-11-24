@@ -125,16 +125,17 @@ private def retainedValue (session : KernelSession) (transaction : CellTransacti
 source family. This is an inventory of forms, not a claim that an arbitrary
 future operand matches a form or that a provider is currently live. -/
 private def permittedForms (kernel : Kernel) (state : SemanticState)
-    (target : ProfileTarget) : Array Json :=
-  (kernel.manifest.registrations.filter fun row =>
-    kernel.profile.allowsRegistration target row &&
-      match target with
-      | .computation reference => publishedFamily? state row.operation == some reference
-      | .application id => !applicationAddressConflict state row.operation &&
-          (publishedApplication? state row.operation).any (·.id == id)
-      | .property id => (publishedProperty? state row.operation).any (·.id == id)
-      | .presentation id => (publishedPresentation? state row.operation).any (·.id == id)
-      | .lift id => (publishedLift? state row.operation).any (·.1.id == id)).map fun row =>
+    (target : ProfileTarget) : MetaM (Array Json) := do
+  let selected ← kernel.manifest.registrations.filterM fun row => do
+    if !kernel.profile.allowsRegistration target row then return false
+    match target with
+    | .computation reference => return (← publishedFamily? state row.operation) == some reference
+    | .application id => return !applicationAddressConflict state row.operation &&
+        (publishedApplication? state row.operation).any (·.id == id)
+    | .property id => return (publishedProperty? state row.operation).any (·.id == id)
+    | .presentation id => return (publishedPresentation? state row.operation).any (·.id == id)
+    | .lift id => return (← publishedLift? state row.operation).any (·.1.id == id)
+  return selected.map fun row =>
     Json.mkObj [("operation", toJson row.operation), ("input", toJson row.input),
       ("backend", toJson row.backend)]
 
@@ -196,7 +197,7 @@ private def candidateDocument (kernel : Kernel) (state : SemanticState)
     |>.setObjVal! "id" (toJson id)
     |>.setObjVal! "route" (toJson (route.map fun route => reprStr route.refs))
     |>.setObjVal! "status" (toJson "typed_candidate")
-    |>.setObjVal! "permittedRegistrationForms" (toJson (permittedForms kernel state target))
+    |>.setObjVal! "permittedRegistrationForms" (toJson (← permittedForms kernel state target))
 
 private def memberCandidateDocument (kernel : Kernel) (state : SemanticState)
     (context : OpenContext) (name : String) (choice : SourceMemberChoice SourceReader.MemberEvidence) :
@@ -222,7 +223,7 @@ private def memberCandidateDocument (kernel : Kernel) (state : SemanticState)
     |>.setObjVal! "route" (toJson (route.map fun route => reprStr route.refs))
     |>.setObjVal! "status" (toJson "typed_candidate")
     |>.setObjVal! "permittedRegistrationForms"
-      (toJson (target.map (permittedForms kernel state) |>.getD #[]))
+      (toJson ((← target.mapM (fun target => liftM (permittedForms kernel state target))) |>.getD #[]))
 
 /-- Prepare the same zero-additional-argument member that source syntax would select.
 The retained receiver is passed directly, never reparsed or reread. An ambiguous

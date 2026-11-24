@@ -3,22 +3,13 @@ module
 public import CasRuntime.Invocation
 public import CasCompiler.SourceReference
 public import CasCompiler.SelectedField
+public import CasCompiler.RecordAction
 
 public section
 
 namespace CasRuntime
 
 open Lean Meta CasCompiler CasCatalogue CasCatalogue.Backend
-
-/-- The public action address of a selected family field.
-The first computational field of a record uses the family address. Another field appends its
-name, as the published `<functor id>#map` (api/manifest.md, "Matching and overlap"). -/
-def actionAddress (reference : ComputationRef) (path : Array FieldLayout) : String :=
-  match path.back? with
-  | some field =>
-    if field.wireIndex == some 0 then referenceId reference
-    else s!"{referenceId reference}#{field.projection.getString!}"
-  | none => referenceId reference
 
 /-- Input addresses of this exact invocation: the complete-request form, and the exact form and
 category of each argument that is a registered named object. -/
@@ -54,13 +45,31 @@ private def evaluateRequest (kernel : Kernel) (evaluateSource : SourceEvaluation
   kernelCompletion request transaction value
     (some (kernel.resolveFixedInput evaluateSource transaction request.program))
 
-/-- The preceding computational fields of the prepared source record, at its actual inputs.
-The ordered record layout supplies the prefix, including proof erasure. Exact source selection
-identities reuse completed fields; no mathematical construction name determines dependencies. -/
-partial def Kernel.earlierOutputs (kernel : Kernel) (evaluateSource : SourceEvaluation)
-    (request : PreparedRequest) (transaction : CellTransaction) (family : PreparedRequest)
-    (field : FieldLayout) (arguments : Array ClosedTerm) : MetaM (Array (Nat × ValueBinding)) := do
+/-- Prepare record invocation inputs from the exact retained family result. Only the
+source compiler determines their native slots and applications. The original completion
+is selected by occurrence and preparation identity, never by expression or type. -/
+private def Kernel.prepareRecordAction (kernel : Kernel) (request : PreparedRequest)
+    (transaction : CellTransaction) (family : PreparedRequest) (boundary : ProgramBoundary)
+    (universes : List Level) (path : Array FieldLayout) (arguments : Array ClosedTerm) :
+    MetaM RecordAction := do
   withSourceScope request fun context bound => do
+    let _ := bound
+    let mut parent ← family.source.source.inContext context
+    if !path.isEmpty then
+      let some completion ← transaction.completionFor? family.occurrence
+        | throwError "the delayed record lost its original completed family"
+      family.requirePreparation completion.request.roles.scope
+      parent ← markValue kernel.marks completion.response.root parent
+    let formal := family.application.map (·.arguments.map (·.source.source)) |>.getD #[]
+    let supplied := family.origin.application.map (·.arguments) |>.getD #[]
+    unless formal.size == supplied.size do
+      throwError "the record family lost its original complete parameter references"
+    let mut parameters := #[]
+    for parameter in formal, index in [:formal.size] do
+      let source ← parameter.inContext context
+      parameters := parameters.push (← match supplied[index]?.bind id with
+        | some value => markValue kernel.marks value source
+        | none => pure source)
     let values := match request.action with
       | .apply _ _ values => values
       | _ => #[]
@@ -70,17 +79,20 @@ partial def Kernel.earlierOutputs (kernel : Kernel) (evaluateSource : SourceEval
       actual := actual.push (← match values[index]?.bind id with
         | some value => markValue kernel.marks value source
         | none => pure source)
-    let mut outputs := #[]
-    for preceding in family.source.fields.extract 0 field.sourceIndex do
-      if preceding.wireIndex.isNone then continue
-      let projection ← preceding.source.inContext context
-      let term := mkAppN projection actual
-      let term := match family.selection with
-        | some selection => selectedField selection preceding.projection term
-        | none => term
-      outputs := outputs.push (preceding.sourceIndex,
-        ← evaluateSource transaction request.program context bound term)
-    return outputs
+    RecordAction.prepare boundary universes context family.source parent path parameters actual
+      family.selection
+
+/-- Materialize only the source-prepared invocation slots, after realization selection.
+The same path handles ordinary records and released record packets. -/
+private def Kernel.recordInputs (kernel : Kernel) (evaluateSource : SourceEvaluation)
+    (request : PreparedRequest) (transaction : CellTransaction) (action : RecordAction) :
+    MetaM (Array (Nat × ValueBinding)) := do
+  let _ := kernel
+  withSourceScope request fun context bound => do
+    action.inputs.mapM fun input => do
+      let source ← input.source.inContext context
+      return (input.sourceIndex,
+        ← evaluateSource transaction request.program context bound source)
 
 /-- Dispatch a delayed family demand whose action has reached its actual arguments.
 The selected registration receives the family parameters and the action arguments.
@@ -124,29 +136,24 @@ partial def Kernel.reach (kernel : Kernel) (evaluateSource : SourceEvaluation) (
     let registration ← selectLift kernel.profile kernel.manifest (.application entry.id)
       invocation.operation invocation.forms
     return ← kernel.invokePoint evaluateSource request transaction registration invocation
-  let some reference := boundary.reference
-    | let .lift lift := boundary
-        | throwError "internal: a delayed family demand has no public address"
-      -- Every lift port names its field (`<lift>#obj`), the first one included.
-      let some field := path.back?
-        | throwError "internal: a lift computation was applied without a selected field"
-      let address := s!"{lift.lift.raw}#{field.projection.getString!}"
-      let forms ← withSourceScope request fun context _ => inputForms lift.lift.raw context arguments
-      let registration ← selectLift kernel.profile kernel.manifest (.lift lift.lift) address forms
-      let earlier ← kernel.earlierOutputs evaluateSource request transaction family field arguments
-      kernel.invokeRegistration evaluateSource request transaction registration role parameters earlier
+  let action ← kernel.prepareRecordAction request transaction family boundary universes path arguments
   let point ← PreparedPointInvocation.prepare? kernel evaluateSource request family path transaction
-  let address := point.map (·.operation) |>.getD (actionAddress reference path)
+  let address := point.map (·.operation) |>.getD action.address
   let forms ← match point with
     | some point => pure point.forms
     | none => withSourceScope request fun context _ => do
-      return (← inputForms (referenceId reference) context arguments)
-  match ← kernel.profile.select kernel.manifest reference address forms with
+      return (← inputForms action.familyAddress context arguments)
+  let realization : Realization ← match action.owner with
+    | .computation reference => kernel.profile.select kernel.manifest reference address forms
+    | .lift id => Realization.registration <$>
+        selectLift kernel.profile kernel.manifest (.lift id) address forms
+  match realization with
   | .registration registration =>
     match point with
     | some point => kernel.invokePoint evaluateSource request transaction registration point
-    | none =>
-      kernel.invokeRegistration evaluateSource request transaction registration role parameters #[]
+    | none => do
+      let inputs ← kernel.recordInputs evaluateSource request transaction action
+      kernel.invokeRegistration evaluateSource request transaction registration role parameters inputs
   | .derivation checked =>
     evaluateRequest kernel evaluateSource request transaction fun context => do
       let plan := checked.plan.instantiateLevelParams checked.universeParams universes
@@ -189,7 +196,10 @@ partial def Kernel.execute (kernel : Kernel) (evaluateSource : SourceEvaluation)
     | .closure program captures =>
       match (← kernel.codes.get)[program]? with
       | some (.family family path) =>
-        kernel.delay evaluateSource request transaction family (path.push field) captures
+        if request.source.kind == .function || request.source.kind == .record then
+          kernel.delay evaluateSource request transaction family (path.push field) captures
+        else
+          kernel.reach evaluateSource request transaction family (path.push field) captures #[]
       | some (.term source) =>
         evaluateRequest kernel evaluateSource request transaction fun context => do
           projectTerm (← source.inContext context) field

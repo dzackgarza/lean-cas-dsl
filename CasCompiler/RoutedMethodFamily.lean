@@ -695,4 +695,16 @@ def routedActionParameterPath (edge : EdgeRef) (index : Nat) : Array CasCatalogu
   | .classifierForget _ => #[.field "args", .index 1, .index index]
   | .constructMap _ inner => #[.field "args", .index 1] ++ routedActionParameterPath inner index
 
+
+/-- Form a selected method at its actual original receiver and declared action inputs.
+Both the ordinary source reader and published requests use this producer, including the
+same independently supplied return plan and result-category interface. -/
+def RoutedMethodFamily.applyAt (family : RoutedMethodFamily) (levels : List Level)
+    (parameters : Array Expr) (receiver : Expr) (inputs : Array (Array Expr) := #[]) :
+    MetaM (Expr × Expr) := do
+  let callable := mkAppN (family.family.instantiateLevelParams family.universeParams levels) parameters
+  let forward ← if inputs.isEmpty then pure (family.mark (mkApp callable receiver))
+    else family.markInputs (mkApp callable receiver) inputs
+  family.resultAt levels parameters receiver forward
+
 end CasCompiler

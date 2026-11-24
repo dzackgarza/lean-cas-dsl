@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.Elaborate
+public import CasContract.Failure
 import Lean.Meta.Transform
 
 public section
@@ -309,12 +310,13 @@ Only this application's registered class slots use the checked source-object inf
 Successful slots are retired exactly as Lean's synthetic-goal resolver does; stuck slots remain
 pending. The returned source spine keeps every original annotated explicit argument.
 Reuse: Lean.Elab.Term.elabAppArgs and SyntheticMVars.markAsResolved's state transition. -/
-opaque elabSourceApplicationApplicable (function : Expr) (references : Array Syntax)
+private opaque nativeSourceApplicationApplicable (function : Expr) (references : Array Syntax)
     (expected : Option Expr)
-    (readArgument : Nat → Expr → TermElabM (Except MessageData Expr)) :
+    (readArgument : Nat → Expr → TermElabM (Except MessageData Expr))
+    (allArguments : Bool := false) :
     TermElabM (Except MessageData (Expr × Array Expr)) := do
   let holes ← references.mapM fun _ => mkFreshExprMVar none
-  let prepared ← elabAppArgs function #[] (holes.map Arg.expr) expected false false
+  let prepared ← elabAppArgs function #[] (holes.map Arg.expr) expected allArguments false
   for hole in holes do
     unless (prepared.find? (· == hole)).isSome do
       throwError "the native application lost an original explicit argument"
@@ -366,17 +368,93 @@ opaque elabSourceApplicationApplicable (function : Expr) (references : Array Syn
   check result
   return .ok (result, actual)
 
+/-- Ordinary syntax uses the shared native application producer with Lean's implicit
+argument convention. Complete published interfaces use the same producer with every
+computational native position exposed, preserving the same original argument holes. -/
+opaque elabSourceApplicationApplicable (function : Expr) (references : Array Syntax)
+    (expected : Option Expr)
+    (readArgument : Nat → Expr → TermElabM (Except MessageData Expr)) :
+    TermElabM (Except MessageData (Expr × Array Expr)) :=
+  nativeSourceApplicationApplicable function references expected readArgument false
+
 /-- Ordinary native application requires every explicit applicability check to succeed.
 Only the application's own argument-reader result or native type comparison can
 return a mismatch. Exceptions from readers, inference and chosen instance slots propagate. -/
 opaque elabSourceApplication (function : Expr) (references : Array Syntax)
     (expected : Option Expr) (readArgument : Nat → Expr → TermElabM Expr) :
     TermElabM (Expr × Array Expr) := do
-  let applied ← elabSourceApplicationApplicable function references expected fun index type => do
-    return .ok (← readArgument index type)
+  let applied ← elabSourceApplicationApplicable function references expected
+    fun index type => do return .ok (← readArgument index type)
   match applied with
   | .ok value => pure value
   | .error message => throwError message
+
+/-- A formal premise of a published application can use only a proof already in the
+original native context. This boundary never asks a provider for a proof and never runs
+an unregistered proof search. A missing premise is missing implementation of that call,
+not malformed computational data. -/
+private def sourceContextProof (domain : Expr) : TermElabM Expr := do
+  let domain ← instantiateMVars domain
+  if domain.hasMVar || domain.hasLevelMVar then
+    throwStratum .noImplementation m!"the published premise has undetermined original source parameters {domain}"
+  for declaration in ← getLCtx do
+    unless ← isProp declaration.type do continue
+    if ← isDefEq declaration.type domain then
+      let value := mkFVar declaration.fvarId
+      checkWithKernel (← mkExpectedTypeHint value domain)
+      return value
+  throwStratum .noImplementation m!"the published application requires its original formal premise {domain}"
+
+/-- Apply the explicit data parameters of a complete named family. Native implicit
+slots are solved by the ordinary source elaborator; explicit proof slots have no external
+data position and use only an original source hypothesis. The same argument-hole producer
+retains every actual expression rather than returning metavariable assignments as sources. -/
+opaque applySourceDataArguments (function : Expr) (count : Nat) (expected : Option Expr)
+    (readArgument : Nat → Expr → TermElabM Expr) : TermElabM Expr := do
+  let (_, binders, _) ← forallMetaTelescopeReducing (← inferType function)
+  let references := Array.replicate (binders.filter (·.isExplicit)).size Syntax.missing
+  let next ← IO.mkRef (0 : Nat)
+  let (value, _) ← elabSourceApplication function references expected fun _ domain => do
+    if ← isProp domain then return ← sourceContextProof domain
+    let index ← next.get
+    unless index < count do
+      throwStratum .malformed "the named source input is missing an explicit data parameter"
+    let actual ← readArgument index domain
+    next.set (index + 1)
+    return actual
+  unless (← next.get) == count do
+    throwStratum .malformed "the named source input has extra data parameters"
+  return value
+
+/-- Apply complete computational positions of an already selected source function.
+This is the same native application producer as ordinary syntax. The caller supplies
+one reader per wire position; proof positions are supplied by the original source scope
+and have no wire slot. Every retained operand is substituted at its exact original hole.
+Native implicit positions are explicit in this complete-interface entrance. -/
+opaque applySourceArguments (function : Expr) (references : Array Syntax)
+    (readArgument : Nat → Expr → TermElabM Expr) : TermElabM Expr := do
+  let applyAt := fun (term : Expr) (reference : Syntax)
+      (read : Expr → TermElabM Expr) => do
+    let applied ← nativeSourceApplicationApplicable term #[reference] none
+      (fun _ domain => do return .ok (← read domain)) true
+    match applied with
+    | .ok (result, _) => pure result
+    | .error message => throwStratum .malformed message
+  let applyOne := fun (term value : Expr) =>
+    applyAt term Syntax.missing (fun _ => pure value)
+  let insertPremises := fun initial => do
+    let mut term := initial
+    repeat
+      let type ← whnfR (← inferType term)
+      let .forallE _ domain _ _ := type | break
+      unless ← isProp domain do break
+      term ← applyOne term (← sourceContextProof domain)
+    return term
+  let mut term := function
+  for reference in references, index in [:references.size] do
+    term ← insertPremises term
+    term ← applyAt term reference (fun domain => readArgument index domain)
+  insertPremises term
 
 end
 

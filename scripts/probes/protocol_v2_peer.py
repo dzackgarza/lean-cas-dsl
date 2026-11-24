@@ -80,6 +80,28 @@ def expired(arguments: JsonValue) -> JsonValue:
     return saved.reference()
 
 
+category_saved = None
+
+
+def category_result(arguments: JsonValue):
+    """Use generated family metadata with actual SDK gateway occurrences."""
+    from cas_port import load_interfaces
+
+    global category_saved
+    assert isinstance(arguments, dict)
+    family = load_interfaces(sys.argv[2]).category("cat.groups").family(
+        "morphism", "mor.groups.trivial")
+    original = family.result(proxy(arguments["value"]))
+    category_saved = original
+    children = yield suspend([original.project(0)], [original.value])
+    return {"original": original.reference(), "child": children[0].reference()}
+
+
+def category_expired(arguments: JsonValue):
+    assert category_saved is not None
+    return category_saved.project(0)
+
+
 def references(arguments: JsonValue) -> JsonValue:
     assert isinstance(arguments, dict)
     from cas_port import input_ref
@@ -114,6 +136,10 @@ serve("protocol-peer", "0", {"echo": echo, "delegated": delegated, "stored": sto
                               "adaptive": adaptive, "expired": expired,
                               "references": references, "deferred": deferred,
                               "hidden": hidden, "repeated": repeated,
+                              **({"category_result": category_result,
+                                  "category_expired": category_expired}
+                                 if len(sys.argv) == 3 and sys.argv[1] == "--category-interface"
+                                 else {}),
                               # An opt-in fixed packet tests property observation framing only.
                               # It never inspects a group or computes a property.
                               **({"prop.is_abelian": lambda _arguments: json.loads(sys.argv[2])}
