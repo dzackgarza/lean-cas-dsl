@@ -6,7 +6,7 @@ the subset of primes from this Boolean answer.
 
 from __future__ import annotations
 
-from cas_port import serve
+from cas_port import point_invocation, serve
 from cas_session import JsonValue
 
 
@@ -21,10 +21,8 @@ def _natural(value: JsonValue) -> int:
 
 
 def is_prime(context: JsonValue) -> JsonValue:
-    assert isinstance(context, dict)
-    arguments = context["arguments"]
-    assert isinstance(arguments, list) and len(arguments) == 1, context
-    number = _natural(arguments[0])
+    fields = point_invocation(context, "mor.sets.nat_is_prime")
+    number = _natural(fields[6])
     return number > 1 and all(number % divisor for divisor in range(2, number))
 
 

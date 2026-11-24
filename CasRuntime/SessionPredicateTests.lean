@@ -26,7 +26,7 @@ run_cmd liftTermElabM do
       ("backends", .arr #[Json.mkObj [("name", "peer"), ("command", python.toString),
         ("args", .arr #[toJson peer.toString])]]),
       ("registrations", .arr #[Json.mkObj [("operation", "mor.sets.nat_is_prime"),
-        ("input", "mor.sets.nat_is_prime#input"), ("backend", "peer")]])]
+        ("input", "mor.sets.nat_is_prime"), ("backend", "peer")]])]
     liftM (m := IO) <| IO.FS.createDirAll (root / ".tmp")
     let path := root / ".tmp" / "kernel-predicate-leaves.json"
     liftM (m := IO) <| IO.FS.writeFile path manifest.compress
