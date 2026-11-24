@@ -327,14 +327,14 @@ private structure ResultFieldPrefix where
   parent : ValueBinding
   layout : RecordLayout
   field : FieldLayout
-  view : Option FieldDependencyView := none
+  «view» : Option FieldDependencyView := none
 
 /-- Follow only the next declared source field of this same prepared prefix witness. The
 view narrows its original slots to that descendant; introduced native locals stay abstract. -/
 private def ResultFieldPrefix.descend (current : ResultFieldPrefix) (projection : Name) :
     MetaM ResultFieldPrefix := do
   let path := ((current.view.map (·.path)).getD #[]).push projection
-  return { current with view := some (← current.field.dependencyView path) }
+  return { current with «view» := some (← current.field.dependencyView path) }
 
 /-- Read only an exact current prefix local and its native projection spine. -/
 private partial def prefixProjection (locals : Array Expr) (term : Expr) :

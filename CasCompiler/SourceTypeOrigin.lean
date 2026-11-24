@@ -112,12 +112,12 @@ private def annotateSourceOwner (key : Name) (category : NativeSourceCategory)
 /-- Preserve carrier type provenance as typed native arguments. Native abstraction and
 substitution transport every captured term; metadata contains only source syntax and names.
 Reuse: Function.const, native MData/KVMap and the complete owner codec above. -/
-def annotateSourceType (category : NativeSourceCategory) (object type : Expr) : MetaM Expr :=
+opaque annotateSourceType (category : NativeSourceCategory) (object type : Expr) : MetaM Expr :=
   annotateSourceOwner `CasCompiler.source.typeOrigin category object type
 
 /-- Retain the complete selected category beside its unchanged native object parameter.
 The original object is both the identity wrapper's result and its typed owner field. -/
-def annotateSourceObject (category : NativeSourceCategory) (object : Expr) : MetaM Expr :=
+opaque annotateSourceObject (category : NativeSourceCategory) (object : Expr) : MetaM Expr :=
   annotateSourceOwner `CasCompiler.source.objectOrigin category object object
 
 private partial def sourceOwnerOrigin? (key : Name) (value : Expr) :
@@ -162,13 +162,13 @@ private partial def sourceOwnerOrigin? (key : Name) (value : Expr) :
 
 /-- Read only the typed carrier provenance emitted by annotateSourceType.
 Aliases follow their retained native definitions; source syntax is never replayed. -/
-def sourceTypeOrigin? (type : Expr) : MetaM (Option NativeSourceTypeOrigin) := do
+opaque sourceTypeOrigin? (type : Expr) : MetaM (Option NativeSourceTypeOrigin) := do
   return (← sourceOwnerOrigin? `CasCompiler.source.typeOrigin type).map fun
     (category, object, type) => ⟨category, object, type⟩
 
 /-- Read only a parameter's explicit source mark. Equal-valued objects cannot replace the
 original occurrence carried by that mark; the consumer still checks its whole carrier family. -/
-def sourceObjectOrigin? (value : Expr) : MetaM (Option (NativeSourceCategory × Expr)) := do
+opaque sourceObjectOrigin? (value : Expr) : MetaM (Option (NativeSourceCategory × Expr)) := do
   let some (category, object, body) ← sourceOwnerOrigin? `CasCompiler.source.objectOrigin value
     | return none
   unless object == body do
