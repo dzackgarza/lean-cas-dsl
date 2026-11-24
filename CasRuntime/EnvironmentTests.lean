@@ -3,10 +3,12 @@ module
 import CasRuntime.Environment
 import CasCompiler.SourceTypeOrigin
 import LeanCategories.Foundation.Mathlib
+import LeanCategories.Catalogue.Semantics.Foundation.Catalogue
 public meta import Lean.Elab.Command
 meta import CasRuntime.Environment
 meta import CasCompiler.SourceTypeOrigin
 meta import LeanCategories.Foundation.Mathlib
+meta import LeanCategories.Catalogue.Semantics.Foundation.Catalogue
 
 open Lean Meta CasCompiler CasRuntime
 
@@ -566,9 +568,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         let secondProjection ← mkProjection second `fst
         let indexed := fun fixed index => mkAppM ``Prod
           #[mkApp (mkConst ``Fin) fixed, mkApp (mkConst ``Fin) index]
-        withLocalDeclD `point (← indexed firstProjection n) fun point =>
-          withLocalDeclD `closedPoint (← indexed seven n) fun closedPoint =>
-            withLocalDeclD `otherPoint (← indexed secondProjection n) fun otherPoint =>
+        withLocalDeclD `point (← indexed firstProjection n) fun point => do
+          withLocalDeclD `closedPoint (← indexed seven n) fun closedPoint => do
+            withLocalDeclD `otherPoint (← indexed secondProjection n) fun otherPoint => do
               withLocalDeclD `markedPoint (← indexed markedWidth n) fun markedPoint => do
                 let bindings : Array LocalBinding := #[
                   { id := ⟨"closed-dependent-fragment", 0⟩, role := .definition, expression := first },
@@ -581,7 +583,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
                 let context ← ContextTelescope.capture bindings
                 let markedFirst ← markValue marks firstObject first
                 let fixedProjection ← mkProjection markedFirst `fst
-                let family ← withLocalDeclD `width natural fun width =>
+                let family ← withLocalDeclD `width natural fun width => do
                   mkLambdaFVars #[width] (← indexed fixedProjection width)
                 let pointRole ← SourceLayout.ofTerm (← context.close point)
                 let (graph, value) ← liftM (m := IO) <| graph.stage owners.identities

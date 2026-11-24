@@ -214,8 +214,8 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
       let value ← lower arrow.getAppArgs.back!
       let template := Json.mkObj [("ctor", "morphismEndpoint"),
         ("args", .arr #[.null, toJson selector])]
-      let slots := #[{ path := #[.field "args", .index 0], binding := value,
-        fieldIndex := none } : ContainerSlot]
+      let slots : Array ContainerSlot :=
+        #[{ path := #[.field "args", .index 0], binding := value, fieldIndex := none }]
       let built ← match ← selectedEndpointFields? (selector == "source") value with
         | some fields => pure (ValuePayload.container template slots fields none)
         | none => pure (ValuePayload.descriptor template slots)

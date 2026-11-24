@@ -23,6 +23,7 @@ private structure RoutedNumeral where
 private inductive NumeralContext where
   | direct
   | carrier (owner : NativeSourceElementOwner) (comparison : Expr)
+      (refinement : Option ObjectEntry)
   | selected (routed : RoutedNumeral)
   | refinement (entry : ObjectEntry)
 
@@ -80,6 +81,27 @@ private def completePointParameters (arguments : Array Expr) (binders : Array Bi
     else throwSemanticAmbiguity "the source numeral requires an actual declaration parameter"
   return some proofIndex
 
+-- This is the ordinary named-base reading used below and through an explicitly supplied
+-- carrier comparison. It does not select a stronger structure for the original owner.
+private def numeralRefinementParameters (entry : ObjectEntry) (expected : Expr)
+    (proofs : Array Term) : TermElabM (Option (Expr × Expr × Nat)) := do
+  let some refinement := entry.refines
+    | throwError "a source numeral refinement has no declared comparison"
+  discard <| checkedDeclaration entry.declaration
+  discard <| checkedDeclaration refinement.identification
+  let declaration ← mkConstWithFreshMVarLevels entry.declaration
+  let (parameters, binders, _) ← forallMetaTelescopeReducing (← inferType declaration)
+  let comparison ← applyObjectParameters entry.id.raw refinement.identification parameters
+  let type ← whnfR (← inferType comparison)
+  unless type.isAppOfArity ``CategoryTheory.Iso 4 do
+    throwError "a source numeral refinement requires its complete native isomorphism"
+  unless ← isDefEq type.getAppArgs[3]! expected do return none
+  let some proofIndex ← completePointParameters parameters binders proofs 0
+    | throwError "the source numeral's declared domain obligation is not established"
+  let object := sourceReference ``ObjectEntry entry.id.raw entry.declaration
+    (mkAppN declaration parameters)
+  return some (object, comparison, proofIndex)
+
 /-- Form only the source's actual point map, with its actual refinement comparison.
 Reuse: NumeralEntry's last natural parameter and explicit proof obligations;
 ObjectRefinement's checked shared telescope and directed identification. -/
@@ -87,31 +109,24 @@ private def numeralCandidate (row : NumeralEntry) (context : NumeralContext)
     (number : Nat) (expected : Expr) (proofs : Array Term) : TermElabM (Option Expr) := do
   let (object, comparison, proofIndex) ← match context with
     | .direct => pure (none, none, 0)
-    | .carrier _ comparison => do
+    | .carrier _ comparison refinement => do
       let comparison ← mkAppM ``CategoryTheory.Iso.symm #[comparison]
       let type ← whnfR (← inferType comparison)
       unless ← isDefEq type.getAppArgs[3]! expected do return none
-      pure (none, some comparison, 0)
+      match refinement with
+      | none => pure (none, some comparison, 0)
+      | some entry => do
+        let some (object, baseComparison, proofIndex) ←
+            numeralRefinementParameters entry type.getAppArgs[2]! proofs | return none
+        let comparison ← mkAppM ``CategoryTheory.Iso.trans #[baseComparison, comparison]
+        pure (some object, some comparison, proofIndex)
     | .selected routed => do
       let selected ← nativeRouteFunctor (← semanticState) routed.route routed.owner.category.bundle
       let value ← functorObject selected.functor routed.owner.value selected.target
       pure (some value, none, 0)
     | .refinement entry => do
-      let some refinement := entry.refines
-        | throwError "a source numeral refinement has no declared comparison"
-      discard <| checkedDeclaration entry.declaration
-      discard <| checkedDeclaration refinement.identification
-      let declaration ← mkConstWithFreshMVarLevels entry.declaration
-      let (parameters, binders, _) ← forallMetaTelescopeReducing (← inferType declaration)
-      let comparison ← applyObjectParameters entry.id.raw refinement.identification parameters
-      let type ← whnfR (← inferType comparison)
-      unless type.isAppOfArity ``CategoryTheory.Iso 4 do
-        throwError "a source numeral refinement requires its complete native isomorphism"
-      unless ← isDefEq type.getAppArgs[3]! expected do return none
-      let some proofIndex ← completePointParameters parameters binders proofs 0
-        | throwError "the source numeral's declared domain obligation is not established"
-      let object := sourceReference ``ObjectEntry entry.id.raw entry.declaration
-        (mkAppN declaration parameters)
+      let some (object, comparison, proofIndex) ←
+          numeralRefinementParameters entry expected proofs | return none
       pure (some object, some comparison, proofIndex)
   let declaration ← mkConstWithFreshMVarLevels row.declaration
   let (arguments, binders, type) ← forallMetaTelescopeReducing (← inferType declaration)
@@ -157,9 +172,17 @@ private def numeralCandidate (row : NumeralEntry) (context : NumeralContext)
       let hom ← mkAppM ``CategoryTheory.Iso.hom #[comparison]
       let categoryStructure ← mkAppOptM ``CategoryTheory.Category.toCategoryStruct
         #[some type.getAppArgs[0]!, some type.getAppArgs[1]!]
-      let composition ← mkAppOptM ``CategoryTheory.CategoryStruct.comp
-        #[some type.getAppArgs[0]!, some categoryStructure]
-      elabAppArgs composition #[] #[Arg.expr point, Arg.expr hom] none false false
+      let pointType ← inferType point
+      let pointType ← if pointType.isAppOfArity ``Quiver.Hom 4 then pure pointType
+        else whnfR pointType
+      unless pointType.isAppOfArity ``Quiver.Hom 4 do
+        throwError "the transported numeral lost its original point domain"
+      -- Keep the original consuming carrier in the native composite's target. Conversion
+      -- validates the supplied isomorphism; it never replaces that source parameter.
+      mkAppOptM ``CategoryTheory.CategoryStruct.comp
+        #[some type.getAppArgs[0]!, some categoryStructure,
+          some pointType.getAppArgs[2]!, some pointType.getAppArgs[3]!, some expected,
+          some point, some hom]
   let type ← inferType point
   unless type.isAppOfArity ``Quiver.Hom 4 do
     throwError "the admitted numeral is not a native point map"
@@ -169,7 +192,7 @@ private def numeralCandidate (row : NumeralEntry) (context : NumeralContext)
   let value ← elabAppArgs function #[] #[Arg.expr terminalPoint] (some expected) false false
   let value ← retainSourcePoint point value
   let value ← match context with
-    | .carrier owner _ =>
+    | .carrier owner _ _ =>
       withLetDecl (← mkFreshUserName `numeralCarrierAgreement)
         (← inferType owner.evidence) owner.evidence fun binding =>
           mkLetFVars #[binding] value (usedLetOnly := false) (generalizeNondepLet := false)
@@ -303,7 +326,7 @@ private def sourceNullaryNumeral (state : SemanticState)
     | if hasBinding then
         throwError "the first source numeral operation has a different nullary signature"
       else
-        throwError "no declared source point numeral was admitted in the supplied domain; numeral={number}; expected={expected}; owners={ownerFamilies.map (fun (owner, _) => (toJson owner.category.expression).compress)}"
+        throwError "no declared source point numeral was admitted in the supplied domain"
   let mut evidence := first.evidence
   let mut alternatives := #[]
   for (_, other) in candidates do
@@ -345,21 +368,26 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
   let ownerFamilies ← owners.mapM fun owner => do
     let family ← nativeCategoryFamily state owner.category.expression fun _ => mkFreshLevelMVar
     return (owner, family)
+  -- A supplied comparison fixes its base before any numeral is interpreted there.
+  -- A named refinement requires that exact registered codomain; direct point readings
+  -- retain their existing declaration-head check. The context cannot recurse back
+  -- to the original owner or replace it with a convertible structure.
+  let mut carrierBases : Array (NativeSourceElementOwner × Expr × Array ObjectEntry) := #[]
+  for owner in owners do
+    for comparison in owner.category.carrier.toArray.flatMap (·.comparisons) do
+      let type ← whnfR (← inferType comparison)
+      unless type.isAppOfArity ``CategoryTheory.Iso 4 do continue
+      unless ← withoutModifyingState <| isDefEq type.getAppArgs[2]! expected do continue
+      let (_, namedBases) ← registeredDomain type.getAppArgs[3]!
+      carrierBases := carrierBases.push (owner, comparison, namedBases)
   let mut candidates : Array (NumeralEntry × NumeralContext) := #[]
   for row in state.numerals do
     discard <| checkedDeclaration row.declaration
     match row.over with
     | none =>
       candidates := candidates.push (row, .direct)
-      -- The selected object's checked carrier presentation licenses transport of a
-      -- base point. Native carrier equality alone does not identify that base.
-      -- Reuse ObjectRefinement's directed isomorphism and its complete-family validation.
-      for owner in owners do
-        for comparison in owner.category.carrier.toArray.flatMap (·.comparisons) do
-          let type ← whnfR (← inferType comparison)
-          unless type.isAppOfArity ``CategoryTheory.Iso 4 do continue
-          unless ← withoutModifyingState <| isDefEq type.getAppArgs[2]! expected do continue
-          candidates := candidates.push (row, .carrier owner comparison)
+      for (owner, comparison, _) in carrierBases do
+        candidates := candidates.push (row, .carrier owner comparison none)
     | some owner =>
       let #[category] := state.categories.filter (·.id == owner)
         | throwError "the source numeral requires one registered structural category"
@@ -378,6 +406,9 @@ opaque sourceNumeral (categoryOf : FVarId → TermElabM (Option NativeSourceCate
         if let some refinement := entry.refines then
           if bases.any (·.id == refinement.base) then
             candidates := candidates.push (row, .refinement entry)
+          for (selected, comparison, namedBases) in carrierBases do
+            if namedBases.any (·.id == refinement.base) then
+              candidates := candidates.push (row, .carrier selected comparison (some entry))
   let hasSelectedStructure := candidates.any fun (_, context) =>
     match context with
     | .selected _ => true

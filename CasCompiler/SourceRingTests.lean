@@ -164,6 +164,22 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           carrier.actions == (← selectedCarrier.actions.mapM (·.inContext context)) &&
           carrier.comparisons == (← selectedCarrier.comparisons.mapM (·.inContext context)) do
         throwError "the units admission changed its actual carrier or base comparison"
+      let datum := body.getAppArgs[data.getNat `CasCompiler.source.element]!
+      let some point ← sourcePointOrigin? datum
+        | throwError "the units datum lost its transported source point"
+      unless (point.target.find? (· == parameter)).isSome do
+        throwError "the numeral point replaced its original selected carrier target"
+      unless point.point.containsConst
+          (· == ``CasCatalogue.Algebra.NamedRings.ringNumeral) do
+        throwError "the named rational base lost its declared numeral point"
+      let comparisons ← carrier.comparisons.filterM fun comparison =>
+        return (← whnfR (← inferType comparison)).isAppOfArity ``CategoryTheory.Iso 4
+      let #[comparison] := comparisons
+        | throwError "the units control lost its exact supplied carrier comparison"
+      unless (point.point.find? fun term =>
+          term.getAppFn.isConstOf ``CategoryTheory.Iso.symm &&
+            term.getAppArgs.back? == some comparison).isSome do
+        throwError "the numeral point did not use the supplied inverse carrier comparison"
       -- Replacing only the typed owner field by an equal-valued different source is invalid.
       let .mdata mark fields := parameter
         | throwError "the units parameter lost its typed object wrapper"
@@ -185,6 +201,24 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throwError "object provenance accepted a different equal source occurrence"
       unless (← failure.toMessageData.toString) ==
           "the source object provenance changed its original parameter" do throw failure
+  -- The same native Monoid without its supplied base comparison cannot acquire
+  -- a numeral from the convertible rational carrier or a stronger structural owner.
+  let some firstCategory := first.category
+    | throwError "the missing-comparison control lost its selected category"
+  let some firstCarrier := firstCategory.carrier
+    | throwError "the missing-comparison control lost its original carrier route"
+  let withoutComparison := { first with category := some { firstCategory with
+    carrier := some { firstCarrier with comparisons := #[], identifications := #[] } } }
+  let unpresented ← session.defineTerm `MWithoutComparison withoutComparison
+  let failure : Option Exception ← withoutModifyingState do
+    try
+      discard <| read unpresented "3 in MWithoutComparisonˣ"
+      pure none
+    catch error => pure (some error)
+  let some failure := failure
+    | throwError "a Monoid numeral was inferred without its supplied base comparison"
+  unless (← failure.toMessageData.toString) ==
+      "no declared source point numeral was admitted in the supplied domain" do throw failure
   let failure : Option Exception ← withoutModifyingState do
     try
       discard <| read session "0 in MFirstˣ"
