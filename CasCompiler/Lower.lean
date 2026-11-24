@@ -682,23 +682,42 @@ private partial def actualArguments (arguments : Array Expr)
     (traceArguments : Bool := false) :
     LowerM (Array ClosedTerm × Array RuntimeArgument) := do
   let frame ← read
+  if traceArguments then
+    let ticks ← IO.getNumHeartbeats
+    dbg_trace "[lower.arguments] before environment context={frame.context.bindings.size} arguments={arguments.size} ticks={ticks}"
   let environment ← RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
+  if traceArguments then
+    let ticks ← IO.getNumHeartbeats
+    dbg_trace "[lower.arguments] after environment ticks={ticks}"
   let mut values : Array (Nat × ValueBinding) := #[]
   let mut sources : Array Expr := #[]
   for argument in arguments, index in [:arguments.size] do
-    if ← isProof argument then sources := sources.push argument
+    if traceArguments then
+      let ticks ← IO.getNumHeartbeats
+      dbg_trace "[lower.argument] before slot classification index={index} ticks={ticks}"
+    if ← isProof argument then
+      if traceArguments then
+        let ticks ← IO.getNumHeartbeats
+        dbg_trace "[lower.argument] original proof slot index={index} ticks={ticks}"
+      sources := sources.push argument
     else
       -- Complete source coverage has already identified unused admission evidence. Keep its
       -- formal slot without touching its source parent or manufacturing a runtime value.
       if deferAfter.any (· < index) && required.any (fun needed => !needed.contains index) then
+        if traceArguments then
+          let ticks ← IO.getNumHeartbeats
+          dbg_trace "[lower.argument] original unused slot index={index} ticks={ticks}"
         sources := sources.push argument
         continue
       -- Used evidence follows ordinary retained-source preparation first. A projection of a
       -- lazy parent is a genuine demand; only unanchored native evidence code remains lazy.
       if traceArguments then
-        dbg_trace "[basechange.argument] before source index={index} head={repr argument.consumeMData.getAppFn.constName?}"
+        let ticks ← IO.getNumHeartbeats
+        dbg_trace "[lower.argument] before source index={index} head={repr argument.consumeMData.getAppFn.constName?} ticks={ticks}"
       let source ← argumentSource environment argument
       if traceArguments then
+        let ticks ← IO.getNumHeartbeats
+        dbg_trace "[lower.argument] after source index={index} ticks={ticks}"
         let selected := source.find? fun term => match term with
           | .mdata data _ => !(data.getName `CasCompiler.source.kind).isAnonymous
           | _ => false
@@ -707,21 +726,44 @@ private partial def actualArguments (arguments : Array Expr)
             (data.getName `CasCompiler.source.kind, data.getString `CasCompiler.source.id,
               data.getName `CasCompiler.source.declaration)
           | _ => (Name.anonymous, "", Name.anonymous)
-        dbg_trace "[basechange.argument] before lower index={index} head={repr source.consumeMData.getAppFn.constName?} selected={repr selection}"
+        let ticks ← IO.getNumHeartbeats
+        dbg_trace "[lower.argument] selected source index={index} head={repr source.consumeMData.getAppFn.constName?} selected={repr selection} ticks={ticks}"
       let deferred ← if deferAfter.any (· < index) then
           environment.hasRetainedSource frame.context source <&> Bool.not
         else pure false
+      if traceArguments then
+        let ticks ← IO.getNumHeartbeats
+        dbg_trace "[lower.argument] before lower index={index} deferred={deferred} ticks={ticks}"
       let value ← if deferred then closure source else lower source
-      if traceArguments then dbg_trace "[basechange.argument] after lower index={index} value={repr value.value}"
+      if traceArguments then
+        let ticks ← IO.getNumHeartbeats
+        dbg_trace "[lower.argument] after lower index={index} value={repr value.value} ticks={ticks}"
       values := values.push (index, value)
       sources := sources.push source
+  if traceArguments then
+    let ticks ← IO.getNumHeartbeats
+    dbg_trace "[lower.arguments] before runtime table values={values.size} ticks={ticks}"
   let graph ← frame.environment.transaction.view
   let marks ← frame.environment.marks.get
   let actual ← values.mapM fun (index, value) => do
     let .ok argument := RuntimeArgument.ofValue graph index value marks
       | throwError "internal: a lowered source argument is outside the active graph"
     return argument
-  let closed ← sources.mapM fun argument => frame.context.close argument
+  if traceArguments then
+    let ticks ← IO.getNumHeartbeats
+    dbg_trace "[lower.arguments] runtime table ready; before source closure count={sources.size} ticks={ticks}"
+  let closed ← sources.mapIdxM fun index argument => do
+    if traceArguments then
+      let ticks ← IO.getNumHeartbeats
+      dbg_trace "[lower.argument] before final source closure index={index} ticks={ticks}"
+    let source ← frame.context.close argument
+    if traceArguments then
+      let ticks ← IO.getNumHeartbeats
+      dbg_trace "[lower.argument] after final source closure index={index} ticks={ticks}"
+    return source
+  if traceArguments then
+    let ticks ← IO.getNumHeartbeats
+    dbg_trace "[lower.arguments] complete ticks={ticks}"
   return (closed, actual)
 
 /-- Retain the original admission arguments and use the common application result plan.
@@ -792,53 +834,87 @@ private partial def nativeInputRecord? (expression : Expr) : LowerM (Option Valu
       (descriptorIds state declaration).isEmpty &&
       ((← getEnv).getProjectionFnInfo? declaration).isNone do return none
   let some (.defnInfo _) := (← getEnv).find? declaration | return none
-  if traceInclusion then dbg_trace "[inclusion.record] before native definition unfolding"
+  if traceInclusion then
+    let ticks ← IO.getNumHeartbeats
+    dbg_trace "[inclusion.record] before native definition unfolding ticks={ticks}"
   let some expanded ← unfoldDefinition? expression | return none
-  if traceInclusion then dbg_trace "[inclusion.record] after native definition unfolding"
+  if traceInclusion then
+    let ticks ← IO.getNumHeartbeats
+    dbg_trace "[inclusion.record] after native definition unfolding ticks={ticks}"
   let some constructor := expanded.getAppFn.constName? | return none
   let some (.ctorInfo _) := (← getEnv).find? constructor | return none
   let frame ← read
-  if traceInclusion then dbg_trace "[inclusion.record] before closing actual sources count={arguments.size}"
+  if traceInclusion then
+    let ticks ← IO.getNumHeartbeats
+    dbg_trace "[inclusion.record] before closing actual sources count={arguments.size} ticks={ticks}"
   let sourceArguments ← arguments.mapM fun argument => do
-    if traceInclusion then dbg_trace "[inclusion.record] before source close head={repr argument.getAppFn.constName?} arity={argument.getAppNumArgs}"
+    if traceInclusion then
+      let ticks ← IO.getNumHeartbeats
+      dbg_trace "[inclusion.record] before source close head={repr argument.getAppFn.constName?} arity={argument.getAppNumArgs} ticks={ticks}"
     let closed ← frame.context.close argument
-    if traceInclusion then dbg_trace "[inclusion.record] after source close"
+    if traceInclusion then
+      let ticks ← IO.getNumHeartbeats
+      dbg_trace "[inclusion.record] after source close ticks={ticks}"
     return closed
-  if traceInclusion then dbg_trace "[inclusion.record] actual sources closed; before bare SourceLayout"
+  if traceInclusion then
+    let ticks ← IO.getNumHeartbeats
+    dbg_trace "[inclusion.record] actual sources closed; before bare SourceLayout ticks={ticks}"
   -- This bare constant has no captured source bindings. Its actual arguments retain
   -- the complete original frame and still undergo the concrete coverage check below.
   let source ← (show MetaM SourceLayout from withLCtx {} #[] do
     let empty ← ContextTelescope.capture #[]
     SourceLayout.ofTerm (← empty.close expression.getAppFn))
-  if traceInclusion then dbg_trace "[inclusion.record] bare SourceLayout complete; before concrete ApplicationLayout"
+  if traceInclusion then
+    let ticks ← IO.getNumHeartbeats
+    dbg_trace "[inclusion.record] bare SourceLayout complete; before concrete ApplicationLayout ticks={ticks}"
   let (result, application) ← ApplicationLayout.ofSource source frame.context sourceArguments
-  if traceInclusion then dbg_trace "[inclusion.record] concrete ApplicationLayout complete fields={result.fields.size}"
+  if traceInclusion then
+    let ticks ← IO.getNumHeartbeats
+    dbg_trace "[inclusion.record] concrete ApplicationLayout complete fields={result.fields.size} ticks={ticks}"
   unless result.kind == .record && result.fields.any
       (fun field => field.wireIndex.isSome && !field.precedingDependencies.isEmpty) do return none
-  if traceInclusion then dbg_trace "[inclusion.record] before original parameter table"
+  if traceInclusion then
+    let ticks ← IO.getNumHeartbeats
+    dbg_trace "[inclusion.record] before original parameter table ticks={ticks}"
   let actualParameters ← parameters
-  if traceInclusion then dbg_trace "[inclusion.record] original parameter table ready; before inputResultArguments"
+  if traceInclusion then
+    let ticks ← IO.getNumHeartbeats
+    dbg_trace "[inclusion.record] original parameter table ready; before inputResultArguments ticks={ticks}"
   let required? ← application.inputResultArguments (actualParameters.map (·.source))
-  if traceInclusion then dbg_trace "[inclusion.record] after inputResultArguments complete={required?.isSome}"
+  if traceInclusion then
+    let ticks ← IO.getNumHeartbeats
+    dbg_trace "[inclusion.record] after inputResultArguments complete={required?.isSome} ticks={ticks}"
   let some required := required? | return none
   -- Ordinary application admission stays total. This conservative path never evaluates a
   -- source slot that the complete native result and its type dependencies did not require.
   for argument in application.arguments do
     if argument.wireIndex.isSome && !required.contains argument.sourceIndex then return none
-  if traceInclusion then dbg_trace "[inclusion.record] complete original coverage; before callable closure"
+  if traceInclusion then
+    let ticks ← IO.getNumHeartbeats
+    dbg_trace "[inclusion.record] complete original coverage; before callable closure ticks={ticks}"
   let callable ← closure expression.getAppFn
-  if traceInclusion then dbg_trace "[inclusion.record] callable closure ready; before actualArguments"
-  let (closed, actual) ← actualArguments arguments
-  if traceInclusion then dbg_trace "[inclusion.record] actualArguments ready; before prepared application"
+  if traceInclusion then
+    let ticks ← IO.getNumHeartbeats
+    dbg_trace "[inclusion.record] callable closure ready; before actualArguments ticks={ticks}"
+  let (closed, actual) ← actualArguments arguments (traceArguments := traceInclusion)
+  if traceInclusion then
+    let ticks ← IO.getNumHeartbeats
+    dbg_trace "[inclusion.record] actualArguments ready; before prepared application ticks={ticks}"
   let request ← PreparedRequest.forApplication (← supply) frame.program
     (← frame.environment.ledger.allocate) frame.context callable closed actual (← parameters)
-  if traceInclusion then dbg_trace "[inclusion.record] prepared application ready; before actual inputResultPlan"
+  if traceInclusion then
+    let ticks ← IO.getNumHeartbeats
+    dbg_trace "[inclusion.record] prepared application ready; before actual inputResultPlan ticks={ticks}"
   let actualPlan ← request.inputResultPlan (← frame.environment.transaction.view)
-  if traceInclusion then dbg_trace "[inclusion.record] after actual inputResultPlan complete={actualPlan.isSome}"
+  if traceInclusion then
+    let ticks ← IO.getNumHeartbeats
+    dbg_trace "[inclusion.record] after actual inputResultPlan complete={actualPlan.isSome} ticks={ticks}"
   unless actualPlan.isSome do
     throwStratum .noImplementation
       "the native record conversion requires unavailable input fields"
-  if traceInclusion then dbg_trace "[inclusion.record] before demand"
+  if traceInclusion then
+    let ticks ← IO.getNumHeartbeats
+    dbg_trace "[inclusion.record] before demand ticks={ticks}"
   return some (← demand request)
 
 private partial def apply (callable : ValueBinding) (arguments : Array Expr) :
