@@ -139,6 +139,17 @@ run_cmd do
                 let some scalar := bindings.find? (·.id == scalarEntry.id)
                   | throwError "the property lost its chosen scalar binder"
                 unless parameters == #[scalar.expression] do
+                  try
+                    let stderr ← IO.getStderr
+                    stderr.putStrLn s!"[property.parameter] case={text} expected={reprStr scalar.expression} count={parameters.size}"
+                    for parameter in parameters do
+                      stderr.putStrLn s!"[property.parameter] actual={(reprStr parameter).take 12000}"
+                      if let .mdata marker _ := parameter then
+                        if marker.contains `CasCompiler.source.objectOrigin then
+                          if let some (category, object) ← sourceObjectOrigin? parameter then
+                            stderr.putStrLn s!"[property.parameter] original={reprStr object} category={reprStr category.expression} exact={object == scalar.expression}"
+                    stderr.flush
+                  catch _ => pure ()
                   throwError "the property source replaced its exact category parameter"
               else unless parameters.isEmpty do
                 throwError "the group property invented a category parameter"
