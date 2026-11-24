@@ -91,8 +91,7 @@ def SelectedPropertyBoundary.materialize (selection : SelectedPropertyBoundary) 
     (evaluateSource : SourceEvaluation) (request : PreparedRequest)
     (transaction : CellTransaction) : MetaM PreparedPropertyInvocation := do
   let route := selection.route
-  unless request.roles.scope == route.preparation do
-    throwError "the selected property belongs to a different original request preparation"
+  request.requirePreparation route.preparation
   let (receiver, source, dependencies) ← materializeSourcePrefix kernel evaluateSource request
     transaction route.family.route route.actions route.receiverSource route.receiver
     route.dependencies selection.boundary.offset

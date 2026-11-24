@@ -77,6 +77,7 @@ from a dependentContext invocation. -/
 partial def Kernel.invokePresentation (kernel : Kernel) (evaluateSource : SourceEvaluation)
     (request : PreparedRequest) (transaction : CellTransaction) (registration : Registration)
     (invocation : PreparedPresentationInvocation) : MetaM (PreparedResponse request) := do
+  request.requirePreparation invocation.preparation
   unless registration.operation == invocation.operation &&
       invocation.forms.contains registration.input do
     throwError "the presentation invocation changed its selected operation or input form"
@@ -99,6 +100,7 @@ scoped input, suspension and reply-admission machinery, using its published meth
 partial def Kernel.invokeMethod (kernel : Kernel) (evaluateSource : SourceEvaluation)
     (request : PreparedRequest) (transaction : CellTransaction)
     (invocation : PreparedMethodInvocation) : MetaM (PreparedResponse request) := do
+  request.requirePreparation invocation.preparation
   let registration := invocation.registration
   unless registration.operation == invocation.method.raw do
     throwError "the selected method registration changed its published address"
@@ -121,8 +123,7 @@ The prepared property's Option Bool result check runs before any reusable comple
 partial def Kernel.invokeProperty (kernel : Kernel) (evaluateSource : SourceEvaluation)
     (request : PreparedRequest) (transaction : CellTransaction)
     (invocation : PreparedPropertyInvocation) : MetaM (PreparedResponse request) := do
-  unless request.roles.scope == invocation.preparation do
-    throwError "the property invocation belongs to a different original request preparation"
+  request.requirePreparation invocation.preparation
   let registration := invocation.registration
   unless registration.operation == invocation.property.raw do
     throwError "the selected property registration changed its accepted address"
@@ -146,6 +147,7 @@ owners remain reservation dependencies although the arrow has a named descriptor
 partial def Kernel.invokePoint (kernel : Kernel) (evaluateSource : SourceEvaluation)
     (request : PreparedRequest) (transaction : CellTransaction) (registration : Registration)
     (invocation : PreparedPointInvocation) : MetaM (PreparedResponse request) := do
+  request.requirePreparation invocation.preparation
   unless registration.operation == invocation.operation &&
       invocation.forms.contains registration.input do
     throwError "the named point invocation changed its selected operation or input form"

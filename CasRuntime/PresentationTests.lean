@@ -35,7 +35,7 @@ private def prepare (kernel : Kernel) (transaction : CellTransaction) (context :
   let request ← PreparedRequest.forApplication kernel.ledger.owners.identities program
     (← kernel.ledger.allocate) context callable #[← context.close pointSource] #[argument] #[]
   return (request, ← PreparedPresentationInvocation.prepare request family path graph
-    (← kernel.marks.get))
+    (← kernel.codes.get) (← kernel.marks.get))
 
 private def manifest (inputs : Array String) : MetaM Manifest := do
   let packet := Json.mkObj [
@@ -98,6 +98,72 @@ run_cmd Lean.Elab.Command.liftTermElabM do
               invocation.parameters.isEmpty && invocation.argument.value == point.value &&
               invocation.argument.associationIds == point.associationIds do
             throwError "the comparison changed its original operation, direction or point binding"
+          do
+            unless invocation.preparation == request.roles.scope do
+              throwError "the comparison lost its original complete request preparation"
+            let rejectPreparation (action : MetaM Unit) : MetaM Unit := do
+              let failure : Option Exception ← try
+                action
+                pure none
+              catch error => pure (some error)
+              let some failure := failure
+                | throwError "a presentation accepted a different request preparation"
+              unless failure.toMessageData.hasTag (· == requestPreparationMismatchTag) do throw failure
+            let otherPoint ← kernel.run transaction context {} source
+            unless otherPoint.value != point.value do
+              throwError "the presentation scope control merged separate equal operands"
+            let graph ← transaction.view
+            let marks ← kernel.marks.get
+            let rebuild := fun (occurrence : RuntimeId .occurrence) (value : ValueBinding) => do
+              let .ok argument := RuntimeArgument.ofValue graph 0 value marks
+                | throwError "the presentation scope control lost its original operand"
+              PreparedRequest.forApplication owners.identities request.program occurrence context
+                callable #[← context.close source] #[argument] #[]
+            let otherRequest ← rebuild (← kernel.ledger.allocate) otherPoint
+            let rebuilt ← rebuild request.occurrence point
+            unless otherRequest.occurrence != request.occurrence &&
+                rebuilt.occurrence == request.occurrence && rebuilt.roles.scope != request.roles.scope do
+              throwError "the presentation scope control lost its independent preparations"
+            let .ok code := graph.callable callable
+              | throwError "the comparison scope control lost its actual callable"
+            let some node := graph.find code.value
+              | throwError "the comparison scope control lost its retained code"
+            let .closure program _ := node.payload.data
+              | throwError "the comparison scope control has no family closure"
+            let codes ← kernel.codes.get
+            let some (.family originalFamily fieldPath) := codes[program]?
+              | throwError "the comparison scope control lost its original family"
+            let .primitive (.presentation original) levels := originalFamily.action
+              | throwError "the comparison scope control changed its native family"
+            unless (originalFamily.application.map (·.arguments.isEmpty)).getD true do
+              throwError "the comparison scope control unexpectedly has declaration parameters"
+            let (firstEnd, secondEnd) ← originalFamily.presentationEndpoints graph marks
+            let .ok firstArgument := RuntimeArgument.ofValue graph 0 firstEnd marks
+              | throwError "the comparison scope control lost its original first endpoint"
+            let .ok secondArgument := RuntimeArgument.ofValue graph 1 secondEnd marks
+              | throwError "the comparison scope control lost its original second endpoint"
+            let otherFamily ← PreparedRequest.forPresentation owners.identities
+              originalFamily.program originalFamily.occurrence original levels context #[] #[]
+              #[firstEnd.role.source, secondEnd.role.source] #[firstArgument, secondArgument] #[]
+              graph marks
+            unless otherFamily.roles.scope != originalFamily.roles.scope do
+              throwError "the comparison scope control reused its original family preparation"
+            let beforeRejection ← transaction.view
+            rejectPreparation do
+              discard <| PreparedPresentationInvocation.prepare request otherFamily fieldPath graph
+                codes marks
+            let evaluate : SourceEvaluation := fun cell _ current bound expression =>
+              kernel.run cell current bound expression
+            let registration : Registration := {
+              operation := row.id.raw, input := row.id.raw, backend := "scope-control" }
+            for wrong in #[otherRequest, rebuilt] do
+              rejectPreparation do
+                discard <| kernel.invokePresentation evaluate wrong transaction registration invocation
+              unless (← kernel.ledger.pendingFor wrong.occurrence transaction.id).isNone do
+                throwError "a rejected presentation preparation reserved a dispatch"
+            unless (← transaction.view).sameRevision beforeRejection &&
+                (← kernel.dispatches.get).isEmpty do
+              throwError "a rejected presentation preparation published or dispatched"
           let sourceId := if inverse then row.target.raw else row.source.raw
           let targetId := if inverse then row.source.raw else row.target.raw
           unless invocation.forms == #[row.id.raw, sourceId] do

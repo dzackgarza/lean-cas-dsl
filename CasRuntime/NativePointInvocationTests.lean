@@ -87,6 +87,64 @@ run_cmd Lean.Elab.Command.liftTermElabM do
               invocation.argument.value == point.value &&
               invocation.argument.associationIds == point.associationIds do
             throwError "the named point action changed its released identity or original argument"
+          do
+            unless invocation.preparation == request.roles.scope do
+              throwError "the named point lost its original complete request preparation"
+            let rejectPreparation (action : MetaM Unit) : MetaM Unit := do
+              let failure : Option Exception ← try
+                action
+                pure none
+              catch error => pure (some error)
+              let some failure := failure
+                | throwError "a named point accepted a different request preparation"
+              unless failure.toMessageData.hasTag (· == requestPreparationMismatchTag) do throw failure
+            let otherPoint ← kernel.run transaction context {} pointSource
+            unless otherPoint.value != point.value do
+              throwError "the named-point scope control merged separate equal operands"
+            let graph ← transaction.view
+            let rebuild := fun (occurrence : RuntimeId .occurrence) (value : ValueBinding) => do
+              let .ok argument := RuntimeArgument.ofValue graph 0 value (← kernel.marks.get)
+                | throwError "the named-point scope control lost its original operand"
+              PreparedRequest.forApplication owners.identities request.program occurrence context
+                callable #[← context.close pointSource] #[argument] #[]
+            let otherRequest ← rebuild (← kernel.ledger.allocate) otherPoint
+            let rebuilt ← rebuild request.occurrence point
+            unless otherRequest.occurrence != request.occurrence &&
+                rebuilt.occurrence == request.occurrence && rebuilt.roles.scope != request.roles.scope do
+              throwError "the named-point scope control lost its independent preparations"
+            let .ok code := graph.callable callable
+              | throwError "the named-point scope control lost its actual callable"
+            let some node := graph.find code.value
+              | throwError "the named-point scope control lost its retained code"
+            let .closure program _ := node.payload.data
+              | throwError "the named-point scope control has no family closure"
+            let some (.family originalFamily fieldPath) := (← kernel.codes.get)[program]?
+              | throwError "the named-point scope control lost its original family"
+            let .primitive boundary levels := originalFamily.action
+              | throwError "the named-point scope control changed its native family"
+            unless originalFamily.application.isNone && originalFamily.scope.isEmpty do
+              throwError "the named-point scope control unexpectedly has declaration parameters"
+            let otherFamily ← PreparedRequest.forBoundary owners.identities originalFamily.program
+              originalFamily.occurrence boundary levels context #[] #[] #[] #[]
+            unless otherFamily.occurrence == originalFamily.occurrence &&
+                otherFamily.roles.scope != originalFamily.roles.scope do
+              throwError "the named-point scope control reused its original family preparation"
+            let beforeRejection ← transaction.view
+            let evaluate : SourceEvaluation := fun cell _ current bound expression =>
+              kernel.run cell current bound expression
+            rejectPreparation do
+              discard <| PreparedPointInvocation.prepare? kernel evaluate request otherFamily
+                fieldPath transaction
+            let registration : Registration := {
+              operation := entry.id.raw, input := entry.id.raw, backend := "scope-control" }
+            for wrong in #[otherRequest, rebuilt] do
+              rejectPreparation do
+                discard <| kernel.invokePoint evaluate wrong transaction registration invocation
+              unless (← kernel.ledger.pendingFor wrong.occurrence transaction.id).isNone do
+                throwError "a rejected named-point preparation reserved a dispatch"
+            unless (← transaction.view).sameRevision beforeRejection &&
+                (← kernel.dispatches.get).isEmpty do
+              throwError "a rejected named-point preparation published or dispatched"
           let graph ← transaction.view
           let actualDomain ← invocation.domain.role.source.inContext context
           unless ← isDefEq actualDomain pointOrigin.domain do

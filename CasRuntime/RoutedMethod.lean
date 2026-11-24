@@ -256,6 +256,7 @@ structure RoutedSourceBoundary where
 /-- Original source data of one applied routed callable, before realization selection. -/
 structure PreparedMethodRoute where
   private mk ::
+  preparation : RoleScope
   family : RoutedMethodFamily
   actions : Array ClosedTerm
   receiverSource : ClosedTerm
@@ -440,6 +441,7 @@ opaque PreparedMethodRoute.prepare (kernel : Kernel) (graph : ValueGraph)
     (captures : Array ValueBinding) : MetaM PreparedMethodRoute := do
   let .primitive (.routedMethod family) levels := original.action
     | throwError "the method demand lost its checked routed family"
+  request.requireFamily original path graph (← kernel.codes.get)
   unless path.isEmpty do
     throwError "a routed method callable acquired an unrelated selected field"
   unless captures.size == original.scope.size &&
@@ -487,8 +489,8 @@ opaque PreparedMethodRoute.prepare (kernel : Kernel) (graph : ValueGraph)
         family actions inputs
     let receiverTerm ← source.inContext context
     let boundaries ← routedSourceBoundaries family.route receiverTerm
-    return ⟨family, ← actions.mapM (fun action => context.close action), source, receiver, boundaries,
-      original.scope ++ request.scope⟩
+    return ⟨request.roles.scope, family, ← actions.mapM (fun action => context.close action),
+      source, receiver, boundaries, original.scope ++ request.scope⟩
 
 /-- One unique grounded realization at one exact source boundary. Only complete selection
 can create this witness; materialization cannot be requested at an arbitrary route offset. -/
@@ -562,6 +564,7 @@ def SelectedMethodBoundary.materialize (selection : SelectedMethodBoundary) (ker
     (evaluateSource : SourceEvaluation) (request : PreparedRequest)
     (transaction : CellTransaction) : MetaM MaterializedMethodBoundary := do
   let route := selection.route
+  request.requirePreparation route.preparation
   let (receiver, source, dependencies) ← materializeSourcePrefix kernel evaluateSource request
     transaction route.family.route route.actions route.receiverSource route.receiver
     route.dependencies selection.boundary.offset
@@ -571,6 +574,7 @@ def SelectedMethodBoundary.materialize (selection : SelectedMethodBoundary) (ker
 the registered method functor, including the zero-parameter and zero-residual cases. -/
 structure PreparedMethodInvocation where
   private mk ::
+  preparation : RoleScope
   registration : Registration
   method : MethodId
   offset : Nat
@@ -606,6 +610,7 @@ source object. An actual source Core receiver retains its own ordinary complete 
 def MaterializedMethodBoundary.invocation (selected : MaterializedMethodBoundary)
     (kernel : Kernel) (evaluateSource : SourceEvaluation) (request : PreparedRequest)
     (transaction : CellTransaction) : MetaM PreparedMethodInvocation := do
+  request.requirePreparation selected.route.preparation
   let .registration registration := selected.selection.realization
     | throwError "a source derivation has no provider method packet"
   let route := selected.route
@@ -636,8 +641,8 @@ def MaterializedMethodBoundary.invocation (selected : MaterializedMethodBoundary
     let views ← InputDescriptorView.collect (← transaction.view) (← kernel.codes.get)
       roots preparedViews
     for descriptorView in views do dependencies := dependencies ++ descriptorView.dependencies
-    return ⟨registration, route.family.entry.id, offset, edges, parameters, selected.receiver,
-      dependencies, views⟩
+    return ⟨route.preparation, registration, route.family.entry.id, offset, edges, parameters,
+      selected.receiver, dependencies, views⟩
 
 /-- The actual input paths inside ConstructionInvocation, including nested constructor and
 classifier action descriptors. Each occurrence retains its own source-ordered authority. -/
@@ -674,6 +679,7 @@ actually transported receiver. This uses the common checked source evaluator and
 def MaterializedMethodBoundary.derivation (selected : MaterializedMethodBoundary)
     (kernel : Kernel) (evaluateSource : SourceEvaluation) (request : PreparedRequest)
     (transaction : CellTransaction) : MetaM (PreparedResponse request) := do
+  request.requirePreparation selected.route.preparation
   let .derivation checked := selected.selection.realization
     | throwError "a provider method packet has no selected source derivation"
   unless selected.boundary.offset == selected.route.family.route.refs.size do

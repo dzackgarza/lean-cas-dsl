@@ -21,8 +21,7 @@ private partial def namedPointRoot? (graph : ValueGraph)
   if path.isEmpty then
     let some descriptorView ← InputDescriptorView.namedMorphism? graph codes value | return none
     let some original := descriptorView.family | return none
-    if original.program != family.program || original.occurrence != family.occurrence then
-      return none
+    if original.roles.scope != family.roles.scope then return none
     return some descriptorView
   let some node := graph.find value.value
     | throwError "the named point callable is outside its visible graph"
@@ -43,6 +42,7 @@ private partial def namedPointRoot? (graph : ValueGraph)
 generalized point. The arrow descriptor is a checked view of its actual input node. -/
 structure PreparedPointInvocation where
   private mk ::
+  preparation : RoleScope
   operation : String
   parameters : Array ValueBinding
   arrow : ValueBinding
@@ -77,6 +77,7 @@ opaque PreparedPointInvocation.prepare? (kernel : Kernel) (evaluateSource : Sour
   let #[argument] ← IO.ofExcept <| (inputs.arguments graph).mapError IO.userError
     | throwError "the named point action lost its complete original operand"
   let codes ← kernel.codes.get
+  request.requireFamily family path graph codes
   let some arrowView ← namedPointRoot? graph codes family callable selected.path
     | throwError "the named point action lost its exact original arrow and field relation"
   withSourceScope request fun context bound => do
@@ -142,8 +143,8 @@ opaque PreparedPointInvocation.prepare? (kernel : Kernel) (evaluateSource : Sour
       forms := forms ++ #[objectId.raw, object.category.raw]
     let roots := arrowView.parameters ++ #[arrowView.binding, domain, source, target, argument]
     let views ← InputDescriptorView.collect graph codes roots #[arrowView]
-    return some ⟨entry.id.raw, arrowView.parameters, arrowView.binding, domain, source,
-      target, argument, forms, family.scope ++ request.scope ++ roots ++
+    return some ⟨request.roles.scope, entry.id.raw, arrowView.parameters, arrowView.binding,
+      domain, source, target, argument, forms, family.scope ++ request.scope ++ roots ++
         views.flatMap (·.dependencies), views⟩
 
 /-- Original roots in the released seven-field PointInvocation packet. Nested named-arrow

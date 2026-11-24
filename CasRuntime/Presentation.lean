@@ -14,6 +14,7 @@ open Lean Meta CasCompiler CasCatalogue CasCatalogue.Backend
 captures and the original point remain distinct positions even when their data are equal. -/
 structure PreparedPresentationInvocation where
   private mk ::
+  preparation : RoleScope
   operation : String
   parameters : Array ValueBinding
   inverse : Bool
@@ -27,8 +28,10 @@ structure PreparedPresentationInvocation where
 provider. The native carrier path fixes direction; the source endpoint alone supplies endpoint
 forms. The complete request's own form is a peer, with no priority over an endpoint form. -/
 opaque PreparedPresentationInvocation.prepare (request family : PreparedRequest)
-    (path : Array FieldLayout) (graph : ValueGraph) (marks : Array ValueBinding) :
+    (path : Array FieldLayout) (graph : ValueGraph)
+    (codes : Std.HashMap (RuntimeId .program) ClosureCode) (marks : Array ValueBinding) :
     MetaM PreparedPresentationInvocation := do
+  request.requireFamily family path graph codes
   let .primitive (.presentation selected) _ := family.action
     | throwError "a presentation invocation lost its original named family"
   let some inverse := selected.direction? (path.map (·.projection))
@@ -64,8 +67,8 @@ opaque PreparedPresentationInvocation.prepare (request family : PreparedRequest)
       throwError "the presentation source form is incompatible: {reason}"
     return some id.raw
   let forms := #[selected.entry.id.raw] ++ endpointForm.toArray
-  return ⟨selected.entry.id.raw, parameters, inverse, source, target, argument, forms,
-    family.scope ++ request.scope⟩
+  return ⟨request.roles.scope, selected.entry.id.raw, parameters, inverse, source, target,
+    argument, forms, family.scope ++ request.scope⟩
 
 /-- Exact roots in the published five-field packet. Input references are rooted in the raw
 invocation argument packet, including its args array; no dependentContext paths are reused. -/

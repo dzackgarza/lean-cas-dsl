@@ -284,9 +284,18 @@ run_cmd do
                 unless rebuilt.occurrence == request.occurrence &&
                     rebuilt.roles.scope != request.roles.scope do
                   throwError "the property control did not make a distinct preparation"
-                failWith "the selected property belongs to a different original request preparation" do
+                let rejectPreparation (action : MetaM Unit) : MetaM Unit := do
+                  let failure : Option Exception ← try
+                    action
+                    pure none
+                  catch error => pure (some error)
+                  let some failure := failure
+                    | throwError "a property accepted a different request preparation"
+                  unless failure.toMessageData.hasTag (· == requestPreparationMismatchTag) do
+                    throw failure
+                rejectPreparation do
                   discard <| selection.materialize session.kernel evaluate rebuilt transaction
-                failWith "the property invocation belongs to a different original request preparation" do
+                rejectPreparation do
                   discard <| session.kernel.invokeProperty evaluate rebuilt transaction invocation
               let graph ← transaction.view
               let .ok (encoded, packet) := invocation.encode graph connection.generation

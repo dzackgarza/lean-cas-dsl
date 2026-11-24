@@ -258,6 +258,75 @@ run_cmd liftTermElabM do
             invocation.parameters.size == expected.size &&
             sameExactInput invocation.receiver selected.receiver do
           throwError "the method packet changed its residual suffix or selected receiver"
+        do
+          unless route.preparation == request.roles.scope &&
+              invocation.preparation == request.roles.scope do
+            throwError "the method lost its original complete request preparation"
+          let rejectPreparation (action : MetaM Unit) : MetaM Unit := do
+            let failure : Option Exception ← try
+              action
+              pure none
+            catch error => pure (some error)
+            let some failure := failure
+              | throwError "a method accepted a different request preparation"
+            unless failure.toMessageData.hasTag (· == requestPreparationMismatchTag) do throw failure
+          let otherTerm ← readTerm session "|S3again|"
+          let (otherRequest, otherRoute) ← prepare session transaction otherTerm
+          unless otherRequest.occurrence != request.occurrence &&
+              otherRoute.family.entry.id == route.family.entry.id &&
+              sameInput second otherRoute.receiver &&
+              otherRoute.receiver.value != route.receiver.value do
+            throwError "the method scope control lost its separate equal receiver"
+          let rebuilt ← withSourceScope request fun context _ => do
+            let .apply callable arguments values := request.action
+              | throwError "the method scope control lost its original application"
+            let graph ← transaction.view
+            let marks ← session.kernel.marks.get
+            let mut actual := #[]
+            for value in values, index in [:values.size] do
+              if let some value := value then
+                let .ok argument := RuntimeArgument.ofValue graph index value marks
+                  | throwError "the method scope control lost an original argument"
+                actual := actual.push argument
+            let mut parameters := #[]
+            for (entry, value) in request.environment.context.entries.zip request.environment.values do
+              if let some value := value then
+                let .ok parameter := RuntimeParameter.ofValue graph entry.id value
+                  | throwError "the method scope control lost an original capture"
+                parameters := parameters.push parameter
+            PreparedRequest.forApplication session.kernel.ledger.owners.identities
+              request.program request.occurrence context callable arguments actual parameters
+          unless rebuilt.occurrence == request.occurrence &&
+              rebuilt.roles.scope != request.roles.scope do
+            throwError "the method scope control did not rebuild the same occurrence"
+          let graph ← transaction.view
+          let .apply otherCallable _ _ := otherRequest.action
+            | throwError "the other method lost its original callable"
+          let .ok otherCode := graph.callable otherCallable
+            | throwError "the other method callable is outside its graph"
+          let some otherNode := graph.find otherCode.value
+            | throwError "the other method lost its retained code"
+          let .closure otherProgram otherCaptures := otherNode.payload.data
+            | throwError "the other method is not an original family closure"
+          let some (.family otherFamily otherPath) := (← session.kernel.codes.get)[otherProgram]?
+            | throwError "the other method lost its original family preparation"
+          let beforeRejection ← transaction.view
+          let beforeCalls ← calls.get
+          rejectPreparation do
+            discard <| PreparedMethodRoute.prepare session.kernel graph request otherFamily
+              otherPath otherCaptures
+          for wrong in #[otherRequest, rebuilt] do
+            rejectPreparation do
+              discard <| selection.materialize session.kernel ordinary wrong transaction
+            rejectPreparation do
+              discard <| selected.invocation session.kernel (evaluate session.kernel) wrong transaction
+            rejectPreparation do
+              discard <| session.kernel.invokeMethod (evaluate session.kernel) wrong transaction invocation
+            unless (← session.kernel.ledger.pendingFor wrong.occurrence transaction.id).isNone do
+              throwError "a rejected method preparation reserved a dispatch"
+          unless (← transaction.view).sameRevision beforeRejection &&
+              (← calls.get) == beforeCalls && (← session.kernel.dispatches.get).isEmpty do
+            throwError "a rejected method preparation evaluated or published an input"
         let registry : RegistryState := { toSemanticState := ← semanticState }
         let some imageForm := intermediate.forms.find? (fun input =>
             match registry.form? input with

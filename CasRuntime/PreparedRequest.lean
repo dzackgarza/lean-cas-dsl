@@ -41,6 +41,17 @@ structure PreparedRequest where
 opaque PreparedRequest.withSelection (request : PreparedRequest) (selection : Option Name) :
     PreparedRequest := { request with selection }
 
+/-- A prepared invocation belongs to one complete request scope, including its fresh
+preparation identity when the source occurrence is rebuilt. -/
+def requestPreparationMismatchTag : Name := `CasRuntime.requestPreparationMismatch
+
+/-- Require the exact independently retained request before materialization or dispatch. -/
+opaque PreparedRequest.requirePreparation (request : PreparedRequest) (scope : RoleScope) :
+    MetaM Unit := do
+  unless request.roles.scope == scope do
+    throwError (MessageData.tagged requestPreparationMismatchTag
+      m!"the invocation belongs to a different original request preparation")
+
 def PreparedRequest.reference (request : PreparedRequest) : Option ComputationRef :=
   match request.action with
   | .primitive boundary _ => boundary.reference

@@ -111,7 +111,7 @@ partial def Kernel.reach (kernel : Kernel) (evaluateSource : SourceEvaluation) (
   let role := "/".intercalate (path.map (·.projection.toString)).toList
   if let .presentation _ := boundary then
     let invocation ← PreparedPresentationInvocation.prepare request family path (← transaction.view)
-      (← kernel.marks.get)
+      (← kernel.codes.get) (← kernel.marks.get)
     let registration ← selectLift kernel.manifest invocation.operation invocation.forms
     return ← kernel.invokePresentation evaluateSource request transaction registration invocation
   let some reference := boundary.reference
