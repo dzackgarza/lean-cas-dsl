@@ -257,4 +257,74 @@ run_cmd liftTermElabM do
           backward.extract 0 2 == forward && returned backward[2]! do
         throwError "the lift ports did not receive their earlier outputs: {hom} {forward} {backward}"
     finally liftM (m := IO) session.close
+
+    -- Freeze availability before reading the same original lift source. The object port stays
+    -- available: neither a missing nor an ambiguous hom may compute that preceding field.
+    let .ok originalBackends := manifest.getObjValAs? (Array Json) "backends"
+      | throwError "the original lift manifest lost its backend declarations"
+    let .ok originalRegistrations := manifest.getObjValAs? (Array Json) "registrations"
+      | throwError "the original lift manifest lost its registrations"
+    let some objectRegistration := originalRegistrations.find? fun entry =>
+        (entry.getObjValAs? String "operation").toOption == some "lift.bilin_module.restrict#obj"
+      | throwError "the original lift object registration is missing"
+    let some homRegistration := originalRegistrations.find? fun entry =>
+        (entry.getObjValAs? String "operation").toOption == some "lift.bilin_module.restrict#hom"
+      | throwError "the original lift hom registration is missing"
+    let otherBackend := Json.mkObj [("name", "overlap-peer"), ("command", python.toString),
+      ("args", .arr (#[toJson (root / "scripts/probes/kernel_lift_peer.py").toString,
+        toJson log.toString] ++ operations.map toJson))]
+    let otherHom := Json.mkObj [("operation", "lift.bilin_module.restrict#hom"),
+      ("input", toJson (input "lift.bilin_module.restrict#hom")), ("backend", "overlap-peer")]
+    let overlap := Json.mkObj [("backends", .arr (originalBackends.push otherBackend)),
+      ("registrations", .arr (originalRegistrations.push otherHom))]
+    for (name, controlManifest, enabled, expected) in #[
+        ("missing", manifest, #[objectRegistration], "NoImplementation"),
+        ("multiple", overlap, #[objectRegistration, homRegistration, otherHom],
+          "AmbiguousRealization")] do
+      let controlPath := root / ".tmp" / s!"kernel-lift-profile-{name}.json"
+      liftM (m := IO) <| IO.FS.writeFile controlPath controlManifest.compress
+      let configuration := Json.mkObj [
+        ("format", "cas-realization-profile/1"), ("id", toJson s!"lift-{name}"),
+        ("default", "all"), ("rules", .arr #[Json.mkObj [
+          ("target", Json.mkObj [("kind", "lift"), ("id", "lift.bilin_module.restrict")]),
+          ("primitive_registrations", Json.mkObj [("mode", "only"), ("entries", .arr enabled)]),
+          ("derivations", Json.mkObj [("mode", "all")])]])]
+      let before ← liftM (m := IO) <| IO.FS.readFile log
+      let mut filtered ← KernelSession.start (some controlPath) (profile := some configuration)
+      try
+        unless filtered.kernel.rejected.isEmpty && filtered.kernel.profile.id == s!"lift-{name}" do
+          throwError "the lift control did not freeze its exact startup manifest and profile"
+        let objectPort ← selectLift filtered.kernel.profile filtered.kernel.manifest
+          (.lift ⟨"lift.bilin_module.restrict"⟩) "lift.bilin_module.restrict#obj"
+          #["lift.bilin_module.restrict#input"]
+        unless objectPort.operation == "lift.bilin_module.restrict#obj" &&
+            objectPort.backend == "peer" do
+          throwError "the original preceding lift field was not available"
+        for text in #[
+            "let Q := ℚ in CommutativeRings",
+            "let Qring := view Q along «fun.commutative_rings.ring»()",
+            "let scalarModule := RegularModule(Qring)",
+            "let X := DegeneratePlane()",
+            "let sourceModule := view X along «fun.bilin_module.forget»(ℚ, ℚ)",
+            "let i0(t) := (2*t, -2*t) in scalarModule → sourceModule",
+            "let first := lift(X) along «lift.bilin_module.restrict»(ℚ, ℚ) with i0 using proof(CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneLifts.kernelInclusion_mono)"] do
+          let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
+            | .ok statement => pure statement
+            | .error error => throwError "the original lift setup did not parse: {error}"
+          let run ← withoutErrToSorry <| filtered.run ⟨statement⟩
+          unless run.outcome.kind == "holds" do
+            throwError "the original lift setup failed: {text}: {run.outcome.detail}"
+          filtered := run.session
+        let .ok statement := Parser.runParserCategory (← getEnv) `cas_stmt "let i1 := first.hom()"
+          | throwError "the original lift hom demand did not parse"
+        let run ← withoutErrToSorry <| filtered.run ⟨statement⟩
+        unless run.outcome.kind == "gap" &&
+            (run.outcome.detail.splitOn expected).length > 1 &&
+            (run.outcome.detail.splitOn "lift.bilin_module.restrict#hom").length > 1 do
+          throwError "the filtered original hom demand changed its failure: {run.outcome.detail}"
+        filtered := run.session
+        unless (← filtered.kernel.dispatches.get).isEmpty &&
+            (← liftM (m := IO) <| IO.FS.readFile log) == before do
+          throwError "the missing or ambiguous lift hom dispatched a preceding field"
+      finally liftM (m := IO) filtered.close
   finally setEnv environment

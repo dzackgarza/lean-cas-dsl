@@ -100,19 +100,23 @@ def installedManifest : IO (Option System.FilePath) := do
     | none => pure ((".lake" / "packages" / "cas_leaves" : System.FilePath) / manifestFile)
   return if ← path.pathExists then some path else none
 
-/-- Start a session on the named manifest, or on the installed one. The realization profile
-is the file named by `CAS_REALIZATION_PROFILE` (execution contract v2 §5.3).
+/-- Start a session on the named manifest, or on the installed one. Freeze the explicit profile
+configuration, or the file named by `CAS_REALIZATION_PROFILE` when it is omitted
+(execution contract v2 §5.3).
 The caller owns the Environment that holds the runtime snapshot. -/
 opaque KernelSession.start (manifest : Option System.FilePath := none)
-    (computationOnly : Bool := false) (timeoutMs : UInt32 := 600000) : MetaM KernelSession := do
+    (computationOnly : Bool := false) (timeoutMs : UInt32 := 600000)
+    (profile : Option Json := none) : MetaM KernelSession := do
   let manifest ← match manifest with
     | some path => pure (some path)
     | none => installedManifest
-  let profile ← match ← IO.getEnv "CAS_REALIZATION_PROFILE" with
-    | none => pure none
-    | some path => do
-      let json ← IO.ofExcept <| (Json.parse (← IO.FS.readFile path)).mapError IO.userError
-      pure (some json)
+  let profile ← match profile with
+    | some configuration => pure (some configuration)
+    | none => match ← IO.getEnv "CAS_REALIZATION_PROFILE" with
+      | none => pure none
+      | some path => do
+        let json ← IO.ofExcept <| (Json.parse (← IO.FS.readFile path)).mapError IO.userError
+        pure (some json)
   let owners ← OwnerRegistry.new
   discard <| SessionSnapshot.initialize owners
   return ⟨← Kernel.load owners manifest profile timeoutMs,

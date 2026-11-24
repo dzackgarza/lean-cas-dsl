@@ -95,7 +95,7 @@ partial def Kernel.reach (kernel : Kernel) (evaluateSource : SourceEvaluation) (
     unless path.isEmpty && parameters.isEmpty && request.occurrence == family.occurrence do
       throwError "a property observation lost its complete original primitive request"
     let route ← PreparedPropertyRoute.prepare kernel (← transaction.view) request
-    let selected ← route.select kernel.manifest
+    let selected ← route.select kernel.profile kernel.manifest
     let invocation ← selected.materialize kernel evaluateSource request transaction
     return ← kernel.invokeProperty evaluateSource request transaction invocation
   if let .routedMethod _ := boundary then
@@ -110,10 +110,11 @@ partial def Kernel.reach (kernel : Kernel) (evaluateSource : SourceEvaluation) (
       | .derivation _ =>
         selected.derivation kernel evaluateSource request transaction
   let role := "/".intercalate (path.map (·.projection.toString)).toList
-  if let .presentation _ := boundary then
+  if let .presentation selected := boundary then
     let invocation ← PreparedPresentationInvocation.prepare request family path (← transaction.view)
       (← kernel.codes.get) (← kernel.marks.get)
-    let registration ← selectLift kernel.manifest invocation.operation invocation.forms
+    let registration ← selectLift kernel.profile kernel.manifest (.presentation selected.entry.id)
+      invocation.operation invocation.forms
     return ← kernel.invokePresentation evaluateSource request transaction registration invocation
   let some reference := boundary.reference
     | let .lift lift := boundary
@@ -123,9 +124,9 @@ partial def Kernel.reach (kernel : Kernel) (evaluateSource : SourceEvaluation) (
         | throwError "internal: a lift computation was applied without a selected field"
       let address := s!"{lift.lift.raw}#{field.projection.getString!}"
       let forms ← withSourceScope request fun context _ => inputForms lift.lift.raw context arguments
+      let registration ← selectLift kernel.profile kernel.manifest (.lift lift.lift) address forms
       let earlier ← kernel.earlierOutputs evaluateSource request transaction family field arguments
-      kernel.invokeRegistration evaluateSource request transaction (← selectLift kernel.manifest address forms) role
-        parameters earlier
+      kernel.invokeRegistration evaluateSource request transaction registration role parameters earlier
   let point ← PreparedPointInvocation.prepare? kernel evaluateSource request family path transaction
   let address := point.map (·.operation) |>.getD (actionAddress reference path)
   let forms ← match point with

@@ -65,10 +65,10 @@ structure SelectedPropertyBoundary where
   boundary : RoutedSourceBoundary
   registration : Registration
 
-def PreparedPropertyRoute.select (route : PreparedPropertyRoute) (manifest : Manifest) :
-    MetaM SelectedPropertyBoundary := do
-  let (offset, registration) ← selectRegistrationBoundary manifest route.family.entry.id.raw
-    (route.boundaries.map (·.forms))
+def PreparedPropertyRoute.select (route : PreparedPropertyRoute) (profile : RealizationProfile)
+    (manifest : Manifest) : MetaM SelectedPropertyBoundary := do
+  let (offset, registration) ← selectRegistrationBoundary profile manifest
+    (.property route.family.entry.id) route.family.entry.id.raw (route.boundaries.map (·.forms))
   let some boundary := route.boundaries[offset]?
     | throwError "the selected property boundary is outside its original route"
   unless boundary.offset == offset && offset <= route.family.route.refs.size do

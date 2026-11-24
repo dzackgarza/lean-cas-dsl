@@ -191,15 +191,53 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           let (installed, rejected) ← admitManifest (← manifest #[sourceId, targetId])
           unless rejected.isEmpty && installed.registrations.size == 2 do
             throwError "the original two presentation endpoint registrations were rejected"
-          unless (← selectLift installed invocation.operation invocation.forms).input == sourceId do
+          let profileTarget := ProfileTarget.presentation row.id
+          let defaultProfile ← RealizationProfile.prepare installed none
+          unless (← selectLift defaultProfile installed profileTarget
+              invocation.operation invocation.forms).input == sourceId do
             throwError "the opposite endpoint became an eligible comparison input"
           let (overlap, rejected) ← admitManifest (← manifest #[sourceId, row.id.raw])
           unless rejected.isEmpty do throwError "the complete presentation request form was rejected"
           failureAt .ambiguousRealization do
-            discard <| selectLift overlap invocation.operation invocation.forms
+            discard <| selectLift defaultProfile overlap profileTarget invocation.operation invocation.forms
           let (empty, _) ← admitManifest (← manifest #[])
           failureAt .noImplementation do
-            discard <| selectLift empty invocation.operation invocation.forms
+            discard <| selectLift defaultProfile empty profileTarget invocation.operation invocation.forms
+
+          let freeze := fun (installed : Manifest) (entries : Array Registration) =>
+            RealizationProfile.prepare installed (some (Json.mkObj [
+              ("format", "cas-realization-profile/1"), ("id", "presentation-control"),
+              ("default", "all"), ("rules", .arr #[Json.mkObj [
+                ("target", Json.mkObj [("kind", "presentation"), ("id", toJson row.id.raw)]),
+                ("primitive_registrations", Json.mkObj [("mode", "only"),
+                  ("entries", .arr (entries.map fun entry => Json.mkObj [
+                    ("operation", toJson entry.operation), ("input", toJson entry.input),
+                    ("backend", toJson entry.backend)]))]),
+                ("derivations", Json.mkObj [("mode", "only"), ("ids", .arr #[])])]])]))
+          let excluded ← freeze overlap #[]
+          failureAt .noImplementation do
+            discard <| selectLift excluded overlap profileTarget invocation.operation invocation.forms
+          let sourceOnly ← freeze overlap #[overlap.registrations[0]!]
+          unless (← selectLift sourceOnly overlap profileTarget
+              invocation.operation invocation.forms) == overlap.registrations[0]! do
+            throwError "the presentation profile replaced its exact selected source registration"
+          let completeOnly ← freeze overlap #[overlap.registrations[1]!]
+          unless (← selectLift completeOnly overlap profileTarget
+              invocation.operation invocation.forms) == overlap.registrations[1]! do
+            throwError "the presentation profile lost its complete original request registration"
+          let oppositeOnly ← freeze installed #[installed.registrations[1]!]
+          failureAt .noImplementation do
+            discard <| selectLift oppositeOnly installed profileTarget
+              invocation.operation invocation.forms
+          let multiple ← freeze overlap overlap.registrations
+          failureAt .ambiguousRealization do
+            discard <| selectLift multiple overlap profileTarget invocation.operation invocation.forms
+          let permuted ← freeze overlap overlap.registrations.reverse
+          unless multiple.normalized == permuted.normalized &&
+              multiple.sha256 == permuted.sha256 && multiple.sha256.length == 64 do
+            throwError "presentation profile normalization changed exact set identity"
+          unless (← kernel.dispatches.get).isEmpty do
+            throwError "presentation profile selection dispatched an implementation"
 
           let identity : DispatchIdentity := {
             manifestDigest := "presentation-scope-control", profileDigest := "no-providers",

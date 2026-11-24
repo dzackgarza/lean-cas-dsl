@@ -4,6 +4,7 @@ public import LeanCategories.Catalogue.Registry.Computation
 public import CasContract.Registration
 public import CasContract.Failure
 public import CasRuntime.GroundedRealizations
+import CasRuntime.ManifestAdmission
 import CasContract.Port
 
 @[expose] public section
@@ -20,8 +21,18 @@ private def Selection.contains [DecidableEq α] : Selection α → α → Bool
   | .all, _ => true
   | .only entries, entry => entries.contains entry
 
+/-- The source-owned family whose computational availability a runtime profile filters.
+The additional families keep their existing registry identities and primitive ports; they do
+not extend ComputationRef or publish mathematical derivations. -/
+inductive ProfileTarget
+  | computation (reference : ComputationRef)
+  | lift (id : LiftId)
+  | presentation (id : NaturalTransformationId)
+  | property (id : PropertyId)
+  deriving DecidableEq, Repr
+
 private structure ProfileRule where
-  target : ComputationRef
+  target : ProfileTarget
   primitives : Selection Registration
   derivations : Selection ComputationDerivationId
 
@@ -43,23 +54,29 @@ private def text (json : Json) (key : String) : Except String String := do
   if value.isEmpty then throw s!"realization profile: {key} must be nonempty"
   return value
 
-private def targetJson : ComputationRef → Json
-  | .operation id => Json.mkObj [("kind", toJson "operation"), ("id", toJson id.raw)]
-  | .functor id => Json.mkObj [("kind", toJson "functor"), ("id", toJson id.raw)]
-  | .method id => Json.mkObj [("kind", toJson "method"), ("id", toJson id.raw)]
-  | .construction id => Json.mkObj [("kind", toJson "construction"), ("id", toJson id.raw)]
-  | .morphism id => Json.mkObj [("kind", toJson "morphism"), ("id", toJson id.raw)]
+private def targetJson : ProfileTarget → Json
+  | .computation (.operation id) => Json.mkObj [("kind", toJson "operation"), ("id", toJson id.raw)]
+  | .computation (.functor id) => Json.mkObj [("kind", toJson "functor"), ("id", toJson id.raw)]
+  | .computation (.method id) => Json.mkObj [("kind", toJson "method"), ("id", toJson id.raw)]
+  | .computation (.construction id) => Json.mkObj [("kind", toJson "construction"), ("id", toJson id.raw)]
+  | .computation (.morphism id) => Json.mkObj [("kind", toJson "morphism"), ("id", toJson id.raw)]
+  | .lift id => Json.mkObj [("kind", toJson "lift"), ("id", toJson id.raw)]
+  | .presentation id => Json.mkObj [("kind", toJson "presentation"), ("id", toJson id.raw)]
+  | .property id => Json.mkObj [("kind", toJson "property"), ("id", toJson id.raw)]
 
-private def parseTarget (json : Json) : Except String ComputationRef := do
+private def parseTarget (json : Json) : Except String ProfileTarget := do
   fields #["kind", "id"] json
   let id ← text json "id"
   match ← text json "kind" with
-  | "operation" => return .operation ⟨id⟩
-  | "functor" => return .functor ⟨id⟩
-  | "method" => return .method ⟨id⟩
-  | "construction" => return .construction ⟨id⟩
-  | "morphism" => return .morphism ⟨id⟩
-  | _ => throw "realization profile: unknown computation target kind"
+  | "operation" => return .computation (.operation ⟨id⟩)
+  | "functor" => return .computation (.functor ⟨id⟩)
+  | "method" => return .computation (.method ⟨id⟩)
+  | "construction" => return .computation (.construction ⟨id⟩)
+  | "morphism" => return .computation (.morphism ⟨id⟩)
+  | "lift" => return .lift ⟨id⟩
+  | "presentation" => return .presentation ⟨id⟩
+  | "property" => return .property ⟨id⟩
+  | _ => throw "realization profile: unknown availability target kind"
 
 /-- A registration's record: its triple, and its declared preferred routes when it has any
 (contract api/manifest.md). -/
@@ -147,6 +164,16 @@ def sha256Hex (text : String) : IO String := do
     throw <| IO.userError "SHA-256 returned an invalid digest"
   return digest
 
+/-- Check the original published address through the same grammar as manifest and child-call
+admission. In particular, lift ports retain their exact published field component. -/
+private def ProfileTarget.containsAddress (target : ProfileTarget) (state : SemanticState)
+    (address : String) : Bool :=
+  match target with
+  | .computation reference => publishedFamily? state address == some reference
+  | .lift id => (publishedLift? state address).any (·.1.id == id)
+  | .presentation id => (publishedPresentation? state address).any (·.id == id)
+  | .property id => (publishedProperty? state address).any (·.id == id)
+
 /-- Validate exact published targets, installed triples and checked target-specific derivations.
 Normalize set order once and retain the SHA-256 of that immutable configuration.
 Reuse: ComputationRef.declaration, checkedComputationDerivations, the released registration
@@ -158,13 +185,27 @@ opaque RealizationProfile.prepare (manifest : Manifest) (configuration : Option 
     | some json => IO.ofExcept (parseProfile json)
   let state ← semanticState
   for rule in rules do
-    discard <| rule.target.declaration state
+    match rule.target with
+    | .computation reference => discard <| reference.declaration state
+    | .lift id =>
+      unless (publishedLift? state s!"{id.raw}#obj").isSome do
+        throwError "realization profile: unregistered callable lift {id.raw}"
+    | .presentation id =>
+      unless (publishedPresentation? state id.raw).isSome do
+        throwError "realization profile: unregistered presentation {id.raw}"
+    | .property id =>
+      unless (publishedProperty? state id.raw).isSome do
+        throwError "realization profile: unregistered property {id.raw}"
     if let .only entries := rule.primitives then
       for entry in entries do
         unless manifest.registrations.contains entry do
           throwError "realization profile: unknown primitive registration {repr entry}"
+        unless rule.target.containsAddress state entry.operation do
+          throwError "realization profile: wrong-target primitive registration {repr entry}"
     if let .only ids := rule.derivations then
-      let checked ← checkedComputationDerivations rule.target
+      let checked ← match rule.target with
+        | .computation reference => checkedComputationDerivations reference
+        | _ => pure #[]
       for id in ids do
         unless checked.any (·.entry.id == id) do
           throwError "realization profile: unknown or wrong-target derivation {id.raw}"
@@ -172,16 +213,21 @@ opaque RealizationProfile.prepare (manifest : Manifest) (configuration : Option 
   return ⟨id, normalized, ← sha256Hex normalized.compress, rules⟩
 
 /-- Apply the frozen primitive set for this exact source target; unlisted targets allow all. -/
-opaque RealizationProfile.allowsPrimitive (profile : RealizationProfile)
-    (target : ComputationRef) (registration : Registration) : Bool :=
+opaque RealizationProfile.allowsRegistration (profile : RealizationProfile)
+    (target : ProfileTarget) (registration : Registration) : Bool :=
   match profile.rules.find? (·.target == target) with
   | none => true
   | some rule => rule.primitives.contains registration
 
+/-- Existing computation families retain the same profile selection interface. -/
+opaque RealizationProfile.allowsPrimitive (profile : RealizationProfile)
+    (target : ComputationRef) (registration : Registration) : Bool :=
+  profile.allowsRegistration (.computation target) registration
+
 /-- Apply the frozen derivation set without changing the checked mathematical plan. -/
 opaque RealizationProfile.allowsDerivation (profile : RealizationProfile)
     (entry : ComputationDerivationEntry) : Bool :=
-  match profile.rules.find? (·.target == entry.target) with
+  match profile.rules.find? (·.target == .computation entry.target) with
   | none => true
   | some rule => rule.derivations.contains entry.id
 
@@ -194,13 +240,15 @@ def referenceId : ComputationRef → String
 
 /-- Select only among exact registrations at all source boundaries of an interface with no
 published derivation family. Repeated occurrences at different boundaries remain distinct. -/
-def selectRegistrationBoundary (manifest : Manifest) (address : String)
-    (boundaries : Array (Array String)) : MetaM (Nat × Registration) := do
+def selectRegistrationBoundary (profile : RealizationProfile) (manifest : Manifest)
+    (target : ProfileTarget) (address : String) (boundaries : Array (Array String)) :
+    MetaM (Nat × Registration) := do
   if boundaries.isEmpty then throwError "registration selection requires a source boundary"
   let eligible := (boundaries.mapIdx fun index forms =>
     (manifest.registrations.filter fun registration =>
       registration.operation == address && forms.contains registration.input &&
-        manifest.backends.any (·.name == registration.backend)).map (index, ·)).flatten
+        manifest.backends.any (·.name == registration.backend) &&
+        profile.allowsRegistration target registration).map (index, ·)).flatten
   let forms := boundaries.flatten
   match eligible with
   | #[registration] => return registration
@@ -208,9 +256,9 @@ def selectRegistrationBoundary (manifest : Manifest) (address : String)
   | _ => throwStratum .ambiguousRealization m!"{address} on {forms}"
 
 /-- A lift-port or presentation has one complete input boundary and no derivation family. -/
-def selectLift (manifest : Manifest) (address : String) (forms : Array String) :
-    MetaM Registration := do
-  return (← selectRegistrationBoundary manifest address #[forms]).2
+def selectLift (profile : RealizationProfile) (manifest : Manifest)
+    (target : ProfileTarget) (address : String) (forms : Array String) : MetaM Registration := do
+  return (← selectRegistrationBoundary profile manifest target address #[forms]).2
 
 inductive Realization
   | registration (selected : Registration)

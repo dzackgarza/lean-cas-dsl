@@ -269,10 +269,39 @@ run_cmd do
                   route.family.classifier.id == ClassifierId.magmasCommutative do
                 throwError "the abelian property changed its complete source forms or classifier"
               failAt .noImplementation do
-                discard <| route.select session.kernel.manifest
+                discard <| route.select session.kernel.profile session.kernel.manifest
               failAt .ambiguousRealization do
-                discard <| route.select (← installed #["cat.groups", "obj.groups.cyclic"])
-              let selection ← route.select (← installed #["cat.groups"])
+                discard <| route.select session.kernel.profile (← installed #["cat.groups", "obj.groups.cyclic"])
+              let selection ← route.select session.kernel.profile (← installed #["cat.groups"])
+              let overlap ← installed #["cat.groups", "obj.groups.cyclic"]
+              let freeze := fun (entries : Array Registration) =>
+                RealizationProfile.prepare overlap (some (Json.mkObj [
+                  ("format", "cas-realization-profile/1"), ("id", "property-control"),
+                  ("default", "all"), ("rules", .arr #[Json.mkObj [
+                    ("target", Json.mkObj [("kind", "property"), ("id", toJson expectedId)]),
+                    ("primitive_registrations", Json.mkObj [("mode", "only"),
+                      ("entries", .arr (entries.map fun entry => Json.mkObj [
+                        ("operation", toJson entry.operation), ("input", toJson entry.input),
+                        ("backend", toJson entry.backend)]))]),
+                    ("derivations", Json.mkObj [("mode", "only"), ("ids", .arr #[])])]])]))
+              let excluded ← freeze #[]
+              failAt .noImplementation do
+                discard <| route.select excluded overlap
+              let unique ← freeze #[overlap.registrations[0]!]
+              let filtered ← route.select unique overlap
+              unless filtered.boundary.offset == selection.boundary.offset &&
+                  filtered.registration == selection.registration do
+                throwError "the property profile changed the original selected source boundary"
+              let namedOnly ← freeze #[overlap.registrations[1]!]
+              let named ← route.select namedOnly overlap
+              unless named.boundary.offset == originalBoundary.offset &&
+                  named.registration == overlap.registrations[1]! do
+                throwError "the property profile changed its exact selected named form"
+              let multiple ← freeze overlap.registrations
+              failAt .ambiguousRealization do
+                discard <| route.select multiple overlap
+              unless (← session.kernel.dispatches.get).isEmpty do
+                throwError "property profile selection dispatched an implementation"
               let evaluate : SourceEvaluation := fun cell _ context bound expression =>
                 session.kernel.run cell context bound expression
               let invocation ← selection.materialize session.kernel evaluate request transaction

@@ -60,6 +60,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       !frozen.allowsPrimitive cardinality registrations[1]! &&
       frozen.allowsDerivation first.entry && !frozen.allowsDerivation second.entry do
     throwError "the frozen profile changed exact selected registration or derivation identities"
+  unless frozen.normalized == configuration #[primitiveRule, derivationRule] do
+    throwError "the existing computation profile changed its normalized encoding"
   let permuted ← RealizationProfile.prepare manifest
     (some (configuration #[derivationRule, primitiveRule]))
   unless frozen.sha256 == permuted.sha256 && frozen.normalized == permuted.normalized &&
@@ -89,3 +91,5 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   rejected manifest (configuration #[rule (target "operation" "op.rings.mul") all
     (only "ids" #[toJson (other.raw ++ ".unregistered")])])
   rejected manifest (configuration #[rule (target "operation" "unregistered") all all])
+  for kind in #["lift", "presentation", "property"] do
+    rejected manifest (configuration #[rule (target kind "meth.cardinality") all all])
