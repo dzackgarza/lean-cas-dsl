@@ -522,3 +522,115 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throwError "an outer occurrence mark bypassed the wrapped source object"
       unless (← failure.toMessageData.toString).startsWith
           "the runtime argument does not retain its specified source value" do throw failure
+
+-- A field family may retain an original ambient source parameter even when the consuming
+-- native type spells its closed specialization directly. That validation must not select a
+-- different named or marked occurrence, or discard the captured original parameter.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let empty ← ContextTelescope.capture #[]
+  let natural := mkConst ``Nat
+  let seven := mkNatLit 7
+  let pairTerm ← mkAppM ``Prod.mk #[seven, seven]
+  let pairType ← inferType pairTerm
+  let scalarRole ← SourceLayout.ofTerm (← empty.close seven)
+  let pairRole ← SourceLayout.ofTerm (← empty.close pairTerm)
+  let owners ← liftM (m := IO) OwnerRegistry.new
+  let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+  let occurrence ← liftM (m := BaseIO) (owners.identities.fresh .occurrence)
+  let (graph, firstWidth) ← liftM (m := IO) <|
+    (ValueGraph.empty owners.identities).stage owners.identities
+      { program, occurrence, role := scalarRole, parameters := #[] } (.portable "7".toUTF8)
+  let (graph, secondWidth) ← liftM (m := IO) <| graph.stage owners.identities
+    { program, occurrence, role := scalarRole, parameters := #[] } (.portable "7".toUTF8)
+  let (graph, number) ← liftM (m := IO) <| graph.stage owners.identities
+    { program, occurrence, role := scalarRole, parameters := #[] } (.portable "7".toUTF8)
+  let (graph, firstObject) ← liftM (m := IO) <| graph.stage owners.identities
+    { program, occurrence, role := pairRole, parameters := #[] }
+    (.product #[firstWidth, firstWidth])
+  let (graph, secondObject) ← liftM (m := IO) <| graph.stage owners.identities
+    { program, occurrence, role := pairRole, parameters := #[] }
+    (.product #[secondWidth, secondWidth])
+  unless firstObject.value != secondObject.value && firstWidth.value != secondWidth.value do
+    throwError "the ambient-parameter control merged its independent original nodes"
+  let marks ← liftM (m := IO) <| IO.mkRef (#[] : Array ValueBinding)
+  let markedSecond ← markValue marks secondObject pairTerm
+  let markedWidth ← mkProjection markedSecond `fst
+  unless !markedWidth.hasFVar do
+    throwError "the closed marked-parameter control contains an ambient free variable"
+  withLetDecl `Qfirst pairType pairTerm fun first =>
+    withLetDecl `Qsecond pairType pairTerm fun second =>
+      withLetDecl `n natural seven fun n => do
+        let firstProjection ← mkProjection first `fst
+        let secondProjection ← mkProjection second `fst
+        let indexed := fun fixed index => mkAppM ``Prod
+          #[mkApp (mkConst ``Fin) fixed, mkApp (mkConst ``Fin) index]
+        withLocalDeclD `point (← indexed firstProjection n) fun point =>
+          withLocalDeclD `closedPoint (← indexed seven n) fun closedPoint =>
+            withLocalDeclD `otherPoint (← indexed secondProjection n) fun otherPoint =>
+              withLocalDeclD `markedPoint (← indexed markedWidth n) fun markedPoint => do
+                let bindings : Array LocalBinding := #[
+                  { id := ⟨"closed-dependent-fragment", 0⟩, role := .definition, expression := first },
+                  { id := ⟨"closed-dependent-fragment", 1⟩, role := .definition, expression := second },
+                  { id := ⟨"closed-dependent-fragment", 2⟩, role := .definition, expression := n },
+                  { id := ⟨"closed-dependent-fragment", 3⟩, role := .parameter, expression := point },
+                  { id := ⟨"closed-dependent-fragment", 4⟩, role := .parameter, expression := closedPoint },
+                  { id := ⟨"closed-dependent-fragment", 5⟩, role := .parameter, expression := otherPoint },
+                  { id := ⟨"closed-dependent-fragment", 6⟩, role := .parameter, expression := markedPoint }]
+                let context ← ContextTelescope.capture bindings
+                let markedFirst ← markValue marks firstObject first
+                let fixedProjection ← mkProjection markedFirst `fst
+                let family ← withLocalDeclD `width natural fun width =>
+                  mkLambdaFVars #[width] (← indexed fixedProjection width)
+                let pointRole ← SourceLayout.ofTerm (← context.close point)
+                let (graph, value) ← liftM (m := IO) <| graph.stage owners.identities
+                  { program, occurrence, role := pointRole,
+                    parameters := #[some firstObject, none, some number, none, none, none, none] }
+                  (.closure program #[firstObject, number])
+                let source := mkApp4 (mkConst ``Sigma.mk [.zero, .zero]) natural family n point
+                let layout ← RecordLayout.ofSource (← SourceLayout.ofTerm (← context.close source))
+                let record ← liftM (m := IO) <|
+                  RecordPrefix.begin owners.identities program occurrence layout
+                let (graph, record, originalIndex) ← liftM (m := IO) <| record.bind graph number
+                let (graph, _, consumed) ← liftM (m := IO) <| record.bind graph value
+                let parameter (index : Nat) (actual : ValueBinding) : MetaM RuntimeParameter := do
+                  let .ok parameter := RuntimeParameter.ofValue graph bindings[index]!.id actual
+                    | throwError "the ambient-parameter control lost an original runtime reference"
+                  return parameter
+                let original ← parameter 0 firstObject
+                let unrelated ← parameter 1 secondObject
+                let index ← parameter 2 originalIndex
+                let environment ← RuntimeEnvironment.capture owners.worker context
+                  #[original, unrelated, index]
+                let closedRole ← SourceLayout.ofTerm (← context.close closedPoint)
+                let accepted ← environment.checkResult graph closedRole consumed
+                unless accepted.root.value == consumed.value &&
+                    accepted.root.associationIds == consumed.associationIds &&
+                    accepted.root.instantiations.map (·.id) == consumed.instantiations.map (·.id) do
+                  throwError "closed native specialization changed the actual dependent field"
+                for expected in #[otherPoint, markedPoint] do
+                  let role ← SourceLayout.ofTerm (← context.close expected)
+                  unless ← isDefEq (← inferType point) (← inferType expected) do
+                    throwError "the ambient-parameter negative is not natively convertible"
+                  let failure : Option Exception ← try
+                    discard <| environment.checkResult graph role consumed
+                    pure none
+                  catch error => pure (some error)
+                  let some failure := failure
+                    | throwError "closed native conversion substituted a different source occurrence"
+                  unless (← failure.toMessageData.toString).startsWith
+                      "the runtime value has an unresolved consuming dependent type" do throw failure
+                let replacedOriginal ← parameter 0 secondObject
+                for (parameters, missing) in #[(#[unrelated, index], true),
+                    (#[replacedOriginal, unrelated, index], false)] do
+                  let changed ← RuntimeEnvironment.capture owners.worker context parameters
+                  let failure : Option Exception ← try
+                    discard <| changed.checkResult graph closedRole consumed
+                    pure none
+                  catch error => pure (some error)
+                  let some failure := failure
+                    | throwError "closed native specialization discarded its captured original parameter"
+                  if missing then
+                    unless missingValueOf failure bindings[0]!.id do throw failure
+                  else
+                    unless (← failure.toMessageData.toString).startsWith
+                        "the runtime value has a different retained dependent reference" do throw failure
