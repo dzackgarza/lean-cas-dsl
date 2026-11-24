@@ -10,14 +10,17 @@ namespace CasCompiler
 
 open Lean Meta Elab Term CasCatalogue
 
-private structure OperationDomain where
+/-- A selected element domain, or its exact registered refinement and supplied comparison.
+The shared resolver owns construction; consumers retain its actual native parameters. -/
+structure NativeSourceOperationDomain where
+  private mk ::
   category : NativeSourceCategory
   value : Expr
   comparison : Option Expr
   originEvidence : Array Expr
 
 private def refinementDomainCandidate (state : SemanticState) (entry : ObjectEntry) (domain : Expr) :
-    TermElabM (Option OperationDomain) := do
+    TermElabM (Option NativeSourceOperationDomain) := do
   let some refinement := entry.refines | return none
   discard <| checkedDeclaration entry.declaration
   discard <| checkedDeclaration refinement.identification
@@ -69,7 +72,7 @@ private def refinementDomainCandidate (state : SemanticState) (entry : ObjectEnt
     some (← instantiateMVars comparison), #[]⟩
 
 private def refinementDomain (state : SemanticState) (entry : ObjectEntry) (domain : Expr) :
-    TermElabM (Option OperationDomain) := do
+    TermElabM (Option NativeSourceOperationDomain) := do
   -- A failed candidate must not constrain a later candidate's source parameters. Probe the
   -- complete native preparation, then keep successful expressions in the live Meta state.
   let accepts ← withoutModifyingState do
@@ -79,16 +82,17 @@ private def refinementDomain (state : SemanticState) (entry : ObjectEntry) (doma
 
 private def scopedOperationDomains
     (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
-    (expected : Expr) (hints : Array Expr) : TermElabM (Array OperationDomain) := do
+    (expected : Expr) (hints : Array Expr) : TermElabM (Array NativeSourceOperationDomain) := do
   return (← sourceElementOwners categoryOf expected hints).map fun owner =>
     ⟨owner.category, owner.value, none, #[owner.evidence]⟩
 
--- Selected source objects precede default literal selectors. Every matching original
--- structure is retained; native carrier coincidence does not identify their dictionaries.
-private def operationDomains
+/-- Selected source objects precede default literal selectors. Every matching original
+structure is retained; native carrier coincidence does not identify their dictionaries.
+Reuse this boundary for operations and registered division alike. -/
+opaque sourceOperationDomains
     (categoryOf : FVarId → TermElabM (Option NativeSourceCategory)) (expected : Expr)
     (contextual : Option Expr) (hints : Array Expr) :
-    TermElabM (Array OperationDomain) := do
+    TermElabM (Array NativeSourceOperationDomain) := do
   let state ← semanticState
   let (domain, entries) ← registeredDomain expected
   if entries.isEmpty then
@@ -112,14 +116,14 @@ private def operationRoutes (source : CategoryExpr) (name : String) :
   return candidates
 
 private structure OperationRoot where
-  domain : OperationDomain
-  domains : Array OperationDomain
+  domain : NativeSourceOperationDomain
+  domains : Array NativeSourceOperationDomain
   routes : Array Route
   images : Array (Array Route)
 
 -- A common supplied refinement gives one generic comparison context. Selection uses
 -- symbolic structural incidence only; operation values and operands are not inspected.
-private def operationRoot (domains : Array OperationDomain) (name : String) :
+private def operationRoot (domains : Array NativeSourceOperationDomain) (name : String) :
     TermElabM OperationRoot := do
   let mut active := #[]
   for domain in domains do
@@ -172,12 +176,12 @@ def sourceJuxtapositionName
     TermElabM String := do
   let state ← semanticState
   let rightType ← inferType right.value
-  let rightDomains ← operationDomains categoryOf rightType none #[rightType]
+  let rightDomains ← sourceOperationDomains categoryOf rightType none #[rightType]
   let leftDomains ← match left with
     | none => pure #[]
     | some left => do
       let type ← inferType left.value
-      operationDomains categoryOf type none #[type]
+      sourceOperationDomains categoryOf type none #[type]
   if !leftDomains.isEmpty && !rightDomains.isEmpty then
     let domains := leftDomains ++ rightDomains
     for root in domains do
@@ -344,7 +348,7 @@ opaque sourceOperation
     (numerals : Array (Expr → TermElabM Expr)) :
     TermElabM NativeSourceOperation := do
   let state ← semanticState
-  let domains ← operationDomains categoryOf domain contextual hints
+  let domains ← sourceOperationDomains categoryOf domain contextual hints
   if domains.isEmpty then
     throwUnsupportedSource "the source operation requires its interpreted element domain"
   let root ← operationRoot domains name

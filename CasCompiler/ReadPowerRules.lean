@@ -73,7 +73,7 @@ def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
           hints := hints.push (← inferType (← readExpression categoryOf operand none).value)
     let some domain := (← expected.mapM instantiateMVars).orElse fun _ => hints[0]?
       | CasCatalogue.throwUnsupportedSource "source division requires the set of its operands"
-    let owners ← sourceElementOwners categoryOf domain (#[domain] ++ hints)
+    let owners ← sourceOperationDomains categoryOf domain none (#[domain] ++ hints)
     let value ← sourceDivision owners left right fun operand => do
       return (← readExpression categoryOf operand (some domain)).value
     return ⟨value, none⟩

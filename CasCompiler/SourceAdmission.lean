@@ -110,7 +110,10 @@ def sourceAdmission (entry : ObjectEntry) (target : Expr) (read : Expr → TermE
   if let some (id, declaration) ← sourceObjectReference? target then
     unless id == entry.id && declaration == entry.declaration do
       throwStratum .invalid m!"the admission of {entry.name} has another selected object"
-    let original ← sourceDomain target
+  let original ← sourceDomain target
+  if original.getAppFn.isConstOf entry.declaration then
+    -- The actual native factor of a registered map can state this same admitted family
+    -- without surface metadata. Its complete authored argument spine is equally retained.
     -- Registry.Semantic.validateObject checks this exact target head before conversion.
     let some retained ← alignSourceArguments? entry.declaration arguments type.getAppArgs[3]!
         original

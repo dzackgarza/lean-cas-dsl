@@ -201,6 +201,45 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throwError "object provenance accepted a different equal source occurrence"
       unless (← failure.toMessageData.toString) ==
           "the source object provenance changed its original parameter" do throw failure
+  -- Division in each original units set uses its declared group refinement. The
+  -- native registered quotient must retain that set's original Monoid parameter.
+  for (name, otherName) in #[ (`MFirst, `MSecond), (`MSecond, `MFirst) ] do
+    let equation ← read session s!"(3 in {name.toString}ˣ)⁻¹ = 1/3"
+    equation.source.withOpen fun bindings expression => do
+      unless expression.isAppOfArity ``Eq 3 do
+        throwError "the original units division did not remain an equality"
+      let some original ← bindings.findM? fun binding =>
+          return (← binding.expression.fvarId!.getUserName) == name
+        | throwError "the quotient lost its original Monoid binding"
+      let some other ← bindings.findM? fun binding =>
+          return (← binding.expression.fvarId!.getUserName) == otherName
+        | throwError "the quotient lost its distinct equal Monoid binding"
+      let result := expression.getAppArgs[2]!
+      let some division := result.find? fun term =>
+          term.isAppOfArity ``CasCatalogue.Algebra.Units.divide 1
+        | throwError "the quotient lost its independently declared division"
+      let parameter := division.getAppArgs[0]!
+      unless (parameter.find? (· == original.expression)).isSome &&
+          (parameter.find? (· == other.expression)).isNone do
+        throwError "division replaced its original Monoid by an equal binding"
+      let some group := parameter.find? fun term =>
+          term.isAppOfArity ``CasCatalogue.Algebra.Units.groupUnits 1
+        | throwError "division lost the declared group of the original units set"
+      let groupParameter := group.getAppArgs[0]!
+      let groupSource ← match groupParameter with
+        | .mdata data _ => do
+          if !data.contains `CasCompiler.source.objectOrigin then return groupParameter
+          let some (_, object) ← sourceObjectOrigin? groupParameter
+            | throwError "the quotient lost its explicit original object mark"
+          pure object
+        | _ => pure groupParameter
+      unless groupSource == original.expression && groupSource != other.expression do
+        throwError "the quotient group changed its actual original Monoid argument"
+      let some comparison := result.find? fun term =>
+          term.isAppOfArity ``CasCatalogue.Algebra.Units.unitsIdentification 1
+        | throwError "division lost its supplied group-carrier comparison"
+      unless comparison.getAppArgs[0]! == group.getAppArgs[0]! do
+        throwError "division changed the original parameter of its carrier comparison"
   -- The same native Monoid without its supplied base comparison cannot acquire
   -- a numeral from the convertible rational carrier or a stronger structural owner.
   let some firstCategory := first.category

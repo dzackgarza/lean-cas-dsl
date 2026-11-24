@@ -3,6 +3,7 @@ module
 public import CasCompiler.SourceMember
 public import CasCompiler.SourceAdmission
 public import CasCompiler.SourceTypeOrigin
+public import CasCompiler.SourceOperation
 import CasCompiler.SourceCarrier
 
 public section
@@ -20,7 +21,7 @@ agreement, else the reading is ambiguous (sourceStructuralView; constitution C6)
 admitted into the second factor with that subobject's own evidence (sourceAdmission).
 `owners` are the registered objects whose carrier is the operands' set; `read` reads an operand in
 that set. Several applicable rows or owners are ambiguous; none is an unsupported source. -/
-def sourceDivision (owners : Array NativeSourceElementOwner) (left right : TSyntax `cas_term)
+def sourceDivision (owners : Array NativeSourceOperationDomain) (left right : TSyntax `cas_term)
     (read : TSyntax `cas_term → TermElabM Expr) : TermElabM Expr := do
   let state ← semanticState
   let mut candidates := #[]
@@ -47,8 +48,9 @@ def sourceDivision (owners : Array NativeSourceElementOwner) (left right : TSynt
   let monoid ← sourceStructuralView ⟨owner.value, some owner.category⟩ category.expression
     (some "/")
   let (morphism, _, parameters) ← morphismAtSource row
-  let some (parameter, _) := parameters.find? fun (_, info) => info.isExplicit
+  let some objectIndex := parameters.findIdx? fun (_, info) => info.isExplicit
     | throwError "the registered division lost its object parameter"
+  let (parameter, _) := parameters[objectIndex]!
   -- The monoid is stated at the parameter's own type (`MonCat`), not at the bundled category of
   -- the view, so that the factor `Mˣ` is spelled as its admission declares it.
   let monoidAtParameter ← mkExpectedTypeHint monoid.value (← instantiateMVars (← inferType parameter))
@@ -56,7 +58,11 @@ def sourceDivision (owners : Array NativeSourceElementOwner) (left right : TSynt
     throwError "the registered division does not take the operands' monoid"
   unless ← synthesizeDeclared parameters do
     throwError "the registered division lacks a declared instance at the operands' monoid"
-  let morphism ← instantiateMVars morphism
+  -- Native unification checks this argument but may normalize its view. The actual
+  -- declaration keeps the original routed object in its complete formal position.
+  let arguments ← parameters.mapM fun (parameter, _) => instantiateMVars parameter
+  let morphism := mkAppN (← instantiateMVars morphism.getAppFn)
+    (arguments.set! objectIndex monoidAtParameter)
   if morphism.hasMVar || morphism.hasLevelMVar then
     throwError "the registered division is not determined by the operands' monoid"
   let function ← sourceSetFunction
@@ -68,6 +74,11 @@ def sourceDivision (owners : Array NativeSourceElementOwner) (left right : TSynt
     throwError "the registered division does not take a pair"
   let operand := fun (source : TSyntax `cas_term) (type : Expr) => do
     let value ← read source
+    let value ← match owner.comparison with
+      | none => pure value
+      | some comparison => do
+        let inverse ← sourceSetFunction (← mkAppM ``CategoryTheory.Iso.inv #[comparison])
+        elabAppArgs inverse #[] #[Arg.expr value] (some type) false false
     unless ← isDefEq (← inferType value) type do
       throwErrorAt source "the operand is not in the monoid the division acts on"
     return value
@@ -80,6 +91,17 @@ def sourceDivision (owners : Array NativeSourceElementOwner) (left right : TSynt
     | throwError "the divisor's factor {units} of the registered division is not one admitted subobject"
   let divisor ← sourceAdmission entry units fun base => operand right base
   let tuple ← mkAppM ``Prod.mk #[dividend, divisor]
-  elabAppArgs function #[] #[Arg.expr tuple] none false false
+  let value ← elabAppArgs function #[] #[Arg.expr tuple] none false false
+  let mut value ← match owner.comparison with
+    | none => pure value
+    | some comparison => do
+      let forward ← sourceSetFunction (← mkAppM ``CategoryTheory.Iso.hom #[comparison])
+      elabAppArgs forward #[] #[Arg.expr value] none false false
+  for evidence in owner.originEvidence.reverse do
+    let body := value
+    value ← withLetDecl (← mkFreshUserName `divisionOwnerAgreement)
+      (← inferType evidence) evidence fun binding =>
+        mkLetFVars #[binding] body (usedLetOnly := false) (generalizeNondepLet := false)
+  return value
 
 end CasCompiler
