@@ -215,6 +215,17 @@ opaque sourceStructuralView (source : NativeSourceJudgement) (target : CategoryE
   if preferred.isSome then
     value := .mdata (KVMap.empty.setString `CasCompiler.source.preferredRoute
       (reprStr (route.refs.map (·.label)))) value
+  if target.syntacticEq (.atom CategoryId.sets) then
+    -- This image is a native type parameter. Preserve its already selected carrier
+    -- action and original owner before the parameter's outer object annotation.
+    -- Existing comparisons keep their own declared domains; the image's agreement
+    -- proofs remain in the unchanged native let envelope above.
+    let carrier : NativeSourceCarrierSelection := {
+      refs := route.refs, target
+      identifications := category.carrier.map (·.identifications) |>.getD #[]
+      actions := selected.actions
+      comparisons := category.carrier.map (·.comparisons) |>.getD #[] }
+    value ← annotateSourceType { category with carrier := some carrier } source.value value
   return ⟨value, some ⟨.object, target, selected.target, none, none⟩⟩
 
 /-- Put source values in the category explicitly selected by a set-valued operand.

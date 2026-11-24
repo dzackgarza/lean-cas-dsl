@@ -51,12 +51,17 @@ private def parameters : LowerM (Array RuntimeParameter) := do
       result := result.push parameter
   return result
 
-private def origin (expression : Expr) : LowerM ValueOrigin := do
+-- Stamp an already checked source layout with the current actual runtime context.
+-- Reusing native layout data never reuses an earlier occurrence or parameter table.
+private def originFor (role : SourceLayout) : LowerM ValueOrigin := do
   let frame ← read
   let identities ← supply
-  let role ← SourceLayout.ofTerm (← frame.context.close expression)
   let environment ← RuntimeEnvironment.capture identities.worker frame.context (← parameters)
   environment.origin frame.program (← identities.fresh .occurrence) role
+
+private def origin (expression : Expr) : LowerM ValueOrigin := do
+  let frame ← read
+  originFor (← SourceLayout.ofTerm (← frame.context.close expression))
 
 private def stage (expression : Expr) (payload : ValuePayload) : LowerM ValueBinding := do
   (← read).environment.transaction.stage (← origin expression) payload
@@ -446,15 +451,16 @@ private partial def array (expression : Expr) (elements : Array Expr) : LowerM V
 record value keeps each computational field as a closure beside its descriptor. -/
 private partial def namedConstant (expression : Expr) (address : String) (arguments : Array Expr) :
     LowerM ValueBinding := do
-  if (← origin expression).role.kind == .function then return ← closure expression
-  descriptor expression address arguments (some (← fieldClosures expression))
+  let role := (← origin expression).role
+  if role.kind == .function then return ← closure expression
+  descriptor expression address arguments (some (← fieldClosures role))
 
 /-- Native fields of an ordinary registered constant whose definition `field` may open.
 Published element descriptors do not use these closures: their fields require computation. -/
-private partial def fieldClosures (expression : Expr) : LowerM (Array ValueBinding) := do
+private partial def fieldClosures (role : SourceLayout) : LowerM (Array ValueBinding) := do
   let frame ← read
   let mut fields := #[]
-  for prepared in (← origin expression).role.fields do
+  for prepared in role.fields do
     if prepared.wireIndex.isSome then
       fields := fields.push (← closure (← prepared.source.inContext frame.context))
   return fields
@@ -505,7 +511,8 @@ private partial def selectedEndpointFields? (sourceEnd : Bool) (hom : ValueBindi
           throwError "the selected endpoint is missing an original computational argument"
         pure source
     arguments := arguments.push source
-  return some (← fieldClosures (mkAppN endpointCode arguments).headBeta)
+  let endpoint := (mkAppN endpointCode arguments).headBeta
+  return some (← fieldClosures (← origin endpoint).role)
 
 /-- The explicit arguments of an application that are not proofs. -/
 private partial def explicitArguments (expression : Expr) : LowerM (Array Expr) := do
@@ -938,15 +945,15 @@ private partial def record (expression : Expr) (fields : Array Expr) : LowerM Va
       let some field := fields[prepared.field.sourceIndex]?
         | throwError "internal: a source constructor lost a computational field"
       values := values.push (← lower field)
-  stageRecord expression values
+  stageRecord layout values
 
-/-- Stage the record `expression` from the values of its computational fields, in order. -/
-private partial def stageRecord (expression : Expr) (values : Array ValueBinding) :
+/-- Stage the same prepared record from its computational fields, in source order.
+The initial layout remains sealed; actual runtime context capture occurs after field lowering. -/
+private partial def stageRecord (layout : RecordLayout) (values : Array ValueBinding) :
     LowerM ValueBinding := do
   let frame ← read
   let identities ← supply
-  let produced ← origin expression
-  let layout ← RecordLayout.ofSource produced.role
+  let produced ← originFor layout.source
   unless values.size == (layout.fields.filter (·.field.wireIndex.isSome)).size do
     throwError "internal: a source record has a different number of computational fields"
   let mut draft ← frame.environment.transaction.draft

@@ -460,7 +460,10 @@ private def checkDependencies (context : OpenContext)
               match current with
               | some current =>
                 unless sameReference original current do
-                  throwError "the runtime value has a different consuming dependent reference ({term})"
+                  dbg_trace "[dependent.identity] field={instantiation.field.projection} slot={index} source={repr reference.1} path={repr reference.2} parent={repr parent.value} parentAssociations={repr parent.associationIds} original={repr original.value} originalAssociations={repr original.associationIds} current={repr current.value} currentAssociations={repr current.associationIds}"
+                  throwError (MessageData.tagged
+                    `CasRuntime.RuntimeEnvironment.dependentReferenceMismatch
+                    m!"the runtime value has a different consuming dependent reference ({term})")
               | none =>
                 unless hasDependencyAccess graph original parent reference.2 do
                   throwError "the runtime value has an unresolved consuming dependent reference ({term})"

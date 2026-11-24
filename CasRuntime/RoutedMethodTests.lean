@@ -610,7 +610,9 @@ run_cmd liftTermElabM do
             ("firstProjection.ker()", firstScalar, `firstProjection),
             ("secondProjection.ker()", secondScalar, `secondProjection)] do
           let term ← readTerm session text
+          dbg_trace "[routed.scalar] before method preparation {text}"
           let (request, route) ← prepare session transaction term
+          dbg_trace "[routed.scalar] after method preparation {text}"
           unless route.family.entry.id.raw == "meth.arrow_ker" && route.family.route.refs.isEmpty do
             throwError "the original module-arrow method changed its selected source route"
           -- The existing hom is selected through its actual Arrow before its producer slots
@@ -632,7 +634,10 @@ run_cmd liftTermElabM do
             let #[(_, source)] ← routedActionParameters (.functor route.family.functor.id)
                 (← action.inContext context)
               | throwError "the module-arrow method lost its original ring parameter"
-            session.kernel.run transaction context bound source
+            dbg_trace "[routed.scalar] before category evaluation {text}"
+            let value ← session.kernel.run transaction context bound source
+            dbg_trace "[routed.scalar] after category evaluation {text}"
+            return value
           let graph ← transaction.view
           let some node := graph.find parameter.value
             | throwError "the native ring view is outside its producing graph"
@@ -666,33 +671,41 @@ run_cmd liftTermElabM do
               | throwError "the first scalar lost its published native ring access"
             let .ok (some otherStructure) := graph.projectedAccess? secondScalar path
               | throwError "the second scalar lost its published native ring access"
+            dbg_trace "[routed.scalar] before original structure admission"
             request.environment.checkDeclaredInput context graph (← session.kernel.marks.get)
               structureSource originalStructure
+            dbg_trace "[routed.scalar] after original structure admission"
+            dbg_trace "[routed.scalar] before wrong structure negative"
             let changedFailure : Option Exception ← try
               request.environment.checkDeclaredInput context graph (← session.kernel.marks.get)
                 structureSource otherStructure
               pure none
             catch error => pure (some error)
+            dbg_trace "[routed.scalar] after wrong structure negative rejected={changedFailure.isSome}"
             let some changedFailure := changedFailure
               | throwError "an equal scalar satisfied another scalar's wrapped native field"
             unless changedFailure.toMessageData.hasTag
-                (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do
+                (· == `CasRuntime.RuntimeEnvironment.dependentReferenceMismatch) do
               throw changedFailure
           let evaluate := session.kernel.run transaction context bound
           let supplied ← markValue session.kernel.marks original source
+          dbg_trace "[routed.scalar] before original parameter admission"
           let #[retained] ← request.environment.methodParameters context transaction
               session.kernel.marks session.kernel.ledger.allocate route.family #[supplied]
               route.receiver evaluate
             | throwError "the retained category parameter changed its original arity"
           unless sameExactInput original (← evaluate retained) do
             throwError "rechecking a native category view replaced its original occurrence"
+          dbg_trace "[routed.scalar] after original parameter admission"
           let changed ← markValue session.kernel.marks other source
+          dbg_trace "[routed.scalar] before wrong parameter negative"
           let failure : Option Exception ← try
             discard <| request.environment.methodParameters context transaction
               session.kernel.marks session.kernel.ledger.allocate route.family #[changed]
               route.receiver evaluate
             pure none
           catch error => pure (some error)
+          dbg_trace "[routed.scalar] after wrong parameter negative rejected={failure.isSome}"
           let some failure := failure
             | throwError "a separately produced equal scalar satisfied the original category input"
           let message ← failure.toMessageData.toString
