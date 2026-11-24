@@ -785,34 +785,60 @@ private partial def nativeInputRecord? (expression : Expr) : LowerM (Option Valu
   let .const declaration _ := expression.getAppFn | return none
   let arguments := expression.getAppArgs
   if arguments.isEmpty then return none
+  let traceInclusion := (expression.find? (·.isConstOf
+    `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
   let state ← semanticState
   unless (computationRefs state declaration).isEmpty &&
       (descriptorIds state declaration).isEmpty &&
       ((← getEnv).getProjectionFnInfo? declaration).isNone do return none
   let some (.defnInfo _) := (← getEnv).find? declaration | return none
+  if traceInclusion then dbg_trace "[inclusion.record] before native definition unfolding"
   let some expanded ← unfoldDefinition? expression | return none
+  if traceInclusion then dbg_trace "[inclusion.record] after native definition unfolding"
   let some constructor := expanded.getAppFn.constName? | return none
   let some (.ctorInfo _) := (← getEnv).find? constructor | return none
   let frame ← read
-  let sourceArguments ← arguments.mapM fun argument => frame.context.close argument
-  let source ← SourceLayout.ofTerm (← frame.context.close expression.getAppFn)
+  if traceInclusion then dbg_trace "[inclusion.record] before closing actual sources count={arguments.size}"
+  let sourceArguments ← arguments.mapM fun argument => do
+    if traceInclusion then dbg_trace "[inclusion.record] before source close head={repr argument.getAppFn.constName?} arity={argument.getAppNumArgs}"
+    let closed ← frame.context.close argument
+    if traceInclusion then dbg_trace "[inclusion.record] after source close"
+    return closed
+  if traceInclusion then dbg_trace "[inclusion.record] actual sources closed; before bare SourceLayout"
+  -- This bare constant has no captured source bindings. Its actual arguments retain
+  -- the complete original frame and still undergo the concrete coverage check below.
+  let source ← (show MetaM SourceLayout from withLCtx {} #[] do
+    let empty ← ContextTelescope.capture #[]
+    SourceLayout.ofTerm (← empty.close expression.getAppFn))
+  if traceInclusion then dbg_trace "[inclusion.record] bare SourceLayout complete; before concrete ApplicationLayout"
   let (result, application) ← ApplicationLayout.ofSource source frame.context sourceArguments
+  if traceInclusion then dbg_trace "[inclusion.record] concrete ApplicationLayout complete fields={result.fields.size}"
   unless result.kind == .record && result.fields.any
       (fun field => field.wireIndex.isSome && !field.precedingDependencies.isEmpty) do return none
+  if traceInclusion then dbg_trace "[inclusion.record] before original parameter table"
   let actualParameters ← parameters
-  let some required ← application.inputResultArguments (actualParameters.map (·.source))
-    | return none
+  if traceInclusion then dbg_trace "[inclusion.record] original parameter table ready; before inputResultArguments"
+  let required? ← application.inputResultArguments (actualParameters.map (·.source))
+  if traceInclusion then dbg_trace "[inclusion.record] after inputResultArguments complete={required?.isSome}"
+  let some required := required? | return none
   -- Ordinary application admission stays total. This conservative path never evaluates a
   -- source slot that the complete native result and its type dependencies did not require.
   for argument in application.arguments do
     if argument.wireIndex.isSome && !required.contains argument.sourceIndex then return none
+  if traceInclusion then dbg_trace "[inclusion.record] complete original coverage; before callable closure"
   let callable ← closure expression.getAppFn
+  if traceInclusion then dbg_trace "[inclusion.record] callable closure ready; before actualArguments"
   let (closed, actual) ← actualArguments arguments
+  if traceInclusion then dbg_trace "[inclusion.record] actualArguments ready; before prepared application"
   let request ← PreparedRequest.forApplication (← supply) frame.program
     (← frame.environment.ledger.allocate) frame.context callable closed actual (← parameters)
-  unless (← request.inputResultPlan (← frame.environment.transaction.view)).isSome do
+  if traceInclusion then dbg_trace "[inclusion.record] prepared application ready; before actual inputResultPlan"
+  let actualPlan ← request.inputResultPlan (← frame.environment.transaction.view)
+  if traceInclusion then dbg_trace "[inclusion.record] after actual inputResultPlan complete={actualPlan.isSome}"
+  unless actualPlan.isSome do
     throwStratum .noImplementation
       "the native record conversion requires unavailable input fields"
+  if traceInclusion then dbg_trace "[inclusion.record] before demand"
   return some (← demand request)
 
 private partial def apply (callable : ValueBinding) (arguments : Array Expr) :

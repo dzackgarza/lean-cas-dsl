@@ -182,3 +182,81 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           throwError "the product leg changed its exact retained cone component"
         checkWithKernel (← mkExpectedTypeHint (← mkEqRefl value) (← mkEq value expected))
         return value
+
+-- A named cokernel's leg and its actual map action retain the selected apex binding.
+-- C and Cagain have equal native definitions but are distinct original source inputs.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  let readAt := fun (session : SourceSession) (text : String) => do
+    let .ok source := Parser.runParserCategory (← getEnv) `cas_term text
+      | throwError "the named-apex source did not parse"
+    session.read ⟨source⟩
+  let object ← readAt empty "cokernel(to_dual(1))"
+  let some selection := object.category.bind (·.limit)
+    | throwError "the named cokernel lost its retained cocone"
+  unless selection.colimit do
+    throwError "the named cokernel control changed its construction direction"
+  let session ← empty.defineTerm `C object
+  let session ← session.defineTerm `Cagain object
+  for name in #[`C, `Cagain] do
+    let leg ← readAt session s!"{name}.leg(1)"
+    let mapped ← readAt session
+      s!"map {name}.leg(1) along «fun.bil_wform.base_change»(ℤ, ℚ)"
+    discard <| session.elaborate Syntax.missing fun context => do
+      let some original := session.context.entries.find? (·.userName == name)
+        | throwError "the named apex has no original source binding"
+      let some other := session.context.entries.find? (fun entry =>
+          entry.userName == (if name == `C then `Cagain else `C))
+        | throwError "the equal apex has no independent source binding"
+      let some receiver := context.bindings.find? (·.id == original.id)
+        | throwError "the named apex is outside its original source context"
+      let some otherReceiver := context.bindings.find? (·.id == other.id)
+        | throwError "the equal apex is outside its original source context"
+      unless receiver.expression != otherReceiver.expression &&
+          (← isDefEq receiver.expression otherReceiver.expression) do
+        throwError "the control did not retain two distinct equal-valued apex bindings"
+      let value ← leg.source.inContext context
+      let .mdata data _ := value
+        | throwError "the named leg lost its original source metadata"
+      let some (.ofNat ordinal) := data.find `CasCompiler.source.leg
+        | throwError "the named leg lost its original ordinal"
+      unless data.getName `CasCompiler.source.kind == ``CasCatalogue.LimitEntry &&
+          data.getString `CasCompiler.source.id == selection.row &&
+          data.getName `CasCompiler.source.declaration == selection.declaration && ordinal == 1 do
+        throwError "the named leg changed its original row, declaration or ordinal"
+      let some (actualSource, actualTarget) ← SourceReader.mapEnds value
+        | throwError "the named leg has no complete native endpoints"
+      unless actualTarget == receiver.expression do
+        throwError "the named leg replaced its original apex with an equal-valued construction"
+      let cone ← selection.cone.inContext context
+      let projection ← mkAppM ``CategoryTheory.Limits.Cocone.ι #[cone]
+      let component ← mkAppM ``CategoryTheory.NatTrans.app #[projection]
+      let originalLeg := mkApp component (Lean.mkConst ``CategoryTheory.Limits.WalkingParallelPair.one)
+      let some (originalSource, _) ← SourceReader.mapEnds originalLeg
+        | throwError "the original native component lost its endpoints"
+      unless actualSource == originalSource do
+        throwError "apex retention changed the original diagram endpoint"
+      check value
+      checkWithKernel (← mkExpectedTypeHint (← mkEqRefl value) (← mkEq value originalLeg))
+      let mapped ← mapped.source.inContext context
+      let .mdata mapData image := mapped
+        | throwError "the actual base-change map lost its selected source"
+      unless mapData.getName `CasCompiler.source.kind == ``CasCatalogue.EdgeRef.functor &&
+          mapData.getString `CasCompiler.source.id == "fun.bil_wform.base_change" &&
+          image.getAppFn.isConstOf ``CategoryTheory.Functor.map do
+        throwError "the actual base-change map changed its selected native action"
+      let arguments := image.getAppArgs
+      let some target := arguments[arguments.size - 2]?
+        | throwError "the actual base-change map lost its target input"
+      unless (← declaredEndpoint target) == receiver.expression do
+        throwError "the actual map action discarded the selected original apex input"
+      let some actualLeg := arguments.back?
+        | throwError "the actual base-change map lost its original leg input"
+      let some (legSource, legTarget) ← SourceReader.mapEnds actualLeg
+        | throwError "the actual map action lost its leg's complete native endpoints"
+      unless legSource == originalSource && legTarget == receiver.expression do
+        throwError "the actual map action changed an original leg endpoint"
+      check mapped
+      checkWithKernel (← mkExpectedTypeHint (← mkEqRefl actualLeg) (← mkEq actualLeg originalLeg))
+      return mapped
