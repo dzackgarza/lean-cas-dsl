@@ -38,6 +38,7 @@ import CasRuntime.SDKTests
 import CasRuntime.ScopeTests
 import CasRuntime.SessionComputationTests
 import CasRuntime.SessionDependentReferenceTests
+import CasRuntime.SelectedEndpointTests
 import CasRuntime.SessionEndpointTests
 import CasRuntime.SessionLiftTests
 import CasRuntime.SessionOccurrenceTests

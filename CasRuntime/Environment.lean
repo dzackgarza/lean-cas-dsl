@@ -2,7 +2,7 @@ module
 
 public import CasRuntime.Value
 public import CasCompiler.SelectedMorphism
-public import CasCompiler.SourceTypeOrigin
+import CasCompiler.SourceTypeOrigin
 
 public section
 

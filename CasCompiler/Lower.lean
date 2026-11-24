@@ -214,8 +214,12 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
       let value ← lower arrow.getAppArgs.back!
       let template := Json.mkObj [("ctor", "morphismEndpoint"),
         ("args", .arr #[.null, toJson selector])]
-      let .ok payload := ValuePayload.descriptor template
-          #[{ path := #[.field "args", .index 0], binding := value, fieldIndex := none }]
+      let slots := #[{ path := #[.field "args", .index 0], binding := value,
+        fieldIndex := none } : ContainerSlot]
+      let built ← match ← selectedEndpointFields? (selector == "source") value with
+        | some fields => pure (ValuePayload.container template slots fields none)
+        | none => pure (ValuePayload.descriptor template slots)
+      let .ok payload := built
         | throwError "the selected endpoint has an invalid reference layout"
       return ← stage expression payload
     if let some (selection, field) := selectedField? data then
@@ -424,6 +428,54 @@ private partial def fieldClosures (expression : Expr) : LowerM (Array ValueBindi
     if prepared.wireIndex.isSome then
       fields := fields.push (← closure (← prepared.source.inContext frame.context))
   return fields
+
+/-- Retain the native field code of an endpoint declared by this actual named morphism.
+The endpoint is read before specialization, in its original rigid parameter telescope. The
+same registered-constant authority used by `namedConstant` supplies its field closures;
+a formal endpoint or a computation-produced choice remains an unchanged descriptor.
+The map's sealed original argument table supplies every actual computational occurrence. -/
+private partial def selectedEndpointFields? (sourceEnd : Bool) (hom : ValueBinding) :
+    LowerM (Option (Array ValueBinding)) := do
+  let frame ← read
+  let graph ← frame.environment.transaction.view
+  let some descriptorView ← InputDescriptorView.namedMorphism? graph
+      (← frame.environment.codes.get) hom | return none
+  let some request := descriptorView.family
+    | throwError "the selected endpoint lost its original named morphism family"
+  let .primitive (.registered family) levels := request.action
+    | throwError "the selected endpoint lost its registered source family"
+  let some application := request.application | return none
+  let state ← semanticState
+  let declaredType := family.source.familyType.instantiateLevelParams family.universeParams levels
+  let endpointCode? ← forallBoundedTelescope declaredType (some application.arguments.size)
+      fun formals result => do
+    unless formals.size == application.arguments.size do
+      throwError "the selected endpoint lost its complete original parameter telescope"
+    -- Keep the authored Hom spine when it is already explicit. Its native projection
+    -- may reduce past the endpoint-bearing interface at stronger transparency.
+    let result ← if result.isAppOfArity ``Quiver.Hom 4 then pure result else whnfR result
+    unless result.isAppOfArity ``Quiver.Hom 4 do return none
+    let endpoint := result.getAppArgs[if sourceEnd then 2 else 3]!
+    let .const declaration _ := endpoint.getAppFn | return none
+    if (descriptorIds state declaration).isEmpty then return none
+    return some (← mkLambdaFVars formals endpoint
+      (usedOnly := false) (usedLetOnly := false))
+  let some endpointCode := endpointCode? | return none
+  let some original := request.origin.application
+    | throwError "the selected endpoint lost its complete original argument table"
+  unless original.arguments.size == application.arguments.size do
+    throwError "the selected endpoint changed its original argument positions"
+  let mut arguments := #[]
+  for parameter in application.arguments do
+    let source ← parameter.source.source.inContext frame.context
+    let source ← match original.arguments[parameter.sourceIndex]?.bind id with
+      | some value => markValue frame.environment.marks value source
+      | none =>
+        if parameter.wireIndex.isSome then
+          throwError "the selected endpoint is missing an original computational argument"
+        pure source
+    arguments := arguments.push source
+  return some (← fieldClosures (mkAppN endpointCode arguments).headBeta)
 
 /-- The explicit arguments of an application that are not proofs. -/
 private partial def explicitArguments (expression : Expr) : LowerM (Array Expr) := do

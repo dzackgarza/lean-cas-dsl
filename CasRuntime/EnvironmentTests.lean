@@ -1,9 +1,11 @@
 module
 
 import CasRuntime.Environment
+import CasCompiler.SourceTypeOrigin
 import LeanCategories.Foundation.Mathlib
 public meta import Lean.Elab.Command
 meta import CasRuntime.Environment
+meta import CasCompiler.SourceTypeOrigin
 meta import LeanCategories.Foundation.Mathlib
 
 open Lean Meta CasCompiler CasRuntime
