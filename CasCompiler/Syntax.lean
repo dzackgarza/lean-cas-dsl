@@ -176,13 +176,19 @@ declare_syntax_cat cas_pair
 syntax cas_term:51 " ↦ " cas_term:51 : cas_pair
 syntax:40 "{" cas_pair,* "}" " : " cas_term:51 : cas_term
 
-declare_syntax_cat cas_stmt (behavior := symbol)
+declare_syntax_cat cas_stmt
 declare_syntax_cat cas_item
+meta def casAssumeKeyword : Lean.Parser.Parser :=
+  Lean.Parser.nonReservedSymbol "assume " true
+meta def casContextKeyword : Lean.Parser.Parser :=
+  Lean.Parser.nonReservedSymbol "context " true
+meta def casInspectKeyword : Lean.Parser.Parser :=
+  Lean.Parser.nonReservedSymbol "inspect " true
 syntax (name := casAbstractDeclaration) "let " ident " ∈ " cas_term : cas_stmt
 syntax (name := casAbstractInDeclaration) "let " ident " in " cas_term : cas_stmt
-syntax (name := casHypothesis) &"assume " ident " : " cas_term : cas_stmt
-syntax (name := casContextBlock) &"context " &"do" ppLine cas_item* &"end" : cas_stmt
-syntax (name := casAssumptionInspection) &"inspect " &"assumptions" : cas_stmt
+syntax (name := casHypothesis) casAssumeKeyword ident " : " cas_term : cas_stmt
+syntax (name := casContextBlock) casContextKeyword &"do" ppLine cas_item* &"end" : cas_stmt
+syntax (name := casAssumptionInspection) casInspectKeyword &"assumptions" : cas_stmt
 -- Existing constrained-point terms retain their original assertion parse.
 syntax (name := casProvedAssertion) (priority := 999)
   "assert " cas_term " using " "(" cas_term ")" : cas_stmt
