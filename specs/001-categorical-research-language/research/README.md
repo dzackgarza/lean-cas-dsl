@@ -19,9 +19,6 @@ gives the facts and the sources that a decision used.
 The task of the planning session is the full roadmap, across all repositories, in Spec Kit form,
 with no decision left for implementation time. This list is what remains. Take the items in order.
 
-1. **M3, M4 and M5.** 58 requirements of the issues #19 to #24, #66, #69, #82, #85, #91, #68, #34,
-   #3, #8 and #13 have no task or only a partial one. Add their requirements to `spec.md` and their
-   tasks to `tasks.md`.
 1. **Sibling repositories.** lean-categories, lean-cas-dsl-leaf-contracts, lean-cas-dsl-leaves and
    lean-jupyter-kernel have no Spec Kit documents. Each needs a constitution, a specification, a
    plan and a task list for its part of the roadmap. In lean-categories, the rule LC-17 and the rule
