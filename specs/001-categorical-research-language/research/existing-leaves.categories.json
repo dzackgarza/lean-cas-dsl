@@ -1,0 +1,7004 @@
+{
+ "catalogue_provenance": {
+  "protocolRevision": "fcefc8ba8296bd4d771cabd8b805c9061ada7513",
+  "mathematicsRevision": "3f8aedfdbf8ecc1b64d1847ccc6cf6206019d350",
+  "exporterSha256": "6becbd7cbe3f8ef8965995b2a02ea71468c7a3b7fb9a817f61919d76e8043f2a",
+  "kernelRevision": "695210ecef9beb3015782ee82b34852818a32257",
+  "admissionSourceSha256": "6ccd235bf0334ccc7df502a917718837840e1ecaa1c09c2ab3f3dea954391f29",
+  "addressExporterSha256": "6721c1bc8f35d0ec81855e85ec9c802ae55985c334b7169f746c206a4275a714"
+ },
+ "categories": [
+  {
+   "category": "cat.additive_commutative_monoids",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.additive_commutative_monoids.additive_monoid",
+     "family": "functor action (object)",
+     "detail": "target cat.additive_monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.additive_commutative_monoids.additive_monoid#map",
+     "family": "functor action (map)",
+     "detail": "target cat.additive_monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.additive_groups",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.additive_groups.to_groups",
+     "family": "functor action (object)",
+     "detail": "target cat.groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.additive_groups.additive_monoid",
+     "family": "functor action (object)",
+     "detail": "target cat.additive_monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "cell.additive_groups.carrier#component",
+     "family": "cell component",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.additive_groups.to_groups#map",
+     "family": "functor action (map)",
+     "detail": "target cat.groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.additive_groups.additive_monoid#map",
+     "family": "functor action (map)",
+     "detail": "target cat.additive_monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.additive_magmas",
+   "registrations": [],
+   "operations": [],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.additive_monoids",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.additive_monoids.underlying",
+     "family": "functor action (object)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "op.additive_monoids.add",
+     "family": "element operation",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.additive_monoids.underlying#map",
+     "family": "functor action (map)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [
+    {
+     "id": "obj.additive_monoids.vectors",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    }
+   ],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.additive_semigroups",
+   "registrations": [],
+   "operations": [],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.algebras",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.algebras.forget",
+     "family": "functor action (object)",
+     "detail": "target cat.commutative_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.algebras.forget#map",
+     "family": "functor action (map)",
+     "detail": "target cat.commutative_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [
+    {
+     "id": "obj.algebras.scalar_extension",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.algebras.mv_polynomials",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.algebras.polynomials",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.algebras.real_integer",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.algebras.real_rational",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.algebras.complex_integer",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.algebras.complex_rational",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.algebras.complex_real",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    }
+   ],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.alternating_forms",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"classifierForget\":\"clf.bilin_module.alternating\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.bilin_module",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.bilin_module.alternating\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.bilin_module",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [
+    {
+     "id": "obj.alternating_forms.chosen_form",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    }
+   ],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.arrows_bilin_module",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"constructorMap\":[\"ctor.arrow\",{\"functor\":\"fun.bilin_module.forget\"}]}",
+     "family": "edge action (object)",
+     "detail": "target cat.arrows_modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"constructorMap\":[\"ctor.arrow\",{\"functor\":\"fun.bilin_module.forget\"}]}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.arrows_modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"constructorMap\":[\"ctor.arrow\",{\"functor\":\"fun.bilin_module.fixed_value\"}]}",
+     "family": "edge action (object)",
+     "detail": "target expr: CategoryExpr.construct { raw := \"ctor.arrow\" } #[ConstructorArg.category (CategoryExpr.familyApp { raw := \"fam.bil_wform\" } #[ParameterExpr.variable { raw := \"R\" }])]",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"constructorMap\":[\"ctor.arrow\",{\"functor\":\"fun.bilin_module.fixed_value\"}]}#map",
+     "family": "edge action (map)",
+     "detail": "target expr: CategoryExpr.construct { raw := \"ctor.arrow\" } #[ConstructorArg.category (CategoryExpr.familyApp { raw := \"fam.bil_wform\" } #[ParameterExpr.variable { raw := \"R\" }])]",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.arrows_groups",
+   "registrations": [
+    {
+     "operation": "meth.group_arrow_kernel",
+     "input": "cat.arrows_groups",
+     "backend": "gap-groups",
+     "input_category": "cat.arrows_groups"
+    },
+    {
+     "operation": "fun.arrows_groups.kernel",
+     "input": "cat.arrows_groups",
+     "backend": "gap-groups",
+     "input_category": "cat.arrows_groups"
+    }
+   ],
+   "operations": [
+    {
+     "address": "fun.arrows_groups.kernel",
+     "family": "functor action (object)",
+     "detail": "target cat.subobjects_groups",
+     "registrations": 1,
+     "registered_backends": [
+      "gap-groups"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.arrows_groups.codomain",
+     "family": "functor action (object)",
+     "detail": "target cat.groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "meth.group_arrow_kernel",
+     "family": "method",
+     "detail": "functor fun.arrows_groups.kernel",
+     "registrations": 1,
+     "registered_backends": [
+      "gap-groups"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.arrows_groups.kernel#map",
+     "family": "functor action (map)",
+     "detail": "target cat.subobjects_groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.arrows_groups.codomain#map",
+     "family": "functor action (map)",
+     "detail": "target cat.groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"constructorMap\":[\"ctor.arrow\",{\"functor\":\"fun.groups.monoid\"}]}",
+     "family": "edge action (object)",
+     "detail": "target expr: CategoryExpr.construct { raw := \"ctor.arrow\" } #[ConstructorArg.category (CategoryExpr.atom { raw := \"cat.monoids\" })]",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"constructorMap\":[\"ctor.arrow\",{\"functor\":\"fun.groups.monoid\"}]}#map",
+     "family": "edge action (map)",
+     "detail": "target expr: CategoryExpr.construct { raw := \"ctor.arrow\" } #[ConstructorArg.category (CategoryExpr.atom { raw := \"cat.monoids\" })]",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.arrows_modules_r",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.arrows_modules.kernel",
+     "family": "functor action (object)",
+     "detail": "target cat.subobjects_modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.arrows_modules.cokernel",
+     "family": "functor action (object)",
+     "detail": "target cat.quotients_modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.arrows_modules.image",
+     "family": "functor action (object)",
+     "detail": "target cat.subobjects_modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.arrows_modules.coimage",
+     "family": "functor action (object)",
+     "detail": "target cat.quotients_modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.arrows_modules.coimage_image_comparison",
+     "family": "functor action (object)",
+     "detail": "target cat.arrows_modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "meth.kernel",
+     "family": "method",
+     "detail": "functor fun.arrows_modules.kernel",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "meth.arrow_coker",
+     "family": "method",
+     "detail": "functor fun.arrows_modules.cokernel",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "meth.arrow_ker",
+     "family": "method",
+     "detail": "functor fun.arrows_modules.kernel",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "meth.arrow_im",
+     "family": "method",
+     "detail": "functor fun.arrows_modules.image",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "meth.arrow_coim",
+     "family": "method",
+     "detail": "functor fun.arrows_modules.coimage",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "meth.arrow_coimage_image_comparison",
+     "family": "method",
+     "detail": "functor fun.arrows_modules.coimage_image_comparison",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "cell.modules.coimage_image#component",
+     "family": "cell component",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.arrows_modules.kernel#map",
+     "family": "functor action (map)",
+     "detail": "target cat.subobjects_modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.arrows_modules.cokernel#map",
+     "family": "functor action (map)",
+     "detail": "target cat.quotients_modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.arrows_modules.image#map",
+     "family": "functor action (map)",
+     "detail": "target cat.subobjects_modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.arrows_modules.coimage#map",
+     "family": "functor action (map)",
+     "detail": "target cat.quotients_modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.arrows_modules.coimage_image_comparison#map",
+     "family": "functor action (map)",
+     "detail": "target cat.arrows_modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"constructorMap\":[\"ctor.arrow\",{\"functor\":\"fun.modules.fibre_inclusion\"}]}",
+     "family": "edge action (object)",
+     "detail": "target expr: CategoryExpr.construct { raw := \"ctor.arrow\" } #[ConstructorArg.category (CategoryExpr.familyTotal { raw := \"fam.modules\" })]",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"constructorMap\":[\"ctor.arrow\",{\"functor\":\"fun.modules.fibre_inclusion\"}]}#map",
+     "family": "edge action (map)",
+     "detail": "target expr: CategoryExpr.construct { raw := \"ctor.arrow\" } #[ConstructorArg.category (CategoryExpr.familyTotal { raw := \"fam.modules\" })]",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.arrows_sets",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"constructorMap\":[\"ctor.arrow\",{\"functor\":\"fun.sets.whole_subset\"}]}",
+     "family": "edge action (object)",
+     "detail": "target expr: CategoryExpr.construct { raw := \"ctor.arrow\" } #[ConstructorArg.category (CategoryExpr.construct { raw := \"ctor.subobjects\" } #[ConstructorArg.category (CategoryExpr.atom { raw := \"cat.sets\" })])]",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"constructorMap\":[\"ctor.arrow\",{\"functor\":\"fun.sets.whole_subset\"}]}#map",
+     "family": "edge action (map)",
+     "detail": "target expr: CategoryExpr.construct { raw := \"ctor.arrow\" } #[ConstructorArg.category (CategoryExpr.construct { raw := \"ctor.subobjects\" } #[ConstructorArg.category (CategoryExpr.atom { raw := \"cat.sets\" })])]",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.based_module",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.based_module.to_free_cover",
+     "family": "functor action (object)",
+     "detail": "target cat.free_cover",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.coord.from_based_module",
+     "family": "functor action (object)",
+     "detail": "target cat.coord",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.based_module.to_free_cover#map",
+     "family": "functor action (map)",
+     "detail": "target cat.free_cover",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.coord.from_based_module#map",
+     "family": "functor action (map)",
+     "detail": "target cat.coord",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.based_module_indexed",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.based_module.forget",
+     "family": "functor action (object)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.based_module.forget#map",
+     "family": "functor action (map)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.bil_wform",
+   "registrations": [
+    {
+     "operation": "colim.bil_w_form.cokernel",
+     "input": "cat.bil_wform",
+     "backend": "sage-discriminant",
+     "input_category": "cat.bil_wform"
+    }
+   ],
+   "operations": [
+    {
+     "address": "fun.bil_wform.carrier",
+     "family": "functor action (object)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.bil_wform.base_change",
+     "family": "functor action (object)",
+     "detail": "target fam.bil_wform(S)",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "colim.bil_w_form.cokernel",
+     "family": "limit or colimit",
+     "detail": "",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-discriminant"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.bil_wform.from_module_maps",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.bil_wform.to_metric_dual",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.bil_wform.to_discriminant",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.bil_wform.cokernel_projection",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.bil_wform.cokernel_desc",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.bil_wform.to_changed_values",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.bil_wform.root_lattice_a_to_dual",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-discriminant"
+     ]
+    },
+    {
+     "address": "mor.bil_wform.root_lattice_a_to_discriminant",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-discriminant"
+     ]
+    },
+    {
+     "address": "fun.bil_wform.carrier#map",
+     "family": "functor action (map)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.bil_wform.base_change#map",
+     "family": "functor action (map)",
+     "detail": "target fam.bil_wform(S)",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [
+    {
+     "id": "obj.bil_wform.formed",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.bil_wform.integral_form",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.bil_wform.metric_dual",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.bil_wform.discriminant",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.bil_wform.cokernel",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.bil_wform.changed_values",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.bil_wform.extended_scalars",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.bil_wform.root_lattice_a",
+     "registered_as_input": 4,
+     "named_in": [
+      "gap-groups",
+      "sage-discriminant",
+      "sage-modules"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.bil_wform.root_lattice_a_dual",
+     "registered_as_input": 4,
+     "named_in": [
+      "gap-groups",
+      "sage-discriminant",
+      "sage-modules"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.bil_wform.root_lattice_a_discriminant",
+     "registered_as_input": 4,
+     "named_in": [
+      "gap-groups",
+      "sage-discriminant",
+      "sage-modules"
+     ],
+     "matched_by_rule_in": []
+    }
+   ],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.bilin_forms_over_rings",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.bilin_forms.values",
+     "family": "functor action (object)",
+     "detail": "target cat.modules_over_rings_ext",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.bilin_forms.values#map",
+     "family": "functor action (map)",
+     "detail": "target cat.modules_over_rings_ext",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.bilin_module",
+   "registrations": [
+    {
+     "operation": "lift.bilin_module.restrict#obj",
+     "input": "lift.bilin_module.restrict#input",
+     "backend": "sage-bilinear-lift",
+     "input_category": "cat.arrows_bilin_module"
+    },
+    {
+     "operation": "lift.bilin_module.restrict#hom",
+     "input": "lift.bilin_module.restrict#input",
+     "backend": "sage-bilinear-lift",
+     "input_category": "cat.arrows_bilin_module"
+    },
+    {
+     "operation": "lift.bilin_module.restrict#forward",
+     "input": "lift.bilin_module.restrict#input",
+     "backend": "sage-bilinear-lift",
+     "input_category": "cat.arrows_bilin_module"
+    },
+    {
+     "operation": "lift.bilin_module.restrict#backward",
+     "input": "lift.bilin_module.restrict#input",
+     "backend": "sage-bilinear-lift",
+     "input_category": "cat.arrows_bilin_module"
+    }
+   ],
+   "operations": [
+    {
+     "address": "fun.bilin_module.forget",
+     "family": "functor action (object)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-bilinear-lift"
+     ]
+    },
+    {
+     "address": "fun.bilin_module.change_value",
+     "family": "functor action (object)",
+     "detail": "target expr: CategoryExpr.familyApp { raw := \"fam.bilin_module\" } #[ParameterExpr.variable { raw := \"R\" }, ParameterExpr.variable { raw := \"W'\" }]",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.bilin_module.base_change",
+     "family": "functor action (object)",
+     "detail": "target expr: CategoryExpr.familyApp { raw := \"fam.bilin_module\" } #[ParameterExpr.variable { raw := \"S\" }, ParameterExpr.apply3 { raw := \"parameter.tensor_product\" } (ParameterExpr.variable { raw := \"R\" }) (ParameterExpr.variable { raw := \"S\" }) (ParameterExpr.variable { raw := \"W\" })]",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.bilin_module.fixed_value",
+     "family": "functor action (object)",
+     "detail": "target cat.bil_wform",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "prop.is_lattice",
+     "family": "property",
+     "detail": "classifier clf.bilin_module.lattice; receiver none",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "prop.bilin_module.is_alternating",
+     "family": "property",
+     "detail": "classifier clf.bilin_module.alternating; receiver none",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.bilin_module.restriction_inclusion",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "cell.bilin_module.carrier_routes#component",
+     "family": "cell component",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.bilin_module.forget#map",
+     "family": "functor action (map)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.bilin_module.change_value#map",
+     "family": "functor action (map)",
+     "detail": "target expr: CategoryExpr.familyApp { raw := \"fam.bilin_module\" } #[ParameterExpr.variable { raw := \"R\" }, ParameterExpr.variable { raw := \"W'\" }]",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.bilin_module.base_change#map",
+     "family": "functor action (map)",
+     "detail": "target expr: CategoryExpr.familyApp { raw := \"fam.bilin_module\" } #[ParameterExpr.variable { raw := \"S\" }, ParameterExpr.apply3 { raw := \"parameter.tensor_product\" } (ParameterExpr.variable { raw := \"R\" }) (ParameterExpr.variable { raw := \"S\" }) (ParameterExpr.variable { raw := \"W\" })]",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.bilin_module.fixed_value#map",
+     "family": "functor action (map)",
+     "detail": "target cat.bil_wform",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "lift.bilin_module.restrict#obj",
+     "family": "lift field (obj)",
+     "detail": "source categories cat.arrows_bilin_module",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-bilinear-lift"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "lift.bilin_module.restrict#hom",
+     "family": "lift field (hom)",
+     "detail": "source categories cat.arrows_bilin_module",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-bilinear-lift"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "lift.bilin_module.restrict#forward",
+     "family": "lift field (forward)",
+     "detail": "source categories cat.arrows_bilin_module",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-bilinear-lift"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "lift.bilin_module.restrict#backward",
+     "family": "lift field (backward)",
+     "detail": "source categories cat.arrows_bilin_module",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-bilinear-lift"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "lift.bilin_module.restrict#factor",
+     "family": "lift field (factor)",
+     "detail": "source categories cat.arrows_bilin_module",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [
+    {
+     "id": "obj.bilin_module.restriction",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.bilin_module.bilinear_form",
+     "registered_as_input": 0,
+     "named_in": [
+      "sage-bilinear-lift"
+     ],
+     "matched_by_rule_in": []
+    }
+   ],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.boolean_algebras",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.boolean_algebras.forget",
+     "family": "functor action (object)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "op.boolean_algebras.union",
+     "family": "element operation",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "op.boolean_algebras.inter",
+     "family": "element operation",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "op.boolean_algebras.diff",
+     "family": "element operation",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "op.boolean_algebras.symm_diff",
+     "family": "element operation",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "op.boolean_algebras.subset",
+     "family": "element operation",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.boolean_algebras.forget#map",
+     "family": "functor action (map)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [
+    {
+     "id": "obj.boolean_algebras.power_set",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    }
+   ],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.cardinalities",
+   "registrations": [],
+   "operations": [],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.cardinals",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.cardinals.to_cardinalities",
+     "family": "functor action (object)",
+     "detail": "target cat.cardinalities",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.cardinals.to_cardinalities#map",
+     "family": "functor action (map)",
+     "detail": "target cat.cardinalities",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": [
+    {
+     "id": "lit.cardinals",
+     "kind": "literal",
+     "named_in": []
+    }
+   ]
+  },
+  {
+   "category": "cat.commutative_monoids",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.commutative_monoids.monoid",
+     "family": "functor action (object)",
+     "detail": "target cat.monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.commutative_monoids.monoid#map",
+     "family": "functor action (map)",
+     "detail": "target cat.monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.commutative_rings",
+   "registrations": [
+    {
+     "operation": "cmp.f9.translation",
+     "input": "obj.commutative_rings.f9_x",
+     "backend": "sage-presentations",
+     "input_category": "cat.commutative_rings"
+    },
+    {
+     "operation": "cmp.f9.translation",
+     "input": "obj.commutative_rings.f9_y",
+     "backend": "sage-presentations",
+     "input_category": "cat.commutative_rings"
+    }
+   ],
+   "operations": [
+    {
+     "address": "fun.commutative_rings.ring",
+     "family": "functor action (object)",
+     "detail": "target cat.rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-presentations"
+     ]
+    },
+    {
+     "address": "fun.modules_ext.regular_section",
+     "family": "functor action (object)",
+     "detail": "target cat.modules_over_rings_ext",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.commutative_rings.multiplicative_commutative_monoid",
+     "family": "functor action (object)",
+     "detail": "target cat.commutative_monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "cmp.polynomial_quotient.translation",
+     "family": "presentation comparison",
+     "detail": "obj.commutative_rings.polynomial_quotient to obj.commutative_rings.polynomial_quotient",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "cmp.f9.translation",
+     "family": "presentation comparison",
+     "detail": "obj.commutative_rings.f9_x to obj.commutative_rings.f9_y",
+     "registrations": 2,
+     "registered_backends": [
+      "sage-presentations"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "cmp.rational_dual.translation",
+     "family": "presentation comparison",
+     "detail": "obj.commutative_rings.rational_dual_x to obj.commutative_rings.rational_dual_y",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.commutative_rings.integer_coefficients",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "address": "mor.commutative_rings.rational_real_coefficients",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "address": "mor.commutative_rings.rational_complex_coefficients",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "address": "mor.commutative_rings.real_complex_coefficients",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "address": "cell.commutative_rings.multiplicative_monoid#component",
+     "family": "cell component",
+     "detail": "target cat.monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.commutative_rings.ring#map",
+     "family": "functor action (map)",
+     "detail": "target cat.rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.modules_ext.regular_section#map",
+     "family": "functor action (map)",
+     "detail": "target cat.modules_over_rings_ext",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.commutative_rings.multiplicative_commutative_monoid#map",
+     "family": "functor action (map)",
+     "detail": "target cat.commutative_monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [
+    {
+     "id": "obj.commutative_rings.polynomial_quotient",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.commutative_rings.f9_x",
+     "registered_as_input": 3,
+     "named_in": [
+      "sage-presentations"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.commutative_rings.f9_y",
+     "registered_as_input": 3,
+     "named_in": [
+      "sage-presentations"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.commutative_rings.rational_dual_x",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.commutative_rings.rational_dual_y",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.commutative_rings.integers",
+     "registered_as_input": 0,
+     "named_in": [
+      "gap-groups",
+      "sage-modules"
+     ],
+     "matched_by_rule_in": [
+      "sage-set-limits",
+      "sage-symbolic"
+     ]
+    },
+    {
+     "id": "obj.commutative_rings.integers_mod",
+     "registered_as_input": 0,
+     "named_in": [
+      "gap-groups",
+      "sage-modules",
+      "sage-presentations"
+     ],
+     "matched_by_rule_in": [
+      "sage-set-limits",
+      "sage-symbolic"
+     ]
+    },
+    {
+     "id": "obj.commutative_rings.rationals",
+     "registered_as_input": 0,
+     "named_in": [
+      "gap-groups",
+      "sage-modules"
+     ],
+     "matched_by_rule_in": [
+      "sage-set-limits",
+      "sage-symbolic"
+     ]
+    },
+    {
+     "id": "obj.commutative_rings.reals",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "id": "obj.commutative_rings.complexes",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": [
+      "sage-symbolic"
+     ]
+    }
+   ],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.coord",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.coord.forget",
+     "family": "functor action (object)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.coord.forget#map",
+     "family": "functor action (map)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.coord_indexed",
+   "registrations": [],
+   "operations": [],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.coord_lattice",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.coord_lattice.to_coord",
+     "family": "functor action (object)",
+     "detail": "target cat.coord",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.coord_lattice.to_integral",
+     "family": "functor action (object)",
+     "detail": "target cat.integral_lattice",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.coord_lattice.to_coord#map",
+     "family": "functor action (map)",
+     "detail": "target cat.coord",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.coord_lattice.to_integral#map",
+     "family": "functor action (map)",
+     "detail": "target cat.integral_lattice",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.core_groups",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.core_groups.automorphisms",
+     "family": "functor action (object)",
+     "detail": "target cat.groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.core_groups.endomorphisms",
+     "family": "functor action (object)",
+     "detail": "target cat.monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.core_groups.centers",
+     "family": "functor action (object)",
+     "detail": "target cat.subobjects_groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "cell.core_groups.automorphisms_units#component",
+     "family": "cell component",
+     "detail": "target cat.groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.core_groups.automorphisms#map",
+     "family": "functor action (map)",
+     "detail": "target cat.groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.core_groups.endomorphisms#map",
+     "family": "functor action (map)",
+     "detail": "target cat.monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.core_groups.centers#map",
+     "family": "functor action (map)",
+     "detail": "target cat.subobjects_groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"constructorMap\":[\"ctor.core\",{\"functor\":\"fun.groups.monoid\"}]}",
+     "family": "edge action (object)",
+     "detail": "target expr: CategoryExpr.construct { raw := \"ctor.core\" } #[ConstructorArg.category (CategoryExpr.atom { raw := \"cat.monoids\" })]",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"constructorMap\":[\"ctor.core\",{\"functor\":\"fun.groups.monoid\"}]}#map",
+     "family": "edge action (map)",
+     "detail": "target expr: CategoryExpr.construct { raw := \"ctor.core\" } #[ConstructorArg.category (CategoryExpr.atom { raw := \"cat.monoids\" })]",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.core_modules_r",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.modules.rank",
+     "family": "functor action (object)",
+     "detail": "target cat.cardinals",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.core_modules_r.automorphisms",
+     "family": "functor action (object)",
+     "detail": "target cat.groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.core_modules_r.endomorphisms",
+     "family": "functor action (object)",
+     "detail": "target cat.monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.modules.annihilator",
+     "family": "functor action (object)",
+     "detail": "target cat.ideals_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "cell.core_modules_r.automorphisms_units#component",
+     "family": "cell component",
+     "detail": "target cat.groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.modules.rank#map",
+     "family": "functor action (map)",
+     "detail": "target cat.cardinals",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.core_modules_r.automorphisms#map",
+     "family": "functor action (map)",
+     "detail": "target cat.groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.core_modules_r.endomorphisms#map",
+     "family": "functor action (map)",
+     "detail": "target cat.monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.modules.annihilator#map",
+     "family": "functor action (map)",
+     "detail": "target cat.ideals_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"constructorMap\":[\"ctor.core\",{\"functor\":\"fun.modules.fibre_inclusion\"}]}",
+     "family": "edge action (object)",
+     "detail": "target expr: CategoryExpr.construct { raw := \"ctor.core\" } #[ConstructorArg.category (CategoryExpr.familyTotal { raw := \"fam.modules\" })]",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"constructorMap\":[\"ctor.core\",{\"functor\":\"fun.modules.fibre_inclusion\"}]}#map",
+     "family": "edge action (map)",
+     "detail": "target expr: CategoryExpr.construct { raw := \"ctor.core\" } #[ConstructorArg.category (CategoryExpr.familyTotal { raw := \"fam.modules\" })]",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.core_pointed_sets",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.core_pointed_sets.stabilizer",
+     "family": "functor action (object)",
+     "detail": "target cat.subobjects_groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "cell.core_pointed_sets.stabilizer_ambient#component",
+     "family": "cell component",
+     "detail": "target cat.groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.core_pointed_sets.stabilizer#map",
+     "family": "functor action (map)",
+     "detail": "target cat.subobjects_groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"constructorMap\":[\"ctor.core\",{\"functor\":\"fun.pointed_sets.projection\"}]}",
+     "family": "edge action (object)",
+     "detail": "target cat.core_sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"constructorMap\":[\"ctor.core\",{\"functor\":\"fun.pointed_sets.projection\"}]}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.core_sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.core_sets",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.sets.cardinality",
+     "family": "functor action (object)",
+     "detail": "target cat.cardinals",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.core_sets.automorphisms",
+     "family": "functor action (object)",
+     "detail": "target cat.groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.core_sets.endomorphisms",
+     "family": "functor action (object)",
+     "detail": "target cat.monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "cell.core_sets.automorphisms_units#component",
+     "family": "cell component",
+     "detail": "target cat.groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.sets.cardinality#map",
+     "family": "functor action (map)",
+     "detail": "target cat.cardinals",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.core_sets.automorphisms#map",
+     "family": "functor action (map)",
+     "detail": "target cat.groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.core_sets.endomorphisms#map",
+     "family": "functor action (map)",
+     "detail": "target cat.monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"constructorMap\":[\"ctor.core\",{\"functor\":\"fun.sets.whole_subset\"}]}",
+     "family": "edge action (object)",
+     "detail": "target cat.core_subobjects_sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"constructorMap\":[\"ctor.core\",{\"functor\":\"fun.sets.whole_subset\"}]}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.core_subobjects_sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.core_subobjects_modules_r",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.subobjects_modules.rank",
+     "family": "functor action (object)",
+     "detail": "target cat.cardinals",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.subobjects_modules.rank#map",
+     "family": "functor action (map)",
+     "detail": "target cat.cardinals",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"constructorMap\":[\"ctor.core\",{\"functor\":\"fun.subobjects_modules.forget\"}]}",
+     "family": "edge action (object)",
+     "detail": "target cat.core_subobjects_sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"constructorMap\":[\"ctor.core\",{\"functor\":\"fun.subobjects_modules.forget\"}]}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.core_subobjects_sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.core_subobjects_sets",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.subsets.point_predicates",
+     "family": "functor action (object)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.subsets.subset_predicates",
+     "family": "functor action (object)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.subsets.contains",
+     "family": "functor action (object)",
+     "detail": "target cat.subsets.point_predicates",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.subsets.set_eq",
+     "family": "functor action (object)",
+     "detail": "target cat.subsets.subset_predicates",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.subsets.point_predicates#map",
+     "family": "functor action (map)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.subsets.subset_predicates#map",
+     "family": "functor action (map)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.subsets.contains#map",
+     "family": "functor action (map)",
+     "detail": "target cat.subsets.point_predicates",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.subsets.set_eq#map",
+     "family": "functor action (map)",
+     "detail": "target cat.subsets.subset_predicates",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"constructorMap\":[\"ctor.core\",{\"functor\":\"fun.subobjects_sets.domain\"}]}",
+     "family": "edge action (object)",
+     "detail": "target cat.core_sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"constructorMap\":[\"ctor.core\",{\"functor\":\"fun.subobjects_sets.domain\"}]}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.core_sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.coslice_sets",
+   "registrations": [],
+   "operations": [],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.countable_sets",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"classifierForget\":\"clf.sets.countable\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.sets.countable\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.crystals",
+   "registrations": [],
+   "operations": [],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.definite_lattice",
+   "registrations": [],
+   "operations": [],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.division_rings",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"classifierForget\":\"clf.division\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.division\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.endofunctors_sets",
+   "registrations": [],
+   "operations": [],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.enumerated_sets",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.sets.enumerated_to_countable",
+     "family": "functor action (object)",
+     "detail": "target cat.countable_sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.sets.enumerated_to_countable#map",
+     "family": "functor action (map)",
+     "detail": "target cat.countable_sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.sets.enumerated\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.sets.enumerated\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.even_integral_lattices",
+   "registrations": [],
+   "operations": [],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.even_lattice",
+   "registrations": [],
+   "operations": [],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.fields",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"classifierForget\":\"clf.commutative_rings.field\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.commutative_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.commutative_rings.field\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.commutative_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [
+    {
+     "id": "obj.fields.rationals",
+     "registered_as_input": 0,
+     "named_in": [
+      "sage-modules"
+     ],
+     "matched_by_rule_in": [
+      "sage-set-limits",
+      "sage-symbolic"
+     ]
+    },
+    {
+     "id": "obj.fields.reals",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "id": "obj.fields.complexes",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": [
+      "sage-symbolic"
+     ]
+    }
+   ],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.finite_free_lattice",
+   "registrations": [],
+   "operations": [],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.finite_free_lattices_over_rings",
+   "registrations": [],
+   "operations": [],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.finite_projective_lattice",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.finite_projective_lattice.forget",
+     "family": "functor action (object)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.finite_projective_lattice.forget#map",
+     "family": "functor action (map)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.finite_projective_lattices_over_rings",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.finite_projective_lattices.to_bil",
+     "family": "functor action (object)",
+     "detail": "target cat.bilin_forms_over_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.finite_projective_lattices.to_bil#map",
+     "family": "functor action (map)",
+     "detail": "target cat.bilin_forms_over_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.finite_sets",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.sets.finite_to_countable",
+     "family": "functor action (object)",
+     "detail": "target cat.countable_sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.sets.finite_to_countable#map",
+     "family": "functor action (map)",
+     "detail": "target cat.countable_sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.sets.finite\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.sets.finite\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [
+    {
+     "id": "obj.finite_sets.fin",
+     "registered_as_input": 2,
+     "named_in": [
+      "sage",
+      "sage-power-set",
+      "sage-set-limits"
+     ],
+     "matched_by_rule_in": []
+    }
+   ],
+   "other_constructors": [
+    {
+     "id": "graph.finite_sets",
+     "kind": "graphLiteral",
+     "named_in": []
+    }
+   ]
+  },
+  {
+   "category": "cat.finitelygeneratedmodules",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"classifierForget\":\"clf.modules_finitelygenerated\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.modules_finitelygenerated\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.finiterankmodules",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"classifierForget\":\"clf.modules_finiterank\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.modules_finiterank\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.fraction_field_perfect_finite_projective_lattice",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.fraction_field_perfect_finite_projective_lattice.forget",
+     "family": "functor action (object)",
+     "detail": "target cat.integral_lattice",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.fraction_field_perfect_finite_projective_lattice.forget#map",
+     "family": "functor action (map)",
+     "detail": "target cat.integral_lattice",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.free_cover",
+   "registrations": [],
+   "operations": [],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.free_cover_indexed",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.free_cover.forget",
+     "family": "functor action (object)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.free_cover.forget#map",
+     "family": "functor action (map)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.freemodules",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"classifierForget\":\"clf.modules_free\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.modules_free\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.groups",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.groups.monoid",
+     "family": "functor action (object)",
+     "detail": "target cat.monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "gap-groups"
+     ]
+    },
+    {
+     "address": "con.automorphisms",
+     "family": "construction (object)",
+     "detail": "target category; the source is Core(C) of the category parameter C",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "lim.groups.kernel",
+     "family": "limit or colimit",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.groups.sign",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "gap-groups"
+     ]
+    },
+    {
+     "address": "mor.groups.identity",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "gap-groups"
+     ]
+    },
+    {
+     "address": "mor.groups.trivial",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "gap-groups"
+     ]
+    },
+    {
+     "address": "op.groups.inverse",
+     "family": "element operation",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.groups.monoid#map",
+     "family": "functor action (map)",
+     "detail": "target cat.monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "con.automorphisms#map",
+     "family": "construction (map)",
+     "detail": "target category; the source is Core(C) of the category parameter C",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [
+    {
+     "id": "obj.groups.units",
+     "registered_as_input": 4,
+     "named_in": [
+      "gap-groups"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.groups.symmetric",
+     "registered_as_input": 4,
+     "named_in": [
+      "gap-groups"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.groups.cyclic",
+     "registered_as_input": 4,
+     "named_in": [
+      "gap-groups"
+     ],
+     "matched_by_rule_in": []
+    }
+   ],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.hausdorff_topological_commutative_monoids",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.hausdorff_topological_commutative_monoids.additive_commutative_monoid",
+     "family": "functor action (object)",
+     "detail": "target cat.additive_commutative_monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.hausdorff_topological_commutative_monoids.additive_commutative_monoid#map",
+     "family": "functor action (map)",
+     "detail": "target cat.additive_commutative_monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [
+    {
+     "id": "obj.hausdorff_topological_monoids.power_series",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    }
+   ],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.ideals_r",
+   "registrations": [],
+   "operations": [],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.indefinite_lattice",
+   "registrations": [],
+   "operations": [],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.integral_forms",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.integral_forms.to_bil",
+     "family": "functor action (object)",
+     "detail": "target cat.bilin_forms_over_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.integral_forms.to_bil#map",
+     "family": "functor action (map)",
+     "detail": "target cat.bilin_forms_over_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.integral_lattice",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.integral_lattice.forget_form",
+     "family": "functor action (object)",
+     "detail": "target cat.bilin_module",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.integral_lattice.forget_form#map",
+     "family": "functor action (map)",
+     "detail": "target cat.bilin_module",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [
+    {
+     "id": "obj.integral_lattice.e8",
+     "registered_as_input": 4,
+     "named_in": [
+      "gap-groups",
+      "sage-modules"
+     ],
+     "matched_by_rule_in": []
+    }
+   ],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.integral_lattices",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.integral_lattices.to_bil",
+     "family": "functor action (object)",
+     "detail": "target cat.bilin_forms_over_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.integral_lattices.to_bil#map",
+     "family": "functor action (map)",
+     "detail": "target cat.bilin_forms_over_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.lattice",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.lattice.forget_form",
+     "family": "functor action (object)",
+     "detail": "target cat.bilin_module",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.lattice.change_value",
+     "family": "functor action (object)",
+     "detail": "target expr: CategoryExpr.familyApp { raw := \"fam.lattice\" } #[ParameterExpr.variable { raw := \"R\" }, ParameterExpr.variable { raw := \"W'\" }]",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.lattice.base_change",
+     "family": "functor action (object)",
+     "detail": "target expr: CategoryExpr.familyApp { raw := \"fam.lattice\" } #[ParameterExpr.variable { raw := \"S\" }, ParameterExpr.apply3 { raw := \"parameter.tensor_product\" } (ParameterExpr.variable { raw := \"R\" }) (ParameterExpr.variable { raw := \"S\" }) (ParameterExpr.variable { raw := \"W\" })]",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.lattice.forget_form#map",
+     "family": "functor action (map)",
+     "detail": "target cat.bilin_module",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.lattice.change_value#map",
+     "family": "functor action (map)",
+     "detail": "target expr: CategoryExpr.familyApp { raw := \"fam.lattice\" } #[ParameterExpr.variable { raw := \"R\" }, ParameterExpr.variable { raw := \"W'\" }]",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.lattice.base_change#map",
+     "family": "functor action (map)",
+     "detail": "target expr: CategoryExpr.familyApp { raw := \"fam.lattice\" } #[ParameterExpr.variable { raw := \"S\" }, ParameterExpr.apply3 { raw := \"parameter.tensor_product\" } (ParameterExpr.variable { raw := \"R\" }) (ParameterExpr.variable { raw := \"S\" }) (ParameterExpr.variable { raw := \"W\" })]",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.lattices_over_rings",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.lattices_over_rings.to_bil",
+     "family": "functor action (object)",
+     "detail": "target cat.bilin_forms_over_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.lattices_over_rings.to_bil#map",
+     "family": "functor action (map)",
+     "detail": "target cat.bilin_forms_over_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.linear_orders",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.linear_orders.forget",
+     "family": "functor action (object)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.linear_orders.to_partial_orders",
+     "family": "functor action (object)",
+     "detail": "target cat.partial_orders",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "op.linear_orders.le",
+     "family": "element operation",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "op.linear_orders.lt",
+     "family": "element operation",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "cmp.linear_orders.carrier#component",
+     "family": "cell component",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.linear_orders.forget#map",
+     "family": "functor action (map)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.linear_orders.to_partial_orders#map",
+     "family": "functor action (map)",
+     "detail": "target cat.partial_orders",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [
+    {
+     "id": "obj.linear_orders.naturals",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "id": "obj.linear_orders.integers",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": [
+      "sage-set-limits",
+      "sage-symbolic"
+     ]
+    },
+    {
+     "id": "obj.linear_orders.rationals",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": [
+      "sage-set-limits",
+      "sage-symbolic"
+     ]
+    },
+    {
+     "id": "obj.linear_orders.reals",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": [
+      "sage-symbolic"
+     ]
+    }
+   ],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.magmas",
+   "registrations": [
+    {
+     "operation": "prop.is_abelian",
+     "input": "obj.groups.symmetric",
+     "backend": "gap-groups",
+     "input_category": "cat.groups"
+    },
+    {
+     "operation": "prop.is_abelian",
+     "input": "obj.groups.cyclic",
+     "backend": "gap-groups",
+     "input_category": "cat.groups"
+    },
+    {
+     "operation": "prop.is_abelian",
+     "input": "obj.subgroups.kernel",
+     "backend": "gap-groups",
+     "input_category": "cat.subobjects_groups"
+    },
+    {
+     "operation": "prop.is_commutative",
+     "input": "obj.groups.symmetric",
+     "backend": "gap-groups",
+     "input_category": "cat.groups"
+    },
+    {
+     "operation": "prop.is_commutative",
+     "input": "obj.groups.cyclic",
+     "backend": "gap-groups",
+     "input_category": "cat.groups"
+    },
+    {
+     "operation": "prop.is_commutative",
+     "input": "obj.subgroups.alternating",
+     "backend": "gap-groups",
+     "input_category": "cat.subobjects_groups"
+    },
+    {
+     "operation": "prop.is_commutative",
+     "input": "obj.subgroups.kernel",
+     "backend": "gap-groups",
+     "input_category": "cat.subobjects_groups"
+    },
+    {
+     "operation": "prop.is_abelian",
+     "input": "cat.subobjects_groups",
+     "backend": "gap-groups",
+     "input_category": "cat.subobjects_groups"
+    },
+    {
+     "operation": "prop.is_commutative",
+     "input": "cat.subobjects_groups",
+     "backend": "gap-groups",
+     "input_category": "cat.subobjects_groups"
+    },
+    {
+     "operation": "prop.is_abelian",
+     "input": "obj.bil_wform.root_lattice_a",
+     "backend": "gap-groups",
+     "input_category": "cat.bil_wform"
+    },
+    {
+     "operation": "prop.is_abelian",
+     "input": "obj.bil_wform.root_lattice_a_dual",
+     "backend": "gap-groups",
+     "input_category": "cat.bil_wform"
+    },
+    {
+     "operation": "prop.is_abelian",
+     "input": "obj.bil_wform.root_lattice_a_discriminant",
+     "backend": "gap-groups",
+     "input_category": "cat.bil_wform"
+    },
+    {
+     "operation": "prop.is_abelian",
+     "input": "obj.integral_lattice.e8",
+     "backend": "gap-groups",
+     "input_category": "cat.integral_lattice"
+    },
+    {
+     "operation": "prop.is_commutative",
+     "input": "obj.bil_wform.root_lattice_a",
+     "backend": "gap-groups",
+     "input_category": "cat.bil_wform"
+    },
+    {
+     "operation": "prop.is_commutative",
+     "input": "obj.bil_wform.root_lattice_a_dual",
+     "backend": "gap-groups",
+     "input_category": "cat.bil_wform"
+    },
+    {
+     "operation": "prop.is_commutative",
+     "input": "obj.bil_wform.root_lattice_a_discriminant",
+     "backend": "gap-groups",
+     "input_category": "cat.bil_wform"
+    },
+    {
+     "operation": "prop.is_commutative",
+     "input": "obj.integral_lattice.e8",
+     "backend": "gap-groups",
+     "input_category": "cat.integral_lattice"
+    },
+    {
+     "operation": "prop.is_abelian",
+     "input": "obj.groups.units",
+     "backend": "gap-groups",
+     "input_category": "cat.groups"
+    },
+    {
+     "operation": "prop.is_commutative",
+     "input": "obj.groups.units",
+     "backend": "gap-groups",
+     "input_category": "cat.groups"
+    }
+   ],
+   "operations": [
+    {
+     "address": "prop.is_commutative",
+     "family": "property",
+     "detail": "classifier clf.magmas.commutative; receiver none",
+     "registrations": 10,
+     "registered_backends": [
+      "gap-groups"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "prop.is_abelian",
+     "family": "property",
+     "detail": "classifier clf.magmas.commutative; receiver some (CategoryExpr.atom { raw := \"cat.groups\" })",
+     "registrations": 9,
+     "registered_backends": [
+      "gap-groups"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.sets.binary_operation\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.sets.binary_operation\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.magmaswithtwooperations",
+   "registrations": [],
+   "operations": [],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.module_points",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.module_points.projection",
+     "family": "functor action (object)",
+     "detail": "target cat.modules_total",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.module_points.projection#map",
+     "family": "functor action (map)",
+     "detail": "target cat.modules_total",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.modules_over_rings_ext",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.modules_ext.ring",
+     "family": "functor action (object)",
+     "detail": "target cat.commutative_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.modules_ext.ring#map",
+     "family": "functor action (map)",
+     "detail": "target cat.commutative_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.modules_r",
+   "registrations": [
+    {
+     "operation": "meth.rank",
+     "input": "obj.modules.regular",
+     "backend": "sage-modules",
+     "input_category": "cat.modules_r"
+    },
+    {
+     "operation": "meth.rank",
+     "input": "obj.modules.vectors",
+     "backend": "sage-modules",
+     "input_category": "cat.modules_r"
+    },
+    {
+     "operation": "meth.rank",
+     "input": "obj.bil_wform.root_lattice_a",
+     "backend": "sage-modules",
+     "input_category": "cat.bil_wform"
+    },
+    {
+     "operation": "meth.rank",
+     "input": "obj.bil_wform.root_lattice_a_dual",
+     "backend": "sage-modules",
+     "input_category": "cat.bil_wform"
+    },
+    {
+     "operation": "meth.rank",
+     "input": "obj.bil_wform.root_lattice_a_discriminant",
+     "backend": "sage-modules",
+     "input_category": "cat.bil_wform"
+    },
+    {
+     "operation": "meth.rank",
+     "input": "obj.integral_lattice.e8",
+     "backend": "sage-modules",
+     "input_category": "cat.integral_lattice"
+    }
+   ],
+   "operations": [
+    {
+     "address": "fun.modules.fibre_inclusion",
+     "family": "functor action (object)",
+     "detail": "target cat.modules_total",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "meth.rank",
+     "family": "method",
+     "detail": "functor fun.modules.rank",
+     "registrations": 6,
+     "registered_backends": [
+      "sage-modules"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "meth.annihilator",
+     "family": "method",
+     "detail": "functor fun.modules.annihilator",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "meth.dim",
+     "family": "method",
+     "detail": "functor fun.modules.rank",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "lim.modules.product",
+     "family": "limit or colimit",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.modules.coimage_projection",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.modules.image_inclusion",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.modules.coimage_to_image",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.modules.image_to_coimage",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.modules.factor_thru_image",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.modules.factor_thru_coimage",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.modules.coimage_image_factorization",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.modules.kernel_inclusion",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.modules.linear_kernel_inclusion",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.modules.kernel_to_linear_kernel",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.modules.linear_kernel_to_kernel",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.modules.matrix_linear_map",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.modules.formed_carrier_map",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.modules.formed_value_map",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "op.modules.zero",
+     "family": "element operation",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "op.modules.scalar_action",
+     "family": "element operation",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.modules.fibre_inclusion#map",
+     "family": "functor action (map)",
+     "detail": "target cat.modules_total",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [
+    {
+     "id": "obj.modules.regular",
+     "registered_as_input": 2,
+     "named_in": [
+      "sage-modules"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.modules.linear_kernel",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.modules.vectors",
+     "registered_as_input": 2,
+     "named_in": [
+      "sage-modules"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.modules.subobject_domain",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.modules.subobject_ambient",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.modules.formed_carrier",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.modules.formed_values",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    }
+   ],
+   "other_constructors": [
+    {
+     "id": "incl.modules.chosen_subobject",
+     "kind": "inclusion",
+     "named_in": []
+    }
+   ]
+  },
+  {
+   "category": "cat.modules_total",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.modules.underlying",
+     "family": "functor action (object)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.modules.additive_group",
+     "family": "functor action (object)",
+     "detail": "target cat.additive_groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.modules.projection",
+     "family": "functor action (object)",
+     "detail": "target cat.rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "cell.modules.additive_group_carrier#component",
+     "family": "cell component",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.modules.underlying#map",
+     "family": "functor action (map)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.modules.additive_group#map",
+     "family": "functor action (map)",
+     "detail": "target cat.additive_groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.modules.projection#map",
+     "family": "functor action (map)",
+     "detail": "target cat.rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.monoids",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.monoids.semigroup",
+     "family": "functor action (object)",
+     "detail": "target cat.semigroups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.monoids.units",
+     "family": "functor action (object)",
+     "detail": "target cat.groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "con.endomorphisms",
+     "family": "construction (object)",
+     "detail": "target category; the source is Core(C) of the category parameter C",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "meth.units",
+     "family": "method",
+     "detail": "functor fun.monoids.units",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "op.monoids.mul",
+     "family": "element operation",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "op.monoids.one",
+     "family": "element operation",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.monoids.semigroup#map",
+     "family": "functor action (map)",
+     "detail": "target cat.semigroups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.monoids.units#map",
+     "family": "functor action (map)",
+     "detail": "target cat.groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "con.endomorphisms#map",
+     "family": "construction (map)",
+     "detail": "target category; the source is Core(C) of the category parameter C",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.ordinals",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.ordinals.card",
+     "family": "functor action (object)",
+     "detail": "target cat.cardinalities",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.ordinals.natural_sum_map",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.ordinals.natural_product_map",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.ordinals.natural_sum_list_map",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.ordinals.natural_product_list_map",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.ordinals.card#map",
+     "family": "functor action (map)",
+     "detail": "target cat.cardinalities",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [
+    {
+     "id": "obj.ordinals.sum",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.ordinals.product",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.ordinals.power",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.ordinals.natural_sum",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.ordinals.natural_product",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.ordinals.natural_sum_list",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.ordinals.natural_product_list",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    }
+   ],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.partial_orders",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.partial_orders.forget",
+     "family": "functor action (object)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "op.partial_orders.le",
+     "family": "element operation",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.partial_orders.forget#map",
+     "family": "functor action (map)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.partially_ordered_sets",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.sets.partially_ordered_to_sets",
+     "family": "functor action (object)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.sets.partially_ordered_to_sets#map",
+     "family": "functor action (map)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.pointed_sets",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.pointed_sets.projection",
+     "family": "functor action (object)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.pointed_sets.projection#map",
+     "family": "functor action (map)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.quad_forms_over_rings",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.quad_forms.ring",
+     "family": "functor action (object)",
+     "detail": "target cat.commutative_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.quad_forms.ring#map",
+     "family": "functor action (map)",
+     "detail": "target cat.commutative_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.quad_module",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.quad_module.forget",
+     "family": "functor action (object)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.quad_module.change_value",
+     "family": "functor action (object)",
+     "detail": "target expr: CategoryExpr.familyApp { raw := \"fam.quad_module\" } #[ParameterExpr.variable { raw := \"R\" }, ParameterExpr.variable { raw := \"W'\" }]",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.quad_module.forget#map",
+     "family": "functor action (map)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.quad_module.change_value#map",
+     "family": "functor action (map)",
+     "detail": "target expr: CategoryExpr.familyApp { raw := \"fam.quad_module\" } #[ParameterExpr.variable { raw := \"R\" }, ParameterExpr.variable { raw := \"W'\" }]",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.quad_wform",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.quad_wform.value",
+     "family": "functor action (object)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.quad_wform.carrier",
+     "family": "functor action (object)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.quad_wform.value#map",
+     "family": "functor action (map)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.quad_wform.carrier#map",
+     "family": "functor action (map)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.quotients_modules_r",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.quotients_modules.projection",
+     "family": "functor action (object)",
+     "detail": "target cat.arrows_modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.quotients_modules.codomain",
+     "family": "functor action (object)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "meth.quotient_projection",
+     "family": "method",
+     "detail": "functor fun.quotients_modules.projection",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "meth.quotient_codomain",
+     "family": "method",
+     "detail": "functor fun.quotients_modules.codomain",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.quotients_modules.projection#map",
+     "family": "functor action (map)",
+     "detail": "target cat.arrows_modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.quotients_modules.codomain#map",
+     "family": "functor action (map)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.rings",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.rings.multiplicative_monoid",
+     "family": "functor action (object)",
+     "detail": "target cat.monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "gap-groups",
+      "sage-symbolic"
+     ]
+    },
+    {
+     "address": "fun.rings.additive_group",
+     "family": "functor action (object)",
+     "detail": "target cat.additive_groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.rings.additive_commutative_monoid",
+     "family": "functor action (object)",
+     "detail": "target cat.additive_commutative_monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.rings.semiring",
+     "family": "functor action (object)",
+     "detail": "target cat.semirings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "op.rings.add",
+     "family": "element operation",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-presentations",
+      "sage-symbolic"
+     ]
+    },
+    {
+     "address": "op.rings.mul",
+     "family": "element operation",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-presentations",
+      "sage-symbolic"
+     ]
+    },
+    {
+     "address": "op.rings.pow",
+     "family": "element operation",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-presentations",
+      "sage-symbolic"
+     ]
+    },
+    {
+     "address": "op.rings.neg",
+     "family": "element operation",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-presentations",
+      "sage-symbolic"
+     ]
+    },
+    {
+     "address": "cmp.rings.carrier#component",
+     "family": "cell component",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "cell.rings.additive_monoid_carrier#component",
+     "family": "cell component",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "cell.rings.multiplicative_monoid.semiring#component",
+     "family": "cell component",
+     "detail": "target cat.monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.rings.multiplicative_monoid#map",
+     "family": "functor action (map)",
+     "detail": "target cat.monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.rings.additive_group#map",
+     "family": "functor action (map)",
+     "detail": "target cat.additive_groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.rings.additive_commutative_monoid#map",
+     "family": "functor action (map)",
+     "detail": "target cat.additive_commutative_monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.rings.semiring#map",
+     "family": "functor action (map)",
+     "detail": "target cat.semirings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [
+    {
+     "id": "obj.rings.integers",
+     "registered_as_input": 0,
+     "named_in": [
+      "gap-groups",
+      "sage-modules"
+     ],
+     "matched_by_rule_in": [
+      "sage-set-limits",
+      "sage-symbolic"
+     ]
+    },
+    {
+     "id": "obj.rings.integers_mod",
+     "registered_as_input": 2,
+     "named_in": [
+      "gap",
+      "gap-groups",
+      "sage-modules",
+      "sage-presentations",
+      "sage-set-limits"
+     ],
+     "matched_by_rule_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "id": "obj.rings.rationals",
+     "registered_as_input": 0,
+     "named_in": [
+      "gap-groups",
+      "sage-modules"
+     ],
+     "matched_by_rule_in": [
+      "sage-set-limits",
+      "sage-symbolic"
+     ]
+    },
+    {
+     "id": "obj.rings.reals",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "id": "obj.rings.complexes",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "id": "obj.rings.polynomials",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.rings.mv_polynomials",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.rings.matrices",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.rings.power_series",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    }
+   ],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.schemes",
+   "registrations": [],
+   "operations": [],
+   "objects": [
+    {
+     "id": "obj.schemes.spec_base",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    }
+   ],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.schemes_over",
+   "registrations": [],
+   "operations": [],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.schemes_over_ring",
+   "registrations": [],
+   "operations": [],
+   "objects": [
+    {
+     "id": "obj.schemes_over.spec_polynomials",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.schemes_over.spec_mv_polynomials",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    }
+   ],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.semigroups",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"classifierForget\":\"clf.magmas.associative\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.magmas",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.magmas.associative\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.magmas",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.semirings",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.semirings.forget",
+     "family": "functor action (object)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.semirings.monoid",
+     "family": "functor action (object)",
+     "detail": "target cat.monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "op.semirings.add",
+     "family": "element operation",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "address": "op.semirings.mul",
+     "family": "element operation",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "address": "op.semirings.pow",
+     "family": "element operation",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "address": "cell.semirings.carrier#component",
+     "family": "cell component",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.semirings.forget#map",
+     "family": "functor action (map)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.semirings.monoid#map",
+     "family": "functor action (map)",
+     "detail": "target cat.monoids",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [
+    {
+     "id": "obj.semirings.naturals",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": [
+      "sage-symbolic"
+     ]
+    }
+   ],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.sets",
+   "registrations": [
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.fin",
+     "backend": "sage",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.naturals",
+     "backend": "sage",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.positive_naturals",
+     "backend": "sage",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.primes",
+     "backend": "sage",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.integers",
+     "backend": "sage",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.rationals",
+     "backend": "sage",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.integers_mod",
+     "backend": "gap",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.integers_mod_power",
+     "backend": "gap",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.fin",
+     "backend": "sage",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.naturals",
+     "backend": "sage",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.positive_naturals",
+     "backend": "sage",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.primes",
+     "backend": "sage",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.integers",
+     "backend": "sage",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.rationals",
+     "backend": "sage",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.reals",
+     "backend": "sage",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.complexes",
+     "backend": "sage",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.integers_mod",
+     "backend": "gap",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.integers_mod_power",
+     "backend": "gap",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.power_set",
+     "backend": "sage-power-set",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "lim.sets.product",
+     "input": "cat.sets",
+     "backend": "sage-set-limits",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "colim.sets.coproduct",
+     "input": "cat.sets",
+     "backend": "sage-set-limits",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "lim.sets.pullback",
+     "input": "cat.sets",
+     "backend": "sage-set-limits",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.bil_wform.root_lattice_a_discriminant",
+     "backend": "sage-discriminant",
+     "input_category": "cat.bil_wform"
+    },
+    {
+     "operation": "mor.sets.fin_rev",
+     "input": "mor.sets.fin_rev",
+     "backend": "sage-fin-rev",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.groups.symmetric",
+     "backend": "gap-groups",
+     "input_category": "cat.groups"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.groups.cyclic",
+     "backend": "gap-groups",
+     "input_category": "cat.groups"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.permutations",
+     "backend": "gap-groups",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.subgroups.alternating",
+     "backend": "gap-groups",
+     "input_category": "cat.subobjects_groups"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.subgroups.kernel",
+     "backend": "gap-groups",
+     "input_category": "cat.subobjects_groups"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.groups.symmetric",
+     "backend": "gap-groups",
+     "input_category": "cat.groups"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.groups.cyclic",
+     "backend": "gap-groups",
+     "input_category": "cat.groups"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.permutations",
+     "backend": "gap-groups",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.subgroups.alternating",
+     "backend": "gap-groups",
+     "input_category": "cat.subobjects_groups"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.subgroups.kernel",
+     "backend": "gap-groups",
+     "input_category": "cat.subobjects_groups"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.modules.regular",
+     "backend": "sage-modules",
+     "input_category": "cat.modules_r"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.modules.vectors",
+     "backend": "sage-modules",
+     "input_category": "cat.modules_r"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.bil_wform.root_lattice_a",
+     "backend": "sage-modules",
+     "input_category": "cat.bil_wform"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.bil_wform.root_lattice_a_dual",
+     "backend": "sage-modules",
+     "input_category": "cat.bil_wform"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.integral_lattice.e8",
+     "backend": "sage-modules",
+     "input_category": "cat.integral_lattice"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.f9_x",
+     "backend": "sage-presentations",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.f9_x",
+     "backend": "sage-presentations",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.f9_y",
+     "backend": "sage-presentations",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.f9_y",
+     "backend": "sage-presentations",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.commutative_rings.f9_x",
+     "backend": "sage-presentations",
+     "input_category": "cat.commutative_rings"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.commutative_rings.f9_x",
+     "backend": "sage-presentations",
+     "input_category": "cat.commutative_rings"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.commutative_rings.f9_y",
+     "backend": "sage-presentations",
+     "input_category": "cat.commutative_rings"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.commutative_rings.f9_y",
+     "backend": "sage-presentations",
+     "input_category": "cat.commutative_rings"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "cat.subobjects_groups",
+     "backend": "gap-groups",
+     "input_category": "cat.subobjects_groups"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "cat.subobjects_groups",
+     "backend": "gap-groups",
+     "input_category": "cat.subobjects_groups"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.finite_sets.fin",
+     "backend": "sage",
+     "input_category": "cat.finite_sets"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.rings.integers_mod",
+     "backend": "gap",
+     "input_category": "cat.rings"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.finite_sets.fin",
+     "backend": "sage",
+     "input_category": "cat.finite_sets"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.rings.integers_mod",
+     "backend": "gap",
+     "input_category": "cat.rings"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.groups.units",
+     "backend": "gap-groups",
+     "input_category": "cat.groups"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.groups.units",
+     "backend": "gap-groups",
+     "input_category": "cat.groups"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.units",
+     "backend": "gap-groups",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.units",
+     "backend": "gap-groups",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "mor.sets.f9_x_constants",
+     "input": "mor.sets.f9_x_constants",
+     "backend": "sage-presentations",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "mor.sets.f9_y_constants",
+     "input": "mor.sets.f9_y_constants",
+     "backend": "sage-presentations",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "cat.sets",
+     "backend": "sage-set-limits",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "mor.sets.f9_x_constants",
+     "input": "obj.sets.integers_mod",
+     "backend": "sage-presentations",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "mor.sets.f9_y_constants",
+     "input": "obj.sets.integers_mod",
+     "backend": "sage-presentations",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "mor.sets.complex_re",
+     "input": "obj.sets.complexes",
+     "backend": "sage-symbolic",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "mor.sets.complex_im",
+     "input": "obj.sets.complexes",
+     "backend": "sage-symbolic",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "mor.sets.complex_bar",
+     "input": "obj.sets.complexes",
+     "backend": "sage-symbolic",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "mor.sets.complex_abs",
+     "input": "obj.sets.complexes",
+     "backend": "sage-symbolic",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "mor.sets.real_sqrt",
+     "input": "obj.sets.reals",
+     "backend": "sage-symbolic",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "mor.sets.polynomial_degree",
+     "input": "obj.sets.polynomials",
+     "backend": "sage-symbolic",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "mor.sets.polynomial_derivative",
+     "input": "obj.sets.polynomials",
+     "backend": "sage-symbolic",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "mor.sets.polynomial_differential",
+     "input": "obj.sets.polynomials",
+     "backend": "sage-symbolic",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "mor.sets.polynomial_map",
+     "input": "obj.sets.polynomials",
+     "backend": "sage-symbolic",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "mor.sets.polynomial_factors",
+     "input": "obj.sets.nonzero_polynomials",
+     "backend": "sage-symbolic",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "mor.sets.polynomial_roots",
+     "input": "obj.sets.nonzero_polynomials",
+     "backend": "sage-symbolic",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "mor.sets.companion_matrix",
+     "input": "obj.sets.monics",
+     "backend": "sage-symbolic",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "mor.sets.mv_total_degree",
+     "input": "obj.sets.mv_polynomials",
+     "backend": "sage-symbolic",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "mor.sets.nat_prime_factors",
+     "input": "obj.sets.positive_naturals",
+     "backend": "sage-symbolic",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "mor.sets.equality",
+     "input": "mor.sets.equality",
+     "backend": "sage-symbolic",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "mor.sets.span",
+     "input": "obj.sets.power_set",
+     "backend": "sage-symbolic",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "bind.sets.integral",
+     "input": "cat.sets",
+     "backend": "sage-symbolic",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "bind.sets.limit",
+     "input": "cat.sets",
+     "backend": "sage-symbolic",
+     "input_category": "cat.sets"
+    },
+    {
+     "operation": "bind.sets.limit_at_infinity",
+     "input": "cat.sets",
+     "backend": "sage-symbolic",
+     "input_category": "cat.sets"
+    }
+   ],
+   "operations": [
+    {
+     "address": "fun.sets.identity",
+     "family": "functor action (object)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.sets.finite_subsets.direct_image",
+     "family": "functor action (object)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.sets.list",
+     "family": "functor action (object)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.sets.pair_diagonal",
+     "family": "functor action (object)",
+     "detail": "target cat.sets.pair_diagrams",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.sets.whole_subset",
+     "family": "functor action (object)",
+     "detail": "target cat.subobjects_sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "cmp.sets.kaehler_polynomial_coordinates",
+     "family": "presentation comparison",
+     "detail": "obj.sets.kaehler_polynomials to obj.sets.polynomials",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "cmp.sets.singleton_terminal",
+     "family": "presentation comparison",
+     "detail": "obj.sets.fin to obj.sets.terminal",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "meth.cardinality",
+     "family": "method",
+     "detail": "functor fun.sets.cardinality",
+     "registrations": 30,
+     "registered_backends": [
+      "gap",
+      "gap-groups",
+      "sage",
+      "sage-discriminant",
+      "sage-modules",
+      "sage-power-set",
+      "sage-presentations",
+      "sage-set-limits"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "prop.is_finite",
+     "family": "property",
+     "detail": "classifier clf.sets.finite; receiver none",
+     "registrations": 24,
+     "registered_backends": [
+      "gap",
+      "gap-groups",
+      "sage",
+      "sage-presentations"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "lim.sets.diagram",
+     "family": "limit or colimit",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "colim.sets.diagram",
+     "family": "limit or colimit",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "lim.sets.pullback",
+     "family": "limit or colimit",
+     "detail": "",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-set-limits"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "lim.sets.product",
+     "family": "limit or colimit",
+     "detail": "",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-set-limits"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "colim.sets.coproduct",
+     "family": "limit or colimit",
+     "detail": "",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-set-limits"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "lim.sets.terminal",
+     "family": "limit or colimit",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.fin_rev",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-fin-rev"
+     ],
+     "handled_without_registration_in": [
+      "sage-set-limits"
+     ]
+    },
+    {
+     "address": "mor.sets.gcd",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.complex_re",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-symbolic"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.complex_im",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-symbolic"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.complex_bar",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-symbolic"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.complex_abs",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-symbolic"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.real_sqrt",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-symbolic"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.complex_i",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "address": "mor.sets.direct_image",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.equality",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-symbolic"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.divide",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "address": "mor.sets.nat_is_prime",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.nat_prime_factors",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-symbolic"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.nat_multiplicity",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.polynomial_degree",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-symbolic"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.polynomial_factors",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-symbolic"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.polynomial_factorization",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.polynomial_factorization_unit",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.polynomial_factorization_factors",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.polynomial_factorization_product",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.polynomial_factorization_map",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.polynomial_roots",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-symbolic"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.polynomial_map",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-symbolic"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.polynomial_own_evaluation",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.polynomial_selected_evaluation",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.mv_total_degree",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-symbolic"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.krull_dimension",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.f9_x_constants",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 2,
+     "registered_backends": [
+      "sage-presentations"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.f9_y_constants",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 2,
+     "registered_backends": [
+      "sage-presentations"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.rational_dual_x_constants",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.rational_dual_y_constants",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.bilin_module_pairing",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.diagram_limit_lift",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.diagram_limit_projection",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.diagram_colimit_desc",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.diagram_colimit_injection",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.diagram_limit_map",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.diagram_colimit_map",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.polynomial_differential",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-symbolic"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.kaehler_coordinate",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.kaehler_from_coordinate",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "address": "mor.sets.kaehler_dx",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.kaehler_scale",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.polynomial_derivative",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-symbolic"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.kaehler_primitives",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.terminal",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "address": "mor.sets.restricted_form_pairing",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.vector_component",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.vectors_zero",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.tuple_empty",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.tuple_cons",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.matrix_rows",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.matrix_det",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.matrix_trace",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.matrix_rank",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.matrix_charpoly",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.companion_matrix",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-symbolic"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.matrix_ker",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.span",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-symbolic"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.span_dim",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.finite_sum",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.finite_product",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.real_sin",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "address": "mor.sets.real_cos",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "address": "mor.sets.real_exp",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "address": "mor.sets.real_pi",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "address": "mor.sets.power_series_coefficient",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.power_series_of_coefficients",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.monoid_power",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.taylor_expansion",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.smooth_derivative",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.smooth_continuous",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.infinity",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "address": "mor.sets.neg_infinity",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "address": "mor.sets.punctured_units",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.formed_pairing",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.formed_form_map",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "mor.sets.formed_quadratic",
+     "family": "named morphism",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "bind.sets.finite_sum",
+     "family": "binder",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "bind.sets.finite_product",
+     "family": "binder",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "bind.sets.integral",
+     "family": "binder",
+     "detail": "",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-symbolic"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "bind.sets.real_series",
+     "family": "binder",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "bind.sets.complex_series",
+     "family": "binder",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "bind.sets.power_series_sum",
+     "family": "binder",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "bind.sets.limit",
+     "family": "binder",
+     "detail": "",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-symbolic"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "bind.sets.limit_at_infinity",
+     "family": "binder",
+     "detail": "",
+     "registrations": 1,
+     "registered_backends": [
+      "sage-symbolic"
+     ],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "obj.sets.polynomials#application",
+     "family": "object application",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "obj.sets.matrices#application",
+     "family": "object application",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "address": "obj.sets.smooth_maps#application",
+     "family": "object application",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "obj.sets.bilinear_maps#application",
+     "family": "object application",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "obj.sets.group_morphisms#application",
+     "family": "object application",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "obj.sets.module_morphisms#application",
+     "family": "object application",
+     "detail": "",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "cell.sets.list.unit#component",
+     "family": "cell component",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "cell.sets.list.join#component",
+     "family": "cell component",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "cell.sets.list.reverse#component",
+     "family": "cell component",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.sets.identity#map",
+     "family": "functor action (map)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.sets.finite_subsets.direct_image#map",
+     "family": "functor action (map)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.sets.list#map",
+     "family": "functor action (map)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.sets.pair_diagonal#map",
+     "family": "functor action (map)",
+     "detail": "target cat.sets.pair_diagrams",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.sets.whole_subset#map",
+     "family": "functor action (map)",
+     "detail": "target cat.subobjects_sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [
+    {
+     "id": "obj.sets.naturals",
+     "registered_as_input": 2,
+     "named_in": [
+      "sage",
+      "sage-power-set",
+      "sage-set-limits"
+     ],
+     "matched_by_rule_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "id": "obj.sets.integers",
+     "registered_as_input": 2,
+     "named_in": [
+      "gap-groups",
+      "sage",
+      "sage-modules",
+      "sage-power-set",
+      "sage-set-limits"
+     ],
+     "matched_by_rule_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "id": "obj.sets.fin",
+     "registered_as_input": 2,
+     "named_in": [
+      "sage",
+      "sage-fin-rev",
+      "sage-power-set",
+      "sage-presentations",
+      "sage-set-limits",
+      "sage-symbolic"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.integers_mod",
+     "registered_as_input": 4,
+     "named_in": [
+      "gap",
+      "gap-groups",
+      "sage-modules",
+      "sage-power-set",
+      "sage-presentations",
+      "sage-set-limits"
+     ],
+     "matched_by_rule_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "id": "obj.sets.integers_mod_power",
+     "registered_as_input": 2,
+     "named_in": [
+      "gap"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.rationals",
+     "registered_as_input": 2,
+     "named_in": [
+      "gap-groups",
+      "sage",
+      "sage-modules",
+      "sage-power-set",
+      "sage-set-limits"
+     ],
+     "matched_by_rule_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "id": "obj.sets.reals",
+     "registered_as_input": 2,
+     "named_in": [
+      "sage",
+      "sage-set-limits",
+      "sage-symbolic"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.complexes",
+     "registered_as_input": 5,
+     "named_in": [
+      "sage",
+      "sage-set-limits"
+     ],
+     "matched_by_rule_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "id": "obj.sets.truth_values",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.power_set",
+     "registered_as_input": 2,
+     "named_in": [
+      "sage-power-set"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.units",
+     "registered_as_input": 2,
+     "named_in": [
+      "gap-groups"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.finite_subsets",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.positive_naturals",
+     "registered_as_input": 3,
+     "named_in": [
+      "sage",
+      "sage-power-set",
+      "sage-set-limits"
+     ],
+     "matched_by_rule_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "id": "obj.sets.primes",
+     "registered_as_input": 2,
+     "named_in": [
+      "sage",
+      "sage-power-set",
+      "sage-set-limits"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.polynomials",
+     "registered_as_input": 4,
+     "named_in": [
+      "sage-set-limits",
+      "sage-symbolic"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.degrees",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.nonzero_polynomials",
+     "registered_as_input": 2,
+     "named_in": [
+      "sage-symbolic"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.polynomial_factorization_data",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.polynomial_factor_multisets",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.mv_polynomials",
+     "registered_as_input": 1,
+     "named_in": [
+      "sage-symbolic"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.krull_dimensions",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.polynomial_quotient",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.f9_x",
+     "registered_as_input": 2,
+     "named_in": [
+      "sage-presentations"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.f9_y",
+     "registered_as_input": 2,
+     "named_in": [
+      "sage-presentations"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.rational_dual_x",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.rational_dual_y",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.kaehler_polynomials",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.terminal",
+     "registered_as_input": 0,
+     "named_in": [
+      "sage-fin-rev",
+      "sage-presentations",
+      "sage-symbolic"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.vectors",
+     "registered_as_input": 0,
+     "named_in": [
+      "sage-symbolic"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.monics",
+     "registered_as_input": 1,
+     "named_in": [
+      "sage-symbolic"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.matrices",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.maps",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.permutations",
+     "registered_as_input": 2,
+     "named_in": [
+      "gap-groups"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.continuous_maps",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.smooth_maps",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.power_series",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.summable_families",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.extended_reals",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.infinities",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.punctured_line",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.convergent_maps",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.convergent_maps_at_infinity",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.bilinear_maps",
+     "registered_as_input": 0,
+     "named_in": [
+      "sage-bilinear-lift"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.group_morphisms",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.sets.module_morphisms",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    }
+   ],
+   "other_constructors": [
+    {
+     "id": "graph.sets",
+     "kind": "graphLiteral",
+     "named_in": []
+    },
+    {
+     "id": "incl.sets.fin_integers_mod",
+     "kind": "inclusion",
+     "named_in": []
+    },
+    {
+     "id": "incl.sets.naturals_integers",
+     "kind": "inclusion",
+     "named_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "id": "incl.sets.integers_rationals",
+     "kind": "inclusion",
+     "named_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "id": "incl.sets.rationals_reals",
+     "kind": "inclusion",
+     "named_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "id": "incl.sets.reals_complexes",
+     "kind": "inclusion",
+     "named_in": [
+      "sage-symbolic"
+     ]
+    },
+    {
+     "id": "incl.sets.naturals_degrees",
+     "kind": "inclusion",
+     "named_in": []
+    },
+    {
+     "id": "incl.sets.naturals_krull_dimensions",
+     "kind": "inclusion",
+     "named_in": []
+    },
+    {
+     "id": "incl.sets.reals_extended_reals",
+     "kind": "inclusion",
+     "named_in": []
+    },
+    {
+     "id": "incl.sets.punctured_units",
+     "kind": "inclusion",
+     "named_in": []
+    }
+   ]
+  },
+  {
+   "category": "cat.sets.pair_diagrams",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.sets.pair_limit",
+     "family": "functor action (object)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.sets.pair_limit#map",
+     "family": "functor action (map)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.slice_sets",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.slice_sets.forget",
+     "family": "functor action (object)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.slice_sets.forget#map",
+     "family": "functor action (map)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.subobjects_bilin_module",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.subobjects_bilin_module.domain",
+     "family": "functor action (object)",
+     "detail": "target cat.bilin_module",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.subobjects_bilin_module.inclusion",
+     "family": "functor action (object)",
+     "detail": "target cat.arrows_bilin_module",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "meth.bilin_module.inclusion",
+     "family": "method",
+     "detail": "functor fun.subobjects_bilin_module.inclusion",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.subobjects_bilin_module.domain#map",
+     "family": "functor action (map)",
+     "detail": "target cat.bilin_module",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.subobjects_bilin_module.inclusion#map",
+     "family": "functor action (map)",
+     "detail": "target cat.arrows_bilin_module",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.subobjects_groups",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.subobjects_groups.domain",
+     "family": "functor action (object)",
+     "detail": "target cat.groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": [
+      "gap-groups"
+     ]
+    },
+    {
+     "address": "fun.subobjects_groups.inclusion",
+     "family": "functor action (object)",
+     "detail": "target cat.arrows_groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "con.stabilizers",
+     "family": "construction (object)",
+     "detail": "target category; the source is Core(C) of the category parameter C",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "meth.inclusion",
+     "family": "method",
+     "detail": "functor fun.subobjects_groups.inclusion",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.subobjects_groups.domain#map",
+     "family": "functor action (map)",
+     "detail": "target cat.groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.subobjects_groups.inclusion#map",
+     "family": "functor action (map)",
+     "detail": "target cat.arrows_groups",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "con.stabilizers#map",
+     "family": "construction (map)",
+     "detail": "target category; the source is Core(C) of the category parameter C",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [
+    {
+     "id": "obj.subgroups.action_stabilizer",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.subgroups.center",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.subgroups.subgroup",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.subgroups.alternating",
+     "registered_as_input": 3,
+     "named_in": [
+      "gap-groups"
+     ],
+     "matched_by_rule_in": []
+    },
+    {
+     "id": "obj.subgroups.kernel",
+     "registered_as_input": 4,
+     "named_in": [
+      "gap-groups"
+     ],
+     "matched_by_rule_in": []
+    }
+   ],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.subobjects_modules_r",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.subobjects_modules.inclusion",
+     "family": "functor action (object)",
+     "detail": "target cat.arrows_modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.subobjects_modules.forget",
+     "family": "functor action (object)",
+     "detail": "target cat.subobjects_sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.subobjects_modules.domain",
+     "family": "functor action (object)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "meth.submodule_inclusion",
+     "family": "method",
+     "detail": "functor fun.subobjects_modules.inclusion",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "meth.submodule_domain",
+     "family": "method",
+     "detail": "functor fun.subobjects_modules.domain",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "meth.subobject_dim",
+     "family": "method",
+     "detail": "functor fun.subobjects_modules.rank",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.subobjects_modules.inclusion#map",
+     "family": "functor action (map)",
+     "detail": "target cat.arrows_modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.subobjects_modules.forget#map",
+     "family": "functor action (map)",
+     "detail": "target cat.subobjects_sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.subobjects_modules.domain#map",
+     "family": "functor action (map)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [
+    {
+     "id": "obj.subobjects_modules.span",
+     "registered_as_input": 0,
+     "named_in": [],
+     "matched_by_rule_in": []
+    }
+   ],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.subobjects_sets",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.subobjects_sets.domain",
+     "family": "functor action (object)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "meth.contains",
+     "family": "method",
+     "detail": "functor fun.subsets.contains",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "meth.set_eq",
+     "family": "method",
+     "detail": "functor fun.subsets.set_eq",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.subobjects_sets.domain#map",
+     "family": "functor action (map)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.subsets.point_predicates",
+   "registrations": [],
+   "operations": [],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.subsets.subset_predicates",
+   "registrations": [],
+   "operations": [],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.torsion_free_modules",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"classifierForget\":\"clf.modules.torsion_free\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.modules.torsion_free\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.totally_ordered_sets",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.sets.totally_ordered_to_sets",
+     "family": "functor action (object)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.sets.totally_ordered_to_sets#map",
+     "family": "functor action (map)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.unimodular_lattice",
+   "registrations": [],
+   "operations": [],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.unimodular_lattices_over_rings",
+   "registrations": [],
+   "operations": [],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "cat.walking_pair",
+   "registrations": [],
+   "operations": [],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "fam.modules(S)",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "fun.modules.reindex",
+     "family": "functor action (object)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.modules.reindex#cartesian",
+     "family": "functor action (cartesian)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "fun.modules.reindex#map",
+     "family": "functor action (map)",
+     "detail": "target cat.modules_r",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "total(clf.bilin_forms.even)",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"classifierForget\":\"clf.bilin_forms.even\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.bilin_forms_over_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.bilin_forms.even\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.bilin_forms_over_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "total(clf.bilin_forms.finite)",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"classifierForget\":\"clf.bilin_forms.finite\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.bilin_forms_over_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.bilin_forms.finite\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.bilin_forms_over_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "total(clf.bilin_forms.free)",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"classifierForget\":\"clf.bilin_forms.free\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.bilin_forms_over_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.bilin_forms.free\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.bilin_forms_over_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "total(clf.bilin_forms.lattice)",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"classifierForget\":\"clf.bilin_forms.lattice\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.bilin_forms_over_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.bilin_forms.lattice\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.bilin_forms_over_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "total(clf.bilin_forms.unimodular)",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"classifierForget\":\"clf.bilin_forms.unimodular\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.bilin_forms_over_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.bilin_forms.unimodular\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.bilin_forms_over_rings",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "total(clf.bilin_forms.values)",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"classifierForget\":\"clf.bilin_forms.values\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.modules_over_rings_ext",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.bilin_forms.values\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.modules_over_rings_ext",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "total(clf.bilin_module.lattice)",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"classifierForget\":\"clf.bilin_module.lattice\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.bilin_module",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.bilin_module.lattice\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.bilin_module",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "total(clf.magmas.additive)",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"classifierForget\":\"clf.magmas.additive\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.magmas",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.magmas.additive\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.magmas",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "total(clf.magmas.commutative)",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"classifierForget\":\"clf.magmas.commutative\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.magmas",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.magmas.commutative\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.magmas",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "total(clf.magmas.inverse)",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"classifierForget\":\"clf.magmas.inverse\"}",
+     "family": "edge action (object)",
+     "detail": "target total(clf.magmas.unital)",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.magmas.inverse\"}#map",
+     "family": "edge action (map)",
+     "detail": "target total(clf.magmas.unital)",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "total(clf.magmas.multiplicative)",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"classifierForget\":\"clf.magmas.multiplicative\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.magmas",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.magmas.multiplicative\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.magmas",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "total(clf.magmas.unital)",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"classifierForget\":\"clf.magmas.unital\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.magmas",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.magmas.unital\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.magmas",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "total(clf.magmaswithtwooperations.distributive)",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"classifierForget\":\"clf.magmaswithtwooperations.distributive\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.magmaswithtwooperations",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.magmaswithtwooperations.distributive\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.magmaswithtwooperations",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  },
+  {
+   "category": "total(clf.sets.graded)",
+   "registrations": [],
+   "operations": [
+    {
+     "address": "action:{\"classifierForget\":\"clf.sets.graded\"}",
+     "family": "edge action (object)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    },
+    {
+     "address": "action:{\"classifierForget\":\"clf.sets.graded\"}#map",
+     "family": "edge action (map)",
+     "detail": "target cat.sets",
+     "registrations": 0,
+     "registered_backends": [],
+     "handled_without_registration_in": []
+    }
+   ],
+   "objects": [],
+   "other_constructors": []
+  }
+ ],
+ "overlaps": [
+  {
+   "operation": "meth.cardinality",
+   "category_wide": {
+    "input": "cat.subobjects_groups",
+    "backend": "gap-groups"
+   },
+   "exact": {
+    "input": "obj.subgroups.alternating",
+    "backend": "gap-groups"
+   }
+  },
+  {
+   "operation": "meth.cardinality",
+   "category_wide": {
+    "input": "cat.subobjects_groups",
+    "backend": "gap-groups"
+   },
+   "exact": {
+    "input": "obj.subgroups.kernel",
+    "backend": "gap-groups"
+   }
+  },
+  {
+   "operation": "meth.cardinality",
+   "category_wide": {
+    "input": "cat.sets",
+    "backend": "sage-set-limits"
+   },
+   "exact": {
+    "input": "obj.sets.fin",
+    "backend": "sage"
+   }
+  },
+  {
+   "operation": "meth.cardinality",
+   "category_wide": {
+    "input": "cat.sets",
+    "backend": "sage-set-limits"
+   },
+   "exact": {
+    "input": "obj.sets.naturals",
+    "backend": "sage"
+   }
+  },
+  {
+   "operation": "meth.cardinality",
+   "category_wide": {
+    "input": "cat.sets",
+    "backend": "sage-set-limits"
+   },
+   "exact": {
+    "input": "obj.sets.positive_naturals",
+    "backend": "sage"
+   }
+  },
+  {
+   "operation": "meth.cardinality",
+   "category_wide": {
+    "input": "cat.sets",
+    "backend": "sage-set-limits"
+   },
+   "exact": {
+    "input": "obj.sets.primes",
+    "backend": "sage"
+   }
+  },
+  {
+   "operation": "meth.cardinality",
+   "category_wide": {
+    "input": "cat.sets",
+    "backend": "sage-set-limits"
+   },
+   "exact": {
+    "input": "obj.sets.integers",
+    "backend": "sage"
+   }
+  },
+  {
+   "operation": "meth.cardinality",
+   "category_wide": {
+    "input": "cat.sets",
+    "backend": "sage-set-limits"
+   },
+   "exact": {
+    "input": "obj.sets.rationals",
+    "backend": "sage"
+   }
+  },
+  {
+   "operation": "meth.cardinality",
+   "category_wide": {
+    "input": "cat.sets",
+    "backend": "sage-set-limits"
+   },
+   "exact": {
+    "input": "obj.sets.integers_mod",
+    "backend": "gap"
+   }
+  },
+  {
+   "operation": "meth.cardinality",
+   "category_wide": {
+    "input": "cat.sets",
+    "backend": "sage-set-limits"
+   },
+   "exact": {
+    "input": "obj.sets.integers_mod_power",
+    "backend": "gap"
+   }
+  },
+  {
+   "operation": "meth.cardinality",
+   "category_wide": {
+    "input": "cat.sets",
+    "backend": "sage-set-limits"
+   },
+   "exact": {
+    "input": "obj.sets.power_set",
+    "backend": "sage-power-set"
+   }
+  },
+  {
+   "operation": "meth.cardinality",
+   "category_wide": {
+    "input": "cat.sets",
+    "backend": "sage-set-limits"
+   },
+   "exact": {
+    "input": "obj.sets.permutations",
+    "backend": "gap-groups"
+   }
+  },
+  {
+   "operation": "meth.cardinality",
+   "category_wide": {
+    "input": "cat.sets",
+    "backend": "sage-set-limits"
+   },
+   "exact": {
+    "input": "obj.sets.f9_x",
+    "backend": "sage-presentations"
+   }
+  },
+  {
+   "operation": "meth.cardinality",
+   "category_wide": {
+    "input": "cat.sets",
+    "backend": "sage-set-limits"
+   },
+   "exact": {
+    "input": "obj.sets.f9_y",
+    "backend": "sage-presentations"
+   }
+  },
+  {
+   "operation": "meth.cardinality",
+   "category_wide": {
+    "input": "cat.sets",
+    "backend": "sage-set-limits"
+   },
+   "exact": {
+    "input": "obj.sets.units",
+    "backend": "gap-groups"
+   }
+  },
+  {
+   "operation": "prop.is_finite",
+   "category_wide": {
+    "input": "cat.subobjects_groups",
+    "backend": "gap-groups"
+   },
+   "exact": {
+    "input": "obj.subgroups.alternating",
+    "backend": "gap-groups"
+   }
+  },
+  {
+   "operation": "prop.is_finite",
+   "category_wide": {
+    "input": "cat.subobjects_groups",
+    "backend": "gap-groups"
+   },
+   "exact": {
+    "input": "obj.subgroups.kernel",
+    "backend": "gap-groups"
+   }
+  },
+  {
+   "operation": "prop.is_abelian",
+   "category_wide": {
+    "input": "cat.subobjects_groups",
+    "backend": "gap-groups"
+   },
+   "exact": {
+    "input": "obj.subgroups.kernel",
+    "backend": "gap-groups"
+   }
+  },
+  {
+   "operation": "prop.is_commutative",
+   "category_wide": {
+    "input": "cat.subobjects_groups",
+    "backend": "gap-groups"
+   },
+   "exact": {
+    "input": "obj.subgroups.alternating",
+    "backend": "gap-groups"
+   }
+  },
+  {
+   "operation": "prop.is_commutative",
+   "category_wide": {
+    "input": "cat.subobjects_groups",
+    "backend": "gap-groups"
+   },
+   "exact": {
+    "input": "obj.subgroups.kernel",
+    "backend": "gap-groups"
+   }
+  }
+ ]
+}
