@@ -253,6 +253,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         else if sourceType.isAppOfArity ``TypeCat.Hom 2 then pure sourceType.getAppArgs
         else throwError "the original test arrow lost its stated native endpoint slots"
       unless endpoints == #[source, target] do
+        dbg_trace "[creation.endpoint] original positions={reprStr prepared.sourcePositions}; source arguments={reprStr markedInputs}"
+        dbg_trace "[creation.endpoint] actual source input={reprStr sourceInput}; original native type={reprStr sourceType}"
+        dbg_trace "[creation.endpoint] stated endpoints={reprStr endpoints}; selected action endpoints={reprStr #[source, target]}"
+        dbg_trace "[creation.endpoint] retained target application={reprStr targetInput}"
         throwError "the target map replaced an original stated source endpoint"
       let (native, _) ← maps.arrowAt levels parameters
       unless native.isAppOfArity ``CategoryTheory.Functor.map 8 &&
