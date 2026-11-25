@@ -482,6 +482,17 @@ The consolidation of 2026-11-09 carried FR-001–FR-040 and SC-001–SC-012 forw
 
 - **FR-043 — Logs, timing records and construction cost.** Every test and every computation MUST have a timing record that includes setup, fixtures, construction and nested work, with its run, revision, environment and input. Every test run MUST write a durable log. The records and the logs are kept in the repository. The application MUST write detailed logs: for each statement, the kernel session and the notebook worker record the reading, the selection, the prepared request, the dispatch, the admission, the retained value and the outcome. Diagnostics shown to the user stay opt-in (FR-038). Construction of a mathematical object MUST be close to instant: forming an object computes no field that no statement has demanded, unless an explicit flag requests eager computation (FR-027 permits lazy results). These obligations are current work and do not wait for functionality. Optimization that the timing records select still follows functionality (FR-040). [C24][C2]
 
+### Language surface and notebook controls of the first spike
+
+These features of the first spike (`research/spike-inventory.md`, rows G05, G06, G07, G25, G34, G35) are V1.
+
+- **FR-135 — Reserved notation.** The names `e` (Euler's number) and `i` (the imaginary unit) are reserved: a binding of either is refused with that reason. `d` and `π` are constants that a binding may shadow. `--` begins a comment. [Spike G05]
+- **FR-136 — Spelling aliases.** The language reads the alternative spellings of the spike as the same terms: `NN ZZ QQ RR R CC`; the backslash family (`\NN`, `\in`, `\leq`, `\mapsto`); `|->` and `\mapsto` for `↦`; `->` for `→`; `is` for `=`; `in` for `∈`; `Mod(QQ)` and `QQ-Mod`; `QQ^3` for `ℚ³`; `2^ℤ` for `𝒫(ℤ)`. The spellings come from the registered notation of the catalogue, not from literals of the reader. [Spike G06]
+- **FR-137 — Operator precedence.** A superscript binds tighter than the implicit product (`3x²` is `3·(x²)`), and a unary minus stays outside it; `x^{k}` is a braced exponent; `(360).factor()` takes a parenthesized receiver; `gcd(84, 30)` is the prefix spelling of a method. [Spike G07]
+- **FR-138 — Contributed grammar.** A contributed term production with its translator (for example `tripleof x`, read as `3·x`) extends the surface language with no edit of the core grammar. The translator produces a term of the existing language, and old source keeps its reading. [Spike G25]
+- **FR-139 — Control notebook.** A control notebook on a plain Python kernel runs through the same notebook harness as the CAS notebooks, so that a failure of the harness or of Jupyter is told apart from a failure of the CAS. [Spike G34]
+- **FR-140 — Lean commands in cells.** An ordinary Lean command in a cell of the CAS notebook elaborates as Lean in the environment of the session; it changes the CAS state only through the declarations that it adds. [Spike G35]
+
 ### Full B0 computational delivery (#19, executed by #22)
 
 - **FR-044 — B0 questions computed.** The CAS MUST compute the fixed questions of K1 to K9, K13 and K14 with their selected objects, parameters, morphisms and hypotheses unchanged. The question fixes the operation, relation or universal construction; an installed callable or a registration identifier does not. The inventory and the required observation of each item are in "B0 inventory" below. No K13 ID stays a registration gap or a request-formation gap. A wrong or unavailable answer stays a failed observation, and its correction goes to its actual owner. [#19][B] body, box 1; [inventory comment](https://github.com/dzackgarza/lean-cas-dsl/issues/19#issuecomment-6574948894)
@@ -769,6 +780,7 @@ All three are mandatory and none discharges another. C21 changes their implement
 | FR-103–FR-106 | US15: diagnostic classes, scope, records, noninterference | SC-028; #8 |
 | FR-107–FR-109 | US16: session record, dispositions, closure | SC-029; #13 |
 | FR-110–FR-134 | Remaining V1 evidence and closure of #24, #66, #69, #82, #85, #91 | SC-001–SC-012; #97 |
+| FR-135–FR-140 | US1 notation and precedence, US5 contributed grammar, US7 control notebook and Lean cells (spike rows G05, G06, G07, G25, G34, G35) | SC-001, SC-004 |
 
 Task IDs/functional dependencies are maintained only in the [task list][T1] (its Part 1 and Part 2), not a second state table here. Their earlier subsystem-first and proof/trial-before-functionality order is superseded by the current plan; stable IDs preserve history, not that order.
 
