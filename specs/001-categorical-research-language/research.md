@@ -77,7 +77,7 @@
 | Keep T112 after F. | Rejected by the owner. It needs an amendment of C24, and every Part 1 run stays without the required records. |
 | Records now, application logs at M5 with #8. | Rejected by the owner. #8 concerns diagnostics shown to the user, which stay opt-in; the application log is written always. |
 
-**Decision 2** (owner answer of 2026-11-25; FR-042). The stated result of a computational milestone is not an owner choice. It is the set of statements of the original workloads whose selected route stays within the categories implemented through that milestone, and it covers what the later milestones consume. The [plan](plan.md#computational-milestones) lists each milestone, and [`research/milestones.md`](research/milestones.md) lists its statements.
+**Decision 2** (owner answer of 2026-11-25; FR-042). The stated result of a computational milestone is not an owner choice. It is the set of statements of the original workloads whose selected route stays within the categories implemented through that milestone, and it covers what the later milestones consume. The [task list](tasks.md#complete-the-required-computational-implementations-and-actual-delivery-tuple) lists each category version, and [`research/category-scope.md`](research/category-scope.md) gives its statements.
 
 **Decision 3** (constitution C22; runtime contract, section 6). When a suspended leaf asks for an operation that no leaf implements, its resume holds the no-implementation outcome for that child, and the leaf continues. C22 says that the kernel returns that outcome to the requesting leaf; a rule that retires the chain keeps the outcome from the leaf. Other child failures retire the chain as before.
 
