@@ -141,7 +141,7 @@ These proofs and independent assessments remain mandatory after functionality un
 
 | Tasks | Functional responsibility / later proof owner |
 |---|---|
-| T006–T007, T012, T115–T118 | Exact source computation families, typed carriers of occurrences and selections, fixed/choice roles, mandatory slots and dependent operational signature. T118 is the lean-categories task that declares the choice fibres; T115 consumes it. |
+| T006, T007, T013, T115, T116, T118, T303 | Exact source computation families, typed carriers of occurrences and selections (with the rule "Typed selections" of the task list), fixed/choice roles, mandatory slots and dependent operational signature. T118 is the lean-categories task that declares the choice fibres; T115 consumes it. |
 | T030–T033 | Complete scoped reading and actual source-statement lowering, with the C22 no-implementation outcome for eliminators and unpublished operations. Not a test-supplied program. |
 | T053–T056 | Reuse exact closure, prepare actual selected data/C6 preference, implement source-licensed agreement and required errors at the program boundary. Native correspondence/completeness proofs are T062, not implementation gates. |
 | T013, T017–T023, T026–T027 | Concrete production invocation, real projection/application/captures, complete admission, delayed/deferred/suspended continuation, exact realization/outcome behavior. Not an external executor left for tests to supply. |

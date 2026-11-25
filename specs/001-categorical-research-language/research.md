@@ -85,7 +85,7 @@
 | C. Keep the term as carrier and replace metadata by opaque wrapper constants. | Rejected. An opaque wrapper is not definitionally equal to its value, so dependent types that mention a marked value stop checking; unification still builds terms without it. |
 | D. A source representation of its own in place of Lean terms. | Rejected. It discards the reader, the layouts and the checked families that work, and is a third rewrite. |
 
-**Decision** (owner instruction of 2026-11-25 to decide the carrier before more repair; internal representation is a delegated engineering choice under C17). Alternative B. T116 moves occurrences; T117 moves selections; checkpoint M1.1 closes on both. The decision is a hypothesis under C18: if a consumer cannot be served by typed data keyed by binding identity, record the case here and reopen it.
+**Decision** (owner instruction of 2026-11-25 to decide the carrier before more repair; internal representation is a delegated engineering choice under C17). Alternative B. T116 moves occurrences; each task that changes a selected family moves that family's selection (rule "Typed selections" of the task list); checkpoint M1.1 closes on T116, T032 and T048. The decision is a hypothesis under C18: if a consumer cannot be served by typed data keyed by binding identity, record the case here and reopen it.
 
 ## 2026-11-22 — Operational category independence and continuing feedback
 
