@@ -148,7 +148,7 @@ T007 prepares roles/mandatory slots/observation data; T008–T011 preserve actua
 - [Lift/factor definitions and equations](https://github.com/dzackgarza/lean-categories/blob/fc6d3d6961223c75290c93da540c87f17a926cc7/LeanCategories/Catalogue/Lift.lean).
 - [Released Port mechanics](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/blob/f0431bebeb01c93cc65bb3fdc5bd23d9613e4b31/CasContract/Port.lean), not mathematical authority.
 - [CSLib FreeM](https://github.com/leanprover/cslib/blob/3951377e5a3f5772737f11cd62bc5bb6a72f95d1/Cslib/Foundations/Data/PFunctor/Free.lean), [PolyFun handler](https://github.com/Verified-zkEVM/PolyFun/blob/a5895e454254a400774fa396b64d5b968f0933df/PolyFun/PFunctor/Handler/Stateful.lean).
-- [Constitution](https://github.com/dzackgarza/lean-cas-dsl/blob/0db96de6cc73f02d5cefbe0eeba8183f60b7f67f/.specify/memory/constitution.md), clarified specification and current mathematical-input contract linked above.
+- [Constitution](https://github.com/dzackgarza/lean-cas-dsl/blob/main/.specify/memory/constitution.md), clarified specification and current mathematical-input contract linked above.
 
 ## Required retained relationships
 

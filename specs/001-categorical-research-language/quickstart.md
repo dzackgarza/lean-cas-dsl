@@ -1,6 +1,6 @@
 # Validation entrypoint — fast feedback, complete functionality and original acceptance
 
-**Feature:** `001-categorical-research-language` · **Updated:** 2026-11-22 (Asia/Taipei).
+**Feature:** `001-categorical-research-language` · **Updated:** 2026-11-25 (Asia/Taipei).
 
 Use the [current requirements](spec.md), [actual corrected plan](plan.md), [functional tasks](tasks.md), [delivery/evidence tasks](tasks.md), [mathematical-input contract](contracts/mathematical-input.md) and [runtime contract](contracts/computational-runtime.md). The [permanent constitution C6/C21](https://github.com/dzackgarza/lean-cas-dsl/blob/main/.specify/memory/constitution.md) and [owner's current handoff](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6726232237) govern.
 
@@ -52,7 +52,7 @@ active task. See the [completion milestones](plan.md#completion-milestones).
 
 ## Functional observations must exercise the missing production capability
 
-The actual path is public source → selected checked context → production lowerer → OperationalProgram → concrete executor → selected live provider invocation → complete admitted result → subsequent public source use. A test that constructs the prepared request/program itself or supplies its own executor can test a component but cannot establish the missing production connection. A v2 handshake, protocol peer or standalone helper result is not mathematical execution or kernel readiness.
+The actual path is public source → selected checked context → production lowerer → OperationalProgram → concrete executor → selected live provider invocation → complete admitted result → subsequent public source use. A test that constructs the prepared request/program itself or supplies its own executor can test a component but cannot establish the missing production connection. A v2 handshake or a standalone helper result establishes neither kernel readiness nor mathematical execution. A protocol peer at the provider position of this complete path establishes the kernel behaviour that it exercises (SC-014); it establishes no computed mathematical result.
 
 Implement the lowerer and concrete executor against the shared signature at their recorded task positions, connect the public entrance and actual returned-data continuation, then finish every required generic mechanism and truthful protocol/notebook/interface behavior. This is not an instruction to stop at a first scalar, first RX-LIFT or easier demonstration. The original driver T041 can be adapted before its target is complete; T039's proof, T079's trial and a full exported inventory are not prerequisites to that functional work. All actual source/domain/selection/data/owner checks needed to perform an operation stay in its implementation.
 

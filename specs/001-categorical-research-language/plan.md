@@ -46,16 +46,15 @@ The corrected design has these consequences:
 - C6: enumeration of first bindings is distinct from proving agreement. Complete-family definitional agreement or independently formalized comparison can establish agreement; a declared preferred route selects an admitted reading without asserting agreement. Without the required resolution data, ambiguity is reported before execution. No shortest route, backend success or unregistered theorem search substitutes.
 - C9–C13: mathematical authorship, candidate computation and independent acceptance remain distinct; original observations, extension trials and exact lifetime/publication rules remain due.
 - C16–C20: preserve existing useful implementation, remove transferred reconstruction paths and inspect the actual public responsibility path. Documentation edits do not claim implementation or independent approval.
-- C21: current fast development feedback comes first and remains active. Complete kernel functionality comes before substantial leaf work, self-consistency-only evidence, frozen trials, preservation/correctness proofs and final mathematical/runtime performance work. Actual type/domain/data/owner checks needed to perform a function remain part of that function; postponing proof documentation does not permit an unsound runtime shortcut.
+- C21: current fast development feedback comes first and remains active. Complete kernel functionality comes before substantial leaf work, self-consistency-only evidence, frozen trials, preservation/correctness proofs and final mathematical/runtime performance work. Actual type/domain/data/owner checks needed to perform a function remain part of that function; postponing proof documentation does not permit an unsound runtime shortcut. A task that needs a declaration missing from lean-categories has a lean-categories task before it, and the workstream does that task there as formalization work ([execution order](tasks.md#execution-order)).
+- C22: kernel work and leaf work are accepted separately. A kernel check observes kernel behaviour with a protocol peer or an empty manifest; a computed mathematical result is leaf work ([M1 checkpoints](#m1-checkpoints)).
+- C23: category implementations are built in the order of the structural scaffolding of the categories, in milestones of their own after kernel readiness ([computational milestones](#computational-milestones)).
 
-The governing constitution is [v3.1.0](../../.specify/memory/constitution.md), amended on
-2026-11-22 under the owner's direction to enshrine durable principles from both comparative
-analyses. C0/C9/C21/C23/C24 now state source-derived complete category interfaces, separate
+The governing constitution is [v4.0.0](../../.specify/memory/constitution.md) of 2026-11-25. Its adoption record names each amendment and its source; version 4.0.0 records the [owner instructions of that date](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-7155201731).
+C0, C9, C21, C23 and C24 state source-derived complete category interfaces, separate
 dependency relations, real locality, continuing feedback and full choice-sensitive assessment.
-This compatible elaboration changes no original mathematical question, authority boundary or
-final budget. Earlier constitution hashes remain historical input provenance.
-
-Version 4.0.0 of 2026-11-25 records the [owner instructions of that date](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-7155201731).
+No amendment changes an original mathematical question or a final budget. Earlier
+constitution hashes remain historical input provenance.
 A missing mathematical declaration is a task of lean-categories that the workstream does there (C21).
 Kernel work is accepted on kernel behaviour and requires no computed mathematical result (C22).
 Computational work has its own milestones, in the order of the structural scaffolding (C23).
