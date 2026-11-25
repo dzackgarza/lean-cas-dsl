@@ -156,7 +156,7 @@ full-B0 completion nor a new mathematical input to broader algorithms.
 
 ### M1 checkpoints
 
-M1 closes on F. Before F, these checkpoints close one at a time, in this order. A checkpoint is one observation of kernel behaviour through the public session `CasRuntime.KernelSession`, on the original source inputs of its story, with a protocol peer or an empty manifest (constitution C22). It closes when the observation holds on the kernel branch. It claims only itself: it checks no task box, and the independent assessment of the same inputs stays in Part 2. The tasks keep their order and their complete definitions. Each checkpoint has an issue under #92.
+M1 closes on F. Before F, these checkpoints close one at a time, in this order. A checkpoint is one observation of kernel behaviour through the public session `CasRuntime.KernelSession`, on the original source inputs of its story, with a protocol peer or an empty manifest (constitution C22). It closes when the observation holds on the kernel branch. It claims only itself: it checks no task box, and the independent assessment of the same inputs stays in Part 2. The tasks keep their order and their complete definitions. Issue #92 holds the checklist of the checkpoints.
 
 | Checkpoint | Observation | Reached after |
 | --- | --- | --- |
@@ -221,7 +221,7 @@ through every retained phase. V1 completion is recorded by M3/#97 under the unch
 | Direct-root milestone ledger | Ordered complete work owners |
 | --- | --- |
 | [#94 — M0](https://github.com/dzackgarza/lean-cas-dsl/issues/94) | #84 / T114 |
-| [#95 — M1](https://github.com/dzackgarza/lean-cas-dsl/issues/95) | #92 / F, with the M1 checkpoint issues in order under #92; #86 at T030 within F |
+| [#95 — M1](https://github.com/dzackgarza/lean-cas-dsl/issues/95) | #92 / F, with the M1 checkpoint checklist in #92; #86 at T030 within F |
 | [#96 — M2](https://github.com/dzackgarza/lean-cas-dsl/issues/96) | #93 / T104 through the computational milestones, then T105; #90 within T105 |
 | [#97 — M3](https://github.com/dzackgarza/lean-cas-dsl/issues/97) | #24; full remaining obligations of #66, #69, #82, #85, #91 |
 | [#19 — M4](https://github.com/dzackgarza/lean-cas-dsl/issues/19) | #22 / full B0 and classified Sage delivery; #20, #21, #23 supply full-parity inputs |
