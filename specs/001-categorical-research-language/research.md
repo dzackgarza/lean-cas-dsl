@@ -2,6 +2,22 @@
 
 **Feature:** `001-categorical-research-language` · **2026-11-07**. This is the current research/decision entry for the [clarified specification](spec.md), [consolidated plan](plan.md) and [mathematical-input contract](contracts/mathematical-input.md). It supersedes the later G1 proposals as normative selection instructions. The original [independent architectural alternatives/reuse ledger](https://github.com/dzackgarza/lean-cas-dsl/issues/85#issuecomment-6664331639) and [adversarial discussions](https://github.com/dzackgarza/lean-cas-dsl/issues/85#issuecomment-6664324222) remain historical evidence, not independent approval of this revision.
 
+## 2026-11-25 — Acceptance of kernel work, and the order of computational work
+
+**Decision** (owner instructions of 2026-11-25; constitution v4.0.0; spec clarifications of that date). Kernel work is accepted on kernel behaviour, with a protocol peer or an empty manifest. A computed mathematical result is leaf work and needs an implementation of every category on the selected structural route. Computational work has version milestones of its own, after kernel readiness, in the order of the structural scaffolding of the categories.
+
+**Rationale.** `2 * 3 = 6 in ℤ`: ℤ is a ring, and its multiplication comes from a monoid structure of that ring. A kernel check that obtains 6 without the category implementations from sets up to rings bypasses the structure that the product exists to supply. The released contract is published at the end of the kernel work (T028), so an implementation written earlier is written against an unfinished contract.
+
+**Alternatives considered.**
+
+| Alternative | Assessment |
+| --- | --- |
+| Kernel tasks close on computed results from the existing flat registrations. | Rejected. Those registrations are not category implementations; the result does not come through the structural route. |
+| Order the computational work by ease of expression or by what a kernel check needs. | Rejected by the owner. The order is mathematical. |
+| A first vertical computational milestone before kernel readiness. | Rejected. The contract is not published until T028, and later tasks still add leaf-facing data (T100). |
+
+**Order.** Computed from the published catalogue (structural functors and classifier forgets, mathematics revision `3f8aedf`); the [plan](plan.md#computational-milestones) has the layers.
+
 ## 2026-11-25 — Carrier of occurrences and selections
 
 **Requirement.** Constitution C23: each selected source binding and each returned occurrence keep their exact association through preparation, projections, substitution and later calls. C18: a representation whose consumers repeatedly lack the information that it was to retain is reconsidered before more machinery is built around it.
