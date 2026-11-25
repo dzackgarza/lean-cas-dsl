@@ -2,6 +2,7 @@ module
 
 public import CasCompiler.Elaborate
 public import CasCompiler.ContextSnapshot
+public import CasCompiler.SourceTypeOrigin
 
 @[expose] public section
 

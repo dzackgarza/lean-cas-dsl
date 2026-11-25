@@ -101,7 +101,8 @@ opaque PreparedRequest.originFor (request : PreparedRequest) (source : SourceLay
   let dependencies ← match fieldPrefix with
     | none => pure #[]
     | some nativePrefix => IO.ofExcept <| nativePrefix.dependencies.mapError IO.userError
-  return { origin with application, access := request.origin.access, accessPath, fieldPrefix,
+  return { origin with
+    application, access := request.origin.access, accessPath, fieldPrefix,
     sourceDependencies := origin.sourceDependencies ++ dependencies }
 
 private def prepareOrigin (program : CasRuntime.RuntimeId .program)
@@ -434,7 +435,8 @@ private def prepareProjection (identities : CasRuntime.IdentitySupply)
   let dependencies ← match fieldPrefix with
     | none => pure #[]
     | some nativePrefix => IO.ofExcept <| nativePrefix.dependencies.mapError IO.userError
-  let origin := { origin with application, access := some operand, accessPath := path, fieldPrefix,
+  let origin := { origin with
+    application, access := some operand, accessPath := path, fieldPrefix,
     sourceDependencies := origin.sourceDependencies ++ dependencies }
   prepareRequest identities program occurrence action source context
     #[operand] environment none origin
