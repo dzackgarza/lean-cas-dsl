@@ -136,8 +136,8 @@ functional work earlier while retaining its later proof and acceptance obligatio
 | [M1 — Complete generic categorical kernel](https://github.com/dzackgarza/lean-cas-dsl/milestone/2) | F: all Part 1 functionality works through real public entrances, including complete constructions and later use, both functor actions, selected lifting/refinement/comparisons, higher/infinite interfaces, protocol, notebook/lifetime, discovery/display and both directions of growth. Its checks observe kernel behaviour and require no computed mathematical result (constitution C22). It has [checkpoints](#m1-checkpoints). | #92; #66/#69 and #82/#85/#91 supply their functional responsibilities; #86 closes here. The first complete construction is an internal step, not this milestone. |
 | [M2 — V1 category implementations and delivery](https://github.com/dzackgarza/lean-cas-dsl/milestone/3) | The [computational milestones](#computational-milestones) deliver the category implementations in mathematical order. All required V1 category implementations supply actual computations, defining data and later uses through the released contract; publish and build one compatible mathematics/kernel/contract/leaf/notebook tuple. | #93, T200–T212 and T105; #90 supplies the research-image toolchain/Mathlib port. |
 | [M3 — Independently accepted V1](https://github.com/dzackgarza/lean-cas-dsl/milestone/4) | All #24 A–F obligations, independent mathematical assessment, preservation arguments, frozen extension trials and original final budgets hold together on the delivered tuple. | #24 and full closure of #66/#69/#82/#85/#91; #97 records #10's unchanged V1 closure condition; the project root remains open through M4/M5. |
-| [M4 — Full B0 and classified Sage coverage](https://github.com/dzackgarza/lean-cas-dsl/milestone/5) | Complete #19's K1–K14 computations and the separate versioned Sage coverage denominator, including required hypotheses, defining maps and continuations. | #19, #20, #21, #22, #23; the computational milestones T213–T224. Their bounded construction/input work can inform V1 before their later full closure. |
-| [M5 — Research and client completion](https://github.com/dzackgarza/lean-cas-dsl/milestone/6) | Complete the retained research facade, installation portability, unit-group delivery, opt-in logging and actual research-use demand work against their existing outcomes. | #68, #34, #3, #8, #13. These remain outside the V1 denominator. |
+| [M4 — Full B0 and classified Sage coverage](https://github.com/dzackgarza/lean-cas-dsl/milestone/5) | Complete #19's K1–K14 computations and the separate versioned Sage coverage denominator, including required hypotheses, defining maps and continuations. | #19, #20, #21, #22, #23; the computational milestones T213–T224; the inventory and classification tasks T140–T147 with T225–T234; assessment and publication T160–T169. Their bounded construction/input work (T139) can inform V1 before their later full closure. |
+| [M5 — Research and client completion](https://github.com/dzackgarza/lean-cas-dsl/milestone/6) | Complete the retained research facade, installation portability, unit-group delivery, opt-in logging and actual research-use demand work against their existing outcomes. | #68, #34, #3, #8, #13; tasks T148–T159. These remain outside the V1 denominator. |
 
 M1 consumes the functioning development loop. M2 consumes F and the usable released contract.
 M3 consumes the delivered candidate. Within a milestone, use actual task inputs; a missing input
@@ -149,9 +149,41 @@ build an active functional task. A fresh image or broad dependency refresh is no
 prerequisite when the current compatible environment already supports the work.
 
 For full B0, F and the usable released contract establish implementation readiness. V1-required
-implementation and delivery have priority. Otherwise runnable broader work need not wait for an
-evidence-only V1 tail, provided it does not displace V1 completion. Final V1 acceptance is neither
-full-B0 completion nor a new mathematical input to broader algorithms.
+implementation and delivery (T200–T212, T105) have priority. The functional work of M4 and M5
+(T140–T159, T213–T234) follows the V1 delivery and comes before the evidence-only work of every
+milestone, because C21 puts evidence-only work and final performance after required
+functionality; V1 evidence (M3) keeps its priority over the evidence of M4 and M5, and final
+performance (T103) is last. The V1 denominator does not grow: an M4 or M5 result is no V1
+acceptance criterion. Final V1 acceptance is neither full-B0 completion nor a new mathematical
+input to broader algorithms.
+
+**Decisions for M3, M4 and M5.**
+
+- The K3 and K14 files run unchanged (T162); their admission is the owner's act on
+  `CasAcceptance/Permanent/admitted.json`.
+- K1 and K13 need a registered execution in the computation-only report, as the B0 directive of
+  2026-10-01 requires; a registered proof procedure may settle them in the normal report (C22).
+  K4 holds in either report (#19 inventory).
+- M4 is assessed by the assessment role A, with the permitted inputs of acceptance authorship, on
+  the fixed questions, slices and failure controls against independent expectations (T169). #19
+  prescribes no frozen extension trial for M4.
+- The advertised installation of #34 is the research container's Sage 11.0.beta5 at
+  `/sage/.venv/bin/python3`; no other platform is advertised (C24, platform scope).
+- The methods of the unit-group task (#3, T155) are those of its workload: the group operations of
+  the returned group and the invariants that tell $(\mathbb{Z}/8)^\times$ from $C_4$.
+- The records of #8 diagnostics are the events of the application log of FR-043 for the current
+  request; #8 adds their display on request and no second store.
+- The consumers of #68 are the sage-extensions files that FR-093 names (present at
+  sage-extensions `ce368d7`); the closure of research#606 does not affect them.
+- #23 holds the higher-coherence inputs of M4 after #82 closes at M3 (T147).
+- The contribution policies move from the #85 comment into `CONTRIBUTING.md` (T183).
+
+**Owner question Q2 (diagnostic surface).** #8 has two trace classes, `CasDsl.execution` and
+`CasDsl.execution.detail`, and states that no second notebook magic parser exists; an earlier
+owner statement on #8 expects a notebook magic. Which form does the user write to turn
+diagnostics on for a notebook or one cell: the Lean option command
+(`set_option trace.CasDsl.execution true`), or a notebook magic that sets that option? T157
+implements the classes, levels and scopes; its user-visible form waits on this answer.
 
 ### M1 checkpoints
 
@@ -187,9 +219,9 @@ through every retained phase. V1 completion is recorded by M3/#97 under the unch
 | [#94 — M0](https://github.com/dzackgarza/lean-cas-dsl/issues/94) | #84 / T114 |
 | [#95 — M1](https://github.com/dzackgarza/lean-cas-dsl/issues/95) | #92 / F, with the M1 checkpoint checklist in #92; #86 at T030 within F |
 | [#96 — M2](https://github.com/dzackgarza/lean-cas-dsl/issues/96) | #93 / T200–T212 (computational milestones), then T105; #90 within T105 |
-| [#97 — M3](https://github.com/dzackgarza/lean-cas-dsl/issues/97) | #24; full remaining obligations of #66, #69, #82, #85, #91 |
-| [#19 — M4](https://github.com/dzackgarza/lean-cas-dsl/issues/19) | #22 / full B0 and classified Sage delivery; #20, #21, #23 supply full-parity inputs |
-| [#98 — M5](https://github.com/dzackgarza/lean-cas-dsl/issues/98) | #68, #34, #3, #8, #13 |
+| [#97 — M3](https://github.com/dzackgarza/lean-cas-dsl/issues/97) | #24; full remaining obligations of #66, #69, #82, #85, #91 (T170–T194 with Part 2) |
+| [#19 — M4](https://github.com/dzackgarza/lean-cas-dsl/issues/19) | #22 / full B0 and classified Sage delivery (T160–T169, T213–T224); #20, #21, #23 supply full-parity inputs (T139–T147) |
+| [#98 — M5](https://github.com/dzackgarza/lean-cas-dsl/issues/98) | #68 (T148–T152), #34 (T153, T154), #3 (T155, T156), #8 (T157, T158), #13 (T159) |
 
 `itree next` selects the completion owner; the unchecked task order selects the current work
 within its scope. #84/T114 came first and is closed on its complete current loop evidence;
@@ -303,7 +335,7 @@ The M2 and M4 parts settle which milestones V1 requires: a milestone with a V1 s
 2. Implement T032 lowering and T013's concrete execution composition at their positions in the [task order](tasks.md#execution-order). Functional outputs needed by the executor are T017–T021/T026; source selection is T053–T056. These are parts of one functioning path, not preliminary standalone release projects.
 3. Bind actual results and connect T038; remove transferred fallback paths. T041's real driver is prepared without T039 or broad mathematical coverage as a prerequisite. T027's shared outcome classification does not depend on completing suspension first.
 4. Complete every required generic mechanism, protocol behavior, notebook and discovery/display function. No per-construct export freeze, preservation proof or early contributor trial gates this expansion. Full kernel readiness, not a first scalar or first RX-LIFT, enables substantial leaf work.
-5. Separately situated leaf authors deliver the category implementations in the order of the [computational milestones](#computational-milestones), as established-engine glue against the actually built released contract. The retained registrations move into those implementations. Integration then publishes T105's compatible tuple, including #90. No kernel-informed formalization assignment is bundled into leaf work.
+5. Separately situated leaf authors deliver the category implementations in the order of the [computational milestones](#computational-milestones), as established-engine glue against the actually built released contract. The retained registrations move into those implementations. Integration then publishes T105's compatible tuple, including #90. No kernel-informed formalization assignment is bundled into leaf work. The functional work of M4 and M5 follows: the Sage inventory and classification (T140–T147), the M4 milestones (T213–T234) and the M5 client, launch, unit-group, diagnostic and harvest tasks (T148–T159).
 6. Complete independent assessment, source-to-machine/correctness arguments, original fixed and frozen-extension observations and the final performance phase on that delivered tuple. Relevant corrections republish the tuple and reexecute affected obligations without weakening them.
 
 The former edges T041←T039, T030←T029, T038←the complete deferred/suspension chain, expansion←T079, and functional construction←self-consistency-only proof/audit tasks are removed in the actual task entries. Proof responsibilities formerly mixed into functional T016/T043/T044/T046/T053–T056/T061 are assigned to T014/T039/T052/T062/T070/T076/T096 as appropriate. Nothing is declared proved by that reassignment. Required source-law validation in an actual invocation remains functional and cannot be omitted.
