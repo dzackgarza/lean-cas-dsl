@@ -248,11 +248,26 @@ that procedure, as C2 permits, and this is usually much quicker than a leaf comp
 also elaborate, type-check, select and read notation to its registered meaning. Structural
 admission of returned data (layout, scope, owner) is validation, not computation.
 
+**Kernel work and leaf work are accepted separately.** A check of kernel work observes what
+**K** does: the selected reading, the prepared request with its operation address and operands,
+the dispatch, the admission of the reply, the retained value and its later use, and the
+prescribed outcome when no leaf is registered. Such a check uses a protocol peer or an empty set
+of registrations. A check that needs a mathematically correct computed value is a check of leaf
+work. It needs an implementation of every category on the selected structural route. Example:
+`2 * 3 = 6 in ℤ`. ℤ is a ring, its multiplication comes from a monoid structure of that ring, its
+numerals are images under the universal map, and the equality is a computed predicate. **K**
+computes none of these. The statement holds as a real result only when the category
+implementations on that route exist, from sets up to rings. A check that obtains the value by a
+shorter path bypasses the structure that the product exists to supply. Kernel tasks, kernel
+checkpoints and kernel readiness therefore require no computed mathematical result; the
+computational milestones of C23 do. C11's delivery obligation is unchanged: the delivered
+product performs the complete required workload.
+
 **Rationale:** a kernel that also computes is a second, unregistered provider. Its answers bypass
 realization selection, independent assessment of providers and the no-implementation outcome, and
 they hide missing leaf coverage.
 
-**Source basis:** [owner decision of 2026-11-15][S47].
+**Source basis:** [owner decision of 2026-11-15][S47]; [owner instructions of 2026-11-25][S53].
 
 ### C3. Mathematical meaning is independent of computational availability
 
@@ -684,6 +699,18 @@ Decoding a wire request does not authorize a separate runtime mathematical inter
 only the final lowerer after independently rebuilding the selected application is insufficient.
 This requirement adds no expression language, mathematical registry or representation authority.
 
+**Category implementations are built in mathematical order.** Computational work has its own
+milestones, separate from the milestones of **K**. Their order is the order of the structural
+scaffolding in **M**: the implementation of a category follows the implementations of the
+categories that its structural functors reach. The work starts with sets and then proceeds in
+independent directions. Ease of expression and the needs of a kernel check do not set the order.
+Each milestone is modular and delivers a vertical capability: enough of each category on a
+route for a stated mathematical result to hold as a computed result. Each implementation
+connects mature existing computation under the established-implementations policy. Before
+implementation, the contributor surveys the engines and libraries that can supply the
+category's operations; the survey is open-ended. Computation that the system performs outside a
+category implementation moves into one. [S53]
+
 Under C18, a failure to preserve one of these relationships must be repaired where the selected
 information is lost, together with the affected consumers. The same change must remove the
 recovery mechanism that the retained relationship replaces. Refining its matching heuristic,
@@ -1076,21 +1103,27 @@ diagnostic, generated goal or desired test outcome cannot be repackaged as the i
 mathematical assignment. Moving an implementation-shaped definition to another repository does
 not make it independent.
 
-Authors are separated by layer: kernel/contract construction, mathematical formalization,
-acceptance assertions and computational leaves have separate authors. Each contributor must
-remain within the assigned role and permitted inputs. A kernel or leaf worker may record a
-missing accepted mathematical dependency against the existing obligation, but must not author,
-commission or prescribe its upstream repair. A separate agent or repository cannot be used to
-launder that downstream assignment into independent authority.
+Work is separated by layer: kernel/contract construction, mathematical formalization,
+acceptance assertions and computational leaves are separate roles with separate permitted
+inputs. Each contributor must remain within the role of the task in hand.
+
+A missing mathematical dependency is work of the formal development. The task list names it
+as a task there, and the workstream that meets it moves to the formal development and does it
+(C21). While it does that task it is a formalization author. It works from the mathematical
+requirement and its sources, states the mathematics at its own generality, and follows the
+review of that repository. It must not shape a definition to fit the kernel or a leaf. It must
+not supply the mathematics inside the kernel, the contract or a leaf instead. A task must not
+stay open with no one assigned because its input belongs to another repository. Acceptance
+authorship keeps its separate inputs, and a leaf author supplies no mathematics (C2). [S53]
 
 Formalization authors receive independently assigned mathematical requirements, sources and
 upstream review; acceptance authors receive accepted mathematics, the approved public language
 and independent mathematical sources. Leaf authors receive the released public contract,
 accepted catalogue and backend resources, excluding kernel internals, the acceptance corpus and
 expected answers. An exposed session cannot acquire independence by being told to forget. A
-launcher may continue an already authorized independent assignment, but must not choose or
-rewrite that assignment from downstream needs. These are authorship and input restrictions, not
-a requirement to remove every credential capable of broader access.
+downstream need can show that a mathematical task is due; it must not rewrite the mathematical
+content of that task. These are authorship and input restrictions, not a requirement to remove
+every credential capable of broader access.
 
 These requirements implement the intrinsic separation of mathematical meaning, independent
 assessment and computational realization. They are contribution obligations, not an additional
@@ -1383,11 +1416,13 @@ final acceptance or a future delivery tuple before the present functional work c
 The task list of the feature, `tasks.md`, governs execution. Its unchecked tasks are executed in
 document order. The [owner's November 17 queue][S49] is the historical baseline; subsequent
 committed changes state their owner-authorized reason, including the November 22 feedback task. The first
-unchecked task is active, and other work must serve it. A wait blocks only the work that needs
-the missing input (C16). When the active task, or a part of it, waits on an input that its role
-must not supply, or on an environment that is not available, the contributor completes the other
-parts, records the missing input at its owner and continues with the next unchecked task whose
-inputs are present. The waiting task keeps its position. A change of order is a committed edit
+unchecked task is active, and other work must serve it. A task that needs a mathematical
+declaration which **M** does not have is preceded in `tasks.md` by a task that supplies it. That
+task names the issue of the formal development. The contributor does it there, under the
+[authorship rule](#independent-authorship-and-permitted-inputs-c1-c9-c10), and then returns. [S53]
+A wait on an environment that is not available blocks only the work that needs it (C16): the
+contributor completes the other parts and continues with the next unchecked task whose inputs
+are present, and the waiting task keeps its position. A change of order is a committed edit
 of `tasks.md` that states its reason. [S51] The November 17 promotion of T016 / #84 includes focused commands,
 explicit SDK setup, production/test separation and justified dependency cuts insofar as they
 serve the measured loop. This exception does not mark T012 or any other functional task complete.
@@ -1508,6 +1543,7 @@ Spec Kit constitutions][S51].
 | 2.0.0 | 2026-11-17 | Amend only C21's work ordering under the [explicit owner correction and fixed queue][S49], also [committed in the repository plan][S50]. Old obligation: all performance work followed complete functionality except when a small required example could not finish. New obligation: first complete the measured real source-edit/rebuild/unchanged-public-check loop, with only the first unfinished queued task active and explicit recorded changes before reordering; final mathematical/runtime performance and budgets still follow complete functionality. Reason: the owner explicitly prioritized fast inner feedback and required the written, committed execution order. This is a major version under the existing governance rule because it changes the written scheduling obligation; it changes no mathematical, functional, independent-authorship, acceptance or final-budget requirement. Historical adoption entries remain intact. |
 | 3.0.0 | 2026-11-19 | Amend the authority and scope section, C21 and add C24 under the [owner instruction of 2026-11-19][S51]. Old obligations: plans and work orders remained in issues, and repository feature files were pointers; only the first unfinished task of a numbered queue was active. New obligations: the Spec Kit feature directory holds the specification, plan, research record, data model, contracts, validation guide, checklists and tasks; the unchecked tasks of `tasks.md` are executed in document order, which equals the November 17 queue; a wait on a missing input blocks only the work that needs it, as C16 already required. C24 adds the engineering defaults for test tiers, test design, contribution lessons, feedback cadence, platform scope, logging, timing history, timing triage and construction cost. Reasons: the Spec Kit commands had no specification, plan or task file to read; the queue was a list of bare task numbers kept in three places; its single-active-task rule could stop all work when one input was missing. This is a major version because it changes where the work order lives and the written scheduling obligation; it changes no mathematical, functional, independent-authorship, acceptance or final-budget requirement. |
 | 3.1.0 | 2026-11-22 | Elaborate C0, C9, C21, C23 and C24 under the owner's explicit November 22 direction to incorporate the supplied comparative analyses, make fast feedback a critical roadmap priority and constitutionally preserve the durable principles, recorded in the [completion roadmap][S52]. Old obligations: categorical public interoperability, independently fixed questions, the measured November 17 feedback correction and short test tiers. New explicit obligations: derive the complete category implementation interface from accepted mathematics; distinguish mathematical, public computational and actual software dependencies; require real implementation/build locality; maintain current-source fast feedback and truthful current-run results; assess the complete result relation and actual permitted choices under provider substitution. Correct the overbroad tier-1 wording to the tested-outcome claim already required by C10. This compatible elaboration is a minor version. It preserves C22's computational ownership and private code reuse, independent authorship, all original positive workloads, final budgets and the functional-before-final-evidence ordering. |
+| 4.0.0 | 2026-11-25 | Amend C21 and the authorship rule, and elaborate C22 and C23, under the [owner instructions of 2026-11-25][S53]. Old obligations: a task that waited on a missing mathematical input kept its position while the contributor recorded the input at its owner and continued; a kernel worker could not author or commission the upstream work; no article separated the acceptance of kernel work from the acceptance of computed results; the order of leaf work was not stated. New obligations: a missing mathematical declaration is a task of the formal development, named in `tasks.md` before its consumer, and the workstream does it there as a formalization author, from the mathematics and not shaped to an implementation; a check of kernel work observes kernel behaviour and requires no computed mathematical result, which belongs to leaf work on the whole structural route (example `2 * 3 = 6 in ℤ`); computational work has its own milestones in the order of the structural scaffolding, each vertical, each connecting mature existing computation after an open-ended survey. Reasons: on 2026-11-25 the first unchecked task had waited since 2026-11-20 on an input with no assigned author, and 63 of the 69 unchecked kernel tasks named that task as an input; kernel checks required results that need category implementations which do not exist. This is a major version because it changes an authority boundary and the written scheduling obligation. It changes no mathematical question, acceptance authorship rule or final budget. |
 
 ### Provenance
 
@@ -1583,5 +1619,6 @@ evidence of an authorized amendment.
 [S50]: https://github.com/dzackgarza/lean-cas-dsl/commit/da8e31db0d9a75bf037207970649c101f8b3fb89
 [S51]: https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-7001905239
 [S52]: https://github.com/dzackgarza/lean-cas-dsl/issues/10
+[S53]: https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-7155201731
 
-**Version**: 3.1.0 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-22
+**Version**: 4.0.0 | **Ratified**: 2026-11-04 | **Last Amended**: 2026-11-25

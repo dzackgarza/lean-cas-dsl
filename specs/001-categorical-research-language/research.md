@@ -2,6 +2,27 @@
 
 **Feature:** `001-categorical-research-language` · **2026-11-07**. This is the current research/decision entry for the [clarified specification](spec.md), [consolidated plan](plan.md) and [mathematical-input contract](contracts/mathematical-input.md). It supersedes the later G1 proposals as normative selection instructions. The original [independent architectural alternatives/reuse ledger](https://github.com/dzackgarza/lean-cas-dsl/issues/85#issuecomment-6664331639) and [adversarial discussions](https://github.com/dzackgarza/lean-cas-dsl/issues/85#issuecomment-6664324222) remain historical evidence, not independent approval of this revision.
 
+## 2026-11-25 — Carrier of occurrences and selections
+
+**Requirement.** Constitution C23: each selected source binding and each returned occurrence keep their exact association through preparation, projections, substitution and later calls. C18: a representation whose consumers repeatedly lack the information that it was to retain is reconsidered before more machinery is built around it.
+
+**Source finding** (kernel branch at `dd491b4`, every non-test file of `CasCompiler/` and `CasRuntime/` by search; the task list gives the locations). The reader holds its selections as typed data. The session passes only the term to the kernel, and `lowerTerm` receives an `Expr`. Selections and runtime occurrences therefore travel inside the term: 73 `Expr.mdata` key names, with whole terms held in `Function.const` envelopes, written in 61 files and read in 59. A typed `ValueBinding` is written back into a term before each re-lowering.
+
+**Why the premise fails.** Lean treats `Expr.mdata` as transparent. `whnf` removes it (Lean 4.33.0, `Lean/Meta/WHNF.lean:396`, `whnfEasyCases`), beta reduction removes it unless `preserveMData` is set (`Lean/Expr.lean:1592`), and unification assigns terms without it. The kernel source states this at six places and holds 24 substitutions with `preserveMData := true`, a hand-written head normalizer and an ordering of the lowerer whose purpose is to read each mark before a reduction. Each such site is one repair. The kernel has 179 `whnf` call sites and 391 `isDefEq` call sites, so the set of sites is not bounded by a list.
+
+**Measured consequence, 2026-11-23 to 2026-11-25.** 522 `just loop` runs, 428 failed. The most frequent runtime messages were "the runtime argument does not retain its specified source value" and "the runtime value has a different marked source type dependency". The non-test kernel source grew from 15,239 to 30,277 lines, its metadata sites from 39 to 152 and its `isDefEq` lines from 204 to 375. No task closed.
+
+**Alternatives.**
+
+| Alternative | Assessment |
+| --- | --- |
+| A. Keep the term metadata and repair each loss site. | The measured course. The set of loss sites is every term operation on a marked term. |
+| B. Typed data beside the term, keyed by binding identity. An occurrence is a binder of the context (`BindingId`); a selection is a typed record that the reader passes to the lowerer and the runtime. | Chosen. A variable is opaque to reduction and unification, and two binders with equal types and values stay distinct. `ContextTelescope`, `BindingId` and `bound : HashMap BindingId ValueBinding` exist and already carry the named source bindings. Prior art: A-normal form names every intermediate value (Flanagan, Sabry, Duba, Felleisen, "The Essence of Compiling with Continuations", PLDI 1993); Lean's own compiler does so in LCNF, where each `LetDecl` has an `FVarId` (`Lean/Compiler/LCNF/Basic.lean:350`). |
+| C. Keep the term as carrier and replace metadata by opaque wrapper constants. | Rejected. An opaque wrapper is not definitionally equal to its value, so dependent types that mention a marked value stop checking; unification still builds terms without it. |
+| D. A source representation of its own in place of Lean terms. | Rejected. It discards the reader, the layouts and the checked families that work, and is a third rewrite. |
+
+**Decision** (owner instruction of 2026-11-25 to decide the carrier before more repair; internal representation is a delegated engineering choice under C17). Alternative B. T116 moves occurrences; T117 moves selections; checkpoint M1.1 closes on both. The decision is a hypothesis under C18: if a consumer cannot be served by typed data keyed by binding identity, record the case here and reopen it.
+
 ## 2026-11-22 — Operational category independence and continuing feedback
 
 **Decision.** Retain independently categorical mathematics, generic forward realization and
