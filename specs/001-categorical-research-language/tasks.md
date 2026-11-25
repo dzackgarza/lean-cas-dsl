@@ -2,7 +2,7 @@
 
 **Feature:** `001-categorical-research-language`. Read with the [specification](spec.md), the [plan](plan.md) and the [constitution](../../.specify/memory/constitution.md).
 
-This file holds every task. "Part 1" names the sections from "Phase 0" to "Kernel readiness (F)". "Part 2" names the sections after "After kernel functionality". Task IDs are stable and are not renumbered. T008, T012, T024, T025, T117, T200, T205, T206, T208, T209, T219, T220, T239, T240, T245, T246, T247, T248, T253, T254 and T257 are retired. On 2026-11-25 (`39e54ee`) the IDs T201–T204, T207, T210–T218 and T221–T224 passed from the grouped computational milestones to the category tasks; the snapshots `research/milestones.md` and `research/category-scope.md` (column Milestone) and the 4.0.1 entry of the constitution's adoption record (T213, the full B0 of the V1 categories) keep the earlier meanings. A checkbox changes only when the task meets its complete definition in the source.
+This file holds every task. "Part 1" names the sections from "Phase 0" to "Kernel readiness (F)". "Part 2" names the sections after "After kernel functionality". Task IDs are stable and are not renumbered. T008, T012, T024, T025, T117, T200, T205, T206, T208, T209, T219, T220, T239, T240, T245, T246, T247, T248, T253, T254 and T257 are retired. A checkbox changes only when the task meets its complete definition in the source.
 
 ## Execution order
 
