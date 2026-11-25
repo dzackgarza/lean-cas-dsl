@@ -139,7 +139,7 @@ Owner loss changes computational liveness, not mathematical meaning or immutable
 
 Preserve public syntax/source spans and exact manifest triples. Wire packets remain encodings under independently fixed meanings. Generic scoped fields/callables and explicit lifecycle negotiation do not permit provider-defined schemas or subject mathematics. Delete semantic reconstruction from tags/defaults/trace endpoints/replayed source. Keep prepared recipes, retained lazy callables, actual completed values and receipts distinct.
 
-T116 and T117 carry each runtime occurrence and each reader selection as typed data; T007 prepares fixed-result roles/mandatory slots/observation data; T115 prepares permitted-choice requests (after the lean-categories task T118); T008–T011 preserve actual values and staging; T014–T015 justify/exercise those boundaries; T018–T023 implement actual scopes/capture/application; T053–T056 implement source-selected interpretation and its mandatory-data errors. T083–T102 implement the notebook/query/display consequences. Current task definitions incorporate those responsibilities; no new task IDs or completion markers are created by this model.
+T116 carries each runtime occurrence by its binding, and each task that changes a selected family carries its reader selection as typed data (rule "Typed selections" of the task list); T007 and T303 prepare projection operands and fixed-result fields; T115 prepares permitted-choice requests (after the lean-categories task T118); T009–T011 preserve owners, occurrences and staging; T014–T015 justify/exercise those boundaries; T018–T023 implement actual scopes/capture/application; T053–T056 implement source-selected interpretation and its mandatory-data errors. T083–T102 implement the notebook/query/display consequences. Current task definitions incorporate those responsibilities; no new task IDs or completion markers are created by this model.
 
 ## Sources
 
@@ -163,7 +163,7 @@ Dependent input relations come from the formal declaration and include actual ea
 These are semantic preservation requirements, not a new storage schema, mathematical IR or
 registry. [C23](../../.specify/memory/constitution.md) and MM005–MM010 govern their use.
 
-**Carriers (T116, T117; [research record](research.md)).** A runtime occurrence is a binder of
+**Carriers (T116 and the rule "Typed selections" of the task list; [research record](research.md)).** A runtime occurrence is a binder of
 the context with a `BindingId`. One table, `bound : BindingId → ValueBinding`, resolves it, and a
 term names an occurrence by its variable. A reader selection is a typed record: the selected
 family with its route, parameters and arguments by reference, and the selected field, endpoint,

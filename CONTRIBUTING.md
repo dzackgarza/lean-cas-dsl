@@ -44,6 +44,12 @@ data model and the contracts; write the passage that settles X and its acceptanc
 row. A question that none of them settles is a gap of the specification: it goes to
 `/speckit-clarify` and into `spec.md`, and the task names that clarification as its input.
 
+**SPEC003 — a task names its check.** A task written as a list of obligations ("retain each
+mandatory datum's source boundary …") with requirement traces and no observable test => one
+mechanism, its files, one check (`just loop "<test module>" [acceptance files]` within 300 s,
+with a protocol peer or an empty manifest), the reason that the check fails at the tip, its inputs
+and its trace. An obligation with no check goes into the task whose check covers it.
+
 **SPEC002 — "no test states it" is not a status.** "The required behaviour has no test, so the
 item is open" => derive the acceptance condition from the governing passage, write the failing
 test, then repair.
