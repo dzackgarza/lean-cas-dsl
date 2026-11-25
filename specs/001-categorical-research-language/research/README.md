@@ -14,15 +14,15 @@ gives the facts and the sources that a decision used.
 | `milestones.md`, `milestones.json` | The computational milestones of the plan: the categories, statements and moved registrations of each, the routes of the 18 statements of the K3 and K14 files, and a probe of countable sets in the container Sage. | the records above; Sage 11.0.beta5 in the research container |
 | `kernel-row-decisions.md` | The decisions for the "connect or delete" and "keep or move" rows of the task list, and the rows that do not match the kernel source at its tip. | kernel branch `fc7fdf8` (source of `7661292`) |
 
-## Planning work that these records feed and that is not written yet
+## Planning work that remains
 
-The task of the planning session is the full roadmap, across all repositories, in Spec Kit form,
-with no decision left for implementation time. This list is what remains. Take the items in order.
+The roadmap of the five repositories is in their Spec Kit feature directories. These items remain.
 
-1. **Sibling repositories.** lean-categories, lean-cas-dsl-leaf-contracts, lean-cas-dsl-leaves and
-   lean-jupyter-kernel have no Spec Kit documents. Each needs a constitution, a specification, a
-   plan and a task list for its part of the roadmap. In lean-categories, the rule LC-17 and the rule
-   near `TODO.md:122` stop a consumer's workstream from doing the upstream tasks T118 to T138
-   there; they must agree with constitution C21 and the authorship rule of this repository.
-1. **Validation guide.** `quickstart.md` names passagemath 10.8.13. The research container holds
-   Sage 11.0.beta5 as a source build and no passagemath.
+1. **Contract task list.** The table "Kernel consumers" of lean-cas-dsl-leaf-contracts
+   (`specs/001-released-contract-v2/tasks.md`) names the kernel task T104, which the computational
+   milestones T200 to T224 replace. Its row moves to those tasks.
+2. **Leaves task list.** lean-cas-dsl-leaves (`specs/001-category-implementations/tasks.md`) has no
+   survey and implementation pair for the unit group of #3, which lean-cas-dsl T155 assigns to
+   `backends/gap_groups.py`.
+3. **Owner questions.** Q1 (infinite cardinals) and Q2 (the user-visible form of diagnostics) of
+   `plan.md`.
