@@ -155,7 +155,7 @@ partial def Kernel.invokePoint (kernel : Kernel) (evaluateSource : SourceEvaluat
     throwError "the named point invocation changed its selected operation or input form"
   let wire ← kernel.connections.get registration.backend
   let graph ← transaction.view
-  discard <| request.admitInputs graph
+  invocation.requireInputs request graph
   let (encoded, packet) ← IO.ofExcept <|
     (invocation.encode graph wire.connection.generation).mapError IO.userError
   let identity : DispatchIdentity := {

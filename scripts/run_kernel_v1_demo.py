@@ -244,7 +244,8 @@ def main() -> int:
     if args.prepare_only:
         print("Prepared only; no CAS computation, Sage import, or build has run.")
         print("Start the existing casdsl notebook kernel with these inherited variables:")
-        for name, value in (("CAS_LEAF_CONTRACT_PATH", str(contract)),
+        for name, value in (("NBDSL_SESSION_MODE", "language"),
+                            ("CAS_LEAF_CONTRACT_PATH", str(contract)),
                             ("CAS_SAGE_PYTHON", sage), ("CAS_LEAVES", str(manifest_path))):
             print(f"export {name}={shlex.quote(value)}")
         print("Notebook command (paths are absolute; adjust the notebook cell if needed):")

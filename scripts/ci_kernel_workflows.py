@@ -219,7 +219,7 @@ def run(root, runtime, published):
         report['notebookEnvironment'] = environment
         step('notebook-kernelspec', [*prefix, str(python), '-m', 'nbdsl_kernel.install',
             '--project', str(root), '--name', 'casdsl', '--display-name', 'CasDsl (Lean 4)',
-            '--prelude-module', 'CasDsl.Notebook'])
+            '--prelude-module', 'CasDsl.Notebook', '--session-mode', 'language'])
         spec = notebook_runtime / 'jupyter-data/kernels/casdsl/kernel.json'
         report['kernelSpec'] = candidate.record(spec)
         generated_inputs[str(spec)] = report['kernelSpec']

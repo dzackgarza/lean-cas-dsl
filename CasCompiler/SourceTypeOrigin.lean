@@ -3,6 +3,7 @@ module
 public import CasCompiler.Elaborate
 public import CasContract.Failure
 import Lean.Meta.Transform
+import Lean.Meta.Reduce
 
 public section
 
@@ -274,15 +275,26 @@ private def sourceInstanceType (type : Expr) : MetaM Expr :=
     return .continue)
 
 /-- Use native instance search at the original objects carried by explicit source owners.
-Only the temporary instance goal is viewed without those checked identity envelopes;
-the returned dictionary is checked at the complete retained goal. Stuck native goals
-remain stuck, and failed native search is not an alternative source interpretation.
-Reuse: sourceObjectOrigin?, Meta.transform and Lean.Meta.trySynthInstance. -/
+Only the temporary class arguments are viewed without those checked identity envelopes
+and normalized as native types. Lean's instance search otherwise keeps ordinary carrier
+definitions folded. The original source and goal remain intact, and the returned dictionary
+is checked at that complete goal. No native instance body is executed as result data.
+Reuse: sourceObjectOrigin?, Meta.reduce and Lean.Meta.trySynthInstance. -/
 opaque trySourceInstance (type : Expr) : MetaM (LOption Expr) := do
   let type ← instantiateMVars type
-  let result ← trySynthInstance (← sourceInstanceType type)
+  let goal ← sourceInstanceType type
+  let result ← trySynthInstance goal
+  let result ← match result with
+    | .none => do
+      -- Keep successful original dictionaries and stuck metavariable goals intact.
+      -- Only a failed search at a fixed native carrier needs the definitional view.
+      let arguments ← goal.getAppArgs.mapM fun argument =>
+        withTransparency .all <| Meta.reduce argument (explicitOnly := false)
+          (skipTypes := false) (skipProofs := true)
+      trySynthInstance (mkAppN goal.getAppFn arguments)
+    | result => pure result
   if let .some instanceValue := result then
-    unless ← isDefEq (← inferType instanceValue) type do
+    unless ← withTransparency .all <| isDefEq (← inferType instanceValue) type do
       throwError "the native instance has a different complete source goal"
   return result
 

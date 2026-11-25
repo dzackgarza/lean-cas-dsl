@@ -193,7 +193,7 @@ setup:
     @uv pip install -p .venv/bin/python nbclient \
         'nbdsl-kernel[test] @ git+https://github.com/dzackgarza/lean-jupyter-kernel@main#subdirectory=nbdsl_kernel'
     @.venv/bin/python -m nbdsl_kernel.install --project "$PWD" \
-        --prelude-module CasDsl.Notebook --name casdsl --display-name "CasDsl (Lean 4)"
+        --prelude-module CasDsl.Notebook --session-mode language --name casdsl --display-name "CasDsl (Lean 4)"
 
 # Moves the lake dependency on nbdsl-worker to the latest kernel repo commit
 # and reinstalls the Python kernel adapter to match, so a stale
@@ -210,7 +210,7 @@ sync-kernel:
     @uv pip install -p .venv/bin/python --reinstall-package nbdsl-kernel \
         'nbdsl-kernel[test] @ git+https://github.com/dzackgarza/lean-jupyter-kernel@main#subdirectory=nbdsl_kernel'
     @.venv/bin/python -m nbdsl_kernel.install --project "$PWD" \
-        --prelude-module CasDsl.Notebook --name casdsl --display-name "CasDsl (Lean 4)"
+        --prelude-module CasDsl.Notebook --session-mode language --name casdsl --display-name "CasDsl (Lean 4)"
     @for nb in $(/home/dzack/gitclones/jupyter-assistant-api/japi list-notebooks --format json 2>/dev/null | jq -r '.result' | rg 'cas-dsl/.*\.ipynb' | cut -f1); do \
       /home/dzack/gitclones/jupyter-assistant-api/japi restart-notebook "$nb" '{"kernel_name": "casdsl"}'; \
     done

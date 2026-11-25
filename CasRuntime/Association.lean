@@ -208,28 +208,63 @@ def PreparedRequest.associateResult (request : PreparedRequest) (supply : Identi
     | .apply .. | .primitive .. => request.environment.checkResult draft.view source value
   associateCheckedResult request supply source draft candidate fixed complete
 
+/-- Carry the authenticated source access into an assembled input result while its sealed
+selection and the graph's projection cache retain the original baseline. A stored source
+path without an earlier access is admitted through the ordinary original projection. -/
+private def selectedInputView (request : PreparedRequest) (supply : IdentitySupply)
+    (selected : FixedResult) (draft : CellDraft) : MetaM (CellDraft × ValueBinding) := do
+  let input := selected.input
+  if input.path.isEmpty then return (draft, selected.value)
+  let existing ← IO.ofExcept <|
+    (draft.view.projectedAccess? input.parent input.path).mapError IO.userError
+  let (draft, access) ← match existing with
+    | some access => pure (draft, access)
+    | none => input.source.withOpen fun bindings _ => do
+      unless input.parameters.size == bindings.size do
+        throwError "a fixed input lost its original complete source context"
+      let context ← ContextTelescope.capture bindings
+      let mut parameters := #[]
+      for (binding, value) in bindings.zip input.parameters do
+        if let some value := value then
+          let parameter ← IO.ofExcept <|
+            (RuntimeParameter.ofValue draft.view binding.id value).mapError IO.userError
+          parameters := parameters.push parameter
+      let projection ← PreparedRequest.forStoredProjection supply request.program
+        (← supply.fresh .occurrence) context draft.view input.parent input.path parameters
+      let projection := projection.withSourceSnapshot request.observation.sourceSnapshot
+      let (draft, access) ← projection.associateResult supply projection.source draft
+        selected.value #[] (complete := true)
+      discard <| projection.admitResult draft.view access
+      return (draft, access)
+  let some baseline ← IO.ofExcept <|
+      (draft.view.projectionBasis access input.parent input.path).mapError IO.userError
+    | throwError "an assembled input lost its exact original source access"
+  unless baseline.value == selected.value.value &&
+      baseline.associationIds.toList.isPrefixOf selected.value.associationIds.toList &&
+      selected.value.value == access.value &&
+      selected.value.associationIds.toList.isPrefixOf access.associationIds.toList do
+    throwError "an assembled input access changed its original selected occurrence"
+  return (draft, access)
+
 private partial def assembleInputResult (request : PreparedRequest) (source : SourceLayout)
     (supply : IdentitySupply) (fixed : Array FixedResult) (draft : CellDraft) :
     MetaM (CellDraft × ValueBinding) := do
   let path ← request.source.projectionPathTo source
   if let some selected := fixed.find? (·.path == path) then
-    -- Keep the sealed input occurrence unchanged while building the isolated record.
-    -- Its consuming dependency check needs the complete actual result prefix below.
-    return (draft, selected.value)
+    return ← selectedInputView request supply selected draft
   unless source.kind == .record do
     throwError "the complete input result lost a prepared computational field"
   let layout ← RecordLayout.ofSource source
-  let mut record ← RecordPrefix.prepare supply request.program request.occurrence layout
-    draft.view request.environment.sourceMarks
   let mut draft := draft
+  let mut fields := #[]
   for prepared in layout.fields do
     if prepared.field.wireIndex.isNone then continue
     let (nextDraft, value) ← assembleInputResult request prepared.layout supply fixed draft
-    let (nextDraft, nextRecord, _) ← liftM (m := IO) <| nextDraft.bindField record value
     draft := nextDraft
-    record := nextRecord
-  let payload ← IO.ofExcept <| record.finish.mapError IO.userError
-  liftM (m := IO) <| draft.stage (← request.originFor source (some draft.view)) payload
+    fields := fields.push value
+  -- The original views are checked against the complete actual result prefix first.
+  -- associateCheckedResult alone adds the result's new consuming field associations.
+  liftM (m := IO) <| draft.stage (← request.originFor source (some draft.view)) (.product fields)
 
 /-- Assemble the complete source-selected result after all selected lazy inputs have settled.
 Validate its stored fields together with their actual native prefixes before adding consuming

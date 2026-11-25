@@ -3,6 +3,7 @@ module
 public import CasCompiler.SelectedField
 public import CasCompiler.Layout
 public import Mathlib.CategoryTheory.Comma.Arrow
+public import Mathlib.CategoryTheory.ConcreteCategory.Bundled
 
 public section
 
@@ -52,14 +53,21 @@ def declaredEndpoint (stated : Expr) : MetaM Expr := do
 /-- Retain the source and target projections of this actual selected arrow.
 Reuse: Mathlib's Arrow.mk, Arrow.left and Arrow.right. The type hint is definitionally
 the original morphism type; the metadata preserves its computational occurrence. -/
-def selectMorphism (value : Expr) : MetaM Expr := do
+def selectMorphism (value : Expr) (category : Option Expr := none) : MetaM Expr := do
   let reference := match value with | .mdata data _ => data | _ => KVMap.empty
   let type ← whnfR (← inferType value)
   unless type.isAppOfArity ``Quiver.Hom 4 do
     throwError "a selected morphism must have its declared source and target"
   let selection ← mkFreshUserName `selectedMorphism
   let selected := selectedField selection ``CategoryTheory.Arrow.hom value
-  let arrow ← mkAppM ``CategoryTheory.Arrow.mk #[selected]
+  let arrow ← match category with
+    | none => mkAppM ``CategoryTheory.Arrow.mk #[selected]
+    | some bundle => do
+      let carrier ← mkAppM ``CategoryTheory.Bundled.α #[bundle]
+      let instanceValue ← mkAppM ``CategoryTheory.Bundled.str #[bundle]
+      mkAppOptM ``CategoryTheory.Arrow.mk
+        #[some carrier, some instanceValue, some type.getAppArgs[2]!,
+          some type.getAppArgs[3]!, some selected]
   -- Inference checks the constructor's complete native type, but its implicit
   -- endpoint assignments need not retain the original arrow's stated expressions.
   -- Put those exact endpoints back at the constructor's own declared positions.

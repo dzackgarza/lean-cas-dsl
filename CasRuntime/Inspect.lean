@@ -128,13 +128,7 @@ private def permittedForms (kernel : Kernel) (state : SemanticState)
     (target : ProfileTarget) : MetaM (Array Json) := do
   let selected ← kernel.manifest.registrations.filterM fun row => do
     if !kernel.profile.allowsRegistration target row then return false
-    match target with
-    | .computation reference => return (← publishedFamily? state row.operation) == some reference
-    | .application id => return !applicationAddressConflict state row.operation &&
-        (publishedApplication? state row.operation).any (·.id == id)
-    | .property id => return (publishedProperty? state row.operation).any (·.id == id)
-    | .presentation id => return (publishedPresentation? state row.operation).any (·.id == id)
-    | .lift id => return (← publishedLift? state row.operation).any (·.1.id == id)
+    target.containsAddress state row.operation
   return selected.map fun row =>
     Json.mkObj [("operation", toJson row.operation), ("input", toJson row.input),
       ("backend", toJson row.backend)]

@@ -71,6 +71,7 @@ private def runtimeEnvironment : LowerM RuntimeEnvironment := do
   let frame ← read
   RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
     (← sourceMarks #[]) (some (← frame.environment.transaction.view))
+    (← frame.retainedView.get)
 
 /-- Source-path selection only asks which original bindings are retained.
 The frame's context and binding table do not change during lowering; recursive
@@ -182,7 +183,8 @@ Named limit/generator applications are included although their addresses have a 
 private def requiresSourceAddress (state : SemanticState) (declaration : Name) : Bool :=
   isRegisteredComputation state declaration || isRegisteredDescriptor state declaration ||
   state.limits.any (·.declaration == declaration) ||
-  state.objects.any (·.generator == some declaration)
+  state.objects.any (fun entry => entry.generator == some declaration ||
+    entry.refines.any (·.identification == declaration))
 
 /-- Open an already authorized native definition before substituting its original arguments.
 Reuse: Lean's bare-constant unfolding and metadata-preserving beta substitution. Applying
@@ -194,6 +196,27 @@ private def unfoldSourceApplication? (expression : Expr) : MetaM (Option Expr) :
       unfoldDefinition? expression.getAppFn
     | return none
   return some (body.betaRev expression.getAppRevArgs (preserveMData := true))
+
+/-- Replace only the original full application's ordered argument positions, preserving
+every source annotation on its head/spine. This does not search for equal subexpressions. -/
+private def withApplicationArguments (expression : Expr) (arguments : Array Expr) :
+    Except String Expr := do
+  let rec rebuild (expression : Expr) (next : Nat) : Except String (Expr × Nat) := do
+    match expression with
+    | .mdata data body =>
+      let (body, next) ← rebuild body next
+      return (.mdata data body, next)
+    | .app function _ =>
+      let (function, next) ← rebuild function next
+      let some argument := arguments[next]?
+        | throw "a named source lost an original declaration argument"
+      return (.app function argument, next + 1)
+    | .const .. => return (expression, next)
+    | _ => throw "a named source lost its original native declaration head"
+  let (expression, consumed) ← rebuild expression 0
+  unless consumed == arguments.size do
+    throw "a named source changed its complete declaration argument arity"
+  return expression
 
 private def selectedReference? (data : MData) : Option (Name × ComputationRef) := do
   let declaration := data.getName `CasCompiler.source.declaration
@@ -220,13 +243,13 @@ private def selectedDescriptor? (data : MData) : Option (Name × String) := do
     some (declaration, id)
   else none
 
-/-- A declared constructor interface is native structural code, with no invented leaf address.
-Its exact field and complete declaration application still belong to the selected constructor. -/
-private def selectedConstructorInterface? (data : MData) : Option Name := do
+/-- An independently declared native interface retains its selected owner and exact declaration.
+Its record fields are structural source code, with no invented computation address. -/
+private def selectedNativeInterface? (data : MData) : Option Name := do
   let kind := data.getName `CasCompiler.source.kind
   unless kind == ``ConstructorEntry.functorialAction || kind == ``ConstructorEntry.comparisonAction ||
       kind == ``ConstructorEntry.identityComparison ||
-      kind == ``ConstructorEntry.compositionComparison do none
+      kind == ``ConstructorEntry.compositionComparison || kind == ``ObjectEntry.refines do none
   let declaration := data.getName `CasCompiler.source.declaration
   if declaration.isAnonymous then none else some declaration
 
@@ -250,7 +273,7 @@ private def checkSelectedAddress (data : MData) : MetaM Unit := do
       kind == ``PresentationComparisonEntry || kind == ``ConstructorEntry ||
       kind == ``ConstructorEntry.functorialAction || kind == ``ConstructorEntry.comparisonAction ||
       kind == ``ConstructorEntry.identityComparison ||
-      kind == ``ConstructorEntry.compositionComparison do return ()
+      kind == ``ConstructorEntry.compositionComparison || kind == ``ObjectEntry.refines do return ()
   let id := data.getString `CasCompiler.source.id
   let state ← semanticState
   let declarations : Option (Array Name) :=
@@ -288,12 +311,33 @@ private def checkSelectedAddress (data : MData) : MetaM Unit := do
       some ((state.constructors.filter (·.id.raw == id)).filterMap (·.identityComparison))
     else if kind == ``ConstructorEntry.compositionComparison then
       some ((state.constructors.filter (·.id.raw == id)).filterMap (·.compositionComparison))
+    else if kind == ``ObjectEntry.refines then
+      some ((state.objects.filter (·.id.raw == id)).filterMap
+        (fun entry => entry.refines.map (·.identification)))
     else none
   if let some declarations := declarations then
     let #[declaration] := declarations
       | throwError "the selected descriptor lost its original registered address"
     unless data.getName `CasCompiler.source.declaration == declaration do
       throwError "the selected descriptor changed its original registered declaration"
+
+/-- Expose only a selected native interface at the root of this exact projection chain.
+The original source remains the retained role; this separate view inspects its constructor.
+No expression search, registry recovery, or alternate declaration supplies the root. -/
+private partial def nativeInterfaceSource? (expression : Expr) : MetaM (Option Expr) := do
+  if let .mdata data head := expression.getAppFn then
+    if let some declaration := selectedNativeInterface? data then
+      checkSelectedAddress data
+      let native := (mkAppN head expression.getAppArgs).consumeMData
+      unless native.getAppFn.isConstOf declaration do
+        throwError "the selected native interface lost its original declaration application"
+      let some body ← unfoldSourceApplication? native
+        | throwStratum .noImplementation m!"{declaration} has no native interface definition"
+      return some body
+  let some projection ← SourceProjection.ofExpr? expression | return none
+  let some parent ← nativeInterfaceSource? projection.parent | return none
+  let owner := (← getConstInfoCtor projection.info.ctorName).induct
+  return some (.proj owner projection.info.i parent)
 
 /-- A registered distinguished element that the reader evaluated at its point: a subset literal,
 an object's generator, a numeral, or the apex of a registered limit or colimit at its maps. Its
@@ -317,9 +361,11 @@ private partial def literal? (expression : Expr) : MetaM (Option Json) := do
   let expression := (← instantiateMVars expression).consumeMData
   if expression.hasFVar || expression.hasMVar then return none
   if let some value := expression.rawNatLit? then return some (toJson value)
-  if let some value := expression.nat? then return some (toJson value)
-  if let some value := expression.int? then return some (toJson value)
   if let .lit (.strVal value) := expression then return some (toJson value)
+  -- Lean's native unit notation is a constructor alias (Init/Prelude.lean), with
+  -- no arguments or computational fields. Overloaded OfNat/Neg projections are
+  -- handled at their actual selected instance; their numeral index is not a value.
+  if expression.isConstOf ``Unit.unit then return some (.arr #[])
   if expression.isAppOfArity ``Int.ofNat 1 then
     if let some value := expression.appArg!.rawNatLit? then return some (toJson (Int.ofNat value))
   if expression.isAppOfArity ``Int.negSucc 1 then
@@ -402,7 +448,8 @@ Source: mathematical-input contract §2 and plan §2, lean-cas-dsl#10 comment 66
 Variables read their retained bindings. Published computation families become prepared
 primitive demands at their actual arguments. Fields and applications of retained values become
 projection and application demands. Lambdas and selected instances retain code and captures.
-Ordinary definitions are unfolded with Lean's delta rule. No operation is recognized by name. -/
+Only retained source definitions and accepted derivation compositions expose their bodies.
+Declared native interfaces retain their original fields. No operation is recognized by name. -/
 private partial def lower (expression : Expr) : LowerM ValueBinding := do
   let expression ← instantiateMVars expression
   match expression with
@@ -429,7 +476,12 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
         ("args", .arr #[.null, toJson selector])]
       let slots : Array ContainerSlot :=
         #[{ path := #[.field "args", .index 0], binding := value, fieldIndex := none }]
-      let built ← match ← selectedEndpointFields? (selector == "source") value with
+      let fields ← selectedEndpointFields? (selector == "source") value
+      if let some fields := fields then
+        let role := (← origin expression).role
+        if role.kind == .record then
+          return ← stageRecord (← RecordLayout.ofSource role) fields (some (template, slots))
+      let built ← match fields with
         | some fields => pure (ValuePayload.container template slots fields none)
         | none => pure (ValuePayload.descriptor template slots)
       let .ok payload := built
@@ -449,10 +501,10 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
         | throwError "internal: a retained source value lost its mark"
       return value
     checkSelectedAddress data
-    if let some declaration := selectedConstructorInterface? data then
+    if let some declaration := selectedNativeInterface? data then
       unless body.consumeMData.getAppFn.isConstOf declaration do
-        throwError "the selected constructor interface lost its original declaration application"
-      return ← lower body
+        throwError "the selected native interface lost its original declaration application"
+      return ← nativeInterface expression
     if data.getBool `CasCompiler.source.derived then
       unless (selectedReference? data).isSome || (selectedDescriptor? data).isSome ||
           data.getName `CasCompiler.source.kind == ``EdgeRef.classifierForget do
@@ -498,7 +550,7 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
       let application := body.consumeMData
       unless application.getAppFn.isConstOf declaration do
         throwError "the selected descriptor lost its original declaration application"
-      return ← namedConstant expression address (← explicitArguments application)
+      return ← namedConstant expression address application
     match selectedReference? data with
     | some (declaration, _) =>
       let native := body.consumeMData
@@ -514,7 +566,11 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
       | throwError "a source variable is outside its complete binding context"
     if let some value := frame.bound[binding.id]? then return value
     match (← id.getDecl).value? with
-    | some value => lower value
+    | some value =>
+      unless binding.role == .definition do
+        throwStratum .noImplementation
+          m!"the source binding {(← id.getDecl).userName} has no retained computational value"
+      lower value
     | none =>
       -- Keep the existing one-string symbolic descriptor. Its opaque identity uses the
       -- same nonce:serial convention as RequestScope.wireId; display names stay in context.
@@ -538,17 +594,17 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
     -- same value, a retained record gives its field, and a selected family head is dispatched.
     if let .mdata data head := expression.getAppFn then
       checkSelectedAddress data
-      if let some declaration := selectedConstructorInterface? data then
-        unless head.consumeMData.isConstOf declaration do
-          throwError "the selected constructor interface lost its original declaration application"
-        return ← lower (mkAppN head expression.getAppArgs)
+      if let some declaration := selectedNativeInterface? data then
+        unless head.consumeMData.getAppFn.isConstOf declaration do
+          throwError "the selected native interface lost its original declaration application"
+        return ← nativeInterface (.mdata data (mkAppN head expression.getAppArgs))
       if data.getBool `CasCompiler.source.derived then
         return ← apply (← lower expression.getAppFn) expression.getAppArgs
       if let some (declaration, address) := selectedDescriptor? data then
         let application := (mkAppN head expression.getAppArgs).consumeMData
         unless application.getAppFn.isConstOf declaration do
           throwError "the selected descriptor lost its original declaration application"
-        return ← namedConstant expression address (← explicitArguments application)
+        return ← namedConstant expression address application
       if (markedKey? data).isSome ||
           data.getName `CasCompiler.source.kind == ``RoutedMethodFamily then
         return ← apply (← lower expression.getAppFn) expression.getAppArgs
@@ -602,6 +658,11 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
         return ← apply selected (arguments.extract projectionSource.getAppNumArgs arguments.size)
       if let .mdata data _ := projection.parent.getAppFn then
         checkSelectedAddress data
+        if (selectedNativeInterface? data).isSome then
+          let owner := (← getConstInfoCtor projection.info.ctorName).induct
+          let selected ← field owner projection.info.i projection.parent
+            m!"{projection.declaration}"
+          return ← apply selected (arguments.extract projectionSource.getAppNumArgs arguments.size)
         if (selectedReference? data).isSome || (namedElement? data).isSome ||
             data.getName `CasCompiler.source.kind == ``RoutedMethodFamily ||
             data.getName `CasCompiler.source.kind == ``ObjectEntry.application then
@@ -675,11 +736,12 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
         if traceInclusion then dbg_trace "[inclusion.lower] nativeInputRecord selected"
         return value
       if traceInclusion then dbg_trace "[inclusion.lower] after nativeInputRecord none"
-    -- Head reduction only: no let substitution and no unfolding under a projection, so a
-    -- published family below a field stays a demand and is not replaced by its definition.
+    -- Structural head reduction only. Iota and auxiliary-definition unfolding would execute
+    -- a matcher or recursor before the explicit missing-operation boundary below.
     if traceInclusion then dbg_trace "[inclusion.lower] before whnfCore"
     let reduced ← withConfig (fun config =>
-      { config with zeta := false, zetaDelta := false, proj := .yes }) (whnfCore expression)
+      { config with zeta := false, zetaDelta := false, iota := false, proj := .yes })
+      (whnfCore expression)
     if traceInclusion then dbg_trace "[inclusion.lower] after whnfCore changed={reduced != expression} head={repr reduced.getAppFn.constName?} arity={reduced.getAppNumArgs}"
     if reduced != expression then return ← lower reduced
     if traceInclusion then dbg_trace "[inclusion.lower] before final native dispatch"
@@ -701,16 +763,31 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
 Reference: CasContract.Port descriptor grammar `{"ctor": address, "args": [...]}`.
 Each argument is lowered and keeps its own retained reference in a typed slot. -/
 private partial def descriptor (expression : Expr) (address : String) (arguments : Array Expr)
-    (fields : Option (Array ValueBinding) := none) : LowerM ValueBinding := do
+    (fields : Option (Array ValueBinding) := none)
+    (originals : Option (Array ValueBinding) := none) : LowerM ValueBinding := do
+  if let some originals := originals then
+    unless originals.size == arguments.size do
+      throwError "a named descriptor lost its original explicit argument table"
+    discard <| IO.ofExcept <|
+      ((← (← read).environment.transaction.view).requiredOwners originals).mapError IO.userError
   let mut packets := #[]
   let mut slots := #[]
-  for argument in arguments do
-    let value ← lower argument
+  for argument in arguments, index in [:arguments.size] do
+    let value ← match originals with
+      | some originals => do
+        let some original := originals[index]?
+          | throwError "a named descriptor lost an original explicit argument"
+        pure original
+      | none => lower argument
     slots := slots.push ({
       path := #[.field "args", .index packets.size], binding := value, fieldIndex := none } :
       ContainerSlot)
     packets := packets.push Json.null
   let packet := Json.mkObj [("ctor", toJson address), ("args", .arr packets)]
+  if let some fields := fields then
+    let role := (← origin expression).role
+    if role.kind == .record then
+      return ← stageRecord (← RecordLayout.ofSource role) fields (some (packet, slots))
   let built := match fields with
     | some fields => ValuePayload.container packet slots fields none
     | none => ValuePayload.descriptor packet slots
@@ -733,11 +810,47 @@ private partial def array (expression : Expr) (elements : Array Expr) : LowerM V
 
 /-- A registered named constant at its explicit arguments. A callable is retained as code; a
 record value keeps each computational field as a closure beside its descriptor. -/
-private partial def namedConstant (expression : Expr) (address : String) (arguments : Array Expr) :
+private partial def namedConstant (expression : Expr) (address : String) (application : Expr) :
     LowerM ValueBinding := do
+  let frame ← read
+  let (closed, actual) ← actualArguments application.getAppArgs
+  let information ← getFunInfoNArgs application.getAppFn closed.size
+  let mut arguments := #[]
+  let mut explicitSources := #[]
+  let mut explicitValues := #[]
+  for source in closed, index in [:closed.size] do
+    let source ← source.inContext frame.context
+    let selected := actual.find? (·.index == index)
+    let retained ← match selected with
+      | some selected => markValue frame.environment.marks selected.value source
+      | none =>
+        unless ← isProof source do
+          throwError "a named source lost an original computational argument"
+        pure source
+    arguments := arguments.push retained
+    let explicit := (information.paramInfo[index]?.map (·.isExplicit)).getD true
+    if explicit && !(← isProof source) then
+      let some selected := selected
+        | throwError "a named descriptor lost an original explicit computational argument"
+      explicitSources := explicitSources.push retained
+      explicitValues := explicitValues.push selected.value
+  let expression ← IO.ofExcept <|
+    (withApplicationArguments expression arguments).mapError IO.userError
   let role := (← origin expression).role
   if role.kind == .function then return ← closure expression
-  descriptor expression address arguments (some (← fieldClosures role))
+  descriptor expression address explicitSources (some (← fieldClosures role))
+    (some explicitValues)
+
+/-- Retain the complete declared native record and its original delayed fields. Formation
+does not evaluate a comparison, constructor action or any of its mathematical data. Each
+later field demand retains this same selected interface as its native projection parent. -/
+private partial def nativeInterface (expression : Expr) : LowerM ValueBinding := do
+  let role := (← origin expression).role
+  if role.kind == .function then return ← closure expression
+  unless role.kind == .record do
+    throwStratum .noImplementation
+      "the selected native interface has no computational record fields"
+  stageRecord (← RecordLayout.ofSource role) (← fieldClosures role)
 
 /-- Native fields of an ordinary registered constant whose definition `field` may open.
 Published element descriptors do not use these closures: their fields require computation. -/
@@ -858,14 +971,29 @@ private partial def explicitArguments (expression : Expr) : LowerM (Array Expr) 
     if explicit && !(← isProof argument) then selected := selected.push argument
   return selected
 
-/-- Select one field of a checked source record.
-A selected instance and a registered named constant are definitions, so the field comes from
-Lean's reduction of that definition. Any other record is lowered, and the field is a demand. -/
+/-- Select one field of a checked source record. A declared interface or selected instance
+may expose its exact native constructor without running an eliminator. Other records retain
+their original runtime parent and use the ordinary field demand. -/
 private partial def field (owner : Name) (index : Nat) (value : Expr) (name : MessageData) :
     LowerM ValueBinding := do
   let traceInclusion := (value.find? (·.isConstOf
     `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
   if traceInclusion then dbg_trace "[inclusion.field] enter owner={owner} index={index}"
+  if let some native ← nativeInterfaceSource? value then
+    let original := .proj owner index value
+    let role := (← origin original).role
+    if role.kind == .record then return ← nativeInterface original
+    let frame ← read
+    -- Inspect the parent only, then read its exact field without reducing that field's
+    -- mathematical body. Intermediate native records retain the complete original path.
+    let parent ← frame.context.inputProjectionSource native (frame.bound.toArray.map (·.1))
+    let [constructor] := (← getConstInfoInduct owner).ctors
+      | throwError "the selected native interface has no unique record constructor"
+    if parent.getAppFn.isConstOf constructor then
+      let some selected ← projectCore? parent index
+        | throwError "the selected native interface lost its original constructor field"
+      return ← lower selected
+    return ← lower (.proj owner index parent)
   if let .mdata data head := value.getAppFn then
     checkSelectedAddress data
     if (selectedReference? data).isSome || (namedElement? data).isSome ||
@@ -895,15 +1023,26 @@ private partial def field (owner : Name) (index : Nat) (value : Expr) (name : Me
   let selectedClass ← isClass? normalizedType
   if traceInclusion then dbg_trace "[inclusion.field] after isClass result={selectedClass.isSome}"
   if selectedClass.isSome then
-    if traceInclusion then dbg_trace "[inclusion.field] class parent: before value whnf"
-    let normalizedParent ← whnf value
-    if traceInclusion then dbg_trace "[inclusion.field] class parent: after value whnf; before projection whnfCore"
-    let reduced ← whnfCore (.proj owner index normalizedParent)
-    if traceInclusion then dbg_trace "[inclusion.field] class parent: after projection whnfCore"
-    if reduced.isProj then
-      throwUnsupportedSource m!"the selected instance field {name} has no definition in this context"
-    if traceInclusion then dbg_trace "[inclusion.field] class parent: before reduced lower"
-    return ← lower reduced
+    let frame ← read
+    -- Inspect this parent only. Constructor arguments remain unchanged, and exact
+    -- retained inputs stay opaque to the existing metadata-preserving source reader.
+    let normalizedParent ← frame.context.inputProjectionSource value
+      (frame.bound.toArray.map (·.1))
+    let [constructor] := (← getConstInfoInduct owner).ctors
+      | throwError "the selected instance field has no unique native record constructor"
+    if normalizedParent.getAppFn.isConstOf constructor then
+      let some reduced ← projectCore? normalizedParent index
+        | throwError "the selected instance lost its native constructor field"
+      return ← lower reduced
+    if let .const declaration _ := normalizedParent.getAppFn then
+      if ← isMatcher declaration then
+        throwStratum .noImplementation m!"{declaration} is a match with no published operation"
+      match (← getEnv).find? declaration with
+      | some (.recInfo _) | some (.quotInfo _) =>
+        throwStratum .noImplementation
+          m!"{declaration} is an eliminator with no published operation"
+      | _ =>
+        throwStratum .noImplementation m!"{declaration} has no native instance constructor"
   if let .const declaration _ := value.consumeMData.getAppFn then
     if traceInclusion then dbg_trace "[inclusion.field] declaration {declaration}: before authorization"
     if isRegisteredDescriptor (← semanticState) declaration then
@@ -961,6 +1100,7 @@ private partial def project (operand : ValueBinding) (index : Nat) (field : Mess
   let graph ← frame.environment.transaction.view
   let request ← PreparedRequest.forProjection identities frame.program
     (← frame.environment.ledger.allocate) frame.context graph operand index (← parameters)
+    (validatedEnvironment := some (← retainedEnvironment))
   demand request
 
 /-- Complete the longest already stored prefix as one selected demand. A lazy frontier keeps
@@ -977,6 +1117,7 @@ private partial def projectPath (operand : ValueBinding) (path : Array Name) :
       let request ← PreparedRequest.forStoredProjection (← supply) frame.program
         (← frame.environment.ledger.allocate) frame.context graph operand
         (path.extract 0 count) (← parameters)
+        (validatedEnvironment := some (← retainedEnvironment))
       return ← projectPath (← demand request) remaining
   let projection := path[0]!
   let some field := operand.role.fields.find? (·.projection == projection)
@@ -1160,6 +1301,7 @@ private partial def admission (expression : Expr) (data : MData) (body : Expr) :
   let request ← PreparedRequest.forApplication (← supply) frame.program
     (← frame.environment.ledger.allocate) frame.context callable closed actual (← parameters)
     (some (← frame.environment.transaction.view)) (← sourceMarks closed)
+    (validatedEnvironment := some (← retainedEnvironment))
   if (← request.inputResultPlan (← frame.environment.transaction.view)).isSome then
     return ← demand request
   -- Proof-only admissions also retain a transparent presentation of the original value
@@ -1262,6 +1404,7 @@ private partial def nativeInputRecord? (expression : Expr) : LowerM (Option Valu
   let request ← PreparedRequest.forApplication (← supply) frame.program
     (← frame.environment.ledger.allocate) frame.context callable closed actual (← parameters)
     (some (← frame.environment.transaction.view)) (← sourceMarks closed)
+    (validatedEnvironment := some (← retainedEnvironment))
   if traceInclusion then
     let ticks ← IO.getNumHeartbeats
     dbg_trace "[inclusion.record] prepared application ready; before actual inputResultPlan ticks={ticks}"
@@ -1289,6 +1432,7 @@ private partial def apply (callable : ValueBinding) (arguments : Array Expr) :
   let request ← PreparedRequest.forApplication (← supply) frame.program
     (← frame.environment.ledger.allocate) frame.context callable closed actual (← parameters)
     (some (← frame.environment.transaction.view)) (← sourceMarks closed)
+    (validatedEnvironment := some (← retainedEnvironment))
   demand request
 
 private partial def record (expression : Expr) (fields : Array Expr) : LowerM ValueBinding := do
@@ -1311,7 +1455,8 @@ private partial def record (expression : Expr) (fields : Array Expr) : LowerM Va
 
 /-- Stage the same prepared record from its computational fields, in source order.
 The initial layout remains sealed; actual runtime context capture occurs after field lowering. -/
-private partial def stageRecord (layout : RecordLayout) (values : Array ValueBinding) :
+private partial def stageRecord (layout : RecordLayout) (values : Array ValueBinding)
+    (envelope : Option (Json × Array ContainerSlot) := none) :
     LowerM ValueBinding := do
   let frame ← read
   let expression := layout.source.source.expression
@@ -1340,6 +1485,12 @@ private partial def stageRecord (layout : RecordLayout) (values : Array ValueBin
     let payload ← traceExpensiveLower "record.prefix.finish" expression
         frame.context.bindings.size do
       IO.ofExcept <| selected.finish.mapError IO.userError
+    let payload ← match envelope with
+      | none => pure payload
+      | some (packet, slots) => do
+        let .product fields := payload.data
+          | throwError "the original source prefix lost its complete native field table"
+        IO.ofExcept <| (ValuePayload.container packet slots fields none).mapError IO.userError
     let (complete, binding) ← traceExpensiveLower "record.stage.store" expression
         frame.context.bindings.size do
       draft.stage produced payload
@@ -1368,6 +1519,7 @@ private partial def liftFamily (data : MData) (body : Expr) : LowerM ValueBindin
     (← frame.environment.ledger.allocate) (.lift family) (← levels.mapM instantiateLevelMVars)
     frame.context closed actual #[] (← parameters)
     (some (← frame.environment.transaction.view)) (← sourceMarks closed)
+    (validatedEnvironment := some (← retainedEnvironment))
   demand request
 
 /-- Prepare the original comparison family and its exact complete endpoint values before any
@@ -1431,6 +1583,7 @@ private partial def routedMethodFamily (data : MData) (body : Expr) : LowerM Val
     (← frame.environment.ledger.allocate) (.routedMethod family)
     levels frame.context closed actual scope (← parameters)
     (some (← frame.environment.transaction.view)) (← sourceMarks closed)
+    (validatedEnvironment := some (← retainedEnvironment))
   let callable ← demand request
   apply callable #[← markValue frame.environment.marks receiver source]
 
@@ -1452,6 +1605,7 @@ private partial def propertyObservation (data : MData) (body : Expr) : LowerM Va
     (← frame.environment.ledger.allocate) (.property family) levels frame.context closed actual
     #[] (← parameters)
     (some (← frame.environment.transaction.view)) (← sourceMarks closed)
+    (validatedEnvironment := some (← retainedEnvironment))
   demand request
 
 /-- Retain the exact published application field as a checked delayed native family. Its
@@ -1474,6 +1628,7 @@ private partial def objectApplicationFamily (data : MData) (body : Expr) : Lower
   let request ← PreparedRequest.forBoundary (← supply) frame.program
     (← frame.environment.ledger.allocate) (.application family) levels frame.context closed actual
     #[] (← parameters) (some (← frame.environment.transaction.view)) (← sourceMarks closed)
+    (validatedEnvironment := some (← retainedEnvironment))
   apply (← demand request) (arguments.extract arity arguments.size)
 
 private partial def application (expression : Expr) : LowerM ValueBinding := do
@@ -1507,12 +1662,11 @@ private partial def application (expression : Expr) : LowerM ValueBinding := do
       (← frame.environment.ledger.allocate) (.registered family) levels frame.context closed actual
       #[] (← parameters)
       (some (← frame.environment.transaction.view)) (← sourceMarks closed)
+      (validatedEnvironment := some (← retainedEnvironment))
     if traced then dbg_trace "[inclusion.stage] registered family: before demand"
     return ← apply (← demand request) (arguments.extract arity arguments.size)
   if let some info := (← getEnv).getProjectionFnInfo? name then
     if info.numParams < arguments.size then
-      if info.fromClass then
-        if let some reduced ← unfoldProjInst? expression then return ← lower reduced
       let some operand := arguments[info.numParams]?
         | throwError "internal: a source projection lost its record"
       let owner := (← getConstInfoCtor info.ctorName).induct
@@ -1549,10 +1703,10 @@ private partial def application (expression : Expr) : LowerM ValueBinding := do
   | _ =>
     if ← isMatcher name then
       throwStratum .noImplementation m!"{name} is a match with no published operation"
-    let some unfolded ← unfoldSourceApplication? expression
-      | throwStratum .noImplementation
-          m!"{name} has no published operation and no definition"
-    lower unfolded
+    -- User definitions are the retained local bindings handled above; accepted derivation
+    -- templates arrive as their checked composition. A remaining constant has neither
+    -- authority, even when Lean exposes a reducible body.
+    throwStratum .noImplementation m!"{name} has no published operation"
 
 end
 

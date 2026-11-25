@@ -422,6 +422,9 @@ structure ApplicationLayout where
   resultDependencies : Array Nat
   resultTypeFamily : ClosedTerm
   resultTermFamily : ClosedTerm
+  /-- A sealed source-input analysis view. It may expose only the original whole family's
+  outer selected-address marker; every native role and dependency retains the source above. -/
+  private nativeInputTermFamily : ClosedTerm
   result : SourceLayout
   resultContextDependencies : Array Nat
 
@@ -429,10 +432,30 @@ structure ApplicationLayout where
 Reuse: SourceLayout.applyIn, Lean.forallBoundedTelescope, localDependencies and mkLambdaFVars.
 No runtime data is substituted into a native source term or its type family. -/
 opaque ApplicationLayout.ofSource (function : SourceLayout) (context : OpenContext)
-    (arguments : Array ClosedTerm) : MetaM (SourceLayout × ApplicationLayout) := do
-  let result ← function.applyIn context arguments
+    (arguments : Array ClosedTerm) (nativeInputFamily : Option ClosedTerm := none) :
+    MetaM (SourceLayout × ApplicationLayout) := do
+  -- A selected nullary family can itself be a record (for example a functor).
+  -- Its empty original application retains that record; it introduces no callable coercion.
+  let retainWholeFamily := nativeInputFamily.isSome && arguments.isEmpty
+  let result ← if retainWholeFamily then function.inContext context
+    else function.applyIn context arguments
   let actual ← arguments.mapM SourceLayout.ofTerm
-  let callable ← context.apply function.source #[]
+  let callable ← if retainWholeFamily then function.source.inContext context
+    else context.apply function.source #[]
+  let inputCallable ← match nativeInputFamily with
+    | none => pure callable
+    | some native => do
+      let .mdata selected original := callable
+        | throwError "native input analysis requires the original selected whole family"
+      let declaration := selected.getName `CasCompiler.source.declaration
+      unless selected.contains `CasCompiler.source.kind &&
+          !(selected.getString `CasCompiler.source.id).isEmpty &&
+          !declaration.isAnonymous && original.isConstOf declaration do
+        throwError "native input analysis lost its exact selected declaration"
+      let native ← native.inContext context
+      unless original.equal native do
+        throwError "native input analysis changed the original family body"
+      pure native
   let type ← inferType callable
   forallBoundedTelescope type (some arguments.size) fun locals resultType => do
     unless locals.size == arguments.size do
@@ -453,10 +476,14 @@ opaque ApplicationLayout.ofSource (function : SourceLayout) (context : OpenConte
       if !erased then wireIndex := wireIndex + 1
     let dependencies ← computationalDependencies locals resultType
     let family ← mkLambdaFVars locals resultType (usedOnly := false) (usedLetOnly := false)
-    let termFamily ← mkLambdaFVars locals (mkAppN callable locals)
-      (usedOnly := false) (usedLetOnly := false)
+    let termFamily ← context.close (← mkLambdaFVars locals (mkAppN callable locals)
+      (usedOnly := false) (usedLetOnly := false))
+    let nativeInputTermFamily ← if nativeInputFamily.isNone then pure termFamily else do
+      context.close (← mkLambdaFVars locals (mkAppN inputCallable locals)
+        (usedOnly := false) (usedLetOnly := false))
     let contextDependencies ← computationalDependencies (context.bindings.map (·.expression)) resultType
-    return (result, ⟨prepared, dependencies, ← context.close family, ← context.close termFamily, result,
+    return (result, ⟨prepared, dependencies, ← context.close family, termFamily,
+      nativeInputTermFamily, result,
       contextDependencies⟩)
 
 /-- Native projection metadata selects the original record, including class-valued records.
@@ -482,7 +509,7 @@ opaque ApplicationLayout.inputProjectionAt (layout : ApplicationLayout) (path : 
   layout.result.source.withOpen fun bindings expression => do
     let context ← ContextTelescope.capture bindings
     discard <| projectSource expression path
-    let family ← layout.resultTermFamily.inContext context
+    let family ← layout.nativeInputTermFamily.inContext context
     lambdaBoundedTelescope family layout.arguments.size fun locals result => do
       unless locals.size == layout.arguments.size do
         throwError "the application result term family lost a formal argument"
@@ -734,7 +761,7 @@ opaque ApplicationLayout.inputProjectionThrough (first : ApplicationLayout)
   if steps.isEmpty then
     first.result.source.withOpen fun _ expression =>
       discard <| projectSource expression path
-  let expression : InputExpression := ⟨first.resultTermFamily, first.arguments.size⟩
+  let expression : InputExpression := ⟨first.nativeInputTermFamily, first.arguments.size⟩
   expression.inputProjectionThrough steps path contextInputs
 
 /-- Source-context and argument planes remain distinct from returned record-prefix fields. -/

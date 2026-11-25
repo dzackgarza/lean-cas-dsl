@@ -28,7 +28,10 @@ def retained_integer(client: WorkerClient, name: str, expected: int, snapshot: i
     assert isinstance(runtime, dict) and runtime["hasPacket"], details
     assert runtime["packet"] == expected, details
     assert isinstance(runtime["reference"], dict), details
-    assert isinstance(details["source"], dict), details
+    source = details["source"]
+    assert isinstance(source, dict) and source["nativeExpressions"], details
+    assert any(row["id"] == binding and row["name"] == name
+               for row in source["context"]), source
     assert isinstance(details["candidates"], list), details
     return details
 
@@ -73,7 +76,7 @@ def run(root: Path, contract: Path) -> None:
         }))
         previous = os.environ.get("CAS_LEAVES")
         os.environ["CAS_LEAVES"] = str(manifest)
-        client = WorkerClient(root, prelude="CasDsl.Notebook",
+        client = WorkerClient(root, prelude="CasDsl.Notebook", session_mode="language",
                               on_stream=lambda stream, line: print(f"[{stream}] {line}", end="", flush=True))
         try:
             print("Importing and negotiating CasDsl.Notebook", flush=True)
@@ -114,6 +117,68 @@ def run(root: Path, contract: Path) -> None:
             assert retained_integer(client, "outer", 46, staged.snapshot)["binding"] == outer["binding"]
             print("Multi-command cell committed with retained values", flush=True)
 
+            # Every language owner uses the same complete display validation
+            # before publication, including a cell mixing CAS and native output.
+            malformed_outputs = (
+                '{ data := [("text/plain", Lean.Json.str "invalid metadata")], '
+                'metadata := Lean.Json.arr #[] }',
+                '{ data := [("text/plain", Lean.Json.str "first"), '
+                '("text/plain", Lean.Json.str "second")] }',
+                '{ data := [("text/plain", Lean.Json.str "invalid latex"), '
+                '("text/latex", Lean.toJson (7 : Nat))] }',
+                '{ data := [("text/plain", Lean.Json.str " ")] }',
+            )
+            for index, output in enumerate(malformed_outputs):
+                invalid_output = client.execute_at(
+                    '#cas "let temporary := outer + 3 in ℤ"\n'
+                    '#eval Worker.emitOutput ' + output,
+                    f"invalid-output-{index}", staged.snapshot,
+                )
+                assert invalid_output.status == "error", invalid_output
+                assert any(diagnostic.message == "invalid result MIME bundle"
+                           for diagnostic in invalid_output.diagnostics), invalid_output
+                assert invalid_output.snapshot == staged.snapshot, invalid_output
+                assert invalid_output.commit is None and not invalid_output.outputs, invalid_output
+                hidden = client.inspect("temporary", len("temporary"))
+                assert hidden.status == "ok" and not hidden.found, hidden
+                assert retained_integer(client, "localProduct", 94, staged.snapshot) == product
+            print("Malformed mixed output rolled back the complete CAS cell", flush=True)
+
+            # Exercise TransactionTests' original known-dead-owner control at
+            # the actual outer notebook commit, preserving its failure stratum.
+            owner_loss = client.execute_at(
+                '#cas "let temporary := outer + 3 in ℤ"\n' + r'''
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let some session ← CasRuntime.KernelSession.current?
+    | throwError "the actual notebook source session is absent"
+  let some transaction ← CasRuntime.KernelSession.active?
+    | throwError "the actual notebook cell transaction is absent"
+  let context ← CasCompiler.ContextTelescope.capture #[]
+  let role ← CasCompiler.SourceLayout.ofTerm (← context.close (Lean.mkNatLit 7))
+  let owners := transaction.owners
+  let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+  let occurrence ← liftM (m := BaseIO) session.kernel.ledger.allocate
+  let child ← liftM (m := IO) <| owners.spawn { cmd := "/bin/cat" }
+  try
+    let token ← liftM (m := IO) do
+      child.child.stdin.putStr "owned token\n"
+      child.child.stdin.flush
+      return (← child.child.stdout.getLine).trimAscii.toString
+    discard <| liftM (m := IO) <| transaction.stage
+      { program, occurrence, role, parameters := #[] } (.ownedExport child token #[])
+    liftM (m := IO) <| owners.close child.generation
+  finally liftM (m := IO) <| owners.close child.generation
+''', "owner-loss-at-commit", staged.snapshot,
+            )
+            assert owner_loss.status == "error" and owner_loss.snapshot == staged.snapshot, owner_loss
+            assert owner_loss.stratum == "unavailable", owner_loss
+            assert owner_loss.reason == "realization unavailable: stale_owner", owner_loss
+            assert owner_loss.commit is None and not owner_loss.outputs, owner_loss
+            hidden = client.inspect("temporary", len("temporary"))
+            assert hidden.status == "ok" and not hidden.found, hidden
+            assert retained_integer(client, "localProduct", 94, staged.snapshot) == product
+            print("Commit-time owner loss preserved its resource failure and prior snapshot", flush=True)
+
             rolled_back = client.execute_at(
                 '#cas "let temporary := outer + 3 in ℤ"\n'
                 '#cas "assert neverDeclaredHere = 0 in ℤ"',
@@ -139,7 +204,7 @@ def run(root: Path, contract: Path) -> None:
             assert old_branch.status == "ok", old_branch
             assert old_branch.snapshot != reuse.snapshot
             assert old_branch.snapshot is not None
-            assert retained_integer(client, "outer", 46, old_branch.snapshot)["binding"] == outer["binding"]
+            assert retained_integer(client, "outer", 46, old_branch.snapshot) == outer
             missing = client.inspect("localProduct", len("localProduct"))
             assert missing.status == "ok" and not missing.found, missing
             assert retained_integer(client, "localProduct", 94, staged.snapshot) == product

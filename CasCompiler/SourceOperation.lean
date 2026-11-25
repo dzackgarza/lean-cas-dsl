@@ -56,6 +56,8 @@ private def refinementDomainCandidate (state : SemanticState) (entry : ObjectEnt
   -- applyObjectParameters uses this complete telescope. Reuse its original constant head
   -- and the same retained source arguments for both the object and its comparison.
   let comparison := mkAppN (← instantiateMVars comparison.getAppFn) arguments
+  let comparison := sourceReference ``ObjectEntry.refines entry.id.raw
+    refinement.identification comparison
   let type ← whnfR (← inferType comparison)
   unless type.isAppOfArity ``CategoryTheory.Iso 4 do
     throwError "the specialized source refinement lost its actual isomorphism"

@@ -31,6 +31,10 @@ inductive ProfileTarget
   | presentation (id : NaturalTransformationId)
   | property (id : PropertyId)
   | application (id : ObjectId)
+  | component (id : NaturalTransformationId)
+  | cartesian (id : FunctorId)
+  | binder (id : BinderId)
+  | edge (address : String)
   deriving DecidableEq, Repr
 
 private structure ProfileRule where
@@ -66,6 +70,10 @@ private def targetJson : ProfileTarget → Json
   | .presentation id => Json.mkObj [("kind", toJson "presentation"), ("id", toJson id.raw)]
   | .property id => Json.mkObj [("kind", toJson "property"), ("id", toJson id.raw)]
   | .application id => Json.mkObj [("kind", toJson "application"), ("id", toJson id.raw)]
+  | .component id => Json.mkObj [("kind", toJson "component"), ("id", toJson id.raw)]
+  | .cartesian id => Json.mkObj [("kind", toJson "cartesian"), ("id", toJson id.raw)]
+  | .binder id => Json.mkObj [("kind", toJson "binder"), ("id", toJson id.raw)]
+  | .edge address => Json.mkObj [("kind", toJson "edge"), ("id", toJson address)]
 
 private def parseTarget (json : Json) : Except String ProfileTarget := do
   fields #["kind", "id"] json
@@ -80,6 +88,10 @@ private def parseTarget (json : Json) : Except String ProfileTarget := do
   | "presentation" => return .presentation ⟨id⟩
   | "property" => return .property ⟨id⟩
   | "application" => return .application ⟨id⟩
+  | "component" => return .component ⟨id⟩
+  | "cartesian" => return .cartesian ⟨id⟩
+  | "binder" => return .binder ⟨id⟩
+  | "edge" => return .edge id
   | _ => throw "realization profile: unknown availability target kind"
 
 /-- A registration's record: its triple, and its declared preferred routes when it has any
@@ -170,14 +182,25 @@ def sha256Hex (text : String) : IO String := do
 
 /-- Check the original published address through the same grammar as manifest and child-call
 admission. In particular, lift ports retain their exact published field component. -/
-private def ProfileTarget.containsAddress (target : ProfileTarget) (state : SemanticState)
+opaque ProfileTarget.containsAddress (target : ProfileTarget) (state : SemanticState)
     (address : String) : MetaM Bool := do
   match target with
   | .computation reference => return (← publishedFamily? state address) == some reference
   | .lift id => return (← publishedLift? state address).any (·.1.id == id)
   | .presentation id => return (publishedPresentation? state address).any (·.id == id)
   | .property id => return (publishedProperty? state address).any (·.id == id)
-  | .application id => return (publishedApplication? state address).any (·.id == id)
+  | .application id => return !applicationAddressConflict state address &&
+      (publishedApplication? state address).any (·.id == id)
+  | .component id =>
+    return ((PublishedPorts.component? state address).toOption.bind (fun value => value)).any
+      (·.1.id == id)
+  | .cartesian id =>
+    return ((PublishedPorts.cartesian? state address).toOption.bind (fun value => value)).any
+      (·.id == id)
+  | .binder id => return address == id.raw && state.binders.any (·.id == id)
+  | .edge original =>
+    let .ok (some (selected, false)) := PublishedPorts.edge? state original | return false
+    return ((PublishedPorts.edge? state address).toOption.bind id).any (·.1 == selected)
 
 /-- Validate exact published targets, installed triples and checked target-specific derivations.
 Normalize set order once and retain the SHA-256 of that immutable configuration.
@@ -211,6 +234,20 @@ opaque RealizationProfile.prepare (manifest : Manifest) (configuration : Option 
         throwError "realization profile: unregistered object application {id.raw}"
       if applicationAddressConflict state s!"{id.raw}#application" then
         throwError "realization profile: the application address also names another registered row"
+    | .component id =>
+      unless ((PublishedPorts.component? state
+          (PublishedPorts.componentAddress id #[])).toOption.bind (fun value => value)).isSome do
+        throwError "realization profile: unregistered component {id.raw}"
+    | .cartesian id =>
+      unless ((PublishedPorts.cartesian? state s!"{id.raw}#cartesian").toOption.bind
+          (fun value => value)).isSome do
+        throwError "realization profile: unregistered cartesian action {id.raw}"
+    | .binder id =>
+      unless state.binders.any (·.id == id) do
+        throwError "realization profile: unregistered binder {id.raw}"
+    | .edge address =>
+      let .ok (some (_, false)) := PublishedPorts.edge? state address
+        | throwError "realization profile: unregistered canonical action family {address}"
     if let .only entries := rule.primitives then
       for entry in entries do
         unless manifest.registrations.contains entry do

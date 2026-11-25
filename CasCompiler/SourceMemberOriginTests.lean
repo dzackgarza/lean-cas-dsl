@@ -57,6 +57,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         if let some carrier := category.carrier then
           for comparison in carrier.comparisons do
             if comparison.containsConst (· == refinement.identification) then
+              let selected := comparison.find? fun term => match term with
+                | .mdata data body =>
+                  data.getName `CasCompiler.source.kind == ``ObjectEntry.refines &&
+                  data.getString `CasCompiler.source.id == field.id.raw &&
+                  data.getName `CasCompiler.source.declaration == refinement.identification &&
+                  body.consumeMData.getAppFn.isConstOf refinement.identification
+                | _ => false
+              unless selected.isSome do
+                throwError "the member refinement lost its exact selected owner and declaration"
               unless comparison.containsFVar original.expression.fvarId! &&
                   !comparison.containsFVar later.expression.fvarId! do
                 throwError "the member refinement changed its actual named base after shadowing"

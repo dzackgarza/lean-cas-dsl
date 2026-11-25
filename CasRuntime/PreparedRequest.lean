@@ -227,7 +227,8 @@ opaque PreparedRequest.forBoundary (identities : CasRuntime.IdentitySupply)
     (actual : Array CasRuntime.RuntimeArgument)
     (scope : Array CasRuntime.ValueBinding) (parameters : Array CasRuntime.RuntimeParameter)
     (graph : Option CasRuntime.ValueGraph := none)
-    (sourceMarks : Array (Nat × CasRuntime.ValueBinding) := #[]) : MetaM PreparedRequest := do
+    (sourceMarks : Array (Nat × CasRuntime.ValueBinding) := #[])
+    (validatedEnvironment : Option RuntimeEnvironment := none) : MetaM PreparedRequest := do
   if let .property family := boundary then
     unless arguments.size == family.parameterCount + 1 do
       throwError "a property observation requires its complete original source application"
@@ -241,20 +242,26 @@ opaque PreparedRequest.forBoundary (identities : CasRuntime.IdentitySupply)
     throwError "request preparation requires resolved universe arguments"
   let traced := (boundary.family.find? (·.isConstOf `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
   if traced then dbg_trace "[inclusion.stage] primitive {repr occurrence}: before family layout"
-  let family ← withLCtx {} #[] do
-    let empty ← ContextTelescope.capture #[]
-    empty.close (boundary.family.instantiateLevelParams
-      boundary.universeParams universeArguments)
-  let layout ← SourceLayout.ofTerm family
-  let (source, application) ← if arguments.isEmpty then
-      pure (← layout.inContext context, (none : Option ApplicationLayout))
-    else do
-      let (source, application) ← ApplicationLayout.ofSource layout context arguments
+  let (source, application) ← match boundary with
+    | .registered family => do
+      let (source, application) ← family.applyIn universeArguments context arguments
       pure (source, some application)
+    | _ => do
+      let family ← withLCtx {} #[] do
+        let empty ← ContextTelescope.capture #[]
+        empty.close (boundary.family.instantiateLevelParams
+          boundary.universeParams universeArguments)
+      let layout ← SourceLayout.ofTerm family
+      if arguments.isEmpty then
+        pure (← layout.inContext context, (none : Option ApplicationLayout))
+      else do
+        let (source, application) ← ApplicationLayout.ofSource layout context arguments
+        pure (source, some application)
   if traced then dbg_trace "[inclusion.stage] primitive {repr occurrence}: before environment"
   let marks ← preparedSourceMarks arguments actual scope
   let marks ← IO.ofExcept <| (CasRuntime.mergeSourceMarks sourceMarks marks).mapError IO.userError
   let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters marks graph
+    validatedEnvironment
   if traced then dbg_trace "[inclusion.stage] primitive {repr occurrence}: before argument admission"
   let values ← prepareArguments environment arguments actual
   if traced then dbg_trace "[inclusion.stage] primitive {repr occurrence}: arguments admitted"
@@ -341,7 +348,8 @@ private def prepareProjection (identities : CasRuntime.IdentitySupply)
     (occurrence : CasRuntime.RuntimeId .occurrence) (context : OpenContext)
     (graph : CasRuntime.ValueGraph)
     (operand : CasRuntime.ValueBinding) (path : Array Name)
-    (parameters : Array CasRuntime.RuntimeParameter) : MetaM PreparedRequest := do
+    (parameters : Array CasRuntime.RuntimeParameter)
+    (validatedEnvironment : Option RuntimeEnvironment) : MetaM PreparedRequest := do
   let traced := (operand.role.source.expression.find? (·.isConstOf `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
   if traced then dbg_trace "[inclusion.stage] projection {repr occurrence} {repr path}: before layout"
   let mut layout := operand.role
@@ -357,7 +365,7 @@ private def prepareProjection (identities : CasRuntime.IdentitySupply)
   let source ← layout.inContext context
   if traced then dbg_trace "[inclusion.stage] projection {repr occurrence}: before environment"
   let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters
-    operand.sourceMarks (some graph)
+    operand.sourceMarks (some graph) validatedEnvironment
   if traced then dbg_trace "[inclusion.stage] projection {repr occurrence}: before operand admission"
   discard <| environment.checkOperand graph operand.role operand
   if traced then dbg_trace "[inclusion.stage] projection {repr occurrence}: operand admitted"
@@ -378,11 +386,12 @@ opaque PreparedRequest.forProjection (identities : CasRuntime.IdentitySupply)
     (occurrence : CasRuntime.RuntimeId .occurrence) (context : OpenContext)
     (graph : CasRuntime.ValueGraph)
     (operand : CasRuntime.ValueBinding) (index : Nat)
-    (parameters : Array CasRuntime.RuntimeParameter) : MetaM PreparedRequest := do
+    (parameters : Array CasRuntime.RuntimeParameter)
+    (validatedEnvironment : Option RuntimeEnvironment := none) : MetaM PreparedRequest := do
   let some field := operand.role.fields[index]?
     | throwError "the projection is outside the retained source layout"
   prepareProjection identities program occurrence context graph operand
-    #[field.projection] parameters
+    #[field.projection] parameters validatedEnvironment
 
 /-- Compose a wholly stored native path without completing its intermediate record values.
 The graph must already supply every step; a lazy access remains an ordinary single-field demand. -/
@@ -391,13 +400,15 @@ opaque PreparedRequest.forStoredProjection (identities : CasRuntime.IdentitySupp
     (occurrence : CasRuntime.RuntimeId .occurrence) (context : OpenContext)
     (graph : CasRuntime.ValueGraph)
     (operand : CasRuntime.ValueBinding) (path : Array Name)
-    (parameters : Array CasRuntime.RuntimeParameter) : MetaM PreparedRequest := do
+    (parameters : Array CasRuntime.RuntimeParameter)
+    (validatedEnvironment : Option RuntimeEnvironment := none) : MetaM PreparedRequest := do
   let selected ← IO.ofExcept <| (graph.projectionFrontier operand path).mapError IO.userError
   let some (_, remaining) := selected
     | throwError "the native projection path has no stored field interface"
   unless remaining.isEmpty do
     throwError "a composed projection cannot pass a lazy field boundary"
   prepareProjection identities program occurrence context graph operand path parameters
+    validatedEnvironment
 
 /-- Apply the retained function with complete formal arguments and indexed actual operands.
 Source coercions are lowered before this boundary. Preparation retains empty slots for source
@@ -411,7 +422,8 @@ opaque PreparedRequest.forApplication (identities : CasRuntime.IdentitySupply)
     (actual : Array CasRuntime.RuntimeArgument)
     (parameters : Array CasRuntime.RuntimeParameter)
     (graph : Option CasRuntime.ValueGraph := none)
-    (sourceMarks : Array (Nat × CasRuntime.ValueBinding) := #[]) : MetaM PreparedRequest := do
+    (sourceMarks : Array (Nat × CasRuntime.ValueBinding) := #[])
+    (validatedEnvironment : Option RuntimeEnvironment := none) : MetaM PreparedRequest := do
   unless callable.role.kind == .function do
     throwError "the retained value has no prepared callable interface"
   if arguments.isEmpty then throwError "callable application requires a source argument"
@@ -422,6 +434,7 @@ opaque PreparedRequest.forApplication (identities : CasRuntime.IdentitySupply)
   let marks ← preparedSourceMarks arguments actual #[callable]
   let marks ← IO.ofExcept <| (CasRuntime.mergeSourceMarks sourceMarks marks).mapError IO.userError
   let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters marks graph
+    validatedEnvironment
   if traced then dbg_trace "[inclusion.stage] application {repr occurrence}: before argument admission"
   let values ← prepareArguments environment arguments actual
   if traced then dbg_trace "[inclusion.stage] application {repr occurrence}: arguments admitted"

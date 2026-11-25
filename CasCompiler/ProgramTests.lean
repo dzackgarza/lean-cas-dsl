@@ -49,6 +49,37 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       check body
 
 run_cmd Lean.Elab.Command.liftTermElabM do
+  let context ← ContextTelescope.capture #[]
+  let family ← SourceFamily.forReference (.functor FunctorId.ringsMultiplicative)
+  let universes := family.universeParams.map Level.param
+  let (source, application) ← family.applyIn universes context #[]
+  for original in #[source.source, application.result.source, application.resultTermFamily] do
+    unless (original.expression.find? fun expression => match expression with
+        | .mdata data _ =>
+          data.getString `CasCompiler.source.id == FunctorId.ringsMultiplicative.raw &&
+          data.getName `CasCompiler.source.declaration == family.source.declaration
+        | _ => false).isSome do
+      throwError "native input routing erased the original selected source family"
+  unless application.arguments.isEmpty do
+    throwError "the nullary source family invented an application argument"
+  let some (.projection route) ← application.inputProjectionThrough
+      #[(#[``CategoryTheory.Cat.Hom.toFunctor, ``CategoryTheory.Functor.obj], 1)]
+      #[``MonCat.carrier]
+    | throwError "the selected family lost its native input carrier route"
+  let .argument 0 := route.target
+    | throwError "the selected family changed its original argument slot"
+  unless route.path == #[``RingCat.carrier] do
+    throwError "the selected family changed the original input carrier reference"
+  let wrong ← context.close (family.source.family.instantiateLevelParams
+    family.universeParams universes)
+  let rejected ← try
+      discard <| ApplicationLayout.ofSource source context #[] (some wrong)
+      pure false
+    catch _ => pure true
+  unless rejected do
+    throwError "native input routing accepted a body other than the exact original declaration"
+
+run_cmd Lean.Elab.Command.liftTermElabM do
   let info ← getConstInfo ``CategoryTheory.Limits.IsLimit
   let family := mkConst info.name (info.levelParams.map Level.param)
   forallTelescope (← inferType family) fun parameters _ => do

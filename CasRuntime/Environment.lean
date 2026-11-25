@@ -66,6 +66,9 @@ structure RuntimeEnvironment where
   sourceMarks : Array (Nat × ValueBinding)
   /-- The current immutable graph supplied at preparation after actual operands are lowered. -/
   private sourceGraph : Option ValueGraph
+  /-- Original views whose complete native associations were checked by capture.
+  Reuse preserves these views, not merely their current displayed source roles. -/
+  private admittedParameters : Std.HashMap BindingId ValueBinding
 
 def RuntimeEnvironment.references (environment : RuntimeEnvironment) : Array ValueBinding :=
   environment.values.filterMap id ++ environment.sourceMarks.map (·.2)
@@ -168,6 +171,21 @@ private partial def dependencyReference (context : OpenContext) (inputs : Array 
         return some original
   return some (id, selected.path)
 
+private inductive DependencyStep where
+  | metadata | function | argument | domain | body | projection
+  deriving BEq
+
+private structure DependencyTerm where
+  index : Nat
+  term : Expr
+  position : Option (Array DependencyStep)
+
+private def dependencyPositionAfterMetadata (position : Option (Array DependencyStep)) :
+    Expr → Option (Array DependencyStep)
+  | .mdata _ body =>
+    dependencyPositionAfterMetadata (position.map (·.push .metadata)) body
+  | _ => position
+
 /-- Align the original field's abstract prefix slots with their positions in the expected
 native type. Equality of runtime values or convertible source binders never selects a slot.
 Slot domains recover earlier transitive dependencies. Fixed fragments may validate against
@@ -176,10 +194,14 @@ the original captured context references remain independently required. -/
 private partial def dependencyTerms (sameContextReference : Expr → Expr → MetaM Bool)
     (locals : Array Expr) (formal expected : Expr)
     (binders : Array (Expr × Expr) := #[])
-    (capturedReference : Option (Bool → Expr → Expr → MetaM (Option Bool)) := none)
+    (capturedReference : Option (Bool → Expr → Expr →
+      Option (Array DependencyStep) → Option (Array DependencyStep) →
+      MetaM (Option Bool)) := none)
     (sourceView : Option (Expr → MetaM Expr) := none) (capturedReduction : Bool := true)
-    (allowClosedExpected : Bool := true) :
-    MetaM (Option (Array (Nat × Expr))) := do
+    (allowClosedExpected : Bool := true)
+    (formalPosition : Option (Array DependencyStep) := some #[])
+    (expectedPosition : Option (Array DependencyStep) := some #[]) :
+    MetaM (Option (Array DependencyTerm)) := do
   let allowClosedExpected := allowClosedExpected && (match expected with
     | .mdata .. => false
     | _ => true)
@@ -188,6 +210,8 @@ private partial def dependencyTerms (sameContextReference : Expr → Expr → Me
     | _ => false).isSome
   let originalFormal := formal
   let originalExpected := expected
+  let formalBodyPosition := dependencyPositionAfterMetadata formalPosition formal
+  let expectedBodyPosition := dependencyPositionAfterMetadata expectedPosition expected
   let blocksReduction := fun (expression : Expr) => match expression with
     | .mdata data _ => (markedKey? data).isNone &&
       (data.contains `CasCompiler.source.kind || data.contains `CasCompiler.selection)
@@ -203,7 +227,8 @@ private partial def dependencyTerms (sameContextReference : Expr → Expr → Me
   let formal := formal.consumeMData
   let expected := expected.consumeMData
   if let some compare := capturedReference then
-    if let some same ← compare capturedReduction originalFormal originalExpected then
+    if let some same ← compare capturedReduction originalFormal originalExpected
+        formalPosition expectedPosition then
       unless same do
         throwError "the runtime value has a different marked source type dependency"
       return some #[]
@@ -213,12 +238,15 @@ private partial def dependencyTerms (sameContextReference : Expr → Expr → Me
     | .mdata _ body, .mdata _ other =>
       return ← dependencyTerms sameContextReference locals body other binders
         capturedReference sourceView capturedReduction allowClosedExpected
+        (formalPosition.map (·.push .metadata)) (expectedPosition.map (·.push .metadata))
     | .mdata _ body, _ =>
       return ← dependencyTerms sameContextReference locals body originalExpected binders
         capturedReference sourceView capturedReduction allowClosedExpected
+        (formalPosition.map (·.push .metadata)) expectedPosition
     | _, .mdata _ body =>
       return ← dependencyTerms sameContextReference locals originalFormal body binders
         capturedReference sourceView capturedReduction allowClosedExpected
+        formalPosition (expectedPosition.map (·.push .metadata))
     | _, _ => pure ()
   if let some index := locals.findIdx? (· == formal) then
     if expected.hasLooseBVars then return none
@@ -228,15 +256,15 @@ private partial def dependencyTerms (sameContextReference : Expr → Expr → Me
       return none
     let some preceding ← dependencyTerms sameContextReference (locals.extract 0 index)
         (← inferType formal) (← inferType expected) binders
-        capturedReference sourceView capturedReduction allowClosedExpected | return none
+        capturedReference sourceView capturedReduction allowClosedExpected none none | return none
     if proof then return some preceding
-    return some (preceding.push (index, originalExpected))
+    return some (preceding.push ⟨index, originalExpected, expectedPosition⟩)
   if let some (_, bound) := binders.find? (fun (source, _) => source == formal) then
     return if bound == expected then some #[] else none
   if formal == expected && (capturedReference.isNone ||
       (!hasSourceMarks originalFormal && !hasSourceMarks originalExpected)) then return some #[]
-  let merge (left right : MetaM (Option (Array (Nat × Expr)))) :
-      MetaM (Option (Array (Nat × Expr))) := do
+  let merge (left right : MetaM (Option (Array DependencyTerm))) :
+      MetaM (Option (Array DependencyTerm)) := do
     let some left ← left | return none
     let some right ← right | return none
     return some (left ++ right)
@@ -246,24 +274,30 @@ private partial def dependencyTerms (sameContextReference : Expr → Expr → Me
       if name == other then pure (some #[]) else pure none
     | .app f a, .app g b =>
       merge (dependencyTerms sameContextReference locals f g binders
-        capturedReference sourceView capturedReduction allowClosedExpected)
+        capturedReference sourceView capturedReduction allowClosedExpected
+        (formalBodyPosition.map (·.push .function)) (expectedBodyPosition.map (·.push .function)))
         (dependencyTerms sameContextReference locals a b binders
-          capturedReference sourceView capturedReduction allowClosedExpected)
+          capturedReference sourceView capturedReduction allowClosedExpected
+          (formalBodyPosition.map (·.push .argument)) (expectedBodyPosition.map (·.push .argument)))
     | .forallE name a b info, .forallE other c d otherInfo
     | .lam name a b info, .lam other c d otherInfo => do
       let some domains ← dependencyTerms sameContextReference locals a c binders
-          capturedReference sourceView capturedReduction allowClosedExpected | return none
+          capturedReference sourceView capturedReduction allowClosedExpected
+          (formalBodyPosition.map (·.push .domain)) (expectedBodyPosition.map (·.push .domain))
+        | return none
       withLocalDecl name info a fun source =>
         withLocalDecl other otherInfo c fun target => do
           let some bodies ← dependencyTerms sameContextReference locals
               (b.instantiate1 source) (d.instantiate1 target) (binders.push (source, target))
               capturedReference sourceView capturedReduction allowClosedExpected
+              (formalBodyPosition.map (·.push .body)) (expectedBodyPosition.map (·.push .body))
             | return none
           return some (domains ++ bodies)
     | .proj owner index parent, .proj other otherIndex otherParent =>
       if owner == other && index == otherIndex then
         dependencyTerms sameContextReference locals parent otherParent binders
           capturedReference sourceView capturedReduction allowClosedExpected
+          (formalBodyPosition.map (·.push .projection)) (expectedBodyPosition.map (·.push .projection))
       else pure none
     | _, _ => pure none
   if matched.isSome then return matched
@@ -289,6 +323,8 @@ private partial def dependencyTerms (sameContextReference : Expr → Expr → Me
   if normalizedFormal == formal && normalizedExpected == expected then return none
   dependencyTerms sameContextReference locals normalizedFormal normalizedExpected binders
     capturedReference sourceView capturedReduction (allowClosedExpected && !expectedHasMetadata)
+    (if normalizedFormal.equal originalFormal then formalPosition else none)
+    (if normalizedExpected.equal originalExpected then expectedPosition else none)
 
 /-- Read only actual fields of this exact current context value. A lazy frontier requires a
 published graph relation or recorded access; dependency checking never computes a missing field. -/
@@ -418,7 +454,7 @@ private def currentPrefixRoutes (context : OpenContext) (inputs : Array BindingI
         throwError "the current result field lost its complete native prefix"
       let prefixLocals := currentLocals.extract 0 current.field.sourceIndex
       let some terms ← dependencyTerms (fun _ _ => pure false) locals type currentType | return none
-      let selected := terms.filterMap fun (index, term) => if index == slot then some term else none
+      let selected := terms.filterMap fun term => if term.index == slot then some term.term else none
       if selected.isEmpty then return none
       let mut routes := #[]
       let mut complete := true
@@ -503,6 +539,87 @@ private def sameCapturedTypeReference (graph : ValueGraph)
   | none, some second => return hasDependencyAccess graph second left.1 left.2
   | none, none => return false
 
+private def sameAdmittedSource (left right : ClosedTerm) : Bool :=
+  left.context.exactlyMatches right.context && left.expression.equal right.expression &&
+    left.type.equal right.type && left.universeParams == right.universeParams &&
+    left.nativeDeclarations.exactlyMatches right.nativeDeclarations
+
+/-- Join an original field's declared dependency positions to the actual current result prefix.
+Only complete original-to-current slot routes supply this view. A field association for the
+current consuming record cannot authorize itself; neither payloads nor native type equality
+select a supplier. The original type expressions and all captured marks stay unchanged. -/
+private def joinedPrefixReferences (context : OpenContext) (inputs : Array BindingId)
+    (graph : ValueGraph) (sameContextReference : Expr → Expr → MetaM Bool)
+    (formal expected : Expr) (value : ValueBinding) (currentPrefixes : Array ResultFieldPrefix) :
+    MetaM (Array (Array DependencyStep × ValueBinding) ×
+      Array (Array DependencyStep × ValueBinding)) := do
+  if currentPrefixes.isEmpty then return (#[], #[])
+  let mut formalReferences := #[]
+  let mut expectedReferences := #[]
+  for original in value.instantiations do
+    if original.precedingDependencies.isEmpty then continue
+    if currentPrefixes.any (fun current =>
+        sameAdmittedSource original.association.layout.source.source
+          current.layout.source.source) then continue
+    let family ← original.typeFamily.inContext context
+    let inspect := fun target locals type => do
+      unless locals.size ≥ original.preceding.size do
+        throwError "a consuming runtime dependency lost its complete native prefix"
+      dependencyTerms sameContextReference locals type target
+    let positions := fun target =>
+      if original.view.isSome then lambdaTelescope family (inspect target)
+      else lambdaBoundedTelescope family original.preceding.size (inspect target)
+    let some formalTerms ← positions formal | continue
+    let some expectedTerms ← positions expected | continue
+    for slot in original.precedingDependencies do
+      let some previous := original.preceding[slot]?
+        | throwError "a consuming runtime dependency is outside its complete field prefix"
+      let some previous := previous | continue
+      let mut covered := false
+      for current in currentPrefixes do
+        if let some (routes, complete) ←
+            currentPrefixRoutes context inputs graph original slot current then
+          covered := covered || complete
+          for (parent, path) in routes do
+            match ← storedDependency graph parent path with
+            | some actual =>
+              unless sameReference previous actual do
+                throwError "the runtime value has a different consuming dependent reference \
+                  in its current result prefix"
+            | none =>
+              unless hasDependencyAccess graph previous parent path do
+                throwError "the runtime value has an unresolved consuming dependent reference \
+                  in its current result prefix"
+      unless covered do continue
+      for term in formalTerms do
+        if term.index == slot then
+          if let some position := term.position then
+            formalReferences := formalReferences.push (position, previous)
+      for term in expectedTerms do
+        if term.index == slot then
+          if let some position := term.position then
+            expectedReferences := expectedReferences.push (position, previous)
+  return (formalReferences, expectedReferences)
+
+/-- Read an already joined type position and only its native projection suffix. This table
+was produced from the original and current declared slots, never from a search for a value. -/
+private partial def joinedTypePosition
+    (references : Array (Array DependencyStep × ValueBinding))
+    (term : Expr) (position : Option (Array DependencyStep)) :
+    MetaM (Array (ValueBinding × Array Name)) := do
+  let some position := position | return #[]
+  let selected := references.filterMap fun (slot, value) =>
+    if slot == position then some (value, #[]) else none
+  if !selected.isEmpty then return selected
+  let some projection ← SourceProjection.ofExpr? term | return #[]
+  let position := dependencyPositionAfterMetadata (some position) term
+  let parentPosition := match term.consumeMData with
+    | .proj .. => position.map (·.push .projection)
+    | .app .. => position.map (·.push .argument)
+    | _ => none
+  return (← joinedTypePosition references projection.parent parentPosition).map fun (value, path) =>
+    (value, path.push projection.declaration)
+
 private def checkDependencies (context : OpenContext)
     (inputProjections : Std.HashMap BindingId InputProjection)
     (supplied : Std.HashMap BindingId ValueBinding) (marks : Array (Nat × ValueBinding))
@@ -541,36 +658,6 @@ private def checkDependencies (context : OpenContext)
   let retainedInputs := inputs.filter (supplied.contains ·)
   let sourceView := fun (expression : Expr) =>
     context.inputProjectionSource expression retainedInputs
-  let compareCaptured := fun (reduce : Bool) (formal current : Expr) => do
-    let originalSource ← if reduce then sourceView formal else pure formal
-    let currentSource ← if reduce then sourceView current else pure current
-    let originalMarked ← markedProjection? originalSource
-    let currentMarked ← markedProjection? currentSource
-    if originalMarked.isNone && currentMarked.isNone then return none
-    -- A closed native fragment introduces no competing runtime supplier. Let the
-    -- existing structural/closed-fragment checks validate its native conversion;
-    -- do not resolve a descriptive producer mark merely to decide that comparison.
-    let currentHasMetadata := (currentSource.find? fun
-      | .mdata .. => true
-      | _ => false).isSome
-    if !currentSource.hasFVar && !currentSource.hasLooseBVars &&
-        !currentSource.hasExprMVar && !currentSource.hasLevelMVar &&
-        !currentHasMetadata then return none
-    let left ←
-      capturedTypeReferences context inputProjections retainedInputs supplied marks
-        originalSource reduce
-    let right ←
-      capturedTypeReferences context inputProjections retainedInputs supplied marks
-        currentSource reduce
-    if left.isEmpty || right.isEmpty then
-      -- A closed native type contributes no competing runtime supplier. Any real source
-      -- local/mark must instead resolve to its explicitly retained position.
-      let unresolved := fun (expression : Expr) => expression.hasFVar || hasSourceMarks expression
-      return some (!(if left.isEmpty then unresolved originalSource else unresolved currentSource))
-    for first in left do
-      for second in right do
-        unless ← sameCapturedTypeReference graph first second do return some false
-    return some true
   let typeReferences := fun (expression : Expr) => do
     try markedContextReferences (some graph) context marks expression
     catch error =>
@@ -588,13 +675,64 @@ private def checkDependencies (context : OpenContext)
       if hasSourceMarks declaration.type ||
           (declaration.value? true).any hasSourceMarks then return true
     return false
-  let typeSources := #[value.role.source, origin.role.source] ++
-    value.markedTypeRoles.map (·.source)
-  for source in typeSources do
+  let mut checkedTypes := #[]
+  for source in #[value.role.source, origin.role.source] ++
+      value.markedTypeRoles.map (·.source) do
     let originalType ← inferType (← source.inContext context)
     if !expectedMarks.isEmpty || (← typeHasMarks originalType) then
+      checkedTypes := checkedTypes.push (source, originalType)
+  let compareCaptured := fun
+      (formalReferences expectedReferences : Array (Array DependencyStep × ValueBinding))
+      (reduce : Bool) (formal current : Expr)
+      (formalPosition expectedPosition : Option (Array DependencyStep)) => do
+    let originalPrefix ← joinedTypePosition formalReferences formal formalPosition
+    let currentPrefix ← joinedTypePosition expectedReferences current expectedPosition
+    let originalSource ← if reduce then sourceView formal else pure formal
+    let currentSource ← if reduce then sourceView current else pure current
+    let originalMarked ← markedProjection? originalSource
+    let currentMarked ← markedProjection? currentSource
+    if originalMarked.isNone && currentMarked.isNone &&
+        originalPrefix.isEmpty && currentPrefix.isEmpty then return none
+    -- A closed native fragment introduces no competing runtime supplier. Let the
+    -- existing structural/closed-fragment checks validate its native conversion;
+    -- do not resolve a descriptive producer mark merely to decide that comparison.
+    let currentHasMetadata := (currentSource.find? fun
+      | .mdata .. => true
+      | _ => false).isSome
+    if !currentSource.hasFVar && !currentSource.hasLooseBVars &&
+        !currentSource.hasExprMVar && !currentSource.hasLevelMVar &&
+        !currentHasMetadata && currentPrefix.isEmpty then return none
+    let left ←
+      capturedTypeReferences context inputProjections retainedInputs supplied marks
+        originalSource reduce
+    let right ←
+      capturedTypeReferences context inputProjections retainedInputs supplied marks
+        currentSource reduce
+    let left := left ++ originalPrefix
+    let right := right ++ currentPrefix
+    -- An actual prefix adds a constraint. It cannot replace a conflicting explicit mark
+    -- or another independently retained position on either side of the type comparison.
+    for references in #[left, right] do
+      for first in references do
+        for second in references do
+          unless ← sameCapturedTypeReference graph first second do return some false
+    if left.isEmpty || right.isEmpty then
+      -- A closed native type contributes no competing runtime supplier. Any real source
+      -- local/mark must instead resolve to its explicitly retained position.
+      let unresolved := fun (expression : Expr) => expression.hasFVar || hasSourceMarks expression
+      let accepted := !(if left.isEmpty then unresolved originalSource else unresolved currentSource)
+      return some accepted
+    for first in left do
+      for second in right do
+        unless ← sameCapturedTypeReference graph first second do
+          return some false
+    return some true
+  for (_, originalType) in checkedTypes do
+      let (formalReferences, expectedReferences) ←
+        joinedPrefixReferences context inputs graph sameContextReference
+          originalType expected value currentPrefixes
       let some _ ← dependencyTerms sameContextReference #[] originalType expected #[]
-          (some compareCaptured) (some sourceView)
+          (some (compareCaptured formalReferences expectedReferences)) (some sourceView)
         | throwError "the runtime value has a different marked source type dependency"
   if value.instantiations.all (·.precedingDependencies.isEmpty) then return ()
   let dependencies ← computationalDependencies (context.bindings.map (·.expression)) expected
@@ -625,7 +763,8 @@ private def checkDependencies (context : OpenContext)
         let some terms := terms
           | if !hasDependencies then continue
             throwError "the runtime value has an unresolved consuming dependent type"
-        let selected := terms.filterMap fun (slot, term) => if slot == index then some term else none
+        let selected := terms.filterMap fun term =>
+          if term.index == index then some term.term else none
         if selected.isEmpty && hasDependencies then
           throwError "the runtime value has an unresolved consuming dependent slot"
         let mut unresolved : Option Expr := none
@@ -789,18 +928,65 @@ private def checkDependencies (context : OpenContext)
           if let some term := unresolved then
             throwError "the runtime value has an unresolved consuming dependent reference ({term})"
 
-/-- Associate existing nodes by stable source identity, native type and retained type dependencies.
-Check the complete table before comparing each actual producing dependency with its current
-binding. Reuse: ClosedTerm.inContext, Lean.Meta.isDefEq and SourceLayout.contextDependencies.
-Consuming field dependencies align their native prefix slots with the expected type, then check
-the selected source binding or projection against its retained reference.
-Later consuming roles may extend the original reference's complete instantiation chain.
-Whole-reply admission remains a separate check. -/
+private def sameAdmittedRole (left right : SourceLayout) : Bool :=
+  left.address == right.address && left.kind == right.kind &&
+    left.contextDependencies == right.contextDependencies &&
+    sameAdmittedSource left.source right.source
+
+/-- Exact immutable source views, including marked dependencies, may reuse their original
+native admission. Association IDs alone do not authorize a relabelled view of the same node. -/
+private partial def sameAdmittedValue (left right : ValueBinding) : Bool :=
+  left.value == right.value && left.associationIds == right.associationIds &&
+    sameAdmittedRole left.role right.role &&
+    left.markedTypeRoles.size == right.markedTypeRoles.size &&
+    (left.markedTypeRoles.zip right.markedTypeRoles).all (fun (left, right) =>
+      sameAdmittedRole left right) &&
+    left.sourceMarks.size == right.sourceMarks.size &&
+    (left.sourceMarks.zip right.sourceMarks).all (fun ((key, left), (otherKey, right)) =>
+      key == otherKey && sameAdmittedValue left right) &&
+    left.sourceDependencies.size == right.sourceDependencies.size &&
+    (left.sourceDependencies.zip right.sourceDependencies).all (fun (left, right) =>
+      sameAdmittedValue left right)
+
+private def sameAdmittedParameters (environment : RuntimeEnvironment)
+    (parameters : Array RuntimeParameter) : Bool := Id.run do
+  unless parameters.size == environment.admittedParameters.size do return false
+  let mut seen : Std.HashSet BindingId := {}
+  for parameter in parameters do
+    if seen.contains parameter.source then return false
+    let some original := environment.admittedParameters[parameter.source]? | return false
+    unless sameAdmittedValue original parameter.value do return false
+    seen := seen.insert parameter.source
+  return true
+
+/-- Associate existing nodes by stable source identity, native type and retained dependencies.
+The complete native/type/dictionary checks below precede every new association. Consuming
+fields keep their exact prefix suppliers and full instantiation chains; whole-reply admission
+remains separate. Reuse: ClosedTerm.inContext, isDefEq and SourceLayout.contextDependencies.
+
+A previously checked fixed context is only a reuse hint. The exact native telescope,
+complete original value views and current graph must agree; every other request follows the
+ordinary complete admission below. No previous graph or source conversion is a cache key. -/
 opaque RuntimeEnvironment.capture (worker : String) (context : OpenContext)
     (parameters : Array RuntimeParameter)
     (sourceMarks : Array (Nat × ValueBinding) := #[])
-    (sourceGraph : Option ValueGraph := none) : MetaM RuntimeEnvironment := do
+    (sourceGraph : Option ValueGraph := none)
+    (validatedEnvironment : Option RuntimeEnvironment := none) : MetaM RuntimeEnvironment := do
   if worker.isEmpty then throwError "runtime association requires an actual worker identity"
+  if let some validated := validatedEnvironment then
+    if validated.worker == worker && validated.context.exactlyMatches context.telescope &&
+        sameAdmittedParameters validated parameters then
+      if let some graph := sourceGraph then
+        unless graph.worker == worker do
+          throwError "marked source preparation belongs to a different worker"
+        -- Check the actual current local declarations as well as the stored OpenContext.
+        -- A caller cannot reuse a frozen telescope after replacing its native local scope.
+        let current ← ContextTelescope.capture context.bindings
+        if validated.context.exactlyMatches current.telescope then
+          validated.context.ensureDeclarations
+          discard <| IO.ofExcept <|
+            (graph.requiredOwners validated.references).mapError IO.userError
+          return ← validated.withSourceMarks sourceMarks (some graph)
   let inputProjections ← context.inputProjections
   let mut sourceMarks := sourceMarks
   for parameter in parameters do
@@ -814,6 +1000,7 @@ opaque RuntimeEnvironment.capture (worker : String) (context : OpenContext)
     discard <| IO.ofExcept <|
       (graph.requiredOwners (sourceMarks.map (·.2))).mapError IO.userError
   let mut supplied : Std.HashMap BindingId ValueBinding := {}
+  let mut admittedParameters : Std.HashMap BindingId ValueBinding := {}
   for parameter in parameters do
     if supplied.contains parameter.source then
       throwError "a source binder has duplicate runtime associations"
@@ -831,6 +1018,7 @@ opaque RuntimeEnvironment.capture (worker : String) (context : OpenContext)
     let .ok value := parameter.value.withRole role marks dependencies
       | throwError "the source binder has no computational runtime role"
     supplied := supplied.insert parameter.source value
+    admittedParameters := admittedParameters.insert parameter.source parameter.value
   for parameter in parameters do
     let some source := context.bindings.find? (·.id == parameter.source)
       | throwError "a consuming runtime binding is outside its source telescope"
@@ -842,7 +1030,8 @@ opaque RuntimeEnvironment.capture (worker : String) (context : OpenContext)
       (sourceGraph.getD parameter.graph) graphFor
       (← inferType source.expression) parameter.value parameter.origin
   let values := context.bindings.map fun binding => supplied[binding.id]?
-  return ⟨worker, context.telescope, values, inputProjections, sourceMarks, sourceGraph⟩
+  return ⟨worker, context.telescope, values, inputProjections, sourceMarks, sourceGraph,
+    admittedParameters⟩
 
 /-- Whether a source parent already has an explicit runtime occurrence.
 Formal selected instances have none; runtime-bound class values keep the same exact identity

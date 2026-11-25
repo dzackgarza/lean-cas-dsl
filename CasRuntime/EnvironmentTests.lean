@@ -28,6 +28,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     { program, occurrence, role := boolean, parameters := #[] } (.portable "true".toUTF8)
   let .ok relabelled := graph.rebind truthData scalar
     | throwError "the coarse storage role could not be prepared"
+  let .ok changedNumberRole := graph.rebind number boolean
+    | throwError "the original number's changed native role could not be prepared"
   withLocalDeclD `n (mkConst ``Nat) fun n =>
     withLocalDeclD `m (mkConst ``Nat) fun m => do
       withLocalDeclD `h (← mkEq n n) fun h =>
@@ -54,6 +56,21 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             unless environment.values.size == bindings.size &&
                 environment.references.map (·.value) == expected do
               throwError "runtime association changed the full source order or merged source slots"
+            let reused ← RuntimeEnvironment.capture owners.worker context supplied
+              #[(0, number)] (some graph) (some environment)
+            unless reused.context.exactlyMatches environment.context &&
+                reused.values.map (·.map (·.value)) ==
+                  environment.values.map (·.map (·.value)) &&
+                reused.sourceMarks.map (fun (key, value) => (key, value.value)) ==
+                  #[(0, number.value)] do
+              throwError "same-context reuse changed an original association or lost new source marks"
+            let staleGraphRejected ← try
+              discard <| RuntimeEnvironment.capture owners.worker context supplied
+                #[] (some (ValueGraph.empty owners.identities)) (some environment)
+              pure false
+            catch _ => pure true
+            unless staleGraphRejected do
+              throwError "same-context reuse accepted references outside the current graph"
             for index in #[0, 1, 3] do
               let .ok (some value) := environment.lookup bindings[index]!.id
                 | throwError "a captured source binding lost its actual runtime reference"
@@ -73,14 +90,19 @@ run_cmd Lean.Elab.Command.liftTermElabM do
                 #[← parameter ⟨"absent", 0⟩ number],
                 #[← parameter bindings[2]!.id number],
                 #[← parameter bindings[0]!.id truthData],
-                #[← parameter bindings[0]!.id relabelled]]
+                #[← parameter bindings[0]!.id relabelled],
+                #[← parameter bindings[1]!.id number,
+                  ← parameter bindings[0]!.id changedNumberRole,
+                  ← parameter bindings[3]!.id number]]
             for parameters in invalid do
-              let rejected ← try
-                discard <| RuntimeEnvironment.capture owners.worker context parameters
-                pure false
-              catch _ => pure true
-              unless rejected do
-                throwError "runtime association accepted duplicate, absent, proof or mistyped input"
+              for validated in #[none, some environment] do
+                let rejected ← try
+                  discard <| RuntimeEnvironment.capture owners.worker context parameters
+                    #[] (if validated.isSome then some graph else none) validated
+                  pure false
+                catch _ => pure true
+                unless rejected do
+                  throwError "runtime association accepted duplicate, absent, proof or mistyped input"
             let rejected ← try
               discard <| RuntimeEnvironment.capture "different-worker" context supplied
               pure false
@@ -156,13 +178,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
                 some indexed.value do
               throwError "dependent runtime association replaced the original result"
             let reject (parameters : Array RuntimeParameter) (expected : String) : MetaM Unit := do
-              let failure : Option Exception ← try
-                discard <| RuntimeEnvironment.capture owners.worker context parameters
-                pure none
-              catch error => pure (some error)
-              let some failure := failure
-                | throwError "dependent runtime association accepted a changed actual dependency"
-              unless (← failure.toMessageData.toString).startsWith expected do throw failure
+              for validated in #[none, some retained] do
+                let failure : Option Exception ← try
+                  discard <| RuntimeEnvironment.capture owners.worker context parameters
+                    #[] (if validated.isSome then some graph else none) validated
+                  pure none
+                catch error => pure (some error)
+                let some failure := failure
+                  | throwError "dependent runtime association accepted a changed actual dependency"
+                unless (← failure.toMessageData.toString).startsWith expected do throw failure
             reject #[indexedParameter, changedIndex]
               "the runtime value has a different retained dependent reference"
             reject #[indexedParameter]

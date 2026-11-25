@@ -660,6 +660,8 @@ opaque objectCarrierSelection (entry : ObjectEntry) (category value : Expr) :
     { source := sourceCategory.expression, target := targetCategory.expression, steps } category
   let comparison ← applyObjectParameters s!"object {entry.id.raw}" refinement.identification
     (← sourceDomain value).getAppArgs
+  let comparison := sourceReference ``ObjectEntry.refines entry.id.raw
+    refinement.identification comparison
   let type ← whnfR (← inferType comparison)
   unless type.isAppOfArity ``CategoryTheory.Iso 4 do
     throwError "the selected carrier comparison is not an isomorphism"

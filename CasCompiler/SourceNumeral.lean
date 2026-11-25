@@ -92,6 +92,8 @@ private def numeralRefinementParameters (entry : ObjectEntry) (expected : Expr)
   let declaration ← mkConstWithFreshMVarLevels entry.declaration
   let (parameters, binders, _) ← forallMetaTelescopeReducing (← inferType declaration)
   let comparison ← applyObjectParameters entry.id.raw refinement.identification parameters
+  let comparison := sourceReference ``ObjectEntry.refines entry.id.raw
+    refinement.identification comparison
   let type ← whnfR (← inferType comparison)
   unless type.isAppOfArity ``CategoryTheory.Iso 4 do
     throwError "a source numeral refinement requires its complete native isomorphism"

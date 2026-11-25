@@ -5,9 +5,11 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 import CasCatalogue.TestSuite
+import CasRuntime.ExecutionContext
 import CasRuntime.Inspect
 import Worker.Cell
 meta import CasCatalogue.TestSuite
+meta import CasRuntime.ExecutionContext
 meta import CasRuntime.Inspect
 meta import Worker.Cell
 
@@ -47,9 +49,16 @@ private def beginCell : CommandElabM Worker.Cell.Active := do
         members := d.members }))
       for output in outputs do transaction.emit output.toJson
     commit := do
-      let snapshot ← liftCoreM (transaction.commit)
-      let .ok snapshot := snapshot
-        | throwError "the notebook transaction did not commit"
+      let snapshot ← try
+          liftTermElabM do
+            match ← transaction.commit with
+            | .ok snapshot => pure snapshot
+            | .error failure => transactionFailure failure
+        catch error =>
+          let outcome ← liftTermElabM (Outcome.ofException error)
+          if let some stratum := outcome.stratum? then
+            Worker.Cell.reportFailure { stratum := some stratum, reason := outcome.detail }
+          throw error
       let some batch := snapshot.outputBatches.back?
         | throwError "the committed notebook cell has no output batch"
       liftCoreM (KernelSession.setActive none)

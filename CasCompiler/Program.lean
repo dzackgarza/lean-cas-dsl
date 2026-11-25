@@ -87,6 +87,22 @@ opaque SourceFamily.forReference (reference : ComputationRef) : MetaM SourceFami
     { reference, declaration, family := family.expression, familyType := family.type }
   return ⟨{ source with family := selectedComputationFamily source }, info.levelParams⟩
 
+/-- Apply the exact selected family while retaining its original marked source roles.
+Only native input routing receives the separate whole-family body. A nullary family keeps
+the same zero-argument application frame so later native projections retain this authority. -/
+opaque SourceFamily.applyIn (family : SourceFamily) (universes : List Level)
+    (context : OpenContext) (arguments : Array ClosedTerm) :
+    MetaM (SourceLayout × ApplicationLayout) := do
+  unless universes.length == family.universeParams.length do
+    throwError "the selected family lost its complete universe substitution"
+  let (original, native) ← withLCtx {} #[] do
+    let empty ← ContextTelescope.capture #[]
+    let original := family.source.family.instantiateLevelParams family.universeParams universes
+    let .mdata _ native := original
+      | throwError "the selected family lost its original source address"
+    return (← empty.close original, ← empty.close native)
+  ApplicationLayout.ofSource (← SourceLayout.ofTerm original) context arguments (some native)
+
 /-- A complete accepted source interface: a registered family, checked derivation target,
 ordered primitive slot, selected lift/presentation/method, or native property observation. -/
 inductive ProgramBoundary

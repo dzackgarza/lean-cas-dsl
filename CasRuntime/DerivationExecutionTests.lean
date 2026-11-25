@@ -48,9 +48,11 @@ run_cmd liftTermElabM do
       let run ← withoutErrToSorry <| session.run ⟨statement⟩
       let dispatched := (← session.kernel.dispatches.get).map (·.operation)
       unless !dispatched.isEmpty && dispatched.all operations.contains do
-        throwError "the checked source program did not reach its exact prerequisite: +          {dispatched}; {run.outcome.detail}"
+        throwError "the source program did not reach its exact prerequisite: {dispatched}; \
+          {run.outcome.detail}"
       unless run.outcome.stratum? == some "noImplementation" do
-        throwError "the absent prerequisite implementation changed failure stratum: +          {run.outcome.kind}; {run.outcome.detail}"
+        throwError "the absent prerequisite changed failure stratum: {run.outcome.kind}; \
+          {run.outcome.detail}"
       let some result := run.session.source.context.entries.back?
         | throwError "the source program lost its original result declaration"
       unless (run.session.value? result.id).isNone do

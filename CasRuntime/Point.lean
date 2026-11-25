@@ -53,6 +53,7 @@ structure PreparedPointInvocation where
   forms : Array String
   dependencies : Array ValueBinding
   views : Array InputDescriptorView
+  private inputs : InputRoleMap
 
 /-- Prepare the named-point dialect only at its checked native carrier action and an original
 point map retained by the reader. Other native/opaque actions keep their existing path. All
@@ -77,7 +78,7 @@ opaque PreparedPointInvocation.prepare? (kernel : Kernel) (evaluateSource : Sour
   let some selected := selected | return none
   unless path.map (·.projection) == selected.path do return none
   let graph ← transaction.view
-  discard <| family.admitInputs graph
+  let familyInputs ← family.admitInputs graph
   let inputs ← request.admitInputs graph
   let #[argument] ← IO.ofExcept <| (inputs.arguments graph).mapError IO.userError
     | throwError "the named point action lost its complete original operand"
@@ -134,8 +135,8 @@ opaque PreparedPointInvocation.prepare? (kernel : Kernel) (evaluateSource : Sour
     let source ← retain (supplied.map (·.source) |>.getD source) source 1
     let target ← retain (supplied.map (·.target) |>.getD target) target 2
     let graph ← transaction.view
-    discard <| family.admitInputs graph
-    discard <| request.admitInputs graph
+    discard <| IO.ofExcept <| (familyInputs.arguments graph).mapError IO.userError
+    discard <| IO.ofExcept <| (inputs.arguments graph).mapError IO.userError
     let admittedOperation : CasCatalogue.Operation := match selected.owner with
       | .morphism entry => .morphism entry
       | .application entry => .application entry
@@ -155,7 +156,16 @@ opaque PreparedPointInvocation.prepare? (kernel : Kernel) (evaluateSource : Sour
     let views ← InputDescriptorView.collect graph codes roots #[arrowView]
     return some ⟨request.roles.scope, selected.operation, arrowView.parameters, arrowView.binding,
       domain, source, target, argument, forms, family.scope ++ request.scope ++ roots ++
-        views.flatMap (·.dependencies), views⟩
+        views.flatMap (·.dependencies), views, inputs⟩
+
+/-- Recheck the same sealed input map in the current graph before dispatch. Native roles and
+actual immutable bindings were checked at preparation; graph extension requires visibility
+and owner checks, not a new source elaboration of the unchanged complete input telescope. -/
+opaque PreparedPointInvocation.requireInputs (invocation : PreparedPointInvocation)
+    (request : PreparedRequest) (graph : ValueGraph) : MetaM Unit := do
+  request.requirePreparation invocation.preparation
+  request.requirePreparation invocation.inputs.telescope.scope
+  discard <| IO.ofExcept <| (invocation.inputs.arguments graph).mapError IO.userError
 
 /-- Original roots in the released seven-field PointInvocation packet. Nested named-arrow
 parameters are encoded beneath its own args field and retain their exact input authorities. -/

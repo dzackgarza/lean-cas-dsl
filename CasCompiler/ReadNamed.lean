@@ -226,6 +226,7 @@ def objectPower (context : ReadContext) :
             return some object
     let named := base.raw.isOfKind ``CasCatalogue.Language.casAtom || base.raw.isIdent ||
       (match base with
+        | `(cas_term| $_:ident) => true
         | `(cas_term| $_:ident($_:cas_term,*)) => true
         | `(cas_term| ($_:cas_term)) => true
         | _ => false)
