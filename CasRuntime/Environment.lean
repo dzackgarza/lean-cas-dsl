@@ -955,7 +955,15 @@ private def sameAdmittedParameters (environment : RuntimeEnvironment)
   for parameter in parameters do
     if seen.contains parameter.source then return false
     let some original := environment.admittedParameters[parameter.source]? | return false
-    unless sameAdmittedValue original parameter.value do return false
+    if !sameAdmittedValue original parameter.value then
+      -- Re-entering this exact source scope uses capture's own checked output views.
+      -- Keep the original BindingId and complete node/association/source view; an
+      -- independently relabelled value still follows full native admission below.
+      let some (_, some retained) :=
+          (environment.context.entries.zip environment.values).find? fun (entry, _) =>
+            entry.id == parameter.source
+        | return false
+      unless sameAdmittedValue retained parameter.value do return false
     seen := seen.insert parameter.source
   return true
 
@@ -965,7 +973,7 @@ fields keep their exact prefix suppliers and full instantiation chains; whole-re
 remains separate. Reuse: ClosedTerm.inContext, isDefEq and SourceLayout.contextDependencies.
 
 A previously checked fixed context is only a reuse hint. The exact native telescope,
-complete original value views and current graph must agree; every other request follows the
+complete original or checked rebound value views and current graph must agree; every other request follows the
 ordinary complete admission below. No previous graph or source conversion is a cache key. -/
 opaque RuntimeEnvironment.capture (worker : String) (context : OpenContext)
     (parameters : Array RuntimeParameter)

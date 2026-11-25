@@ -71,6 +71,51 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             catch _ => pure true
             unless staleGraphRejected do
               throwError "same-context reuse accepted references outside the current graph"
+            -- Reopening a request uses the environment's own admitted binder views.
+            -- Stable identities survive new native fvars; no changed view gains reuse.
+            environment.context.withOpen fun reopenedBindings => do
+              let reopenedContext ← ContextTelescope.capture reopenedBindings
+              let mut rebound := #[]
+              for entry in environment.context.entries, value in environment.values do
+                if let some value := value then
+                  rebound := rebound.push (← parameter entry.id value)
+              let reopened ← RuntimeEnvironment.capture owners.worker reopenedContext rebound
+                #[(1, number)] (some graph) (some environment)
+              unless reopened.context.exactlyMatches environment.context &&
+                  reopened.values.size == environment.values.size &&
+                  reopened.sourceMarks.map (fun (key, value) => (key, value.value)) ==
+                    #[(1, number.value)] do
+                throwError "reopened context admission changed its complete source scope or marks"
+              for actual in reopened.values, retained in environment.values do
+                match actual, retained with
+                | none, none => pure ()
+                | some actual, some retained =>
+                  unless actual.value == retained.value &&
+                      actual.associationIds == retained.associationIds &&
+                      actual.role.source.expression.equal retained.role.source.expression &&
+                      actual.role.source.type.equal retained.role.source.type do
+                    throwError "reopened context admission changed an exact retained binder view"
+                | _, _ => throwError "reopened context admission changed a formal-only source slot"
+              let some firstRebound := rebound[0]?
+                | throwError "reopened context admission lost its actual original bindings"
+              let invalid := #[
+                rebound.set! 1 firstRebound,
+                rebound.set! 0 (← parameter bindings[0]!.id changedNumberRole)]
+              for changed in invalid do
+                let rejected ← try
+                  discard <| RuntimeEnvironment.capture owners.worker reopenedContext changed
+                    #[] (some graph) (some environment)
+                  pure false
+                catch _ => pure true
+                unless rejected do
+                  throwError "reopened admission reused a duplicate or changed native binder view"
+              let rejected ← try
+                discard <| RuntimeEnvironment.capture owners.worker reopenedContext rebound
+                  #[] (some (ValueGraph.empty owners.identities)) (some environment)
+                pure false
+              catch _ => pure true
+              unless rejected do
+                throwError "reopened admission reused a binder outside the current graph"
             for index in #[0, 1, 3] do
               let .ok (some value) := environment.lookup bindings[index]!.id
                 | throwError "a captured source binding lost its actual runtime reference"

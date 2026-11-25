@@ -1713,9 +1713,16 @@ end
 /-- Lower a checked source term in its complete context and return its actual retained value.
 `bound` is the runtime-binding table of the context, by stable source identity. -/
 opaque lowerTerm (environment : LowerEnvironment) (program : RuntimeId .program)
-    (context : OpenContext) (bound : Std.HashMap BindingId ValueBinding) (expression : Expr) :
+    (context : OpenContext) (bound : Std.HashMap BindingId ValueBinding) (expression : Expr)
+    (validatedEnvironment : Option RuntimeEnvironment := none) :
     MetaM ValueBinding := do
-  let retainedView ← IO.mkRef none
-  (lower expression).run { environment, program, context, bound, retainedView }
+  let retainedView ← IO.mkRef validatedEnvironment
+  let frame : Frame := { environment, program, context, bound, retainedView }
+  -- A request may reopen its already admitted scope. Validate that hint against this
+  -- exact frame and current graph before any source-path lookup can use the cache.
+  if validatedEnvironment.isSome then
+    let admitted ← runtimeEnvironment.run frame
+    retainedView.set (some admitted)
+  (lower expression).run frame
 
 end CasCompiler

@@ -12,21 +12,24 @@ open Lean Meta CasCompiler CasCatalogue CasCatalogue.Backend
 
 mutual
 
-private partial def Kernel.evaluateSource (kernel : Kernel) (sourceSnapshot : Option Json) :
+private partial def Kernel.evaluateSource (kernel : Kernel) (sourceSnapshot : Option Json)
+    (validatedEnvironment : Option RuntimeEnvironment := none) :
     SourceEvaluation :=
   fun transaction program context bound expression =>
     lowerTerm {
       ledger := kernel.ledger, transaction, codes := kernel.codes, marks := kernel.marks
       sourceSnapshot
       run := fun computation => Execute.run kernel.executor computation transaction
-        (some (kernel.resolveFixedInput (kernel.evaluateSource sourceSnapshot) transaction program)) }
-      program context bound expression
+        (some (kernel.resolveFixedInput
+          (kernel.evaluateSource sourceSnapshot validatedEnvironment) transaction program)) }
+      program context bound expression validatedEnvironment
 
 /-- Compose prepared demand execution with checked-source lowering for subsequent calls. -/
 partial def Kernel.executor (kernel : Kernel) :
     PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
   fun request transaction => do
-    return (← kernel.execute (kernel.evaluateSource request.observation.sourceSnapshot)
+    return (← kernel.execute
+      (kernel.evaluateSource request.observation.sourceSnapshot (some request.environment))
       request transaction, transaction)
 
 end
@@ -36,6 +39,6 @@ opaque Kernel.run (kernel : Kernel) (transaction : CellTransaction) (context : O
     (bound : Std.HashMap BindingId ValueBinding) (expression : Expr)
     (sourceSnapshot : Option Json := none) : MetaM ValueBinding := do
   let program ← kernel.ledger.owners.identities.fresh .program
-  kernel.evaluateSource sourceSnapshot transaction program context bound expression
+  kernel.evaluateSource sourceSnapshot none transaction program context bound expression
 
 end CasRuntime
