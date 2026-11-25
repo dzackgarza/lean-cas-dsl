@@ -49,12 +49,13 @@
 | --- | --- |
 | The readings of the kernel report of 2026-11-22 (ℤ a commutative ring, ℚ a field). | Rejected. That reader forms one object candidate of a name; C6 forms every candidate and identifies definitionally equal families. It would add `cat.commutative_rings`, `cat.fields` or `cat.algebras` to the routes of 46 statements with no mathematical cause. |
 
-**Decision 3** (#24, #19, plan "Completion milestones"). V1 statements are the 134 extension statements and the 15 K1 identifiers; a milestone with a V1 statement is M2 and closes on them. The other statements are full B0 and belong to M4: T213 for those in the V1 categories, T214 to T216 for those that need further categories. T217 to T224 hold the categories that no workload statement uses; their statements are the classified Sage computations of #20, #21 and #23. The M4 milestones come after T105 and before the assessments of Part 2 (C21: evidence and final performance after functionality; #19: M4 does not wait for V1 acceptance).
+**Decision 3** (owner instruction of 2026-11-25; #24, #19, plan "Computational milestones"). The unit of computational work is one version of one category implementation: each category implementation is a Spec Kit feature of lean-cas-dsl-leaves with the milestones V1 (every spike computation and every statement that kernel V1 requires computed), V2 (the remaining full-B0 statements of #19) and V3 (the classified Sage coverage of #20, #21 and #23). The task list holds one task for each category version, in structural order, V1 of every needed category before any V2. A statement belongs to the version of its last route category (`research/category-scope.md`). The V2 and V3 tasks come after T105 and before the assessments of Part 2 (C21; #19 does not wait for V1 acceptance). The V3 tasks are written when the classification records their statements.
 
 | Alternative | Assessment |
 | --- | --- |
-| Close each M2 milestone on all of its statements. | Rejected. #24 makes complete readings, not every full-B0 computation, a V1 requirement. |
-| Put the M4 milestones after T110. | Rejected. C21 puts evidence-only work after functionality, and #19 does not wait for V1 acceptance. |
+| One task for each group of categories (the earlier milestones T200 to T224). | Rejected by the owner. Each category implementation has its own specification and versions, and the leaves specs cite one task for each version. |
+| Close each V1 task on all statements of its category. | Rejected. #24 makes complete readings, not every full-B0 computation, a V1 requirement. |
+| Write the V3 tasks now. | Rejected. No classified statement exists before T141 and T143; a task with no statement has no check. |
 
 **Decision 4** (engine survey; C17). The milestones use the container Sage 11.0.beta5 (source build), GAP 4.16.1 through Sage `libgap`, SymPy 1.14.0, PARI 2.17.4, Singular 4.4.1, and through juliacall Catlab.jl 0.17.7 (pullbacks of finite sets) and Oscar 1.8.2 or Hecke 0.39.22 (modules over polynomial rings, forms over number fields). A cardinal is finite (Sage `cardinality()`) or $\aleph_0$ (a set that Sage puts in `EnumeratedSets` with infinite cardinality).
 
@@ -63,7 +64,7 @@
 | passagemath 10.8.14 in a separate environment. | Rejected. The research container is the reproducible environment and holds Sage; one environment cannot hold both `sage` packages. |
 | CAP (GAP) for pullbacks. | Not chosen. Its limits are recalled in the survey, not read; Catlab's finite-set limits are read. |
 
-**Cardinals.** No engine computes $\aleph_0 \cdot \aleph_0$. The cardinal implementation computes the arithmetic of finite cardinals and $\aleph_0$ with a cited reference, for the three full-B0 statements that need it (constitution 4.0.1, policy "Established computational implementations").
+**Cardinals.** No engine computes $\aleph_0 \cdot \aleph_0$. The cardinal implementation computes the arithmetic of finite cardinals and $\aleph_0$ with a cited reference, for the three V2 statements that need it (constitution 4.0.1, policy "Established computational implementations").
 
 ## 2026-11-25 — Logs and timing records are current work; attainments; a leaf that asks the kernel
 
@@ -172,7 +173,7 @@ The concrete release concern is verified at these sources, without claiming a ru
 
 Importing `cas_port` alone therefore does not identify a protocol version, contrary to the
 report's inference. The actual signature and negotiation requirements determine compatibility.
-T017–T028 repair the exact current contract consumers; T200–T224 migrate retained leaves after F;
+T017–T028 repair the exact current contract consumers; the category tasks migrate retained leaves after F;
 T105 publishes and exercises the coherent tuple. Do not revive retired T024/T025, add a
 compatibility intermediary, or make complete publication a prerequisite to every runnable
 functional task.
@@ -227,7 +228,7 @@ The retrievals were exact source-path/commit inspections and comparison of the s
 
 ## Concrete consequences, not a deferred architecture question
 
-The current math contract §4 gives the three judgments, processing order, required-slot data and outcome table. Current T007/T021 prepare and enforce actual mandatory computational data; T053–T056 implement the source-faithful closure/selection/error gate and its native first-use argument; T063 retains original comparison controls; T073–T076 preserve growth; T028/T079/T080/T200–T224/T109 prohibit the combined mathematical-authority/leaf assignment in actual handoffs. The plan, model and task bodies were edited in place. These responsibilities are not left for an implementer to ask the owner to decide again.
+The current math contract §4 gives the three judgments, processing order, required-slot data and outcome table. Current T007/T021 prepare and enforce actual mandatory computational data; T053–T056 implement the source-faithful closure/selection/error gate and its native first-use argument; T063 retains original comparison controls; T073–T076 preserve growth; T028/T079/T080/the category tasks/T109 prohibit the combined mathematical-authority/leaf assignment in actual handoffs. The plan, model and task bodies were edited in place. These responsibilities are not left for an implementer to ask the owner to decide again.
 
 No new wire-level `preferredRoute` field, no new choice operation, no new leaf proof reply, no change to expected mathematical questions, and no new acceptance inventory are selected here. Existing prescribed public fields and exact source roles determine the actual computational boundary. Native implementation still owes its complete positive and negative outcomes, original budgets, independent trials and review.
 
