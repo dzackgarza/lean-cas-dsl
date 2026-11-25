@@ -13,6 +13,8 @@ gives the facts and the sources that a decision used.
 | `upstream-inputs.md` | The evidence for the lean-categories issues #190 to #200 (tasks T128 to T138) and for the inputs that are present upstream. | lean-categories `443fba9` |
 | `milestones.md`, `milestones.json` | The computational milestones of the plan: the categories, statements and moved registrations of each, the routes of the 18 statements of the K3 and K14 files, and a probe of countable sets in the container Sage. | the records above; Sage 11.0.beta5 in the research container |
 | `kernel-row-decisions.md` | The decisions for the "connect or delete" and "keep or move" rows of the task list, and the rows that do not match the kernel source at its tip. | kernel branch `fc7fdf8` (source of `7661292`) |
+| `spike-inventory.md`, `spike-inventory.json` | The 157 computations, 18 ceilings and 38 features of the first spike, each with its source; the workload statements that carry each computation or a proposed statement with its catalogue rows and route; the features mapped to FRs and user stories; the rows of the 18 K3 and K14 statements; the catalogue rows that the catalogue lacks (14 for computations, 4 more for ceilings). | `SPEC.md` `73bfb11`; spike commits `eca90be` to `32e6872`; acceptance notebook `9c7d438`; catalogue `3f8aedf` |
+| `category-scope.md`, `category-scope.json`, `category_scope.py` | One entry for each of the 38 categories that a computation needs, in structural order: its rows with kind, owners, parameters, version (V1, V2) and the statements that need each row; its milestone, engine family and existing registrations. `category_scope.py` regenerates the JSON from the records above (`uv run category_scope.py`). | the records above |
 
 ## Planning work that remains
 
