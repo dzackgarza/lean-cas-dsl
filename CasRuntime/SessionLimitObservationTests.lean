@@ -102,6 +102,9 @@ run_cmd liftTermElabM do
       let some category := categories[0]?
         | throwError "the source snapshot omitted the cokernel's selected category"
       let limit := category.getObjValD "limit"
+      unless limit.getObjValD "construction" ==
+          CasTools.NativeExpression.nameJson selection.construction do
+        throwError "the source snapshot changed the original construction selection"
       let .ok nodes := CasTools.NativeExpression.decodeNodes
           (source.getObjValD "nativeExpressions")
         | throwError "the source snapshot lost its exact native expression graph"

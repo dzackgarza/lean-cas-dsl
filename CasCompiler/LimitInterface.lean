@@ -85,6 +85,41 @@ private def prepareDataConstructor (row : LimitEntry) (diagram : Expr) (name : N
       throwError "limit {row.id.raw}: its data constructor lost the fixed result diagram"
   return value
 
+private def prepareStandardization (row : LimitEntry) (diagram requested : Expr) :
+    MetaM (Option Expr) := do
+  match row.standardization with
+  | none =>
+    unless ← withTransparency .all <| isDefEq requested diagram do
+      throwError "limit {row.id.raw}: the requested diagram needs a declared standardization"
+    return none
+  | some name =>
+    discard <| checkedDeclaration name
+    let comparison ← mkAppM name #[requested]
+    let expected ← mkAppM ``CategoryTheory.Iso #[requested, diagram]
+    unless ← withTransparency .all <| isDefEq (← inferType comparison) expected do
+      throwError "limit {row.id.raw}: its standardization changes the selected diagram"
+    return some (← resolved comparison)
+
+/-- Reuse the already prepared native data constructor at the original selected target
+presentation. A creation lift supplies its mapped source diagram only to the independently
+accepted standardization; no constructor telescope or rigid universe is prepared again. -/
+def NativeLimitInterface.withRequestedDiagram (interface : NativeLimitInterface)
+    (row : LimitEntry) (requested : Expr) : MetaM NativeLimitInterface := do
+  discard <| checkedDeclaration row.declaration
+  unless interface.presentation.consumeMData.getAppFn.isConstOf row.declaration do
+    throwError "limit {row.id.raw}: the retained interface changed its declaration"
+  let type ← whnfR (← inferType interface.presentation)
+  let family := if row.colimit then ``CategoryTheory.Limits.ColimitCocone
+    else ``CategoryTheory.Limits.LimitCone
+  unless type.isAppOf family do
+    throwError "limit {row.id.raw}: the retained interface changed its result family"
+  let some diagram := type.getAppArgs.back?
+    | throwError "limit {row.id.raw}: the retained interface lost its declared diagram"
+  unless ← withTransparency .all <| isDefEq diagram interface.diagram do
+    throwError "limit {row.id.raw}: the retained interface changed its complete diagram"
+  return { interface with standardization :=
+    ← prepareStandardization row interface.diagram (← resolved requested) }
+
 /-- Prepare the interface at the exact presentation selected by source formation.
 `requestedDiagram` is the diagram before the accepted standardization; for creation it is
 the image of the source diagram under the selected creation functor. The result retains the
@@ -108,18 +143,7 @@ def prepareLimitInterface (row : LimitEntry) (presentation : Expr)
     | throwError "limit {row.id.raw}: its presentation has no diagram"
   let diagram ← resolved diagram
   let requested ← resolved (requestedDiagram.getD diagram)
-  let standardization ← match row.standardization with
-    | none => do
-      unless ← withTransparency .all <| isDefEq requested diagram do
-        throwError "limit {row.id.raw}: the requested diagram needs a declared standardization"
-      pure none
-    | some name => do
-      discard <| checkedDeclaration name
-      let comparison ← mkAppM name #[requested]
-      let expected ← mkAppM ``CategoryTheory.Iso #[requested, diagram]
-      unless ← withTransparency .all <| isDefEq (← inferType comparison) expected do
-        throwError "limit {row.id.raw}: its standardization changes the selected diagram"
-      pure (some (← resolved comparison))
+  let standardization ← prepareStandardization row diagram requested
   let dataConstructor ← row.dataConstructor.mapM (prepareDataConstructor row diagram)
   return { presentation, diagram, standardization, dataConstructor }
 

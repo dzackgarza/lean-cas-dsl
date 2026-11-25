@@ -2,12 +2,18 @@ module
 
 public import CasRuntime.Closure
 public import CasCompiler.Elaborate
+public import CasCompiler.LimitSelection
+public import CasCompiler.CreationSource
 public import CasCompiler.SelectedField
 public import CasCompiler.SelectedMorphism
 public import CasCompiler.InputCoverage
 public import CasRuntime.Transaction
 public import CasRuntime.InputResult
 public import CasRuntime.RoutedMethod
+public import CasCompiler.CategoricalPointSource
+public import CasCompiler.StructuralMap
+public import CasRuntime.CallablePacket
+public import CasRuntime.CategoricalPointPacket
 public import LeanCategories.Catalogue.Registry.Semantic
 public import CasCatalogue.InterpretationFailure
 
@@ -19,6 +25,23 @@ open Lean Meta CasRuntime CasCatalogue
 
 initialize registerTraceClass `cas.lower
 
+/-- A selected leg whose exact source receiver is already an authenticated projection of
+one completed cone. Only lowering that receiver constructs this demand. Runtime execution
+receives the existing parent and association chain; it never finds a cone by row or diagram. -/
+structure NativeLimitLegDemand where
+  private mk ::
+  selection : NativeLimitLegSelection
+  receiver : ValueBinding
+  cone : ValueBinding
+  /-- Present only when the receiver itself supplied the authenticated native projection. -/
+  apexSource : Option SourceLayout
+  /-- The compiler-prepared native component at its original typed diagram index. -/
+  component : ClosedTerm
+  /-- The actual lowering frame, including nested callable captures and local binders. -/
+  context : OpenContext
+  bound : Std.HashMap BindingId ValueBinding
+  contextEnvironment : RuntimeEnvironment
+
 /-- The active cell consumed by compiled source code. `run` interprets each emitted program.
 A later demand is prepared from the actual references that an earlier program returned. -/
 structure LowerEnvironment where
@@ -28,6 +51,10 @@ structure LowerEnvironment where
   marks : IO.Ref (Array ValueBinding)
   sourceSnapshot : Option Json := none
   run : OperationalProgram ValueBinding → MetaM ValueBinding
+  /-- Consume released leg data from the actual completed packet. The handler must keep the
+  supplied cone, diagram, typed index and owners; it is not an arbitrary apply operation. -/
+  limitLeg : NativeLimitLegDemand → MetaM ValueBinding := fun _ =>
+    throwStratum .noImplementation "the completed cone requires its native leg-data continuation"
 
 private structure Frame where
   environment : LowerEnvironment
@@ -162,7 +189,8 @@ private def isRegisteredComputation (state : SemanticState) (declaration : Name)
   state.functors.any (·.declaration == declaration) ||
   state.constructions.any (·.declaration == declaration) ||
   state.morphisms.any (·.declaration == declaration) ||
-  state.objects.any (·.application == some declaration)
+  state.objects.any (·.application == some declaration) ||
+  state.binders.any (·.operation == declaration)
 
 /-- Native fields of independently registered constant declarations may use their definitions.
 Membership is the only result: it never chooses a descriptor ID, even for a unique row. -/
@@ -230,6 +258,11 @@ private def selectedReference? (data : MData) : Option (Name × ComputationRef) 
   else if kind == ``EdgeRef.functor then some (declaration, .functor ⟨id⟩)
   else none
 
+private def selectedPointBoundary (data : MData) : Bool :=
+  let kind := data.getName `CasCompiler.source.kind
+  kind == ``CategoricalPointFamily || kind == ``SourceActionFamily ||
+    kind == ``LimitFamily || kind == ``BinderEntry
+
 /-- Ordinary descriptor producers retain their exact public row, just as computations do.
 Their native value is the selected declaration's original application. -/
 private def selectedDescriptor? (data : MData) : Option (Name × String) := do
@@ -269,7 +302,7 @@ private def checkSelectedAddress (data : MData) : MetaM Unit := do
       kind == ``ClassifierEntry || kind == ``EdgeRef.classifierForget ||
       kind == ``NumeralEntry || kind == ``SubsetLiteralEntry || kind == ``LimitEntry ||
       kind == ``ObjectEntry.generator || kind == ``ObjectEntry.application ||
-      kind == ``NamedCategoryEntry || kind == ``CellEntry ||
+      kind == ``NamedCategoryEntry || kind == ``CellEntry || kind == ``BinderEntry ||
       kind == ``PresentationComparisonEntry || kind == ``ConstructorEntry ||
       kind == ``ConstructorEntry.functorialAction || kind == ``ConstructorEntry.comparisonAction ||
       kind == ``ConstructorEntry.identityComparison ||
@@ -295,6 +328,8 @@ private def checkSelectedAddress (data : MData) : MetaM Unit := do
       some ((state.objects.filter (·.id.raw == id)).filterMap (·.generator))
     else if kind == ``ObjectEntry.application then
       some ((state.objects.filter (·.id.raw == id)).filterMap (·.application))
+    else if kind == ``BinderEntry then
+      some ((state.binders.filter (·.id.raw == id)).map (·.operation))
     else if kind == ``NamedCategoryEntry then
       some ((state.categories.filter (·.id.raw == id)).map (·.declaration))
     else if kind == ``CellEntry then
@@ -424,8 +459,13 @@ private partial def captured (frame : Frame) (graph : ValueGraph)
 
 /-- Retain a checked source term as code with its actual captured references.
 Its fields and applications are lowered when a demand reaches them. -/
-private def closure (expression : Expr) : LowerM ValueBinding := do
+private def closureWith (expression : Expr) (build : ClosedTerm → ClosureCode)
+    (retainedRole : Option Expr := none) (retainedValues : Array ValueBinding := #[]) :
+    LowerM ValueBinding := do
   let frame ← read
+  if let some original := retainedRole then
+    unless ← isDefEq (← inferType original) (← inferType expression) do
+      throwError "the delayed native continuation changed its original source interface"
   traceExpensiveLower "closure.total" expression frame.context.bindings.size do
     let program ← (← supply).fresh .program
     let source ← traceExpensiveLower "closure.close" expression frame.context.bindings.size do
@@ -436,10 +476,14 @@ private def closure (expression : Expr) : LowerM ValueBinding := do
       let graph ← frame.environment.transaction.view
       let selected ← markedSourceReferences (some graph) frame.context marks expression
       captured frame graph marks expression selected
-    let code := ClosureCode.term source
+    let captures := captures ++ retainedValues
+    let code := build source
     frame.environment.codes.modify (·.insert program code)
     traceExpensiveLower "closure.stage" expression frame.context.bindings.size do
-      stage expression (.closure program captures)
+      stage (retainedRole.getD expression) (.closure program captures)
+
+private def closure (expression : Expr) : LowerM ValueBinding :=
+  closureWith expression ClosureCode.term
 
 mutual
 
@@ -489,6 +533,27 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
       return ← stage expression payload
     if let some (selection, field) := selectedField? data then
       let transaction := (← read).environment.transaction
+      if data.getBool `CasCompiler.selection.owner then
+        unless body.isAppOfArity ``Function.const 4 do
+          throwError "the source field lost its exact typed owner envelope"
+        let owner ← lower body.getAppArgs[3]!
+        let .ok prior ← transaction.selectedAt selection field owner
+          | throwStratum .unavailable "the selected owner's result is no longer available"
+        if let some value := prior then return value
+        let value ← if data.getBool `CasCompiler.selection.deferredCone then do
+            let frame ← read
+            let graph ← transaction.view
+            let some original := graph.find owner.value
+              | throwError "the deferred cone lost its original actual receiver"
+            let source ← markValue frame.environment.marks owner
+              (← original.origin.role.source.inContext frame.context)
+            let some whole ← limitConeSource frame.context source
+              | throwError "the deferred cone lost its original complete source plan"
+            lower whole
+          else lower body.getAppArgs[2]!
+        let .ok () ← transaction.bindSelectedAt selection field owner value
+          | throwError "the selected owner's field changed its computational occurrence"
+        return value
       let .ok prior ← transaction.selected selection field
         | throwStratum .unavailable "the selected construction's result is no longer available"
       if let some value := prior then return value
@@ -501,6 +566,20 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
         | throwError "internal: a retained source value lost its mark"
       return value
     checkSelectedAddress data
+    if data.getName `CasCompiler.source.kind == ``CategoricalPointFamily then
+      return ← categoricalPointFamily data body
+    if data.getName `CasCompiler.source.kind == ``LimitFamily then
+      return ← wholeLimitFamily data body
+    if data.getName `CasCompiler.source.kind == ``LimitUniversalFamily then
+      return ← universalLimitFamily data body
+    if data.getName `CasCompiler.source.kind == ``CreationFamily then
+      return ← creationFamily data body
+    if data.getName `CasCompiler.source.kind == ``SourceActionFamily then
+      return ← objectActionFamily data body
+    if let some selected ← SourceActionFamily.native? expression then return ← lower selected
+    if let some selected ← categoricalPointSource? expression then return ← lower selected
+    if data.getName `CasCompiler.source.kind == ``BinderEntry then
+      return ← closure expression
     if let some declaration := selectedNativeInterface? data then
       unless body.consumeMData.getAppFn.isConstOf declaration do
         throwError "the selected native interface lost its original declaration application"
@@ -529,9 +608,69 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
       return ← presentationFamily data body
     if data.getName `CasCompiler.source.kind == ``PropertyEntry then
       return ← propertyObservation data body
+    if data.contains `CasCompiler.source.leg then
+      if let some selected ← NativeLimitLegSelection.ofExpr? expression then
+        let receiver ← lower selected.construction.receiver
+        let frame ← read
+        let graph ← frame.environment.transaction.view
+        let .ok projected := graph.projectionSelection receiver
+          | throwError "the selected leg lost its receiver's actual projection parent"
+        let mut retained : Option (ValueBinding × Option SourceLayout) := none
+        if let some (source, cone, path) := projected then
+          let apex := if selected.construction.source.colimit then
+            ``CategoryTheory.Limits.Cocone.pt else ``CategoryTheory.Limits.Cone.pt
+          if path == #[apex] then
+            retained := some (cone, some source)
+        if retained.isNone then
+          -- The compiled source identity is only one part of this completion key.
+          -- This exact receiver node and full association path distinguish separate calls.
+          let field := if selected.construction.source.colimit then
+            ``CategoryTheory.Limits.ColimitCocone.cocone else
+            ``CategoryTheory.Limits.LimitCone.cone
+          let .ok cone ← frame.environment.transaction.selectedAt
+              selected.construction.source.construction field receiver
+            | throwStratum .unavailable "the selected construction's result is no longer available"
+          retained := cone.map (fun cone => (cone, none))
+        if let some (cone, source) := retained then
+          let coneSource ← markValue frame.environment.marks cone
+            (← cone.role.source.inContext frame.context)
+          let component ← frame.context.close
+            (← selected.construction.legAt coneSource selected.index)
+          return ← frame.environment.limitLeg {
+            selection := selected, receiver, cone, apexSource := source, component
+            context := frame.context, bound := frame.bound
+            contextEnvironment := ← runtimeEnvironment }
+        let some ownerNode := graph.find receiver.value
+          | throwError "the delayed leg lost its original receiver"
+        let owner ← markValue frame.environment.marks receiver
+          (← ownerNode.origin.role.source.inContext frame.context)
+        let some whole ← deferredLimitConeSource owner
+          | throwError "the delayed leg lost its original complete cone source"
+        let indexValue ← lower selected.index
+        let index ← markValue frame.environment.marks indexValue selected.index
+        let source ← selected.construction.legAt whole index
+        let packet : Option ValueContainer ←
+          if selected.construction.source.creation.isSome then
+            pure none
+          else do
+            let some (declaration, address) := namedElement? data
+              | throwError "the formal leg lost its original named source descriptor"
+            let some element ← sourceApplication? declaration body
+              | throwError "the formal leg lost its original complete presentation"
+            let some (.ofNat ordinal) := data.find `CasCompiler.source.leg
+              | throwError "the formal leg lost its original source ordinal"
+            let arguments ← explicitArguments element
+            pure (some (← descriptorPacket s!"{address}#leg"
+              (arguments.push (mkNatLit ordinal))))
+        let captures := (packet.map (·.slots.map (·.binding))).getD #[]
+        return ← closureWith source (fun source => .formalLeg source packet)
+          (some expression) captures
     if let some (declaration, address) := namedElement? data then
       let some element ← sourceApplication? declaration body
         | throwError "internal: the named element lost its original registered application"
+      if data.getName `CasCompiler.source.kind == ``LimitEntry &&
+          !data.contains `CasCompiler.source.leg then
+        if let some formal ← formalLimitDescriptor expression then return formal
       let arguments ← explicitArguments element
       -- A defining leg of a registered limit is that limit's named leg at its maps and the
       -- ordinal of its shape object (SourceLimit.sourceLimitLeg?). The contract publishes no
@@ -583,6 +722,11 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
     lower (body.instantiate1 (← markValue (← read).environment.marks bound value))
   | .lam .. => closure expression
   | _ =>
+    if let some selected ← categoricalPointSource? expression then return ← lower selected
+    let frame ← read
+    if let some selected ← NativeStructuralMap.ofExpr? frame.context expression
+        (frame.bound.toArray.map (·.1)) then
+      return ← structuralMap selected
     -- Native whnf beta-reduces and then erases result metadata. Substitute this exact
     -- application first, preserving the selected boundary on its result or partial body.
     -- No declaration body, let binding or argument is evaluated by this structural step.
@@ -605,7 +749,11 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
         unless application.getAppFn.isConstOf declaration do
           throwError "the selected descriptor lost its original declaration application"
         return ← namedConstant expression address application
-      if (markedKey? data).isSome ||
+      if data.getName `CasCompiler.source.kind == ``BinderEntry then
+        let selected := Expr.mdata data (mkAppN head expression.getAppArgs)
+        if let some prepared ← categoricalPointSource? selected then return ← lower prepared
+        return ← closure selected
+      if (markedKey? data).isSome || selectedPointBoundary data ||
           data.getName `CasCompiler.source.kind == ``RoutedMethodFamily then
         return ← apply (← lower expression.getAppFn) expression.getAppArgs
       if data.getName `CasCompiler.source.kind == ``ObjectEntry.application then
@@ -656,6 +804,13 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
         let (parent, path) ← projectionSourcePath environment projectionSource
         let selected ← projectPath (← lower parent) path
         return ← apply selected (arguments.extract projectionSource.getAppNumArgs arguments.size)
+      -- An owned source field is a computation boundary even before its first result exists.
+      -- Follow only this syntactic native spine; reduction must not erase its owner marker.
+      let (parent, path) ← projectionSourcePath environment projectionSource
+      if let .mdata data _ := parent then
+        if (selectedField? data).isSome then
+          let selected ← projectPath (← lower parent) path
+          return ← apply selected (arguments.extract projectionSource.getAppNumArgs arguments.size)
       if let .mdata data _ := projection.parent.getAppFn then
         checkSelectedAddress data
         if (selectedNativeInterface? data).isSome then
@@ -664,6 +819,7 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
             m!"{projection.declaration}"
           return ← apply selected (arguments.extract projectionSource.getAppNumArgs arguments.size)
         if (selectedReference? data).isSome || (namedElement? data).isSome ||
+            selectedPointBoundary data ||
             data.getName `CasCompiler.source.kind == ``RoutedMethodFamily ||
             data.getName `CasCompiler.source.kind == ``ObjectEntry.application then
           -- A published source application owns its native record before projection.
@@ -682,7 +838,7 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
     if let some projection ← SourceProjection.ofExpr? projectionSource then
       if traceInclusion then dbg_trace "[inclusion.lower] constructor projection {projection.declaration}"
       if let .mdata data _ := projection.parent.getAppFn then
-        if data.getName `CasCompiler.source.kind == ``RoutedMethodFamily ||
+        if selectedPointBoundary data || data.getName `CasCompiler.source.kind == ``RoutedMethodFamily ||
             data.getName `CasCompiler.source.kind == ``ObjectEntry.application then
           if traceInclusion then dbg_trace "[inclusion.lower] routed projection selected"
           return ← project (← lower projection.parent) projection.info.i
@@ -759,12 +915,10 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
       descriptor expression "lean:type" #[]
     | _ => application expression
 
-/-- A descriptor of a named source constant at its actual explicit arguments.
-Reference: CasContract.Port descriptor grammar `{"ctor": address, "args": [...]}`.
-Each argument is lowered and keeps its own retained reference in a typed slot. -/
-private partial def descriptor (expression : Expr) (address : String) (arguments : Array Expr)
-    (fields : Option (Array ValueBinding) := none)
-    (originals : Option (Array ValueBinding) := none) : LowerM ValueBinding := do
+/-- The original named packet at its actual explicit operands. This same sealed packet is
+used by ordinary descriptors and by a formal leg's inert view; neither evaluates the leg. -/
+private partial def descriptorPacket (address : String) (arguments : Array Expr)
+    (originals : Option (Array ValueBinding) := none) : LowerM ValueContainer := do
   if let some originals := originals then
     unless originals.size == arguments.size do
       throwError "a named descriptor lost its original explicit argument table"
@@ -783,14 +937,28 @@ private partial def descriptor (expression : Expr) (address : String) (arguments
       path := #[.field "args", .index packets.size], binding := value, fieldIndex := none } :
       ContainerSlot)
     packets := packets.push Json.null
-  let packet := Json.mkObj [("ctor", toJson address), ("args", .arr packets)]
+  let template := Json.mkObj [("ctor", toJson address), ("args", .arr packets)]
+  let .ok payload := ValuePayload.descriptor template slots
+    | throwError "internal: the descriptor of {address} has an invalid reference layout"
+  let .container packet := payload.data
+    | throwError "internal: the original named descriptor lost its complete packet"
+  return packet
+
+/-- A descriptor of a named source constant at its actual explicit arguments.
+Reference: CasContract.Port descriptor grammar `{"ctor": address, "args": [...]}`.
+Each argument is lowered and keeps its own retained reference in a typed slot. -/
+private partial def descriptor (expression : Expr) (address : String) (arguments : Array Expr)
+    (fields : Option (Array ValueBinding) := none)
+    (originals : Option (Array ValueBinding) := none) : LowerM ValueBinding := do
+  let packet ← descriptorPacket address arguments originals
   if let some fields := fields then
     let role := (← origin expression).role
     if role.kind == .record then
-      return ← stageRecord (← RecordLayout.ofSource role) fields (some (packet, slots))
+      return ← stageRecord (← RecordLayout.ofSource role) fields
+        (some (packet.template, packet.slots))
   let built := match fields with
-    | some fields => ValuePayload.container packet slots fields none
-    | none => ValuePayload.descriptor packet slots
+    | some fields => ValuePayload.container packet.template packet.slots fields none
+    | none => ValuePayload.descriptor packet.template packet.slots
   let .ok payload := built
     | throwError "internal: the descriptor of {address} has an invalid reference layout"
   stage expression payload
@@ -997,6 +1165,7 @@ private partial def field (owner : Name) (index : Nat) (value : Expr) (name : Me
   if let .mdata data head := value.getAppFn then
     checkSelectedAddress data
     if (selectedReference? data).isSome || (namedElement? data).isSome ||
+        selectedPointBoundary data ||
         data.getName `CasCompiler.source.kind == ``RoutedMethodFamily ||
         data.getName `CasCompiler.source.kind == ``ObjectEntry.application then
       return ← project (← lower value) index name
@@ -1630,6 +1799,239 @@ private partial def objectApplicationFamily (data : MData) (body : Expr) : Lower
     #[] (← parameters) (some (← frame.environment.transaction.view)) (← sourceMarks closed)
     (validatedEnvironment := some (← retainedEnvironment))
   apply (← demand request) (arguments.extract arity arguments.size)
+
+/-- A categorical endpoint descriptor retains this actual original arrow. If source formation
+already supplied an exact binding for the endpoint, keep that binding instead. -/
+private partial def pointEndpoint (arrow : ValueBinding) (source : Expr) (selector : String) :
+    LowerM ValueBinding := do
+  let frame ← read
+  let environment ← retainedEnvironment
+  if ← environment.hasRetainedSource frame.context source then
+    return ← lower (← argumentSource environment source)
+  let packet := Json.mkObj [("ctor", toJson "morphismEndpoint"),
+    ("args", .arr #[.null, toJson selector])]
+  let payload ← IO.ofExcept <| (ValuePayload.descriptor packet #[
+    { path := #[.field "args", .index 0], binding := arrow, fieldIndex := none }]).mapError IO.userError
+  stage source payload
+
+/-- Retain a native arrow family without manufacturing endpoint/identity values at formation.
+An explicit complete request retains its actual arrow, domain, endpoints and generalized point
+once, then uses the ordinary prepared-boundary/input/transaction machinery. -/
+private partial def categoricalPointFamily (data : MData) (body : Expr) : LowerM ValueBinding := do
+  let frame ← read
+  let family ← CategoricalPointFamily.fromMark data
+  let (levels, arguments) ← family.application body
+  let (parameterSources, parameterValues) ← actualArguments
+    (arguments.extract 0 family.parameterCount)
+  if !family.invocation then
+    let request ← PreparedRequest.forBoundary (← supply) frame.program
+      (← frame.environment.ledger.allocate) (.point family) levels frame.context
+      parameterSources parameterValues #[] (← parameters)
+      (some (← frame.environment.transaction.view)) (← sourceMarks parameterSources)
+      (validatedEnvironment := some (← retainedEnvironment))
+    return ← demand request
+  let mut native ← parameterSources.mapM (·.inContext frame.context)
+  let mut originals : Array (Option ValueBinding) := Array.replicate family.parameterCount none
+  for value in parameterValues do
+    native := native.set! value.index
+      (← markValue frame.environment.marks value.value native[value.index]!)
+    originals := originals.set! value.index (some value.value)
+  let (nativeArrow, bundle) ← family.arrowAt levels native
+  let (nativeSource, nativeTarget) ← categoricalPointEndpoints nativeArrow
+  let supplied ← family.request? arguments[family.parameterCount + 1]!
+  let (arrow, domain, source, target, point) ← match supplied with
+    | some supplied => do
+      pure (← lower supplied.arrow, ← lower supplied.domain,
+        ← lower supplied.source, ← lower supplied.target, ← lower supplied.point)
+    | none => do
+      let packet ← CategoricalPointPacket.prepare family originals
+      let arrow ← stage nativeArrow packet.arrow
+      let source ← pointEndpoint arrow nativeSource "source"
+      let target ← pointEndpoint arrow nativeTarget "target"
+      let domain ← if family.whole then pure source else lower arguments[family.parameterCount]!
+      let point ← if family.whole then do
+          let identity ← categoricalPointIdentity bundle nativeSource
+          let payload ← IO.ofExcept <| (ValuePayload.descriptor
+            (Json.mkObj [("ctor", toJson "identity"), ("args", .arr #[.null, .null])]) #[
+              { path := #[.field "args", .index 0], binding := source, fieldIndex := none },
+              { path := #[.field "args", .index 1], binding := source, fieldIndex := none }]).mapError IO.userError
+          stage identity payload
+        else lower arguments[family.parameterCount + 1]!
+      pure (arrow, domain, source, target, point)
+  let retain := fun (binding : ValueBinding) (source : Expr) =>
+    markValue frame.environment.marks binding source
+  let domainSource ← retain domain arguments[family.parameterCount]!
+  let pointSource ← retain point arguments[family.parameterCount + 1]!
+  let pointSource ← family.withRequest levels native
+    (← retain arrow nativeArrow) domainSource
+    (← retain source nativeSource) (← retain target nativeTarget) pointSource
+  let (closed, actual) ← actualArguments (native ++ #[domainSource, pointSource])
+  let request ← PreparedRequest.forBoundary (← supply) frame.program
+    (← frame.environment.ledger.allocate) (.point family) levels frame.context closed actual
+    #[arrow, domain, source, target, point] (← parameters)
+    (some (← frame.environment.transaction.view)) (← sourceMarks closed)
+    (validatedEnvironment := some (← retainedEnvironment))
+  demand request
+
+private partial def objectActionFamily (data : MData) (body : Expr) : LowerM ValueBinding := do
+  let frame ← read
+  let family ← SourceActionFamily.fromMark data
+  let (levels, arguments) ← family.application body
+  let (closed, actual) ← actualArguments arguments
+  let request ← PreparedRequest.forBoundary (← supply) frame.program
+    (← frame.environment.ledger.allocate) (.objectAction family) levels frame.context closed actual
+    #[] (← parameters) (some (← frame.environment.transaction.view)) (← sourceMarks closed)
+    (validatedEnvironment := some (← retainedEnvironment))
+  demand request
+
+/-- Keep the original whole-cone owner envelope beside the complete native request.
+The runtime view substitutes its already admitted actuals into that retained formal owner;
+the source formation's construction and interface are not prepared again. -/
+private partial def wholeLimitFamily (data : MData) (body : Expr) : LowerM ValueBinding := do
+  let frame ← read
+  let family ← LimitFamily.fromMark data
+  let (levels, arguments, owner, _) ← family.application body
+  let (closed, actual) ← actualArguments arguments
+  let owner ← frame.context.close owner
+  let request ← PreparedRequest.forBoundary (← supply) frame.program
+    (← frame.environment.ledger.allocate) (.limit family owner) levels frame.context closed actual
+    #[] (← parameters) (some (← frame.environment.transaction.view))
+    (← sourceMarks (closed.push owner))
+    (validatedEnvironment := some (← retainedEnvironment))
+  demand request
+
+/-- Continue the universal field of this exact completed cone. The complete original
+declaration parameter table comes from that cone's producing request; explicit source
+marks are checked against those same values before the new native field is prepared. -/
+private partial def universalLimitFamily (data : MData) (body : Expr) : LowerM ValueBinding := do
+  let frame ← read
+  let family ← LimitUniversalFamily.fromMark data
+  let (levels, arguments, owner, selected, coneSource) ← family.application body
+  let cone ← lower coneSource
+  let graph ← frame.environment.transaction.view
+  let some node := graph.find cone.value
+    | throwError "the universal source lost its actual completed cone"
+  let some completion ← frame.environment.transaction.completionFor? node.origin.occurrence
+    | throwError "the universal source lost its cone's original preparation"
+  let original := completion.request
+  let .primitive (.limit presentation originalOwner) originalLevels := original.action
+    | throwError "the universal source requires an original raw-cone request"
+  unless presentation.entry.id == family.presentation.entry.id && originalLevels == levels &&
+      completion.response.root.value == cone.value &&
+      completion.response.root.associationIds.toList.isPrefixOf cone.associationIds.toList do
+    throwError "the universal source changed its original completed cone"
+  discard <| original.admitInputs graph
+  let (native, values) ← original.markedArguments frame.environment.marks frame.context
+    family.parameterCount
+  let originalSelection ← presentation.ownerAt (← originalOwner.inContext frame.context) native
+  unless originalSelection.source.construction == selected.source.construction do
+    throwError "the universal source selected another original construction"
+  let environment ← retainedEnvironment
+  for argument in arguments, value in values do
+    if let some value := value then
+      environment.checkDeclaredInput frame.context graph (← frame.environment.marks.get)
+        argument value
+    else
+      unless ← isProof argument do
+        throwError "the universal source lost an original computational parameter"
+  let (closed, actual) ← actualArguments native
+  let owner ← frame.context.close owner
+  let request ← PreparedRequest.forBoundary (← supply) frame.program
+    (← frame.environment.ledger.allocate) (.limitUniversal family owner) levels
+    frame.context closed actual #[cone] (← parameters) (some graph)
+    (← sourceMarks (closed ++ #[owner, ← frame.context.close coneSource]))
+    (validatedEnvironment := some environment)
+  demand request
+
+/-- Invoke the complete source-prepared creation. The source plan's let-bindings or the
+public request provide its actual Cone and IsLimit values at these same native positions. -/
+private partial def creationFamily (data : MData) (body : Expr) : LowerM ValueBinding := do
+  let frame ← read
+  let prepared ← PreparedCreationFamily.fromMark frame.context data body
+  let arguments ← prepared.arguments.mapM (·.inContext frame.context)
+  let (closed, actual) ← actualArguments arguments
+  let sources := closed ++ #[prepared.owner, prepared.requestFamily] ++ prepared.captureSources
+  let request ← PreparedRequest.forBoundary (← supply) frame.program
+    (← frame.environment.ledger.allocate) (.creation prepared) prepared.universes
+    frame.context closed actual #[] (← parameters)
+    (some (← frame.environment.transaction.view)) (← sourceMarks sources)
+    (validatedEnvironment := some (← retainedEnvironment))
+  demand request
+
+/-- Retain a created object before any provider demand. Its complete original source-input
+telescope is lowered once and rebound positionally into both the source and mapped diagrams. -/
+private partial def formalCreationDescriptor (prepared : PreparedCreationFamily) :
+    LowerM ValueBinding := do
+  let frame ← read
+  let arguments ← prepared.sourceArguments.mapM (·.inContext frame.context)
+  let (closed, actual) ← actualArguments arguments
+  let mut native : Array Expr := #[]
+  for source in closed, index in [:closed.size] do
+    let source ← source.inContext frame.context
+    let marked ← match actual.find? (·.index == index) with
+      | some argument => markValue frame.environment.marks argument.value source
+      | none => do
+        unless ← isProof source do
+          throwError "the created source lost an original computational parameter"
+        pure source
+    native := native.push marked
+  let prepared ← prepared.rebindSource frame.context native
+  let owner ← prepared.owner.inContext frame.context
+  closureWith owner fun _ => .creationOwner prepared
+
+/-- Lower every original direct-limit declaration parameter once, then positionally mark the
+same retained owner family. Explicit wire fields keep those exact bindings; implicit source
+parameters remain in node.origin.role.source for later whole-cone and constructor-port use. -/
+private partial def formalLimitDescriptor (expression : Expr) : LowerM (Option ValueBinding) := do
+  let some selection ← NativeLimitSelection.ofExpr? expression | return none
+  let frame ← read
+  if let some prepared ← PreparedCreationFamily.ofSelection frame.context expression then
+    return some (← formalCreationDescriptor prepared)
+  let application := selection.source.interface.presentation.consumeMData
+  unless selection.source.presentation.consumeMData.getAppFn.isConstOf
+      selection.source.declaration do return none
+  let (closed, actual) ← actualArguments application.getAppArgs
+  let information ← getFunInfoNArgs application.getAppFn closed.size
+  let mut native := #[]
+  let mut explicitSources := #[]
+  let mut explicitValues := #[]
+  for source in closed, index in [:closed.size] do
+    let source ← source.inContext frame.context
+    let original := actual.find? (·.index == index)
+    let marked ← match original with
+      | some original => markValue frame.environment.marks original.value source
+      | none =>
+        unless ← isProof source do
+          throwError "the formal construction lost an original computational parameter"
+        pure source
+    native := native.push marked
+    if (information.paramInfo[index]?.map (·.isExplicit)).getD false && !(← isProof source) then
+      let some original := original
+        | throwError "the formal construction lost its original explicit parameter"
+      explicitSources := explicitSources.push marked
+      explicitValues := explicitValues.push original.value
+  let some selected ← LimitFamily.formalAt expression native
+    | throwError "the direct formal construction lost its original owner family"
+  return some (← descriptor selected selection.source.row explicitSources none
+    (some explicitValues))
+
+/-- Retain structural map data at the unchanged original native role. The descriptor's
+endpoints/operands are actual lowered occurrences; no map implementation is evaluated. -/
+private partial def structuralMap (selected : NativeStructuralMap) : LowerM ValueBinding := do
+  let values ← if selected.tag == "identity" then do
+      let value ← lower selected.source
+      pure #[value, value]
+    else selected.operands.mapM lower
+  let slots := values.mapIdx fun index binding =>
+    ({ path := #[.field "args", .index index], binding, fieldIndex := none } : ContainerSlot)
+  let packet := Json.mkObj [("ctor", toJson selected.tag),
+    ("args", .arr (Array.replicate values.size .null))]
+  let role := (← origin selected.value).role
+  let payload ← if role.kind == .function then do
+      let framed ← IO.ofExcept <| (CallablePacket.symbolic packet).mapError IO.userError
+      IO.ofExcept <| (ValuePayload.callablePacket framed slots).mapError IO.userError
+    else IO.ofExcept <| (ValuePayload.descriptor packet slots).mapError IO.userError
+  stage selected.value payload
 
 private partial def application (expression : Expr) : LowerM ValueBinding := do
   let frame ← read

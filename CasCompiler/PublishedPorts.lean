@@ -1,6 +1,8 @@
 module
 
 public import CasCompiler.RecordAction
+public import CasCompiler.LimitUniversalFamily
+public import CasCompiler.CreationFamily
 public import CasCatalogue.Admission
 public import CasContract.Port
 
@@ -30,16 +32,16 @@ def inputAddress (reference : ComputationRef) : String :=
   | .morphism _ => computationAddress reference
   | _ => computationAddress reference ++ "#input"
 
-private partial def recordPorts (reference : ComputationRef) (layout : SourceLayout)
+private partial def recordPorts (owner : String) (layout : SourceLayout)
     (path : Array FieldLayout) : MetaM (Array Port) := do
   let mut ports := #[]
   for field in layout.fields do
     if field.wireIndex.isNone then continue
     let selected := path.push field
-    ports := ports.push ⟨recordActionAddress reference selected,
+    ports := ports.push ⟨nativeRecordActionAddress owner selected,
       selected.map (·.projection), field.source.type⟩
     if field.kind == .record then
-      ports := ports ++ (← recordPorts reference (← field.toLayout) selected)
+      ports := ports ++ (← recordPorts owner (← field.toLayout) selected)
   return ports
 
 /-- Derive field addresses from the same whole checked family and native layouts
@@ -57,7 +59,7 @@ opaque forReference (reference : ComputationRef) : MetaM (Array Port) := withLCt
     let context ← ContextTelescope.capture bindings
     let source ← context.close (mkAppN family.source.family parameters)
     let layout ← SourceLayout.ofTerm source
-    return #[root] ++ (← recordPorts reference layout #[])
+    return #[root] ++ (← recordPorts (computationAddress reference) layout #[])
 
 /-- Resolve all exact native owners. A shared prefix is only a candidate filter;
 the original native field address is checked before an owner is admitted. -/
@@ -77,6 +79,57 @@ opaque family? (state : SemanticState) (address : String) :
   | #[] => return none
   | #[reference] => return some reference
   | _ => throwError "the published address has several distinct native source owners"
+
+/-- The separately published universal record retains its path within the complete
+original presentation. Its first computational field aliases this subfamily address,
+never the distinct raw cone port. -/
+opaque forLimitUniversal (id : LimitId) : MetaM (Array Port) := withLCtx {} #[] do
+  let family ← LimitUniversalFamily.forId id
+  let root : Port := ⟨family.operation, family.path, family.familyType⟩
+  forallTelescopeReducing family.familyType fun parameters _ => do
+    let bindings := parameters.mapIdx fun index expression =>
+      { id := { session := "published-limit-universal-signature", serial := index },
+        role := BindingRole.parameter, expression : LocalBinding }
+    let context ← ContextTelescope.capture bindings
+    let source ← context.close (mkAppN family.family parameters)
+    let layout ← SourceLayout.ofTerm source
+    let ports ← recordPorts family.operation layout #[]
+    return #[root] ++ ports.map fun port =>
+      { port with path := family.path ++ port.path }
+
+/-- Resolve only an exact native universal subfamily or one of its actual data fields.
+A limit-id prefix alone never authorizes a field or an arbitrary suffix. -/
+opaque limitUniversal? (state : SemanticState) (address : String) :
+    MetaM (Option LimitUniversalFamily) := do
+  let mut selected := #[]
+  for row in state.limits do
+    unless address.startsWith (row.id.raw ++ "#") do continue
+    let family ← LimitUniversalFamily.forId row.id
+    if address == family.operation ||
+        (← forLimitUniversal row.id).any (·.operation == address) then
+      selected := selected.push family
+  match selected with
+  | #[] => return none
+  | #[family] => return some family
+  | _ => throwError "the universal address has several distinct original presentations"
+
+/-- The accepted creation computation supplies one complete native result. Its
+actual field paths remain result interface metadata, not independent supplier ports. -/
+opaque forCreation (id : LiftId) : MetaM (Array Port) := withLCtx {} #[] do
+  let family ← CreationFamily.forId id
+  let template ← family.standardizedTemplate
+  return #[⟨family.entry.id.raw, #[], ← inferType template⟩]
+
+/-- A creation registration names only its original accepted lift identity.
+Subfield availability cannot replace the complete supplied creation result. -/
+opaque creation? (state : SemanticState) (address : String) :
+    MetaM (Option CreationFamily) := do
+  let rows := state.lifts.filter fun row =>
+    row.id.raw == address && match row.kind with | .createsLimits _ => true | _ => false
+  match rows with
+  | #[] => return none
+  | #[row] => return some (← CreationFamily.forLift row)
+  | _ => throwError "the creation address has several distinct original lift owners"
 
 /-- Canonical identity from the existing component packet's address encoder. -/
 def componentAddress (id : NaturalTransformationId) (constructors : Array ConstructorId) : String :=

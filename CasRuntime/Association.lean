@@ -205,6 +205,9 @@ def PreparedRequest.associateResult (request : PreparedRequest) (supply : Identi
       if source.address == request.source.address then
         request.environment.checkProjectionResult draft.view source value operand field
       else request.environment.checkResult draft.view source value
+    | .primitive (.limitUniversal _ _) _ => do
+      let fieldPrefix ← request.resultFieldPrefix draft.view value
+      request.environment.checkResult draft.view source value fieldPrefix
     | .apply .. | .primitive .. => request.environment.checkResult draft.view source value
   associateCheckedResult request supply source draft candidate fixed complete
 

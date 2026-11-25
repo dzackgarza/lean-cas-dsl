@@ -2,6 +2,7 @@ module
 
 public import CasRuntime.Environment
 public import CasCompiler.Surface
+import CasCompiler.SourceTypeOrigin
 
 public section
 
@@ -106,6 +107,26 @@ private partial def selectedLimitDeclaration? (source : Expr) :
       let some producer ← sourceApplication? row.declaration body
         | throwError "the selected limit result lost its retained producer application"
       let mut original := body.consumeMData.getAppArgs[2]!
+      -- Formation may retain its complete typed owner beside this same source apex.
+      -- Unwrap only that authored owner before the original producer/path checks below.
+      -- An ordinary formal source reference still has its direct native projection spine.
+      if let some (category, retained) ← sourceObjectOrigin? original then
+        let some selection := category.limit
+          | throwError "the selected limit owner lost its original construction"
+        unless selection.construction == data.getName `CasCompiler.source.limit.construction &&
+            selection.row == row.id.raw && selection.declaration == row.declaration do
+          throwError "the selected limit owner changed its original construction"
+        let .mdata selected nested := retained
+          | throwError "the selected limit owner lost its original source reference"
+        unless selected.getName `CasCompiler.source.kind == ``LimitEntry &&
+            selected.getString `CasCompiler.source.id == row.id.raw &&
+            selected.getName `CasCompiler.source.declaration == row.declaration do
+          throwError "the selected limit owner changed its original source reference"
+        let some originalProducer ← sourceApplication? row.declaration nested
+          | throwError "the selected limit owner lost its retained producer application"
+        unless originalProducer.consumeMData.equal producer.consumeMData do
+          throwError "the selected limit result changed its original producer application"
+        original := nested.consumeMData.getAppArgs[2]!
       for declaration in path.reverse do
         let some selected ← SourceProjection.ofExpr? original
           | throwError "the selected limit result lost its native apex projection"

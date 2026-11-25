@@ -126,10 +126,16 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let some object := context.bindings.find? (·.id == moduleEntry.id)
       | throwError "the complete module category lost its original object binding"
     let bundle ← selected.bundle.inContext context
-    unless bundle.getAppFn.isConstOf expectedCategory.declaration &&
-        bundle.getAppArgs.size == 1 do
+    let .mdata marker native := bundle
+      | throwError "the abstract module lost its selected category reference"
+    unless marker.getName `CasCompiler.source.kind == ``NamedCategoryEntry &&
+        marker.getString `CasCompiler.source.id == expectedCategory.id.raw &&
+        marker.getName `CasCompiler.source.declaration == expectedCategory.declaration do
+      throwError "the abstract module changed its originally selected category reference"
+    unless native.getAppFn.isConstOf expectedCategory.declaration &&
+        native.getAppArgs.size == 1 do
       throwError "the abstract module changed the complete declared category application"
-    let some (actualCategory, actualScalar) ← sourceObjectOrigin? bundle.getAppArgs[0]!
+    let some (actualCategory, actualScalar) ← sourceObjectOrigin? native.getAppArgs[0]!
       | throwError "the parameterized category discarded its explicit source parameter"
     unless actualScalar == original.expression && actualCategory.role == .object &&
         actualCategory.expression.syntacticEq scalarCategory.expression &&

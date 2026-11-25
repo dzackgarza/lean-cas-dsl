@@ -77,7 +77,9 @@ partial def ImmediateReply.retainsValue (reply : ImmediateReply) (graph : ValueG
         return false
     return true
   | .container container =>
-    if expected.role.kind == .function || container.callable.isSome then return false
+    if (expected.role.kind == .function || container.callable.isSome) &&
+        !container.callableData then return false
+    if container.packetExports.any (·.owner != connection.generation) then return false
     let mut fragments := #[]
     for slot in container.slots do
       let field ← match slot.fieldIndex with
@@ -87,6 +89,18 @@ partial def ImmediateReply.retainsValue (reply : ImmediateReply) (graph : ValueG
       unless ← reply.retainsValue graph connection fragment (path ++ slot.path) field do
         return false
       fragments := fragments.push fragment
-    return (← container.fill fragments) == value
+    for owned in container.exports do
+      let fragment ← fixedValuePosition value owned.path.toList
+      let .opaque token ← ComputationalValue.decode fragment | return false
+      unless token == owned.token do return false
+      let some declaration := reply.exports.find? (·.token == token)
+        | throw "the parsed reply lost its retained packet export declaration"
+      unless declaration.owner == owned.owner &&
+          declaration.captures.size == owned.captures.size do return false
+      discard <| graph.requiredOwners (owned.captures ++ declaration.captures)
+      for retained in owned.captures, actual in declaration.captures do
+        unless retained.value == actual.value &&
+            retained.associationIds == actual.associationIds do return false
+    return (← container.fillForOwner connection.generation fragments) == value
 
 end CasRuntime

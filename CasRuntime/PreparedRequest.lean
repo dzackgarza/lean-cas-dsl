@@ -32,6 +32,8 @@ structure PreparedRequest where
   observation : ObservationDescriptor
   private actualArguments : Array CasRuntime.RuntimeArgument
   selection : Option Name := none
+  /-- Original whole native result for a selected data-field subfamily. -/
+  nativeParent : Option RecordLayout := none
 
 /-- Carry the exact source construction identity into its prepared field demands. -/
 opaque PreparedRequest.withSelection (request : PreparedRequest) (selection : Option Name) :
@@ -92,7 +94,15 @@ opaque PreparedRequest.originFor (request : PreparedRequest) (source : SourceLay
   let accessPath ← if request.origin.access.isSome then
       pure (request.origin.accessPath ++ (← request.source.projectionPathTo source))
     else pure #[]
-  return { origin with application, access := request.origin.access, accessPath }
+  let mut fieldPrefix := request.origin.fieldPrefix
+  if fieldPrefix.isSome then
+    for projection in ← request.source.projectionPathTo source do
+      fieldPrefix ← fieldPrefix.mapM (·.descend projection)
+  let dependencies ← match fieldPrefix with
+    | none => pure #[]
+    | some nativePrefix => IO.ofExcept <| nativePrefix.dependencies.mapError IO.userError
+  return { origin with application, access := request.origin.access, accessPath, fieldPrefix,
+    sourceDependencies := origin.sourceDependencies ++ dependencies }
 
 private def prepareOrigin (program : CasRuntime.RuntimeId .program)
     (occurrence : CasRuntime.RuntimeId .occurrence) (action : PreparedAction)
@@ -144,7 +154,7 @@ private def prepareRequest (identities : CasRuntime.IdentitySupply)
   let observation ← ObservationDescriptor.prepare program occurrence action source scope outputs
     record environment origin application roles actualArguments
   return ⟨program, occurrence, action, source, scope, outputs, record, environment, origin,
-    application, roles, observation, actualArguments, none⟩
+    application, roles, observation, actualArguments, none, none⟩
 
 private def PreparedRequest.inputValues (request : PreparedRequest) :
     Array (Option CasRuntime.ValueBinding) :=
@@ -235,28 +245,60 @@ opaque PreparedRequest.forBoundary (identities : CasRuntime.IdentitySupply)
   if let .application family := boundary then
     unless family.owner matches .application _ do
       throwError "an object application boundary requires its exact registered object owner"
+  if let .point family := boundary then
+    unless arguments.size == family.parameterCount + (if family.invocation then 2 else 0) do
+      throwError "a categorical point requires its complete original native input telescope"
+  if let .objectAction family := boundary then
+    unless arguments.size == family.parameterCount + 1 do
+      throwError "an object action requires all original declaration parameters and its receiver"
+  if let .limit family owner := boundary then
+    unless arguments.size == family.parameterCount do
+      throwError "a raw cone requires its complete original declaration telescope"
+    discard <| family.ownerAt (← owner.inContext context) (← arguments.mapM (·.inContext context))
+  if let .limitUniversal family owner := boundary then
+    unless arguments.size == family.parameterCount && scope.size == 1 do
+      throwError "a universal request requires its original parameters and one exact cone capture"
+    discard <| family.presentation.ownerAt (← owner.inContext context)
+      (← arguments.mapM (·.inContext context))
   unless universeArguments.length == boundary.universeParams.length do
     throwError "request universe arguments do not match the checked source family"
   let universeArguments ← universeArguments.mapM instantiateLevelMVars
   if universeArguments.any (·.hasMVar) then
     throwError "request preparation requires resolved universe arguments"
-  let traced := (boundary.family.find? (·.isConstOf `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
+  let nativeFamily ← boundary.familyIn universeArguments context
+  let traced := (nativeFamily.find? (·.isConstOf `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
   if traced then dbg_trace "[inclusion.stage] primitive {repr occurrence}: before family layout"
-  let (source, application) ← match boundary with
+  let (source, application, nativeParent) ← match boundary with
     | .registered family => do
       let (source, application) ← family.applyIn universeArguments context arguments
-      pure (source, some application)
+      pure (source, some application, (none : Option RecordLayout))
+    | .limitUniversal family _ => do
+      let original ← withLCtx {} #[] do
+        let empty ← ContextTelescope.capture #[]
+        empty.close (family.presentation.presentationFamily.instantiateLevelParams
+          family.universeParams universeArguments)
+      let (parent, application) ← ApplicationLayout.ofSource
+        (← SourceLayout.ofTerm original) context arguments
+      let parent ← RecordLayout.ofSource parent
+      let application ← application.forProjection family.projection
+      pure (application.result, some application, some parent)
+    | .creation family => do
+      unless arguments.size == 2 do
+        throwError "the fixed creation requires both original target data inputs"
+      let (source, application) ← ApplicationLayout.ofSource
+        (← SourceLayout.ofTerm family.requestFamily) context arguments
+      pure (source, some application, (none : Option RecordLayout))
     | _ => do
       let family ← withLCtx {} #[] do
         let empty ← ContextTelescope.capture #[]
-        empty.close (boundary.family.instantiateLevelParams
-          boundary.universeParams universeArguments)
+        empty.close nativeFamily
       let layout ← SourceLayout.ofTerm family
       if arguments.isEmpty then
-        pure (← layout.inContext context, (none : Option ApplicationLayout))
+        pure (← layout.inContext context, (none : Option ApplicationLayout),
+          (none : Option RecordLayout))
       else do
         let (source, application) ← ApplicationLayout.ofSource layout context arguments
-        pure (source, some application)
+        pure (source, some application, (none : Option RecordLayout))
   if traced then dbg_trace "[inclusion.stage] primitive {repr occurrence}: before environment"
   let marks ← preparedSourceMarks arguments actual scope
   let marks ← IO.ofExcept <| (CasRuntime.mergeSourceMarks sourceMarks marks).mapError IO.userError
@@ -267,8 +309,20 @@ opaque PreparedRequest.forBoundary (identities : CasRuntime.IdentitySupply)
   if traced then dbg_trace "[inclusion.stage] primitive {repr occurrence}: arguments admitted"
   let action := PreparedAction.primitive boundary universeArguments
   let origin ← prepareOrigin program occurrence action source environment application values
-  prepareRequest identities program occurrence action source context
+  let request ← prepareRequest identities program occurrence action source context
     (values.filterMap id ++ scope) environment application origin actual
+  return { request with nativeParent }
+
+/-- Read the separately captured cone at its fixed preparation position. The original
+declaration argument table remains unchanged and cannot supply another equal cone. -/
+opaque PreparedRequest.universalCone (request : PreparedRequest) : MetaM ValueBinding := do
+  let .primitive (.limitUniversal _ _) _ := request.action
+    | throwError "the selected native predecessor requires its universal family"
+  let arguments := (request.origin.application.map (·.arguments.filterMap id)).getD #[]
+  let count := arguments.size
+  let #[cone] := request.scope.extract count request.scope.size
+    | throwError "the universal family lost its original cone capture"
+  return cone
 
 private def checkPresentationInputs (request : PreparedRequest) (graph : ValueGraph)
     (source target : ValueBinding) (marks : Array ValueBinding) : MetaM Unit := do
@@ -376,7 +430,12 @@ private def prepareProjection (identities : CasRuntime.IdentitySupply)
     application ← application.mapM (·.forProjection projection)
   let action := PreparedAction.project operand field
   let origin ← prepareOrigin program occurrence action source environment none #[]
-  let origin := { origin with application, access := some operand, accessPath := path }
+  let fieldPrefix ← environment.projectionFieldPrefix graph operand source
+  let dependencies ← match fieldPrefix with
+    | none => pure #[]
+    | some nativePrefix => IO.ofExcept <| nativePrefix.dependencies.mapError IO.userError
+  let origin := { origin with application, access := some operand, accessPath := path, fieldPrefix,
+    sourceDependencies := origin.sourceDependencies ++ dependencies }
   prepareRequest identities program occurrence action source context
     #[operand] environment none origin
 
@@ -451,6 +510,47 @@ structure PreparedResponse (request : PreparedRequest) where
 def PreparedResponse.root (response : PreparedResponse request) : CasRuntime.ValueBinding :=
   response.roles.root
 
+/-- Authenticate the original preceding fields of a selected universal response against
+its prepared request. Both association and final admission consume this same source witness. -/
+opaque PreparedRequest.resultFieldPrefix (request : PreparedRequest) (graph : CasRuntime.ValueGraph)
+    (value : CasRuntime.ValueBinding) : MetaM (Option NativeFieldPrefix) := do
+  -- A selected universal field is checked under this request's actual preceding Cone.
+  -- Authenticate the producing prefix against the original request and its fixed capture;
+  -- an equal native result type cannot supply or replace that consuming predecessor.
+  match request.action with
+    | .primitive (.limitUniversal family _) _ => do
+      let cone ← request.universalCone
+      let some node := graph.find value.value
+        | throwError "the universal result lost its original producing value"
+      let some nativePrefix := node.origin.fieldPrefix
+        | throwError "the universal result lost its original native field prefix"
+      discard <| IO.ofExcept <|
+        (nativePrefix.requireOrigin request.program request.occurrence request.source).mapError
+          IO.userError
+      let #[frame] := nativePrefix.frames
+        | throwError "the universal result changed its original whole-presentation frame"
+      let some parent := request.nativeParent
+        | throwError "the universal request lost its original whole-presentation layout"
+      let original := frame.association.layout.source.source
+      let expected := parent.source.source
+      unless original.context.exactlyMatches expected.context &&
+          original.expression.equal expected.expression && original.type.equal expected.type &&
+          original.universeParams == expected.universeParams &&
+          original.nativeDeclarations.exactlyMatches expected.nativeDeclarations &&
+          frame.field.projection == family.projection do
+        throwError "the universal result changed its complete original native presentation"
+      let #[preceding] := parent.fields.filter
+          (·.field.projection == family.presentation.coneProjection)
+        | throwError "the universal request lost its original preceding cone position"
+      let some actual := frame.preceding[preceding.field.sourceIndex]?.bind id
+        | throwError "the universal result lost its actual preceding cone"
+      unless actual.value == cone.value &&
+          cone.associationIds.toList.isPrefixOf actual.associationIds.toList do
+        throwError "the universal result belongs to another actual cone occurrence"
+      discard <| IO.ofExcept <| (graph.requiredOwners #[cone, actual]).mapError IO.userError
+      pure (some nativePrefix)
+    | _ => pure none
+
 /-- Bind actual returned fields to this request's source-declared result roles.
 Every admission of a projection result retains the same prepared operand and native field. -/
 opaque PreparedRequest.admitResult (request : PreparedRequest) (graph : CasRuntime.ValueGraph)
@@ -468,8 +568,9 @@ opaque PreparedRequest.admitResult (request : PreparedRequest) (graph : CasRunti
   let projectionContext := match request.action with
     | .project operand field => some (operand, field)
     | .primitive .. | .apply .. => none
+  let fieldPrefix ← request.resultFieldPrefix graph value
   return ⟨← CasRuntime.ResultRoleMap.admit request.roles request.environment graph value
-    projectionContext⟩
+    projectionContext fieldPrefix⟩
 
 /-- Responses retain actual roots and their scoped result bindings under source-prepared layouts.
 Reference: CSLib 3951377e, Foundations/Data/PFunctor/Free.lean. -/

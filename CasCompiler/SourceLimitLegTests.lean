@@ -85,6 +85,12 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     | throwError "the original product lost its selected category"
   let some selection := category.limit
     | throwError "the original product lost its selected cone"
+  product.source.withOpen fun _ value => do
+    let some retained ← NativeLimitSelection.ofExpr? value
+      | throwError "product formation lost its shared original construction anchor"
+    unless retained.source.construction == selection.construction &&
+        !selection.construction.isAnonymous do
+      throwError "product formation changed its original construction identity"
   let session ← empty.defineTerm `P product
   for (ordinal, constructor) in #[
       (0, ``CategoryTheory.Limits.WalkingPair.left),
@@ -102,6 +108,11 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let component ← mkAppM ``CategoryTheory.NatTrans.app #[projection]
       let index ← mkAppM ``CategoryTheory.Discrete.mk #[Lean.mkConst constructor]
       let expected := mkApp component index
+      let some retained ← NativeLimitLegSelection.ofExpr? value
+        | throwError "the product leg lost its typed original receiver/index demand"
+      unless retained.construction.source.construction == selection.construction &&
+          retained.construction.source.cone.equal cone && retained.index.equal index do
+        throwError "the product leg changed its construction, original cone or native index"
       unless value.containsConst (· == ``CategoryTheory.Discrete.mk) &&
           value.containsConst (· == constructor) && (← isDefEq value expected) do
         throwError "the product leg changed the original cone or actual diagram index"
@@ -195,6 +206,11 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let object ← readAt empty "cokernel(to_dual(1))"
   let some selection := object.category.bind (·.limit)
     | throwError "the named cokernel lost its retained cocone"
+  let independent ← readAt empty "cokernel(to_dual(1))"
+  let some independentSelection := independent.category.bind (·.limit)
+    | throwError "the independent equal cokernel lost its original selection"
+  unless selection.construction != independentSelection.construction do
+    throwError "independent equal constructions shared a formation identity"
   unless selection.colimit do
     throwError "the named cokernel control changed its construction direction"
   let session ← empty.defineTerm `C object
@@ -217,6 +233,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           (← isDefEq receiver.expression otherReceiver.expression) do
         throwError "the control did not retain two distinct equal-valued apex bindings"
       let value ← leg.source.inContext context
+      let some retained ← NativeLimitLegSelection.ofExpr? value
+        | throwError "the named leg lost its original receiver/index demand"
+      unless retained.construction.source.construction == selection.construction &&
+          retained.construction.receiver.equal receiver.expression &&
+          !retained.construction.receiver.equal otherReceiver.expression &&
+          retained.index.isConstOf ``CategoryTheory.Limits.WalkingParallelPair.one do
+        throwError "the named leg replaced its receiver, shared construction or typed index"
       let .mdata data _ := value
         | throwError "the named leg lost its original source metadata"
       let some (.ofNat ordinal) := data.find `CasCompiler.source.leg

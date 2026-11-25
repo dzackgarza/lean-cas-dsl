@@ -2,6 +2,7 @@ module
 
 public import CasCompiler.Context
 public import CasCompiler.LimitInterface
+public import CasCompiler.CreationInterface
 public import CasCompiler.Declaration
 public import CasCompiler.NativeProof
 public import CasCompiler.SourceReference
@@ -58,6 +59,17 @@ structure SourceLimitSelection where
   presentation : ClosedTerm
   diagram : ClosedTerm
   interface : LimitInterface ClosedTerm
+  /-- One formation identity shared by the apex, complete cone and all later legs. -/
+  construction : Name
+  /-- The original interface under the complete formal M telescope. For a creation lift
+  this belongs to the retained target presentation, not the distinct source cone. -/
+  ownerFamily : Option ClosedTerm := none
+  /-- Exact data-bearing creation, separate from the original target presentation. -/
+  creation : Option (LimitCreationInterface ClosedTerm) := none
+  /-- Original source-input telescope, distinct from the target presentation owner family. -/
+  creationFamily : Option ClosedTerm := none
+  /-- Original full diagram-argument indices of that telescope, including proof slots. -/
+  creationInputs : Array Nat := #[]
 
 structure NativeSourceLimitSelection where
   row : String
@@ -69,6 +81,11 @@ structure NativeSourceLimitSelection where
   presentation : Expr
   diagram : Expr
   interface : NativeLimitInterface
+  construction : Name
+  ownerFamily : Option Expr := none
+  creation : Option NativeLimitCreationInterface := none
+  creationFamily : Option Expr := none
+  creationInputs : Array Nat := #[]
 
 /-- The selected symbolic category and its complete native bundle in the original context. -/
 structure SourceCategoryBinding where
@@ -320,7 +337,10 @@ opaque SourceSession.elaborateJudgements (session : SourceSession) (reference : 
             let diagram ← close limit.diagram
             let interface ← limit.interface.mapM close
             return (⟨limit.row, limit.declaration, cone, limit.colimit, limit.category, bundle,
-              presentation, diagram, interface⟩ : SourceLimitSelection)
+              presentation, diagram, interface, limit.construction,
+              ← limit.ownerFamily.mapM close,
+              ← limit.creation.mapM (fun creation => creation.mapM close),
+              ← limit.creationFamily.mapM close, limit.creationInputs⟩ : SourceLimitSelection)
           term.inCategory selected.expression ⟨category, span, none⟩ selected.role selection limit
 
 /-- Form ordinary checked native terms through the same complete source boundary. -/
@@ -481,7 +501,9 @@ private def SourceCategoryBinding.ensureDeclarations (category : SourceCategoryB
   if let some limit := category.limit then
     for term in #[limit.cone, limit.bundle, limit.presentation, limit.diagram,
         limit.interface.presentation, limit.interface.diagram] ++
-        limit.interface.standardization.toArray ++ limit.interface.dataConstructor.toArray do
+        limit.interface.standardization.toArray ++ limit.interface.dataConstructor.toArray ++
+        limit.ownerFamily.toArray ++ limit.creation.toArray.flatMap (·.terms) ++
+        limit.creationFamily.toArray do
       term.ensureDeclarations
 
 /-- Reattach all checked native dependencies of the original selected source term. -/

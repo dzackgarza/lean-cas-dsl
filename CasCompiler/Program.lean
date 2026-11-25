@@ -8,6 +8,10 @@ public import CasCompiler.PresentationFamily
 public import CasCompiler.RoutedMethodFamily
 public import CasCompiler.PropertyFamily
 public import CasCompiler.PointFamily
+public import CasCompiler.CategoricalPointFamily
+public import CasCompiler.LimitFamily
+public import CasCompiler.LimitUniversalFamily
+public import CasCompiler.PreparedCreationFamily
 public import CasCompiler.SourceReference
 
 @[expose] public section
@@ -114,6 +118,11 @@ inductive ProgramBoundary
   | routedMethod (family : RoutedMethodFamily)
   | property (family : PropertyFamily)
   | application (family : PointFamily)
+  | point (family : CategoricalPointFamily)
+  | objectAction (family : SourceActionFamily)
+  | limit (family : LimitFamily) (owner : ClosedTerm)
+  | limitUniversal (family : LimitUniversalFamily) (owner : ClosedTerm)
+  | creation (family : PreparedCreationFamily)
 
 /-- A published computation-family address, when this boundary has one. Other accepted
 source interfaces retain their own exact registered address in the boundary witness. -/
@@ -121,17 +130,8 @@ def ProgramBoundary.reference : ProgramBoundary → Option ComputationRef
   | .registered family => some family.source.reference
   | .target program => some program.source.entry.target
   | .prerequisite program index => some program.source.prerequisites[index.val].reference
-  | .lift _ | .presentation _ | .routedMethod _ | .property _ | .application _ => none
-
-def ProgramBoundary.family : ProgramBoundary → Expr
-  | .registered family => family.source.family
-  | .target program => program.source.target
-  | .prerequisite program index => program.source.prerequisites[index.val].family
-  | .lift family => family.family
-  | .presentation family => family.family
-  | .routedMethod family => family.family
-  | .property family => family.family
-  | .application family => family.family
+  | .lift _ | .presentation _ | .routedMethod _ | .property _ | .application _
+  | .point _ | .objectAction _ | .limit _ _ | .limitUniversal _ _ | .creation _ => none
 
 def ProgramBoundary.universeParams : ProgramBoundary → List Name
   | .registered family => family.universeParams
@@ -141,5 +141,37 @@ def ProgramBoundary.universeParams : ProgramBoundary → List Name
   | .routedMethod family => family.universeParams
   | .property family => family.universeParams
   | .application family => family.universeParams
+  | .point family => family.universeParams
+  | .objectAction family => family.universeParams
+  | .limit family _ => family.universeParams
+  | .limitUniversal family _ => family.universeParams
+  | .creation family => family.family.universeParams
+
+/-- Open the accepted family in the caller's original complete source context. Global
+declarations retain their rigid universe substitution; a fixed creation request reopens its
+already captured native context and is never reinterpreted in an empty local context. -/
+def ProgramBoundary.familyIn (boundary : ProgramBoundary) (universes : List Level)
+    (context : OpenContext) : MetaM Expr := do
+  unless universes.length == boundary.universeParams.length do
+    throwError "the source boundary changed its complete universe telescope"
+  let instantiate : Expr → MetaM Expr := fun source =>
+    pure (source.instantiateLevelParams boundary.universeParams universes)
+  match boundary with
+  | .registered family => instantiate family.source.family
+  | .target program => instantiate program.source.target
+  | .prerequisite program index => instantiate program.source.prerequisites[index.val].family
+  | .lift family => instantiate family.family
+  | .presentation family => instantiate family.family
+  | .routedMethod family => instantiate family.family
+  | .property family => instantiate family.family
+  | .application family => instantiate family.family
+  | .point family => instantiate family.family
+  | .objectAction family => instantiate family.family
+  | .limit family _ => instantiate family.family
+  | .limitUniversal family _ => instantiate family.family
+  | .creation family => do
+    unless universes == family.universes do
+      throwError "the fixed creation changed its original evidence universe arguments"
+    family.familyIn context
 
 end CasCompiler

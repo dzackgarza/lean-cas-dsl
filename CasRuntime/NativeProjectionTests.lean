@@ -1,6 +1,8 @@
 module
 
 import CasRuntime.Session
+import CasCompiler.SourceLimit
+import CasCompiler.SourceCarrier
 import LeanCategories.Catalogue.Semantics.Algebra.NamedRings
 import LeanCategories.Catalogue.Semantics.Algebra.NamedCommutativeRings
 import LeanCategories.Catalogue.Semantics.Algebra.Polynomials
@@ -15,6 +17,8 @@ import LeanCategories.Catalogue.Semantics.Algebra.NumberSystems
 import LeanCategories.Catalogue.Semantics.Algebra.Series
 public meta import Lean.Elab.Command
 meta import CasRuntime.Session
+meta import CasCompiler.SourceLimit
+meta import CasCompiler.SourceCarrier
 meta import LeanCategories.Catalogue.Semantics.Algebra.NamedRings
 meta import LeanCategories.Catalogue.Semantics.Algebra.NamedCommutativeRings
 meta import LeanCategories.Catalogue.Semantics.Algebra.Polynomials
@@ -330,6 +334,66 @@ private def checkSelectedLimitProducer (source : SourceSession) (kernel : Kernel
           "changed its original producer application").length > 1 do throw failure
   finally discard <| transaction.abort
 
+/-- Lower one native source lambda once, then use it at distinct actual input occurrences.
+The producer's static source selection is shared, while its completed selections are not. -/
+private def checkRepeatedLimitSource (source : SourceSession) (kernel : Kernel) :
+    TermElabM Unit := do
+  let function ← source.elaborate Syntax.missing fun _ => do
+    withLocalDeclD `X (mkSort (Level.succ Level.zero)) fun input => do
+      let object ← sourceSetJudgement .object input
+      let product ← sourceBinaryLimit object object false
+      mkLambdaFVars #[input] product.value
+  let readObject := fun text => do
+    let .ok parsed := Parser.runParserCategory (← getEnv) `cas_term text
+      | throwError "the repeated construction's original object source did not parse"
+    source.read ⟨parsed⟩
+  let first ← readObject "Fin(2)"
+  let second ← readObject "Fin(3)"
+  let transaction ← CellTransaction.begin kernel.ledger
+  try
+    function.source.withOpen fun bindings expression => do
+      let context ← ContextTelescope.capture bindings
+      let selection ← lambdaTelescope expression fun _ body => do
+        let some original ← NativeLimitSelection.ofExpr? body
+          | throwError "the compiled construction lost its original source anchor"
+        return original.source.construction
+      let before := (← kernel.dispatches.get).size
+      let callable ← kernel.run transaction context {} expression
+      let marked ← markValue kernel.marks callable expression
+      let mut receivers := #[]
+      for input in #[first, first, second] do
+        let argument ← input.source.inContext context
+        let receiver ← kernel.run transaction context {} (mkApp marked argument)
+        let some node := (← transaction.view).find receiver.value
+          | throwError "the repeated construction lost its actual receiver node"
+        node.origin.role.source.withOpen fun _ original => do
+          let some retained ← NativeLimitSelection.ofExpr? original
+            | throwError "the construction execution lost its original source selection"
+          unless retained.source.construction == selection do
+            throwError "the one compiled source lambda acquired another producer identity"
+        receivers := receivers.push receiver
+      let #[firstReceiver, equalReceiver, otherReceiver] := receivers
+        | throwError "the repeated construction lost an actual source application"
+      unless firstReceiver.value != equalReceiver.value &&
+          firstReceiver.value != otherReceiver.value &&
+          equalReceiver.value != otherReceiver.value do
+        throwError "the compiled construction merged distinct actual applications"
+      let field := `occurrenceProbe
+      let .ok () ← transaction.bindSelectedAt selection field firstReceiver firstReceiver
+        | throwError "the first actual source receiver could not retain its selection"
+      for unrelated in #[equalReceiver, otherReceiver] do
+        let .ok none ← transaction.selectedAt selection field unrelated
+          | throwError "a compiled source selection crossed an actual receiver boundary"
+        let .ok () ← transaction.bindSelectedAt selection field unrelated unrelated
+          | throwError "another source application could not retain its own occurrence"
+      let .ok (some selected) ← transaction.selectedAt selection field firstReceiver
+        | throwError "the first actual source occurrence lost its original selection"
+      unless bindingKey selected == bindingKey firstReceiver do
+        throwError "a later application replaced the first exact receiver selection"
+      unless (← kernel.dispatches.get).size == before do
+        throwError "forming the original symbolic constructions demanded an implementation"
+  finally discard <| transaction.abort
+
 run_cmd liftTermElabM do
   let environment ← getEnv
   try
@@ -342,6 +406,7 @@ run_cmd liftTermElabM do
       ("assert |Fin(2) ⊔ Fin(3)| = 5", "meth.cardinality")]
     try
       checkSelectedLimitProducer source kernel
+      checkRepeatedLimitSource source kernel
       -- The outer carrier projection must cross the existing native definition of the
       -- unretained classifier total. Reprojecting its field closure is the same computation.
       let context ← ContextTelescope.capture #[]

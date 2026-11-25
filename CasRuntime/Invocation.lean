@@ -8,6 +8,8 @@ public import CasRuntime.Presentation
 public import CasRuntime.Point
 public import CasRuntime.RoutedMethod
 public import CasRuntime.Property
+public import CasRuntime.Limit
+public import CasRuntime.Creation
 
 public section
 
@@ -22,7 +24,13 @@ reply with its completion. A deferred group runs first, with the provider permit
 Reuse: FramedConnection.invokeControlBefore and stageCompletion. -/
 partial def Kernel.invoke (kernel : Kernel) (evaluateSource : SourceEvaluation) (request : PreparedRequest)
     (transaction : CellTransaction) (wire : FramedConnection) (reservation : DispatchReservation)
-    (encoded : EncodedInputs) (arguments : Json) : MetaM (PreparedResponse request) := do
+    (encoded : EncodedInputs) (arguments : Json)
+    (codec : Option (PreparedResultCodec request.roles.scope) := none) :
+    MetaM (PreparedResponse request) := do
+  let codec ← match codec with
+    | some codec => pure codec
+    | none => PreparedResultCodec.forNative request (preparedSymbolicCheck kernel request transaction)
+  let codec := some codec
   let graph ← transaction.view
   let issued ← RequestScope.issue kernel.ledger reservation graph encoded.slots encoded.inputs #[]
   let control ← match ← wire.invokeControlBefore kernel.ledger transaction reservation issued
@@ -35,7 +43,7 @@ partial def Kernel.invoke (kernel : Kernel) (evaluateSource : SourceEvaluation) 
         encoded.inputs results)
     control
   match ← reply.stageCompletion request transaction scope wire.connection
-      (some (kernel.resolveFixedInput evaluateSource transaction request.program)) with
+      (some (kernel.resolveFixedInput evaluateSource transaction request.program)) codec with
   | .error failure => transactionFailure failure
   | .ok association => request.admitResult (← transaction.view) association.response.root
 
@@ -72,6 +80,55 @@ partial def Kernel.invokeRegistration (kernel : Kernel) (evaluateSource : Source
       (bindings.zipWith (fun binding packet => (binding.1, packet))
         (encoded.values.extract parameters.size leading))
       (encoded.values.extract leading encoded.values.size) (argumentLayouts request) request.source
+
+/-- Invoke one original raw construction through the ordinary scoped reply lifecycle. Its
+accepted constructor codec admits every data port before exposing any native cone field. -/
+partial def Kernel.invokeLimit (kernel : Kernel) (evaluateSource : SourceEvaluation)
+    (request : PreparedRequest) (transaction : CellTransaction) (registration : Registration)
+    (invocation : PreparedLimitInvocation) : MetaM (PreparedResponse request) := do
+  request.requirePreparation invocation.preparation
+  unless registration.operation == invocation.family.operation &&
+      invocation.forms.contains registration.input do
+    throwError "the construction changed its original operation or diagram category"
+  let codec ← invocation.resultCodec kernel request transaction registration
+  let wire ← kernel.connections.get registration.backend
+  let graph ← transaction.view
+  invocation.requireInputs request graph
+  let (encoded, packet) ← IO.ofExcept <|
+    (invocation.encode graph wire.connection.generation).mapError IO.userError
+  let identity : DispatchIdentity := {
+    manifestDigest := kernel.manifestDigest, registration, profileDigest := kernel.profile.sha256 }
+  let reservation ← match ← transaction.reserve request.occurrence identity wire.connection
+      invocation.dependencies with
+    | .ok reservation => pure reservation
+    | .error failure => transactionFailure failure
+  kernel.dispatches.modify (·.push registration)
+  kernel.invoke evaluateSource request transaction wire reservation encoded packet (some codec)
+
+/-- Invoke the complete fixed creation family once. Its exact original context and
+both target data inputs are encoded by preparation; the ordinary native record codec admits
+all LiftsToLimit fields together before a later projection or application can use them. -/
+partial def Kernel.invokeCreation (kernel : Kernel) (evaluateSource : SourceEvaluation)
+    (request : PreparedRequest) (transaction : CellTransaction) (registration : Registration)
+    (invocation : PreparedCreationInvocation) : MetaM (PreparedResponse request) := do
+  request.requirePreparation invocation.preparation
+  unless registration.operation == invocation.family.operation &&
+      invocation.forms.contains registration.input do
+    throwError "the creation changed its original fixed family or input form"
+  let wire ← kernel.connections.get registration.backend
+  let graph ← transaction.view
+  invocation.requireInputs request graph
+  let (encoded, parameters) ← IO.ofExcept <|
+    (invocation.encode graph wire.connection.generation).mapError IO.userError
+  let identity : DispatchIdentity := {
+    manifestDigest := kernel.manifestDigest, registration, profileDigest := kernel.profile.sha256 }
+  let reservation ← match ← transaction.reserve request.occurrence identity wire.connection
+      invocation.dependencies with
+    | .ok reservation => pure reservation
+    | .error failure => transactionFailure failure
+  kernel.dispatches.modify (·.push registration)
+  kernel.invoke evaluateSource request transaction wire reservation encoded
+    (dependentContext "" parameters #[] #[] #[] request.source)
 
 /-- Invoke a complete named presentation through the ordinary reservation, scope, deferred
 control, reply admission and atomic completion lifecycle. Only its published packet differs
@@ -153,6 +210,29 @@ partial def Kernel.invokePoint (kernel : Kernel) (evaluateSource : SourceEvaluat
   unless registration.operation == invocation.operation &&
       invocation.forms.contains registration.input do
     throwError "the named point invocation changed its selected operation or input form"
+  let codec ← invocation.resultCodec kernel request transaction registration
+  let wire ← kernel.connections.get registration.backend
+  let graph ← transaction.view
+  invocation.requireInputs request graph
+  let (encoded, packet) ← IO.ofExcept <|
+    (invocation.encode graph wire.connection.generation).mapError IO.userError
+  let identity : DispatchIdentity := {
+    manifestDigest := kernel.manifestDigest, registration, profileDigest := kernel.profile.sha256 }
+  let reservation ← match ← transaction.reserve request.occurrence identity wire.connection
+      invocation.dependencies with
+    | .ok reservation => pure reservation
+    | .error failure => transactionFailure failure
+  kernel.dispatches.modify (·.push registration)
+  kernel.invoke evaluateSource request transaction wire reservation encoded packet codec
+
+/-- Dispatch the original complete native object action through its released receiver packet. -/
+partial def Kernel.invokeObjectAction (kernel : Kernel) (evaluateSource : SourceEvaluation)
+    (request : PreparedRequest) (transaction : CellTransaction) (registration : Registration)
+    (invocation : PreparedObjectAction) : MetaM (PreparedResponse request) := do
+  request.requirePreparation invocation.preparation
+  unless registration.operation == invocation.operation &&
+      invocation.forms.contains registration.input do
+    throwError "the object action changed its original operation or input form"
   let wire ← kernel.connections.get registration.backend
   let graph ← transaction.view
   invocation.requireInputs request graph

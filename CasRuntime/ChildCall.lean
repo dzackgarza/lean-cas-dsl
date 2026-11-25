@@ -6,6 +6,7 @@ public import CasRuntime.Literal
 public import CasRuntime.Encode
 public import CasRuntime.RoutedMethod
 public import CasRuntime.Property
+public import CasRuntime.ConstructionSource
 
 public section
 
@@ -91,13 +92,35 @@ partial def Kernel.child (kernel : Kernel) (evaluateSource : SourceEvaluation) (
         | .application row =>
           discard <| InputDescriptorView.requireApplication (← transaction.view)
             (← kernel.codes.get) value row.id
+      admitCategorical := fun family parameters selected => do
+        let value ← boundSourceValue kernel transaction selected
+        let graph ← transaction.view
+        let view ← InputDescriptorView.requireCategorical graph (← kernel.codes.get) value family
+        let some original := view.family
+          | malformed "the categorical arrow lost its original source preparation"
+        let values := original.origin.application.map (·.arguments) |>.getD #[]
+        unless parameters.size == values.size do
+          malformed "the categorical arrow changed its complete original parameter telescope"
+        for expected in parameters, supplied in values do
+          match supplied with
+          | some actual =>
+            request.environment.checkDeclaredInput context graph (← kernel.marks.get) expected actual
+          | none =>
+            unless ← isProof expected do
+              malformed "the categorical arrow lost an original computational parameter"
       projection := fun packet position => do
         let some value ← retained packet | malformed "the acted value must be a scoped reference"
         let some field := value.role.fields.find? (·.wireIndex == some position)
           | malformed "the field is outside the prepared record interface"
         return (← sourceFor value, field.projection) }
+    let source := { source with
+      constructionCone := fun packet => do
+        kernel.retainedConstructionCone transaction (← transaction.view) context retained packet
+      creationOwner := fun packet => do
+        kernel.retainedCreationOwner (← transaction.view) context retained packet }
     let term ← Elab.Term.TermElabM.run' do
       Elab.Term.withSynthesize do PublishedSource.prepare source call
     evaluateSource transaction request.program context bound term
 
 end CasRuntime
+

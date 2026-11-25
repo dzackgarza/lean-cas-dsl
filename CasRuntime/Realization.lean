@@ -31,6 +31,7 @@ inductive ProfileTarget
   | presentation (id : NaturalTransformationId)
   | property (id : PropertyId)
   | application (id : ObjectId)
+  | limit (id : LimitId)
   | component (id : NaturalTransformationId)
   | cartesian (id : FunctorId)
   | binder (id : BinderId)
@@ -70,6 +71,7 @@ private def targetJson : ProfileTarget → Json
   | .presentation id => Json.mkObj [("kind", toJson "presentation"), ("id", toJson id.raw)]
   | .property id => Json.mkObj [("kind", toJson "property"), ("id", toJson id.raw)]
   | .application id => Json.mkObj [("kind", toJson "application"), ("id", toJson id.raw)]
+  | .limit id => Json.mkObj [("kind", toJson "limit"), ("id", toJson id.raw)]
   | .component id => Json.mkObj [("kind", toJson "component"), ("id", toJson id.raw)]
   | .cartesian id => Json.mkObj [("kind", toJson "cartesian"), ("id", toJson id.raw)]
   | .binder id => Json.mkObj [("kind", toJson "binder"), ("id", toJson id.raw)]
@@ -88,6 +90,7 @@ private def parseTarget (json : Json) : Except String ProfileTarget := do
   | "presentation" => return .presentation ⟨id⟩
   | "property" => return .property ⟨id⟩
   | "application" => return .application ⟨id⟩
+  | "limit" => return .limit ⟨id⟩
   | "component" => return .component ⟨id⟩
   | "cartesian" => return .cartesian ⟨id⟩
   | "binder" => return .binder ⟨id⟩
@@ -186,11 +189,15 @@ opaque ProfileTarget.containsAddress (target : ProfileTarget) (state : SemanticS
     (address : String) : MetaM Bool := do
   match target with
   | .computation reference => return (← publishedFamily? state address) == some reference
-  | .lift id => return (← publishedLift? state address).any (·.1.id == id)
+  | .lift id => return (← publishedLift? state address).any (·.1.id == id) ||
+      (← publishedCreation? state address).any (·.entry.id == id)
   | .presentation id => return (publishedPresentation? state address).any (·.id == id)
   | .property id => return (publishedProperty? state address).any (·.id == id)
   | .application id => return !applicationAddressConflict state address &&
       (publishedApplication? state address).any (·.id == id)
+  | .limit id =>
+    if address == id.raw then return state.limits.any (·.id == id)
+    return (← publishedLimitUniversal? state address).any (·.presentation.entry.id == id)
   | .component id =>
     return ((PublishedPorts.component? state address).toOption.bind (fun value => value)).any
       (·.1.id == id)
@@ -218,11 +225,15 @@ opaque RealizationProfile.prepare (manifest : Manifest) (configuration : Option 
     | .lift id =>
       let some row := state.lifts.find? (·.id == id)
         | throwError "realization profile: unregistered callable lift {id.raw}"
-      if row.computation.isNone then
-        throwError "realization profile: unregistered callable lift {id.raw}"
-      let family ← CasCompiler.LiftFamily.forLift row .computation
-      if (← family.projections).isEmpty then
-        throwError "realization profile: unregistered callable lift {id.raw}"
+      if let .createsLimits _ := row.kind then
+        if (← PublishedPorts.forCreation id).isEmpty then
+          throwError "realization profile: unregistered callable creation {id.raw}"
+      else
+        if row.computation.isNone then
+          throwError "realization profile: unregistered callable lift {id.raw}"
+        let family ← CasCompiler.LiftFamily.forLift row .computation
+        if (← family.projections).isEmpty then
+          throwError "realization profile: unregistered callable lift {id.raw}"
     | .presentation id =>
       unless (publishedPresentation? state id.raw).isSome do
         throwError "realization profile: unregistered presentation {id.raw}"
@@ -234,6 +245,9 @@ opaque RealizationProfile.prepare (manifest : Manifest) (configuration : Option 
         throwError "realization profile: unregistered object application {id.raw}"
       if applicationAddressConflict state s!"{id.raw}#application" then
         throwError "realization profile: the application address also names another registered row"
+    | .limit id =>
+      unless state.limits.any (·.id == id) do
+        throwError "realization profile: unregistered universal construction {id.raw}"
     | .component id =>
       unless ((PublishedPorts.component? state
           (PublishedPorts.componentAddress id #[])).toOption.bind (fun value => value)).isSome do

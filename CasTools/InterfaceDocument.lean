@@ -60,7 +60,8 @@ def dataInterfaces : Array Name :=
   #[``BackendProgram, ``PreferredRoute, ``Registration, ``Manifest,
     ``Backend.ObjectField, ``Backend.MorphismEndpoint, ``Backend.TypedMap,
     ``Backend.LiftImages, ``Backend.LiftInput, ``Backend.LiftFactorInput,
-    ``Backend.CartesianMap, ``Backend.ConstructionField, ``Backend.CategoryParameter,
+    ``Backend.CartesianMap, ``Backend.ConstructionField, ``Backend.CreatedCone,
+    ``Backend.CategoryParameter,
     ``Backend.ConstructedCategory, ``Backend.StructuredProjectionAction,
     ``Backend.FunctorParameter, ``Backend.CellComponent, ``Backend.ConstructedCellComponent,
     ``Backend.CoreObject, ``Backend.CoreIso, ``Backend.ConstructionInvocation,
@@ -198,3 +199,4 @@ def help (document : Json) : Except String String := do
   return result
 
 end CasTools.InterfaceExport
+

@@ -13,6 +13,7 @@ open Lean Meta CasCatalogue
 inductive RecordActionOwner
   | computation (reference : ComputationRef)
   | lift (id : LiftId)
+  | limit (id : LimitId)
 
 /-- A required invocation value at its original native field slot. -/
 structure RecordActionInput where
@@ -30,6 +31,8 @@ structure RecordAction where
   address : String
   familyAddress : String
   inputs : Array RecordActionInput
+  /-- Exact outer native predecessor slots retained by this selected subfamily. -/
+  predecessors : Array RecordActionInput := #[]
 
 /-- Original registered family identity, shared by source ports and admission. -/
 def computationAddress : ComputationRef → String
@@ -40,12 +43,16 @@ def computationAddress : ComputationRef → String
   | .morphism id => id.raw
 
 /-- The released ordinary-family address of an already validated native field path. -/
-opaque recordActionAddress (reference : ComputationRef) (path : Array FieldLayout) : String :=
+opaque nativeRecordActionAddress (owner : String) (path : Array FieldLayout) : String :=
   match path.back? with
   | some field =>
-    if field.wireIndex == some 0 then computationAddress reference
-    else s!"{computationAddress reference}#{field.projection.getString!}"
-  | none => computationAddress reference
+    if field.wireIndex == some 0 then owner
+    else s!"{owner}#{field.projection.getString!}"
+  | none => owner
+
+/-- Ordinary registered families reuse the same native-field address rule. -/
+opaque recordActionAddress (reference : ComputationRef) (path : Array FieldLayout) : String :=
+  nativeRecordActionAddress (computationAddress reference) path
 
 /-- Project the checked native field without reducing or replacing its parent. -/
 private def project (parent : Expr) (field : FieldLayout) : MetaM Expr := do
@@ -129,15 +136,30 @@ opaque RecordAction.prepare (boundary : ProgramBoundary) (universes : List Level
     (selection : Option Name) : MetaM RecordAction := do
   unless universes.length == boundary.universeParams.length do
     throwError "the record action changed its original universe telescope"
-  let declared := mkAppN
-    (boundary.family.instantiateLevelParams boundary.universeParams universes) parameters
+  let declared := mkAppN (← boundary.familyIn universes context) parameters
   unless ← isDefEq declared (← source.source.inContext context) do
     throwError "the record action changed its original applied source family"
   if let some reference := boundary.reference then
     let id := computationAddress reference
-    if path.isEmpty then return ⟨.computation reference, id, id, #[]⟩
+    if path.isEmpty then return ⟨.computation reference, id, id, #[], #[]⟩
     return ⟨.computation reference, recordActionAddress reference path, id,
-      ← source.actionInputs context parent path⟩
+      ← source.actionInputs context parent path, #[]⟩
+  if let .limitUniversal family _ := boundary then
+    let presentation := mkAppN
+      (family.presentation.presentationFamily.instantiateLevelParams
+        family.universeParams universes) parameters
+    let original ← SourceLayout.ofTerm (← context.close presentation)
+    let some universal := original.fields.find? (·.projection == family.projection)
+      | throwError "the universal action lost its original presentation field"
+    let predecessors ← nativeInputs context original presentation universal
+    let inputs ← if path.isEmpty then pure #[]
+      else source.actionInputs context parent path
+    return ⟨.limit family.presentation.entry.id,
+      nativeRecordActionAddress family.operation path, family.operation, inputs, predecessors⟩
+  if let .creation family := boundary then
+    unless path.isEmpty do
+      throwError "a creation field must use its completed original native result"
+    return ⟨.lift family.family.entry.id, family.operation, family.operation, #[], #[]⟩
   let .lift family := boundary
     | throwError "the selected source interface has no ordinary record action"
   let (layout, parent, field) ← parentAt source parent path
@@ -155,6 +177,6 @@ opaque RecordAction.prepare (boundary : ProgramBoundary) (universes : List Level
       let computationLayout ← SourceLayout.ofTerm (← context.close computation)
       orderedInputs context selection computationLayout computation
         computationLayout.fields.size arguments
-  return ⟨.lift family.lift, address, family.lift.raw, inputs⟩
+  return ⟨.lift family.lift, address, family.lift.raw, inputs, #[]⟩
 
 end CasCompiler

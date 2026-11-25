@@ -529,6 +529,7 @@ def RoutedMethodFamily.receiverProjectionInputRoutes (family : RoutedMethodFamil
     declaration path position inputDeclaration
 
 private def projectionArgument (name : Name) (expression : Expr) : MetaM Expr := do
+  let expression := expression.consumeMData
   unless expression.getAppFn.isConstOf name do
     throwError "the routed action changed its native wrapper {name}"
   let info ← getFunInfoNArgs expression.getAppFn expression.getAppNumArgs
@@ -541,6 +542,7 @@ private def projectionArgument (name : Name) (expression : Expr) : MetaM Expr :=
   return argument
 
 private def declaredApplication (name : Name) (expression : Expr) : MetaM Expr := do
+  let expression := expression.consumeMData
   unless expression.getAppFn.isConstOf name do
     throwError "the routed action lost its original declaration {name}"
   let arity ← forallTelescopeReducing (← inferType expression.getAppFn)
@@ -553,6 +555,7 @@ private def declaredApplication (name : Name) (expression : Expr) : MetaM Expr :
 classifierForgetInstance and applyConstructorInterface. This follows the selected native spine;
 it does not search for a declaration or a value elsewhere in the source expression. -/
 private partial def routedActionApplicationCore (edge : EdgeRef) (expression : Expr) : MetaM Expr := do
+  let expression := expression.consumeMData
   let state ← semanticState
   match edge with
   | .functor id =>

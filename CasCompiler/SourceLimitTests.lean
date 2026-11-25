@@ -173,13 +173,16 @@ run_cmd Lean.Elab.Command.liftTermElabM do
 private def limitOwnerTerms (limit : NativeSourceLimitSelection) : Array Expr :=
   #[limit.cone, limit.bundle, limit.presentation, limit.diagram,
     limit.interface.presentation, limit.interface.diagram] ++
-    limit.interface.standardization.toArray ++ limit.interface.dataConstructor.toArray
+    limit.interface.standardization.toArray ++ limit.interface.dataConstructor.toArray ++
+    limit.ownerFamily.toArray
 
 private def limitOwnerSyntax (original retained : NativeSourceLimitSelection) : Bool :=
   retained.row == original.row && retained.declaration == original.declaration &&
+    retained.construction == original.construction &&
     retained.colimit == original.colimit && retained.category.syntacticEq original.category &&
     retained.interface.standardization.isSome == original.interface.standardization.isSome &&
-    retained.interface.dataConstructor.isSome == original.interface.dataConstructor.isSome
+    retained.interface.dataConstructor.isSome == original.interface.dataConstructor.isSome &&
+    retained.ownerFamily.isSome == original.ownerFamily.isSome
 
 private def ownerNativeTerms (category : NativeSourceCategory) : Array Expr :=
   #[category.bundle] ++
@@ -207,7 +210,8 @@ private def freezeLimitOwner (judgement : NativeSourceJudgement) : MetaM NativeS
       let presentation ← resolve limit.presentation
       let diagram ← resolve limit.diagram
       let interface ← limit.interface.mapM resolve
-      return { limit with cone, bundle, presentation, diagram, interface }
+      let ownerFamily ← limit.ownerFamily.mapM resolve
+      return { limit with cone, bundle, presentation, diagram, interface, ownerFamily }
     return { selected with bundle, carrier, limit }
   return ⟨value, category⟩
 
@@ -253,6 +257,24 @@ private def checkLimitEnvelope (session : SourceSession) (text : String) : TermE
       | throwError "the original construction has no selected cone"
     unless limit.interface.standardization.isSome && limit.interface.dataConstructor.isSome do
       throwError "the independent binary limit row lost its declared computational interface"
+    let some ownerFamily := limit.ownerFamily
+      | throwError "the original construction lost its full formal owner family"
+    lambdaTelescope ownerFamily fun formals owner => do
+      let some formal ← NativeLimitSelection.ofExpr? owner
+        | throwError "the original owner family lost its formal source selection"
+      let parameters := formal.source.interface.presentation.getAppArgs
+      unless formal.source.construction == limit.construction &&
+          formal.source.ownerFamily.isNone && formals.size == parameters.size &&
+          (formals.zip parameters).all (fun (formal, actual) => formal.equal actual) do
+        throwError "the owner family replaced or merged complete formal M argument positions"
+    let applied := ownerFamily.betaRev
+      limit.interface.presentation.getAppArgs.reverse (preserveMData := true)
+    let some applied ← NativeLimitSelection.ofExpr? applied
+      | throwError "the original owner family lost its actual source application"
+    unless applied.source.construction == limit.construction &&
+        applied.source.interface.presentation.equal limit.interface.presentation &&
+        applied.source.interface.dataConstructor == limit.interface.dataConstructor do
+      throwError "source formation re-prepared its original interface after actual substitution"
     let encoded ← annotateSourceObject category original.value
     let some (decoded, object) ← sourceObjectOrigin? encoded
       | throwError "the selected construction lost its object annotation"

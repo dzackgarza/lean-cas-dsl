@@ -78,6 +78,9 @@ structure SessionSnapshot where
   outputBatches : Array OutputBatch
   private receipts : Std.HashMap (RuntimeId .occurrence) CommittedReceipt
   private selections : Std.HashMap (Name × Name) ValueBinding := {}
+  private receiverSelections :
+    Std.HashMap (Name × Name × RuntimeId .value × Array (RuntimeId .association))
+      (ValueBinding × ValueBinding) := {}
 
 /-- Inert receipt visibility belongs to this exact immutable Environment snapshot. -/
 def SessionSnapshot.receipt (snapshot : SessionSnapshot) (occurrence : RuntimeId .occurrence) :
@@ -103,7 +106,7 @@ opaque SessionSnapshot.initialize (owners : OwnerRegistry) : CoreM SessionSnapsh
   if (snapshotExtension.getState environment).isSome then
     throwError "the runtime Environment is already initialized"
   let snapshot : SessionSnapshot :=
-    ⟨← owners.identities.fresh .snapshot, ValueGraph.empty owners.identities, #[], {}, {}⟩
+    ⟨← owners.identities.fresh .snapshot, ValueGraph.empty owners.identities, #[], {}, {}, {}⟩
   setEnv (snapshotExtension.setState environment (some snapshot))
   return snapshot
 
@@ -120,6 +123,9 @@ private structure ActiveCell where
   readySignals : Std.HashMap (RuntimeId .occurrence) (IO.Promise Unit) := {}
   claims : Std.HashMap (RuntimeId .occurrence) CasCompiler.RoleScope := {}
   selections : Std.HashMap (Name × Name) ValueBinding := {}
+  receiverSelections :
+    Std.HashMap (Name × Name × RuntimeId .value × Array (RuntimeId .association))
+      (ValueBinding × ValueBinding) := {}
 
 private inductive CellState
   | active (cell : ActiveCell)
@@ -174,6 +180,16 @@ opaque CellDraft.bindApplication (draft : CellDraft) (origin : ValueOrigin)
 opaque CellDraft.bindProjection (draft : CellDraft) (origin : ValueOrigin)
     (value : ValueBinding) (fields : Array ValueBinding) : MetaM (CellDraft × ValueBinding) := do
   let (graph, binding) ← draft.graph.bindProjection draft.identities origin value fields
+  return ({ draft with graph, roots := draft.roots.push binding }, binding)
+
+/-- Add only native constructor telescope/field views in this isolated reply graph.
+The selected port and its stored descendants retain their original node identities. -/
+opaque CellDraft.bindTelescopeTransport (draft : CellDraft)
+    (transport : CasCompiler.ConstructorProjectionTransport)
+    (parameters : Array (Option ValueBinding)) (marks : Array (Nat × ValueBinding))
+    (selected : ValueBinding) : MetaM (CellDraft × ValueBinding) := do
+  let (graph, binding) ← draft.graph.bindTelescopeTransport draft.identities transport
+    parameters marks selected
   return ({ draft with graph, roots := draft.roots.push binding }, binding)
 
 inductive ReuseDecision
@@ -262,6 +278,50 @@ def CellTransaction.bindSelected (transaction : CellTransaction) (selection fiel
         cell.parent.selections[(selection, field)]? then
       unless existing.value == value.value do return .error .invalidCompletion
     set (CellState.active { cell with selections := cell.selections.insert (selection, field) value })
+    return .ok ()
+
+/-- Read a completed selection of this exact original receiver occurrence. The source name
+identifies compiled producer syntax; the node and complete association path distinguish its
+actual executions. Both the supplied and originally retained owner views remain live. -/
+def CellTransaction.selectedAt (transaction : CellTransaction) (selection field : Name)
+    (receiver : ValueBinding) : BaseIO (Except TransactionFailure (Option ValueBinding)) :=
+  transaction.state.atomically do
+    let state ← get
+    let .active cell := state | return .error state.failure
+    let .ok _ := cell.graph.requiredOwners #[receiver]
+      | return .error .referenceOutsideGraph
+    unless ← cell.graph.isAvailable transaction.owners receiver do return .error .staleOwner
+    let key := (selection, field, receiver.value, receiver.associationIds)
+    let selected := cell.receiverSelections[key]? <|> cell.parent.receiverSelections[key]?
+    let some (original, value) := selected | return .ok none
+    unless (← cell.graph.isAvailable transaction.owners original) &&
+        (← cell.graph.isAvailable transaction.owners value) do return .error .staleOwner
+    return .ok (some value)
+
+/-- Retain only a successfully completed value for one exact source receiver. Publication
+and abort use the ordinary cell snapshot. Rebinding may repeat that exact result, but cannot
+replace its node or consuming association path with another completed occurrence. -/
+def CellTransaction.bindSelectedAt (transaction : CellTransaction) (selection field : Name)
+    (receiver value : ValueBinding) : BaseIO (Except TransactionFailure Unit) :=
+  transaction.state.atomically do
+    let state ← get
+    let .active cell := state | return .error state.failure
+    let .ok _ := cell.graph.requiredOwners #[receiver, value]
+      | return .error .referenceOutsideGraph
+    unless (← cell.graph.isAvailable transaction.owners receiver) &&
+        (← cell.graph.isAvailable transaction.owners value) do return .error .staleOwner
+    let key := (selection, field, receiver.value, receiver.associationIds)
+    let prior := cell.receiverSelections[key]? <|> cell.parent.receiverSelections[key]?
+    if let some (original, existing) := prior then
+      unless existing.value == value.value && existing.associationIds == value.associationIds do
+        return .error .invalidCompletion
+      unless (← cell.graph.isAvailable transaction.owners original) &&
+          (← cell.graph.isAvailable transaction.owners existing) do return .error .staleOwner
+      set (CellState.active { cell with roots := cell.roots ++ #[receiver, existing] })
+      return .ok ()
+    set (CellState.active { cell with
+      receiverSelections := cell.receiverSelections.insert key (receiver, value)
+      roots := cell.roots ++ #[receiver, value] })
     return .ok ()
 
 /-- Visible committed receipt, then this cell's completion, then its exact pending locator.
@@ -722,7 +782,9 @@ opaque CellTransaction.commit (transaction : CellTransaction) :
         let snapshot : SessionSnapshot :=
           ⟨snapshotId, cell.graph, cell.parent.outputBatches.push batch, receipts,
             cell.selections.fold (fun values key value => values.insert key value)
-              cell.parent.selections⟩
+              cell.parent.selections,
+            cell.receiverSelections.fold (fun values key value => values.insert key value)
+              cell.parent.receiverSelections⟩
         set (CellState.committed snapshot.id)
         return snapshot
     match result with

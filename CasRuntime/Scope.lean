@@ -2,35 +2,13 @@ module
 
 public import CasRuntime.Occurrence
 public import CasContract.Port
+public import CasRuntime.ScopeReference
 
 public section
 
 namespace CasRuntime
 
 open Lean CasCatalogue.Backend
-
-inductive ScopedReference
-  | scope (slot : Nat)
-  | input (path : Array InputPathStep)
-  | result (index : Nat)
-  deriving BEq, Repr
-
-def ScopedReference.encode : ScopedReference → Json
-  | .scope slot => Json.mkObj [("ctor", .str "scopeRef"), ("args", .arr #[toJson slot])]
-  | .input path => inputRef path
-  | .result index => resultRef index
-
-/-- Reuse the released input/result reference grammar and strict control-field check.
-Source: execution contract v2 §4 and CasContract.Port. -/
-def ScopedReference.parse? (json : Json) : Except String (Option ScopedReference) := do
-  if (json.getObjValAs? String "ctor").toOption == some "scopeRef" then
-    checkServiceFields #["ctor", "args"] json
-    let #[slot] ← (← json.getObjVal? "args").getArr?
-      | throw "a scope reference requires exactly one slot"
-    return some (.scope (← slot.getNat?))
-  if let some path ← inputRefPath? json then return some (.input path)
-  if let some index ← resultRefIndex? json then return some (.result index)
-  return none
 
 /-- An exact complete input position already retained by the request encoder. -/
 structure InputPosition where

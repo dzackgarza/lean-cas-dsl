@@ -112,6 +112,7 @@ private def annotateSourceOwner (key : Name) (category : NativeSourceCategory)
   -- Ordinary owners add no metadata or fields and keep the existing envelope unchanged.
   if let some limit := category.limit then
     data := data.setString `CasCompiler.source.typeOrigin.limit.row limit.row
+    data := data.setName `CasCompiler.source.typeOrigin.limit.construction limit.construction
     data := data.setName `CasCompiler.source.typeOrigin.limit.declaration limit.declaration
     data := data.setBool `CasCompiler.source.typeOrigin.limit.colimit limit.colimit
     data := data.setString `CasCompiler.source.typeOrigin.limit.category
@@ -120,9 +121,22 @@ private def annotateSourceOwner (key : Name) (category : NativeSourceCategory)
       limit.interface.standardization.isSome
     data := data.setBool `CasCompiler.source.typeOrigin.limit.dataConstructor
       limit.interface.dataConstructor.isSome
+    data := data.setBool `CasCompiler.source.typeOrigin.limit.ownerFamily
+      limit.ownerFamily.isSome
+    data := data.setBool `CasCompiler.source.typeOrigin.limit.creation limit.creation.isSome
+    data := data.setBool `CasCompiler.source.typeOrigin.limit.creationFamily limit.creationFamily.isSome
+    data := data.setString `CasCompiler.source.typeOrigin.limit.creationInputs
+      (toJson limit.creationInputs).compress
+    if let some creation := limit.creation then
+      data := data.setString `CasCompiler.source.typeOrigin.limit.creation.lift creation.lift.raw
+      data := data.setName `CasCompiler.source.typeOrigin.limit.creation.declaration creation.declaration
+      data := data.setString `CasCompiler.source.typeOrigin.limit.creation.edge
+        (toJson creation.edge).compress
     fields := fields ++ #[limit.cone, limit.bundle, limit.presentation, limit.diagram,
       limit.interface.presentation, limit.interface.diagram] ++
-      limit.interface.standardization.toArray ++ limit.interface.dataConstructor.toArray
+      limit.interface.standardization.toArray ++ limit.interface.dataConstructor.toArray ++
+      limit.ownerFamily.toArray ++ limit.creation.toArray.flatMap (·.terms) ++
+      limit.creationFamily.toArray
   -- The delimiter distinguishes the original native value from an accidentally omitted
   -- optional interface field. No delimiter is added to the legacy owner-only format.
   let mut value := if category.limit.isSome then
@@ -156,12 +170,20 @@ private partial def sourceOwnerOrigin? (key : Name) (value : Expr) :
     let carrierEnd := 2 + (descriptor.carrier.map (fun carrier =>
       carrier.actions + carrier.comparisons) |>.getD 0)
     let limitKeys := #[`CasCompiler.source.typeOrigin.limit.row,
+      `CasCompiler.source.typeOrigin.limit.construction,
       `CasCompiler.source.typeOrigin.limit.declaration,
       `CasCompiler.source.typeOrigin.limit.colimit,
       `CasCompiler.source.typeOrigin.limit.category,
       `CasCompiler.source.typeOrigin.limit.standardization,
-      `CasCompiler.source.typeOrigin.limit.dataConstructor]
-    let hasLimit := limitKeys.any data.contains
+      `CasCompiler.source.typeOrigin.limit.dataConstructor,
+      `CasCompiler.source.typeOrigin.limit.ownerFamily,
+      `CasCompiler.source.typeOrigin.limit.creation,
+      `CasCompiler.source.typeOrigin.limit.creationFamily,
+      `CasCompiler.source.typeOrigin.limit.creationInputs]
+    let creationKeys := #[`CasCompiler.source.typeOrigin.limit.creation.lift,
+      `CasCompiler.source.typeOrigin.limit.creation.declaration,
+      `CasCompiler.source.typeOrigin.limit.creation.edge]
+    let hasLimit := limitKeys.any data.contains || creationKeys.any data.contains
     unless !hasLimit || limitKeys.all data.contains do
       throwError "the native source owner lost part of its selected construction"
     let standardization ← if hasLimit then do
@@ -177,8 +199,46 @@ private partial def sourceOwnerOrigin? (key : Name) (value : Expr) :
       pure present
     else pure false
     let interfaceEnd := carrierEnd + 6
-    let count := if hasLimit then
+    let ownerFamily ← if hasLimit then do
+      let some present :=
+          (data.get? `CasCompiler.source.typeOrigin.limit.ownerFamily : Option Bool)
+        | throwError "the native source construction has a different formal-owner field"
+      pure present
+    else pure false
+    let ownerIndex :=
       interfaceEnd + (if standardization then 1 else 0) + (if dataConstructor then 1 else 0)
+    let hasCreation ← if hasLimit then do
+      let some present :=
+          (data.get? `CasCompiler.source.typeOrigin.limit.creation : Option Bool)
+        | throwError "the native source construction lost its creation presence"
+      pure present
+    else pure false
+    unless (if hasCreation then creationKeys.all data.contains
+        else !(creationKeys.any data.contains)) do
+      throwError "the native source construction lost part of its selected creation"
+    let hasCreationFamily ← if hasLimit then do
+      let some present :=
+          (data.get? `CasCompiler.source.typeOrigin.limit.creationFamily : Option Bool)
+        | throwError "the native creation lost its source-family presence"
+      pure present
+    else pure false
+    let creationInputs ← if hasLimit then do
+      let some encoded :=
+          (data.get? `CasCompiler.source.typeOrigin.limit.creationInputs : Option String)
+        | throwError "the native creation lost its original source-input positions"
+      let .ok json := Json.parse encoded
+        | throwError "the native creation has malformed source-input metadata"
+      let .ok (positions : Array Nat) := fromJson? json
+        | throwError "the native creation changed its original source-input layout"
+      pure positions
+    else pure #[]
+    unless (!hasCreationFamily || hasCreation) &&
+        (hasCreationFamily || creationInputs.isEmpty) do
+      throwError "the native source family has no complete original creation"
+    let creationIndex := ownerIndex + (if ownerFamily then 1 else 0)
+    let creationFamilyIndex := creationIndex + (if hasCreation then 11 else 0)
+    let count := if hasLimit then
+      creationFamilyIndex + (if hasCreationFamily then 1 else 0)
       else carrierEnd
     let mut fields := #[]
     let mut body := body
@@ -205,6 +265,11 @@ private partial def sourceOwnerOrigin? (key : Name) (value : Expr) :
     let limit ← if hasLimit then do
       let some row := (data.get? `CasCompiler.source.typeOrigin.limit.row : Option String)
         | throwError "the native source construction has a different row field"
+      let some construction :=
+          (data.get? `CasCompiler.source.typeOrigin.limit.construction : Option Name)
+        | throwError "the native source construction lost its original formation identity"
+      unless !construction.isAnonymous do
+        throwError "the native source construction has an anonymous formation identity"
       let some declaration := (data.get? `CasCompiler.source.typeOrigin.limit.declaration : Option Name)
         | throwError "the native source construction has a different declaration field"
       let some colimit := (data.get? `CasCompiler.source.typeOrigin.limit.colimit : Option Bool)
@@ -221,9 +286,30 @@ private partial def sourceOwnerOrigin? (key : Name) (value : Expr) :
         standardization := if standardization then some fields[interfaceEnd]! else none
         dataConstructor := if dataConstructor then
           some fields[interfaceEnd + (if standardization then 1 else 0)]! else none }
+      let creation ← if hasCreation then do
+        let some lift := (data.get? `CasCompiler.source.typeOrigin.limit.creation.lift : Option String)
+          | throwError "the native source creation lost its original lift identity"
+        let some declaration :=
+            (data.get? `CasCompiler.source.typeOrigin.limit.creation.declaration : Option Name)
+          | throwError "the native source creation lost its original evidence declaration"
+        let some encoded :=
+            (data.get? `CasCompiler.source.typeOrigin.limit.creation.edge : Option String)
+          | throwError "the native source creation lost its exact selected edge"
+        let .ok document := Json.parse encoded
+          | throwError "the native source creation has malformed edge metadata"
+        let .ok (edge : EdgeRef) := fromJson? document
+          | throwError "the native source creation changed its edge metadata layout"
+        let .ok original := LimitCreationInterface.ofTerms ⟨lift⟩ declaration edge
+            (fields.extract creationIndex creationFamilyIndex)
+          | throwError "the native source creation lost its complete typed field table"
+        pure (some original)
+      else pure none
       pure (some (⟨row, declaration, fields[carrierEnd]!, colimit, category,
         fields[carrierEnd + 1]!, fields[carrierEnd + 2]!, fields[carrierEnd + 3]!,
-        interface⟩ : NativeSourceLimitSelection))
+        interface, construction, (if ownerFamily then some fields[ownerIndex]! else none),
+        creation, if hasCreationFamily then some fields[creationFamilyIndex]! else none,
+        creationInputs⟩ :
+          NativeSourceLimitSelection))
     else pure none
     let category : NativeSourceCategory :=
       ⟨.object, descriptor.category, fields[0]!, carrier, limit⟩

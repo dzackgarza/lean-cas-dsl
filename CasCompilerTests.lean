@@ -1,6 +1,7 @@
 module
 
 import CasCompiler.ApplicationArgumentTests
+import CasCompiler.CategoricalPointFamilyTests
 import CasCompiler.ComparisonTests
 import CasCompiler.ConstructorComparisonTests
 import CasCompiler.ContextTests
@@ -9,12 +10,18 @@ import CasCompiler.EqualityEvidenceTests
 import CasCompiler.FormationTests
 import CasCompiler.FunctorExpressionTests
 import CasCompiler.NativeDeclarationTests
+import CasCompiler.NativeCarrierAdapterTests
 import CasCompiler.NativeRouteTests
 import CasCompiler.OperationFamilyTests
 import CasCompiler.OperationRefinementTests
 import CasCompiler.OperationalTests
 import CasCompiler.ParseTests
 import CasCompiler.ProgramTests
+import CasCompiler.PublishedCategoricalRequestTests
+import CasCompiler.PublishedPointPacketTests
+import CasCompiler.PublishedSourceTests
+import CasCompiler.PublishedSymbolicSourceTests
+import CasCompiler.RecordActionTests
 import CasCompiler.RecursiveLayoutTests
 import CasCompiler.ProofTests
 import CasCompiler.ResolveTests
@@ -28,6 +35,7 @@ import CasCompiler.SourceCarrierTests
 import CasCompiler.SourceCategoryBindingTests
 import CasCompiler.SourceCellTests
 import CasCompiler.SourceConstructionTests
+import CasCompiler.SourceCreationTests
 import CasCompiler.SourceDivisionTests
 import CasCompiler.SourceEqualityFormTests
 import CasCompiler.SourceEqualityTests
@@ -42,6 +50,8 @@ import CasCompiler.SourceLiftFactorTests
 import CasCompiler.SourceLiftTests
 import CasCompiler.SourceLimitLegTests
 import CasCompiler.SourceLimitTests
+import CasCompiler.LimitUniversalFamilyTests
+import CasCompiler.ConstructionEndpointTests
 import CasCompiler.SourceMatrixActionTests
 import CasCompiler.SourceMemberCompetitionTests
 import CasCompiler.SourceMemberOriginTests
@@ -68,6 +78,7 @@ import CasCompiler.SourceSyntaxTests
 import CasCompiler.SourceTupleTests
 import CasCompiler.SourceViewTests
 import CasCompiler.SurfaceTests
+import CasCompiler.StructuralMapTests
 import CasCompiler.ValueRequestTests
 import CasCompiler.WhiskeringTests
 import CasTools.InterfaceExportTests

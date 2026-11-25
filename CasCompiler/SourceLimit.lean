@@ -2,7 +2,13 @@ module
 
 public import Mathlib.CategoryTheory.Limits.Shapes.BinaryProducts
 public import CasCompiler.Elaborate
+public import CasCompiler.LimitSelection
+public import LeanCategories.Catalogue.Registry.Semantic
+import CasCompiler.LimitFamily
+import CasCompiler.CreationFamily
 import CasCompiler.SourceCarrier
+import CasCompiler.CategoricalPointFamily
+import CasCompiler.RoutedMethodFamily
 
 public section
 
@@ -28,6 +34,28 @@ private def limitPresentation (row : LimitEntry) (diagram : Expr) :
   if presentation.hasMVar || presentation.hasLevelMVar then
     throwError "the registered universal presentation requires its complete declaration parameters"
   return some presentation
+
+/-- Prepare the original owner under every formal M parameter before substituting actual
+source arguments. Equal actual terms therefore retain their different declaration positions.
+The returned template is also the authority for later whole-cone demand. -/
+private def preparedSourceLimit (row : LimitEntry) (presentation : Expr)
+    (construction : Name) : MetaM (NativeLimitInterface × Expr) := do
+  let family ← LimitFamily.forId row.id
+  let .const declaration levels := presentation.consumeMData.getAppFn
+    | throwError "the selected limit lost its complete native declaration application"
+  unless declaration == row.declaration &&
+      presentation.getAppNumArgs == family.parameterCount do
+    throwError "the selected limit changed its complete formal parameter telescope"
+  let ownerFamily ← family.prepareOwner levels construction
+  let owner := ownerFamily.betaRev presentation.getAppArgs.reverse (preserveMData := true)
+  check owner
+  let some selection ← NativeLimitSelection.ofExpr? owner
+    | throwError "the selected limit lost its original formal owner application"
+  family.requireInterface selection.source
+  unless selection.source.construction == construction &&
+      selection.source.interface.presentation.consumeMData.equal presentation.consumeMData do
+    throwError "the selected limit changed its original positional application"
+  return (selection.source.interface, ownerFamily)
 
 /-- Form the declared binary presentation at the original complete source objects.
 Reuse: Limits.pair, LimitEntry and the accepted native cone/cocone projections.
@@ -76,7 +104,8 @@ opaque sourceBinaryLimit (left right : NativeSourceJudgement) (colimit : Bool) :
           "source binary construction requires its selected universal presentation"
   let some presentation ← limitPresentation row diagram
     | throwError "the selected universal presentation changed its complete diagram"
-  let interface ← prepareLimitInterface row presentation
+  let construction ← mkFreshUserName `selectedLimit
+  let (interface, ownerFamily) ← preparedSourceLimit row presentation construction
   let cone ← mkAppM (if colimit then ``CategoryTheory.Limits.ColimitCocone.cocone
     else ``CategoryTheory.Limits.LimitCone.cone) #[presentation]
   let apex ← mkAppM (if colimit then ``CategoryTheory.Limits.Cocone.pt
@@ -87,75 +116,180 @@ opaque sourceBinaryLimit (left right : NativeSourceJudgement) (colimit : Bool) :
   -- its shape: the lowerer sends it as that row's descriptor, not the presentation record.
   let value ← sourceReferenceAt ``LimitEntry row.id.raw row.declaration presentation apex
   let cone ← retainSourceApplication row.declaration presentation cone
-  return ⟨value,
+  return ← retainLimitConstruction ⟨value,
     some ⟨.object, source.expression, source.bundle, none,
       some ⟨row.id.raw, row.declaration, cone, colimit, source.expression, source.bundle,
-        presentation, diagram, interface⟩⟩⟩
+        presentation, diagram, interface, construction, some ownerFamily, none, none, #[]⟩⟩⟩
 
-/-- The limit of shape `shape` of the maps `maps` of a category that only creates it: the
-registered limit of the image diagram along the structural step `U` of a registered creation lift
-(LiftKind.createsLimits), transported to the image of the source diagram (Mathlib
-`diagramIsoCospan`, `IsLimit.postcomposeInvEquiv`) and lifted back along `U` (Mathlib
-`liftLimit`). Reference: the original reader's `Semantic.limit` and `liftedLimitCone`. -/
-private def createdLimit (shape : String) (selected : NativeSourceCategory)
-    (maps : Array NativeSourceJudgement) : TermElabM (Option NativeSourceJudgement) := do
-  let state ← semanticState
+/-- Typed inputs of one applicable accepted creation/presentation pair. This is source
+preparation only; the actual target completion and universal data remain runtime inputs. -/
+private structure PreparedCreationSource where
+  family : CreationFamily
+  evidence : Expr
+  functor : Expr
+  diagram : Expr
+  targetBundle : Expr
+  targetPresentation : Expr
+
+/-- Retain the selected action's complete declaration and the original arrow slots before
+forming the target presentation. Its implicit object parameters use that same action's object
+family; the native Hom keeps its original universe, carrier and Quiver dictionary. -/
+private def creationTargetMap (edge : EdgeRef) (functor arrow : Expr) : MetaM Expr := do
+  let native ← mkAppM ``CategoryTheory.Functor.map #[functor, arrow]
+  unless native.isAppOfArity ``CategoryTheory.Functor.map 8 do
+    throwError "the created target map lost its native action telescope"
+  let stated ← instantiateMVars (← inferType arrow)
+  let stated ← if stated.isAppOfArity ``Quiver.Hom 4 then pure stated else whnfR stated
+  let inputs := if stated.isAppOfArity ``Quiver.Hom 4 then
+      (native.getAppArgs.set! 5 stated.getAppArgs[2]!).set! 6 stated.getAppArgs[3]!
+    else if stated.isAppOfArity ``TypeCat.Hom 2 then
+      (native.getAppArgs.set! 5 stated.getAppArgs[0]!).set! 6 stated.getAppArgs[1]!
+    else native.getAppArgs
+  let inputs := inputs.set! 7 arrow
+  let native := mkAppN native.getAppFn inputs
+  check native
+  let application ← routedActionApplication edge functor
+  let .const declaration levels := application.consumeMData.getAppFn
+    | throwError "the created target map lost its original action declaration"
+  let objects ← SourceActionFamily.forEdge edge
+  let maps ← CategoricalPointFamily.forOwner (.action edge)
+  unless declaration == objects.declaration && declaration == maps.declaration do
+    throwError "the created target map changed its original action owner"
+  let declarationInputs := application.getAppArgs
+  let parameters := declarationInputs ++ inputs.extract 5 8
+  let (selected, bundle) ← maps.arrowAt levels parameters
+  unless ← isDefEq selected native do
+    throwError "the created target map changed its original native action"
+  let source ← objects.mark levels declarationInputs inputs[5]!
+  let target ← objects.mark levels declarationInputs inputs[6]!
+  let originalType ← inferType native
+  let originalType ← if originalType.isAppOfArity ``Quiver.Hom 4 then pure originalType
+    else whnfR originalType
+  unless originalType.isAppOfArity ``Quiver.Hom 4 do
+    throwError "the created target map lost its complete native Hom interface"
+  let expected := mkAppN originalType.getAppFn
+    ((originalType.getAppArgs.set! 2 source).set! 3 target)
+  let (domain, _) ← categoricalPointEndpoints selected
+  let identity ← categoricalPointIdentity bundle domain
+  let family ← if (← maps.carrierFamily?).isSome then maps.asReference else maps.asWhole
+  let value ← family.mark levels parameters domain identity
+  let value ← mkExpectedTypeHint value expected
+  check value
+  return value
+
+private def prepareCreatedLimitCandidate (state : SemanticState)
+    (selected : NativeSourceCategory) (lift : LiftEntry) (target : NamedCategoryEntry)
+    (row : LimitEntry) (maps : Array NativeSourceJudgement) :
+    TermElabM (Option PreparedCreationSource) := do
+  let some steps := state.routeEdges? selected.expression target.expression #[lift.edge]
+    | throwError "the selected creation lift is not a route of its own original step"
+  let some diagram ← CreationFamily.diagramAt? row selected.bundle (maps.map (·.value))
+    | return none
+  let routed ← nativeRouteFunctor state
+    { source := selected.expression, target := target.expression, steps } selected.bundle
+  let family ← CreationFamily.forLift lift
+  let some evidence ← family.evidenceAt? routed.functor diagram | return none
+  let mapped ← maps.mapM fun map =>
+    creationTargetMap lift.edge routed.functor map.value
+  let some targetPresentation ←
+      CreationFamily.presentationAt? row routed.target mapped | return none
+  let mappedDiagram ← mkAppM ``CategoryTheory.Functor.comp #[diagram, routed.functor]
+  -- Validate the same original comparison before treating this pair as applicable.
+  -- The final selection retains its original whole owner family instead of this probe.
+  discard <| prepareLimitInterface row targetPresentation (some mappedDiagram)
+  return some ⟨family, evidence, routed.functor, diagram, routed.target, targetPresentation⟩
+
+/-- Prepare the fixed selected creation under its source constructor's original formal inputs.
+The same retained target owner family supplies its original constructor universes and schema;
+only its declared parameter positions are substituted. -/
+private def creationSourceOwner (prepared : PreparedCreationSource)
+    (selected : NativeSourceCategory) (row : LimitEntry) (targetOwner : Expr)
+    (construction : Name) (diagram : Expr) : TermElabM NativeSourceJudgement := do
+  let (_, sourceArguments) ← LimitFamily.diagramPorts diagram
+  let mapped ← sourceArguments.mapM fun argument =>
+    creationTargetMap prepared.family.entry.edge prepared.functor argument
+  let some targetPresentation ←
+      CreationFamily.presentationAt? row prepared.targetBundle mapped
+    | throwError "the selected creation lost its original target family at the formal source inputs"
+  let targetApplication := targetOwner.betaRev targetPresentation.getAppArgs.reverse (preserveMData := true)
+  check targetApplication
+  let some target ← NativeLimitSelection.ofExpr? targetApplication
+    | throwError "the created source lost its original complete target owner family"
+  unless target.source.construction == construction && target.source.row == row.id.raw &&
+      target.source.interface.presentation.equal targetPresentation do
+    throwError "the created source changed its exact target owner application"
+  let mappedDiagram ← mkAppM ``CategoryTheory.Functor.comp #[diagram, prepared.functor]
+  let interface ← target.source.interface.withRequestedDiagram row mappedDiagram
+  let creation ← prepared.family.interfaceAt prepared.evidence prepared.functor diagram interface
+  let presentation ← creation.presentation
+  let cone ← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[presentation]
+  let apex ← mkAppM ``CategoryTheory.Limits.Cone.pt #[cone]
+  let value ← sourceReferenceAt ``LimitEntry row.id.raw row.declaration targetPresentation apex
+  let cone ← retainSourceApplication row.declaration targetPresentation cone
+  return ← retainLimitConstruction {
+    value
+    category := some {
+      role := .object, expression := selected.expression, bundle := selected.bundle
+      limit := some {
+        row := row.id.raw, declaration := row.declaration, cone, colimit := false
+        category := selected.expression, bundle := selected.bundle, presentation, diagram, interface
+        construction, ownerFamily := some targetOwner, creation := some creation } } }
+
+/-- Resolve every applicable accepted creation/presentation pair, independently of provider
+availability and storage order. The diagram constructor comes from the declared standardization.
+Only an actual absence or failed native applicability is skipped; required-data errors propagate.
+
+The explicit state is the ordinary accepted source inventory (as in nativeRouteFunctor).
+It also permits the original multiplicity controls to exercise both inventory orders without
+declaring new mathematical examples or changing the formal operation. -/
+opaque sourceCreatedLimit? (state : SemanticState) (shape : String)
+    (selected : NativeSourceCategory) (maps : Array NativeSourceJudgement) :
+    TermElabM (Option NativeSourceJudgement) := do
+  let mut candidates : Array (LiftEntry × NamedCategoryEntry × LimitEntry) := #[]
   for lift in state.lifts do
     unless lift.kind == .createsLimits shape do continue
-    let some edge := state.structuralEdge? lift.edge | continue
+    let #[edge] := state.structuralEdges.filter (·.ref == lift.edge)
+      | throwError "the selected creation lift lost its unique original structural edge"
     unless edge.source.syntacticEq selected.expression do continue
-    let some target := state.categories.find? (·.expression.syntacticEq edge.target) | continue
-    let some row := state.limits.find? fun limit =>
-        !limit.colimit && limit.category == target.id && limit.shape == shape
-      | continue
-    let #[left, right] := maps
-      | throwUnsupportedSource m!"a created {shape} takes the two maps of its cospan"
-    unless shape == "pullback" do
-      throwUnsupportedSource m!"the created {shape} has no diagram constructor in the reader"
-    let some steps := state.routeEdges? selected.expression target.expression #[lift.edge]
-      | throwError "the creation lift {lift.id.raw} is not a route of its own step"
-    let routed ← nativeRouteFunctor state
-      { source := selected.expression, target := target.expression, steps } selected.bundle
-    let functor ← exprToSyntax routed.functor
-    discard <| checkedDeclaration lift.evidence
-    let evidence ← exprToSyntax (← mkConstWithFreshMVarLevels lift.evidence)
-    let diagram ← mkAppM ``CategoryTheory.Limits.cospan #[left.value, right.value]
-    let mappedDiagram ← mkAppM ``CategoryTheory.Functor.comp #[diagram, routed.functor]
-    let leftImage ← mkAppM ``CategoryTheory.Functor.map #[routed.functor, left.value]
-    let rightImage ← mkAppM ``CategoryTheory.Functor.map #[routed.functor, right.value]
-    discard <| checkedDeclaration row.declaration
-    let targetPresentation ← mkAppM row.declaration #[leftImage, rightImage]
-    let interface ← prepareLimitInterface row targetPresentation (some mappedDiagram)
-    let some comparison := interface.standardization
-      | throwUnsupportedSource "the created limit requires its declared diagram standardization"
-    let comparison ← exprToSyntax comparison
-    let declaredPresentation := targetPresentation
-    let targetPresentation ← exprToSyntax targetPresentation
-    let (f, g) := (← exprToSyntax left.value, ← exprToSyntax right.value)
-    let presentation ← elabTermAndSynthesize (← `(
-      letI : CategoryTheory.CreatesLimit (CategoryTheory.Limits.cospan $f $g) $functor :=
-        (($evidence : CategoryTheory.CreatesLimitsOfShape CategoryTheory.Limits.WalkingCospan
-          $functor).CreatesLimit (K := CategoryTheory.Limits.cospan $f $g))
-      let universal :=
-        (CategoryTheory.Limits.IsLimit.postcomposeInvEquiv $comparison
-          ($targetPresentation).cone).symm ($targetPresentation).isLimit
-      (⟨CategoryTheory.liftLimit (K := CategoryTheory.Limits.cospan $f $g) (F := $functor)
-          universal,
-        CategoryTheory.liftedLimitIsLimit
-          (K := CategoryTheory.Limits.cospan $f $g) (F := $functor) universal⟩ :
-        CategoryTheory.Limits.LimitCone (CategoryTheory.Limits.cospan $f $g)))) none
-    let presentation ← instantiateMVars presentation
-    if presentation.hasMVar || presentation.hasLevelMVar then
-      throwError "the created {shape} has undetermined parameters"
-    let cone ← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[presentation]
-    let apex ← mkAppM ``CategoryTheory.Limits.Cone.pt #[cone]
-    let value ← sourceReferenceAt ``LimitEntry row.id.raw row.declaration declaredPresentation apex
-    let cone ← retainSourceApplication row.declaration declaredPresentation cone
-    return some ⟨value,
-      some ⟨.object, selected.expression, selected.bundle, none,
-        some ⟨row.id.raw, row.declaration, cone, false,
-          selected.expression, selected.bundle, presentation, diagram, interface⟩⟩⟩
-  return none
+    for target in state.categories do
+      unless target.expression.syntacticEq edge.target do continue
+      for row in state.limits do
+        unless !row.colimit && row.category == target.id && row.shape == shape do continue
+        let applicable ← withoutModifyingState do
+          return (← prepareCreatedLimitCandidate state selected lift target row maps).isSome
+        if applicable then candidates := candidates.push (lift, target, row)
+  let #[(lift, target, row)] := candidates
+    | if candidates.isEmpty then return none
+      else
+        throwSemanticAmbiguity
+          m!"the created {shape} has several applicable accepted lift/presentation pairs"
+  let some prepared ← prepareCreatedLimitCandidate state selected lift target row maps
+    | throwError "the selected creation changed its complete native applicability"
+  let construction ← mkFreshUserName `selectedLimit
+  let (_, ownerFamily) ←
+    preparedSourceLimit row prepared.targetPresentation construction
+  let (sourceTelescope, positions) ← CreationFamily.sourceTelescope prepared.diagram
+  let creationFamily ← lambdaTelescope sourceTelescope fun parameters diagram => do
+    let owner ← creationSourceOwner prepared selected row ownerFamily construction diagram
+    mkLambdaFVars parameters owner.value (usedOnly := false) (usedLetOnly := false)
+  check creationFamily
+  let arguments ← positions.mapM fun index => do
+    let some argument := prepared.diagram.getAppArgs[index]?
+      | throwError "the created source lost an original constructor input position"
+    pure argument
+  let original := creationFamily.betaRev arguments.reverse (preserveMData := true)
+  check original
+  let some retained ← NativeLimitSelection.ofExpr? original
+    | throwError "the created source lost its retained original source-owner family"
+  let source := { retained.source with
+    ownerFamily := some ownerFamily
+    creationFamily := some creationFamily
+    creationInputs := positions }
+  return some (← retainLimitConstruction {
+    value := retained.receiver
+    category := some {
+      role := .object, expression := selected.expression, bundle := selected.bundle,
+      limit := some source } })
 
 /-- A registered limit or colimit named by its shape and applied to the maps of its diagram
 (`pullback(f, g)`, `cokernel(m)`): the apex of the declared cone or cocone at those maps, in the
@@ -199,24 +333,67 @@ opaque sourceNamedLimit (shape : String) (maps : Array NativeSourceJudgement) :
       return (← present row).isSome
     if accepts then candidates := candidates.push row
   if candidates.isEmpty then
-    if let some created ← createdLimit shape selected maps then return some created
+    if let some created ← sourceCreatedLimit? state shape selected maps then return some created
   let #[row] := candidates
     | if candidates.isEmpty then
         throwUnsupportedSource m!"no registered {shape} accepts these maps"
       else throwSemanticAmbiguity s!"several registered presentations of {shape} accept these maps"
   let some presentation ← present row
     | throwError "the selected universal presentation no longer accepts its original maps"
-  let interface ← prepareLimitInterface row presentation
+  let construction ← mkFreshUserName `selectedLimit
+  let (interface, ownerFamily) ← preparedSourceLimit row presentation construction
   let cone ← mkAppM (if row.colimit then ``CategoryTheory.Limits.ColimitCocone.cocone
     else ``CategoryTheory.Limits.LimitCone.cone) #[presentation]
   let apex ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone.pt
     else ``CategoryTheory.Limits.Cone.pt) #[cone]
   let value ← sourceReferenceAt ``LimitEntry row.id.raw row.declaration presentation apex
   let cone ← retainSourceApplication row.declaration presentation cone
-  return some ⟨value,
+  return some (← retainLimitConstruction ⟨value,
     some ⟨.object, selected.expression, selected.bundle, none,
       some ⟨row.id.raw, row.declaration, cone, row.colimit,
-        selected.expression, selected.bundle, presentation, interface.diagram, interface⟩⟩⟩
+        selected.expression, selected.bundle, presentation, interface.diagram, interface,
+        construction, some ownerFamily, none, none, #[]⟩⟩⟩)
+
+/-- Read finite native constructor syntax at the original index type. Type synonyms are
+transparent to this schema check; constructor fields must themselves have finite, independent
+native constructor schemas. No runtime data, proof inhabitant or diagram port is consulted. -/
+private partial def constructionCases (indexType : Expr) : TermElabM (Array Expr) := do
+  let nativeType ← instantiateMVars (← withTransparency .all <| whnf indexType)
+  if nativeType.hasMVar || nativeType.hasLevelMVar then
+    throwStratum .invalid m!"the construction index type is not determined"
+  let .const name levels := nativeType.getAppFn
+    | throwStratum .invalid m!"the construction index {indexType} is not a finite native enumeration"
+  let .inductInfo info ← getConstInfo name
+    | throwStratum .invalid m!"the construction index {indexType} has no native constructor schema"
+  unless !info.isRec && info.numIndices == 0 &&
+      nativeType.getAppNumArgs == info.numParams do
+    throwStratum .invalid m!"an ordinal cannot select a recursive or indexed constructor of {indexType}"
+  let mut alternatives := #[]
+  for constructor in info.ctors do
+    let .ctorInfo constructorInfo ← getConstInfo constructor | unreachable!
+    let head := mkAppN (mkConst constructor levels) nativeType.getAppArgs
+    let values ← forallTelescopeReducing (← inferType head) fun fields result => do
+      unless fields.size == constructorInfo.numFields && (← isDefEq result nativeType) do
+        throwStratum .invalid m!"the construction index lost its original constructor telescope"
+      let mut values := #[head]
+      for field in fields, index in [:fields.size] do
+        let domain ← inferType field
+        if (← isProp domain) ||
+            (fields.extract 0 index).any (fun prior => domain.containsFVar prior.fvarId!) then
+          throwStratum .invalid m!"an ordinal cannot supply proof or dependent constructor fields of {indexType}"
+        let choices ← constructionCases domain
+        let mut next := #[]
+        for value in values do
+          for choice in choices do
+            next := next.push (mkApp value choice)
+        values := next
+      return values
+    for value in values do
+      unless ← isDefEq (← inferType value) indexType do
+        throwStratum .invalid m!"the index constructor does not inhabit {indexType}"
+      check value
+    alternatives := alternatives ++ values
+  return alternatives
 
 /-- The object of a diagram's index type that the ordinal `ordinal` names: the number itself in
 `ℕ`, `⟨ordinal, _⟩` in `Fin n` when it is below `n`, else the `ordinal`-th constructor of a closed
@@ -241,19 +418,9 @@ private partial def constructionIndex (indexType : Expr) (ordinal : Nat) : TermE
     let proof ← try mkDecideProof below
       catch _ => throwStratum .invalid m!"the construction index {ordinal} is outside {indexType}"
     return mkApp3 (mkConst ``Fin.mk) bound (mkNatLit ordinal) proof
-  let some name := indexType.getAppFn.constName?
-    | throwStratum .invalid m!"the construction index {indexType} is not a closed enumeration"
-  let .inductInfo info ← getConstInfo name
-    | throwStratum .invalid m!"the construction index {indexType} is not an enumeration"
-  for constructor in info.ctors do
-    let .ctorInfo constructorInfo ← getConstInfo constructor | unreachable!
-    unless constructorInfo.numFields == 0 do
-      throwStratum .invalid m!"an ordinal cannot select a constructor with fields of {indexType}"
-  let some constructor := info.ctors[ordinal]?
+  let alternatives ← constructionCases indexType
+  let some index := alternatives[ordinal]?
     | throwStratum .invalid m!"the construction index {ordinal} is outside {indexType}"
-  let index ← mkAppOptM constructor (indexType.getAppArgs.map some)
-  unless ← isDefEq (← inferType index) indexType do
-    throwStratum .invalid m!"the index constructor does not inhabit {indexType}"
   return index
 
 /-- `K.leg(j)`: the defining leg of the registered limit or colimit `K` at the object of its shape
@@ -276,7 +443,8 @@ def sourceLimitLeg? (receiver : NativeSourceJudgement) (ordinal : Nat) :
   let component ← mkAppM ``CategoryTheory.NatTrans.app #[leg]
   let .forallE _ indexType _ _ ← whnf (← inferType component)
     | throwError "the defining leg has no shape index"
-  let hom := mkApp component (← constructionIndex indexType ordinal)
+  let index ← constructionIndex indexType ordinal
+  let hom := mkApp component index
   check hom
   -- The component belongs to this cone, while its apex is the actual selected source
   -- occurrence. Preserve that occurrence in the native hom type before a functor action
@@ -288,6 +456,7 @@ def sourceLimitLeg? (receiver : NativeSourceJudgement) (ordinal : Nat) :
   let endpoints := homType.getAppArgs.set! (if colimit then 3 else 2) receiver.value
   let hom ← mkExpectedTypeHint hom (mkAppN homType.getAppFn endpoints)
   check hom
+  let hom ← retainLimitLeg category receiver.value index hom
   let .mdata data body ←
       sourceReferenceAt ``LimitEntry selection.row selection.declaration presentation hom
     | throwError "internal: a source reference is not an annotation"

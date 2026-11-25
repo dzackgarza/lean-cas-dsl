@@ -156,6 +156,65 @@ def boundaryJson (boundary : ProgramBoundary) : StateM NativeExpression.Builder 
       ("family", toJson (← NativeExpression.Builder.add family.family)),
       ("familyType", toJson (← NativeExpression.Builder.add family.familyType)),
       ("path", namesJson family.path)]
+  | .point family =>
+    let owner := match family.owner with
+      | .named (.morphism entry) =>
+        Json.mkObj [("kind", toJson "morphism"), ("entry", toJson (reprStr entry))]
+      | .named (.application entry) =>
+        Json.mkObj [("kind", toJson "application"), ("entry", toJson (reprStr entry))]
+      | .component entry constructors inverse =>
+        Json.mkObj [("kind", toJson "component"), ("entry", toJson (reprStr entry)),
+          ("constructors", toJson (constructors.map (·.raw))), ("inverse", toJson inverse)]
+      | .cartesian entry =>
+        Json.mkObj [("kind", toJson "cartesian"), ("entry", toJson (reprStr entry))]
+      | .binder entry =>
+        Json.mkObj [("kind", toJson "binder"), ("entry", toJson (reprStr entry))]
+      | .action edge =>
+        Json.mkObj [("kind", toJson "action"), ("edge", edgeImageDescriptor edge)]
+    return Json.mkObj [("kind", toJson "point"), ("owner", owner),
+      ("operation", toJson family.operation), ("whole", toJson family.whole),
+      ("invocation", toJson family.invocation),
+      ("declaration", NativeExpression.nameJson family.declaration),
+      ("universeParams", namesJson family.universeParams.toArray),
+      ("parameterCount", toJson family.parameterCount),
+      ("category", toJson (reprStr family.category)),
+      ("categoryFamily", toJson (← NativeExpression.Builder.add family.categoryFamily)),
+      ("arrowFamily", toJson (← NativeExpression.Builder.add family.arrowFamily)),
+      ("family", toJson (← NativeExpression.Builder.add family.family)),
+      ("familyType", toJson (← NativeExpression.Builder.add family.familyType))]
+  | .objectAction family =>
+    return Json.mkObj [("kind", toJson "objectAction"),
+      ("edge", edgeImageDescriptor family.edge), ("operation", toJson family.operation),
+      ("declaration", NativeExpression.nameJson family.declaration),
+      ("universeParams", namesJson family.universeParams.toArray),
+      ("parameterCount", toJson family.parameterCount),
+      ("category", toJson (reprStr family.category)),
+      ("family", toJson (← NativeExpression.Builder.add family.family)),
+      ("familyType", toJson (← NativeExpression.Builder.add family.familyType))]
+  | .limit family owner =>
+    return Json.mkObj [("kind", toJson "limit"), ("entry", toJson (reprStr family.entry)),
+      ("declaration", NativeExpression.nameJson family.entry.declaration),
+      ("universeParams", namesJson family.universeParams.toArray),
+      ("parameterCount", toJson family.parameterCount),
+      ("family", toJson (← NativeExpression.Builder.add family.family)),
+      ("owner", ← ContextSnapshot.closedTermJson owner)]
+  | .limitUniversal family owner =>
+    return Json.mkObj [("kind", toJson "limitUniversal"),
+      ("entry", toJson (reprStr family.presentation.entry)),
+      ("operation", toJson family.operation),
+      ("projection", NativeExpression.nameJson family.projection),
+      ("declaration", NativeExpression.nameJson family.presentation.entry.declaration),
+      ("universeParams", namesJson family.universeParams.toArray),
+      ("parameterCount", toJson family.parameterCount),
+      ("family", toJson (← NativeExpression.Builder.add family.family)),
+      ("owner", ← ContextSnapshot.closedTermJson owner)]
+  | .creation family =>
+    return Json.mkObj [("kind", toJson "creation"),
+      ("lift", toJson family.family.entry.id.raw),
+      ("target", toJson family.target.entry.id.raw),
+      ("construction", NativeExpression.nameJson family.construction),
+      ("requestFamily", ← ContextSnapshot.closedTermJson family.requestFamily),
+      ("owner", ← ContextSnapshot.closedTermJson family.owner)]
 
 def fieldJson (field : FieldLayout) : StateM NativeExpression.Builder Json := do
   return Json.mkObj [("address", namesJson field.address),

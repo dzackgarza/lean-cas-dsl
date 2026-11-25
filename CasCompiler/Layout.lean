@@ -436,7 +436,8 @@ opaque ApplicationLayout.ofSource (function : SourceLayout) (context : OpenConte
     MetaM (SourceLayout × ApplicationLayout) := do
   -- A selected nullary family can itself be a record (for example a functor).
   -- Its empty original application retains that record; it introduces no callable coercion.
-  let retainWholeFamily := nativeInputFamily.isSome && arguments.isEmpty
+  let retainWholeFamily := arguments.isEmpty &&
+    (nativeInputFamily.isSome || function.kind != .function)
   let result ← if retainWholeFamily then function.inContext context
     else function.applyIn context arguments
   let actual ← arguments.mapM SourceLayout.ofTerm
@@ -877,5 +878,41 @@ opaque ApplicationLayout.dependenciesAt (layout : ApplicationLayout) (path : Arr
 opaque ApplicationLayout.dependenciesFor (layout : ApplicationLayout) (source : SourceLayout) :
     MetaM ResultDependencies := do
   layout.dependenciesAt (← layout.result.projectionPathTo source)
+
+/-- Select one exact native field of the prepared result while preserving the complete
+original declaration arguments. The result keeps its full native address; no new cone
+parameter or runtime value is introduced into the mathematical family. -/
+opaque ApplicationLayout.forProjection (layout : ApplicationLayout) (projection : Name) :
+    MetaM ApplicationLayout := do
+  let some field := layout.result.fields.find? (·.projection == projection)
+    | throwError "the application selected a field outside its original native result"
+  unless field.wireIndex.isSome do
+    throwError "a formal proof field has no computational application result"
+  let result ← field.toLayout
+  let (resultTermFamily, resultTypeFamily) ← layout.resultTermFamily.withOpen
+      fun bindings family => do
+    let context ← ContextTelescope.capture bindings
+    lambdaTelescope family fun arguments value => do
+      unless arguments.size == layout.arguments.size do
+        throwError "the native result projection lost its original declaration telescope"
+      let selected ← projectSource value #[projection]
+      let term ← mkLambdaFVars arguments selected (usedOnly := false) (usedLetOnly := false)
+      let type ← mkLambdaFVars arguments (← inferType selected)
+        (usedOnly := false) (usedLetOnly := false)
+      return (← context.close term, ← context.close type)
+  let nativeInputTermFamily ← layout.nativeInputTermFamily.withOpen fun bindings family => do
+    let context ← ContextTelescope.capture bindings
+    lambdaTelescope family fun arguments value => do
+      let selected ← projectSource value #[projection]
+      context.close (← mkLambdaFVars arguments selected
+        (usedOnly := false) (usedLetOnly := false))
+  let dependencies ← layout.dependenciesAt #[projection]
+  return { layout with
+    result := result
+    resultTermFamily := resultTermFamily
+    resultTypeFamily := resultTypeFamily
+    nativeInputTermFamily := nativeInputTermFamily
+    resultDependencies := dependencies.arguments,
+    resultContextDependencies := dependencies.context }
 
 end CasCompiler

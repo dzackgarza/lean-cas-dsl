@@ -43,6 +43,25 @@ def limitInterfaceJson (interface : LimitInterface ClosedTerm) :
   return Json.mkObj [("presentation", presentation), ("diagram", diagram),
     ("standardization", toJson standardization), ("dataConstructor", toJson dataConstructor)]
 
+/-- Exact native creation inputs and full fixed result family, in the original source context. -/
+def creationJson (creation : LimitCreationInterface ClosedTerm) :
+    StateM NativeExpression.Builder Json := do
+  return Json.mkObj [
+    ("lift", toJson creation.lift.raw),
+    ("declaration", NativeExpression.nameJson creation.declaration),
+    ("edge", toJson creation.edge),
+    ("evidence", ← closedTermJson creation.evidence),
+    ("createsLimit", ← closedTermJson creation.createsLimit),
+    ("functor", ← closedTermJson creation.functor),
+    ("diagram", ← closedTermJson creation.diagram),
+    ("targetCone", ← closedTermJson creation.targetCone),
+    ("targetUniversal", ← closedTermJson creation.targetUniversal),
+    ("standardization", ← closedTermJson creation.standardization),
+    ("standardizedCone", ← closedTermJson creation.standardizedCone),
+    ("standardizedUniversal", ← closedTermJson creation.standardizedUniversal),
+    ("requestFamily", ← closedTermJson creation.requestFamily),
+    ("result", ← closedTermJson creation.result)]
+
 /-- Source and target presentations stay distinct for a created limit. All fields are the
 already checked retained data; serializing them neither elaborates nor executes mathematics. -/
 def limitJson (limit : SourceLimitSelection) : StateM NativeExpression.Builder Json := do
@@ -50,12 +69,18 @@ def limitJson (limit : SourceLimitSelection) : StateM NativeExpression.Builder J
   let presentation ← closedTermJson limit.presentation
   let diagram ← closedTermJson limit.diagram
   let interface ← limitInterfaceJson limit.interface
+  let ownerFamily ← limit.ownerFamily.mapM closedTermJson
+  let creation ← limit.creation.mapM creationJson
+  let creationFamily ← limit.creationFamily.mapM closedTermJson
   return Json.mkObj [("row", toJson limit.row),
+    ("construction", NativeExpression.nameJson limit.construction),
     ("declaration", NativeExpression.nameJson limit.declaration),
     ("displayDeclaration", toJson (limit.declaration.toString (escape := false))),
     ("nativeDeclaration", NativeExpression.nameJson limit.declaration),
     ("colimit", toJson limit.colimit), ("cone", cone),
     ("presentation", presentation), ("diagram", diagram), ("interface", interface),
+    ("ownerFamily", toJson ownerFamily), ("creation", toJson creation),
+    ("creationFamily", toJson creationFamily), ("creationInputs", toJson limit.creationInputs),
     ("category", toJson (reprStr limit.category)), ("bundle", ← closedTermJson limit.bundle)]
 
 def categoryJson (category : SourceCategoryBinding) : StateM NativeExpression.Builder Json := do

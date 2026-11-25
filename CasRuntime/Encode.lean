@@ -3,6 +3,7 @@ module
 public import CasRuntime.Scope
 public import CasRuntime.PreparedRequest
 public import CasRuntime.Closure
+public import CasRuntime.CategoricalPointPacket
 
 public section
 
@@ -35,7 +36,8 @@ private def exactInput (left right : ValueBinding) : Bool :=
 
 /-- The exact root of a delayed registered named callable has its released declaration packet.
 The code must name that family at the empty native path, and its complete original input table
-is admitted before any view is produced. Opaque arrows and projected code are left untouched. -/
+is admitted before any view is produced. A formal direct leg exposes only the exact named
+packet retained by its source producer. Other opaque arrows and projected code stay scoped. -/
 opaque InputDescriptorView.namedPoint? (graph : ValueGraph)
     (codes : Std.HashMap (RuntimeId .program) ClosureCode) (binding : ValueBinding) :
     MetaM (Option InputDescriptorView) := do
@@ -44,9 +46,33 @@ opaque InputDescriptorView.namedPoint? (graph : ValueGraph)
   let some node := graph.find binding.value
     | throwError "the named arrow has no visible original node"
   let .closure program captures := node.payload.data | return none
+  if let some (.formalLeg _ (some packet)) := codes[program]? then
+    unless packet.fields.isNone && packet.callable.isNone && packet.originalPacket.isNone do
+      throwError "the formal leg changed its original inert named packet"
+    let parameters := packet.slots.map (·.binding)
+    for parameter in parameters do
+      unless captures.any (exactInput parameter) do
+        throwError "the formal leg lost an original named descriptor operand"
+    discard <| IO.ofExcept <| (graph.requiredOwners parameters).mapError IO.userError
+    return some ⟨binding, packet, none, parameters, captures.push binding⟩
   let some (.family request path) := codes[program]? | return none
   unless path.isEmpty do return none
   let .primitive boundary _ := request.action | return none
+  if let .point family := boundary then
+    unless !family.invocation && captures.size == request.scope.size &&
+        (captures.zip request.scope).all (fun (left, right) => exactInput left right) do
+      throwError "the categorical arrow changed its original delayed family or complete captures"
+    let complete ← request.source.source.withOpen fun _ source => do
+      return (← whnfR (← inferType source)).isAppOfArity ``Quiver.Hom 4
+    unless complete do return none
+    discard <| request.admitInputs graph
+    let values := request.origin.application.map (·.arguments) |>.getD #[]
+    let prepared ← CategoricalPointPacket.prepare family values
+    let .container packet := prepared.arrow.data
+      | throwError "the categorical arrow lost its checked complete declaration packet"
+    let parameters := prepared.parameters.slots.map (·.binding)
+    return some ⟨binding, packet, some request, parameters,
+      (request.scope ++ parameters ++ packet.slots.map (·.binding)).push binding⟩
   let selected : Option (Name × String) ← match boundary with
     | .registered family => do
       let .morphism morphismId := family.source.reference | pure none
@@ -102,19 +128,25 @@ opaque InputDescriptorView.namedMorphism? (graph : ValueGraph)
     (codes : Std.HashMap (RuntimeId .program) ClosureCode) (binding : ValueBinding) :
     MetaM (Option InputDescriptorView) := do
   let some view ← InputDescriptorView.namedPoint? graph codes binding | return none
-  let some family := view.family | throwError "the named descriptor lost its prepared family"
+  let some family := view.family | return none
   match family.reference with
   | some (.morphism _) => pure (some view)
-  | _ => pure none
+  | _ =>
+    match family.action with
+    | .primitive (.point selected) _ =>
+      match selected.owner with | .named (.morphism _) => pure (some view) | _ => pure none
+    | _ => pure none
 
 /-- The checked descriptor of the exact delayed ObjectEntry.application occurrence. -/
 opaque InputDescriptorView.namedApplication? (graph : ValueGraph)
     (codes : Std.HashMap (RuntimeId .program) ClosureCode) (binding : ValueBinding) :
     MetaM (Option InputDescriptorView) := do
   let some view ← InputDescriptorView.namedPoint? graph codes binding | return none
-  let some family := view.family | throwError "the named descriptor lost its prepared family"
+  let some family := view.family | return none
   match family.action with
   | .primitive (.application _) _ => pure (some view)
+  | .primitive (.point selected) _ =>
+    match selected.owner with | .named (.application _) => pure (some view) | _ => pure none
   | _ => pure none
 
 /-- Require the caller's released named family at an actual scoped arrow. This is an identity
@@ -126,7 +158,12 @@ def InputDescriptorView.requireMorphism (graph : ValueGraph)
     | throwStratum .malformed "the arrow is not its original complete released named family"
   let some family := descriptorView.family
     | throwError "the named-arrow descriptor lost its checked source family"
-  unless family.reference == some (.morphism expected) do
+  let actual := match family.action with
+    | .primitive (.point selected) _ =>
+      match selected.owner with | .named (.morphism entry) => some entry.id | _ => none
+    | _ => family.reference.bind fun reference =>
+        match reference with | .morphism id => some id | _ => none
+  unless actual == some expected do
     throwStratum .malformed "the supplied arrow belongs to a different released family"
   return descriptorView
 
@@ -138,12 +175,32 @@ def InputDescriptorView.requireApplication (graph : ValueGraph)
   let some view ← InputDescriptorView.namedApplication? graph codes binding
     | throwStratum .malformed "the arrow is not its original complete released object application"
   let some request := view.family | throwError "the application descriptor lost its checked family"
-  let .primitive (.application family) _ := request.action
-    | throwError "the application descriptor changed its prepared boundary"
-  let .application entry := family.owner
-    | throwError "the application descriptor changed its original owner kind"
-  unless entry.id == expected do
+  let owner := match request.action with
+    | .primitive (.application family) _ =>
+      match family.owner with | .application entry => some entry.id | _ => none
+    | .primitive (.point family) _ =>
+      match family.owner with | .named (.application entry) => some entry.id | _ => none
+    | _ => none
+  unless owner == some expected do
     throwStratum .malformed "the supplied arrow belongs to a different released object application"
+  return view
+
+/-- Authenticate the exact original source owner of a retained categorical arrow. -/
+def InputDescriptorView.requireCategorical (graph : ValueGraph)
+    (codes : Std.HashMap (RuntimeId .program) ClosureCode) (binding : ValueBinding)
+    (expected : CategoricalPointFamily) : MetaM InputDescriptorView := do
+  match expected.owner with
+  | .named (.morphism entry) => return ← requireMorphism graph codes binding entry.id
+  | .named (.application entry) => return ← requireApplication graph codes binding entry.id
+  | _ => pure ()
+  let some view ← InputDescriptorView.namedPoint? graph codes binding
+    | throwStratum .malformed "the arrow is not its original complete categorical family"
+  let some request := view.family | throwError "the categorical descriptor lost its source family"
+  let .primitive (.point family) _ := request.action
+    | throwStratum .malformed "the arrow has another original source boundary"
+  unless !family.invocation && family.operation == expected.operation &&
+      family.declaration == expected.declaration do
+    throwStratum .malformed "the supplied arrow belongs to a different categorical owner"
   return view
 
 /-- The public Arrow packet is a view of one actual native Arrow record. Its three supplied
@@ -209,7 +266,7 @@ private partial def collectDescriptorViews (graph : ValueGraph)
       | throwError "a descriptor input is outside its visible graph"
     match node.payload.data with
     | .container value =>
-      unless binding.role.kind == .function || value.callable.isSome do
+      unless (binding.role.kind == .function || value.callable.isSome) && !value.callableData do
         for slot in value.slots do
           let child ← match slot.fieldIndex with
             | none => pure slot.binding
@@ -286,7 +343,9 @@ private partial def encodeAt (graph : ValueGraph) (receiver : ConnectionGenerati
     return scopeReference state binding
   | .closure .. => return scopeReference state binding
   | .container container =>
-    if binding.role.kind == .function || container.callable.isSome then
+    if container.packetExports.any (·.owner != receiver) then
+      return scopeReference state binding
+    if (binding.role.kind == .function || container.callable.isSome) && !container.callableData then
       return scopeReference state binding
     let mut replacements : Array Json := #[]
     let mut state := state
@@ -297,7 +356,7 @@ private partial def encodeAt (graph : ValueGraph) (receiver : ConnectionGenerati
       let (packet, next) ← encodeAt graph receiver actual (path ++ slot.path) state views
       replacements := replacements.push packet
       state := next
-    return (← container.fill replacements, state)
+    return (← container.fillForOwner receiver replacements, state)
   | .product fields =>
     unless binding.role.kind == .record &&
         (binding.role.fields.filter (·.wireIndex.isSome)).size == fields.size do

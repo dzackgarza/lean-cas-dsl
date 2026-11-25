@@ -152,13 +152,14 @@ Ordinary results receive no projection authority. The map owns no payloads.
 Reuse: native whole-result admission and the exact prepared projection check. -/
 opaque ResultRoleMap.admit (telescope : RoleTelescope) (environment : RuntimeEnvironment)
     (graph : ValueGraph) (value : ValueBinding)
-    (projectionContext : Option (ValueBinding × FieldLayout) := none) : MetaM ResultRoleMap := do
+    (projectionContext : Option (ValueBinding × FieldLayout) := none)
+    (fieldPrefix : Option NativeFieldPrefix := none) : MetaM ResultRoleMap := do
   unless graph.worker == telescope.scope.program.worker do
     throwError "the result role map belongs to a different worker"
   let candidate ← match projectionContext with
     | some (operand, field) =>
       environment.checkProjectionResult graph telescope.source value operand field
-    | none => environment.checkResult graph telescope.source value
+    | none => environment.checkResult graph telescope.source value fieldPrefix
   let mut bindings : Std.HashMap RoleId ValueBinding := {}
   for declared in telescope.results do
     if let some path := declared.wirePath then

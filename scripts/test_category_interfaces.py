@@ -68,6 +68,9 @@ class ExportAdmissionBoundary(unittest.TestCase):
         contexts[1]["nativeType"]["roots"] = [1]
         with self.assertRaisesRegex(RuntimeError, "complete category context"):
             module.validate_addresses(document)
+        form["categoryExpression"] = "selected.complete.category"
+        with self.assertRaisesRegex(RuntimeError, "complete category context"):
+            module.validate_addresses(document)
 
 
 class CategoryInterfaces(unittest.TestCase):
@@ -99,6 +102,93 @@ class CategoryInterfaces(unittest.TestCase):
             groups.family("object", "obj.sets.polynomials")
         with self.assertRaises(KeyError):
             self.api.category("Groups")
+
+    def test_complete_registered_requests_keep_native_contexts(self):
+        forms = {form["input"]: form for form in self.document["inputForms"]}
+        entries = {(entry["kind"], entry["id"]): entry
+                   for entry in self.document["entries"]}
+        for kind, identifier, input_form in (
+                ("binder", "bind.sets.finite_sum", "bind.sets.finite_sum"),
+                ("binder", "bind.sets.finite_product", "bind.sets.finite_product"),
+                ("morphism", "mor.groups.trivial", "mor.groups.trivial"),
+                ("limit", "lim.sets.product", "cat.sets")):
+            with self.subTest(kind=kind, identifier=identifier):
+                declaration = entries[kind, identifier]["declarations"][0]["declaration"]
+                contexts = forms[input_form]["nativeContexts"]
+                original = next(item for item in contexts
+                                if item["declaration"] == declaration)
+                self.assertTrue(original["signature"])
+                self.assertIsInstance(original["universeParameters"], list)
+                self.assertEqual(len(original["nativeType"]["roots"]), 1)
+                self.assertTrue(original["nativeType"]["nodes"])
+                self.assertIn(identifier, {row["operation"]
+                                           for row in self.document["operations"]})
+
+    def test_universal_family_keeps_actual_earlier_cone_and_complete_native_record(self):
+        sets = self.api.category("cat.sets")
+        for identifier, projection, callable_field in (
+                ("lim.sets.product", "CategoryTheory.Limits.LimitCone.isLimit",
+                 "CategoryTheory.Limits.IsLimit.lift"),
+                ("colim.sets.coproduct", "CategoryTheory.Limits.ColimitCocone.isColimit",
+                 "CategoryTheory.Limits.IsColimit.desc")):
+            with self.subTest(identifier=identifier):
+                family = sets.family("limit", identifier)
+                detail, = family.details
+                universal = detail["universal"]
+                address = identifier + "#" + projection.rsplit(".", 1)[1]
+                self.assertEqual(universal["operation"], address)
+                self.assertEqual(universal["input"], address + "#input")
+                self.assertEqual(universal["path"], [projection])
+                self.assertIn(identifier, family.operations)
+                self.assertIn(address, family.operations)
+                cone, = universal["precedingFields"]
+                self.assertFalse(cone["proof"])
+                self.assertEqual(cone["sourceIndex"], 0)
+                self.assertTrue(cone["type"])
+                field = next(field for field in universal["fields"]
+                             if field["projection"] == callable_field)
+                self.assertFalse(field["proof"])
+                self.assertEqual(field["path"], [projection, callable_field])
+                self.assertEqual(field["operation"], address)
+                self.assertEqual(field["wireIndex"], 0)
+                self.assertTrue(any(field["proof"] for field in universal["fields"]))
+                for suffix in ("#leg", "#apex", "#map"):
+                    self.assertNotIn(identifier + suffix, family.operations)
+
+    def test_creation_publishes_whole_record_with_unchanged_raw_target_inputs(self):
+        details = next(row for row in self.document["lifts"]
+                       if row["id"] == "lift.finite_sets.pullbacks")
+        creation = details["creation"]
+        self.assertEqual(creation["operation"], details["id"])
+        self.assertEqual(creation["input"], details["id"] + "#input")
+        self.assertEqual(len(creation["inputs"]), 2)
+        self.assertTrue(all(not field["proof"] for field in creation["inputs"]))
+        self.assertIn("CategoryTheory.Limits.Cone", creation["inputs"][0]["type"])
+        self.assertIn("CategoryTheory.Limits.IsLimit", creation["inputs"][1]["type"])
+        self.assertTrue(creation["selectedContext"])
+        fields = []
+        pending = list(creation["fields"])
+        while pending:
+            field = pending.pop(0)
+            fields.append(field)
+            pending.extend(field.get("fields", []))
+        for suffix in ("liftedCone", "validLift", "makesLimit"):
+            selected = [field for field in fields
+                        if field["projection"].rsplit(".", 1)[1] == suffix]
+            self.assertTrue(selected, suffix)
+            self.assertTrue(all(not field["proof"] for field in selected))
+        self.assertTrue(all("operation" not in field for field in fields))
+        operations = {row["operation"] for row in self.document["operations"]}
+        self.assertIn(details["id"], operations)
+        for suffix in ("#creation", "#liftedCone", "#validLift", "#makesLimit", "#leg", "#apex"):
+            self.assertNotIn(details["id"] + suffix, operations)
+        forms = {row["input"] for row in self.document["inputForms"]}
+        self.assertIn(details["id"] + "#input", forms)
+        datatypes = {row["declaration"]: row for row in self.document["datatypes"]}
+        result = datatypes["CategoryTheory.LiftsToLimit"]
+        native_fields = result["constructors"][0]["fields"]
+        self.assertTrue(any(field["name"] == "makesLimit" and not field["proof"]
+                            for field in native_fields))
 
     def test_category_constructors_are_separate_from_object_constructors(self):
         groups = self.api.category("cat.groups")
@@ -184,3 +274,4 @@ class CategoryInterfaces(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

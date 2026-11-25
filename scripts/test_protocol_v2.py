@@ -87,12 +87,12 @@ class Peer:
         self.process.stdin.write(str(len(payload)).encode() + b"\n" + payload)
         return self.read()
 
-    def negotiate(self, *, routines: bool = False) -> None:
+    def negotiate(self, *, routines: bool = False, backend: str = "protocol-peer") -> None:
         self.test.assertEqual(self.read(), {
             "op": "ready", "protocol": 2, "contract": "cas-computation/2",
             "features": ["scoped-values/2", "deferred/2", "suspend-resume/2", "export-capture-frames/2",
                          "routine-observations/1"],
-            "backend": "protocol-peer", "backend_version": "0",
+            "backend": backend, "backend_version": "0",
         })
         hello: dict[str, JsonValue] = {
             "op": "hello", "protocol": 2, "contract": "cas-computation/2"}
@@ -327,6 +327,80 @@ class ProtocolV2(unittest.TestCase):
                 self.assertEqual(int(length), len(body))
                 self.assertEqual(json.loads(body)["op"], "ready")
 
+
+
+    def test_categorical_returned_map_continues_with_the_actual_packet(self) -> None:
+        import tempfile
+
+        directory = tempfile.TemporaryDirectory(prefix="categorical-map-")
+        self.addCleanup(directory.cleanup)
+        operation = "cell.sets.list_reverse#component"
+        configuration = {"operation": operation, "mode": "inline", "point": [],
+                         "log": str(Path(directory.name) / "calls.jsonl")}
+        peer = Peer(self, command=[
+            "uv", "run", "--frozen", "--project", str(CONTRACTS), "python",
+            str(ROOT / "scripts/probes/categorical_point_peer.py"), json.dumps(configuration)])
+        peer.negotiate(backend="categorical-packet-peer")
+        source = {"ctor": "finiteData", "args": ["original-list-object", [[]]]}
+        parameters = [[], {"ctor": "finiteData", "args": ["original-empty-object", []]}, False]
+        original = {"ctor": "cellComponent",
+                    "args": ["cell.sets.list_reverse", [], parameters[1], False]}
+        first = {"ctor": "apply", "args": [operation, parameters, original, source,
+                                           source, source, {"ctor": "identity", "args": [source, source]}]}
+        reply = peer.invoke(0, operation, first)
+        self.assertEqual(reply, {"request_id": 0, "status": "ok", "exports": [], "value": {
+            "ctor": "typedMap", "args": [
+                {"ctor": "inputRef", "args": [["args", 3]]},
+                {"ctor": "inputRef", "args": [["args", 5]]},
+                {"ctor": "finiteGraph", "args": [[[]], [[[], []]]]},
+            ]}})
+        actual = {"ctor": "typedMap", "args": [source, source, reply["value"]["args"][2]]}
+        second = {"ctor": "apply", "args": [
+            operation, parameters, actual, {"ctor": "obj.sets.fin", "args": [1]},
+            source, source, []]}
+        self.assertEqual(peer.invoke(1, operation, second), {
+            "request_id": 1, "status": "ok", "exports": [],
+            "value": {"ctor": "inputRef", "args": [["args", 6]]}})
+        calls = [json.loads(line) for line in Path(configuration["log"]).read_text().splitlines()]
+        self.assertEqual(calls, [{"op": operation, "args": first},
+                                 {"op": operation, "args": second}])
+
+    def test_cartesian_complete_map_projects_its_original_export_capture(self) -> None:
+        import tempfile
+
+        directory = tempfile.TemporaryDirectory(prefix="categorical-cartesian-")
+        self.addCleanup(directory.cleanup)
+        operation = "fun.modules.reindex#cartesian"
+        configuration = {"operation": operation, "mode": "opaque",
+                         "capture": ["args", 1, 0, 0],
+                         "log": str(Path(directory.name) / "calls.jsonl")}
+        peer = Peer(self, command=[
+            "uv", "run", "--frozen", "--project", str(CONTRACTS), "python",
+            str(ROOT / "scripts/probes/categorical_point_peer.py"), json.dumps(configuration)])
+        peer.negotiate(backend="categorical-packet-peer")
+        base, receiver, source, target = (scope_ref(i) for i in range(4))
+        parameters = [[base], receiver]
+        packet = {"ctor": "apply", "args": [
+            operation, parameters,
+            {"ctor": "cartesianMap", "args": ["fun.modules.reindex", [base], receiver]},
+            source, source, target, {"ctor": "identity", "args": [source, source]}]}
+        reply = peer.invoke(0, operation, packet)
+        self.assertEqual(reply["status"], "ok")
+        self.assertEqual(reply["value"]["ctor"], "typedMap")
+        token = reply["value"]["args"][2]["args"][0]
+        self.assertEqual(reply["exports"], [{"token": token,
+            "captures": [{"ctor": "inputRef", "args": [["args", 1, 0, 0]]}]}])
+        context = {"kind": "dependent",
+            "prepared_role": "project:CategoryTheory.Pseudofunctor.CoGrothendieck.Hom.base",
+            "parameters": [], "bindings": [], "arguments": [],
+            "argument_layouts": [], "result_layout": {}}
+        selected = peer.send({"protocol": 2, "request_id": 1, "op": "$cas.invoke_export",
+            "scope_id": "same-cartesian-capture", "token": token,
+            "captures": [scope_ref(0)], "context": context})
+        self.assertEqual(selected, {"request_id": 1, "status": "ok", "exports": [],
+                                    "value": scope_ref(0)})
+        calls = [json.loads(line) for line in Path(configuration["log"]).read_text().splitlines()]
+        self.assertEqual(calls, [{"op": operation, "args": packet}, context])
 
 if __name__ == "__main__":
     unittest.main()

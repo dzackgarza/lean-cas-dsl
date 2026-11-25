@@ -23,7 +23,11 @@ def SourceSession.openCategory (session : SourceSession) (context : OpenContext)
     return (⟨limit.row, limit.declaration, ← limit.cone.inContext context, limit.colimit,
       limit.category, ← limit.bundle.inContext context,
       ← limit.presentation.inContext context, ← limit.diagram.inContext context,
-      ← limit.interface.mapM (·.inContext context)⟩ : NativeSourceLimitSelection)
+      ← limit.interface.mapM (·.inContext context), limit.construction,
+      ← limit.ownerFamily.mapM (·.inContext context),
+      ← limit.creation.mapM (fun creation => creation.mapM (·.inContext context)),
+      ← limit.creationFamily.mapM (·.inContext context), limit.creationInputs⟩ :
+        NativeSourceLimitSelection)
   return some ⟨category.role, category.expression, ← category.bundle.inContext context,
     carrier, limit⟩
 

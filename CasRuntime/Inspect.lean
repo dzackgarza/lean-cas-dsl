@@ -150,7 +150,10 @@ private def closeSelection (context : OpenContext) (category : NativeSourceCateg
     let diagram ← context.close limit.diagram
     let interface ← limit.interface.mapM context.close
     return (⟨limit.row, limit.declaration, cone, limit.colimit, limit.category, bundle,
-      presentation, diagram, interface⟩ : SourceLimitSelection)
+      presentation, diagram, interface, limit.construction,
+      ← limit.ownerFamily.mapM context.close,
+      ← limit.creation.mapM (·.mapM context.close),
+      ← limit.creationFamily.mapM context.close, limit.creationInputs⟩ : SourceLimitSelection)
   return do
     let bundle ← ContextSnapshot.closedTermJson bundle
     let carrier ← carrier.mapM SourceSnapshot.carrierJson

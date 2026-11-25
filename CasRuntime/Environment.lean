@@ -50,9 +50,11 @@ opaque RuntimeArgument.ofValue (graph : ValueGraph) (index : Nat) (value : Value
 
 /-- Resolve only marks in this argument's complete retained native source.
 The captured argument snapshot is authoritative, never the current global mark array. -/
-opaque RuntimeArgument.sourceMarks (argument : RuntimeArgument) (source : ClosedTerm) :
-    Except String (Array (Nat × ValueBinding)) :=
-  retainedSourceMarks (argument.marks.mapIdx fun key value => (key, value)) source
+opaque RuntimeArgument.sourceMarks (argument : RuntimeArgument) (source : ClosedTerm)
+    (prepared : Array (Nat × ValueBinding) := #[]) :
+    Except String (Array (Nat × ValueBinding)) := do
+  let marks ← mergeSourceMarks prepared (argument.marks.mapIdx fun key value => (key, value))
+  retainedSourceMarks marks source
 
 /-- The complete semantic telescope and its separate ordered runtime-binding table.
 Formal-only entries retain their source definitions, hypotheses and selected instances.
@@ -116,16 +118,92 @@ private def retainsReference (bound operand : ValueBinding) : Bool :=
   bound.value == operand.value &&
     bound.associationIds.toList.isPrefixOf operand.associationIds.toList
 
+private abbrev NativeTelescopeViews := Array (ConstructorProjectionTransport × Nat)
+
+private def sameAdmittedSource (left right : ClosedTerm) : Bool :=
+  left.context.exactlyMatches right.context && left.expression.equal right.expression &&
+    left.type.equal right.type && left.universeParams == right.universeParams &&
+    left.nativeDeclarations.exactlyMatches right.nativeDeclarations
+
+/-- Reopen the original source before instantiating only type-schema slots certified by
+retained constructor routes. No producing expression or origin is rewritten. -/
+private def nativeTypeInContext (context : OpenContext) (views : NativeTelescopeViews)
+    (source : ClosedTerm) (fieldType : Option (ClosedTerm × ClosedTerm) := none) : MetaM Expr := do
+  let mut type ← inferType (← source.inContext context)
+  if let some (original, annotated) := fieldType then
+    -- The producer was already selected by its immutable field prefix. Exact source
+    -- agreement only chooses which retained role receives that same type annotation.
+    if sameAdmittedSource original source then
+      let annotated ← annotated.inContext context
+      unless ← isDefEq type annotated do
+        throwError "the producing field prefix changed its original native type"
+      type := annotated
+  for (transport, mark) in views do
+    type ← transport.instantiateSchema context type mark
+  return type
+
+private def nativeSchemaInContext (context : OpenContext) (views : NativeTelescopeViews)
+    (source : ClosedTerm) : MetaM Expr := do
+  let mut schema ← source.inContext context
+  for (transport, mark) in views do
+    schema ← transport.instantiateSchema context schema mark
+  return schema
+
+/-- Join the complete original port scopes with the current checking telescope. Shared
+BindingIds must retain the same actual value/association chain. Each substituted native
+slot receives a fresh temporary mark for its already admitted original selected port. -/
+private def withNativeTelescopeViews (context : OpenContext)
+    (supplied : Std.HashMap BindingId ValueBinding) (marks : Array (Nat × ValueBinding))
+    (graph : ValueGraph) (expected : Expr) (value : ValueBinding) (origin : ValueOrigin)
+    (action : OpenContext → Std.HashMap BindingId ValueBinding →
+      Array (Nat × ValueBinding) → NativeTelescopeViews → MetaM α) : MetaM α := do
+  let scopes := value.telescopeInstantiations
+  let sources := #[← context.close expected, value.role.source, origin.role.source] ++
+    value.markedTypeRoles.map (·.source) ++ value.instantiations.map (·.typeFamily) ++
+    scopes.flatMap (fun scope =>
+      #[scope.source.source, scope.transport.source.source, scope.transport.target.source,
+        scope.transport.result.source])
+  let rec visit (scopes : List TelescopeInstantiation) (context : OpenContext)
+      (supplied : Std.HashMap BindingId ValueBinding) (marks : Array (Nat × ValueBinding))
+      (views : NativeTelescopeViews) : MetaM α := do
+    match scopes with
+    | [] => action context supplied marks views
+    | scope :: rest =>
+      scope.transport.withContext context fun context => do
+        unless scope.parameters.size == scope.transport.plan.context.entries.size do
+          throwError "native transport lost its complete original parameter table"
+        let mut supplied := supplied
+        for entry in scope.transport.plan.context.entries, actual in scope.parameters do
+          if let some actual := actual then
+            if let some current := supplied[entry.id]? then
+              unless retainsReference actual current do
+                throwError "native transport changed an original dependent supplier"
+            else supplied := supplied.insert entry.id actual
+        let marks ← IO.ofExcept <|
+          (mergeSourceMarks marks scope.sourceMarks).mapError IO.userError
+        let mark := freshSchemaMark marks sources
+        let marks := marks.push (mark, scope.selected)
+        discard <| IO.ofExcept <|
+          (graph.requiredOwners (scope.parameters.filterMap id ++ #[scope.selected])).mapError
+            IO.userError
+        visit rest context supplied marks (views.push (scope.transport, mark))
+  visit scopes.toList context supplied marks #[]
+
 private def checkNativeType (context : OpenContext) (expected : Expr)
-    (value : ValueBinding) (origin : ValueOrigin) : MetaM Unit := do
-  let original ← value.role.source.inContext context
-  unless ← isDefEq (← inferType original) expected do
-    trace[cas.environment] "{original} : {← inferType original}, expected {expected}"
+    (value : ValueBinding) (origin : ValueOrigin)
+    (views : NativeTelescopeViews := #[])
+    (fieldType : Option (ClosedTerm × ClosedTerm) := none) : MetaM Unit := do
+  let original ← nativeTypeInContext context views value.role.source fieldType
+  unless ← isDefEq original expected do
+    trace[cas.environment] "retained type {original}, expected {expected}"
     throwError "the runtime value has an incompatible complete source type"
-  let producing ← origin.role.source.inContext context
-  unless ← isDefEq (← inferType producing) expected do
-    trace[cas.environment] "{producing} : {← inferType producing}, expected {expected}"
+  let producing ← nativeTypeInContext context views origin.role.source fieldType
+  unless ← isDefEq producing expected do
+    trace[cas.environment] "producing type {producing}, expected {expected}"
     throwError "the producing runtime value has an incompatible complete source type"
+  for scope in value.telescopeInstantiations do
+    unless ← isDefEq (← nativeTypeInContext context views scope.source.source fieldType) expected do
+      throwError "the original constructor port has an incompatible complete source type"
 
 /-- The tag of the failure "the source binding `id` has no runtime value". A session uses it to
 report the statement as the gap of that definition. -/
@@ -417,10 +495,11 @@ private partial def hasDependencyAccess (graph : ValueGraph) (value parent : Val
 /-- An exact source-path parent and declared field. A prepared projection supplies its
 original operand path; recursive stored-result validation extends that same path. -/
 private structure ResultFieldPrefix where
-  parent : ValueBinding
+  parent : Option ValueBinding
   layout : RecordLayout
   field : FieldLayout
   «view» : Option FieldDependencyView := none
+  preceding : Option (Array (Option ValueBinding)) := none
 
 /-- Follow only the next declared source field of this same prepared prefix witness. The
 view narrows its original slots to that descendant; introduced native locals stay abstract. -/
@@ -442,10 +521,11 @@ All occurrences must resolve to a current prefix route, an explicit context refe
 source. An unrelated unresolved family cannot borrow another occurrence's prefix witness. -/
 private def currentPrefixRoutes (context : OpenContext) (inputs : Array BindingId)
     (graph : ValueGraph) (original : FieldInstantiation) (slot : Nat)
-    (current : ResultFieldPrefix) : MetaM (Option (Array (ValueBinding × Array Name) × Bool)) := do
-  let family ← original.typeFamily.inContext context
-  let currentFamily ← ((current.view.map (·.typeFamily)).getD
-    current.field.typeFamily).inContext context
+    (current : ResultFieldPrefix) (views : NativeTelescopeViews := #[]) :
+    MetaM (Option (Array (ValueBinding × Array Name) × Bool)) := do
+  let family ← nativeSchemaInContext context views original.typeFamily
+  let currentFamily ← nativeSchemaInContext context views
+    ((current.view.map (·.typeFamily)).getD current.field.typeFamily)
   let inspect := fun locals type => do
     unless locals.size ≥ original.preceding.size do
       throwError "a consuming runtime dependency lost its complete native prefix"
@@ -465,7 +545,15 @@ private def currentPrefixRoutes (context : OpenContext) (inputs : Array BindingI
           unless prepared.field.wireIndex.isSome do
             complete := false
             continue
-          let some value ← storedDependency graph current.parent #[prepared.field.projection]
+          let selected ← match current.parent with
+            | some parent => storedDependency graph parent #[prepared.field.projection]
+            | none =>
+              let some preceding := current.preceding
+                | throwError "the current native field lost its original prefix snapshot"
+              unless preceding.size == current.field.sourceIndex do
+                throwError "the current native field changed its complete prefix telescope"
+              pure (preceding[index]?.bind id)
+          let some value := selected
             | throwError "the runtime value is missing a required original dependent prefix field"
           routes := routes.push (value, path)
         else
@@ -539,18 +627,17 @@ private def sameCapturedTypeReference (graph : ValueGraph)
   | none, some second => return hasDependencyAccess graph second left.1 left.2
   | none, none => return false
 
-private def sameAdmittedSource (left right : ClosedTerm) : Bool :=
-  left.context.exactlyMatches right.context && left.expression.equal right.expression &&
-    left.type.equal right.type && left.universeParams == right.universeParams &&
-    left.nativeDeclarations.exactlyMatches right.nativeDeclarations
-
 /-- Join an original field's declared dependency positions to the actual current result prefix.
 Only complete original-to-current slot routes supply this view. A field association for the
 current consuming record cannot authorize itself; neither payloads nor native type equality
-select a supplier. The original type expressions and all captured marks stay unchanged. -/
+select a supplier. An immutable fresh producer prefix may describe that same native source;
+only its exact original association and complete predecessor table authorize this case.
+The original type expressions and all captured marks stay unchanged. -/
 private def joinedPrefixReferences (context : OpenContext) (inputs : Array BindingId)
     (graph : ValueGraph) (sameContextReference : Expr → Expr → MetaM Bool)
-    (formal expected : Expr) (value : ValueBinding) (currentPrefixes : Array ResultFieldPrefix) :
+    (formal expected : Expr) (value : ValueBinding) (currentPrefixes : Array ResultFieldPrefix)
+    (views : NativeTelescopeViews := #[])
+    (producingPrefix : Option NativeFieldPrefix := none) :
     MetaM (Array (Array DependencyStep × ValueBinding) ×
       Array (Array DependencyStep × ValueBinding)) := do
   if currentPrefixes.isEmpty then return (#[], #[])
@@ -558,10 +645,23 @@ private def joinedPrefixReferences (context : OpenContext) (inputs : Array Bindi
   let mut expectedReferences := #[]
   for original in value.instantiations do
     if original.precedingDependencies.isEmpty then continue
+    let producing := producingPrefix.any fun nativePrefix =>
+      nativePrefix.frames.any fun frame =>
+        frame.association.id == original.association.id &&
+        frame.field.sourceIndex == original.field.sourceIndex &&
+        frame.field.projection == original.field.projection &&
+        (frame.view.map (·.path)).getD #[] == original.projectionPath &&
+        frame.preceding.size == original.preceding.size &&
+        (frame.preceding.zip original.preceding).all (fun (left, right) =>
+          match left, right with
+          | none, none => true
+          | some left, some right =>
+            left.value == right.value && left.associationIds == right.associationIds
+          | _, _ => false)
     if currentPrefixes.any (fun current =>
         sameAdmittedSource original.association.layout.source.source
-          current.layout.source.source) then continue
-    let family ← original.typeFamily.inContext context
+          current.layout.source.source) && !producing then continue
+    let family ← nativeSchemaInContext context views original.typeFamily
     let inspect := fun target locals type => do
       unless locals.size ≥ original.preceding.size do
         throwError "a consuming runtime dependency lost its complete native prefix"
@@ -578,7 +678,7 @@ private def joinedPrefixReferences (context : OpenContext) (inputs : Array Bindi
       let mut covered := false
       for current in currentPrefixes do
         if let some (routes, complete) ←
-            currentPrefixRoutes context inputs graph original slot current then
+            currentPrefixRoutes context inputs graph original slot current views then
           covered := covered || complete
           for (parent, path) in routes do
             match ← storedDependency graph parent path with
@@ -620,6 +720,59 @@ private partial def joinedTypePosition
   return (← joinedTypePosition references projection.parent parentPosition).map fun (value, path) =>
     (value, path.push projection.declaration)
 
+/-- Read a syntactic projection path relative to the already selected native record.
+Exact expression agreement authenticates this one root; no graph value is chosen by a type
+or convertible expression. Selected source metadata is never reduced. -/
+private partial def nativePrefixPath? (original source : Expr) : MetaM (Option (Array Name)) := do
+  if original.equal source then return some #[]
+  if let .mdata data body := source then
+    if (markedKey? data).isNone &&
+        (data.contains `CasCompiler.source.kind || data.contains `CasCompiler.selection) then
+      return none
+    return ← nativePrefixPath? original body
+  let some projection ← SourceProjection.ofExpr? source | return none
+  let some path ← nativePrefixPath? original projection.parent | return none
+  return some (path.push projection.declaration)
+
+/-- Resolve an explicitly named earlier field only through the sealed original prefix.
+The whole parent need not exist. Every overlapping native frame must name the same retained
+occurrence, and a descendant must already be stored; this never executes a field demand. -/
+private def nativePrefixEndpoint? (nativePrefix : NativeFieldPrefix) (context : OpenContext)
+    (graph : ValueGraph) (source : Expr) : MetaM (Option ValueBinding) := do
+  let some first := nativePrefix.frames[0]?
+    | throwError "a native endpoint prefix lost its original declaration frame"
+  let mut root := first.association.layout.source
+  for frame in nativePrefix.frames do
+    if frame.association.layout.source.address.size < root.address.size then
+      root := frame.association.layout.source
+  let some path ← nativePrefixPath? (← root.source.inContext context) source | return none
+  if path.isEmpty then return none
+  let mut result := none
+  for frame in nativePrefix.frames do
+    let parentPath ← root.projectionPathTo frame.association.layout.source
+    unless parentPath.toList.isPrefixOf path.toList && parentPath.size < path.size do continue
+    let some projection := path[parentPath.size]? | continue
+    let some prepared := frame.association.layout.fields.find? (·.field.projection == projection)
+      | throwError "a native endpoint prefix selected an undeclared original field"
+    let index := prepared.field.sourceIndex
+    if index >= frame.preceding.size then continue
+    let some original := frame.preceding[index]?.bind id
+      | throwError "a native endpoint prefix selected a formal proof slot"
+    discard <| IO.ofExcept <| (graph.requiredOwners #[original]).mapError IO.userError
+    let suffix := path.extract (parentPath.size + 1) path.size
+    let some (selected, remaining) ← IO.ofExcept <|
+        (graph.projectionFrontier original suffix).mapError IO.userError
+      | CasCatalogue.throwStratum .noImplementation
+          "the original prefix endpoint has no stored native field interface"
+    unless remaining.isEmpty do
+      CasCatalogue.throwStratum .noImplementation
+        "the original prefix endpoint requires its retained field demand"
+    if let some previous := result then
+      unless sameReference previous selected do
+        throwError "native endpoint prefixes disagree about an original field occurrence"
+    result := some selected
+  return result
+
 private def checkDependencies (context : OpenContext)
     (inputProjections : Std.HashMap BindingId InputProjection)
     (supplied : Std.HashMap BindingId ValueBinding) (marks : Array (Nat × ValueBinding))
@@ -627,7 +780,9 @@ private def checkDependencies (context : OpenContext)
     (graphFor : BindingId → MetaM ValueGraph) (expected : Expr)
     (value : ValueBinding) (origin : ValueOrigin)
     (currentPrefixes : Array ResultFieldPrefix := #[])
-    (pending : Option PendingResultProjection := none) : MetaM Unit := do
+    (pending : Option PendingResultProjection := none)
+    (views : NativeTelescopeViews := #[])
+    (fieldType : Option (ClosedTerm × ClosedTerm) := none) : MetaM Unit := do
   for index in origin.role.contextDependencies do
     let some dependency := origin.role.source.context.entries[index]?
       | throwError "a producing runtime dependency is outside its source telescope"
@@ -677,8 +832,9 @@ private def checkDependencies (context : OpenContext)
     return false
   let mut checkedTypes := #[]
   for source in #[value.role.source, origin.role.source] ++
-      value.markedTypeRoles.map (·.source) do
-    let originalType ← inferType (← source.inContext context)
+      value.markedTypeRoles.map (·.source) ++
+      value.telescopeInstantiations.map (·.source.source) do
+    let originalType ← nativeTypeInContext context views source fieldType
     if !expectedMarks.isEmpty || (← typeHasMarks originalType) then
       checkedTypes := checkedTypes.push (source, originalType)
   let compareCaptured := fun
@@ -687,6 +843,15 @@ private def checkDependencies (context : OpenContext)
       (formalPosition expectedPosition : Option (Array DependencyStep)) => do
     let originalPrefix ← joinedTypePosition formalReferences formal formalPosition
     let currentPrefix ← joinedTypePosition expectedReferences current expectedPosition
+    -- An enclosing native type expression must reach its authenticated descendant slots
+    -- before source normalization can change their structural positions. Direct marks
+    -- remain visible and independently checked at every level of the same traversal.
+    let hasDescendant := fun (references : Array (Array DependencyStep × ValueBinding))
+        (position : Option (Array DependencyStep)) =>
+      position.any fun position => references.any fun (selected, _) =>
+        position.size < selected.size && position.toList.isPrefixOf selected.toList
+    let reduce := reduce && !(hasDescendant formalReferences formalPosition ||
+      hasDescendant expectedReferences expectedPosition)
     let originalSource ← if reduce then sourceView formal else pure formal
     let currentSource ← if reduce then sourceView current else pure current
     let originalMarked ← markedProjection? originalSource
@@ -730,11 +895,60 @@ private def checkDependencies (context : OpenContext)
   for (_, originalType) in checkedTypes do
       let (formalReferences, expectedReferences) ←
         joinedPrefixReferences context inputs graph sameContextReference
-          originalType expected value currentPrefixes
+          originalType expected value currentPrefixes views origin.fieldPrefix
       let some _ ← dependencyTerms sameContextReference #[] originalType expected #[]
           (some (compareCaptured formalReferences expectedReferences)) (some sourceView)
         | throwError "the runtime value has a different marked source type dependency"
-  if value.instantiations.all (·.precedingDependencies.isEmpty) then return ()
+  if value.instantiations.all (·.precedingDependencies.isEmpty) then
+    -- A dependent field under an unbound native parent still needs an original
+    -- supplier. The current output's own earlier fields cannot provide that authority.
+    -- Closed constructor sources remain ordinary native checking; explicit captured
+    -- input marks and aliases must agree with every corresponding actual prefix slot.
+    for current in currentPrefixes do
+      let required := (current.view.map (·.precedingDependencies)).getD
+        current.field.precedingDependencies
+      for index in required do
+        let some prepared := current.layout.fields[index]?
+          | throwError "a dependent native field is outside its original prefix telescope"
+        unless prepared.field.wireIndex.isSome do continue
+        let source ← nativeSchemaInContext context views prepared.layout.source
+        let mut references ← capturedTypeReferences context inputProjections retainedInputs
+          supplied marks source true
+        if let some nativePrefix := origin.fieldPrefix then
+          if let some original ← nativePrefixEndpoint? nativePrefix context graph source then
+            references := references.push (original, #[])
+        if references.isEmpty then
+          -- Failure to find a direct route does not close an application such as h W.
+          -- Inspect only the existing source projection view and native dependency graph.
+          let structural ← sourceView source
+          let mut needsSupplier := hasSourceMarks structural
+          for position in ← computationalDependencies (context.bindings.map (·.expression)) structural do
+            let some binding := context.bindings[position]?
+              | throwError "a dependent native field lost its original source context"
+            let declaration ← getFVarLocalDecl binding.expression
+            if ← isProp declaration.type then continue
+            if hasSourceMarks declaration.type then needsSupplier := true
+            match declaration.value? true with
+            | none => needsSupplier := true
+            | some definition =>
+              if hasSourceMarks definition then needsSupplier := true
+          if needsSupplier then
+            throwError "the dependent native field has no original supplier for its preceding source position"
+          continue
+        let actual ← match current.parent with
+          | some parent => pure (parent, #[prepared.field.projection])
+          | none => do
+            let some preceding := current.preceding
+              | throwError "a dependent native field lost its original prefix snapshot"
+            unless preceding.size == current.field.sourceIndex do
+              throwError "a dependent native field changed its complete prefix telescope"
+            let some previous := preceding[index]?.bind id
+              | throwError "a dependent native field lost a preceding computational slot"
+            pure (previous, #[])
+        for reference in references do
+          unless ← sameCapturedTypeReference graph actual reference do
+            throwError "the dependent native field has a different original preceding supplier"
+    return ()
   let dependencies ← computationalDependencies (context.bindings.map (·.expression)) expected
   let markedDependencies ← markedSourceReferences (some graph) context marks expected
   let mut references : Array (LocalBinding × (BindingId × Array Name)) := #[]
@@ -747,7 +961,7 @@ private def checkDependencies (context : OpenContext)
   let hasDependencies := !references.isEmpty || !markedDependencies.isEmpty
   for instantiation in value.instantiations do
     if instantiation.precedingDependencies.isEmpty then continue
-    let family ← instantiation.typeFamily.inContext context
+    let family ← nativeSchemaInContext context views instantiation.typeFamily
     let inspect := fun locals type => do
       unless locals.size ≥ instantiation.preceding.size do
         throwError "a consuming runtime dependency lost its complete native prefix"
@@ -788,12 +1002,24 @@ private def checkDependencies (context : OpenContext)
           let some reference ← dependencyReference context inputs source
             | if term.hasFVar && unresolved.isNone then unresolved := some term
               continue
-          let mut matched := false
+          -- An immutable field producer may retain this exact earlier projection before
+          -- the whole native parent exists. Existing source aliases and the independently
+          -- checked current result prefixes below remain additional identity constraints.
+          let producerMatched ← match origin.fieldPrefix with
+            | none => pure false
+            | some nativePrefix => do
+              let some retained ← nativePrefixEndpoint? nativePrefix context graph term
+                | pure false
+              unless sameReference original retained do
+                throwError "the runtime value changed its original producing prefix reference"
+              pure true
+          let mut matched := producerMatched
           for (dependency, selectedReference) in references do
             if selectedReference != reference then continue
             matched := true
             let some current := supplied[dependency.id]?
-              | throwError (MessageData.tagged (missingValueTag dependency.id)
+              | if producerMatched then continue
+                throwError (MessageData.tagged (missingValueTag dependency.id)
                   m!"the runtime value is missing a consuming dependent reference \
                     ({dependency.expression})")
             unless sameReference original current do
@@ -903,7 +1129,7 @@ private def checkDependencies (context : OpenContext)
               m!"the runtime value is missing a consuming dependent reference ({dependency.expression})")
         let mut covered := false
         for current in currentPrefixes do
-          if let some (routes, complete) ← currentPrefixRoutes context inputs graph instantiation index current then
+          if let some (routes, complete) ← currentPrefixRoutes context inputs graph instantiation index current views then
             covered := covered || complete
             for (parent, path) in routes do
               match ← storedDependency graph parent path with
@@ -967,6 +1193,55 @@ private def sameAdmittedParameters (environment : RuntimeEnvironment)
     seen := seen.insert parameter.source
   return true
 
+/-- Validate both native interfaces in the full retained checking scopes, then run the
+unchanged independent dependency constraints with exact source-ordered references. -/
+private def nativeFieldPrefixes (nativePrefix : NativeFieldPrefix) : Array ResultFieldPrefix :=
+  nativePrefix.frames.map fun frame =>
+    ⟨none, frame.association.layout, frame.field, frame.view, some frame.preceding⟩
+
+private def checkTransportedValue (context : OpenContext)
+    (inputProjections : Std.HashMap BindingId InputProjection)
+    (supplied : Std.HashMap BindingId ValueBinding) (marks : Array (Nat × ValueBinding))
+    (graph : ValueGraph) (graphFor : BindingId → MetaM ValueGraph) (expected : Expr)
+    (value : ValueBinding) (origin : ValueOrigin)
+    (currentPrefixes : Array ResultFieldPrefix := #[])
+    (pending : Option PendingResultProjection := none)
+    (fieldPrefix : Option NativeFieldPrefix := none) : MetaM Unit := do
+  if value.telescopeInstantiations.isEmpty && origin.fieldPrefix.isNone && fieldPrefix.isNone then
+    checkDependencies context inputProjections supplied marks graph graphFor expected value origin
+      currentPrefixes pending
+    return
+  withNativeTelescopeViews context supplied marks graph expected value origin fun
+      context joined marks views => do
+    let expectedSource ← context.close expected
+    let reserved := #[expectedSource, value.role.source, origin.role.source] ++
+      value.markedTypeRoles.map (·.source)
+    let (fieldType, marks) ← match origin.fieldPrefix with
+      | none => pure (none, marks)
+      | some nativePrefix =>
+        nativePrefix.withMarkedType graph marks (fun original type marks => do
+          pure (some (origin.role.source, ← original.close type), marks))
+          (reservedSources := reserved)
+    let (expected, marks) ← match fieldPrefix with
+      | none => pure (expected, marks)
+      | some nativePrefix => do
+        let (closed, marks) ← nativePrefix.withMarkedType graph marks
+          (fun original type marks => do pure (← original.close type, marks))
+          (reservedSources := reserved)
+        let type ← closed.inContext context
+        unless ← isDefEq expected type do
+          throwError "the consuming field prefix changed its original native type"
+        pure (type, marks)
+    let mut expected := expected
+    for (transport, mark) in views do
+      expected ← transport.instantiateSchema context expected mark
+    checkNativeType context expected value origin views fieldType
+    let positions ← context.inputProjections
+    let graphFor := fun id =>
+      if supplied.contains id then graphFor id else pure graph
+    checkDependencies context positions joined marks graph graphFor expected value origin
+      currentPrefixes pending views fieldType
+
 /-- Associate existing nodes by stable source identity, native type and retained dependencies.
 The complete native/type/dictionary checks below precede every new association. Consuming
 fields keep their exact prefix suppliers and full instantiation chains; whole-reply admission
@@ -1019,7 +1294,8 @@ opaque RuntimeEnvironment.capture (worker : String) (context : OpenContext)
     let expected ← inferType source.expression
     if ← isProp expected then
       throwError "a source proof has no runtime value association"
-    checkNativeType context expected parameter.value parameter.origin
+    if parameter.value.telescopeInstantiations.isEmpty && parameter.origin.fieldPrefix.isNone then
+      checkNativeType context expected parameter.value parameter.origin
     let role ← SourceLayout.ofTerm (← context.close source.expression)
     let marks ← IO.ofExcept <| (retainedSourceMarks sourceMarks role.source).mapError IO.userError
     let dependencies ← markedTypeReferences sourceGraph role.source marks
@@ -1034,7 +1310,7 @@ opaque RuntimeEnvironment.capture (worker : String) (context : OpenContext)
       let some parameter := parameters.find? (·.source == id)
         | throwError "a retained dependent reference lost its supplying graph"
       pure parameter.graph
-    checkDependencies context inputProjections supplied sourceMarks
+    checkTransportedValue context inputProjections supplied sourceMarks
       (sourceGraph.getD parameter.graph) graphFor
       (← inferType source.expression) parameter.value parameter.origin
   let values := context.bindings.map fun binding => supplied[binding.id]?
@@ -1075,25 +1351,28 @@ partial def RuntimeEnvironment.hasRetainedSource (environment : RuntimeEnvironme
 selected path; the parent comes only from that value's association or producing origin.
 Native conversion may check other expressions, but never chooses a projected parent. -/
 private partial def RuntimeEnvironment.retainsSourceReference (environment : RuntimeEnvironment)
-    (context : OpenContext) (graph : ValueGraph) (marks : Array ValueBinding)
+    (context : OpenContext) (graph : ValueGraph) (marks : Array (Nat × ValueBinding))
     (specified : Expr) (value : ValueBinding) (requireAnchor : Bool := false)
-    (anchored : Bool := false) : MetaM Bool := do
+    (anchored : Bool := false) (fieldPrefix : Option NativeFieldPrefix := none) : MetaM Bool := do
   if let .mdata data body := specified then
     if let some key := markedKey? data then
-      let some selected := marks[key]?
+      let some (_, selected) := marks.find? (·.1 == key)
         | throwError "the source argument lost its retained occurrence mark"
       let .ok _ := graph.requiredOwners #[selected]
         | throwError "the source argument's marked occurrence is outside the visible graph"
       unless retainsReference selected value do return false
       -- A mark adds an identity constraint; it cannot replace a variable or field constraint.
-      return ← environment.retainsSourceReference context graph marks body value requireAnchor true
+      return ← environment.retainsSourceReference context graph marks body value requireAnchor true fieldPrefix
     if data.contains `CasCompiler.source.objectOrigin then
       let some (_, original) ← sourceObjectOrigin? specified
         | throwError "the source object lost its retained original parameter"
-      return ← environment.retainsSourceReference context graph marks original value requireAnchor anchored
+      return ← environment.retainsSourceReference context graph marks original value requireAnchor anchored fieldPrefix
     if (data.find `CasCompiler.source.kind).isNone &&
         (data.find `CasCompiler.selection).isNone then
-      return ← environment.retainsSourceReference context graph marks body value requireAnchor anchored
+      return ← environment.retainsSourceReference context graph marks body value requireAnchor anchored fieldPrefix
+  if let some nativePrefix := fieldPrefix then
+    if let some selected ← nativePrefixEndpoint? nativePrefix context graph specified then
+      return retainsReference selected value
   if specified.isFVar then
     let some binding := context.bindings.find? (·.expression == specified)
       | throwError "the source argument is outside the complete runtime telescope"
@@ -1102,7 +1381,7 @@ private partial def RuntimeEnvironment.retainsSourceReference (environment : Run
     | .ok none =>
       let some definition := (← specified.fvarId!.getDecl).value?
         | throwError "the source argument has no retained runtime binding"
-      return ← environment.retainsSourceReference context graph marks definition value requireAnchor anchored
+      return ← environment.retainsSourceReference context graph marks definition value requireAnchor anchored fieldPrefix
     | .error reason => throwError "the source argument is outside its telescope: {reason}"
   let projection ← SourceProjection.ofExpr? specified
   let runtimeProjection ← match projection with
@@ -1130,7 +1409,7 @@ private partial def RuntimeEnvironment.retainsSourceReference (environment : Run
       if matchedPath then
         -- An authenticated occurrence also anchors its exact retained projection ancestry.
         -- Recursion still checks each intervening source binder or occurrence mark.
-        if ← environment.retainsSourceReference context graph marks original parent true anchored then
+        if ← environment.retainsSourceReference context graph marks original parent true anchored fieldPrefix then
           return true
     -- A fresh native type may be stated using a projection of a source-only
     -- constructor (e.g. the carrier of an explicitly formed Under object).
@@ -1163,18 +1442,19 @@ opaque RuntimeEnvironment.checkArgument (environment : RuntimeEnvironment) (sour
     let specified ← source.inContext context
     let expected ← inferType specified
     if ← isProp expected then throwError "a formal proof argument has no runtime value binding"
-    checkNativeType context expected argument.value argument.origin
-    let marks ← IO.ofExcept <| (argument.sourceMarks source).mapError IO.userError
+    if argument.value.telescopeInstantiations.isEmpty && argument.origin.fieldPrefix.isNone then
+      checkNativeType context expected argument.value argument.origin
+    let marks ← IO.ofExcept <| (argument.sourceMarks source environment.sourceMarks).mapError IO.userError
     let marks ← IO.ofExcept <|
       (mergeSourceMarks environment.sourceMarks marks).mapError IO.userError
     let marks ← IO.ofExcept <|
       (mergeSourceMarks marks argument.value.sourceMarks).mapError IO.userError
     let marks ← IO.ofExcept <|
       (mergeSourceMarks marks argument.origin.sourceMarks).mapError IO.userError
-    checkDependencies context environment.inputProjections environment.bindingMap marks
+    checkTransportedValue context environment.inputProjections environment.bindingMap marks
       argument.graph (fun _ => pure argument.graph)
       expected argument.value argument.origin
-    unless ← environment.retainsSourceReference context argument.graph argument.marks
+    unless ← environment.retainsSourceReference context argument.graph marks
         specified argument.value do
       trace[cas.environment] "argument {argument.index}: {specified}; retained source {← argument.value.role.source.inContext context}"
       throwError (MessageData.tagged `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch
@@ -1192,7 +1472,8 @@ The graph supplies the immutable producing provenance; liveness and publication 
 private partial def checkResultValue (environment : RuntimeEnvironment) (graph : ValueGraph)
     (source : SourceLayout) (value : ValueBinding)
     (currentPrefixes : Array ResultFieldPrefix := #[])
-    (pending : Option PendingResultProjection := none) : MetaM (CandidateResponse source) := do
+    (pending : Option PendingResultProjection := none)
+    (fieldPrefix : Option NativeFieldPrefix := none) : MetaM (CandidateResponse source) := do
   unless graph.worker == environment.worker do
     throwError "the prepared result belongs to a different worker"
   let .ok _ := graph.requiredOwners (environment.references.push value)
@@ -1202,13 +1483,14 @@ private partial def checkResultValue (environment : RuntimeEnvironment) (graph :
   environment.context.withOpen fun bindings => do
     let context ← ContextTelescope.capture bindings
     let expected ← inferType (← source.source.inContext context)
-    checkNativeType context expected value node.origin
+    if value.telescopeInstantiations.isEmpty && node.origin.fieldPrefix.isNone && fieldPrefix.isNone then
+      checkNativeType context expected value node.origin
     let marks ← IO.ofExcept <|
       (mergeSourceMarks environment.sourceMarks value.sourceMarks).mapError IO.userError
     let marks ← IO.ofExcept <|
       (mergeSourceMarks marks node.origin.sourceMarks).mapError IO.userError
-    checkDependencies context environment.inputProjections environment.bindingMap marks graph
-      (fun _ => pure graph) expected value node.origin currentPrefixes pending
+    checkTransportedValue context environment.inputProjections environment.bindingMap marks graph
+      (fun _ => pure graph) expected value node.origin currentPrefixes pending fieldPrefix
     let selectedMarks ← IO.ofExcept <|
       (retainedSourceMarks marks source.source).mapError IO.userError
     let dependencies ← markedTypeReferences (some graph) source.source selectedMarks
@@ -1226,16 +1508,20 @@ private partial def checkResultValue (environment : RuntimeEnvironment) (graph :
         if let some index := prepared.field.wireIndex then
           let field ← IO.ofExcept <| (graph.project candidate.root index).mapError IO.userError
           let prefixes ← currentPrefixes.mapM (·.descend prepared.field.projection)
+          let fieldPrefix ← fieldPrefix.mapM (·.descend prepared.field.projection)
           discard <| checkResultValue environment graph prepared.layout field
-            (prefixes.push ⟨candidate.root, layout, prepared.field, none⟩) pending
+            (prefixes.push ⟨some candidate.root, layout, prepared.field, none, none⟩)
+            pending fieldPrefix
     return candidate
 
 /-- Validate the complete stored result through its source-derived native field layouts.
 Reuse: RecordLayout, graph projection and the same native type/dependency check at every node.
 Exported records retain their lazy interface; stored records validate all retained children. -/
 opaque RuntimeEnvironment.checkResult (environment : RuntimeEnvironment) (graph : ValueGraph)
-    (source : SourceLayout) (value : ValueBinding) : MetaM (CandidateResponse source) :=
+    (source : SourceLayout) (value : ValueBinding)
+    (fieldPrefix : Option NativeFieldPrefix := none) : MetaM (CandidateResponse source) :=
   checkResultValue environment graph source value
+    ((fieldPrefix.map nativeFieldPrefixes).getD #[]) none fieldPrefix
 
 /-- Exact original parent/field witnesses along an already chosen path. Ancestors must be
 stored or published; this helper neither evaluates an input nor chooses from candidate history. -/
@@ -1257,7 +1543,7 @@ private def projectionPrefixes (graph : ValueGraph) (operand : ValueBinding)
         actualField.wireIndex == declared.field.wireIndex do
       throwError "the retained projection parent changed its native field position"
     prefixes ← prefixes.mapM (·.descend projection)
-    prefixes := prefixes.push ⟨parent, layout, declared.field, none⟩
+    prefixes := prefixes.push ⟨some parent, layout, declared.field, none, none⟩
     selectedField := some declared.field
     if index + 1 < path.size then
       let selected ← IO.ofExcept <|
@@ -1276,10 +1562,25 @@ private def projectionPrefixes (graph : ValueGraph) (operand : ValueBinding)
 Each link must retain its exact native source and complete stored selection before inherited
 prefixes descend through that link. Newer applications stop the retained projection chain. -/
 private partial def retainedOperandPrefixes (environment : RuntimeEnvironment) (graph : ValueGraph)
-    (source : SourceLayout) (operand : ValueBinding) : MetaM (Array ResultFieldPrefix) := do
+    (source : SourceLayout) (operand : ValueBinding) :
+    MetaM (Array ResultFieldPrefix × Option NativeFieldPrefix) := do
   let selected ← IO.ofExcept <| (graph.projectionSelection operand).mapError IO.userError
   let some (originalSource, parent, path) := selected
-    | return #[]
+    | do
+      let some node := graph.find operand.value
+        | throwError "the retained operand lost its original producing value"
+      let some nativePrefix := node.origin.fieldPrefix | return (#[], none)
+      discard <| IO.ofExcept <|
+        (nativePrefix.requireOrigin node.origin.program node.origin.occurrence node.origin.role).mapError
+          IO.userError
+      -- This is the already selected input, not a candidate output. Exact source
+      -- agreement authenticates its original native view; it chooses no supplier.
+      let originalMatches ← environment.context.withOpen fun bindings => do
+        let context ← ContextTelescope.capture bindings
+        return (← source.source.inContext context).equal
+          (← node.origin.role.source.inContext context)
+      unless originalMatches do return (#[], none)
+      return (nativeFieldPrefixes nativePrefix, some nativePrefix)
   let (prefixes, field) ← projectionPrefixes graph parent path
   let nativeSource ← field.toLayout
   let originalMatches ← originalSource.source.withOpen fun bindings _ => do
@@ -1292,7 +1593,7 @@ private partial def retainedOperandPrefixes (environment : RuntimeEnvironment) (
       previous := some index
     return (← originalSource.source.inContext context) ==
       (← nativeSource.source.inContext context)
-  unless originalMatches do return #[]
+  unless originalMatches do return (#[], none)
   let authentic ← environment.context.withOpen fun bindings => do
     let context ← ContextTelescope.capture bindings
     let mut inputs := #[]
@@ -1306,16 +1607,20 @@ private partial def retainedOperandPrefixes (environment : RuntimeEnvironment) (
     let stated ← source.source.inContext context
     let original ← originalSource.source.inContext context
     return stated == original
-  unless authentic do return #[]
+  unless authentic do return (#[], none)
   let retained ← IO.ofExcept <|
     (graph.projectionFrontier parent path).mapError IO.userError
   let some (baseline, remaining) := retained
     | throwError "the retained operand lost its original selected field"
   unless remaining.isEmpty && retainsReference baseline operand do
     throwError "the retained operand changed its original selected field"
-  let mut inherited ← retainedOperandPrefixes environment graph parent.role parent
-  for projection in path do inherited ← inherited.mapM (·.descend projection)
-  return inherited ++ prefixes
+  let (inherited, nativePrefix) ← retainedOperandPrefixes environment graph parent.role parent
+  let mut inherited := inherited
+  let mut nativePrefix := nativePrefix
+  for projection in path do
+    inherited ← inherited.mapM (·.descend projection)
+    nativePrefix ← nativePrefix.mapM (·.descend projection)
+  return (inherited ++ prefixes, nativePrefix)
 
 /-- Validate the native result of this exact pending field demand, including all stored
 descendants. Only the declared field of the retained operand can be temporarily unavailable;
@@ -1330,8 +1635,12 @@ opaque RuntimeEnvironment.checkProjectionResult (environment : RuntimeEnvironmen
   let (current, declared) ← projectionPrefixes graph operand path
   unless field.sourceIndex == declared.sourceIndex && field.projection == declared.projection do
     throwError "the pending projection changed its original native field"
-  let mut prefixes ← retainedOperandPrefixes environment graph operand.role operand
-  for projection in path do prefixes ← prefixes.mapM (·.descend projection)
+  let (prefixes, nativePrefix) ← retainedOperandPrefixes environment graph operand.role operand
+  let mut prefixes := prefixes
+  let mut nativePrefix := nativePrefix
+  for projection in path do
+    prefixes ← prefixes.mapM (·.descend projection)
+    nativePrefix ← nativePrefix.mapM (·.descend projection)
   prefixes := prefixes ++ current
   let pending : Option PendingResultProjection ← if path.size > 1 then do
       let selected ← IO.ofExcept <|
@@ -1348,15 +1657,30 @@ opaque RuntimeEnvironment.checkProjectionResult (environment : RuntimeEnvironmen
       pure (some ⟨operand, field.projection, value⟩)
   -- Every prefix comes from this exact prepared path. All applicable original-slot routes
   -- must agree; neither a candidate ancestor nor a convertible source chooses a witness.
-  checkResultValue environment graph source value prefixes pending
+  checkResultValue environment graph source value prefixes pending nativePrefix
 
 /-- Admit an already selected operand at its independently prepared input source. Only its
 authenticated original projection chain or exact named alias may supply native prefixes.
 Ordinary candidate output admission never consults this input-only witness. -/
 opaque RuntimeEnvironment.checkOperand (environment : RuntimeEnvironment) (graph : ValueGraph)
     (source : SourceLayout) (operand : ValueBinding) : MetaM (CandidateResponse source) := do
-  let prefixes ← retainedOperandPrefixes environment graph source operand
-  checkResultValue environment graph source operand prefixes
+  let (prefixes, nativePrefix) ← retainedOperandPrefixes environment graph source operand
+  checkResultValue environment graph source operand prefixes none nativePrefix
+
+/-- Carry the authenticated predecessor frame of this actual operand into its exact native
+projection. The original frame and earlier occurrences remain unchanged; the access path
+authenticates the new producer without choosing a supplier by its expression or type. -/
+opaque RuntimeEnvironment.projectionFieldPrefix (environment : RuntimeEnvironment)
+    (graph : ValueGraph) (operand : ValueBinding) (source : SourceLayout) :
+    MetaM (Option NativeFieldPrefix) := do
+  let path ← operand.role.projectionPathTo source
+  unless !path.isEmpty do
+    throwError "an inherited native field prefix requires its original projection path"
+  let (_, nativePrefix) ← retainedOperandPrefixes environment graph operand.role operand
+  let mut nativePrefix := nativePrefix
+  for projection in path do
+    nativePrefix ← nativePrefix.mapM (·.descend projection)
+  return nativePrefix
 
 /-- Stamp a produced node with its complete ordered actual context references.
 Reuse: SourceLayout.inContext transports the checked role by stable source identities.
@@ -1376,5 +1700,65 @@ opaque RuntimeEnvironment.origin (environment : RuntimeEnvironment)
   return {
     program, occurrence, role, parameters := environment.values
     sourceMarks := marks, sourceDependencies := dependencies }
+
+/-- Validate one native field before any consuming output association is installed. The
+current prefix is the same sealed source-order table used by RecordPrefix.bind. -/
+opaque NativeFieldPrefix.checkResult (nativePrefix : NativeFieldPrefix)
+    (environment : RuntimeEnvironment) (graph : ValueGraph) (value : ValueBinding) :
+    MetaM (CandidateResponse nativePrefix.native) :=
+  checkResultValue environment graph nativePrefix.native value (nativeFieldPrefixes nativePrefix) none
+    (some nativePrefix)
+
+/-- A prior-field endpoint keeps its already admitted occurrence while its whole record is
+still being assembled. Only that explicit native projection route uses this authority;
+all other endpoints return to ordinary declared-input admission. -/
+opaque NativeFieldPrefix.checkEndpoint (nativePrefix : NativeFieldPrefix)
+    (environment : RuntimeEnvironment) (context : OpenContext) (graph : ValueGraph)
+    (marks : Array ValueBinding) (expected : Expr) (value : ValueBinding) : MetaM Bool := do
+  let some selected ← nativePrefixEndpoint? nativePrefix context graph expected | return false
+  unless retainsReference selected value do
+    throwError "the native field endpoint changed its original preceding occurrence"
+  discard <| IO.ofExcept <| (graph.requiredOwners #[value]).mapError IO.userError
+  let some node := graph.find value.value
+    | throwError "the native field endpoint is outside the visible graph"
+  let captured ← IO.ofExcept <|
+    (mergeSourceMarks environment.sourceMarks (marks.mapIdx fun key value => (key, value))).mapError
+      IO.userError
+  let captured ← IO.ofExcept <|
+    (mergeSourceMarks captured value.sourceMarks).mapError IO.userError
+  let captured ← IO.ofExcept <|
+    (mergeSourceMarks captured node.origin.sourceMarks).mapError IO.userError
+  let type ← inferType expected
+  if value.telescopeInstantiations.isEmpty && node.origin.fieldPrefix.isNone then
+    checkNativeType context type value node.origin
+  checkTransportedValue context environment.inputProjections environment.bindingMap captured graph
+    (fun _ => pure graph) type value node.origin
+  unless ← environment.retainsSourceReference context graph captured expected value
+      (fieldPrefix := some nativePrefix) do
+    throwError "the native field endpoint lost its original source or retained mark"
+  return true
+
+/-- Extend only the immutable origin of this fresh native producer. Its existing request
+application, captures, access ancestry and source marks remain unchanged. -/
+opaque NativeFieldPrefix.attachOrigin (nativePrefix : NativeFieldPrefix) (origin : ValueOrigin)
+    (graph : ValueGraph) : MetaM ValueOrigin := do
+  discard <| IO.ofExcept <|
+    (nativePrefix.requireOrigin origin.program origin.occurrence origin.role).mapError IO.userError
+  let nativePrefix ← match origin.fieldPrefix with
+    | none => pure nativePrefix
+    | some original => original.join nativePrefix
+  discard <| IO.ofExcept <| (graph.requiredOwners nativePrefix.references).mapError IO.userError
+  let dependencies ← IO.ofExcept <| nativePrefix.dependencies.mapError IO.userError
+  return { origin with
+    fieldPrefix := some nativePrefix
+    sourceDependencies := origin.sourceDependencies ++ dependencies }
+
+/-- Prepare a fresh field origin in its complete original runtime context. Ordinary requests
+may instead attach the prefix to their existing origin to preserve application metadata. -/
+opaque NativeFieldPrefix.origin (nativePrefix : NativeFieldPrefix) (environment : RuntimeEnvironment)
+    (program : RuntimeId .program) (occurrence : RuntimeId .occurrence) (graph : ValueGraph) :
+    MetaM ValueOrigin := do
+  let environment ← environment.withSourceMarks nativePrefix.sourceMarks (some graph)
+  nativePrefix.attachOrigin (← environment.origin program occurrence nativePrefix.native) graph
 
 end CasRuntime

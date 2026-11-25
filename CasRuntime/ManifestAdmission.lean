@@ -18,6 +18,16 @@ address of one of its fields (`<id>#map`). An unknown address creates no operati
 def publishedFamily? (state : SemanticState) (address : String) : MetaM (Option ComputationRef) :=
   PublishedPorts.family? state address
 
+/-- A universal subfamily is selected by its complete original native limit presentation. -/
+def publishedLimitUniversal? (state : SemanticState) (address : String) :
+    MetaM (Option LimitUniversalFamily) :=
+  PublishedPorts.limitUniversal? state address
+
+/-- An accepted creation lift publishes its complete native LiftsToLimit data family. -/
+def publishedCreation? (state : SemanticState) (address : String) :
+    MetaM (Option CreationFamily) :=
+  PublishedPorts.creation? state address
+
 /-- A named comparison uses its original full operation address in both directions. -/
 def publishedPresentation? (state : SemanticState) (address : String) :
     Option PresentationComparisonEntry :=
@@ -82,12 +92,16 @@ constructor paths use the released grammar and their complete registered source 
 def publishedOperation (state : SemanticState) (address : String) : MetaM Bool := do
   return (← publishedFamily? state address).isSome ||
     (← publishedLift? state address).isSome ||
+    (← publishedLimitUniversal? state address).isSome ||
+    (← publishedCreation? state address).isSome ||
     (publishedPresentation? state address).isSome ||
     (publishedProperty? state address).isSome ||
     ((publishedApplication? state address).isSome && !applicationAddressConflict state address) ||
     ((PublishedPorts.component? state address).toOption.bind id).isSome ||
     ((PublishedPorts.cartesian? state address).toOption.bind id).isSome ||
-    ((PublishedPorts.edge? state address).toOption.bind id).isSome
+    ((PublishedPorts.edge? state address).toOption.bind id).isSome ||
+    (state.binders.filter (·.id.raw == address)).size == 1 ||
+    (state.limits.filter (·.id.raw == address)).size == 1
 
 /-- Why a declared preferred route is malformed, if it is: its receiver is a registered category,
 its name a registered surface name, and its route a chain of structural edges from the receiver
@@ -138,6 +152,17 @@ def admitManifest (parsed : Manifest) : MetaM (Manifest × Array String) := do
       if let some defect := presentationFormDefect state row registration.input then
         rejected := rejected.push s!"{described}: {defect}"
       else admitted := admitted.push registration
+    else if let some family ← publishedLimitUniversal? state registration.operation then
+      if registration.input == family.input then admitted := admitted.push registration
+      else
+        rejected := rejected.push
+          s!"{described}: the universal family requires its complete native input {family.input}"
+    else if let some family ← publishedCreation? state registration.operation then
+      let input := family.entry.id.raw ++ "#input"
+      if registration.input == input then admitted := admitted.push registration
+      else
+        rejected := rejected.push
+          s!"{described}: the creation family requires its complete native input {input}"
     else admitted := admitted.push registration
   let installed := { parsed with registrations := admitted }
   return (installed, rejected)

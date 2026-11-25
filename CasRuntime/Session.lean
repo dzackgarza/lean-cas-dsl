@@ -355,7 +355,8 @@ private partial def delayedComputation (codes : Std.HashMap (RuntimeId .program)
   | none => false
   | some node => match node.payload.data with
     | .closure program _ => match codes[program]? with
-      | some (.family ..) => true
+      | some (.family ..) | some (.formalLeg ..) | some (.creationOwner ..) | some (.retainedPoint ..)
+      | some (.constructionLeg ..) => true
       | _ => false
     | .ownedToken .. => true
     | .product fields => fields.any (delayedComputation codes graph)

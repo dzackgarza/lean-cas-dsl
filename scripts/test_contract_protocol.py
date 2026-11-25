@@ -220,5 +220,160 @@ class ContractProtocol(unittest.TestCase):
                 port.lift_images(malformed)
 
 
+    def test_functor_map_continuation_keeps_actual_returned_callable(self):
+        functor = "fun.protocol.parameterized"
+        parameters = [False, node("category", "cat.protocol", [7])]
+        source, target = node("object", "source"), node("object", "target")
+        domain, point = node("object", "domain"), node("scopeRef", 8)
+        source_arrow = port.map_data(node("object", "before"), node("object", "after"),
+                                     node("scopeRef", 1))
+        action = node(functor, *parameters)
+        original = node("apply", functor + "#map", parameters,
+                        node("map", action, source_arrow), domain, source, target, point)
+        self.assertEqual(port.functor_map_invocation(original, functor), tuple(original["args"]))
+        for data in (
+            node("finiteGraph", [0, 1], [[0, 2], [1, 3]]),
+            node("identity", source, target),
+            node("compose", node("scopeRef", 2), node("scopeRef", 3)),
+            node("opaqueData", "actual-original-owner-token"),
+        ):
+            actual = port.map_data(source, target, data)
+            continued = node("apply", functor + "#map", parameters, actual,
+                             domain, source, target, point)
+            decoded = port.functor_map_invocation(self.read(frame(continued)), functor)
+            self.assertEqual(decoded, tuple(continued["args"]))
+            self.assertEqual(decoded[2], actual)
+            self.assertEqual(decoded[2]["args"][2], data)
+        wrong_parameters = json.loads(json.dumps(original))
+        wrong_parameters["args"][2]["args"][0]["args"][0] = 0
+        with self.assertRaises(ValueError):
+            port.functor_map_invocation(wrong_parameters, functor)
+        for changed in (
+            node("apply", "fun.other#map", parameters, actual, domain, source, target, point),
+            node("apply", functor + "#map", parameters,
+                 port.map_data(target, source, data), domain, source, target, point),
+            node("apply", functor + "#map", parameters, node("typedMap", source, target),
+                 domain, source, target, point),
+        ):
+            with self.subTest(changed=changed), self.assertRaises(ValueError):
+                port.functor_map_invocation(changed, functor)
+
+    def test_derived_action_continuation_keeps_nested_selection(self):
+        identity = {"constructorMap": ["ctor.arrow",
+                    {"constructorMap": ["ctor.core", {"classifierForget": "cls.protocol"}]}]}
+        address = port.action_address(identity)
+        action = node("constructorMap", "ctor.arrow",
+                      node("constructorMap", "ctor.core",
+                           node("classifierForget", "cls.protocol", [False, node("scopeRef", 2)])))
+        self.assertEqual(port.action_identity(address), identity)
+        source, target, domain = node("scopeRef", 3), node("scopeRef", 4), node("scopeRef", 5)
+        point = node("scopeRef", 6)
+        original = node("apply", address + "#map", [action],
+                        node("map", action, port.map_data(node("scopeRef", 0),
+                             node("scopeRef", 1), node("scopeRef", 7))),
+                        domain, source, target, point)
+        self.assertEqual(port.action_map_invocation(original, address), tuple(original["args"]))
+        actual = port.map_data(source, target, node("finiteGraph", [0], [[0, 1]]))
+        continued = node("apply", address + "#map", [action], actual,
+                         domain, source, target, point)
+        self.assertEqual(port.action_map_invocation(self.read(frame(continued)), address),
+                         tuple(continued["args"]))
+        changed_action = json.loads(json.dumps(action))
+        changed_action["args"][1]["args"][0] = "ctor.product"
+        for changed in (
+            node("apply", address + "#map", [changed_action], actual,
+                 domain, source, target, point),
+            node("apply", address + "#map", [], actual, domain, source, target, point),
+            node("apply", address + "#map", [action, action], actual,
+                 domain, source, target, point),
+            node("apply", address + "#map", [action], port.map_data(target, source, []),
+                 domain, source, target, point),
+        ):
+            with self.subTest(changed=changed), self.assertRaises(ValueError):
+                port.action_map_invocation(changed, address)
+        with self.assertRaises(ValueError):
+            port.action_identity("action:" + json.dumps(identity))
+
+    def test_native_components_cartesian_maps_and_construction_receivers_roundtrip(self):
+        parameters = [node("category", "cat.protocol", [False]), node("scopeRef", 1)]
+        receiver = node("arrow", node("scopeRef", 2), node("scopeRef", 3), node("scopeRef", 4))
+        for inverse in (False, True):
+            component = node("cellComponent", "cell.protocol", parameters, receiver, inverse)
+            self.assertEqual(port.cell_component(self.read(frame(component))),
+                             tuple(component["args"]))
+            constructed = node("constructedCellComponent", ["ctor.arrow", "ctor.core"], component)
+            self.assertEqual(port.constructed_cell_component(self.read(frame(constructed))),
+                             (["ctor.arrow", "ctor.core"], tuple(component["args"])))
+            self.assertEqual(port.component_address("cell.protocol", ["ctor.arrow", "ctor.core"]),
+                'component:["cell.protocol",["ctor.arrow","ctor.core"]]')
+        cartesian = node("cartesianMap", "fun.protocol.reindex", parameters, receiver)
+        self.assertEqual(port.cartesian_map(self.read(frame(cartesian))), tuple(cartesian["args"]))
+        object_request = {**node("fun.protocol.reindex", *parameters), "receiver": receiver}
+        self.assertEqual(port.construction_invocation(self.read(frame(object_request)),
+                         "fun.protocol.reindex"),
+                         ("fun.protocol.reindex", parameters, receiver))
+        for reader, malformed in (
+            (port.cell_component, node("cellComponent", "cell.protocol", parameters, receiver, 0)),
+            (port.constructed_cell_component,
+             node("constructedCellComponent", [], node("cellComponent", "cell.protocol",
+                  parameters, receiver, False))),
+            (port.cartesian_map, node("cartesianMap", "fun.protocol.reindex", parameters)),
+        ):
+            with self.subTest(malformed=malformed), self.assertRaises(ValueError):
+                reader(malformed)
+        with self.assertRaises(ValueError):
+            port.construction_invocation(node("fun.protocol.reindex", *parameters),
+                                         "fun.protocol.reindex")
+
+    def test_complete_symbolic_map_data_preserves_all_operand_packets(self):
+        source, middle, target = (node("scopeRef", i) for i in range(3))
+        first = port.map_data(source, middle, node("finiteGraph", [0], [[0, 1]]))
+        second = port.map_data(middle, target, node("opaqueData", "original-owner"))
+        forms = (
+            node("identity", source, target),
+            node("zero", source, target),
+            node("compose", first, second),
+            node("map", node("fun.protocol", False), first),
+            node("mor.protocol", source, target, False),
+            node("cellComponent", "cell.protocol", [False], source, True),
+            node("constructedCellComponent", ["ctor.arrow"],
+                 node("cellComponent", "cell.protocol", [False], source, False)),
+            node("presentation", "pres.protocol", [False], True),
+            node("constructionLeg", "lim.protocol", node("scopeRef", 4),
+                 node("scopeRef", 5), 0),
+            node("objectField", "obj.protocol", "inverseRefinement", [False]),
+        )
+        for body in forms:
+            packet = port.map_data(source, target, body)
+            encoded = self.read(frame(packet))
+            self.assertEqual(port.typed_map(encoded), (source, target, body))
+            self.assertEqual(encoded, packet)
+
+
+    def test_created_cones_preserve_complete_nested_source_and_target_data(self):
+        target = node("cone", node("scopeRef", 1),
+                      port.map_data(node("scopeRef", 1), node("scopeRef", 2),
+                                    node("opaqueData", "original-leg")))
+        source = node("cospan", node("scopeRef", 3), node("scopeRef", 4))
+        first = node("createdCone", "lift.protocol", source, target)
+        second_source = node("cospan", node("scopeRef", 5), node("scopeRef", 6))
+        nested = node("createdCone", "lift.protocol.outer", second_source, first)
+        for packet in (first, nested):
+            encoded = self.read(frame(packet))
+            self.assertEqual(port.created_cone(encoded), tuple(packet["args"]))
+            self.assertEqual(encoded, packet)
+        self.assertEqual(port.created_cone(nested)[2], first)
+        for bad in (node("createdCone", "", source, target),
+                    node("createdCone", False, source, target),
+                    node("createdCone", "lift.protocol", target),
+                    node("createdCone", "lift.protocol", source, target, target),
+                    {**first, "owner": "invented"},
+                    {**first, "proof": True},
+                    {**first, "args": tuple(first["args"])}):
+            with self.subTest(packet=bad), self.assertRaises(ValueError):
+                port.created_cone(bad)
+
+
 if __name__ == "__main__":
     unittest.main()
+

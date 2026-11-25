@@ -41,6 +41,24 @@ def kernelCompletion (request : PreparedRequest) (transaction : CellTransaction)
   | .error failure => transactionFailure failure
   | .ok association => request.admitResult (← transaction.view) association.response.root
 
+/-- Open original application inputs by their exact retained parameter positions.
+The caller admits the unchanged input table before use; no source/type search chooses values. -/
+opaque PreparedRequest.markedArguments (request : PreparedRequest)
+    (marks : IO.Ref (Array ValueBinding)) (context : OpenContext) (count : Nat) : MetaM (Array Expr × Array (Option ValueBinding)) := do
+  let formal := request.application.map (·.arguments.map (·.source.source)) |>.getD #[]
+  let values := request.origin.application.map (·.arguments) |>.getD #[]
+  unless formal.size == values.size && count ≤ formal.size do
+    throwError "the categorical family lost its complete original input table"
+  let mut actual := #[]
+  for index in [:count] do
+    let some original := formal[index]?
+      | throwError "the categorical family lost an original input position"
+    let source ← original.inContext context
+    actual := actual.push (← match values[index]?.bind id with
+      | some value => markValue marks value source
+      | none => pure source)
+  return (actual, values.extract 0 count)
+
 def withSourceScope (request : PreparedRequest)
     (action : OpenContext → Std.HashMap BindingId ValueBinding → MetaM α) : MetaM α :=
   request.environment.context.withOpen fun bindings => do

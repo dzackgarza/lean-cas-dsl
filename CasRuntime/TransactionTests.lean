@@ -223,8 +223,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let .ok _ ← producer.commit | throwError "the original owned value could not commit"
       let consumer ← CellTransaction.begin ledger
       liftM (m := IO) <| consumer.retain value
+      let .ok () ← liftM (m := BaseIO) <|
+          consumer.bindSelectedAt `ownedConstruction `cone value value
+        | throwError "the original owned receiver could not retain its selected result"
       liftM (m := IO) <| consumer.emit (.str "reused result")
       liftM (m := IO) <| owners.close child.generation
+      match ← liftM (m := BaseIO) <| consumer.selectedAt `ownedConstruction `cone value with
+      | .error .staleOwner => pure ()
+      | _ => throwError "a receiver-scoped selection returned a known-dead original owner"
       match ← consumer.commit with
       | .error .staleOwner => pure ()
       | _ => throwError "commit lost the owner dependency of a reused result"
@@ -240,6 +246,94 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless (published.graph.find portable.value).isSome do
         throwError "the independent portable result was not published"
     finally liftM (m := IO) <| owners.close child.generation
+  finally setEnv original
+
+-- One compiled source selection may execute repeatedly. Equal native values and different
+-- consuming association paths remain distinct actual receivers, including across snapshots.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let original ← getEnv
+  try
+    let context ← ContextTelescope.capture #[]
+    let role ← SourceLayout.ofTerm (← context.close (mkNatLit 7))
+    let pair ← mkAppM ``Prod.mk #[mkNatLit 7, mkNatLit 7]
+    let layout ← RecordLayout.ofSource (← SourceLayout.ofTerm (← context.close pair))
+    let owners ← liftM (m := IO) OwnerRegistry.new
+    let ledger ← liftM (m := BaseIO) (OccurrenceLedger.new owners)
+    discard <| SessionSnapshot.initialize owners
+    let seed ← CellTransaction.begin ledger
+    let program ← liftM (m := BaseIO) (owners.identities.fresh .program)
+    let stage := fun () => do
+      let occurrence ← liftM (m := BaseIO) ledger.allocate
+      liftM (m := IO) <| seed.stage
+        { program, occurrence, role, parameters := #[] } (.portable "7".toUTF8)
+    let receiver ← stage ()
+    let equalReceiver ← stage ()
+    let firstResult ← stage ()
+    let secondResult ← stage ()
+    unless receiver.value != equalReceiver.value &&
+        receiver.role.source.expression.equal equalReceiver.role.source.expression do
+      throwError "the selection control lost its distinct equal-source receiver nodes"
+    let draft ← liftM (m := IO) seed.draft
+    let firstPrefix ← liftM (m := IO) <| RecordPrefix.begin owners.identities program
+      (← liftM (m := BaseIO) ledger.allocate) layout
+    let (draft, _, firstView) ← liftM (m := IO) <| draft.bindField firstPrefix receiver
+    let secondPrefix ← liftM (m := IO) <| RecordPrefix.begin owners.identities program
+      (← liftM (m := BaseIO) ledger.allocate) layout
+    let (draft, _, secondView) ← liftM (m := IO) <| draft.bindField secondPrefix receiver
+    let .ok () ← liftM (m := BaseIO) <| seed.installDraft draft
+      | throwError "the receiver association controls could not enter their actual graph"
+    unless firstView.value == receiver.value && secondView.value == receiver.value &&
+        firstView.associationIds != secondView.associationIds &&
+        firstView.associationIds != receiver.associationIds do
+      throwError "the selection control lost its distinct association paths"
+    let .ok _ ← seed.commit | throwError "the receiver control graph could not commit"
+    let beforeSelections ← getEnv
+    let transaction ← CellTransaction.begin ledger
+    let selection := `sameCompiledConstruction
+    let field := `cone
+    let .ok () ← liftM (m := BaseIO) <|
+        transaction.bindSelectedAt selection field receiver firstResult
+      | throwError "the first exact receiver lost its completed selection"
+    for unrelated in #[equalReceiver, firstView, secondView] do
+      let .ok none ← liftM (m := BaseIO) <| transaction.selectedAt selection field unrelated
+        | throwError "a construction reused an equal node or another association path"
+    let .ok () ← liftM (m := BaseIO) <|
+        transaction.bindSelectedAt selection field firstView secondResult
+      | throwError "the independently associated receiver could not retain its own result"
+    let .ok (some selected) ← liftM (m := BaseIO) <|
+        transaction.selectedAt selection field firstView
+      | throwError "the exact associated receiver lost its result"
+    unless selected.value == secondResult.value &&
+        selected.associationIds == secondResult.associationIds do
+      throwError "the selected result changed its complete actual occurrence"
+    match ← liftM (m := BaseIO) <|
+        transaction.bindSelectedAt selection field receiver secondResult with
+    | .error .invalidCompletion => pure ()
+    | _ => throwError "a completed receiver selection was replaced by another occurrence"
+    let .ok () ← liftM (m := BaseIO) <|
+        transaction.bindSelectedAt selection field receiver firstResult
+      | throwError "repeating the same exact selection changed its result"
+    let .ok _ ← transaction.commit | throwError "the receiver selections could not commit"
+    let current ← CellTransaction.begin ledger
+    let .ok (some selected) ← liftM (m := BaseIO) <|
+        current.selectedAt selection field receiver
+      | throwError "the committed exact receiver selection is absent"
+    unless selected.value == firstResult.value &&
+        selected.associationIds == firstResult.associationIds do
+      throwError "commit changed the original selected result"
+    discard <| liftM (m := BaseIO) current.abort
+    setEnv beforeSelections
+    let branch ← CellTransaction.begin ledger
+    let .ok none ← liftM (m := BaseIO) <| branch.selectedAt selection field receiver
+      | throwError "an older source branch recovered a newer completed selection"
+    let .ok () ← liftM (m := BaseIO) <|
+        branch.bindSelectedAt selection field equalReceiver secondResult
+      | throwError "the independent branch could not stage its own receiver selection"
+    discard <| liftM (m := BaseIO) branch.abort
+    let afterAbort ← CellTransaction.begin ledger
+    let .ok none ← liftM (m := BaseIO) <| afterAbort.selectedAt selection field equalReceiver
+      | throwError "an aborted receiver selection became visible"
+    discard <| liftM (m := BaseIO) afterAbort.abort
   finally setEnv original
 
 run_cmd Lean.Elab.Command.liftTermElabM do
