@@ -107,7 +107,7 @@ Transferred uses lose the old `Language`/`Realize` recognition, endpoint retry, 
 
 ## Functional stories and their complete paths
 
-The stories retain the specification's user outcomes. Shared code is implemented at its first actual use, then reused. Story dependencies below describe functional interfaces, not a requirement to finish unrelated areas before authoring the next function. No phase is declared complete on the strength of a helper-only test. All required stories must work before kernel readiness; a story boundary is not a reduced deliverable or permission to stop.
+The stories retain the specification's user outcomes. Shared code is implemented at its first actual use, then reused. Story dependencies below describe functional interfaces, not a requirement to finish unrelated areas before authoring the next function. No phase is declared complete on the strength of a helper-only test. US1 to US6 work before kernel readiness; US7 and US8 are the [notebook unit](#notebook-unit), after the category implementations. A story boundary is not a reduced deliverable or permission to stop.
 
 | Story | Complete implementation responsibility | Functional observation through the public path |
 |---|---|---|
@@ -120,7 +120,7 @@ The stories retain the specification's user outcomes. Shared code is implemented
 | US7 — real notebook | Actual new execution path in worker/client, committed state, cancellation/owner/snapshot rules and inert queries | Connected cells use retained results; explicit execution performs work, inspection performs none; no replay resurrects old choices/owners. |
 | US8 — mathematical discovery/display | Source-derived discovery, retained metadata, once-only mathematical rendering and actual provenance | Users inspect actual selected data and full applicability independently of provider availability, without executing lazy components or executable formatters. |
 
-US2–US6 use the shared production path developed with US1; this dependency is explicit, not a claim that a protocol-only phase is independently executable. Their generic capabilities use that interface in the fixed task order; the interface does not authorize separate active tasks. US7/US8 are real integration, not mock frontends or post-delivery polish. US9 is Phase 0 of the task list (T114, T112, T127, T300). US10 is delivered by the [computational milestones](#computational-milestones).
+US2–US6 use the shared production path developed with US1; this dependency is explicit, not a claim that a protocol-only phase is independently executable. Their generic capabilities use that interface in the fixed task order; the interface does not authorize separate active tasks. US7 and US8 are real integration, not mock frontends or polish. US9 is Phase 0 of the task list (T114, T112, T127, T300). US10 is delivered by the [computational milestones](#computational-milestones).
 
 ## Completion milestones
 
@@ -133,13 +133,14 @@ functional work earlier while retaining its later proof and acceptance obligatio
 | Milestone | Complete observable outcome | Owners and scope |
 | --- | --- | --- |
 | [M0 — Fast edit-to-result feedback](https://github.com/dzackgarza/lean-cas-dsl/milestone/1) | A substantive edit in the current owner rebuilds affected executable dependencies and runs the unchanged public consumer within the normal focused-loop bound. Current diagnostics, failures and timings are truthful. Retain this behavior throughout development. | #84, T114/US9; reuse T016's completed work without treating its historical timing as current readiness. T112 and T127 (FR-043: timing records, test-run logs, application logs) and T300 (a truthful acceptance run) continue this capability as the first unchecked tasks. |
-| [M1 — Complete generic categorical kernel](https://github.com/dzackgarza/lean-cas-dsl/milestone/2) | F: all Part 1 functionality works through real public entrances, including complete constructions and later use, both functor actions, selected lifting/refinement/comparisons, higher/infinite interfaces, protocol, notebook/lifetime, discovery/display and both directions of growth. Its checks observe kernel behaviour and require no computed mathematical result (constitution C22). It has [checkpoints](#m1-checkpoints). | #92; #66/#69 and #82/#85/#91 supply their functional responsibilities; #86 closes here. The first complete construction is an internal step, not this milestone. |
-| [M2 — V1 category implementations and delivery](https://github.com/dzackgarza/lean-cas-dsl/milestone/3) | The [computational milestones](#computational-milestones) deliver the category implementations in mathematical order. All required V1 category implementations supply actual computations, defining data and later uses through the released contract; publish and build one compatible mathematics/kernel/contract/leaf/notebook tuple. | #93, T200–T212 and T105; #90 supplies the research-image toolchain/Mathlib port. |
+| [M1 — Complete generic categorical kernel](https://github.com/dzackgarza/lean-cas-dsl/milestone/2) | F: all Part 1 functionality works through real public entrances, including complete constructions and later use, both functor actions, selected lifting/refinement/comparisons, higher/infinite interfaces, protocol and both directions of growth: every DSL script of the acceptance and extension files runs through the public session. F needs no notebook. Its checks observe kernel behaviour and require no computed mathematical result (constitution C22). It has [checkpoints](#m1-checkpoints). | #92; #66/#69 and #82/#85/#91 supply their functional responsibilities; #86 closes here. The first complete construction is an internal step, not this milestone. |
+| [M2 — V1 category implementations and delivery](https://github.com/dzackgarza/lean-cas-dsl/milestone/3) | The [computational milestones](#computational-milestones) deliver the category implementations in mathematical order. All required V1 category implementations supply actual computations, defining data and later uses through the released contract; publish and build one compatible mathematics/kernel/contract/leaf/worker tuple; the notebook unit completes the delivery and republishes the tuple with the protocol-2 worker (T093). | #93, T200–T212 and T105; #90 supplies the research-image toolchain/Mathlib port; the notebook unit (T083–T099, T010, T325, with lean-jupyter-kernel T003–T014; #69 and #24 hold its obligations). |
 | [M3 — Independently accepted V1](https://github.com/dzackgarza/lean-cas-dsl/milestone/4) | All #24 A–F obligations, independent mathematical assessment, preservation arguments, frozen extension trials and original final budgets hold together on the delivered tuple. | #24 and full closure of #66/#69/#82/#85/#91; #97 records #10's unchanged V1 closure condition; the project root remains open through M4/M5. |
 | [M4 — Full B0 and classified Sage coverage](https://github.com/dzackgarza/lean-cas-dsl/milestone/5) | Complete #19's K1–K14 computations and the separate versioned Sage coverage denominator, including required hypotheses, defining maps and continuations. | #19, #20, #21, #22, #23; the computational milestones T213–T224; the inventory and classification tasks T140–T147 with T225–T234; assessment and publication T160–T169. Their bounded construction/input work (T139) can inform V1 before their later full closure. |
 | [M5 — Research and client completion](https://github.com/dzackgarza/lean-cas-dsl/milestone/6) | Complete the retained research facade, installation portability, unit-group delivery, opt-in logging and actual research-use demand work against their existing outcomes. | #68, #34, #3, #8, #13; tasks T148–T159. These remain outside the V1 denominator. |
 
-M1 consumes the functioning development loop. M2 consumes F and the usable released contract.
+M1 consumes the functioning development loop. M2 consumes F and the usable released contract;
+its notebook unit also consumes T105 and the category implementations of M4.
 M3 consumes the delivered candidate. Within a milestone, use actual task inputs; a missing input
 blocks only its dependent work. Native issue dependencies encode those real completion inputs,
 not a requirement to stop every other task.
@@ -149,9 +150,9 @@ build an active functional task. A fresh image or broad dependency refresh is no
 prerequisite when the current compatible environment already supports the work.
 
 For full B0, F and the usable released contract establish implementation readiness. V1-required
-implementation and delivery (T200–T212, T105) have priority. The functional work of M4 and M5
-(T140–T159, T213–T234) follows the V1 delivery and comes before the evidence-only work of every
-milestone, because C21 puts evidence-only work and final performance after required
+implementation and delivery (T200–T212, T105) have priority. The functional work of M4 (T140–T147,
+T213–T234), then the [notebook unit](#notebook-unit), then the functional work of M5 (T148–T159),
+follow the V1 delivery and come before the evidence-only work of every milestone, because C21 puts evidence-only work and final performance after required
 functionality; V1 evidence (M3) keeps its priority over the evidence of M4 and M5, and final
 performance (T103) is last. The V1 denominator does not grow: an M4 or M5 result is no V1
 acceptance criterion. Final V1 acceptance is neither full-B0 completion nor a new mathematical
@@ -200,8 +201,19 @@ No checkpoint was evaluated on 2026-11-25. A checkpoint whose observation alread
 | M1.6 — Exact, infinite and qualified requests | The inputs prepare requests that keep the exact source, the tolerance and the full index family. A demand outside an earlier finite display reaches the same retained object. | RX09; the ellipsis, series and approximation statements of the permanent files | T069 |
 | M1.7 — Growth | A new accepted declaration reaches an unchanged consumer, and a new generic operation reaches an existing object, with no kernel edit. | RX01 to RX04; the checks of T073 and T075 | T075 |
 | M1.8 — Computational contract | A peer written from the published contract alone uses deferred and suspended service, and an unchanged consumer receives its output. A peer that asks for an operation with no implementation receives the no-implementation outcome and continues. The published interface matches the built kernel. | RX10; the checks of T022, T023 and T324 | T101 |
-| M1.9 — Notebook | The cells run through the worker and one session: values retained across cells, inert queries, cancellation and owner rules. | `notebooks/kernel-v1.ipynb` | T093 |
-| M1.10 — Discovery and display; old path removed | Discovery and inspection read retained data and execute nothing. `#resolve`, `#methods` and `cell%` answer from the new resolver. | The workflow questions of `notebooks/kernel-v1.ipynb`; the commands of `CasDslTests/Cells.lean` | T325 |
+
+### Notebook unit
+
+The notebook unit (US7, US8) is functional work after the category implementations of M4 and before the functional work of M5 and all evidence-only work. F needs none of it. Its tasks are T083 to T093, T010, T097 to T099 and T325 of the task list, each with its sibling task in lean-jupyter-kernel (`specs/001-worker-protocol-2/tasks.md`). lean-jupyter-kernel T003 lands the protocol-2 worker; its toolchain task T004 follows the port of T105, so the worker and the kernel change toolchain together; its release T014 is the pin that T093 locks when it republishes the tuple. M5 consumes the unit: the client of #68 runs over the worker, and the unit group of #3 and the diagnostics of #8 use the notebook path.
+
+### Notebook checkpoints
+
+These kernel checkpoints (SC-014) follow the rules of the M1 checkpoints and belong to the notebook unit.
+
+| Checkpoint | Observation | Inputs | First observed at the close of |
+| --- | --- | --- | --- |
+| N1 — Notebook | The cells run through the worker and one session: values retained across cells, inert queries, cancellation and owner rules. | `notebooks/kernel-v1.ipynb` | T093 |
+| N2 — Discovery and display; old resolver removed | Discovery and inspection read retained data and execute nothing. `#resolve`, `#methods` and `cell%` answer from the new resolver. | The workflow questions of `notebooks/kernel-v1.ipynb`; the commands of `CasDslTests/Cells.lean` | T325 |
 
 ### Issue tree and task order
 
@@ -212,8 +224,8 @@ through every retained phase. V1 completion is recorded by M3/#97 under the unch
 | Direct-root milestone ledger | Ordered complete work owners |
 | --- | --- |
 | [#94 — M0](https://github.com/dzackgarza/lean-cas-dsl/issues/94) | #84 / T114 |
-| [#95 — M1](https://github.com/dzackgarza/lean-cas-dsl/issues/95) | #92 / F, with the M1 checkpoint checklist in #92; #86 at T030 within F |
-| [#96 — M2](https://github.com/dzackgarza/lean-cas-dsl/issues/96) | #93 / T200–T212 (computational milestones), then T105; #90 within T105 |
+| [#95 — M1](https://github.com/dzackgarza/lean-cas-dsl/issues/95) | #92 / F, with the M1 checkpoint checklist in #92; #86 at T307 within F |
+| [#96 — M2](https://github.com/dzackgarza/lean-cas-dsl/issues/96) | #93 / T200–T212 (computational milestones), then T105, then the notebook unit; #90 within T105 |
 | [#97 — M3](https://github.com/dzackgarza/lean-cas-dsl/issues/97) | #24; full remaining obligations of #66, #69, #82, #85, #91 (T170–T194 with Part 2) |
 | [#19 — M4](https://github.com/dzackgarza/lean-cas-dsl/issues/19) | #22 / full B0 and classified Sage delivery (T160–T169, T213–T224); #20, #21, #23 supply full-parity inputs (T139–T147) |
 | [#98 — M5](https://github.com/dzackgarza/lean-cas-dsl/issues/98) | #68 (T148–T152), #34 (T153, T154), #3 (T155, T156), #8 (T157, T158), #13 (T159) |
@@ -227,7 +239,7 @@ M1 consumes that capability, M2 consumes F, and M3 consumes the delivered candid
 group blockers prevent a later proof/assessment owner or subsidiary delivery issue from being
 selected ahead of those required inputs.
 
-Execute #86's whole scoped-declaration requirement at T030 and close it on its original
+Execute #86's whole scoped-declaration requirement at T307 and close it on its original
 acceptance within #92. Execute #90's whole image requirement at T105 and close it on its
 original acceptance within #93. Their sibling positions do not postpone those implementations
 until after F or delivery. The broad M3 owners contribute their functional requirements at
@@ -327,8 +339,8 @@ The M2 and M4 parts settle which milestones V1 requires: a milestone with a V1 s
 1. T114's current changed-source/public-consumer feedback under #84 is complete; preserve it during the remaining work. Complete its timing records, test-run logs and application logs (T112, T127; FR-043) and the truthful acceptance run (T300). Then retain adequate existing foundations and prepare the actual source/public driver interfaces. Do not reopen checked setup to produce new receipts. A missing mathematical input becomes a lean-categories task before its consumer, and the workstream does it there ([execution order](tasks.md#execution-order)); downstream mathematics never fills it.
 2. Implement T032 lowering and T013's concrete execution composition at their positions in the [task order](tasks.md#execution-order). Functional outputs needed by the executor are T017–T021/T026; source selection is T053–T056. These are parts of one functioning path, not preliminary standalone release projects.
 3. Bind actual results and connect T038; remove transferred fallback paths. T041's real driver is prepared without T039 or broad mathematical coverage as a prerequisite. T027's shared outcome classification does not depend on completing suspension first.
-4. Complete every required generic mechanism, protocol behavior, notebook and discovery/display function. No per-construct export freeze, preservation proof or early contributor trial gates this expansion. Full kernel readiness, not a first scalar or first RX-LIFT, enables substantial leaf work.
-5. Separately situated leaf authors deliver the category implementations in the order of the [computational milestones](#computational-milestones), as established-engine glue against the actually built released contract. The retained registrations move into those implementations. Integration then publishes T105's compatible tuple, including #90. No kernel-informed formalization assignment is bundled into leaf work. The functional work of M4 and M5 follows: the Sage inventory and classification (T140–T147), the M4 milestones (T213–T234) and the M5 client, launch, unit-group, diagnostic and harvest tasks (T148–T159).
+4. Complete every required generic mechanism and protocol behaviour, so that every DSL script runs through the public session (F). No per-construct export freeze, preservation proof or early contributor trial gates this expansion. Full kernel readiness, not a first scalar or first RX-LIFT, enables substantial leaf work.
+5. Separately situated leaf authors deliver the category implementations in the order of the [computational milestones](#computational-milestones), as established-engine glue against the actually built released contract. The retained registrations move into those implementations. Integration then publishes T105's compatible tuple, including #90. No kernel-informed formalization assignment is bundled into leaf work. The functional work of M4 and M5 follows: the Sage inventory and classification (T140–T147), the M4 milestones (T213–T234) then the [notebook unit](#notebook-unit), then the M5 client, launch, unit-group, diagnostic and harvest tasks (T148–T159).
 6. Complete independent assessment, source-to-machine/correctness arguments, original fixed and frozen-extension observations and the final performance phase on that delivered tuple. Relevant corrections republish the tuple and reexecute affected obligations without weakening them.
 
 The former edges T041←T039, T030←T029, T038←the complete deferred/suspension chain, expansion←T079, and functional construction←self-consistency-only proof/audit tasks are removed in the actual task entries. Proof responsibilities formerly mixed into functional T016/T043/T044/T046/T053–T056/T061 are assigned to T014/T039/T052/T062/T070/T076/T096 as appropriate. Nothing is declared proved by that reassignment. Required source-law validation in an actual invocation remains functional and cannot be omitted.
