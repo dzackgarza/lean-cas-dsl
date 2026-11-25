@@ -149,7 +149,7 @@ These proofs and independent assessments remain mandatory after functionality un
 | T057–T061, T065–T069, T073–T075 | Finish the required classifier/domain/reindexing/higher/infinite/approximate/growth functionality. A first construction or blocked numeral does not define the full work queue. |
 | T028, T083–T093, T097–T101 | Complete truthful released contract, actual notebook and usable inert mathematical interface, all part of kernel readiness. |
 | T014, T039, T052, T062, T070, T076, T096 | Full actual machine/compiler/lift/source/higher/infinite/growth/lifecycle arguments after functionality, with original quantifiers and independent source authority. |
-| T104, T078–T082, T105–T110 | Public-only leaf delivery after functional readiness; complete independent frozen trials, coherent final acceptance and final budgets. No early trial or proof gates remaining generic kernel work. |
+| T200–T224, T078–T082, T105–T110 | Public-only leaf delivery after functional readiness; complete independent frozen trials, coherent final acceptance and final budgets. No early trial or proof gates remaining generic kernel work. |
 
 The owner handoff governs the whole kernel, not a reduced first example. Existing adequate context, intake, values, owners, transactions, scopes and route closure are not rebuilt for another internal checkpoint. An absent source input is a lean-categories task before its consumer, and the workstream does it there (section 1); an unfinished consumer is not relabelled missing mathematics. No documentation edit advances implementation or review markers.
 

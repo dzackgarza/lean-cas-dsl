@@ -1,0 +1,1857 @@
+{
+ "revisions": {
+  "scaffolding": "lean-categories 443fba9",
+  "catalogue": "mathematics 3f8aedf",
+  "workload": "workload-routes.json of 2026-11-25",
+  "registrations": "lean-cas-dsl-leaves 8b181d7"
+ },
+ "milestones": [
+  {
+   "task": "T200",
+   "milestone": "Sets",
+   "part": "M2",
+   "after": [],
+   "categories": [
+    "cat.cardinalities",
+    "cat.cardinals",
+    "cat.core_sets",
+    "cat.sets"
+   ],
+   "v1_statements": [
+    "sets.card.z4_cubed",
+    "sets.card.z7",
+    "sets.card.z5_empty_power",
+    "sets.card.integers",
+    "sets.card.fin2_times_z3",
+    "sets.finite.integers",
+    "sets.finite.fin2_times_z3",
+    "sets.implemented.card_fin",
+    "sets.card.fin2_sqcup_fin3",
+    "sets.eq.rev_rev",
+    "sets.limit.pullback.card",
+    "reconstructed_extensions_20261024.addition.rx02.actual_forward",
+    "reconstructed_extensions_20261024.addition.rx02.actual_backward",
+    "reconstructed_extensions_20261024.addition.rx02.nonidentity_input",
+    "reconstructed_extensions_20261024.addition.rx02.core_map_composition",
+    "reconstructed_extensions_20261024.addition.rx02.core_identity_action",
+    "reconstructed_extensions_20261024.addition.rx02.full_inverse_action",
+    "reconstructed_extensions_20261024.addition.rx02.whole_direct_image",
+    "reconstructed_extensions_20261024.complete.rx02.cardinality",
+    "reconstructed_extensions_20261024.complete.rx02.singleton_excluded",
+    "reconstructed_extensions_20261024.complete.rx04.finite_classifier",
+    "reconstructed_extensions_20261024.complete.rx04.ambient_not_finite",
+    "reconstructed_extensions_20261024.complete.rx04.admission_retains_subset"
+   ],
+   "b0_statements": [
+    "sets.card.naturals",
+    "sets.card.square",
+    "sets.finite.fin2_sqcup_fin3",
+    "sets.apply.rev",
+    "sets.apply.rev_rev"
+   ],
+   "registrations": [
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.fin",
+     "backend": "sage"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.naturals",
+     "backend": "sage"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.positive_naturals",
+     "backend": "sage"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.primes",
+     "backend": "sage"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.integers",
+     "backend": "sage"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.rationals",
+     "backend": "sage"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.integers_mod",
+     "backend": "gap"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.integers_mod_power",
+     "backend": "gap"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.fin",
+     "backend": "sage"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.naturals",
+     "backend": "sage"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.positive_naturals",
+     "backend": "sage"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.primes",
+     "backend": "sage"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.integers",
+     "backend": "sage"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.rationals",
+     "backend": "sage"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.reals",
+     "backend": "sage"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.complexes",
+     "backend": "sage"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.integers_mod",
+     "backend": "gap"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.integers_mod_power",
+     "backend": "gap"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.power_set",
+     "backend": "sage-power-set"
+    },
+    {
+     "operation": "colim.sets.coproduct",
+     "input": "cat.sets",
+     "backend": "sage-set-limits"
+    },
+    {
+     "operation": "lim.sets.pullback",
+     "input": "cat.sets",
+     "backend": "sage-set-limits"
+    },
+    {
+     "operation": "mor.sets.fin_rev",
+     "input": "mor.sets.fin_rev",
+     "backend": "sage-fin-rev"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.permutations",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.permutations",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.f9_x",
+     "backend": "sage-presentations"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.f9_x",
+     "backend": "sage-presentations"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.f9_y",
+     "backend": "sage-presentations"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.f9_y",
+     "backend": "sage-presentations"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "cat.sets",
+     "backend": "sage-set-limits"
+    },
+    {
+     "operation": "mor.sets.equality",
+     "input": "mor.sets.equality",
+     "backend": "sage-symbolic"
+    }
+   ]
+  },
+  {
+   "task": "T201",
+   "milestone": "Finite sets",
+   "part": "M2",
+   "after": [
+    "T200"
+   ],
+   "categories": [
+    "cat.finite_sets"
+   ],
+   "v1_statements": [
+    "finite_sets.limit.pullback.card",
+    "reconstructed_extensions_20261024.complete.rx04.cardinality",
+    "reconstructed_extensions_20261024.complete.rx04.forgotten_refinement_cardinality"
+   ],
+   "b0_statements": [
+    "finite_sets.card.three"
+   ],
+   "registrations": [
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.finite_sets.fin",
+     "backend": "sage"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.finite_sets.fin",
+     "backend": "sage"
+    }
+   ]
+  },
+  {
+   "task": "T202",
+   "milestone": "Orders",
+   "part": "M2",
+   "after": [
+    "T200"
+   ],
+   "categories": [
+    "cat.linear_orders",
+    "cat.partial_orders",
+    "cat.preorders"
+   ],
+   "v1_statements": [
+    "reconstructed_extensions_20261024.complete.rx01.ordinary_cardinality",
+    "reconstructed_extensions_20261024.complete.rx01.reverse_cardinality",
+    "reconstructed_extensions_20261024.complete.rx01.ordinary_relation",
+    "reconstructed_extensions_20261024.complete.rx01.reverse_relation"
+   ],
+   "b0_statements": [],
+   "registrations": []
+  },
+  {
+   "task": "T203",
+   "milestone": "Rings",
+   "part": "M2",
+   "after": [
+    "T200"
+   ],
+   "categories": [
+    "cat.additive_commutative_monoids",
+    "cat.additive_groups",
+    "cat.additive_magmas",
+    "cat.additive_monoids",
+    "cat.additive_semigroups",
+    "cat.groups",
+    "cat.magmas",
+    "cat.monoids",
+    "cat.rings",
+    "cat.semigroups",
+    "cat.semirings"
+   ],
+   "v1_statements": [
+    "reconstructed_extensions_20261024.addition.rx03.actual_inverse_arrow",
+    "reconstructed_extensions_20261024.addition.rx03.arrow_inverse_left",
+    "reconstructed_extensions_20261024.addition.rx03.arrow_inverse_right",
+    "reconstructed_extensions_20261024.addition.rx03.complete_double_coordinates",
+    "reconstructed_extensions_20261024.addition.rx03.complete_triple_coordinates",
+    "reconstructed_extensions_20261024.addition.rx03.all_integer_classes_double",
+    "reconstructed_extensions_20261024.addition.rx03.all_integer_classes_triple",
+    "reconstructed_extensions_20261024.addition.rx03.double_class_one",
+    "reconstructed_extensions_20261024.addition.rx03.double_class_three",
+    "reconstructed_extensions_20261024.addition.rx03.triple_class_two",
+    "reconstructed_extensions_20261024.complete.rx03.presentation_left_inverse",
+    "reconstructed_extensions_20261024.complete.rx03.presentation_right_inverse",
+    "reconstructed_extensions_20261024.complete.rx03.inverse",
+    "reconstructed_extensions_20261024.complete.rx04.exact_predicate",
+    "reconstructed_extensions_20261024.complete.rx04.exact_members"
+   ],
+   "b0_statements": [
+    "calculus.limit_sinc",
+    "calculus.limit_infinity",
+    "calculus.integral_square",
+    "calculus.integral_sine",
+    "composed.composition",
+    "ellipses.naturals",
+    "ellipses.evens",
+    "ellipses.multiples",
+    "ellipses.even_square",
+    "ellipses.odd_square",
+    "ellipses.squares_even",
+    "ellipses.prime",
+    "ellipses.not_prime",
+    "factorization.prime_factors",
+    "factorization.multiplicity_two",
+    "factorization.multiplicity_three",
+    "factorization.multiplicity_seven",
+    "factorization.approximation",
+    "finite_sets.card",
+    "finite_sets.card_product",
+    "finite_sets.card_power_set",
+    "finite_sets.member",
+    "finite_sets.not_member",
+    "comprehension.elements",
+    "comprehension.card",
+    "comprehension.even_member",
+    "comprehension.odd_not_member",
+    "comprehension.even_card",
+    "comprehension.image_apply",
+    "comprehension.image_method",
+    "fractions.halves",
+    "fractions.cancel",
+    "fractions.lowest_terms",
+    "fractions.modulus",
+    "functions.extensional",
+    "functions.at_zero",
+    "functions.at_three",
+    "functions.even",
+    "numbers.integers.sum",
+    "numbers.zmod5.sum",
+    "numbers.zmod5.product",
+    "numbers.zmod5.negation",
+    "numbers.zmod5.difference",
+    "numbers.zmod7.distributive",
+    "numbers.zmod7.value",
+    "numbers.rationals.sum",
+    "numbers.gcd",
+    "numbers.complex.re",
+    "numbers.complex.im",
+    "numbers.complex.bar",
+    "numbers.complex.norm",
+    "numbers.complex.abs",
+    "units.rationals.three_inverse",
+    "refinement.finite_product_card",
+    "groups.abelian.cyclic_three",
+    "groups.abelian.symmetric_three"
+   ],
+   "registrations": [
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.groups.symmetric",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.groups.cyclic",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.groups.symmetric",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.groups.cyclic",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_abelian",
+     "input": "obj.groups.symmetric",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_abelian",
+     "input": "obj.groups.cyclic",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_commutative",
+     "input": "obj.groups.symmetric",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_commutative",
+     "input": "obj.groups.cyclic",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.rings.integers_mod",
+     "backend": "gap"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.rings.integers_mod",
+     "backend": "gap"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.groups.units",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.groups.units",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_abelian",
+     "input": "obj.groups.units",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_commutative",
+     "input": "obj.groups.units",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.sets.units",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.sets.units",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "mor.sets.complex_re",
+     "input": "obj.sets.complexes",
+     "backend": "sage-symbolic"
+    },
+    {
+     "operation": "mor.sets.complex_im",
+     "input": "obj.sets.complexes",
+     "backend": "sage-symbolic"
+    },
+    {
+     "operation": "mor.sets.complex_bar",
+     "input": "obj.sets.complexes",
+     "backend": "sage-symbolic"
+    },
+    {
+     "operation": "mor.sets.complex_abs",
+     "input": "obj.sets.complexes",
+     "backend": "sage-symbolic"
+    },
+    {
+     "operation": "mor.sets.real_sqrt",
+     "input": "obj.sets.reals",
+     "backend": "sage-symbolic"
+    },
+    {
+     "operation": "mor.sets.nat_prime_factors",
+     "input": "obj.sets.positive_naturals",
+     "backend": "sage-symbolic"
+    },
+    {
+     "operation": "bind.sets.integral",
+     "input": "cat.sets",
+     "backend": "sage-symbolic"
+    },
+    {
+     "operation": "bind.sets.limit",
+     "input": "cat.sets",
+     "backend": "sage-symbolic"
+    },
+    {
+     "operation": "bind.sets.limit_at_infinity",
+     "input": "cat.sets",
+     "backend": "sage-symbolic"
+    }
+   ]
+  },
+  {
+   "task": "T204",
+   "milestone": "Group automorphisms",
+   "part": "M2",
+   "after": [
+    "T200",
+    "T203"
+   ],
+   "categories": [
+    "cat.core_groups"
+   ],
+   "v1_statements": [
+    "reconstructed_extensions_20261024.addition.rx03.complete_conjugation",
+    "reconstructed_extensions_20261024.addition.rx03.complete_inverse_conjugation",
+    "reconstructed_extensions_20261024.addition.rx03.conjugated_double_action",
+    "reconstructed_extensions_20261024.addition.rx03.conjugated_triple_action",
+    "reconstructed_extensions_20261024.complete.rx03.cardinality",
+    "reconstructed_extensions_20261024.complete.rx03.aut_map_left_inverse",
+    "reconstructed_extensions_20261024.complete.rx03.aut_map_right_inverse",
+    "reconstructed_extensions_20261024.complete.rx03.inverse_product",
+    "reconstructed_extensions_20261024.complete.rx03.product_inverse",
+    "reconstructed_extensions_20261024.complete.rx03.fourth_power",
+    "reconstructed_extensions_20261024.complete.rx03.second_power_nonidentity",
+    "reconstructed_extensions_20261024.complete.rx03.conjugation_retains_inverse",
+    "reconstructed_extensions_20261024.complete.rx03.conjugated_value_reuse"
+   ],
+   "b0_statements": [],
+   "registrations": []
+  },
+  {
+   "task": "T205",
+   "milestone": "Commutative rings",
+   "part": "M2",
+   "after": [
+    "T200",
+    "T203"
+   ],
+   "categories": [
+    "cat.commutative_monoids",
+    "cat.commutative_rings"
+   ],
+   "v1_statements": [
+    "reconstructed_extensions_20261024.complete.rx07.generator_forward",
+    "reconstructed_extensions_20261024.complete.rx07.generator_backward",
+    "reconstructed_extensions_20261024.complete.rx07.generator_nonidentity",
+    "reconstructed_extensions_20261024.complete.rx07.left_inverse",
+    "reconstructed_extensions_20261024.complete.rx07.right_inverse",
+    "reconstructed_extensions_20261024.complete.rx07.coefficients_forward",
+    "reconstructed_extensions_20261024.complete.rx07.coefficients_backward",
+    "reconstructed_extensions_20261024.complete.rx07.successive_value",
+    "reconstructed_extensions_20261024.complete.rx07.successive_square",
+    "reconstructed_extensions_20261024.complete.rx07.successive_back",
+    "reconstructed_extensions_20261024.complete.rx07.full_forward_map",
+    "reconstructed_extensions_20261024.complete.rx07.full_square_map",
+    "reconstructed_extensions_20261024.complete.rx07.full_backward_map",
+    "reconstructed_extensions_20261024.complete.rx07.full_map_inverse",
+    "reconstructed_extensions_20261024.complete.rx07.map_sample_forward",
+    "reconstructed_extensions_20261024.complete.rx07.map_sample_square",
+    "reconstructed_extensions_20261024.complete.rx07.map_sample_backward",
+    "reconstructed_extensions_20261024.complete.rx09.full_family"
+   ],
+   "b0_statements": [
+    "composed.root_count",
+    "composed.root_one",
+    "composed.root_sum",
+    "composed.root_product",
+    "composed.charpoly",
+    "composed.det",
+    "composed.trace",
+    "differentials.degree",
+    "differentials.at_two",
+    "differentials.differential",
+    "differentials.derivative",
+    "integration.primitives",
+    "integration.differential",
+    "integration.derivative",
+    "integration.at_zero",
+    "factorization.over_complexes",
+    "inverses.value",
+    "inverses.solve",
+    "inverses.left",
+    "inverses.right",
+    "inverses.det",
+    "matrices.product",
+    "matrices.juxtaposition",
+    "matrices.application",
+    "matrices.det",
+    "matrices.rank",
+    "matrices.kernel",
+    "matrices.trace",
+    "matrices.charpoly",
+    "polynomials.degree",
+    "polynomials.root",
+    "polynomials.factors",
+    "polynomials.degree_over_rationals",
+    "polynomials.at_sqrt2",
+    "polynomials.at_minus_sqrt2",
+    "polynomials.no_rational_roots",
+    "series.coefficient_two",
+    "series.coefficient_three",
+    "series.coefficient_zero",
+    "series.coefficient_four",
+    "several_variables.dimension",
+    "several_variables.total_degree",
+    "several_variables.plane",
+    "presentations.f9.forward_generator",
+    "presentations.f9.inverse_generator",
+    "presentations.f9.forward_constant",
+    "presentations.f9.inverse_constant"
+   ],
+   "registrations": [
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.commutative_rings.f9_x",
+     "backend": "sage-presentations"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.commutative_rings.f9_x",
+     "backend": "sage-presentations"
+    },
+    {
+     "operation": "cmp.f9.translation",
+     "input": "obj.commutative_rings.f9_x",
+     "backend": "sage-presentations"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.commutative_rings.f9_y",
+     "backend": "sage-presentations"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.commutative_rings.f9_y",
+     "backend": "sage-presentations"
+    },
+    {
+     "operation": "cmp.f9.translation",
+     "input": "obj.commutative_rings.f9_y",
+     "backend": "sage-presentations"
+    },
+    {
+     "operation": "mor.sets.f9_x_constants",
+     "input": "mor.sets.f9_x_constants",
+     "backend": "sage-presentations"
+    },
+    {
+     "operation": "mor.sets.f9_y_constants",
+     "input": "mor.sets.f9_y_constants",
+     "backend": "sage-presentations"
+    },
+    {
+     "operation": "mor.sets.f9_x_constants",
+     "input": "obj.sets.integers_mod",
+     "backend": "sage-presentations"
+    },
+    {
+     "operation": "mor.sets.f9_y_constants",
+     "input": "obj.sets.integers_mod",
+     "backend": "sage-presentations"
+    },
+    {
+     "operation": "mor.sets.polynomial_degree",
+     "input": "obj.sets.polynomials",
+     "backend": "sage-symbolic"
+    },
+    {
+     "operation": "mor.sets.polynomial_derivative",
+     "input": "obj.sets.polynomials",
+     "backend": "sage-symbolic"
+    },
+    {
+     "operation": "mor.sets.polynomial_differential",
+     "input": "obj.sets.polynomials",
+     "backend": "sage-symbolic"
+    },
+    {
+     "operation": "mor.sets.polynomial_map",
+     "input": "obj.sets.polynomials",
+     "backend": "sage-symbolic"
+    },
+    {
+     "operation": "mor.sets.polynomial_factors",
+     "input": "obj.sets.nonzero_polynomials",
+     "backend": "sage-symbolic"
+    },
+    {
+     "operation": "mor.sets.polynomial_roots",
+     "input": "obj.sets.nonzero_polynomials",
+     "backend": "sage-symbolic"
+    },
+    {
+     "operation": "mor.sets.companion_matrix",
+     "input": "obj.sets.monics",
+     "backend": "sage-symbolic"
+    },
+    {
+     "operation": "mor.sets.mv_total_degree",
+     "input": "obj.sets.mv_polynomials",
+     "backend": "sage-symbolic"
+    }
+   ]
+  },
+  {
+   "task": "T206",
+   "milestone": "Topological monoids",
+   "part": "M2",
+   "after": [
+    "T200",
+    "T203",
+    "T205"
+   ],
+   "categories": [
+    "cat.hausdorff_topological_commutative_monoids"
+   ],
+   "v1_statements": [
+    "reconstructed_extensions_20261024.complete.rx09.full_coefficients",
+    "reconstructed_extensions_20261024.complete.rx09.degree_zero",
+    "reconstructed_extensions_20261024.complete.rx09.degree_one",
+    "reconstructed_extensions_20261024.complete.rx09.degree_three",
+    "reconstructed_extensions_20261024.complete.rx09.degree_five"
+   ],
+   "b0_statements": [],
+   "registrations": []
+  },
+  {
+   "task": "T207",
+   "milestone": "Modules",
+   "part": "M2",
+   "after": [
+    "T200",
+    "T203",
+    "T205"
+   ],
+   "categories": [
+    "cat.modules_r",
+    "cat.modules_total"
+   ],
+   "v1_statements": [
+    "reconstructed_extensions_20261024.complete.rx06.restricted_cardinality",
+    "reconstructed_extensions_20261024.complete.rx06.named_restricted_cardinality",
+    "reconstructed_extensions_20261024.complete.rx06.cartesian_whole_carrier",
+    "reconstructed_extensions_20261024.complete.rx06.action_two_three",
+    "reconstructed_extensions_20261024.complete.rx06.action_five_one",
+    "reconstructed_extensions_20261024.complete.rx06.action_negative_one_two",
+    "reconstructed_extensions_20261024.complete.rx06.whole_reindexed_map",
+    "reconstructed_extensions_20261024.complete.rx06.reindexed_map_sample",
+    "reconstructed_extensions_20261024.complete.rx06.whole_scalar_action",
+    "reconstructed_extensions_20261024.complete.rx10.fixed_question"
+   ],
+   "b0_statements": [],
+   "registrations": [
+    {
+     "operation": "lim.sets.product",
+     "input": "cat.sets",
+     "backend": "sage-set-limits"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.modules.regular",
+     "backend": "sage-modules"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.modules.vectors",
+     "backend": "sage-modules"
+    }
+   ]
+  },
+  {
+   "task": "T208",
+   "milestone": "Bilinear forms",
+   "part": "M2",
+   "after": [
+    "T200",
+    "T203",
+    "T205",
+    "T207"
+   ],
+   "categories": [
+    "cat.bil_wform"
+   ],
+   "v1_statements": [
+    "lattices.discriminant.a1",
+    "lattices.discriminant.a2",
+    "lattices.discriminant.a3"
+   ],
+   "b0_statements": [
+    "lattices.card.a2",
+    "lattices.card.a0",
+    "formed.card.hyperbolic_variable",
+    "formed.pairing.hyperbolic",
+    "formed.pairing.scaled_hyperbolic"
+   ],
+   "registrations": [
+    {
+     "operation": "colim.bil_w_form.cokernel",
+     "input": "cat.bil_wform",
+     "backend": "sage-discriminant"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.bil_wform.root_lattice_a_discriminant",
+     "backend": "sage-discriminant"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.bil_wform.root_lattice_a",
+     "backend": "sage-modules"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.bil_wform.root_lattice_a_dual",
+     "backend": "sage-modules"
+    },
+    {
+     "operation": "prop.is_abelian",
+     "input": "obj.bil_wform.root_lattice_a",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_abelian",
+     "input": "obj.bil_wform.root_lattice_a_dual",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_abelian",
+     "input": "obj.bil_wform.root_lattice_a_discriminant",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_commutative",
+     "input": "obj.bil_wform.root_lattice_a",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_commutative",
+     "input": "obj.bil_wform.root_lattice_a_dual",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_commutative",
+     "input": "obj.bil_wform.root_lattice_a_discriminant",
+     "backend": "gap-groups"
+    }
+   ]
+  },
+  {
+   "task": "T209",
+   "milestone": "Fields",
+   "part": "M2",
+   "after": [
+    "T200",
+    "T203",
+    "T205"
+   ],
+   "categories": [
+    "cat.fields"
+   ],
+   "v1_statements": [
+    "reconstructed_extensions_20261024.complete.rx05.inherited_cardinality",
+    "reconstructed_extensions_20261024.complete.rx05.multiplicative_cardinality",
+    "reconstructed_extensions_20261024.complete.rx05.additive_cardinality",
+    "reconstructed_extensions_20261024.complete.rx05.complete_component",
+    "reconstructed_extensions_20261024.complete.rx05.complete_inverse_component",
+    "reconstructed_extensions_20261024.complete.rx05.component_left_inverse",
+    "reconstructed_extensions_20261024.complete.rx05.component_right_inverse",
+    "reconstructed_extensions_20261024.complete.rx05.addition",
+    "reconstructed_extensions_20261024.complete.rx05.multiplication",
+    "reconstructed_extensions_20261024.complete.rx05.operations_distinct",
+    "reconstructed_extensions_20261024.complete.rx05.whole_map_naturality",
+    "reconstructed_extensions_20261024.complete.rx05.multiplicative_map_sample",
+    "reconstructed_extensions_20261024.complete.rx05.additive_map_sample"
+   ],
+   "b0_statements": [
+    "subspaces.dim",
+    "subspaces.member",
+    "subspaces.not_member",
+    "subspaces.kernel"
+   ],
+   "registrations": [
+    {
+     "operation": "mor.sets.span",
+     "input": "obj.sets.power_set",
+     "backend": "sage-symbolic"
+    }
+   ]
+  },
+  {
+   "task": "T210",
+   "milestone": "Module rank",
+   "part": "M2",
+   "after": [
+    "T200",
+    "T203",
+    "T205",
+    "T207"
+   ],
+   "categories": [
+    "cat.core_modules_r"
+   ],
+   "v1_statements": [
+    "reconstructed_extensions_20261024.complete.rx06.original_dimension"
+   ],
+   "b0_statements": [
+    "lattices.rank.a1",
+    "lattices.rank.a2",
+    "lattices.rank.a3"
+   ],
+   "registrations": [
+    {
+     "operation": "meth.rank",
+     "input": "obj.modules.regular",
+     "backend": "sage-modules"
+    },
+    {
+     "operation": "meth.rank",
+     "input": "obj.modules.vectors",
+     "backend": "sage-modules"
+    },
+    {
+     "operation": "meth.rank",
+     "input": "obj.bil_wform.root_lattice_a",
+     "backend": "sage-modules"
+    },
+    {
+     "operation": "meth.rank",
+     "input": "obj.bil_wform.root_lattice_a_dual",
+     "backend": "sage-modules"
+    },
+    {
+     "operation": "meth.rank",
+     "input": "obj.bil_wform.root_lattice_a_discriminant",
+     "backend": "sage-modules"
+    }
+   ]
+  },
+  {
+   "task": "T211",
+   "milestone": "Module kernels",
+   "part": "M2",
+   "after": [
+    "T200",
+    "T203",
+    "T205",
+    "T207"
+   ],
+   "categories": [
+    "cat.arrows_modules_r",
+    "cat.core_subobjects_modules_r",
+    "cat.subobjects_modules_r",
+    "cat.subobjects_sets"
+   ],
+   "v1_statements": [
+    "reconstructed_extensions_20261024.complete.rx08.kernel_dimension",
+    "reconstructed_extensions_20261024.complete.rx08.kernel_zero_composite"
+   ],
+   "b0_statements": [],
+   "registrations": []
+  },
+  {
+   "task": "T212",
+   "milestone": "Formed modules",
+   "part": "M2",
+   "after": [
+    "T200",
+    "T203",
+    "T205",
+    "T207",
+    "T208"
+   ],
+   "categories": [
+    "cat.arrows_bilin_module",
+    "cat.bilin_module"
+   ],
+   "v1_statements": [
+    "reconstructed_extensions_20261024.complete.lift.formed_arrow_action",
+    "reconstructed_extensions_20261024.complete.lift.whole_formed_equation",
+    "reconstructed_extensions_20261024.complete.lift.first_inverse_on_carrier",
+    "reconstructed_extensions_20261024.complete.lift.first_inverse_on_scalar",
+    "reconstructed_extensions_20261024.complete.lift.first_defining_map",
+    "reconstructed_extensions_20261024.complete.lift.first_backward_action",
+    "reconstructed_extensions_20261024.complete.lift.first_nonidentity_coordinate",
+    "reconstructed_extensions_20261024.complete.lift.first_full_pairing",
+    "reconstructed_extensions_20261024.complete.lift.first_whole_factorization",
+    "reconstructed_extensions_20261024.complete.lift.first_factor_comparison",
+    "reconstructed_extensions_20261024.complete.lift.first_factor_sample_one",
+    "reconstructed_extensions_20261024.complete.lift.first_factor_sample_two",
+    "reconstructed_extensions_20261024.complete.lift.actual_second_inclusion",
+    "reconstructed_extensions_20261024.complete.lift.composed_forward",
+    "reconstructed_extensions_20261024.complete.lift.composed_backward",
+    "reconstructed_extensions_20261024.complete.lift.final_inverse_on_carrier",
+    "reconstructed_extensions_20261024.complete.lift.final_inverse_on_scalar",
+    "reconstructed_extensions_20261024.complete.lift.final_defining_map",
+    "reconstructed_extensions_20261024.complete.lift.final_backward_action",
+    "reconstructed_extensions_20261024.complete.lift.final_full_pairing",
+    "reconstructed_extensions_20261024.complete.lift.final_pairing_sample",
+    "reconstructed_extensions_20261024.complete.lift.final_nonzero_inclusion",
+    "reconstructed_extensions_20261024.complete.lift.final_whole_factorization",
+    "reconstructed_extensions_20261024.complete.lift.final_factor_comparison",
+    "reconstructed_extensions_20261024.complete.lift.final_factor_sample_one",
+    "reconstructed_extensions_20261024.complete.lift.final_factor_sample_two",
+    "reconstructed_extensions_20261024.addition.lift.cone_comparison_inverse_left",
+    "reconstructed_extensions_20261024.addition.lift.cone_comparison_inverse_right",
+    "reconstructed_extensions_20261024.addition.lift.complete_cone_triangle",
+    "reconstructed_extensions_20261024.addition.lift.second_input_compatibility",
+    "reconstructed_extensions_20261024.addition.lift.separate_second_defining_equation",
+    "reconstructed_extensions_20261024.addition.lift.separate_second_comparison",
+    "reconstructed_extensions_20261024.addition.lift.composed_factor_against_first",
+    "reconstructed_extensions_20261024.addition.lift.unique_second_factor",
+    "reconstructed_extensions_20261024.complete.rx08.full_projection",
+    "reconstructed_extensions_20261024.complete.rx08.restriction_zero_composite",
+    "reconstructed_extensions_20261024.complete.rx08.full_coordinate_inclusion",
+    "reconstructed_extensions_20261024.complete.rx08.full_restricted_pairing",
+    "reconstructed_extensions_20261024.complete.rx08.restricted_pairing_one"
+   ],
+   "b0_statements": [
+    "formed.card.hyperbolic_fixed",
+    "formed.card.zero_rank_zero"
+   ],
+   "registrations": [
+    {
+     "operation": "lift.bilin_module.restrict#obj",
+     "input": "lift.bilin_module.restrict#input",
+     "backend": "sage-bilinear-lift"
+    },
+    {
+     "operation": "lift.bilin_module.restrict#hom",
+     "input": "lift.bilin_module.restrict#input",
+     "backend": "sage-bilinear-lift"
+    },
+    {
+     "operation": "lift.bilin_module.restrict#forward",
+     "input": "lift.bilin_module.restrict#input",
+     "backend": "sage-bilinear-lift"
+    },
+    {
+     "operation": "lift.bilin_module.restrict#backward",
+     "input": "lift.bilin_module.restrict#input",
+     "backend": "sage-bilinear-lift"
+    }
+   ]
+  },
+  {
+   "task": "T214",
+   "milestone": "Group kernels",
+   "part": "M4-B0",
+   "after": [
+    "T200",
+    "T203"
+   ],
+   "categories": [
+    "cat.arrows_groups",
+    "cat.subobjects_groups"
+   ],
+   "v1_statements": [],
+   "b0_statements": [
+    "groups.kernel.sign_card",
+    "groups.kernel.trivial_card",
+    "groups.kernel.identity_card",
+    "groups.alternating.three_card"
+   ],
+   "registrations": [
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.subgroups.alternating",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.subgroups.kernel",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.subgroups.alternating",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "obj.subgroups.kernel",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_abelian",
+     "input": "obj.subgroups.kernel",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_commutative",
+     "input": "obj.subgroups.alternating",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_commutative",
+     "input": "obj.subgroups.kernel",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "meth.group_arrow_kernel",
+     "input": "cat.arrows_groups",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "fun.arrows_groups.kernel",
+     "input": "cat.arrows_groups",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "cat.subobjects_groups",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_finite",
+     "input": "cat.subobjects_groups",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_abelian",
+     "input": "cat.subobjects_groups",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_commutative",
+     "input": "cat.subobjects_groups",
+     "backend": "gap-groups"
+    }
+   ]
+  },
+  {
+   "task": "T215",
+   "milestone": "Boolean algebras",
+   "part": "M4-B0",
+   "after": [
+    "T200",
+    "T202",
+    "T203"
+   ],
+   "categories": [
+    "cat.boolean_algebras",
+    "cat.bounded_order_lattices",
+    "cat.join_semilattices",
+    "cat.meet_semilattices",
+    "cat.order_lattices"
+   ],
+   "v1_statements": [],
+   "b0_statements": [
+    "integration.normalized_count",
+    "integration.normalized",
+    "finite_sets.union",
+    "finite_sets.intersection",
+    "finite_sets.difference",
+    "finite_sets.symmetric_difference",
+    "finite_sets.subset_union",
+    "finite_sets.intersection_subset",
+    "polynomials.irrational_roots"
+   ],
+   "registrations": []
+  },
+  {
+   "task": "T216",
+   "milestone": "Integral lattices",
+   "part": "M4-B0",
+   "after": [
+    "T200",
+    "T203",
+    "T205",
+    "T207",
+    "T210",
+    "T212"
+   ],
+   "categories": [
+    "cat.integral_lattice"
+   ],
+   "v1_statements": [],
+   "b0_statements": [
+    "lattices.rank.e8"
+   ],
+   "registrations": [
+    {
+     "operation": "meth.rank",
+     "input": "obj.integral_lattice.e8",
+     "backend": "sage-modules"
+    },
+    {
+     "operation": "meth.cardinality",
+     "input": "obj.integral_lattice.e8",
+     "backend": "sage-modules"
+    },
+    {
+     "operation": "prop.is_abelian",
+     "input": "obj.integral_lattice.e8",
+     "backend": "gap-groups"
+    },
+    {
+     "operation": "prop.is_commutative",
+     "input": "obj.integral_lattice.e8",
+     "backend": "gap-groups"
+    }
+   ]
+  },
+  {
+   "task": "T217",
+   "milestone": "Set constructions",
+   "part": "M4-coverage",
+   "after": [
+    "T200",
+    "T211"
+   ],
+   "categories": [
+    "cat.arrows_sets",
+    "cat.core_pointed_sets",
+    "cat.core_subobjects_sets",
+    "cat.coslice_sets",
+    "cat.countable_sets",
+    "cat.crystals",
+    "cat.endofunctors_sets",
+    "cat.enumerated_sets",
+    "cat.pointed_sets",
+    "cat.sets.pair_diagrams",
+    "cat.slice_sets",
+    "cat.subsets.point_predicates",
+    "cat.subsets.subset_predicates",
+    "cat.walking_pair"
+   ],
+   "v1_statements": [],
+   "b0_statements": [],
+   "registrations": []
+  },
+  {
+   "task": "T218",
+   "milestone": "Well orders",
+   "part": "M4-coverage",
+   "after": [
+    "T202",
+    "T217"
+   ],
+   "categories": [
+    "cat.core_well_ordered_sets",
+    "cat.enumerated_monotone_sets",
+    "cat.ordinals",
+    "cat.well_ordered_sets"
+   ],
+   "v1_statements": [],
+   "b0_statements": [],
+   "registrations": []
+  },
+  {
+   "task": "T219",
+   "milestone": "Algebraic structures",
+   "part": "M4-coverage",
+   "after": [
+    "T203"
+   ],
+   "categories": [
+    "cat.division_rings",
+    "cat.magmaswithtwooperations"
+   ],
+   "v1_statements": [],
+   "b0_statements": [],
+   "registrations": []
+  },
+  {
+   "task": "T220",
+   "milestone": "Algebras",
+   "part": "M4-coverage",
+   "after": [
+    "T205"
+   ],
+   "categories": [
+    "cat.algebras"
+   ],
+   "v1_statements": [],
+   "b0_statements": [],
+   "registrations": []
+  },
+  {
+   "task": "T221",
+   "milestone": "Schemes",
+   "part": "M4-coverage",
+   "after": [
+    "T200",
+    "T205"
+   ],
+   "categories": [
+    "cat.schemes",
+    "cat.schemes_over",
+    "cat.schemes_over_ring"
+   ],
+   "v1_statements": [],
+   "b0_statements": [],
+   "registrations": []
+  },
+  {
+   "task": "T222",
+   "milestone": "Module constructions",
+   "part": "M4-coverage",
+   "after": [
+    "T200",
+    "T205",
+    "T207",
+    "T211"
+   ],
+   "categories": [
+    "cat.based_module",
+    "cat.based_module_indexed",
+    "cat.coord",
+    "cat.coord_indexed",
+    "cat.finite_projective_lattice",
+    "cat.finitelygeneratedmodules",
+    "cat.finiterankmodules",
+    "cat.free_cover",
+    "cat.free_cover_indexed",
+    "cat.freemodules",
+    "cat.ideals_r",
+    "cat.module_points",
+    "cat.quotients_modules_r",
+    "cat.torsion_free_modules"
+   ],
+   "v1_statements": [],
+   "b0_statements": [],
+   "registrations": []
+  },
+  {
+   "task": "T223",
+   "milestone": "Forms over rings",
+   "part": "M4-coverage",
+   "after": [
+    "T205",
+    "T207"
+   ],
+   "categories": [
+    "cat.bilin_forms_over_rings",
+    "cat.cusps",
+    "cat.even_integral_lattices",
+    "cat.finite_free_lattices_over_rings",
+    "cat.finite_projective_lattices_over_rings",
+    "cat.integral_forms",
+    "cat.integral_lattices",
+    "cat.lattices_over_rings",
+    "cat.modules_over_rings_ext",
+    "cat.quad_forms_over_rings",
+    "cat.unimodular_lattices_over_rings"
+   ],
+   "v1_statements": [],
+   "b0_statements": [],
+   "registrations": []
+  },
+  {
+   "task": "T224",
+   "milestone": "Lattices and quadratic modules",
+   "part": "M4-coverage",
+   "after": [
+    "T205",
+    "T207",
+    "T212",
+    "T216",
+    "T222"
+   ],
+   "categories": [
+    "cat.alternating_forms",
+    "cat.coord_lattice",
+    "cat.definite_lattice",
+    "cat.even_lattice",
+    "cat.finite_free_lattice",
+    "cat.fraction_field_perfect_finite_projective_lattice",
+    "cat.indefinite_lattice",
+    "cat.lattice",
+    "cat.quad_module",
+    "cat.quad_wform",
+    "cat.subobjects_bilin_module",
+    "cat.unimodular_lattice"
+   ],
+   "v1_statements": [],
+   "b0_statements": [],
+   "registrations": []
+  }
+ ],
+ "b0_in_v1_categories": {
+  "task": "T213",
+  "parts": [
+   {
+    "milestone": "Sets",
+    "task": "T200",
+    "statements": [
+     "sets.card.naturals",
+     "sets.card.square",
+     "sets.finite.fin2_sqcup_fin3",
+     "sets.apply.rev",
+     "sets.apply.rev_rev"
+    ]
+   },
+   {
+    "milestone": "Finite sets",
+    "task": "T201",
+    "statements": [
+     "finite_sets.card.three"
+    ]
+   },
+   {
+    "milestone": "Rings",
+    "task": "T203",
+    "statements": [
+     "calculus.limit_sinc",
+     "calculus.limit_infinity",
+     "calculus.integral_square",
+     "calculus.integral_sine",
+     "composed.composition",
+     "ellipses.naturals",
+     "ellipses.evens",
+     "ellipses.multiples",
+     "ellipses.even_square",
+     "ellipses.odd_square",
+     "ellipses.squares_even",
+     "ellipses.prime",
+     "ellipses.not_prime",
+     "factorization.prime_factors",
+     "factorization.multiplicity_two",
+     "factorization.multiplicity_three",
+     "factorization.multiplicity_seven",
+     "factorization.approximation",
+     "finite_sets.card",
+     "finite_sets.card_product",
+     "finite_sets.card_power_set",
+     "finite_sets.member",
+     "finite_sets.not_member",
+     "comprehension.elements",
+     "comprehension.card",
+     "comprehension.even_member",
+     "comprehension.odd_not_member",
+     "comprehension.even_card",
+     "comprehension.image_apply",
+     "comprehension.image_method",
+     "fractions.halves",
+     "fractions.cancel",
+     "fractions.lowest_terms",
+     "fractions.modulus",
+     "functions.extensional",
+     "functions.at_zero",
+     "functions.at_three",
+     "functions.even",
+     "numbers.integers.sum",
+     "numbers.zmod5.sum",
+     "numbers.zmod5.product",
+     "numbers.zmod5.negation",
+     "numbers.zmod5.difference",
+     "numbers.zmod7.distributive",
+     "numbers.zmod7.value",
+     "numbers.rationals.sum",
+     "numbers.gcd",
+     "numbers.complex.re",
+     "numbers.complex.im",
+     "numbers.complex.bar",
+     "numbers.complex.norm",
+     "numbers.complex.abs",
+     "units.rationals.three_inverse",
+     "refinement.finite_product_card",
+     "groups.abelian.cyclic_three",
+     "groups.abelian.symmetric_three"
+    ]
+   },
+   {
+    "milestone": "Commutative rings",
+    "task": "T205",
+    "statements": [
+     "composed.root_count",
+     "composed.root_one",
+     "composed.root_sum",
+     "composed.root_product",
+     "composed.charpoly",
+     "composed.det",
+     "composed.trace",
+     "differentials.degree",
+     "differentials.at_two",
+     "differentials.differential",
+     "differentials.derivative",
+     "integration.primitives",
+     "integration.differential",
+     "integration.derivative",
+     "integration.at_zero",
+     "factorization.over_complexes",
+     "inverses.value",
+     "inverses.solve",
+     "inverses.left",
+     "inverses.right",
+     "inverses.det",
+     "matrices.product",
+     "matrices.juxtaposition",
+     "matrices.application",
+     "matrices.det",
+     "matrices.rank",
+     "matrices.kernel",
+     "matrices.trace",
+     "matrices.charpoly",
+     "polynomials.degree",
+     "polynomials.root",
+     "polynomials.factors",
+     "polynomials.degree_over_rationals",
+     "polynomials.at_sqrt2",
+     "polynomials.at_minus_sqrt2",
+     "polynomials.no_rational_roots",
+     "series.coefficient_two",
+     "series.coefficient_three",
+     "series.coefficient_zero",
+     "series.coefficient_four",
+     "several_variables.dimension",
+     "several_variables.total_degree",
+     "several_variables.plane",
+     "presentations.f9.forward_generator",
+     "presentations.f9.inverse_generator",
+     "presentations.f9.forward_constant",
+     "presentations.f9.inverse_constant"
+    ]
+   },
+   {
+    "milestone": "Bilinear forms",
+    "task": "T208",
+    "statements": [
+     "lattices.card.a2",
+     "lattices.card.a0",
+     "formed.card.hyperbolic_variable",
+     "formed.pairing.hyperbolic",
+     "formed.pairing.scaled_hyperbolic"
+    ]
+   },
+   {
+    "milestone": "Fields",
+    "task": "T209",
+    "statements": [
+     "subspaces.dim",
+     "subspaces.member",
+     "subspaces.not_member",
+     "subspaces.kernel"
+    ]
+   },
+   {
+    "milestone": "Module rank",
+    "task": "T210",
+    "statements": [
+     "lattices.rank.a1",
+     "lattices.rank.a2",
+     "lattices.rank.a3"
+    ]
+   },
+   {
+    "milestone": "Formed modules",
+    "task": "T212",
+    "statements": [
+     "formed.card.hyperbolic_fixed",
+     "formed.card.zero_rank_zero"
+    ]
+   }
+  ]
+ },
+ "b0_file_routes": [
+  {
+   "id": "lattices.rank.e8",
+   "file": "b0-required-positives.cas.proposed",
+   "statement": "assert E8.rank() = 8",
+   "source": "b0",
+   "categories": [
+    "cat.additive_groups",
+    "cat.bilin_module",
+    "cat.cardinals",
+    "cat.commutative_rings",
+    "cat.core_modules_r",
+    "cat.groups",
+    "cat.integral_lattice",
+    "cat.magmas",
+    "cat.modules_r",
+    "cat.modules_total",
+    "cat.monoids",
+    "cat.rings",
+    "cat.semigroups",
+    "cat.sets"
+   ],
+   "corrected": false
+  },
+  {
+   "id": "units.rationals.three_inverse",
+   "file": "b0-required-positives.cas.proposed",
+   "statement": "assert (3 in ℚˣ)⁻¹ = 1/3",
+   "source": "b0",
+   "categories": [
+    "cat.sets",
+    "cat.magmas",
+    "cat.semigroups",
+    "cat.monoids",
+    "cat.groups",
+    "cat.rings"
+   ],
+   "corrected": true
+  },
+  {
+   "id": "refinement.finite_product_card",
+   "file": "b0-required-positives.cas.proposed",
+   "statement": "assert |(Fin(2) × ℤ/3) in FiniteSets| = 6",
+   "source": "b0",
+   "categories": [
+    "cat.cardinals",
+    "cat.core_sets",
+    "cat.finite_sets",
+    "cat.magmas",
+    "cat.monoids",
+    "cat.rings",
+    "cat.semigroups",
+    "cat.sets"
+   ],
+   "corrected": false
+  },
+  {
+   "id": "groups.kernel.sign_card",
+   "file": "b0-required-positives.cas.proposed",
+   "statement": "assert |sigma.ker()| = 3",
+   "source": "b0",
+   "categories": [
+    "cat.arrows_groups",
+    "cat.subobjects_groups",
+    "cat.groups",
+    "cat.monoids",
+    "cat.semigroups",
+    "cat.magmas",
+    "cat.sets",
+    "cat.core_sets",
+    "cat.cardinals"
+   ],
+   "corrected": true
+  },
+  {
+   "id": "groups.kernel.trivial_card",
+   "file": "b0-required-positives.cas.proposed",
+   "statement": "assert |zero_map.ker()| = 6",
+   "source": "b0",
+   "categories": [
+    "cat.arrows_groups",
+    "cat.subobjects_groups",
+    "cat.groups",
+    "cat.monoids",
+    "cat.semigroups",
+    "cat.magmas",
+    "cat.sets",
+    "cat.core_sets",
+    "cat.cardinals"
+   ],
+   "corrected": true
+  },
+  {
+   "id": "groups.kernel.identity_card",
+   "file": "b0-required-positives.cas.proposed",
+   "statement": "assert |identity_map.ker()| = 1",
+   "source": "b0",
+   "categories": [
+    "cat.arrows_groups",
+    "cat.subobjects_groups",
+    "cat.groups",
+    "cat.monoids",
+    "cat.semigroups",
+    "cat.magmas",
+    "cat.sets",
+    "cat.core_sets",
+    "cat.cardinals"
+   ],
+   "corrected": true
+  },
+  {
+   "id": "groups.alternating.three_card",
+   "file": "b0-required-positives.cas.proposed",
+   "statement": "assert |Alt(3)| = 3",
+   "source": "b0",
+   "categories": [
+    "cat.cardinals",
+    "cat.core_sets",
+    "cat.groups",
+    "cat.magmas",
+    "cat.monoids",
+    "cat.semigroups",
+    "cat.sets",
+    "cat.subobjects_groups"
+   ],
+   "corrected": false
+  },
+  {
+   "id": "groups.abelian.cyclic_three",
+   "file": "b0-required-positives.cas.proposed",
+   "statement": "assert C3.is_abelian()",
+   "source": "b0",
+   "categories": [
+    "cat.groups",
+    "cat.magmas",
+    "cat.monoids",
+    "cat.semigroups",
+    "cat.sets"
+   ],
+   "corrected": false
+  },
+  {
+   "id": "groups.abelian.symmetric_three",
+   "file": "b0-required-positives.cas.proposed",
+   "statement": "assert S3.is_abelian() = false",
+   "source": "b0",
+   "categories": [
+    "cat.groups",
+    "cat.magmas",
+    "cat.monoids",
+    "cat.semigroups",
+    "cat.sets"
+   ],
+   "corrected": false
+  },
+  {
+   "id": "presentations.f9.forward_generator",
+   "file": "b0-required-positives.cas.proposed",
+   "statement": "assert (map generator(X) along F9translation) = generator(Y) + 2",
+   "source": "b0",
+   "categories": [
+    "cat.commutative_rings",
+    "cat.rings",
+    "cat.monoids",
+    "cat.semigroups",
+    "cat.magmas",
+    "cat.sets"
+   ],
+   "corrected": true
+  },
+  {
+   "id": "presentations.f9.inverse_generator",
+   "file": "b0-required-positives.cas.proposed",
+   "statement": "assert (map generator(Y) back along F9translation) = generator(X) - 2",
+   "source": "b0",
+   "categories": [
+    "cat.commutative_rings",
+    "cat.rings",
+    "cat.monoids",
+    "cat.semigroups",
+    "cat.magmas",
+    "cat.sets"
+   ],
+   "corrected": true
+  },
+  {
+   "id": "presentations.f9.forward_constant",
+   "file": "b0-required-positives.cas.proposed",
+   "statement": "assert (map F9x_constants(2) along F9translation) = F9y_constants(2)",
+   "source": "b0",
+   "categories": [
+    "cat.commutative_rings",
+    "cat.rings",
+    "cat.monoids",
+    "cat.semigroups",
+    "cat.magmas",
+    "cat.sets"
+   ],
+   "corrected": true
+  },
+  {
+   "id": "presentations.f9.inverse_constant",
+   "file": "b0-required-positives.cas.proposed",
+   "statement": "assert (map F9y_constants(2) back along F9translation) = F9x_constants(2)",
+   "source": "b0",
+   "categories": [
+    "cat.commutative_rings",
+    "cat.rings",
+    "cat.monoids",
+    "cat.semigroups",
+    "cat.magmas",
+    "cat.sets"
+   ],
+   "corrected": true
+  },
+  {
+   "id": "formed.card.hyperbolic_fixed",
+   "file": "b0-formed-positives.cas.proposed",
+   "statement": "assert |U| = ℵ₀",
+   "source": "b0",
+   "categories": [
+    "cat.additive_groups",
+    "cat.bilin_module",
+    "cat.cardinals",
+    "cat.commutative_rings",
+    "cat.core_sets",
+    "cat.groups",
+    "cat.magmas",
+    "cat.modules_r",
+    "cat.modules_total",
+    "cat.monoids",
+    "cat.rings",
+    "cat.semigroups",
+    "cat.sets"
+   ],
+   "corrected": false
+  },
+  {
+   "id": "formed.card.hyperbolic_variable",
+   "file": "b0-formed-positives.cas.proposed",
+   "statement": "assert |Uv| = ℵ₀",
+   "source": "b0",
+   "categories": [
+    "cat.additive_groups",
+    "cat.bil_wform",
+    "cat.cardinals",
+    "cat.commutative_rings",
+    "cat.core_sets",
+    "cat.groups",
+    "cat.magmas",
+    "cat.modules_r",
+    "cat.modules_total",
+    "cat.monoids",
+    "cat.rings",
+    "cat.semigroups",
+    "cat.sets"
+   ],
+   "corrected": false
+  },
+  {
+   "id": "formed.card.zero_rank_zero",
+   "file": "b0-formed-positives.cas.proposed",
+   "statement": "assert |Z| = 1",
+   "source": "b0",
+   "categories": [
+    "cat.additive_groups",
+    "cat.bilin_module",
+    "cat.cardinals",
+    "cat.commutative_rings",
+    "cat.core_sets",
+    "cat.groups",
+    "cat.magmas",
+    "cat.modules_r",
+    "cat.modules_total",
+    "cat.monoids",
+    "cat.rings",
+    "cat.semigroups",
+    "cat.sets"
+   ],
+   "corrected": false
+  },
+  {
+   "id": "formed.pairing.hyperbolic",
+   "file": "b0-formed-positives.cas.proposed",
+   "statement": "assert bu((2, -1), (3, 4)) = 5",
+   "source": "b0",
+   "categories": [
+    "cat.additive_groups",
+    "cat.bil_wform",
+    "cat.commutative_rings",
+    "cat.groups",
+    "cat.magmas",
+    "cat.modules_r",
+    "cat.modules_total",
+    "cat.monoids",
+    "cat.rings",
+    "cat.semigroups",
+    "cat.sets"
+   ],
+   "corrected": false
+  },
+  {
+   "id": "formed.pairing.scaled_hyperbolic",
+   "file": "b0-formed-positives.cas.proposed",
+   "statement": "assert bu3((2, -1), (3, 4)) = 15",
+   "source": "b0",
+   "categories": [
+    "cat.additive_groups",
+    "cat.bil_wform",
+    "cat.commutative_rings",
+    "cat.groups",
+    "cat.magmas",
+    "cat.modules_r",
+    "cat.modules_total",
+    "cat.monoids",
+    "cat.rings",
+    "cat.semigroups",
+    "cat.sets"
+   ],
+   "corrected": false
+  }
+ ]
+}
