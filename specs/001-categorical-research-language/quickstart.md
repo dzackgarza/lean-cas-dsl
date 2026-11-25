@@ -772,6 +772,12 @@ After the entire fixed V1 combination, full timing checks, actual notebook, new 
 
 V1 completion is the conjunction of all assigned requirements and independent assessment, not an accumulation of partial passing scripts. Full B0 and broad Sage parity retain their separate later completion boundaries. The [resolution addendum][resolution] supplies the scoped current-source finite-enclosure, first-hit and comparison argument, and separates partial correctness, conditional progress and actual delivery. It does not establish a universal resolver for arbitrary future higher/recursive routing; a contributor trial that exposes a required unsupported case fails rather than silently narrowing its permitted choices.
 
+## Kernel checkpoints and computed attainments
+
+A kernel checkpoint (SC-014; [plan](plan.md#m1-checkpoints)) is observed through the public session with a protocol peer or an empty manifest. Use the commands of the [feedback loops](../../CONTRIBUTING.md#feedback-loops): `just loop "<session test module>"` for an observation with a protocol peer, and `scripts/accept_files.sh FILE …` with no `--manifest` for the empty-manifest observation of whole acceptance files. A gap with `NoImplementation` at a registered address is the expected outcome of a computational statement there. An internal error or a reader gap is a failed observation.
+
+A computed attainment (SC-015; [plan](plan.md#computational-milestones)) is observed with the manifest of the category implementations of its milestone: the statement holds as a computed result. An observation with a protocol peer does not establish it.
+
 ## Sources
 
 [spec]: spec.md

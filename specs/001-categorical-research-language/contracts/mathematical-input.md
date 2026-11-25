@@ -10,7 +10,7 @@ The former [route replacement][OLD1], [discovery proposal][OLD2] and [coverage p
 
 ## 1. Authority and actual inputs
 
-All categories, structures, methods, domains, laws, comparisons, coherent data, admissible choice families, abstract computational obligations and mathematical representation/continuation relations come from independently accepted lean-categories. A downstream author does not define or commission a convenient comparison criterion to make its implementation correct. Changing repository or role labels does not establish independent authorship or permitted inputs.
+All categories, structures, methods, domains, laws, comparisons, coherent data, admissible choice families, abstract computational obligations and mathematical representation/continuation relations come from independently accepted lean-categories. A downstream author does not define or commission a convenient comparison criterion to make its implementation correct. A missing input is a lean-categories task that the workstream does there, from the mathematics (constitution C21). Changing repository or role labels does not establish independent authorship or permitted inputs.
 
 The kernel owns faithful source consumption, ordinary checked elaboration, compilation, layout/field indexes, actual references, framing and execution. Leaves register and compute against the released obligations; they do not supply mathematical definitions, proofs, certificates, checkers, new denotations or acceptance. Candidate data remain claims, even when structurally valid.
 

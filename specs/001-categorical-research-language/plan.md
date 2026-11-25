@@ -156,61 +156,22 @@ full-B0 completion nor a new mathematical input to broader algorithms.
 
 ### M1 checkpoints
 
-M1 closes on F. Before F, these checkpoints close one at a time, in this order. A checkpoint is one observation of kernel behaviour through the public session `CasRuntime.KernelSession`, on the original source inputs of its story, with a protocol peer or an empty manifest (constitution C22). It closes when the observation holds on the kernel branch. It claims only itself: it checks no task box, and the independent assessment of the same inputs stays in Part 2. The tasks keep their order and their complete definitions. Issue #92 holds the checklist of the checkpoints.
+M1 closes on F. Before F, these checkpoints close one at a time. A checkpoint is one observation of kernel behaviour through the public session `CasRuntime.KernelSession`, on the original source inputs that its row names, with a protocol peer or an empty manifest (constitution C22; SC-014). It closes when the observation holds on the kernel branch. It claims only itself. It satisfies no user story: the acceptance of a story needs computed results and is assessed when the category implementations exist. It checks no task box, and the independent assessment of the same inputs stays in Part 2. Issue #92 holds the checklist.
 
-| Checkpoint | Observation | Reached after |
+No checkpoint was evaluated on 2026-11-25. The work on a checkpoint starts with its observation at the current revision; a checkpoint whose observation already holds is checked then. The observation, not a task box, decides.
+
+| Checkpoint | Observation | Inputs are those of |
 | --- | --- | --- |
-| M1.1 — Typed carriers | No kernel source reads an occurrence or a selection from term metadata. Every test module that passed before the change passes after it (T116, T117). | T117 |
-| M1.2 — Connected statement path | A source file runs through one session. Each statement is read, lowered and dispatched to a protocol peer at its registered address with its actual operands. The reply is admitted and retained, and a later statement uses that value with no second dispatch. | T038 |
-| M1.3 — Public forms of connected calculation (US1) | Every statement of the permanent acceptance files reads to its registered meaning. With an empty manifest, each computational statement ends in no implementation at a registered address. No statement ends in an internal error or a reader gap. | T050 |
-| M1.4 — Complete construction and later use (US2) | The original RX-LIFT source with its 22 bindings prepares each lift field, comparison and factor request at the selected lift, with the earlier outputs as operands. The returned object, maps and factor are the operands of the later requests. Two selected limits with one apex keep their own cones. | T049 |
-| M1.5 — Selected structures (US3) | The inputs of RX05, RX06 and RX07 select their routes, cells, classifiers and reindexing before dispatch. A required omission is refused with no dispatch. A declared choice-producing operation binds the member that the peer returns (T115). | T061, T115 |
-| M1.6 — Exact, infinite and qualified requests (US4) | The RX09 inputs prepare requests that keep the exact source, the tolerance and the full index family. A demand outside an earlier finite display reaches the same retained object. | T069 |
-| M1.7 — Growth (US5) | A new accepted declaration reaches an unchanged consumer, and a new generic operation reaches an existing object, with no kernel edit. | T075 |
-| M1.8 — Computational contract (US6) | A peer written from the published contract alone uses deferred and suspended service, and an unchanged consumer receives its output. The published interface of T028 matches the built kernel. | T028 |
-| M1.9 — Notebook (US7) | The cells of `notebooks/kernel-v1.ipynb` run through the worker and one session: values retained across cells, inert queries, cancellation and owner rules. | T093 |
-| M1.10 — Discovery and display (US8); old path removed | Discovery and inspection read retained data and execute nothing. No public entrance reaches `CasCatalogue/Language.lean` or `CasCatalogue/Realize.lean`. With every Part 1 box checked, this is F. | T101, T051, T064 |
-
-### Computational milestones
-
-Computational work is leaf work (constitution C22, C23). It has its own milestones, separate from M1, and its own task lists, written when each milestone starts. T104 and M2 own it. M2 closes when the milestones that V1 requires hold on one published tuple (T105).
-
-**Order.** The implementation of a category follows the implementations of the categories that its structural functors and classifier forgets reach. The layers below are computed from the published catalogue of the contract package (`api/declared-ports.json`, mathematics revision `3f8aedf`): its structural functors and its classifier forgets, by the longest chain down to `cat.sets`. Compute them again from lean-categories `main` when a milestone starts.
-
-| Layer | Categories |
-| --- | --- |
-| 0 | sets |
-| 1 | magmas (sets with a binary operation), partial orders, additive monoids, finite sets, countable sets, enumerated sets, pointed sets, Boolean algebras |
-| 2 | semigroups, linear orders, additive commutative monoids |
-| 3 | monoids |
-| 4 | groups, commutative monoids, semirings |
-| 5 | additive groups |
-| 6 | rings |
-| 7 | commutative rings, division rings, modules over a ring |
-| 8 and above | fields, algebras, bilinear and quadratic modules, lattices |
-
-| Milestone | Category implementations | Attainment: holds as a computed result |
-| --- | --- | --- |
-| Leaves 0.1 — Sets | sets | Stated when the milestone starts, from the original workloads. |
-| Leaves 0.2 — Algebra to rings | magmas, semigroups, monoids, semirings, additive monoids, additive commutative monoids, additive groups, rings: as much of each as the attainment needs | `2 * 3 = 6 in ℤ`. ℤ is read as a ring. Its multiplication is reached through a selected monoid structure of that ring (`rings → monoids → semigroups → magmas → sets`). Its numerals are images under the universal map. Its equality is a computed predicate. |
-| Leaves 0.3 — Order structures | partial orders, linear orders | Stated when the milestone starts. |
-| Later milestones | each further layer, in order | One stated result each, from the original workloads. |
-
-Leaves 0.2 and 0.3 do not depend on each other. Each milestone is vertical: it implements enough of each category on its route for the attainment to hold, through the public interface of that category (constructors, operations, immediate functor actions).
-
-**Questions for lean-categories that this reading raises.** Each becomes a lean-categories task under the rule of the [execution order](tasks.md#execution-order), after confirmation against `main`:
-
-- Multiplication is registered three times: `op.monoids.mul`, `op.semirings.mul` and `op.rings.mul`. No multiplication is registered at magmas. A multiplication that rings own does not come from a monoid structure.
-- `cat.rings` reaches `cat.monoids` by two structural routes (directly, and through semirings). The routes need an accepted comparison or a declared preference (constitution C6).
-- `cat.partially_ordered_sets` and `cat.totally_ordered_sets` have no structural functor, beside `cat.partial_orders` and `cat.linear_orders`. No category of semilattices is registered.
-
-**Each implementation** (constitution C23 and the established-implementations policy):
-
-1. Survey the engines and libraries that can supply the operations of the category. The survey is open-ended. Candidates include Sage and passagemath, SymPy, Julia packages, GAP, Macaulay2 and Lean libraries.
-2. Connect the chosen engine. Write no algorithm.
-3. Move existing computation into the category implementation: the registrations of `lean-cas-dsl-leaves` (115 registrations in 11 backends at `49bdfcb`), and each kernel-side evaluation under "Kernel computation (C22)" in the task list.
-
-The constitution's production-leaf sequencing policy places substantial leaf work after kernel readiness.
+| M1.1 — Typed carriers | No kernel source reads an occurrence or a selection from term metadata, and the occurrence and selection controls of T116 and T117 pass. | T116, T117 |
+| M1.2 — Connected statement path | A source file runs through one session. Each statement is read, lowered and dispatched to a protocol peer at its registered address with its actual operands. The reply is admitted and retained, and a later statement uses that value with no second dispatch. | US1 |
+| M1.3 — Forms of connected calculation | Every statement of the permanent acceptance files reads to its registered meaning. With an empty manifest, each computational statement ends in no implementation at a registered address. No statement ends in an internal error or a reader gap. | US1 |
+| M1.4 — Construction and later use | The original RX-LIFT source with its 22 bindings prepares each lift field, comparison and factor request at the selected lift, with the earlier outputs as operands. The returned object, maps and factor are the operands of the later requests. Two selected limits with one apex keep their own cones. | US2 |
+| M1.5 — Selected structures | The inputs of RX05, RX06 and RX07 select their routes, cells, classifiers and reindexing before dispatch. A required omission is refused with no dispatch. A declared choice-producing operation binds the member that the peer returns (T115). | US3 |
+| M1.6 — Exact, infinite and qualified requests | The RX09 inputs prepare requests that keep the exact source, the tolerance and the full index family. A demand outside an earlier finite display reaches the same retained object. | US4 |
+| M1.7 — Growth | A new accepted declaration reaches an unchanged consumer, and a new generic operation reaches an existing object, with no kernel edit. | US5 |
+| M1.8 — Computational contract | A peer written from the published contract alone uses deferred and suspended service, and an unchanged consumer receives its output. The published interface of T028 matches the built kernel. | US6 |
+| M1.9 — Notebook | The cells of `notebooks/kernel-v1.ipynb` run through the worker and one session: values retained across cells, inert queries, cancellation and owner rules. | US7 |
+| M1.10 — Discovery and display; old path removed | Discovery and inspection read retained data and execute nothing. No public entrance reaches `CasCatalogue/Language.lean` or `CasCatalogue/Realize.lean`. | US8 |
 
 ### Issue tree and task order
 
@@ -272,6 +233,46 @@ M3 establishes the original independent correctness, general preservation and fr
 obligations. A port registration, category name or packet shape establishes none of these outcomes
 by itself. Private library reuse remains permitted; public interoperability cannot require
 private cross-leaf representations.
+
+## Computational milestones
+
+Computational work is leaf work (constitution C22, C23; FR-042). It has version milestones of its own, separate from the completion milestones above. They start after kernel readiness: the contract that an implementation is written against is published at the end of the kernel work (T028). Each milestone gets its own specification and task list when it starts. Issue #93 holds their checklist; M2 closes when the milestones that V1 requires hold on one published tuple (T105).
+
+**Order.** The implementation of a category follows the implementations of the categories that its structural functors and classifier forgets reach. The layers below are computed from the published catalogue of the contract package (`api/declared-ports.json`, mathematics revision `3f8aedf`): its structural functors and its classifier forgets, by the longest chain down to `cat.sets`. The lean-categories revision that the kernel pins (`8c35703`) differs from that revision by additions that add no structural functor or classifier between these categories. The layers were not compared with lean-categories `main`; compute them again from the pinned revision when a milestone starts.
+
+| Layer | Categories |
+| --- | --- |
+| 0 | sets |
+| 1 | magmas (sets with a binary operation), partial orders, additive monoids, finite sets, countable sets, enumerated sets, pointed sets, Boolean algebras |
+| 2 | semigroups, linear orders, additive commutative monoids |
+| 3 | monoids |
+| 4 | groups, commutative monoids, semirings |
+| 5 | additive groups |
+| 6 | rings |
+| 7 | commutative rings, division rings, modules over a ring |
+| 8 and above | fields, algebras, bilinear and quadratic modules, lattices |
+
+| Milestone | Category implementations | Attainment: holds as a computed result |
+| --- | --- | --- |
+| Leaves 0.1 — Sets | sets | Not fixed. A specification question (`/speckit-clarify`) to answer before the milestone starts, from the original workloads (for example a statement of `tests/acceptance/sets.cas` whose route stays in sets). |
+| Leaves 0.2 — Algebra to rings | magmas, semigroups, monoids, semirings, additive monoids, additive commutative monoids, additive groups, rings: as much of each as the attainment needs | `2 * 3 = 6 in ℤ` (SC-015). ℤ is read as a ring. Its multiplication is reached through a selected monoid structure of that ring (`rings → monoids → semigroups → magmas → sets`). Its numerals are images under the universal map. Its equality is a computed predicate. |
+| Leaves 0.3 — Order structures | partial orders, linear orders | Not fixed. A specification question to answer before the milestone starts. |
+| Later milestones | each further layer, in order | One stated result each, from the original workloads. |
+
+Leaves 0.2 and 0.3 do not depend on each other. Each milestone is vertical: it implements enough of each category on its route for the attainment to hold, through the public interface of that category (constructors, operations, immediate functor actions).
+
+**Questions for lean-categories that this reading raises.** Each becomes a lean-categories task under the rule of the [execution order](tasks.md#execution-order), after confirmation against `main`:
+
+- Multiplication is registered three times: `op.monoids.mul`, `op.semirings.mul` and `op.rings.mul`. No multiplication is registered at magmas. A multiplication that rings own does not come from a monoid structure.
+- `cat.partially_ordered_sets` and `cat.totally_ordered_sets` have no structural functor, beside `cat.partial_orders` and `cat.linear_orders`. No category of semilattices is registered.
+
+`cat.rings` reaches `cat.monoids` by two structural routes (directly, and through semirings). The catalogue has a registered cell between them, `cell.rings.multiplicative_monoid.semiring`; the kernel does not consume registered cells yet (T055, T056).
+
+**Each implementation** (constitution C23 and the established-implementations policy):
+
+1. Survey the engines and libraries that can supply the operations of the category. The survey is open-ended. Candidates include Sage and passagemath, SymPy, Julia packages, GAP, Macaulay2 and Lean libraries.
+2. Connect the chosen engine. Write no algorithm.
+3. Move existing computation into the category implementation: the registrations of `lean-cas-dsl-leaves` (115 registrations in 11 backends at `49bdfcb`), and each kernel-side evaluation under "Kernel computation (C22)" in the task list.
 
 ## Implementation order and dependency correction
 
