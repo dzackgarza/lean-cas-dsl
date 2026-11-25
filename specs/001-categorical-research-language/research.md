@@ -49,7 +49,7 @@
 | passagemath 10.8.14 in a separate environment. | Rejected. The research container is the reproducible environment and holds Sage; one environment cannot hold both `sage` packages. |
 | CAP (GAP) for pullbacks. | Not chosen. Its limits are recalled in the survey, not read; Catlab's finite-set limits are read. |
 
-**Open.** No engine computes $\aleph_0 \cdot \aleph_0$; the plan states owner question Q1 for the three full-B0 statements that need it.
+**Cardinals.** No engine computes $\aleph_0 \cdot \aleph_0$. The cardinal implementation computes the arithmetic of finite cardinals and $\aleph_0$ with a cited reference, for the three full-B0 statements that need it (constitution 4.0.1, policy "Established computational implementations").
 
 ## 2026-11-25 — Logs and timing records are current work; attainments; a leaf that asks the kernel
 

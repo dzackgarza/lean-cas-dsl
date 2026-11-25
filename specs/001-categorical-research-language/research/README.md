@@ -24,5 +24,3 @@ The roadmap of the five repositories is in their Spec Kit feature directories. T
 2. **Leaves task list.** lean-cas-dsl-leaves (`specs/001-category-implementations/tasks.md`) has no
    survey and implementation pair for the unit group of #3, which lean-cas-dsl T155 assigns to
    `backends/gap_groups.py`.
-3. **Owner questions.** Q1 (infinite cardinals) and Q2 (the user-visible form of diagnostics) of
-   `plan.md`.
