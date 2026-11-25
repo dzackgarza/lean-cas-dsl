@@ -47,7 +47,7 @@ Use ASCII decimal UTF-8 byte length, newline, then JSON on dedicated stdin/stdou
  "backend":"diagnostic name","backend_version":"diagnostic version"}
 ```
 
-Validate exact major/contract and all four required features. Extra feature strings are ignored; unknown control fields are rejected. The SDK provides framing even for an immediate-only provider, but the **kernel must implement every advertised generic feature**. Negotiation alone proves none of that behavior. Incompatible/missing negotiation is `unavailable/incompatible_protocol` before computation; no automatic v1 downgrade. T024/T025 bridge work remains retired. Retained leaf migration is in the category tasks (T200 onward), by separate public-only authors after kernel readiness.
+Validate exact major/contract and all four required features. Extra feature strings are ignored; unknown control fields are rejected. The SDK provides framing even for an immediate-only provider, but the **kernel must implement every advertised generic feature**. Negotiation alone proves none of that behavior. Incompatible/missing negotiation is `unavailable/incompatible_protocol` before computation; no automatic v1 downgrade. T024/T025 bridge work remains retired. Retained leaf migration is in the category tasks of the task list, by separate public-only authors after kernel readiness.
 
 Send `{"op":"hello","protocol":2,"contract":"cas-computation/2"}` and require matching contract with `op:"hello",status:"ok"`. Before acknowledgement only negotiation/shutdown is allowed. Kernel owners come from the actual connection, not names/PIDs returned by a provider.
 
@@ -261,7 +261,7 @@ Different admitted constructor families must reach the same unchanged applicable
 Required positive combinations execute their complete original continuations. C22 leaves
 algorithm control, established-engine glue and permitted private code reuse with computational
 implementations; public interoperability does not depend on private representation knowledge.
-T200–T224 supply focused builds and public execution with the actual software dependencies, without
+The category tasks supply focused builds and public execution with the actual software dependencies, without
 unrelated optional engines. Generated category filtering alone cannot establish that locality.
 
 Provider substitution preserves the full fixed question and independently specified result

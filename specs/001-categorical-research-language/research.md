@@ -140,7 +140,7 @@ normalizations and ordering remain binding.
 **Scheduling and constitutional consequence.** Constitution v3.1.0 elaborates C0/C9/C21/C23/C24
 under the owner's explicit request. T114 establishes current fast feedback immediately and
 maintains it; T028 publishes the generated category interface; T061 completes generic actions
-and later use; T200–T224 deliver actual category implementations and their focused build/public
+and later use; the category tasks deliver actual category implementations and their focused build/public
 consumer boundaries after F. T105 publishes the compatible tuple, including #90's image port.
 Independent extension/substitution assessment and final mathematical budgets retain their
 existing later owners. These are requirements to implement, not claims that the current system

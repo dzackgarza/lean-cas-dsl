@@ -46,7 +46,7 @@ complete input, host, tuple and rebuild conditions when claiming a gain.
 
 A fast failing mathematical check establishes feedback, not the missing function. T016 retains
 its historical completion; T114 establishes the current loop and maintains it during later work.
-T028 and T200–T224 add category-local public-interface/build checks when those implementations exist.
+T028 and the category tasks add category-local public-interface/build checks when those implementations exist.
 T105/#90 remains the later delivery port unless an actual unavailable environment blocks the
 active task. See the [completion milestones](plan.md#completion-milestones).
 
@@ -81,7 +81,7 @@ Keep every ID visible, including unreadable, unavailable, wrong and unreached ca
 
 ## Delivery, proofs, trials and last-phase resources
 
-Complete functional kernel readiness before substantial production-leaf work. The category tasks (T200 onward) then migrate retained implementations to v2 and supplies remaining permitted established-engine glue through separate public-only owners. No kernel source/hand-off or protected expectations are sent to those authors. The retired T024/T025 bridge tasks do not return as a compatibility or validation prerequisite.
+Complete functional kernel readiness before substantial production-leaf work. The category tasks then migrate retained implementations to v2 and supplies remaining permitted established-engine glue through separate public-only owners. No kernel source/hand-off or protected expectations are sent to those authors. The retired T024/T025 bridge tasks do not return as a compatibility or validation prerequisite.
 
 T105 publishes/builds the actual compatible delivery tuple **before** final measurements and independent assessments of that tuple. The original source-to-machine and mechanism proofs remain T014/T039/T052/T062/T070/T076/T096; they cover the first and every later supported mechanism, but C21 places evidence-only completion after functionality. T078–T082/T108 conduct the prescribed independent frozen trials after readiness, not as a gate on scope expansion. Fresh contributor choices, separate author inputs, unchanged consumer and zero accommodation remain intact.
 
