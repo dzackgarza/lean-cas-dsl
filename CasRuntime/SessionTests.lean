@@ -166,6 +166,7 @@ run_cmd liftTermElabM do
         "let x ∈ R",
         "let y : R",
         "let h : x = y",
+        "assert x = y",
         "let saved := h",
         "assert R ∈ Rings",
         "assert M ∈ Modules(R)",
@@ -236,14 +237,21 @@ run_cmd liftTermElabM do
         throwError "a mismatched scoped category was accepted or changed the source scope"
     unless (← session.kernel.dispatches.get).isEmpty do
       throwError "a scoped declaration or typing judgement dispatched a computation"
-    setEnv environment
-    let fresh ← KernelSession.start (some manifest)
-    try
-      for text in #["assert R ∈ Rings", "let leaked := h"] do
-        let step ← runStatement fresh text
-        unless step.outcome.kind != "holds" && step.session.source.context.entries.isEmpty do
-          throwError "a scoped assumption escaped into an independent source session"
-    finally liftM (m := IO) fresh.close
+    -- Keep the actual Environment unchanged while opening a new native source scope.
+    -- A second runtime session would conflict with its existing initialized snapshot.
+    let fresh ← SourceSession.empty session.kernel.ledger.owners.identities
+    for (text, name) in #[("assert R ∈ Rings", "R"), ("let leaked := h", "h")] do
+      let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
+        | .ok statement => pure statement
+        | .error error => throwError "the fresh-scope statement did not parse: {error}"
+      let rejected ← try
+          discard <| withoutErrToSorry <| fresh.readStatement ⟨statement⟩
+          pure false
+        catch error =>
+          unless CasCatalogue.Exception.isUnknownSourceName error name do throw error
+          pure true
+      unless rejected && fresh.context.entries.isEmpty do
+        throwError "a scoped assumption escaped into an independent source session"
   finally
     liftM (m := IO) session.close
     setEnv environment

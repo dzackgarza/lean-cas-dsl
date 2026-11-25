@@ -7,6 +7,7 @@ public import CasCompiler.SourceConstruction
 public import CasCompiler.SourceRing
 public import CasCompiler.SourceMember
 public import CasCompiler.SourceAdmission
+import CasCompiler.FamilyConversion
 
 public section
 
@@ -16,17 +17,190 @@ open Lean Meta Elab Term
 
 namespace SourceReader
 
+/-- Category syntax names an accepted row, unless its head is a lexical binding.
+An unmatched category form remains an ordinary source domain; a selected row's errors propagate. -/
+partial def categoryEntry? (source : TSyntax `cas_term) :
+    TermElabM (Option (CasCatalogue.NamedCategoryEntry × Array (TSyntax `cas_term))) := do
+  if let `(cas_term| ($inner:cas_term)) := source then return ← categoryEntry? inner
+  let (name, arguments, over) ← match source with
+    | `(cas_term| $name:ident) => pure (name, #[], false)
+    | `(cas_term| $name:ident($arguments:cas_term,*)) =>
+      pure (name, arguments.getElems, false)
+    | `(cas_term| $name:ident / $base:cas_term) => pure (name, #[base], true)
+    | _ => return none
+  if ((← getLCtx).findFromUserName? name.getId).isSome then return none
+  let state ← CasCatalogue.semanticState
+  let spelling := name.getId.toString (escape := false)
+  let names := if over then #[spelling ++ "/", spelling] else #[spelling]
+  let some selected := names.find? fun name => state.categories.any (·.name == name)
+    | return none
+  return some (← selectCategory state selected, arguments)
+
+/-- Apply the selected category family through the shared dependent source application reader. -/
+def category (context : ReadContext) (entry : CasCatalogue.NamedCategoryEntry)
+    (arguments : Array (TSyntax `cas_term)) : TermElabM Expr := do
+  discard <| checkedDeclaration entry.declaration
+  let family ← mkConstWithFreshMVarLevels entry.declaration
+  let bundle ← application context ⟨family, none⟩ arguments none
+  discard <| categoryIdentity bundle
+  return bundle
+
+private structure FormedObjectCandidate where
+  value : Expr
+  bundle : Expr
+  carrier : Option NativeSourceCarrierSelection
+  parameters : Array Expr
+  levels : List Level
+
+private def FormedObjectCandidate.fields (image : FormedObjectCandidate) : Array Expr :=
+  #[image.bundle, image.value] ++ (image.carrier.map (·.comparisons) |>.getD #[])
+
+private def FormedObjectCandidate.instantiate (image : FormedObjectCandidate) :
+    TermElabM FormedObjectCandidate := do
+  return { image with
+    value := ← instantiateMVars image.value
+    bundle := ← instantiateMVars image.bundle
+    parameters := ← image.parameters.mapM instantiateMVars
+    levels := ← image.levels.mapM instantiateLevelMVars
+    carrier := ← image.carrier.mapM fun carrier => do
+      return { carrier with
+        actions := ← carrier.actions.mapM instantiateMVars
+        comparisons := ← carrier.comparisons.mapM instantiateMVars } }
+
+-- The callback forms this row at its own native telescope. No parameters are recovered from
+-- another row or from a flattened carrier. Prefixes consume only the authored presentation.
+private def formObjectCandidate (candidate : SourceObjectCandidate)
+    (elaborate : Expr → Option Expr → TermElabM Expr) : TermElabM FormedObjectCandidate := do
+  let (bundle, original) ← registeredExpressions (.inl candidate.entry) candidate.category elaborate
+  let native ← sourceDomain (← instantiateMVars original)
+  let .const declaration levels := native.getAppFn
+    | throwError "the source object lost its complete native declaration application"
+  unless declaration == candidate.entry.declaration do
+    throwError "the source object changed its selected declaration"
+  let carrier ← objectCarrierSelection candidate.entry bundle original
+  if candidate.prefixLength == 0 then
+    return ⟨original, bundle, carrier, native.getAppArgs, levels⟩
+  let some carrier := carrier
+    | throwError "the selected source prefix lost its authored carrier comparison"
+  unless candidate.prefixLength < carrier.actions.size &&
+      carrier.refs.size == carrier.actions.size do
+    throwError "the selected source prefix is not an intermediate authored boundary"
+  let mut value := original
+  let mut imageBundle := bundle
+  for action in carrier.actions.extract 0 candidate.prefixLength do
+    let (_, target) ← CasCatalogue.functorCategoryBundles action
+    value ← functorObject action value target
+    imageBundle := target
+  -- The image contains the consumed actions and original row/arguments. The existing carrier
+  -- selection retains the unconsumed actions and the complete original comparison.
+  let remaining := { carrier with
+    refs := carrier.refs.extract candidate.prefixLength carrier.refs.size
+    actions := carrier.actions.extract candidate.prefixLength carrier.actions.size }
+  return ⟨value, imageBundle, some remaining, native.getAppArgs, levels⟩
+
+-- Compare complete constructors at their own rigid native telescopes. Universes are renamed
+-- by their declaration binder order; this never specializes a parameter or maps base carriers
+-- backwards into a structure. Unequal telescope types require an independently supplied relation.
+private def objectCandidateFamily (candidate : SourceObjectCandidate) (universes : List Name) :
+    TermElabM (Array Expr) := do
+  let info ← checkedDeclaration candidate.entry.declaration
+  unless info.levelParams.length == universes.length do
+    CasCatalogue.throwSemanticAmbiguity
+      "the source constructors require a comparison of their complete universe families"
+  let declaration := Lean.mkConst candidate.entry.declaration (universes.map Level.param)
+  forallTelescopeReducing (← inferType declaration) fun parameters _ => do
+    let image ← formObjectCandidate candidate fun _ _ => pure (mkAppN declaration parameters)
+    image.fields.mapM fun field => do
+      let field ← instantiateMVars field
+      if field.hasMVar || field.hasLevelMVar then
+        throwError "the complete source constructor family has undetermined parameters"
+      mkLambdaFVars parameters field
+
+private def readObjectCandidates (context : ReadContext)
+    (candidates : Array SourceObjectCandidate) (arguments : Array (TSyntax `cas_term)) :
+    TermElabM NativeSourceJudgement := do
+  let some firstCandidate := candidates[0]?
+    | throwError "the named source object has no selected candidate"
+  let parameterCount ← withoutModifyingState do
+    let info ← checkedDeclaration firstCandidate.entry.declaration
+    let (_, binders, _) ← forallMetaTelescopeReducing info.type
+    pure (binders.filter (·.isExplicit)).size
+  let sourceArguments := arguments.take parameterCount
+  let application := application context
+  -- Read every matched row with the original syntax and its own declared parameter types.
+  -- Errors are not a signal to retry a different mathematical interpretation.
+  let images ← candidates.mapM fun candidate => do
+    unless candidate.target.expression.syntacticEq firstCandidate.target.expression do
+      CasCatalogue.throwSemanticAmbiguity "the source name has different target categories"
+    let count ← withoutModifyingState do
+      let info ← checkedDeclaration candidate.entry.declaration
+      let (_, binders, _) ← forallMetaTelescopeReducing info.type
+      pure (binders.filter (·.isExplicit)).size
+    unless count == parameterCount do
+      CasCatalogue.throwSemanticAmbiguity
+        "the source constructors have different written telescopes"
+    let image ← formObjectCandidate candidate fun function expected =>
+      application ⟨function, none⟩ sourceArguments expected
+    if parameterCount == arguments.size then
+      if let some expected := context.expected then
+        unless ← isDefEq (← inferType image.value) expected do
+          throwError "the source constructor has a different complete parameter category"
+    image.instantiate
+  let some first := images[0]?
+    | throwError "the source constructor did not form its original arguments"
+  let mut carrier := first.carrier
+  if images.size > 1 then
+    let info ← checkedDeclaration firstCandidate.entry.declaration
+    let universes ← info.levelParams.mapM fun _ => mkFreshUserName `objectUniverse
+    let families ← candidates.mapM (objectCandidateFamily · universes)
+    let some firstFamily := families[0]?
+      | throwError "the source constructor lost its complete family"
+    -- Existing comparison data may establish the exact whole-family equality. An arbitrary
+    -- carrier isomorphism is not such evidence; sourceFamilyConversion checks the actual type.
+    let supplied := images.flatMap (fun image => image.carrier.toArray.flatMap (·.comparisons)) ++
+      context.expectedCategory.toArray.flatMap (fun category =>
+        category.carrier.toArray.flatMap (·.comparisons))
+    -- PreferredRoute selects a forward binding route from an already selected receiver.
+    -- It cannot select a refining constructor from a base carrier. That existing selection
+    -- remains in sourceStructuralView; explicit named-category selection was handled above.
+    let mut agreements := #[]
+    for other in images.drop 1, family in families.drop 1 do
+      unless first.parameters.size == other.parameters.size && first.levels == other.levels &&
+          (first.parameters.zip other.parameters).all (fun (left, right) => left.equal right) do
+        CasCatalogue.throwSemanticAmbiguity
+          "the source constructors selected different original native arguments"
+      unless firstFamily.size == family.size do
+        CasCatalogue.throwSemanticAmbiguity
+          "the source constructors have different complete comparison data"
+      for left in firstFamily, right in family,
+          actualLeft in first.fields, actualRight in other.fields do
+        let some proof ← sourceFamilyConversion left right supplied
+          | CasCatalogue.throwSemanticAmbiguity
+              "the complete source constructor families require their supplied agreement"
+        let mut proof := proof.instantiateLevelParams universes first.levels
+        for parameter in first.parameters do proof ← mkAppM ``congrFun #[proof, parameter]
+        proof ← mkExpectedTypeHint (← instantiateMVars proof) (← mkEq actualLeft actualRight)
+        checkWithKernel proof
+        agreements := agreements.push proof
+    -- These are comparisons of the complete named constructor families. Requiring their
+    -- residual functors to agree on unrelated objects of the whole target category would add
+    -- a stronger obligation. Keep the carrier selected by the chosen authored presentation.
+    carrier := some (match first.carrier with
+      | some selected => { selected with comparisons := selected.comparisons ++ agreements }
+      | none => ⟨#[], firstCandidate.target.expression, #[], #[], agreements⟩)
+  let result : NativeSourceJudgement := ⟨first.value,
+    some ⟨.object, firstCandidate.target.expression, first.bundle, carrier, none⟩⟩
+  if parameterCount < arguments.size then
+    return ⟨← application result (arguments.drop parameterCount) context.expected, none⟩
+  return result
+
+
+
 def object (context : ReadContext) :
     String → Option String → Array (TSyntax `cas_term) → TermElabM NativeSourceJudgement :=
-  let expected := context.expected
-  let application := application context
-  fun (name : String) (category : Option String)
-      (arguments : Array (TSyntax `cas_term)) => do
-    let (entry, categoryEntry) ← selectObject name category expected
-    let (bundle, value) ← registeredExpressions (.inl entry) categoryEntry fun function expected =>
-      application ⟨function, none⟩ arguments expected
-    return (⟨value, some ⟨.object, categoryEntry.expression, bundle,
-      ← objectCarrierSelection entry bundle value, none⟩⟩ : NativeSourceJudgement)
+  fun name category arguments => do
+    readObjectCandidates context
+      (← sourceObjectCandidates name category context.expected) arguments
 
 def registered (context : ReadContext) :
     Ident → Array (TSyntax `cas_term) → TermElabM NativeSourceJudgement :=
@@ -78,6 +252,7 @@ def registered (context : ReadContext) :
         pure (base, #[leading] ++ arguments)
     let readNamed := fun (selected : SourceNamedEntry) => do
      match selected with
+     | .objects candidates => readObjectCandidates context candidates arguments
      | .construction entry => do
        let some receiver := arguments.back?
          | throwError "a source construction requires its actual receiver"

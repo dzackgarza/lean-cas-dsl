@@ -138,8 +138,8 @@ opaque ResultRoleMap.admit (telescope : RoleTelescope) (environment : RuntimeEnv
     if let some path := declared.wirePath then
       let actual ← IO.ofExcept <| (storedResultAt graph candidate.root path).mapError IO.userError
       if let some actual := actual then
-        let actual ← IO.ofExcept <| (graph.rebind actual declared.layout).mapError IO.userError
-        bindings := bindings.insert declared.role.id actual
+        let selected ← environment.checkResult graph declared.layout actual
+        bindings := bindings.insert declared.role.id selected.root
   return ⟨telescope, candidate.root, bindings⟩
 
 /-- Only this occurrence's declared result roles can select actual visible returned references. -/

@@ -241,20 +241,38 @@ structure SourceLayout where
   /-- The stored-record path above this layout; callable application starts a new path. -/
   private recordAncestors : Array ClosedTerm
 
-/-- Close dependencies through the selected locals' native types and definitions, in order.
-Reuse: Lean.collectFVars and LocalDecl.value?; callers retain their complete telescopes.
-Reference: Lean/Util/CollectFVars.lean and Lean/LocalContext.lean at v4.33.0. -/
-def localDependencies (locals : Array Expr) (type : Expr) : MetaM (Array Nat) := do
-  let mut variables := collectFVars {} type
+private def localDependenciesWith (view : Expr → Expr) (locals : Array Expr) (type : Expr) :
+    MetaM (Array Nat) := do
+  let mut variables := collectFVars {} (view type)
   let mut needed : Array Nat := #[]
   for index in (List.range locals.size).reverse do
     let expression := locals[index]!
     if variables.fvarSet.contains expression.fvarId! then
       needed := needed.push index
       let declaration ← getFVarLocalDecl expression
-      variables := collectFVars variables declaration.type
-      if let some value := declaration.value? true then variables := collectFVars variables value
+      variables := collectFVars variables (view declaration.type)
+      if let some value := declaration.value? true then
+        variables := collectFVars variables (view value)
   return needed.reverse
+
+/-- Close complete source dependencies through native types and definitions, in order.
+This traversal also serves Session's observed-value guards and source-role provenance. -/
+opaque localDependencies (locals : Array Expr) (type : Expr) : MetaM (Array Nat) :=
+  localDependenciesWith id locals type
+
+/-- A retained occurrence supplies its own computational dependencies. Its descriptive body is
+not another supplier. This temporary traversal view leaves the actual native source untouched. -/
+private def computationalDependencyView (expression : Expr) : Expr :=
+  expression.replace fun term => match term with
+    | .mdata data _ => match data.find `CasCompiler.lower.value with
+      | some (.ofNat _) => some (mkSort .zero)
+      | _ => none
+    | _ => none
+
+/-- Context/prefix slots owned by the native type outside actual retained occurrences.
+Runtime must additionally retain each marked type's exact selected dependency path. -/
+opaque computationalDependencies (locals : Array Expr) (type : Expr) : MetaM (Array Nat) :=
+  localDependenciesWith computationalDependencyView locals type
 
 /-- Result-type dependency slots in the complete ordered source binding table. -/
 def contextDependencies (bindings : Array LocalBinding) (type : Expr) : MetaM (Array Nat) :=
@@ -280,7 +298,7 @@ private def sourceLayout (source : ClosedTerm) (address : Array Name)
     let context ← ContextTelescope.capture bindings
     let inputProjection ← declaredSourceProjection bindings expression
     let originalType ← inferType expression
-    let dependencies ← contextDependencies bindings originalType
+    let dependencies ← computationalDependencies (bindings.map (·.expression)) originalType
     let type ← whnf originalType
     let kind ← computationalKind type
     if kind != .record then
@@ -306,7 +324,7 @@ private def sourceLayout (source : ClosedTerm) (address : Array Name)
         let some projection := info.getProjFn? index
           | throwError "record layout is missing a source projection"
         let fieldType ← inferType locals[index]!
-        let dependencies ← localDependencies (locals.extract 0 index) fieldType
+        let dependencies ← computationalDependencies (locals.extract 0 index) fieldType
         let typeFamily ← mkLambdaFVars (locals.extract 0 index) fieldType
           (usedOnly := false) (usedLetOnly := false)
         let value ← mkProjection expression info.fieldNames[index]!
@@ -394,7 +412,7 @@ opaque ApplicationLayout.ofSource (function : SourceLayout) (context : OpenConte
     for argument in locals, index in [:locals.size] do
       let domain ← inferType argument
       let previous := locals.extract 0 index
-      let dependencies ← localDependencies previous domain
+      let dependencies ← computationalDependencies previous domain
       let family ← mkLambdaFVars previous domain (usedOnly := false) (usedLetOnly := false)
       let erased ← isProp domain
       let some source := actual[index]?
@@ -403,11 +421,12 @@ opaque ApplicationLayout.ofSource (function : SourceLayout) (context : OpenConte
         (← getFVarLocalDecl argument).binderInfo, dependencies, source,
         ← context.close family⟩
       if !erased then wireIndex := wireIndex + 1
-    let dependencies ← localDependencies locals resultType
+    let dependencies ← computationalDependencies locals resultType
     let family ← mkLambdaFVars locals resultType (usedOnly := false) (usedLetOnly := false)
     let termFamily ← mkLambdaFVars locals (mkAppN callable locals)
       (usedOnly := false) (usedLetOnly := false)
-    let contextDependencies ← localDependencies (context.bindings.map (·.expression)) resultType
+    let contextDependencies ←
+      computationalDependencies (context.bindings.map (·.expression)) resultType
     return (result, ⟨prepared, dependencies, ← context.close family, ← context.close termFamily, result,
       contextDependencies⟩)
 
@@ -451,6 +470,21 @@ opaque ClosedTerm.inputProjectionAt (source : ClosedTerm) (path : Array Name)
   source.withOpen fun bindings expression => do
     discard <| projectSource expression path
     inputProjection (← contextProjectionInputs bindings contextInputs) expression path.toList
+
+/-- The structural source view used by input routing, with original context inputs held opaque.
+Reuse the same constructor/projection and beta/let traversal as inputProjectionAt. Mathematical
+computation and selected/marked source boundaries remain intact. This temporary checked view
+does not replace the original source term or its retained observation. -/
+opaque OpenContext.inputProjectionSource (context : OpenContext) (expression : Expr)
+    (contextInputs : Array BindingId) : MetaM Expr := do
+  inputProjectionHead (← contextProjectionInputs context.bindings contextInputs) expression
+
+/-- Close the same structural view under its original full native source context. -/
+opaque ClosedTerm.inputProjectionSource (source : ClosedTerm)
+    (contextInputs : Array BindingId := #[]) : MetaM ClosedTerm :=
+  source.withOpen fun bindings expression => do
+    let context ← ContextTelescope.capture bindings
+    context.close (← context.inputProjectionSource expression contextInputs)
 
 /-- A native source expression suspended over its exact opened formal prefix.
 The original context remains a separate stable BindingId plane. No actual values or actual
@@ -675,8 +709,8 @@ private partial def withFieldTypeAt (type actual : Expr) (path : List Name)
         unless actualType.getAppFn.constName? == some constructor.induct do
           throwError "the source field has a different native record interface"
         pure (actualType, {
-          context := shape.context ++ (← localDependencies context reduced)
-          arguments := shape.arguments ++ (← localDependencies arguments reduced) })
+          context := shape.context ++ (← computationalDependencies context reduced)
+          arguments := shape.arguments ++ (← computationalDependencies arguments reduced) })
     let .const _ levels := type.getAppFn
       | throwError "the source field requires its native structure parameters"
     let applied := mkAppN (mkConst constructor.name levels)
@@ -693,8 +727,8 @@ private def fieldDependencies (type actual : Expr) (path : List Name)
     MetaM ResultDependencies :=
   withFieldTypeAt type actual path context arguments #[] ⟨shapeContext, shapeArguments⟩
     fun _ type shape => do
-      let contextDependencies ← localDependencies context type
-      let argumentDependencies ← localDependencies arguments type
+      let contextDependencies ← computationalDependencies context type
+      let argumentDependencies ← computationalDependencies arguments type
       return {
         context := (Array.range context.size).filter fun index =>
           shape.context.contains index || contextDependencies.contains index
@@ -715,7 +749,7 @@ opaque FieldLayout.dependencyView (field : FieldLayout) (path : Array Name) :
       withFieldTypeAt type actual path.toList #[] preceding #[] ⟨#[], #[]⟩
         fun introduced type shape => do
           let locals := preceding ++ introduced
-          let dependencies ← localDependencies locals type
+          let dependencies ← computationalDependencies locals type
           let required := (Array.range preceding.size).filter fun index =>
             shape.arguments.contains index || dependencies.contains index
           let family ← mkLambdaFVars locals type (usedOnly := false) (usedLetOnly := false)

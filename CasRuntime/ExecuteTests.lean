@@ -494,6 +494,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           | throwError "the marked projection is outside the graph"
         let markedRequest ← PreparedRequest.forApplication owners.identities program
           (← ledger.allocate) context callable #[markedSource] #[markedArgument] parameters
+          (some graph)
         discard <| markedRequest.admitInputs graph
         let markedDocument := markedRequest.observation.native.getObjValD "request"
         let .ok observedArguments := markedDocument.getObjValAs? (Array Json) "actualArguments"
@@ -635,7 +636,16 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           { program, occurrence, role := outerRole, parameters := #[] } (.product #[inner, scalar])
         let identityTerm ← withLocalDeclD `n (mkConst ``Nat) fun n => mkLambdaFVars #[n] n
         let identityValue ← kernel.run producer empty {} identityTerm none
+        -- The actual source type selects only the first field of this retained parent.
+        -- Its second field belongs to the unrelated process closed below.
+        let markedInner ← markValue kernel.marks inner innerTerm
+        let markedIndex ← mkProjection markedInner `fst
+        let indexedIdentityTerm ← withLocalDeclD `n
+            (mkApp (mkConst ``Fin) markedIndex) fun n => mkLambdaFVars #[n] n
+        let indexedIdentity ← kernel.run producer empty {} indexedIdentityTerm none
         let .ok base ← producer.commit | throwError "the nested projection inputs could not commit"
+        unless ← base.graph.isAvailable owners indexedIdentity do
+          throwError "the marked-type control did not produce its live callable"
         owners.close child.generation
         if ← owners.isLive child.generation then
           throwError "the nested projection control did not close its field owner"
@@ -702,6 +712,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           match ← failed.commit with
           | .error .settled => pure ()
           | _ => throwError "failed nested source projection retained a publishable transaction"
+        unless ← base.graph.isAvailable owners indexedIdentity do
+          throwError "a marked native type retained its unrelated sibling owner"
       finally owners.close child.generation
     finally kernel.close
   finally setEnv original
@@ -853,5 +865,141 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           | .error .settled => pure ()
           | _ => throwError "failed dependent access retained a publishable transaction"
       finally owners.close child.generation
+    finally kernel.close
+  finally setEnv original
+
+-- Native inner prefixes remain abstract in a descendant's type family. Named aliases of
+-- those exact source projections preserve their actual indices during later consumption.
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let original ← getEnv
+  try
+    let empty ← ContextTelescope.capture #[]
+    let scalarRole ← SourceLayout.ofTerm (← empty.close (mkNatLit 7))
+    let zeroRole ← SourceLayout.ofTerm (← empty.close (mkNatLit 0))
+    let family ← withLocalDeclD `n (mkConst ``Nat) fun n => do
+      let inner ← withLocalDeclD `m (mkConst ``Nat) fun m => do
+        let sum ← mkAppM ``Nat.add #[n, m]
+        mkLambdaFVars #[m] (← mkAppM ``Prod #[mkApp (mkConst ``Fin) sum, mkConst ``Nat])
+      mkLambdaFVars #[n] (mkApp2 (mkConst ``Sigma [.zero, .zero]) (mkConst ``Nat) inner)
+    let sigma := mkApp2 (mkConst ``Sigma [.zero, .zero]) (mkConst ``Nat) family
+    let owners ← OwnerRegistry.new
+    let kernel ← Kernel.load owners none none 1000
+    try
+      discard <| SessionSnapshot.initialize owners
+      let producer ← CellTransaction.begin kernel.ledger
+      let program ← owners.identities.fresh .program
+      let occurrence ← kernel.ledger.allocate
+      let stageScalar := fun (role : SourceLayout) (data : String) => producer.stage
+        { program, occurrence, role, parameters := #[] } (.portable data.toUTF8)
+      let first ← stageScalar scalarRole "7"
+      let second ← stageScalar scalarRole "7"
+      let scalar ← stageScalar scalarRole "7"
+      let zero ← stageScalar zeroRole "0"
+      unless first.value != second.value do
+        throwError "the nested symbolic control merged its equal-valued source indices"
+      withLocalDeclD `r sigma fun r => do
+        let id : BindingId := ⟨"nested-symbolic-prefix", 0⟩
+        let context ← ContextTelescope.capture #[{ id, role := .result, expression := r }]
+        let innerSource ← mkProjection r `snd
+        let tailSource ← mkProjection innerSource `snd
+        let pointSource ← mkProjection tailSource `fst
+        let scalarSource ← mkProjection tailSource `snd
+        let outerRole ← SourceLayout.ofTerm (← context.close r)
+        let innerRole ← SourceLayout.ofTerm (← context.close innerSource)
+        let tailRole ← SourceLayout.ofTerm (← context.close tailSource)
+        let pointRole ← SourceLayout.ofTerm (← context.close pointSource)
+        let mut draft ← producer.draft
+        let finite ← RecordPrefix.begin owners.identities program occurrence
+          (← RecordLayout.ofSource pointRole)
+        let (next, finite, _) ← draft.bindField finite zero
+        draft := next
+        let .ok finitePayload := finite.finish
+          | throwError "the nested symbolic control lost its complete finite interface"
+        let (next, point) ← draft.stage
+          { program, occurrence, role := pointRole, parameters := #[none] } finitePayload
+        draft := next
+        let tail ← RecordPrefix.begin owners.identities program occurrence
+          (← RecordLayout.ofSource tailRole)
+        let (next, tail, _) ← draft.bindField tail point
+        draft := next
+        let (next, tail, _) ← draft.bindField tail scalar
+        draft := next
+        let .ok tailPayload := tail.finish
+          | throwError "the nested symbolic control lost its complete tail record"
+        let (next, tail) ← draft.stage
+          { program, occurrence, role := tailRole, parameters := #[none] } tailPayload
+        draft := next
+        let inner ← RecordPrefix.begin owners.identities program occurrence
+          (← RecordLayout.ofSource innerRole)
+        let (next, inner, _) ← draft.bindField inner second
+        draft := next
+        let (next, inner, _) ← draft.bindField inner tail
+        draft := next
+        let .ok innerPayload := inner.finish
+          | throwError "the nested symbolic control lost its complete inner record"
+        let (next, inner) ← draft.stage
+          { program, occurrence, role := innerRole, parameters := #[none] } innerPayload
+        draft := next
+        let outer ← RecordPrefix.begin owners.identities program occurrence
+          (← RecordLayout.ofSource outerRole)
+        let (next, outer, _) ← draft.bindField outer first
+        draft := next
+        let (next, outer, _) ← draft.bindField outer inner
+        draft := next
+        let .ok outerPayload := outer.finish
+          | throwError "the nested symbolic control lost its complete outer record"
+        let (finalDraft, outer) ← draft.stage
+          { program, occurrence, role := outerRole, parameters := #[none] } outerPayload
+        let .ok () ← producer.installDraft finalDraft
+          | throwError "the nested symbolic control could not install its complete records"
+        let .ok base ← producer.commit
+          | throwError "the nested symbolic control could not publish its inputs"
+        let .ok parameter := RuntimeParameter.ofValue base.graph id outer
+          | throwError "the nested symbolic record is outside its published graph"
+        let environment ← RuntimeEnvironment.capture owners.worker context #[parameter]
+        let .ok (some retained) := environment.lookup id
+          | throwError "the nested symbolic record lost its original source binding"
+        let bound := ({} : Std.HashMap BindingId ValueBinding).insert id retained
+        let consumer ← CellTransaction.begin kernel.ledger
+        let selectedPoint ← kernel.run consumer context bound pointSource none
+        let selectedScalar ← kernel.run consumer context bound scalarSource none
+        unless selectedPoint.value == point.value && selectedScalar.value == scalar.value do
+          throwError "nested symbolic projection replaced an original field"
+        let .ok snapshot ← consumer.commit
+          | throwError "the nested symbolic descendants could not commit"
+        let .ok originalFirst := snapshot.graph.project outer 0
+          | throwError "the nested symbolic record lost its first index"
+        let .ok originalInner := snapshot.graph.project outer 1
+          | throwError "the nested symbolic record lost its inner record"
+        let .ok originalSecond := snapshot.graph.project originalInner 0
+          | throwError "the nested symbolic record lost its second index"
+        withLetDecl `n (mkConst ``Nat) (← mkProjection r `fst) fun n => do
+          withLetDecl `m (mkConst ``Nat) (← mkProjection innerSource `fst) fun m => do
+            let sum ← mkAppM ``Nat.add #[n, m]
+            withLocalDeclD `point (mkApp (mkConst ``Fin) sum) fun suppliedPoint => do
+              let bindings : Array LocalBinding := #[
+                { id, role := .result, expression := r },
+                { id := ⟨id.session, 1⟩, role := .definition, expression := n },
+                { id := ⟨id.session, 2⟩, role := .definition, expression := m },
+                { id := ⟨id.session, 3⟩, role := .parameter, expression := suppliedPoint }]
+              let consuming ← ContextTelescope.capture bindings
+              let parameter (position : Nat) (value : ValueBinding) : MetaM RuntimeParameter := do
+                let .ok parameter :=
+                    RuntimeParameter.ofValue snapshot.graph bindings[position]!.id value
+                  | throwError "a nested symbolic reference is outside the published graph"
+                return parameter
+              let root ← parameter 0 outer
+              let point ← parameter 3 selectedPoint
+              discard <| RuntimeEnvironment.capture owners.worker consuming
+                #[root, ← parameter 1 originalFirst, ← parameter 2 originalSecond, point]
+              let failure : Option Exception ← try
+                discard <| RuntimeEnvironment.capture owners.worker consuming
+                  #[root, ← parameter 1 originalSecond, ← parameter 2 originalFirst, point]
+                pure none
+              catch error => pure (some error)
+              let some failure := failure
+                | throwError "nested symbolic consumption accepted swapped actual source indices"
+              unless (← failure.toMessageData.toString).startsWith
+                  "the runtime value has a different consuming dependent reference" do throw failure
     finally kernel.close
   finally setEnv original

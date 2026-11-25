@@ -29,8 +29,12 @@ private def constructTuple (declaration : Name) (expected : Expr)
 -- Each component receives its actual dependent type before its source is read.
 private partial def finiteTuple (components : Array (Expr → TermElabM Expr))
     (expected : Expr) : TermElabM Expr := do
-  let .forallE name domain codomain info ← whnf expected
-    | throwError "the source finite tuple requires its declared indexed domain"
+  let expectedView ← whnf expected
+  let .forallE name domain codomain info := expectedView
+    | do
+      IO.eprintln s!"[finite-tuple-domain] expected={reprStr expected}"
+      IO.eprintln s!"[finite-tuple-domain] normalized={reprStr expectedView}"
+      throwError "the source finite tuple requires its declared indexed domain"
   let index ← whnf domain
   unless index.isAppOfArity ``Fin 1 do
     throwError "the source finite tuple requires its declared finite index"

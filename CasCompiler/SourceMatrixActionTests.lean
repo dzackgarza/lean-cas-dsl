@@ -34,6 +34,44 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless (value.find? (·.isConstOf ``CasCatalogue.Algebra.LinearAlgebra.apply)).isSome do
         throwError "`{text}` is not the registered application of Mat: {value}"
 
+/- The original formed-module source supplies Vec as a ModuleCat parameter of BilinearMaps.
+Read that unchanged written domain through the public reader: the module constructor must read
+its coefficient at its own RingCat parameter, rather than receive the base Vec's Type argument. -/
+run_cmd Lean.Elab.Command.liftTermElabM do
+  let path := "tests/acceptance/b0-formed-positives.cas.proposed"
+  let contents ← liftM (m := IO) <| IO.FS.readFile path
+  let file ← SourceFile.parse path contents
+  let mut writtenDomain : Option (TSyntax `cas_term) := none
+  for item in file.items do
+    let `(cas_item| $statement:cas_stmt) := item | continue
+    let `(cas_stmt| let $name:ident := $body:cas_term) := statement | continue
+    unless name.getId == `b do continue
+    let `(cas_term| $_:cas_term in $domain:cas_term) := body
+      | throwError "the original formed-module input lost its written bilinear domain"
+    writtenDomain := some domain
+    break
+  let some selectedDomain := writtenDomain
+    | throwError "the original formed-module input lost its first bilinear declaration"
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let session ← SourceSession.empty identities
+  let domain ← file.withContext (session.read selectedDomain)
+  unless domain.source.context.entries.map (·.id) == session.context.entries.map (·.id) do
+    throwError "the original bilinear domain changed its complete source context"
+  domain.source.withOpen fun _ expression => do
+    let native ← sourceDomain expression
+    unless native.isAppOfArity
+        ``CasCatalogue.Modules.Bilinear.Valued.Constructions.bilinearMaps 4 do
+      throwError "the original bilinear domain lost its accepted constructor"
+    for moduleValue in #[native.getAppArgs[1]!, native.getAppArgs[2]!] do
+      let some (id, _) ← sourceObjectReference? moduleValue
+        | throwError "the original Vec parameter lost its selected object row"
+      unless id.raw == "obj.modules.vectors" do
+        throwError "the original Vec parameter changed its selected module construction"
+      let moduleValue ← sourceDomain moduleValue
+      unless moduleValue.isAppOfArity ``CasCatalogue.Algebra.LinearAlgebra.vectorModule 2 do
+        throwError "the original Vec parameter lost its own complete constructor arguments"
+    checkWithKernel expression
+
 /- T030: the original matrix-inverse input supplies its actual admitted unit. Check the
 inverse subterm from that unchanged file through the public reader, without supplying a
 native group, a chosen inverse or an expected numerical answer in the test setup. -/
@@ -53,6 +91,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     | `(cas_item| $statement:cas_stmt) =>
       let formed ← try file.withContext (session.readStatement statement)
         catch error =>
+          IO.eprintln s!"[inverse-prefix-failure] statement={reprStr statement.raw}"
           throwError "the original inverse prefix failed before inversion: {error.toMessageData}"
       let .definition next _ := formed
         | throwError "the original inverse prefix changed its declaration kind"

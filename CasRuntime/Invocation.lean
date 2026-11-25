@@ -42,7 +42,7 @@ field depends on; the request supplies the action arguments. -/
 partial def Kernel.invokeRegistration (kernel : Kernel) (evaluateSource : SourceEvaluation) (request : PreparedRequest)
     (transaction : CellTransaction) (registration : Registration) (role : String)
     (parameters bindings : Array ValueBinding) : MetaM (PreparedResponse request) := do
-  let wire ← kernel.connections.get registration.backend
+  let wire ← kernel.connections.get transaction registration.backend
   let graph ← transaction.view
   let inputs ← request.admitInputs graph
   let arguments ← IO.ofExcept <| (inputs.arguments graph).mapError IO.userError

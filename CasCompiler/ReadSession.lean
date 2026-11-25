@@ -71,6 +71,32 @@ opaque SourceSession.read (session : SourceSession) (stx : TSyntax `cas_term)
     (expected : Option ClosedTerm := none) : TermElabM SourceTerm :=
   session.readAt stx stx expected
 
+/-- Introduce a native local declaration. A named category selects its complete bundle;
+ordinary source domains supply the native type, including retained propositions. -/
+private def SourceSession.assumeWritten (session : SourceSession) (reference : Syntax)
+    (name : Name) (domain : TSyntax `cas_term) : TermElabM SourceSession := do
+  let selected ← session.context.withOpen fun _ => SourceReader.categoryEntry? domain
+  let (type, selection) ← match selected with
+    | some (entry, arguments) => do
+      let bundle ← session.elaborate reference fun context => do
+        let categoryOf := sourceCategory session context
+        let bundle ← withSynthesize <| withRingVariables categoryOf
+          (← recordedRings session context domain) domain do
+            return ⟨← readCategory categoryOf domain entry arguments, none⟩
+        discard <| levelMVarToParam (← instantiateMVars bundle.value)
+        return ← instantiateMVars bundle.value
+      let type ← session.elaborate reference fun context => do
+        mkAppM ``CategoryTheory.Bundled.α #[← bundle.source.inContext context]
+      pure (type, some (entry.expression, bundle))
+    | none => do
+      let type ← session.elaborate reference fun context => do
+        let value ← readSourceTerm (sourceCategory session context)
+          (← recordedRings session context domain) domain none
+        return (← sourceCarrier value).value
+      pure (type, none)
+  let rings ← writtenRings session domain
+  return (← session.assumeTerm name type .default selection).recordRings rings
+
 -- Assertion equality uses native Eq, as in SourceEquality and the public claimEqual
 -- contract. Logical conjunction uses native And. Neither operation supplies a proof.
 -- Reuse: Lean.Meta.mkEq, Lean.Meta.mkAppM and the single native source reader.
@@ -102,6 +128,7 @@ opaque SourceSession.readQuestion (session : SourceSession) (stx : TSyntax `cas_
 An implementation request asks that the installed computations produce the value. A typing
 question (`x ∈ Y` or `x in Y` for an object `Y`) is settled by reading `x` in `Y`. -/
 inductive SourceStatement where
+  | assumption (session : SourceSession)
   | definition (session : SourceSession) (value : SourceTerm)
   | question (proposition : SourceTerm)
   | implemented (value : SourceTerm)
@@ -198,6 +225,9 @@ opaque SourceSession.readStatement (session : SourceSession) (stx : TSyntax `cas
     type.source.withOpen fun _ expression => discard <| getLevel expression
     let value ← session.read body (some type.source)
     return .definition (← session.defineWritten annotation name.getId value) value
+  | `(cas_stmt| let $name:ident ∈ $domain:cas_term)
+  | `(cas_stmt| let $name:ident : $domain:cas_term) =>
+    return .assumption (← session.assumeWritten stx name.getId domain)
   | `(cas_stmt| let $name:ident($parameter:cas_term) := $value:cas_term) =>
     defineFunction name parameter value
   | `(cas_stmt| let $name:ident($first:ident, $rest:ident,*) := $value:cas_term) =>

@@ -122,6 +122,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           value.span.fileName == "source-statements.cas" do
         throwError "source statement formation lost its declaration or original location"
       session := next
+    | .assumption _ => throwError "these source statements contain no assumptions"
     | .implemented _ => throwError "these source statements contain no implementation request"
     | .settled _ => throwError "these source statements contain no typing question"
     | .question proposition =>

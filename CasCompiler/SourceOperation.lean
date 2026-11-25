@@ -296,6 +296,12 @@ opaque sourceOperation
   let actualCategoryFamily := categoryFamily.instantiateLevelParams universes levels
   let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType actualCategoryFamily)
   unless ← isDefEq (mkAppN actualCategoryFamily parameters) root.domain.category.bundle do
+    IO.eprintln s!"[source-operation-category] operation={name}, binding={first.binding.id.raw}"
+    IO.eprintln s!"[source-operation-category-family] {reprStr (← instantiateMVars categoryFamily)}"
+    IO.eprintln s!"[source-operation-category-universes] {reprStr universes} => {reprStr (← levels.mapM instantiateLevelMVars)}"
+    IO.eprintln s!"[source-operation-category-actual] {reprStr (← instantiateMVars (mkAppN actualCategoryFamily parameters))}"
+    IO.eprintln s!"[source-operation-category-selected] {reprStr (← instantiateMVars root.domain.category.bundle)}"
+    IO.eprintln s!"[source-operation-object-type] {reprStr (← instantiateMVars (← inferType root.domain.value))}"
     throwError "the source operation has a different complete selected category"
   let value := first.value.instantiateLevelParams universes levels
   let value := mkAppN value parameters

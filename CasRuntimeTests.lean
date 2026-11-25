@@ -27,6 +27,7 @@ import CasRuntime.RecordTests
 import CasRuntime.ReplyTests
 import CasRuntime.SDKTests
 import CasRuntime.ScopeTests
+import CasRuntime.SessionCellTests
 import CasRuntime.SessionComputationTests
 import CasRuntime.SessionDependentReferenceTests
 import CasRuntime.SessionEndpointTests

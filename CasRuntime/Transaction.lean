@@ -200,10 +200,47 @@ opaque CellTransaction.begin (ledger : OccurrenceLedger) : CoreM CellTransaction
   let id ← ledger.owners.identities.fresh .transaction
   return ⟨id, ledger, ← Std.Mutex.new (.active { parent, graph := parent.graph })⟩
 
+/-- Settlement metadata only; this exposes no active graph, completion or resource right. -/
+inductive TransactionStatus
+  | active
+  | committed (snapshot : RuntimeId .snapshot)
+  | aborted (failure : TransactionFailure)
+
+/-- Read the same gate used by commit and abort, including a commit that won cancellation. -/
+opaque CellTransaction.status (transaction : CellTransaction) : BaseIO TransactionStatus :=
+  transaction.state.atomically do
+    match ← get with
+    | .active _ => return .active
+    | .committed snapshot => return .committed snapshot
+    | .aborted failure => return .aborted failure
+
 opaque CellTransaction.activeGraph (transaction : CellTransaction) : BaseIO (Option ValueGraph) :=
   transaction.state.atomically do
     let .active cell ← get | return none
     return some cell.graph
+
+/-- Read an external statement's active graph at its exact committed parent.
+The final commit repeats this check. A settled cell retains its actual failure classification. -/
+opaque CellTransaction.viewAt (transaction : CellTransaction) (parent : SessionSnapshot) :
+    BaseIO (Except TransactionFailure ValueGraph) := transaction.state.atomically do
+  let state ← get
+  let .active cell := state | return .error state.failure
+  unless parent.id == cell.parent.id do return .error .staleSnapshot
+  return .ok cell.graph
+
+/-- The actual producer of a visible receipt or an admitted completion in this active cell.
+Only provenance is returned; staged values remain in the transaction's existing graph.
+Settled cells expose no completion through this handle. -/
+opaque CellTransaction.completionProducer (transaction : CellTransaction)
+    (occurrence : RuntimeId .occurrence) :
+    BaseIO (Except TransactionFailure (Option CompletionProducer)) :=
+  transaction.state.atomically do
+    let state ← get
+    let .active cell := state | return .error state.failure
+    if let some receipt := cell.parent.receipt occurrence then
+      return .ok (some receipt.association.producer)
+    let completion := cell.completions.find? (·.association.request.occurrence == occurrence)
+    return .ok (completion.map (·.association.producer))
 
 opaque CellTransaction.view (transaction : CellTransaction) : IO ValueGraph := do
   let some graph ← transaction.activeGraph

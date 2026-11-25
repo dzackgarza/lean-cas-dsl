@@ -300,7 +300,8 @@ opaque SourceSession.proof (session : SourceSession) (stx : TSyntax `cas_term)
   session.term evidence (some obligation)
 
 private def assumeIn (session : SourceSession) (context : OpenContext) (name : Name)
-    (type : Expr) (span : SourceSpan) (binderInfo : BinderInfo) : MetaM SourceSession := do
+    (type : Expr) (span : SourceSpan) (binderInfo : BinderInfo)
+    (selection : Option (CasCatalogue.CategoryExpr × SourceTerm)) : MetaM SourceSession := do
   discard <| getLevel type
   let role ← if binderInfo == .instImplicit then do
       unless (← isClass? type).isSome do
@@ -311,8 +312,13 @@ private def assumeIn (session : SourceSession) (context : OpenContext) (name : N
   let id ← session.freshBinding
   withLocalDecl name binderInfo type fun expression => do
     let context ← ContextTelescope.capture (context.bindings.push { id, role, expression })
+    let category ← match selection with
+      | none => pure none
+      | some (category, bundle) => do
+        let value : SourceTerm := ⟨← context.close expression, span, none⟩
+        pure (← value.inCategory category bundle).category
     return ⟨session.identities, context.telescope, session.spans.push span,
-      session.categories.push none, session.rings.push #[]⟩
+      session.categories.push category, session.rings.push #[]⟩
 
 /-- Add one native parameter, hypothesis or selected instance with a fresh stable source ID.
 Reuse: Lean.elabType and Meta.withLocalDecl, including native local-instance registration. -/
@@ -324,15 +330,16 @@ opaque SourceSession.assume (session : SourceSession) (name : Name) (stx : Term)
       let type ← instantiateMVars (← withSynthesize <| elabType stx)
       let source ← context.close type
       checkSource source
-      assumeIn session context name type (← sourceSpan stx) binderInfo
+      assumeIn session context name type (← sourceSpan stx) binderInfo none
 
 /-- Bind a retained source type through native context transport and native sort checking.
 Reuse: ClosedTerm.inContext, Meta.getLevel and the ordinary native binder capture. -/
 opaque SourceSession.assumeTerm (session : SourceSession) (name : Name) (type : SourceTerm)
-    (binderInfo : BinderInfo := .default) : MetaM SourceSession :=
+    (binderInfo : BinderInfo := .default)
+    (selection : Option (CasCatalogue.CategoryExpr × SourceTerm) := none) : MetaM SourceSession :=
   session.context.withOpen fun bindings => do
     let context ← ContextTelescope.capture bindings
-    assumeIn session context name (← type.source.inContext context) type.span binderInfo
+    assumeIn session context name (← type.source.inContext context) type.span binderInfo selection
 
 /-- Retain an elaborated definition as a native let declaration for all subsequent source use.
 Reuse: Term.elabTermEnsuringType and Meta.withLetDecl; no expansion/replay table is stored. -/

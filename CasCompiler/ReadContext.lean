@@ -61,6 +61,7 @@ partial def sourcePrincipal (source : TSyntax `cas_term) : TermElabM Bool := do
   | `(cas_term| $name:ident) =>
     return ((← getLCtx).findFromUserName? name.getId).isSome
   | `(cas_term| $_:cas_term in $_:cas_term)
+  | `(cas_term| $_:cas_term ∈ $_:cas_term)
   | `(cas_term| $_:cas_term → $_:cas_term)
   | `(cas_term| $_:cas_term × $_:cas_term)
   | `(cas_term| $_:cas_term ⊔ $_:cas_term)

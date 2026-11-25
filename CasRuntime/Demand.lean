@@ -38,7 +38,9 @@ def Kernel.delay (kernel : Kernel) (evaluateSource : SourceEvaluation) (request 
     (captures : Array ValueBinding) : MetaM (PreparedResponse request) := do
   let program ← kernel.ledger.owners.identities.fresh .program
   kernel.codes.modify (·.insert program (.family family path))
-  let value ← transaction.stage (← request.originFor request.source) (.closure program captures)
+  let graph ← transaction.view
+  let value ← transaction.stage (← request.originFor request.source (some graph))
+    (.closure program captures)
   kernelCompletion request transaction value
     (some (kernel.resolveFixedInput evaluateSource request.observation.sourceSnapshot
       transaction request.program))

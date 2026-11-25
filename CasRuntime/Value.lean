@@ -3,6 +3,7 @@ module
 public import CasCompiler.Layout
 public import CasRuntime.Owner
 public import CasContract.Port
+import CasContract.Failure
 
 public section
 
@@ -56,6 +57,7 @@ Source: the data model's ResultBinding and dependency-ordered DataInterface cont
 inductive ValueBinding where
   | private direct (value : RuntimeId .value) (role : SourceLayout)
   | private atRole (binding : ValueBinding) (role : SourceLayout)
+      (sourceMarks : Array (Nat × ValueBinding)) (sourceDependencies : Array ValueBinding)
   | private inField (id : RuntimeId .association) (binding : ValueBinding) (role : SourceLayout)
       (association : RecordAssociation) (field : FieldLayout)
       (preceding : Array (Option ValueBinding))
@@ -70,28 +72,19 @@ inductive ValueBinding where
 
 def ValueBinding.value : ValueBinding → RuntimeId .value
   | .direct value _ => value
-  | .atRole binding _ | .inField _ binding .. | .inApplication binding ..
+  | .atRole binding .. | .inField _ binding .. | .inApplication binding ..
   | .inProjection _ binding .. => binding.value
 
 def ValueBinding.role : ValueBinding → SourceLayout
-  | .direct _ role | .atRole _ role | .inField _ _ role .. | .inApplication _ role ..
+  | .direct _ role | .atRole _ role .. | .inField _ _ role .. | .inApplication _ role ..
   | .inProjection _ _ role .. => role
-
-/-- Retain the actual node and field associations under a prepared consuming source role.
-Reuse: ValueBinding.atRole, shared by graph rebinding and native environment capture. -/
-opaque ValueBinding.withRole (binding : ValueBinding) (role : SourceLayout) :
-    Except String ValueBinding := do
-  if role.kind == .proof then throw "a source proof has no computational value binding"
-  return match binding with
-    | .atRole underlying _ => .atRole underlying role
-    | _ => .atRole binding role
 
 abbrev FieldInstantiation := FieldInstantiationData ValueBinding
 
 /-- Source type families are instantiated by these exact references, never decoded Lean terms. -/
 def ValueBinding.instantiations : ValueBinding → Array FieldInstantiation
   | .direct .. => #[]
-  | .atRole binding _ => binding.instantiations
+  | .atRole binding .. => binding.instantiations
   | .inField id binding _ association field preceding =>
     binding.instantiations.push ⟨id, association, field, preceding, none⟩
   | .inApplication binding .. => binding.instantiations
@@ -109,7 +102,7 @@ structure ApplicationInstantiation where
 /-- Retain every consuming application in order, including earlier views of an aliased node. -/
 def ValueBinding.applications : ValueBinding → Array ApplicationInstantiation
   | .direct .. => #[]
-  | .atRole binding _ | .inField _ binding .. | .inProjection _ binding .. =>
+  | .atRole binding .. | .inField _ binding .. | .inProjection _ binding .. =>
     binding.applications
   | .inApplication binding _ association parameters applicationParameters arguments callable access _ =>
     binding.applications.push ⟨association, parameters, applicationParameters, arguments, callable, access⟩
@@ -117,7 +110,7 @@ def ValueBinding.applications : ValueBinding → Array ApplicationInstantiation
 /-- Field and application identities share one ordered role chain on the same actual node. -/
 def ValueBinding.associationIds : ValueBinding → Array (RuntimeId .association)
   | .direct .. => #[]
-  | .atRole binding _ => binding.associationIds
+  | .atRole binding .. => binding.associationIds
   | .inField id binding .. => binding.associationIds.push id
   | .inApplication binding _ association .. => binding.associationIds.push association.id
   | .inProjection id binding .. => binding.associationIds.push id
@@ -126,7 +119,7 @@ def ValueBinding.associationIds : ValueBinding → Array (RuntimeId .association
 Reuse: the immutable binding chain; no expression or value search selects a parent. -/
 def ValueBinding.projectionAccesses : ValueBinding → Array (ValueBinding × Array Name)
   | .direct .. => #[]
-  | .atRole binding _ | .inField _ binding .. | .inApplication binding .. =>
+  | .atRole binding .. | .inField _ binding .. | .inApplication binding .. =>
     binding.projectionAccesses
   | .inProjection _ binding _ parent path _ _ _ => binding.projectionAccesses.push (parent, path)
 
@@ -137,7 +130,7 @@ def ValueBinding.projectionBasis (value parent : ValueBinding) (path : Array Nam
     Option ValueBinding :=
   match value with
   | .direct .. => none
-  | .atRole binding _ | .inField _ binding .. | .inApplication binding .. =>
+  | .atRole binding .. | .inField _ binding .. | .inApplication binding .. =>
     binding.projectionBasis parent path
   | .inProjection _ binding _ selected selectedPath basis _ _ =>
     if selected.value == parent.value && selected.associationIds == parent.associationIds &&
@@ -147,7 +140,7 @@ def ValueBinding.projectionBasis (value parent : ValueBinding) (path : Array Nam
 /-- A projection view retains its exact pre-access binding. This relation identifies an
 intermediate parent without erasing unrelated field or application associations. -/
 private def ValueBinding.projectionParent : ValueBinding → ValueBinding
-  | .atRole binding _ => binding.projectionParent
+  | .atRole binding .. => binding.projectionParent
   | .inProjection _ _ _ _ _ basis _ _ => basis.projectionParent
   | binding => binding
 
@@ -164,6 +157,121 @@ def markValue (marks : IO.Ref (Array ValueBinding)) (value : ValueBinding) (expr
     BaseIO Expr := do
   let key ← marks.modifyGet fun values => (values.size, values.push value)
   return .mdata (KVMap.empty.setNat valueKey key) expression
+
+/-- The immutable mark references carried by this source view. They are provenance, not owners. -/
+def ValueBinding.sourceMarks : ValueBinding → Array (Nat × ValueBinding)
+  | .direct .. => #[]
+  | .atRole _ _ marks _ => marks
+  | .inField _ binding .. | .inApplication binding .. | .inProjection _ binding .. =>
+    binding.sourceMarks
+
+/-- Only the native type's selected actual references contribute owners at this source view. -/
+def ValueBinding.sourceDependencies : ValueBinding → Array ValueBinding
+  | .direct .. => #[]
+  | .atRole binding _ _ dependencies => binding.sourceDependencies ++ dependencies
+  | .inField _ binding .. | .inApplication binding .. | .inProjection _ binding .. =>
+    binding.sourceDependencies
+
+/-- Earlier checked native type roles that introduced actual marked dependencies.
+They remain in the existing role chain when a later view changes the displayed source role. -/
+def ValueBinding.markedTypeRoles : ValueBinding → Array SourceLayout
+  | .direct .. => #[]
+  | .atRole binding role _ dependencies =>
+    if dependencies.isEmpty then binding.markedTypeRoles else binding.markedTypeRoles.push role
+  | .inField _ binding .. | .inApplication binding .. | .inProjection _ binding .. =>
+    binding.markedTypeRoles
+
+/-- Merge exact captured mark tables; the same key cannot name a different occurrence. -/
+def mergeSourceMarks (left right : Array (Nat × ValueBinding)) :
+    Except String (Array (Nat × ValueBinding)) := do
+  let mut result := left
+  for (key, value) in right do
+    match result.find? (·.1 == key) with
+    | none => result := result.push (key, value)
+    | some (_, original) =>
+      unless original.value == value.value && original.associationIds == value.associationIds do
+        throw "a retained source mark names conflicting computational occurrences"
+  return result
+
+/-- Every original native occurrence is inspected, including equal terms with different marks. -/
+private partial def sourceMarkKeys (expression : Expr) (keys : Array Nat) : Array Nat :=
+  match expression with
+  | .mdata data body =>
+    let keys := match markedKey? data with
+      | some key => if keys.contains key then keys else keys.push key
+      | none => keys
+    sourceMarkKeys body keys
+  | .app function argument => sourceMarkKeys argument (sourceMarkKeys function keys)
+  | .lam _ type body _ | .forallE _ type body _ =>
+    sourceMarkKeys body (sourceMarkKeys type keys)
+  | .letE _ type value body _ =>
+    sourceMarkKeys body (sourceMarkKeys value (sourceMarkKeys type keys))
+  | .proj _ _ body => sourceMarkKeys body keys
+  | _ => keys
+
+/-- Whether this exact native expression contains an actual retained occurrence annotation. -/
+def hasSourceMarks (expression : Expr) : Bool :=
+  !(sourceMarkKeys expression #[]).isEmpty
+
+private def contextSourceMarkKeys (context : ContextTelescope) (initial : Array Nat) :
+    Array Nat := Id.run do
+  let mut keys := initial
+  for entry in context.entries do
+    keys := sourceMarkKeys entry.type keys
+    if let some value := entry.value then keys := sourceMarkKeys value keys
+  return keys
+
+private def closedSourceMarkKeys (source : ClosedTerm) : Array Nat :=
+  contextSourceMarkKeys source.context
+    (sourceMarkKeys source.type (sourceMarkKeys source.expression #[]))
+
+/-- Capture only marks present in the complete original context, including formal entries. -/
+def captureContextSourceMarks (marks : Array ValueBinding) (context : ContextTelescope) :
+    Except String (Array (Nat × ValueBinding)) :=
+  (contextSourceMarkKeys context #[]).mapM fun key => do
+    let some value := marks[key]? | throw "the source context lost a retained occurrence mark"
+    return (key, value)
+
+/-- Capture only marks referenced by this complete native source from the actual snapshot. -/
+def captureSourceMarks (marks : Array ValueBinding) (source : ClosedTerm) :
+    Except String (Array (Nat × ValueBinding)) :=
+  (closedSourceMarkKeys source).mapM fun key => do
+    let some value := marks[key]? | throw "the source lost a retained occurrence mark"
+    return (key, value)
+
+/-- Select the exact marks of this source from an already captured immutable table. -/
+def retainedSourceMarks (marks : Array (Nat × ValueBinding)) (source : ClosedTerm) :
+    Except String (Array (Nat × ValueBinding)) :=
+  (closedSourceMarkKeys source).mapM fun key => do
+    let some (_, value) := marks.find? (·.1 == key)
+      | throw "the source lost a captured occurrence mark"
+    return (key, value)
+
+/-- Read a marked parent and its exact native projection path without crossing its boundary. -/
+partial def markedProjection? (expression : Expr) : MetaM (Option (Nat × Array Name)) := do
+  if let .mdata data body := expression then
+    if let some key := markedKey? data then return some (key, #[])
+    if data.contains `CasCompiler.source.kind || data.contains `CasCompiler.selection then
+      return none
+    return ← markedProjection? body
+  let some projection ← SourceProjection.ofExpr? expression | return none
+  let some (key, path) ← markedProjection? projection.parent | return none
+  return some (key, path.push projection.declaration)
+
+/-- Retain exact source marks and type dependencies when a checked consuming role changes.
+Earlier association families keep their captured tables. Only the supplied type dependencies,
+not the full mark table, contribute owners. -/
+opaque ValueBinding.withRole (binding : ValueBinding) (role : SourceLayout)
+    (sourceMarks : Array (Nat × ValueBinding) := #[])
+    (sourceDependencies : Array ValueBinding := #[]) : Except String ValueBinding := do
+  if role.kind == .proof then throw "a source proof has no computational value binding"
+  let marks ← mergeSourceMarks binding.sourceMarks sourceMarks
+  discard <| retainedSourceMarks marks role.source
+  return match binding with
+    | .atRole underlying _ _ dependencies =>
+      if dependencies.isEmpty then .atRole underlying role marks sourceDependencies
+      else .atRole binding role marks sourceDependencies
+    | _ => .atRole binding role marks sourceDependencies
 
 private def selectedReferences (indices : Array Nat) (values : Array (Option ValueBinding)) :
     Except String (Array ValueBinding) := do
@@ -352,10 +460,12 @@ structure ValueOrigin where
   application : Option ApplicationOrigin := none
   access : Option ValueBinding := none
   accessPath : Array Name := #[]
+  sourceMarks : Array (Nat × ValueBinding) := #[]
+  sourceDependencies : Array ValueBinding := #[]
 
 /-- Visibility keeps the complete context, stored callable and argument reference planes. -/
 def ValueOrigin.references (origin : ValueOrigin) : Array ValueBinding :=
-  origin.parameters.filterMap id ++
+  origin.sourceMarks.map (·.2) ++ origin.sourceDependencies ++ origin.parameters.filterMap id ++
     (match origin.access with | none => #[] | some value => #[value]) ++
     match origin.application with
     | none => #[]
@@ -412,7 +522,11 @@ private partial def ValueGraph.checkBinding (graph : ValueGraph) (binding : Valu
   | .direct value _ =>
     unless (graph.find value).isSome do throw "the value reference is outside the visible graph"
     return visited
-  | .atRole underlying _ => graph.checkBinding underlying visited
+  | .atRole underlying _ marks dependencies => do
+    let mut visited ← graph.checkBinding underlying visited
+    for (_, value) in marks do visited ← graph.checkBinding value visited
+    for value in dependencies do visited ← graph.checkBinding value visited
+    return visited
   | .inProjection id underlying _ parent path _ fields dependencies =>
     if visited.contains id then return visited
     unless graph.associations.contains id && id.worker == graph.worker && !path.isEmpty do
@@ -505,7 +619,8 @@ partial def ValueGraph.projectionBasis (graph : ValueGraph) (binding parent : Va
     if (← graph.projectionBasis selected parent initialPath).isNone then continue
     if let some basis := binding.projectionBasis selected suffix then return some basis
   let some selected := node.origin.access | return none
-  let produced := ValueBinding.direct node.id node.origin.role
+  let produced ← (ValueBinding.direct node.id node.origin.role).withRole node.origin.role
+    node.origin.sourceMarks node.origin.sourceDependencies
   if selected.value == parent.value && selected.associationIds == parent.associationIds &&
       node.origin.accessPath == path then return some produced
   let suffix := node.origin.accessPath
@@ -535,7 +650,10 @@ private partial def ValueGraph.bindingOwners (graph : ValueGraph) (binding : Val
           generations := state.generations.insert owner
           owners := state.owners.push owner }
     return state
-  | .atRole underlying _ => graph.bindingOwners underlying state
+  | .atRole underlying _ _ dependencies => do
+    let mut state ← graph.bindingOwners underlying state
+    for dependency in dependencies do state ← graph.bindingOwners dependency state
+    return state
   | .inProjection id underlying _ _ _ _ fields dependencies =>
     if state.instantiations.contains id then return state
     let mut state ← graph.bindingOwners underlying
@@ -583,7 +701,7 @@ opaque ValueGraph.rebind (graph : ValueGraph) (binding : ValueBinding) (role : S
 
 private def ValueBinding.applicationFields : ValueBinding → Option (Array ValueBinding)
   | .direct .. => none
-  | .atRole binding _ | .inField _ binding .. => binding.applicationFields
+  | .atRole binding .. | .inField _ binding .. => binding.applicationFields
   | .inApplication _ _ _ _ _ _ _ _ fields => some fields
   | .inProjection _ _ _ _ _ _ fields _ => some fields
 
@@ -657,6 +775,96 @@ private def projectionFieldDependencies (graph : ValueGraph) (parent : ValueBind
       dependencies := dependencies.push { field with view := some view }
   return dependencies
 
+/-- Read the exact stored/lazy frontier and the references required by its selected path.
+The first reference is the frontier itself. Additional references come only from the original
+preceding fields selected by derived dependency views; no whole stored parent is demanded.
+`none` and the remaining path are exactly projectionWalk's results, with no descriptor fallback.
+This query creates no value, association, completion or resource. -/
+opaque ValueGraph.projectionReferences (graph : ValueGraph) (parent : ValueBinding)
+    (path : Array Name) :
+    MetaM (Option (ValueBinding × Array Name × Array ValueBinding)) := do
+  let (frontier, _) ← IO.ofExcept <| (projectionWalk graph parent path).mapError IO.userError
+  let some (selected, remaining) := frontier | return none
+  let dependencies ← projectionFieldDependencies graph parent path selected
+  let mut references := #[selected]
+  for dependency in dependencies do
+    let required ← IO.ofExcept <|
+      (selectedReferences dependency.precedingDependencies dependency.preceding).mapError
+        IO.userError
+    references := references ++ required
+  return some (selected, remaining, references)
+
+/-- Select actual marked paths from the original checked expression. Structural source
+reduction is shared with inputProjectionAt; a mark's descriptive body is never traversed.
+Selected/source annotations stop reduction while their retained native subterms remain visible. -/
+private partial def markedPaths (context : OpenContext) (inputs : Array BindingId)
+    (expression : Expr) (reduce : Bool := true) : MetaM (Array (Nat × Array Name)) := do
+  let expression ← if reduce && !expression.hasLooseBVars then
+      context.inputProjectionSource expression inputs
+    else pure expression
+  if let some selected ← markedProjection? expression then return #[selected]
+  match expression with
+  | .mdata data body =>
+    let reduce := reduce && !data.contains `CasCompiler.source.kind &&
+      !data.contains `CasCompiler.selection
+    markedPaths context inputs body reduce
+  | .app function argument =>
+    return (← markedPaths context inputs function reduce) ++
+      (← markedPaths context inputs argument reduce)
+  | .lam _ type body _ | .forallE _ type body _ =>
+    return (← markedPaths context inputs type reduce) ++
+      (← markedPaths context inputs body reduce)
+  | .letE _ type value body _ =>
+    return (← markedPaths context inputs type reduce) ++
+      (← markedPaths context inputs value reduce) ++ (← markedPaths context inputs body reduce)
+  | .proj _ _ body => markedPaths context inputs body reduce
+  | _ => pure #[]
+
+/-- Resolve selected marked paths in the actual current graph before owners are frozen.
+Stored paths retain only the selected node and its derived prefix dependencies. A lazy
+frontier retains its actual export/code dependency without manufacturing a field result. -/
+opaque markedSourceReferences (graph : Option ValueGraph) (context : OpenContext)
+    (marks : Array (Nat × ValueBinding)) (expression : Expr) : MetaM (Array ValueBinding) := do
+  if (sourceMarkKeys expression #[]).isEmpty then return #[]
+  let mut inputs := #[]
+  for binding in context.bindings do
+    unless ← isProp (← inferType binding.expression) do inputs := inputs.push binding.id
+  let paths ← markedPaths context inputs expression
+  if paths.isEmpty then return #[]
+  let some graph := graph
+    | throwError "marked source preparation requires the actual current value graph"
+  let mut references := #[]
+  for (key, path) in paths do
+    let some (_, parent) := marks.find? (·.1 == key)
+      | throwError "the native source lost its captured occurrence mark"
+    let some (_, _, selected) ← graph.projectionReferences parent path
+      | CasCatalogue.throwStratum .noImplementation
+          "the marked source path has no retained native field interface"
+    references := references ++ selected
+  return references
+
+/-- Marked references in an expression and only its selected transitive context declarations.
+The other original context entries remain inert source provenance. -/
+opaque markedContextReferences (graph : Option ValueGraph) (context : OpenContext)
+    (marks : Array (Nat × ValueBinding)) (expression : Expr) : MetaM (Array ValueBinding) := do
+  let mut references ← markedSourceReferences graph context marks expression
+  let dependencies ← computationalDependencies (context.bindings.map (·.expression)) expression
+  for index in dependencies do
+    let some binding := context.bindings[index]?
+      | throwError "a native type dependency is outside its complete context"
+    let declaration ← getFVarLocalDecl binding.expression
+    references := references ++ (← markedSourceReferences graph context marks declaration.type)
+    if let some value := declaration.value? true then
+      references := references ++ (← markedSourceReferences graph context marks value)
+  return references
+
+/-- Native type ownership uses that same selected-context traversal at source preparation. -/
+opaque markedTypeReferences (graph : Option ValueGraph) (source : ClosedTerm)
+    (marks : Array (Nat × ValueBinding)) : MetaM (Array ValueBinding) :=
+  source.withOpen fun bindings expression => do
+    let context ← ContextTelescope.capture bindings
+    markedContextReferences graph context marks (← inferType expression)
+
 /-- Follow stored callable slots to actual code/token data, retaining the complete outer value.
 The append-only graph supplies existing references; no source expression reconstructs a callable.
 Reuse: ValueGraph.require and Lean v4.33.0 Std.HashSet for exact reference traversal. -/
@@ -688,7 +896,7 @@ opaque ValueGraph.stage (graph : ValueGraph) (supply : IdentitySupply)
     throw <| IO.userError "value staging requires the complete producing context table"
   discard <| IO.ofExcept <|
     (graph.requiredOwners origin.references).mapError IO.userError
-  let mut dependencies := payload.data.references
+  let mut dependencies := payload.data.references ++ origin.sourceDependencies
   let (contextDependencies, contextParameters) := match origin.application with
     | none => (origin.role.contextDependencies, origin.parameters)
     | some application => (application.contextDependencies, application.parameters)
@@ -713,7 +921,9 @@ opaque ValueGraph.stage (graph : ValueGraph) (supply : IdentitySupply)
   let revision ← supply.fresh .revision
   return ({ graph with
     nodes := graph.nodes.insert id node
-    revision := some revision }, .direct id origin.role)
+    revision := some revision },
+    ← IO.ofExcept <| ((ValueBinding.direct id origin.role).withRole origin.role
+      origin.sourceMarks origin.sourceDependencies).mapError IO.userError)
 
 /-- Availability reads current liveness without rewriting the immutable payload. -/
 def ValueGraph.isAvailable (graph : ValueGraph) (owners : OwnerRegistry)
@@ -765,6 +975,8 @@ opaque ValueGraph.bindApplication (graph : ValueGraph) (supply : IdentitySupply)
     | throw <| IO.userError "application binding requires a prepared application origin"
   unless origin.parameters.size == origin.role.source.context.entries.size do
     throw <| IO.userError "application binding requires the complete source context table"
+  let value ← IO.ofExcept <|
+    (value.withRole origin.role origin.sourceMarks origin.sourceDependencies).mapError IO.userError
   let candidate ← IO.ofExcept <|
     (CandidateResponse.ofValue origin.role graph value).mapError IO.userError
   let some node := graph.find candidate.root.value
@@ -808,6 +1020,8 @@ opaque ValueGraph.bindProjection (graph : ValueGraph) (supply : IdentitySupply)
     throwError "projection binding requires its exact source path"
   discard <| IO.ofExcept <|
     (graph.requiredOwners origin.references).mapError IO.userError
+  let value ← IO.ofExcept <|
+    (value.withRole origin.role origin.sourceMarks origin.sourceDependencies).mapError IO.userError
   let candidate ← IO.ofExcept <|
     (CandidateResponse.ofValue origin.role graph value).mapError IO.userError
   let some node := graph.find candidate.root.value
@@ -852,6 +1066,8 @@ structure RecordPrefix where
   association : RecordAssociation
   private identities : IdentitySupply
   private selections : Array (Option ValueBinding)
+  private sourceMarks : Array (Nat × ValueBinding)
+  private sourceDependencies : Array (Array ValueBinding)
 
 private def RecordPrefix.skipProofs (record : RecordPrefix) : RecordPrefix := Id.run do
   let mut selections := record.selections
@@ -864,11 +1080,27 @@ private def RecordPrefix.skipProofs (record : RecordPrefix) : RecordPrefix := Id
 /-- Allocate a fresh association before recording any actual field selections.
 Reuse: the worker IdentitySupply and complete source-prepared RecordLayout. -/
 opaque RecordPrefix.begin (supply : IdentitySupply) (program : RuntimeId .program)
-    (occurrence : RuntimeId .occurrence) (layout : RecordLayout) : IO RecordPrefix := do
+    (occurrence : RuntimeId .occurrence) (layout : RecordLayout)
+    (sourceMarks : Array (Nat × ValueBinding) := #[])
+    (sourceDependencies : Array (Array ValueBinding) := #[]) : IO RecordPrefix := do
   unless program.worker == supply.worker && occurrence.worker == supply.worker do
     throw <| IO.userError "record preparation belongs to a different worker"
   let association : RecordAssociation := ⟨← supply.fresh .association, program, occurrence, layout⟩
-  return RecordPrefix.skipProofs ⟨association, supply, #[]⟩
+  let sourceMarks ← IO.ofExcept <|
+    (retainedSourceMarks sourceMarks layout.source.source).mapError IO.userError
+  unless sourceMarks.isEmpty || sourceDependencies.size == layout.fields.size do
+    throw <| IO.userError "a marked record requires its complete prepared field dependencies"
+  return RecordPrefix.skipProofs ⟨association, supply, #[], sourceMarks, sourceDependencies⟩
+
+/-- Prepare each field's marked type against the actual current graph before the IO prefix
+attaches any field roles. Full source marks are inert; each dependency row is field-specific. -/
+opaque RecordPrefix.prepare (supply : IdentitySupply) (program : RuntimeId .program)
+    (occurrence : RuntimeId .occurrence) (layout : RecordLayout) (graph : ValueGraph)
+    (sourceMarks : Array (Nat × ValueBinding)) : MetaM RecordPrefix := do
+  let dependencies ← layout.fields.mapM fun field =>
+    if field.field.wireIndex.isNone then pure #[]
+    else markedTypeReferences (some graph) field.layout.source sourceMarks
+  RecordPrefix.begin supply program occurrence layout sourceMarks dependencies
 
 /-- Bind this same node at the next field and retain every preceding actual selection.
 Visibility checks include the whole prefix; owner requirements follow the declared dependencies.
@@ -878,6 +1110,9 @@ opaque RecordPrefix.bind (record : RecordPrefix) (graph : ValueGraph) (value : V
   let record := record.skipProofs
   let some prepared := record.association.layout.fields[record.selections.size]?
     | throw <| IO.userError "the complete record has no further computational field"
+  let value ← IO.ofExcept <|
+    (value.withRole prepared.layout record.sourceMarks
+      (record.sourceDependencies[record.selections.size]?.getD #[])).mapError IO.userError
   let candidate ← IO.ofExcept <|
     (CandidateResponse.ofValue prepared.layout graph value).mapError IO.userError
   let id ← record.identities.fresh .association

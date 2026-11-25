@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.ReadContext
+public import CasCompiler.ReadNamed
 public import CasCompiler.SourceSubset
 import CasCompiler.SourceCarrier
 
@@ -17,6 +18,16 @@ def membership (context : ReadContext) :
   let readExpression := @ReadContext.readExpression context
   let categoryOf := context.categoryOf
   fun (element container : TSyntax `cas_term) => do
+    if let some (entry, arguments) ← categoryEntry? container then
+      let bundle ← category context entry arguments
+      let carrier ← mkAppM ``CategoryTheory.Bundled.α #[bundle]
+      let value ← readExpression categoryOf element (some carrier) (some entry.name)
+      let some selected := value.category
+        | throwError "category membership lost the source-selected category"
+      unless ← isDefEq selected.bundle bundle do
+        CasCatalogue.throwStratum .invalid
+          m!"the source value has different parameters in category {entry.name}"
+      return value
     let container ← readExpression categoryOf container none
     let some power ← sourcePowerObject? (← instantiateMVars (← inferType container.value))
       | do

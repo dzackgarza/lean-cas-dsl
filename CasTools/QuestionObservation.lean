@@ -63,6 +63,8 @@ private def bindingName? (stx : TSyntax `cas_stmt) : Option Ident :=
   match stx with
   | `(cas_stmt| let $name:ident := $_:cas_term)
   | `(cas_stmt| let $name:ident : $_:cas_term := $_:cas_term)
+  | `(cas_stmt| let $name:ident ∈ $_:cas_term)
+  | `(cas_stmt| let $name:ident : $_:cas_term)
   | `(cas_stmt| let $name:ident($_:cas_term) := $_:cas_term)
   | `(cas_stmt| let $name:ident($_:ident, $_:ident,*) := $_:cas_term) => some name
   | _ => none
@@ -204,7 +206,7 @@ opaque observeFile (file : SourceFile) (initial : SourceSession) : TermElabM Obs
       let result : Except Failure (SourceSession ⊕ Reading) ← try
         let formed ← session.readStatement statement
         match formed with
-        | .definition next _ => pure (.ok (Sum.inl next))
+        | .assumption next | .definition next _ => pure (.ok (Sum.inl next))
         | .question term | .implemented term =>
           pure (.ok (Sum.inr (← reading shared session where_ provenance #[term] false)))
         | .settled terms =>

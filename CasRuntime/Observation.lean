@@ -142,14 +142,22 @@ def valueIdentityJson (value : ValueBinding) : Json :=
   Json.mkObj [("value", identityJson value.value),
     ("associations", toJson (value.associationIds.map identityJson))]
 
+def sourceMarksJson (marks : Array (Nat × ValueBinding)) : Json :=
+  toJson (marks.map fun (key, value) =>
+    Json.mkObj [("key", toJson key), ("reference", valueIdentityJson value)])
+
 def valueReferenceJson (value : ValueBinding) : StateM NativeExpression.Builder Json := do
-  return (valueIdentityJson value).setObjVal! "role" (← layoutJson value.role)
+  let markedTypeRoles ← value.markedTypeRoles.mapM layoutJson
+  let result := (valueIdentityJson value).setObjVal! "role" (← layoutJson value.role)
+  let result := result.setObjVal! "sourceMarks" (sourceMarksJson value.sourceMarks)
+  let result := result.setObjVal! "sourceDependencies"
+    (toJson (value.sourceDependencies.map valueIdentityJson))
+  return result.setObjVal! "markedTypeRoles" (toJson markedTypeRoles)
 
 def actualArgumentJson (argument : RuntimeArgument) (marks : Array (Nat × ValueBinding)) : Json :=
   Json.mkObj [("sourceIndex", toJson argument.index),
     ("reference", valueIdentityJson argument.value),
-    ("marks", toJson (marks.map fun (key, value) =>
-      Json.mkObj [("key", toJson key), ("reference", valueIdentityJson value)]))]
+    ("marks", sourceMarksJson marks)]
 
 def valuesJson (values : Array (Option ValueBinding)) : StateM NativeExpression.Builder Json := do
   return toJson (← values.mapM fun value => value.mapM valueReferenceJson)
@@ -202,7 +210,9 @@ def originJson (origin : ValueOrigin) : StateM NativeExpression.Builder Json := 
     ("parameters", ← valuesJson origin.parameters),
     ("application", toJson (← origin.application.mapM applicationOriginJson)),
     ("access", toJson (← origin.access.mapM valueJson)),
-    ("accessPath", namesJson origin.accessPath)]
+    ("accessPath", namesJson origin.accessPath),
+    ("sourceMarks", sourceMarksJson origin.sourceMarks),
+    ("sourceDependencies", toJson (origin.sourceDependencies.map valueIdentityJson))]
 
 def roleScopeJson (scope : RoleScope) : Json :=
   Json.mkObj [("program", identityJson scope.program),
@@ -240,7 +250,8 @@ def environmentJson (environment : RuntimeEnvironment) : StateM NativeExpression
   let values ← environment.values.mapM fun value => value.mapM valueJson
   return Json.mkObj [("worker", toJson environment.worker),
     ("context", ← ContextSnapshot.contextJson environment.context),
-    ("instances", ContextSnapshot.instancesJson environment.context), ("values", toJson values)]
+    ("instances", ContextSnapshot.instancesJson environment.context), ("values", toJson values),
+    ("sourceMarks", sourceMarksJson environment.sourceMarks)]
 
 def actionJson (action : PreparedAction) : StateM NativeExpression.Builder Json := do
   match action with
@@ -350,7 +361,9 @@ opaque ObservationDescriptor.prepare
   let readable := Json.mkObj [("source", sourceText),
     ("context", context), ("arguments", toJson arguments),
     ("results", toJson results), ("captures", toJson captures),
-    ("application", toJson applicationText)]
+    ("application", toJson applicationText),
+    ("sourceMarks", Observation.sourceMarksJson environment.sourceMarks),
+    ("sourceDependencies", toJson (origin.sourceDependencies.map Observation.valueIdentityJson))]
   return ⟨native, readable, none, none⟩
 
 /-- Updating a supplied source selection does not reopen or re-render the native descriptor. -/

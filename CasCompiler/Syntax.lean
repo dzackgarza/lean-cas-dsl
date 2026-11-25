@@ -179,6 +179,9 @@ syntax:40 "{" cas_pair,* "}" " : " cas_term:51 : cas_term
 declare_syntax_cat cas_stmt
 syntax "let " ident " := " cas_term : cas_stmt
 syntax "let " ident " : " cas_term " := " cas_term : cas_stmt
+/-- A hypothetical object, element or hypothesis in the current source session only. -/
+syntax (name := casAssumeMember) "let " ident " ∈ " cas_term : cas_stmt
+syntax (name := casAssumeType) "let " ident " : " cas_term : cas_stmt
 /-- `let f(t) := e in X → Y`: `let f := t ↦ e in X → Y`. -/
 syntax (name := casLetPattern) "let " ident noWs "(" cas_term ")" " := " cas_term : cas_stmt
 syntax (name := casLetArgs) "let " ident noWs "(" ident ", " ident,+ ")" " := " cas_term : cas_stmt

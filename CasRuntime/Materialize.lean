@@ -16,7 +16,7 @@ open Lean Meta CasCompiler CasCatalogue.Backend
 
 private def stageResult (request : PreparedRequest) (source : SourceLayout)
     (draft : CellDraft) (payload : ValuePayload) : MetaM (CellDraft × ValueBinding) := do
-  let origin ← request.originFor source
+  let origin ← request.originFor source (some draft.view)
   let (draft, binding) ← liftM (m := IO) <| draft.stage origin payload
   let candidate ← request.environment.checkResult draft.view source binding
   return (draft, candidate.root)
@@ -107,8 +107,8 @@ private partial def materializeValue (reply : ImmediateReply) (request : Prepare
     let fields := layout.fields.filter (·.field.wireIndex.isSome)
     let positions ← recordReplyPositions fields.size value
     let mut draft := draft
-    let mut record ← liftM (m := IO) <|
-      RecordPrefix.begin supply request.program request.occurrence layout
+    let mut record ← RecordPrefix.prepare supply request.program request.occurrence layout
+      draft.view request.environment.sourceMarks
     let mut slots : Array ContainerSlot := #[]
     let mut selected : Array ValueBinding := #[]
     for prepared in fields, position in positions do

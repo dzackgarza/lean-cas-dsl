@@ -69,7 +69,8 @@ def Outcome.ofException (error : Exception) : MetaM Outcome := do
     | none => .internal message
 
 /-- One public source session over one kernel: the checked source declarations and the
-committed runtime binding of each computational declaration, by stable source identity.
+actual runtime binding of each computational declaration, by stable source identity.
+A runIn result remains tentative until its external cell commits.
 Source: data model §2, ContextTelescope and its separate runtime-binding map. -/
 structure KernelSession where
   private mk ::
@@ -120,6 +121,14 @@ opaque KernelSession.start (manifest : Option System.FilePath := none)
 
 opaque KernelSession.close (session : KernelSession) : IO Unit := session.kernel.close
 
+/-- Open an independent source-file scope on the same actual kernel. This keeps every owner,
+manifest/profile and runtime snapshot, while prior source values and failures do not leak by name.
+The existing explicit `computing` mode changes only question execution, never profile selection. -/
+opaque KernelSession.freshScope (session : KernelSession)
+    (computationOnly : Bool := session.computationOnly) : MetaM KernelSession := do
+  return ⟨session.kernel, ← SourceSession.empty session.kernel.ledger.owners.identities,
+    computationOnly, {}, {}, #[], #[]⟩
+
 /-- The retained value of a source declaration, when it has computational content. -/
 def KernelSession.value? (session : KernelSession) (id : BindingId) : Option ValueBinding :=
   session.bound[id]?
@@ -131,11 +140,11 @@ private def commit (transaction : CellTransaction) : MetaM SessionSnapshot := do
     discard <| (transaction.abort : BaseIO Bool)
     Execute.completionFailure failure
 
-/-- Decide the closed proposition in Lean, after substituting the session's definitions, by the
-registered literal evaluations and the kernel's decision (`Evaluation.decideEvaluated`).
+/-- Use an existing native proof in the source context, or decide a closed proposition after
+substituting definitions by the registered evaluations and `Evaluation.decideEvaluated`.
 A statement depending on an observed computation is about its actual value, including through
 aliases and captured definitions. Other retained source values remain eligible for proof.
-Reuse: contextDependencies closes native source dependencies through their types and values. -/
+Reuse: contextDependencies, native proof typing and checkWithKernel in the original local scope. -/
 private def discharged (session : KernelSession) (context : OpenContext) (proposition : Expr) :
     TermElabM (Option Bool) := do
   if session.computationOnly then return none
@@ -143,6 +152,12 @@ private def discharged (session : KernelSession) (context : OpenContext) (propos
     let some binding := context.bindings[index]?
       | throwError "a question dependency is outside its complete source context"
     if session.observed.contains binding.id then return none
+  for binding in context.bindings do
+    let type ← inferType binding.expression
+    unless ← isProp type do continue
+    if ← withoutModifyingState (isDefEq type proposition) then
+      checkWithKernel (← mkExpectedTypeHint binding.expression proposition)
+      return some true
   let proposition ← zetaReduce proposition
   if proposition.hasFVar then return none
   Evaluation.decideEvaluated proposition
@@ -270,45 +285,58 @@ private partial def underBindings : Expr → Expr
 
 /-- Only an actual provider invocation establishes new computed data. A kernel completion
 may merely return pure source data, so its receipt alone does not change that source policy. -/
-private def invoked (snapshot : SessionSnapshot) (occurrence : RuntimeId .occurrence) : Bool :=
-  match snapshot.receipt occurrence with
-  | none => false
-  | some receipt => match receipt.association.producer with
-    | .invocation .. => true
-    | .kernel => false
+private def invoked (transaction : CellTransaction) (occurrence : RuntimeId .occurrence) :
+    MetaM Bool := do
+  match ← transaction.completionProducer occurrence with
+  | .error failure => Execute.completionFailure failure
+  | .ok (some (.invocation ..)) => return true
+  | .ok _ => return false
 
 /-- Retain actual computations through aliases, stored fields, captures and selected dependent
 references. Unused source-context values and unrelated access-parent fields are not dependencies.
 Pure written code with no computed captures remains readable from its original definition.
-Reuse: ordinary committed receipts, graph provenance and the existing field/application indices. -/
+Reuse: the cell's admitted completions, its parent receipts and the existing graph indices. -/
 private partial def retainedComputation (codes : Std.HashMap (RuntimeId .program) ClosureCode)
-    (snapshot : SessionSnapshot) (binding : ValueBinding) : Bool := Id.run do
-  let some node := snapshot.graph.find binding.value | return false
-  let computed := retainedComputation codes snapshot
-  let selected := fun (indices : Array Nat) (values : Array (Option ValueBinding)) =>
-    indices.any fun index => (values[index]?.bind id).any computed
-  if invoked snapshot node.origin.occurrence then return true
+    (transaction : CellTransaction) (graph : ValueGraph) (binding : ValueBinding) : MetaM Bool := do
+  let some node := graph.find binding.value | return false
+  let computed := retainedComputation codes transaction graph
+  let selected := fun (indices : Array Nat) (values : Array (Option ValueBinding)) => do
+    for index in indices do
+      if let some value := values[index]?.bind id then
+        if ← computed value then return true
+    return false
+  if ← invoked transaction node.origin.occurrence then return true
+  for dependency in binding.sourceDependencies ++ node.origin.sourceDependencies do
+    if ← computed dependency then return true
   for application in binding.applications do
-    if invoked snapshot application.association.occurrence then return true
-    if selected application.association.contextDependencies application.applicationParameters ||
-        selected application.association.dependencies application.arguments then return true
+    if ← invoked transaction application.association.occurrence then return true
+    if ← selected application.association.contextDependencies application.applicationParameters then
+      return true
+    if ← selected application.association.dependencies application.arguments then return true
   for field in binding.instantiations do
-    if invoked snapshot field.association.occurrence then return true
-    if selected field.field.precedingDependencies field.preceding then return true
+    if ← invoked transaction field.association.occurrence then return true
+    if ← selected field.precedingDependencies field.preceding then return true
   let (dependencies, parameters) := match node.origin.application with
     | none => (node.origin.role.contextDependencies, node.origin.parameters)
     | some application => (application.contextDependencies, application.parameters)
-  if selected dependencies parameters then return true
+  if ← selected dependencies parameters then return true
   if let some application := node.origin.application then
-    if selected application.dependencies application.arguments then return true
+    if ← selected application.dependencies application.arguments then return true
   match node.payload.data with
   | .closure program captures =>
     if codes[program]? matches some (.family ..) then return true
-    return captures.any computed
+    for capture in captures do
+      if ← computed capture then return true
+    return false
   | .ownedToken .. => return true
-  | .product fields => return fields.any computed
+  | .product fields =>
+    for field in fields do
+      if ← computed field then return true
+    return false
   | .container value =>
-    return (value.slots.map (·.binding) ++ value.fields.getD #[] ++ value.callable.toArray).any computed
+    for field in value.slots.map (·.binding) ++ value.fields.getD #[] ++ value.callable.toArray do
+      if ← computed field then return true
+    return false
   | .portable _ => return false
 
 /-- The result of one statement: its outcome, the session after it and, for a question,
@@ -317,6 +345,9 @@ structure StatementRun where
   outcome : Outcome
   session : KernelSession
   proposition : String := ""
+  /-- Exact source documents already formed at this statement's authorized reading boundary.
+  These remain inert even when an explicit local proof avoids a runtime request. -/
+  sourceObservations : Array Json := #[]
 
 /-- The heartbeat limit of one statement, in thousands. Functional work may use any heartbeat
 limit that it needs (constitution C21); the limit stays finite so that a statement that does not
@@ -331,11 +362,29 @@ private def definedName? (statement : TSyntax `cas_stmt) : Option String :=
     if name.isIdent then some name.getId.toString else none
   | _, _ => none
 
-/-- Run one public statement through the production reader, lowerer and executor.
-A definition extends the source session and retains its computed value for later statements.
-A question is discharged in Lean when it is decidable there, and is otherwise computed.
-Each statement is one cell: its results are published together or not at all. -/
-opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stmt) :
+/-- Begin only at the original computational branches. Standalone source-only statements keep
+their existing Environment without allocating an empty transaction or output batch. -/
+private def beginStatement (session : KernelSession) (external : Option CellTransaction) :
+    MetaM CellTransaction := do
+  match external with
+  | some transaction => return transaction
+  | none => CellTransaction.begin session.kernel.ledger
+
+/-- Only the standalone entrance owns this statement's settlement. Its finalizer also releases
+an active cell if native comparison fails after execution; successful commit makes abort inert. -/
+private def withStatementCell {α : Type} (external : Option CellTransaction)
+    (transaction : CellTransaction) (action : TermElabM α) : TermElabM α := do
+  try
+    let result ← action
+    if external.isNone then discard <| commit transaction
+    return result
+  finally
+    if external.isNone then discard <| (transaction.abort : BaseIO Bool)
+
+/-- One reader/lowerer/executor path. The optional transaction is private: only runIn supplies
+it, and standalone run retains the original statement-level publication boundary. -/
+private def runStatement (session : KernelSession) (external : Option CellTransaction)
+    (statement : TSyntax `cas_stmt) :
     TermElabM StatementRun :=
   withCurrHeartbeats <|
   withTheReader Core.Context (fun context => { context with maxHeartbeats := statementHeartbeats * 1000 }) do
@@ -343,12 +392,22 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
   CasCompiler.setPreferredRoutes
     (session.kernel.manifest.registrations.flatMap (·.preferredRoutes))
   let saved ← saveState
+  let mut sourceObservations : Array Json := #[]
   try
+    if let some transaction := external then
+      unless transaction.id.worker == session.kernel.ledger.owners.worker do
+        Execute.completionFailure (.reservation .wrongWorker)
+      match ← transaction.viewAt (← SessionSnapshot.current) with
+      | .error failure => Execute.completionFailure failure
+      | .ok _ => pure ()
     match ← session.source.readStatement statement with
+    | .assumption next =>
+      return { sourceObservations, outcome := .holds, session := { session with source := next } }
     | .definition next value =>
       let some entry := next.context.entries.back?
         | throwError "internal: a source definition added no declaration"
       let sourceSnapshot := some (SourceSnapshot.snapshot next value (some entry))
+      sourceObservations := sourceSnapshot.toArray
       next.context.withOpen fun bindings => do
         let context ← ContextTelescope.capture bindings
         let expression ← value.source.inContext context
@@ -357,15 +416,22 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
         unless formal do
           if let some outcome ← failedComputation session context expression then
             let unavailable := session.unavailable.push (entry.id, entry.userName, outcome)
-            return { outcome, session := { session with source := next, unavailable } }
-        let transaction ← CellTransaction.begin session.kernel.ledger
-        let (binding, computed) ← try
+            return {
+              sourceObservations, outcome
+              session := { session with source := next, unavailable } }
+        let transaction ← beginStatement session external
+        let (binding, computed) ← try withStatementCell external transaction do
             let binding ← if formal then pure none else
               pure (some (← session.kernel.run transaction context session.bound expression
                 sourceSnapshot))
             let codes ← session.kernel.codes.get
-            let published ← commit transaction
-            pure (binding, binding.any (retainedComputation codes published))
+            let graph ← match ← transaction.viewAt (← SessionSnapshot.current) with
+              | .ok graph => pure graph
+              | .error failure => Execute.completionFailure failure
+            let computed ← match binding with
+              | some value => retainedComputation codes transaction graph value
+              | none => pure false
+            pure (binding, computed)
           catch error =>
             -- A read definition keeps its meaning when its computation is a gap or unavailable
             -- at execution or commit (constitution C3); failed runtime data are never published.
@@ -373,36 +439,44 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
             let outcome ← Outcome.ofException error
             if outcome.fails then throw error
             let unavailable := session.unavailable.push (entry.id, entry.userName, outcome)
-            return { outcome, session := { session with source := next, unavailable } }
+            return {
+              sourceObservations, outcome
+              session := { session with source := next, unavailable } }
         -- Every successfully produced value keeps its exact source binding for later inputs.
-        -- Actual committed producer/capture provenance controls proof discharge separately.
+        -- Actual admitted producer/capture provenance controls proof discharge separately.
         let bound := match binding with
           | some binding => session.bound.insert entry.id binding
           | none => session.bound
         let observed := if computed then session.observed.insert entry.id else session.observed
-        return { outcome := .holds, session := { session with source := next, bound, observed } }
+        return {
+          sourceObservations, outcome := .holds
+          session := { session with source := next, bound, observed } }
     | .settled values =>
+      sourceObservations := values.map (SourceSnapshot.snapshot session.source ·)
       let shown ← session.source.context.withOpen fun bindings => do
         let context ← ContextTelescope.capture bindings
         values.mapM fun value => do
           return toString (← ppExpr (← value.source.inContext context))
-      return { outcome := .holds, session,
-               proposition := s!"settled: {" and ".intercalate shown.toList}" }
+      return {
+        sourceObservations, outcome := .holds, session
+        proposition := s!"settled: {" and ".intercalate shown.toList}" }
     | .implemented value =>
-      -- The value is computed in its own cell. A gap or a failed computation is the outcome.
+      -- The value uses the caller's cell, or its own standalone statement cell.
       let sourceSnapshot := some (SourceSnapshot.snapshot session.source value)
+      sourceObservations := sourceSnapshot.toArray
       session.source.context.withOpen fun bindings => do
         let context ← ContextTelescope.capture bindings
         let expression ← value.source.inContext context
         let shown := toString (← ppExpr expression)
         if let some outcome ← failedComputation session context expression then
-          return { outcome, session, proposition := shown }
-        let transaction ← CellTransaction.begin session.kernel.ledger
-        discard <| session.kernel.run transaction context session.bound expression sourceSnapshot
-        discard <| commit transaction
-        return { outcome := .holds, session, proposition := shown }
+          return { sourceObservations, outcome, session, proposition := shown }
+        let transaction ← beginStatement session external
+        withStatementCell external transaction do
+          discard <| session.kernel.run transaction context session.bound expression sourceSnapshot
+        return { sourceObservations, outcome := .holds, session, proposition := shown }
     | .question proposition =>
       let sourceSnapshot := some (SourceSnapshot.snapshot session.source proposition)
+      sourceObservations := sourceSnapshot.toArray
       session.source.context.withOpen fun bindings => do
         let context ← ContextTelescope.capture bindings
         let asked ← proposition.source.inContext context
@@ -410,9 +484,10 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
         let settled ← discharged session context asked
         if settled.isNone then
           if let some outcome ← failedComputation session context asked then
-            return { outcome, session, proposition := shown }
-        let transaction ← CellTransaction.begin session.kernel.ledger
-        let outcome ← match settled with
+            return { sourceObservations, outcome, session, proposition := shown }
+        let transaction ← beginStatement session external
+        let outcome ← withStatementCell external transaction do
+          match settled with
           | some true => pure .holds
           | some false => pure (.wrong "Lean decides the negation of the statement")
           | none =>
@@ -424,17 +499,17 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
                 decideComputed session transaction context proposition sourceSnapshot
               | none => compare session transaction context left right sourceSnapshot
             | none => decideComputed session transaction context asked sourceSnapshot
-        discard <| commit transaction
-        return { outcome, session, proposition := shown }
+        return { sourceObservations, outcome, session, proposition := shown }
   catch error =>
     let outcome ← Outcome.ofException error
     saved.restore
     -- A use of a name whose own definition did not read has the outcome of that definition.
     if let some (name, definition) := session.unread.find? fun (name, _) =>
         CasCatalogue.Exception.isUnknownSourceName error name then
-      return { outcome := definition.withDetail
-                 s!"the definition of {name} did not read: {definition.detail}",
-               session }
+      return {
+        sourceObservations, session
+        outcome := definition.withDetail
+          s!"the definition of {name} did not read: {definition.detail}" }
     -- A definition that did not read declares no name. Its declared name is kept with its outcome.
     let session := match definedName? statement with
       | some name => { session with unread := session.unread.push (name, outcome) }
@@ -445,7 +520,29 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
         missingValueOf error id then
       let outcome := definition.withDetail
         s!"{name} has no computed value: {definition.detail}"
-      return { outcome, session }
-    return { outcome, session }
+      return { sourceObservations, outcome, session }
+    return { sourceObservations, outcome, session }
+
+/-- Run one public statement through the production reader, lowerer and executor.
+A definition retains its exact value for later statements. Its standalone computational cell
+publishes as before; source-only assumptions and typing judgements allocate no runtime cell. -/
+opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stmt) :
+    TermElabM StatementRun := runStatement session none statement
+
+/-- Execute in an explicitly supplied cell without committing it. Later statements may consume
+this cell's admitted values, but the returned session is tentative until the caller commits.
+A non-holds outcome aborts the complete cell, so no successful prefix can be published after it.
+The caller keeps its original session on abort and publishes this candidate only after commit. -/
+opaque KernelSession.runIn (session : KernelSession) (transaction : CellTransaction)
+    (statement : TSyntax `cas_stmt) : TermElabM StatementRun := do
+  let belongs := transaction.id.worker == session.kernel.ledger.owners.worker
+  try
+    let result ← runStatement session (some transaction) statement
+    unless result.outcome matches .holds do
+      if belongs then discard <| (transaction.abort : BaseIO Bool)
+    return result
+  catch error =>
+    if belongs then discard <| (transaction.abort : BaseIO Bool)
+    throw error
 
 end CasRuntime

@@ -194,7 +194,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let .ok actualAlias := RuntimeArgument.ofValue graph 0 selectedField retainedMarks
         | throwError "the existing scalar input is outside its graph"
       let aliasRequest ← PreparedRequest.forApplication owners.identities program aliasOccurrence context identity
-        #[selectedSource] #[actualAlias] #[]
+        #[selectedSource] #[actualAlias] #[] (some graph)
       let .ok aliasReservation ← liftM (m := BaseIO) <|
         transaction.reserve aliasOccurrence selected wire.connection #[selectedField]
         | throwError "the returned-reference control could not reserve"

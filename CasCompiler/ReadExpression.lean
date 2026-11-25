@@ -65,6 +65,14 @@ partial def readExpression
     readProjection, fun categoryOf source expected qualification expectedCategory =>
       readExpression categoryOf source expected qualification expectedCategory⟩
 
+/-- Read category parameters with the same recursive reader as all other source applications. -/
+def readCategory (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
+    (source : TSyntax `cas_term) (entry : CasCatalogue.NamedCategoryEntry)
+    (arguments : Array (TSyntax `cas_term)) : TermElabM Expr :=
+  SourceReader.category ⟨categoryOf, source, none, none, none, readProjection,
+    fun categoryOf source expected qualification expectedCategory =>
+      readExpression categoryOf source expected qualification expectedCategory⟩ entry arguments
+
 /-- Read a whole source term. Each variable of a ring `R[v]` that the term writes and uses free is
 bound to that ring's registered generator for this term only.
 Source: the public language contract, "`R[x]`: the polynomials over `R`, whose generator `x`
@@ -124,4 +132,3 @@ def sourceEquation (categoryOf : FVarId → TermElabM (Option NativeSourceCatego
   return (← readExpression categoryOf equation (some (mkSort .zero))).value
 
 end CasCompiler
-

@@ -183,41 +183,105 @@ private def throwUnknownSourceName {α : Type} (name : String) : TermElabM α :=
   throwStratum .invalid
     (MessageData.tagged (unknownSourceNameTag name) m!"unregistered source object: {name}")
 
+-- Test only the independently declared category family, before reading source arguments.
+private def objectParameterCategory (entry : NamedCategoryEntry) (expected : Expr) :
+    TermElabM Bool := withoutModifyingState do
+  discard <| checkedDeclaration entry.declaration
+  let family ← mkConstWithFreshMVarLevels entry.declaration
+  let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
+  unless ← expandSourceStructures parameters do return false
+  let carrier ← mkAppM ``CategoryTheory.Bundled.α #[mkAppN family parameters]
+  isDefEq carrier expected
+
+private def directObjectRows (name : String) (category : Option String)
+    (expected : Option Expr) : TermElabM (Array (ObjectEntry × NamedCategoryEntry)) := do
+  let state ← semanticState
+  let qualified ← category.mapM (selectCategory state)
+  let expected ← expected.mapM fun type => do whnf (← instantiateMVars type)
+  let parameterType := if qualified.isNone then expected.filter (! ·.getAppFn.isMVar) else none
+  let mut rows := #[]
+  for entry in state.objects do
+    unless entry.name == name && (match qualified with
+      | some category => entry.category == category.id
+      | none => parameterType.isSome || unqualifiedObjectName state entry) do continue
+    let #[categoryEntry] := state.categories.filter (·.id == entry.category)
+      | throwError "the source object requires one registered category"
+    if let some expected := parameterType then
+      unless ← objectParameterCategory categoryEntry expected do continue
+    rows := rows.push (entry, categoryEntry)
+  return rows
+
 /-- Select a named source row in an explicit category or independently declared parameter type.
 Reuse: native category declaration telescopes, Lean isDefEq and withoutModifyingState.
 Each candidate check has isolated metavariables; lexical bindings bypass this selection. -/
 opaque selectObject (name : String) (category : Option String) (expected : Option Expr := none) :
     TermElabM (ObjectEntry × NamedCategoryEntry) := do
+  match ← directObjectRows name category expected with
+  | #[entry] => return entry
+  | #[] => throwUnknownSourceName name
+  | _ => throwSemanticAmbiguity m!"source object {name} requires a category qualification"
+
+/-- A source object's own declaration and a literal prefix of its declared refinement route.
+Zero steps denotes the registered row itself; the reader retains its original typed arguments. -/
+structure SourceObjectCandidate where
+  entry : ObjectEntry
+  category : NamedCategoryEntry
+  target : NamedCategoryEntry
+  prefixLength : Nat
+
+/-- Initial contextual candidates, before a source object or its parameters have been formed.
+An unqualified base name may also denote an intermediate object on an authored refinement.
+The terminal boundary remains the registered base named by ObjectRefinement; it is not a new
+intermediate view. Every surviving direct row and proper prefix participates without priority. -/
+opaque sourceObjectCandidates (name : String) (category : Option String) (expected : Option Expr) :
+    TermElabM (Array SourceObjectCandidate) := do
+  let mut candidates := (← directObjectRows name category expected).map fun (entry, category) =>
+    (⟨entry, category, category, 0⟩ : SourceObjectCandidate)
+  -- A qualification selects the registered (name, category) row by the existing naming rule.
+  -- Only unqualified contextual formation adds prefix views; explicit view syntax retains
+  -- its separately selected functor and never reopens an already selected source object.
+  let parameterType ← expected.mapM fun type => do whnf (← instantiateMVars type)
+  if category.isNone then
+    if let some expected := parameterType.filter (! ·.getAppFn.isMVar) then
+      let state ← semanticState
+      for base in state.objects do
+        unless base.name == name && base.refines.isNone do continue
+        let #[baseCategory] := state.categories.filter (·.id == base.category)
+          | throwError "the named source base requires one registered category"
+        for entry in state.objects do
+          let some refinement := entry.refines | continue
+          unless entry.name == name && refinement.base == base.id do continue
+          let #[source] := state.categories.filter (·.id == entry.category)
+            | throwError "the source refinement requires one registered category"
+          let some steps := state.routeEdges? source.expression baseCategory.expression
+              refinement.route
+            | throwError "the source refinement lost its declared carrier route"
+          for count in [:steps.size] do
+            let target ← if count == 0 then pure source.expression else do
+              let some step := steps[count - 1]?
+                | throwError "the source refinement lost its selected prefix boundary"
+              pure step.target
+            for targetEntry in state.categories do
+              unless targetEntry.expression.syntacticEq target do continue
+              unless ← objectParameterCategory targetEntry expected do continue
+              if candidates.any fun candidate => candidate.entry.id == entry.id &&
+                  candidate.prefixLength == count && candidate.target.id == targetEntry.id then
+                continue
+              candidates := candidates.push ⟨entry, source, targetEntry, count⟩
+  if candidates.isEmpty then
     let state ← semanticState
-    let qualified ← category.mapM (selectCategory state)
-    let expected ← expected.mapM fun type => do whnf (← instantiateMVars type)
-    let parameterType := if qualified.isNone then
-        expected.filter (! ·.getAppFn.isMVar)
-      else none
-    let entries := state.objects.filter fun entry =>
-      entry.name == name && match qualified with
-        | some category => entry.category == category.id
-        | none => parameterType.isSome || unqualifiedObjectName state entry
-    let entries ← entries.filterM fun entry => do
-      let #[categoryEntry] := state.categories.filter (·.id == entry.category)
-        | throwError "the source object requires one registered category"
-      if let some expected := parameterType then withoutModifyingState do
-        discard <| checkedDeclaration categoryEntry.declaration
-        let family ← mkConstWithFreshMVarLevels categoryEntry.declaration
-        let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
-        let carrier ← mkAppM ``CategoryTheory.Bundled.α #[mkAppN family parameters]
-        isDefEq carrier expected
-      else return true
-    let entry ← match entries with
-      | #[entry] => pure entry
-      | #[] => throwUnknownSourceName name
-      | _ => throwSemanticAmbiguity m!"source object {name} requires a category qualification"
-    let #[categoryEntry] := state.categories.filter (·.id == entry.category)
-      | throwError "the source object requires one registered category"
-    return (entry, categoryEntry)
+    let matching := (state.objects.filter (·.name == name)).map fun entry =>
+      (entry.id.raw, entry.category.raw, entry.refines.map (·.base.raw),
+        unqualifiedObjectName state entry)
+    IO.eprintln s!"[source-object-empty] name={reprStr name}, qualification={reprStr category}, \
+      expected={reprStr expected}, normalizedExpected={reprStr parameterType}, \
+      matchingRows={reprStr matching}"
+    throwUnknownSourceName name
+  return candidates
 
 inductive SourceNamedEntry where
   | registered (entry : ObjectEntry ⊕ MorphismEntry) (category : NamedCategoryEntry)
+  | objects (candidates : Array SourceObjectCandidate)
   | construction (entry : ConstructionEntry)
 
 /-- Select the exact named source kind without a priority between kinds. When a registered
@@ -242,8 +306,7 @@ opaque selectNamed (name : String) (category : Option String) (expected : Option
       | throwSemanticAmbiguity m!"source construction {name} has several registrations"
     return #[.construction entry]
   if morphisms.isEmpty then
-    let (entry, category) ← selectObject name category expected
-    return #[.registered (.inl entry) category]
+    return #[.objects (← sourceObjectCandidates name category expected)]
   let category := fun (id : CategoryId) => do
     let #[categoryEntry] := state.categories.filter (·.id == id)
       | throwError "the source name requires one registered category"

@@ -17,13 +17,15 @@ private def prepare (kernel : Kernel) (transaction : CellTransaction)
   unless arguments.size == values.size do
     throwError "the input-result control omitted an actual argument"
   let graph ← transaction.view
+  let marks ← kernel.marks.get
   let mut actual := #[]
   for value in values, index in [:values.size] do
-    let .ok argument := RuntimeArgument.ofValue graph index value
+    let .ok argument := RuntimeArgument.ofValue graph index value marks
       | throwError "the input-result argument is outside its actual graph"
     actual := actual.push argument
   PreparedRequest.forApplication kernel.ledger.owners.identities program
     (← kernel.ledger.allocate) context callable (← arguments.mapM context.close) actual parameters
+    (some graph)
 
 private def demand (kernel : Kernel) (transaction : CellTransaction)
     (request : PreparedRequest) : MetaM (PreparedResponse request) :=

@@ -17,6 +17,7 @@ private inductive LeaseStatus
   | committed | abandoned
 
 private structure RequestResource where
+  transaction : RuntimeId .transaction
   status : LeaseStatus
   cleanup : Option (Task (Except IO.Error Unit)) := none
 
@@ -24,6 +25,7 @@ private structure FramedState where
   nextRequest : Nat := 0
   active : Option Nat := none
   closed : Bool := false
+  startup : Option (RuntimeId .transaction) := none
   requests : Std.HashMap Nat RequestResource := {}
 
 /-- One actually negotiated process, one native frame permit and resource-only request status. -/
@@ -54,11 +56,20 @@ opaque FramedConnection.close (wire : FramedConnection) : IO Unit := do
 /-- Race negotiation against the caller's explicit deadline, without a computational write.
 Reuse: CasContract.negotiateV2 and the native task/event-loop deadline helper. -/
 opaque FramedConnection.start (owners : OwnerRegistry) (backend : String)
-    (arguments : IO.Process.SpawnArgs) (timeoutMs : UInt32) :
+    (arguments : IO.Process.SpawnArgs) (timeoutMs : UInt32)
+    (admit : Connection → IO Bool := fun _ => pure true)
+    (startup : Option (RuntimeId .transaction) := none) :
     IO (Except PortError FramedConnection) := do
   if timeoutMs == 0 then return .error (.unavailable backend "incompatible_protocol: deadline")
   let connection ← try owners.spawn arguments
     catch error => return .error (.unavailable backend s!"startup: {error}")
+  let admitted ← try admit connection
+    catch error =>
+      owners.close connection.generation
+      throw error
+  unless admitted do
+    owners.close connection.generation
+    return .error (.unavailable backend "cancelled")
   let negotiation ← IO.asTask (prio := .dedicated) <|
     negotiateV2 backend connection.child.stdin connection.child.stdout
   let result ← awaitBefore negotiation timeoutMs
@@ -66,7 +77,8 @@ opaque FramedConnection.start (owners : OwnerRegistry) (backend : String)
   | some (.ok (.ok ready)) =>
     unless ← owners.isLive connection.generation do
       return .error (.unavailable backend "incompatible_protocol: connection_lost")
-    return .ok ⟨connection, backend, ready, owners, ← Std.Semaphore.new 1, ← Std.Mutex.new {}⟩
+    return .ok ⟨connection, backend, ready, owners, ← Std.Semaphore.new 1,
+      ← Std.Mutex.new { startup }⟩
   | none =>
     owners.close connection.generation
     return .error (.unavailable backend "incompatible_protocol: deadline")
@@ -104,6 +116,36 @@ opaque FramedConnection.isDraining (wire : FramedConnection) : BaseIO Bool :=
       | .draining | .discardQueued | .discarding => true
       | _ => false
 
+private def RequestResource.unfinished (resource : RequestResource) : Bool :=
+  match resource.status with
+  | .allocated | .sent | .draining | .received | .discardQueued | .discarding => true
+  | _ => false
+
+/-- Resource-only activity of this exact cell, including its surviving frame drainers. -/
+opaque FramedConnection.transactionBusy (wire : FramedConnection)
+    (transaction : RuntimeId .transaction) : BaseIO Bool :=
+  wire.state.atomically do
+    let state ← get
+    return !state.closed && (state.startup == some transaction ||
+      state.requests.any (fun _ resource =>
+        resource.transaction == transaction && resource.unfinished))
+
+/-- Close only when an unfinished lease of the target still uses this generation.
+The status decision blocks any later allocation before process termination outside the mutex.
+Closing the generation invalidates all values owned by it, including older committed values. -/
+opaque FramedConnection.forceTransaction (wire : FramedConnection)
+    (transaction : RuntimeId .transaction) : IO Bool := do
+  let close ← wire.state.atomically do
+    let state ← get
+    let attributed := state.startup == some transaction ||
+      state.requests.any (fun _ resource =>
+        resource.transaction == transaction && resource.unfinished)
+    if state.closed || !attributed then return false
+    set { state with closed := true }
+    return true
+  if close then return ← wire.owners.closeIfLive wire.connection.generation
+  return false
+
 /-- Allocate under the held frame permit. IDs remain consumed even if dispatch later fails. -/
 opaque FramedConnection.beginRequest (wire : FramedConnection)
     (transaction : RuntimeId .transaction) (occurrence : RuntimeId .occurrence) :
@@ -117,8 +159,8 @@ opaque FramedConnection.beginRequest (wire : FramedConnection)
       throw <| IO.userError "the connection cannot allocate this request"
     let id := state.nextRequest
     set { state with
-      nextRequest := id + 1, active := some id,
-      requests := state.requests.insert id { status := .allocated } }
+      nextRequest := id + 1, active := some id, startup := none,
+      requests := state.requests.insert id { transaction, status := .allocated } }
     return .ok ⟨id, transaction, occurrence, wire⟩
 
 opaque RequestLease.markSent (lease : RequestLease) : BaseIO Bool :=
@@ -134,7 +176,8 @@ opaque RequestLease.abandon (lease : RequestLease) : BaseIO Unit :=
     let state ← get
     let some resource := state.requests[lease.requestId]? | return
     let .allocated := resource.status | return
-    set { state with requests := state.requests.insert lease.requestId { status := .abandoned } }
+    set { state with
+      requests := state.requests.insert lease.requestId { resource with status := .abandoned } }
 
 /-- Decide whether the completed frame still belongs to an active request or must be drained. -/
 opaque RequestLease.readCompleted (lease : RequestLease) : BaseIO Bool :=
@@ -179,8 +222,11 @@ private def discardOnPermit (lease : RequestLease) : IO Unit := do
     wire.close
     pure (.error error.toString)
   wire.state.atomically do
-    modify fun state => { state with requests := state.requests.insert lease.requestId {
-      status := match outcome with | .ok () => .discarded | .error reason => .discardFailed reason } }
+    let state ← get
+    let some resource := state.requests[lease.requestId]? | return
+    set { state with requests := state.requests.insert lease.requestId { resource with
+      status := match outcome with | .ok () => .discarded | .error reason => .discardFailed reason
+      cleanup := none } }
 
 /-- Finish cleanup while retaining the original outstanding frame's permit. -/
 opaque RequestLease.discardAfterDrain (lease : RequestLease) : IO Unit :=
@@ -194,7 +240,7 @@ opaque RequestLease.cancel (lease : RequestLease) : BaseIO Unit :=
     let state ← get
     let some resource := state.requests[lease.requestId]? | return
     if state.closed then
-      set { state with requests := state.requests.insert lease.requestId {
+      set { state with requests := state.requests.insert lease.requestId { resource with
         status := .discardFailed "connection_lost" } }
       return
     match resource.status with
@@ -205,10 +251,11 @@ opaque RequestLease.cancel (lease : RequestLease) : BaseIO Unit :=
         lease.wire.acquire
         try discardOnPermit lease
         finally lease.wire.release
-      set { state with requests := state.requests.insert lease.requestId {
+      set { state with requests := state.requests.insert lease.requestId { resource with
         status := .discardQueued, cleanup := some task } }
     | .allocated =>
-      set { state with requests := state.requests.insert lease.requestId { status := .abandoned } }
+      set { state with
+        requests := state.requests.insert lease.requestId { resource with status := .abandoned } }
     | _ => pure ()
 
 opaque RequestLease.canCommit (lease : RequestLease) : BaseIO Bool :=
@@ -231,7 +278,9 @@ private partial def commitLeaseGroups [Monad m] [MonadLiftT BaseIO m]
     if result.isSome then
       let mut state := state
       for lease in group do
-        state := { state with requests := state.requests.insert lease.requestId { status := .committed } }
+        if let some resource := state.requests[lease.requestId]? then
+          state := { state with
+            requests := state.requests.insert lease.requestId { resource with status := .committed } }
       set state
     return result
 

@@ -49,11 +49,31 @@ private def parameters : LowerM (Array RuntimeParameter) := do
       result := result.push parameter
   return result
 
+private def runtimeEnvironment : LowerM RuntimeEnvironment := do
+  let frame ← read
+  let actual ← frame.environment.marks.get
+  let marks ← IO.ofExcept <|
+    (captureContextSourceMarks actual frame.context.telescope).mapError IO.userError
+  RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
+    marks (some (← frame.environment.transaction.view))
+
+private def sourceMarks (sources : Array ClosedTerm) : LowerM (Array (Nat × ValueBinding)) := do
+  let frame ← read
+  let actual ← frame.environment.marks.get
+  let mut marks ← IO.ofExcept <|
+    (captureContextSourceMarks actual frame.context.telescope).mapError IO.userError
+  for source in sources do
+    let selected ← IO.ofExcept <| (captureSourceMarks actual source).mapError IO.userError
+    marks ← IO.ofExcept <| (mergeSourceMarks marks selected).mapError IO.userError
+  return marks
+
 private def origin (expression : Expr) : LowerM ValueOrigin := do
   let frame ← read
   let identities ← supply
   let role ← SourceLayout.ofTerm (← frame.context.close expression)
-  let environment ← RuntimeEnvironment.capture identities.worker frame.context (← parameters)
+  let marks ← IO.ofExcept <|
+    (captureSourceMarks (← frame.environment.marks.get) role.source).mapError IO.userError
+  let environment ← (← runtimeEnvironment).withSourceMarks marks
   environment.origin frame.program (← identities.fresh .occurrence) role
 
 private def stage (expression : Expr) (payload : ValuePayload) : LowerM ValueBinding := do
@@ -148,27 +168,25 @@ private partial def literal? (expression : Expr) : MetaM (Option Json) := do
     return some (.arr packets)
   return some (Json.mkObj [("ctor", toJson name.getString!), ("args", .arr packets)])
 
-private partial def captured (frame : Frame) (marks : Array ValueBinding) (expression : Expr)
+/-- Unmarked source locals retain their already bound computational values. Formal/proof
+entries intentionally have no payload; actual marks are resolved separately and never ignored. -/
+private partial def captured (frame : Frame) (expression : Expr)
     (found : Array ValueBinding) : Array ValueBinding :=
   match expression with
   | .mdata data body =>
-    match markedKey? data with
-    | some key => match marks[key]? with
-      | some value => found.push value
-      | none => found
-    | none => captured frame marks body found
+    if (markedKey? data).isSome then found else captured frame body found
   | .fvar id =>
     match frame.context.bindings.find? (·.expression.fvarId! == id) with
     | some binding => match frame.bound[binding.id]? with
       | some value => found.push value
       | none => found
     | none => found
-  | .app function argument => captured frame marks argument (captured frame marks function found)
+  | .app function argument => captured frame argument (captured frame function found)
   | .lam _ type body _ | .forallE _ type body _ =>
-    captured frame marks body (captured frame marks type found)
+    captured frame body (captured frame type found)
   | .letE _ type value body _ =>
-    captured frame marks body (captured frame marks value (captured frame marks type found))
-  | .proj _ _ value => captured frame marks value found
+    captured frame body (captured frame value (captured frame type found))
+  | .proj _ _ value => captured frame value found
   | _ => found
 
 /-- Retain a checked source term as code with its actual captured references.
@@ -176,8 +194,13 @@ Its fields and applications are lowered when a demand reaches them. -/
 private def closure (expression : Expr) : LowerM ValueBinding := do
   let frame ← read
   let program ← (← supply).fresh .program
-  let captures := captured frame (← frame.environment.marks.get) expression #[]
-  let code := ClosureCode.term (← frame.context.close expression)
+  let source ← frame.context.close expression
+  let marks ← IO.ofExcept <|
+    (captureSourceMarks (← frame.environment.marks.get) source).mapError IO.userError
+  let graph ← frame.environment.transaction.view
+  let marked ← markedSourceReferences (some graph) frame.context marks expression
+  let captures := captured frame expression marked
+  let code := ClosureCode.term source
   frame.environment.codes.modify (·.insert program code)
   stage expression (.closure program captures)
 
@@ -205,7 +228,7 @@ private partial def lower (expression : Expr) : LowerM ValueBinding := do
       let some endpoint := selectedEndpoint? expression
         | throwError "the selected endpoint lost its declared constructor argument"
       let frame ← read
-      let environment ← RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
+      let environment ← runtimeEnvironment
       -- This exact Arrow.mk argument may already name an actual input. Preserve that
       -- reference; otherwise the endpoint remains a descriptor of its selected arrow.
       if ← environment.hasRetainedSource frame.context endpoint then
@@ -423,8 +446,7 @@ private partial def field (owner : Name) (index : Nat) (value : Expr) (name : Me
     unless (descriptorIds (← semanticState) declaration).isEmpty do
       if let some unfolded ← unfoldDefinition? value.consumeMData then
         return ← lower (.proj owner index unfolded)
-  let frame ← read
-  let environment ← RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
+  let environment ← runtimeEnvironment
   let (parent, path) ← projectionSourcePath environment (.proj owner index value)
   if path.isEmpty then return ← project (← lower value) index name
   projectPath (← lower parent) path
@@ -520,7 +542,7 @@ private partial def argumentSource (environment : RuntimeEnvironment) (expressio
 private partial def actualArguments (arguments : Array Expr) :
     LowerM (Array ClosedTerm × Array RuntimeArgument) := do
   let frame ← read
-  let environment ← RuntimeEnvironment.capture (← supply).worker frame.context (← parameters)
+  let environment ← runtimeEnvironment
   let mut values : Array (Nat × ValueBinding) := #[]
   let mut sources : Array Expr := #[]
   for argument in arguments, index in [:arguments.size] do
@@ -545,6 +567,7 @@ private partial def apply (callable : ValueBinding) (arguments : Array Expr) :
   let (closed, actual) ← actualArguments arguments
   let request ← PreparedRequest.forApplication (← supply) frame.program
     (← frame.environment.ledger.allocate) frame.context callable closed actual (← parameters)
+    (some (← frame.environment.transaction.view)) (← sourceMarks closed)
   demand request
 
 private partial def record (expression : Expr) (fields : Array Expr) : LowerM ValueBinding := do
@@ -567,7 +590,8 @@ private partial def stageRecord (expression : Expr) (values : Array ValueBinding
   unless values.size == (layout.fields.filter (·.field.wireIndex.isSome)).size do
     throwError "internal: a source record has a different number of computational fields"
   let mut draft ← frame.environment.transaction.draft
-  let mut selected ← RecordPrefix.begin identities produced.program produced.occurrence layout
+  let mut selected ← RecordPrefix.prepare identities produced.program produced.occurrence layout
+    draft.view produced.sourceMarks
   for value in values do
     let (next, extended, _) ← draft.bindField selected value
     draft := next
@@ -595,6 +619,7 @@ private partial def liftFamily (data : MData) (body : Expr) : LowerM ValueBindin
   let request ← PreparedRequest.forBoundary (← supply) frame.program
     (← frame.environment.ledger.allocate) (.lift family) (← levels.mapM instantiateLevelMVars)
     frame.context closed actual #[] (← parameters)
+    (some (← frame.environment.transaction.view)) (← sourceMarks closed)
   demand request
 
 private partial def application (expression : Expr) : LowerM ValueBinding := do
@@ -625,7 +650,7 @@ private partial def application (expression : Expr) : LowerM ValueBinding := do
     let (closed, actual) ← actualArguments (arguments.extract 0 arity)
     let request ← PreparedRequest.forBoundary (← supply) frame.program
       (← frame.environment.ledger.allocate) (.registered family) levels frame.context closed actual
-      #[] (← parameters)
+      #[] (← parameters) (some (← frame.environment.transaction.view)) (← sourceMarks closed)
     return ← apply (← demand request) (arguments.extract arity arguments.size)
   if let some info := (← getEnv).getProjectionFnInfo? name then
     if info.numParams < arguments.size then

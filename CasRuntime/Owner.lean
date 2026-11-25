@@ -85,8 +85,10 @@ def OwnerRegistry.allAlive (owners : OwnerRegistry) (generations : Array Connect
     BaseIO Bool := do
   return (← owners.atomicallyWhileLive generations (pure ())).isSome
 
-/-- Revoke the generation before terminating its process. Repeated cleanup is inert. -/
-opaque OwnerRegistry.close (owners : OwnerRegistry) (generation : ConnectionGeneration) : IO Unit := do
+/-- Revoke the generation before terminating its process. Return whether this call retired
+an actual live generation; repeated cleanup is inert. The process wait remains outside the lock. -/
+opaque OwnerRegistry.closeIfLive (owners : OwnerRegistry)
+    (generation : ConnectionGeneration) : IO Bool := do
   if generation.worker != owners.worker then
     throw <| IO.userError "connection cleanup belongs to a different worker"
   let child ← owners.state.atomically do
@@ -105,5 +107,10 @@ opaque OwnerRegistry.close (owners : OwnerRegistry) (generation : ConnectionGene
       | .noSuchThing _ code _ =>
         if code == 3 then pure () else throw error
       | _ => throw error
+  return child.isSome
+
+/-- Existing callers need no retirement report. -/
+opaque OwnerRegistry.close (owners : OwnerRegistry) (generation : ConnectionGeneration) : IO Unit :=
+  discard <| owners.closeIfLive generation
 
 end CasRuntime
