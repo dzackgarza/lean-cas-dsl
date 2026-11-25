@@ -30,7 +30,7 @@ Noncomputable source definitions remain mathematics. The independent abstract co
 
 The concrete executor is kernel-owned. It maps a prepared request to the selected live `FramedConnection.invoke`, admits and retains the actual result and continues the compiled program. A generic interpreter taking an unspecified executor callback is not that implementation. Test code may exercise a component with prepared inputs, but cannot establish public compilation/execution by supplying the missing program or executor. Notebook/DSL, public service and derived-computation entrances use this same production path.
 
-The lowerer and executor are developed concurrently against the existing dependent operational signature. Completing full suspension, broad mathematical extensions, preservation proofs, export inventories or independent trials is not a prerequisite to implementing their connection. Every required generic capability nevertheless remains due before kernel readiness.
+The lowerer and the executor are developed against the existing dependent operational signature, each at its position in the task order. Completing full suspension, broad mathematical extensions, preservation proofs, export inventories or independent trials is not a prerequisite to implementing their connection. Every required generic capability nevertheless remains due before kernel readiness.
 
 ## 3. Fixed results, permitted choices and complete continuations
 
@@ -151,7 +151,7 @@ These proofs and independent assessments remain mandatory after functionality un
 | T014, T039, T052, T062, T070, T076, T096 | Full actual machine/compiler/lift/source/higher/infinite/growth/lifecycle arguments after functionality, with original quantifiers and independent source authority. |
 | T104, T078–T082, T105–T110 | Public-only leaf delivery after functional readiness; complete independent frozen trials, coherent final acceptance and final budgets. No early trial or proof gates remaining generic kernel work. |
 
-The owner handoff governs the whole kernel, not a reduced first example. Existing adequate context, intake, values, owners, transactions, scopes and route closure are not rebuilt for another internal checkpoint. An absent source input is assigned precisely to its independent owner; an unfinished consumer is not relabelled missing mathematics. No documentation edit advances implementation or review markers.
+The owner handoff governs the whole kernel, not a reduced first example. Existing adequate context, intake, values, owners, transactions, scopes and route closure are not rebuilt for another internal checkpoint. An absent source input is a lean-categories task before its consumer, and the workstream does it there (section 1); an unfinished consumer is not relabelled missing mathematics. No documentation edit advances implementation or review markers.
 
 ## Source and reuse register
 
@@ -199,6 +199,10 @@ does not thereby gain permission to return an arbitrary candidate of the same Le
 A permitted-choice request requires the independently accepted candidate family, admissibility
 condition and dependent continuation, with the required suppliers and availability stages.
 Preparation retains those declared boundaries and the actual chosen data through later uses.
+Admission of the returned candidate is structural: its mandatory fields, roles, layout and scope
+(section 4.4). The admissibility condition is a mathematical statement. In the kernel, only a
+procedure registered in lean-categories settles it (constitution C22); with no such procedure it
+stays a claim for independent assessment.
 A result type, a runtime supplier tag or a successful computation cannot supply missing choice
 authority. A missing accepted input is a task of lean-categories. The task list names it before
 its consumer, and the workstream does it there as a formalization author, under

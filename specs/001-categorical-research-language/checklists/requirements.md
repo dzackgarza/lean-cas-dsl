@@ -134,7 +134,7 @@ The owning #10 index and architectural issue #85 link the specification. [The ac
 
 # `speckit-clarify` integration and built-in requirements-quality recheck
 
-**Feature:** `001-categorical-research-language` · **2026-11-07**. Current specification: [Part 1](../spec.md), [Part 2](../spec.md).
+**Feature:** `001-categorical-research-language` · **2026-11-07**. Specification of that date, now [spec.md](../spec.md).
 
 The owner's answers were already supplied. Following the [clarification workflow](https://github.com/github/spec-kit/blob/34a0d388eac671d656eb05b125ad3ed6056168ed/templates/commands/clarify.md), no answered question was put back to the owner. The three recorded Q/A entries document existing answers, not three newly asked questions. They are integrated into the actual stories, edge cases, functional requirements, success criteria and entities—not left solely in this report.
 

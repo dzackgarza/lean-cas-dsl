@@ -139,7 +139,7 @@ Owner loss changes computational liveness, not mathematical meaning or immutable
 
 Preserve public syntax/source spans and exact manifest triples. Wire packets remain encodings under independently fixed meanings. Generic scoped fields/callables and explicit lifecycle negotiation do not permit provider-defined schemas or subject mathematics. Delete semantic reconstruction from tags/defaults/trace endpoints/replayed source. Keep prepared recipes, retained lazy callables, actual completed values and receipts distinct.
 
-T007 prepares roles/mandatory slots/observation data; T008–T011 preserve actual values and staging; T014–T015 justify/exercise those boundaries; T018–T023 implement actual scopes/capture/application; T053–T056 implement source-selected interpretation and its mandatory-data errors. T083–T102 implement the notebook/query/display consequences. Current task definitions incorporate those responsibilities; no new task IDs or completion markers are created by this model.
+T116 and T117 carry each runtime occurrence and each reader selection as typed data; T007 prepares fixed-result roles/mandatory slots/observation data; T115 prepares permitted-choice requests (after the lean-categories task T118); T008–T011 preserve actual values and staging; T014–T015 justify/exercise those boundaries; T018–T023 implement actual scopes/capture/application; T053–T056 implement source-selected interpretation and its mandatory-data errors. T083–T102 implement the notebook/query/display consequences. Current task definitions incorporate those responsibilities; no new task IDs or completion markers are created by this model.
 
 ## Sources
 
@@ -163,6 +163,15 @@ Dependent input relations come from the formal declaration and include actual ea
 These are semantic preservation requirements, not a new storage schema, mathematical IR or
 registry. [C23](../../.specify/memory/constitution.md) and MM005–MM010 govern their use.
 
+**Carriers (T116, T117; [research record](research.md)).** A runtime occurrence is a binder of
+the context with a `BindingId`. One table, `bound : BindingId → ValueBinding`, resolves it, and a
+term names an occurrence by its variable. A reader selection is a typed record: the selected
+family with its route, parameters and arguments by reference, and the selected field, endpoint,
+limit, owner and origin. The reader passes it to the lowerer, to delayed code, to
+`ProgramBoundary` and to request preparation. No term metadata carries an occurrence or a
+selection, because reduction and unification erase such nodes. A missing selection is an error
+at the reader.
+
 ## Source uses and prepared inspection
 
 The existing scoped role telescope indexes each mandatory datum by its complete source boundary,
@@ -184,8 +193,9 @@ A native projection of a fixed category or type declaration remains part of the 
 boundary. It does not by itself name a runtime occurrence. This classification follows the
 original accepted declaration and its direct aliases or projections; a published computation
 takes precedence even when it has no arguments or returns a type. An explicitly selected
-occurrence or an already retained actual dependency keeps its required runtime reference; any
-supplied declaration-key association is checked against that same reference.
+occurrence or an already retained actual dependency keeps its required runtime reference, which
+is the binding identity of that occurrence; any association with a declaration that the typed
+selection supplies is checked against that same reference.
 An incidental argument whose native source names the same declaration does not establish such
 an association. Fixed declaration uses and explicit actual dependencies remain distinct.
 
@@ -203,8 +213,8 @@ source operands held opaque. They retain the original occurrence position alongs
 use, including repeated uses and inputs absent from the expanded result. Alias-input positions remain distinct
 from result positions. Source-expression inspection keeps the original expression and its original
 use positions. Explicit source-reference boundaries and selected operands also remain opaque when
-they occur inside a native type. A bare operational mark that reuses an evaluated operand does
-not establish a selected-source identity; it remains on the original term while structural
+they occur inside a native type. The reuse of an evaluated operand does
+not establish a selected-source identity; structural
 correspondence follows the original literal lambda. These inspection steps change no stored
 native expression, type, context or selected reference.
 
