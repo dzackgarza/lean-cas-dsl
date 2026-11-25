@@ -18,6 +18,20 @@
 
 **Order.** The [plan](plan.md#computational-milestones) lists the milestones in order; the next entry gives the rules that produce the list.
 
+## 2026-11-25 — The notebook after the category implementations
+
+**Decision** (owner instruction of 2026-11-25; spec clarification of that date). Kernel readiness F is the kernel with DSL scripts through the public session; it needs no notebook. The notebook (US7, US8) is one functional unit after the category implementations of M4 and before the functional work of M5 and all evidence-only work. Installation (#34) stays in M5.
+
+**Rationale.** The owner's judgment is that the kernel is the hard part. The notebook tasks need the worker of lean-jupyter-kernel on the toolchain of the research image (its T004), and the kernel moves to that toolchain only at T105; with the unit after T105, the worker and its consumers change toolchain together. M5 consumes the unit: the client of #68 runs over the worker.
+
+**Alternatives considered.**
+
+| Alternative | Assessment |
+| --- | --- |
+| Keep the notebook in F. | Rejected by the owner. It also orders consumers on Lean 4.33.0 before the worker tasks that move to the research-image toolchain. |
+| The notebook directly after F, before the category implementations. | Rejected by the owner: the notebook is at the end of the functional order. |
+| The notebook after M5. | Rejected. The client, unit-group and diagnostics tasks of M5 use the worker. |
+
 ## 2026-11-25 — The list of computational milestones
 
 **Decision 1** (constitution C23; FR-042). The milestone list covers all 100 registered categories of lean-categories `443fba9` and the categories that T131 and T133 add. A category with no structural chain to `cat.sets` (51 categories) is implemented after the categories that its formal definition is built from, and after the upstream task that adds a missing structural functor. An atom with no input (`cat.cardinals`, `cat.cardinalities`, `cat.ordinals`, `cat.walking_pair`) is a root.

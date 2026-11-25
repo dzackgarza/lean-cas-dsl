@@ -64,6 +64,10 @@ The owner supplied these answers; no new question was needed. Constitution v4.0.
 - Q: When are the timing records, the test-run logs and the application logs of constitution C24 due? → A: Now. Each test and each computation has a timing record, each test run has a durable log in the repository, and the kernel session writes detailed application logs. This work comes before further kernel tasks. It is not evidence that follows functionality. (FR-043, SC-016.)
 - Q: Who fixes the computed result of a computational milestone? → A: It is not an owner decision. The result is what later work needs from the categories of the milestone in order to rely on them. It comes from the original workloads: the statements whose selected route stays within those categories. One of them or all of them serve. (FR-042.)
 
+### Session 2026-11-25, order of the kernel work and the notebook
+
+- Q: What must work first, and is the notebook part of kernel readiness? → A: The kernel comes first, and DSL scripts (`.cas` files run through the public session) work before anything else. The notebook (User Stories 7 and 8) is a separate functional unit at the end of the functional order: after the category implementations and before evidence-only work. Kernel readiness F needs no notebook. Installation (#34, User Story 13) is late long-tail work.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### Product and delivery scope
@@ -679,7 +683,7 @@ These are mathematical/user concepts, not another storage or capability ontology
 | Independent expectation/assessment | Preserved question/relation and outcome assessed under the required separate author/input boundary. |
 | Qualified observation | Exact or explicitly approximate/truncated result with source, conventions, comparison/error relation and tolerance. |
 | No-implementation outcome | The prescribed outcome of a selected operation that has no eligible realization. It names the operation. The realization policy of the constitution calls it the declared gap; the session reports it with the kind `gap` and the contracts with `noImplementation`. |
-| Kernel readiness (F) | Every required generic kernel capability works through the real public entrances. It is the closure condition of milestone M1 and is observed on kernel behaviour (FR-013). |
+| Kernel readiness (F) | Every required generic kernel capability works through the real public entrances: every DSL script of the acceptance and extension files runs through the public session. It is the closure condition of milestone M1 and is observed on kernel behaviour (FR-013). It needs no notebook. |
 | Kernel checkpoint | One observation of kernel behaviour through the public session, with a protocol peer or an empty manifest (a manifest with no registration). It needs no computed mathematical result and satisfies no user story (SC-014). |
 | Computational milestone | A version milestone of category implementations in structural order, with a stated computed result from the original workloads (FR-042). |
 
@@ -729,7 +733,7 @@ These are targets, not present implementation or review claims. Existing invento
 | Conditional correct composition | Assume primitives meet independently fixed relations; quantify over every promised supported composition/continuation, actual maps and selected choices. Establish preservation/adequacy. Registration/decoding does not establish the primitive premise. |
 | Complete delivery | The actual compatible candidate performs every assigned computation, control, continuation, trial and final resource requirement. A catalogue, rejection, conditional theorem or isolated success is insufficient. |
 
-All three are mandatory and none discharges another. C21 changes their implementation order, not their eventual scope: current fast development feedback first and preserved throughout, with its timing records and logs (FR-043); complete required kernel functionality next; substantial leaf work after F, in the computational milestones of FR-042; evidence-only proofs/assessments/frozen trials and final mathematical performance afterward. Actual mathematical/source/data/owner checks required to execute a function remain part of functionality. A missing mathematical input is a lean-categories task in the task list, which the workstream does there (FR-015). A document review does not authorize a code/CI change or mark any evidence complete.
+All three are mandatory and none discharges another. C21 changes their implementation order, not their eventual scope: current fast development feedback first and preserved throughout, with its timing records and logs (FR-043); complete required kernel functionality next, with DSL scripts first; substantial leaf work after F, in the computational milestones of FR-042; the notebook unit (User Stories 7 and 8) after the category implementations; evidence-only proofs/assessments/frozen trials and final mathematical performance afterward. Actual mathematical/source/data/owner checks required to execute a function remain part of functionality. A missing mathematical input is a lean-categories task in the task list, which the workstream does there (FR-015). A document review does not authorize a code/CI change or mark any evidence complete.
 
 ## Requirement traceability
 

@@ -28,7 +28,7 @@ The production lowerer compiles actual source statements and these computation t
 
 Noncomputable source definitions remain mathematics. The independent abstract computational interface defines the request; unfolding `Classical.choice` does not discover an engine algorithm. In particular, `MonoLift.factor` and `MonoLiftFactorComputation` retain their distinct source roles.
 
-The concrete executor is kernel-owned. It maps a prepared request to the selected live `FramedConnection.invoke`, admits and retains the actual result and continues the compiled program. A generic interpreter taking an unspecified executor callback is not that implementation. Test code may exercise a component with prepared inputs, but cannot establish public compilation/execution by supplying the missing program or executor. Notebook/DSL, public service and derived-computation entrances use this same production path.
+The concrete executor is kernel-owned. It maps a prepared request to the selected live `FramedConnection.invokeControlBefore`, admits and retains the actual result and continues the compiled program. A generic interpreter taking an unspecified executor callback is not that implementation. Test code may exercise a component with prepared inputs, but cannot establish public compilation/execution by supplying the missing program or executor. Notebook/DSL, public service and derived-computation entrances use this same production path.
 
 The lowerer and the executor are developed against the existing dependent operational signature, each at its position in the task order. Completing full suspension, broad mathematical extensions, preservation proofs, export inventories or independent trials is not a prerequisite to implementing their connection. Every required generic capability nevertheless remains due before kernel readiness.
 
@@ -147,7 +147,8 @@ These proofs and independent assessments remain mandatory after functionality un
 | T013, T017–T023, T026–T027 | Concrete production invocation, real projection/application/captures, complete admission, delayed/deferred/suspended continuation, exact realization/outcome behavior. Not an external executor left for tests to supply. |
 | T038, T041–T044, T046, T048–T051, T064 | Public source-to-execution connection, real driver, actual retained results/next use and deletion of transferred reconstruction paths. Driver/lowering do not wait for T039, T079 or broad unrelated mathematics. |
 | T057–T061, T065–T069, T073–T075 | Finish the required classifier/domain/reindexing/higher/infinite/approximate/growth functionality. A first construction or blocked numeral does not define the full work queue. |
-| T028, T083–T093, T097–T101 | Complete truthful released contract, actual notebook and usable inert mathematical interface, all part of kernel readiness. |
+| T028, T100, T101 | Complete truthful released contract and its generated interface, part of kernel readiness. |
+| T083–T093, T010, T097–T099, T325 | Actual notebook and usable inert mathematical interface: the notebook unit, after the category implementations. |
 | T014, T039, T052, T062, T070, T076, T096 | Full actual machine/compiler/lift/source/higher/infinite/growth/lifecycle arguments after functionality, with original quantifiers and independent source authority. |
 | T200–T224, T078–T082, T105–T110 | Public-only leaf delivery after functional readiness; complete independent frozen trials, coherent final acceptance and final budgets. No early trial or proof gates remaining generic kernel work. |
 
