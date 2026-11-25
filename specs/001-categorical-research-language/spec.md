@@ -257,7 +257,7 @@ it does not replace any required computation.
 
 ### References for this part
 
-[C]: https://github.com/dzackgarza/lean-cas-dsl/blob/69613d4f4aec17d5c5f6dd2f28a30c912bc1e9a1/.specify/memory/constitution.md
+[C]: https://github.com/dzackgarza/lean-cas-dsl/blob/main/.specify/memory/constitution.md
 [C22]: https://github.com/dzackgarza/lean-cas-dsl/blob/main/.specify/memory/constitution.md#c22-the-kernel-resolves-computation-leaves-perform-it
 [P]: https://github.com/dzackgarza/lean-cas-dsl/blob/73bfb1110eb319ff6a6689ac5b01e3b2b1ee049d/SPEC.md
 [O]: https://github.com/dzackgarza/lean-cas-dsl/blob/df43c82e939d3b5a54c9b1126abcaa2927c62e3f/specs/owner/intent-discussion.md
@@ -437,7 +437,7 @@ Issue records own work records, diagnostics and evidence. The constitution, the 
 
 Primary/source register: current constitution and its historical ledger; original public-language specification/owner intent; independent mathematical foundations/computational generality; #24 A–F and its trial clarification; #66/#69/#82; #19–#23 scope assignments; existing lifecycle, rendering and development-feedback obligations. Old source pins below identify requirement provenance, not current implementation readiness. C6's route-selection declaration is governed by the current constitution; the pinned agreement text fixes the mathematical comparison rule, not an extra universal decision procedure.
 
-[C2]: https://github.com/dzackgarza/lean-cas-dsl/blob/d790eaaa2689f50c81e40de3c63e9fd420dd56ce/.specify/memory/constitution.md
+[C2]: https://github.com/dzackgarza/lean-cas-dsl/blob/main/.specify/memory/constitution.md
 [S1]: spec.md
 [P]: https://github.com/dzackgarza/lean-cas-dsl/blob/73bfb1110eb319ff6a6689ac5b01e3b2b1ee049d/SPEC.md
 [O]: https://github.com/dzackgarza/lean-cas-dsl/blob/df43c82e939d3b5a54c9b1126abcaa2927c62e3f/specs/owner/intent-discussion.md
