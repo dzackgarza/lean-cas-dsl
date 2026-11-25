@@ -2,7 +2,8 @@
 
 These files are the evidence behind the plan and the task list. Each is a reading of fixed
 revisions and is not kept current. The plan and the task list state the decisions; a record here
-gives the facts and the sources that a decision used.
+gives the facts and the sources that a decision used. A task ID in a record has the meaning of the task list at
+the revision that the record names; the task list gives the current meaning.
 
 | File | Content | Revisions read |
 | --- | --- | --- |
