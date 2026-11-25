@@ -134,7 +134,7 @@ assertions. A cached elaboration is not a fresh external execution.
 
 T114/#84 makes this a current, continuing obligation under C21. A report from an older revision,
 a skipped input or a failed selected run cannot supply a successful current result. T028 publishes
-the source-derived category interface; T104 must preserve the loop at each actual implementation
+the source-derived category interface; T200–T224 must preserve the loop at each actual implementation
 boundary, including operation with unrelated optional engines absent. Shared code and engines
 remain permitted dependencies under C22 and must be stated when claiming locality.
 

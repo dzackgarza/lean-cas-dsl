@@ -269,7 +269,7 @@ separate claims.
 T028 makes the category view directly consumable through the existing exporter and supported
 SDK. Generated signatures/access helpers preserve complete public dependent descriptors when
 the host type system cannot encode them; they neither prove mathematical laws nor create new
-wire encodings. T104 migrates actual implementations and T105 verifies one published compatible
+wire encodings. T200–T224 migrate actual implementations and T105 verifies one published compatible
 tuple. The [dated source finding](001-categorical-research-language/research.md#2026-11-22--runtime-boundary-and-compatible-release)
 identifies an SDK/adapter signature mismatch to repair through those owners. Protocol adoption
 alone does not establish a working category implementation.

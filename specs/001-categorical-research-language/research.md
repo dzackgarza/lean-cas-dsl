@@ -16,7 +16,40 @@
 | Order the computational work by ease of expression or by what a kernel check needs. | Rejected by the owner. The order is mathematical. |
 | A first vertical computational milestone before kernel readiness. | Rejected. The contract is not published until T028, and later tasks still add leaf-facing data (T100). |
 
-**Order.** Computed from the published catalogue (structural functors and classifier forgets, mathematics revision `3f8aedf`); the [plan](plan.md#computational-milestones) has the layers.
+**Order.** The [plan](plan.md#computational-milestones) lists the milestones in order; the next entry gives the rules that produce the list.
+
+## 2026-11-25 — The list of computational milestones
+
+**Decision 1** (constitution C23; FR-042). The milestone list covers all 100 registered categories of lean-categories `443fba9` and the categories that T131 and T133 add. A category with no structural chain to `cat.sets` (51 categories) is implemented after the categories that its formal definition is built from, and after the upstream task that adds a missing structural functor. An atom with no input (`cat.cardinals`, `cat.cardinalities`, `cat.ordinals`, `cat.walking_pair`) is a root.
+
+**Rationale.** A built category's objects and maps are made of objects and maps of its inputs, so its public constructors consume theirs; this is the dependency that a structural functor expresses (C23, functor actions construct their targets).
+
+| Alternative | Assessment |
+| --- | --- |
+| Leave the 51 categories without a place until a milestone needs them. | Rejected. The task is the full roadmap; a category with no place has no task. |
+| Order them by their inferred layer only. | Rejected. The inferred layer ignores the structural functors that the upstream tasks add, and it gives no order for atoms. |
+
+**Decision 2** (C6, FR-016, FR-022). A written ℤ or ℚ in a ring operation has one reading: the commutative ring ℤ forgets to the ring ℤ by `Iso.refl` (lean-categories `Catalogue/Semantics/Algebra/NamedCommutativeRings.lean:33-35`), so the operation families agree definitionally. The milestone list uses the ring rows of the recorded readings.
+
+| Alternative | Assessment |
+| --- | --- |
+| The readings of the kernel report of 2026-11-22 (ℤ a commutative ring, ℚ a field). | Rejected. That reader forms one object candidate of a name; C6 forms every candidate and identifies definitionally equal families. It would add `cat.commutative_rings`, `cat.fields` or `cat.algebras` to the routes of 46 statements with no mathematical cause. |
+
+**Decision 3** (#24, #19, plan "Completion milestones"). V1 statements are the 134 extension statements and the 15 K1 identifiers; a milestone with a V1 statement is M2 and closes on them. The other statements are full B0 and belong to M4: T213 for those in the V1 categories, T214 to T216 for those that need further categories. T217 to T224 hold the categories that no workload statement uses; their statements are the classified Sage computations of #20, #21 and #23. The M4 milestones come after T105 and before the assessments of Part 2 (C21: evidence and final performance after functionality; #19: M4 does not wait for V1 acceptance).
+
+| Alternative | Assessment |
+| --- | --- |
+| Close each M2 milestone on all of its statements. | Rejected. #24 makes complete readings, not every full-B0 computation, a V1 requirement. |
+| Put the M4 milestones after T110. | Rejected. C21 puts evidence-only work after functionality, and #19 does not wait for V1 acceptance. |
+
+**Decision 4** (engine survey; C17). The milestones use the container Sage 11.0.beta5 (source build), GAP 4.16.1 through Sage `libgap`, SymPy 1.14.0, PARI 2.17.4, Singular 4.4.1, and through juliacall Catlab.jl 0.17.7 (pullbacks of finite sets) and Oscar 1.8.2 or Hecke 0.39.22 (modules over polynomial rings, forms over number fields). A cardinal is finite (Sage `cardinality()`) or $\aleph_0$ (a set that Sage puts in `EnumeratedSets` with infinite cardinality).
+
+| Alternative | Assessment |
+| --- | --- |
+| passagemath 10.8.14 in a separate environment. | Rejected. The research container is the reproducible environment and holds Sage; one environment cannot hold both `sage` packages. |
+| CAP (GAP) for pullbacks. | Not chosen. Its limits are recalled in the survey, not read; Catlab's finite-set limits are read. |
+
+**Open.** No engine computes $\aleph_0 \cdot \aleph_0$; the plan states owner question Q1 for the three full-B0 statements that need it.
 
 ## 2026-11-25 — Logs and timing records are current work; attainments; a leaf that asks the kernel
 
@@ -29,7 +62,7 @@
 | Keep T112 after F. | Rejected by the owner. It needs an amendment of C24, and every Part 1 run stays without the required records. |
 | Records now, application logs at M5 with #8. | Rejected by the owner. #8 concerns diagnostics shown to the user, which stay opt-in; the application log is written always. |
 
-**Decision 2** (owner answer of 2026-11-25; FR-042). The stated result of a computational milestone is not an owner choice. It is the set of statements of the original workloads whose selected route stays within the categories implemented through that milestone, and it covers what the later milestones consume. The [plan](plan.md#computational-milestones) lists the statements of Leaves 0.1 and 0.3.
+**Decision 2** (owner answer of 2026-11-25; FR-042). The stated result of a computational milestone is not an owner choice. It is the set of statements of the original workloads whose selected route stays within the categories implemented through that milestone, and it covers what the later milestones consume. The [plan](plan.md#computational-milestones) lists each milestone, and [`research/milestones.md`](research/milestones.md) lists its statements.
 
 **Decision 3** (constitution C22; runtime contract, section 6). When a suspended leaf asks for an operation that no leaf implements, its resume holds the no-implementation outcome for that child, and the leaf continues. C22 says that the kernel returns that outcome to the requesting leaf; a rule that retires the chain keeps the outcome from the leaf. Other child failures retire the chain as before.
 
@@ -92,7 +125,7 @@ normalizations and ordering remain binding.
 **Scheduling and constitutional consequence.** Constitution v3.1.0 elaborates C0/C9/C21/C23/C24
 under the owner's explicit request. T114 establishes current fast feedback immediately and
 maintains it; T028 publishes the generated category interface; T061 completes generic actions
-and later use; T104 delivers actual category implementations and their focused build/public
+and later use; T200–T224 deliver actual category implementations and their focused build/public
 consumer boundaries after F. T105 publishes the compatible tuple, including #90's image port.
 Independent extension/substitution assessment and final mathematical budgets retain their
 existing later owners. These are requirements to implement, not claims that the current system
@@ -125,7 +158,7 @@ The concrete release concern is verified at these sources, without claiming a ru
 
 Importing `cas_port` alone therefore does not identify a protocol version, contrary to the
 report's inference. The actual signature and negotiation requirements determine compatibility.
-T017–T028 repair the exact current contract consumers; T104 migrates retained leaves after F;
+T017–T028 repair the exact current contract consumers; T200–T224 migrate retained leaves after F;
 T105 publishes and exercises the coherent tuple. Do not revive retired T024/T025, add a
 compatibility intermediary, or make complete publication a prerequisite to every runnable
 functional task.
@@ -180,7 +213,7 @@ The retrievals were exact source-path/commit inspections and comparison of the s
 
 ## Concrete consequences, not a deferred architecture question
 
-The current math contract §4 gives the three judgments, processing order, required-slot data and outcome table. Current T007/T021 prepare and enforce actual mandatory computational data; T053–T056 implement the source-faithful closure/selection/error gate and its native first-use argument; T063 retains original comparison controls; T073–T076 preserve growth; T028/T079/T080/T104/T109 prohibit the combined mathematical-authority/leaf assignment in actual handoffs. The plan, model and task bodies were edited in place. These responsibilities are not left for an implementer to ask the owner to decide again.
+The current math contract §4 gives the three judgments, processing order, required-slot data and outcome table. Current T007/T021 prepare and enforce actual mandatory computational data; T053–T056 implement the source-faithful closure/selection/error gate and its native first-use argument; T063 retains original comparison controls; T073–T076 preserve growth; T028/T079/T080/T200–T224/T109 prohibit the combined mathematical-authority/leaf assignment in actual handoffs. The plan, model and task bodies were edited in place. These responsibilities are not left for an implementer to ask the owner to decide again.
 
 No new wire-level `preferredRoute` field, no new choice operation, no new leaf proof reply, no change to expected mathematical questions, and no new acceptance inventory are selected here. Existing prescribed public fields and exact source roles determine the actual computational boundary. Native implementation still owes its complete positive and negative outcomes, original budgets, independent trials and review.
 

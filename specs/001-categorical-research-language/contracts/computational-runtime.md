@@ -47,7 +47,7 @@ Use ASCII decimal UTF-8 byte length, newline, then JSON on dedicated stdin/stdou
  "backend":"diagnostic name","backend_version":"diagnostic version"}
 ```
 
-Validate exact major/contract and all four required features. Extra feature strings are ignored; unknown control fields are rejected. The SDK provides framing even for an immediate-only provider, but the **kernel must implement every advertised generic feature**. Negotiation alone proves none of that behavior. Incompatible/missing negotiation is `unavailable/incompatible_protocol` before computation; no automatic v1 downgrade. T024/T025 bridge work remains retired. Retained leaf migration is T104, by separate public-only authors after kernel readiness.
+Validate exact major/contract and all four required features. Extra feature strings are ignored; unknown control fields are rejected. The SDK provides framing even for an immediate-only provider, but the **kernel must implement every advertised generic feature**. Negotiation alone proves none of that behavior. Incompatible/missing negotiation is `unavailable/incompatible_protocol` before computation; no automatic v1 downgrade. T024/T025 bridge work remains retired. Retained leaf migration is in T200–T224, by separate public-only authors after kernel readiness.
 
 Send `{"op":"hello","protocol":2,"contract":"cas-computation/2"}` and require matching contract with `op:"hello",status:"ok"`. Before acknowledgement only negotiation/shutdown is allowed. Kernel owners come from the actual connection, not names/PIDs returned by a provider.
 
@@ -234,7 +234,7 @@ A leaf `status:"error"` with string kind/message maps to identifiable failed exe
 
 ## 9. Functional work and final evidence
 
-The corrected plan assigns concrete execution to T013/T019–T023/T026, source lowering to T032/T033 and the real public connection to T038. Implement these and all required generic capabilities without a proof/export/frozen-trial gate. Necessary validation and actual scoped/owner checks remain in the code path. Complete kernel readiness precedes substantial public-only T104 migration/glue. No handshake, model or helper-only test counts as readiness.
+The corrected plan assigns concrete execution to T013/T019–T023/T026, source lowering to T032/T033 and the real public connection to T038. Implement these and all required generic capabilities without a proof/export/frozen-trial gate. Necessary validation and actual scoped/owner checks remain in the code path. Complete kernel readiness precedes substantial public-only migration and glue (T200–T224). No handshake, model or helper-only test counts as readiness.
 
 Retain full RX-LIFT maps/comparisons/factors and 22-binding scope, all RX01–RX10 outcomes, 153/134 readings/positives, negatives/environment controls, 17 connected assertions, original 99-root 3×3 question, unchanged-consumer trials and complete real SDK/worker lifecycle observations. C21 permits larger resources during functionality; the original under-60-second and shared 200,000-heartbeat conditions are still mandatory in the last performance/acceptance phase. Do not replace questions, alter expected relations or use higher-limit functional results as proof of final budgets.
 
@@ -261,7 +261,7 @@ Different admitted constructor families must reach the same unchanged applicable
 Required positive combinations execute their complete original continuations. C22 leaves
 algorithm control, established-engine glue and permitted private code reuse with computational
 implementations; public interoperability does not depend on private representation knowledge.
-T104 supplies focused builds and public execution with the actual software dependencies, without
+T200–T224 supply focused builds and public execution with the actual software dependencies, without
 unrelated optional engines. Generated category filtering alone cannot establish that locality.
 
 Provider substitution preserves the full fixed question and independently specified result
