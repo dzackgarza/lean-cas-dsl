@@ -169,7 +169,7 @@ This phase supplements, not replaces, four connected workflows/all 17 assertions
 
 ## 7. Preserved delivery and source provenance
 
-Keep all 153 complete permanent readings, 134 positive extensions and original negatives/environment controls; RX01–RX10 and full RX-LIFT, its 22-binding/shared-200,000-heartbeat scope; original 99-root 3×3 under-60-second computation with full preparation/execution/admission/publication/required-descriptor timing; four actual real-engine workflows/three areas/17 assertions; and both independently chosen frozen-extension directions/all mechanisms. Full B0/parity and later public interfaces retain separate owners. No budget, expected answer, higher scope, contributor isolation or task marker changes here.
+The final denominator and budgets are those of the specification (SC-001 to SC-004, SC-012) and the [fixed inputs](../quickstart.md#fixed-inputs-of-the-final-assessments) of the validation guide. Full B0/parity and later public interfaces retain separate owners.
 
 Current authority: [specification](../spec.md), [constitution](https://github.com/dzackgarza/lean-cas-dsl/blob/main/.specify/memory/constitution.md), current mathematical/runtime contracts linked above, [original lifecycle](https://github.com/dzackgarza/lean-cas-dsl/issues/68#issuecomment-6586827096), [unchanged acceptance](https://github.com/dzackgarza/lean-cas-dsl/issues/24).
 

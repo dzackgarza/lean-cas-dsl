@@ -537,8 +537,7 @@ belong to the same existing owner issues.
 # Implementation and issue references
 
 - [Project constitution](../.specify/memory/constitution.md)
-- [Current Spec Kit artifact index](001-categorical-research-language/plan.md)
+- [Implementation plan and Spec Kit artifact index](001-categorical-research-language/plan.md)
 - [Current architectural decision and status of superseded proposals](001-categorical-research-language/research.md)
-- [Consolidated implementation plan](001-categorical-research-language/plan.md)
 - [Actual selected-data and independent-source contract](001-categorical-research-language/contracts/mathematical-input.md)
 - [Architecture, ownership and evidence](https://github.com/dzackgarza/lean-cas-dsl/issues/10#issuecomment-6574949858)
