@@ -85,7 +85,7 @@ The compiler must produce its requests itself. Manually making an `OperationalPr
 
 ### 3. Execute prepared requests with a kernel-owned concrete executor
 
-T013 owns the production interpreter/dispatcher that supplies the previously missing executor. It must bind a prepared primitive request to the selected live `FramedConnection.invoke`, admit the response at its fixed dependent role, retain it in the active transaction and continue the operational program. A generic handler taking an application-supplied executor is not completion of this task.
+T013 owns the production interpreter/dispatcher that supplies the previously missing executor. It must bind a prepared primitive request to the selected live connection (`FramedConnection.invokeControlBefore`), admit the response at its fixed dependent role, retain it in the active transaction and continue the operational program. A generic handler taking an application-supplied executor is not completion of this task.
 
 T019 provides projection and application of actual stored fields, compiled closures and native callable values. T020 provides actual owner-bound export invocation, including complete published/dependent context and fresh invocation-local capture frames. T021 validates complete replies/exports/captures and request-local disposal. T026 supplies actual exact-demand construction and realization selection, not merely profile parsing or a fixed-point calculation over a graph manufactured by a test. These functions are composed by T013; none is approved by supplying its missing production operation in a test callback.
 
@@ -268,12 +268,13 @@ Computational work is leaf work (constitution C22, C23; FR-042). It has version 
 
 Leaves 0.2 and 0.3 do not depend on each other. Each milestone is vertical: it implements enough of each category on its route for the attainment to hold, through the public interface of that category (constructors, operations, immediate functor actions).
 
-**Questions for lean-categories that this reading raises.** Each is a row of [Upstream inputs recorded as missing](tasks.md#upstream-inputs-recorded-as-missing) with consumer T104. Each becomes a lean-categories task under the rule of the [execution order](tasks.md#execution-order), after confirmation against `main`:
+**Upstream inputs of the milestones.** Read at lean-categories `main` `443fba9`. Each is a task with its issue ([upstream inputs](tasks.md#upstream-inputs-recorded-as-missing)):
 
-- Multiplication is registered three times: `op.monoids.mul`, `op.semirings.mul` and `op.rings.mul`. No multiplication is registered at magmas. A multiplication that rings own does not come from a monoid structure.
-- `cat.partially_ordered_sets` and `cat.totally_ordered_sets` have no structural functor, beside `cat.partial_orders` and `cat.linear_orders`. No category of semilattices is registered.
+- T131 ([lean-categories#193](https://github.com/dzackgarza/lean-categories/issues/193)): `·` is a separate row at monoids, at semirings and at rings, and no operation is at magmas. One multiplication at magmas and one addition at additive magmas, with the richer rows as their restrictions, lets `2 * 3` read its multiplication through the monoid structure of ℤ.
+- T132 ([#194](https://github.com/dzackgarza/lean-categories/issues/194)): the numerals of a ring as the numerals of its underlying semiring.
+- T133 ([#195](https://github.com/dzackgarza/lean-categories/issues/195)): `PartOrd` and `LinOrd` are each registered twice (`cat.partial_orders` and `cat.partially_ordered_sets`; `cat.linear_orders` and `cat.totally_ordered_sets`); preorders, semilattices and lattices are not registered.
 
-`cat.rings` reaches `cat.monoids` by two structural routes (directly, and through semirings). The catalogue has a registered cell between them, `cell.rings.multiplicative_monoid.semiring`; the kernel does not consume registered cells yet (T055, T056).
+`cat.rings` reaches `cat.monoids` by three structural routes: directly, through semirings, and through its additive group read as a group. The registered cell `cell.rings.multiplicative_monoid.semiring` compares the first two. Along the third, `·` denotes the addition of the ring; T131 removes that reading. The kernel does not consume registered cells yet (T055, T056).
 
 **Each implementation** (constitution C23 and the established-implementations policy):
 
