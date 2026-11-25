@@ -208,7 +208,7 @@ The notebook unit (US7, US8) is functional work after the category implementatio
 
 ### Notebook checkpoints
 
-These kernel checkpoints (SC-014) follow the rules of the M1 checkpoints and belong to the notebook unit.
+These kernel checkpoints (SC-014) follow the rules of the M1 checkpoints and belong to the notebook unit. Issue #93 holds their checklist.
 
 | Checkpoint | Observation | Inputs | First observed at the close of |
 | --- | --- | --- | --- |
