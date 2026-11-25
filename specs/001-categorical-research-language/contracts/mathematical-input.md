@@ -141,7 +141,7 @@ These proofs and independent assessments remain mandatory after functionality un
 
 | Tasks | Functional responsibility / later proof owner |
 |---|---|
-| T006–T007, T012 | Exact source computation families, fixed/choice roles, mandatory slots and dependent operational signature. |
+| T006–T007, T012, T115–T118 | Exact source computation families, typed carriers of occurrences and selections, fixed/choice roles, mandatory slots and dependent operational signature. T118 is the lean-categories task that declares the choice fibres; T115 consumes it. |
 | T030–T033 | Complete scoped reading and actual source-statement lowering, with the C22 no-implementation outcome for eliminators and unpublished operations. Not a test-supplied program. |
 | T053–T056 | Reuse exact closure, prepare actual selected data/C6 preference, implement source-licensed agreement and required errors at the program boundary. Native correspondence/completeness proofs are T062, not implementation gates. |
 | T013, T017–T023, T026–T027 | Concrete production invocation, real projection/application/captures, complete admission, delayed/deferred/suspended continuation, exact realization/outcome behavior. Not an external executor left for tests to supply. |
@@ -200,6 +200,7 @@ A permitted-choice request requires the independently accepted candidate family,
 condition and dependent continuation, with the required suppliers and availability stages.
 Preparation retains those declared boundaries and the actual chosen data through later uses.
 A result type, a runtime supplier tag or a successful computation cannot supply missing choice
-authority. Missing accepted input remains an unfulfilled requirement under
-[C1, C9 and C10](../../../.specify/memory/constitution.md#independent-authorship-and-permitted-inputs-c1-c9-c10);
-a kernel author cannot author, commission or prescribe its upstream mathematical repair.
+authority. A missing accepted input is a task of lean-categories. The task list names it before
+its consumer, and the workstream does it there as a formalization author, under
+[the authorship rule](../../../.specify/memory/constitution.md#independent-authorship-and-permitted-inputs-c1-c9-c10):
+from the mathematics, not shaped to the kernel. The kernel, the contract and a leaf do not supply it.
