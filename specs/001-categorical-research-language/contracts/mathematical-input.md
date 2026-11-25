@@ -148,7 +148,7 @@ These proofs and independent assessments remain mandatory after functionality un
 | T038, T041–T044, T046, T048–T051, T064 | Public source-to-execution connection, real driver, actual retained results/next use and deletion of transferred reconstruction paths. Driver/lowering do not wait for T039, T079 or broad unrelated mathematics. |
 | T057–T061, T065–T069, T073–T075 | Finish the required classifier/domain/reindexing/higher/infinite/approximate/growth functionality. A first construction or blocked numeral does not define the full work queue. |
 | T028, T100, T101 | Complete truthful released contract and its generated interface, part of kernel readiness. |
-| T083–T093, T010, T097–T099, T325 | Actual notebook and usable inert mathematical interface: the notebook unit, after the category implementations. |
+| T083–T093, T010, T097–T099, T346–T348, T325 | Actual notebook and usable inert mathematical interface: the notebook unit, after the category implementations. |
 | T014, T039, T052, T062, T070, T076, T096 | Full actual machine/compiler/lift/source/higher/infinite/growth/lifecycle arguments after functionality, with original quantifiers and independent source authority. |
 | The category tasks, T078–T082, T105–T110 | Public-only leaf delivery after functional readiness; complete independent frozen trials, coherent final acceptance and final budgets. No early trial or proof gates remaining generic kernel work. |
 

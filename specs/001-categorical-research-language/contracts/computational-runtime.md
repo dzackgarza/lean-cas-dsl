@@ -144,7 +144,7 @@ Several already eligible root recipes are ambiguous before trying their children
 
 ### 5.3 Immutable realization profiles
 
-`--realization-profile PATH` and notebook startup `CAS_REALIZATION_PROFILE` select computation availability only; absent a file, all are enabled:
+`--realization-profile PATH` and notebook startup `CAS_REALIZATION_PROFILE` select computation availability only. A session start requires both the manifest and the profile: an absent manifest or profile, or a path that does not exist, fails the start (T301), and a check with no leaf names the empty manifest. A profile that enables every realization states `"default":"all"` with no rules:
 
 ```json
 {"format":"cas-realization-profile/1","id":"<run profile>","default":"all",
@@ -236,7 +236,7 @@ A leaf `status:"error"` with string kind/message maps to identifiable failed exe
 
 The corrected plan assigns concrete execution to T013/T019–T023/T026, source lowering to T032/T033 and the real public connection to T038. Implement these and all required generic capabilities without a proof/export/frozen-trial gate. Necessary validation and actual scoped/owner checks remain in the code path. Complete kernel readiness precedes substantial public-only migration and glue (the category tasks). No handshake, model or helper-only test counts as readiness.
 
-Retain full RX-LIFT maps/comparisons/factors and 22-binding scope, all RX01–RX10 outcomes, 153/134 readings/positives, negatives/environment controls, 17 connected assertions, original 99-root 3×3 question, unchanged-consumer trials and complete real SDK/worker lifecycle observations. C21 permits larger resources during functionality; the original under-60-second and shared 200,000-heartbeat conditions are still mandatory in the last performance/acceptance phase. Do not replace questions, alter expected relations or use higher-limit functional results as proof of final budgets.
+The final denominator and budgets are those of the specification (SC-001 to SC-004, SC-012) and the [fixed inputs](../quickstart.md#fixed-inputs-of-the-final-assessments) of the validation guide, with the complete real SDK/worker lifecycle observations. C21 permits larger resources during functionality; higher-limit functional results are no proof of the final budgets.
 
 Sources retained: [current constitution][C], [independent agreement rule](https://github.com/dzackgarza/lean-categories/blob/6c7f6a8f026500da30c00736580c5bd30c87331b/LeanCategories/Catalogue/Registry/operation-agreement.md), [checked computation families](https://github.com/dzackgarza/lean-categories/blob/fc6d3d6961223c75290c93da540c87f17a926cc7/LeanCategories/Catalogue/Registry/Computation.lean); historical contract mechanics [manifest](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/blob/f0431bebeb01c93cc65bb3fdc5bd23d9613e4b31/api/manifest.md), [Port](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/blob/f0431bebeb01c93cc65bb3fdc5bd23d9613e4b31/CasContract/Port.lean), [service](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/blob/f0431bebeb01c93cc65bb3fdc5bd23d9613e4b31/api/kernel-service.md) and [failure strata](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/blob/f0431bebeb01c93cc65bb3fdc5bd23d9613e4b31/CasContract/Failure.lean); [CSLib](https://github.com/leanprover/cslib/blob/3951377e5a3f5772737f11cd62bc5bb6a72f95d1/Cslib/Foundations/Data/PFunctor/Free.lean), [PolyFun](https://github.com/Verified-zkEVM/PolyFun/blob/a5895e454254a400774fa396b64d5b968f0933df/PolyFun/PFunctor/Handler/Stateful.lean), [Lean mutex](https://github.com/leanprover/lean4/blob/v4.33.0/src/Std/Sync/Mutex.lean). These are design/source references, not fresh builds or permission to revive retired bridge work.
 
@@ -268,7 +268,6 @@ Provider substitution preserves the full fixed question and independently specif
 relation. Actual allowed choices and defining maps remain attached to their subsequent uses;
 an independently prescribed exact selection or normalization stays binding. Structural admission
 or agreement between providers does not establish the whole mathematical obligation.
-
 
 The prepared mathematical request fixes the obligation before provider selection. Functor actions
 construct actual target objects and arrows through public interfaces, with selected endpoints.

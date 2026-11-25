@@ -38,7 +38,7 @@
 - [ ] CHK019 Do the specification, plan, tasks, issue work orders and repository entry points preserve the same intrinsic product requirements and authority boundaries rather than an incumbent architecture? Are superseded discovery/coverage/task proposals visibly historical, so a direct link or handoff cannot restore a conflicting operative instruction? [Consistency; Spec §Assumptions; FR-025; Constitution C14, C16; Plan §Concrete production architecture; Research current decision]
 - [ ] CHK020 Are semantic safety under arbitrary provider behavior, conditional correct composition under independently fixed primitive obligations and actual complete delivery distinct mandatory claims? Does fixed-context provider invariance preserve the actual context while allowing distinct legitimate results of a declared choice operation to establish different subsequent selected contexts? Does provider substitution assess the full result relation and actual continuation, preserving both permitted choices and every independently fixed exact selection, normalization or order? [Consistency, Measurability; FR-014, FR-016, FR-022, FR-026, FR-030, FR-033; Spec §Distinct quantifiers and scheduling; Mathematical input §6]
 - [ ] CHK021 Is the boundary between the complete frozen baseline and its authorized additive or replacement contribution consistent across documents, preserving unchanged existing objects/leaves/consumer and expectations without advance knowledge of an unseen contribution or post-choice accommodation? [Consistency; FR-031–FR-032, SC-005; Constitution §Independent extension evidence; Runtime §5.3]
-- [ ] CHK022 Are current V1 execution, complete mathematical reading/discovery scope and subsequent full-B0/parity obligations assigned by exact question and prescribed outcome, preserving K1–K14, all 26 K13 IDs and K3/K14 obligations with distinct completion conditions for #10 and #19? [Consistency, Coverage; Spec §Product and delivery scope; FR-033, FR-039, SC-009, SC-012; Validation entrypoint and original recipe]
+- [ ] CHK022 Are current V1 execution, complete mathematical reading/discovery scope and subsequent full-B0/parity obligations assigned by exact question and prescribed outcome, preserving K1–K14, all 26 K13 IDs and K3/K14 obligations with distinct completion conditions for #10 and #19? [Consistency, Coverage; Spec §Product and delivery scope; FR-033, FR-039, SC-009, SC-012; Validation entrypoint, fixed inputs]
 
 ## Acceptance Criteria Quality
 
@@ -63,7 +63,7 @@
 
 ## Non-Functional Requirements
 
-- [ ] CHK035 Is the original 99-root, 3×3 matrix-kernel workload identified with full preceding scope, measured host, strict under-60-second total, included execution/preparation phases and separately reported installation/build, while distinguishing the historical trace count from a representation constraint? Is current changed-source feedback separately required by FR-041/SC-013/T114, with the existing 300-second loop, genuine rebuild/failure controls and truthful current-run status, without postponing it to final performance? [Clarity, Measurability; FR-040, SC-012; Validation entrypoint and original timing recipe]
+- [ ] CHK035 Is the original 99-root, 3×3 matrix-kernel workload identified with full preceding scope, measured host, strict under-60-second total, included execution/preparation phases and separately reported installation/build, while distinguishing the historical trace count from a representation constraint? Is current changed-source feedback separately required by FR-041/SC-013/T114, with the existing 300-second loop, genuine rebuild/failure controls and truthful current-run status, without postponing it to final performance? [Clarity, Measurability; FR-040, SC-012; Validation entrypoint, fixed inputs]
 - [ ] CHK036 Are the complete RX-LIFT questions and subsequent whole-arrow/factor observations traceable with all 22 prerequisite bindings and one shared 200,000-heartbeat preparation/evaluation allowance, excluding shortened prefixes or partial preparation as substitutes? [Measurability, Traceability; FR-020, FR-040, SC-002–SC-003, SC-012; Validation entrypoint]
 - [ ] CHK037 Are presentation and provenance requirements measurable about one emission per event, automatic mathematical notation, usable fallback, result-local qualifications, opt-in diagnostics and identification of the actual invoked routine through primary documentation or relevant source? [Measurability; FR-038, SC-010; Constitution C15; Notebook contract]
 
@@ -100,7 +100,7 @@ The stable checklist remains CHK001–CHK040; this correction sharpens its exist
 | Mathematical input | [Consolidated source-consumption contract][M] |
 | Runtime | [Consolidated computational contract][R] |
 | Notebook | [Consolidated session contract][N] |
-| Validation | [Current entrypoint, preserving the original command recipe][Q] |
+| Validation | [Current entrypoint and the fixed inputs of the final assessments][Q] |
 | Tasks | [Part 1 and role conventions][T1]; [Part 2, dependencies and coverage][T2] |
 
 [S1]: ../spec.md

@@ -16,7 +16,7 @@
 | Order the computational work by ease of expression or by what a kernel check needs. | Rejected by the owner. The order is mathematical. |
 | A first vertical computational milestone before kernel readiness. | Rejected. The contract is not published until T028, and later tasks still add leaf-facing data (T100). |
 
-**Order.** The [plan](plan.md#computational-milestones) lists the milestones in order; the next entry gives the rules that produce the list.
+**Order.** The [plan](plan.md#computational-milestones) lists the milestones in order; the entry "The list of computational milestones" below gives the rules that produce the list.
 
 ## 2026-11-25 — The notebook after the category implementations
 
@@ -49,7 +49,7 @@
 | --- | --- |
 | The readings of the kernel report of 2026-11-22 (ℤ a commutative ring, ℚ a field). | Rejected. That reader forms one object candidate of a name; C6 forms every candidate and identifies definitionally equal families. It would add `cat.commutative_rings`, `cat.fields` or `cat.algebras` to the routes of 46 statements with no mathematical cause. |
 
-**Decision 3** (owner instruction of 2026-11-25; #24, #19, plan "Computational milestones"). The unit of computational work is one version of one category implementation: each category implementation is a Spec Kit feature of lean-cas-dsl-leaves with the milestones V1 (every spike computation and every statement that kernel V1 requires computed), V2 (the remaining full-B0 statements of #19) and V3 (the classified Sage coverage of #20, #21 and #23). The task list holds one task for each category version, in structural order, V1 of every needed category before any V2. A statement belongs to the version of its last route category (`research/category-scope.md`). The V2 and V3 tasks come after T105 and before the assessments of Part 2 (C21; #19 does not wait for V1 acceptance). The V3 tasks are written when the classification records their statements.
+**Decision 3** (owner instruction of 2026-11-25; #24, #19, plan "Computational milestones"). The unit of computational work is one version of one category implementation: each category implementation is a Spec Kit feature of lean-cas-dsl-leaves with the milestones V1 (every spike computation and every statement that kernel V1 requires computed), V2 (the remaining full-B0 statements of #19) and V3 (the classified Sage coverage of #20, #21 and #23). The task list holds one task for each category version, in structural order, V1 of every needed category before any V2. A statement belongs to the category that owns its rows, at its version (plan, "Statements"; `research/category-scope.md`). The V2 and V3 tasks come after T105 and before the assessments of Part 2 (C21; #19 does not wait for V1 acceptance). The V3 tasks are written when the classification records their statements.
 
 | Alternative | Assessment |
 | --- | --- |
