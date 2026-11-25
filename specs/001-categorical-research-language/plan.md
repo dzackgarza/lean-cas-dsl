@@ -328,13 +328,13 @@ This section records how the source on branch `integration/kernel-v1-20261106` i
 
 Source text runs through `SourceSession.readStatement` (`CasCompiler/ReadSession.lean`, `ReadExpression.lean`; `Read.lean` retains the term-notation facade and public exports) → `CasCompiler.lowerTerm` (`Lower.lean`) → `CasRuntime.Kernel.execute` → the framed provider connection → a retained binding. `#cas` and `#cas_tests` call it through `CasRuntime.KernelSession` (`CasRuntime/Session.lean`). The reader produces native Lean terms whose meaning comes from lean-categories registry rows; it computes nothing. Computation is dispatched to leaves, and without leaves a computational statement ends in `NoImplementation`.
 
-### Source facts added through `9165255`
+### Source facts at `fc7fdf8`
 
-- **Selected data in the reader.** `NativeSourceCategory.limit` and `SourceCategoryBinding.limit` hold the row and the cone of a limit; `sourceLimitLeg?` reads them. A named map states its ends as projections of its own arrow; `declaredEndpoint` (`CasCompiler/SelectedMorphism.lean`) gives the declared end, and each reader rule that inspects the source or target of a map uses it.
+- **Selected data in the reader.** The judgement and the binding of a limit (`NativeSourceLimitSelection`, `SourceLimitSelection`, `CasCompiler/Elaborate.lean:52-88`) hold its row, cone, presentation, diagram and interface with `standardization` and `dataConstructor`; `sourceLimitLeg?` takes the leg from the retained cone. A named map states its ends as projections of its own arrow; `declaredEndpoint` (`CasCompiler/SelectedMorphism.lean`) gives the declared end, and each reader rule that inspects the source or target of a map uses it.
 - **Statements.** `SourceStatement.settled` holds every settled typing judgement of an assertion. `X ⊆ Y` for named sets is such a judgement, settled by `sourceCoercion?`.
 - **Outcomes.** The reader tags an unknown name (`unknownSourceNameTag`); the session keeps the definitions that did not read (`KernelSession.unread`) and reports a use of one as that definition's outcome. The dependency check tags a missing runtime value with its binding (`missingValueTag`).
-- **Trial readings.** `keepTrialAmbiguity` raises an ambiguity that a candidate reading produced; other failures of a trial are discarded.
-- **Aggregate.** `CasCatalogue.lean` does not import `Language`, `Realize`, `Codec` or `Admission`.
+- **Trial readings.** A trial reading propagates every exception and drops only an explicit applicability error; "not applicable" is a typed result of the trial.
+- **Aggregate.** `CasCatalogue.lean` imports none of `Language`, `Realize`, `Codec`, `Admission` directly; `Admission`, `Codec`, `EquationData` and `Resolve` are in its closure through `CasRuntime.Session` (removal steps 4 and 6 of the task list).
 - **Feedback.** `just loop`, `just slow`, `just milestone`, `just stop` (`scripts/feedback.sh`); run records in `timing/`; the acceptance report of a file holds the milliseconds of each statement.
 
 ### Dependency boundaries

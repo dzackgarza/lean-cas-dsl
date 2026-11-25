@@ -19,13 +19,6 @@ gives the facts and the sources that a decision used.
 The task of the planning session is the full roadmap, across all repositories, in Spec Kit form,
 with no decision left for implementation time. This list is what remains. Take the items in order.
 
-1. **Correction rows.** The correction tables of `tasks.md` describe the kernel source of
-   `9165255`. `kernel-row-decisions.md`, section G, lists rows that are stale at `fc7fdf8`. Apply
-   its decisions C to F (derivation path through `CasCompiler/PublishedSource.lean`; the moves out
-   of `CasCatalogue/`; removal of the two repaired limit rows and of item (4) of the T007 note;
-   the recursion guard by the parent chain of a request; two new rows of kernel computation,
-   `CasCompiler/SourceRing.lean:67-73` for T036 and `CasCompiler/SourceLimit.lean:415-420` for
-   T048). Then check every other row against the tip.
 1. **M3, M4 and M5.** 58 requirements of the issues #19 to #24, #66, #69, #82, #85, #91, #68, #34,
    #3, #8 and #13 have no task or only a partial one. Add their requirements to `spec.md` and their
    tasks to `tasks.md`.
