@@ -168,13 +168,29 @@ def git_state(path: Path) -> dict[str, str | bool | list[str] | dict[str, str]]:
 checkout = Path.cwd()
 manifest_path = checkout / "lake-manifest.json"
 manifest = json.loads(manifest_path.read_text())
+resolution = json.loads(subprocess.check_output(
+    ["lake", "--log-level=error", "run", "feedback-context"], text=True))
+resolved = resolution["packages"]
+if not resolved or Path(resolved[0]["path"]).resolve() != checkout.resolve():
+    raise SystemExit("Lake's resolved workspace does not match this checkout")
+manifest_packages = {package["name"].strip("«»"): package for package in manifest["packages"]}
 dependencies = []
-for package in manifest["packages"]:
-    name = package["name"].strip("«»")
-    path = (checkout / manifest.get("packagesDir", ".lake/packages") / name).resolve()
-    if package["type"] == "path":
-        path = (checkout / package["dir"]).resolve()
-    dependencies.append({"name": name, "pin": package.get("rev"), **git_state(path)})
+for package in resolved[1:]:
+    name = package["name"]
+    path = Path(package["path"]).resolve()
+    declared = manifest_packages.get(name)
+    declared_path = None
+    if declared is not None:
+        declared_path = ((checkout / declared["dir"]) if declared["type"] == "path" else
+            (checkout / manifest.get("packagesDir", ".lake/packages") / name
+             / (declared.get("subDir") or ""))).resolve()
+    configuration = Path(package["configuration"])
+    dependencies.append({"name": name, "key": package["key"],
+        "manifest_pin": declared.get("rev") if declared else None,
+        "manifest_path": str(declared_path) if declared_path else None,
+        "matches_manifest_path": path == declared_path,
+        "configuration": str(configuration.resolve()),
+        "configuration_sha256": digest(configuration.read_bytes()), **git_state(path)})
 inputs = sources.copy()
 acceptance = stems.copy()
 if acceptance[:1] == ["--manifest"] and len(acceptance) >= 2:
@@ -199,7 +215,8 @@ environment = {"host": platform.node(), "system": platform.platform(), "machine"
         "CAS_LEAVES", "CAS_REALIZATION_PROFILE", "CAS_LEAF_CONTRACT_PATH", "CAS_SAGE_PYTHON",
         "CAS_GAP_PYTHON") if key in os.environ}}
 workload = {"targets": targets, "acceptance": stems, "inputs": input_hashes,
-            "source": source, "dependencies": dependencies, "environment": environment}
+            "source": source, "dependencies": dependencies, "resolution": resolution,
+            "environment": environment}
 entry = {"utc": datetime.datetime.now(datetime.timezone.utc).isoformat(), "kind": kind,
     "run": Path(out).parent.name, "revision": source["revision"], "dirty": source["dirty"],
     "reason": reason, "command": sys.argv[cursor:], "sources": sources, "log": log,

@@ -109,3 +109,16 @@ lean_exe «cas-axiom-audit» where
 /-- The notebook package's boundary and the demo notebook's cells, elaborated with their expected
 values (generated with `notebooks/demo.ipynb` by `scripts/demo_notebook.py`). -/
 lean_lib CasDslTests
+
+/-- Record Lake's resolved package directories, including CLI package overrides. -/
+script «feedback-context» do
+  let workspace ← getWorkspace
+  let packages := workspace.packages.map fun pkg => Lean.Json.mkObj [
+    ("name", Lean.toJson pkg.prettyName),
+    ("key", Lean.toJson (pkg.keyName.toString (escape := false))),
+    ("path", Lean.toJson pkg.dir.toString),
+    ("configuration", Lean.toJson pkg.configFile.toString)]
+  IO.println <| (Lean.Json.mkObj [
+    ("arguments", Lean.toJson workspace.lakeArgs?),
+    ("packages", .arr packages)]).compress
+  return 0

@@ -7,6 +7,12 @@ phase durations and statuses, overall status, and any reason for a long run. A l
 fresh consumer execution and selected acceptance separately. Its unique directory is
 `.tmp/logs/<UTC>-<command>.<unique>/`, containing `context.json` and `output.log`.
 
+Dependency fingerprints use Lake's loaded workspace, including `--packages` overrides. The
+`resolution` field records the actual package directories, configuration files and Lake arguments.
+Each dependency's `revision`, changed files and untracked hashes describe that selected directory;
+`manifest_pin`, `manifest_path` and `matches_manifest_path` separately describe its relation to the
+checked-in manifest. A manifest pin does not identify an overridden source checkout.
+
 `acceptance.jsonl` records each selected acceptance invocation (`scripts/accept_files.sh`): input
 and manifest hashes, build and worker durations, worker statuses, completeness, outcomes, and the
 report hash. Its unique directory is `.tmp/logs/accept-<UTC>-<unique>/`; `<stem>.json` contains the

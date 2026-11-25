@@ -21,6 +21,33 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class FeedbackTests(unittest.TestCase):
+    def test_dependencies_follow_resolved_package_selection(self) -> None:
+        # Use the same public Lake command as the consumer. With --packages this must
+        # identify the selected sources, not the checkout named by the static manifest.
+        selected = json.loads(subprocess.check_output(
+            ["lake", "--log-level=error", "run", "feedback-context"], cwd=ROOT, text=True))
+        module = "CasCatalogue.FeedbackMissingConsumer"
+        self.assertFalse((ROOT / (module.replace(".", "/") + ".lean")).exists())
+        result = subprocess.run(["just", "loop", module], cwd=ROOT, check=False)
+        self.assertEqual(result.returncode, 2)
+        record = json.loads((ROOT / "timing/runs.jsonl").read_text().splitlines()[-1])
+        self.assertEqual(record["targets"], [module])
+        expected = {package["key"]: package for package in selected["packages"][1:]}
+        actual = {package["key"]: package for package in record["dependencies"]}
+        self.assertEqual(actual.keys(), expected.keys())
+        for key, package in expected.items():
+            with self.subTest(package=key):
+                path = Path(package["path"]).resolve()
+                self.assertEqual(actual[key]["path"], str(path))
+                revision = subprocess.check_output(
+                    ["git", "-C", str(path), "rev-parse", "HEAD"], text=True).strip()
+                self.assertEqual(actual[key]["revision"], revision)
+                self.assertEqual(actual[key]["matches_manifest_path"],
+                                 str(path) == actual[key]["manifest_path"])
+                configuration = Path(package["configuration"])
+                self.assertEqual(actual[key]["configuration"], str(configuration.resolve()))
+        self.assertEqual(record["resolution"], selected)
+
     def test_missing_consumer_invalidates_previous_report(self) -> None:
         module = "CasCatalogue.FeedbackMissingConsumer"
         source = module.replace(".", "/") + ".lean"
