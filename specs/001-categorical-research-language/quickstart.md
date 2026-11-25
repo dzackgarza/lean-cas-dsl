@@ -65,7 +65,7 @@ These are checks of existing requirements and controls, not new independent math
 | Concern | Required behavior | Functional owners / final evidence |
 |---|---|---|
 | Actual cells | Keep selected boundaries, components, direction and required coherence; use their actual action on returned data/maps. Endpoint equality, connectivity and a named cell without its required operations do not suffice. | T055/T056/T061, T043/T044/T049; T052/T062/T063/T106 |
-| Allowed nonunique choices | Use the independently fixed family/supplier/stage and retain the actual candidate and dependent context. No new canonicality or substitution under old maps. | T007/T012/T021/T032/T042; T039/T076/T106 |
+| Allowed nonunique choices | Use the independently fixed family/supplier/stage and retain the actual candidate and dependent context. No new canonicality or substitution under old maps. | T115 (after the lean-categories task T118), with the fixed-result parts of T007/T012/T021/T032/T042; T039/T076/T106 |
 | Missing required data | Established absent semantic selection/accepted agreement has the prescribed error before dependent dispatch. Invalid evidence, interrupted checking, absent realization and omitted candidate fields remain different. No default or theorem of absolute nonexistence is required. | T017/T021/T027/T055/T056; T015/T063/T106 |
 | C6 declared preferred route | Validate a declared selection of a surviving binding and record it with the reading; it asserts no equality. No priority, order, cost or successful-provider fallback. Do not fabricate a preference in an original unresolved protected control. | T017/T055/T056/T028; T063/T106/T109 |
 | Independent authorship | Mathematical comparison/choice families and laws are independently fixed. A leaf only supplies prescribed data/glue; no combined define/formalize/implement assignment or repository-label substitute for input separation. | Actual contribution boundary in T028/T104; T078–T082/T108/T109 |
@@ -99,7 +99,7 @@ This guide alters no acceptance source file or expected answer. It is not a reco
 
 A genuine failure enables correction of the responsible functional boundary immediately; its successful trial/assessment is not an entry prerequisite. Preserve the failure and original question, publish the corrected candidate and rerun affected fixed/notebook observations. Refreeze/repeat affected independent trials under the original fresh-choice/input rules. An exposed regression does not become an unseen trial. Relevant source changes invalidate affected evidence, not the original requirement.
 
-Close #10 only when #66/#69/#24 and every original A–F condition hold together on one compatible source/runtime combination. No helper, reference model, documentation audit, first construction or correct failure report substitutes for required positive functionality or final independent acceptance. This planning reconciliation advances no implementation, reviewer or acceptance marker.
+Record V1 closure at #97 only when #66/#69/#24 and every original A–F condition hold together on one compatible source/runtime combination. #10 stays open for the later scopes. No helper, reference model, documentation audit, first construction or correct failure report substitutes for required positive functionality or final independent acceptance. This planning reconciliation advances no implementation, reviewer or acceptance marker.
 
 ## Working on one capability
 
@@ -110,9 +110,11 @@ compiler/runtime test targets and the complete integration gate retain their sep
 Package provisioning must not occur as a side effect of importing a test or production module.
 
 The connected check starts at the public source entrance and follows the original mathematical
-continuation. For the maintained RX-LIFT diagnostic, its driver must use `CasRuntime.KernelSession`
-and the actual independent manifest, preserving the source statements, all 22 prerequisite
-bindings, selected comparisons and assertion order. The final run retains the original shared
+continuation. For the maintained RX-LIFT diagnostic, its driver must use `CasRuntime.KernelSession`,
+preserving the source statements, all 22 prerequisite
+bindings, selected comparisons and assertion order. Before F, the kernel observation of this input
+(checkpoint M1.4) uses a protocol peer and checks the prepared requests and their operands. The
+computed run after F (T041, T045) uses the actual independent manifest. The final run retains the original shared
 200,000-heartbeat budget; a higher-limit functional diagnostic must be identified as such and
 cannot discharge that final budget.
 Changing the entrypoint is functional migration; the complete independent assessment remains
@@ -768,7 +770,7 @@ The phase records the exact legacy source/binary and runtime library selection, 
 
 The retained `ci_operation_owner_control.py` is a historical comparison tool with hard-coded old `Realize` modules, frozen probe hashes, a baseline kernel tree, and a reviewed old contract override. It is not the new lifecycle runner, and the new plan must not infer notebook safety, arbitrary-input liveness, complete portability, or mathematical correctness from those historical controls.
 
-After the entire fixed V1 combination, full timing checks, actual notebook, new lifecycle checks, and independent assessments succeed together, freeze the whole source/contract/compiler/runtime/consumer/build/engine/assessment baseline. Only then conduct both independently chosen contribution directions through the actual public surface. This plan chooses **no** new leaf or mathematics specimen. No core, contract, consumer, or oracle accommodation is allowed during a trial. A necessary repair requires a new whole-baseline freeze and a fresh contributor choice, while preserving the complete fixed denominator. No shell loop retries failed provider effects.
+T078 to T080 freeze the built functional baseline after F and T105 and conduct both independently chosen contribution directions through the actual public surface. After the entire fixed V1 combination, full timing checks, actual notebook, new lifecycle checks, and independent assessments succeed together, T108 freezes the whole source/contract/compiler/runtime/consumer/build/engine/assessment baseline and repeats the prescribed trials with fresh contributor choices. This plan chooses **no** new leaf or mathematics specimen. No core, contract, consumer, or oracle accommodation is allowed during a trial. A necessary repair requires a new whole-baseline freeze and a fresh contributor choice, while preserving the complete fixed denominator. No shell loop retries failed provider effects.
 
 V1 completion is the conjunction of all assigned requirements and independent assessment, not an accumulation of partial passing scripts. Full B0 and broad Sage parity retain their separate later completion boundaries. The [resolution addendum][resolution] supplies the scoped current-source finite-enclosure, first-hit and comparison argument, and separates partial correctness, conditional progress and actual delivery. It does not establish a universal resolver for arbitrary future higher/recursive routing; a contributor trial that exposes a required unsupported case fails rather than silently narrowing its permitted choices.
 

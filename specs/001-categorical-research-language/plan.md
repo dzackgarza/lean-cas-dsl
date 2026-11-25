@@ -22,7 +22,8 @@ The source/runtime boundary remains categorical and independently specified. A l
 
 | Responsibility | Decision and limit |
 |---|---|
-| Language/runtime | Lean 4.33.0, ordinary checked Lean term formation, source-derived dependent programs, actual runtime value/owner/transaction state. Python supplies the released SDK and notebook client, not a second mathematical interpreter. |
+| Language/runtime | Lean 4.33.0 on the kernel branch (T105 ports it to the toolchain of the research image, #90), ordinary checked Lean term formation, source-derived dependent programs, actual runtime value/owner/transaction state. Python supplies the released SDK and notebook client, not a second mathematical interpreter. |
+| Logs and timing records | FR-043 (constitution C24), current work of Phase 0. `scripts/feedback.sh` writes one record for each run (`timing/runs.jsonl`, `timing/acceptance.jsonl`). T112 adds a record for each test module and each computation and keeps the run logs in the repository. T127 makes the kernel session write an application log of each statement; later tasks extend it with their mechanisms. Diagnostics shown to the user stay opt-in (#8). Forming an object dispatches nothing that no statement has demanded. |
 | Mathematical authority | Independently accepted lean-categories declarations, actual structural/constructor actions, complete operation families and abstract computation interfaces. Kernel/leaf authors do not commission subject mathematics shaped to their implementation. |
 | Operational substrate | Reuse CSLib `PFunctor.FreeM` at `3951377e5a3f5772737f11cd62bc5bb6a72f95d1` and PolyFun stateful handlers at `a5895e454254a400774fa396b64d5b968f0933df`, with compatible Mathlib `db584cd6d46c92f209a44c0f1c829460d327499d`. These libraries provide sequencing, not a CAS lowerer or concrete executor. |
 | Dependency policy | Actual compatible own-organization latest-main inputs at delivery; record exact diagnostic tuples without making every upstream change a new implementation phase. Do not change locks merely to revise this plan. |
@@ -55,9 +56,8 @@ C0, C9, C21, C23 and C24 state source-derived complete category interfaces, sepa
 dependency relations, real locality, continuing feedback and full choice-sensitive assessment.
 No amendment changes an original mathematical question or a final budget. Earlier
 constitution hashes remain historical input provenance.
-A missing mathematical declaration is a task of lean-categories that the workstream does there (C21).
-Kernel work is accepted on kernel behaviour and requires no computed mathematical result (C22).
-Computational work has its own milestones, in the order of the structural scaffolding (C23).
+C24's timing records, test-run logs and application logs are current work (FR-043): C21 puts
+only final performance and self-consistency evidence after functionality.
 
 ## November 17 source-to-result correction
 
@@ -91,7 +91,7 @@ T019 provides projection and application of actual stored fields, compiled closu
 
 Selection of a realization occurs after the mathematical question is fixed. Zero eligible realizations is the specified computational gap, one selects the actual call and multiple remain computational ambiguity. Retain exact primitive/generic/fused identities. Fixed finite demands use the declared grounded analysis; result-dependent demands remain closures until their actual arguments exist. No test-only closure, absent-as-unknown conversion or retry-until-success path supplies the result.
 
-T022/T023 complete deferred requests and adaptive suspension in the same executor, using actual children, scoped captures, released permits, one-resume tokens and exact backward result associations. They depend on the working invocation path; they are not prerequisites to authoring the lowerer or connecting the immediate public path. The story and final kernel are not complete while an advertised generic protocol feature is missing.
+T022/T023 complete deferred requests and adaptive suspension in the same executor, using actual children, scoped captures, released permits, one-resume tokens and exact backward result associations. They depend on the working invocation path; they are not prerequisites to authoring the lowerer or connecting the immediate public path. The story and final kernel are not complete while an advertised generic protocol feature is missing. When a suspended leaf asks for an operation that no leaf implements, the kernel returns the no-implementation outcome to that leaf, and the leaf continues under its own control logic (constitution C22; [runtime contract][R], section 6).
 
 ### 4. Retain the result for the next mathematical use
 
@@ -120,7 +120,7 @@ The stories retain the specification's user outcomes. Shared code is implemented
 | US7 — real notebook | Actual new execution path in worker/client, committed state, cancellation/owner/snapshot rules and inert queries | Connected cells use retained results; explicit execution performs work, inspection performs none; no replay resurrects old choices/owners. |
 | US8 — mathematical discovery/display | Source-derived discovery, retained metadata, once-only mathematical rendering and actual provenance | Users inspect actual selected data and full applicability independently of provider availability, without executing lazy components or executable formatters. |
 
-US2–US6 use the shared production path developed with US1; this dependency is explicit, not a claim that a protocol-only phase is independently executable. Their generic capabilities use that interface in the fixed task order; the interface does not authorize separate active tasks. US7/US8 are real integration, not mock frontends or post-delivery polish.
+US2–US6 use the shared production path developed with US1; this dependency is explicit, not a claim that a protocol-only phase is independently executable. Their generic capabilities use that interface in the fixed task order; the interface does not authorize separate active tasks. US7/US8 are real integration, not mock frontends or post-delivery polish. US9 is Phase 0 of the task list (T114, T112, T127). US10 is delivered by the [computational milestones](#computational-milestones).
 
 ## Completion milestones
 
@@ -132,7 +132,7 @@ functional work earlier while retaining its later proof and acceptance obligatio
 
 | Milestone | Complete observable outcome | Owners and scope |
 | --- | --- | --- |
-| [M0 — Fast edit-to-result feedback](https://github.com/dzackgarza/lean-cas-dsl/milestone/1) | A substantive edit in the current owner rebuilds affected executable dependencies and runs the unchanged public consumer within the normal focused-loop bound. Current diagnostics, failures and timings are truthful. Retain this behavior throughout development. | #84, T114/US9; reuse T016's completed work without treating its historical timing as current readiness. |
+| [M0 — Fast edit-to-result feedback](https://github.com/dzackgarza/lean-cas-dsl/milestone/1) | A substantive edit in the current owner rebuilds affected executable dependencies and runs the unchanged public consumer within the normal focused-loop bound. Current diagnostics, failures and timings are truthful. Retain this behavior throughout development. | #84, T114/US9; reuse T016's completed work without treating its historical timing as current readiness. T112 and T127 (FR-043: timing records, test-run logs, application logs) continue this capability as the first unchecked tasks. |
 | [M1 — Complete generic categorical kernel](https://github.com/dzackgarza/lean-cas-dsl/milestone/2) | F: all Part 1 functionality works through real public entrances, including complete constructions and later use, both functor actions, selected lifting/refinement/comparisons, higher/infinite interfaces, protocol, notebook/lifetime, discovery/display and both directions of growth. Its checks observe kernel behaviour and require no computed mathematical result (constitution C22). It has [checkpoints](#m1-checkpoints). | #92; #66/#69 and #82/#85/#91 supply their functional responsibilities; #86 closes here. The first complete construction is an internal step, not this milestone. |
 | [M2 — V1 category implementations and delivery](https://github.com/dzackgarza/lean-cas-dsl/milestone/3) | The [computational milestones](#computational-milestones) deliver the category implementations in mathematical order. All required V1 category implementations supply actual computations, defining data and later uses through the released contract; publish and build one compatible mathematics/kernel/contract/leaf/notebook tuple. | #93, T104/T105; #90 supplies the research-image toolchain/Mathlib port. |
 | [M3 — Independently accepted V1](https://github.com/dzackgarza/lean-cas-dsl/milestone/4) | All #24 A–F obligations, independent mathematical assessment, preservation arguments, frozen extension trials and original final budgets hold together on the delivered tuple. | #24 and full closure of #66/#69/#82/#85/#91; #97 records #10's unchanged V1 closure condition; the project root remains open through M4/M5. |
@@ -157,20 +157,24 @@ full-B0 completion nor a new mathematical input to broader algorithms.
 
 M1 closes on F. Before F, these checkpoints close one at a time. A checkpoint is one observation of kernel behaviour through the public session `CasRuntime.KernelSession`, on the original source inputs that its row names, with a protocol peer or an empty manifest (constitution C22; SC-014). It closes when the observation holds on the kernel branch. It claims only itself. It satisfies no user story: the acceptance of a story needs computed results and is assessed when the category implementations exist. It checks no task box, and the independent assessment of the same inputs stays in Part 2. Issue #92 holds the checklist.
 
-No checkpoint was evaluated on 2026-11-25. The work on a checkpoint starts with its observation at the current revision; a checkpoint whose observation already holds is checked then. The observation, not a task box, decides.
+The observation of a checkpoint is first made in the closing of the task that its last column names. It is part of that task, so it serves the active task. A checkpoint that does not hold then is observed again at the close of each later task until it holds. A condition on the source text, such as the removal of a mechanism, belongs to the definition of a task (T116, T117, T051, T064) and not to a checkpoint.
 
-| Checkpoint | Observation | Inputs are those of |
-| --- | --- | --- |
-| M1.1 — Typed carriers | No kernel source reads an occurrence or a selection from term metadata, and the occurrence and selection controls of T116 and T117 pass. | T116, T117 |
-| M1.2 — Connected statement path | A source file runs through one session. Each statement is read, lowered and dispatched to a protocol peer at its registered address with its actual operands. The reply is admitted and retained, and a later statement uses that value with no second dispatch. | US1 |
-| M1.3 — Forms of connected calculation | Every statement of the permanent acceptance files reads to its registered meaning. With an empty manifest, each computational statement ends in no implementation at a registered address. No statement ends in an internal error or a reader gap. | US1 |
-| M1.4 — Construction and later use | The original RX-LIFT source with its 22 bindings prepares each lift field, comparison and factor request at the selected lift, with the earlier outputs as operands. The returned object, maps and factor are the operands of the later requests. Two selected limits with one apex keep their own cones. | US2 |
-| M1.5 — Selected structures | The inputs of RX05, RX06 and RX07 select their routes, cells, classifiers and reindexing before dispatch. A required omission is refused with no dispatch. A declared choice-producing operation binds the member that the peer returns (T115). | US3 |
-| M1.6 — Exact, infinite and qualified requests | The RX09 inputs prepare requests that keep the exact source, the tolerance and the full index family. A demand outside an earlier finite display reaches the same retained object. | US4 |
-| M1.7 — Growth | A new accepted declaration reaches an unchanged consumer, and a new generic operation reaches an existing object, with no kernel edit. | US5 |
-| M1.8 — Computational contract | A peer written from the published contract alone uses deferred and suspended service, and an unchanged consumer receives its output. The published interface of T028 matches the built kernel. | US6 |
-| M1.9 — Notebook | The cells of `notebooks/kernel-v1.ipynb` run through the worker and one session: values retained across cells, inert queries, cancellation and owner rules. | US7 |
-| M1.10 — Discovery and display; old path removed | Discovery and inspection read retained data and execute nothing. No public entrance reaches `CasCatalogue/Language.lean` or `CasCatalogue/Realize.lean`. | US8 |
+No checkpoint was evaluated on 2026-11-25. A checkpoint whose observation already holds at the close of its task is checked then. The observation, not a task box, decides.
+
+`RX` inputs are the files of `tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/`. "Tests to add" is the section "Public-path tests to add" of the task list.
+
+| Checkpoint | Observation | Inputs | First observed at the close of |
+| --- | --- | --- | --- |
+| M1.1 — Typed carriers | A different source input of equal value is rejected. Two bindings with equal defining expressions stay distinct through a projection, a substitution and a later call. An absent selection is an error at the reader. Two selected limits with one apex keep their own cones. | The controls of T116 (a), (b) and T117 (a) to (c) | T117 |
+| M1.2 — Connected statement path | A source file runs through one session. Each statement is read, lowered and dispatched to a protocol peer at its registered address with its actual operands. The reply is admitted and retained, and a later statement uses that value with no second dispatch. | `tests/acceptance/sets.cas`: its definitions `A`, `f` and `g` and the later statements that use them | T038 |
+| M1.3 — Forms of connected calculation | Every statement of the permanent acceptance files reads to its registered meaning. With an empty manifest, each computational statement ends in no implementation at a registered address. No statement ends in an internal error or a reader gap. | Every file of `tests/acceptance/*.cas` | T075, the last task that adds a reader or lowerer form |
+| M1.4 — Construction and later use | The original RX-LIFT source with its 22 bindings prepares each lift field, comparison and factor request at the selected lift, with the earlier outputs as operands. The returned object, maps and factor are the operands of the later requests. Two selected limits with one apex keep their own cones. | `rx-lift-prescribed-stages.cas`, `rx-lift-source-comparison.cas`, RX08; the limit statements of `sets.cas` | T049 |
+| M1.5 — Selected structures | The inputs select their routes, cells, classifiers and reindexing before dispatch. A required omission is refused with no dispatch. A declared choice-producing operation binds the member that the peer returns (T115). | RX05, RX06, RX07; an operation that lean-categories#182 registers | T115 |
+| M1.6 — Exact, infinite and qualified requests | The inputs prepare requests that keep the exact source, the tolerance and the full index family. A demand outside an earlier finite display reaches the same retained object. | RX09; the ellipsis, series and approximation statements of the permanent files | T069 |
+| M1.7 — Growth | A new accepted declaration reaches an unchanged consumer, and a new generic operation reaches an existing object, with no kernel edit. | RX01 to RX04; rows T073 and T075 of "Tests to add" | T075 |
+| M1.8 — Computational contract | A peer written from the published contract alone uses deferred and suspended service, and an unchanged consumer receives its output. A peer that asks for an operation with no implementation receives the no-implementation outcome and continues. The published interface matches the built kernel. | RX10; rows T022, T023 of "Tests to add" | T101 |
+| M1.9 — Notebook | The cells run through the worker and one session: values retained across cells, inert queries, cancellation and owner rules. | `notebooks/kernel-v1.ipynb` | T093 |
+| M1.10 — Discovery and display; old path removed | Discovery and inspection read retained data and execute nothing. `#resolve`, `#methods` and `cell%` answer from the new resolver. | The workflow questions of `notebooks/kernel-v1.ipynb`; the commands of `CasDslTests/Cells.lean` | T064 |
 
 ### Issue tree and task order
 
@@ -188,8 +192,10 @@ through every retained phase. V1 completion is recorded by M3/#97 under the unch
 | [#98 — M5](https://github.com/dzackgarza/lean-cas-dsl/issues/98) | #68, #34, #3, #8, #13 |
 
 `itree next` selects the completion owner; the unchecked task order selects the current work
-within its scope. #84/T114 comes first. Close #84 only on its complete current loop evidence;
-later tasks inherit the continuing C21/C24 obligation. Its former full-#85 blocker is obsolete.
+within its scope. #84/T114 came first and is closed on its complete current loop evidence;
+later tasks inherit the continuing C21/C24 obligation. T112 and T127 (FR-043) are the first
+unchecked tasks. They continue that capability under #92 and do not reopen #84. The former
+full-#85 blocker of #84 is obsolete.
 M1 consumes that capability, M2 consumes F, and M3 consumes the delivered candidate. Native
 group blockers prevent a later proof/assessment owner or subsidiary delivery issue from being
 selected ahead of those required inputs.
@@ -235,7 +241,7 @@ private cross-leaf representations.
 
 ## Computational milestones
 
-Computational work is leaf work (constitution C22, C23; FR-042). It has version milestones of its own, separate from the completion milestones above. They start after kernel readiness: the contract that an implementation is written against is published at the end of the kernel work (T028). Each milestone gets its own specification and task list when it starts. Issue #93 holds their checklist; M2 closes when the milestones that V1 requires hold on one published tuple (T105).
+Computational work is leaf work (constitution C22, C23; FR-042). It has version milestones of its own, separate from the completion milestones above. They start after kernel readiness: the contract that an implementation is written against is published by T028, completed by T100 and T101, and released at F. Each milestone gets its own specification and task list when it starts. Issue #93 holds their checklist; M2 closes when the milestones that V1 requires hold on one published tuple (T105).
 
 **Order.** The implementation of a category follows the implementations of the categories that its structural functors and classifier forgets reach. The layers below are computed from the published catalogue of the contract package (`api/declared-ports.json`, mathematics revision `3f8aedf`): its structural functors and its classifier forgets, by the longest chain down to `cat.sets`. The lean-categories revision that the kernel pins (`8c35703`) differs from that revision by additions that add no structural functor or classifier between these categories. The layers were not compared with lean-categories `main`; compute them again from the pinned revision when a milestone starts.
 
@@ -251,16 +257,18 @@ Computational work is leaf work (constitution C22, C23; FR-042). It has version 
 | 7 | commutative rings, division rings, modules over a ring |
 | 8 and above | fields, algebras, bilinear and quadratic modules, lattices |
 
+**Attainment.** The stated result of a milestone comes from the original workloads: the statements whose selected route stays within the categories implemented through that milestone (FR-042). It is what the later milestones consume from those categories. The statements below were found by a search of the published catalogue for their identifiers; the reading at the pinned revision confirms each route when the milestone starts.
+
 | Milestone | Category implementations | Attainment: holds as a computed result |
 | --- | --- | --- |
-| Leaves 0.1 — Sets | sets | Not fixed. A specification question (`/speckit-clarify`) to answer before the milestone starts, from the original workloads (for example a statement of `tests/acceptance/sets.cas` whose route stays in sets). |
+| Leaves 0.1 — Sets | sets | The statements of `tests/acceptance/sets.cas` whose route stays in sets: `rev(3) ∘ rev(3) = id(Fin(3))`, `rev(3, 0) = 2 in Fin(3)` and `rev(4, rev(4, 1)) = 1 in Fin(4)`. The catalogue holds `obj.sets.fin`, `mor.sets.fin_rev`, `num.sets.fin` and `mor.sets.equality`. Together they compute a map, a composite, an application, and the equality of maps and of elements. The equality of elements is the computed predicate that Leaves 0.2 consumes. |
 | Leaves 0.2 — Algebra to rings | magmas, semigroups, monoids, semirings, additive monoids, additive commutative monoids, additive groups, rings: as much of each as the attainment needs | `2 * 3 = 6 in ℤ` (SC-015). ℤ is read as a ring. Its multiplication is reached through a selected monoid structure of that ring (`rings → monoids → semigroups → magmas → sets`). Its numerals are images under the universal map. Its equality is a computed predicate. |
-| Leaves 0.3 — Order structures | partial orders, linear orders | Not fixed. A specification question to answer before the milestone starts. |
-| Later milestones | each further layer, in order | One stated result each, from the original workloads. |
+| Leaves 0.3 — Order structures | partial orders, linear orders | The order statements of RX-01 (`rx01-selected-orders.cas`): `0 ≤ 1 in FinOrder(5)` holds, and `(0 ≤ 1 in ReverseFinOrder(5)) = false`. Two selected orders on one carrier give different answers. The catalogue holds `op.partial_orders.le` and `op.linear_orders.le`. The relation as a computed predicate is what the comprehension `comprehension.elements` of `finite_sets.cas` later consumes on ℤ. |
+| Later milestones | each further layer, in order | The statements of the original workloads whose route stays within the layers implemented so far. |
 
 Leaves 0.2 and 0.3 do not depend on each other. Each milestone is vertical: it implements enough of each category on its route for the attainment to hold, through the public interface of that category (constructors, operations, immediate functor actions).
 
-**Questions for lean-categories that this reading raises.** Each becomes a lean-categories task under the rule of the [execution order](tasks.md#execution-order), after confirmation against `main`:
+**Questions for lean-categories that this reading raises.** Each is a row of [Upstream inputs recorded as missing](tasks.md#upstream-inputs-recorded-as-missing) with consumer T104. Each becomes a lean-categories task under the rule of the [execution order](tasks.md#execution-order), after confirmation against `main`:
 
 - Multiplication is registered three times: `op.monoids.mul`, `op.semirings.mul` and `op.rings.mul`. No multiplication is registered at magmas. A multiplication that rings own does not come from a monoid structure.
 - `cat.partially_ordered_sets` and `cat.totally_ordered_sets` have no structural functor, beside `cat.partial_orders` and `cat.linear_orders`. No category of semilattices is registered.
@@ -269,17 +277,17 @@ Leaves 0.2 and 0.3 do not depend on each other. Each milestone is vertical: it i
 
 **Each implementation** (constitution C23 and the established-implementations policy):
 
-1. Survey the engines and libraries that can supply the operations of the category. The survey is open-ended. Candidates include Sage and passagemath, SymPy, Julia packages, GAP, Macaulay2 and Lean libraries.
-2. Connect the chosen engine. Write no algorithm.
+1. Survey the engines and libraries that can supply the operations of the category. The survey is open-ended. Candidates include Sage and passagemath, SymPy, Julia packages, GAP, Macaulay2 and Lean libraries. Record it as C17 requires: each inspected source and revision, the responsibility that it supplies, the decision and its reasons.
+2. Connect the chosen engine with glue. Hand-roll no algorithm (established-implementations policy). The control logic of an operation is glue and stays with its leaf (C22).
 3. Move existing computation into the category implementation: the registrations of `lean-cas-dsl-leaves` (115 registrations in 11 backends at `49bdfcb`), and each kernel-side evaluation under "Kernel computation (C22)" in the task list.
 
 ## Implementation order and dependency correction
 
-1. Complete T114's current changed-source/public-consumer feedback under #84, preserving it during the remaining work. Then retain adequate existing foundations and prepare the actual source/public driver interfaces. Do not reopen checked setup to produce new receipts. Missing mandatory source/contract inputs are identified precisely, not filled by downstream mathematics.
+1. T114's current changed-source/public-consumer feedback under #84 is complete; preserve it during the remaining work. Complete its timing records, test-run logs and application logs (T112, T127; FR-043). Then retain adequate existing foundations and prepare the actual source/public driver interfaces. Do not reopen checked setup to produce new receipts. A missing mathematical input becomes a lean-categories task before its consumer, and the workstream does it there ([execution order](tasks.md#execution-order)); downstream mathematics never fills it.
 2. Implement T032 lowering and T013's concrete execution composition at their positions in the [task order](tasks.md#execution-order). Functional outputs needed by the executor are T017–T021/T026; source selection is T053–T056. These are parts of one functioning path, not preliminary standalone release projects.
 3. Bind actual results and connect T038; remove transferred fallback paths. T041's real driver is prepared without T039 or broad mathematical coverage as a prerequisite. T027's shared outcome classification does not depend on completing suspension first.
 4. Complete every required generic mechanism, protocol behavior, notebook and discovery/display function. No per-construct export freeze, preservation proof or early contributor trial gates this expansion. Full kernel readiness, not a first scalar or first RX-LIFT, enables substantial leaf work.
-5. Separately situated leaf authors migrate retained implementations and supply remaining required established-engine glue using the actually built released contract. Integration then publishes T105's compatible tuple, including #90. No kernel-informed formalization assignment is bundled into leaf work.
+5. Separately situated leaf authors deliver the category implementations in the order of the [computational milestones](#computational-milestones), as established-engine glue against the actually built released contract. The retained registrations move into those implementations. Integration then publishes T105's compatible tuple, including #90. No kernel-informed formalization assignment is bundled into leaf work.
 6. Complete independent assessment, source-to-machine/correctness arguments, original fixed and frozen-extension observations and the final performance phase on that delivered tuple. Relevant corrections republish the tuple and reexecute affected obligations without weakening them.
 
 The former edges T041←T039, T030←T029, T038←the complete deferred/suspension chain, expansion←T079, and functional construction←self-consistency-only proof/audit tasks are removed in the actual task entries. Proof responsibilities formerly mixed into functional T016/T043/T044/T046/T053–T056/T061 are assigned to T014/T039/T052/T062/T070/T076/T096 as appropriate. Nothing is declared proved by that reassignment. Required source-law validation in an actual invocation remains functional and cannot be omitted.
@@ -325,11 +333,11 @@ The expression reader now assembles typed rule modules, and runtime manifest/con
 
 ### Engineering decisions
 
-Each is a delegated engineering choice (constitution C17). Those that change what a leaf sees must be published by T028.
+Each is a delegated engineering choice (constitution C17), except the kernel-side decisions of equality in rows 3 and 7. Those two contravene C22, and T113 replaces them. Choices that change what a leaf sees must be published by T028.
 
 1. **Arguments of a published operation** are the dependent invocation context of execution contract §4.1 (`kind`, `prepared_role`, `parameters`, `bindings`, `arguments`, `argument_layouts`, `result_layout`). A registered named constant is a descriptor `{"ctor": <catalogue id>, "args": [...]}`.
 2. **Operation address**: the family id, with `#<field>` when the reached field is not the first computational field.
-3. **Named elements**: a generator is the descriptor `<object id>#generator`, a subset literal the descriptor of its `SubsetLiteralEntry` id whose finite set is the array of its elements (each element a retained slot), an admitted element the data of the value it admits under its own role (an element of a subtype is the record whose one field is that value), a numeral the descriptor of its `NumeralEntry` id (`{"ctor": "num.rings", "args": [<ring>, k]}`), each at its explicit parameters. A comparison with a numeral decides the closed equality in Lean.
+3. **Named elements**: a generator is the descriptor `<object id>#generator`, a subset literal the descriptor of its `SubsetLiteralEntry` id whose finite set is the array of its elements (each element a retained slot), an admitted element the data of the value it admits under its own role (an element of a subtype is the record whose one field is that value), a numeral the descriptor of its `NumeralEntry` id (`{"ctor": "num.rings", "args": [<ring>, k]}`), each at its explicit parameters. A comparison with a numeral decides the closed equality in Lean. This contravenes C22: no procedure registered in lean-categories takes part. T113 replaces it (rows T113 of "Kernel computation (C22)" in the task list).
 4. **Delayed families** are closures; realization is selected when an action reaches actual arguments.
 5. **Input forms**: the complete-request form `<id>#input`, plus the exact form of each argument that is a registered named object.
 6. **Retention**: a definition keeps a runtime value when its evaluation dispatched to a provider or its value holds a closure of a published family or provider-owned data (a delayed lift); other definitions, including lambdas and matrix literals the user wrote, are read from their definition.
@@ -338,7 +346,7 @@ Each is a delegated engineering choice (constitution C17). Those that change wha
 
 ## Artifact and source map
 
-The feature directory holds the artifacts: [specification][S1]/[requirements][S2], this plan, [research][F], [data model][D], [mathematical input][M], [runtime][R], [notebook][N], [validation][Q], and [tasks Part 1][T1]/[Part 2][T2]. The original [requirements checklist][CHK] remains reviewer-owned; this plan edit does not approve its markers.
+The feature directory holds the artifacts: [specification][S1]/[requirements][S2], this plan, [research](research.md), [data model][D], [mathematical input][M], [runtime][R], [notebook][N], [validation][Q], and [tasks Part 1][T1]/[Part 2][T2]. The [requirements-quality checklist][CHK] (`checklists/architecture.md`) remains reviewer-owned; this plan edit does not approve its markers.
 
 Production locations remain `CasCompiler/{Context,Elaborate,Read,Resolve,Program,Lower,Correctness}.lean`, `CasRuntime/{Value,Owner,Occurrence,Transaction,Execute,Realization,Inspect,Correctness}.lean`, actual `CasDsl`/`CasCatalogue` public entrances, the released contract/SDK and the actual notebook worker/client. Task locations are implementation responsibility, not an obligation to preserve redundant helpers or match historical file organization.
 

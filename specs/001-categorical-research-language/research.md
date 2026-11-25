@@ -6,7 +6,7 @@
 
 **Decision** (owner instructions of 2026-11-25; constitution v4.0.0; spec clarifications of that date). Kernel work is accepted on kernel behaviour, with a protocol peer or an empty manifest. A computed mathematical result is leaf work and needs an implementation of every category on the selected structural route. Computational work has version milestones of its own, after kernel readiness, in the order of the structural scaffolding of the categories.
 
-**Rationale.** `2 * 3 = 6 in ℤ`: ℤ is a ring, and its multiplication comes from a monoid structure of that ring. A kernel check that obtains 6 without the category implementations from sets up to rings bypasses the structure that the product exists to supply. The released contract is published at the end of the kernel work (T028), so an implementation written earlier is written against an unfinished contract.
+**Rationale.** `2 * 3 = 6 in ℤ`: ℤ is a ring, and its multiplication comes from a monoid structure of that ring. A kernel check that obtains 6 without the category implementations from sets up to rings bypasses the structure that the product exists to supply. The released contract is published by T028, completed by T100 and T101, and released at F, so an implementation written earlier is written against an unfinished contract.
 
 **Alternatives considered.**
 
@@ -17,6 +17,21 @@
 | A first vertical computational milestone before kernel readiness. | Rejected. The contract is not published until T028, and later tasks still add leaf-facing data (T100). |
 
 **Order.** Computed from the published catalogue (structural functors and classifier forgets, mathematics revision `3f8aedf`); the [plan](plan.md#computational-milestones) has the layers.
+
+## 2026-11-25 — Logs and timing records are current work; attainments; a leaf that asks the kernel
+
+**Decision 1** (owner answer of 2026-11-25; FR-043, SC-016). The timing record of each test and each computation, the durable log of each test run and the application log of the kernel session are current work. T112 and T127 are the first unchecked tasks.
+
+**Rationale.** Constitution C24 states these as present obligations. C21 puts final performance and self-consistency evidence after functionality; these records are neither. They are part of the feedback capability that C21 puts first.
+
+| Alternative | Assessment |
+| --- | --- |
+| Keep T112 after F. | Rejected by the owner. It needs an amendment of C24, and every Part 1 run stays without the required records. |
+| Records now, application logs at M5 with #8. | Rejected by the owner. #8 concerns diagnostics shown to the user, which stay opt-in; the application log is written always. |
+
+**Decision 2** (owner answer of 2026-11-25; FR-042). The stated result of a computational milestone is not an owner choice. It is the set of statements of the original workloads whose selected route stays within the categories implemented through that milestone, and it covers what the later milestones consume. The [plan](plan.md#computational-milestones) lists the statements of Leaves 0.1 and 0.3.
+
+**Decision 3** (constitution C22; runtime contract, section 6). When a suspended leaf asks for an operation that no leaf implements, its resume holds the no-implementation outcome for that child, and the leaf continues. C22 says that the kernel returns that outcome to the requesting leaf; a rule that retires the chain keeps the outcome from the leaf. Other child failures retire the chain as before.
 
 ## 2026-11-25 — Carrier of occurrences and selections
 

@@ -31,8 +31,10 @@ they do not grant kernel or leaf authors authority to create missing mathematics
 Explain the required mathematical relationship and its retained computational association in the
 change's rationale. Verification must distinguish structural transport checks from mathematical
 correctness and independent acceptance. Documentation of a requirement does not establish its
-implementation. An upstream formal gap is reported to its owner under the existing independent
-input rules; a downstream repair cannot invent the missing theorem or definition.
+implementation. An upstream formal gap is a lean-categories task that the task list holds before
+its consumer. The workstream does that task in lean-categories as a formalization author, from the
+mathematics ([execution order](specs/001-categorical-research-language/tasks.md#execution-order));
+a downstream repair cannot invent the missing theorem or definition.
 
 ## Task rows and open questions
 
