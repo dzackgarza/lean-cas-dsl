@@ -208,7 +208,7 @@ The original RX08 source and its seven-question ambiguity control remain separat
 
 Run this section **after integration**, starting inside the existing `lean-cas-dsl` checkout in this same container. It creates a fresh detached worktree of the published integration commit in a sibling workspace directory, preserving the existing checkout and its installed untracked SpecKit tools. The current published main intentionally fails the missing-runner/protected-input checks today. These are terminal instructions, not commands executed while preparing this plan.
 
-The source-verified environment is Linux x86_64, Lean/Lake **4.33.0**, Mathlib **v4.33.0** at `db584cd6d46c92f209a44c0f1c829460d327499d`, and CPython **3.12.14** with **passagemath-standard 10.8.13** and the retained hash-pinned wheel set. Standard Bash, Git, Python 3, curl, tar, and GNU time must be available. `uv` is already present in the reviewed container; Lean/Elan/Lake and Sage/GAP were not found on PATH. Lean's distributed toolchain supplies its C compiler; actual engine imports below establish whether the selected wheels' runtime dependencies work on this host. [Lean distribution documentation][lean] [uv commands][uv]
+The environment is the research container `sage-research` (Linux x86_64). It holds SageMath 11.0.beta5 as a source build in `/sage`, with the interpreter `/sage/.venv/bin/python3` (Python 3.14.10), GAP 4.16.1 through Sage `libgap`, PARI 2.17.4, Singular 4.4.1, Maxima 5.49.0, SymPy 1.14.0, python-flint 0.9.0, Julia 1.12.7 with Oscar 1.8.2, and Macaulay2 1.24.11; it holds no passagemath. The interpreter imports pydantic 2.14.1, and the v2 SDK of the contract at `a0417b0` declares `pydantic>=2.14.3`: the setup step below pins it. Lean and Lake come from `elan` with the toolchain of `lean-toolchain` (Lean 4.33.0 and Mathlib v4.33.0 at `db584cd6d46c92f209a44c0f1c829460d327499d` on the kernel branch until T105 ports them to the image toolchain, #90). Standard Bash, Git, Python 3, curl, tar, GNU time and `uv` are available. [Lean distribution documentation][lean] [uv commands][uv]
 
 Use a fresh runtime/output directory; never reuse successful reports for a changed candidate.
 
@@ -334,15 +334,10 @@ cas_candidate run --name production -- \
   bash "$CAS_RUNTIME/lake.sh" build \
     CasCompiler:olean CasRuntime:olean
 
-uv venv --python 3.12.14 "$CAS_RUNTIME/engines"
-cas_candidate run --name engine-install -- \
-  uv pip install --default-index https://pypi.org/simple \
-    --only-binary=:all: --require-hashes --strict \
-    --python "$CAS_RUNTIME/engines/bin/python" \
-    --requirements examples/kernel-v1/requirements-passagemath-py312-linux-x86_64.txt
-
-export CAS_SAGE_PYTHON="$CAS_RUNTIME/engines/bin/python"
-export CAS_GAP_PYTHON="$CAS_RUNTIME/engines/bin/python"
+export CAS_SAGE_PYTHON=/sage/.venv/bin/python3
+export CAS_GAP_PYTHON=/sage/.venv/bin/python3
+cas_candidate run --name sdk-pin -- \
+  uv pip install --python "$CAS_SAGE_PYTHON" 'pydantic>=2.14.3'
 export DOT_SAGE="$CAS_RUNTIME/sage-state"
 export MPLCONFIGDIR="$CAS_RUNTIME/matplotlib-state"
 
