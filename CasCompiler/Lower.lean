@@ -25,34 +25,28 @@ open Lean Meta CasRuntime CasCatalogue
 
 initialize registerTraceClass `cas.lower
 
-/-- A selected leg whose exact source receiver is already an authenticated projection of
-one completed cone. Only lowering that receiver constructs this demand. Runtime execution
-receives the existing parent and association chain; it never finds a cone by row or diagram. -/
 structure NativeLimitLegDemand where
   private mk ::
   selection : NativeLimitLegSelection
   receiver : ValueBinding
   cone : ValueBinding
-  /-- Present only when the receiver itself supplied the authenticated native projection. -/
+
   apexSource : Option SourceLayout
-  /-- The compiler-prepared native component at its original typed diagram index. -/
+
   component : ClosedTerm
-  /-- The actual lowering frame, including nested callable captures and local binders. -/
+
   context : OpenContext
   bound : Std.HashMap BindingId ValueBinding
   selections : SourceSelectionScope Expr
   contextEnvironment : RuntimeEnvironment
 
-/-- The active cell consumed by compiled source code. `run` interprets each emitted program.
-A later demand is prepared from the actual references that an earlier program returned. -/
 structure LowerEnvironment where
   ledger : OccurrenceLedger
   transaction : CellTransaction
   codes : IO.Ref (Std.HashMap (RuntimeId .program) ClosureCode)
   sourceSnapshot : Option Json := none
   run : OperationalProgram ValueBinding → MetaM ValueBinding
-  /-- Consume released leg data from the actual completed packet. The handler must keep the
-  supplied cone, diagram, typed index and owners; it is not an arbitrary apply operation. -/
+
   limitLeg : NativeLimitLegDemand → MetaM ValueBinding := fun _ =>
     throwStratum .noImplementation "the completed cone requires its native leg-data continuation"
 
@@ -62,10 +56,7 @@ private structure Frame where
   context : OpenContext
   bound : Std.HashMap BindingId ValueBinding
   selections : SourceSelectionScope Expr := {}
-  /-- A validated membership view of this frame's fixed context and binding table.
-  Native associations may be reused within this fixed frame only after validating
-  their references against the current graph and capturing the complete source bindings.
-  Prepared invocation inputs still undergo their complete admission. -/
+
   retainedView : IO.Ref (Option RuntimeEnvironment)
   selection : Option Name := none
   selectionBinding : Option BindingId := none
@@ -93,7 +84,6 @@ private def runtimeEnvironment : LowerM RuntimeEnvironment := do
     (← frame.retainedView.get)
     (selections := frame.selections)
 
-/-- Continue in the complete native binder scope and its matching value table. -/
 private def withScope (context : OpenContext) (bound : Std.HashMap BindingId ValueBinding)
     (action : LowerM α) (incoming : SourceSelectionScope Expr := {}) : LowerM α := do
   let frame ← read
@@ -105,7 +95,6 @@ private def withScope (context : OpenContext) (bound : Std.HashMap BindingId Val
       selections ← SourceSelectionScope.merge selections (← value.nativeRole.selections.inContext context)
   withReader (fun frame => { frame with context, bound, selections, retainedView }) action
 
-/-- Import the exact displayed role context owned by this value before using its source. -/
 private def withRetained (value : ValueBinding) (action : LowerM α) : LowerM α := do
   let frame ← read
   withBindingContext (← frame.environment.transaction.view) frame.context frame.bound value
@@ -116,30 +105,15 @@ private def withRetained (value : ValueBinding) (action : LowerM α) : LowerM α
         selections ← SourceSelectionScope.merge selections (← value.nativeRole.selections.inContext context)
       (withScope context bound action).run { frame with selections }
 
-/-- Name one actual occurrence in the native scope before its continuation is lowered.
-The complete context and its sole bound-value map travel together; no value is encoded
-in the term, and a fresh frame validates captures against this extended scope. -/
-private def withValue (source : Expr) (value : ValueBinding)
-    (action : Expr → LowerM α) : LowerM α := withRetained value do
-  let frame ← read
-  withBoundValue (← supply) frame.context frame.bound source value fun context bound scopedSource => do
-    (withScope context bound (action scopedSource)).run frame
-
-/-- Source-path selection only asks which original bindings are retained.
-The frame's context and binding table do not change during lowering; recursive
-execution opens its own frame. Reuse the checked lookup table for this question,
-not as authority for admitting a later request. Origin formation revalidates
-all references against its actual graph. -/
 private def retainedEnvironment : LowerM RuntimeEnvironment := do
   let frame ← read
-  -- Even source-path inspection must not continue in a settled transaction.
+
   discard <| frame.environment.transaction.view
   if let some view ← frame.retainedView.get then return view
   let view ← runtimeEnvironment
   frame.retainedView.set (some view)
   return view
 
--- Temporary bounded source-cost inspection. The timer never changes or resets the budget.
 private def sourceCostHead (expression : Expr) : String :=
   match expression.consumeMData.getAppFn.consumeMData with
   | .const name _ => s!"constant:{name}"
@@ -158,25 +132,44 @@ private def sourceCostHead (expression : Expr) : String :=
 
 private def traceExpensiveLower {α : Type} (phase : String) (expression : Expr)
     (contextSize : Nat) (action : LowerM α) : LowerM α := do
+  let frame ← read
   let started ← IO.getNumHeartbeats
+  let detail := Json.mkObj [
+    ("phase", toJson phase),
+    ("program", Observation.identityJson frame.program),
+    ("transaction", Observation.identityJson frame.environment.transaction.id),
+    ("context", toJson contextSize),
+    ("start", toJson started)]
   try
+    try
+      CasTools.Diagnostics.emit "lower.phase.started" detail
+    catch _ => pure ()
     action
   finally
-    -- Diagnostics must not replace the original success, failure or interrupt.
     try
       let finished ← IO.getNumHeartbeats
       let elapsed := finished - started
+      CasTools.Diagnostics.emit "lower.phase.finished" <|
+        (detail.setObjVal! "finish" (toJson finished)).setObjVal! "rawTicks" (toJson elapsed)
       if elapsed ≥ 10000000 then
         CasTools.Diagnostics.message m!"[lower.cost] phase={phase} head={sourceCostHead expression} arguments={expression.getAppNumArgs} context={contextSize} rawTicks={elapsed} start={started} finish={finished}"
     catch _ => pure ()
 
--- Stamp an already checked source layout with the current actual runtime context.
--- Reusing native layout data never reuses an earlier occurrence or parameter table.
+private def withValue (source : Expr) (value : ValueBinding)
+    (action : Expr → LowerM α) : LowerM α := do
+  let frame ← read
+  traceExpensiveLower "value.total" source frame.context.bindings.size do
+    withRetained value do
+      let frame ← read
+      traceExpensiveLower "value.bind" source frame.context.bindings.size do
+        withBoundValue (← supply) frame.context frame.bound source value fun context bound scopedSource =>
+          (traceExpensiveLower "value.scope" scopedSource context.bindings.size do
+            withScope context bound (action scopedSource)).run frame
+
 private def originFor (role : SourceLayout) : LowerM ValueOrigin := do
   let frame ← read
   let identities ← supply
-  -- The complete native association of this fixed frame was checked by capture.
-  -- withGraph verifies every reference if the current graph revision changed.
+
   let checked ← retainedEnvironment
   let graph ← frame.environment.transaction.view
   let environment ← traceExpensiveLower "origin.refresh" role.source.expression
@@ -206,12 +199,11 @@ private def demand (request : PreparedRequest) : LowerM ValueBinding := do
   let frame ← read
   let request := (request.withSelection frame.selection).withSourceSnapshot
     frame.environment.sourceSnapshot
-  frame.environment.run do
-    let response ← PFunctor.FreeM.lift (P := OperationalSignature) request
-    pure response.root
+  traceExpensiveLower "demand.total" request.source.source.expression frame.context.bindings.size do
+    frame.environment.run do
+      let response ← PFunctor.FreeM.lift (P := OperationalSignature) request
+      pure response.root
 
-/-- A published computation cannot be silently evaluated as an ordinary native definition.
-This predicate selects no row or address; the reader must supply that original reference. -/
 private def isRegisteredComputation (state : SemanticState) (declaration : Name) : Bool :=
   state.operations.any (·.declaration == declaration) ||
   state.functors.any (·.declaration == declaration) ||
@@ -220,8 +212,6 @@ private def isRegisteredComputation (state : SemanticState) (declaration : Name)
   state.objects.any (·.application == some declaration) ||
   state.binders.any (·.operation == declaration)
 
-/-- Native fields of independently registered constant declarations may use their definitions.
-Membership is the only result: it never chooses a descriptor ID, even for a unique row. -/
 private def isRegisteredDescriptor (state : SemanticState) (declaration : Name) : Bool :=
   state.objects.any (·.declaration == declaration) ||
   state.categories.any (·.declaration == declaration) ||
@@ -234,18 +224,12 @@ private def isRegisteredDescriptor (state : SemanticState) (declaration : Name) 
   state.presentations.any (·.declaration == declaration) ||
   state.constructors.any (·.semantics == declaration)
 
-/-- Reject loss of a public source selection before native reduction can erase its boundary.
-Named limit/generator applications are included although their addresses have a distinct form. -/
 private def requiresSourceAddress (state : SemanticState) (declaration : Name) : Bool :=
   isRegisteredComputation state declaration || isRegisteredDescriptor state declaration ||
   state.limits.any (·.declaration == declaration) ||
   state.objects.any (fun entry => entry.generator == some declaration ||
     entry.refines.any (·.identification == declaration))
 
-/-- Open an already authorized native definition before substituting its original arguments.
-Reuse: Lean's bare-constant unfolding and beta substitution. Opaque source binders retain
-their identities and typed selections in the current context. Smart unfolding could execute
-a match before the kernel reaches its explicit boundary. -/
 private def unfoldSourceApplication? (expression : Expr) : MetaM (Option Expr) := do
   let .const _ _ := expression.getAppFn | return none
   let some body ← withOptions (fun options => options.setBool `smartUnfolding false) <|
@@ -253,7 +237,6 @@ private def unfoldSourceApplication? (expression : Expr) : MetaM (Option Expr) :
     | return none
   return some (body.betaRev expression.getAppRevArgs (preserveMData := true))
 
-/-- Read only the exact selected native binder. -/
 private def selectionAt? (expression : Expr) : LowerM (Option (BindingId × SourceSelection Expr)) := do
   let frame ← read
   let .fvar localId := expression | return none
@@ -261,8 +244,6 @@ private def selectionAt? (expression : Expr) : LowerM (Option (BindingId × Sour
     | return none
   return frame.selections[binding.id]?.map (binding.id, ·)
 
-/-- Follow only authored proof lets to their exact native result binder. No application,
-conversion or search for an equal value supplies an alias. The proof remains in the source. -/
 private partial def proofAliasSource (source : Expr) : MetaM Expr := do
   match source with
   | .letE _ type value body _ =>
@@ -275,7 +256,6 @@ private partial def proofAliasSource (source : Expr) : MetaM Expr := do
   | .mdata _ body => proofAliasSource body
   | _ => pure source
 
-/-- Allocate a fresh selected intermediate in the complete current native scope. -/
 private def withSelected (selection : SourceSelection Expr)
     (action : Expr → LowerM α) (declaredType : Option Expr := none) : LowerM α := do
   let frame ← read
@@ -285,8 +265,6 @@ private def withSelected (selection : SourceSelection Expr)
       (action expression).run { frame with context, selections, retainedView })
     (declaredType := declaredType)
 
-/-- Check the supplied complete row against its independent registration. The check does
-not select a row by native declaration, type or carrier. -/
 private def checkSelectedAddress (reference : SelectedSourceReference) : MetaM Unit := do
   let state ← semanticState
   let require {α : Type} [Repr α] (rows : Array α) (selected : α)
@@ -326,8 +304,6 @@ private def checkSelectedAddress (reference : SelectedSourceReference) : MetaM U
     unless entry.refines.any (fun original => reprStr original == reprStr refinement) do
       throwError "the selected refinement changed its original registered interface"
 
-/-- Expose only the explicit selected native interface at this exact binder or projection.
-The full selected record remains in the scope; no native expression supplies an address. -/
 private partial def nativeInterfaceSource? (expression : Expr) : LowerM (Option Expr) := do
   if let some (_, selected) ← selectionAt? expression.getAppFn then
     if selected.formalBindings.isEmpty then
@@ -347,17 +323,12 @@ private partial def nativeInterfaceSource? (expression : Expr) : LowerM (Option 
   let owner := (← getConstInfoCtor projection.info.ctorName).induct
   return some (.proj owner projection.info.i parent)
 
-/-- Closed scalar data in the released literal grammar, read by ScalarLiteral.check.
-Reference: CasRuntime/Literal.lean decode; this is its inverse on literal constructor forms.
-Only numerals, lists and constructor applications are read. No definition is unfolded. -/
 private partial def literal? (expression : Expr) : MetaM (Option Json) := do
   let expression := (← instantiateMVars expression).consumeMData
   if expression.hasFVar || expression.hasMVar then return none
   if let some value := expression.rawNatLit? then return some (toJson value)
   if let .lit (.strVal value) := expression then return some (toJson value)
-  -- Lean's native unit notation is a constructor alias (Init/Prelude.lean), with
-  -- no arguments or computational fields. Overloaded OfNat/Neg projections are
-  -- handled at their actual selected instance; their numeral index is not a value.
+
   if expression.isConstOf ``Unit.unit then return some (.arr #[])
   if expression.isAppOfArity ``Int.ofNat 1 then
     if let some value := expression.appArg!.rawNatLit? then return some (toJson (Int.ofNat value))
@@ -390,8 +361,6 @@ private def captured (frame : Frame) (graph : ValueGraph) (expression : Expr)
   return found ++ (← boundSourceReferences (some graph) frame.context frame.bound
     expression frame.selections)
 
-/-- Retain a checked source term as code with its actual captured references.
-Its fields and applications are lowered when a demand reaches them. -/
 private def closureWith (expression : Expr)
     (build : ClosedTerm → SourceSelectionScope ClosedTerm → ClosureCode)
     (retainedRole : Option Expr := none) (retainedValues : Array ValueBinding := #[]) :
@@ -408,8 +377,7 @@ private def closureWith (expression : Expr)
     let captures ← traceExpensiveLower "closure.captures" expression
         frame.context.bindings.size do
       captured frame (← frame.environment.transaction.view) expression #[]
-    -- A source-only parameter may remain in an inert telescope, but a closure that
-    -- actually depends on it requires the same supplied value as direct execution.
+
     for index in (← selectedContextDependencies frame.context frame.selections expression) do
       let some binding := frame.context.bindings[index]?
         | throwError "a closure dependency is outside its complete source context"
@@ -428,13 +396,6 @@ private def closure (expression : Expr) : LowerM ValueBinding :=
 
 mutual
 
-/-- Lower one checked source term to its actual retained value.
-Source: mathematical-input contract §2 and plan §2, lean-cas-dsl#10 comment 6664354269.
-Variables read their retained bindings. Published computation families become prepared
-primitive demands at their actual arguments. Fields and applications of retained values become
-projection and application demands. Lambdas and selected instances retain code and captures.
-Only retained source definitions and accepted derivation compositions expose their bodies.
-Declared native interfaces retain their original fields. No operation is recognized by name. -/
 private partial def lower (expression : Expr) : LowerM ValueBinding :=
   withReader (fun frame => { frame with selectionBinding := none }) (lowerCore expression)
 
@@ -479,15 +440,12 @@ private partial def lowerCore (expression : Expr) : LowerM ValueBinding := do
     if let some selected ← NativeStructuralMap.ofExpr? frame.context expression
         (frame.bound.toArray.map (·.1)) then
       return ← structuralMap selected
-    -- Substitute this exact native application before any further head reduction.
-    -- Selected binders on its result or partial body keep their original context entries.
-    -- No declaration body, let binding or argument is evaluated by this structural step.
+
     if expression.getAppFn.isHeadBetaTargetFn false then
       let reduced := expression.getAppFn.betaRev expression.getAppRevArgs
         (preserveMData := true)
       if reduced != expression then return ← lower reduced
-    -- Native annotations are transparent. The underlying head still selects its retained
-    -- value or complete typed source entry by its original binder.
+
     if let .mdata _ head := expression.getAppFn then
       return ← lower (mkAppN head expression.getAppArgs)
     if let some (_, selected) ← selectionAt? expression.getAppFn then
@@ -512,16 +470,12 @@ private partial def lowerCore (expression : Expr) : LowerM ValueBinding := do
         CasTools.Diagnostics.message m!"[lost-source] declaration={declaration} expression={repr expression}"
         CasTools.Diagnostics.message m!"[lost-source] context={repr (frame.context.bindings.map (·.id))} retained={repr (frame.bound.toArray.map (·.1))}"
         throwError "the registered source declaration {declaration} lost its selected source address"
-    -- Native identity wrappers select their original arguments before further head
-    -- reduction. The selected binders keep their complete typed entries; this does
-    -- not evaluate any registered declaration or the ignored argument.
+
     if expression.getAppFn.isConstOf ``id ||
         expression.getAppFn.isConstOf ``Function.const then
       if let some reduced ← unfoldSourceApplication? expression then
         return ← lower reduced
-    -- Select a retained native field before head reduction can erase its actual parent.
-    -- Both projection syntaxes retain their complete application suffix. Formal class fields
-    -- remain definitions until their exact parent has a runtime reference.
+
     let arguments := expression.getAppArgs
     let nativeEnvironment ← getEnv
     let projectionSource := match expression.getAppFn with
@@ -558,9 +512,7 @@ private partial def lowerCore (expression : Expr) : LowerM ValueBinding := do
         let value ← project (← lower projection.parent) projection.info.i m!"{projection.declaration}"
         return ← apply value (arguments.extract projectionSource.getAppNumArgs arguments.size)
       if traced then CasTools.Diagnostics.message m!"[inclusion.stage] lower projection {projection.declaration}: unretained parent"
-    -- Select the exact native constructor argument before further head reduction.
-    -- Its source binder keeps the original value and complete selected interface.
-    -- Reuse the structural projection step from Layout.inputProjectionHead.
+
     let traceInclusion := (expression.find? (·.isConstOf
       `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
     if traceInclusion then CasTools.Diagnostics.message m!"[inclusion.lower] before constructor projection"
@@ -568,11 +520,7 @@ private partial def lowerCore (expression : Expr) : LowerM ValueBinding := do
       if traceInclusion then CasTools.Diagnostics.message m!"[inclusion.lower] constructor projection {projection.declaration}"
       let mut parent := projection.parent
       if let .const declaration _ := parent.getAppFn then
-        -- The selected field of an ordinary native record constructor (for example,
-        -- Functor.comp.obj) is structural code. Open exactly one unregistered
-        -- definition, only if its head is the expected constructor. This preserves
-        -- the actual selected functors inside the field's lambda rather than
-        -- constructing a whole intermediate record or normalizing their addresses.
+
         unless parent.getAppFn.isConstOf projection.info.ctorName ||
             requiresSourceAddress (← semanticState) declaration do
           if let some expanded ← unfoldSourceApplication? parent then
@@ -597,8 +545,7 @@ private partial def lowerCore (expression : Expr) : LowerM ValueBinding := do
     let typeClass ← isClass? type
     if traceInclusion then CasTools.Diagnostics.message m!"[inclusion.lower] after isClass result={typeClass.isSome}"
     if typeClass.isSome then return ← closure expression
-    -- A structure value is a dependent record of its fields. Only data-kind terms are packets.
-    -- A type is an object of the category of sets, and is lowered like any other term.
+
     if traceInclusion then CasTools.Diagnostics.message m!"[inclusion.lower] before literal/record dispatch"
     unless type.isSort || (type.getAppFn.constName?.map (isStructure (← getEnv))).getD false do
       if let some packet ← literal? expression then
@@ -609,8 +556,7 @@ private partial def lowerCore (expression : Expr) : LowerM ValueBinding := do
         if traceInclusion then CasTools.Diagnostics.message m!"[inclusion.lower] nativeInputRecord selected"
         return value
       if traceInclusion then CasTools.Diagnostics.message m!"[inclusion.lower] after nativeInputRecord none"
-    -- Structural head reduction only. Iota and auxiliary-definition unfolding would execute
-    -- a matcher or recursor before the explicit missing-operation boundary below.
+
     if traceInclusion then CasTools.Diagnostics.message m!"[inclusion.lower] before whnfCore"
     let reduced ← withConfig (fun config =>
       { config with zeta := false, zetaDelta := false, iota := false, proj := .yes })
@@ -627,12 +573,11 @@ private partial def lowerCore (expression : Expr) : LowerM ValueBinding := do
       field owner index value m!"{name}"
     | .forallE .. | .sort .. =>
       if type.isProp then
-        -- A quantified proposition is decided by a published predicate or not at all (C22).
+
         throwStratum .noImplementation m!"the proposition {expression} has no published predicate"
       descriptor expression "lean:type" #[]
     | _ => application expression
 
-/-- Reuse an explicitly selected native alias at its complete displayed role. -/
 private partial def selectedAlias (expression source : Expr) : LowerM ValueBinding := do
   let value ← lower source
   withValue source value fun _ => do
@@ -642,7 +587,6 @@ private partial def selectedAlias (expression source : Expr) : LowerM ValueBindi
       (← origin expression).role value
     return checked.root
 
-/-- Interpret the complete typed record associated with this exact source binder. -/
 private partial def selectedSource (expression : Expr) (selected : SourceSelection Expr) :
     LowerM ValueBinding := do
   if let some reference := selected.reference then
@@ -662,9 +606,7 @@ private partial def selectedSource (expression : Expr) (selected : SourceSelecti
             | .categorical _ request => request.point
           unless point.equal originalAlias do
             throwError "the selected point request replaced its actual original point"
-      -- New result-category, invocation and route observations enrich the retained role.
-      -- Existing source point origins and every executable family/operand/owner stay exact.
-      -- The ordinary point request boundary checks the complete consuming family and inputs.
+
       let preserved := { selected with
         value := original.value
         category := if original.category.isNone then none else selected.category
@@ -751,7 +693,6 @@ private partial def selectedSource (expression : Expr) (selected : SourceSelecti
     if reference matches .binder _ then return ← closure expression
   selectedAlias expression selected.value
 
-/-- An endpoint keeps its exact selected arrow and the originally declared operand. -/
 private partial def selectedEndpoint (expression : Expr) (endpoint : SelectedSourceEndpoint Expr) :
     LowerM ValueBinding := do
   let frame ← read
@@ -777,7 +718,6 @@ private partial def selectedEndpoint (expression : Expr) (endpoint : SelectedSou
     let .ok payload := built | throwError "the selected endpoint has an invalid reference layout"
     stage expression payload
 
-/-- Continue only the exact selected construction, actual receiver and native typed index. -/
 private partial def selectedLeg (expression : Expr) (source : SourceSelection Expr)
     (selected : NativeLimitLegSelection) : LowerM ValueBinding := do
   let receiver ← lower selected.construction.receiver
@@ -853,7 +793,6 @@ private partial def selectedLeg (expression : Expr) (source : SourceSelection Ex
             closureWith value (fun value selections => .formalLeg value packet selections)
               (some expression) captures
 
-/-- Prepare the selected accepted family with its complete original argument telescope. -/
 private partial def boundaryFamily (boundary : ProgramBoundary) (levels : List Level)
     (arguments : Array Expr) : LowerM ValueBinding := do
   let frame ← read
@@ -889,8 +828,6 @@ private partial def selectedApplication (expression : Expr) (selected : SourceSe
   | .limitUniversal family => universalLimitFamily family application
   | .creation family target => creationFamily expression family target application selected.limit
 
-/-- The original named packet at its actual explicit operands. This same sealed packet is
-used by ordinary descriptors and by a formal leg's inert view; neither evaluates the leg. -/
 private partial def descriptorPacket (address : String) (arguments : Array Expr)
     (originals : Option (Array ValueBinding) := none) : LowerM ValueContainer := do
   if let some originals := originals then
@@ -918,9 +855,6 @@ private partial def descriptorPacket (address : String) (arguments : Array Expr)
     | throwError "internal: the original named descriptor lost its complete packet"
   return packet
 
-/-- A descriptor of a named source constant at its actual explicit arguments.
-Reference: CasContract.Port descriptor grammar `{"ctor": address, "args": [...]}`.
-Each argument is lowered and keeps its own retained reference in a typed slot. -/
 private partial def descriptor (expression : Expr) (address : String) (arguments : Array Expr)
     (fields : Option (Array ValueBinding) := none)
     (originals : Option (Array ValueBinding) := none) : LowerM ValueBinding := do
@@ -937,9 +871,6 @@ private partial def descriptor (expression : Expr) (address : String) (arguments
     | throwError "internal: the descriptor of {address} has an invalid reference layout"
   stage expression payload
 
-/-- A finite list or finite-subset literal `[a₁, …, aₙ]`, `List.toFinset [a₁, …, aₙ]`: the array of
-its elements' data (leaf contract api/wire-examples.md, "List or finite subset literal"). Each
-element is lowered and keeps its own retained reference in a typed slot. -/
 private partial def array (expression : Expr) (elements : Array Expr) : LowerM ValueBinding := do
   let mut slots := #[]
   for element in elements, index in [:elements.size] do
@@ -950,8 +881,6 @@ private partial def array (expression : Expr) (elements : Array Expr) : LowerM V
     | throwError "internal: a finite literal has an invalid reference layout"
   stage expression payload
 
-/-- A registered named constant at its explicit arguments. A callable is retained as code; a
-record value keeps each computational field as a closure beside its descriptor. -/
 private partial def namedConstant (expression : Expr) (address : String) (application : Expr) :
     LowerM ValueBinding := do
   let some (_, selected) ← selectionAt? expression
@@ -986,9 +915,6 @@ private partial def namedConstant (expression : Expr) (address : String) (applic
       descriptor expression address explicitSources (some (← fieldClosures role))
         (some explicitValues)
 
-/-- Retain the complete declared native record and its original delayed fields. Formation
-does not evaluate a comparison, constructor action or any of its mathematical data. Each
-later field demand retains this same selected interface as its native projection parent. -/
 private partial def nativeInterface (expression : Expr) : LowerM ValueBinding := do
   let role := (← origin expression).role
   if role.kind == .function then return ← closure expression
@@ -997,8 +923,6 @@ private partial def nativeInterface (expression : Expr) : LowerM ValueBinding :=
       "the selected native interface has no computational record fields"
   stageRecord (← RecordLayout.ofSource role) (← fieldClosures role)
 
-/-- Native fields of an ordinary registered constant whose definition `field` may open.
-Published element descriptors do not use these closures: their fields require computation. -/
 private partial def fieldClosures (role : SourceLayout)
     (inputFields : Array (Name × ValueBinding × Array Name) := #[]) :
     LowerM (Array ValueBinding) := do
@@ -1014,9 +938,7 @@ private partial def fieldClosures (role : SourceLayout)
           (graph.projectionFrontier operand path).mapError IO.userError
         if let some (_, remaining) := frontier then
           if remaining.isEmpty then
-            -- The rigid producer selected this exact input path, and every field is
-            -- already available. Normal projection publishes its original reference;
-            -- this branch never asks an executor for an unavailable native field.
+
             let selected ← projectPath operand path
             let graph ← frame.environment.transaction.view
             let environment ← runtimeEnvironment
@@ -1027,11 +949,6 @@ private partial def fieldClosures (role : SourceLayout)
       | none => fields := fields.push (← closure (← prepared.source.inContext frame.context))
   return fields
 
-/-- Retain the native field code of an endpoint declared by this actual named morphism.
-The endpoint is read before specialization, in its original rigid parameter telescope. The
-same registered-constant authority used by `namedConstant` supplies its field closures;
-a formal endpoint or a computation-produced choice remains an unchanged descriptor.
-The map's sealed original argument table supplies every actual computational occurrence. -/
 private partial def selectedEndpointFields? (sourceEnd : Bool) (hom : ValueBinding) :
     LowerM (Option (Array ValueBinding)) := do
   let frame ← read
@@ -1049,15 +966,13 @@ private partial def selectedEndpointFields? (sourceEnd : Bool) (hom : ValueBindi
       forallBoundedTelescope declaredType (some application.arguments.size) fun formals result => do
     unless formals.size == application.arguments.size do
       throwError "the selected endpoint lost its complete original parameter telescope"
-    -- Keep the authored Hom spine when it is already explicit. Its native projection
-    -- may reduce past the endpoint-bearing interface at stronger transparency.
+
     let result ← if result.isAppOfArity ``Quiver.Hom 4 then pure result else whnfR result
     unless result.isAppOfArity ``Quiver.Hom 4 do return none
     let endpoint := result.getAppArgs[if sourceEnd then 2 else 3]!
     let .const declaration _ := endpoint.getAppFn | return none
     unless isRegisteredDescriptor state declaration do return none
-    -- Only this original rigid endpoint family can authorize an input-backed field.
-    -- Keep a separate full-index map because proof formals are not runtime inputs.
+
     let mut computational := #[]
     let mut sourceIndices : Array Nat := #[]
     for formal in formals, sourceIndex in [:formals.size] do
@@ -1103,7 +1018,6 @@ private partial def selectedEndpointFields? (sourceEnd : Bool) (hom : ValueBindi
       return some (← fieldClosures role inputFields)
     ) selections).run frame
 
-/-- The explicit arguments of an application that are not proofs. -/
 private partial def explicitArguments (expression : Expr) : LowerM (Array Expr) := do
   let arguments := expression.getAppArgs
   let info ← getFunInfoNArgs expression.getAppFn arguments.size
@@ -1113,9 +1027,6 @@ private partial def explicitArguments (expression : Expr) : LowerM (Array Expr) 
     if explicit && !(← isProof argument) then selected := selected.push argument
   return selected
 
-/-- Select one field of a checked source record. A declared interface or selected instance
-may expose its exact native constructor without running an eliminator. Other records retain
-their original runtime parent and use the ordinary field demand. -/
 private partial def field (owner : Name) (index : Nat) (value : Expr) (name : MessageData) :
     LowerM ValueBinding := do
   let traceInclusion := (value.find? (·.isConstOf
@@ -1126,8 +1037,7 @@ private partial def field (owner : Name) (index : Nat) (value : Expr) (name : Me
     let role := (← origin original).role
     if role.kind == .record then return ← nativeInterface original
     let frame ← read
-    -- Inspect the parent only, then read its exact field without reducing that field's
-    -- mathematical body. Intermediate native records retain the complete original path.
+
     let parent ← frame.context.inputProjectionSource native (frame.bound.toArray.map (·.1))
     let [constructor] := (← getConstInfoInduct owner).ctors
       | throwError "the selected native interface has no unique record constructor"
@@ -1157,8 +1067,7 @@ private partial def field (owner : Name) (index : Nat) (value : Expr) (name : Me
   if traceInclusion then CasTools.Diagnostics.message m!"[inclusion.field] after isClass result={selectedClass.isSome}"
   if selectedClass.isSome then
     let frame ← read
-    -- Inspect this parent only. Constructor arguments remain unchanged, and exact
-    -- retained inputs stay opaque to the existing source reader.
+
     let normalizedParent ← frame.context.inputProjectionSource value
       (frame.bound.toArray.map (·.1))
     let [constructor] := (← getConstInfoInduct owner).ctors
@@ -1188,9 +1097,7 @@ private partial def field (owner : Name) (index : Nat) (value : Expr) (name : Me
   if traceInclusion then CasTools.Diagnostics.message m!"[inclusion.field] before environment"
   let environment ← retainedEnvironment
   if traceInclusion then CasTools.Diagnostics.message m!"[inclusion.field] after environment; before retained-source check"
-  -- An unretained inner projection still owns its native definition boundary. Lower it
-  -- before the outer demand; flattening through its named field closure would re-enter
-  -- that same projection code. Actual retained roots keep their complete selected path.
+
   let retained ← environment.hasRetainedSource frame.context value
   if traceInclusion then CasTools.Diagnostics.message m!"[inclusion.field] after retained-source check result={retained}"
   if !retained then
@@ -1211,8 +1118,6 @@ private partial def field (owner : Name) (index : Nat) (value : Expr) (name : Me
   if traceInclusion then CasTools.Diagnostics.message m!"[inclusion.field] selected path: after parent lower; before projectPath"
   projectPath loweredParent path
 
-/-- Read only the exact native projection chain, stopping at source selections and formal
-class definitions. No intermediate projected record is lowered while discovering the path. -/
 private partial def projectionSourcePath (environment : RuntimeEnvironment) (expression : Expr) :
     LowerM (Expr × Array Name) := do
   let some projection ← SourceProjection.ofExpr? expression | return (expression, #[])
@@ -1237,8 +1142,6 @@ private partial def project (operand : ValueBinding) (index : Nat) (field : Mess
     (selections := frame.selections) (selectionBinding := frame.selectionBinding)
   demand request
 
-/-- Complete the longest already stored prefix as one selected demand. A lazy frontier keeps
-the ordinary one-field execution boundary, including its provider's atomic reply admission. -/
 private partial def projectPath (operand : ValueBinding) (path : Array Name) :
     LowerM ValueBinding := do
   if path.isEmpty then return operand
@@ -1259,8 +1162,6 @@ private partial def projectPath (operand : ValueBinding) (path : Array Name) :
     | throwError "the native projection path is outside its retained record interface"
   projectPath (← project operand field.sourceIndex m!"{projection}") (path.extract 1 path.size)
 
-/-- Retain a source argument's complete projection chain while naming its actual root.
-Every local and its value table remain in scope through the consuming continuation. -/
 private partial def projectionArgumentSource (environment : RuntimeEnvironment)
     (expression : Expr) (action : Expr → LowerM α) : LowerM α := do
   let frame ← read
@@ -1274,9 +1175,6 @@ private partial def projectionArgumentSource (environment : RuntimeEnvironment)
   argumentSource environment expression fun source => do
     withValue source (← lower source) action
 
-/-- Retain each actual projection root before preparing its complete selected path.
-Formal selected instances keep their native source boundary. Stored paths keep the exact
-parent occurrence without demanding intermediate whole records. -/
 private partial def argumentSource (environment : RuntimeEnvironment) (expression : Expr)
     (action : Expr → LowerM α) : LowerM α := do
   let frame ← read
@@ -1301,8 +1199,6 @@ private partial def argumentSource (environment : RuntimeEnvironment) (expressio
   projectionArgumentSource environment projection.parent fun parent => do
     action (.proj (← getConstInfoCtor projection.info.ctorName).induct projection.info.i parent)
 
-/-- Prepare all original source positions, then name their occurrences in the complete
-formal application telescope. The continuation closes terms only inside that scope. -/
 private partial def actualArguments (arguments : Array Expr)
     (action : Array ClosedTerm → Array RuntimeArgument → LowerM α)
     (function : Option Expr := none) (deferAfter : Option Nat := none)
@@ -1356,9 +1252,6 @@ private partial def actualArguments (arguments : Array Expr)
           visit rest (index + 1) (sources.push retained) (values.push (some value))
   visit arguments.toList 0 #[] #[]
 
-/-- Retain the original admission arguments and use the common application result plan.
-Only Prop hypotheses are erased. Selected lazy fields use ordinary projection demands;
-neither the admission nor its evidence is evaluated to discover a record interface. -/
 private partial def admission (expression : Expr) (selected : SelectedSourceAdmission Expr) :
     LowerM ValueBinding := do
   let frame ← read
@@ -1376,8 +1269,7 @@ private partial def admission (expression : Expr) (selected : SelectedSourceAdmi
       | throwError "internal: the admitted point family lost its registered declaration"
     unless parameters.size == arguments.size && admitted.getAppArgs == parameters do
       throwError "internal: the admitted point family changed its complete argument telescope"
-  -- Establish complete source coverage before preparing any actual argument. The runtime
-  -- independently seals the same formal coverage against its exact prepared role telescope.
+
   let sourceArguments ← arguments.mapM fun argument => frame.context.close argument
   let (_, sourceApplication) ← ApplicationLayout.ofSource
     (← SourceLayout.ofTerm (← frame.context.close family)
@@ -1399,9 +1291,7 @@ private partial def admission (expression : Expr) (selected : SelectedSourceAdmi
       (selections := frame.selections) (selectionBinding := frame.selectionBinding)
     if (← request.inputResultPlan (← frame.environment.transaction.view)).isSome then
       return ← demand request
-    -- Proof-only admissions also retain a transparent presentation of the original value
-    -- (for example a finite subset's extent). It is a descriptor, not a native field table:
-    -- no result field is invented from its type, and no choice definition is opened.
+
     for argument in arguments.extract (element + 1) arguments.size do
       unless ← isProof argument do
         throwStratum .noImplementation
@@ -1413,12 +1303,6 @@ private partial def admission (expression : Expr) (selected : SelectedSourceAdmi
       | throwError "internal: the admitted element has an invalid reference layout"
     stage expression payload
 
-/-- Keep each original formal argument once when a native record conversion returns only
-its input projections. Delta substitution may duplicate a closed record expression beneath
-several dependent fields; the existing prepared application preserves its actual occurrence.
-Source coverage is complete before any argument is touched. Unused computational arguments
-leave this path unchanged. Retained arguments still require this boundary: unfolding their
-source expressions would replace unavailable actual fields with reconstructed source fields. -/
 private partial def nativeInputRecord? (expression : Expr) : LowerM (Option ValueBinding) := do
   let .const declaration _ := expression.getAppFn | return none
   let arguments := expression.getAppArgs
@@ -1455,8 +1339,7 @@ private partial def nativeInputRecord? (expression : Expr) : LowerM (Option Valu
   if traceInclusion then
     let ticks ← IO.getNumHeartbeats
     CasTools.Diagnostics.message m!"[inclusion.record] actual sources closed; before bare SourceLayout ticks={ticks}"
-  -- This bare constant has no captured source bindings. Its actual arguments retain
-  -- the complete original frame and still undergo the concrete coverage check below.
+
   let source ← (show MetaM SourceLayout from withLCtx {} #[] do
     let empty ← ContextTelescope.capture #[]
     SourceLayout.ofTerm (← empty.close expression.getAppFn))
@@ -1481,8 +1364,7 @@ private partial def nativeInputRecord? (expression : Expr) : LowerM (Option Valu
     let ticks ← IO.getNumHeartbeats
     CasTools.Diagnostics.message m!"[inclusion.record] after inputResultArguments complete={required?.isSome} ticks={ticks}"
   let some required := required? | return none
-  -- Ordinary application admission stays total. This conservative path never evaluates a
-  -- source slot that the complete native result and its type dependencies did not require.
+
   for argument in application.arguments do
     if argument.wireIndex.isSome && !required.contains argument.sourceIndex then return none
   if traceInclusion then
@@ -1521,21 +1403,28 @@ private partial def nativeInputRecord? (expression : Expr) : LowerM (Option Valu
 private partial def apply (callable : ValueBinding) (arguments : Array Expr) :
     LowerM ValueBinding := do
   if arguments.isEmpty then return callable
-  withRetained callable do
-    let frame ← read
-    let traceArguments := (callable.role.source.expression.find? (·.isConstOf
-      `CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilWFormBaseChangeDeclaration)).isSome
-    if traceArguments then CasTools.Diagnostics.message m!"[basechange.application] callable={repr callable.value} arguments={arguments.size}"
-    actualArguments arguments (function := some (← callable.nativeRole.source.inContext frame.context))
-        (traceArguments := traceArguments) fun closed actual => do
+  let frame ← read
+  traceExpensiveLower "application.total" callable.role.source.expression frame.context.bindings.size do
+    withRetained callable do
       let frame ← read
-      if traceArguments then CasTools.Diagnostics.message m!"[basechange.application] actual inputs prepared"
-      let request ← PreparedRequest.forApplication (← supply) frame.program
-        (← frame.environment.ledger.allocate) frame.context callable closed actual (← parameters)
-        (some (← frame.environment.transaction.view))
-        (validatedEnvironment := some (← retainedEnvironment))
-        (selections := frame.selections) (selectionBinding := frame.selectionBinding)
-      demand request
+      let traceArguments := (callable.role.source.expression.find? (·.isConstOf
+        `CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilWFormBaseChangeDeclaration)).isSome
+      if traceArguments then CasTools.Diagnostics.message m!"[basechange.application] callable={repr callable.value} arguments={arguments.size}"
+      let function ← traceExpensiveLower "application.source" callable.nativeRole.source.expression
+          frame.context.bindings.size do
+        callable.nativeRole.source.inContext frame.context
+      traceExpensiveLower "application.arguments" function frame.context.bindings.size do
+        actualArguments arguments (function := some function)
+            (traceArguments := traceArguments) fun closed actual => do
+          let frame ← read
+          if traceArguments then CasTools.Diagnostics.message m!"[basechange.application] actual inputs prepared"
+          let request ← traceExpensiveLower "application.prepare" function frame.context.bindings.size do
+            PreparedRequest.forApplication (← supply) frame.program
+              (← frame.environment.ledger.allocate) frame.context callable closed actual (← parameters)
+              (some (← frame.environment.transaction.view))
+              (validatedEnvironment := some (← retainedEnvironment))
+              (selections := frame.selections) (selectionBinding := frame.selectionBinding)
+          demand request
 
 private partial def record (expression : Expr) (fields : Array Expr) : LowerM ValueBinding := do
   let frame ← read
@@ -1555,8 +1444,6 @@ private partial def record (expression : Expr) (fields : Array Expr) : LowerM Va
         values := values.push value
     stageRecord layout values
 
-/-- Stage the same prepared record from its computational fields, in source order.
-The initial layout remains sealed; actual runtime context capture occurs after field lowering. -/
 private partial def stageRecord (layout : RecordLayout) (values : Array ValueBinding)
     (envelope : Option (Json × Array ContainerSlot) := none) :
     LowerM ValueBinding := do
@@ -1575,7 +1462,7 @@ private partial def stageRecord (layout : RecordLayout) (values : Array ValueBin
       RecordPrefix.prepare identities produced.program produced.occurrence layout
         draft.view frame.bound
     for value in values, wireIndex in [:values.size] do
-      -- Metadata is read only to label this timed call; binding still uses the original prefix.
+
       let projection := (layout.fields.find? (fun prepared =>
         prepared.field.wireIndex == some wireIndex)).map (·.field.projection)
       let (next, extended, _) ← traceExpensiveLower
@@ -1603,9 +1490,6 @@ private partial def stageRecord (layout : RecordLayout) (values : Array ValueBin
     | .ok () => return binding
     | .error failure => throwError "internal: a source record could not be retained: {repr failure}"
 
-/-- Prepare the original comparison family and its exact complete endpoint values before any
-point demand. Default endpoints use the same admitted native parameter positions; explicitly
-supplied endpoints retain their own scoped bindings. No endpoint field data is manufactured. -/
 private partial def presentationFamily (family : PresentationFamily) (levels : List Level)
     (arguments : Array Expr) (supplied : Option (Expr × Expr)) : LowerM ValueBinding := do
   let function := family.family.instantiateLevelParams family.universeParams levels
@@ -1628,9 +1512,6 @@ private partial def presentationFamily (family : PresentationFamily) (levels : L
       withSelected endpoints.1 fun source =>
         withSelected endpoints.2 fun target => finish #[source, target]
 
-/-- Retain the original receiver once, then its exact category inputs and ordinary delayed
-callable/application. The result request still contains the complete native composite family,
-so whole input-projection results complete before any registration is inspected. -/
 private partial def routedMethodFamily (family : RoutedMethodFamily) (levels : List Level)
     (arguments : Array Expr) (supplied : Option (Array (Array Expr))) : LowerM ValueBinding := do
   let frame ← read
@@ -1672,8 +1553,6 @@ private partial def routedMethodFamily (family : RoutedMethodFamily) (levels : L
               (withScope context bound (finish inputs.flatten) selections).run frame
     ) selections).run frame) (sourceSnapshot := frame.environment.sourceSnapshot)
 
-/-- A property remains one complete primitive observation of its accepted native proposition.
-The original receiver fixes every source category slot before the request is emitted. -/
 private partial def propertyObservation (family : PropertyFamily) (levels : List Level)
     (originals : Array Expr) : LowerM ValueBinding := do
   let frame ← read
@@ -1705,8 +1584,6 @@ private partial def propertyObservation (family : PropertyFamily) (levels : List
           demand request
     ) selections).run frame) (sourceSnapshot := frame.environment.sourceSnapshot)
 
-/-- A categorical endpoint descriptor retains this actual original arrow. If source formation
-already supplied an exact binding for the endpoint, keep that binding instead. -/
 private partial def pointEndpoint (arrow : ValueBinding) (source : Expr) (selector : String) :
     LowerM ValueBinding := do
   let frame ← read
@@ -1719,9 +1596,6 @@ private partial def pointEndpoint (arrow : ValueBinding) (source : Expr) (select
     { path := #[.field "args", .index 0], binding := arrow, fieldIndex := none }]).mapError IO.userError
   stage source payload
 
-/-- Retain a native arrow family without manufacturing endpoint/identity values at formation.
-An explicit complete request retains its actual arrow, domain, endpoints and generalized point
-once, then uses the ordinary prepared-boundary/input/transaction machinery. -/
 private partial def categoricalPointFamily (family : CategoricalPointFamily) (levels : List Level)
     (arguments : Array Expr) (requestData : Option (SelectedSourcePointRequest Expr)) :
     LowerM ValueBinding := do
@@ -1790,9 +1664,6 @@ private partial def categoricalPointFamily (family : CategoricalPointFamily) (le
                     (selections := frame.selections) (selectionBinding := frame.selectionBinding)
                   demand request
 
-/-- Keep the original whole-cone owner envelope beside the complete native request.
-The runtime view substitutes its already admitted actuals into that retained formal owner;
-the source formation's construction and interface are not prepared again. -/
 private partial def wholeLimitFamily (family : LimitFamily)
     (application : SelectedSourceApplication Expr) : LowerM ValueBinding := do
   let some owner := application.ownerSelection
@@ -1811,9 +1682,6 @@ private partial def wholeLimitFamily (family : LimitFamily)
       (selections := frame.selections) (selectionBinding := frame.selectionBinding)
     demand request
 
-/-- Continue the universal field of this exact completed cone. The complete original
-declaration parameter table comes from that cone's producing request; explicit source
-binders are checked against those same values before the new native field is prepared. -/
 private partial def universalLimitFamily (family : LimitUniversalFamily)
     (application : SelectedSourceApplication Expr) : LowerM ValueBinding := do
   let frame ← read
@@ -1867,8 +1735,6 @@ private partial def universalLimitFamily (family : LimitUniversalFamily)
         demand request
     ) selections).run frame
 
-/-- Invoke the complete source-prepared creation. The source plan's let-bindings or the
-public request provide its actual Cone and IsLimit values at these same native positions. -/
 private partial def creationFamily (expression : Expr) (family : CreationFamily)
     (target : LimitFamily) (application : SelectedSourceApplication Expr)
     (selected : Option NativeLimitSelection) : LowerM ValueBinding := do
@@ -1899,8 +1765,6 @@ private partial def creationFamily (expression : Expr) (family : CreationFamily)
     let environment ← runtimeEnvironment
     return (← environment.checkResult graph (← origin expression).role value).root
 
-/-- Retain a created object before any provider demand. Its complete original source-input
-telescope is lowered once and rebound positionally into both the source and mapped diagrams. -/
 private partial def formalCreationDescriptor (prepared : PreparedCreationFamily) :
     LowerM ValueBinding := do
   let frame ← read
@@ -1917,9 +1781,6 @@ private partial def formalCreationDescriptor (prepared : PreparedCreationFamily)
           closureWith owner fun _ _ => .creationOwner prepared).run
             { frame with context, selections, retainedView }
 
-/-- Lower every original direct-limit declaration parameter once, then positionally bind the
-same retained owner family. Explicit wire fields keep those exact bindings; implicit source
-parameters remain in node.origin.role.source for later whole-cone and constructor-port use. -/
 private partial def formalLimitDescriptor (expression : Expr) (source : SourceSelection Expr)
     (selection : NativeLimitSelection) : LowerM (Option ValueBinding) := do
   let frame ← read
@@ -1973,8 +1834,6 @@ private partial def formalLimitDescriptor (expression : Expr) (source : SourceSe
       return some (← descriptor value selection.source.row explicitSources none
         (some explicitValues))
 
-/-- Retain structural map data at the unchanged original native role. The descriptor's
-endpoints/operands are actual lowered occurrences; no map implementation is evaluated. -/
 private partial def structuralMap (selected : NativeStructuralMap) : LowerM ValueBinding := do
   let values ← if selected.tag == "identity" then do
       let value ← lower selected.source
@@ -2017,19 +1876,18 @@ private partial def application (expression : Expr) : LowerM ValueBinding := do
     descriptor expression name.getString! (← fields.filterM fun field => return !(← isProof field))
   | some (.inductInfo _) =>
     if (← whnf (← inferType expression)).isProp then
-      -- A proposition formed by a type former has no computed truth value of its own (C22).
+
       throwStratum .noImplementation m!"the proposition {name} has no published predicate"
-    -- An unapplied type family retains its native callable code, as other functions do.
+
     if (← origin expression).role.kind == .function then return ← closure expression
     if name == ``Prod then
       unless arguments.size == 2 do
         throwError "the native object product lost its two ordered components"
       return ← descriptor expression "objectProduct" arguments
-    -- A type former at its arguments is an object of the category of sets.
+
     descriptor expression s!"lean:{name}" (← explicitArguments expression)
   | some (.recInfo _) | some (.quotInfo _) =>
-    -- The kernel evaluates no eliminator (constitution C22): branching belongs to the leaf
-    -- that implements an operation.
+
     if name == ``Quot then
       let heads := arguments.map fun argument => match argument.consumeMData with
         | .lam _ type body _ => ("lambda", type.getAppFn.constName?, body.getAppFn.constName?)
@@ -2039,15 +1897,11 @@ private partial def application (expression : Expr) : LowerM ValueBinding := do
   | _ =>
     if ← isMatcher name then
       throwStratum .noImplementation m!"{name} is a match with no published operation"
-    -- User definitions are the retained local bindings handled above; accepted derivation
-    -- templates arrive as their checked composition. A remaining constant has neither
-    -- authority, even when Lean exposes a reducible body.
+
     throwStratum .noImplementation m!"{name} has no published operation"
 
 end
 
-/-- Lower a checked source term in its complete context and return its actual retained value.
-`bound` is the runtime-binding table of the context, by stable source identity. -/
 opaque lowerTerm (environment : LowerEnvironment) (program : RuntimeId .program)
     (context : OpenContext) (bound : Std.HashMap BindingId ValueBinding) (expression : Expr)
     (validatedEnvironment : Option RuntimeEnvironment := none)
@@ -2063,8 +1917,7 @@ opaque lowerTerm (environment : LowerEnvironment) (program : RuntimeId .program)
         (← value.nativeRole.selections.inContext context)
   let mut frame : Frame := {
     environment, program, context, bound, retainedView, selections := retainedSelections }
-  -- A request may reopen its already admitted scope. Validate that hint against this
-  -- exact frame and current graph before any source-path lookup can use the cache.
+
   if validatedEnvironment.isSome then
     let admitted ← runtimeEnvironment.run frame
     retainedView.set (some admitted)

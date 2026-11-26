@@ -18,13 +18,30 @@ private def requireAvailable (transaction : CellTransaction) (graph : ValueGraph
 
 private def retainResponse (request : PreparedRequest) (transaction : CellTransaction)
     (binding : ValueBinding) : MetaM (PreparedResponse request) := do
+  let detail := Json.mkObj [
+    ("program", Observation.identityJson request.program),
+    ("occurrence", Observation.identityJson request.occurrence),
+    ("preparation", Observation.identityJson request.roles.scope.preparation),
+    ("transaction", Observation.identityJson transaction.id)]
+  let emit := fun event => do
+    try
+      CasTools.Diagnostics.emit event detail
+    catch _ => pure ()
+  emit "execution.response.started"
   let graph ← transaction.view
   let traced := (request.source.source.expression.find? (·.isConstOf `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
   if traced then CasTools.Diagnostics.message m!"[inclusion.stage] retain {repr request.occurrence}: before result admission"
+  emit "execution.response.admit.started"
   let candidate ← request.admitResult graph binding
+  emit "execution.response.admit.completed"
   if traced then CasTools.Diagnostics.message m!"[inclusion.stage] retain {repr request.occurrence}: result admitted"
+  emit "execution.response.available.started"
   requireAvailable transaction graph candidate.root
+  emit "execution.response.available.completed"
+  emit "execution.response.retain.started"
   transaction.retain candidate.root
+  emit "execution.response.retain.completed"
+  emit "execution.response.completed"
   return candidate
 
 private def completionFailure (failure : TransactionFailure) : MetaM α :=
@@ -104,9 +121,6 @@ private def executeDemand
     throwError "internal: execution changed the active transaction"
   return (← retainResponse request state response.root, state)
 
-/-- A stored field is a completed demand with its own occurrence and receipt.
-Claim it before selection, and publish the same node under its prepared result role.
-The completion derives owner dependencies from the selected field, not its whole parent. -/
 private def projectStored (request : PreparedRequest) (transaction : CellTransaction)
     (binding : ValueBinding) :
     MetaM (PreparedResponse request × CellTransaction) := do
@@ -131,13 +145,6 @@ private def projectStored (request : PreparedRequest) (transaction : CellTransac
   | .ok association =>
     return (← retainResponse request transaction association.response.root, transaction)
 
-/-- Interpret prepared value actions against the active transaction and current owners.
-Visible receipts and staged completions supply actual roots; pending occurrences share a waiter.
-Stored projection selects its exact field node before checking that field's dependencies.
-Other effects use the required executor under the same prepared request and transaction.
-Every returned node passes the prepared environment's native type and dependency checks.
-Reuse: PolyFun a5895e45 Handler.Stateful over MetaM, RuntimeEnvironment.checkResult,
-ValueGraph and CellTransaction transitions. -/
 private def interpreterWithInputs
     (executor : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature)
     (resolve : Option (FixedInput → MetaM ValueBinding)) :
@@ -177,15 +184,11 @@ private def interpreterWithInputs
       executeDemand executor resolve request transaction
     | .primitive _ _ => executeDemand executor resolve request transaction
 
-/-- Interpret prepared actions, completing wholly stored input results before external demand.
-Production execution additionally supplies its ordinary lazy-input projection resolver. -/
 def interpreter
     (executor : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature) :
     PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature :=
   interpreterWithInputs executor none
 
-/-- Run the imported dependent FreeM interpreter; failure aborts this cell's entire staging.
-Source: PolyFun Handler.Stateful.run, which delegates to CSLib FreeM.liftM. -/
 def run {α : Type}
     (executor : PFunctor.Handler.Stateful MetaM CellTransaction OperationalSignature)
     (program : OperationalProgram α) (transaction : CellTransaction)

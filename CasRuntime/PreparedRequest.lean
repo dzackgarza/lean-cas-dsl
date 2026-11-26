@@ -144,10 +144,15 @@ private def prepareRequest (identities : CasRuntime.IdentitySupply)
     (origin : CasRuntime.ValueOrigin)
     (actualArguments : Array CasRuntime.RuntimeArgument := #[]) :
     MetaM PreparedRequest := do
+  let event := Json.mkObj [
+    ("program", Observation.identityJson program),
+    ("occurrence", Observation.identityJson occurrence)]
+  CasTools.Diagnostics.emit "request.prepare.source.started" event
   let specified ← source.inContext context
   unless specified.kind == origin.role.kind && specified.address == origin.role.address &&
       specified.source.expression.equal origin.role.source.expression do
     throwError "request preparation changed its original native source role"
+  CasTools.Diagnostics.emit "request.prepare.source.completed" event
   let source := origin.role
   let application := application.map fun layout => { layout with result := source }
 
@@ -155,19 +160,24 @@ private def prepareRequest (identities : CasRuntime.IdentitySupply)
     if application.path.isEmpty then
       { application with layout := { application.layout with result := source } }
     else application }
+  CasTools.Diagnostics.emit "request.prepare.inputInterface.started" event
   let origin ← match action with
     | .project .. => pure origin
     | .primitive .. | .apply .. => prepareInputInterface environment origin
+  CasTools.Diagnostics.emit "request.prepare.inputInterface.completed" event
   unless identities.worker == program.worker && program.worker == occurrence.worker do
     throwError "request preparation mixed worker identities"
+  CasTools.Diagnostics.emit "request.prepare.scope.started" event
   for binding in scope do
     unless binding.value.worker == program.worker do
       throwError "a request scope value belongs to a different worker"
     discard <| binding.role.source.inContext context
+  CasTools.Diagnostics.emit "request.prepare.scope.completed" event
   if source.kind == .proof then
     throwError "a source proof has no computational response positions"
   let traced := (source.source.expression.find? (·.isConstOf `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
   if traced then CasTools.Diagnostics.message m!"[inclusion.stage] request {repr occurrence}: before output layouts"
+  CasTools.Diagnostics.emit "request.prepare.outputs.started" event
   let mut outputs : Array SourceLayout := #[]
   let record ← if source.kind == .record then
       pure (some (← RecordLayout.ofSource source))
@@ -176,14 +186,20 @@ private def prepareRequest (identities : CasRuntime.IdentitySupply)
     for prepared in record.fields do
       if prepared.field.wireIndex.isSome then outputs := outputs.push prepared.layout
   else outputs := #[source]
+  CasTools.Diagnostics.emit "request.prepare.outputs.completed" event
   if traced then CasTools.Diagnostics.message m!"[inclusion.stage] request {repr occurrence}: before role telescope"
+  CasTools.Diagnostics.emit "request.prepare.roles.started" event
   let roles ← RoleTelescope.ofRequest identities program occurrence context application source
     (scope.map (·.role))
+  CasTools.Diagnostics.emit "request.prepare.roles.completed" event
   if traced then CasTools.Diagnostics.message m!"[inclusion.stage] request {repr occurrence}: prepared"
 
+  CasTools.Diagnostics.emit "request.prepare.observation.started" event
   let observation ← ObservationDescriptor.prepare program occurrence action source scope outputs
     record environment origin application roles actualArguments
+  CasTools.Diagnostics.emit "request.prepare.observation.completed" event
   CasTools.Diagnostics.emit "request.prepared" observation.toJson
+  CasTools.Diagnostics.emit "request.prepare.logged" event
   return ⟨program, occurrence, action, source, scope, outputs, record, environment, origin,
     application, roles, observation, actualArguments, none, environment.selections,
     source.selectionBinding, none⟩
