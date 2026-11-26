@@ -5,6 +5,7 @@ public import CasRuntime.Realization
 public import CasRuntime.BackendConnections
 public import CasRuntime.ManifestAdmission
 public import CasRuntime.Occurrence
+public import CasTools.Diagnostics
 
 public section
 
@@ -26,9 +27,10 @@ structure Kernel where
   rejected : Array String
   connections : BackendConnections
   codes : IO.Ref (Std.HashMap (RuntimeId .program) ClosureCode)
-  marks : IO.Ref (Array ValueBinding)
   /-- The registrations actually dispatched, in order. An observation, not evidence. -/
   dispatches : IO.Ref (Array Registration)
+  /-- Inert session diagnostics, separate from source and runtime authority. -/
+  log : CasTools.ApplicationLog
 
 /-- Read and freeze the manifest and profile before any invocation. No process starts here.
 Without a manifest no leaf is installed. A registration is admitted when its operation is the
@@ -41,19 +43,26 @@ opaque Kernel.load (owners : OwnerRegistry) (manifest : Option System.FilePath)
     | none => pure (".", "{}")
   let parsed ← IO.ofExcept <| (Json.parse text >>= Manifest.parse).mapError IO.userError
   let (installed, rejected) ← admitManifest parsed
-  return ⟨← OccurrenceLedger.new owners, installed, ← sha256Hex text,
-    ← RealizationProfile.prepare installed profile, timeoutMs, rejected,
+  let digest ← sha256Hex text
+  let selectedProfile ← RealizationProfile.prepare installed profile
+  let log ← CasTools.ApplicationLog.new owners.identities.worker <| Json.mkObj [
+    ("manifest", toJson (manifest.map (·.toString))), ("manifestDigest", toJson digest),
+    ("profileDigest", toJson selectedProfile.sha256), ("rejected", toJson rejected)]
+  return ⟨← OccurrenceLedger.new owners, installed, digest,
+    selectedProfile, timeoutMs, rejected,
     ← BackendConnections.new owners root installed.backends timeoutMs,
-    ← IO.mkRef {}, ← IO.mkRef #[], ← IO.mkRef #[]⟩
+    ← IO.mkRef {}, ← IO.mkRef #[], log⟩
 
-/-- Branch preparation copies the retained code and mark tables. A committed
+/-- Branch preparation copies the retained code table. A committed
 parent is never mutated by a child cell; occurrence/connection authority and
 dispatch observations remain shared resource state. -/
 def Kernel.fork (kernel : Kernel) : BaseIO Kernel := do
-  return { kernel with codes := ← IO.mkRef (← kernel.codes.get),
-                       marks := ← IO.mkRef (← kernel.marks.get) }
+  return { kernel with codes := ← IO.mkRef (← kernel.codes.get) }
 
 /-- Close every started process and invalidate its generation. -/
-opaque Kernel.close (kernel : Kernel) : IO Unit := kernel.connections.close
+opaque Kernel.close (kernel : Kernel) : IO Unit := do
+  try kernel.connections.close
+  finally
+    discard <| kernel.log.write #[] "session.resourcesClosed" (Json.mkObj [])
 
 end CasRuntime

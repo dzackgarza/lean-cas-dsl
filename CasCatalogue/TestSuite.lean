@@ -55,6 +55,8 @@ structure TestResult where
   id : String
   /-- The outcome's kind (`Outcome.kind`). -/
   kind : String
+  /-- The original classified failure, separate from the legacy outcome kind. -/
+  stratum : Option String := none
   detail : String := ""
   /-- Whether the outcome fails the suite (`Outcome.fails`). -/
   fails : Bool := false
@@ -79,8 +81,8 @@ structure TestResult where
   setupMilliseconds : Nat := 0
   deriving ToJson, FromJson, Inhabited
 
--- The native source field is additive. Lean's derived decoder does not use structure
--- defaults, so preserve older reports by supplying only this absent field. Present values
+-- The native source and failure-stratum fields are additive. Lean's derived decoder does not
+-- use structure defaults, so preserve older reports by supplying only absent fields. Present values
 -- still pass through the complete generated decoder, including its normal type checks.
 attribute [-instance] instFromJsonTestResult
 
@@ -88,16 +90,23 @@ instance instFromJsonTestResultCompatible : FromJson TestResult where
   fromJson? json :=
     let normalized := match json with
       | .obj fields =>
-        if (fields.get? "conclusions").isSome then json
-        else .obj (fields.insert "conclusions" (.arr #[]))
+        let fields := if (fields.get? "conclusions").isSome then fields
+          else fields.insert "conclusions" (.arr #[])
+        let fields := if (fields.get? "stratum").isSome then fields
+          else fields.insert "stratum" .null
+        .obj fields
       | _ => json
     @fromJson? TestResult instFromJsonTestResult normalized
 
 /-- Report a completed statement. `-DstderrAsMessages=false` enables live stderr output. -/
-private def TestResult.writeProgress (result : TestResult) : CommandElabM Unit := do
+private def TestResult.writeProgress (result : TestResult)
+    (position : Option Position := none) : CommandElabM Unit := do
   let output ← if Core.stderrAsMessages.get (← getOptions) then IO.getStdout else IO.getStderr
   let detail := if result.detail.isEmpty then "" else s!": {result.detail}"
-  output.putStrLn s!"{result.file}: {result.id}: {result.kind} \
+  let location := match position with
+    | some position => s!"{result.file}:{position.line}:{position.column + 1}"
+    | none => result.file
+  output.putStrLn s!"{location}: {result.id}: {result.kind} \
     ({result.milliseconds} ms){detail}"
   output.flush
 
@@ -108,13 +117,17 @@ private def dispatchJson (registration : Registration) : Json :=
 /-- Run one parsed statement in its own heartbeat budget and report its dispatches.
 A statement of a file is read against that file's original positions. -/
 private def runOne (session : KernelSession) (statement : TSyntax `cas_stmt)
-    (source : Option SourceFile := none) (owningCell : Option CellTransaction := none) :
+    (source : Option SourceFile := none) (owningCell : Option CellTransaction := none)
+    (diagnostics : Option CasTools.Diagnostics.Scope := none) :
     CommandElabM (StatementRun × Array Json) := do
   let start := (← session.kernel.dispatches.get).size
-  let result ← liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats <|
+  let computation : TermElabM StatementRun := withoutErrToSorry <| withCurrHeartbeats <|
     match source with
     | some file => file.withContext (session.run statement owningCell)
     | none => session.run statement owningCell
+  let result ← liftTermElabM <| match diagnostics with
+    | some scope => CasTools.Diagnostics.withScope scope computation
+    | none => computation
   let calls ← session.kernel.dispatches.get
   return (result, (calls.extract start calls.size).map dispatchJson)
 
@@ -129,54 +142,117 @@ An exception outside a statement's own outcome is that statement's internal erro
 def runFile (session : KernelSession) (path : System.FilePath) :
     CommandElabM (Array TestResult × KernelSession) := do
   let file := path.toString
+  let log := session.kernel.log
+  let fileBegan ← IO.monoMsNow
+  let fileEntry ← log.write #[] "file.begin" (Json.mkObj [("file", toJson file)])
+  let fileRun := s!"{log.session}/{fileEntry}"
   let contents ← try IO.FS.readFile path
     catch error =>
+      discard <| log.write #[fileEntry] "file.failed" <| Json.mkObj [
+        ("fileRun", toJson fileRun), ("file", toJson file), ("stage", toJson "read"),
+        ("detail", toJson (← error.toMessageData.toString))]
       return (#[{ file, id := "(statement) infrastructure", kind := "internal"
                   detail := s!"cannot read selected input: {← error.toMessageData.toString}"
                   fails := true }], session)
+  let sourceSha256 ← sha256Hex contents
   let source ← try liftCoreM <| SourceFile.parse file contents
     catch error =>
+      discard <| log.write #[fileEntry] "file.failed" <| Json.mkObj [
+        ("fileRun", toJson fileRun), ("file", toJson file), ("stage", toJson "parse"),
+        ("sourceSha256", toJson sourceSha256),
+        ("detail", toJson (← error.toMessageData.toString))]
       -- A syntactically unreadable file is invalid input, not an interpreter crash.
-      return (#[{ file, id := "(statement) parse", kind := "invalid"
+      return (#[{ file, id := "(statement) parse", kind := "invalid", stratum := some "invalid"
                   detail := s!"reader parser failure: {← error.toMessageData.toString}"
                   fails := true }], session)
+  let sharedFileSetupMilliseconds := (← IO.monoMsNow) - fileBegan
+  discard <| log.write #[fileEntry] "file.started" <| Json.mkObj [
+    ("fileRun", toJson fileRun), ("file", toJson file),
+    ("sourceSha256", toJson sourceSha256), ("statements", toJson source.items.size),
+    ("sharedFileSetupMilliseconds", toJson sharedFileSetupMilliseconds)]
   let mut session := session
   let mut results : Array TestResult := #[]
   let mut setupMilliseconds := 0
-  for item in source.items do
+  let mut cumulativeSetupMilliseconds := sharedFileSetupMilliseconds
+  let mut executed := 0
+  for item in source.items, ordinal in [:source.items.size] do
     let (id?, statement) : Option String × TSyntax `cas_stmt := match item with
       | `(cas_item| test $id:ident $_:str : $statement:cas_stmt) =>
         (some id.getId.toString, statement)
       | `(cas_item| $statement:cas_stmt) => (none, statement)
       | _ => (none, ⟨item.raw⟩)
     let id := id?.getD s!"(statement) {item.raw.reprint.getD ""}"
+    let position := statement.raw.getPos?.map source.context.fileMap.toPosition
+    let computation := s!"{fileRun}/{ordinal}"
+    let computationSetupMilliseconds := cumulativeSetupMilliseconds
     let start ← IO.monoMsNow
+    let computationEntry ← log.write #[fileEntry] "computation.started" <| Json.mkObj [
+      ("computation", toJson computation), ("fileRun", toJson fileRun),
+      ("file", toJson file), ("sourceSha256", toJson sourceSha256),
+      ("ordinal", toJson ordinal), ("id", toJson id),
+      ("source", toJson (statement.raw.reprint.getD "")),
+      ("cumulativeSetupMilliseconds", toJson computationSetupMilliseconds),
+      ("position", SourceSnapshot.spanJson ⟨file, statement.raw.getPos?, statement.raw.getTailPos?⟩)]
+    let recordTiming (result : TestResult) (children : Array Json) : IO Unit := do
+      discard <| log.write #[fileEntry, computationEntry] "computation.timing" <| Json.mkObj [
+        ("computation", toJson computation), ("fileRun", toJson fileRun),
+        ("file", toJson file), ("sourceSha256", toJson sourceSha256),
+        ("ordinal", toJson ordinal), ("id", toJson id),
+        ("milliseconds", toJson (result.milliseconds + computationSetupMilliseconds)),
+        ("executionMilliseconds", toJson result.milliseconds),
+        ("setupMilliseconds", toJson computationSetupMilliseconds),
+        ("cumulativeSetupMilliseconds", toJson computationSetupMilliseconds),
+        ("reportSetupMilliseconds", toJson result.setupMilliseconds),
+        ("sharedFileSetupMilliseconds", toJson sharedFileSetupMilliseconds),
+        ("result", toJson result), ("children", toJson children)]
+    executed := executed + 1
     let execution ← try
-        pure (some (← runOne session statement (some source)))
+        let run ← runOne session statement (some source)
+          (diagnostics := some { log, parents := #[fileEntry, computationEntry] })
+        pure (some run)
       catch error =>
         let result : TestResult := {
           file, id, kind := "internal"
           detail := s!"statement execution failed: {← error.toMessageData.toString}"
           fails := true, milliseconds := (← IO.monoMsNow) - start, setupMilliseconds }
-        result.writeProgress
+        result.writeProgress position
+        recordTiming result #[]
         results := results.push result
         setupMilliseconds := 0
         pure none
     let milliseconds := (← IO.monoMsNow) - start
     let some (run, dispatches) := execution | continue
+    let retainsSetup := run.session.source.context.entries.size > session.source.context.entries.size
     session := run.session
     for output in run.inspectionOutput do logInfo output
     let result : TestResult := {
       file, id, kind := run.outcome.kind, detail := run.outcome.detail
+      stratum := run.outcome.stratum?
       fails := run.outcome.fails, attempted := run.attempted, published := run.published,
       question := run.proposition, proposition := run.proposition
       conclusions := run.conclusions.map CasTools.QuestionExport.observeConclusion
       dispatches, milliseconds, setupMilliseconds }
-    result.writeProgress
+    result.writeProgress position
     let scopedObservations :=
       if run.observations.isEmpty && (sourceContextItems? statement).isSome then
         unexecutedScope statement
       else run.observations
+    recordTiming result <| scopedObservations.mapIdx fun ordinal child => Json.mkObj [
+      ("ordinal", toJson ordinal),
+      ("id", toJson (match child.item with
+        | `(cas_item| test $name:ident $_:str : $_:cas_stmt) => name.getId.toString (escape := false)
+        | _ => s!"(statement) {child.item.raw.reprint.getD ""}")),
+      ("source", toJson (child.item.raw.reprint.getD "")),
+      ("position", SourceSnapshot.spanJson ⟨file, child.item.raw.getPos?, child.item.raw.getTailPos?⟩),
+      ("attempted", toJson child.attempted),
+      ("kind", toJson (child.outcome.map (·.kind))),
+      ("stratum", toJson (child.outcome.bind (·.stratum?))),
+      ("detail", toJson (child.outcome.map (·.detail))),
+      ("milliseconds", toJson child.milliseconds),
+      ("conclusions", toJson (child.conclusions.map CasTools.QuestionExport.observeConclusion)),
+      ("dispatches", toJson (child.dispatches.map dispatchJson))]
+    if retainsSetup then
+      cumulativeSetupMilliseconds := cumulativeSetupMilliseconds + milliseconds
     if !scopedObservations.isEmpty then
       -- Child time/calls are measured by the same shared execution cell. Source preflight
       -- and block overhead are charged once as setup, never invented per-question timings.
@@ -209,13 +285,14 @@ def runFile (session : KernelSession) (path : System.FilePath) :
         let row : TestResult := {
           file, id := childId.getD s!"(statement) {child.item.raw.reprint.getD ""}",
           kind := outcome.kind, detail := outcome.detail, fails := outcome.fails,
+          stratum := outcome.stratum?,
           attempted := child.attempted, published := run.published,
           blockedBy := if child.outcome.isNone then some cause else none,
           question := child.proposition, proposition := child.proposition,
           conclusions := child.conclusions.map CasTools.QuestionExport.observeConclusion,
           dispatches := child.dispatches.map dispatchJson,
           milliseconds := child.milliseconds, setupMilliseconds }
-        row.writeProgress
+        row.writeProgress (child.item.raw.getPos?.map source.context.fileMap.toPosition)
         results := results.push row
         setupMilliseconds := 0
       -- Source-only observations do not replace the actual root failure when no child
@@ -229,6 +306,10 @@ def runFile (session : KernelSession) (path : System.FilePath) :
       continue
     results := results.push result
     setupMilliseconds := 0
+  discard <| log.write #[fileEntry] "file.finished" <| Json.mkObj [
+    ("fileRun", toJson fileRun), ("file", toJson file),
+    ("sourceSha256", toJson sourceSha256), ("executed", toJson executed),
+    ("milliseconds", toJson ((← IO.monoMsNow) - fileBegan))]
   return (results, session)
 
 /-- The report of a file's results. -/
@@ -330,7 +411,18 @@ def runStatement (session : KernelSession) (text : String)
     (owningCell : Option CellTransaction := none) : CommandElabM StatementRun := do
   let parsed ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
     | .ok statement => pure statement
-    | .error error => throwError "not a statement of the language: {error}\n{text}"
+    | .error error => do
+      let reference ← getRef
+      let log := session.kernel.log
+      let parents := match ← liftCoreM CasTools.Diagnostics.current? with
+        | some active => if active.log.session == log.session then active.parents else #[]
+        | none => #[]
+      discard <| log.write parents "statement.parseFailed" <| Json.mkObj [
+        ("source", toJson text), ("kind", toJson "invalid"),
+        ("stratum", toJson (some "invalid")), ("detail", toJson error),
+        ("position", SourceSnapshot.spanJson ⟨← getFileName,
+          reference.getPos?, reference.getTailPos?⟩)]
+      throwError "not a statement of the language: {error}\n{text}"
   return (← runOne session ⟨parsed⟩ none owningCell).1
 
 syntax (name := casTestsCommand)

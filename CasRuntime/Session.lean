@@ -18,6 +18,7 @@ inductive Outcome
   | holds
   | wrong (message : String)
   | gap (reason : String)
+  | unsupportedSource (reason : String)
   | noImplementation (reason : String)
   | ambiguousRealization (reason : String)
   | unavailable (reason : String)
@@ -30,7 +31,7 @@ inductive Outcome
 def Outcome.kind : Outcome → String
   | .holds => "holds"
   | .wrong _ => "wrong"
-  | .gap _ | .noImplementation _ | .ambiguousRealization _ => "gap"
+  | .gap _ | .unsupportedSource _ | .noImplementation _ | .ambiguousRealization _ => "gap"
   | .unavailable _ => "unavailable"
   | .malformed _ => "malformed"
   | .invalid _ => "invalid"
@@ -39,7 +40,8 @@ def Outcome.kind : Outcome → String
 
 def Outcome.detail : Outcome → String
   | .holds => ""
-  | .wrong message | .gap message | .noImplementation message | .ambiguousRealization message
+  | .wrong message | .gap message | .unsupportedSource message
+  | .noImplementation message | .ambiguousRealization message
   | .unavailable message | .malformed message
   | .invalid message | .ambiguous message | .internal message => message
 
@@ -48,6 +50,7 @@ def Outcome.withDetail : Outcome → String → Outcome
   | .holds, _ => .holds
   | .wrong _, detail => .wrong detail
   | .gap _, detail => .gap detail
+  | .unsupportedSource _, detail => .unsupportedSource detail
   | .noImplementation _, detail => .noImplementation detail
   | .ambiguousRealization _, detail => .ambiguousRealization detail
   | .unavailable _, detail => .unavailable detail
@@ -61,6 +64,7 @@ def Outcome.fails (outcome : Outcome) : Bool :=
 
 /-- Preserve actual released failure strata separately from suite outcome kinds. -/
 def Outcome.stratum? : Outcome → Option String
+  | .unsupportedSource _ => some "unsupportedSource"
   | .invalid _ => some "invalid"
   | .ambiguous _ => some "semanticAmbiguity"
   | .noImplementation _ => some "noImplementation"
@@ -74,7 +78,7 @@ An exception without a stratum is an internal failure, never mathematical invali
 def Outcome.ofException (error : Exception) : MetaM Outcome := do
   let message ← error.toMessageData.toString
   if CasCatalogue.Exception.isSemanticAmbiguity error then return .ambiguous message
-  if CasCatalogue.Exception.isUnsupportedSource error then return .gap message
+  if CasCatalogue.Exception.isUnsupportedSource error then return .unsupportedSource message
   return match CasCatalogue.Exception.stratum? error with
     | some .invalid => .invalid message
     | some .semanticAmbiguity => .ambiguous message
@@ -179,12 +183,11 @@ private def commit (transaction : CellTransaction) : MetaM Unit := do
 
 /-- A question depending on an observed computation concerns its actual value, including
 through aliases and captured definitions. Computation-only sessions use that observation path
-for every proposition. Reuse: contextDependencies closes native source dependencies through
-their types and values. -/
+for every proposition. Both native declarations and their exact typed selections participate. -/
 private def requiresComputedObservation (session : KernelSession) (context : OpenContext)
-    (proposition : Expr) : MetaM Bool := do
+    (selections : SourceSelectionScope Expr) (proposition : Expr) : MetaM Bool := do
   if session.computationOnly then return true
-  for index in (← contextDependencies context.bindings proposition) do
+  for index in (← selectedContextDependencies context selections proposition) do
     let some binding := context.bindings[index]?
       | throwError "a question dependency is outside its complete source context"
     if session.observed.contains binding.id then return true
@@ -193,31 +196,47 @@ private def requiresComputedObservation (session : KernelSession) (context : Ope
 /-- Decide an eligible closed source proposition through the existing registered literal
 evaluations and kernel decision. Supplied local evidence uses the same observation policy
 without requiring its proposition to be closed. -/
-private def discharged (session : KernelSession) (context : OpenContext) (proposition : Expr) :
+private def discharged (session : KernelSession) (context : OpenContext)
+    (selections : SourceSelectionScope Expr) (proposition : Expr) :
     TermElabM (Option Bool) := do
-  if ← requiresComputedObservation session context proposition then return none
-  let proposition ← zetaReduce proposition
-  if proposition.hasFVar then return none
-  Evaluation.decideEvaluated proposition
+  if ← requiresComputedObservation session context selections proposition then return none
+  controlAt MetaM fun run =>
+    context.withOriginalSources #[proposition] fun source => run do
+      let proposition ← zetaReduce source[0]!
+      if proposition.hasFVar then return none
+      Evaluation.decideEvaluated proposition
 
 /-- Follow only the retained source bindings' declared dependencies. A failed computation
 keeps its outcome by BindingId; later executable uses do not lower its definition again.
 Mathematical questions may still be discharged from their source before this execution gate.
-Reuse: contextDependencies closes dependencies through native types and definitions. -/
+The explicit selected records retain dependencies behind opaque source binders. -/
 private def failedComputation (session : KernelSession) (context : OpenContext)
-    (expression : Expr) : MetaM (Option Outcome) := do
-  for index in ← contextDependencies context.bindings expression do
+    (selections : SourceSelectionScope Expr) (expression : Expr) : MetaM (Option Outcome) := do
+  for index in ← selectedContextDependencies context selections expression do
     let some binding := context.bindings[index]?
       | throwError "internal: a source dependency is outside its retained context"
     if let some (_, name, outcome) := session.unavailable.find? fun (id, _, _) =>
         id == binding.id then
+      CasTools.Diagnostics.emit "dependency.unavailable" <| Json.mkObj [
+        ("binding", ContextSnapshot.bindingJson binding.id),
+        ("name", toJson (name.toString (escape := false))),
+        ("kind", toJson outcome.kind), ("stratum", toJson outcome.stratum?),
+        ("detail", toJson outcome.detail)]
       return some (outcome.withDetail s!"{name} has no computed value: {outcome.detail}")
   return none
 
 /-- The literal value of a side that is a registered literal form's denotation `denote L`.
 Source: LiteralEntry, "a statement comparing a computed value with a literal compares it
 with this denotation". -/
-private def literalForm? (side : Expr) : MetaM (Option Expr) := do
+private def literalForm? (context : OpenContext) (selections : SourceSelectionScope Expr)
+    (side : Expr) : MetaM (Option Expr) := do
+  let side ← match selections.findAt? context side.getAppFn with
+    | some selected =>
+      let selected ← selected.specialize side.getAppArgs
+      match selected.reference with
+      | some (.literal _) => pure selected.value
+      | _ => pure side
+    | none => pure side
   let side := side.consumeMData
   let .const name _ := side.getAppFn | return none
   unless (← semanticState).literals.any (·.denotation == name) do return none
@@ -226,19 +245,20 @@ private def literalForm? (side : Expr) : MetaM (Option Expr) := do
 /-- A side that the reader formed as a registered numeral (NumeralEntry). It is compared as its
 own term: deciding that a computed value equals a numeral evaluates a closed proposition, which
 the kernel may do; it does not compute the numeral's image as data (constitution C22). -/
-private def numeralForm? (side : Expr) : Option Expr :=
-  match side with
-  | .mdata data body =>
-    if data.getName `CasCompiler.source.kind == ``CasCatalogue.NumeralEntry then some side
-    else numeralForm? body
-  | _ => none
+private def numeralForm? (context : OpenContext) (selections : SourceSelectionScope Expr)
+    (side : Expr) : MetaM (Option Expr) := do
+  let some selected := selections.findAt? context side.getAppFn | return none
+  let selected ← selected.specialize side.getAppArgs
+  match selected.reference with
+  | some (.numeral _) => return some selected.value
+  | _ => return none
 
 /-- Exact unsupplied formal parameters of this source, including dependencies through
 native types and definitions. Hypotheses/dictionaries remain formal; no value is selected by
 its name or by conversion of its carrier. -/
 private def unsuppliedParameter? (session : KernelSession) (context : OpenContext)
-    (expression : Expr) : MetaM (Option LocalBinding) := do
-  for index in (← contextDependencies context.bindings expression) do
+    (selections : SourceSelectionScope Expr) (expression : Expr) : MetaM (Option LocalBinding) := do
+  for index in (← selectedContextDependencies context selections expression) do
     let some binding := context.bindings[index]?
       | throwError "a formal dependency is outside its complete source context"
     if binding.role == .parameter && !session.bound.contains binding.id then
@@ -246,16 +266,45 @@ private def unsuppliedParameter? (session : KernelSession) (context : OpenContex
   return none
 
 private def requireSuppliedParameters (session : KernelSession) (context : OpenContext)
-    (expression : Expr) : MetaM Unit := do
-  if let some binding ← unsuppliedParameter? session context expression then
+    (selections : SourceSelectionScope Expr) (expression : Expr) : MetaM Unit := do
+  if let some binding ← unsuppliedParameter? session context selections expression then
     let name ← binding.expression.fvarId!.getUserName
     throwStratum .noImplementation (MessageData.tagged (missingValueTag binding.id)
       m!"the abstract parameter {name} has no supplied runtime value")
 
+/-- Carry each visible source binding's actual displayed scope into the next execution.
+The public source telescope remains unchanged; transient producer binders enter only this
+native continuation, through their original identities and authoritative parameter tables. -/
+private def KernelSession.evaluateInContext (session : KernelSession)
+    (transaction : CellTransaction) (context : OpenContext) (expression : Expr)
+    (sourceSnapshot : Option Json) (selections : SourceSelectionScope Expr) : MetaM ValueBinding := do
+  let graph ← transaction.view
+  let mut bound : Std.HashMap BindingId ValueBinding := {}
+  let mut values : Array ValueBinding := #[]
+  for source in context.bindings do
+    if let some value := session.bound[source.id]? then
+      bound := bound.insert source.id value
+      values := values.push value
+  let rec visit (remaining : List ValueBinding) (context : OpenContext)
+      (bound : Std.HashMap BindingId ValueBinding) (selections : SourceSelectionScope Expr) :
+      MetaM ValueBinding := do
+    match remaining with
+    | [] => session.kernel.run transaction context bound expression sourceSnapshot selections
+    | value :: rest =>
+      withBindingContext graph context bound value fun context bound => do
+        let mut selections ← SourceSelectionScope.merge selections
+          (← value.role.selections.inContext context)
+        if value.admittedInterface?.isSome then
+          selections ← SourceSelectionScope.merge selections
+            (← value.nativeRole.selections.inContext context)
+        visit rest context bound selections
+  visit values.toList context bound selections
+
 private def packetOf (session : KernelSession) (transaction : CellTransaction)
-    (context : OpenContext) (side : Expr) (sourceSnapshot : Option Json) :
+    (context : OpenContext) (selections : SourceSelectionScope Expr)
+    (side : Expr) (sourceSnapshot : Option Json) :
     MetaM (Except String Json) := do
-  let binding ← session.kernel.run transaction context session.bound side sourceSnapshot
+  let binding ← session.evaluateInContext transaction context side sourceSnapshot selections
   let graph ← transaction.view
   match ← IO.ofExcept <| (graph.packet? binding).mapError IO.userError with
   | some packet => return .ok packet
@@ -266,53 +315,84 @@ The comparison reads the actual returned packets at their source type, or at the
 literal type when one side is a literal form, and decides equality of those values in Lean's
 kernel. It is an observation of candidates, not a proof. -/
 private def compare (session : KernelSession) (transaction : CellTransaction)
-    (context : OpenContext) (left right : Expr) (sourceSnapshot : Option Json) :
+    (context : OpenContext) (selections : SourceSelectionScope Expr)
+    (left right : Expr) (sourceSnapshot : Option Json) :
     MetaM Outcome := do
   let literals ← #[left, right].mapM fun side => do
-    if let some literal ← literalForm? side then return some literal
-    return numeralForm? side
-  let reading ← (literals.findSome? id).mapM fun literal => inferType literal
-  let mut values := #[]
+    if let some literal ← literalForm? context selections side then return some literal
+    numeralForm? context selections side
+  -- Obtain every actual result in the original operational scope. The mathematical
+  -- observation below receives these packets; no source body supplies their values.
+  let mut packets : Array (Option Json) := #[]
   for side in #[left, right], literal in literals do
-    if let some literal := literal then
-      values := values.push (literal, toString (← ppExpr literal))
+    if literal.isSome then
+      packets := packets.push none
       continue
-    let packet ← match ← packetOf session transaction context side sourceSnapshot with
+    let packet ← match ← packetOf session transaction context selections side sourceSnapshot with
       | .ok packet => pure packet
       | .error reason => return .gap reason
-    -- A candidate outside the representation of its reading type is a malformed answer.
-    let value ← try
-        match reading with
-        | some type => ScalarLiteral.readAt type packet
-        | none => ScalarLiteral.read (← SourceLayout.ofTerm (← context.close side)) packet
-      catch error =>
-        return .malformed s!"{packet.compress}: {← error.toMessageData.toString}"
-    let some value := value
-      | return .gap s!"the computed value {packet.compress} has no scalar reading at its type"
-    values := values.push (value, packet.compress)
-  let some (first, shown) := values[0]? | return .internal "the comparison lost its left value"
-  let some (second, expected) := values[1]? | return .internal "the comparison lost its right value"
-  match ← Decide.decideProp (← mkEq first second) with
-  | some true => return .holds
-  | some false => return .wrong s!"computed {shown}, compared with {expected}"
-  | none => return .gap "equality of the computed values is not decided in Lean"
+    packets := packets.push (some packet)
+  let sources := (#[left, right].zip literals).map fun (side, literal) => literal.getD side
+  -- An observed value used as a dependent type parameter remains its actual candidate.
+  -- Its mathematical definition cannot close a scalar representation on that candidate's
+  -- behalf. Such an open dependent representation keeps the existing non-scalar outcome.
+  for source in sources do
+    for index in ← selectedContextDependencies context selections (← inferType source) do
+      let some binding := context.bindings[index]?
+        | return .internal "the scalar type lost an original source dependency"
+      if session.observed.contains binding.id then
+        return .gap "the computed value has no scalar reading at its dependent type"
+  context.withOriginalSources sources fun native => do
+    let mut reading : Option Expr := none
+    for source in native, literal in literals do
+      if literal.isSome && reading.isNone then reading := some (← inferType source)
+    let mut values := #[]
+    for source in native, literal in literals, packet in packets do
+      if literal.isSome then
+        values := values.push (source, toString (← ppExpr source))
+        continue
+      let some packet := packet
+        | return .internal "the scalar observation lost its actual returned packet"
+      -- The original native type constrains only this supplied scalar representation.
+      -- Neither the mathematical source expression nor its reduction becomes its value.
+      let value ← try
+          let type ← match reading with
+            | some type => pure type
+            | none => inferType source
+          ScalarLiteral.readAt type packet
+        catch error =>
+          return .malformed s!"{packet.compress}: {← error.toMessageData.toString}"
+      let some value := value
+        | return .gap s!"the computed value {packet.compress} has no scalar reading at its type"
+      values := values.push (value, packet.compress)
+    let some (first, shown) := values[0]? | return .internal "the comparison lost its left value"
+    let some (second, expected) := values[1]? | return .internal "the comparison lost its right value"
+    let proposition ← zetaReduce (← mkEq first second)
+    match ← Decide.decideProp proposition with
+    | some true => return .holds
+    | some false => return .wrong s!"computed {shown}, compared with {expected}"
+    | none => return .gap "equality of the computed values is not decided in Lean"
 
 /-- Observe a question through its original native proposition. Published predicates return a
 Boolean; registered properties retain their released Option Bool observation contract.
 Negation applies logic to that answer, and an unknown property observation stays unknown. -/
 private partial def decideComputed (session : KernelSession) (transaction : CellTransaction)
-    (context : OpenContext) (proposition : Expr) (sourceSnapshot : Option Json) :
+    (context : OpenContext) (selections : SourceSelectionScope Expr)
+    (proposition : Expr) (sourceSnapshot : Option Json) :
     MetaM Outcome := do
   let logical := proposition.consumeMData
   if logical.isAppOfArity ``Not 1 then
-    return match ← decideComputed session transaction context logical.appArg! sourceSnapshot with
+    return match ← decideComputed session transaction context selections logical.appArg! sourceSnapshot with
       | .holds => .wrong "the computed predicate holds, so its negation does not"
       | .wrong _ => .holds
       | outcome => outcome
-  let packet ← match ← packetOf session transaction context proposition sourceSnapshot with
+  let packet ← match ← packetOf session transaction context selections proposition sourceSnapshot with
     | .ok packet => pure packet
     | .error reason => return .gap reason
-  if (← propertySource? proposition).isSome then
+  let property := (selections.findAt? context proposition.getAppFn).any fun selection =>
+    selection.application.any fun application =>
+      match application.family with | .property _ => true | _ => false
+  if property then
     return match PropertyObservation.decode packet with
       | .ok (some true) => .holds
       | .ok (some false) => .wrong "the computed property is false"
@@ -490,9 +570,22 @@ uses an observed runtime value (also through aliases/captures), or the session r
 computation only, the ordinary question path must still observe the actual candidate. -/
 private def proofRequiresObservation (session : KernelSession) (proposition : SourceTerm) :
     MetaM Bool :=
-  session.source.context.withOpen fun bindings => do
-    let context ← ContextTelescope.capture bindings
-    requiresComputedObservation session context (← proposition.source.inContext context)
+  session.source.withTerm proposition fun context selections expression =>
+    requiresComputedObservation session context selections expression
+
+/-- Encode the already retained source scope for the log, without reopening or selecting it. -/
+private def sourceContextLog (source : SourceSession) : Json := Id.run do
+  let build : StateM CasTools.NativeExpression.Builder Json := do
+    let context ← ContextSnapshot.contextJson source.context
+    let selections ← SourceSnapshot.selectionsJson source.selections
+    let categories ← source.context.entries.mapM fun entry =>
+      (source.categoryFor entry.id).mapM SourceSnapshot.categoryJson
+    return Json.mkObj [("context", context), ("selections", selections),
+      ("instances", ContextSnapshot.instancesJson source.context),
+      ("categories", toJson categories),
+      ("spans", toJson (source.spans.map SourceSnapshot.spanJson))]
+  let (document, native) := build.run {}
+  return document.setObjVal! "nativeExpressions" (native.finish #[])
 
 /-- Retain the original checked reading before its execution can throw. The same record
 serves successful execution and the existing failure boundary; it asserts no runtime outcome.
@@ -516,25 +609,46 @@ private partial def retainStatement (session : SourceSession) (statement : Sourc
     let mut current := session
     let mut retained := #[]
     for (item, child) in items do
-      retained := retained.push (item, ← retainStatement current child)
+      let reading ← match ← CasTools.Diagnostics.current? with
+        | none => retainStatement current child
+        | some active => do
+          let entry ← active.log.write active.parents "statement.child.reading" <| Json.mkObj [
+            ("source", toJson (item.raw.reprint.getD "")),
+            ("position", SourceSnapshot.spanJson ⟨← getFileName,
+              item.raw.getPos?, item.raw.getTailPos?⟩)]
+          CasTools.Diagnostics.withScope { active with parents := active.parents.push entry } <|
+            retainStatement current child
+      retained := retained.push (item, reading)
       match child with
       | .definition next _ | .assumption next => current := next
       | _ => pure ()
     return .contextBlock statement retained
   | _ =>
     let conclusions ← preparedConclusions session statement
+    let (kind, after) := match statement with
+      | .definition next _ => ("definition", next)
+      | .assumption next => ("assumption", next)
+      | .question _ => ("question", session)
+      | .implemented _ => ("implementation", session)
+      | .proved .. => ("proof", session)
+      | .settled _ => ("typing", session)
+      | .inspection _ => ("inspection", session)
+      | .contextBlock _ => ("context", session)
+    CasTools.Diagnostics.emit "statement.read" <| Json.mkObj [
+      ("kind", toJson kind), ("scope", sourceContextLog after),
+      ("conclusions", toJson (conclusions.map fun conclusion => Json.mkObj [
+        ("terms", toJson (conclusion.terms.map (SourceSnapshot.snapshot conclusion.context ·))),
+        ("proof", toJson (conclusion.proof.map (SourceSnapshot.snapshot conclusion.context ·)))]))]
     let proposition ← match statement with
       | .question value | .implemented value =>
-        session.context.withOpen fun bindings => do
-          let context ← ContextTelescope.capture bindings
-          return toString (← ppExpr (← value.source.inContext context))
+        value.source.withOpen fun _ expression => do
+          return toString (← ppExpr expression)
       | .proved proposition _ =>
         proposition.source.withOpen fun _ expression => return (← ppExpr expression).pretty
       | .settled values => do
-        let shown ← session.context.withOpen fun bindings => do
-          let context ← ContextTelescope.capture bindings
-          values.mapM fun value => do
-            return toString (← ppExpr (← value.source.inContext context))
+        let shown ← values.mapM fun value =>
+          value.source.withOpen fun _ expression => do
+            return toString (← ppExpr expression)
         pure s!"settled: {" and ".intercalate shown.toList}"
       | _ => pure ""
     return .statement statement conclusions proposition
@@ -604,19 +718,17 @@ private partial def executePrepared (session : KernelSession)
     let transaction ← requiredCell transaction
     let sent := (← session.kernel.dispatches.get).size
     let result : Except Outcome (Option ValueBinding) ← try
-        next.context.withOpen fun bindings => do
-          let context ← ContextTelescope.capture bindings
-          let expression ← value.source.inContext context
+        session.source.withTerm value fun context selections expression => do
           let type ← whnf (← inferType expression)
           if (← isProp type) || type.isSort then return .ok none
           -- A definition over hypothetical parameters retains its complete native meaning;
           -- it does not turn a formal-variable descriptor into a concrete backend input.
-          if (← unsuppliedParameter? session context expression).isSome then
+          if (← unsuppliedParameter? session context selections expression).isSome then
             return .ok none
-          if let some outcome ← failedComputation session context expression then
+          if let some outcome ← failedComputation session context selections expression then
             return .error outcome
-          return .ok (some (← session.kernel.run transaction context session.bound expression
-            sourceSnapshot))
+          return .ok (some (← session.evaluateInContext transaction context expression
+            sourceSnapshot selections))
       catch error =>
         -- A direct read definition retains its source meaning on an unavailable computation.
         -- A containing block instead aborts the entire shared cell at its result boundary.
@@ -628,6 +740,11 @@ private partial def executePrepared (session : KernelSession)
         let some entry := next.context.entries.back?
           | throwError "internal: a source definition added no declaration"
         let unavailable := session.unavailable.push (entry.id, entry.userName, outcome)
+        CasTools.Diagnostics.emit "binding.unavailable" <| Json.mkObj [
+          ("binding", ContextSnapshot.bindingJson entry.id),
+          ("name", toJson (entry.userName.toString (escape := false))),
+          ("kind", toJson outcome.kind), ("stratum", toJson outcome.stratum?),
+          ("detail", toJson outcome.detail)]
         return ⟨{
           outcome
           session := { session with source := next, unavailable }
@@ -643,6 +760,11 @@ private partial def executePrepared (session : KernelSession)
         | some binding => session.bound.insert entry.id binding
         | none => session.bound
       let observed := if computed then session.observed.insert entry.id else session.observed
+      CasTools.Diagnostics.emit "binding.retained" <| Json.mkObj [
+        ("binding", ContextSnapshot.bindingJson entry.id),
+        ("name", toJson (entry.userName.toString (escape := false))),
+        ("value", toJson (binding.map Observation.valueIdentityJson)),
+        ("computed", toJson computed)]
       return ⟨{
         outcome := .holds
         session := { session with source := next, bound, observed }
@@ -650,37 +772,33 @@ private partial def executePrepared (session : KernelSession)
   | .implemented value =>
     let sourceSnapshot := some (SourceSnapshot.snapshot session.source.observation value)
     let transaction ← requiredCell transaction
-    session.source.context.withOpen fun bindings => do
-      let context ← ContextTelescope.capture bindings
-      let expression ← value.source.inContext context
-      if let some outcome ← failedComputation session context expression then
+    session.source.withTerm value fun context selections expression => do
+      if let some outcome ← failedComputation session context selections expression then
         return ⟨{ outcome, session, proposition := shown, conclusions }, false⟩
-      requireSuppliedParameters session context expression
-      discard <| session.kernel.run transaction context session.bound expression sourceSnapshot
+      requireSuppliedParameters session context selections expression
+      discard <| session.evaluateInContext transaction context expression sourceSnapshot selections
       return ⟨{ outcome := .holds, session, proposition := shown, conclusions }, true⟩
   | .question proposition =>
     let sourceSnapshot := some (SourceSnapshot.snapshot session.source.observation proposition)
     let transaction ← requiredCell transaction
-    session.source.context.withOpen fun bindings => do
-      let context ← ContextTelescope.capture bindings
-      let asked ← proposition.source.inContext context
-      let settled ← discharged session context asked
+    session.source.withTerm proposition fun context selections asked => do
+      let settled ← discharged session context selections asked
       if settled.isNone then
-        if let some outcome ← failedComputation session context asked then
+        if let some outcome ← failedComputation session context selections asked then
           return ⟨{ outcome, session, proposition := shown, conclusions }, false⟩
       let outcome ← match settled with
         | some true => pure .holds
         | some false => pure (.wrong "Lean decides the negation of the statement")
         | none =>
           -- Prepare the complete question before either computed side can dispatch.
-          requireSuppliedParameters session context asked
+          requireSuppliedParameters session context selections asked
           let asked := underBindings asked
           match asked.consumeMData.eq? with
           | some (type, left, right) =>
             match ← truthCase? type left right with
-            | some proposition => decideComputed session transaction context proposition sourceSnapshot
-            | none => compare session transaction context left right sourceSnapshot
-          | none => decideComputed session transaction context asked sourceSnapshot
+            | some proposition => decideComputed session transaction context selections proposition sourceSnapshot
+            | none => compare session transaction context selections left right sourceSnapshot
+          | none => decideComputed session transaction context selections asked sourceSnapshot
       -- A direct question preserves its existing commit policy for returned wrong/gap outcomes.
       return ⟨{ outcome, session, proposition := shown, conclusions }, true⟩
   | .contextBlock _ =>
@@ -692,24 +810,52 @@ private partial def executePrepared (session : KernelSession)
     let mut output := #[]
     let mut observations := #[]
     let mut proposition := ""
+    let mut precedingSetupMilliseconds := 0
     for (item, child) in items, index in [:items.size] do
       let start ← IO.monoMsNow
       let sent := (← session.kernel.dispatches.get).size
-      let result ← try executePrepared current transaction child
-        catch error => do
-          -- Native interruption is not caught by this ordinary exception handler. An
-          -- ordinary child failure retains its actual item and failure stratum until abort.
-          let outcome ← Outcome.ofException error
-          let outcome := match current.unavailable.find? (fun (id, _, _) => missingValueOf error id) with
-            | some (_, name, definition) => definition.withDetail
-                s!"{name} has no computed value: {definition.detail}"
-            | none => outcome
-          return (⟨{
-            outcome
-            session := current
-            conclusions := child.conclusions
-            proposition := child.proposition
-          }, false⟩ : StagedStatement)
+      let log := session.kernel.log
+      let parents := (← CasTools.Diagnostics.current?).map (·.parents) |>.getD #[]
+      let entry ← log.write parents "statement.child.started" <| Json.mkObj [
+        ("ordinal", toJson index), ("source", toJson (item.raw.reprint.getD "")),
+        ("id", toJson (match item with
+          | `(cas_item| test $name:ident $_:str : $_:cas_stmt) => name.getId.toString (escape := false)
+          | _ => s!"(statement) {item.raw.reprint.getD ""}")),
+        ("precedingSetupMilliseconds", toJson precedingSetupMilliseconds),
+        ("position", SourceSnapshot.spanJson ⟨← getFileName,
+          item.raw.getPos?, item.raw.getTailPos?⟩)]
+      let finished ← IO.mkRef false
+      let result ← CasTools.Diagnostics.withScope { log, parents := parents.push entry } do
+        try
+          let result ← try executePrepared current transaction child
+            catch error => do
+              -- Native interruption is not caught by this ordinary exception handler. An
+              -- ordinary child failure retains its actual item and failure stratum until abort.
+              let outcome ← Outcome.ofException error
+              let outcome := match current.unavailable.find? (fun (id, _, _) => missingValueOf error id) with
+                | some (_, name, definition) => definition.withDetail
+                    s!"{name} has no computed value: {definition.detail}"
+                | none => outcome
+              return (⟨{
+                outcome
+                session := current
+                conclusions := child.conclusions
+                proposition := child.proposition
+              }, false⟩ : StagedStatement)
+          CasTools.Diagnostics.emit "statement.child.finished" <| Json.mkObj [
+            ("kind", toJson result.run.outcome.kind),
+            ("stratum", toJson result.run.outcome.stratum?),
+            ("detail", toJson result.run.outcome.detail),
+            ("attempted", toJson result.run.attempted),
+            ("staged", toJson result.publish),
+            ("publication", toJson "pending enclosing cell"),
+            ("milliseconds", toJson ((← IO.monoMsNow) - start))]
+          finished.set true
+          pure result
+        finally
+          unless ← finished.get do
+            CasTools.Diagnostics.emit "statement.child.interrupted" <| Json.mkObj [
+              ("milliseconds", toJson ((← IO.monoMsNow) - start))]
       let milliseconds := (← IO.monoMsNow) - start
       let calls ← session.kernel.dispatches.get
       let observed : Array StatementObservation := if result.run.observations.isEmpty then
@@ -730,6 +876,8 @@ private partial def executePrepared (session : KernelSession)
           session
           inspectionOutput := #[]
           observations := (observations.map unpublishedObservation) ++ rest }, false⟩
+      if result.run.session.source.context.entries.size > current.source.context.entries.size then
+        precedingSetupMilliseconds := precedingSetupMilliseconds + milliseconds
       current := result.run.session
       conclusions := conclusions ++ result.run.conclusions
       output := output ++ result.run.inspectionOutput
@@ -746,7 +894,7 @@ private partial def executePrepared (session : KernelSession)
 /-- Run one completely prepared public statement in one publication cell. A scoped block
 reads all children before dispatch, stages them in order and commits once. Native interruption
 runs the same finally-abort path and never becomes a mathematical outcome. -/
-opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stmt)
+private opaque KernelSession.runCore (session : KernelSession) (statement : TSyntax `cas_stmt)
     (owningCell : Option CellTransaction := none) : TermElabM StatementRun :=
   withCurrHeartbeats <|
   withTheReader Core.Context (fun context => { context with maxHeartbeats := statementHeartbeats * 1000 }) do
@@ -778,8 +926,13 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
       | none => session
     -- Native dependency validation names the same stable binding. Preserve its original
     -- failure kind and cause rather than relabeling an unavailable computation as a gap.
-    if let some (_, name, definition) := session.unavailable.find? fun (id, _, _) =>
+    if let some (id, name, definition) := session.unavailable.find? fun (id, _, _) =>
         missingValueOf error id then
+      CasTools.Diagnostics.emit "dependency.unavailable" <| Json.mkObj [
+        ("binding", ContextSnapshot.bindingJson id),
+        ("name", toJson (name.toString (escape := false))),
+        ("kind", toJson definition.kind), ("stratum", toJson definition.stratum?),
+        ("detail", toJson definition.detail)]
       return {
         outcome := definition.withDetail s!"{name} has no computed value: {definition.detail}"
         session
@@ -835,5 +988,48 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
       return { result.run with published := result.publish }
     catch error =>
       failed error (some prepared) #[]
+
+/-- Log the public statement boundary, including failures before any request exists.
+The recorded source position is the parser's original range; the log never changes its reading. -/
+opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stmt)
+    (owningCell : Option CellTransaction := none) : TermElabM StatementRun := do
+  let started ← IO.monoMsNow
+  let log := session.kernel.log
+  let parents := match ← CasTools.Diagnostics.current? with
+    | some active => if active.log.session == log.session then active.parents else #[]
+    | none => #[]
+  let entry ← log.write parents "statement.started" <| Json.mkObj [
+    ("source", toJson (statement.raw.reprint.getD "")),
+    ("position", SourceSnapshot.spanJson ⟨← getFileName,
+      statement.raw.getPos?, statement.raw.getTailPos?⟩)]
+  let finished ← IO.mkRef false
+  CasTools.Diagnostics.withScope { log, parents := parents.push entry } do
+    try
+      let run ← session.runCore statement owningCell
+      let retained := run.session.source.context.entries.filter fun binding =>
+        !(session.source.context.entries.any (·.id == binding.id))
+      CasTools.Diagnostics.emit "statement.finished" <| Json.mkObj [
+        ("kind", toJson run.outcome.kind), ("detail", toJson run.outcome.detail),
+        ("stratum", toJson run.outcome.stratum?),
+        ("fails", toJson run.outcome.fails), ("attempted", toJson run.attempted),
+        ("published", toJson run.published),
+        ("milliseconds", toJson ((← IO.monoMsNow) - started)),
+        ("retained", toJson (retained.map fun binding => Json.mkObj [
+          ("binding", ContextSnapshot.bindingJson binding.id),
+          ("name", toJson (binding.userName.toString (escape := false))),
+          ("value", toJson ((run.session.value? binding.id).map Observation.valueIdentityJson))])),
+        ("children", toJson (run.observations.map fun observation => Json.mkObj [
+          ("source", toJson (observation.item.raw.reprint.getD "")),
+          ("attempted", toJson observation.attempted),
+          ("kind", toJson (observation.outcome.map (·.kind))),
+          ("stratum", toJson (observation.outcome.bind (·.stratum?))),
+          ("detail", toJson (observation.outcome.map (·.detail))),
+          ("milliseconds", toJson observation.milliseconds)]))]
+      finished.set true
+      return run
+    finally
+      unless ← finished.get do
+        CasTools.Diagnostics.emit "statement.interrupted" <| Json.mkObj [
+          ("milliseconds", toJson ((← IO.monoMsNow) - started))]
 
 end CasRuntime
