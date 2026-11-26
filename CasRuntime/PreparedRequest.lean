@@ -19,7 +19,6 @@ namespace CasRuntime
 
 open Lean Meta CasCompiler CasCatalogue
 
-/-- Complete source roles and ordered runtime scope, fixed before a computational reply. -/
 structure PreparedRequest where
   private mk ::
   program : CasRuntime.RuntimeId .program
@@ -38,24 +37,19 @@ structure PreparedRequest where
   selection : Option Name := none
   selections : SourceSelectionScope ClosedTerm := {}
   selectionBinding : Option BindingId := none
-  /-- Original whole native result for a selected data-field subfamily. -/
+
   nativeParent : Option RecordLayout := none
 
-/-- Carry the exact source construction identity into its prepared field demands. -/
 opaque PreparedRequest.withSelection (request : PreparedRequest) (selection : Option Name) :
     PreparedRequest :=
   { request with selection, observation := request.observation.withSelection selection }
 
-/-- Carry the already prepared frontend document without changing the reached native request. -/
 opaque PreparedRequest.withSourceSnapshot (request : PreparedRequest)
     (sourceSnapshot : Option Json) : PreparedRequest :=
   { request with observation := request.observation.withSourceSnapshot sourceSnapshot }
 
-/-- A prepared invocation belongs to one complete request scope, including its fresh
-preparation identity when the source occurrence is rebuilt. -/
 def requestPreparationMismatchTag : Name := `CasRuntime.requestPreparationMismatch
 
-/-- Require the exact independently retained request before materialization or dispatch. -/
 opaque PreparedRequest.requirePreparation (request : PreparedRequest) (scope : RoleScope) :
     MetaM Unit := do
   unless request.roles.scope == scope do
@@ -72,8 +66,6 @@ def PreparedRequest.universeArguments (request : PreparedRequest) : Option (List
   | .primitive _ arguments => some arguments
   | .project .. | .apply .. => none
 
-/-- The exact native path from the retained operand to this prepared field.
-Only preparation establishes the source address and matching access provenance. -/
 def PreparedRequest.projectionPath (request : PreparedRequest) : Except String (Array Name) := do
   let .project operand field := request.action
     | throw "the prepared action is not a native projection"
@@ -89,8 +81,6 @@ def PreparedRequest.projectionPath (request : PreparedRequest) : Except String (
     throw "the prepared projection changed its retained operand"
   return path
 
-/-- Stamp a result or nested field with the same complete actual argument table.
-Reuse: native ApplicationLayout projection dependencies and RuntimeEnvironment.origin. -/
 opaque PreparedRequest.originFor (request : PreparedRequest) (source : SourceLayout)
     (graph : Option ValueGraph := none) :
     MetaM CasRuntime.ValueOrigin := do
@@ -123,9 +113,6 @@ private def prepareOrigin (program : CasRuntime.RuntimeId .program)
     throwError "actual arguments require a prepared native application telescope"
   return origin
 
-/-- Retain the complete native interface of an independently admitted exact input result.
-The shared native route is recomputed from this request; neither a supplied FixedInput nor
-matching an argument value can license the relation. Missing actual inputs issue no witness. -/
 private def prepareInputInterface (environment : RuntimeEnvironment) (origin : ValueOrigin) :
     MetaM ValueOrigin := do
   let some graph := environment.sourceGraph | return origin
@@ -163,8 +150,7 @@ private def prepareRequest (identities : CasRuntime.IdentitySupply)
     throwError "request preparation changed its original native source role"
   let source := origin.role
   let application := application.map fun layout => { layout with result := source }
-  -- A selected descendant retains the complete original application root. Its path and
-  -- original parameter table are relative to that root, not to this request's current role.
+
   let origin := { origin with application := origin.application.map fun application =>
     if application.path.isEmpty then
       { application with layout := { application.layout with result := source } }
@@ -194,7 +180,7 @@ private def prepareRequest (identities : CasRuntime.IdentitySupply)
   let roles ← RoleTelescope.ofRequest identities program occurrence context application source
     (scope.map (·.role))
   if traced then CasTools.Diagnostics.message m!"[inclusion.stage] request {repr occurrence}: prepared"
-  -- Snapshot only after the exact current invocation and its producer provenance are fixed.
+
   let observation ← ObservationDescriptor.prepare program occurrence action source scope outputs
     record environment origin application roles actualArguments
   CasTools.Diagnostics.emit "request.prepared" observation.toJson
@@ -211,17 +197,11 @@ private def PreparedRequest.inputValues (request : PreparedRequest) :
       | some application => application.arguments
     | .project .. => #[]
 
-/-- Check the complete declared input map before execution or wire encoding.
-Preparation may inspect a source telescope before its input producers have supplied values. -/
 opaque PreparedRequest.admitInputs (request : PreparedRequest) (graph : CasRuntime.ValueGraph) :
     MetaM CasRuntime.InputRoleMap := do
   CasRuntime.InputRoleMap.admit request.roles request.environment graph request.inputValues request.scope
     request.actualArguments
 
-/-- Input-result admission requires a complete native source-coverage witness whenever a
-computational slot is absent. Every supplied value is checked against its original source
-role; the complete formal telescope is unchanged. Ordinary effects use admitInputs above.
-The sealed InputResultPlan retains this map before resolving any selected lazy field. -/
 opaque PreparedRequest.admitInputResultInputs (request : PreparedRequest)
     (graph : CasRuntime.ValueGraph) : MetaM CasRuntime.InputRoleMap := do
   let arguments := request.inputValues
@@ -238,8 +218,6 @@ opaque PreparedRequest.admitInputResultInputs (request : PreparedRequest)
   CasRuntime.InputRoleMap.admitInputResult request.roles coverage request.environment graph
     arguments request.scope request.actualArguments
 
-/-- Check indexed actual operands against the complete native source argument sequence.
-Reuse: RuntimeEnvironment.checkArgument; primitive and retained applications share this table. -/
 private def prepareArguments (environment : CasRuntime.RuntimeEnvironment)
     (arguments : Array ClosedTerm) (actual : Array CasRuntime.RuntimeArgument) :
     MetaM (Array (Option CasRuntime.ValueBinding)) := do
@@ -253,9 +231,6 @@ private def prepareArguments (environment : CasRuntime.RuntimeEnvironment)
     values := values.set! argument.index (some value)
   return values
 
-/-- Introduce typed input occurrences only after the unchanged original argument admission.
-The native formal telescope fixes every type and original ordinal. New locals carry their
-source correspondence separately; the resulting request stores their complete context. -/
 private def withPreparedInputs (identities : IdentitySupply) (context : OpenContext)
     (environment : RuntimeEnvironment) (application : ApplicationLayout)
     (values : Array (Option ValueBinding)) (actual : Array RuntimeArgument)
@@ -308,9 +283,6 @@ private def withPreparedInputs (identities : IdentitySupply) (context : OpenCont
   visit (application.arguments.mapIdx (fun index argument => (index, argument))).toList
     context environment.bound parameters (← environment.selections.inContext context) #[]
 
-/-- Import every independently supplied value's displayed source scope before preparing a
-native application or projection. Original runtime parameters keep their exact source IDs;
-conflicts are rejected before the caller's unchanged operand admission. -/
 private def withPreparationContext (context : OpenContext) (parameters : Array RuntimeParameter)
     (graph : Option ValueGraph) (references : Array ValueBinding)
     (action : OpenContext → Array RuntimeParameter → MetaM α) : MetaM α := do
@@ -337,9 +309,6 @@ private def withPreparationContext (context : OpenContext) (parameters : Array R
         visit rest context bound
   visit (parameters.map (·.value) ++ references).toList context bound
 
-/-- Reopen the original prepared input binders at their declared argument positions.
-The producer already introduced the complete typed scope. This consumer neither allocates
-replacement occurrences nor searches for an equal native source. -/
 opaque PreparedRequest.withInputBindings (request : PreparedRequest) (context : OpenContext)
     (bound : Std.HashMap BindingId ValueBinding) (count : Nat)
     (action : OpenContext → Std.HashMap BindingId ValueBinding → Array Expr →
@@ -367,10 +336,6 @@ opaque PreparedRequest.withInputBindings (request : PreparedRequest) (context : 
     actual := actual.push source
   action context bound actual (values.extract 0 count)
 
-/-- Apply the exact checked source family in the complete current context.
-Result positions retain the source's ordered computational fields and dependent roles.
-Indexed actual operands use the same checked provenance table as retained callables.
-Source application reuses Lean's native checks and the existing closed-context transport. -/
 opaque PreparedRequest.forBoundary (identities : CasRuntime.IdentitySupply)
     (program : CasRuntime.RuntimeId .program)
     (occurrence : CasRuntime.RuntimeId .occurrence) (boundary : ProgramBoundary)
@@ -483,8 +448,7 @@ opaque PreparedRequest.forBoundary (identities : CasRuntime.IdentitySupply)
           (selections := selections)
         let values ← prepareArguments environment arguments actual
         finish context source application nativeParent environment values
-/-- Read the separately captured cone at its fixed preparation position. The original
-declaration argument table remains unchanged and cannot supply another equal cone. -/
+
 opaque PreparedRequest.universalCone (request : PreparedRequest) : MetaM ValueBinding := do
   let .primitive (.limitUniversal _ _) _ := request.action
     | throwError "the selected native predecessor requires its universal family"
@@ -498,8 +462,7 @@ private def checkPresentationInputs (request : PreparedRequest) (graph : ValueGr
     (source target : ValueBinding) : MetaM Unit := do
   let .primitive (.presentation family) _ := request.action
     | throwError "declared endpoint checking requires its original presentation family"
-  request.environment.context.withOpen fun bindings => do
-    let context ← ContextTelescope.capture bindings
+  request.environment.context.withOpenContext fun context => do
     let applied ← request.source.source.inContext context
     context.withOriginalSources #[applied, ← source.role.source.inContext context,
         ← target.role.source.inContext context] fun originals => do
@@ -522,10 +485,6 @@ private def checkPresentationInputs (request : PreparedRequest) (graph : ValueGr
       checkEndpoint expectedSource source
       checkEndpoint expectedTarget target
 
-/-- Prepare a named presentation with its two explicitly supplied native endpoints. Both are
-ordinary admitted operands in the same complete context; the source reader or named child
-reader has already validated their native correspondence to the original Iso. Endpoint values
-are retained as captures, separately from the declaration parameters and original point. -/
 opaque PreparedRequest.forPresentation (identities : IdentitySupply)
     (program : RuntimeId .program) (occurrence : RuntimeId .occurrence)
     (family : PresentationFamily) (universes : List Level) (context : OpenContext)
@@ -548,8 +507,6 @@ opaque PreparedRequest.forPresentation (identities : IdentitySupply)
   checkPresentationInputs request graph source target
   return request
 
-/-- Read the two explicitly retained endpoint positions and recheck their original native
-correspondence. Captures are not searched by expression or payload equality. -/
 opaque PreparedRequest.presentationEndpoints (request : PreparedRequest)
     (graph : ValueGraph) : MetaM (ValueBinding × ValueBinding) := do
   let .primitive (.presentation family) _ := request.action
@@ -611,7 +568,6 @@ private def prepareProjection (identities : CasRuntime.IdentitySupply)
     prepareRequest identities program occurrence action source context
       #[operand] environment none origin
 
-/-- Prepare the exact source field of the retained operand in the complete current scope. -/
 opaque PreparedRequest.forProjection (identities : CasRuntime.IdentitySupply)
     (program : CasRuntime.RuntimeId .program)
     (occurrence : CasRuntime.RuntimeId .occurrence) (context : OpenContext)
@@ -626,8 +582,6 @@ opaque PreparedRequest.forProjection (identities : CasRuntime.IdentitySupply)
   prepareProjection identities program occurrence context graph operand
     #[field.projection] parameters validatedEnvironment selections selectionBinding
 
-/-- Compose a wholly stored native path without completing its intermediate record values.
-The graph must already supply every step; a lazy access remains an ordinary single-field demand. -/
 opaque PreparedRequest.forStoredProjection (identities : CasRuntime.IdentitySupply)
     (program : CasRuntime.RuntimeId .program)
     (occurrence : CasRuntime.RuntimeId .occurrence) (context : OpenContext)
@@ -645,11 +599,6 @@ opaque PreparedRequest.forStoredProjection (identities : CasRuntime.IdentitySupp
   prepareProjection identities program occurrence context graph operand path parameters
     validatedEnvironment selections selectionBinding
 
-/-- Apply the retained function with complete formal arguments and indexed actual operands.
-Source coercions are lowered before this boundary. Preparation retains empty slots for source
-inspection; ordinary effect admission requires every computational operand. A sealed complete
-input result may omit only source-proven unused slots. Each supplied operand is checked against
-that exact argument and retained in source order. -/
 opaque PreparedRequest.forApplication (identities : CasRuntime.IdentitySupply)
     (program : CasRuntime.RuntimeId .program)
     (occurrence : CasRuntime.RuntimeId .occurrence) (context : OpenContext)
@@ -691,7 +640,7 @@ opaque PreparedRequest.forApplication (identities : CasRuntime.IdentitySupply)
       let origin ← prepareOrigin program occurrence action source environment (some application) values
       prepareRequest identities program occurrence action source context
         (#[callable] ++ values.filterMap id) environment (some application) origin actual
-/-- A checked returned interface with scoped bindings for subsequent computational demands. -/
+
 structure PreparedResponse (request : PreparedRequest) where
   private mk ::
   roles : CasRuntime.ResultRoleMap
@@ -699,13 +648,9 @@ structure PreparedResponse (request : PreparedRequest) where
 def PreparedResponse.root (response : PreparedResponse request) : CasRuntime.ValueBinding :=
   response.roles.root
 
-/-- Authenticate the original preceding fields of a selected universal response against
-its prepared request. Both association and final admission consume this same source witness. -/
 opaque PreparedRequest.resultFieldPrefix (request : PreparedRequest) (graph : CasRuntime.ValueGraph)
     (value : CasRuntime.ValueBinding) : MetaM (Option NativeFieldPrefix) := do
-  -- A selected universal field is checked under this request's actual preceding Cone.
-  -- Authenticate the producing prefix against the original request and its fixed capture;
-  -- an equal native result type cannot supply or replace that consuming predecessor.
+
   match request.action with
     | .primitive (.limitUniversal family _) _ => do
       let cone ← request.universalCone
@@ -740,8 +685,6 @@ opaque PreparedRequest.resultFieldPrefix (request : PreparedRequest) (graph : Ca
       pure (some nativePrefix)
     | _ => pure none
 
-/-- Bind actual returned fields to this request's source-declared result roles.
-Every admission of a projection result retains the same prepared operand and native field. -/
 opaque PreparedRequest.admitResult (request : PreparedRequest) (graph : CasRuntime.ValueGraph)
     (value : CasRuntime.ValueBinding) : MetaM (PreparedResponse request) := do
   if let .primitive (.property _) _ := request.action then
@@ -761,12 +704,9 @@ opaque PreparedRequest.admitResult (request : PreparedRequest) (graph : CasRunti
   return ⟨← CasRuntime.ResultRoleMap.admit request.roles request.environment graph value
     projectionContext fieldPrefix⟩
 
-/-- Responses retain actual roots and their scoped result bindings under source-prepared layouts.
-Reference: CSLib 3951377e, Foundations/Data/PFunctor/Free.lean. -/
 def OperationalSignature : PFunctor.{0, 0} :=
   ⟨PreparedRequest, PreparedResponse⟩
 
-/-- CSLib retains dependent continuations for later demands and actual returned references. -/
 abbrev OperationalProgram := OperationalSignature.FreeM
 
 end CasRuntime

@@ -10,12 +10,9 @@ namespace CasRuntime
 
 open Lean Meta CasCompiler CasCatalogue CasCatalogue.Backend
 
-/-- Execute a checked term in an existing cell, preserving its program and binding identities. -/
 abbrev SourceEvaluation := CellTransaction → RuntimeId .program → OpenContext →
   Std.HashMap BindingId ValueBinding → SourceSelectionScope Expr → Expr → MetaM ValueBinding
 
-/-- Evaluate within the complete current source scope, including every imported displayed
-role and any newly selected native producers. The one bound table retains runtime values. -/
 def RuntimeEnvironment.evaluateSource (environment : RuntimeEnvironment)
     (evaluate : SourceEvaluation) (transaction : CellTransaction) (program : RuntimeId .program)
     (context : OpenContext) (bound : Std.HashMap BindingId ValueBinding) (expression : Expr)
@@ -24,10 +21,6 @@ def RuntimeEnvironment.evaluateSource (environment : RuntimeEnvironment)
     (← transaction.view) (some environment) selections
   evaluate transaction program context bound (← current.selections.inContext context) expression
 
-/-- Name an actual runtime occurrence in its complete native scope. An existing source
-binder keeps its identity and may acquire only an extension of its original association
-chain. A new computation gets an opaque local and an entry in the same bound table.
-RuntimeEnvironment capture remains responsible for admitting the supplied value's type. -/
 def withBoundValue [Monad m] [MonadLiftT MetaM m] [MonadControlT MetaM m]
     (identities : IdentitySupply) (context : OpenContext)
     (bound : Std.HashMap BindingId ValueBinding) (source : Expr) (value : ValueBinding)
@@ -54,10 +47,6 @@ def withBoundValue [Monad m] [MonadLiftT MetaM m] [MonadControlT MetaM m]
     (fun context binding => run (action context (bound.insert id value) binding.expression))
     (originalSource := some source) (binderInfo := binderInfo)
 
-/-- Bind the complete original argument telescope before native application preparation.
-Each dependent domain is instantiated by the preceding actual binders, while its explicitly
-recorded original source supplies mathematical checking only. Deferred computational and
-proof-only slots remain formal locals without an invented or forced runtime value. -/
 def withApplicationInputs [Monad m] [MonadLiftT MetaM m] [MonadControlT MetaM m]
     (identities : IdentitySupply) (context : OpenContext)
     (bound : Std.HashMap BindingId ValueBinding) (function : Expr) (sources : Array Expr)
@@ -95,7 +84,6 @@ def withApplicationInputs [Monad m] [MonadLiftT MetaM m] [MonadControlT MetaM m]
           (originalSource := some source) (binderInfo := binderInfo)
   visit (sources.zip values).toList context bound (← inferType function) #[]
 
-
 def portFailure (error : PortError) : MetaM α :=
   throwStratum error.stratum error.render
 
@@ -110,21 +98,35 @@ def transactionFailure (failure : TransactionFailure) : MetaM α :=
 def kernelCompletion (request : PreparedRequest) (transaction : CellTransaction)
     (value : ValueBinding) (resolve : Option (FixedInput → MetaM ValueBinding) := none) :
     MetaM (PreparedResponse request) := do
+  let detail := Json.mkObj [
+    ("program", Observation.identityJson request.program),
+    ("occurrence", Observation.identityJson request.occurrence),
+    ("preparation", Observation.identityJson request.roles.scope.preparation),
+    ("transaction", Observation.identityJson transaction.id)]
+  CasTools.Diagnostics.emit "kernel.completion.resolve.started" detail
   let fixed ← request.resolveFixedResults transaction request.source value resolve
+  CasTools.Diagnostics.emit "kernel.completion.resolve.completed" detail
   let draft ← transaction.draft
+  CasTools.Diagnostics.emit "kernel.completion.associate.started" detail
   let (draft, value) ← request.associateResult transaction.owners.identities
     request.source draft value fixed (complete := true)
+  CasTools.Diagnostics.emit "kernel.completion.associate.completed" detail
+  CasTools.Diagnostics.emit "kernel.completion.admit.started" detail
   let response ← request.admitResult draft.view value
+  CasTools.Diagnostics.emit "kernel.completion.admit.completed" detail
   match ← transaction.installDraft draft with
   | .error failure => transactionFailure failure
   | .ok () => pure ()
+  CasTools.Diagnostics.emit "kernel.completion.complete.started" detail
   match ← transaction.completeKernel request response with
   | .error failure => transactionFailure failure
-  | .ok association => request.admitResult (← transaction.view) association.response.root
+  | .ok association =>
+    CasTools.Diagnostics.emit "kernel.completion.complete.completed" detail
+    CasTools.Diagnostics.emit "kernel.completion.readmit.started" detail
+    let response ← request.admitResult (← transaction.view) association.response.root
+    CasTools.Diagnostics.emit "kernel.completion.readmit.completed" detail
+    return response
 
-/-- Open original application inputs by their exact retained parameter positions.
-The complete producer context already names dependent operands. Every newly needed local
-stays inside the continuation, together with its actual value in the same bound table. -/
 def PreparedRequest.withArguments [Monad m] [MonadLiftT MetaM m] [MonadControlT MetaM m]
     (request : PreparedRequest) (_identities : IdentitySupply)
     (context : OpenContext) (bound : Std.HashMap BindingId ValueBinding) (count : Nat)
@@ -139,13 +141,9 @@ def withSourceScope [Monad m] [MonadLiftT MetaM m] [MonadControlT MetaM m]
     (request : PreparedRequest)
     (action : OpenContext → Std.HashMap BindingId ValueBinding → m α) : m α :=
   controlAt MetaM fun run =>
-    request.environment.context.withOpen fun bindings => do
-      let context ← ContextTelescope.capture bindings
+    request.environment.context.withOpenContext fun context =>
       run (action context request.environment.bound)
 
-/-- Enter the native interface explicitly retained by successful input admission. The
-consuming binding remains the actual operand; only this operation's source is named at
-the certified interface, inside the complete imported contexts and selection scopes. -/
 def withNativeInterface [Monad m] [MonadLiftT MetaM m] [MonadControlT MetaM m]
     (identities : IdentitySupply) (graph : ValueGraph) (context : OpenContext)
     (bound : Std.HashMap BindingId ValueBinding) (selections : SourceSelectionScope Expr)
@@ -170,9 +168,6 @@ def projectTerm (value : Expr) (field : FieldLayout) : MetaM Expr := do
     | throwError "internal: a prepared field has no native projection"
   return .proj (← getConstInfoCtor info.ctorName).induct info.i value
 
-/-- Resolve an already selected input through its actual parent binders and exact native
-projection path. Every step retains its original baseline before output associations are
-added, and subsequent evaluation receives the entire extended context and bound table. -/
 def FixedInput.resolveInContext (input : FixedInput) (identities : IdentitySupply)
     (context : OpenContext) (bound : Std.HashMap BindingId ValueBinding)
     (selections : SourceSelectionScope Expr) (graphView : MetaM ValueGraph)
@@ -196,14 +191,10 @@ def FixedInput.resolveInContext (input : FixedInput) (identities : IdentitySuppl
             (graph.projectionBasis value parent #[projection]).mapError IO.userError
           | throwError "a fixed input demand lost its actual projection association"
         visit rest context bound selections value
-  -- Keep the original fixed source and its complete binding context checked. An action
-  -- uses the admitted interface of this same parent, never a reconstructed source value.
+
   discard <| input.source.inContext context
   visit input.path.toList context bound selections input.parent
 
-/-- Resolve the selected input in its own retained source scope through actual bound
-projections. Return the enriched access, so input-side validation can recover its original
-baseline before output association adds any new access or application wrappers. -/
 def Kernel.resolveFixedInput (kernel : Kernel) (evaluateSource : SourceEvaluation)
     (transaction : CellTransaction) (program : RuntimeId .program) (input : FixedInput) :
     MetaM ValueBinding := do

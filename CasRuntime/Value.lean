@@ -52,13 +52,10 @@ private def compareNativeFieldRoles (left right : SourceLayout) : Bool :=
 private unsafe def sameNativeFieldRoleUnsafe (left right : SourceLayout) : Bool :=
   if ptrEq left right then true else compareNativeFieldRoles left right
 
-/-- Every observed field is reflexive on an immutable layout. Pointer identity preserves
-the complete role; distinct layout objects retain the full native comparison. -/
 @[implemented_by sameNativeFieldRoleUnsafe]
 private def sameNativeFieldRole (left right : SourceLayout) : Bool :=
   compareNativeFieldRoles left right
 
-/-- One exact record occurrence's prepared source and runtime association identity. -/
 structure RecordAssociation where
   private mk ::
   id : RuntimeId .association
@@ -67,8 +64,6 @@ structure RecordAssociation where
   layout : RecordLayout
   bindings : Array BindingId
 
-/-- One prepared application's source slots and selected result dependencies.
-Actual values remain in the binding below, independently of the original producing node. -/
 structure ApplicationAssociation where
   private mk ::
   id : RuntimeId .association
@@ -79,9 +74,6 @@ structure ApplicationAssociation where
   dependencies : Array Nat
   contextDependencies : Array Nat
 
-/-- Original consuming field data, with an optional checked descendant dependency view.
-The parameter permits the same data to be retained inside a recursive ValueBinding.
-Creating this record cannot attach an association to a value; that boundary remains private. -/
 structure FieldInstantiationData (binding : Type) where
   id : RuntimeId .association
   association : RecordAssociation
@@ -99,10 +91,6 @@ def FieldInstantiationData.precedingDependencies (value : FieldInstantiationData
 def FieldInstantiationData.projectionPath (value : FieldInstantiationData binding) : Array Name :=
   (value.view.map (·.path)).getD #[]
 
-/-- A native constructor slot has this complete immutable producer context when the same
-actual port is viewed at its source-prescribed result field. Parameters remain inert provenance;
-only the selected type dependencies contribute owners. As with FieldInstantiationData,
-constructing this generic record cannot attach it to a value: inTelescope remains private. -/
 structure TelescopeInstantiationData (binding : Type) where
   id : RuntimeId .association
   sourceBinding : BindingId
@@ -112,8 +100,6 @@ structure TelescopeInstantiationData (binding : Type) where
   parameters : Array (Option binding)
   path : Array Name
 
-/-- Immutable graph-visibility obligations. Every constructor is private to the binding
-owner. Guarded bodies retain shared immutable arrays, rather than expanding their descendants. -/
 inductive ValueVisibilityCheck where
   | private value (id : RuntimeId .value)
   | private association (id : RuntimeId .association) (message : String)
@@ -122,8 +108,6 @@ inductive ValueVisibilityCheck where
   | private firstVisit (id : RuntimeId .association) (body : Array ValueVisibilityCheck)
   | private remember (id : RuntimeId .association)
 
-/-- Exact structural graph obligations retained by one binding constructor.
-No owner, liveness, native type, selection, or result-admission decision is stored here. -/
 structure ValueVisibility where
   private mk ::
   private checks : Array ValueVisibilityCheck
@@ -134,10 +118,6 @@ private def ValueVisibility.single (check : ValueVisibilityCheck) : ValueVisibil
 private def ValueVisibility.require (condition : Bool) (message : String) : ValueVisibility :=
   if condition then ⟨#[]⟩ else .single (.failure message)
 
-/-- These checks can be contracted only after an earlier check at this same sequential level.
-An association guard already reached either entered and remembered its ID, or skipped because
-the ID was already visited. Its later repetition therefore cannot enter its body. Nested
-guards never contribute IDs to this comparison at their enclosing sequential level. -/
 private def ValueVisibilityCheck.repeated (left right : ValueVisibilityCheck) : Bool :=
   match left, right with
   | .value left, .value right => left == right
@@ -150,8 +130,6 @@ private def ValueVisibilityCheck.repeated (left right : ValueVisibilityCheck) : 
   | .remember left, .remember right => left == right
   | _, _ => false
 
-/-- Keep the original first occurrence of each redundant check, without descending any
-guarded body. All remaining bodies are shared as immutable data and checked only when entered. -/
 private def ValueVisibility.concat (parts : Array ValueVisibility) : ValueVisibility := Id.run do
   let mut checks : Array ValueVisibilityCheck := #[]
   for part in parts do
@@ -164,12 +142,8 @@ private def ValueVisibility.whenFresh (id : RuntimeId .association)
     (body : ValueVisibility) : ValueVisibility :=
   .single (.firstVisit id body.checks)
 
-/-- A consuming role retains its underlying binding and actual dependent prefix.
-The recursive data keep earlier associations when an existing node fills another role.
-Source: the data model's ResultBinding and dependency-ordered DataInterface contract. -/
 inductive ValueBinding where
-  /-- Issued only by checked input admission or an exact prepared input-result route.
-  The displayed consuming role stays on binding; native retains its complete original interface. -/
+
   | private inNativeInterface (binding native : ValueBinding) (visibility : ValueVisibility)
   | private direct (value : RuntimeId .value) (role : SourceLayout)
   | private atRole (binding : ValueBinding) (role : SourceLayout)
@@ -204,13 +178,10 @@ def ValueBinding.role : ValueBinding → SourceLayout
   | .direct _ role | .atRole _ role .. | .inField _ _ role .. | .inApplication _ role ..
   | .inProjection _ _ role .. | .inTelescope _ role .. => role
 
-/-- Read only the explicit admission relation at this exact consuming view. -/
 def ValueBinding.admittedInterface? : ValueBinding → Option ValueBinding
   | .inNativeInterface _ native _ => some native
   | _ => none
 
-/-- The native operation interface is either explicitly admitted or the displayed interface.
-No earlier role, payload, or descriptive source is searched. -/
 def ValueBinding.nativeInterface (binding : ValueBinding) : ValueBinding :=
   binding.admittedInterface?.getD binding
 
@@ -220,8 +191,6 @@ def ValueBinding.nativeRole (binding : ValueBinding) : SourceLayout :=
 abbrev FieldInstantiation := FieldInstantiationData ValueBinding
 abbrev TelescopeInstantiation := TelescopeInstantiationData ValueBinding
 
-/-- Native telescope transports remain in the original role chain, independently of later
-field, projection and application views of the same node. -/
 def ValueBinding.telescopeInstantiations : ValueBinding → Array TelescopeInstantiation
   | .inNativeInterface binding _ _ => binding.telescopeInstantiations
   | .direct .. => #[]
@@ -230,7 +199,6 @@ def ValueBinding.telescopeInstantiations : ValueBinding → Array TelescopeInsta
   | .inTelescope binding _ instantiation _ _ =>
     binding.telescopeInstantiations.push instantiation
 
-/-- Source type families are instantiated by these exact references, never decoded Lean terms. -/
 def ValueBinding.instantiations : ValueBinding → Array FieldInstantiation
   | .inNativeInterface binding _ _ => binding.instantiations
   | .direct .. => #[]
@@ -249,7 +217,6 @@ structure ApplicationInstantiation where
   callable : Option ValueBinding
   access : Option ValueBinding
 
-/-- Retain every consuming application in order, including earlier views of an aliased node. -/
 def ValueBinding.applications : ValueBinding → Array ApplicationInstantiation
   | .inNativeInterface binding _ _ => binding.applications
   | .direct .. => #[]
@@ -259,7 +226,6 @@ def ValueBinding.applications : ValueBinding → Array ApplicationInstantiation
   | .inApplication binding _ association parameters applicationParameters arguments callable access _ _ =>
     binding.applications.push ⟨association, parameters, applicationParameters, arguments, callable, access⟩
 
-/-- Field and application identities share one ordered role chain on the same actual node. -/
 def ValueBinding.associationIds : ValueBinding → Array (RuntimeId .association)
   | .inNativeInterface binding _ _ => binding.associationIds
   | .direct .. => #[]
@@ -270,8 +236,6 @@ def ValueBinding.associationIds : ValueBinding → Array (RuntimeId .association
   | .inTelescope binding _ instantiation _ _ =>
     binding.associationIds.push instantiation.id
 
-/-- Each private association constructor retains its own exact summary. Reading a child
-summary never traverses the child's association body or expands a shared parameter DAG. -/
 private def ValueBinding.visibility : ValueBinding → ValueVisibility
   | .direct identity _ => .single (.value identity)
   | .inNativeInterface _ _ visibility
@@ -281,8 +245,6 @@ private def ValueBinding.visibility : ValueBinding → ValueVisibility
   | .inProjection _ _ _ _ _ _ _ _ visibility
   | .inTelescope _ _ _ _ visibility => visibility
 
-/-- Only designated admission owners attach this existing native-interface relation.
-The visibility summary is derived from the exact two bindings at the same attachment. -/
 private def ValueBinding.attachNativeInterface (binding native : ValueBinding) : ValueBinding :=
   let visibility := if binding.value == native.value &&
       native.associationIds.toList.isPrefixOf binding.associationIds.toList then
@@ -360,8 +322,6 @@ private def ValueBinding.attachTelescope (binding : ValueBinding) (role : Source
     (fields.getD #[]).map (·.visibility)
   .inTelescope binding role instantiation fields visibility
 
-/-- Recompute a new role frame's visibility from its exact full constructor fields.
-No value or association identity selects a reusable role summary. -/
 private def roleVisibility (binding : ValueBinding) (role : SourceLayout)
     (parameters : Option (Array (Option ValueBinding)))
     (dependencies : Array ValueBinding) : ValueVisibility :=
@@ -375,8 +335,6 @@ private def roleVisibility (binding : ValueBinding) (role : SourceLayout)
   .concat <| #[localCheck, binding.visibility] ++
     ((parameters.getD #[]).filterMap id).map (·.visibility) ++ dependencies.map (·.visibility)
 
-/-- The exact record accesses retained in binding order, through later aliases and projections.
-Reuse: the immutable binding chain; no expression or value search selects a parent. -/
 def ValueBinding.projectionAccesses : ValueBinding → Array (ValueBinding × Array Name)
   | .inNativeInterface binding _ _ => binding.projectionAccesses
   | .direct .. => #[]
@@ -385,9 +343,6 @@ def ValueBinding.projectionAccesses : ValueBinding → Array (ValueBinding × Ar
     binding.projectionAccesses
   | .inProjection _ binding _ parent path _ _ _ _ => binding.projectionAccesses.push (parent, path)
 
-/-- The selected binding before this access added consuming associations.
-Reuse: the exact projection producer, retained parent identities and native paths. This baseline
-lets a later reply retain an already visible captured value without naming fresh access IDs. -/
 def ValueBinding.projectionBasis (value parent : ValueBinding) (path : Array Name) :
     Option ValueBinding :=
   match value with
@@ -401,15 +356,12 @@ def ValueBinding.projectionBasis (value parent : ValueBinding) (path : Array Nam
         selectedPath == path then some basis
     else binding.projectionBasis parent path
 
-/-- A projection view retains its exact pre-access binding. This relation identifies an
-intermediate parent without erasing unrelated field or application associations. -/
 private def ValueBinding.projectionParent : ValueBinding → ValueBinding
   | .inNativeInterface binding _ _ => binding.projectionParent
   | .atRole binding .. | .inTelescope binding .. => binding.projectionParent
   | .inProjection _ _ _ _ _ basis _ _ _ => basis.projectionParent
   | binding => binding
 
-/-- Only the native type's selected actual references contribute owners at this source view. -/
 def ValueBinding.sourceDependencies : ValueBinding → Array ValueBinding
   | .inNativeInterface binding _ _ => binding.sourceDependencies
   | .direct .. => #[]
@@ -418,8 +370,6 @@ def ValueBinding.sourceDependencies : ValueBinding → Array ValueBinding
   | .inTelescope binding .. =>
     binding.sourceDependencies
 
-/-- Earlier checked native type roles that introduced actual bound dependencies.
-They remain in the existing role chain when a later view changes the displayed source role. -/
 def ValueBinding.dependencyRoles : ValueBinding → Array SourceLayout
   | .inNativeInterface binding _ _ => binding.dependencyRoles
   | .direct .. => #[]
@@ -429,8 +379,6 @@ def ValueBinding.dependencyRoles : ValueBinding → Array SourceLayout
   | .inTelescope binding .. =>
     binding.dependencyRoles
 
-/-- Complete parameter positions carried by the displayed source view, when the role
-association itself owns them. A direct node obtains its table from its immutable origin. -/
 def ValueBinding.sourceParameters? : ValueBinding → Option (Array (Option ValueBinding))
   | .inNativeInterface binding _ _ => binding.sourceParameters?
   | .direct .. => none
@@ -440,15 +388,11 @@ def ValueBinding.sourceParameters? : ValueBinding → Option (Array (Option Valu
   | .inField _ binding .. | .inProjection _ binding .. | .inTelescope binding .. =>
     binding.sourceParameters?
 
-/-- One stored source-role association, retained as inert observation provenance.
-The optional parameter table and dependency array are the exact fields of that association. -/
 structure SourceRoleFrame where
   role : SourceLayout
   parameters : Option (Array (Option ValueBinding))
   dependencies : Array ValueBinding
 
-/-- Stored source-role frames in their original inner-to-outer order.
-This reports the existing chain; it does not select an execution interface or a supplier. -/
 def ValueBinding.sourceRoleFrames : ValueBinding → Array SourceRoleFrame
   | .inNativeInterface binding _ _ => binding.sourceRoleFrames
   | .direct .. => #[]
@@ -488,9 +432,6 @@ private def ValueBinding.compareViews [Monad m]
   | some left, some right => compare left right
   | _, _ => pure false
 
--- Each cache entry records a completed comparison of these two complete immutable
--- objects. PtrMap retains both keys and distinguishes hash collisions by pointer equality.
--- In particular, sharing on either side never authorizes a different pair of views.
 private unsafe def ValueBinding.exactlyMatchesCached (left right : ValueBinding) :
     StateM (PtrMap ValueBinding (PtrMap ValueBinding Bool)) Bool := do
   if ptrEq left right then return true
@@ -504,15 +445,10 @@ private unsafe def ValueBinding.exactlyMatchesCached (left right : ValueBinding)
 private unsafe def ValueBinding.exactlyMatchesUnsafe (left right : ValueBinding) : Bool :=
   (ValueBinding.exactlyMatchesCached left right).run' mkPtrMap
 
--- A nonrecursive public wrapper lets Lean export the private implementation's
--- compiled signature. A partial wrapper compiles an auxiliary declaration
--- without the original implemented_by attribute.
 private partial def ValueBinding.exactlyMatchesReference (left right : ValueBinding) : Bool :=
   Id.run <| ValueBinding.compareViews
     (fun left right => pure (ValueBinding.exactlyMatchesReference left right)) left right
 
-/-- Exact complete source views for retaining an already admitted relation.
-Identity alone is insufficient: every source table, dependent view and native relation agrees. -/
 @[implemented_by ValueBinding.exactlyMatchesUnsafe]
 def ValueBinding.exactlyMatches (left right : ValueBinding) : Bool :=
   ValueBinding.exactlyMatchesReference left right
@@ -528,8 +464,6 @@ private def sameInterfaceParameters (left right : Option (Array (Option ValueBin
       | _, _ => false)
   | _, _ => false
 
-/-- Preserve an existing certified native interface only across the same full consuming view.
-This cannot create an interface or authorize a different dependent parameter occurrence. -/
 private def retainAdmittedInterface (original current : ValueBinding) : ValueBinding :=
   match original.admittedInterface? with
   | none => current
@@ -547,8 +481,6 @@ private def retainAdmittedInterface (original current : ValueBinding) : ValueBin
       current.attachNativeInterface native
     else current
 
-/-- Keep the original node and all admitted type dependencies at a consuming source role.
-Runtime occurrences are resolved only by typed source binders; no term annotation is retained. -/
 opaque ValueBinding.withRole (binding : ValueBinding) (role : SourceLayout)
     (sourceDependencies : Array ValueBinding := #[])
     (parameters : Option (Array (Option ValueBinding)) := none) : Except String ValueBinding := do
@@ -584,11 +516,9 @@ private def selectedReferences (indices : Array Nat) (values : Array (Option Val
 structure ContainerSlot where
   path : Array InputPathStep
   binding : ValueBinding
-  /-- Computational field position, or an independent retained reference. -/
+
   fieldIndex : Option Nat
 
-/-- A supplying connection's actual export at one original inert packet position.
-This retains transport ownership and captures without inventing a native mathematical value. -/
 structure PacketExport where
   private mk ::
   path : Array InputPathStep
@@ -606,22 +536,16 @@ opaque PacketExport.fromConnection (connection : Connection) (originScope : Runt
   if token.isEmpty then throw "an inert packet export requires its actual nonempty token"
   return ⟨path, originScope, originPath, connection.generation, token, captures⟩
 
-/-- Move the same admitted export beneath one outer literal packet position. -/
 opaque PacketExport.prefixed (exported : PacketExport) (nativePrefix : Array InputPathStep) :
     PacketExport :=
   { exported with path := nativePrefix ++ exported.path }
 
-/-- The complete admitted packet before native field associations enrich its storage view.
-Its original reference leaves remain separate from that later source-ordered field table. -/
 structure OriginalPacket where
   private mk ::
   template : Json
   slots : Array ContainerSlot
   exports : Array PacketExport
 
-/-- Literal packet structure, typed substitution slots and any actual field/callable bindings.
-`none` fields denotes a descriptor without native field data; `some #[]` is an actual empty
-record. A source record schema alone does not create computational field identities. -/
 structure ValueContainer where
   private mk ::
   template : Json
@@ -632,8 +556,6 @@ structure ValueContainer where
   callableData : Bool
   originalPacket : Option OriginalPacket
 
-/-- Replace only a previously located JSON position.
-Reference: Lean.Json array/object operations and CasContract.Port's InputPathStep grammar. -/
 private def replacePosition (json : Json) (path : List InputPathStep) (replacement : Json) :
     Except String Json := do
   match path, json with
@@ -648,8 +570,6 @@ private def replacePosition (json : Json) (path : List InputPathStep) (replaceme
       (key, if key == name then value else entry))
   | _, _ => throw "the container position does not follow the retained JSON structure"
 
-/-- A retained literal cannot carry ambient reference or native-token authority.
-Reference: CasContract.Port.validateResultRefs and the runtime immediate-control JSON walk. -/
 partial def checkLiteral (json : Json) : Except String Unit := do
   if let .ok tag := json.getObjValAs? String "ctor" then
     if #["scopeRef", "inputRef", "resultRef", "opaqueData", "deferredData"].contains tag then
@@ -691,9 +611,6 @@ private def makeContainer (template : Json) (slots : Array ContainerSlot)
       throw "the container callable has no prepared function interface"
   return ⟨template, slots, fields, callable, exports, false, none⟩
 
-/-- Authenticate the original complete reply packet retained by this exact native result.
-Native field associations may extend an original binding, but a sibling association cannot
-replace it. The caller supplies the immutable packet captured before field staging. -/
 def ValueContainer.retainsOriginalPacket (container expected : ValueContainer) : Bool :=
   match container.originalPacket with
   | none => false
@@ -712,11 +629,9 @@ def ValueContainer.retainsOriginalPacket (container expected : ValueContainer) :
             actual.value == retained.value &&
               retained.associationIds.toList.isPrefixOf actual.associationIds.toList))
 
-/-- Both direct and original packet export owners constrain every later transport. -/
 def ValueContainer.packetExports (container : ValueContainer) : Array PacketExport :=
   container.exports ++ (container.originalPacket.map (·.exports)).getD #[]
 
-/-- Substitute freshly encoded references without rebuilding literal data from a source term. -/
 opaque ValueContainer.fill (container : ValueContainer) (replacements : Array Json) :
     Except String Json := do
   unless replacements.size == container.slots.size do
@@ -728,8 +643,6 @@ opaque ValueContainer.fill (container : ValueContainer) (replacements : Array Js
     throw "an inert export packet requires its actual receiving owner before encoding"
   return packet
 
-/-- Expose inert tokens only to their actual owning receiver. Foreign receivers retain
-the whole typed map through the existing scoped interface. -/
 opaque ValueContainer.fillForOwner (container : ValueContainer)
     (receiver : ConnectionGeneration) (replacements : Array Json) : Except String Json := do
   unless replacements.size == container.slots.size do
@@ -744,9 +657,6 @@ opaque ValueContainer.fillForOwner (container : ValueContainer)
       (ComputationalValue.opaque exported.token).encode
   return packet
 
-/-- A transient compiler-checking view of complete descriptors. Opaque positions receive
-temporary scoped indices, never mathematical values or transmitted tokens. Repeated views
-share only the same original reply scope and absolute position, with unchanged authority. -/
 opaque ValueContainer.nativeFraming (packets : Array ValueContainer) :
     Except String (Array Json × Array ValueBinding × Array PacketExport) := do
   let bindings := packets.flatMap (·.slots.map (·.binding))
@@ -785,14 +695,11 @@ inductive ValueData
   | closure (program : RuntimeId .program) (captures : Array ValueBinding)
   | ownedToken (owner : ConnectionGeneration) (token : String) (captures : Array ValueBinding)
 
-/-- The actual stored record table, distinct from a descriptor's native source schema.
-Closures and native tokens keep their existing lazy interfaces outside this table. -/
 def ValueData.storedFields? : ValueData → Option (Array ValueBinding)
   | .product fields => some fields
   | .container value => value.fields
   | _ => none
 
-/-- Payload construction stamps native exports from the actual supplying connection. -/
 structure ValuePayload where
   private mk ::
   data : ValueData
@@ -805,15 +712,11 @@ opaque ValuePayload.container (template : Json) (slots : Array ContainerSlot)
     (fields : Array ValueBinding) (callable : Option ValueBinding) : Except String ValuePayload := do
   return ⟨.container (← makeContainer template slots (some fields) callable)⟩
 
-/-- Retain a named source value and its actual packet inputs without fabricating its fields.
-The public packet grammar is unchanged; no native projection or callable export is supplied. -/
 opaque ValuePayload.descriptor (template : Json) (slots : Array ContainerSlot)
     (exports : Array PacketExport := #[]) :
     Except String ValuePayload := do
   return ⟨.container (← makeContainer template slots none none exports)⟩
 
-/-- Store validated inert callable data, optionally with its independently retained native
-continuation. The packet's framing does not execute it or provide mathematical evidence. -/
 opaque ValuePayload.callablePacket (packet : CallablePacket) (slots : Array ContainerSlot)
     (callable : Option ValueBinding := none) (exports : Array PacketExport := #[])
     (original : Option ValueContainer := none) : Except String ValuePayload := do
@@ -827,9 +730,6 @@ opaque ValuePayload.callablePacket (packet : CallablePacket) (slots : Array Cont
       pure (some ⟨original.template, original.slots, original.exports⟩)
   return ⟨.container { container with callableData := true, originalPacket }⟩
 
-/-- Retain an accepted operational continuation together with the original complete inert
-packet. The wrapper keeps every actual export owner and capture, but is not itself portable
-callable data: its native function interface is encoded through the ordinary scoped path. -/
 opaque ValuePayload.retainedCallable (original : ValueContainer) (callable : ValueBinding) :
     Except String ValuePayload := do
   unless original.fields.isNone && original.callable.isNone &&
@@ -840,8 +740,6 @@ opaque ValuePayload.retainedCallable (original : ValueContainer) (callable : Val
   return ⟨.container { container with
     originalPacket := some ⟨original.template, original.slots, original.exports⟩ }⟩
 
-/-- Attach source-ordered native fields to the original complete returned descriptor while
-preserving its pre-staging packet and exact reference leaves. This creates no new field value. -/
 opaque ValuePayload.completeContainer (original : ValueContainer)
     (slots : Array ContainerSlot) (fields : Array ValueBinding) : Except String ValuePayload := do
   unless original.fields.isNone && original.callable.isNone do
@@ -859,7 +757,6 @@ opaque ValuePayload.ownedExport (connection : Connection) (token : String)
     (captures : Array ValueBinding) : ValuePayload :=
   ⟨.ownedToken connection.generation token captures⟩
 
-/-- Actual argument references and this result role's native formal dependency slots. -/
 structure ApplicationOrigin where
   private mk ::
   layout : ApplicationLayout
@@ -870,8 +767,6 @@ structure ApplicationOrigin where
   contextDependencies : Array Nat
   callable : Option ValueBinding
 
-/-- Keep all formal slots and actual references; proof slots have no payload.
-Reuse: ApplicationLayout's native telescope and existing ValueBinding identities. -/
 opaque ApplicationOrigin.ofArguments (layout : ApplicationLayout)
     (parameters arguments : Array (Option ValueBinding)) (callable : Option ValueBinding) :
     Except String ApplicationOrigin := do
@@ -885,7 +780,6 @@ opaque ApplicationOrigin.ofArguments (layout : ApplicationLayout)
   return ⟨layout, parameters, arguments, #[], layout.resultDependencies,
     layout.resultContextDependencies, callable⟩
 
-/-- Keep the original arguments while selecting this source field's own dependencies. -/
 opaque ApplicationOrigin.forSource (origin : ApplicationOrigin) (parent source : SourceLayout) :
     MetaM ApplicationOrigin := do
   let path := origin.path ++ (← parent.projectionPathTo source)
@@ -895,8 +789,6 @@ opaque ApplicationOrigin.forSource (origin : ApplicationOrigin) (parent source :
     dependencies := dependencies.arguments
     contextDependencies := dependencies.context }
 
-/-- Continue the same source application through an actual record's native field.
-The stored result identity licenses access through later source bindings; no source replay occurs. -/
 opaque ApplicationOrigin.forProjection (origin : ApplicationOrigin) (projection : Name) :
     MetaM ApplicationOrigin := do
   let path := origin.path.push projection
@@ -934,8 +826,6 @@ private def sameNativeApplication (left right : ApplicationOrigin) : Bool :=
         sameNativeFieldRole left.source right.source &&
         sameNativeSource left.typeFamily right.typeFamily)
 
-/-- Exact original input-result routing licenses this native interface at one consuming role.
-Only request preparation constructs the witness, after original input admission and routing. -/
 structure AdmittedInputInterface where
   private mk ::
   program : RuntimeId .program
@@ -946,8 +836,6 @@ structure AdmittedInputInterface where
   selected : ValueBinding
   native : ValueBinding
 
-/-- One original producing record prefix, before its current field is supplied.
-An inherited descendant keeps that same declared field family and prior proof/data slots. -/
 structure NativeFieldPrefixFrame where
   private mk ::
   association : RecordAssociation
@@ -958,8 +846,6 @@ structure NativeFieldPrefixFrame where
 def NativeFieldPrefixFrame.precedingDependencies (frame : NativeFieldPrefixFrame) : Array Nat :=
   (frame.view.map (·.precedingDependencies)).getD frame.field.precedingDependencies
 
-/-- The source-ordered predecessor witnesses available at one original native field.
-There is deliberately no runtime value for the unassembled current parent. -/
 structure NativeFieldPrefix where
   private mk ::
   native : SourceLayout
@@ -975,10 +861,6 @@ def NativeFieldPrefix.dependencies (nativePrefix : NativeFieldPrefix) :
     values := values ++ (← selectedReferences frame.precedingDependencies frame.preceding)
   return values
 
-
-/-- A complete captured prefix remains an immutable part of its producing type evidence.
-Joining another checked frame may extend the prefix, but cannot erase an original frame,
-replace a predecessor occurrence, or change its native declaration view. -/
 private def NativeFieldPrefix.retainsCapture (current captured : NativeFieldPrefix) : Bool :=
   let sameTerm := fun (left right : ClosedTerm) =>
     left.context.exactlyMatches right.context && left.expression.equal right.expression &&
@@ -1019,8 +901,6 @@ private def NativeFieldPrefix.retainsCapture (current captured : NativeFieldPref
   sameNativeFieldRole current.native captured.native &&
     captured.frames.all (fun frame => current.frames.any (sameFrame frame))
 
-/-- The snapshot can describe only the original fresh field producer; it cannot change
-another role, request occurrence, declaration position, or computational/proof slot. -/
 def NativeFieldPrefix.requireOrigin (nativePrefix : NativeFieldPrefix)
     (program : RuntimeId .program) (occurrence : RuntimeId .occurrence)
     (source : SourceLayout) : Except String Unit := do
@@ -1040,15 +920,13 @@ def NativeFieldPrefix.requireOrigin (nativePrefix : NativeFieldPrefix)
         unless sameNativeFieldRole prepared.layout actual.role do
           throw "a producing field prefix changed an earlier original native field view"
 
-/-- A native producer's complete type-reference capture for one exact source role.
-The constructor is private: references are derived from that role's typed source positions. -/
 structure SourceDependencyCapture where
   private mk ::
   source : SourceLayout
   parameters : Array (Option ValueBinding)
   references : Array ValueBinding
   fieldPrefix : Option NativeFieldPrefix := none
-  /-- An inherited prefix belongs to this exact retained parent and native projection path. -/
+
   projectedFrom : Option (ValueBinding × Array Name) := none
 
 structure ValueOrigin where
@@ -1063,9 +941,6 @@ structure ValueOrigin where
   fieldPrefix : Option NativeFieldPrefix := none
   inputInterface : Option AdmittedInputInterface := none
 
-/-- Precise native captures replace conservative whole-context/argument ownership only
-for their exact original source and complete parameter positions. Raw origins retain the
-existing conservative rule. Independently supplied field-prefix dependencies always remain. -/
 def ValueOrigin.typeDependencies (origin : ValueOrigin) : Except String (Array ValueBinding) := do
   let mut references ← match origin.sourceDependencies with
     | some captured =>
@@ -1107,8 +982,6 @@ def ValueOrigin.typeDependencies (origin : ValueOrigin) : Except String (Array V
     references := references ++ (← nativePrefix.dependencies)
   return references
 
-/-- Authenticate a prepared forwarding witness against its unchanged complete request.
-A public role update or another equal-valued input cannot reuse this native interface. -/
 opaque ValueOrigin.admittedInputInterface (origin : ValueOrigin) :
     Except String (Option AdmittedInputInterface) := do
   let some original := origin.inputInterface | return none
@@ -1125,9 +998,6 @@ opaque ValueOrigin.admittedInputInterface (origin : ValueOrigin) :
     throw "an admitted native interface changed its exact original input"
   return some original
 
-/-- Direct field frames retain their original producer occurrence. An inherited frame
-must also occur in the sealed capture of this exact actual projection; any added frame
-still belongs to the fresh producer. No frame may borrow another equal-source parent. -/
 opaque ValueOrigin.checkFieldPrefix (origin : ValueOrigin) : Except String Unit := do
   discard <| origin.typeDependencies
   let some current := origin.fieldPrefix | return ()
@@ -1141,7 +1011,6 @@ opaque ValueOrigin.checkFieldPrefix (origin : ValueOrigin) : Except String Unit 
       if inherited.retainsCapture selected then continue
       selected.requireOrigin origin.program origin.occurrence origin.role
 
-/-- Visibility keeps the complete context, stored callable and argument reference planes. -/
 def ValueOrigin.references (origin : ValueOrigin) : Array ValueBinding :=
   origin.sourceDependencies.toArray.flatMap (·.references) ++
     origin.inputInterface.toArray.flatMap (fun original => #[original.selected, original.native]) ++
@@ -1154,7 +1023,6 @@ def ValueOrigin.references (origin : ValueOrigin) : Array ValueBinding :=
       (match application.callable with | none => #[] | some callable => #[callable]) ++
         application.arguments.filterMap id
 
-/-- A tentative immutable node; whole-reply admission and receipt publication are separate. -/
 structure ValueNode where
   private mk ::
   id : RuntimeId .value
@@ -1174,8 +1042,6 @@ private def ValueData.references : ValueData → Array ValueBinding
 def ValueNode.references (node : ValueNode) : Array ValueBinding :=
   node.origin.references ++ node.payload.data.references
 
-/-- Persistent storage uses Lean's immutable HashMap; the live ledger holds no copy.
-Reference: Lean v4.33.0 Std/Data/HashMap/Basic.lean, `HashMap.insert` and `getElem?`. -/
 structure ValueGraph where
   private mk ::
   worker : String
@@ -1187,16 +1053,12 @@ structure ValueGraph where
 
 def ValueGraph.empty (supply : IdentitySupply) : ValueGraph := ⟨supply.worker, {}, {}, {}, {}, none⟩
 
-/-- Every value or association append has a fresh revision.
-Reference: IdentitySupply monotone allocation and persistent HashMap/HashSet insertion. -/
 def ValueGraph.sameRevision (left right : ValueGraph) : Bool :=
   left.worker == right.worker && left.revision == right.revision
 
 def ValueGraph.find (graph : ValueGraph) (id : RuntimeId .value) : Option ValueNode :=
   graph.nodes[id]?
 
-/-- Execute exact ordered obligations against the current immutable graph. A guarded body
-is entered only on its original association's first visit, before any recursive traversal. -/
 private partial def ValueGraph.checkVisibility (graph : ValueGraph)
     (checks : Array ValueVisibilityCheck) (visited : Std.HashSet (RuntimeId .association)) :
     Except String (Std.HashSet (RuntimeId .association)) := do
@@ -1229,9 +1091,6 @@ private def ValueGraph.require (graph : ValueGraph) (binding : ValueBinding) :
     | throw "the value reference is outside the visible graph"
   return node
 
-/-- The displayed source role has one authoritative complete parameter telescope.
-Each constructor supplies its own retained table, or explicitly preserves its immediate
-underlying context. No historical role or source expression is searched for a supplier. -/
 partial def ValueGraph.bindingContext (graph : ValueGraph) (binding : ValueBinding) :
     Except String (ContextTelescope × Array (Option ValueBinding)) := do
   discard <| graph.require binding
@@ -1255,10 +1114,6 @@ partial def ValueGraph.bindingContext (graph : ValueGraph) (binding : ValueBindi
     throw "a source role lost its complete original parameter table"
   return (context, parameters)
 
-/-- Read only a projection relation published in this immutable graph. Later consuming
-aliases may extend its exact parent chain; divergent chains cannot select each other's fields.
-Intermediate projection views use their recorded basis, never native declarations or values.
-The returned baseline keeps its own owner closure; the parent supplies visibility only. -/
 opaque ValueGraph.projected? (graph : ValueGraph) (parent : ValueBinding) (path : Array Name) :
     Except String (Option ValueBinding) := do
   discard <| graph.require parent
@@ -1278,10 +1133,6 @@ opaque ValueGraph.projected? (graph : ValueGraph) (parent : ValueBinding) (path 
     selected := some (original.associationIds.size, basis)
   return selected.map (·.2)
 
-/-- Read an already published access under its exact original parent and complete association
-chain. The original field baseline remains separate: an earlier or sibling consuming parent
-cannot supply this view, and role aliases alone do not change its reference identity.
-Reuse: bindProjection's sealed native path and immutable association membership. -/
 opaque ValueGraph.projectedAccess? (graph : ValueGraph) (parent : ValueBinding)
     (path : Array Name) : Except String (Option ValueBinding) := do
   discard <| graph.require parent
@@ -1294,15 +1145,12 @@ opaque ValueGraph.projectedAccess? (graph : ValueGraph) (parent : ValueBinding)
     return some retained
   return none
 
-/-- Read source application provenance only from the visible binding and its immutable node. -/
 opaque ValueGraph.applicationOrigin (graph : ValueGraph) (binding : ValueBinding) :
     Except String (Option ApplicationOrigin) := do
   let node ← graph.require binding
   if let some application := binding.applications.back? then return some application.origin
   return node.origin.application
 
-/-- Recover only the baseline recorded by this exact access, including a directly staged reply.
-An origin fallback is permitted only for its actual retained parent and native path. -/
 partial def ValueGraph.projectionBasis (graph : ValueGraph) (binding parent : ValueBinding)
     (path : Array Name) : Except String (Option ValueBinding) := do
   let node ← graph.require binding
@@ -1326,8 +1174,6 @@ partial def ValueGraph.projectionBasis (graph : ValueGraph) (binding parent : Va
       (← graph.projectionBasis selected parent initialPath).isSome then return some produced
   return none
 
-/-- The latest retained projection before any newer consuming application.
-An application begins another source continuation, even when it returns the same actual node. -/
 private def ValueBinding.latestProjection : ValueBinding →
     Option (SourceLayout × ValueBinding × Array Name)
   | .inNativeInterface binding _ _ => binding.latestProjection
@@ -1336,9 +1182,6 @@ private def ValueBinding.latestProjection : ValueBinding →
   | .inProjection _ _ source parent path _ _ _ _ => some (source, parent, path)
   | .direct .. | .inApplication .. => none
 
-/-- The latest actual projection retains its immutable source role, parent and native path.
-Later role aliases cannot rewrite this source witness; a newer application starts a different
-continuation. Reuse: projectionBasis and the immutable node's original access record. -/
 opaque ValueGraph.projectionSelection (graph : ValueGraph) (binding : ValueBinding) :
     Except String (Option (SourceLayout × ValueBinding × Array Name)) := do
   let node ← graph.require binding
@@ -1354,7 +1197,6 @@ opaque ValueGraph.projectionSelection (graph : ValueGraph) (binding : ValueBindi
     | throw "a retained projection producer lost its exact parent and field selection"
   return some (source, parent, path)
 
-/-- Resume only the exact recorded projection producer, preserving the existing reader API. -/
 opaque ValueGraph.projectionOrigin (graph : ValueGraph) (binding : ValueBinding) :
     Except String (Option (ValueBinding × Array Name)) := do
   return (← graph.projectionSelection binding).map fun (_, parent, path) => (parent, path)
@@ -1386,8 +1228,7 @@ private partial def ValueGraph.bindingOwners (graph : ValueGraph) (binding : Val
     for dependency in dependencies do state ← graph.bindingOwners dependency state
     return state
   | .inTelescope underlying _ _ _ _ =>
-    -- The original full telescope and selected parent establish source identity. They do
-    -- not turn a portable projected component into an owner of its siblings.
+
     graph.bindingOwners underlying state
   | .inProjection id underlying _ _ _ _ fields dependencies _ =>
     if state.instantiations.contains id then return state
@@ -1413,12 +1254,10 @@ private partial def ValueGraph.bindingOwners (graph : ValueGraph) (binding : Val
     if state.instantiations.contains association.id then return state
     let mut state ← graph.bindingOwners underlying
       { state with instantiations := state.instantiations.insert association.id }
-    -- The underlying role already carries its checked precise or conservative native
-    -- dependencies. Retained application tables remain provenance, not an extra demand.
+
     for field in fields do state ← graph.bindingOwners field state
     return state
 
-/-- Derive dependencies from visible nodes, rather than accepting owner claims from a reply. -/
 opaque ValueGraph.requiredOwners (graph : ValueGraph) (bindings : Array ValueBinding) :
     Except String (Array ConnectionGeneration) := do
   let mut visible : Std.HashSet (RuntimeId .association) := {}
@@ -1428,7 +1267,6 @@ opaque ValueGraph.requiredOwners (graph : ValueGraph) (bindings : Array ValueBin
   for binding in bindings do state ← graph.bindingOwners binding state
   return state.owners
 
-/-- Retain the same node under an already prepared consuming role. -/
 opaque ValueGraph.rebind (graph : ValueGraph) (binding : ValueBinding) (role : SourceLayout)
     (parameters : Option (Array (Option ValueBinding)) := none) : Except String ValueBinding := do
   discard <| graph.require binding
@@ -1444,7 +1282,6 @@ private def ValueBinding.applicationFields : ValueBinding → Option (Array Valu
   | .inTelescope binding _ _ fields _ =>
     match fields with | some _ => fields | none => binding.applicationFields
 
-/-- Projection selects the retained field view, independently of unrelated field owners. -/
 opaque ValueGraph.project (graph : ValueGraph) (binding : ValueBinding) (index : Nat) :
     Except String ValueBinding := do
   let node ← graph.require binding
@@ -1463,8 +1300,6 @@ opaque ValueGraph.project (graph : ValueGraph) (binding : ValueBinding) (index :
     return field
   | _ => throw "the retained payload has no stored product fields"
 
-/-- One pure traversal supplies both the stored frontier and the exact visited parent bindings.
-The temporary parents are used only while preparing descendant dependency views. -/
 private def projectionWalk (graph : ValueGraph) (parent : ValueBinding) (path : Array Name)
     (usePublished : Bool := true) :
     Except String (Option (ValueBinding × Array Name) × Array (ValueBinding × Array Name)) := do
@@ -1493,14 +1328,10 @@ private def projectionWalk (graph : ValueGraph) (parent : ValueBinding) (path : 
     | .portable .. => throw "the selected value has no native record access interface"
   return (some (value, #[]), parents)
 
-/-- Follow an exact native path through stored or already published fields without execution.
-The returned baseline and remaining lazy path keep the existing read-only query contract. -/
 opaque ValueGraph.projectionFrontier (graph : ValueGraph) (parent : ValueBinding)
     (path : Array Name) : Except String (Option (ValueBinding × Array Name)) := do
   return (← projectionWalk graph parent path).1
 
-/-- Carry only the original field-prefix requirements of this selected descendant.
-The source paths and original associations select these views; no payload equality is used. -/
 private def projectionFieldDependencies (graph : ValueGraph) (parent : ValueBinding)
     (path : Array Name) (selected : ValueBinding) : MetaM (Array FieldInstantiation) := do
   let (_, parents) ← IO.ofExcept <| (projectionWalk graph parent path).mapError IO.userError
@@ -1515,11 +1346,6 @@ private def projectionFieldDependencies (graph : ValueGraph) (parent : ValueBind
       dependencies := dependencies.push { field with view := some view }
   return dependencies
 
-/-- Read the exact stored/lazy frontier and the references required by its selected path.
-The first reference is the frontier itself. Additional references come only from the original
-preceding fields selected by derived dependency views; no whole stored parent is demanded.
-`none` and the remaining path are exactly projectionWalk's results, with no descriptor fallback.
-This query creates no value, association, completion or resource. -/
 opaque ValueGraph.projectionReferences (graph : ValueGraph) (parent : ValueBinding)
     (path : Array Name) :
     MetaM (Option (ValueBinding × Array Name × Array ValueBinding)) := do
@@ -1534,8 +1360,6 @@ opaque ValueGraph.projectionReferences (graph : ValueGraph) (parent : ValueBindi
     references := references ++ required
   return some (selected, remaining, references)
 
-/-- Read a bound occurrence and its exact native projection path before any reduction.
-The context supplies the stable identity; neither a defining expression nor a type chooses it. -/
 partial def boundProjection? (context : OpenContext)
     (bound : Std.HashMap BindingId ValueBinding) (expression : Expr) :
     MetaM (Option (BindingId × Array Name)) := do
@@ -1550,13 +1374,11 @@ partial def boundProjection? (context : OpenContext)
     let some (binding, path) ← boundProjection? context bound projection.parent | return none
     return some (binding, path.push projection.declaration)
 
-/-- Dependencies follow explicit bound variables and exact native projection suffixes.
-An unbound selected source expands only its own complete typed payload. The same selection
-identity is visited once; an already bound projection stops before its parent is traversed. -/
 private partial def boundPaths (context : OpenContext)
     (bound : Std.HashMap BindingId ValueBinding) (expression : Expr)
     (selections : SourceSelectionScope Expr) (visited : IO.Ref (Std.HashSet BindingId)) :
     MetaM (Array (BindingId × Array Name)) := do
+  if !expression.hasFVar then return #[]
   if let some selected ← boundProjection? context bound expression then return #[selected]
   match expression with
   | .fvar _ =>
@@ -1591,8 +1413,6 @@ private partial def boundPaths (context : OpenContext)
   | .proj _ _ body => boundPaths context bound body selections visited
   | _ => pure #[]
 
-/-- Resolve only explicit typed bindings in the actual graph. Stored projections retain their
-own dependencies; a lazy frontier keeps its original callable without inventing a result. -/
 opaque boundSourceReferences (graph : Option ValueGraph) (context : OpenContext)
     (bound : Std.HashMap BindingId ValueBinding) (expression : Expr)
     (selections : SourceSelectionScope Expr := {}) :
@@ -1613,8 +1433,6 @@ opaque boundSourceReferences (graph : Option ValueGraph) (context : OpenContext)
     references := references ++ selected
   return references
 
-/-- The type and definitions of selected context entries retain their own explicit bindings.
-Unreferenced context entries remain inert provenance. -/
 opaque boundContextReferences (graph : Option ValueGraph) (context : OpenContext)
     (bound : Std.HashMap BindingId ValueBinding) (expression : Expr)
     (selections : SourceSelectionScope Expr := {}) :
@@ -1630,7 +1448,6 @@ opaque boundContextReferences (graph : Option ValueGraph) (context : OpenContext
       references := references ++ (← boundSourceReferences graph context bound value selections)
   return references
 
-/-- Native type ownership follows the same exact bound-variable dependencies. -/
 opaque boundTypeReferences (graph : Option ValueGraph) (source : ClosedTerm)
     (bound : Std.HashMap BindingId ValueBinding)
     (selections : SourceSelectionScope ClosedTerm := {}) : MetaM (Array ValueBinding) := do
@@ -1639,8 +1456,6 @@ opaque boundTypeReferences (graph : Option ValueGraph) (source : ClosedTerm)
     boundContextReferences graph context bound (← inferType expression)
       (← selections.inContext context)
 
-/-- Seal the native type-reference traversal for the checked producer's complete context.
-The captured parameter array is kept in original source order and rechecked when consumed. -/
 opaque SourceDependencyCapture.capture (graph : Option ValueGraph) (source : SourceLayout)
     (bound : Std.HashMap BindingId ValueBinding) : MetaM SourceDependencyCapture := do
   let parameters := source.source.context.entries.map fun entry => bound[entry.id]?
@@ -1649,9 +1464,6 @@ opaque SourceDependencyCapture.capture (graph : Option ValueGraph) (source : Sou
     discard <| IO.ofExcept <| (graph.requiredOwners references).mapError IO.userError
   return { source, parameters, references }
 
-/-- Follow stored callable slots to actual code/token data, retaining the complete outer value.
-The append-only graph supplies existing references; no source expression reconstructs a callable.
-Reuse: ValueGraph.require and Lean v4.33.0 Std.HashSet for exact reference traversal. -/
 private partial def storedCallable (graph : ValueGraph) (binding : ValueBinding)
     (visited : Std.HashSet (RuntimeId .value)) : Except String ValueBinding := do
   if visited.contains binding.value then throw "the retained callable references form a cycle"
@@ -1668,9 +1480,6 @@ private partial def storedCallable (graph : ValueGraph) (binding : ValueBinding)
 opaque ValueGraph.callable (graph : ValueGraph) (binding : ValueBinding) :
     Except String ValueBinding := storedCallable graph binding {}
 
-/-- Stage one node without modifying the prior graph or creating a completion witness.
-References must already be visible; ownership is derived from those exact nodes and the
-actual supplying connection. Payload equality never participates in node allocation. -/
 opaque ValueGraph.stage (graph : ValueGraph) (supply : IdentitySupply)
     (origin : ValueOrigin) (payload : ValuePayload) : IO (ValueGraph × ValueBinding) := do
   unless supply.worker == graph.worker && origin.program.worker == graph.worker &&
@@ -1710,8 +1519,7 @@ opaque ValueGraph.stage (graph : ValueGraph) (supply : IdentitySupply)
   let mut binding ← IO.ofExcept <| ((ValueBinding.direct id origin.role).withRole origin.role
     nativeDependencies (some origin.parameters)).mapError IO.userError
   if let some nativePrefix := origin.fieldPrefix then
-    -- This is original producer evidence on a newly allocated node. Existing references
-    -- never pass this branch and retain their own immutable producing prefix.
+
     for frame in nativePrefix.frames do
       let association ← supply.fresh .association
       binding := ValueBinding.attachField association binding origin.role frame.association frame.field
@@ -1721,21 +1529,16 @@ opaque ValueGraph.stage (graph : ValueGraph) (supply : IdentitySupply)
         revision := some (← supply.fresh .revision) }
   return (graph, binding)
 
-/-- Availability reads current liveness without rewriting the immutable payload. -/
 def ValueGraph.isAvailable (graph : ValueGraph) (owners : OwnerRegistry)
     (binding : ValueBinding) : BaseIO Bool := do
   if owners.worker != graph.worker then return false
   let .ok dependencies := graph.requiredOwners #[binding] | return false
   owners.allAlive dependencies
 
-/-- A computational candidate indexed by its prepared layout, retaining its actual root. -/
 structure CandidateResponse (source : SourceLayout) where
   private mk ::
   root : ValueBinding
 
-/-- Check the retained operational shape and bind the prepared source role.
-Source: execution contract v2 §2 and data model §5. Scope, lifecycle and whole-reply admission
-are separate boundaries. Native exports retain lazy field access through their actual root. -/
 opaque CandidateResponse.ofValue (source : SourceLayout) (graph : ValueGraph)
     (value : ValueBinding) : Except String (CandidateResponse source) := do
   let node ← graph.require value
@@ -1758,9 +1561,6 @@ opaque CandidateResponse.ofValue (source : SourceLayout) (graph : ValueGraph)
   | .data, _ | .typeValue, _ => pure ()
   return ⟨← graph.rebind value source⟩
 
-/-- Associate an existing result with a prepared application without replacing its node.
-Stored fields are exact projections with their own prepared consuming associations.
-Reuse: CandidateResponse, immutable graph membership and source-derived dependency selection. -/
 opaque ValueGraph.bindApplication (graph : ValueGraph) (supply : IdentitySupply)
     (origin : ValueOrigin) (value : ValueBinding) (fields : Array ValueBinding) :
     IO (ValueGraph × ValueBinding) := do
@@ -1810,9 +1610,6 @@ opaque ValueGraph.bindApplication (graph : ValueGraph) (supply : IdentitySupply)
   discard <| IO.ofExcept <| (graph.requiredOwners #[binding]).mapError IO.userError
   return (graph, binding)
 
-/-- Attach an exact prepared projection to an existing node and its stored field views.
-The parent is retained for visibility and source selection, not as a whole-record owner demand.
-Reuse: bindApplication for original application data, CandidateResponse and immutable associations. -/
 opaque ValueGraph.bindProjection (graph : ValueGraph) (supply : IdentitySupply)
     (origin : ValueOrigin) (value : ValueBinding) (fields : Array ValueBinding) :
     MetaM (ValueGraph × ValueBinding) := do
@@ -1838,8 +1635,7 @@ opaque ValueGraph.bindProjection (graph : ValueGraph) (supply : IdentitySupply)
     unless candidate.root.value == prior.value &&
         prior.associationIds.toList.isPrefixOf candidate.root.associationIds.toList do
       throwError "the projection changed its retained field reference"
-  -- New consuming views may enrich the returned value, but an existing source field
-  -- keeps its original stored/published baseline. Both sources constrain this candidate.
+
   let available ← IO.ofExcept <|
     (graph.projectionFrontier parent origin.accessPath).mapError IO.userError
   let baseline : ValueBinding ← match available with
@@ -1856,12 +1652,7 @@ opaque ValueGraph.bindProjection (graph : ValueGraph) (supply : IdentitySupply)
           pure prior
         else throwError "the projection changed its retained field reference"
     | _ => pure (prior.getD candidate.root)
-  -- The baseline index identifies the pre-access parent. A repeated projection of a
-  -- stored record gives its descendants fresh consuming views; those views cannot
-  -- become the original field of every sibling projection of that same parent.
-  -- Keep the current-parent and prior-cache constraints above, then retain the exact
-  -- stored field of the already recorded pre-access parent when its path is complete.
-  -- A lazy path has no independently stored baseline and keeps the existing result.
+
   let originalParent := parent.projectionParent
   let baseline ← if originalParent.associationIds == parent.associationIds then pure baseline
     else do
@@ -1896,8 +1687,7 @@ opaque ValueGraph.bindProjection (graph : ValueGraph) (supply : IdentitySupply)
   let projections := if prior.isSome then graph.projections else
     let key := parent.projectionParent.value
     graph.projections.insert key ((graph.projections[key]?.getD #[]).push binding)
-  -- Preserve a distinct published access for each exact parent chain. The baseline cache
-  -- above deliberately keeps its original binding, independently of these consuming views.
+
   let previousAccess ← IO.ofExcept <|
     (graph.projectedAccess? parent origin.accessPath).mapError IO.userError
   let projectionViews := if previousAccess.isSome then graph.projectionViews else
@@ -1911,9 +1701,6 @@ opaque ValueGraph.bindProjection (graph : ValueGraph) (supply : IdentitySupply)
   discard <| IO.ofExcept <| (graph.requiredOwners #[binding]).mapError IO.userError
   return (graph, binding)
 
-/-- Retain an original constructor slot at its source-prescribed result field. Every stored
-descendant keeps the same node and original field baseline; only checked native source views
-and association identities are added. Whole native admission remains the caller's next step. -/
 opaque ValueGraph.bindTelescopeTransport (graph : ValueGraph) (supply : IdentitySupply)
     (transport : ConstructorProjectionTransport) (parameters : Array (Option ValueBinding))
     (selected : ValueBinding) :
@@ -1976,8 +1763,6 @@ opaque ValueGraph.bindTelescopeTransport (graph : ValueGraph) (supply : Identity
     return (graph, binding)
   visit graph selected #[] (graph.nodes.size + 1)
 
-/-- Ordered actual constructor selections; proof positions retain their formal slots.
-This is record storage, not a whole-reply admission or correctness witness. -/
 structure RecordPrefix where
   private mk ::
   association : RecordAssociation
@@ -1994,8 +1779,6 @@ private def RecordPrefix.skipProofs (record : RecordPrefix) : RecordPrefix := Id
     selections := selections.push none
   return { record with selections }
 
-/-- Allocate a fresh association before recording any actual field selections.
-Reuse: the worker IdentitySupply and complete source-prepared RecordLayout. -/
 opaque RecordPrefix.begin (supply : IdentitySupply) (program : RuntimeId .program)
     (occurrence : RuntimeId .occurrence) (layout : RecordLayout)
     (sourceDependencies : Array (Array ValueBinding) := #[])
@@ -2014,7 +1797,6 @@ opaque RecordPrefix.begin (supply : IdentitySupply) (program : RuntimeId .progra
       throw <| IO.userError "a record prefix requires its complete original source parameter table"
   return RecordPrefix.skipProofs ⟨association, supply, #[], sourceDependencies, parameters⟩
 
-/-- Prepare each field's actual bound type dependencies before attaching field roles. -/
 opaque RecordPrefix.prepare (supply : IdentitySupply) (program : RuntimeId .program)
     (occurrence : RuntimeId .occurrence) (layout : RecordLayout) (graph : ValueGraph)
     (bound : Std.HashMap BindingId ValueBinding) : MetaM RecordPrefix := do
@@ -2047,9 +1829,6 @@ opaque RecordPrefix.prepare (supply : IdentitySupply) (program : RuntimeId .prog
   let parameters := layout.source.source.context.entries.map fun entry => bound[entry.id]?
   RecordPrefix.begin supply program occurrence layout dependencies (some parameters)
 
-/-- Bind this same node at the next field and retain every preceding actual selection.
-Visibility checks include the whole prefix; owner requirements follow the declared dependencies.
-Reuse: CandidateResponse's operational shape check and ValueGraph reference validation. -/
 opaque RecordPrefix.bind (record : RecordPrefix) (graph : ValueGraph) (value : ValueBinding) :
     IO (ValueGraph × RecordPrefix × ValueBinding) := do
   let record := record.skipProofs
@@ -2072,14 +1851,12 @@ opaque RecordPrefix.bind (record : RecordPrefix) (graph : ValueGraph) (value : V
   return (graph, ({ record with selections := record.selections.push (some binding) }).skipProofs,
     binding)
 
-/-- Finish only a complete ordered record; no component is installed in a transaction here. -/
 opaque RecordPrefix.finish (record : RecordPrefix) : Except String ValuePayload := do
   let record := record.skipProofs
   unless record.selections.size == record.association.layout.fields.size do
     throw "the dependent record is missing a required computational field"
   return .product (record.selections.filterMap id)
 
-/-- Snapshot only the current native field and its already selected original predecessors. -/
 opaque RecordPrefix.currentField (record : RecordPrefix) : MetaM NativeFieldPrefix := do
   let record := record.skipProofs
   let some prepared := record.association.layout.fields[record.selections.size]?
@@ -2090,8 +1867,6 @@ opaque RecordPrefix.currentField (record : RecordPrefix) : MetaM NativeFieldPref
   return ⟨prepared.layout,
     #[⟨record.association, prepared.field, record.selections, none⟩]⟩
 
-/-- Carry the same original predecessor slots along an already selected native descendant.
-Inner fields remain formal unless their own actual prefix is joined separately. -/
 opaque NativeFieldPrefix.descend (nativePrefix : NativeFieldPrefix) (projection : Name) :
     MetaM NativeFieldPrefix := do
   let some field := nativePrefix.native.fields.find? (·.projection == projection)
@@ -2104,16 +1879,11 @@ opaque NativeFieldPrefix.descend (nativePrefix : NativeFieldPrefix) (projection 
     return { frame with view := some (← frame.field.dependencyView (path.push projection)) }
   return ⟨native, frames⟩
 
-/-- Join independently retained native ancestor prefixes at their already selected common
-field. This validates their source position; actual predecessor identities remain distinct. -/
 opaque NativeFieldPrefix.join (nativePrefix other : NativeFieldPrefix) : MetaM NativeFieldPrefix := do
   unless sameNativeFieldRole nativePrefix.native other.native do
     throwError "native field prefixes selected different original result positions"
   return ⟨nativePrefix.native, nativePrefix.frames ++ other.frames⟩
 
-/-- Open every actual predecessor at its original declaration position. The context retains
-an opaque typed binder and its original source correspondence; only the bound table carries
-the selected runtime occurrence. Proof positions remain formal entries in the same telescope. -/
 opaque NativeFieldPrefix.withBoundType (nativePrefix : NativeFieldPrefix)
     (context : OpenContext) (graph : ValueGraph)
     (bound : Std.HashMap BindingId ValueBinding)
@@ -2208,9 +1978,6 @@ opaque NativeFieldPrefix.withBoundType (nativePrefix : NativeFieldPrefix)
           `nativeField type continueWith (originalSource := some original)
   visit positions.toList context bound #[]
 
-/-- Capture a dependent field's type in its sealed producer prefix, before the whole
-record exists. The original role/context stay unchanged; exact predecessor binders live
-only in the checked native scope and are retained by the same prefix association. -/
 opaque SourceDependencyCapture.capturePrefix (graph : ValueGraph) (source : SourceLayout)
     (bound : Std.HashMap BindingId ValueBinding) (fieldPrefix : NativeFieldPrefix) :
     MetaM SourceDependencyCapture := do
@@ -2225,9 +1992,6 @@ opaque SourceDependencyCapture.capturePrefix (graph : ValueGraph) (source : Sour
   discard <| IO.ofExcept <| (graph.requiredOwners references).mapError IO.userError
   return { source, parameters, references, fieldPrefix := some fieldPrefix }
 
-/-- Read the prefix at the actual producing node, or follow its explicitly retained
-projection when that node has no own native prefix. This traverses only the selected
-reference chain; native types and equal-valued nodes never select an ancestor. -/
 private partial def producingNativePrefix (graph : ValueGraph) (binding : ValueBinding) :
     MetaM (Option NativeFieldPrefix) := do
   let node ← IO.ofExcept <| (graph.require binding).mapError IO.userError
@@ -2241,9 +2005,6 @@ private partial def producingNativePrefix (graph : ValueGraph) (binding : ValueB
   for projection in path do nativePrefix ← nativePrefix.descend projection
   return some nativePrefix
 
-/-- Capture a projection's dependent type from its actual parent's retained producer.
-The old frame identities and occurrences remain unchanged. The resulting seal authenticates
-only this parent and path; it cannot authorize a different fresh field producer. -/
 opaque SourceDependencyCapture.captureProjection (graph : ValueGraph) (source : SourceLayout)
     (bound : Std.HashMap BindingId ValueBinding) (nativePrefix : NativeFieldPrefix)
     (parent : ValueBinding) (path : Array Name) : MetaM SourceDependencyCapture := do
@@ -2278,8 +2039,6 @@ opaque SourceDependencyCapture.captureProjection (graph : ValueGraph) (source : 
   let captured ← SourceDependencyCapture.capturePrefix graph source bound nativePrefix
   return { captured with projectedFrom := some (parent, path) }
 
-/-- The original packet of retained portable data. Native exports and closures have none.
-Reuse: the stored literal structure and ValueContainer.fill, as in receiver encoding. -/
 partial def ValueGraph.packet? (graph : ValueGraph) (binding : ValueBinding) :
     Except String (Option Json) := do
   let some node := graph.find binding.value | throw "the value is outside the visible graph"
