@@ -3,6 +3,7 @@ module
 public import CasCompiler.ReadContext
 public import CasCompiler.ReadApplication
 public import CasCompiler.SourceConstruction
+public import CasCompiler.CategoricalPointFamily
 import CasCompiler.SourceCarrier
 
 public section
@@ -14,7 +15,7 @@ open Lean Meta Elab Term
 namespace SourceReader
 
 def readFunctorAction (context : ReadContext) :
-    SourceCategoryRole → TSyntax `cas_term → Ident → Array (TSyntax `cas_term) → TermElabM NativeSourceJudgement :=
+    SourceCategoryRole → TSyntax `cas_term → Ident → Array (TSyntax `cas_term) → SourceReadM NativeSourceJudgement :=
   let readExpression := @ReadContext.readExpression context
   let categoryOf := context.categoryOf
   let application := application context
@@ -24,7 +25,9 @@ def readFunctorAction (context : ReadContext) :
     let receiver ← readExpression categoryOf receiver none
     if let some category := receiver.category then
       unless category.role == role do
-        throwError "the source functor action has a different object or morphism role"
+        liftM (m := TermElabM) <| throwError (MessageData.tagged
+          `CasCompiler.SourceReader.actionRole
+          m!"the source functor action has a different object or morphism role")
     match entry with
     | .construction entry =>
       sourceConstruction entry receiver (arguments.map fun parameter type => do
@@ -33,8 +36,20 @@ def readFunctorAction (context : ReadContext) :
       let selected ← viewExpressions entry
         (receiver.category.map fun category => (category.expression, category.bundle)) fun constant =>
         application ⟨constant, none⟩ arguments none
+      let receiverValue ← match role with
+        | .object => do
+          let (domain, _) ← CasCatalogue.functorCategoryBundles selected.functor
+          let inputType ← mkAppM ``CategoryTheory.Bundled.α #[domain]
+          if ← isDefEq (← inferType receiver.value) inputType then pure receiver.value
+          else do
+            -- Retain the same complete receiver at the checked action's native input.
+            -- Its original value and category remain on this exact selected binding.
+            let original := (← SourceReadM.selection? receiver.value).getD {
+              value := receiver.value, category := receiver.category }
+            SourceReadM.select { original with value := receiver.value } (some inputType)
+        | .morphism => pure receiver.value
       let image ← match role with
-        | .object => functorObject selected.functor receiver.value selected.targetBundle
+        | .object => functorObject selected.functor receiverValue selected.targetBundle
         | .morphism => do
           let function ← mkAppM ``CategoryTheory.Functor.map #[selected.functor]
           -- AppBuilder protects pre-existing metavariables. Native source application must
@@ -43,13 +58,13 @@ def readFunctorAction (context : ReadContext) :
           -- The inferred implicit endpoints are convertible, not necessarily the exact
           -- selected occurrences. Retain the original arrow's complete stated Hom type
           -- (including selected Arrow projections) at the very same native action slots.
-          let stated ← instantiateMVars (← inferType receiver.value)
+          let stated ← liftM (m := MetaM) <| instantiateMVars (← inferType receiver.value)
           let type ← if stated.isAppOfArity ``Quiver.Hom 4 then pure stated else whnfR stated
           unless image.getAppFn.isConstOf ``CategoryTheory.Functor.map do
-            throwError "the selected functor map lost its native arrow interface"
+            liftM (m := TermElabM) <| throwError "the selected functor map lost its native arrow interface"
           let arguments := image.getAppArgs
           unless arguments.size >= 3 do
-            throwError "the selected functor map lost its endpoint slots"
+            liftM (m := TermElabM) <| throwError "the selected functor map lost its endpoint slots"
           -- A native implementation of Hom (e.g. a formal TypeCat.Hom or
           -- CommRingCat.Hom parameter) need not have a Quiver.Hom head.
           -- In that case the checked application already supplies the native
@@ -62,14 +77,11 @@ def readFunctorAction (context : ReadContext) :
                 (arguments.size - 2) type.getAppArgs[1]!
             else arguments
           let retained := mkAppN image.getAppFn (arguments.set! (arguments.size - 1) receiver.value)
-          let retained ← instantiateMVars retained
+          let retained ← liftM (m := MetaM) <| instantiateMVars retained
           check retained
           unless ← isDefEq retained image do
-            throwError "the selected functor map changed its native action"
+            liftM (m := TermElabM) <| throwError "the selected functor map changed its native action"
           pure retained
-      let (kind, id) := match selected.reference with
-        | .inl id => (``CasCatalogue.EdgeRef.functor, id.raw)
-        | .inr id => (``CasCatalogue.EdgeRef.classifierForget, id.raw)
       let edge := match selected.reference with
         | .inl id => CasCatalogue.EdgeRef.functor id
         | .inr id => CasCatalogue.EdgeRef.classifierForget id
@@ -80,21 +92,54 @@ def readFunctorAction (context : ReadContext) :
           if role != .object || carrier.refs[0]? != some edge then pure none
           else do
             let some action := carrier.actions[0]?
-              | throwError "the selected carrier prefix has no complete native edge application"
-            let action ← instantiateMVars action
-            let actual ← instantiateMVars selected.functor
+              | liftM (m := TermElabM) <| throwError "the selected carrier prefix has no complete native edge application"
+            let action ← liftM (m := MetaM) <| instantiateMVars action
+            let actual ← liftM (m := MetaM) <| instantiateMVars selected.functor
             let agrees ← if action == actual then pure true else do
               if action.hasMVar || action.hasLevelMVar || actual.hasMVar || actual.hasLevelMVar then
-                CasCatalogue.throwUnsupportedSource
+                liftM (m := TermElabM) <| CasCatalogue.throwUnsupportedSource
                   "carrier-prefix comparison requires its complete native view parameters"
-              withoutModifyingState <| isDefEq action actual
+              -- Compare both complete actions in their original native scope. The
+              -- actual view keeps its opaque selected binder and original parameters.
+              let scope ← get
+              withoutModifyingState <|
+                scope.context.withOriginalSources #[action, actual] fun original =>
+                  isDefEq original[0]! original[1]!
             pure <| if agrees then
               some { carrier with refs := carrier.refs.drop 1, actions := carrier.actions.drop 1 }
             else none
-      -- The selected functor already retains its exact declaration reference. The image
-      -- keeps that application and the receiver's independent source selections.
-      return (⟨sourceDerivedReference kind id selected.declaration image,
-        some ⟨role, selected.target, selected.targetBundle, carrier, none⟩⟩ : NativeSourceJudgement)
+      let .const declaration levels := selected.application.getAppFn
+        | liftM (m := TermElabM) <| throwError "the selected action lost its original declaration"
+      unless declaration == selected.declaration do
+        liftM (m := TermElabM) <| throwError "the selected action changed its original declaration"
+      let parameters := selected.application.getAppArgs
+      let result ← match role with
+        | .object => do
+          let family ← SourceActionFamily.forEdge edge
+          family.selected levels parameters receiverValue
+        | .morphism => do
+          let family ← (← CategoricalPointFamily.forOwner (.action edge)).asReference
+          let inferred ← liftM (m := MetaM) <| instantiateMVars (← inferType receiver.value)
+          let endpoints ← if inferred.isAppOfArity ``Quiver.Hom 4 then
+              pure (inferred.getAppArgs[2]!, inferred.getAppArgs[3]!)
+            else do
+              let some endpoints ← mapEnds receiver.value
+                | liftM (m := TermElabM) <| throwError "the source map action lost its original endpoints"
+              pure endpoints
+          let parameters := parameters ++ #[endpoints.1, endpoints.2, receiver.value]
+          let (arrow, bundle) ← family.arrowAt levels parameters
+          let (domain, _) ← categoricalPointEndpoints arrow
+          let identity ← categoricalPointIdentity bundle domain
+          family.selected levels parameters domain { value := identity }
+      let scope ← get
+      let agrees ← scope.context.withOriginalSources #[result.value, image] fun original =>
+        isDefEq original[0]! original[1]!
+      unless agrees do
+        liftM (m := TermElabM) <| throwError "the selected action changed its whole native result"
+      let category : NativeSourceCategory :=
+        ⟨role, selected.target, selected.targetBundle, carrier, none⟩
+      let value ← SourceReadM.select { result with value := image, category := some category }
+      return ⟨value, some category⟩
 
 end SourceReader
 
@@ -102,7 +147,7 @@ namespace ReadFunctorRules
 
 open SourceReader
 
-def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
+def rule (context : ReadContext) : SourceReadM NativeSourceJudgement := do
   let readExpression := @ReadContext.readExpression context
   let categoryOf := context.categoryOf
   let source := context.source
@@ -125,14 +170,14 @@ def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
     let right ← readExpression categoryOf right none
     let (left, right) ← sourceCommonCategory left right
     let some category := left.category <|> right.category
-      | throwError "source composition requires its selected category"
+      | liftM (m := TermElabM) <| throwError "source composition requires its selected category"
     for selected in #[left.category, right.category] do
       if let some selected := selected then
         unless selected.role == .morphism do
-          throwError "source composition requires morphisms"
+          liftM (m := TermElabM) <| throwError "source composition requires morphisms"
         unless selected.expression.syntacticEq category.expression &&
             (← isDefEq selected.bundle category.bundle) do
-          throwError "source composition has different complete selected categories"
+          liftM (m := TermElabM) <| throwError "source composition has different complete selected categories"
     let carrier ← mkAppM ``CategoryTheory.Bundled.α #[category.bundle]
     let categoryInstance ← mkAppM ``CategoryTheory.Bundled.str #[category.bundle]
     let categoryStructure ← mkAppOptM ``CategoryTheory.Category.toCategoryStruct

@@ -1,6 +1,6 @@
 module
 
-public import CasCompiler.SelectedField
+public import CasCompiler.SelectionScope
 public import CasCompiler.Layout
 public import Mathlib.CategoryTheory.Comma.Arrow
 public import Mathlib.CategoryTheory.ConcreteCategory.Bundled
@@ -13,16 +13,10 @@ open Lean Meta
 
 /-- The declared endpoint carried by this explicit native Arrow projection.
 Source interpretation can inspect its domain without forgetting the retained runtime arrow. -/
-def selectedEndpoint? (value : Expr) : Option Expr := do
-  let .mdata data body := value | none
-  let .ofString selector ← data.find `CasCompiler.endpoint | none
-  let projection ← if selector == "source" then some ``CategoryTheory.Arrow.left
-    else if selector == "target" then some ``CategoryTheory.Arrow.right else none
-  if !body.getAppFn.isConstOf projection then none else do
-    let arrow ← body.getAppArgs.back?
-    if !arrow.getAppFn.isConstOf ``CategoryTheory.Arrow.mk then none else do
-      let arguments := arrow.getAppArgs
-      arguments[arguments.size - (if selector == "source" then 3 else 2)]?
+def selectedEndpoint? (context : OpenContext) (scope : SourceSelectionScope Expr)
+    (value : Expr) : Option Expr := do
+  let selected ← scope.findAt? context value
+  return (← selected.endpoint).value
 
 /-- The declared end that a stated end of a selected map retains; any other expression is
 returned as it is. A stated end is `(Arrow.mk f).left` or `(Arrow.mk f).right`; the declared end
@@ -50,47 +44,44 @@ def declaredEndpoint (stated : Expr) : MetaM Expr := do
         if let some declared := arguments[arguments.size - fromEnd]? then return declared
   return stated
 
-/-- Retain the source and target projections of this actual selected arrow.
-Reuse: Mathlib's Arrow.mk, Arrow.left and Arrow.right. The type hint is definitionally
-the original morphism type; the metadata preserves its computational occurrence. -/
-def selectMorphism (value : Expr) (category : Option Expr := none) : MetaM Expr := do
-  let reference := match value with | .mdata data _ => data | _ => KVMap.empty
-  let type ← whnfR (← inferType value)
-  unless type.isAppOfArity ``Quiver.Hom 4 do
-    throwError "a selected morphism must have its declared source and target"
-  let selection ← mkFreshUserName `selectedMorphism
-  let selected := selectedField selection ``CategoryTheory.Arrow.hom value
-  let arrow ← match category with
-    | none => mkAppM ``CategoryTheory.Arrow.mk #[selected]
-    | some bundle => do
-      let carrier ← mkAppM ``CategoryTheory.Bundled.α #[bundle]
-      let instanceValue ← mkAppM ``CategoryTheory.Bundled.str #[bundle]
-      mkAppOptM ``CategoryTheory.Arrow.mk
-        #[some carrier, some instanceValue, some type.getAppArgs[2]!,
-          some type.getAppArgs[3]!, some selected]
-  -- Inference checks the constructor's complete native type, but its implicit
-  -- endpoint assignments need not retain the original arrow's stated expressions.
-  -- Put those exact endpoints back at the constructor's own declared positions.
-  let arguments := arrow.getAppArgs
-  unless arguments.size >= 3 do
-    throwError "the selected morphism lost its native Arrow constructor endpoints"
-  let arguments := (arguments.set! (arguments.size - 3) type.getAppArgs[2]!).set!
-    (arguments.size - 2) type.getAppArgs[3]!
-  let retained := mkAppN arrow.getAppFn (arguments.set! (arguments.size - 1) selected)
-  check retained
-  unless ← isDefEq retained arrow do
-    throwError "the selected morphism changed its native Arrow constructor"
-  let arrow := retained
-  let endpoint := fun projection selector => do
-    let value ← mkAppM projection #[arrow]
-    return Expr.mdata (KVMap.empty.setString `CasCompiler.endpoint selector) value
-  let source ← endpoint ``CategoryTheory.Arrow.left "source"
-  let target ← endpoint ``CategoryTheory.Arrow.right "target"
+/-- Bind the actual arrow once, then retain both native endpoint projections in the same
+scope. The final typed alias keeps the complete original selection and names that arrow;
+the supplied binder checks its stated dependent type using original-source correspondence. -/
+def selectMorphism [Monad m] [MonadLiftT MetaM m] (selection : SourceSelection Expr)
+    (select : SourceSelection Expr → Option Expr → m Expr)
+    (category : Option Expr := none) : m Expr := do
+  let selected ← select selection none
+  let (type, arrow) ← liftM (m := MetaM) do
+    let inferred ← inferType selected
+    let type ← if inferred.isAppOfArity ``Quiver.Hom 4 then pure inferred else whnfR inferred
+    unless type.isAppOfArity ``Quiver.Hom 4 do
+      throwError "a selected morphism must have its declared source and target"
+    let arrow ← match category with
+      | none => mkAppM ``CategoryTheory.Arrow.mk #[selected]
+      | some bundle => do
+        let carrier ← mkAppM ``CategoryTheory.Bundled.α #[bundle]
+        let instanceValue ← mkAppM ``CategoryTheory.Bundled.str #[bundle]
+        mkAppOptM ``CategoryTheory.Arrow.mk
+          #[some carrier, some instanceValue, some type.getAppArgs[2]!,
+            some type.getAppArgs[3]!, some selected]
+    let arguments := arrow.getAppArgs
+    unless arguments.size >= 3 do
+      throwError "the selected morphism lost its native Arrow constructor endpoints"
+    let arguments := (arguments.set! (arguments.size - 3) type.getAppArgs[2]!).set!
+      (arguments.size - 2) type.getAppArgs[3]!
+    let retained := mkAppN arrow.getAppFn (arguments.set! (arguments.size - 1) selected)
+    check retained
+    unless ← isDefEq retained arrow do
+      throwError "the selected morphism changed its native Arrow constructor"
+    pure (type, retained)
+  let sourceValue ← liftM (m := MetaM) <| mkAppM ``CategoryTheory.Arrow.left #[arrow]
+  let source ← select { value := sourceValue, endpoint := some {
+    arrow := selected, side := .source, value := type.getAppArgs[2]! } } none
+  let targetValue ← liftM (m := MetaM) <| mkAppM ``CategoryTheory.Arrow.right #[arrow]
+  let target ← select { value := targetValue, endpoint := some {
+    arrow := selected, side := .target, value := type.getAppArgs[3]! } } none
   let stated := mkAppN type.getAppFn
     #[type.getAppArgs[0]!, type.getAppArgs[1]!, source, target]
-  let value ← mkExpectedTypeHint value stated
-  check value
-  return .mdata (reference.setName `CasCompiler.selection selection
-    |>.setName `CasCompiler.selection.field ``CategoryTheory.Arrow.hom) value
+  select { selection with value := selected } (some stated)
 
 end CasCompiler
