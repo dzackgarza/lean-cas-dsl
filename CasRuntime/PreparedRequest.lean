@@ -1,8 +1,12 @@
 module
 
 public import CasCompiler.Program
+import all CasCompiler.Layout
 public import CasRuntime.Value
+import all CasRuntime.Value
 public import CasRuntime.Environment
+import all CasRuntime.Environment
+public import CasRuntime.InputRoute
 public import CasRuntime.DeclaredInput
 public import CasRuntime.RoleMap
 public import CasRuntime.Literal
@@ -32,6 +36,8 @@ structure PreparedRequest where
   observation : ObservationDescriptor
   private actualArguments : Array CasRuntime.RuntimeArgument
   selection : Option Name := none
+  selections : SourceSelectionScope ClosedTerm := {}
+  selectionBinding : Option BindingId := none
   /-- Original whole native result for a selected data-field subfamily. -/
   nativeParent : Option RecordLayout := none
 
@@ -71,9 +77,9 @@ Only preparation establishes the source address and matching access provenance. 
 def PreparedRequest.projectionPath (request : PreparedRequest) : Except String (Array Name) := do
   let .project operand field := request.action
     | throw "the prepared action is not a native projection"
-  unless operand.role.address.toList.isPrefixOf field.address.toList do
+  unless operand.nativeRole.address.toList.isPrefixOf field.address.toList do
     throw "the prepared field is outside its retained operand"
-  let path := field.address.extract operand.role.address.size field.address.size
+  let path := field.address.extract operand.nativeRole.address.size field.address.size
   unless !path.isEmpty && path.back? == some field.projection &&
       request.origin.accessPath == path do
     throw "the prepared projection lost its exact native field path"
@@ -88,8 +94,7 @@ Reuse: native ApplicationLayout projection dependencies and RuntimeEnvironment.o
 opaque PreparedRequest.originFor (request : PreparedRequest) (source : SourceLayout)
     (graph : Option ValueGraph := none) :
     MetaM CasRuntime.ValueOrigin := do
-  let environment ← request.environment.withSourceMarks #[] graph
-  let origin ← environment.origin request.program request.occurrence source
+  let environment ← request.environment.withGraph graph
   let application ← request.origin.application.mapM (·.forSource request.source source)
   let accessPath ← if request.origin.access.isSome then
       pure (request.origin.accessPath ++ (← request.source.projectionPathTo source))
@@ -98,12 +103,9 @@ opaque PreparedRequest.originFor (request : PreparedRequest) (source : SourceLay
   if fieldPrefix.isSome then
     for projection in ← request.source.projectionPathTo source do
       fieldPrefix ← fieldPrefix.mapM (·.descend projection)
-  let dependencies ← match fieldPrefix with
-    | none => pure #[]
-    | some nativePrefix => IO.ofExcept <| nativePrefix.dependencies.mapError IO.userError
-  return { origin with
-    application, access := request.origin.access, accessPath, fieldPrefix,
-    sourceDependencies := origin.sourceDependencies ++ dependencies }
+  let origin ← environment.origin request.program request.occurrence source
+    (fieldPrefix := fieldPrefix) (access := request.origin.access) (accessPath := accessPath)
+  return { origin with application }
 
 private def prepareOrigin (program : CasRuntime.RuntimeId .program)
     (occurrence : CasRuntime.RuntimeId .occurrence) (action : PreparedAction)
@@ -121,6 +123,32 @@ private def prepareOrigin (program : CasRuntime.RuntimeId .program)
     throwError "actual arguments require a prepared native application telescope"
   return origin
 
+/-- Retain the complete native interface of an independently admitted exact input result.
+The shared native route is recomputed from this request; neither a supplied FixedInput nor
+matching an argument value can license the relation. Missing actual inputs issue no witness. -/
+private def prepareInputInterface (environment : RuntimeEnvironment) (origin : ValueOrigin) :
+    MetaM ValueOrigin := do
+  let some graph := environment.sourceGraph | return origin
+  let some application := origin.application | return origin
+  let input ← try application.fixedInputAt graph
+    catch failure =>
+      if failure.toMessageData.hasTag (· == `CasRuntime.FixedInput.missingInput) then pure none
+      else throw failure
+  let some input := input | return origin
+  let some selected ← input.storedValue? graph | return origin
+  let native := selected.nativeInterface
+  unless native.role.kind == .function || native.role.kind == .record do return origin
+  let original : AdmittedInputInterface := {
+    program := origin.program
+    occurrence := origin.occurrence
+    role := origin.role
+    parameters := origin.parameters
+    application
+    selected
+    native
+  }
+  return { origin with inputInterface := some original }
+
 private def prepareRequest (identities : CasRuntime.IdentitySupply)
     (program : CasRuntime.RuntimeId .program)
     (occurrence : CasRuntime.RuntimeId .occurrence) (action : PreparedAction)
@@ -129,6 +157,21 @@ private def prepareRequest (identities : CasRuntime.IdentitySupply)
     (origin : CasRuntime.ValueOrigin)
     (actualArguments : Array CasRuntime.RuntimeArgument := #[]) :
     MetaM PreparedRequest := do
+  let specified ← source.inContext context
+  unless specified.kind == origin.role.kind && specified.address == origin.role.address &&
+      specified.source.expression.equal origin.role.source.expression do
+    throwError "request preparation changed its original native source role"
+  let source := origin.role
+  let application := application.map fun layout => { layout with result := source }
+  -- A selected descendant retains the complete original application root. Its path and
+  -- original parameter table are relative to that root, not to this request's current role.
+  let origin := { origin with application := origin.application.map fun application =>
+    if application.path.isEmpty then
+      { application with layout := { application.layout with result := source } }
+    else application }
+  let origin ← match action with
+    | .project .. => pure origin
+    | .primitive .. | .apply .. => prepareInputInterface environment origin
   unless identities.worker == program.worker && program.worker == occurrence.worker do
     throwError "request preparation mixed worker identities"
   for binding in scope do
@@ -138,7 +181,7 @@ private def prepareRequest (identities : CasRuntime.IdentitySupply)
   if source.kind == .proof then
     throwError "a source proof has no computational response positions"
   let traced := (source.source.expression.find? (·.isConstOf `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
-  if traced then dbg_trace "[inclusion.stage] request {repr occurrence}: before output layouts"
+  if traced then CasTools.Diagnostics.message m!"[inclusion.stage] request {repr occurrence}: before output layouts"
   let mut outputs : Array SourceLayout := #[]
   let record ← if source.kind == .record then
       pure (some (← RecordLayout.ofSource source))
@@ -147,15 +190,17 @@ private def prepareRequest (identities : CasRuntime.IdentitySupply)
     for prepared in record.fields do
       if prepared.field.wireIndex.isSome then outputs := outputs.push prepared.layout
   else outputs := #[source]
-  if traced then dbg_trace "[inclusion.stage] request {repr occurrence}: before role telescope"
+  if traced then CasTools.Diagnostics.message m!"[inclusion.stage] request {repr occurrence}: before role telescope"
   let roles ← RoleTelescope.ofRequest identities program occurrence context application source
     (scope.map (·.role))
-  if traced then dbg_trace "[inclusion.stage] request {repr occurrence}: prepared"
+  if traced then CasTools.Diagnostics.message m!"[inclusion.stage] request {repr occurrence}: prepared"
   -- Snapshot only after the exact current invocation and its producer provenance are fixed.
   let observation ← ObservationDescriptor.prepare program occurrence action source scope outputs
     record environment origin application roles actualArguments
+  CasTools.Diagnostics.emit "request.prepared" observation.toJson
   return ⟨program, occurrence, action, source, scope, outputs, record, environment, origin,
-    application, roles, observation, actualArguments, none, none⟩
+    application, roles, observation, actualArguments, none, environment.selections,
+    source.selectionBinding, none⟩
 
 private def PreparedRequest.inputValues (request : PreparedRequest) :
     Array (Option CasRuntime.ValueBinding) :=
@@ -208,23 +253,119 @@ private def prepareArguments (environment : CasRuntime.RuntimeEnvironment)
     values := values.set! argument.index (some value)
   return values
 
-/-- Only referenced native mark keys enter preparation from immutable argument snapshots and
-already retained source views. Conflicting occurrence identities fail. -/
-private def preparedSourceMarks (arguments : Array ClosedTerm)
-    (actual : Array CasRuntime.RuntimeArgument) (retained : Array CasRuntime.ValueBinding) :
-    MetaM (Array (Nat × CasRuntime.ValueBinding)) := do
-  let mut marks := #[]
-  for value in retained do
-    marks ← IO.ofExcept <|
-      (CasRuntime.mergeSourceMarks marks value.sourceMarks).mapError IO.userError
-  for argument in actual do
-    let some source := arguments[argument.index]?
-      | throwError "a runtime argument is outside the complete source telescope"
-    let captured ← IO.ofExcept <| (argument.sourceMarks source).mapError IO.userError
-    marks ← IO.ofExcept <| (CasRuntime.mergeSourceMarks marks captured).mapError IO.userError
-    marks ← IO.ofExcept <|
-      (CasRuntime.mergeSourceMarks marks argument.value.sourceMarks).mapError IO.userError
-  return marks
+/-- Introduce typed input occurrences only after the unchanged original argument admission.
+The native formal telescope fixes every type and original ordinal. New locals carry their
+source correspondence separately; the resulting request stores their complete context. -/
+private def withPreparedInputs (identities : IdentitySupply) (context : OpenContext)
+    (environment : RuntimeEnvironment) (application : ApplicationLayout)
+    (values : Array (Option ValueBinding)) (actual : Array RuntimeArgument)
+    (parameters : Array RuntimeParameter)
+    (action : OpenContext → SourceSelectionScope Expr → Array ClosedTerm →
+      Array RuntimeParameter → MetaM α) : MetaM α := do
+  unless application.arguments.size == values.size do
+    throwError "typed input preparation lost its complete original argument table"
+  let rec visit (remaining : List (Nat × ArgumentLayout)) (context : OpenContext)
+      (bound : Std.HashMap BindingId ValueBinding) (parameters : Array RuntimeParameter)
+      (selections : SourceSelectionScope Expr) (expressions : Array Expr) : MetaM α := do
+    match remaining with
+    | [] => do
+      action context selections (← expressions.mapM context.close) parameters
+    | (index, argument) :: remaining => do
+      unless argument.sourceIndex == index do
+        throwError "typed input preparation changed the original argument order"
+      let source ← argument.source.source.inContext context
+      let family ← argument.typeFamily.inContext context
+      let type := (mkAppN family expressions).headBeta
+      check type
+      let value := values[index]!
+      let next := fun context bound parameters selections expression =>
+        visit remaining context bound parameters selections (expressions.push expression)
+      if let some original := context.bindings.find? (·.expression == source) then
+        let retains := match value, bound[original.id]? with
+          | some value, some retained => retainsReference retained value
+          | none, none => true
+          | _, _ => false
+        if retains && (← withoutModifyingState (isDefEq (← inferType source) type)) then
+          return ← next context bound parameters selections source
+      let allocated ← identities.fresh .sourceBinding
+      let id : BindingId := ⟨allocated.worker, allocated.serial⟩
+      let role ← if value.isSome then pure BindingRole.result else do
+        if ← isProp type then pure BindingRole.hypothesis else pure BindingRole.parameter
+      context.withLocalBinding id role (.num `input index) type
+        (fun context binding => do
+          let mut bound := bound
+          let mut parameters := parameters
+          if let some value := value then
+            let #[supplied] := actual.filter (·.index == index)
+              | throwError "typed input preparation lost its unique original runtime argument"
+            unless retainsReference supplied.value value do
+              throwError "typed input preparation changed its admitted original operand"
+            bound := bound.insert id value
+            parameters := parameters.push (supplied.toParameter id)
+          let selections ← selections.alias context source binding.expression
+          next context bound parameters selections binding.expression)
+        (originalSource := some source) (binderInfo := argument.binderInfo)
+  visit (application.arguments.mapIdx (fun index argument => (index, argument))).toList
+    context environment.bound parameters (← environment.selections.inContext context) #[]
+
+/-- Import every independently supplied value's displayed source scope before preparing a
+native application or projection. Original runtime parameters keep their exact source IDs;
+conflicts are rejected before the caller's unchanged operand admission. -/
+private def withPreparationContext (context : OpenContext) (parameters : Array RuntimeParameter)
+    (graph : Option ValueGraph) (references : Array ValueBinding)
+    (action : OpenContext → Array RuntimeParameter → MetaM α) : MetaM α := do
+  let some graph := graph | return ← action context parameters
+  let mut bound : Std.HashMap BindingId ValueBinding := {}
+  for parameter in parameters do
+    if bound.contains parameter.source then
+      throwError "a source binder has duplicate runtime associations"
+    unless context.bindings.any (·.id == parameter.source) do
+      throwError "a runtime association names a source binder outside the complete telescope"
+    bound := bound.insert parameter.source parameter.value
+  let rec visit (remaining : List ValueBinding) (context : OpenContext)
+      (bound : Std.HashMap BindingId ValueBinding) : MetaM α := do
+    match remaining with
+    | [] =>
+      let mut parameters := #[]
+      for entry in context.telescope.entries do
+        if let some value := bound[entry.id]? then
+          parameters := parameters.push (← IO.ofExcept <|
+            (RuntimeParameter.ofValue graph entry.id value).mapError IO.userError)
+      action context parameters
+    | value :: rest =>
+      withBindingContext graph context bound value fun context bound =>
+        visit rest context bound
+  visit (parameters.map (·.value) ++ references).toList context bound
+
+/-- Reopen the original prepared input binders at their declared argument positions.
+The producer already introduced the complete typed scope. This consumer neither allocates
+replacement occurrences nor searches for an equal native source. -/
+opaque PreparedRequest.withInputBindings (request : PreparedRequest) (context : OpenContext)
+    (bound : Std.HashMap BindingId ValueBinding) (count : Nat)
+    (action : OpenContext → Std.HashMap BindingId ValueBinding → Array Expr →
+      Array (Option ValueBinding) → MetaM α) : MetaM α := do
+  let formal := request.application.map (·.arguments) |>.getD #[]
+  let values := request.origin.application.map (·.arguments) |>.getD #[]
+  unless formal.size == values.size && count ≤ formal.size do
+    throwError "the prepared input scope lost its complete original argument telescope"
+  let mut actual := #[]
+  for argument in formal.extract 0 count, index in [:count] do
+    unless argument.sourceIndex == index do
+      throwError "the prepared input scope changed its original formal argument order"
+    let source ← argument.source.source.inContext context
+    let family ← argument.typeFamily.inContext context
+    let type := (mkAppN family actual).headBeta
+    unless ← isDefEq (← inferType source) type do
+      throwError "a prepared input binder changed its original dependent domain"
+    if let some value := values[index]! then
+      let some binding := context.bindings.find? (·.expression == source)
+        | throwError "a retained prepared input has no original typed occurrence binder"
+      let some retained := bound[binding.id]?
+        | throwError "a retained prepared input lost its original runtime occurrence"
+      unless retainsReference retained value do
+        throwError "a retained prepared input changed its original runtime occurrence"
+    actual := actual.push source
+  action context bound actual (values.extract 0 count)
 
 /-- Apply the exact checked source family in the complete current context.
 Result positions retain the source's ordered computational fields and dependent roles.
@@ -238,82 +379,110 @@ opaque PreparedRequest.forBoundary (identities : CasRuntime.IdentitySupply)
     (actual : Array CasRuntime.RuntimeArgument)
     (scope : Array CasRuntime.ValueBinding) (parameters : Array CasRuntime.RuntimeParameter)
     (graph : Option CasRuntime.ValueGraph := none)
-    (sourceMarks : Array (Nat × CasRuntime.ValueBinding) := #[])
-    (validatedEnvironment : Option RuntimeEnvironment := none) : MetaM PreparedRequest := do
-  if let .property family := boundary then
-    unless arguments.size == family.parameterCount + 1 do
-      throwError "a property observation requires its complete original source application"
-  if let .application family := boundary then
-    unless family.owner matches .application _ do
-      throwError "an object application boundary requires its exact registered object owner"
-  if let .point family := boundary then
-    unless arguments.size == family.parameterCount + (if family.invocation then 2 else 0) do
-      throwError "a categorical point requires its complete original native input telescope"
-  if let .objectAction family := boundary then
-    unless arguments.size == family.parameterCount + 1 do
-      throwError "an object action requires all original declaration parameters and its receiver"
-  if let .limit family owner := boundary then
-    unless arguments.size == family.parameterCount do
-      throwError "a raw cone requires its complete original declaration telescope"
-    discard <| family.ownerAt (← owner.inContext context) (← arguments.mapM (·.inContext context))
-  if let .limitUniversal family owner := boundary then
-    unless arguments.size == family.parameterCount && scope.size == 1 do
-      throwError "a universal request requires its original parameters and one exact cone capture"
-    discard <| family.presentation.ownerAt (← owner.inContext context)
-      (← arguments.mapM (·.inContext context))
-  unless universeArguments.length == boundary.universeParams.length do
-    throwError "request universe arguments do not match the checked source family"
-  let universeArguments ← universeArguments.mapM instantiateLevelMVars
-  if universeArguments.any (·.hasMVar) then
-    throwError "request preparation requires resolved universe arguments"
-  let nativeFamily ← boundary.familyIn universeArguments context
-  let traced := (nativeFamily.find? (·.isConstOf `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
-  if traced then dbg_trace "[inclusion.stage] primitive {repr occurrence}: before family layout"
-  let (source, application, nativeParent) ← match boundary with
-    | .registered family => do
-      let (source, application) ← family.applyIn universeArguments context arguments
-      pure (source, some application, (none : Option RecordLayout))
-    | .limitUniversal family _ => do
-      let original ← withLCtx {} #[] do
-        let empty ← ContextTelescope.capture #[]
-        empty.close (family.presentation.presentationFamily.instantiateLevelParams
-          family.universeParams universeArguments)
-      let (parent, application) ← ApplicationLayout.ofSource
-        (← SourceLayout.ofTerm original) context arguments
-      let parent ← RecordLayout.ofSource parent
-      let application ← application.forProjection family.projection
-      pure (application.result, some application, some parent)
-    | .creation family => do
-      unless arguments.size == 2 do
-        throwError "the fixed creation requires both original target data inputs"
-      let (source, application) ← ApplicationLayout.ofSource
-        (← SourceLayout.ofTerm family.requestFamily) context arguments
-      pure (source, some application, (none : Option RecordLayout))
-    | _ => do
-      let family ← withLCtx {} #[] do
-        let empty ← ContextTelescope.capture #[]
-        empty.close nativeFamily
-      let layout ← SourceLayout.ofTerm family
-      if arguments.isEmpty then
-        pure (← layout.inContext context, (none : Option ApplicationLayout),
-          (none : Option RecordLayout))
-      else do
-        let (source, application) ← ApplicationLayout.ofSource layout context arguments
-        pure (source, some application, (none : Option RecordLayout))
-  if traced then dbg_trace "[inclusion.stage] primitive {repr occurrence}: before environment"
-  let marks ← preparedSourceMarks arguments actual scope
-  let marks ← IO.ofExcept <| (CasRuntime.mergeSourceMarks sourceMarks marks).mapError IO.userError
-  let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters marks graph
-    validatedEnvironment
-  if traced then dbg_trace "[inclusion.stage] primitive {repr occurrence}: before argument admission"
-  let values ← prepareArguments environment arguments actual
-  if traced then dbg_trace "[inclusion.stage] primitive {repr occurrence}: arguments admitted"
-  let action := PreparedAction.primitive boundary universeArguments
-  let origin ← prepareOrigin program occurrence action source environment application values
-  let request ← prepareRequest identities program occurrence action source context
-    (values.filterMap id ++ scope) environment application origin actual
-  return { request with nativeParent }
-
+    (validatedEnvironment : Option RuntimeEnvironment := none)
+    (selections : SourceSelectionScope Expr := {})
+    (selectionBinding : Option BindingId := none) : MetaM PreparedRequest := do
+  withPreparationContext context parameters graph (actual.map (·.value) ++ scope) fun context parameters => do
+    let mut selections := selections
+    for value in actual.map (·.value) ++ scope do
+      selections ← SourceSelectionScope.merge selections (← value.role.selections.inContext context)
+      if value.admittedInterface?.isSome then
+        selections ← SourceSelectionScope.merge selections (← value.nativeRole.selections.inContext context)
+    if let .property family := boundary then
+      unless arguments.size == family.parameterCount + 1 do
+        throwError "a property observation requires its complete original source application"
+    if let .application family := boundary then
+      unless family.owner matches .application _ do
+        throwError "an object application boundary requires its exact registered object owner"
+    if let .point family := boundary then
+      unless arguments.size == family.parameterCount + (if family.invocation then 2 else 0) do
+        throwError "a categorical point requires its complete original native input telescope"
+    if let .objectAction family := boundary then
+      unless arguments.size == family.parameterCount + 1 do
+        throwError "an object action requires all original declaration parameters and its receiver"
+    if let .limit family owner := boundary then
+      unless arguments.size == family.parameterCount do
+        throwError "a raw cone requires its complete original declaration telescope"
+      discard <| family.ownerAt (← owner.mapM (·.inContext context)) (← arguments.mapM (·.inContext context))
+    if let .limitUniversal family owner := boundary then
+      unless arguments.size == family.parameterCount && scope.size == 1 do
+        throwError "a universal request requires its original parameters and one exact cone capture"
+      discard <| family.presentation.ownerAt (← owner.mapM (·.inContext context))
+        (← arguments.mapM (·.inContext context))
+    unless universeArguments.length == boundary.universeParams.length do
+      throwError "request universe arguments do not match the checked source family"
+    let universeArguments ← universeArguments.mapM instantiateLevelMVars
+    if universeArguments.any (·.hasMVar) then
+      throwError "request preparation requires resolved universe arguments"
+    let nativeFamily ← boundary.familyIn universeArguments context
+    let traced := (nativeFamily.find? (·.isConstOf `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
+    if traced then CasTools.Diagnostics.message m!"[inclusion.stage] primitive {repr occurrence}: before family layout"
+    let prepareLayout := fun (context : OpenContext) (selections : SourceSelectionScope Expr)
+        (arguments : Array ClosedTerm) => do
+      let nativeFamily ← boundary.familyIn universeArguments context
+      let (source, application, nativeParent) ← match boundary with
+        | .registered family => do
+          let (source, application) ← family.applyIn universeArguments context arguments
+          pure (source, some application, (none : Option RecordLayout))
+        | .limitUniversal family _ => do
+          let original ← withLCtx {} #[] do
+            let empty ← ContextTelescope.capture #[]
+            empty.close (family.presentation.presentationFamily.instantiateLevelParams
+              family.universeParams universeArguments)
+          let (parent, application) ← ApplicationLayout.ofSource
+            (← SourceLayout.ofTerm original) context arguments
+          let parent ← RecordLayout.ofSource parent
+          let application ← application.forProjection family.projection
+          pure (application.result, some application, some parent)
+        | .creation family => do
+          unless arguments.size == 2 do
+            throwError "the fixed creation requires both original target data inputs"
+          let (source, application) ← ApplicationLayout.ofSource
+            (← SourceLayout.ofTerm family.requestFamily) context arguments
+          pure (source, some application, (none : Option RecordLayout))
+        | _ => do
+          let family ← withLCtx {} #[] do
+            let empty ← ContextTelescope.capture #[]
+            empty.close nativeFamily
+          let layout ← SourceLayout.ofTerm family
+          if arguments.isEmpty then
+            pure (← layout.inContext context, (none : Option ApplicationLayout),
+              (none : Option RecordLayout))
+          else do
+            let (source, application) ← ApplicationLayout.ofSource layout context arguments
+            pure (source, some application, (none : Option RecordLayout))
+      let closedSelections ← selections.close context
+      let source ← source.withSelections closedSelections
+      let application ← application.mapM (·.withSelections context closedSelections)
+      let nativeParent ← nativeParent.mapM fun parent => do
+        RecordLayout.ofSource (← parent.source.withSelections closedSelections)
+      return (source, application, nativeParent)
+    let (source, application, nativeParent) ← prepareLayout context selections arguments
+    if traced then CasTools.Diagnostics.message m!"[inclusion.stage] primitive {repr occurrence}: before environment"
+    let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters graph
+      validatedEnvironment selections
+    if traced then CasTools.Diagnostics.message m!"[inclusion.stage] primitive {repr occurrence}: before argument admission"
+    let values ← prepareArguments environment arguments actual
+    if traced then CasTools.Diagnostics.message m!"[inclusion.stage] primitive {repr occurrence}: arguments admitted"
+    let finish := fun (context : OpenContext) (source : SourceLayout)
+        (application : Option ApplicationLayout) (nativeParent : Option RecordLayout)
+        (environment : RuntimeEnvironment) (values : Array (Option ValueBinding)) => do
+      let source := { source with selectionBinding }
+      let action := PreparedAction.primitive boundary universeArguments
+      let origin ← prepareOrigin program occurrence action source environment application values
+      let request ← prepareRequest identities program occurrence action source context
+        (values.filterMap id ++ scope) environment application origin actual
+      return { request with nativeParent }
+    match application with
+    | none => finish context source application nativeParent environment values
+    | some original =>
+      withPreparedInputs identities context environment original values actual parameters fun
+          context selections arguments parameters => do
+        let (source, application, nativeParent) ← prepareLayout context selections arguments
+        let environment ← RuntimeEnvironment.capture program.worker context parameters graph
+          (selections := selections)
+        let values ← prepareArguments environment arguments actual
+        finish context source application nativeParent environment values
 /-- Read the separately captured cone at its fixed preparation position. The original
 declaration argument table remains unchanged and cannot supply another equal cone. -/
 opaque PreparedRequest.universalCone (request : PreparedRequest) : MetaM ValueBinding := do
@@ -326,28 +495,32 @@ opaque PreparedRequest.universalCone (request : PreparedRequest) : MetaM ValueBi
   return cone
 
 private def checkPresentationInputs (request : PreparedRequest) (graph : ValueGraph)
-    (source target : ValueBinding) (marks : Array ValueBinding) : MetaM Unit := do
+    (source target : ValueBinding) : MetaM Unit := do
   let .primitive (.presentation family) _ := request.action
     | throwError "declared endpoint checking requires its original presentation family"
   request.environment.context.withOpen fun bindings => do
     let context ← ContextTelescope.capture bindings
     let applied ← request.source.source.inContext context
-    discard <| family.withEndpoints applied (← source.role.source.inContext context)
-      (← target.role.source.inContext context)
-    let mut arguments := applied.getAppArgs
-    let actual := request.origin.application.map (·.arguments) |>.getD #[]
-    unless actual.size == arguments.size do
-      throwError "the presentation lost its complete original parameter reference table"
-    -- This local mark table is used only by the check. No returned source role can carry
-    -- one of these temporary marks; the original supplied endpoint bindings stay intact.
-    let retained ← IO.mkRef marks
-    for value in actual, index in [:actual.size] do
-      if let some value := value then
-        arguments := arguments.set! index (← markValue retained value arguments[index]!)
-    let (expectedSource, expectedTarget) ← family.endpoints (mkAppN applied.getAppFn arguments)
-    let marks ← retained.get
-    request.environment.checkDeclaredInput context graph marks expectedSource source
-    request.environment.checkDeclaredInput context graph marks expectedTarget target
+    context.withOriginalSources #[applied, ← source.role.source.inContext context,
+        ← target.role.source.inContext context] fun originals => do
+      discard <| family.withEndpoints originals[0]! originals[1]! originals[2]!
+    let count := request.application.map (·.arguments.size) |>.getD 0
+    request.withInputBindings context request.environment.bound count fun context bound arguments _ => do
+      let (expectedSource, expectedTarget) ← family.endpoints (mkAppN applied.getAppFn arguments)
+      let environment ← RuntimeEnvironment.captureBound request.program.worker context bound graph
+        (selections := ← request.environment.selections.inContext context)
+      let checkEndpoint := fun (expected : SourceSelection Expr) (value : ValueBinding) => do
+        let some expectedReference := expected.reference
+          | throwError "the presentation endpoint lost its complete original source row"
+        let some retained ← value.role.selected? context
+          | throwError "the presentation endpoint lost its retained typed source selection"
+        let some actualReference := retained.reference
+          | throwError "the presentation endpoint lost its original registered source row"
+        unless expectedReference.exactlyMatches actualReference do
+          throwError "the presentation endpoint changed its complete original source row"
+        environment.checkDeclaredInput context graph expected.value value
+      checkEndpoint expectedSource source
+      checkEndpoint expectedTarget target
 
 /-- Prepare a named presentation with its two explicitly supplied native endpoints. Both are
 ordinary admitted operands in the same complete context; the source reader or named child
@@ -359,33 +532,26 @@ opaque PreparedRequest.forPresentation (identities : IdentitySupply)
     (arguments : Array ClosedTerm) (actual : Array RuntimeArgument)
     (endpoints : Array ClosedTerm) (endpointValues : Array RuntimeArgument)
     (parameters : Array RuntimeParameter) (graph : ValueGraph)
-    (marks : Array ValueBinding) : MetaM PreparedRequest := do
+    (selections : SourceSelectionScope Expr := {})
+    (selectionBinding : Option BindingId := none) : MetaM PreparedRequest := do
   let #[_, _] := endpoints
     | throwError "the presentation request requires both complete original endpoints"
-  let sourceMarks ← preparedSourceMarks arguments actual #[]
-  let endpointMarks ← preparedSourceMarks endpoints endpointValues #[]
-  let sourceMarks ← IO.ofExcept <| (mergeSourceMarks sourceMarks endpointMarks).mapError IO.userError
-  let contextMarks ← IO.ofExcept <|
-    (captureContextSourceMarks marks context.telescope).mapError IO.userError
-  let mut sourceMarks ← IO.ofExcept <|
-    (mergeSourceMarks sourceMarks contextMarks).mapError IO.userError
-  for source in arguments ++ endpoints do
-    let selected ← IO.ofExcept <| (captureSourceMarks marks source).mapError IO.userError
-    sourceMarks ← IO.ofExcept <| (mergeSourceMarks sourceMarks selected).mapError IO.userError
-  let environment ← RuntimeEnvironment.capture program.worker context parameters sourceMarks (some graph)
+  let environment ← RuntimeEnvironment.capture program.worker context parameters (some graph)
+    (selections := selections)
   let values ← prepareArguments environment endpoints endpointValues
   let #[some source, some target] := values
     | throwError "the presentation request is missing an actual endpoint value"
   let request ← PreparedRequest.forBoundary identities program occurrence (.presentation family)
-    universes context arguments actual #[source, target] parameters (some graph) sourceMarks
+    universes context arguments actual #[source, target] parameters (some graph)
+    (selections := selections) (selectionBinding := selectionBinding)
   discard <| request.admitInputs graph
-  checkPresentationInputs request graph source target marks
+  checkPresentationInputs request graph source target
   return request
 
 /-- Read the two explicitly retained endpoint positions and recheck their original native
 correspondence. Captures are not searched by expression or payload equality. -/
 opaque PreparedRequest.presentationEndpoints (request : PreparedRequest)
-    (graph : ValueGraph) (marks : Array ValueBinding) : MetaM (ValueBinding × ValueBinding) := do
+    (graph : ValueGraph) : MetaM (ValueBinding × ValueBinding) := do
   let .primitive (.presentation family) _ := request.action
     | throwError "endpoint preparation requires a published presentation boundary"
   let count := match request.origin.application with
@@ -395,7 +561,7 @@ opaque PreparedRequest.presentationEndpoints (request : PreparedRequest)
     | throwError "the presentation request lost its exact endpoint capture positions"
   discard <| request.environment.checkResult graph source.role source
   discard <| request.environment.checkResult graph target.role target
-  checkPresentationInputs request graph source target marks
+  checkPresentationInputs request graph source target
   return (source, target)
 
 private def prepareProjection (identities : CasRuntime.IdentitySupply)
@@ -404,42 +570,46 @@ private def prepareProjection (identities : CasRuntime.IdentitySupply)
     (graph : CasRuntime.ValueGraph)
     (operand : CasRuntime.ValueBinding) (path : Array Name)
     (parameters : Array CasRuntime.RuntimeParameter)
-    (validatedEnvironment : Option RuntimeEnvironment) : MetaM PreparedRequest := do
-  let traced := (operand.role.source.expression.find? (·.isConstOf `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
-  if traced then dbg_trace "[inclusion.stage] projection {repr occurrence} {repr path}: before layout"
-  let mut layout := operand.role
-  let mut selected : Option FieldLayout := none
-  for projection in path do
-    let some field := layout.fields.find? (·.projection == projection)
-      | throwError "the projection is outside the retained source layout"
-    unless field.wireIndex.isSome do
-      throwError "a source proof field has no computational projection"
-    selected := some field
-    layout ← field.toLayout
-  let some field := selected | throwError "a projection requires a native field path"
-  let source ← layout.inContext context
-  if traced then dbg_trace "[inclusion.stage] projection {repr occurrence}: before environment"
-  let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters
-    operand.sourceMarks (some graph) validatedEnvironment
-  if traced then dbg_trace "[inclusion.stage] projection {repr occurrence}: before operand admission"
-  discard <| environment.checkOperand graph operand.role operand
-  if traced then dbg_trace "[inclusion.stage] projection {repr occurrence}: operand admitted"
-  let .ok original := graph.applicationOrigin operand
-    | throwError "the projected operand is outside the visible graph"
-  let mut application := original
-  for projection in path do
-    application ← application.mapM (·.forProjection projection)
-  let action := PreparedAction.project operand field
-  let origin ← prepareOrigin program occurrence action source environment none #[]
-  let fieldPrefix ← environment.projectionFieldPrefix graph operand source
-  let dependencies ← match fieldPrefix with
-    | none => pure #[]
-    | some nativePrefix => IO.ofExcept <| nativePrefix.dependencies.mapError IO.userError
-  let origin := { origin with
-    application, access := some operand, accessPath := path, fieldPrefix,
-    sourceDependencies := origin.sourceDependencies ++ dependencies }
-  prepareRequest identities program occurrence action source context
-    #[operand] environment none origin
+    (validatedEnvironment : Option RuntimeEnvironment)
+    (selections : SourceSelectionScope Expr := {})
+    (selectionBinding : Option BindingId := none) : MetaM PreparedRequest := do
+  withPreparationContext context parameters (some graph) #[operand] fun context parameters => do
+    let mut selections ← SourceSelectionScope.merge selections (← operand.role.selections.inContext context)
+    if operand.admittedInterface?.isSome then
+      selections ← SourceSelectionScope.merge selections (← operand.nativeRole.selections.inContext context)
+    let traced := (operand.role.source.expression.find? (·.isConstOf `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
+    if traced then CasTools.Diagnostics.message m!"[inclusion.stage] projection {repr occurrence} {repr path}: before layout"
+    let mut layout := operand.nativeRole
+    let mut selected : Option FieldLayout := none
+    for projection in path do
+      let some field := layout.fields.find? (·.projection == projection)
+        | throwError "the projection is outside the retained source layout"
+      unless field.wireIndex.isSome do
+        throwError "a source proof field has no computational projection"
+      selected := some field
+      layout ← field.toLayout
+    let some field := selected | throwError "a projection requires a native field path"
+    let source ← layout.inContext context
+    let source ← source.withSelections (← selections.close context)
+    let source := { source with selectionBinding }
+    if traced then CasTools.Diagnostics.message m!"[inclusion.stage] projection {repr occurrence}: before environment"
+    let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters
+      (some graph) validatedEnvironment selections
+    if traced then CasTools.Diagnostics.message m!"[inclusion.stage] projection {repr occurrence}: before operand admission"
+    discard <| environment.checkOperand graph operand.role operand
+    if traced then CasTools.Diagnostics.message m!"[inclusion.stage] projection {repr occurrence}: operand admitted"
+    let .ok original := graph.applicationOrigin operand.nativeInterface
+      | throwError "the projected operand is outside the visible graph"
+    let mut application := original
+    for projection in path do
+      application ← application.mapM (·.forProjection projection)
+    let action := PreparedAction.project operand field
+    let fieldPrefix ← environment.projectionFieldPrefix graph operand source
+    let origin ← environment.origin program occurrence source
+      (fieldPrefix := fieldPrefix) (access := some operand) (accessPath := path)
+    let origin := { origin with application }
+    prepareRequest identities program occurrence action source context
+      #[operand] environment none origin
 
 /-- Prepare the exact source field of the retained operand in the complete current scope. -/
 opaque PreparedRequest.forProjection (identities : CasRuntime.IdentitySupply)
@@ -448,11 +618,13 @@ opaque PreparedRequest.forProjection (identities : CasRuntime.IdentitySupply)
     (graph : CasRuntime.ValueGraph)
     (operand : CasRuntime.ValueBinding) (index : Nat)
     (parameters : Array CasRuntime.RuntimeParameter)
-    (validatedEnvironment : Option RuntimeEnvironment := none) : MetaM PreparedRequest := do
-  let some field := operand.role.fields[index]?
+    (validatedEnvironment : Option RuntimeEnvironment := none)
+    (selections : SourceSelectionScope Expr := {})
+    (selectionBinding : Option BindingId := none) : MetaM PreparedRequest := do
+  let some field := operand.nativeRole.fields[index]?
     | throwError "the projection is outside the retained source layout"
   prepareProjection identities program occurrence context graph operand
-    #[field.projection] parameters validatedEnvironment
+    #[field.projection] parameters validatedEnvironment selections selectionBinding
 
 /-- Compose a wholly stored native path without completing its intermediate record values.
 The graph must already supply every step; a lazy access remains an ordinary single-field demand. -/
@@ -462,14 +634,16 @@ opaque PreparedRequest.forStoredProjection (identities : CasRuntime.IdentitySupp
     (graph : CasRuntime.ValueGraph)
     (operand : CasRuntime.ValueBinding) (path : Array Name)
     (parameters : Array CasRuntime.RuntimeParameter)
-    (validatedEnvironment : Option RuntimeEnvironment := none) : MetaM PreparedRequest := do
+    (validatedEnvironment : Option RuntimeEnvironment := none)
+    (selections : SourceSelectionScope Expr := {})
+    (selectionBinding : Option BindingId := none) : MetaM PreparedRequest := do
   let selected ← IO.ofExcept <| (graph.projectionFrontier operand path).mapError IO.userError
   let some (_, remaining) := selected
     | throwError "the native projection path has no stored field interface"
   unless remaining.isEmpty do
     throwError "a composed projection cannot pass a lazy field boundary"
   prepareProjection identities program occurrence context graph operand path parameters
-    validatedEnvironment
+    validatedEnvironment selections selectionBinding
 
 /-- Apply the retained function with complete formal arguments and indexed actual operands.
 Source coercions are lowered before this boundary. Preparation retains empty slots for source
@@ -483,27 +657,40 @@ opaque PreparedRequest.forApplication (identities : CasRuntime.IdentitySupply)
     (actual : Array CasRuntime.RuntimeArgument)
     (parameters : Array CasRuntime.RuntimeParameter)
     (graph : Option CasRuntime.ValueGraph := none)
-    (sourceMarks : Array (Nat × CasRuntime.ValueBinding) := #[])
-    (validatedEnvironment : Option RuntimeEnvironment := none) : MetaM PreparedRequest := do
-  unless callable.role.kind == .function do
-    throwError "the retained value has no prepared callable interface"
-  if arguments.isEmpty then throwError "callable application requires a source argument"
-  let traced := (callable.role.source.expression.find? (·.isConstOf `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
-  if traced then dbg_trace "[inclusion.stage] application {repr occurrence}: before layout"
-  let (source, application) ← ApplicationLayout.ofSource callable.role context arguments
-  if traced then dbg_trace "[inclusion.stage] application {repr occurrence}: before environment"
-  let marks ← preparedSourceMarks arguments actual #[callable]
-  let marks ← IO.ofExcept <| (CasRuntime.mergeSourceMarks sourceMarks marks).mapError IO.userError
-  let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters marks graph
-    validatedEnvironment
-  if traced then dbg_trace "[inclusion.stage] application {repr occurrence}: before argument admission"
-  let values ← prepareArguments environment arguments actual
-  if traced then dbg_trace "[inclusion.stage] application {repr occurrence}: arguments admitted"
-  let action := PreparedAction.apply callable arguments values
-  let origin ← prepareOrigin program occurrence action source environment (some application) values
-  prepareRequest identities program occurrence action source context
-    (#[callable] ++ values.filterMap id) environment (some application) origin actual
-
+    (validatedEnvironment : Option RuntimeEnvironment := none)
+    (selections : SourceSelectionScope Expr := {})
+    (selectionBinding : Option BindingId := none) : MetaM PreparedRequest := do
+  withPreparationContext context parameters graph (#[callable] ++ actual.map (·.value)) fun context parameters => do
+    let mut selections := selections
+    for value in #[callable] ++ actual.map (·.value) do
+      selections ← SourceSelectionScope.merge selections (← value.role.selections.inContext context)
+      if value.admittedInterface?.isSome then
+        selections ← SourceSelectionScope.merge selections (← value.nativeRole.selections.inContext context)
+    unless callable.nativeRole.kind == .function do
+      throwError "the retained value has no prepared callable interface"
+    if arguments.isEmpty then throwError "callable application requires a source argument"
+    let traced := (callable.role.source.expression.find? (·.isConstOf `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration)).isSome
+    if traced then CasTools.Diagnostics.message m!"[inclusion.stage] application {repr occurrence}: before layout"
+    let (source, application) ← ApplicationLayout.ofSource callable.nativeRole context arguments
+      (selections := ← selections.close context)
+    if traced then CasTools.Diagnostics.message m!"[inclusion.stage] application {repr occurrence}: before environment"
+    let environment ← CasRuntime.RuntimeEnvironment.capture program.worker context parameters graph
+      validatedEnvironment selections
+    if traced then CasTools.Diagnostics.message m!"[inclusion.stage] application {repr occurrence}: before argument admission"
+    let values ← prepareArguments environment arguments actual
+    if traced then CasTools.Diagnostics.message m!"[inclusion.stage] application {repr occurrence}: arguments admitted"
+    withPreparedInputs identities context environment application values actual parameters fun
+        context selections arguments parameters => do
+      let (source, application) ← ApplicationLayout.ofSource callable.nativeRole context arguments
+        (selections := ← selections.close context)
+      let environment ← RuntimeEnvironment.capture program.worker context parameters graph
+          (selections := selections)
+      let values ← prepareArguments environment arguments actual
+      let source := { source with selectionBinding }
+      let action := PreparedAction.apply callable arguments values
+      let origin ← prepareOrigin program occurrence action source environment (some application) values
+      prepareRequest identities program occurrence action source context
+        (#[callable] ++ values.filterMap id) environment (some application) origin actual
 /-- A checked returned interface with scoped bindings for subsequent computational demands. -/
 structure PreparedResponse (request : PreparedRequest) where
   private mk ::
