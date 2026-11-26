@@ -3,12 +3,69 @@ module
 public import CasCompiler.Elaborate
 public import CasCompiler.ContextSnapshot
 public import CasCompiler.SourceTypeOrigin
+public import CasCompiler.SelectionData
+import all CasCompiler.SelectionData
+public import CasTools.InterfaceDocument
 
 @[expose] public section
 
 namespace CasCompiler.SourceSnapshot
 
-open Lean CasTools ContextSnapshot
+open Lean CasTools CasCatalogue ContextSnapshot
+
+-- Registry rows reuse InterfaceDocument's codecs, derived from the actual independent
+-- records. A rigid family's native expressions are complete closed functions; their
+-- nested graphs retain every binder and universe without reopening or interpreting them.
+local instance : ToJson Name := ⟨NativeExpression.nameJson⟩
+local instance : ToJson BindingId := ⟨bindingJson⟩
+local instance : ToJson Expr := ⟨fun expression => NativeExpression.encode #[expression]⟩
+-- A prerequisite ordinal retains the bound supplied by its original whole program.
+-- The finite type's proof is determined by that checked value and bound.
+local instance {bound : Nat} : ToJson (Fin bound) :=
+  ⟨fun index => Json.mkObj [("value", toJson index.val), ("bound", toJson bound)]⟩
+
+deriving instance ToJson for Sum
+
+deriving instance ToJson for StructuralEdge, Route
+deriving instance ToJson for ComputationRef, ComputationDerivationId, ComputationDerivationEntry
+deriving instance ToJson for CheckedComputationPrerequisite, CheckedComputationDerivation
+deriving instance ToJson for SourceNamedEntry, SelectedConstructorInterface, SelectedSourceReference
+deriving instance ToJson for SourceCategoryRole, NativePowerObject
+deriving instance ToJson for LimitInterface, LimitCreationInterface
+deriving instance ToJson for NativeSourceCarrierSelection, NativeSourceLimitSelection
+deriving instance ToJson for NativeSourceCategory, NativeSourceElementOwner, NativeSourceTypeOrigin
+deriving instance ToJson for NativeSourcePointOrigin, NativeRouteFunctor, NativeSourceCell
+deriving instance ToJson for NativeSourceCellComponent, NativeSourceCartesian
+deriving instance ToJson for LiftPort, LiftFamily, PresentationFamily
+deriving instance ToJson for SourceActionFamily
+deriving instance ToJson for RoutedMethodReturn, RoutedMethodFamily, PropertyFamily
+deriving instance ToJson for PointFamilyOwner, PointFamily, NativePointRequest
+deriving instance ToJson for CategoricalPointOwner, CategoricalPointFamily, CategoricalPointRequest
+deriving instance ToJson for LimitFamily, LimitUniversalFamily, CreationFamily
+deriving instance ToJson for NativeLimitSelection, SelectedLimitOwner, NativeLimitLegSelection
+deriving instance ToJson for SourceProgram, SourceFamily
+deriving instance ToJson for SelectedApplicationFamily, SelectedSourceApplication
+deriving instance ToJson for SelectedSourceAdmission, SelectedSourcePointRequest, SelectedSourceField
+deriving instance ToJson for SelectedEndpointSide, SelectedSourceEndpoint, SourceSelection
+
+/-- Every native payload is encoded in its retained complete telescope. The derived record
+codec also retains all original registry rows, whole rigid families, formal slots and routes;
+it cannot silently omit a field when the typed selection owner grows. -/
+def selectionJson (selection : SourceSelection ClosedTerm) :
+    StateM NativeExpression.Builder Json := do
+  return toJson (← selection.mapM closedTermJson)
+
+/-- Stable binding identities order the complete source side table. No expression, type,
+carrier or available implementation is consulted to reconstruct a selection. -/
+def selectionsJson (selections : SourceSelectionScope ClosedTerm) :
+    StateM NativeExpression.Builder Json := do
+  let entries := selections.toArray.qsort fun left right =>
+    if left.1.session == right.1.session then left.1.serial < right.1.serial
+    else left.1.session < right.1.session
+  let rows ← entries.mapM fun (binding, selection) => do
+    return Json.mkObj [("binding", bindingJson binding),
+      ("selection", ← selectionJson selection)]
+  return Json.arr rows
 
 /-- Original source positions; no reconstructed or pretty-printed source is substituted. -/
 def spanJson (span : SourceSpan) : Json :=
@@ -22,7 +79,8 @@ def ringVariablesJson (rings : Array SourceRingVariable) :
     let carrier ← closedTermJson ring.carrier
     return Json.mkObj [("name", toJson (ring.name.toString (escape := false))),
       ("nativeName", NativeExpression.nameJson ring.name),
-      ("carrier", carrier), ("index", toJson ring.index)]
+      ("carrier", carrier), ("index", toJson ring.index),
+      ("selections", ← selectionsJson ring.selections)]
   return toJson rows
 
 def carrierJson (carrier : SourceCarrierSelection) : StateM NativeExpression.Builder Json := do
@@ -123,10 +181,13 @@ def snapshot (session : SourceContextObservation) (term : SourceTerm)
         ("span", toJson (bindingSpan session entry.id)),
         ("category", toJson category), ("ringVariables", rings)]
     let category ← term.category.mapM categoryJson
+    let selections ← selectionsJson term.selections
+    let sessionSelections ← selectionsJson session.selections
     pure ([("native", native), ("context", context),
       ("instances", instancesJson term.source.context),
       ("categories", toJson categories), ("category", toJson category),
       ("ringVariables", toJson rings),
+      ("selections", selections), ("sessionSelections", sessionSelections),
       ("resultBinding", toJson resultBinding),
       ("file", toJson term.span.fileName),
       ("startByte", toJson (term.span.start.map (·.byteIdx))),

@@ -41,7 +41,8 @@ def contextJson (context : ContextTelescope) : StateM NativeExpression.Builder J
   let entries ← context.entries.mapM fun entry => do
     let type ← NativeExpression.Builder.add entry.type
     let value ← entry.value.mapM NativeExpression.Builder.add
-    return Json.mkObj [
+    let originalSource ← entry.originalSource.mapM NativeExpression.Builder.add
+    let fields := [
       ("id", bindingJson entry.id), ("name", toJson (entry.userName.toString (escape := false))),
       ("nativeName", NativeExpression.nameJson entry.userName),
       ("role", toJson <| match entry.role with
@@ -52,6 +53,8 @@ def contextJson (context : ContextTelescope) : StateM NativeExpression.Builder J
       ("nativeBinderInfo", toJson entry.binderInfo),
       ("kind", toJson (reprStr entry.kind)), ("type", toJson type),
       ("value", toJson value), ("nondep", toJson entry.nondep)]
+    return Json.mkObj (fields ++ originalSource.toList.map fun original =>
+      ("originalSource", toJson original))
   return toJson entries
 
 /-- Assemble the exact term document from its already encoded context and native roots. -/

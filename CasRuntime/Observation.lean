@@ -3,6 +3,7 @@ module
 public import CasCompiler.Program
 public import CasCompiler.Roles
 public import CasCompiler.ContextSnapshot
+public import CasCompiler.SourceSnapshot
 public import CasRuntime.Environment
 
 @[expose] public section
@@ -66,6 +67,7 @@ def programJson (program : SourceProgram) : StateM NativeExpression.Builder Json
   let entry := source.entry
   let prerequisites ← source.prerequisites.mapM prerequisiteJson
   return Json.mkObj [
+    ("selected", toJson program),
     ("entry", Json.mkObj [("id", toJson entry.id.raw),
       ("target", referenceJson entry.target),
       ("prerequisites", toJson (entry.prerequisites.map referenceJson)),
@@ -85,6 +87,7 @@ def boundaryJson (boundary : ProgramBoundary) : StateM NativeExpression.Builder 
   | .registered family =>
     return Json.mkObj [("kind", toJson "registered"),
       ("source", ← prerequisiteJson family.source),
+      ("selected", toJson family),
       ("universeParams", namesJson family.universeParams.toArray)]
   | .target program =>
     return Json.mkObj [("kind", toJson "target"), ("program", ← programJson program)]
@@ -92,7 +95,8 @@ def boundaryJson (boundary : ProgramBoundary) : StateM NativeExpression.Builder 
     return Json.mkObj [("kind", toJson "prerequisite"),
       ("program", ← programJson program), ("index", toJson index.val)]
   | .lift family =>
-    return Json.mkObj [("kind", toJson "lift"), ("lift", toJson family.lift.raw),
+    return Json.mkObj [("kind", toJson "lift"),
+      ("selected", toJson family), ("lift", toJson family.lift.raw),
       ("port", toJson family.port.name),
       ("universeParams", namesJson family.universeParams.toArray),
       ("family", toJson (← NativeExpression.Builder.add family.family)),
@@ -100,6 +104,7 @@ def boundaryJson (boundary : ProgramBoundary) : StateM NativeExpression.Builder 
 
   | .presentation family =>
     return Json.mkObj [("kind", toJson "presentation"),
+      ("selected", toJson family),
       ("entry", toJson (reprStr family.entry)),
       ("declaration", NativeExpression.nameJson family.entry.declaration),
       ("source", toJson (reprStr family.source)), ("target", toJson (reprStr family.target)),
@@ -122,6 +127,7 @@ def boundaryJson (boundary : ProgramBoundary) : StateM NativeExpression.Builder 
         ("evidences", toJson (← returned.evidences.mapM NativeExpression.Builder.add)),
         ("agreement", toJson (← returned.agreement.mapM NativeExpression.Builder.add))]
     return Json.mkObj [("kind", toJson "routedMethod"),
+      ("selected", toJson family),
       ("entry", toJson (reprStr family.entry)), ("functor", toJson (reprStr family.functor)),
       ("route", Json.mkObj [("source", toJson (reprStr family.route.source)),
         ("target", toJson (reprStr family.route.target)),
@@ -135,6 +141,7 @@ def boundaryJson (boundary : ProgramBoundary) : StateM NativeExpression.Builder 
       ("return", toJson returning)]
   | .property family =>
     return Json.mkObj [("kind", toJson "property"),
+      ("selected", toJson family),
       ("entry", toJson (reprStr family.entry)), ("classifier", toJson (reprStr family.classifier)),
       ("route", Json.mkObj [("source", toJson (reprStr family.route.source)),
         ("target", toJson (reprStr family.route.target)),
@@ -148,7 +155,8 @@ def boundaryJson (boundary : ProgramBoundary) : StateM NativeExpression.Builder 
     let owner := match family.owner with
       | .morphism entry => Json.mkObj [("kind", toJson "morphism"), ("entry", toJson (reprStr entry))]
       | .application entry => Json.mkObj [("kind", toJson "application"), ("entry", toJson (reprStr entry))]
-    return Json.mkObj [("kind", toJson "application"), ("owner", owner),
+    return Json.mkObj [("kind", toJson "application"),
+      ("selected", toJson family), ("owner", owner),
       ("operation", toJson family.operation),
       ("declaration", NativeExpression.nameJson family.declaration),
       ("category", toJson (reprStr family.category)),
@@ -171,7 +179,8 @@ def boundaryJson (boundary : ProgramBoundary) : StateM NativeExpression.Builder 
         Json.mkObj [("kind", toJson "binder"), ("entry", toJson (reprStr entry))]
       | .action edge =>
         Json.mkObj [("kind", toJson "action"), ("edge", edgeImageDescriptor edge)]
-    return Json.mkObj [("kind", toJson "point"), ("owner", owner),
+    return Json.mkObj [("kind", toJson "point"),
+      ("selected", toJson family), ("owner", owner),
       ("operation", toJson family.operation), ("whole", toJson family.whole),
       ("invocation", toJson family.invocation),
       ("declaration", NativeExpression.nameJson family.declaration),
@@ -184,6 +193,7 @@ def boundaryJson (boundary : ProgramBoundary) : StateM NativeExpression.Builder 
       ("familyType", toJson (← NativeExpression.Builder.add family.familyType))]
   | .objectAction family =>
     return Json.mkObj [("kind", toJson "objectAction"),
+      ("selected", toJson family),
       ("edge", edgeImageDescriptor family.edge), ("operation", toJson family.operation),
       ("declaration", NativeExpression.nameJson family.declaration),
       ("universeParams", namesJson family.universeParams.toArray),
@@ -192,14 +202,16 @@ def boundaryJson (boundary : ProgramBoundary) : StateM NativeExpression.Builder 
       ("family", toJson (← NativeExpression.Builder.add family.family)),
       ("familyType", toJson (← NativeExpression.Builder.add family.familyType))]
   | .limit family owner =>
-    return Json.mkObj [("kind", toJson "limit"), ("entry", toJson (reprStr family.entry)),
+    return Json.mkObj [("kind", toJson "limit"),
+      ("selected", toJson family), ("entry", toJson (reprStr family.entry)),
       ("declaration", NativeExpression.nameJson family.entry.declaration),
       ("universeParams", namesJson family.universeParams.toArray),
       ("parameterCount", toJson family.parameterCount),
       ("family", toJson (← NativeExpression.Builder.add family.family)),
-      ("owner", ← ContextSnapshot.closedTermJson owner)]
+      ("owner", toJson (← owner.mapM ContextSnapshot.closedTermJson))]
   | .limitUniversal family owner =>
     return Json.mkObj [("kind", toJson "limitUniversal"),
+      ("selected", toJson family),
       ("entry", toJson (reprStr family.presentation.entry)),
       ("operation", toJson family.operation),
       ("projection", NativeExpression.nameJson family.projection),
@@ -207,9 +219,20 @@ def boundaryJson (boundary : ProgramBoundary) : StateM NativeExpression.Builder 
       ("universeParams", namesJson family.universeParams.toArray),
       ("parameterCount", toJson family.parameterCount),
       ("family", toJson (← NativeExpression.Builder.add family.family)),
-      ("owner", ← ContextSnapshot.closedTermJson owner)]
+      ("owner", toJson (← owner.mapM ContextSnapshot.closedTermJson))]
   | .creation family =>
     return Json.mkObj [("kind", toJson "creation"),
+      ("selectedFamily", toJson family.family), ("targetFamily", toJson family.target),
+      ("selectionData", toJson (← family.selectionData.mapM ContextSnapshot.closedTermJson)),
+      ("targetOwner", toJson (← family.targetOwner.mapM ContextSnapshot.closedTermJson)),
+      ("sourceOwner", toJson (← family.sourceOwner.mapM ContextSnapshot.closedTermJson)),
+      ("selections", ← SourceSnapshot.selectionsJson family.selections),
+      ("interface", ← SourceSnapshot.creationJson family.interface),
+      ("universeArguments", toJson family.universes),
+      ("targetUniverseArguments", toJson family.targetUniverses),
+      ("arguments", toJson (← family.arguments.mapM ContextSnapshot.closedTermJson)),
+      ("sourceArguments", toJson (← family.sourceArguments.mapM ContextSnapshot.closedTermJson)),
+      ("sourcePositions", toJson family.sourcePositions),
       ("lift", toJson family.family.entry.id.raw),
       ("target", toJson family.target.entry.id.raw),
       ("construction", NativeExpression.nameJson family.construction),
@@ -222,6 +245,7 @@ def fieldJson (field : FieldLayout) : StateM NativeExpression.Builder Json := do
     ("sourceIndex", toJson field.sourceIndex), ("wireIndex", toJson field.wireIndex),
     ("precedingDependencies", toJson field.precedingDependencies),
     ("source", ← ContextSnapshot.closedTermJson field.source),
+    ("selections", ← SourceSnapshot.selectionsJson field.selections),
     ("typeFamily", ← ContextSnapshot.closedTermJson field.typeFamily),
     ("kind", toJson (reprStr field.kind)),
     ("actions", toJson (field.kind.actions.map reprStr))]
@@ -230,6 +254,8 @@ def layoutJson (layout : SourceLayout) : StateM NativeExpression.Builder Json :=
   let fields ← layout.fields.mapM fieldJson
   return Json.mkObj [("address", namesJson layout.address),
     ("source", ← ContextSnapshot.closedTermJson layout.source),
+    ("selections", ← SourceSnapshot.selectionsJson layout.selections),
+    ("selectionBinding", toJson (layout.selectionBinding.map ContextSnapshot.bindingJson)),
     ("kind", toJson (reprStr layout.kind)),
     ("actions", toJson (layout.kind.actions.map reprStr)),
     ("fields", toJson fields), ("contextDependencies", toJson layout.contextDependencies),
@@ -241,13 +267,15 @@ def recordJson (record : RecordLayout) : StateM NativeExpression.Builder Json :=
       ("layout", ← layoutJson prepared.layout)]
   return Json.mkObj [("source", ← layoutJson record.source), ("fields", toJson fields)]
 
+def argumentJson (argument : ArgumentLayout) : StateM NativeExpression.Builder Json := do
+  return Json.mkObj [("sourceIndex", toJson argument.sourceIndex),
+    ("wireIndex", toJson argument.wireIndex), ("binderInfo", toJson argument.binderInfo),
+    ("precedingDependencies", toJson argument.precedingDependencies),
+    ("source", ← layoutJson argument.source),
+    ("typeFamily", ← ContextSnapshot.closedTermJson argument.typeFamily)]
+
 def applicationJson (application : ApplicationLayout) : StateM NativeExpression.Builder Json := do
-  let arguments ← application.arguments.mapM fun argument => do
-    return Json.mkObj [("sourceIndex", toJson argument.sourceIndex),
-      ("wireIndex", toJson argument.wireIndex), ("binderInfo", toJson argument.binderInfo),
-      ("precedingDependencies", toJson argument.precedingDependencies),
-      ("source", ← layoutJson argument.source),
-      ("typeFamily", ← ContextSnapshot.closedTermJson argument.typeFamily)]
+  let arguments ← application.arguments.mapM argumentJson
   return Json.mkObj [("arguments", toJson arguments),
     ("resultDependencies", toJson application.resultDependencies),
     ("resultTypeFamily", ← ContextSnapshot.closedTermJson application.resultTypeFamily),
@@ -255,45 +283,112 @@ def applicationJson (application : ApplicationLayout) : StateM NativeExpression.
     ("result", ← layoutJson application.result),
     ("resultContextDependencies", toJson application.resultContextDependencies)]
 
+def fieldDependencyViewJson (view : FieldDependencyView) : StateM NativeExpression.Builder Json := do
+  return Json.mkObj [("path", namesJson view.path),
+    ("typeFamily", ← ContextSnapshot.closedTermJson view.typeFamily),
+    ("precedingDependencies", toJson view.precedingDependencies)]
+
+def recordAssociationJson (association : RecordAssociation) : StateM NativeExpression.Builder Json := do
+  return Json.mkObj [("id", identityJson association.id),
+    ("program", identityJson association.program), ("occurrence", identityJson association.occurrence),
+    ("layout", ← recordJson association.layout),
+    ("bindings", toJson (association.bindings.map ContextSnapshot.bindingJson))]
+
+/-- Serialize the already prepared constructor telescope and its exact native transport.
+The original ports, proof positions and contexts are observed without reconstructing them. -/
+def constructorPortsJson (plan : ConstructorPorts) : StateM NativeExpression.Builder Json := do
+  let ports ← plan.ports.mapM fun port => do
+    return Json.mkObj [("binding", ContextSnapshot.bindingJson port.binding),
+      ("argument", ← argumentJson port.argument)]
+  return Json.mkObj [("interface", ← SourceSnapshot.limitInterfaceJson plan.interface),
+    ("originalContext", ← ContextSnapshot.contextJson plan.originalContext),
+    ("originalInstances", ContextSnapshot.instancesJson plan.originalContext),
+    ("originalDeclarations", toJson (← plan.originalContext.nativeDeclarations.constants.mapM
+      (NativeExpression.constantInfoJson NativeExpression.Builder.add))),
+    ("context", ← ContextSnapshot.contextJson plan.context),
+    ("instances", ContextSnapshot.instancesJson plan.context),
+    ("declarations", toJson (← plan.context.nativeDeclarations.constants.mapM
+      (NativeExpression.constantInfoJson NativeExpression.Builder.add))),
+    ("contextInputs", toJson (plan.contextInputs.map ContextSnapshot.bindingJson)),
+    ("ports", toJson ports), ("application", ← applicationJson plan.application)]
+
+def constructorTransportJson (transport : ConstructorProjectionTransport) :
+    StateM NativeExpression.Builder Json := do
+  return Json.mkObj [("plan", ← constructorPortsJson transport.plan),
+    ("result", ← layoutJson transport.result), ("path", namesJson transport.path),
+    ("selected", inputProjectionJson transport.selected),
+    ("binding", ContextSnapshot.bindingJson transport.binding),
+    ("source", ← layoutJson transport.source), ("target", ← layoutJson transport.target)]
+
 /-- References name the actual node and ordered association chain. They contain no payload. -/
 def valueIdentityJson (value : ValueBinding) : Json :=
   Json.mkObj [("value", identityJson value.value),
     ("associations", toJson (value.associationIds.map identityJson))]
 
-def sourceMarksJson (marks : Array (Nat × ValueBinding)) : Json :=
-  toJson (marks.map fun (key, value) =>
-    Json.mkObj [("key", toJson key), ("reference", valueIdentityJson value)])
+def boundJson (context : ContextTelescope) (bound : Std.HashMap BindingId ValueBinding) : Json :=
+  toJson (context.entries.filterMap fun entry => bound[entry.id]?.map fun value =>
+    Json.mkObj [("binding", ContextSnapshot.bindingJson entry.id),
+      ("reference", valueIdentityJson value)])
 
-def valueReferenceJson (value : ValueBinding) : StateM NativeExpression.Builder Json := do
-  let markedTypeRoles ← value.markedTypeRoles.mapM layoutJson
+partial def valueReferenceJson (value : ValueBinding) : StateM NativeExpression.Builder Json := do
+  let dependencyRoles ← value.dependencyRoles.mapM layoutJson
+  let sourceRoleFrames ← value.sourceRoleFrames.mapM fun frame => do
+    return Json.mkObj [("role", ← layoutJson frame.role),
+      ("parameters", toJson (frame.parameters.map fun values =>
+        values.map fun value => value.map valueIdentityJson)),
+      ("dependencies", toJson (frame.dependencies.map valueIdentityJson))]
   let result := (valueIdentityJson value).setObjVal! "role" (← layoutJson value.role)
-  let result := result.setObjVal! "sourceMarks" (sourceMarksJson value.sourceMarks)
+  let result := result.setObjVal! "sourceRoleFrames" (toJson sourceRoleFrames)
+  let result := result.setObjVal! "sourceParameters"
+    (toJson (value.sourceParameters?.map fun values =>
+      values.map fun value => value.map valueIdentityJson))
   let result := result.setObjVal! "sourceDependencies"
     (toJson (value.sourceDependencies.map valueIdentityJson))
-  return result.setObjVal! "markedTypeRoles" (toJson markedTypeRoles)
+  let result := result.setObjVal! "dependencyRoles" (toJson dependencyRoles)
+  return result.setObjVal! "admittedInterface"
+    (toJson (← value.admittedInterface?.mapM valueReferenceJson))
 
-def actualArgumentJson (argument : RuntimeArgument) (marks : Array (Nat × ValueBinding)) : Json :=
+def actualArgumentJson (argument : RuntimeArgument) (binding : BindingId) : Json :=
   Json.mkObj [("sourceIndex", toJson argument.index),
     ("reference", valueIdentityJson argument.value),
-    ("marks", sourceMarksJson marks)]
+    ("binding", ContextSnapshot.bindingJson binding)]
 
 def valuesJson (values : Array (Option ValueBinding)) : StateM NativeExpression.Builder Json := do
   return toJson (← values.mapM fun value => value.mapM valueReferenceJson)
+
+def telescopeInstantiationJson (view : TelescopeInstantiation) :
+    StateM NativeExpression.Builder Json := do
+  return Json.mkObj [("id", identityJson view.id),
+    ("sourceBinding", ContextSnapshot.bindingJson view.sourceBinding),
+    ("transport", ← constructorTransportJson view.transport),
+    ("source", ← layoutJson view.source), ("selected", ← valueReferenceJson view.selected),
+    ("parameters", ← valuesJson view.parameters), ("path", namesJson view.path)]
+
+/-- Original predecessor occurrences remain attached to their complete source-ordered frames. -/
+def nativeFieldPrefixJson (nativePrefix : NativeFieldPrefix) : StateM NativeExpression.Builder Json := do
+  let frames ← nativePrefix.frames.mapM fun frame => do
+    return Json.mkObj [("association", ← recordAssociationJson frame.association),
+      ("field", ← fieldJson frame.field), ("preceding", ← valuesJson frame.preceding),
+      ("dependencyView", toJson (← frame.view.mapM fieldDependencyViewJson))]
+  return Json.mkObj [("native", ← layoutJson nativePrefix.native), ("frames", toJson frames)]
+
+def sourceDependencyCaptureJson (capture : SourceDependencyCapture) :
+    StateM NativeExpression.Builder Json := do
+  let projected ← capture.projectedFrom.mapM fun (parent, path) => do
+    return Json.mkObj [("parent", ← valueReferenceJson parent), ("path", namesJson path)]
+  return Json.mkObj [("source", ← layoutJson capture.source),
+    ("parameters", ← valuesJson capture.parameters),
+    ("references", toJson (← capture.references.mapM valueReferenceJson)),
+    ("fieldPrefix", toJson (← capture.fieldPrefix.mapM nativeFieldPrefixJson)),
+    ("projectedFrom", toJson projected)]
 
 /-- Preserve the selected field and application associations of this actual reference.
 Their ordered operands remain references to the existing graph, not copied returned values. -/
 def valueJson (value : ValueBinding) : StateM NativeExpression.Builder Json := do
   let fields ← value.instantiations.mapM fun field => do
-    let association := field.association
-    let view ← field.view.mapM fun view => do
-      return Json.mkObj [("path", namesJson view.path),
-        ("typeFamily", ← ContextSnapshot.closedTermJson view.typeFamily),
-        ("precedingDependencies", toJson view.precedingDependencies)]
+    let view ← field.view.mapM fieldDependencyViewJson
     return Json.mkObj [("id", identityJson field.id),
-      ("association", Json.mkObj [("id", identityJson association.id),
-        ("program", identityJson association.program),
-        ("occurrence", identityJson association.occurrence),
-        ("layout", ← recordJson association.layout)]),
+      ("association", ← recordAssociationJson field.association),
       ("field", ← fieldJson field.field), ("preceding", ← valuesJson field.preceding),
       ("dependencyView", toJson view)]
   let applications ← value.applications.mapM fun application => do
@@ -313,7 +408,8 @@ def valueJson (value : ValueBinding) : StateM NativeExpression.Builder Json := d
     return Json.mkObj [("parent", ← valueReferenceJson parent), ("path", namesJson path)]
   return Json.mkObj [("reference", ← valueReferenceJson value),
     ("fields", toJson fields), ("applications", toJson applications),
-    ("projections", toJson projections)]
+    ("projections", toJson projections),
+    ("telescopes", toJson (← value.telescopeInstantiations.mapM telescopeInstantiationJson))]
 
 def applicationOriginJson (origin : ApplicationOrigin) : StateM NativeExpression.Builder Json := do
   return Json.mkObj [("layout", ← applicationJson origin.layout),
@@ -322,15 +418,29 @@ def applicationOriginJson (origin : ApplicationOrigin) : StateM NativeExpression
     ("contextDependencies", toJson origin.contextDependencies),
     ("callable", toJson (← origin.callable.mapM valueJson))]
 
-def originJson (origin : ValueOrigin) : StateM NativeExpression.Builder Json := do
+/-- The explicit admitted input relation keeps both complete native and consuming views,
+with the exact original application and selected runtime reference. This observes the sealed
+certificate; the JSON does not create or validate one. -/
+def admittedInputInterfaceJson (original : AdmittedInputInterface) :
+    StateM NativeExpression.Builder Json := do
+  return Json.mkObj [("program", identityJson original.program),
+    ("occurrence", identityJson original.occurrence), ("role", ← layoutJson original.role),
+    ("parameters", ← valuesJson original.parameters),
+    ("application", ← applicationOriginJson original.application),
+    ("selected", ← valueJson original.selected), ("native", ← valueJson original.native)]
+
+def originJson (origin : ValueOrigin) (dependencies : Array ValueBinding) :
+    StateM NativeExpression.Builder Json := do
   return Json.mkObj [("occurrence", identityJson origin.occurrence),
     ("program", identityJson origin.program), ("role", ← layoutJson origin.role),
     ("parameters", ← valuesJson origin.parameters),
     ("application", toJson (← origin.application.mapM applicationOriginJson)),
     ("access", toJson (← origin.access.mapM valueJson)),
     ("accessPath", namesJson origin.accessPath),
-    ("sourceMarks", sourceMarksJson origin.sourceMarks),
-    ("sourceDependencies", toJson (origin.sourceDependencies.map valueIdentityJson))]
+    ("fieldPrefix", toJson (← origin.fieldPrefix.mapM nativeFieldPrefixJson)),
+    ("sourceDependencyCapture", toJson (← origin.sourceDependencies.mapM sourceDependencyCaptureJson)),
+    ("inputInterface", toJson (← origin.inputInterface.mapM admittedInputInterfaceJson)),
+    ("sourceDependencies", toJson (dependencies.map valueIdentityJson))]
 
 def roleScopeJson (scope : RoleScope) : Json :=
   Json.mkObj [("program", identityJson scope.program),
@@ -369,7 +479,8 @@ def environmentJson (environment : RuntimeEnvironment) : StateM NativeExpression
   return Json.mkObj [("worker", toJson environment.worker),
     ("context", ← ContextSnapshot.contextJson environment.context),
     ("instances", ContextSnapshot.instancesJson environment.context), ("values", toJson values),
-    ("sourceMarks", sourceMarksJson environment.sourceMarks)]
+    ("bound", boundJson environment.context environment.bound),
+    ("selections", ← SourceSnapshot.selectionsJson environment.selections)]
 
 def actionJson (action : PreparedAction) : StateM NativeExpression.Builder Json := do
   match action with
@@ -397,15 +508,19 @@ def readableLayout (layout : SourceLayout) : MetaM Json := do
   let source ← readableTerm layout.source
   return source.setObjVal! "inputProjection"
     (toJson (layout.inputProjection.map readableInputProjectionJson))
+    |>.setObjVal! "selectionBinding"
+      (toJson (layout.selectionBinding.map ContextSnapshot.bindingJson))
 
 def readableContext (context : ContextTelescope) : MetaM Json :=
   context.withOpen fun bindings => do
     let entries ← bindings.mapM fun binding => do
       let declaration ← getFVarLocalDecl binding.expression
       let value ← (declaration.value? true).mapM fun value => return (← ppExpr value).pretty
+      let originalSource ← binding.originalSource.mapM fun source => return (← ppExpr source).pretty
       return Json.mkObj [("id", ContextSnapshot.bindingJson binding.id),
         ("name", toJson (declaration.userName.toString (escape := false))),
-        ("type", toJson (← ppExpr declaration.type).pretty), ("value", toJson value)]
+        ("type", toJson (← ppExpr declaration.type).pretty), ("value", toJson value),
+        ("originalSource", toJson originalSource)]
     return toJson entries
 
 def readableRole (role : ComputationalRole) (layout : Option SourceLayout := none) :
@@ -440,12 +555,21 @@ opaque ObservationDescriptor.prepare
     (application : Option ApplicationLayout) (roles : RoleTelescope)
     (actualArguments : Array RuntimeArgument := #[]) :
     MetaM ObservationDescriptor := do
+  let dependencies ← IO.ofExcept <| origin.typeDependencies.mapError IO.userError
   let actualArguments ← actualArguments.mapM fun argument => do
     let some declared := roles.arguments[argument.index]?
       | throwError "an observed actual argument is outside its prepared source telescope"
-    let .ok marks := argument.sourceMarks declared.role.source
-      | throwError "the source observation lost a retained occurrence mark"
-    return Observation.actualArgumentJson argument marks
+    let binding ← declared.role.source.withOpen fun bindings expression => do
+      let .fvar localId := expression
+        | throwError "the source observation lost its typed argument binder"
+      let some binding := bindings.find? (·.expression.fvarId! == localId)
+        | throwError "the observed argument is outside its complete source context"
+      let some original := environment.bound[binding.id]?
+        | throwError "the observed argument lost its actual source binding"
+      unless retainsReference original argument.value do
+        throwError "the observed argument changed its original source occurrence"
+      return binding.id
+    return Observation.actualArgumentJson argument binding
   let build : StateM NativeExpression.Builder (Json × Array Nat) := do
     let action ← Observation.actionJson action
     let sourceDocument ← Observation.layoutJson source
@@ -453,7 +577,7 @@ opaque ObservationDescriptor.prepare
     let outputs ← outputs.mapM Observation.layoutJson
     let record ← record.mapM Observation.recordJson
     let environment ← Observation.environmentJson environment
-    let origin ← Observation.originJson origin
+    let origin ← Observation.originJson origin dependencies
     let application ← application.mapM Observation.applicationJson
     let roles ← Observation.rolesJson roles
     let request := Json.mkObj [
@@ -480,8 +604,16 @@ opaque ObservationDescriptor.prepare
     ("context", context), ("arguments", toJson arguments),
     ("results", toJson results), ("captures", toJson captures),
     ("application", toJson applicationText),
-    ("sourceMarks", Observation.sourceMarksJson environment.sourceMarks),
-    ("sourceDependencies", toJson (origin.sourceDependencies.map Observation.valueIdentityJson))]
+    ("bound", Observation.boundJson environment.context environment.bound),
+    ("sourceDependencies", toJson (dependencies.map Observation.valueIdentityJson))]
+  -- Preserve the complete JSON while sharing equal subtrees once for logged requests.
+  -- Later events and annotation updates retain these same immutable native/readable values.
+  let (native, readable) ← if (← Diagnostics.current?).isSome then do
+      match JsonGraph.decode (JsonGraph.encode (.arr #[native, readable])) with
+      | .ok (.arr #[native, readable]) => pure (native, readable)
+      | .ok _ => throwError "internal: the observation codec changed its native/readable pair"
+      | .error reason => throwError "internal: the observation codec failed: {reason}"
+    else pure (native, readable)
   return ⟨native, readable, none, none⟩
 
 /-- Updating a supplied source selection does not reopen or re-render the native descriptor. -/
