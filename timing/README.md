@@ -1,29 +1,232 @@
 # Timing records and cost table
 
-`runs.jsonl` records `just loop`, `just slow` and `just milestone`
-(`scripts/feedback.sh`). New entries include the command, source and dependency revisions and
-diff hashes, input hashes, toolchain and environment context, workload hash, attempted sources,
-phase durations and statuses, overall status, and any reason for a long run. A loop records build,
-fresh consumer execution and selected acceptance separately. Its unique directory is
-`.tmp/logs/<UTC>-<command>.<unique>/`, containing `context.json` and `output.log`.
+The existing feedback commands keep their logs and timing evidence in the repository.
+Each invocation of `just loop`, `just slow` and `just milestone` creates
+`timing/logs/<UTC>-<command>.<unique>/`. Selected acceptance runs create
+`timing/logs/accept-<UTC>-<unique>/` and retain their parent feedback run ID.
+These paths are not ignored. Commit the records and the corresponding run directories with
+the source change that produced them, including failed and interrupted executions.
+
+## Feedback checkout evidence
+
+The changed-extension control executes the original public command in an owned
+shared Git clone. Its finalizer leaves every tested source, modified input and
+diagnostic at the original `checkout/` path. Before retiring the execution
+`.git` directory, `scripts/feedback_checkout.py` archives its literal contents
+and the complete working tree, retains the exact queried authority blobs as
+ordinary files, and verifies an extracted copy against the original bytes,
+modes, timestamps, HEAD, refs, index and Git status. The full working-tree
+archive also preserves generated files already ignored by the parent repository.
+
+Each `checkout-evidence-*/manifest.json` records the archive hashes, all file
+hashes, original external object-store dependencies and the observed available
+and missing reachable object IDs. The raw Git metadata keeps those dependencies
+unchanged. This preserves the execution's actual state; it does not reconstruct
+unrelated missing history or claim the shared clone was self-contained.
+The authority input copies retain their original Git object IDs and SHA256 hashes.
+
+The finalizer runs in the existing control's `finally` block. An error before
+verified archival leaves the original `.git` in place and records the failure;
+there is no ignore rule or clean-tree exception. Only after verification and
+durable archive writes is that archived metadata retired. The source and output
+files then belong to the parent repository as ordinary evidence, not a gitlink.
+If metadata retirement itself fails, the record remains `retirement-failed`;
+its verified archive is still restorable after verification is repeated.
+Earlier capture or verification failures cannot be restored as successful archives.
+
+An existing owned clone is finalized explicitly with `retain CHECKOUT
+--authority-revision COMMIT --authority-path PATH ...`. The paths are the exact
+checkpoint and extension input already used by its unchanged-input observation.
+`restore EVIDENCE --destination NEW_DIRECTORY` verifies the artifacts and restores
+the tested files and literal Git metadata into a new directory. Restoration needs
+the original external stores to reproduce their recorded state; the retained
+authority blobs and source/diagnostic archives remain directly readable independently.
+Commit the ordinary files and complete evidence directory with the producing
+source change. Keep the clean committed-tree requirement unchanged.
+
+## Recorded units
+
+| Evidence | Location | Scope |
+| --- | --- | --- |
+| Run summary | `timing/runs.jsonl`, run directory `result.json` | Complete command, actual result, setup/build/execution/acceptance costs, selected inputs and source/dependency/environment tuple |
+| Module starts and results | `timing/modules.jsonl`, run directory `steps/*.json` | One original selected test module, its exact source hash and fresh Lean process, including imports, fixtures, construction and nested work |
+| Statement computations | `timing/computations.jsonl`, run directory `computations.jsonl` | Every top-level and executed nested statement, including successful definitions; the actual runner's start and completion events |
+| Application events | Run directory `application/*.jsonl` | The native session's ordered diagnostic events, including computation and file starts/completions |
+| Run and phase journal | Run directory `events.jsonl` | Starts persisted before setup or execution, completed statuses, and incomplete execution evidence |
+| Console diagnostics | Run directory `output.log`; acceptance `build.log` and `worker<N>.log` | The current commands' unfiltered output and actual failures |
+| Acceptance summary | `timing/acceptance.jsonl`, acceptance run directory `result.json` | Current input and manifest hashes, worker statuses, timing completeness, report coverage and outcomes |
+
+Each module and computation record includes its run ID, revision, environment, input hash and
+`context.json` path. The full context includes source diff hashes, dependency revisions and
+diffs, input hashes, toolchain details, command, workload hash and the reason for a long run.
+It is captured through the same native build environment for feedback and acceptance.
+The initial journal and provisional context are written before expensive setup. If context
+resolution itself fails, `context_status` remains `pending`; the failed run does not acquire
+a complete environment tuple.
 
 Dependency fingerprints use Lake's loaded workspace, including `--packages` overrides. The
 `resolution` field records the actual package directories, configuration files and Lake arguments.
+The `timing/` evidence directory is excluded from source and dependency diff/untracked
+fingerprints, so creating a run log does not change an otherwise identical workload.
 Each dependency's `revision`, changed files and untracked hashes describe that selected directory;
 `manifest_pin`, `manifest_path` and `matches_manifest_path` separately describe its relation to the
 checked-in manifest. A manifest pin does not identify an overridden source checkout.
 
-`acceptance.jsonl` records each selected acceptance invocation (`scripts/accept_files.sh`): input
-and manifest hashes, build and worker durations, worker statuses, completeness, outcomes, and the
-report hash. Its unique directory is `.tmp/logs/accept-<UTC>-<unique>/`; `<stem>.json` contains the
-file's statement and setup milliseconds, `worker<N>.log` contains live completed-statement
-diagnostics, and `report.json` contains the current combined report. `.tmp/accept-run.json` is the
-latest current report, not a cumulative history. Timing records are committed with the work that
-produced them.
+## Inclusive costs and shared setup
 
-Older entries have fewer fields. Their successful build status does not establish fresh consumer
-execution. Compare measurements using the recorded source, dependencies, environment and complete
-selected inputs; inspect the phase statuses as well as the total.
+A module's `seconds` measures its complete fresh Lean process. Its `shared_setup_seconds`
+references the same run's preparation and dependency build, which are performed once for the
+selection. `inclusive_seconds` is the sum. Several modules therefore share the same setup
+cost; their inclusive values must not be summed to estimate the run's wall time. The run's own
+`seconds` is the measured end-to-end wall time.
+
+Statement records preserve the native `computation.started` and `computation.timing` events.
+`seconds` is the runner's inclusive `milliseconds`: statement execution, source construction,
+nested work and the setup required by that statement. The original execution, setup,
+shared-file-setup and nested measurements remain in the completion event's `data`.
+Earlier definitions can be necessary for several later statements, so these inclusive costs
+also overlap. Successful setup definitions have their own records.
+
+Nested records have `unit=nested_statement` and use the native session plus child-start
+sequence as their identity. `parent_computation` and `root_computation` follow the actual
+event ancestry. Each record retains its own execution time, the enclosing computation's
+setup, the measured shared preflight before the enclosing scope's first child, and the
+native runner's preceding retained-sibling setup. The same rule applies through deeper
+scopes. These are inclusive, overlapping costs; no future sibling work is charged as
+preflight and no shared cost is divided arbitrarily. File `statements`, `executed` and
+`records` count top-level items; `nested_records` separately counts actual child starts.
+
+Each statement additionally references the acceptance run's shared preparation/build cost and
+its worker's native startup/import cost. Worker startup is measured from the recorded worker
+start to its first `file.begin` event on the same monotonic clock. The record keeps these
+amounts separate and includes them in `inclusive_seconds`; it never divides shared setup
+arbitrarily among statements. A declared worker requires its unique recorded start and a
+nonnegative interval at the native clock's millisecond precision. Missing or contradictory
+startup evidence leaves that shared cost and the inclusive total unknown, with incomplete
+coverage; ordinary unlabeled session runs remain distinct. The acceptance run's wall time and worker durations remain the
+appropriate totals for the parallel selection.
+
+## Failed and partial executions
+
+A module start is persisted before invoking Lean. A completed failure records its real status
+and duration; a selected module blocked by setup/build failure records `module.not_run` with
+no invented execution duration. A handled interruption records the elapsed partial work and
+`complete=false`. If the process is killed before an exit handler can run, the start journal,
+context and live logs remain in the repository without an invented completion.
+
+The statement runner writes each computation start before its work and flushes each event.
+The acceptance collector reads these native events, including unfinished starts, independently
+of the final report. Exact file-run IDs, original statement counts, executed counts and input
+hashes check timing coverage, including definitions that need no report row. Missing,
+duplicate, malformed or unfinished timing events keep timing coverage incomplete. Each
+native trace must retain its original session header and contiguous event sequence; deleting
+both ends of a nested computation cannot erase it silently. After a sequence gap, surviving
+terminal events and elapsed work remain recorded while completeness stays false.
+A complete timing stream cannot repair a missing or corrupted acceptance report.
+A paired native file begin and read/parse failure records a complete failed attempt, with
+its actual terminal duration, original failure and unknown parsed statement count. Such a
+record can belong to a passing invalid-input control; it creates no successful statement.
+An unclosed file begin remains incomplete.
+
+A nested record retains the child's staged `outcome` separately from the exact
+`enclosing_outcome` and `enclosing_published` result. A staged hold is not promoted to a
+public hold. A child with its own completion and a recorded enclosing failure has a
+complete timing observation while publication remains withheld. Missing child completion
+or enclosing outcome leaves it incomplete. Unattempted continuations remain the original
+parent observations; the collector invents no start, duration or child outcome for them.
+
+The report still uses the original admission and regression checks. `<stem>.json` contains the
+current file's unchanged outcome records, and `report.json` combines only this selection.
+`.tmp/accept-run.json` remains the latest current report. An incomplete report cannot inherit
+historical rows, and collecting timings does not regenerate an acceptance baseline.
+
+`tests/feedback/test_feedback.py` retains the original freshness, missing-consumer,
+interrupted-worker and damaged-report controls. The module/statement timing control runs
+`just loop CasCompiler.ContextTests ellipses` through the original public commands, checks
+the complete admitted file, and verifies the persisted records and logs. The warm
+`CasRuntime.SessionTests` control also checks all six top-level and two nested computations
+of its original public application-log fixture, including the nested definition, original
+causal links, setup costs and separate enclosing publication. That same control removes a
+complete interior child pair only from a copy of its actual trace and requires incomplete
+timing while preserving later terminal results and the original log. The acceptance timing
+control also reuses its actual trace and worker-start record to reject missing or impossible
+startup boundaries without replacing them with zero setup. The interruption and
+damaged-report controls additionally verify that their current evidence survives failure.
+
+The 300-second development-loop rule is unchanged: an over-limit loop finishes, reports the
+warning and records its failure status. Explicit long runs keep their stated reason. Older
+entries and `.tmp/logs` evidence retain their historical locations and fewer fields; a
+successful old build alone does not establish fresh module execution.
+
+## Original extension observations and outcome columns
+
+`just loop --extension STEM` executes the complete original file under
+`tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/`.
+The option can be repeated and combined with ordinary module or admitted-file selections.
+The input preflight checks the original checkpoint bytes and its recorded source hash;
+the three original supplements absent from that checkpoint use their adding revision's
+exact Git blob. A changed file or checkpoint fails before native preparation. The
+acceptance run retains this authority in `selection.json` and its full input hashes.
+
+Extension workers use the existing `computing` mode. Their report rows carry
+`inputKind=extension`, `admitted=false` and `computing=true`; observing a result does not
+add the file to the admitted assertion inventory or regenerate an outcome baseline.
+The current worker's original result and complete timing/report coverage determine the
+command status.
+
+Current report rows retain `kind` and `fails` and include the additive `stratum` column.
+An unread source form has `kind=gap`, `stratum=unsupportedSource` and `fails=true`.
+Infrastructure failures before interpretation retain `kind=internal`, `fails=true` and
+`stratum=null`. The regression comparator accepts older reports without the additive
+column using their original kind-based semantics, while an explicit failure or an
+`unsupportedSource` stratum remains a failure in current reports. An unchanged `kind`
+therefore cannot conceal a newly classified source failure.
+
+## Application traces
+
+A native kernel session writes an append-only JSONL stream through
+`CasTools.ApplicationLog`. Feedback and acceptance place it in their run directory's
+`application/` subdirectory. Other session entrances use `timing/application/` by default;
+`CAS_APPLICATION_LOG_DIR` selects another directory. Diagnostics remain in the file and do
+not become ordinary notebook or language output.
+
+Completed historical application streams may be archived as `.jsonl.gz` when their expanded
+diagnostic payload is disproportionately large. The corresponding `result.json` keeps the
+compressed path and records the compression/verification method; decompression is byte-exact.
+Active session streams are always written as ordinary append-only `.jsonl` files.
+
+Each line has `schema`, an independent `session` nonce, an increasing `sequence`,
+`parents`, `monotonicMilliseconds`, an `event` name and its structured `data`.
+Wire schema 2 stores only `data` as an exact JSON graph with a root and a topologically
+ordered node table. Repeated complete JSON values share earlier nodes; no field, selected
+structure or provenance is omitted. Number nodes retain the exact integer mantissa and
+nonnegative decimal exponent. `CasTools.ApplicationLog.decodeEvent` / `readEvents` and
+Python `scripts/application_log.py:loads_application_event` restore the original structured
+`data`; the envelope and its schema number stay unchanged. Both readers accept schema 1,
+and reject unknown versions, malformed constructors, duplicate keys and invalid references.
+The timing collector reads one native line at a time and preserves exact decimal literals
+in the expanded start/completion events it writes to derived records.
+
+Parent sequence numbers refer to that same session stream. The nonce is a diagnostic
+identifier; creating a log does not allocate a semantic binding or occurrence. The
+`session.started` header links the feedback run, context and worker, and records the native
+toolchain and supplied session metadata.
+
+Follow a computation from `statement.started` and `statement.read` through
+`request.prepared`/`request.execute`, `realization.selected`, `dispatch`,
+`reply.admission.started` and `reply.admitted` or `reply.rejected`, then
+`binding.retained` and `statement.finished`. These events retain the actual source text and
+position, selected reading, prepared operation and operands, chosen registration, reply
+admission, binding identities and outcome. `realization.missing` records the operation
+address for which the session had no registration. Failed or interrupted statements retain
+their emitted events and outcome or interruption entry.
+
+A `statement.child.finished` event can record `staged=true` while its publication remains
+`pending enclosing cell`. That describes work retained inside the active transaction.
+The enclosing `statement.finished.published` records the actual publication result.
+Neither an admitted reply nor a successful child alone establishes that its enclosing cell
+committed. File and computation timing events share these session/parent links, so the
+duration records can be followed back to the same actual execution.
 
 ## Current measured feedback costs
 

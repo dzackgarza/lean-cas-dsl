@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 # Current-source feedback (C21/C24). Called by just loop, slow, milestone and stop.
-# loop "MODULE ..." [acceptance stems...] rebuilds imports, then executes each source afresh.
+# loop "MODULE ..." [STEM | --extension STEM ...] executes complete original inputs.
+# loop --extension STEM builds the suite imports and observes that unchanged completion file.
 # An explicit +Module:facet is build-only and requires a selected acceptance consumer.
 # slow "REASON" MODULE... [-- acceptance arguments...] runs the same checks as an explicit long run.
 # milestone "REASON" builds all original targets and freshly executes their tests and suite.
-# Logs are unique per invocation; timing/runs.jsonl records its source, tuple and phase times.
+# Logs and started/finished timing records are retained under timing/logs for every invocation.
 set -euo pipefail
 invocation=(scripts/feedback.sh "$@")
 now() { python3 -c 'import time; print(time.monotonic_ns())'; }
 started=$(now)
 cd "$(dirname "$0")/.."
-source scripts/container.sh
 limit=300
 records=timing/runs.jsonl
-die() { echo "feedback: $*" >&2; exit 2; }
+die() { printf 'feedback: %s\n' "$*" | tee -a "$log" >&2; exit 2; }
 
 running() {
   incontainer bash -c '
@@ -33,18 +33,87 @@ sources=()
 build_targets=()
 case "$command" in
   stop)
+    source scripts/container.sh
     active=$(running)
     [[ -n "$active" ]] || { echo "no lake or lean process works in this checkout"; exit 0; }
     echo "$active"
     incontainer kill $(echo "$active" | cut -d' ' -f1)
     exit 0
     ;;
+  loop|slow|milestone) ;;
+  *) sed -n '2,7p' "$0" | sed 's/^# //'; exit 2 ;;
+esac
+
+# The milestone gate observes pre-existing dirt, before this run creates its evidence.
+milestone_tree_status=
+if [[ "$command" == milestone ]]; then
+  milestone_tree_status=$(git status --porcelain)
+fi
+if [[ "$command" == slow || "$command" == milestone ]]; then reason=${1:-}; fi
+
+mkdir -p timing/logs
+run_dir=$(mktemp -d "timing/logs/$(date -u +%Y%m%dT%H%M%SZ)-$command.XXXXXX")
+log=$run_dir/output.log
+context=$run_dir/context.json
+touch "$log" "$records"
+
+CAS_FEEDBACK_PARENT_RUN=${CAS_FEEDBACK_RUN:-}
+CAS_FEEDBACK_RUN=${run_dir##*/}
+CAS_FEEDBACK_CONTEXT=$context
+CAS_APPLICATION_LOG_DIR=$run_dir/application
+export CAS_FEEDBACK_PARENT_RUN CAS_FEEDBACK_RUN CAS_FEEDBACK_CONTEXT CAS_APPLICATION_LOG_DIR
+mkdir -p "$CAS_APPLICATION_LOG_DIR"
+native() {
+  incontainer env CAS_FEEDBACK_RUN="$CAS_FEEDBACK_RUN" \
+    CAS_FEEDBACK_CONTEXT="$CAS_FEEDBACK_CONTEXT" \
+    CAS_FEEDBACK_PARENT_RUN="$CAS_FEEDBACK_PARENT_RUN" \
+    CAS_APPLICATION_LOG_DIR="$CAS_APPLICATION_LOG_DIR" "$@"
+}
+preparation_ns=0 build_ns=0 execution_ns=0 acceptance_ns=0
+build_status= execution_status= acceptance_status=
+preparation_finished=false
+context_pending=true
+attempted=false
+attempted_sources=()
+finish() {
+  local status=$?
+  trap - EXIT
+  set +e
+  if [[ "$context_pending" == true ]]; then
+    python3 scripts/feedback_records.py begin "$context" "$command" "$reason" "$log" \
+      "${#targets[@]}" "${#stems[@]}" "${#sources[@]}" \
+      "${targets[@]}" "${stems[@]}" "${sources[@]}" "${invocation[@]}" 2>&1 | tee -a "$log"
+    local refresh_status=$?
+    [[ "$status" -ne 0 ]] || status=$refresh_status
+  fi
+  if [[ "$preparation_finished" != true ]]; then preparation_ns=$(( $(now) - started )); fi
+  python3 scripts/feedback_records.py finish "$records" "$context" "$status" "$limit" \
+    "$(( $(now) - started ))" "$preparation_ns" "$build_ns" "$execution_ns" "$acceptance_ns" \
+    "$build_status" "$execution_status" "$acceptance_status" "$attempted" "${attempted_sources[@]}"
+  status=$?
+  exit "$status"
+}
+trap finish EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+python3 scripts/feedback_records.py begin "$context" "$command" "$reason" "$log" \
+  "${#targets[@]}" "${#stems[@]}" "${#sources[@]}" \
+  "${targets[@]}" "${stems[@]}" "${sources[@]}" "${invocation[@]}" 2>&1 | tee -a "$log"
+
+source scripts/container.sh
+
+case "$command" in
   loop)
-    [[ $# -ge 1 ]] || die 'usage: just loop "<test modules>" [acceptance stem ...]'
+    [[ $# -ge 1 ]] || die 'usage: just loop "<test modules>" [STEM | --extension STEM ...]'
     [[ "$1" != *$'\n'* ]] || die 'put selected test modules on one line'
-    read -r -a targets <<<"$1"
-    shift
-    stems=("$@")
+    if [[ "$1" == --extension ]]; then
+      targets=(+CasCatalogue.TestSuite:leanArts)
+      stems=("$@")
+    else
+      read -r -a targets <<<"$1"
+      shift
+      stems=("$@")
+    fi
     ;;
   slow)
     [[ $# -ge 2 ]] || die 'usage: just slow "<reason>" <module ...> [-- acceptance arguments ...]'
@@ -64,7 +133,7 @@ case "$command" in
   milestone)
     [[ $# -eq 1 ]] || die 'usage: just milestone "<reason>"'
     reason=$1
-    [[ -z "$(git status --porcelain)" ]] || die 'a milestone requires a clean committed tree'
+    [[ -z "$milestone_tree_status" ]] || die 'a milestone requires a clean committed tree'
     targets=(CasCompilerTests CasRuntimeTests CasDsl CasDslTests)
     build_targets=("${targets[@]}")
     stems=(--all)
@@ -96,21 +165,24 @@ if [[ "$command" != milestone ]]; then
   done
 fi
 
+# Preserve parsed fields on the same pending run before any native setup starts.
+python3 scripts/feedback_records.py begin "$context" "$command" "$reason" "$log" \
+  "${#targets[@]}" "${#stems[@]}" "${#sources[@]}" \
+  "${targets[@]}" "${stems[@]}" "${sources[@]}" "${invocation[@]}" 2>&1 | tee -a "$log"
 active=$(running)
 [[ -z "$active" ]] || die "a run is in progress in this checkout (just stop stops it): $active"
-mkdir -p .tmp/logs timing
-run_dir=$(mktemp -d ".tmp/logs/$(date -u +%Y%m%dT%H%M%SZ)-$command.XXXXXX")
-log=$run_dir/output.log
-context=$run_dir/context.json
-touch "$log" "$records"
 if [[ ${#stems[@]} -gt 0 && -f .tmp/accept-run.json ]]; then
   mv .tmp/accept-run.json "$run_dir/prior-accept-run.json"
+fi
+if [[ ${#stems[@]} -gt 0 ]]; then
+  python3 scripts/acceptance_inputs.py "$run_dir/selected-inputs.json" "${stems[@]}" \
+    2>&1 | tee -a "$log"
 fi
 
 if [[ "$command" == milestone ]]; then
   # Lean's native header parser is also used by Lake; it does not elaborate imported tests.
   # https://github.com/leanprover/lean4/blob/v4.33.0/src/Lean/Elab/ParseImportsFast.lean
-  incontainer lake env lean --deps-json CasCompilerTests.lean CasRuntimeTests.lean CasDslTests.lean \
+  native lake env lean --deps-json CasCompilerTests.lean CasRuntimeTests.lean CasDslTests.lean \
     > "$run_dir/imports.json" 2> >(tee -a "$log" >&2)
   python3 - "$run_dir/imports.json" > "$run_dir/sources" <<'PY'
 import json, sys
@@ -139,132 +211,12 @@ PY
 fi
 
 # Resolve the actual package paths in the build environment, including container symlinks.
-incontainer python3 - "$context" "$command" "$reason" "$log" \
+native python3 scripts/feedback_records.py context "$context" "$command" "$reason" "$log" \
   "${#targets[@]}" "${#stems[@]}" "${#sources[@]}" \
-  "${targets[@]}" "${stems[@]}" "${sources[@]}" "${invocation[@]}" <<'PY'
-import datetime, hashlib, json, os, platform, subprocess, sys
-from pathlib import Path
-out, kind, reason, log = sys.argv[1:5]
-target_count, stem_count, source_count = map(int, sys.argv[5:8])
-cursor = 8
-targets = sys.argv[cursor:cursor + target_count]
-cursor += target_count
-stems = sys.argv[cursor:cursor + stem_count]
-cursor += stem_count
-sources = sys.argv[cursor:cursor + source_count]
-cursor += source_count
-digest = lambda data: hashlib.sha256(data).hexdigest()
-def git_state(path: Path) -> dict[str, str | bool | list[str] | dict[str, str]]:
-    def git(*args: str) -> bytes:
-        return subprocess.check_output(["git", "-C", str(path), *args])
-    revision = git("rev-parse", "HEAD").decode().strip()
-    selection = ["--", ".", ":(exclude)timing"]
-    diff = git("diff", "--binary", "HEAD", *selection)
-    untracked = git("ls-files", "--others", "--exclude-standard", "-z", *selection).decode().split("\0")
-    extra = {name: digest((path / name).read_bytes()) for name in untracked if name and (path / name).is_file()}
-    return {"path": str(path.resolve()), "revision": revision, "diff_sha256": digest(diff),
-            "changed": git("diff", "--name-only", "HEAD", *selection).decode().splitlines(),
-            "untracked": extra, "dirty": bool(diff or extra)}
-checkout = Path.cwd()
-manifest_path = checkout / "lake-manifest.json"
-manifest = json.loads(manifest_path.read_text())
-resolution = json.loads(subprocess.check_output(
-    ["lake", "--log-level=error", "run", "feedback-context"], text=True))
-resolved = resolution["packages"]
-if not resolved or Path(resolved[0]["path"]).resolve() != checkout.resolve():
-    raise SystemExit("Lake's resolved workspace does not match this checkout")
-manifest_packages = {package["name"].strip("«»"): package for package in manifest["packages"]}
-dependencies = []
-for package in resolved[1:]:
-    name = package["name"]
-    path = Path(package["path"]).resolve()
-    declared = manifest_packages.get(name)
-    declared_path = None
-    if declared is not None:
-        declared_path = ((checkout / declared["dir"]) if declared["type"] == "path" else
-            (checkout / manifest.get("packagesDir", ".lake/packages") / name
-             / (declared.get("subDir") or ""))).resolve()
-    configuration = Path(package["configuration"])
-    dependencies.append({"name": name, "key": package["key"],
-        "manifest_pin": declared.get("rev") if declared else None,
-        "manifest_path": str(declared_path) if declared_path else None,
-        "matches_manifest_path": path == declared_path,
-        "configuration": str(configuration.resolve()),
-        "configuration_sha256": digest(configuration.read_bytes()), **git_state(path)})
-inputs = sources.copy()
-acceptance = stems.copy()
-if acceptance[:1] == ["--manifest"] and len(acceptance) >= 2:
-    inputs.append(acceptance[1])
-    acceptance = acceptance[2:]
-inputs += [str(path) for path in sorted(Path("tests/acceptance").glob("*.cas"))] if acceptance == ["--all"] else [f"tests/acceptance/{stem}.cas" for stem in acceptance]
-inputs += ["lean-toolchain", "lake-manifest.json", "lakefile.lean"]
-# Match CasRuntime.installedManifest, including the absent-default observation.
-installed = Path(os.environ.get("CAS_LEAVES", ".lake/packages/cas_leaves"))
-if installed.suffix != ".json":
-    installed /= "leaves.json"
-inputs.append(str(installed))
-if "CAS_REALIZATION_PROFILE" in os.environ:
-    inputs.append(os.environ["CAS_REALIZATION_PROFILE"])
-input_hashes = {name: digest(Path(name).read_bytes()) if Path(name).is_file() else None for name in inputs}
-source = git_state(checkout)
-environment = {"host": platform.node(), "system": platform.platform(), "machine": platform.machine(),
-    "python": platform.python_version(),
-    "lean": subprocess.check_output(["lean", "--version"], text=True).strip(),
-    "lake": subprocess.check_output(["lake", "--version"], text=True).strip(),
-    "selectors": {key: os.environ[key] for key in ("ELAN_TOOLCHAIN", "LEAN_PATH", "LEAN_SYSROOT",
-        "CAS_LEAVES", "CAS_REALIZATION_PROFILE", "CAS_LEAF_CONTRACT_PATH", "CAS_SAGE_PYTHON",
-        "CAS_GAP_PYTHON") if key in os.environ}}
-workload = {"targets": targets, "acceptance": stems, "inputs": input_hashes,
-            "source": source, "dependencies": dependencies, "resolution": resolution,
-            "environment": environment}
-entry = {"utc": datetime.datetime.now(datetime.timezone.utc).isoformat(), "kind": kind,
-    "run": Path(out).parent.name, "revision": source["revision"], "dirty": source["dirty"],
-    "reason": reason, "command": sys.argv[cursor:], "sources": sources, "log": log,
-    "workload": digest(json.dumps(workload, sort_keys=True).encode()), **workload}
-Path(out).write_text(json.dumps(entry))
-PY
-
-build_ns=0 execution_ns=0 acceptance_ns=0
-build_status= execution_status= acceptance_status=
-attempted=false
-attempted_sources=()
-finish() {
-  local status=$?
-  trap - EXIT
-  set +e
-  python3 - "$records" "$context" "$status" "$limit" "$(( $(now) - started ))" \
-    "$build_ns" "$execution_ns" "$acceptance_ns" "$build_status" "$execution_status" \
-    "$acceptance_status" "$attempted" "${attempted_sources[@]}" <<'PY'
-import datetime, json, sys
-from pathlib import Path
-records, context, status, limit, total, build, execution, acceptance, bs, es, acs, attempted = sys.argv[1:13]
-sources = sys.argv[13:]
-entry = json.loads(Path(context).read_text())
-seconds = int(total) / 1e9
-over = entry["kind"] == "loop" and seconds > int(limit)
-execution_result = int(status)
-status = execution_result or (1 if over else 0)
-entry.update({"seconds": seconds, "status": status, "execution_status": execution_result,
-    "over_limit": over, "within_loop_bound": seconds <= int(limit), "attempted": attempted == "true",
-    "attempted_sources": sources, "finished_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-    "phases": {name: {"seconds": int(elapsed) / 1e9, "status": int(result) if result else None}
-        for name, elapsed, result in (("build", build, bs), ("execution", execution, es), ("acceptance", acceptance, acs))}})
-summary = f"{entry['kind']}: execution status {execution_result}; status {status} in {seconds:.3f} s; log {entry['log']}"
-if over:
-    summary += f"\nOVER THE LIMIT: the {limit}-second development loop needs repair. The run was allowed to finish."
-with open(entry["log"], "a") as handle:
-    handle.write(summary + "\n")
-with open(records, "a") as handle:
-    handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
-print(summary)
-raise SystemExit(status)
-PY
-  status=$?
-  exit "$status"
-}
-trap finish EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
+  "${targets[@]}" "${stems[@]}" "${sources[@]}" "${invocation[@]}"
+context_pending=false
+preparation_ns=$(( $(now) - started ))
+preparation_finished=true
 
 # A missing local consumer retires earlier acceptance results and records this failure.
 for file in "${sources[@]}"; do
@@ -293,13 +245,15 @@ fi
 
 # One phase uses one command; preserve both command failure and a failed durable-log write.
 step() {
-  local phase=$1 before elapsed result
-  shift
+  local phase=$1 source=$2 before elapsed result
+  shift 2
   printf '[%s] ' "$phase" | tee -a "$log"
   printf '%q ' "$@" | tee -a "$log"
   printf '\n' | tee -a "$log"
   attempted=true
   before=$(now)
+  python3 scripts/feedback_records.py step-start "$context" "$phase" "$source" "$before" \
+    "$(( preparation_ns + build_ns ))" "$@" || return $?
   set +e
   "$@" 2>&1 | tee -a "$log"
   local codes=("${PIPESTATUS[@]}")
@@ -307,6 +261,7 @@ step() {
   elapsed=$(( $(now) - before ))
   result=${codes[0]}
   [[ "$result" -ne 0 ]] || result=${codes[1]}
+  python3 scripts/feedback_records.py step-finish "$context" "$before" "$elapsed" "$result" || return $?
   case "$phase" in
     build) build_ns=$(( build_ns + elapsed )); build_status=$result ;;
     execution) execution_ns=$(( execution_ns + elapsed ));
@@ -319,11 +274,11 @@ step() {
 status=0
 # Lake retains complete failed-job logs and build progress at this threshold. The fresh
 # consumer's own stdout/stderr remains unfiltered; successful import warnings stay in Lake.
-step build incontainer lake --log-level=error build "${build_targets[@]}" || status=$?
+step build "" native lake --log-level=error build "${build_targets[@]}" || status=$?
 if [[ "$status" -eq 0 || "$command" == milestone ]]; then
   for file in "${sources[@]}"; do
     attempted_sources+=("$file")
-    if step execution incontainer lake --log-level=error lean "$file" -- -DstderrAsMessages=false; then :; else
+    if step execution "$file" native lake --log-level=error lean "$file" -- -DstderrAsMessages=false; then :; else
       result=$?
       [[ "$status" -ne 0 ]] || status=$result
       [[ "$command" == milestone ]] || break
@@ -331,7 +286,7 @@ if [[ "$status" -eq 0 || "$command" == milestone ]]; then
   done
 fi
 if [[ ${#stems[@]} -gt 0 && ( "$status" -eq 0 || "$command" == milestone ) ]]; then
-  if step acceptance scripts/accept_files.sh "${stems[@]}"; then :; else
+  if step acceptance "" scripts/accept_files.sh "${stems[@]}"; then :; else
     result=$?
     [[ "$status" -ne 0 ]] || status=$result
   fi
