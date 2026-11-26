@@ -1,0 +1,16 @@
+-- A complete public file for the session log and timing contracts.
+-- The independent integer peer must execute both direct and requested additions.
+
+let R := ℤ in Rings
+let a := 17 in R
+let two := 2 in R
+let sum := a + a in R
+
+test logging.direct "17 + 17 = 34":
+  assert sum = 34 in R
+
+context do
+  let doubled := a · two in R
+  test logging.nested "17 · 2 = 34":
+    assert doubled = 34 in R
+end
