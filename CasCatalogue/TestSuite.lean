@@ -1,7 +1,5 @@
-/-
-Copyright (c) 2026 Dzack Garza. All rights reserved.
-Released under Apache 2.0 license as described in the file LICENSE.
--/
+
+
 module
 
 public import CasRuntime.Session
@@ -19,71 +17,41 @@ public meta import Worker.Output
 
 public section
 
-/-!
-# The acceptance suite: files of statements in the language
-
-`#cas_tests "tests/acceptance/f.cas"` runs a file of the language, and `#cas_tests "dir"` every
-`.cas` file of `dir`. An item is `test id "source": statement`, a statement admitted permanently
-(`scripts/check_acceptance_permanent.py`), whose expected value comes from `source`; or a bare
-`let`. The file's `let`s scope over the items after them, and each retains its computed value.
-
-Each statement runs through `CasRuntime.KernelSession.run`: the source reader, the lowerer and
-the kernel executor, over the registrations of the installed leaves' manifest
-(`CasRuntime.installedManifest`; `#cas_tests "dir" manifest "path"` names another). The
-registrations not admitted are reported. A statement that holds, a gap (no registration, an
-ambiguous one, an unfinished source form) and an unavailable backend are recorded; every other
-outcome (`Outcome.fails`) fails the build. A leaf never sees the suite.
-`#cas_tests "dir" reporting "out.json"` also writes every result as JSON (`cas-harness` runs it
-over a given manifest).
-
-The optional `computing` suffix computes every question through the kernel, with no discharge
-in Lean. Each result records the registrations actually dispatched during that statement.
-
-`#cas "statement"` runs one statement of the language the same way (a notebook cell): its outcome
-is reported, and an outcome that fails the suite is an error.
--/
-
 open Lean Elab Command Term CasRuntime CasCompiler
 
 namespace CasCatalogue.Language
 
 meta section
 
-/-- The outcome of one test of the suite. -/
 structure TestResult where
   file : String
   id : String
-  /-- The outcome's kind (`Outcome.kind`). -/
+
   kind : String
-  /-- The original classified failure, separate from the legacy outcome kind. -/
+
   stratum : Option String := none
   detail : String := ""
-  /-- Whether the outcome fails the suite (`Outcome.fails`). -/
+
   fails : Bool := false
-  /-- Whether this original item entered execution; false for an unexecuted continuation. -/
+
   attempted : Bool := true
-  /-- Whether the item's owning runtime cell committed. Pure source observations have no cell. -/
+
   published : Bool := false
-  /-- Original failing item in this file when an enclosing scope withheld this result. -/
+
   blockedBy : Option String := none
-  /-- The proposition that the reader formed; empty when the statement was not read. -/
+
   question : String := ""
   proposition : String := ""
-  /-- Original checked native terms, scopes, selections and supplied evidence. These source
-  observations remain available when execution fails or the owning cell does not publish. -/
+
   conclusions : Array Json := #[]
-  /-- Registrations actually dispatched during this statement; not mathematical evidence. -/
+
   dispatches : Array Json := #[]
-  /-- Wall time of this statement, in milliseconds (constitution C24, timing history). -/
+
   milliseconds : Nat := 0
-  /-- Wall time of the definitions before this statement that are not reported themselves: the
-  setup that this statement uses, in milliseconds. -/
+
   setupMilliseconds : Nat := 0
   deriving ToJson, FromJson, Inhabited
 
--- The native source and failure-stratum fields are additive. Lean's derived decoder does not
--- use structure defaults, so preserve older reports by supplying only absent fields. Present values
--- still pass through the complete generated decoder, including its normal type checks.
 attribute [-instance] instFromJsonTestResult
 
 instance instFromJsonTestResultCompatible : FromJson TestResult where
@@ -98,7 +66,6 @@ instance instFromJsonTestResultCompatible : FromJson TestResult where
       | _ => json
     @fromJson? TestResult instFromJsonTestResult normalized
 
-/-- Report a completed statement. `-DstderrAsMessages=false` enables live stderr output. -/
 private def TestResult.writeProgress (result : TestResult)
     (position : Option Position := none) : CommandElabM Unit := do
   let output ← if Core.stderrAsMessages.get (← getOptions) then IO.getStdout else IO.getStderr
@@ -114,17 +81,15 @@ private def dispatchJson (registration : Registration) : Json :=
   Json.mkObj [("operation", toJson registration.operation), ("input", toJson registration.input),
     ("backend", toJson registration.backend)]
 
-/-- Run one parsed statement in its own heartbeat budget and report its dispatches.
-A statement of a file is read against that file's original positions. -/
 private def runOne (session : KernelSession) (statement : TSyntax `cas_stmt)
     (source : Option SourceFile := none) (owningCell : Option CellTransaction := none)
-    (diagnostics : Option CasTools.Diagnostics.Scope := none) :
+    (diagnostics : Option CasTools.Diagnostics.Scope := none) (started? : Option Nat := none) :
     CommandElabM (StatementRun × Array Json) := do
   let start := (← session.kernel.dispatches.get).size
   let computation : TermElabM StatementRun := withoutErrToSorry <| withCurrHeartbeats <|
     match source with
-    | some file => file.withContext (session.run statement owningCell)
-    | none => session.run statement owningCell
+    | some file => file.withContext (session.run statement owningCell started?)
+    | none => session.run statement owningCell started?
   let result ← liftTermElabM <| match diagnostics with
     | some scope => CasTools.Diagnostics.withScope scope computation
     | none => computation
@@ -136,9 +101,6 @@ private partial def unexecutedScope (statement : TSyntax `cas_stmt) :
   let some items := sourceContextItems? statement | return #[]
   return items.flatMap unreadSourceItems
 
-/-- Runs the file `path` of the suite in `session`: the outcome of each test, and the session
-after the file. A `let` or statement that does not hold is reported as a statement of the file.
-An exception outside a statement's own outcome is that statement's internal error. -/
 def runFile (session : KernelSession) (path : System.FilePath) :
     CommandElabM (Array TestResult × KernelSession) := do
   let file := path.toString
@@ -161,7 +123,7 @@ def runFile (session : KernelSession) (path : System.FilePath) :
         ("fileRun", toJson fileRun), ("file", toJson file), ("stage", toJson "parse"),
         ("sourceSha256", toJson sourceSha256),
         ("detail", toJson (← error.toMessageData.toString))]
-      -- A syntactically unreadable file is invalid input, not an interpreter crash.
+
       return (#[{ file, id := "(statement) parse", kind := "invalid", stratum := some "invalid"
                   detail := s!"reader parser failure: {← error.toMessageData.toString}"
                   fails := true }], session)
@@ -188,6 +150,7 @@ def runFile (session : KernelSession) (path : System.FilePath) :
     let start ← IO.monoMsNow
     let computationEntry ← log.write #[fileEntry] "computation.started" <| Json.mkObj [
       ("computation", toJson computation), ("fileRun", toJson fileRun),
+      ("startedMonotonicMilliseconds", toJson start),
       ("file", toJson file), ("sourceSha256", toJson sourceSha256),
       ("ordinal", toJson ordinal), ("id", toJson id),
       ("source", toJson (statement.raw.reprint.getD "")),
@@ -254,8 +217,7 @@ def runFile (session : KernelSession) (path : System.FilePath) :
     if retainsSetup then
       cumulativeSetupMilliseconds := cumulativeSetupMilliseconds + milliseconds
     if !scopedObservations.isEmpty then
-      -- Child time/calls are measured by the same shared execution cell. Source preflight
-      -- and block overhead are charged once as setup, never invented per-question timings.
+
       let elapsed := scopedObservations.foldl (fun total child => total + child.milliseconds) 0
       setupMilliseconds := setupMilliseconds + (milliseconds - elapsed)
       let beforeRows := results.size
@@ -295,8 +257,7 @@ def runFile (session : KernelSession) (path : System.FilePath) :
         row.writeProgress (child.item.raw.getPos?.map source.context.fileMap.toPosition)
         results := results.push row
         setupMilliseconds := 0
-      -- Source-only observations do not replace the actual root failure when no child
-      -- reported it. They carry typed readings, not evidence that a child executed.
+
       if id?.isSome || (results.size == beforeRows && !(run.outcome matches .holds)) ||
           (failedChild.isNone && !(run.outcome matches .holds)) then
         results := results.push result
@@ -312,15 +273,12 @@ def runFile (session : KernelSession) (path : System.FilePath) :
     ("milliseconds", toJson ((← IO.monoMsNow) - fileBegan))]
   return (results, session)
 
-/-- The report of a file's results. -/
 def report (file : String) (results : Array TestResult) : String :=
   let tests := results.filter (!·.id.startsWith "(statement)")
   let passing := (tests.filter (·.kind == "holds")).size
   let lines := results.filter (·.kind != "holds") |>.map fun r => s!"  {r.id}: {r.kind}: {r.detail}"
   s!"{file}: {passing} of {tests.size} hold\n{"\n".intercalate lines.toList}"
 
-/-- Start a kernel session in a scratch runtime Environment, run `action`, close every started
-backend and restore the Environment. Registrations not admitted are reported. -/
 def withSession (manifest? : Option System.FilePath) (computationOnly : Bool)
     (action : KernelSession → CommandElabM α) : CommandElabM α := do
   let environment ← getEnv
@@ -332,8 +290,6 @@ def withSession (manifest? : Option System.FilePath) (computationOnly : Bool)
     try action session finally (session.close : IO Unit)
   finally setEnv environment
 
-/-- Runs `path`, a file of the suite or a directory of `.cas` files. Each file is one session:
-its `let`s do not scope over another file. -/
 def runSuite (manifest? : Option System.FilePath) (computationOnly : Bool)
     (path : System.FilePath) (inventory? : Option System.FilePath := none) :
     CommandElabM (Array TestResult) := do
@@ -396,8 +352,7 @@ def runSuite (manifest? : Option System.FilePath) (computationOnly : Bool)
             detail := "required assertion produced no result"
             fails := true }
     catch error =>
-      -- Preserve the outcomes already executed even when inventory I/O fails.
-      -- This is an infrastructure failure, not a verdict on those assertions.
+
       results := results.push {
         file := inventory.toString
         id := "(statement) inventory infrastructure"
@@ -406,9 +361,9 @@ def runSuite (manifest? : Option System.FilePath) (computationOnly : Bool)
         fails := true }
   return results
 
-/-- Runs one statement of the language, given as text, in `session`. -/
 def runStatement (session : KernelSession) (text : String)
     (owningCell : Option CellTransaction := none) : CommandElabM StatementRun := do
+  let started ← IO.monoMsNow
   let parsed ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
     | .ok statement => pure statement
     | .error error => do
@@ -419,11 +374,16 @@ def runStatement (session : KernelSession) (text : String)
         | none => #[]
       discard <| log.write parents "statement.parseFailed" <| Json.mkObj [
         ("source", toJson text), ("kind", toJson "invalid"),
+        ("startedMonotonicMilliseconds", toJson started),
+        ("milliseconds", toJson ((← IO.monoMsNow) - started)),
+        ("cumulativeSetupMilliseconds", toJson session.setupMilliseconds),
+        ("fails", toJson true), ("attempted", toJson false),
+        ("published", toJson false), ("retainsSetup", toJson false),
         ("stratum", toJson (some "invalid")), ("detail", toJson error),
         ("position", SourceSnapshot.spanJson ⟨← getFileName,
           reference.getPos?, reference.getTailPos?⟩)]
       throwError "not a statement of the language: {error}\n{text}"
-  return (← runOne session ⟨parsed⟩ none owningCell).1
+  return (← runOne session ⟨parsed⟩ none owningCell (started? := some started)).1
 
 syntax (name := casTestsCommand)
   "#cas_tests " str (&" manifest " str)? (&" reporting " str)? (&" inventory " str)?

@@ -1,17 +1,10 @@
 #!/usr/bin/env bash
-# Run complete selected acceptance files through the public suite command.
-# Named files use the current build outputs; do not build concurrently.
-# Usage: accept_files.sh [--manifest FILE] [STEM | --extension STEM] ...
-#        accept_files.sh --all
-#        accept_files.sh --baseline
-# The default is the explicit no-provider diagnostic. A named manifest selects real providers.
-# Only this invocation's results become .tmp/accept-run.json; earlier runs remain in their logs.
 set -euo pipefail
 invocation=(scripts/accept_files.sh "$@")
 cd "$(dirname "$0")/.."
-source scripts/container.sh
 
 if [[ "${1:-}" == "--baseline" ]]; then
+  source scripts/container.sh
   [[ $# -eq 1 ]] || exit 2
   python3 - <<'PY'
 import hashlib, json, shutil
@@ -44,7 +37,9 @@ native() {
   incontainer env CAS_FEEDBACK_RUN="$CAS_FEEDBACK_RUN" \
     CAS_FEEDBACK_CONTEXT="$CAS_FEEDBACK_CONTEXT" \
     CAS_FEEDBACK_PARENT_RUN="$CAS_FEEDBACK_PARENT_RUN" \
-    CAS_APPLICATION_LOG_DIR="$CAS_APPLICATION_LOG_DIR" "$@"
+    CAS_APPLICATION_LOG_DIR="$CAS_APPLICATION_LOG_DIR" \
+    CAS_FEEDBACK_STEP="${CAS_FEEDBACK_STEP:-}" \
+    CAS_FEEDBACK_SOURCE="${CAS_FEEDBACK_SOURCE:-}" "$@"
 }
 selection_args=("$@")
 stems=("$@")
@@ -54,18 +49,27 @@ workers_status=0
 build_status=1
 build_started=$started
 build_finished=$started
+active_phase=preparation
 revision=$(git rev-parse HEAD)
 python3 scripts/feedback_records.py begin "$context" accept "" "$log" \
   0 "${#stems[@]}" 0 "${stems[@]}" "${invocation[@]}"
 finish() {
-  local outer_status=$?
+  local outer_status=$? unfinished_phase=$active_phase finished
   trap - EXIT
   set +e
+  finished=$(python3 -c 'import time; print(time.monotonic_ns())')
+  if [[ "$active_phase" == preparation ]]; then
+    build_started=$finished
+    build_finished=$finished
+  elif [[ "$active_phase" == build ]]; then
+    build_finished=$finished
+  fi
   python3 - "$run" "$started" "$build_started" "$build_finished" "$build_status" \
-    "$workers" "$workers_status" "$revision" "$manifest" "$outer_status" "${stems[@]}" <<'PY'
+    "$workers" "$workers_status" "$revision" "$manifest" "$outer_status" "$unfinished_phase" "${stems[@]}" <<'PY'
 import collections, datetime, hashlib, json, subprocess, sys, time
 from pathlib import Path
 sys.path.insert(0, "scripts")
+from acceptance_inputs import parse_selection
 from check_acceptance_regression import outcomes, report_outcome
 from feedback_records import append_record, atomic_json, collect_computations, identity, read_json
 
@@ -74,28 +78,59 @@ started, build_started, build_finished, status, workers = map(int, sys.argv[2:7]
 workers_status = int(sys.argv[7])
 revision, manifest = sys.argv[8:10]
 outer_status = int(sys.argv[10])
-stems = sys.argv[11:]
+unfinished_phase = sys.argv[11] or None
+stems = sys.argv[12:]
+context = read_json(run / "context.json")
+metadata_errors = []
 selection_path = run / "selection.json"
-selection = json.loads(selection_path.read_text()) if selection_path.is_file() else {
-    "files": [], "complete": False}
+try:
+    selection = read_json(selection_path) if selection_path.is_file() else {
+        "files": [], "complete": False}
+    if not isinstance(selection, dict) or type(selection["complete"]) is not bool:
+        raise ValueError("invalid selected-input completion")
+    if not isinstance(selection["files"], list) or any(
+            not isinstance(item, dict) or any(not isinstance(item.get(key), str) or not item[key]
+                for key in ("source", "key", "stem", "kind"))
+            or item["kind"] not in {"admitted", "extension"} for item in selection["files"]):
+        raise ValueError("invalid selected-input identities")
+except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
+    metadata_errors.append(f"{selection_path}: {error}")
+    try:
+        _, files = parse_selection(context["acceptance"])
+    except (KeyError, TypeError, ValueError, SystemExit) as error:
+        metadata_errors.append(f"original selection: {error}")
+        files = []
+    selection = {"files": files, "complete": False}
 selected_files = selection["files"]
 selected = {item["source"] for item in selected_files}
-complete = status == 0 and selection["complete"]
-status = status or workers_status or outer_status
-context = read_json(run / "context.json")
+complete = status == 0 and selection["complete"] and unfinished_phase is None
+status = (outer_status or status or 1) if unfinished_phase else (status or workers_status or outer_status)
+try:
+    inputs = read_json(run / "inputs.json") if (run / "inputs.json").is_file() else {}
+    if not isinstance(inputs, dict) or any(not isinstance(value, str) for value in inputs.values()):
+        raise ValueError("invalid selected-input hashes")
+except (OSError, json.JSONDecodeError, TypeError, ValueError) as error:
+    metadata_errors.append(f"{run / 'inputs.json'}: {error}")
+    inputs = {source: context.get("inputs", {}).get(source) for source in selected}
 results = []
 worker_results = []
 for worker in range(workers):
     path = run / f"worker{worker}.status.json"
-    if path.is_file():
-        observation = json.loads(path.read_text())
+    try:
+        observation = read_json(path)
+        if not isinstance(observation, dict) or type(observation["status"]) is not int:
+            raise ValueError("invalid worker status")
+        if (observation["status"] < 0 or type(observation["seconds"]) not in (int, float)
+                or not 0 <= observation["seconds"] < float("inf")):
+            raise ValueError("invalid worker duration or status")
         worker_results.append(observation)
         if observation["status"]:
             status = observation["status"]
-    else:
+    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
         complete = False
         status = status or 1
-        worker_results.append({"status": None, "seconds": None})
+        metadata_errors.append(f"{path}: {error}")
+        worker_results.append({"status": None, "seconds": None, "error": str(error)})
 for item in selected_files:
     source, key = item["source"], item["key"]
     try:
@@ -104,16 +139,20 @@ for item in selected_files:
         rows = json.loads(report.read_text())
         if any("stratum" not in row for row in rows):
             raise ValueError("the current report lost its outcome stratum column")
-        expected = set(json.loads((run / f"{key}.inventory.json").read_text())["assertions"])
+        inventory = read_json(run / f"{key}.inventory.json")
+        expected = set(inventory["assertions"])
         actual = {identity for file, identity in observed if not identity.startswith("(statement)")}
         if any(file != source for file, _ in observed) or actual != expected:
             raise ValueError(f"incomplete or foreign selected results: expected {sorted(expected)}, "
                              f"received {sorted(actual)}")
-        inputs = json.loads((run / "inputs.json").read_text())
         if hashlib.sha256(Path(source).read_bytes()).hexdigest() != inputs[source]:
             raise ValueError("selected input changed during execution")
-        results.extend({**row, "inputKind": item["kind"], "admitted": item["admitted"],
-                        "computing": item["computing"]} for row in rows)
+        admitted = item.get("admitted", inventory["admitted"])
+        computing = item.get("computing", item["kind"] == "extension")
+        if type(admitted) is not bool or type(computing) is not bool:
+            raise ValueError("invalid selected-input admission or computation mode")
+        results.extend({**row, "inputKind": item["kind"], "admitted": admitted,
+                        "computing": computing} for row in rows)
         if any(report_outcome(row).fails for row in rows):
             status = status or 1
     except (SystemExit, FileNotFoundError, json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
@@ -141,13 +180,30 @@ current.write_text(json.dumps(results, ensure_ascii=False, indent=1) + "\n")
 Path(".tmp/accept-run.json").write_bytes(current.read_bytes())
 baseline = Path(".tmp/accept-prev.json")
 if baseline.is_file():
-    scoped = run / "baseline.json"
-    scoped.write_text(json.dumps([row for row in json.loads(baseline.read_text())
-                                 if row["file"] in selected]))
-    comparison = subprocess.run(
-        [sys.executable, "scripts/check_acceptance_regression.py", str(scoped), str(current)],
-        check=False)
-    status = status or comparison.returncode
+    try:
+        scoped = run / "baseline.json"
+        scoped.write_text(json.dumps([row for row in json.loads(baseline.read_text())
+                                     if row["file"] in selected]))
+        comparison = subprocess.run(
+            [sys.executable, "scripts/check_acceptance_regression.py", str(scoped), str(current)],
+            check=False)
+        status = status or comparison.returncode
+    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
+        metadata_errors.append(f"{baseline}: {error}")
+manifest_sha256 = None
+if (run / "manifest.sha256").is_file():
+    try:
+        manifest_sha256 = (run / "manifest.sha256").read_text().split()[0]
+        if len(manifest_sha256) != 64 or any(char not in "0123456789abcdef" for char in manifest_sha256):
+            raise ValueError("invalid manifest hash")
+    except (OSError, IndexError, ValueError) as error:
+        metadata_errors.append(f"{run / 'manifest.sha256'}: {error}")
+        manifest_sha256 = None
+if metadata_errors:
+    complete = False
+    status = status or 1
+    for error in metadata_errors:
+        print(f"Current acceptance metadata is incomplete: {error}", file=sys.stderr)
 seconds = (time.monotonic_ns() - started) / 1e9
 entry = {
     **identity(context),
@@ -160,9 +216,8 @@ entry = {
     "revision": revision, "run": str(run), "files": [item["stem"] for item in selected_files],
     "selection": context.get("acceptance", stems),
     "selected_inputs": selected_files, "manifest": manifest,
-    "manifest_sha256": ((run / "manifest.sha256").read_text().split()[0]
-                        if (run / "manifest.sha256").is_file() else None),
-    "inputs": json.loads((run / "inputs.json").read_text()) if (run / "inputs.json").is_file() else {},
+    "manifest_sha256": manifest_sha256,
+    "inputs": inputs, "metadata_errors": metadata_errors, "unfinished_phase": unfinished_phase,
     "build_seconds": (build_finished - build_started) / 1e9,
     "workers": worker_results, "workers_status": workers_status,
     "seconds": seconds, "status": status, "complete": complete,
@@ -174,7 +229,8 @@ entry = {
 atomic_json(run / "result.json", entry)
 append_record(Path("timing/acceptance.jsonl"), entry)
 append_record(run / "events.jsonl", {**identity(context), "event": "run.finished",
-                                   "status": status, "seconds": seconds, "complete": complete})
+                                   "status": status, "seconds": seconds, "complete": complete,
+                                   "unfinished_phase": unfinished_phase})
 print(f"Current selected outcomes: {entry['outcomes']}; complete={complete}; "
       f"status={status}; total={seconds:.3f}s; report={current}")
 raise SystemExit(status)
@@ -190,12 +246,14 @@ trap 'exit 143' TERM
 printf '[]\n' > .tmp/accept-run.json
 printf 'Acceptance run: %s\n' "$run"
 printf '{"backends":[],"registrations":[]}\n' > "$manifest"
+source scripts/container.sh
 prepare_status=0
 python3 - "$run" "${selection_args[@]}" <<'PY' || prepare_status=$?
 import hashlib, json, sys
 from pathlib import Path
 sys.path.insert(0, "scripts")
 from acceptance_inputs import checked_input, parse_selection
+from feedback_records import atomic_json
 
 run = Path(sys.argv[1])
 manifest, selected = parse_selection(sys.argv[2:])
@@ -211,7 +269,7 @@ for item in selected:
 selection = {"manifest": manifest, "workers": workers, "files": selected,
              "arguments": arguments, "complete": False}
 plan = run / "selection.json"
-plan.write_text(json.dumps(selection, ensure_ascii=False, indent=2) + "\n")
+atomic_json(plan, selection)
 inputs = {}
 for worker in range(workers):
     (run / f"worker{worker}.lean").write_text(
@@ -221,13 +279,13 @@ for index, item in enumerate(selected):
     selected[index] = item
     source, key = item["source"], item["key"]
     inventory = run / f"{key}.inventory.json"
-    inventory.write_text(json.dumps({"assertions": item["assertions"],
-                                    "admitted": item["admitted"],
-                                    "source_sha256": item["sha256"],
-                                    "authority": item["authority"]}))
+    atomic_json(inventory, {"assertions": item["assertions"],
+                            "admitted": item["admitted"],
+                            "source_sha256": item["sha256"],
+                            "authority": item["authority"]})
     inputs[source] = item["sha256"]
-    (run / "inputs.json").write_text(json.dumps(inputs, indent=2))
-    plan.write_text(json.dumps(selection, ensure_ascii=False, indent=2) + "\n")
+    atomic_json(run / "inputs.json", inputs)
+    atomic_json(plan, selection)
     with (run / f"worker{index % workers}.lean").open("a") as output:
         computing = " computing" if item["computing"] else ""
         output.write(
@@ -235,7 +293,7 @@ for index, item in enumerate(selected):
             f"reporting {json.dumps(str(run / (key + '.json')))} "
             f"inventory {json.dumps(str(inventory))}{computing}\n")
 selection["complete"] = True
-plan.write_text(json.dumps(selection, ensure_ascii=False, indent=2) + "\n")
+atomic_json(plan, selection)
 PY
 
 selected_args=("${selection_args[@]}")
@@ -268,9 +326,12 @@ if [[ $prepare_status -eq 0 ]]; then
 fi
 
 build_started=$(python3 -c 'import time; print(time.monotonic_ns())')
+build_finished=$build_started
+active_phase=
 build_status=$prepare_status
 lean_path=""
 if [[ $prepare_status -eq 0 ]]; then
+  active_phase=build
   native sha256sum "$manifest" > "$run/manifest.sha256" || build_status=$?
   if [[ $build_status -eq 0 ]]; then
     native lake --log-level=error build LeanCategories.Catalogue CasCatalogue.TestSuite 2>&1 |
@@ -279,8 +340,9 @@ if [[ $prepare_status -eq 0 ]]; then
   if [[ $build_status -eq 0 ]]; then
     lean_path=$(native lake env printenv LEAN_PATH) || build_status=$?
   fi
+  build_finished=$(python3 -c 'import time; print(time.monotonic_ns())')
+  active_phase=
 fi
-build_finished=$(python3 -c 'import time; print(time.monotonic_ns())')
 
 run_worker() {
   local worker=$1 start status
@@ -289,16 +351,20 @@ run_worker() {
     "$(( build_finished - started ))" lean "$run/worker$worker.lean" || return $?
   set +e
   set -o pipefail
-  native env CAS_FEEDBACK_WORKER="$worker" LEAN_PATH="$lean_path" lean -DstderrAsMessages=false "$run/worker$worker.lean" 2>&1 |
+  native env CAS_FEEDBACK_WORKER="$worker" CAS_FEEDBACK_STEP="acceptance-worker$worker:$start" \
+    CAS_FEEDBACK_SOURCE="$run/worker$worker.lean" LEAN_PATH="$lean_path" \
+    lean -DstderrAsMessages=false "$run/worker$worker.lean" 2>&1 |
     tee "$run/worker$worker.log"
   status=$?
   python3 scripts/feedback_records.py step-finish "$context" "$start" \
     "$(( $(python3 -c 'import time; print(time.monotonic_ns())') - start ))" "$status" || status=$?
   python3 - "$run/worker$worker.status.json" "$start" "$status" <<'PY'
-import json, sys, time
+import sys, time
 from pathlib import Path
-Path(sys.argv[1]).write_text(json.dumps({
-    "status": int(sys.argv[3]), "seconds": (time.monotonic_ns() - int(sys.argv[2])) / 1e9}))
+sys.path.insert(0, "scripts")
+from feedback_records import atomic_json
+atomic_json(Path(sys.argv[1]), {
+    "status": int(sys.argv[3]), "seconds": (time.monotonic_ns() - int(sys.argv[2])) / 1e9})
 PY
   return "$status"
 }
@@ -306,7 +372,6 @@ export root lean_path run context started build_finished
 export -f run_worker incontainer native
 workers_status=0
 if [[ $build_status -eq 0 ]]; then
-  # Every worker is reaped even if another fails; each publishes its real status.
   seq 0 $((workers - 1)) | xargs -P "$workers" -I{} bash -c 'run_worker {}' || workers_status=$?
 fi
 

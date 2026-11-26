@@ -124,8 +124,8 @@ class FeedbackTests(unittest.TestCase):
         return result
 
     def test_argument_failures_have_current_durable_records(self) -> None:
-        # These are real public invocations rejected before any native preparation.
-        # A combined slow target preserves its one original argv position, not two modules.
+
+
         reason = "Record the original invalid focused selection before native work"
         combined = "CasRuntime.LiteralTests CasRuntime.NativeFieldPrefixTests"
         controls = [
@@ -178,9 +178,47 @@ class FeedbackTests(unittest.TestCase):
                 self.assertIn(f"feedback: {diagnostic}", log)
                 self.assertIn(f"{arguments[0]}: execution status 2; status 2", log)
 
+    def test_native_preparation_failure_retains_actual_diagnostic(self) -> None:
+        directory = ROOT / "timing/logs/feedback-tests"
+        directory.mkdir(parents=True, exist_ok=True)
+        control = Path(tempfile.mkdtemp(prefix="native-preparation-failure-", dir=directory))
+        checkout = control / "checkout"
+        for name in ["justfile", "lean-toolchain", "scripts/feedback.sh", "scripts/container.sh",
+                     "scripts/feedback_records.py", "scripts/application_log.py",
+                     "scripts/acceptance_inputs.py", "scripts/check_acceptance_permanent.py"]:
+            target = checkout / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(ROOT / name, target)
+        manifest = json.loads((ROOT / "lake-manifest.json").read_text())
+        manifest["packages"] = []
+        manifest["name"] = "feedback_preparation_failure"
+        (checkout / "lake-manifest.json").write_text(json.dumps(manifest) + "\n")
+        marker = "native feedback preparation failure control"
+        (checkout / "lakefile.lean").write_text(
+            "import Lake\nopen Lake DSL\npackage feedback_preparation_failure\n"
+            f"#eval (throw (IO.userError {json.dumps(marker)}) : IO Unit)\n")
+        (checkout / "PreparationFailure.lean").write_text("#check Nat\n")
+        result = subprocess.run(["just", "loop", "PreparationFailure"], cwd=checkout,
+                                capture_output=True, text=True, check=False, timeout=120)
+        output = result.stdout + result.stderr
+        (control / "public-loop.log").write_text(output)
+        self.assertNotEqual(result.returncode, 0, output)
+        self.assertIn(marker, output)
+        record = json.loads((checkout / "timing/runs.jsonl").read_text().splitlines()[-1])
+        self.assertEqual(record["status"], result.returncode)
+        self.assertEqual(record["context_status"], "pending")
+        self.assertGreater(record["preparation_seconds"], 0)
+        self.assertFalse(record["attempted"])
+        self.assertTrue(all(phase["status"] is None for phase in record["phases"].values()))
+        self.assertIn(marker, (checkout / record["log"]).read_text())
+        run = (checkout / record["context"]).parent
+        events = [json.loads(line) for line in (run / "events.jsonl").read_text().splitlines()]
+        self.assertEqual(events[0]["event"], "run.started")
+        self.assertEqual(events[-1]["event"], "run.finished")
+
     def test_dependencies_follow_resolved_package_selection(self) -> None:
-        # Use the same public Lake command as the consumer. With --packages this must
-        # identify the selected sources, not the checkout named by the static manifest.
+
+
         selected = json.loads(subprocess.check_output(
             ["lake", "--log-level=error", "run", "feedback-context"], cwd=ROOT, text=True))
         module = "CasCatalogue.FeedbackMissingConsumer"
@@ -249,6 +287,38 @@ class FeedbackTests(unittest.TestCase):
         self.assertTrue(summary["complete"], summary["malformed"])
         all_rows = [json.loads(line) for line in
                     (ROOT / summary["record_file"]).read_text().splitlines()]
+        direct = [row for row in all_rows if row["unit"] == "statement" and row["file_run"] is None]
+        self.assertTrue(direct, "direct public session calls lost their computation records")
+        originals = {}
+        for log in summary["logs"]:
+            events = [loads_application_event(line) for line in (ROOT / log).read_text().splitlines()]
+            wrappers = {event["sequence"] for event in events if event["event"] == "computation.started"}
+            for event in events:
+                if (event["event"] == "statement.started" and
+                        not any(parent in wrappers for parent in event["parents"])):
+                    originals[(event["session"], event["sequence"])] = event
+        measured = {(row["session"], row["start"]["sequence"]): row for row in direct
+                    if "start" in row}
+        self.assertEqual(measured.keys(), originals.keys())
+        self.assertTrue(any(row["setup_seconds"] > 0 for row in direct),
+                        "retained direct definitions lost their later setup cost")
+        steps = [json.loads(path.read_text()) for path in
+                 (ROOT / record["context"]).parent.joinpath("steps").glob("*.json")]
+        module_steps = [step for step in steps if step["phase"] == "execution"]
+        self.assertEqual(len(module_steps), 1)
+        for key, row in measured.items():
+            self.assertTrue(row["complete"])
+            self.assertEqual(row["start"], originals[key])
+            self.assertEqual(row["file"], "CasRuntime/SessionTests.lean")
+            self.assertEqual(row["input_sha256"], record["inputs"][row["file"]])
+            self.assertEqual(row["statement_sha256"],
+                             hashlib.sha256(originals[key]["data"]["source"].encode()).hexdigest())
+            self.assertEqual(row["step"], module_steps[0]["step"])
+            self.assertEqual(row["shared_session_setup_seconds"],
+                             row["session_preparation"]["data"]["milliseconds"] / 1000)
+            self.assertAlmostEqual(row["inclusive_seconds"], row["execution_seconds"] +
+                                   row["setup_seconds"] + row["shared_setup_seconds"] +
+                                   row["shared_worker_setup_seconds"] + row["shared_session_setup_seconds"])
         fixture = (ROOT / "tests/runtime/application_log.cas").resolve()
         rows = [row for row in all_rows if Path(row["file"]).resolve() == fixture]
         self.assertTrue(rows, "the original public file lost its computation records")
@@ -273,7 +343,8 @@ class FeedbackTests(unittest.TestCase):
                 self.assertAlmostEqual(row["seconds"],
                                        row["execution_seconds"] + row["setup_seconds"])
                 self.assertAlmostEqual(row["inclusive_seconds"], row["seconds"] +
-                                       row["shared_setup_seconds"] + row["shared_worker_setup_seconds"])
+                                       row["shared_setup_seconds"] + row["shared_worker_setup_seconds"] +
+                                       row["shared_session_setup_seconds"])
             for row in nested:
                 root = by_key[row["root_computation"]]
                 self.assertEqual(row["parent_computation"], root["computation"])
@@ -289,8 +360,8 @@ class FeedbackTests(unittest.TestCase):
             self.assertGreaterEqual(ordered[1]["preceding_setup_seconds"],
                                     ordered[0]["execution_seconds"])
 
-        # Corrupt only a copy of the actual native trace. Removing both ends of one
-        # executed child must not make its work disappear from timing completeness.
+
+
         selected = next(row for row in rows
                         if row["unit"] == "nested_statement" and row["id"] == "logging.nested")
         source_log = ROOT / selected["source_log"]
@@ -308,6 +379,7 @@ class FeedbackTests(unittest.TestCase):
         copied_log.write_bytes(b"".join(retained))
         context_file = copied_run / "context.json"
         context_file.write_bytes((ROOT / record["context"]).read_bytes())
+        shutil.copytree((ROOT / record["context"]).parent / "steps", copied_run / "steps")
         shared_setup = record["preparation_seconds"] + record["phases"]["build"]["seconds"]
         original_record_size = (ROOT / "timing/computations.jsonl").stat().st_size
         status, damaged = self.collect_trace(context_file, shared_setup, control)
@@ -324,8 +396,8 @@ class FeedbackTests(unittest.TestCase):
         self.assertEqual(source_log.read_bytes(), original)
         self.assertEqual((ROOT / "timing/computations.jsonl").stat().st_size, original_record_size)
 
-        # Keep every original event and actual result. Only the chosen terminal event's
-        # transport is changed in these copies; malformed transport cannot disappear.
+
+
         terminal_index = next(index for index, line in enumerate(lines)
                               if json.loads(line)["sequence"] == selected["completion"]["sequence"])
         wire = json.loads(lines[terminal_index])
@@ -349,6 +421,7 @@ class FeedbackTests(unittest.TestCase):
                 copied_log.write_bytes(b"".join(copied_lines))
                 context_file = copied_run / "context.json"
                 context_file.write_bytes((ROOT / record["context"]).read_bytes())
+                shutil.copytree((ROOT / record["context"]).parent / "steps", copied_run / "steps")
                 status, observed = self.collect_trace(context_file, shared_setup, control)
                 if error is None:
                     self.assertEqual(status, 0)
@@ -371,7 +444,7 @@ class FeedbackTests(unittest.TestCase):
 
 
     def test_module_and_statement_records_cover_public_run(self) -> None:
-        # These are the original module and complete admitted file, through the public loop.
+
         module = "CasCompiler.ContextTests"
         result = subprocess.run(
             ["just", "loop", module, "ellipses"], cwd=ROOT,
@@ -388,8 +461,8 @@ class FeedbackTests(unittest.TestCase):
         self.assertEqual(acceptance["files"], ["ellipses"])
         self.assertEqual(acceptance["status"], record["phases"]["acceptance"]["status"],
                          result.stdout)
-        # With build and module execution successful, the shell aggregate is the
-        # acceptance result. The wrapper can additionally fail its loop/timing gates.
+
+
         self.assertEqual(record["execution_status"], acceptance["status"], result.stdout)
         expected_status = record["execution_status"] or int(
             record["over_limit"] or not record["computations"]["complete"])
@@ -426,20 +499,21 @@ class FeedbackTests(unittest.TestCase):
                 self.assertGreaterEqual(row["seconds"], row["setup_seconds"])
                 self.assertAlmostEqual(
                     row["inclusive_seconds"],
-                    row["seconds"] + row["shared_setup_seconds"] + row["shared_worker_setup_seconds"])
+                    row["seconds"] + row["shared_setup_seconds"] + row["shared_worker_setup_seconds"] +
+                    row["shared_session_setup_seconds"])
                 self.assertTrue((ROOT / row["source_log"]).is_file())
 
-        # A failed kernel observation is still a completed, measured statement. The
-        # timing contract records its actual failure; it must not turn the loop green.
+
+
         run_events = [json.loads(line) for line in (run / "events.jsonl").read_text().splitlines()]
         self.assertEqual(run_events[-1]["event"], "run.finished")
         self.assertEqual(run_events[-1]["status"], acceptance["status"])
         if acceptance["status"]:
             self.assertTrue(all(row["complete"] for row in rows))
-            self.assertTrue(any(row["result"]["fails"] for row in rows))
+            self.assertTrue(any(row["outcome"]["fails"] for row in top))
 
-        # Reuse this invocation's actual worker metadata and native trace. Missing or
-        # impossible startup evidence cannot be recorded as a completed zero setup.
+
+
         worker_rows = [row for row in rows if row["worker"] is not None]
         self.assertTrue(worker_rows, "the public acceptance worker lost its declared identity")
         worker = worker_rows[0]["worker"]
@@ -518,8 +592,8 @@ class FeedbackTests(unittest.TestCase):
         self.assertTrue(recorded["timing_complete"], recorded)
         self.assertNotEqual(recorded["status"], 0)
 
-        # The old report schema treated this exact kind as a non-failing gap.
-        # The new precise failure must be a regression even though its kind is unchanged.
+
+
         base = control / "old-report.json"
         head = control / "current-report.json"
         legacy = {key: value for key, value in outcome.items()
@@ -547,8 +621,8 @@ class FeedbackTests(unittest.TestCase):
                          "independent-extension-reconstruction-20261024/completion")
         checkpoint = extension / "source-checkpoint.json"
         original_checkpoint = (ROOT / checkpoint).read_bytes()
-        # Both published authority forms are exercised with the real public command.
-        # Only isolated copies change; the protected checkout's bytes never change.
+
+
         for stem, authority in [("rx01-selected-orders", "source-checkpoint"),
                                 ("rx02-complete-core-action", "added-blob")]:
             with self.subTest(stem=stem):
@@ -670,8 +744,8 @@ class FeedbackTests(unittest.TestCase):
             self.assertEqual(subprocess.check_output(
                 ["git", "-C", str(restored), "rev-parse", "HEAD"], text=True).strip(),
                 observed["git_state"]["head"])
-        # The fault's verified archive stays recorded as retirement-failed.
-        # Finish retiring only this now-proven-restorable fixture's partial metadata.
+
+
         real_rmtree(checkout / ".git")
         self.assertEqual((checkout / source).read_bytes(), original)
 
@@ -751,7 +825,7 @@ class SuiteTests(unittest.TestCase):
         self.assertTrue(report[0]["fails"])
 
     def test_duplicate_assertions_preserve_rows_and_fail(self) -> None:
-        # Duplicate an unchanged admitted assertion only in this rejected input control.
+
         original = (ROOT / "tests/acceptance/numbers.cas").read_text()
         assertion = next(item for item in original.split("\n\n")
                          if item.startswith("test numbers.integers.sum "))
@@ -765,8 +839,116 @@ class SuiteTests(unittest.TestCase):
 
 
 class AcceptanceFeedbackTests(unittest.TestCase):
+    def test_interrupted_preparation_and_build_retain_elapsed_phase(self) -> None:
+        directory = ROOT / "timing/logs/feedback-tests"
+        directory.mkdir(parents=True, exist_ok=True)
+        for phase, required in [("preparation", {"run", "feedback-context"}),
+                                ("build", {"build", "CasCatalogue.TestSuite"})]:
+            with self.subTest(phase=phase):
+                control = Path(tempfile.mkdtemp(prefix=f"interrupted-{phase}-", dir=directory))
+                log = control / "interrupted.log"
+                stopped = False
+                observed = None
+                with log.open("w") as output:
+                    process = subprocess.Popen(
+                        ["scripts/accept_files.sh", "numbers"], cwd=ROOT,
+                        stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
+                    try:
+                        deadline = time.monotonic() + 300
+                        while process.poll() is None and time.monotonic() < deadline:
+                            pending = [process.pid]
+                            while pending:
+                                pid = pending.pop()
+                                proc = Path(f"/proc/{pid}")
+                                try:
+                                    pending.extend(int(child) for child in
+                                                   (proc / f"task/{pid}/children").read_text().split())
+                                    arguments = (proc / "cmdline").read_bytes().decode().split("\0")
+                                    if ((proc / "comm").read_text().strip() != "lake"
+                                            or (proc / "cwd").resolve() != ROOT
+                                            or os.getpgid(pid) != process.pid
+                                            or not required.issubset(arguments)):
+                                        continue
+                                    os.kill(process.pid, signal.SIGSTOP)
+                                    stopped = True
+                                    owned = []
+                                    native = [pid]
+                                    while native:
+                                        native_pid = native.pop()
+                                        native_proc = Path(f"/proc/{native_pid}")
+                                        try:
+                                            if os.getpgid(native_pid) != process.pid:
+                                                continue
+                                            os.kill(native_pid, signal.SIGSTOP)
+                                            owned.append(native_pid)
+                                            native.extend(int(child) for child in
+                                                (native_proc / f"task/{native_pid}/children").read_text().split())
+                                        except (FileNotFoundError, ProcessLookupError):
+                                            continue
+                                    self.assertIn(pid, owned, f"the actual {phase} process escaped; see {log}")
+                                    observed = {"phase": phase, "pid": pid, "command": arguments,
+                                                "owned": owned}
+                                    (control / "interruption.json").write_text(json.dumps(observed, indent=2) + "\n")
+                                    os.kill(process.pid, signal.SIGTERM)
+                                    for native_pid in reversed(owned):
+                                        try:
+                                            os.kill(native_pid, signal.SIGTERM)
+                                            os.kill(native_pid, signal.SIGCONT)
+                                        except ProcessLookupError:
+                                            continue
+                                    os.kill(process.pid, signal.SIGCONT)
+                                    stopped = False
+                                    break
+                                except (FileNotFoundError, ProcessLookupError):
+                                    continue
+                            if observed is not None:
+                                break
+                            time.sleep(0.01)
+                        self.assertIsNotNone(observed, f"no actual {phase} process was reached; see {log}")
+                        status = process.wait(timeout=60)
+                    finally:
+                        if stopped:
+                            try:
+                                os.kill(process.pid, signal.SIGCONT)
+                            except ProcessLookupError:
+                                pass
+                        if process.poll() is None:
+                            try:
+                                os.killpg(process.pid, signal.SIGTERM)
+                                os.killpg(process.pid, signal.SIGCONT)
+                            except ProcessLookupError:
+                                pass
+                            try:
+                                process.wait(timeout=30)
+                            except subprocess.TimeoutExpired:
+                                os.killpg(process.pid, signal.SIGKILL)
+                                process.wait(timeout=30)
+                self.assertEqual(status, 143, log.read_text())
+                record = json.loads((ROOT / "timing/acceptance.jsonl").read_text().splitlines()[-1])
+                self.assertEqual(record["status"], 143)
+                self.assertEqual(record["unfinished_phase"], phase)
+                self.assertFalse(record["complete"])
+                self.assertGreater(record["preparation_seconds"], 0)
+                self.assertGreaterEqual(record["build_seconds"], 0)
+                if phase == "preparation":
+                    self.assertEqual(record["build_seconds"], 0)
+                    self.assertEqual(record["context_status"], "pending")
+                else:
+                    self.assertGreater(record["build_seconds"], 0)
+                    self.assertEqual(record["context_status"], "complete")
+                self.assertLessEqual(record["preparation_seconds"] + record["build_seconds"],
+                                     record["seconds"])
+                run = ROOT / record["run"]
+                self.assertIn(f"Acceptance run: {record['run']}", log.read_text())
+                self.assertTrue((run / "output.log").read_text())
+                events = [json.loads(line) for line in (run / "events.jsonl").read_text().splitlines()]
+                self.assertEqual(events[-1]["event"], "run.finished")
+                self.assertEqual(events[-1]["unfinished_phase"], phase)
+                self.assertFalse(any(event.get("phase", "").startswith("acceptance-worker")
+                                     for event in events))
+
     def test_interrupted_worker_cannot_reuse_previous_results(self) -> None:
-        # This test runs inside the research container, alongside the actual Lean worker.
+
         subprocess.run(["scripts/accept_files.sh", "numbers"], cwd=ROOT, check=False)
         report = ROOT / ".tmp/accept-run.json"
         prior = [row for row in json.loads(report.read_text())
@@ -833,21 +1015,22 @@ class AcceptanceFeedbackTests(unittest.TestCase):
 
 
     def test_partial_report_cannot_reuse_complete_results(self) -> None:
-        # Hold only the owning shell after real workers start. Their computation continues,
-        # but aggregation cannot race the mutation of this invocation's generated report.
+
+
         directory = ROOT / "timing/logs/feedback-tests"
         directory.mkdir(parents=True, exist_ok=True)
         log = Path(tempfile.mkdtemp(dir=directory)) / "partial.log"
         run: Path | None = None
         stopped = False
         removed_id = ""
+        original_metadata = {}
         with log.open("w") as output:
             process = subprocess.Popen(
                 ["scripts/accept_files.sh", "ellipses", "numbers"], cwd=ROOT,
                 stdout=output, stderr=subprocess.STDOUT, start_new_session=True,
             )
             try:
-                # This deadline bounds test cleanup, not the product's feedback budget.
+
                 deadline = time.monotonic() + 900
                 while process.poll() is None and time.monotonic() < deadline:
                     if run is None:
@@ -928,6 +1111,11 @@ class AcceptanceFeedbackTests(unittest.TestCase):
                 removed_id = named[0]["id"]
                 partial = [row for row in rows if row["id"] != removed_id]
                 selected_report.write_text(json.dumps(partial, ensure_ascii=False, indent=1) + "\n")
+                for name in ["selection.json", "worker0.status.json", "inputs.json", "manifest.sha256"]:
+                    metadata = run / name
+                    original_metadata[name] = metadata.read_bytes()
+                    (run / (name + ".complete")).write_bytes(original_metadata[name])
+                    metadata.write_bytes(b"{")
 
                 os.kill(process.pid, signal.SIGCONT)
                 stopped = False
@@ -958,6 +1146,20 @@ class AcceptanceFeedbackTests(unittest.TestCase):
         self.assertNotEqual(status, 0, f"the partial selected report was accepted; see {log}")
         self.assertNotEqual(latest["status"], 0)
         self.assertFalse(latest["complete"], "a missing selected assertion is incomplete")
+        for name in original_metadata:
+            self.assertTrue(any(name in error for error in latest["metadata_errors"]),
+                            f"the damaged metadata disappeared from the final result: {name}")
+        self.assertEqual(latest["inputs"], json.loads(original_metadata["inputs.json"]))
+        self.assertIsNone(latest["manifest_sha256"])
+        self.assertIsNone(latest["workers"][0]["status"])
+        self.assertIsNone(latest["workers"][0]["seconds"])
+        actual_numbers = json.loads((run / "numbers.json").read_text())
+        self.assertEqual({row["id"] for row in current if Path(row["file"]).name == "numbers.cas"},
+                         {row["id"] for row in actual_numbers},
+                         "damaged metadata erased the other file's completed outcomes")
+        events = [json.loads(line) for line in (run / "events.jsonl").read_text().splitlines()]
+        self.assertEqual(events[-1]["event"], "run.finished")
+        self.assertFalse(events[-1]["complete"])
         self.assertTrue(latest["timing_complete"], "report corruption must not erase actual execution timings")
         timings = [json.loads(line) for line in
                    (ROOT / latest["computations"]["record_file"]).read_text().splitlines()]

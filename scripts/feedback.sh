@@ -1,11 +1,4 @@
 #!/usr/bin/env bash
-# Current-source feedback (C21/C24). Called by just loop, slow, milestone and stop.
-# loop "MODULE ..." [STEM | --extension STEM ...] executes complete original inputs.
-# loop --extension STEM builds the suite imports and observes that unchanged completion file.
-# An explicit +Module:facet is build-only and requires a selected acceptance consumer.
-# slow "REASON" MODULE... [-- acceptance arguments...] runs the same checks as an explicit long run.
-# milestone "REASON" builds all original targets and freshly executes their tests and suite.
-# Logs and started/finished timing records are retained under timing/logs for every invocation.
 set -euo pipefail
 invocation=(scripts/feedback.sh "$@")
 now() { python3 -c 'import time; print(time.monotonic_ns())'; }
@@ -14,6 +7,15 @@ cd "$(dirname "$0")/.."
 limit=300
 records=timing/runs.jsonl
 die() { printf 'feedback: %s\n' "$*" | tee -a "$log" >&2; exit 2; }
+usage() {
+  printf '%s\n' \
+    'Current-source feedback (C21/C24). Called by just loop, slow, milestone and stop.' \
+    'loop "MODULE ..." [STEM | --extension STEM ...] executes complete original inputs.' \
+    'loop --extension STEM builds the suite imports and observes that unchanged completion file.' \
+    'An explicit +Module:facet is build-only and requires a selected acceptance consumer.' \
+    'slow "REASON" MODULE... [-- acceptance arguments...] runs the same checks as an explicit long run.' \
+    'milestone "REASON" builds all original targets and freshly executes their tests and suite.'
+}
 
 running() {
   incontainer bash -c '
@@ -41,10 +43,9 @@ case "$command" in
     exit 0
     ;;
   loop|slow|milestone) ;;
-  *) sed -n '2,7p' "$0" | sed 's/^# //'; exit 2 ;;
+  *) usage; exit 2 ;;
 esac
 
-# The milestone gate observes pre-existing dirt, before this run creates its evidence.
 milestone_tree_status=
 if [[ "$command" == milestone ]]; then
   milestone_tree_status=$(git status --porcelain)
@@ -67,7 +68,9 @@ native() {
   incontainer env CAS_FEEDBACK_RUN="$CAS_FEEDBACK_RUN" \
     CAS_FEEDBACK_CONTEXT="$CAS_FEEDBACK_CONTEXT" \
     CAS_FEEDBACK_PARENT_RUN="$CAS_FEEDBACK_PARENT_RUN" \
-    CAS_APPLICATION_LOG_DIR="$CAS_APPLICATION_LOG_DIR" "$@"
+    CAS_APPLICATION_LOG_DIR="$CAS_APPLICATION_LOG_DIR" \
+    CAS_FEEDBACK_STEP="${CAS_FEEDBACK_STEP:-}" \
+    CAS_FEEDBACK_SOURCE="${CAS_FEEDBACK_SOURCE:-}" "$@"
 }
 preparation_ns=0 build_ns=0 execution_ns=0 acceptance_ns=0
 build_status= execution_status= acceptance_status=
@@ -89,7 +92,8 @@ finish() {
   if [[ "$preparation_finished" != true ]]; then preparation_ns=$(( $(now) - started )); fi
   python3 scripts/feedback_records.py finish "$records" "$context" "$status" "$limit" \
     "$(( $(now) - started ))" "$preparation_ns" "$build_ns" "$execution_ns" "$acceptance_ns" \
-    "$build_status" "$execution_status" "$acceptance_status" "$attempted" "${attempted_sources[@]}"
+    "$build_status" "$execution_status" "$acceptance_status" "$attempted" "${attempted_sources[@]}" \
+    2> >(tee -a "$log" >&2)
   status=$?
   exit "$status"
 }
@@ -100,7 +104,7 @@ python3 scripts/feedback_records.py begin "$context" "$command" "$reason" "$log"
   "${#targets[@]}" "${#stems[@]}" "${#sources[@]}" \
   "${targets[@]}" "${stems[@]}" "${sources[@]}" "${invocation[@]}" 2>&1 | tee -a "$log"
 
-source scripts/container.sh
+source scripts/container.sh > >(tee -a "$log") 2> >(tee -a "$log" >&2)
 
 case "$command" in
   loop)
@@ -138,7 +142,7 @@ case "$command" in
     build_targets=("${targets[@]}")
     stems=(--all)
     ;;
-  *) sed -n '2,7p' "$0" | sed 's/^# //'; exit 2 ;;
+  *) usage; exit 2 ;;
 esac
 [[ "$command" == loop || ${#reason} -ge 20 ]] || die 'state the reason in at least 20 characters'
 [[ ${#targets[@]} -gt 0 ]] || die 'select at least one test module; an empty selection cannot run'
@@ -165,11 +169,10 @@ if [[ "$command" != milestone ]]; then
   done
 fi
 
-# Preserve parsed fields on the same pending run before any native setup starts.
 python3 scripts/feedback_records.py begin "$context" "$command" "$reason" "$log" \
   "${#targets[@]}" "${#stems[@]}" "${#sources[@]}" \
   "${targets[@]}" "${stems[@]}" "${sources[@]}" "${invocation[@]}" 2>&1 | tee -a "$log"
-active=$(running)
+active=$(running 2> >(tee -a "$log" >&2))
 [[ -z "$active" ]] || die "a run is in progress in this checkout (just stop stops it): $active"
 if [[ ${#stems[@]} -gt 0 && -f .tmp/accept-run.json ]]; then
   mv .tmp/accept-run.json "$run_dir/prior-accept-run.json"
@@ -180,11 +183,9 @@ if [[ ${#stems[@]} -gt 0 ]]; then
 fi
 
 if [[ "$command" == milestone ]]; then
-  # Lean's native header parser is also used by Lake; it does not elaborate imported tests.
-  # https://github.com/leanprover/lean4/blob/v4.33.0/src/Lean/Elab/ParseImportsFast.lean
   native lake env lean --deps-json CasCompilerTests.lean CasRuntimeTests.lean CasDslTests.lean \
     > "$run_dir/imports.json" 2> >(tee -a "$log" >&2)
-  python3 - "$run_dir/imports.json" > "$run_dir/sources" <<'PY'
+  python3 - "$run_dir/imports.json" > "$run_dir/sources" 2> >(tee -a "$log" >&2) <<'PY'
 import json, sys
 from pathlib import Path
 roots = ("CasCompilerTests", "CasRuntimeTests", "CasDslTests")
@@ -210,15 +211,13 @@ PY
   mapfile -t sources < "$run_dir/sources"
 fi
 
-# Resolve the actual package paths in the build environment, including container symlinks.
 native python3 scripts/feedback_records.py context "$context" "$command" "$reason" "$log" \
   "${#targets[@]}" "${#stems[@]}" "${#sources[@]}" \
-  "${targets[@]}" "${stems[@]}" "${sources[@]}" "${invocation[@]}"
+  "${targets[@]}" "${stems[@]}" "${sources[@]}" "${invocation[@]}" 2>&1 | tee -a "$log"
 context_pending=false
 preparation_ns=$(( $(now) - started ))
 preparation_finished=true
 
-# A missing local consumer retires earlier acceptance results and records this failure.
 for file in "${sources[@]}"; do
   [[ -f "$file" ]] || {
     printf 'feedback: no local source for selected consumer: %s\n' "$file" | tee -a "$log" >&2
@@ -226,9 +225,8 @@ for file in "${sources[@]}"; do
   }
 done
 
-# A newer explicit slow run of this exact selection and tuple supersedes older loop evidence.
 if [[ "$command" == loop ]]; then
-  python3 - "$records" "$context" "$limit" <<'PY'
+  python3 - "$records" "$context" "$limit" <<'PY' 2>&1 | tee -a "$log"
 import json, sys
 from pathlib import Path
 records, context, limit = sys.argv[1:]
@@ -243,7 +241,6 @@ if previous and previous["seconds"] > int(limit):
 PY
 fi
 
-# One phase uses one command; preserve both command failure and a failed durable-log write.
 step() {
   local phase=$1 source=$2 before elapsed result
   shift 2
@@ -253,15 +250,16 @@ step() {
   attempted=true
   before=$(now)
   python3 scripts/feedback_records.py step-start "$context" "$phase" "$source" "$before" \
-    "$(( preparation_ns + build_ns ))" "$@" || return $?
+    "$(( preparation_ns + build_ns ))" "$@" 2>&1 | tee -a "$log" || return $?
   set +e
-  "$@" 2>&1 | tee -a "$log"
+  CAS_FEEDBACK_STEP="$phase:$before" CAS_FEEDBACK_SOURCE="$source" "$@" 2>&1 | tee -a "$log"
   local codes=("${PIPESTATUS[@]}")
   set -e
   elapsed=$(( $(now) - before ))
   result=${codes[0]}
   [[ "$result" -ne 0 ]] || result=${codes[1]}
-  python3 scripts/feedback_records.py step-finish "$context" "$before" "$elapsed" "$result" || return $?
+  python3 scripts/feedback_records.py step-finish "$context" "$before" "$elapsed" "$result" \
+    2>&1 | tee -a "$log" || return $?
   case "$phase" in
     build) build_ns=$(( build_ns + elapsed )); build_status=$result ;;
     execution) execution_ns=$(( execution_ns + elapsed ));
@@ -272,8 +270,6 @@ step() {
 }
 
 status=0
-# Lake retains complete failed-job logs and build progress at this threshold. The fresh
-# consumer's own stdout/stderr remains unfiltered; successful import warnings stay in Lake.
 step build "" native lake --log-level=error build "${build_targets[@]}" || status=$?
 if [[ "$status" -eq 0 || "$command" == milestone ]]; then
   for file in "${sources[@]}"; do

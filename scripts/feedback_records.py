@@ -151,7 +151,7 @@ def capture_context(argv: list[str]) -> None:
     if any(item["kind"] == "extension" for item in acceptance):
         inputs.append(str(CHECKPOINT))
     inputs += ["lean-toolchain", "lake-manifest.json", "lakefile.lean"]
-    # Match CasRuntime.installedManifest, including the absent-default observation.
+
     installed = Path(os.environ.get("CAS_LEAVES", ".lake/packages/cas_leaves"))
     if installed.suffix != ".json":
         installed /= "leaves.json"
@@ -226,9 +226,14 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
     context = read_json(context_file)
     run = context_file.parent
     computations: dict[str, dict] = {}
+    statements: dict[tuple[str, int], dict] = {}
+    parse_failures: dict[tuple[str, int], dict] = {}
     children: dict[tuple[str, int], dict] = {}
     files: dict[tuple[str, str], dict] = {}
     session_workers: dict[str, str | None] = {}
+    session_steps: dict[str, str | None] = {}
+    session_sources: dict[str, str | None] = {}
+    preparations: dict[str, dict] = {}
     beginnings: dict[tuple[str, int], dict] = {}
     malformed: list[str] = []
     invalid_sessions: set[str] = set()
@@ -268,14 +273,29 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
                     if issues:
                         invalid_sessions.add(session)
                         malformed.extend(f"{log}:{line_number}: {issue}" for issue in issues)
-                    # Keep subsequent actual events after a gap; incompleteness must not erase
-                    # the terminal outcomes, elapsed work or source evidence that did survive.
+
+
                     expected_sequence = event["sequence"] + 1
                     if name == "session.started":
                         worker = data.get("feedbackWorker")
                         if worker is not None and (not isinstance(worker, str) or not worker):
                             raise ValueError("invalid declared feedback worker")
                         session_workers[session] = worker
+                        for field in ("feedbackStep", "feedbackSource"):
+                            if data.get(field) is not None and not isinstance(data[field], str):
+                                raise ValueError(f"invalid declared {field}")
+                        session_steps[session] = data.get("feedbackStep") or None
+                        session_sources[session] = data.get("feedbackSource") or None
+                    elif name == "session.prepared":
+                        if session in preparations:
+                            raise ValueError("duplicate session preparation boundary")
+                        for field in ("startedMonotonicMilliseconds", "milliseconds"):
+                            if type(data[field]) is not int or data[field] < 0:
+                                raise ValueError(f"invalid session preparation {field}")
+                        if (data["startedMonotonicMilliseconds"] + data["milliseconds"] >
+                                event["monotonicMilliseconds"]):
+                            raise ValueError("session preparation ends before its measured work")
+                        preparations[session] = event
                     elif name == "file.begin":
                         if not isinstance(data["file"], str) or not data["file"]:
                             raise ValueError("invalid original file name")
@@ -287,6 +307,10 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
                                 raise ValueError(f"invalid computation {field}")
                         if type(data["ordinal"]) is not int or data["ordinal"] < 0:
                             raise ValueError("invalid computation ordinal")
+                        if name == "computation.started" and (
+                                type(data["startedMonotonicMilliseconds"]) is not int or
+                                not 0 <= data["startedMonotonicMilliseconds"] <= event["monotonicMilliseconds"]):
+                            raise ValueError("invalid original computation start")
                         timing_fields = ("cumulativeSetupMilliseconds",) if name == "computation.started" else (
                             "milliseconds", "executionMilliseconds", "setupMilliseconds",
                             "cumulativeSetupMilliseconds")
@@ -308,6 +332,52 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
                         if field in item or item["session"] != session:
                             raise ValueError(f"duplicate or changed {name} for {key}")
                         item[field] = event
+                    elif name in {"statement.started", "statement.finished", "statement.interrupted"}:
+                        if name == "statement.started":
+                            if not isinstance(data["source"], str) or not isinstance(data["position"], dict):
+                                raise ValueError("invalid original statement source or position")
+                            if (type(data["startedMonotonicMilliseconds"]) is not int or
+                                    not 0 <= data["startedMonotonicMilliseconds"] <=
+                                    event["monotonicMilliseconds"]):
+                                raise ValueError("invalid original statement start")
+                            sequence, field = event["sequence"], "start"
+                        else:
+                            if not event["parents"]:
+                                raise ValueError("statement terminal event lost its owning start")
+                            sequence = event["parents"][-1]
+                            field = "completion" if name == "statement.finished" else "interruption"
+                            if type(data["milliseconds"]) is not int or data["milliseconds"] < 0:
+                                raise ValueError("invalid statement execution time")
+                            if field == "completion" and (
+                                    not isinstance(data["kind"], str) or
+                                    any(type(data[key]) is not bool for key in
+                                        ("fails", "published", "retainsSetup"))):
+                                raise ValueError("statement timing lost its actual result")
+                        if (type(data["cumulativeSetupMilliseconds"]) is not int or
+                                data["cumulativeSetupMilliseconds"] < 0):
+                            raise ValueError("invalid retained statement setup")
+                        item = statements.setdefault((session, sequence),
+                            {"source_log": str(log), "session": session})
+                        if field in item or (field != "start" and
+                                ("completion" in item or "interruption" in item)):
+                            raise ValueError(f"duplicate statement {field} at {session}/{sequence}")
+                        item[field] = event
+                    elif name == "statement.parseFailed":
+                        if not isinstance(data["source"], str) or not isinstance(data["position"], dict):
+                            raise ValueError("invalid rejected statement source or position")
+                        for field in ("startedMonotonicMilliseconds", "milliseconds",
+                                      "cumulativeSetupMilliseconds"):
+                            if type(data[field]) is not int or data[field] < 0:
+                                raise ValueError(f"invalid rejected statement {field}")
+                        if (data["startedMonotonicMilliseconds"] + data["milliseconds"] >
+                                event["monotonicMilliseconds"]):
+                            raise ValueError("rejected statement ends before its measured work")
+                        if (data["kind"] != "invalid" or data["stratum"] != "invalid" or
+                                data["fails"] is not True or any(data[key] is not False for key in
+                                ("attempted", "published", "retainsSetup"))):
+                            raise ValueError("rejected statement timing lost its actual failure")
+                        parse_failures[(session, event["sequence"])] = {
+                            "source_log": str(log), "session": session, "completion": event}
                     elif name in {"statement.child.started", "statement.child.finished",
                                   "statement.child.interrupted"}:
                         if name == "statement.child.started":
@@ -318,6 +388,9 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
                                     or type(data["precedingSetupMilliseconds"]) is not int
                                     or data["precedingSetupMilliseconds"] < 0):
                                 raise ValueError("invalid original nested statement or setup")
+                            if (type(data["startedMonotonicMilliseconds"]) is not int or
+                                    not 0 <= data["startedMonotonicMilliseconds"] <= event["monotonicMilliseconds"]):
+                                raise ValueError("invalid original nested statement start")
                             child_sequence = event["sequence"]
                             field = "start"
                         else:
@@ -361,85 +434,146 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
                     malformed.append(f"{log}:{line_number}: {error}")
                     if log_session is not None:
                         invalid_sessions.add(log_session)
-    worker_starts = {}
-    invalid_workers = set()
+    process_steps = {}
+    invalid_steps = set()
     for path in (run / "steps").glob("*.json"):
         try:
             step = read_json(path)
-            if not isinstance(step["phase"], str):
+            if not isinstance(step["phase"], str) or not isinstance(step["step"], str):
                 raise ValueError("invalid recorded phase")
-            if step["phase"].startswith("acceptance-worker"):
-                worker = step["phase"].removeprefix("acceptance-worker")
-                if not worker:
-                    raise ValueError("an acceptance-worker start lost its declared identity")
-                if worker in worker_starts:
-                    invalid_workers.add(worker)
-                    raise ValueError(f"duplicate original worker start for {worker}")
-                started = step["started_monotonic_ns"]
-                if type(started) is not int or started < 0:
-                    invalid_workers.add(worker)
-                    raise ValueError(f"invalid original worker start for {worker}")
-                # Compare at the native log's millisecond precision, without clamping
-                # a genuinely negative interval or inventing an absent start.
-                worker_starts[worker] = started // 1_000_000
+            if step["step"] in process_steps:
+                invalid_steps.add(step["step"])
+                raise ValueError(f"duplicate original process step {step['step']}")
+            started = step["started_monotonic_ns"]
+            if type(started) is not int or started < 0:
+                invalid_steps.add(step["step"])
+                raise ValueError(f"invalid original process start for {step['step']}")
+            process_steps[step["step"]] = step
         except (json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
             malformed.append(f"{path}: {error}")
-    first_files = {}
-    for (session, _), event in beginnings.items():
-        worker = session_workers.get(session)
-        if worker is not None:
-            entered = event["monotonicMilliseconds"]
-            first_files[worker] = min(first_files.get(worker, entered), entered)
-    worker_setup = {}
-    for worker, entered in first_files.items():
-        started = worker_starts.get(worker)
-        if started is None or worker in invalid_workers:
-            malformed.append(f"worker {worker} has no unique recorded startup boundary")
-            invalid_workers.add(worker)
-        elif entered < started:
-            malformed.append(f"worker {worker} entered a file before its recorded start")
-            invalid_workers.add(worker)
+    first_sessions = {}
+    for session, preparation in preparations.items():
+        step = session_steps.get(session)
+        if step is not None:
+            entered = preparation["data"]["startedMonotonicMilliseconds"]
+            first_sessions[step] = min(first_sessions.get(step, entered), entered)
+    process_setup = {}
+    for step, entered in first_sessions.items():
+        original = process_steps.get(step)
+        if original is None or step in invalid_steps:
+            malformed.append(f"process {step} has no unique recorded startup boundary")
+            invalid_steps.add(step)
+        elif entered < original["started_monotonic_ns"] // 1_000_000:
+            malformed.append(f"process {step} entered a session before its recorded start")
+            invalid_steps.add(step)
         else:
-            worker_setup[worker] = (entered - started) / 1000
-    invalid_sessions.update(session for session, worker in session_workers.items()
-                            if worker in invalid_workers)
+            process_setup[step] = (entered - original["started_monotonic_ns"] // 1_000_000) / 1000
+    for session in session_steps:
+        step = session_steps[session]
+        worker = session_workers.get(session)
+        original = process_steps.get(step)
+        if (step in invalid_steps or (worker is not None and original is not None and
+                original["phase"] != f"acceptance-worker{worker}")):
+            invalid_sessions.add(session)
+    wrapper_starts = {(item["session"], item["start"]["sequence"])
+                      for item in computations.values() if "start" in item}
+    for (session, sequence), item in statements.items():
+        start = item.get("start")
+        if start is None:
+            malformed.append(f"statement terminal event {session}/{sequence} has no original start")
+            continue
+        if any((session, parent) in wrapper_starts for parent in start["parents"]):
+            continue
+        computations[f"{session}/statement/{sequence}"] = {**item, "direct": True}
+    for (session, sequence), item in parse_failures.items():
+        if any((session, parent) in wrapper_starts for parent in item["completion"]["parents"]):
+            continue
+        computations[f"{session}/parse/{sequence}"] = {**item, "direct": True, "parse_failure": True}
     rows = []
     root_starts = {}
     for key, item in computations.items():
         start, completion = item.get("start"), item.get("completion")
-        data = (completion or start)["data"]
-        seconds = float(data["milliseconds"] / 1000) if completion else None
-        agreed = start is not None and completion is not None
-        if agreed:
+        terminal = completion or item.get("interruption")
+        data = (terminal or start)["data"]
+        source_data = (start or terminal)["data"]
+        session = item["session"]
+        direct = item.get("direct", False)
+        setup = float(data["cumulativeSetupMilliseconds"] / 1000)
+        agreed = completion is not None and (start is not None or item.get("parse_failure", False))
+        step = session_steps.get(session)
+        original_step = process_steps.get(step, {})
+        if direct:
+            execution = float(data["milliseconds"] / 1000) if terminal else None
+            seconds = execution + setup if execution is not None else None
+            file = session_sources.get(session) or source_data["position"].get("file")
+            source_hash = original_step.get("input_sha256") if original_step.get("source") == file else None
+            source_hash = source_hash or context["inputs"].get(file)
+            if not file or source_hash is None:
+                malformed.append(f"statement {key} has no recorded source input")
+                agreed = False
+            if (original_step.get("source") and session_sources.get(session) and
+                    original_step["source"] != session_sources[session]):
+                malformed.append(f"statement {key} changed its declared module source")
+                agreed = False
+            if (original_step.get("source") == file and "final_input_sha256" in original_step and
+                    original_step["final_input_sha256"] != source_hash):
+                malformed.append(f"statement {key} changed its source input during execution")
+                agreed = False
+            ordinal = (start or terminal)["sequence"]
+            statement_id = f"(statement) {source_data['source']}"
+            file_run = None
+            outcome = data if completion else None
+            if start and terminal:
+                agreed = agreed and source_data["cumulativeSetupMilliseconds"] == data["cumulativeSetupMilliseconds"]
+                agreed = agreed and (source_data["startedMonotonicMilliseconds"] + data["milliseconds"] <=
+                                     terminal["monotonicMilliseconds"])
+        else:
+            seconds = float(data["milliseconds"] / 1000) if completion else None
+            execution = float(data["executionMilliseconds"] / 1000) if completion else None
+            file, file_run, source_hash = data["file"], data["fileRun"], data["sourceSha256"]
+            ordinal, statement_id = data["ordinal"], data.get("id")
+            outcome = data["result"] if completion else None
+        if agreed and not direct:
             agreed = all(start["data"][field] == data[field] for field in
                          ("computation", "fileRun", "file", "ordinal", "sourceSha256",
                           "cumulativeSetupMilliseconds"))
             agreed = agreed and completion["monotonicMilliseconds"] >= start["monotonicMilliseconds"]
         if start and completion and not agreed:
             malformed.append(f"computation {key} changed its original statement, input, or setup")
-        worker = session_workers.get(item["session"])
-        shared_worker = worker_setup.get(worker) if worker is not None else 0
+        worker = session_workers.get(session)
+        shared_worker = process_setup.get(step)
+        preparation = preparations.get(session)
+        shared_session = float(preparation["data"]["milliseconds"] / 1000) if preparation else None
+        if preparation is None:
+            malformed.append(f"session {session} has no recorded preparation boundary")
+        if step is None:
+            malformed.append(f"session {session} has no declared process step")
         row = {
             **identity(context), **item, "unit": "statement", "computation": key,
             "parent_computation": None, "root_computation": key,
-            "file": data["file"], "file_run": data["fileRun"], "worker": worker,
-            "ordinal": data["ordinal"], "id": data.get("id"),
-            "input_sha256": data["sourceSha256"], "seconds": seconds,
-            "execution_seconds": float(data["executionMilliseconds"] / 1000) if completion else None,
-            "setup_seconds": float(data["cumulativeSetupMilliseconds"] / 1000),
+            "file": file, "file_run": file_run, "worker": worker, "step": step,
+            "ordinal": ordinal, "id": statement_id,
+            "input_sha256": source_hash, "seconds": seconds,
+            "statement_sha256": hashlib.sha256(source_data["source"].encode()).hexdigest() if "source" in source_data else None,
+            "execution_seconds": execution, "setup_seconds": setup,
             "shared_setup_seconds": shared_setup_seconds,
             "shared_worker_setup_seconds": shared_worker,
+            "shared_session_setup_seconds": shared_session,
+            "session_preparation": preparation,
             "shared_setup": {"context": str(context_file), "phases": ["preparation", "build"]},
-            "inclusive_seconds": (seconds + shared_setup_seconds + shared_worker
-                                  if seconds is not None and shared_worker is not None else None),
-            "complete": agreed and shared_worker is not None and item["session"] not in invalid_sessions,
+            "inclusive_seconds": (seconds + shared_setup_seconds + shared_worker + shared_session
+                                  if all(value is not None for value in
+                                         (seconds, shared_worker, shared_session)) else None),
+            "outcome": outcome,
+            "complete": (agreed and shared_worker is not None and shared_session is not None
+                         and session not in invalid_sessions),
         }
         rows.append(row)
         if start:
             root_starts[(item["session"], start["sequence"])] = row
 
-    # A child's own scope is the final parent of its terminal event. Its ancestors
-    # identify the actual file computation and containing child; source text is never a key.
+
+
     nested_parents = {}
     nested_roots = {}
     first_children = {}
@@ -451,15 +585,16 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
         ancestors = [(item["session"], sequence) for sequence in reversed(start["parents"])]
         root_key = next((key for key in ancestors if key in root_starts), None)
         if root_key is None:
-            continue  # Ordinary Session runs remain fully retained in the raw application log.
+            malformed.append(f"nested computation {child_key} has no recorded root")
+            continue
         parent_key = next((key for key in ancestors if key in children or key in root_starts), None)
         if parent_key is None:
             malformed.append(f"nested computation {child_key} lost its actual parent")
             continue
         nested_roots[child_key] = root_key
         nested_parents[child_key] = parent_key
-        first_children[parent_key] = min(first_children.get(parent_key, start["monotonicMilliseconds"]),
-                                         start["monotonicMilliseconds"])
+        child_started = start["data"]["startedMonotonicMilliseconds"]
+        first_children[parent_key] = min(first_children.get(parent_key, child_started), child_started)
 
     scoped_rows = dict(root_starts)
     for child_key in sorted(nested_parents):
@@ -473,34 +608,44 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
         preflight = None
         preceding = float(start["data"]["precedingSetupMilliseconds"] / 1000)
         if parent is not None:
-            preflight = (first_children[parent_key] - parent["start"]["monotonicMilliseconds"]) / 1000
+            parent_start = parent["start"]["data"].get(
+                "startedMonotonicMilliseconds", parent["start"]["monotonicMilliseconds"])
+            preflight = (first_children[parent_key] - parent_start) / 1000
             if preflight < 0:
                 malformed.append(f"nested computation {child_key} precedes its parent")
             elif parent["setup_seconds"] is not None:
                 setup = parent["setup_seconds"] + preflight + preceding
         else:
             malformed.append(f"nested computation {child_key} has no recorded containing scope")
-        terminal_ordered = terminal is None or terminal["monotonicMilliseconds"] >= start["monotonicMilliseconds"]
+        terminal_ordered = terminal is None or (
+            start["data"]["startedMonotonicMilliseconds"] + terminal["data"]["milliseconds"] <=
+            terminal["monotonicMilliseconds"])
         if not terminal_ordered:
             malformed.append(f"nested computation {child_key} has a terminal event before its start")
         execution = float(terminal["data"]["milliseconds"] / 1000) if terminal else None
         seconds = execution + setup if execution is not None and setup is not None else None
-        enclosing = root.get("completion", {}).get("data", {}).get("result")
+        enclosing = root["outcome"]
         key = f"{item['session']}/child/{start['sequence']}"
         row = {
             **identity(context), **item, "unit": "nested_statement", "computation": key,
             "parent_computation": parent["computation"] if parent else None,
             "root_computation": root["computation"],
             "file": root["file"], "file_run": root["file_run"], "worker": root["worker"],
+            "step": root["step"],
             "ordinal": start["data"]["ordinal"], "id": start["data"]["id"],
             "input_sha256": root["input_sha256"], "seconds": seconds,
             "execution_seconds": execution, "setup_seconds": setup,
             "enclosing_preflight_seconds": preflight, "preceding_setup_seconds": preceding,
             "shared_setup_seconds": shared_setup_seconds,
             "shared_worker_setup_seconds": root["shared_worker_setup_seconds"],
+            "shared_session_setup_seconds": root["shared_session_setup_seconds"],
+            "session_preparation": root["session_preparation"],
             "shared_setup": root["shared_setup"],
-            "inclusive_seconds": (seconds + shared_setup_seconds + root["shared_worker_setup_seconds"]
-                                  if seconds is not None and root["shared_worker_setup_seconds"] is not None else None),
+            "inclusive_seconds": (seconds + shared_setup_seconds + root["shared_worker_setup_seconds"] +
+                                  root["shared_session_setup_seconds"]
+                                  if all(value is not None for value in (seconds,
+                                      root["shared_worker_setup_seconds"], root["shared_session_setup_seconds"]))
+                                  else None),
             "outcome": completion["data"] if completion else None,
             "enclosing_outcome": enclosing,
             "enclosing_published": enclosing["published"] if enclosing is not None else None,
@@ -511,7 +656,7 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
         scoped_rows[child_key] = row
 
     complete = not malformed and all(row["complete"] and
-        (row["session"], row["file_run"]) in files for row in rows)
+        (row["file_run"] is None or (row["session"], row["file_run"]) in files) for row in rows)
     file_records = []
     recorded_beginnings = set()
     for (session, file_run), events in files.items():
@@ -533,8 +678,8 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
                    and len({row["ordinal"] for row in starts}) == len(starts))
         failure_seconds = None
         if failure is not None:
-            # A classified read/parse failure is a finished attempt, including in a
-            # passing negative-control module. No statement was entered or invented.
+
+
             executed = 0
             matched = (begin is not None and begin["data"]["file"] == file and
                        start is None and finish is None and not file_rows)
@@ -563,8 +708,8 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
                                  "session": key[0], "statements": None, "executed": None,
                                  "records": 0, "nested_records": 0, "total_records": 0,
                                  "complete": False, "begin": begin, "failure": None})
-    # The append-only application logs already preserve started work during SIGKILL. These
-    # derived records are published once by the owning run's exit handler.
+
+
     with (run / "computations.jsonl").open("w") as output:
         for row in rows:
             output.write(dumps_exact_json(row) + "\n")
@@ -590,8 +735,11 @@ def finish_feedback(argv: list[str]) -> int:
     over = entry["kind"] == "loop" and seconds > int(limit)
     execution_result = int(status)
     result = execution_result or (1 if over else 0)
-    shared = (int(preparation) + int(build)) / 1e9
     interrupted = False
+    phases = {name: {"seconds": int(elapsed) / 1e9, "status": int(code) if code else None}
+              for name, elapsed, code in (("build", build, bs), ("execution", execution, es),
+                                         ("acceptance", acceptance, acs))}
+    phase_steps = {name: [] for name in phases}
     for path in (context_path.parent / "steps").glob("*.json"):
         step = read_json(path)
         if not step["complete"]:
@@ -605,6 +753,15 @@ def finish_feedback(argv: list[str]) -> int:
             append_record(context_path.parent / "events.jsonl", step)
             if step["phase"] == "execution":
                 append_record(Path("timing/modules.jsonl"), step)
+        if step["phase"] in phase_steps:
+            phase_steps[step["phase"]].append(step)
+    for name, steps in phase_steps.items():
+        if steps:
+            phases[name] = {"seconds": sum(step["seconds"] for step in steps),
+                            "status": next((step["status"] for step in sorted(
+                                steps, key=lambda step: step["started_monotonic_ns"])
+                                if step["status"]), 0)}
+    shared = int(preparation) / 1e9 + phases["build"]["seconds"]
     for source in entry["sources"]:
         if source not in attempted_sources:
             append_record(Path("timing/modules.jsonl"), {
@@ -623,11 +780,7 @@ def finish_feedback(argv: list[str]) -> int:
         "attempted": attempted == "true", "attempted_sources": attempted_sources,
         "finished_utc": utc(), "complete": not interrupted, "computations": computations,
         "preparation_seconds": int(preparation) / 1e9,
-        "phases": {
-            **{name: {"seconds": int(elapsed) / 1e9, "status": int(code) if code else None}
-               for name, elapsed, code in (("build", build, bs), ("execution", execution, es),
-                                          ("acceptance", acceptance, acs))},
-        },
+        "phases": phases,
     })
     summary = (f"{entry['kind']}: execution status {execution_result}; status {result} "
                f"in {seconds:.3f} s; log {entry['log']}")

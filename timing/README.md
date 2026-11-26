@@ -80,12 +80,19 @@ selection. `inclusive_seconds` is the sum. Several modules therefore share the s
 cost; their inclusive values must not be summed to estimate the run's wall time. The run's own
 `seconds` is the measured end-to-end wall time.
 
-Statement records preserve the native `computation.started` and `computation.timing` events.
-`seconds` is the runner's inclusive `milliseconds`: statement execution, source construction,
-nested work and the setup required by that statement. The original execution, setup,
-shared-file-setup and nested measurements remain in the completion event's `data`.
-Earlier definitions can be necessary for several later statements, so these inclusive costs
-also overlap. Successful setup definitions have their own records.
+File statement records preserve the native `computation.started` and `computation.timing`
+events. Direct public calls preserve `statement.started` and their terminal event; their
+identities use the session and original event sequence. A file wrapper owns its contained
+statement entrance, so the collector records that computation once. Direct text calls include
+parsing, and rejected text retains its actual parse-failure event and measured start.
+The original statement text has its own hash; the containing module's input hash comes from
+the captured step or context, never a later read of the source file.
+
+`seconds` includes statement execution, source construction, nested work and the setup
+required by that statement. File parsing remains in the file's cumulative setup. Direct calls
+carry their prior retained definitions' setup in the returned session. Earlier definitions
+can be necessary for several later statements, so these inclusive costs overlap. Successful
+setup definitions have their own records.
 
 Nested records have `unit=nested_statement` and use the native session plus child-start
 sequence as their identity. `parent_computation` and `root_computation` follow the actual
@@ -96,15 +103,16 @@ scopes. These are inclusive, overlapping costs; no future sibling work is charge
 preflight and no shared cost is divided arbitrarily. File `statements`, `executed` and
 `records` count top-level items; `nested_records` separately counts actual child starts.
 
-Each statement additionally references the acceptance run's shared preparation/build cost and
-its worker's native startup/import cost. Worker startup is measured from the recorded worker
-start to its first `file.begin` event on the same monotonic clock. The record keeps these
-amounts separate and includes them in `inclusive_seconds`; it never divides shared setup
-arbitrarily among statements. A declared worker requires its unique recorded start and a
-nonnegative interval at the native clock's millisecond precision. Missing or contradictory
-startup evidence leaves that shared cost and the inclusive total unknown, with incomplete
-coverage; ordinary unlabeled session runs remain distinct. The acceptance run's wall time and worker durations remain the
-appropriate totals for the parallel selection.
+Each statement additionally references the run's shared preparation/build cost, its native
+step's startup cost and its own session preparation. The session header names the exact
+recorded step and selected source. Startup ends at the first session's measured preparation
+start on the same monotonic clock; every session separately measures manifest/profile loading,
+owner initialization and source-session construction. The fields `shared_worker_setup_seconds`
+and `shared_session_setup_seconds` retain those separate amounts, including for ordinary
+module execution. They contribute to `inclusive_seconds` without arbitrary division among
+statements. Missing or contradictory startup/preparation evidence leaves the corresponding
+cost and inclusive total unknown and coverage incomplete. The acceptance run's wall time and
+worker durations remain the appropriate totals for a parallel selection.
 
 ## Failed and partial executions
 
@@ -123,6 +131,10 @@ native trace must retain its original session header and contiguous event sequen
 both ends of a nested computation cannot erase it silently. After a sequence gap, surviving
 terminal events and elapsed work remain recorded while completeness stays false.
 A complete timing stream cannot repair a missing or corrupted acceptance report.
+Interrupted preparation and build phases close their elapsed boundary at interruption and
+retain `unfinished_phase`. The generated metadata is replaced atomically. Damaged metadata
+still produces an incomplete failure journal while preserving reports supported by the
+original context and inventories; it cannot erase another file's completed outcomes.
 A paired native file begin and read/parse failure records a complete failed attempt, with
 its actual terminal duration, original failure and unknown parsed statement count. Such a
 record can belong to a passing invalid-input control; it creates no successful statement.
@@ -144,7 +156,7 @@ historical rows, and collecting timings does not regenerate an acceptance baseli
 interrupted-worker and damaged-report controls. The module/statement timing control runs
 `just loop CasCompiler.ContextTests ellipses` through the original public commands, checks
 the complete admitted file, and verifies the persisted records and logs. The warm
-`CasRuntime.SessionTests` control also checks all six top-level and two nested computations
+`CasRuntime.SessionTests` control checks every direct session entrance and all six top-level and two nested computations
 of its original public application-log fixture, including the nested definition, original
 causal links, setup costs and separate enclosing publication. That same control removes a
 complete interior child pair only from a copy of its actual trace and requires incomplete
