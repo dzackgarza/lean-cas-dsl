@@ -12,15 +12,11 @@ namespace CasRuntime.ApplicationLogTests
 
 open Lean Meta Elab Command Term CasCompiler CasCatalogue CasCatalogue.Backend
 
--- T127 exercises the original acceptance file through its public runner. The peer
--- receives only its existing Fin cardinality registration. Every mathematical outcome
--- stays in the report; the checks below assert the integrity of the execution log.
-/-- Run the unchanged original file and check its complete trace against the public report.
-Additional controls inspect the same executed session and log; they do not replay statements. -/
 public meta def runOriginalFile (peer : Bool)
     (observe : KernelSession → SourceFile → Array CasCatalogue.Language.TestResult →
       Array Json → Json → CommandElabM Unit := fun _ _ _ _ _ => pure ()) :
     CommandElabM Unit := do
+  let preparationStarted ← IO.monoMsNow
   let environment ← getEnv
   try
     let root ← IO.currentDir
@@ -47,13 +43,12 @@ public meta def runOriginalFile (peer : Bool)
     let manifestPath := evidence / "leaves.json"
     IO.FS.writeFile manifestPath manifest.compress
     let initial ← liftTermElabM <| KernelSession.start (some manifestPath)
-      (computationOnly := true)
+      (computationOnly := true) (preparationStarted? := some preparationStarted)
     try
       unless initial.kernel.rejected.isEmpty do
         throwError "the original-file control lost its one legitimate peer registration"
       let (rows, completed) ← CasCatalogue.Language.runFile initial input
-      -- Save the complete unmodified public report before checking its trace. Passing
-      -- this log control never changes a gap or a failure into mathematical acceptance.
+
       IO.FS.writeFile (evidence / "results.json") <| (Json.mkObj [
         ("file", toJson input.toString), ("sourceSha256", toJson sourceSha256),
         ("manifest", manifest), ("peer", toJson peer),

@@ -114,6 +114,11 @@ statements. Missing or contradictory startup/preparation evidence leaves the cor
 cost and inclusive total unknown and coverage incomplete. The acceptance run's wall time and
 worker durations remain the appropriate totals for a parallel selection.
 
+A computation executed while Lake builds a dependency uses that step's captured prior setup.
+Its owning build is excluded from its shared cost, so its execution is counted once. The
+record identifies this boundary as `shared_setup.before_step`. Later fresh module execution
+and acceptance workers include the completed dependency build as earlier shared work.
+
 ## Failed and partial executions
 
 A module start is persisted before invoking Lean. A completed failure records its real status

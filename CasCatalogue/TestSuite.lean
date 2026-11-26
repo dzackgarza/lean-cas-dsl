@@ -281,10 +281,12 @@ def report (file : String) (results : Array TestResult) : String :=
 
 def withSession (manifest? : Option System.FilePath) (computationOnly : Bool)
     (action : KernelSession → CommandElabM α) : CommandElabM α := do
+  let preparationStarted ← IO.monoMsNow
   let environment ← getEnv
   try
     liftCoreM KernelSession.clear
     let session ← liftTermElabM <| KernelSession.start manifest? computationOnly
+      (preparationStarted? := some preparationStarted)
     for rejected in session.kernel.rejected do
       logWarning m!"registration not admitted: {rejected}"
     try action session finally (session.close : IO Unit)

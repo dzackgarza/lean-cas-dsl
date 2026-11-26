@@ -107,8 +107,11 @@ def installedManifest : IO (Option System.FilePath) := do
 
 opaque KernelSession.start (manifest : Option System.FilePath := none)
     (computationOnly : Bool := false) (timeoutMs : UInt32 := 600000)
-    (profile : Option Json := none) : MetaM KernelSession := do
-  let started ← IO.monoMsNow
+    (profile : Option Json := none) (preparationStarted? : Option Nat := none) :
+    MetaM KernelSession := do
+  let started ← match preparationStarted? with
+    | some started => pure started
+    | none => IO.monoMsNow
   let manifest ← match manifest with
     | some path => pure (some path)
     | none => installedManifest
@@ -915,7 +918,7 @@ opaque KernelSession.run (session : KernelSession) (statement : TSyntax `cas_stm
       let retained := run.session.source.context.entries.filter fun binding =>
         !(session.source.context.entries.any (·.id == binding.id))
       let milliseconds := (← IO.monoMsNow) - started
-      let retainsSetup := run.session.source.context.entries.size > session.source.context.entries.size
+      let retainsSetup := decide (run.session.source.context.entries.size > session.source.context.entries.size)
       CasTools.Diagnostics.emit "statement.finished" <| Json.mkObj [
         ("kind", toJson run.outcome.kind), ("detail", toJson run.outcome.detail),
         ("stratum", toJson run.outcome.stratum?),

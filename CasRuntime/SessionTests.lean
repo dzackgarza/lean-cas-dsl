@@ -20,10 +20,8 @@ meta import LeanCategories.Catalogue.Semantics.Algebra.CyclicQuotients
 
 open Lean Meta Elab Command Term CasRuntime CasCompiler CasCatalogue CasCatalogue.Backend
 
-/- Public statements run from source text through the reader, the lowerer and the kernel
-executor to a real protocol-v2 process. The provider supplies integer-ring traffic only; the
-catalogue fixes every question. Reuse: the pinned SDK project and KernelSession. -/
 run_cmd liftTermElabM do
+  let preparationStarted ← IO.monoMsNow
   let environment ← getEnv
   try
     let contract ← liftM (m := IO) <| packageDir contractPackage
@@ -43,6 +41,7 @@ run_cmd liftTermElabM do
     let path := root / ".tmp" / "kernel-session-leaves.json"
     liftM (m := IO) <| IO.FS.writeFile path manifest.compress
     let mut session ← KernelSession.start (some path)
+      (preparationStarted? := some preparationStarted)
     try
       unless session.kernel.rejected.size == 1 do
         throwError "an unpublished operation address was admitted as a registration"
@@ -59,8 +58,7 @@ run_cmd liftTermElabM do
         ("assert c = 4", "wrong"),
         ("assert implemented |Fin(2)|", "holds"),
         ("assert 2 + 2 = 4 in ℤ", "holds"),
-        -- A numeral of ℤ/5 is the image of 3 under ℤ → ℤ/5; computing it is a leaf's job
-        -- (constitution C22), so defining it dispatches nothing and holds.
+
         ("let x := 3 in ℤ/5", "holds")]
       for (text, kind) in expected do
         let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
@@ -70,18 +68,20 @@ run_cmd liftTermElabM do
         unless run.outcome.kind == kind do
           throwError "`{text}` is {run.outcome.kind} ({run.outcome.detail}), not {kind}"
         session := run.session
-      -- The retained sum is sent again as data. The deferred addition is a real dispatch.
+
       let dispatched := (← session.kernel.dispatches.get).map (·.operation)
       unless dispatched == #["op.rings.add", "op.rings.mul", "op.rings.mul", "op.rings.add",
           "meth.cardinality", "meth.cardinality"] do
         throwError "the session dispatched {dispatched}"
     finally liftM (m := IO) session.close
-    -- An explicit empty manifest gives the same source its reading without a realization.
+
+    let emptyPreparationStarted ← IO.monoMsNow
     setEnv environment
     let emptyPath := root / ".tmp" / "kernel-session-empty-leaves.json"
     liftM (m := IO) <| IO.FS.writeFile emptyPath
       (Json.mkObj [("backends", .arr #[]), ("registrations", .arr #[])]).compress
     let bare ← KernelSession.start (some emptyPath)
+      (preparationStarted? := some emptyPreparationStarted)
     try
       let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt "let a := 17 + 29 in ℤ" with
         | .ok statement => pure statement
@@ -89,16 +89,14 @@ run_cmd liftTermElabM do
       let run ← withoutErrToSorry <| bare.run ⟨statement⟩
       unless run.outcome.kind == "gap" do
         throwError "a statement with no installed leaf is {run.outcome.kind}, not a gap"
-      -- The definition keeps its meaning without a leaf (constitution C3): a later statement
-      -- reads it, and this closed question is settled in Lean.
+
       let question ← match Parser.runParserCategory (← getEnv) `cas_stmt "assert a = 46 in ℤ" with
         | .ok statement => pure statement
         | .error error => throwError "the statement did not parse: {error}"
       let asked ← withoutErrToSorry <| run.session.run ⟨question⟩
       unless asked.outcome.kind == "holds" do
         throwError "a definition with no installed leaf is lost: {asked.outcome.kind} ({asked.outcome.detail})"
-      -- Maps the user wrote are not computed values: a question about them is settled in Lean
-      -- from their definitions, not sent to a leaf (tests/acceptance/functions.cas).
+
       let mut written := asked.session
       for (text, kind) in #[("let h := t ↦ t² + 1 in ℤ → ℤ", "holds"),
           ("let hp(t) := t^2 + 1 in ℤ → ℤ", "holds"), ("assert h = hp", "holds")] do
@@ -112,10 +110,8 @@ run_cmd liftTermElabM do
     finally liftM (m := IO) bare.close
   finally setEnv environment
 
-/- A failed public definition retains the failure of its one actual invocation. The existing
-SDK peer fails only its first addition; retrying an alias would therefore succeed and emit a
-second request. Explicitly writing a new addition remains a new independent computation. -/
 run_cmd liftTermElabM do
+  let mut preparationStarted ← IO.monoMsNow
   let environment ← getEnv
   try
     let contract ← liftM (m := IO) <| packageDir contractPackage
@@ -135,6 +131,7 @@ run_cmd liftTermElabM do
       let path := root / ".tmp" / s!"kernel-session-{mode}.json"
       liftM (m := IO) <| IO.FS.writeFile path manifest.compress
       let mut session ← KernelSession.start (some path)
+        (preparationStarted? := some preparationStarted)
       try
         let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt
             "let failedSum := 17 + 29 in ℤ" with
@@ -174,8 +171,7 @@ run_cmd liftTermElabM do
             unless session.source.context.entries.size == declarations + 1 &&
                 entry.value.isSome && (session.value? entry.id).isNone do
               throwError "a failed dependent definition published a value or lost its meaning"
-        -- A question explicitly requesting computation follows that same original failure.
-        -- The normal source-only question below retains its separate discharge policy.
+
         let question ← match Parser.runParserCategory (← getEnv) `cas_stmt
             "assert failedDependent = 46 in ℤ" with
           | .ok statement => pure statement
@@ -192,7 +188,7 @@ run_cmd liftTermElabM do
             (← session.kernel.dispatches.get).map (·.operation) == #["op.rings.add"] &&
             (← liftM (m := IO) <| IO.FS.readFile log) == traffic do
           throwError "a later failed-definition use retried or published a computation"
-        -- The failure neither changes the mathematical definition nor poisons a fresh call.
+
         for text in #["assert failedSum = 46 in ℤ", "let freshSum := 17 + 29 in ℤ",
             "assert freshSum = 46 in ℤ"] do
           let statement ← match Parser.runParserCategory (← getEnv) `cas_stmt text with
@@ -208,13 +204,11 @@ run_cmd liftTermElabM do
             ((traffic.splitOn "\n").filter (!·.isEmpty)).length == 2 do
           throwError "a fresh addition did not make exactly its own independent invocation"
       finally liftM (m := IO) session.close
+      preparationStarted ← IO.monoMsNow
   finally setEnv environment
 
-
--- The same published operation reaches the same original operands through public source
--- and a provider-requested child. The independent peer forwards released input addresses;
--- immutable committed receipts, not equal returned numbers, establish operand identity.
 run_cmd liftTermElabM do
+  let preparationStarted ← IO.monoMsNow
   let environment ← getEnv
   try
     let contract ← liftM (m := IO) <| packageDir contractPackage
@@ -234,6 +228,7 @@ run_cmd liftTermElabM do
     let path := root / ".tmp/kernel-source-child-parity-leaves.json"
     IO.FS.writeFile path manifest.compress
     let initial ← KernelSession.start (some path) (computationOnly := true)
+      (preparationStarted? := some preparationStarted)
     try
       let mut session := initial
       let mut originals : Array (BindingId × ValueBinding) := #[]
@@ -353,11 +348,8 @@ run_cmd liftTermElabM do
     finally initial.close
   finally setEnv environment
 
-
--- The public file runner exposes its whole trace through a durable file. The original
--- protocol peer supplies independent traffic; neither the log nor these checks supplies
--- an interpretation or a mathematical result to the running session.
 run_cmd do
+  let preparationStarted ← IO.monoMsNow
   let environment ← getEnv
   try
     let root ← IO.currentDir
@@ -381,6 +373,7 @@ run_cmd do
     IO.FS.writeFile manifestPath manifest.compress
     let input := root / "tests/runtime/application_log.cas"
     let initial ← liftTermElabM <| KernelSession.start (some manifestPath) (computationOnly := true)
+      (preparationStarted? := some preparationStarted)
     let readEvents (path : System.FilePath) : IO (Array Json) := do
       let mut events := #[]
       for line in (← IO.FS.readFile path).splitOn "\n" do
@@ -483,16 +476,34 @@ run_cmd do
           (events.filter (isEvent "reply.rejected")).isEmpty do
         throwError "the complete original file log recorded an incomplete or rejected run"
     finally initial.close
+    let emptyPreparationStarted ← IO.monoMsNow
     setEnv environment
     let emptyPath := evidence / "empty-leaves.json"
     IO.FS.writeFile emptyPath
       (Json.mkObj [("backends", .arr #[]), ("registrations", .arr #[])]).compress
     let bare ← liftTermElabM <| KernelSession.start (some emptyPath) (computationOnly := true)
+      (preparationStarted? := some emptyPreparationStarted)
     try
       let run ← CasCatalogue.Language.runStatement bare "let a := 17 + 29 in ℤ"
       unless run.outcome matches .noImplementation _ do
         throwError "the public missing-registration control changed its failure stratum: {run.outcome.detail}"
-      let events ← readEvents bare.kernel.log.path
+      let rejectedText := "let timingRejected :="
+      let rejected ← try
+          discard <| CasCatalogue.Language.runStatement run.session rejectedText
+          pure false
+        catch error =>
+          unless (← error.toMessageData.toString).startsWith "not a statement of the language:" do
+            throw error
+          pure true
+      unless rejected do
+        throwError "an incomplete public definition was accepted by the parser"
+      let events ← CasTools.ApplicationLog.readEvents bare.kernel.log.path
+      let #[failure] := (events.filter (isEvent "statement.parseFailed")).map dataOf
+        | throwError "the public parse rejection lost its one completed diagnostic event"
+      unless (failure.getObjValAs? String "source").toOption == some rejectedText &&
+          (failure.getObjValAs? Nat "cumulativeSetupMilliseconds").toOption ==
+            some run.session.setupMilliseconds do
+        throwError "the public parse rejection changed its original source or retained setup"
       unless events.any (fun event => isEvent "realization.missing" event &&
           ((dataOf event).getObjValAs? String "operation").toOption == some "op.rings.add" &&
           ((dataOf event).getObjValAs? (Array String) "forms").toOption ==

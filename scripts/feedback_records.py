@@ -502,6 +502,8 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
         agreed = completion is not None and (start is not None or item.get("parse_failure", False))
         step = session_steps.get(session)
         original_step = process_steps.get(step, {})
+        row_shared_setup = (original_step["shared_setup_seconds"] if original_step.get("phase") == "build"
+                            else shared_setup_seconds)
         if direct:
             execution = float(data["milliseconds"] / 1000) if terminal else None
             seconds = execution + setup if execution is not None else None
@@ -556,12 +558,13 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
             "input_sha256": source_hash, "seconds": seconds,
             "statement_sha256": hashlib.sha256(source_data["source"].encode()).hexdigest() if "source" in source_data else None,
             "execution_seconds": execution, "setup_seconds": setup,
-            "shared_setup_seconds": shared_setup_seconds,
+            "shared_setup_seconds": row_shared_setup,
             "shared_worker_setup_seconds": shared_worker,
             "shared_session_setup_seconds": shared_session,
             "session_preparation": preparation,
-            "shared_setup": {"context": str(context_file), "phases": ["preparation", "build"]},
-            "inclusive_seconds": (seconds + shared_setup_seconds + shared_worker + shared_session
+            "shared_setup": {"context": str(context_file), "phases": ["preparation", "build"],
+                             "before_step": step if original_step.get("phase") == "build" else None},
+            "inclusive_seconds": (seconds + row_shared_setup + shared_worker + shared_session
                                   if all(value is not None for value in
                                          (seconds, shared_worker, shared_session)) else None),
             "outcome": outcome,
@@ -636,12 +639,12 @@ def collect_computations(context_file: Path, shared_setup_seconds: float) -> dic
             "input_sha256": root["input_sha256"], "seconds": seconds,
             "execution_seconds": execution, "setup_seconds": setup,
             "enclosing_preflight_seconds": preflight, "preceding_setup_seconds": preceding,
-            "shared_setup_seconds": shared_setup_seconds,
+            "shared_setup_seconds": root["shared_setup_seconds"],
             "shared_worker_setup_seconds": root["shared_worker_setup_seconds"],
             "shared_session_setup_seconds": root["shared_session_setup_seconds"],
             "session_preparation": root["session_preparation"],
             "shared_setup": root["shared_setup"],
-            "inclusive_seconds": (seconds + shared_setup_seconds + root["shared_worker_setup_seconds"] +
+            "inclusive_seconds": (seconds + root["shared_setup_seconds"] + root["shared_worker_setup_seconds"] +
                                   root["shared_session_setup_seconds"]
                                   if all(value is not None for value in (seconds,
                                       root["shared_worker_setup_seconds"], root["shared_session_setup_seconds"]))

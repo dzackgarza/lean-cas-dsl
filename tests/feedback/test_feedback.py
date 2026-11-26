@@ -290,6 +290,7 @@ class FeedbackTests(unittest.TestCase):
         direct = [row for row in all_rows if row["unit"] == "statement" and row["file_run"] is None]
         self.assertTrue(direct, "direct public session calls lost their computation records")
         originals = {}
+        original_rejections = {}
         for log in summary["logs"]:
             events = [loads_application_event(line) for line in (ROOT / log).read_text().splitlines()]
             wrappers = {event["sequence"] for event in events if event["event"] == "computation.started"}
@@ -297,6 +298,9 @@ class FeedbackTests(unittest.TestCase):
                 if (event["event"] == "statement.started" and
                         not any(parent in wrappers for parent in event["parents"])):
                     originals[(event["session"], event["sequence"])] = event
+                elif (event["event"] == "statement.parseFailed" and
+                        not any(parent in wrappers for parent in event["parents"])):
+                    original_rejections[(event["session"], event["sequence"])] = event
         measured = {(row["session"], row["start"]["sequence"]): row for row in direct
                     if "start" in row}
         self.assertEqual(measured.keys(), originals.keys())
@@ -306,6 +310,40 @@ class FeedbackTests(unittest.TestCase):
                  (ROOT / record["context"]).parent.joinpath("steps").glob("*.json")]
         module_steps = [step for step in steps if step["phase"] == "execution"]
         self.assertEqual(len(module_steps), 1)
+        rejected = {(row["session"], row["completion"]["sequence"]): row for row in direct
+                    if row.get("parse_failure")}
+        self.assertTrue(original_rejections, "the public consumer did not exercise a parse rejection")
+        self.assertIn("let timingRejected :=",
+                      {event["data"]["source"] for event in original_rejections.values()})
+        self.assertEqual(rejected.keys(), original_rejections.keys(),
+                         "a completed public parse rejection lost its computation record")
+        self.assertEqual(len(rejected), sum(bool(row.get("parse_failure")) for row in direct))
+        for key, row in rejected.items():
+            event = original_rejections[key]
+            data = event["data"]
+            self.assertTrue(row["complete"])
+            self.assertNotIn("start", row)
+            self.assertEqual(row["completion"], event)
+            self.assertEqual(row["outcome"], data)
+            self.assertEqual(row["file"], "CasRuntime/SessionTests.lean")
+            self.assertEqual(row["input_sha256"], record["inputs"][row["file"]])
+            self.assertEqual(row["statement_sha256"],
+                             hashlib.sha256(data["source"].encode()).hexdigest())
+            self.assertEqual(row["step"], module_steps[0]["step"])
+            self.assertEqual(data["kind"], "invalid")
+            self.assertEqual(data["stratum"], "invalid")
+            self.assertTrue(data["fails"])
+            self.assertFalse(data["attempted"])
+            self.assertFalse(data["published"])
+            self.assertFalse(data["retainsSetup"])
+            self.assertLessEqual(data["startedMonotonicMilliseconds"] + data["milliseconds"],
+                                 event["monotonicMilliseconds"])
+            self.assertEqual(row["execution_seconds"], data["milliseconds"] / 1000)
+            self.assertEqual(row["setup_seconds"], data["cumulativeSetupMilliseconds"] / 1000)
+            self.assertAlmostEqual(row["seconds"], row["execution_seconds"] + row["setup_seconds"])
+            self.assertAlmostEqual(row["inclusive_seconds"], row["seconds"] +
+                                   row["shared_setup_seconds"] + row["shared_worker_setup_seconds"] +
+                                   row["shared_session_setup_seconds"])
         for key, row in measured.items():
             self.assertTrue(row["complete"])
             self.assertEqual(row["start"], originals[key])
@@ -375,7 +413,9 @@ class FeedbackTests(unittest.TestCase):
         control = Path(tempfile.mkdtemp(prefix="missing-child-pair-", dir=directory))
         copied_run = control / "run"
         copied_log = copied_run / "application" / source_log.name
-        copied_log.parent.mkdir(parents=True)
+        shutil.copytree((ROOT / record["context"]).parent / "application", copied_run / "application",
+                        copy_function=lambda src, dst: shutil.copy2(src, dst)
+                        if Path(src).name == source_log.name else os.link(src, dst))
         copied_log.write_bytes(b"".join(retained))
         context_file = copied_run / "context.json"
         context_file.write_bytes((ROOT / record["context"]).read_bytes())
@@ -387,7 +427,8 @@ class FeedbackTests(unittest.TestCase):
         self.assertFalse(damaged["complete"])
         self.assertTrue(any("sequence" in failure for failure in damaged["malformed"]),
                         damaged["malformed"])
-        self.assertTrue(all(not file["complete"] for file in damaged["files"]))
+        self.assertTrue(all(not file["complete"] for file in damaged["files"]
+                            if file["session"] == selected["session"]))
         survived = [json.loads(line) for line in
                     (copied_run / "computations.jsonl").read_text().splitlines()]
         enclosing = next(row for row in survived
@@ -403,8 +444,7 @@ class FeedbackTests(unittest.TestCase):
         wire = json.loads(lines[terminal_index])
         self.assertEqual(wire["schema"], 2, "the current native consumer did not use the graph transport")
         expanded = loads_application_event(lines[terminal_index])
-        expected_rows = {row["computation"]: row for row in all_rows
-                         if ROOT / row["source_log"] == source_log}
+        expected_rows = {row["computation"]: row for row in all_rows}
         variants = [
             ("schema1", {**expanded, "schema": 1}, None),
             ("unknown-schema", {**wire, "schema": 3}, "unsupported application log schema"),
@@ -415,7 +455,9 @@ class FeedbackTests(unittest.TestCase):
                 control = Path(tempfile.mkdtemp(prefix=f"application-{name}-", dir=directory))
                 copied_run = control / "run"
                 copied_log = copied_run / "application" / source_log.name
-                copied_log.parent.mkdir(parents=True)
+                shutil.copytree((ROOT / record["context"]).parent / "application", copied_run / "application",
+                                copy_function=lambda src, dst: shutil.copy2(src, dst)
+                                if Path(src).name == source_log.name else os.link(src, dst))
                 copied_lines = list(lines)
                 copied_lines[terminal_index] = (dumps_exact_json(replacement) + "\n").encode()
                 copied_log.write_bytes(b"".join(copied_lines))
@@ -433,6 +475,10 @@ class FeedbackTests(unittest.TestCase):
                         self.assertTrue(row["complete"])
                         self.assertEqual(row["completion"]["data"],
                                          expected_rows[row["computation"]]["completion"]["data"])
+                        for field in ("seconds", "execution_seconds", "setup_seconds",
+                                      "shared_setup_seconds", "shared_worker_setup_seconds",
+                                      "shared_session_setup_seconds", "inclusive_seconds"):
+                            self.assertEqual(row[field], expected_rows[row["computation"]][field])
                 else:
                     self.assertNotEqual(status, 0)
                     self.assertFalse(observed["complete"])
