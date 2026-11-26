@@ -20,14 +20,14 @@ open SourceReader
 registered inclusion have no reading. Admissions and object literals keep their existing
 priority, and failed proof, domain or family checks never become absence. -/
 private partial def numeralReading? (context : ReadContext) (number : Nat) :
-    TermElabM (Option NativeSourceJudgement) := do
+    SourceReadM (Option NativeSourceJudgement) := do
   let some expected := context.expected
-    | throwError "a source numeral requires its independently declared parameter type"
-  if let some entry ← sourceAdmissionDomain? (← instantiateMVars expected) then
+    | liftM (m := TermElabM) <| throwError "a source numeral requires its independently declared parameter type"
+  if let some entry ← sourceAdmissionDomain? (← liftM (m := MetaM) <| instantiateMVars expected) then
     return some ⟨← admitted context entry context.source expected, none⟩
   if let some category := context.expectedCategory then
     if let some value ← sourceObjectNumeral number category expected then return some value
-  let direct ← withoutModifyingState do
+  let direct ← SourceReadM.inspect do
     return (← sourceNumeral? context.categoryOf number expected).isSome
   if direct then
     return some ⟨← sourceNumeral context.categoryOf number expected, none⟩
@@ -41,10 +41,10 @@ private partial def numeralReading? (context : ReadContext) (number : Nat) :
     let some judgement ← numeralReading? inner number | return none
     match ← checkReadJudgementApplicable inner judgement with
     | .ok judgement => return some judgement.value
-    | .error message => throwError message
+    | .error message => liftM (m := TermElabM) <| throwError message
   return included.map fun value => ⟨value, none⟩
 
-def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
+def rule (context : ReadContext) : SourceReadM NativeSourceJudgement := do
   let readExpression := @ReadContext.readExpression context
   let categoryOf := context.categoryOf
   let source := context.source
@@ -59,27 +59,27 @@ def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
     let some category := domain.category
       | throwReadRuleMismatch
     unless category.role == .object do
-      throwError "source numeral evidence requires a domain object"
+      liftM (m := TermElabM) <| throwError "source numeral evidence requires a domain object"
     discard <| getLevel domain.value
     if let some expected := expected then
-      checkRegisteredDomains domain.value expected
+      checkRegisteredSourceDomains domain.value expected
     let proofs ← evidence.getElems.mapM fun evidence => do
       let `(cas_term| proof($body:term)) := evidence
-        | throwError "source numeral evidence requires the explicit proof wrapper"
+        | liftM (m := TermElabM) <| throwError "source numeral evidence requires the explicit proof wrapper"
       pure body
     pure ⟨← sourceNumeral categoryOf number.getNat domain.value proofs, none⟩
   | `(cas_term| ℵ₀) => do
     let some expected := expected
-      | throwError "a named object literal requires its selected category"
+      | liftM (m := TermElabM) <| throwError "a named object literal requires its selected category"
     let some category := expectedCategory
-      | throwError "a named object literal requires its selected category"
+      | liftM (m := TermElabM) <| throwError "a named object literal requires its selected category"
     let some value ← sourceObjectNamedLiteral `«ℵ₀» category expected
-      | throwError "the selected category has no registered named literal form"
+      | liftM (m := TermElabM) <| throwError "the selected category has no registered named literal form"
     return value
   | `(cas_term| $number:num) => do
     if let some value ← numeralReading? context number.getNat then return value
     let some expected := expected
-      | throwError "a source numeral requires its independently declared parameter type"
+      | liftM (m := TermElabM) <| throwError "a source numeral requires its independently declared parameter type"
     pure ⟨← sourceNumeral categoryOf number.getNat expected, none⟩
   | _ => throwReadRuleMismatch
 

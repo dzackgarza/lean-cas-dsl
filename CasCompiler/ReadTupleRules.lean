@@ -13,7 +13,7 @@ namespace ReadTupleRules
 
 open SourceReader
 
-def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
+def rule (context : ReadContext) : SourceReadM NativeSourceJudgement := do
   let readExpression := @ReadContext.readExpression context
   let categoryOf := context.categoryOf
   let source := context.source
@@ -23,7 +23,7 @@ def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
   match source with
   | `(cas_term| ($first:cas_term, $rest:cas_term,*)) => do
     let some expected := expected
-      | throwError "a source tuple requires its independently declared domain"
+      | liftM (m := TermElabM) <| throwError "a source tuple requires its independently declared domain"
     let value ← sourceTuple (#[first] ++ rest.getElems) expected fun component type => do
       return (← readExpression categoryOf component (some type)).value
     pure ⟨value, none⟩
