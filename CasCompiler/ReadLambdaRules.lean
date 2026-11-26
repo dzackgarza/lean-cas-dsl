@@ -13,14 +13,14 @@ open Lean Meta Elab Term
 namespace SourceReader
 
 def lambda (context : ReadContext) :
-    TSyntax `cas_term → TSyntax `cas_term → TermElabM NativeSourceJudgement :=
+    TSyntax `cas_term → TSyntax `cas_term → SourceReadM NativeSourceJudgement :=
   let readExpression := @ReadContext.readExpression context
   let categoryOf := context.categoryOf
   let source := context.source
   let expected := context.expected
   fun (pattern body : TSyntax `cas_term) => do
     let some expected := expected
-      | throwError "a source lambda requires its independently declared function type"
+      | liftM (m := TermElabM) <| throwError "a source lambda requires its independently declared function type"
     let type ← whnf expected
     if type.isAppOf ``TypeCat.Hom then
       -- Mathlib's set-map constructor wraps this exact native function. It supplies
@@ -36,14 +36,14 @@ def lambda (context : ReadContext) :
       | do
         -- `x ↦ e` in `R[x]`: the element `e` with `x` the ring's registered generator.
         let `(cas_term| $name:ident) := pattern
-          | CasCatalogue.throwUnsupportedSource
+          | liftM (m := TermElabM) <| CasCatalogue.throwUnsupportedSource
               "source lambda formation is not implemented for this declared map type"
         let some generator ← sourceGeneratorAt? expected none
-          | CasCatalogue.throwUnsupportedSource
+          | liftM (m := TermElabM) <| CasCatalogue.throwUnsupportedSource
               "source lambda formation is not implemented for this declared map type"
-        return ← withLetDecl name.getId expected generator fun bound => do
-          let body ← readExpression categoryOf body (some expected)
-          return (⟨← mkLetFVars #[bound] body.value, none⟩ : NativeSourceJudgement)
+        let value ← SourceReadM.withLet name.getId expected generator fun _ => do
+          return (← readExpression categoryOf body (some expected)).value
+        return ⟨value, none⟩
     let value ← sourcePatternLambda pattern domain binderInfo fun parameter => do
       return (← readExpression categoryOf body (some (codomain.instantiate1 parameter))).value
     return ⟨value, none⟩
@@ -54,14 +54,14 @@ namespace ReadLambdaRules
 
 open SourceReader
 
-def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
+def rule (context : ReadContext) : SourceReadM NativeSourceJudgement := do
   let source := context.source
   let lambda := lambda context
   match source with
   | `(cas_term| $name:ident ↦ $body:cas_term) => do
-    lambda (← `(cas_term| $name:ident)) body
+    lambda (← liftM (m := TermElabM) `(cas_term| $name:ident)) body
   | `(cas_term| ($first:cas_term, $rest:cas_term,*) ↦ $body:cas_term) => do
-    lambda (← `(cas_term| ($first:cas_term, $rest:cas_term,*))) body
+    lambda (← liftM (m := TermElabM) `(cas_term| ($first:cas_term, $rest:cas_term,*))) body
   | _ => throwReadRuleMismatch
 
 end ReadLambdaRules
