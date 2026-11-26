@@ -2,6 +2,14 @@
 
 **Work order:** execute the unchecked tasks of the [task list](specs/001-categorical-research-language/tasks.md#execution-order) in document order. Phase 0 comes first and is preserved throughout functional work: the fast feedback loop (T114/#84, done), then its timing records, test-run logs and application logs (T112, T127; FR-043) and a truthful acceptance run (T300). Complete functionality precedes final mathematical/runtime performance, proofs and assessments ([C21](.specify/memory/constitution.md#c21-fast-development-feedback-first-final-performance-after-functionality)). A task that needs a declaration missing from lean-categories has a task before it that names the lean-categories issue: do that task in lean-categories, then return ([execution order](specs/001-categorical-research-language/tasks.md#execution-order)). Kernel checks observe kernel behaviour with a protocol peer or an empty manifest; a computed mathematical result is leaf work and belongs to the [computational milestones](specs/001-categorical-research-language/plan.md#computational-milestones) (constitution C22, C23). M1 closes on F; its [checkpoints](specs/001-categorical-research-language/plan.md#m1-checkpoints) close one at a time before F. F is the kernel with every DSL script running through the public session; it needs no notebook. The [notebook unit](specs/001-categorical-research-language/plan.md#notebook-unit) follows the category implementations. The [completion milestones](specs/001-categorical-research-language/plan.md#completion-milestones) group complete delivery outcomes; they do not replace task order. The [issue-tree mapping](specs/001-categorical-research-language/plan.md#issue-tree-and-task-order) gives the same phase owners and actual completion inputs; check `itree next` against the task source on resumption.
 
+**Save work during the task.** Commit your own changes in small batches and push each
+checkpoint to the branch you are working on. During a long task, save partial work this
+way before starting another batch, before a long run, and before handoff. Include new
+source files the checkpoint needs. For a checkpoint, use
+`git push --no-verify origin HEAD`. Continue working while CI runs. If the push fails,
+resolve the delivery failure and retry. At milestone completion, run the milestone
+checks and push with the normal hooks.
+
 **Spec Kit workflow:** change the constitution, the specification, the plan and the task list only through the matching `speckit-*` skill, in this order: `speckit-constitution`, `speckit-clarify` or `speckit-specify`, `speckit-plan`, `speckit-tasks`. Finish with `speckit-analyze` before the commit. A direct edit of one of them leaves the others in conflict.
 
 **Source location:** the kernel source (`CasCompiler/`, `CasRuntime/`) is on branch `integration/kernel-v1-20261106` (PR #87), which pins Lean 4.33.0 and Mathlib `v4.33.0`. `main` pins the toolchain and Mathlib of the research image ([#90](https://github.com/dzackgarza/lean-cas-dsl/issues/90)). PR #87 merges after the kernel branch is ported to those pins; #90 owns the port and records which Mathlib the running container holds. The two branches carry the same governing documents: the constitution, this file, `CONTRIBUTING.md` and `specs/`. An edit to one of them is committed on both branches.
@@ -77,8 +85,7 @@ correcting the mathematical relationship; moving recovery code into another file
   absolute interpreter path.
 - The loop of each change is `just loop "<test module of the changed mechanism>" [touched
   acceptance files]` ([feedback loops](CONTRIBUTING.md#feedback-loops), limit 300 s). Then check
-  its original public consumer the same way. The long run, `just milestone "<reason>"`, is for a
-  batch of changes, a push or a handoff; it is not the check of one change. `just stop` stops a
+  its original public consumer the same way. Run `just milestone "<reason>"` at milestone acceptance. `just stop` stops a
   build that its caller left behind. Profiling is explicit and no prior profile is required to
   finish a slow functional build.
 - Assess encapsulation from actual imports, public declarations and affected consumers. Neither
