@@ -11,8 +11,8 @@ namespace CasCompiler
 
 open Lean Meta Elab Term CasCatalogue
 
-/-- A selected element domain, or its exact registered refinement and supplied comparison.
-The shared resolver owns construction; consumers retain its actual native parameters. -/
+
+
 structure NativeSourceOperationDomain where
   private mk ::
   category : NativeSourceCategory
@@ -40,8 +40,8 @@ private def refinementDomainCandidate (state : SemanticState) (entry : ObjectEnt
     let some retained ← alignSourceArguments? base.declaration arguments declared original
       | return none
     retainedArguments := retained
-  -- Exact named arguments are fixed before an abbreviation can expose a non-injective
-  -- carrier. Unmarked native forms retain their existing conversion check.
+
+
   let determined ← liftM (m := MetaM) <| if arguments.isEmpty then isDefEq type.getAppArgs[3]! original
     else withReducible <| isDefEq type.getAppArgs[3]! original
   unless determined do return none
@@ -54,15 +54,15 @@ private def refinementDomainCandidate (state : SemanticState) (entry : ObjectEnt
     if let some original := original then
       arguments := arguments.set! index (← liftM (m := MetaM) <| instantiateMVars original)
   if arguments.any (fun argument => argument.hasMVar || argument.hasLevelMVar) then return none
-  -- applyObjectParameters uses this complete telescope. Reuse its original constant head
-  -- and the same retained source arguments for both the object and its comparison.
+
+
   let comparison := mkAppN (← liftM (m := MetaM) <| instantiateMVars comparison.getAppFn) arguments
   let comparison ← SourceReadM.select (← sourceReferenceAt
     (.refinement entry refinement) comparison comparison)
   let type ← whnfR (← inferType comparison)
   unless type.isAppOfArity ``CategoryTheory.Iso 4 do
     liftM (m := TermElabM) <| throwError "the specialized source refinement lost its actual isomorphism"
-  -- Registered identities are compared at the determined parameters, not at fresh ones.
+
   checkRegisteredSourceDomains domain (← liftM (m := MetaM) <| instantiateMVars type.getAppArgs[3]!)
   let #[category] := state.categories.filter (·.id == entry.category)
     | liftM (m := TermElabM) <| throwError "the source refinement requires one complete category"
@@ -76,12 +76,17 @@ private def refinementDomainCandidate (state : SemanticState) (entry : ObjectEnt
 
 private def refinementDomain (state : SemanticState) (entry : ObjectEntry) (domain : Expr) :
     SourceReadM (Option NativeSourceOperationDomain) := do
-  -- A failed candidate must not constrain a later candidate's source parameters. Probe the
-  -- complete native preparation, then keep successful expressions in the live Meta state.
-  let accepts ← SourceReadM.inspect do
-    return (← refinementDomainCandidate state entry domain).isSome
-  unless accepts do return none
-  refinementDomainCandidate state entry domain
+
+
+  let absent : MessageData := m!"the source refinement does not apply to this domain"
+  let candidate ← SourceReadM.chooseApplicable #[do
+      let some value ← refinementDomainCandidate state entry domain
+        | return .error absent
+      return .ok value]
+    absent m!"the source refinement producer has several readings" (restoreInfo := true)
+  match candidate with
+  | .ok value => return some value
+  | .error _ => return none
 
 private def scopedOperationDomains
     (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
@@ -89,9 +94,9 @@ private def scopedOperationDomains
   return (← sourceElementOwners categoryOf expected hints).map fun owner =>
     ⟨owner.category, owner.value, none, #[owner.evidence]⟩
 
-/-- Selected source objects precede default literal selectors. Every matching original
-structure is retained; native carrier coincidence does not identify their dictionaries.
-Reuse this boundary for operations and registered division alike. -/
+
+
+
 opaque sourceOperationDomains
     (categoryOf : FVarId → TermElabM (Option NativeSourceCategory)) (expected : Expr)
     (contextual : Option Expr) (hints : Array Expr) :
@@ -124,8 +129,8 @@ private structure OperationRoot where
   routes : Array Route
   images : Array (Array Route)
 
--- A common supplied refinement gives one generic comparison context. Selection uses
--- symbolic structural incidence only; operation values and operands are not inspected.
+
+
 private def operationRoot (domains : Array NativeSourceOperationDomain) (name : String) :
     TermElabM OperationRoot := do
   let mut active := #[]
@@ -151,7 +156,7 @@ private structure NativeOperationFamily where
   binding : OperationEntry
   value : Expr
 
-/-- A native operation whose whole source families have been checked before specialization. -/
+
 structure NativeSourceOperation where
   value : Expr
   arity : Nat
@@ -169,10 +174,10 @@ private partial def operationInputs (type : Expr) (arity : Nat) : MetaM (Array E
     throwUnsupportedSource "the source operation requires its declared product mediation"
   return #[pair.getAppArgs[0]!] ++ (← operationInputs pair.getAppArgs[1]! (arity - 1))
 
-/-- Form every element-juxtaposition role from selected owners and whole input families.
-Reuse: Language.juxtapose's common-object rule, first-hit operation routes and
-nativeOperationFamily. A pending numeral has no selected object; heterogeneous action
-roles are compared before any actual scalar or module is substituted. -/
+
+
+
+
 def sourceJuxtapositionNames
     (categoryOf : FVarId → TermElabM (Option NativeSourceCategory))
     (left : Option NativeSourceJudgement) (right : NativeSourceJudgement) :
@@ -232,8 +237,8 @@ def sourceJuxtapositionNames
     names := names.push "•"
   return names
 
--- Classify transport roles at the entire rigid source family. A scalar argument and
--- an object argument remain distinct even if their carriers coincide after substitution.
+
+
 private def operationTransportRoles (root : OperationRoot)
     (categoryFamily : Expr) (family : NativeOperationFamily) :
     TermElabM (Array Bool × Bool × Array Expr) := do
@@ -280,8 +285,8 @@ private structure RefinedConstantParameter where
   comparison : Expr
   evidence : Array Expr
 
--- A refinement already selects its carrier route. Consume only a prefix of that route;
--- an unrelated outgoing functor does not acquire authority from the named base.
+
+
 private def refinedConstantParameter? (state : SemanticState) (entry : ObjectEntry)
     (domain : Expr) (target : CategoryExpr) :
     SourceReadM (Option RefinedConstantParameter) := do
@@ -306,12 +311,12 @@ private def refinedConstantParameter? (state : SemanticState) (entry : ObjectEnt
     ⟨.object, target, ← liftM (m := MetaM) <| instantiateMVars selected.target, some remaining, none⟩,
     comparison, evidence⟩
 
-/-- Check complete selected mathematical data without using conversion to choose its
-occurrence. The original terms and checked agreement remain explicit source inputs. -/
+
+
 private def operationAgreement (left right : Expr) (evidence : Array Expr)
     (failure : MessageData) : SourceReadM Expr := do
-  -- Exact native identity needs no new source alias. Keep the same captured context,
-  -- declaration identities and selected-record validation as the original proof path.
+
+
   if evidence.isEmpty && left.equal right then
     let context := (← get).context
     let locals := context.bindings.map (·.expression)
@@ -328,8 +333,8 @@ private def operationAgreement (left right : Expr) (evidence : Array Expr)
         checkWithKernel proof
         return some (proof, ← Meta.saveState)
       if let some (proof, checked) := candidate then
-        -- Commit only the successful native check, including ensured declarations.
-        -- An ineligible probe leaves no assignments behind for the original path.
+
+
         liftM (m := MetaM) checked.restore
         discard <| SourceReadM.selection? right
         return proof
@@ -341,8 +346,8 @@ private def operationAgreement (left right : Expr) (evidence : Array Expr)
   let nativeFits ← liftM (m := MetaM) <| withoutModifyingState do
     isDefEq (← inferType right) (← inferType left)
   let right ← if nativeFits then do
-      -- Keep the exact operand and any existing selected record when its native type
-      -- already fits, committing the check without creating another alias.
+
+
       let agrees ← liftM (m := MetaM) do
         isDefEq (← inferType right) (← inferType left)
       unless agrees do
@@ -360,11 +365,11 @@ private def operationAgreement (left right : Expr) (evidence : Array Expr)
       | throwSemanticAmbiguity failure
     return proof) evidence
 
-/-- Read a bare named constant at a parameter category reached by its declared refinement
-carrier. The base row and its complete argument spine are checked by refinementDomain;
-parameterized source families remain on their ordinary expected-type reading path.
-Every applicable complete structure and base identification must agree, with all witnesses
-retained. This does not reinterpret an existing binding or explicitly selected category. -/
+
+
+
+
+
 opaque sourceNamedConstantParameter? (domain : Expr) (target : CategoryExpr) :
     SourceReadM (Option NativeSourceJudgement) := do
   let state ← semanticState
@@ -397,22 +402,39 @@ opaque sourceNamedConstantParameter? (domain : Expr) (target : CategoryExpr) :
   return some ⟨← SourceReadM.select { selected with value, category := some first.category },
     some first.category⟩
 
-/-- Prepare first-hit source bindings and their complete rigid morphism families.
-Reuse: SourceRoutes, nativeOperationFamily, native conversion, ObjectRefinement and
-congruFun. The supplied refinement cone is checked at complete structured objects after
-universal operation agreement; all original source data remain in the resulting term. -/
+
+
+
+
 opaque sourceOperation
     (categoryOf : FVarId → TermElabM (Option NativeSourceCategory)) (name : String)
     (domain : Expr) (contextual : Option Expr) (hints : Array Expr) (arity : Nat)
     (numerals : Array (Expr → SourceReadM Expr)) :
     SourceReadM NativeSourceOperation := do
   let state ← semanticState
+  let phase : String → List (String × Json) → SourceReadM Unit := fun event details => do
+    try
+      let scope ← get
+      let heartbeats ← liftM (m := BaseIO) IO.getNumHeartbeats
+      liftM (m := CoreM) <| CasTools.Diagnostics.emit event (Json.mkObj ([
+        ("operation", toJson name),
+        ("heartbeats", toJson heartbeats),
+        ("contextBindings", toJson scope.context.bindings.size),
+        ("formals", toJson scope.formals.size),
+        ("arity", toJson arity),
+        ("numerals", toJson numerals.size)] ++ details))
+    catch _ => pure ()
+  phase "source.operation.prepare.started" []
   let domains ← sourceOperationDomains categoryOf domain contextual hints
+  phase "source.operation.domains.finished" [("domains", toJson domains.size)]
   if domains.isEmpty then
     liftM (m := TermElabM) <| throwUnsupportedSource "the source operation requires its interpreted element domain"
   let root ← operationRoot domains name
-  -- These level variables are constrained only by the unapplied source declarations.
-  -- Lean's level generalizer freezes every remaining variable before comparison.
+  phase "source.operation.root.finished" [
+    ("domains", toJson root.domains.size), ("routes", toJson root.routes.size),
+    ("imageRoutes", toJson (root.images.foldl (fun count routes => count + routes.size) 0))]
+
+
   let categoryFamily ← nativeCategoryFamily state root.domain.category.expression
     fun _ => mkFreshLevelMVar
   let mut families : Array NativeOperationFamily := #[]
@@ -444,7 +466,9 @@ opaque sourceOperation
   let inputTransports := inputDomains.map (· && root.domain.comparison.isSome)
   let outputTransport := outputDomain && root.domain.comparison.isSome
   proofs := proofs ++ roleProofs
-  -- Specialize already checked universal evidence at the exact category parameters.
+  phase "source.operation.families.finished" [
+    ("families", toJson families.size), ("proofs", toJson proofs.size)]
+
   let mut levelParameters : CollectLevelParams.State := {}
   levelParameters := levelParameters.collect categoryFamily
   for family in families do levelParameters := levelParameters.collect family.value
@@ -475,8 +499,8 @@ opaque sourceOperation
   let objectIndex := arguments.size - 1 - first.binding.numerals
   unless ← isDefEq arguments[objectIndex]! root.domain.value do
     liftM (m := TermElabM) <| throwError "the source operation changed its actual selected object"
-  -- Keep the source expressions supplied at these exact positions, not Lean's
-  -- potentially reduced assignments to the metavariables used to check them.
+
+
   let mut actualArguments := arguments.set! objectIndex root.domain.value
   let owned := (← liftM (m := MetaM) getMCtx).decls.foldl (fun result identity _ =>
     if previous.decls.contains identity then result else result.push identity) #[]
@@ -495,8 +519,11 @@ opaque sourceOperation
     let mut proof := proof.instantiateLevelParams universes levels
     for argument in allArguments do proof ← mkAppM ``congrFun #[proof, argument]
     evidence := evidence.push (← liftM (m := MetaM) <| instantiateMVars proof)
-  -- The actual objects of the supplied cone are compared with every original
-  -- refinement. These are structured-object equations, not operation agreement.
+  phase "source.operation.specialization.finished" [
+    ("parameters", toJson parameters.size), ("arguments", toJson arguments.size),
+    ("evidence", toJson evidence.size)]
+
+
   for routes in root.images, target in root.domains do
     evidence := evidence ++ (← sourceRouteAgreements state root.domain.category routes)
     for route in routes do
@@ -538,6 +565,7 @@ opaque sourceOperation
   for candidate in root.domains do
     evidence := evidence ++ candidate.originEvidence
     if let some comparison := candidate.comparison then evidence := evidence.push comparison
+  phase "source.operation.cone.finished" [("evidence", toJson evidence.size)]
   let original := (mkAppN value arguments).headBeta
   let operation ← retainOperationEvidence original evidence
   let selected ← sourceReferenceAt (.operation first.binding) original operation
@@ -546,6 +574,7 @@ opaque sourceOperation
   let operation ← SourceReadM.select { selected with
     alternatives := families.map fun family => (.operation family.binding, family.route.refs)
     operationRefinements := cone }
+  phase "source.operation.selection.finished" []
   return ⟨operation, arity, root.domain.comparison, inputDomains, outputDomain,
     inputTransports, outputTransport⟩
 

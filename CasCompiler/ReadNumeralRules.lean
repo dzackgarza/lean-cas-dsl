@@ -16,23 +16,38 @@ namespace ReadNumeralRules
 
 open SourceReader
 
-/-- Numeric syntax has explicit absence only when its original point producer and every
-registered inclusion have no reading. Admissions and object literals keep their existing
-priority, and failed proof, domain or family checks never become absence. -/
 private partial def numeralReading? (context : ReadContext) (number : Nat) :
     SourceReadM (Option NativeSourceJudgement) := do
+  let phase : String → SourceReadM Unit := fun event => do
+    try
+      let heartbeats ← liftM (m := BaseIO) IO.getNumHeartbeats
+      liftM (m := CoreM) <| CasTools.Diagnostics.emit event (Json.mkObj [
+        ("heartbeats", toJson heartbeats), ("number", toJson number),
+        ("startByte", toJson (context.source.raw.getPos?.map (·.byteIdx))),
+        ("stopByte", toJson (context.source.raw.getTailPos?.map (·.byteIdx)))])
+    catch _ => pure ()
+  phase "source.numeral.started"
   let some expected := context.expected
     | liftM (m := TermElabM) <| throwError "a source numeral requires its independently declared parameter type"
   if let some entry ← sourceAdmissionDomain? (← liftM (m := MetaM) <| instantiateMVars expected) then
-    return some ⟨← admitted context entry context.source expected, none⟩
+    let value ← admitted context entry context.source expected
+    phase "source.numeral.finished"
+    return some ⟨value, none⟩
   if let some category := context.expectedCategory then
-    if let some value ← sourceObjectNumeral number category expected then return some value
-  let direct ← SourceReadM.inspect do
-    return (← sourceNumeral? context.categoryOf number expected).isSome
-  if direct then
-    return some ⟨← sourceNumeral context.categoryOf number expected, none⟩
-  -- Inclusion sources use exactly the ordinary unqualified numeric rule order, followed
-  -- by the assembled reader's same complete input checks on that successful judgement.
+    if let some value ← sourceObjectNumeral number category expected then
+      phase "source.numeral.finished"
+      return some value
+  let absent : MessageData := m!"there is no direct source numeral reading"
+  let direct ← SourceReadM.chooseApplicable #[do
+      let some value ← sourceNumeral? context.categoryOf number expected
+        | return .error absent
+      return .ok value]
+    absent m!"the direct source numeral producer has several readings" (restoreInfo := true)
+  if let .ok value := direct then
+    phase "source.numeral.direct.present"
+    phase "source.numeral.finished"
+    return some ⟨value, none⟩
+  phase "source.numeral.direct.absent"
   let included ← sourceIncludedNumeral expected fun type => do
     let inner := { context with
       expected := some type
@@ -42,6 +57,7 @@ private partial def numeralReading? (context : ReadContext) (number : Nat) :
     match ← checkReadJudgementApplicable inner judgement with
     | .ok judgement => return some judgement.value
     | .error message => liftM (m := TermElabM) <| throwError message
+  phase "source.numeral.finished"
   return included.map fun value => ⟨value, none⟩
 
 def rule (context : ReadContext) : SourceReadM NativeSourceJudgement := do

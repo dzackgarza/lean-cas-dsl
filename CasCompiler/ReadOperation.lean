@@ -16,9 +16,9 @@ open Lean Meta Elab Term
 
 namespace SourceReader
 
-/-- Reuse an already read operand at its declared operation input. The same registered
-coercions and exact-domain checks as ordinary operations apply; only their own explicit
-native mismatch is a rejected candidate. The source expression is never read again. -/
+
+
+
 private def retainedOperandApplicable (reference : Syntax) (value expected : Expr) :
     SourceReadM (Except MessageData Expr) := SourceReadM.withRef reference do
   let actual ← inferType value
@@ -49,6 +49,19 @@ private def elementOperationCore (context : ReadContext) :
   fun (name : String) (operands : Array (TSyntax `cas_term))
       (numerals : Array (TSyntax `cas_term)) (known : Array (Option Expr))
       (domainHint : Option Expr) => do
+    let phase : String → List (String × Json) → SourceReadM Unit := fun event details => do
+      try
+        let scope ← get
+        let heartbeats ← liftM (m := BaseIO) IO.getNumHeartbeats
+        liftM (m := CoreM) <| CasTools.Diagnostics.emit event (Json.mkObj ([
+          ("operation", toJson name),
+          ("heartbeats", toJson heartbeats),
+          ("contextBindings", toJson scope.context.bindings.size),
+          ("formals", toJson scope.formals.size),
+          ("operands", toJson operands.size),
+          ("numerals", toJson numerals.size)] ++ details))
+      catch _ => pure ()
+    liftM <| phase "source.operation.read.started" []
     let mut retained : Array (Option Expr) := Array.replicate operands.size none
     let mut hints : Array Expr := #[]
     for operand in operands, index in [:operands.size] do
@@ -64,8 +77,8 @@ private def elementOperationCore (context : ReadContext) :
     let contextual ← liftM (m := MetaM) <| expected.mapM instantiateMVars
     let contextual := contextual.filter (! ·.headBeta.consumeMData.getAppFn.isMVar)
     let inputContext := contextual.filter (! ·.headBeta.consumeMData.isSort)
-    -- Actual typed operands determine the input domain before the expected result.
-    -- Relations land in Ω; that result must not replace their selected operand owner.
+
+
     let domain ← match domainHint.or (← sourceCommonDomain hints) |>.or inputContext with
       | some type => pure type
       | none => do
@@ -85,6 +98,9 @@ private def elementOperationCore (context : ReadContext) :
             | liftM (m := TermElabM) <| CasCatalogue.throwSemanticAmbiguity "the source operation requires its scalar domain"
           discard <| checkedDeclaration entry.declaration
           mkConstWithFreshMVarLevels entry.declaration
+    liftM <| phase "source.operation.domain.finished" [
+      ("hints", toJson hints.size), ("hasDomainHint", toJson domainHint.isSome),
+      ("hasContextualType", toJson contextual.isSome)]
     let originalOperand := retained
     let operationHints := if domainHint.isSome then #[domain] else hints
     let operation ← sourceOperation categoryOf name domain contextual operationHints operands.size
@@ -116,9 +132,9 @@ private def elementOperationCore (context : ReadContext) :
         else if operation.inputDomains[index]?.getD false then read domain
         else read type
       if ← withoutModifyingState (isDefEq (← inferType value) type) then return value
-      -- A supplied comparison can expose its original carrier instead of this opaque
-      -- native slot. Retain the actual transported operand; context capture checks its
-      -- complete original type before the tuple producer consumes it.
+
+
+
       let selected := (← SourceReadM.selection? value).getD { value }
       liftM <| SourceReadM.select { selected with value } (some type)
     let type ← liftM (m := MetaM) <| instantiateMVars (← inferType argument)
@@ -137,10 +153,11 @@ private def elementOperationCore (context : ReadContext) :
         liftM <| elabRetainedSourceApplication forward #[value] expected
       else if operation.outputDomain then mkExpectedTypeHint value domain
       else pure value
+    liftM <| phase "source.operation.read.finished" []
     return (⟨value, none⟩ : NativeSourceJudgement)
 
-/-- Ordinary operation formation with explicit applicability of its own typed operands.
-Selected family, evidence, instance and recursive-reader errors remain exceptions. -/
+
+
 def elementOperationApplicable (context : ReadContext)
     (name : String) (operands numerals : Array (TSyntax `cas_term))
     (known : Array (Option Expr)) (domainHint : Option Expr) :
@@ -167,9 +184,9 @@ def action (context : ReadContext) :
     elementOperation "•" #[left, right] #[] #[none, some value.value]
       (some (← inferType value.value))
 
-/-- All declared juxtaposition readings compete at the same original typed operands.
-Every successful native state is retained, so the unique chosen reading is not replayed.
-An exception from a matched reader is never discarded to choose another interpretation. -/
+
+
+
 def juxtapose (context : ReadContext) :
     TSyntax `cas_term → TSyntax `cas_term → SourceReadM NativeSourceJudgement :=
   let readExpression := @ReadContext.readExpression context
@@ -220,8 +237,8 @@ def relation (context : ReadContext) :
   let categoryOf := context.categoryOf
   let elementOperation := elementOperation context
   fun (name : String) (left right : TSyntax `cas_term) => do
-    -- The public precedence grammar places a trailing domain on the right operand.
-    -- Its actual selected structure types both operands through the registered map.
+
+
     match right with
     | `(cas_term| $operand:cas_term in $domain:cas_term) =>
       let domain ← sourceCarrier (← readExpression categoryOf domain none)

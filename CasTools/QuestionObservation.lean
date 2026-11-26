@@ -4,6 +4,7 @@ public import CasCompiler.Parse
 public import CasCompiler.Read
 public import CasCatalogue.QuestionIdentity
 public import CasTools.NativeExpression
+public import CasTools.Diagnostics
 public import CasCompiler.SourceSnapshot
 public import Lean.Elab.Command
 
@@ -26,15 +27,15 @@ structure Reading where
   sourceLine : Nat
   source : String
   provenance : String
-  /-- The canonical typed reading in the fixed mathematical source environment. -/
+
   question : String
-  /-- NativeExpression graph document for the exact whole closed proposition, typed
-  implementation value, or ordered closed terms of a settled typing conjunction. -/
+
+
   proposition : String
   prettyProposition : String
-  /-- Complete native source terms, binding identities, selections and original spans.
-  Expression indices refer to this snapshot's `nativeExpressions` node table. A settled
-  conjunction retains one complete snapshot per ordered conjunct. -/
+
+
+
   sourceContext : Json
   deriving Inhabited, ToJson
 
@@ -56,9 +57,9 @@ structure Observation where
 private def snapshot (session : SourceContextObservation) (term : SourceTerm) : Json :=
   SourceSnapshot.snapshot session term
 
-/-- Inspect the exact native source/context/category records retained by a completed
-statement, including a conclusion returned after lexical scope exit. This is an inert
-serialization of already checked records; it performs no elaboration or provider operation. -/
+
+
+
 opaque observeConclusion (conclusion : SourceConclusion) : Json :=
   Json.mkObj [("terms", toJson (conclusion.terms.map (snapshot conclusion.context))),
     ("proof", toJson (conclusion.proof.map (snapshot conclusion.context)))]
@@ -138,23 +139,23 @@ private inductive ReadingJudgement where
   | implemented
   deriving BEq
 
-/-- A question is its proposition. A settled typing question retains every term read at its
-declared type, in conjunct order. An implementation request retains its original typed value.
-Singleton proposition and settled identity/snapshot formats remain unchanged.
-Source: SourceStatement.settled and settledJudgements? in CasCompiler/ReadSession.lean. -/
+
+
+
+
 private def reading (session : SourceContextObservation) (where_ : Location) (provenance : String)
     (terms : Array SourceTerm) (judgement : ReadingJudgement) : TermElabM Reading := do
   if terms.isEmpty then throwError "an exported question must retain its source terms"
   unless judgement == .settled || terms.size == 1 do
     throwError "a proposition or implementation request must retain exactly one source term"
-  -- Reuse the existing typed canonical serializer. It erases only native metadata,
-  -- binder spelling and proofs of the same proposition; the unquotiented snapshot stays below.
-  -- Source: CasCatalogue/QuestionIdentity.lean, QuestionIdentity.encode and TermTable.
+
+
+
   let table ← CasCatalogue.Realize.TermTable.new
   let retained ← terms.mapM fun term => do
     let proposition ← term.source.withOpen fun bindings expression => do
-      -- Retain unused parameters, hypotheses and lets; do not generalize a let into a parameter.
-      -- Reuse: Lean.Meta.mkForallFVars at v4.33.0, with its explicit retention controls.
+
+
       if judgement != .proposition then
         let typed ← mkExpectedTypeHint expression (← inferType expression)
         return ← mkLambdaFVars (bindings.map (·.expression)) typed
@@ -176,7 +177,7 @@ private def reading (session : SourceContextObservation) (where_ : Location) (pr
       ("instances", toJson instances), ("categories", toJson categories),
       ("category", toJson category)]
     return (proposition, fields ++ (← ContextSnapshot.declarationFields table.encode #[term.source]))
-  -- Value judgements keep distinct meanings; a proposition retains its existing document.
+
   let judgement := match judgement with
     | .proposition => []
     | .settled => [("judgement", toJson "settled")]
@@ -195,10 +196,10 @@ private def reading (session : SourceContextObservation) (where_ : Location) (pr
       (ContextSnapshot.retainedDeclarations (terms.map (·.source)))).compress,
     " and ".intercalate shown.toList, sourceContext⟩
 
-/-- Observe original items once in their actual lexical scopes. Blocks add no mathematical
-item identity of their own; every contained question keeps its original label and position.
-Unlike execution, this path only reads source, so a local source error can still report all
-original blocked question identities without dispatching or publishing anything. -/
+
+
+
+
 private partial def observeItems (file : SourceFile) (initial : SourceSession)
     (items : Array (TSyntax `cas_item)) (initialFailure : Option Failure := none) :
     TermElabM (SourceSession × Observation) := do
@@ -239,9 +240,20 @@ private partial def observeItems (file : SourceFile) (initial : SourceSession)
         observation := { observation with
           readings := observation.readings.push (unread where_ provenance) }
       continue
+    let phaseData : TermElabM Json := do
+      let heartbeats ← liftM (m := BaseIO) IO.getNumHeartbeats
+      return Json.mkObj [
+        ("id", toJson where_.id), ("file", toJson where_.file),
+        ("sourceLine", toJson where_.sourceLine), ("heartbeats", toJson heartbeats)]
+    try
+      CasTools.Diagnostics.emit "source.observation.started" (← phaseData)
+    catch _ => pure ()
     let saved ← saveState
     let result : Except Failure (SourceSession ⊕ Reading) ← try
       let formed ← session.readStatement statement
+      try
+        CasTools.Diagnostics.emit "source.observation.read" (← phaseData)
+      catch _ => pure ()
       match formed with
       | .definition next _ | .assumption next => pure (.ok (Sum.inl next))
       | .question term | .proved term _ =>
@@ -258,6 +270,9 @@ private partial def observeItems (file : SourceFile) (initial : SourceSession)
     match result with
     | .ok (.inl next) => session := next
     | .ok (.inr row) =>
+      try
+        CasTools.Diagnostics.emit "source.observation.exported" (← phaseData)
+      catch _ => pure ()
       observation := { observation with readings := observation.readings.push row }
     | .error error =>
       observation := { observation with failures := observation.failures.push error }
@@ -266,8 +281,8 @@ private partial def observeItems (file : SourceFile) (initial : SourceSession)
         readings := observation.readings.push (unread where_ provenance) }
   return (session, observation)
 
-/-- Observe the original file through the shared reader, preserving all local assumptions
-and categories in each universally closed question before leaving its lexical scope. -/
+
+
 opaque observeFile (file : SourceFile) (initial : SourceSession) : TermElabM Observation :=
   file.withContext do return (← observeItems file initial file.items).2
 

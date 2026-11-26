@@ -25,7 +25,20 @@ def rule (context : ReadContext) : SourceReadM NativeSourceJudgement := do
     let some expected := expected
       | liftM (m := TermElabM) <| throwError "a source tuple requires its independently declared domain"
     let value ← sourceTuple (#[first] ++ rest.getElems) expected fun component type => do
-      return (← readExpression categoryOf component (some type)).value
+      let phase : String → SourceReadM Unit := fun event => do
+        try
+          let heartbeats ← liftM (m := BaseIO) IO.getNumHeartbeats
+          liftM (m := CoreM) <| CasTools.Diagnostics.emit event (Json.mkObj [
+            ("heartbeats", toJson heartbeats),
+            ("startByte", toJson (component.raw.getPos?.map (·.byteIdx))),
+            ("stopByte", toJson (component.raw.getTailPos?.map (·.byteIdx))),
+            ("tupleStartByte", toJson (source.raw.getPos?.map (·.byteIdx))),
+            ("tupleStopByte", toJson (source.raw.getTailPos?.map (·.byteIdx)))])
+        catch _ => pure ()
+      phase "source.tuple.component.started"
+      let value ← readExpression categoryOf component (some type)
+      phase "source.tuple.component.finished"
+      return value.value
     pure ⟨value, none⟩
   | `(cas_term| ($inner:cas_term)) =>
     readExpression categoryOf inner expected qualification expectedCategory
