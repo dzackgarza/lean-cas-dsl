@@ -6,8 +6,6 @@ meta import CasTools.Diagnostics
 
 open Lean CasTools
 
--- Repeated complete data retains every constructor, including null positions,
--- arbitrary object keys, Unicode, and non-normalized exact JSON numbers.
 run_cmd do
   let native := Json.mkObj [
     ("context", .arr #[Json.mkObj [
@@ -26,8 +24,6 @@ run_cmd do
   unless decoded == source do
     throwError "diagnostic graph transport changed original structured data"
 
--- A table is stored once even when many observations retain it. Equal packets with
--- distinct original occurrence identities remain distinct complete records.
 run_cmd do
   let rows := (Array.range 29).map fun index => Json.mkObj [
     ("binding", Json.mkObj [("session", "one-source"), ("serial", toJson index)]),
@@ -51,7 +47,6 @@ run_cmd do
   unless decoded == original do
     throwError "diagnostic graph sharing identified distinct original occurrences"
 
--- No partial, forward, cyclic, duplicate-field, or unknown constructor is repaired.
 run_cmd do
   let malformed := #[
     Json.mkObj [("root", toJson (0 : Nat)), ("nodes", .arr #[.arr #["null"]]),
@@ -70,8 +65,6 @@ run_cmd do
     if (JsonGraph.decode document).isOk then
       throwError "diagnostic transport accepted an invalid exact graph"
 
--- The production stream reader supports old events and preserves every current
--- envelope field while expanding only the diagnostic data transport.
 run_cmd do
   let old := Json.mkObj [("schema", toJson (1 : Nat)), ("sequence", toJson (8 : Nat)),
     ("session", "old-session"), ("parents", toJson #[2, 5]), ("event", "old"),
@@ -102,9 +95,6 @@ run_cmd do
   unless (events[2]!.getObjValAs? (Array Nat) "parents").toOption == some #[1] do
     throwError "the diagnostic stream changed an original causal parent"
 
--- Each level contains the same complete child twice. The native object graph grows
--- linearly although its expanded tree has exponentially many paths. Compare exact
--- canonical graphs so the assertion itself does not expand the restored source tree.
 run_cmd do
   let leaf := Json.mkObj [
     ("source", .arr #[.null, "original", .num ⟨10, 1⟩]), ("selected", .bool true)]
@@ -132,8 +122,6 @@ run_cmd do
   unless JsonGraph.encode restored == encoded do
     throwError "shared diagnostic roundtrip changed its exact canonical graph"
 
--- Independently parsed equal objects still use structural interning. Equal mathematical
--- numbers with different original mantissa/exponent pairs remain different constructors.
 run_cmd do
   let .ok first := Json.parse "{\"same\":[true,null]}"
     | throwError "the first independent diagnostic object did not parse"
@@ -162,3 +150,20 @@ run_cmd do
     | throwError "the exact diagnostic numbers did not decode"
   unless restoredNumbers == numbers do
     throwError "diagnostic pointer traversal changed an original JSON number on roundtrip"
+
+private unsafe def jsonGraphPointerCacheControl : IO Unit := do
+  let original := Json.arr #[.str "retained-json-pointer", Json.mkObj [("field", .bool true)]]
+  let other := Json.arr #[.str "other-json-pointer", .null]
+  let first : Nat := 73
+  let second : Nat := 109
+  let cache : PtrMap Json Nat := mkPtrMap
+  let cache := cache.insert original first
+  unless cache.find? original == some first do
+    throw <| IO.userError "the pointer cache missed the exact retained JSON immediately after insertion"
+  let cache := cache.insert other second
+  unless cache.find? original == some first do
+    throw <| IO.userError "the pointer cache lost the exact retained JSON after another insertion"
+  unless cache.find? other == some second do
+    throw <| IO.userError "the pointer cache changed the second retained JSON sentinel"
+
+#eval jsonGraphPointerCacheControl

@@ -1,6 +1,7 @@
 module
 
 public import Lean
+import Init.Dynamic
 
 @[expose] public section
 
@@ -8,8 +9,6 @@ namespace CasTools.NativeExpression
 
 open Lean
 
--- Reference: Lean 4.33.0 Lean.Elab.Idbg.nameToJson/nameFromJson?. The standard
--- Name JSON instance uses dotted text and cannot preserve hygienic names.
 def nameJson : Name → Json
   | .anonymous => Json.null
   | .str parent value => Json.mkObj [("str", Json.arr #[nameJson parent, toJson value])]
@@ -40,9 +39,6 @@ deriving instance ToJson, FromJson for Syntax
 deriving instance ToJson, FromJson for DataValue
 deriving instance ToJson, FromJson for KVMap
 
-/-- One exact native constructor. Child expressions are earlier node indices.
-Reference: Lean.Elab.Idbg.exprToJson/exprFromJson?; retain metadata through the native
-DataValue, Syntax and SourceInfo constructors instead of quotienting it. -/
 inductive Node where
   | bvar (index : Nat)
   | fvar (name : Name)
@@ -58,25 +54,80 @@ inductive Node where
   | proj (name : Name) (index body : Nat)
   deriving ToJson, FromJson, Inhabited
 
+private structure SnapshotDocumentsImpl where
+  indices : ExprStructMap Nat := {}
+  nodes : Array Node := #[]
+  documents : Std.HashMap (Name × UInt64) (Array (Dynamic × Json)) := {}
+
+opaque SnapshotDocumentsType : NonemptyType.{0} :=
+  ⟨SnapshotDocumentsImpl, ⟨{}⟩⟩
+
+def SnapshotDocuments : Type := SnapshotDocumentsType.type
+
+private instance : Nonempty SnapshotDocuments := SnapshotDocumentsType.property
+
+private unsafe def emptySnapshotDocumentsImpl : SnapshotDocuments :=
+  unsafeCast ({} : SnapshotDocumentsImpl)
+
+@[implemented_by emptySnapshotDocumentsImpl]
+opaque emptySnapshotDocuments : SnapshotDocuments
+
 structure Builder where
   indices : ExprStructMap Nat := {}
   nodes : Array Node := #[]
+  snapshotDocuments : SnapshotDocuments := emptySnapshotDocuments
 
--- Native expression annotation equality treats some metadata fields extensionally.
--- Encode the full ordered metadata payload in the cache key, retaining the actual native
--- metadata in Node.mdata. Expr.replace uses the core pointer cache and preserves sharing.
--- Reference: Lean.Util.ReplaceExpr.replace; Lean.Expr.ExprStructEq; native derived JSON codecs.
+private unsafe def Builder.validSnapshotDocuments (state : Builder) : SnapshotDocumentsImpl :=
+  let documents : SnapshotDocumentsImpl := unsafeCast state.snapshotDocuments
+  if ptrEq documents.indices state.indices && ptrEq documents.nodes state.nodes then
+    documents
+  else
+    { indices := state.indices, nodes := state.nodes }
+
+private unsafe def Builder.memoSnapshot {α : Type} [TypeName α]
+    (kind : Name) (owner : α) (encode : StateM Builder Json) : StateM Builder Json := do
+  let slot := (kind, (ptrAddrUnsafe owner).toUInt64)
+  let state ← get
+  let documents := state.validSnapshotDocuments
+  set { state with snapshotDocuments := unsafeCast documents }
+  for (original, document) in documents.documents[slot]?.getD #[] do
+    if let some original := Dynamic.get? α original then
+      if ptrEq original owner then return document
+  let document ← encode
+  let state ← get
+  let documents := state.validSnapshotDocuments
+  let entries := documents.documents[slot]?.getD #[]
+  let documents := { documents with
+    documents := documents.documents.insert slot (entries.push (Dynamic.mk owner, document)) }
+  set { state with snapshotDocuments := unsafeCast documents }
+  return document
+
 partial def metadataKey (expression : Expr) : Expr :=
   expression.replace fun node => match node with
     | .mdata data body => some (.mdata
       (KVMap.empty.setString `nativeMetadata (toJson data).compress) (metadataKey body))
     | _ => none
 
-/-- Normalize each complete supplied root once, retaining exact native metadata
-and the same child-before-parent interning order. Descending through the
-corresponding children of the original and normalized key avoids renormalizing
-the entire shared subtree for every child visited. -/
-partial def Builder.add (expression : Expr) : StateM Builder Nat :=
+private def Builder.appendReference (key : Expr) (node : Node) : StateM Builder Nat := do
+  let state ← get
+  let index := state.nodes.size
+  set { state with
+    indices := state.indices.insert ⟨key⟩ index
+    nodes := state.nodes.push node }
+  return index
+
+private unsafe def Builder.appendCached (key : Expr) (node : Node) : StateM Builder Nat :=
+  fun state =>
+    let documents := (state.validSnapshotDocuments).documents
+    let ⟨indices, nodes, _⟩ := state
+    let index := nodes.size
+    let indices := indices.insert ⟨key⟩ index
+    let nodes := nodes.push node
+    let snapshotDocuments : SnapshotDocumentsImpl := { indices, nodes, documents }
+    (index, { indices, nodes, snapshotDocuments := unsafeCast snapshotDocuments })
+
+private partial def Builder.addWith (append : Expr → Node → StateM Builder Nat)
+    (expression : Expr) : StateM Builder Nat :=
   go expression (metadataKey expression)
 where
   go (expression key : Expr) : StateM Builder Nat := do
@@ -102,26 +153,24 @@ where
       | .proj name index body, .proj _ _ bodyKey =>
         pure (.proj name index (← go body bodyKey))
       | _, _ =>
-        -- This branch cannot arise from metadataKey, which changes only
-        -- metadata payloads. An internal invariant violation is not a node.
+
         unreachable!
-    let index := (← get).nodes.size
-    modify fun state => { state with
-      indices := state.indices.insert ⟨key⟩ index
-      nodes := state.nodes.push node }
-    return index
+    append key node
+
+private unsafe def Builder.addCached (expression : Expr) : StateM Builder Nat :=
+  Builder.addWith Builder.appendCached expression
+
+@[implemented_by Builder.addCached]
+opaque Builder.add (expression : Expr) : StateM Builder Nat :=
+  Builder.addWith Builder.appendReference expression
 
 def Builder.finish (builder : Builder) (roots : Array Nat) : Json :=
   Json.mkObj [("roots", toJson roots), ("nodes", toJson builder.nodes)]
 
-/-- Encode a collection of native terms without expanding their shared subterms. -/
 def encode (expressions : Array Expr) : Json :=
   let (roots, builder) := (expressions.mapM Builder.add).run {}
   builder.finish roots
 
-/-- Encode the complete native declaration payload using the caller's existing expression
-table. The same serializer serves exact snapshots and the typed canonical table; it never
-substitutes an axiom for a definition or evaluates the declaration's value. -/
 def constantInfoJson [Monad m] (encode : Expr → m Nat) (info : ConstantInfo) : m Json := do
   let common := [("name", nameJson info.name),
     ("universeParams", Json.arr (info.levelParams.toArray.map nameJson)),
@@ -169,9 +218,6 @@ def constantInfoJson [Monad m] (encode : Expr → m Nat) (info : ConstantInfo) :
       pure [("kind", toJson "quotient"), ("quotientKind", toJson kind)]
   return Json.mkObj (common ++ fields)
 
-/-- Retain local native definitions beside the same shared expression graph. An empty
-declaration closure uses the original document exactly. Decode still returns the original
-ordered roots; declaration type/value indices refer to this same graph's node table. -/
 def encodeWithDeclarations (expressions : Array Expr) (declarations : Array ConstantInfo) :
     Json := Id.run do
   if declarations.isEmpty then return encode expressions
@@ -183,9 +229,6 @@ def encodeWithDeclarations (expressions : Array Expr) (declarations : Array Cons
   return Json.mkObj [("roots", toJson roots), ("nodes", toJson builder.nodes),
     ("declarations", Json.arr declarations)]
 
-/-- Reconstruct a stored native value declaration from the shared exact expression graph.
-This is a codec, not an admission: callers must use the native kernel's declaration checker.
-Ambient axioms and inductive families have no value-declaration replay through this API. -/
 def valueDeclarationFromJson (document : Json) (expressions : Array Expr) :
     Except String Declaration := do
   let name ← document.getObjValAs? Name "name"
@@ -222,7 +265,6 @@ def valueDeclarationFromJson (document : Json) (expressions : Array Expr) :
     return .opaqueDecl { toConstantVal := constant, value, isUnsafe, all }
   | _ => .error "the stored native declaration is not a value declaration"
 
-/-- Decode only topological references. Native constructors restore every stored field. -/
 def decodeNodes (document : Json) : Except String (Array Expr) := do
   let nodes ← document.getObjValAs? (Array Node) "nodes"
   let mut values : Array Expr := #[]

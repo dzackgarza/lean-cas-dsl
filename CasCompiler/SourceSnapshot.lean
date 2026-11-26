@@ -2,6 +2,8 @@ module
 
 public import CasCompiler.Elaborate
 public import CasCompiler.ContextSnapshot
+import all CasCompiler.ContextSnapshot
+import all CasTools.NativeExpression
 public import CasCompiler.SourceTypeOrigin
 public import CasCompiler.SelectionData
 import all CasCompiler.SelectionData
@@ -13,14 +15,10 @@ namespace CasCompiler.SourceSnapshot
 
 open Lean CasTools CasCatalogue ContextSnapshot
 
--- Registry rows reuse InterfaceDocument's codecs, derived from the actual independent
--- records. A rigid family's native expressions are complete closed functions; their
--- nested graphs retain every binder and universe without reopening or interpreting them.
 local instance : ToJson Name := ⟨NativeExpression.nameJson⟩
 local instance : ToJson BindingId := ⟨bindingJson⟩
 local instance : ToJson Expr := ⟨fun expression => NativeExpression.encode #[expression]⟩
--- A prerequisite ordinal retains the bound supplied by its original whole program.
--- The finite type's proof is determined by that checked value and bound.
+
 local instance {bound : Nat} : ToJson (Fin bound) :=
   ⟨fun index => Json.mkObj [("value", toJson index.val), ("bound", toJson bound)]⟩
 
@@ -48,26 +46,50 @@ deriving instance ToJson for SelectedApplicationFamily, SelectedSourceApplicatio
 deriving instance ToJson for SelectedSourceAdmission, SelectedSourcePointRequest, SelectedSourceField
 deriving instance ToJson for SelectedEndpointSide, SelectedSourceEndpoint, SourceSelection
 
-/-- Every native payload is encoded in its retained complete telescope. The derived record
-codec also retains all original registry rows, whole rigid families, formal slots and routes;
-it cannot silently omit a field when the typed selection owner grows. -/
-def selectionJson (selection : SourceSelection ClosedTerm) :
-    StateM NativeExpression.Builder Json := do
-  return toJson (← selection.mapM closedTermJson)
+private abbrev ClosedSelection := SourceSelection ClosedTerm
+private abbrev ClosedSelections := SourceSelectionScope ClosedTerm
 
-/-- Stable binding identities order the complete source side table. No expression, type,
-carrier or available implementation is consulted to reconstruct a selection. -/
-def selectionsJson (selections : SourceSelectionScope ClosedTerm) :
+private def selectionJsonWith (encodeTerm : ClosedTerm → StateM NativeExpression.Builder Json)
+    (selection : SourceSelection ClosedTerm) : StateM NativeExpression.Builder Json := do
+  return toJson (← selection.mapM encodeTerm)
+
+private def selectionJsonReference (selection : SourceSelection ClosedTerm) :
+    StateM NativeExpression.Builder Json :=
+  selectionJsonWith closedTermJsonReference selection
+
+private unsafe def selectionJsonCached (selection : SourceSelection ClosedTerm) :
     StateM NativeExpression.Builder Json := do
+  letI : TypeName ClosedSelection := TypeName.mk ClosedSelection ``ClosedSelection
+  NativeExpression.Builder.memoSnapshot ``selectionJsonReference selection (selectionJsonWith closedTermJson selection)
+
+@[implemented_by selectionJsonCached]
+opaque selectionJson (selection : SourceSelection ClosedTerm) : StateM NativeExpression.Builder Json :=
+  selectionJsonReference selection
+
+private def selectionsJsonWith
+    (encodeSelection : SourceSelection ClosedTerm → StateM NativeExpression.Builder Json)
+    (selections : SourceSelectionScope ClosedTerm) : StateM NativeExpression.Builder Json := do
   let entries := selections.toArray.qsort fun left right =>
     if left.1.session == right.1.session then left.1.serial < right.1.serial
     else left.1.session < right.1.session
   let rows ← entries.mapM fun (binding, selection) => do
     return Json.mkObj [("binding", bindingJson binding),
-      ("selection", ← selectionJson selection)]
+      ("selection", ← encodeSelection selection)]
   return Json.arr rows
 
-/-- Original source positions; no reconstructed or pretty-printed source is substituted. -/
+private def selectionsJsonReference (selections : SourceSelectionScope ClosedTerm) :
+    StateM NativeExpression.Builder Json :=
+  selectionsJsonWith selectionJsonReference selections
+
+private unsafe def selectionsJsonCached (selections : SourceSelectionScope ClosedTerm) :
+    StateM NativeExpression.Builder Json := do
+  letI : TypeName ClosedSelections := TypeName.mk ClosedSelections ``ClosedSelections
+  NativeExpression.Builder.memoSnapshot ``selectionsJsonReference selections (selectionsJsonWith selectionJson selections)
+
+@[implemented_by selectionsJsonCached]
+opaque selectionsJson (selections : SourceSelectionScope ClosedTerm) : StateM NativeExpression.Builder Json :=
+  selectionsJsonReference selections
+
 def spanJson (span : SourceSpan) : Json :=
   Json.mkObj [("file", toJson span.fileName),
     ("startByte", toJson (span.start.map (·.byteIdx))),
@@ -91,8 +113,6 @@ def carrierJson (carrier : SourceCarrierSelection) : StateM NativeExpression.Bui
     ("identifications", Json.arr (carrier.identifications.map NativeExpression.nameJson)),
     ("actions", toJson actions), ("comparisons", toJson comparisons)]
 
-/-- The accepted interface is retained as supplied, including its dependent constructor and
-optional standardization. It is not reconstructed from the selected apex or cone. -/
 def limitInterfaceJson (interface : LimitInterface ClosedTerm) :
     StateM NativeExpression.Builder Json := do
   let presentation ← closedTermJson interface.presentation
@@ -102,7 +122,6 @@ def limitInterfaceJson (interface : LimitInterface ClosedTerm) :
   return Json.mkObj [("presentation", presentation), ("diagram", diagram),
     ("standardization", toJson standardization), ("dataConstructor", toJson dataConstructor)]
 
-/-- Exact native creation inputs and full fixed result family, in the original source context. -/
 def creationJson (creation : LimitCreationInterface ClosedTerm) :
     StateM NativeExpression.Builder Json := do
   return Json.mkObj [
@@ -121,8 +140,6 @@ def creationJson (creation : LimitCreationInterface ClosedTerm) :
     ("requestFamily", ← closedTermJson creation.requestFamily),
     ("result", ← closedTermJson creation.result)]
 
-/-- Source and target presentations stay distinct for a created limit. All fields are the
-already checked retained data; serializing them neither elaborates nor executes mathematics. -/
 def limitJson (limit : SourceLimitSelection) : StateM NativeExpression.Builder Json := do
   let cone ← closedTermJson limit.cone
   let presentation ← closedTermJson limit.presentation
@@ -156,10 +173,6 @@ def bindingSpan (session : SourceContextObservation) (id : BindingId) : Option J
   let index ← session.context.entries.findIdx? (·.id == id)
   spanJson <$> session.spans[index]?
 
-/-- Prepare an inert exact source document at the existing source handoff.
-Categories and declaration spans are aligned with the retained context by stable identity.
-This pure encoder does not reopen terms, infer types, print expressions, select providers or
-read a mutable environment. Callers retain its result for later observation. -/
 def snapshot (session : SourceContextObservation) (term : SourceTerm)
     (definedBinding : Option ContextEntry := none) : Json := Id.run do
   let build : StateM NativeExpression.Builder (List (String × Json) × Array Nat) := do

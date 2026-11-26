@@ -2,6 +2,7 @@ module
 
 public import CasCompiler.Context
 public import CasTools.NativeExpression
+import all CasTools.NativeExpression
 
 @[expose] public section
 
@@ -9,7 +10,6 @@ namespace CasCompiler.ContextSnapshot
 
 open Lean CasTools
 
-/-- Stable source identity, shared by the closed telescope and its selected instances. -/
 def bindingJson (id : BindingId) : Json :=
   Json.mkObj [("session", toJson id.session), ("serial", toJson id.serial)]
 
@@ -35,9 +35,7 @@ def declarationFields [Monad m] (encode : Expr → m Nat) (terms : Array ClosedT
   let declarations ← declarations.mapM (NativeExpression.constantInfoJson encode)
   return [("declarations", Json.arr declarations)]
 
-/-- Preserve the existing question-export schema and each ordered native context entry.
-Expression indices belong to the caller's shared NativeExpression builder. -/
-def contextJson (context : ContextTelescope) : StateM NativeExpression.Builder Json := do
+private def contextJsonReference (context : ContextTelescope) : StateM NativeExpression.Builder Json := do
   let entries ← context.entries.mapM fun entry => do
     let type ← NativeExpression.Builder.add entry.type
     let value ← entry.value.mapM NativeExpression.Builder.add
@@ -57,21 +55,41 @@ def contextJson (context : ContextTelescope) : StateM NativeExpression.Builder J
       ("originalSource", toJson original))
   return toJson entries
 
-/-- Assemble the exact term document from its already encoded context and native roots. -/
+private unsafe def contextJsonCached (context : ContextTelescope) :
+    StateM NativeExpression.Builder Json := do
+  letI : TypeName ContextTelescope := TypeName.mk ContextTelescope ``ContextTelescope
+  NativeExpression.Builder.memoSnapshot ``contextJsonReference context (contextJsonReference context)
+
+@[implemented_by contextJsonCached]
+opaque contextJson (context : ContextTelescope) : StateM NativeExpression.Builder Json :=
+  contextJsonReference context
+
 def termJson (term : ClosedTerm) (context : Json) (expression type : Nat) : Json :=
   Json.mkObj [
     ("context", context), ("instances", instancesJson term.context),
     ("universeParams", Json.arr (term.universeParams.map NativeExpression.nameJson)),
     ("expression", toJson expression), ("type", toJson type)]
 
-/-- The exact closed term, its complete type, telescope, selected instances and universes.
-The ordered telescope supplies the de Bruijn scopes of all stored native expressions. -/
-def closedTermJson (term : ClosedTerm) : StateM NativeExpression.Builder Json := do
-  let context ← contextJson term.context
+private def closedTermJsonWith
+    (encodeContext : ContextTelescope → StateM NativeExpression.Builder Json)
+    (term : ClosedTerm) : StateM NativeExpression.Builder Json := do
+  let context ← encodeContext term.context
   let expression ← NativeExpression.Builder.add term.expression
   let type ← NativeExpression.Builder.add term.type
   let native := termJson term context expression type
   let declarations ← declarationFields NativeExpression.Builder.add #[term]
   return declarations.foldl (fun document (key, value) => document.setObjVal! key value) native
+
+private def closedTermJsonReference (term : ClosedTerm) : StateM NativeExpression.Builder Json :=
+  closedTermJsonWith contextJsonReference term
+
+private unsafe def closedTermJsonCached (term : ClosedTerm) :
+    StateM NativeExpression.Builder Json := do
+  letI : TypeName ClosedTerm := TypeName.mk ClosedTerm ``ClosedTerm
+  NativeExpression.Builder.memoSnapshot ``closedTermJsonReference term (closedTermJsonWith contextJson term)
+
+@[implemented_by closedTermJsonCached]
+opaque closedTermJson (term : ClosedTerm) : StateM NativeExpression.Builder Json :=
+  closedTermJsonReference term
 
 end CasCompiler.ContextSnapshot

@@ -1,5 +1,8 @@
 module
 
+import Lean.Util.ForEachExpr
+import Lean.Util.FoldConsts
+
 public import Lean.AddDecl
 public import Lean.Meta.Basic
 
@@ -9,9 +12,9 @@ namespace CasCompiler
 
 open Lean Meta
 
-/-- Exact native declarations used by a captured source, excluding imported declarations.
-The constructor is private: entries come from the checked native environment, not from
-source syntax, a backend response, or an invented axiom. -/
+
+
+
 structure NativeDeclarations where
   private mk ::
   constants : Array ConstantInfo
@@ -20,7 +23,7 @@ private def sameConstantVal (left right : ConstantVal) : Bool :=
   left.name == right.name && left.levelParams == right.levelParams &&
     left.type.equal right.type
 
-/-- Native declaration identity includes the whole checked payload, not just its name/type. -/
+
 opaque nativeConstantExactlyMatches (left right : ConstantInfo) : Bool :=
   sameConstantVal left.toConstantVal right.toConstantVal && match left, right with
   | .axiomInfo left, .axiomInfo right => left.isUnsafe == right.isUnsafe
@@ -85,13 +88,40 @@ private partial def captureConstant (environment : Environment) (name : Name) :
     for dependency in expression.getUsedConstants do captureConstant environment dependency
   modify fun state => { state with constants := state.constants.push info }
 
-/-- Freeze the reachable current-module declaration graph in dependency order. Imported
-mathematics stays in its original module environment and is never copied or unfolded. -/
+
+
+private unsafe def rootConstantsUnsafe (expressions : Array Expr) : MetaM (Array Name) := do
+  let traversal : Expr.FoldConstsImpl.FoldM (Array Name) := do
+    let mut names : Array Name := #[]
+    for expression in expressions do
+      names ← Expr.FoldConstsImpl.fold (fun name names => names.push name) expression names
+    return names
+  return traversal.run' {}
+
+
+
+
+@[implemented_by rootConstantsUnsafe]
+private def rootConstants (expressions : Array Expr) : MetaM (Array Name) := do
+  let collect : Expr → StateRefT (NameHashSet × Array Name) MetaM Bool := fun expression => do
+    if let .const name _ := expression then
+      let (seen, names) ← getThe (NameHashSet × Array Name)
+      unless seen.contains name do
+        set ((seen.insert name, names.push name) : NameHashSet × Array Name)
+    return true
+  let traversal : MonadCacheT Expr Unit (StateRefT (NameHashSet × Array Name) MetaM) Unit := do
+    for expression in expressions do
+      ForEachExpr.visit collect expression
+  let (_, (_, names)) ← (MonadCacheT.run traversal).run ({}, #[])
+  return names
+
+
+
 opaque NativeDeclarations.capture (expressions : Array Expr) : MetaM NativeDeclarations := do
   let environment := (← getEnv).setExporting false
+  let names ← rootConstants expressions
   let action : StateT CaptureState MetaM Unit := do
-    for expression in expressions do
-      for name in expression.getUsedConstants do captureConstant environment name
+    for name in names do captureConstant environment name
   let (_, state) ← action.run {}
   return ⟨state.constants⟩
 
@@ -103,11 +133,11 @@ private def replayable? : ConstantInfo → Option Declaration
     if declaration.isUnsafe then none else some (.opaqueDecl declaration)
   | _ => none
 
-/-- Reattach exact checked value declarations to the current environment. Existing names
-must carry identical native payloads. Ambient axioms, inductive families and unsafe
-declarations must already be present: this operation never invents or publishes them.
-Native addDecl checks every restored definition/proof, preserving the current environment's
-runtime extensions. Additions remain available after the caller's inspection finishes. -/
+
+
+
+
+
 opaque NativeDeclarations.ensure (declarations : NativeDeclarations) : MetaM Unit := do
   for original in declarations.constants do
     match ((← getEnv).setExporting false).find? original.name with

@@ -9,7 +9,7 @@ namespace CasCompiler
 
 open Lean Meta
 
-/-- Transport the complete typed selection data through the same captured native context. -/
+
 def SourceSelectionScope.close (scope : SourceSelectionScope Expr) (context : OpenContext) :
     MetaM (SourceSelectionScope ClosedTerm) :=
   context.withClosing (fun _ => pure ()) fun close =>
@@ -29,8 +29,8 @@ def SourceSelectionScope.inContext (scope : SourceSelectionScope ClosedTerm) (co
       | throwError "a transported source selection lost an original term position"
     return expression) indexed
 
-/-- Combine independently retained scopes in one complete native context. A duplicate
-binding ID must carry the entire identical selection; neither scope overrides any field. -/
+
+
 def SourceSelectionScope.merge (current incoming : SourceSelectionScope Expr) :
     MetaM (SourceSelectionScope Expr) := do
   let mut result := current
@@ -42,8 +42,8 @@ def SourceSelectionScope.merge (current incoming : SourceSelectionScope Expr) :
       result := result.insert binding selection
   return result
 
-/-- Reject an absent selected row before reopening its original native scope. Complete
-present rows still pass the native checks in `checkSelectedSourceContext`. -/
+
+
 def SourceSelectionScope.checkRequired {α : Type} (scope : SourceSelectionScope α)
     (context : ContextTelescope) : MetaM Unit := do
   for entry in context.entries do
@@ -51,7 +51,7 @@ def SourceSelectionScope.checkRequired {α : Type} (scope : SourceSelectionScope
       throwError (MessageData.tagged `CasCompiler.SourceReadM.missingSelection
         m!"the source lost its retained typed selection")
 
-/-- Validate one complete typed selection table against its own original source context. -/
+
 def checkSelectedSourceContext (context : OpenContext)
     (selections : SourceSelectionScope Expr) : MetaM Unit := do
   for binding in context.bindings do
@@ -67,15 +67,15 @@ def checkSelectedSourceContext (context : OpenContext)
     unless context.bindings.any (·.id == identity) do
       throwError "a source selection is outside its complete native context"
 
-/-- Only the exact native binder selects its retained typed record. -/
+
 def SourceSelectionScope.findAt? (scope : SourceSelectionScope Expr) (context : OpenContext)
     (source : Expr) : Option (SourceSelection Expr) := do
   let .fvar localId := source | none
   let binding ← context.bindings.find? (·.expression.fvarId! == localId)
   scope[binding.id]?
 
-/-- Carry one complete selected record to an explicitly introduced native alias. The alias
-retains the prior binder as its native source; no expression equality chooses either identity. -/
+
+
 def SourceSelectionScope.alias (scope : SourceSelectionScope Expr) (context : OpenContext)
     (original sourceVariable : Expr) : MetaM (SourceSelectionScope Expr) := do
   let some selection := scope.findAt? context original | return scope
@@ -89,8 +89,8 @@ def SourceSelectionScope.alias (scope : SourceSelectionScope Expr) (context : Op
   scope.merge (({} : SourceSelectionScope Expr).insert binding.id
     { selection with value := original })
 
-/-- A selected intermediate is an opaque native binder. Its mathematical source is retained
-only for checking; all subsequent selection consumers use this same stable binding identity. -/
+
+
 def SourceSelectionScope.withBinding [Monad m] [MonadLiftT MetaM m] [MonadControlT MetaM m]
     (identities : CasRuntime.IdentitySupply) (scope : SourceSelectionScope Expr)
     (context : OpenContext) (selection : SourceSelection Expr)
@@ -105,7 +105,7 @@ def SourceSelectionScope.withBinding [Monad m] [MonadLiftT MetaM m] [MonadContro
     (fun context binding => action context (scope.insert id selection) binding.expression)
     (originalSource := some selection.value) (preserveInstances := true)
 
-/-- Lambda-lift every contextual datum over the same complete original formal telescope. -/
+
 def SourceSelection.abstract (selection : SourceSelection Expr)
     (formals : Array LocalBinding) : MetaM (SourceSelection Expr) := do
   unless selection.formalBindings.isEmpty do
@@ -119,7 +119,7 @@ def SourceSelection.abstract (selection : SourceSelection Expr)
       formalBindings := formalBindings.push formal.id
   return { result with formalBindings }
 
-/-- Instantiate the complete original telescope in every selected operand at once. -/
+
 def SourceSelection.specialize (selection : SourceSelection Expr)
     (arguments : Array Expr) : MetaM (SourceSelection Expr) := do
   unless selection.formalBindings.size == arguments.size do

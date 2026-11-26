@@ -16,8 +16,8 @@ private def sameOption (equal : α → α → Bool) : Option α → Option α �
   | some left, some right => equal left right
   | _, _ => false
 
-/-- Registry records contain closed declared syntax and have complete derived representations.
-This comparison validates an already identical binding ID; it never searches for an owner. -/
+
+
 private def sameStatic [Repr α] (left right : α) : Bool :=
   reprStr left == reprStr right
 
@@ -28,7 +28,7 @@ private def sameRoute (left right : Route) : Bool :=
         reprStr a.expression == reprStr b.expression && sameStatic a.ref b.ref)
       left.steps right.steps
 
-/-- Compare the complete originally selected route, including each ordered native edge. -/
+
 def _root_.CasCatalogue.Route.exactlyMatches (left right : Route) : Bool :=
   sameRoute left right
 
@@ -65,7 +65,7 @@ private def sameReference : SelectedSourceReference → SelectedSourceReference 
       sameStatic left right && sameStatic leftRefinement rightRefinement
   | _, _ => false
 
-/-- Compare every field of the two already supplied accepted registry references. -/
+
 def SelectedSourceReference.exactlyMatches (left right : SelectedSourceReference) : Bool :=
   sameReference left right
 
@@ -403,17 +403,17 @@ private def sameEndpoint (termEqual : α → α → Bool) (left right : Selected
     left.side == right.side &&
     termEqual left.value right.value
 
-/-- Compare the complete already-selected rigid family, including its checked native data. -/
+
 def SelectedApplicationFamily.exactlyMatches (left right : SelectedApplicationFamily) : Bool :=
   sameApplicationFamily left right
 
-/-- Compare a point request's selected owner and every original operand. -/
+
 def SelectedSourcePointRequest.exactlyMatches (termEqual : α → α → Bool)
     (left right : SelectedSourcePointRequest α) : Bool :=
   samePointRequest termEqual left right
 
-/-- Compare all retained data at the same native binding identity. Native fields are
-compared by the supplied exact representation equality, never by definitional equality. -/
+
+
 def SourceSelection.exactlyMatches (termEqual : α → α → Bool)
     (left right : SourceSelection α) : Bool :=
   termEqual left.value right.value &&
@@ -454,7 +454,7 @@ def SourceSelection.exactlyMatches (termEqual : α → α → Bool)
     sameOption (sameCartesian termEqual) left.cartesian right.cartesian &&
     sameOption (samePowerObject termEqual) left.powerObject right.powerObject
 
-/-- Equality of complete selection tables, indexed only by stable native binding IDs. -/
+
 def SourceSelectionScope.exactlyMatches (termEqual : α → α → Bool)
     (left right : SourceSelectionScope α) : Bool :=
   left.size == right.size && left.toList.all fun (binding, selection) =>

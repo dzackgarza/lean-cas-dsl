@@ -10,8 +10,8 @@ namespace CasCompiler.SourceTest
 
 open Lean Meta Elab Term
 
-/-- Run assertions inside the original completed term's complete native/typed scope.
-The callback returns no local expression, so test inspection cannot escape its telescope. -/
+
+
 def checkSelected (term : SourceTerm) (assertions : Expr → SourceReadM Unit) :
     TermElabM Unit := do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
@@ -22,8 +22,8 @@ def checkSelected (term : SourceTerm) (assertions : Expr → SourceReadM Unit) :
     let selections ← term.selections.inContext context
     (assertions expression).runK { identities, context, selections } fun _ _ => pure ()
 
-/-- Interpret original sources only for mathematical assertions. Exact original operands
-are checked separately in the typed scope; this view supplies no compiler selection. -/
+
+
 def checkOriginal (expressions : Array Expr) (assertions : Array Expr → MetaM Unit) :
     SourceReadM Unit := do
   let scope ← get
@@ -32,8 +32,8 @@ def checkOriginal (expressions : Array Expr) (assertions : Array Expr → MetaM 
       if declaration.isLet then ids.push declaration.fvarId else ids) #[]
     assertions (← expressions.mapM fun expression => zetaDeltaFVars expression letIds)
 
-/-- Verify a specified original binder through explicit typed aliases or authored native
-lets. Equal native values and originalSource checking correspondences are never consulted. -/
+
+
 partial def originatesAt (context : OpenContext) (selections : SourceSelectionScope Expr)
     (source expected : Expr) (throughAuthoredLets : Bool := true) : MetaM Bool := do
   if source.equal expected then return true
@@ -58,10 +58,10 @@ partial def originatesAt (context : OpenContext) (selections : SourceSelectionSc
     return ← originatesAt context selections body expected throughAuthoredLets
   return false
 
-/-- Inspect only explicitly selected applications reachable along a result's native data
-and typed value aliases. A matching original record supplies its own complete application;
-its declared reference exposes only its own lexical formal telescope. There is no registry
-lookup, expression-head search, or selection from an equal carrier. -/
+
+
+
+
 partial def declaredApplications (context : OpenContext) (selections : SourceSelectionScope Expr)
     (declaration : Name) (source : Expr) : MetaM (Array Expr) := do
   if let some selected := selections.findAt? context source.getAppFn then
@@ -95,8 +95,8 @@ partial def declaredApplications (context : OpenContext) (selections : SourceSel
     declaredApplications context selections declaration parent
   | _ => pure #[]
 
-/-- Visit actual native data through explicit typed value aliases. The assertion callback
-can inspect an ordinary native constructor without unfolding any registered declaration. -/
+
+
 partial def visitNativeData (assertion : Expr → SourceReadM Bool) (source : Expr)
     (throughAuthoredLets : Bool := true) :
     SourceReadM Nat := do
@@ -133,7 +133,7 @@ partial def visitNativeData (assertion : Expr → SourceReadM Bool) (source : Ex
     return inType + inBody
   | _ => pure 0
 
-/-- The added typed source locals cannot stand in for authored assumptions or definitions. -/
+
 def authoredEntries {term : Type} (context : ContextTelescope) (selections : SourceSelectionScope term) :
     MetaM (Array ContextEntry) := do
   let mut authored := #[]
@@ -147,7 +147,7 @@ def authoredEntries {term : Type} (context : ContextTelescope) (selections : Sou
       authored := authored.push entry
   return authored
 
-/-- Name the original authored positions inside the unchanged complete test scope. -/
+
 def authoredBindings : SourceReadM (Array LocalBinding) := do
   let scope ← get
   let entries ← authoredEntries scope.context.telescope scope.selections
@@ -156,8 +156,8 @@ def authoredBindings : SourceReadM (Array LocalBinding) := do
       | liftM (m := MetaM) <| throwError "an authored test binding is outside its complete original context"
     return binding
 
-/-- Inspect the native value behind only exact typed selection aliases. This preserves
-top-level shape assertions without searching subterms or unfolding authored native lets. -/
+
+
 partial def selectedValue (source : Expr) : SourceReadM Expr := do
   let some selected ← SourceReadM.selection? source | return source
   if selected.value.equal source then return source

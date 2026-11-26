@@ -9,15 +9,15 @@ namespace CasRuntime
 
 open Lean Meta CasCompiler
 
-/-- An exact source-selected input and native field path, before any reply is admitted. -/
+
 structure FixedInput where
   parent : ValueBinding
   path : Array Name
   source : ClosedTerm
   parameters : Array (Option ValueBinding)
 
-/-- The original selected input at one native result address.
-Resolution precedes reply staging, including any demands needed for lazy input fields. -/
+
+
 structure FixedResult where
   path : Array Name
   input : FixedInput
@@ -37,9 +37,9 @@ private def selectedInputLayout (source : SourceLayout) (path : Array Name) :
 private def FixedInput.checkPath (input : FixedInput) : MetaM Unit :=
   discard <| selectedInputLayout input.parent.nativeRole input.path
 
-/-- Follow actual stored fields and retain the exact remaining selection at a lazy frontier.
-A descriptor without field data supplies no route through its schema. This reads only the
-graph; genuine native closures and tokens are not invoked to discover source coverage. -/
+
+
+
 private def FixedInput.storedFrontier (input : FixedInput) (graph : ValueGraph) :
     MetaM (Option (ValueBinding × Array Name)) := do
   input.checkPath
@@ -68,8 +68,8 @@ private def FixedInput.storedFrontier (input : FixedInput) (graph : ValueGraph) 
     | .portable .. => throwError "the fixed input has no native record access interface"
   return some (value, #[])
 
-/-- Resolve an already stored input by its native field ordinals, never by value equality.
-Lazy record fields are resolved through ordinary prepared demands by the caller. -/
+
+
 opaque FixedInput.storedValue? (input : FixedInput) (graph : ValueGraph) :
     MetaM (Option ValueBinding) := do
   let some (value, remaining) ← input.storedFrontier graph | return none
@@ -80,10 +80,10 @@ opaque FixedInput.storedValue (input : FixedInput) (graph : ValueGraph) : MetaM 
     | throwError "the fixed input requires its prepared lazy projection demand"
   return value
 
-/-- Resolve a selected input only after source coverage is established. Existing fields retain
-their original bindings. A lazy resolver supplies the enriched access; its exact recorded parent
-and path authorize the baseline value, including a captured value with no earlier access history.
-Reuse: storedValue?, the refreshed transaction view and ValueGraph.projectionBasis. -/
+
+
+
+
 opaque FixedInput.resolveValue (input : FixedInput) (graphView : MetaM ValueGraph)
     (resolve : Option (FixedInput → MetaM ValueBinding) := none) : MetaM ValueBinding := do
   let graph ← graphView
@@ -99,8 +99,8 @@ opaque FixedInput.resolveValue (input : FixedInput) (graphView : MetaM ValueGrap
     | throwError "a resolved fixed input did not retain its exact source access"
   return value
 
-/-- Actual formal slots and suspended native arguments retain separate source frames.
-An unknown source expression is not a missing original runtime argument. -/
+
+
 private inductive InputArgument where
   | actual (value : Option ValueBinding) (source : ClosedTerm)
       (context : ContextTelescope) (parameters : Array (Option ValueBinding))
@@ -122,8 +122,8 @@ private structure InputRuntimeStep where
   selection : Array Name
   arguments : Array InputArgument
 
-/-- Only supplied original context slots are selectable. Formal argument ordinals retain their
-own plane, including proof positions, independently of these stable source binding identities. -/
+
+
 private def contextInputIds (context : ContextTelescope)
     (parameters : Array (Option ValueBinding)) : MetaM (Array BindingId) := do
   unless parameters.size == context.entries.size do
@@ -167,8 +167,8 @@ private def actualFixedInput (graph : ValueGraph) (value : Option ValueBinding)
   input.checkPath
   return input
 
-/-- Capture symbolic arguments without forcing them. Their exact formal prefix and original
-context parameters remain different planes, including unused and proof-only formal slots. -/
+
+
 private def remainingInputApplications (context : ContextTelescope)
     (parameters : Array (Option ValueBinding)) (arguments : Array InputArgument)
     (remaining : Array CasCompiler.InputApplicationStep) : MetaM (Array InputRuntimeStep) := do
@@ -194,8 +194,8 @@ private def remainingInputApplications (context : ContextTelescope)
 
 mutual
 
-/-- Interpret only the selected argument. A suspended callable is traced together with its
-pending applications; it need not first produce a separate stored callable node. -/
+
+
 private partial def fixedFromArgument (graph : ValueGraph) (argument : InputArgument)
     (selection : Array Name) (steps : Array InputRuntimeStep) : MetaM (Option FixedInput) := do
   match argument with
@@ -211,8 +211,8 @@ private partial def fixedFromArgument (graph : ValueGraph) (argument : InputArgu
       fixedFromExpression graph source parameters arguments
         (steps.set! 0 { next with selection := selection ++ next.selection }) #[]
 
-/-- Compiler continuations contain the complete remaining operation suffix, including final
-field selections. No previously consumed result path is applied again after a source call. -/
+
+
 private partial def fixedFromResult (graph : ValueGraph) (context : ContextTelescope)
     (parameters : Array (Option ValueBinding)) (arguments : Array InputArgument)
     (result : InputProjectionResult) : MetaM (Option FixedInput) := do
@@ -223,8 +223,8 @@ private partial def fixedFromResult (graph : ValueGraph) (context : ContextTeles
     fixedFromArgument graph (← inputSelection context parameters arguments route) route.path
       (← remainingInputApplications context parameters arguments remaining)
 
-/-- A selected native expression can expose an exact input or remain computationally unknown.
-Only actual original slots require stored values; an unrouteable expression yields no coverage. -/
+
+
 private partial def fixedFromExpression (graph : ValueGraph) (source : InputExpression)
     (parameters : Array (Option ValueBinding)) (actual : Array InputArgument)
     (steps : Array InputRuntimeStep) (path : Array Name) : MetaM (Option FixedInput) := do
@@ -238,9 +238,9 @@ private partial def fixedFromExpression (graph : ValueGraph) (source : InputExpr
     | return none
   fixedFromResult graph context parameters arguments traced
 
-/-- Compose only the selected callable's own retained source history.
-A projected callable resumes at its recorded parent/path before source inspection; a newer
-application retains its own continuation. Input routes preserve those exact binding aliases. -/
+
+
+
 private partial def fixedFromCallable (graph : ValueGraph) (value : ValueBinding)
     (selection : Array Name) (steps : Array InputRuntimeStep) (path : Array Name) :
     MetaM (Option FixedInput) := do
@@ -270,8 +270,8 @@ private partial def fixedFromApplication (graph : ValueGraph) (layout : Applicat
     (parameters : Array (Option ValueBinding)) (actual : Array InputArgument)
     (callable : Option ValueBinding) (steps : Array InputRuntimeStep) (path : Array Name) :
     MetaM (Option FixedInput) := do
-  -- The callable's lexical frame precedes the consuming request's transported role.
-  -- Keep its supplied application as one complete step, including every proof slot.
+
+
   if let some callable := callable then
     return ← fixedFromCallable graph callable #[]
       (#[{ selection := #[], arguments := actual }] ++ steps) path
@@ -285,9 +285,9 @@ private partial def fixedFromApplication (graph : ValueGraph) (layout : Applicat
 
 end
 
-/-- Trace the exact prepared application to its original input before a request wrapper exists.
-Reuse: the complete fixed-input interpreter and original argument/context tables above.
-No lazy input is executed and no runtime payload or earlier role chooses the source. -/
+
+
+
 opaque ApplicationOrigin.fixedInputAt (origin : ApplicationOrigin) (graph : ValueGraph)
     (path : Array Name := #[]) : MetaM (Option FixedInput) := do
   fixedFromApplication graph origin.layout origin.parameters
