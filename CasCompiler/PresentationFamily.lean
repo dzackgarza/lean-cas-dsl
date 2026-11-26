@@ -1,5 +1,8 @@
 module
 
+public import CasCompiler.SelectionData
+import all CasCompiler.SelectionData
+
 public import CasCompiler.SourceCarrier
 public import CasCompiler.Layout
 public import CasCompiler.SourceReference
@@ -10,20 +13,6 @@ namespace CasCompiler
 
 open Lean Meta CasCatalogue
 
-/-- A registered isomorphism family and the native carrier-function paths of its two maps.
-The paths are checked on an abstract isomorphism at the full rigid declaration telescope;
-no actual endpoint, point or runtime payload chooses the path. -/
-structure PresentationFamily where
-  private mk ::
-  entry : PresentationComparisonEntry
-  source : ObjectEntry
-  target : ObjectEntry
-  category : NamedCategoryEntry
-  family : Expr
-  familyType : Expr
-  universeParams : List Name
-  forwardPath : Array Name
-  inversePath : Array Name
 
 private def originalPoint (argument : InputArgumentRef) (iso : BindingId) : MetaM Bool := do
   match argument with
@@ -107,7 +96,7 @@ def PresentationFamily.instantiate (family : PresentationFamily) : MetaM (Expr �
 The supplied registry already requires these named families; the native terms retain every
 parameter, and source references identify their exact rows without choosing runtime values. -/
 def PresentationFamily.endpoints (family : PresentationFamily) (applied : Expr) :
-    MetaM (Expr × Expr) := do
+    MetaM (SourceSelection Expr × SourceSelection Expr) := do
   unless applied.getAppFn.constName? == some family.entry.declaration do
     throwError "the selected presentation changed its declared native family"
   let result ← whnfR (← inferType applied)
@@ -117,50 +106,40 @@ def PresentationFamily.endpoints (family : PresentationFamily) (applied : Expr) 
   let target := result.getAppArgs[3]!.headBeta
   unless source.isAppOf family.source.declaration && target.isAppOf family.target.declaration do
     throwError "the selected presentation lost its declared native endpoint families"
-  return (sourceReference ``ObjectEntry family.source.id.raw family.source.declaration source,
-    sourceReference ``ObjectEntry family.target.id.raw family.target.declaration target)
+  return (sourceReference (.named (.registered (.inl family.source) family.category)) source,
+    sourceReference (.named (.registered (.inl family.target) family.category)) target)
 
-/-- Keep explicitly supplied original endpoints beside the original Iso, using the same typed
-Function.const provenance layout as source types and retained source isomorphisms. Equality
-checks validate these supplied terms; they never search for or choose a runtime occurrence. -/
-def PresentationFamily.withEndpoints (family : PresentationFamily) (applied source target : Expr) :
-    MetaM Expr := do
-  let (expectedSource, expectedTarget) ← family.endpoints applied
-  checkRegisteredDomains source expectedSource
-  checkRegisteredDomains target expectedTarget
-  unless ← isDefEq source expectedSource <&&> isDefEq target expectedTarget do
-    throwError "the presentation request changed its complete declared endpoints"
-  let body ← mkAppM ``Function.const #[← inferType target, applied, target]
-  let body ← mkAppM ``Function.const #[← inferType source, body, source]
-  return .mdata (KVMap.empty |>.setName `CasCompiler.source.kind ``PresentationFamily
-    |>.setString `CasCompiler.source.id family.entry.id.raw
-    |>.setName `CasCompiler.source.declaration family.entry.declaration
-    |>.setString `CasCompiler.source.endpoints "supplied") body
-
-/-- Mark the original named family. Lowering derives its endpoints from the same admitted
-native argument positions, so repeated closed parameter syntax cannot create new inputs. -/
-def PresentationFamily.mark (family : PresentationFamily) (applied : Expr) : MetaM Expr := do
+/-- Retain the original named Iso family and complete selected presentation row. -/
+def PresentationFamily.selected (family : PresentationFamily) (applied : Expr) :
+    MetaM (SourceSelection Expr) := do
   discard <| family.endpoints applied
-  return .mdata (KVMap.empty |>.setName `CasCompiler.source.kind ``PresentationFamily
-    |>.setString `CasCompiler.source.id family.entry.id.raw
-    |>.setName `CasCompiler.source.declaration family.entry.declaration) applied
+  let .const _ levels := applied.getAppFn
+    | throwError "the selected presentation lost its original native declaration"
+  unless levels.length == family.universeParams.length do
+    throwError "the selected presentation changed its complete universe telescope"
+  return {
+    value := applied, reference := some (.presentation family.entry)
+    originalApplication := some applied
+    application := some {
+      family := .presentation family, universes := levels
+      parameters := applied.getAppArgs } }
 
-/-- Validate and recover only the endpoint layout emitted by mark or withEndpoints. -/
-def PresentationFamily.unmark (family : PresentationFamily) (data : MData) (body : Expr) :
-    MetaM (Expr × Option (Expr × Expr)) := do
-  if data.getString `CasCompiler.source.endpoints != "supplied" then
-    discard <| family.endpoints body
-    return (body, none)
-  unless body.isAppOfArity ``Function.const 4 do
-    throwError "the presentation source lost its complete endpoint provenance"
-  let source := body.getAppArgs[3]!
-  let inner := body.getAppArgs[2]!
-  unless inner.isAppOfArity ``Function.const 4 do
-    throwError "the presentation source lost its second endpoint"
-  let target := inner.getAppArgs[3]!
-  let applied := inner.getAppArgs[2]!
-  discard <| family.withEndpoints applied source target
-  return (applied, some (source, target))
+/-- Check the supplied native endpoints and retain their exact original occurrences.
+The original-source view is used only for this mathematical compatibility check. -/
+def PresentationFamily.withEndpoints (family : PresentationFamily) (applied source target : Expr)
+    (context : Option OpenContext := none) : MetaM (SourceSelection Expr) := do
+  let selected ← family.selected applied
+  let verify := fun (terms : Array Expr) => do
+    let (expectedSource, expectedTarget) ← family.endpoints terms[0]!
+    checkRegisteredDomains terms[1]! expectedSource.value
+    checkRegisteredDomains terms[2]! expectedTarget.value
+    unless ← isDefEq terms[1]! expectedSource.value <&&>
+        isDefEq terms[2]! expectedTarget.value do
+      throwError "the presentation request changed its complete declared endpoints"
+  match context with
+  | some context => context.withOriginalSources #[applied, source, target] verify
+  | none => verify #[applied, source, target]
+  return { selected with presentationEndpoints := some (source, target) }
 
 /-- The one declared direction selected by an exact native carrier-function path. -/
 def PresentationFamily.direction? (family : PresentationFamily) (path : Array Name) : Option Bool :=
@@ -169,7 +148,7 @@ def PresentationFamily.direction? (family : PresentationFamily) (path : Array Na
   else none
 
 /-- The ordinary native carrier function of this actual selected Iso, retaining its complete
-category dictionary. The caller supplies the original Iso value, including any native marks. -/
+category dictionary. The caller supplies the exact original Iso occurrence. -/
 def PresentationFamily.function (family : PresentationFamily) (iso : Expr) (inverse : Bool) :
     MetaM Expr := do
   let result ← whnfR (← inferType iso)

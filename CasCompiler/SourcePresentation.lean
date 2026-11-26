@@ -2,6 +2,7 @@ module
 
 public import CasCompiler.Surface
 public import CasCompiler.PresentationFamily
+public import CasCompiler.SourceProof
 
 public section
 
@@ -9,47 +10,50 @@ namespace CasCompiler
 
 open Lean Meta Elab Term CasCatalogue
 
-/-- Keep the actual selected isomorphism as typed native data beside its ordinary map.
-Reuse: Function.const's identity law and native MData, as in source type provenance.
-The full isomorphism is transported by native abstraction and substitution. -/
-def retainSourceIso (iso value : Expr) : MetaM Expr := do
-  let type ← whnfR (← inferType iso)
-  unless type.isAppOfArity ``CategoryTheory.Iso 4 do
-    throwError "source invertibility requires its actual native isomorphism"
+/-- Retain the actual selected Iso beside its forward map in the typed source record.
+The complete supplied Iso, including its native category dictionary, remains unchanged. -/
+def retainSourceIso (iso : Expr) (source : SourceSelection Expr)
+    (context : Option OpenContext := none) : MetaM (SourceSelection Expr) := do
+  let verify := fun (values : Array Expr) => do
+    let iso := values[0]!
+    let value := values[1]!
+    let type ← whnfR (← inferType iso)
+    unless type.isAppOfArity ``CategoryTheory.Iso 4 do
+      throwError "source invertibility requires its actual native isomorphism"
+    let hom ← mkAppM ``CategoryTheory.Iso.hom #[iso]
+    unless ← isDefEq (← inferType value) (← inferType hom) <&&> isDefEq value hom do
+      throwError "the source isomorphism has a different original map"
+  match context with
+  | none => verify #[iso, source.value]
+  | some context => context.withOriginalSources #[iso, source.value] verify
+  return { source with isoOrigin := some iso }
+
+/-- Read the Iso supplied by the exact source binder. When the displayed forward arrow
+is an opaque alias, keep that actual arrow and transport the original two checked laws. -/
+def sourceIsoOrigin? (value : Expr) : SourceReadM (Option Expr) := do
+  let some selected ← SourceReadM.selection? value | return none
+  let some iso := selected.isoOrigin | return none
   let hom ← mkAppM ``CategoryTheory.Iso.hom #[iso]
-  unless ← isDefEq (← inferType value) (← inferType hom) <&&> isDefEq value hom do
-    throwError "the source isomorphism has a different original map"
-  let body ← mkAppM ``Function.const #[← inferType iso, value, iso]
-  return .mdata (KVMap.empty.setName `CasCompiler.source.isoOrigin ``CategoryTheory.Iso) body
+  if ← isDefEq hom value then return some iso
+  let arguments := #[value, ← mkAppM ``CategoryTheory.Iso.inv #[iso],
+    ← mkAppM ``CategoryTheory.Iso.hom_inv_id #[iso],
+    ← mkAppM ``CategoryTheory.Iso.inv_hom_id #[iso]]
+  let rebuilt ← elabSourceApplicationApplicableScoped
+    (← mkConstWithFreshMVarLevels ``CategoryTheory.Iso.mk)
+    (Array.replicate arguments.size Syntax.missing) none fun index expected => do
+      let original := arguments[index]!
+      if index < 2 then
+        if ← isDefEq (← inferType original) expected then return .ok original
+        let selected := (← SourceReadM.selection? original).getD { value := original }
+        return .ok (← SourceReadM.select { selected with value := original } (some expected))
+      return .ok (← SourceReadM.prove expected
+        (fun _ sources => pure sources[0]!) #[original])
+  match rebuilt with
+  | .ok (iso, _) => return some iso
+  | .error message => liftM (m := TermElabM) <| throwError message
 
-/-- Read only the typed isomorphism retained by source formation, through native aliases.
-Reuse: native let substitution and the checked Function.const provenance layout. -/
-partial def sourceIsoOrigin? (value : Expr) : MetaM (Option Expr) := do
-  match ← instantiateMVars value with
-  | .mdata data body =>
-    if data.getName `CasCompiler.source.isoOrigin != ``CategoryTheory.Iso then
-      return ← sourceIsoOrigin? body
-    unless body.isAppOfArity ``Function.const 4 do
-      throwError "the source map lost its typed isomorphism data"
-    let iso := body.getAppArgs[3]!
-    discard <| retainSourceIso iso body.getAppArgs[2]!
-    return some iso
-  | .fvar id =>
-    let some value := (← id.getDecl).value? | return none
-    let some iso ← sourceIsoOrigin? value | return none
-    -- The source binding itself is the forward map; the retained isomorphism supplies the
-    -- inverse and both laws, which hold for the binding by its definition.
-    -- Reuse: Mathlib CategoryTheory.Iso.mk.
-    return some (← mkAppM ``CategoryTheory.Iso.mk #[.fvar id,
-      ← mkAppM ``CategoryTheory.Iso.inv #[iso],
-      ← mkAppM ``CategoryTheory.Iso.hom_inv_id #[iso],
-      ← mkAppM ``CategoryTheory.Iso.inv_hom_id #[iso]])
-  | .letE _ _ value body _ => sourceIsoOrigin? (body.instantiate1 value)
-  | _ => pure none
-
-/-- A genuine core morphism already contains its inverse data.
-Reuse: Mathlib CoreHom.iso and Core.isoMk, with their complete original endpoints. -/
-def sourceMorphismIso? (value : Expr) : MetaM (Option Expr) := do
+/-- A genuine core morphism already contains its inverse data at its original endpoints. -/
+def sourceMorphismIso? (value : Expr) : SourceReadM (Option Expr) := do
   if let some iso ← sourceIsoOrigin? value then return some iso
   let type ← whnfR (← inferType value)
   unless type.isAppOfArity ``CategoryTheory.CoreHom 4 do return none
@@ -74,50 +78,49 @@ def sourceIsoCoreHom (iso bundle : Expr) : MetaM Expr := do
   mkAppOptM ``CategoryTheory.CoreHom.mk
     #[some carrier, some structureValue, some x, some y, some iso]
 
-/-- Apply the selected presentation family at its actual dependent arguments.
-Reuse: PresentationComparisonEntry/validatePresentation, native application, Iso.hom/symm.
-The registered category and actual isomorphism retain their complete dictionaries. -/
+/-- Apply the selected whole comparison at the supplied native arguments and bind its
+actual Iso before deriving a directed map. Complete endpoint and category rows stay typed. -/
 opaque sourcePresentation (name : String) (inverse : Bool)
-    (application : Expr → TermElabM Expr) : TermElabM NativeSourceJudgement := do
+    (application : Expr → SourceReadM Expr) : SourceReadM NativeSourceJudgement := do
   let state ← semanticState
   let #[entry] := state.presentations.filter (·.name == name)
-    | throwError "the selected source presentation requires one registered comparison"
-  discard <| checkedDeclaration entry.declaration
-  let #[source] := state.objects.filter (·.id == entry.source)
-    | throwError "the selected presentation requires its registered source object"
-  let #[target] := state.objects.filter (·.id == entry.target)
-    | throwError "the selected presentation requires its registered target object"
-  unless source.category == target.category do
-    throwError "the presentation endpoints have different selected categories"
-  discard <| checkedDeclaration source.declaration
-  discard <| checkedDeclaration target.declaration
-  let #[category] := state.categories.filter (·.id == source.category)
-    | throwError "the selected presentation requires one complete category"
-  discard <| checkedDeclaration category.declaration
+    | liftM (m := TermElabM) <|
+      throwError "the selected source presentation requires one registered comparison"
+  let family ← PresentationFamily.forEntry entry
   let iso ← application (← mkConstWithFreshMVarLevels entry.declaration)
-  let iso ← instantiateMVars iso
+  let iso ← liftM (m := MetaM) <| instantiateMVars iso
   if iso.hasMVar || iso.hasLevelMVar then
-    throwError "the selected presentation has undetermined native parameters"
+    liftM (m := TermElabM) <| throwError "the selected presentation has undetermined native parameters"
   let type ← whnfR (← inferType iso)
   unless type.isAppOfArity ``CategoryTheory.Iso 4 do
-    throwError "the selected presentation is not its declared native isomorphism"
+    liftM (m := TermElabM) <|
+      throwError "the selected presentation is not its declared native isomorphism"
   let actual ← mkAppOptM ``CategoryTheory.Cat.of
     #[some type.getAppArgs[0]!, some type.getAppArgs[1]!]
-  let family ← mkConstWithFreshMVarLevels category.declaration
-  let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType family)
+  let category := family.category
+  let categoryFamily ← mkConstWithFreshMVarLevels category.declaration
+  let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType categoryFamily)
   unless ← expandSourceStructures parameters do
-    throwError "the presentation category has inconsistent native parameters"
-  let bundle := sourceReference ``NamedCategoryEntry category.id.raw category.declaration
-    (mkAppN family parameters)
+    liftM (m := TermElabM) <|
+      throwError "the presentation category has inconsistent native parameters"
+  let bundle := mkAppN categoryFamily parameters
   unless ← isDefEq bundle actual do
-    throwError "the presentation has a different complete registered category"
-  let bundle ← instantiateMVars bundle
-  let family ← PresentationFamily.forEntry entry
-  let iso ← family.mark iso
+    liftM (m := TermElabM) <|
+      throwError "the presentation has a different complete registered category"
+  let bundle ← liftM (m := MetaM) <| instantiateMVars bundle
+  discard <| SourceReadM.select (sourceReference (.category category) bundle)
+  let (source, target) ← family.endpoints iso
+  let source ← SourceReadM.select (← retainSourceApplication source source.value)
+  let target ← SourceReadM.select (← retainSourceApplication target target.value)
+  let selected ← family.withEndpoints iso source target (some (← get).context)
+  let iso ← SourceReadM.select selected
   let iso ← if inverse then mkAppM ``CategoryTheory.Iso.symm #[iso] else pure iso
   let hom ← mkAppM ``CategoryTheory.Iso.hom #[iso]
-  let value ← retainSourceIso iso hom
-  return ⟨sourceDerivedReference ``PresentationComparisonEntry entry.id.raw entry.declaration value,
-    some ⟨.morphism, category.expression, bundle, none, none⟩⟩
+  let category : NativeSourceCategory := ⟨.morphism, category.expression, bundle, none, none⟩
+  let selected ← retainSourceIso iso {
+    (sourceDerivedReference (.presentation entry) hom) with category := some category }
+  let value ← selectMorphism selected
+    (fun selected expected => SourceReadM.select selected expected) (some bundle)
+  return ⟨value, some category⟩
 
 end CasCompiler
