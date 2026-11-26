@@ -31,9 +31,9 @@ def mapEnds :
     if type.isAppOfArity ``TypeCat.Hom 2 then return some (type.getAppArgs[0]!, type.getAppArgs[1]!)
     return none
 
--- Only an unresolved bare object spelling can acquire a registered refinement for a
--- declaration parameter. A retained binding or an explicit qualification already selected
--- its complete source object and must use that object's own outgoing routes.
+
+
+
 private partial def bareObjectName? (source : TSyntax `cas_term) :
     SourceReadM (Option String) := do
   if let some name := sourceAtomName? source then return some name
@@ -69,11 +69,19 @@ private def applicationApplicableCore (context : ReadContext)
       readArgument categoryOf argument type
     let source ← if source.category.any (·.role == .morphism) then do
       let selected := (← SourceReadM.selection? source.value).getD { value := source.value }
-      let value ← SourceReadM.select { selected with value := source.value, category := source.category }
+      let declaredType ← if !arguments.isEmpty && source.category.any (fun category =>
+          category.expression.syntacticEq (.atom CasCatalogue.CategoryId.sets)) then do
+        let type ← inferType source.value
+        if (← SourceReadM.selection? type).isSome then
+          pure (some (← nativeTypeView type))
+        else pure none
+      else pure none
+      let value ← SourceReadM.select
+        { selected with value := source.value, category := source.category } declaredType
       pure { source with value }
     else pure source
-    -- A map applied to its whole domain is the map's image (`m2(ℕ)`), through the registered
-    -- image of the power object of its target (PowerObjectEntry.image).
+
+
     if let #[argument] := arguments then
       if argument.raw.isOfKind ``CasCatalogue.Language.casAtom then
         if let some (domain, codomain) ← mapEnds source.value then
@@ -82,7 +90,7 @@ private def applicationApplicableCore (context : ReadContext)
             if ← isDefEq object.value domain then
               let target ← sourcePowerObjectAt codomain
               return .ok (← sourceImageOf target domain source.value expected)
-    -- An element with a registered application (a polynomial `p(a)`).
+
     if let #[argument] := arguments then
       if source.category.isNone then
         let type ← whnfR (← liftM (m := MetaM) <| instantiateMVars (← inferType source.value))
@@ -94,7 +102,7 @@ private def applicationApplicableCore (context : ReadContext)
                 | .error message => liftM (m := TermElabM) <| throwError message) then
             return .ok value
     let function ← if arguments.isEmpty then pure source.value else sourceFunction source
-    -- Several arguments of a map on a product are the components of one tuple (`gcd(84, 30)`).
+
     if arguments.size > 1 then
       let hole ← mkFreshExprMVar none
       let unary ← withoutModifyingState do
@@ -108,9 +116,9 @@ private def applicationApplicableCore (context : ReadContext)
         let tuple ← sourceTuple arguments type fun component type => do
           return (← readExpression categoryOf component (some type)).value
         return .ok (← elabAppArgs function #[] #[Arg.expr tuple] expected false false)
-    -- A named spelling for the actual declared source of a Sets arrow is checked at the
-    -- entire native family before its parameters are applied. This can guide its point's
-    -- existing literal reader without choosing another runtime object by carrier equality.
+
+
+
     let namedDomain ← if arguments.size == 1 && source.category.any (fun category =>
         category.role == .morphism &&
           category.expression.syntacticEq (.atom CasCatalogue.CategoryId.sets)) then do
@@ -122,8 +130,15 @@ private def applicationApplicableCore (context : ReadContext)
           pure (some (← SourceReadM.select named))
         else pure none
       else pure none
+    let localContext ← liftM (m := MetaM) getLCtx
+    let knownArgumentTypes := arguments.map fun argument =>
+      match argument with
+      | `(cas_term| $identifier:ident) =>
+        (localContext.findFromUserName? identifier.getId).map (·.type)
+      | _ => none
     let applied ← elabSourceApplicationApplicableScoped function (arguments.map (·.raw)) expected
-      (sourceInstance := some SourceReadM.tryInstance) fun index type => do
+      (sourceInstance := some SourceReadM.tryInstance)
+      (knownArgumentTypes := knownArgumentTypes) fun index type => do
       let some argument := arguments[index]?
         | liftM (m := TermElabM) <| throwError "the source application lost an original argument"
       let formalType := type
@@ -136,10 +151,10 @@ private def applicationApplicableCore (context : ReadContext)
             liftM (m := TermElabM) <| throwError "the Sets point application changed its actual declared source"
           pure domain
         | none => pure type
-      -- Domain atoms contain no identifier token, so the numeral-only syntax predicate
-      -- alone does not distinguish them from literals. Keep their registered spelling.
+
+
       let bareName ← bareObjectName? argument
-      -- An object of another selected category is viewed along its structural route.
+
       let viewed : Option NativeSourceJudgement ← if sourceNumeric argument.raw && bareName.isNone then pure none else do
         let some category ← sourceObjectCategory? type | pure none
         let object ← readOriginal index argument
@@ -147,11 +162,11 @@ private def applicationApplicableCore (context : ReadContext)
         if selected.role != .object || selected.expression.syntacticEq category.expression then
           pure none
         else
-          -- Without a structural route the argument is read at the parameter's own category,
-          -- where its name may select that category's row.
+
+
           let routes ← SourceRoutes.forOwner selected.expression category.expression
           let routed := (← routes.finiteRoutes).all (! ·.isEmpty)
-          -- The surface name of the applied family, for a declared preferred route.
+
           let state ← CasCatalogue.semanticState
           let head := function.consumeMData.getAppFn.constName?
           let name := head.bind fun head =>
@@ -163,8 +178,8 @@ private def applicationApplicableCore (context : ReadContext)
           else match bareName with
             | none => pure none
             | some spelling =>
-              -- A row already declared in the parameter category keeps ordinary expected-type
-              -- selection. Otherwise its exact named base may supply a declared carrier prefix.
+
+
               if state.objects.any (fun entry =>
                   entry.name == spelling && entry.category == category.id) then pure none
               else sourceNamedConstantParameter? object.value category.expression
@@ -194,8 +209,8 @@ private def applicationApplicableCore (context : ReadContext)
     if let #[argument] := actual then
       if source.category.any (·.role == .morphism) then
         if let some original := (← SourceReadM.selection? argument).bind (·.pointOrigin) then
-          -- Retain the ordinary native composition of the already selected point and
-          -- carrier map. A later application keeps this point's same original domain.
+
+
           let mapped ← sourceCarrier source
           let some category := mapped.category
             | liftM (m := TermElabM) <| throwError "the point action lost its selected carrier category"
@@ -210,7 +225,7 @@ private def applicationApplicableCore (context : ReadContext)
           return .ok (← SourceReadM.select (← retainSourcePoint point { value := result }))
     return .ok result
 
-/-- Ordinary application keeps its original positional operand reader. -/
+
 def applicationApplicable (context : ReadContext) (source : NativeSourceJudgement)
     (arguments : Array (TSyntax `cas_term)) (expected : Option Expr) :
     SourceReadM (Except MessageData Expr) :=
@@ -223,9 +238,9 @@ def application (context : ReadContext)
   | .ok value => pure value
   | .error message => liftM (m := TermElabM) <| throwError message
 
--- A call of an already selected native map has its domain from that receiver. This
--- extends principal reading through nested actual calls without selecting an overloaded
--- declaration from an expected endpoint or turning an interpretation failure into a rule.
+
+
+
 private partial def principalApplication (context : ReadContext)
     (source : TSyntax `cas_term) : SourceReadM Bool := do
   if ← sourcePrincipal source then return true
@@ -248,8 +263,8 @@ private partial def principalApplication (context : ReadContext)
       return receiver.category.any (·.role == .morphism)
   | _ => return false
 
-/-- Both native application and whole-point composition complete against the same public
-reader contract before unique selection. Original operands are read once by their positions. -/
+
+
 def applicationResultCompleting (context : ReadContext) (source : NativeSourceJudgement)
     (arguments : Array (TSyntax `cas_term)) (expected : Option Expr)
     (complete : ReadCompletion) :
@@ -322,15 +337,15 @@ def applicationResultCompleting (context : ReadContext) (source : NativeSourceJu
     m!"no application of the selected source accepts its original operand"
     m!"the selected source admits distinct completed ordinary and generalized applications"
 
-/-- Compatibility callers still receive the actual provided expected-type completion.
-Qualification belongs to the assembled reader and is not replayed by this wrapper. -/
+
+
 def applicationResultApplicable (context : ReadContext) (source : NativeSourceJudgement)
     (arguments : Array (TSyntax `cas_term)) (expected : Option Expr) :
     SourceReadM (Except MessageData NativeSourceJudgement) :=
   applicationResultCompleting context source arguments expected
     (checkReadJudgementApplicable { context with expected, qualification := none })
 
-/-- Required application preserves actual operand and native construction failures. -/
+
 def applicationResult (context : ReadContext) (source : NativeSourceJudgement)
     (arguments : Array (TSyntax `cas_term)) (expected : Option Expr) :
     SourceReadM NativeSourceJudgement := do

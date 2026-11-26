@@ -9,9 +9,9 @@ namespace CasCompiler
 
 open Lean Meta Elab Term
 
-/-- Expose the demanded native head through its exact selected source and declared fields.
-Application arguments and the original selected type remain unchanged. -/
-private partial def nativeTypeView (source : Expr) : SourceReadM Expr := do
+
+
+partial def nativeTypeView (source : Expr) : SourceReadM Expr := do
   if let some selected ← SourceReadM.selection? source then
     unless selected.value.equal source do
       return ← nativeTypeView selected.value
@@ -28,8 +28,8 @@ private partial def nativeTypeView (source : Expr) : SourceReadM Expr := do
       return ← nativeTypeView (mkApp nativeFunction argument)
   return value
 
-/-- Retain a fresh native tuple at its original declared type. Structure fields keep their
-actual constructor record; native function constructors use the same checked source boundary. -/
+
+
 private def retainTuple (value expected : Expr) : SourceReadM Expr := do
   let native := value.consumeMData
   let environment ← liftM (m := CoreM) getEnv
@@ -41,9 +41,9 @@ private def retainTuple (value expected : Expr) : SourceReadM Expr := do
   let selected := (← SourceReadM.selection? value).getD { value }
   SourceReadM.select { selected with value } (some expected)
 
--- As in ReadExpression's native application, infer the complete dependent argument
--- types first, then retain each actual source expression in the final application.
--- Reuse: Lean.Elab.App.elabAppArgs and native constructor declarations.
+
+
+
 private def constructTuple (declaration : Name) (expected : Expr)
     (arguments : Array (Expr → ExceptT MessageData SourceReadM Expr)) :
     ExceptT MessageData SourceReadM Expr := do
@@ -57,9 +57,9 @@ private def constructTuple (declaration : Name) (expected : Expr)
     liftM <| retainTuple value expected
   | .error message => throwThe MessageData message
 
--- Nondependent finite data use Mathlib's native vector notation constructors.
--- Dependent or Sort-polymorphic families retain Fin.cases/Fin.elim0. Every component
--- receives its actual declared type before its original source is read.
+
+
+
 private partial def finiteTuple (components : Array (Expr → ExceptT MessageData SourceReadM Expr))
     (expected : Expr) : ExceptT MessageData SourceReadM Expr := do
   let nativeExpected ← liftM <| nativeTypeView expected
@@ -83,9 +83,9 @@ private partial def finiteTuple (components : Array (Expr → ExceptT MessageDat
   constructTuple constructor expected #[first,
     fun type => finiteTuple (components.drop 1) type]
 
-/-- Construct finite rows at the complete supplied native matrix domain.
-Reuse: the same native finite tuple constructors as sourceTuple. Row and column arities
-come from the actual function type; original cells are read once in order. -/
+
+
+
 def sourceMatrix (rows : Array (Array (TSyntax `cas_term))) (expected : Expr)
     (readComponent : TSyntax `cas_term → Expr → SourceReadM Expr) : SourceReadM Expr := do
   if let some first := rows[0]? then
@@ -97,10 +97,10 @@ def sourceMatrix (rows : Array (Array (TSyntax `cas_term))) (expected : Expr)
   | .ok value => pure value
   | .error message => liftM (m := TermElabM) <| throwError message
 
-/-- Construct a tuple at its actual declared native domain.
-Reuse: Prod/Sigma/PSigma, native Matrix.vecCons/vecEmpty for homogeneous finite data,
-and Fin.cases/Fin.elim0 for dependent families. Original components are read once at their
-actual dependent types; the complete declared domain is never replaced. -/
+
+
+
+
 private partial def sourceTupleCore (components : Array (TSyntax `cas_term)) (expected : Expr)
     (readComponent : TSyntax `cas_term → Expr → ExceptT MessageData SourceReadM Expr) :
     ExceptT MessageData SourceReadM Expr := do
@@ -128,16 +128,16 @@ private partial def sourceTupleCore (components : Array (TSyntax `cas_term)) (ex
       if let #[last] := tail then readComponent last type
       else sourceTupleCore tail type readComponent]
 
-/-- The existing tuple construction with explicit component applicability. Only a component's
-own result or a false native component/arity comparison returns an error. Exceptions from
-its reader, declaration inference or the selected constructor remain native exceptions. -/
+
+
+
 def sourceTupleApplicable (components : Array (TSyntax `cas_term)) (expected : Expr)
     (readComponent : TSyntax `cas_term → Expr → SourceReadM (Except MessageData Expr)) :
     SourceReadM (Except MessageData Expr) :=
   (sourceTupleCore components expected fun component type =>
     ExceptT.mk (readComponent component type)).run
 
-/-- Required tuple reading retains the original public callback and diagnostics. -/
+
 def sourceTuple (components : Array (TSyntax `cas_term)) (expected : Expr)
     (readComponent : TSyntax `cas_term → Expr → SourceReadM Expr) : SourceReadM Expr := do
   let result ← sourceTupleApplicable components expected fun component type => do

@@ -11,20 +11,20 @@ namespace CasCompiler
 
 open Lean Meta
 
-/-- The declared endpoint carried by this explicit native Arrow projection.
-Source interpretation can inspect its domain without forgetting the retained runtime arrow. -/
+
+
 def selectedEndpoint? (context : OpenContext) (scope : SourceSelectionScope Expr)
     (value : Expr) : Option Expr := do
   let selected ← scope.findAt? context value
   return (← selected.endpoint).value
 
-/-- The declared end that a stated end of a selected map retains; any other expression is
-returned as it is. A stated end is `(Arrow.mk f).left` or `(Arrow.mk f).right`; the declared end
-is the corresponding argument of `Arrow.mk`, which is that projection by definition. Unification
-can drop the endpoint annotation and expose the canonical Comma projection. Native projection
-metadata identifies that field in either expression syntax; no field ordinal selects an endpoint.
-Instance synthesis,
-the shape of a source set and matching against registered objects take the declared end. -/
+
+
+
+
+
+
+
 def declaredEndpoint (stated : Expr) : MetaM Expr := do
   let stated ← instantiateMVars stated
   let body := stated.consumeMData
@@ -44,12 +44,13 @@ def declaredEndpoint (stated : Expr) : MetaM Expr := do
         if let some declared := arguments[arguments.size - fromEnd]? then return declared
   return stated
 
-/-- Bind the actual arrow once, then retain both native endpoint projections in the same
-scope. The final typed alias keeps the complete original selection and names that arrow;
-the supplied binder checks its stated dependent type using original-source correspondence. -/
+
+
+
 def selectMorphism [Monad m] [MonadLiftT MetaM m] (selection : SourceSelection Expr)
     (select : SourceSelection Expr → Option Expr → m Expr)
-    (category : Option Expr := none) : m Expr := do
+    (category : Option Expr := none)
+    (declaredCategory : Option Expr := none) : m Expr := do
   let selected ← select selection none
   let (type, arrow) ← liftM (m := MetaM) do
     let inferred ← inferType selected
@@ -74,14 +75,26 @@ def selectMorphism [Monad m] [MonadLiftT MetaM m] (selection : SourceSelection E
     unless ← isDefEq retained arrow do
       throwError "the selected morphism changed its native Arrow constructor"
     pure (type, retained)
+  let declaredBoundary ← liftM (m := MetaM) <| declaredCategory.mapM fun bundle => do
+    return (← mkAppM ``CategoryTheory.Bundled.α #[bundle],
+      ← mkAppM ``CategoryTheory.Bundled.str #[bundle])
   let sourceValue ← liftM (m := MetaM) <| mkAppM ``CategoryTheory.Arrow.left #[arrow]
   let source ← select { value := sourceValue, endpoint := some {
-    arrow := selected, side := .source, value := type.getAppArgs[2]! } } none
+    arrow := selected, side := .source, value := type.getAppArgs[2]! } }
+    (declaredBoundary.map Prod.fst)
   let targetValue ← liftM (m := MetaM) <| mkAppM ``CategoryTheory.Arrow.right #[arrow]
   let target ← select { value := targetValue, endpoint := some {
-    arrow := selected, side := .target, value := type.getAppArgs[3]! } } none
-  let stated := mkAppN type.getAppFn
-    #[type.getAppArgs[0]!, type.getAppArgs[1]!, source, target]
+    arrow := selected, side := .target, value := type.getAppArgs[3]! } }
+    (declaredBoundary.map Prod.fst)
+  let stated ← liftM (m := MetaM) <| match declaredBoundary with
+    | none => pure <| mkAppN type.getAppFn
+        #[type.getAppArgs[0]!, type.getAppArgs[1]!, source, target]
+    | some (carrier, instanceValue) => do
+      let constructor ← mkAppOptM ``CategoryTheory.Arrow.mk
+        #[some carrier, some instanceValue, some source, some target]
+      let .forallE _ domain _ _ ← whnfR (← inferType constructor)
+        | throwError "the selected morphism lost its declared native Hom interface"
+      pure domain
   select { selection with value := selected } (some stated)
 
 end CasCompiler

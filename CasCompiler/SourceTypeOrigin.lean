@@ -19,15 +19,15 @@ open Lean Meta Elab Term CasCatalogue
 
 @[expose] section
 
--- Native source syntax is data. Derive its codec from the independently owned types.
+
 deriving instance ToJson, FromJson for CategoryId, ClassifierId, CategoryFamilyId
 deriving instance ToJson, FromJson for ParameterId, ParameterOperationId, FunctorId, ConstructorId
 deriving instance ToJson, FromJson for ParameterExpr
 deriving instance ToJson, FromJson for EdgeRef
 
--- Reference: Lean.Elab.Deriving.FromToJson at Lean 4.33.0, tagged constructor encoding.
--- Its generator uses auxFunNames[0] for every mutual member; traverse the actual source
--- category/argument pair explicitly while keeping the same native data constructors.
+
+
+
 mutual
 partial def categoryJson : CategoryExpr → Json
   | .atom id => Json.mkObj [("atom", toJson id)]
@@ -92,9 +92,9 @@ private def checkSourceConstruction (category : NativeSourceCategory) (object : 
       `CasCompiler.sourceOwner.constructionMismatch
       m!"a source owner changed its original selected construction")
 
-/-- Retain an authored native structure constructor and every original field occurrence.
-Only the supplied constructor syntax gives its positions; no native definition is unfolded.
-A consuming type uses the same checked source correspondence without replacing the constructor. -/
+
+
+
 opaque retainSourceConstructor (value : Expr) (declaredType : Option Expr := none) :
     SourceReadM Expr := do
   let native := value.consumeMData
@@ -108,8 +108,8 @@ opaque retainSourceConstructor (value : Expr) (declaredType : Option Expr := non
   let selection ← liftM (m := MetaM) <| mkFreshUserName `sourceNativeRecord
   SourceReadM.select { value, recordSelection := some selection } declaredType
 
-/-- A projection transports only its own authored constructor field's complete selection.
-The exact owner binding, declared projection, and original field ordinal are authoritative. -/
+
+
 opaque retainSourceProjection? (value : Expr) :
     SourceReadM (Option NativeSourceJudgement) := do
   let some projection ← SourceProjection.ofExpr? value | return none
@@ -127,7 +127,7 @@ opaque retainSourceProjection? (value : Expr) :
   let result ← SourceReadM.select { selected with value, field := field.field }
   return some ⟨result, selected.category⟩
 
-/-- Retain the actual complete selected object and its carrier in typed source data. -/
+
 opaque annotateSourceType (category : NativeSourceCategory) (object type : Expr) :
     SourceReadM Expr := do
   unless category.role == .object do
@@ -135,7 +135,7 @@ opaque annotateSourceType (category : NativeSourceCategory) (object type : Expr)
   checkSourceConstruction category object
   SourceReadM.select { value := type, typeOrigin := some ⟨category, object, type⟩ }
 
-/-- A native object parameter keeps the same complete selected record at its exact binder. -/
+
 opaque annotateSourceObject (category : NativeSourceCategory) (object : Expr) :
     SourceReadM Expr := do
   unless category.role == .object do
@@ -144,8 +144,8 @@ opaque annotateSourceObject (category : NativeSourceCategory) (object : Expr) :
   let selected := (← SourceReadM.selection? object).getD { value := object }
   SourceReadM.select { selected with value := object, category := some category }
 
-/-- Only the exact selected binder supplies an object owner; native aliases and equal
-carriers cannot recover a missing selection. Authored aliases copy their record on entry. -/
+
+
 opaque sourceObjectOrigin? (value : Expr) :
     SourceReadM (Option (NativeSourceCategory × Expr)) := do
   let some selected ← SourceReadM.selection? value | return none
@@ -153,13 +153,13 @@ opaque sourceObjectOrigin? (value : Expr) :
   if category.role == .object then return some (category, value)
   return none
 
-/-- Read the complete type owner stored by the source producer at this exact binding. -/
+
 opaque sourceTypeOrigin? (type : Expr) : SourceReadM (Option NativeSourceTypeOrigin) := do
   return (← SourceReadM.selection? type).bind (·.typeOrigin)
 
-/-- Native instance search retains its original selected local dictionaries. Source readers
-supply any typed original-source correspondence explicitly at their scoped application boundary;
-the native lookup performs no selection recovery from expression annotations or carrier types. -/
+
+
+
 opaque trySourceInstance (type : Expr) : MetaM (LOption Expr) := do
   let type ← instantiateMVars type
   let result ← trySynthInstance type
@@ -175,12 +175,12 @@ opaque trySourceInstance (type : Expr) : MetaM (LOption Expr) := do
       throwError "the native instance has a different complete source goal"
   return result
 
-/-- Synthesize a native dictionary for the same retained source type. The native search
-keeps every successful local choice and every unresolved result. Only a resolved missing
-instance is checked in the complete recorded source interpretation; its dictionary is closed
-over every original formal and reapplied to those same formals before the opaque goal is
-retained. The complete source scope remains intact; unused lets need not be copied into the
-generated dictionary body. No checking local escapes, and no carrier selects a row. -/
+
+
+
+
+
+
 opaque SourceReadM.tryInstance (type : Expr) : SourceReadM (LOption Expr) := do
   let type ← liftM (m := MetaM) <| instantiateMVars type
   let native ← liftM (m := MetaM) <| trySourceInstance type
@@ -219,10 +219,10 @@ opaque SourceReadM.tryInstance (type : Expr) : SourceReadM (LOption Expr) := do
   return .some (← SourceReadM.select { value := instanceValue } (some type))
 
 
-/-- Isolate the synthetic goals created by an applicability read and solve them only when
-that read returned actual data. Reuse Lean 4.33's `withSynthesizeImp` queue isolation and
-`finally` restoration. A returned native mismatch has no data to synthesize; exceptions
-from the reader or from synthesis propagate unchanged. -/
+
+
+
+
 def withSynthesizeApplicable {α : Type} (read : TermElabM (Except MessageData α)) :
     TermElabM (Except MessageData α) := do
   let pendingMVarsSaved := (← get).pendingMVars
@@ -237,9 +237,9 @@ def withSynthesizeApplicable {α : Type} (read : TermElabM (Except MessageData �
   finally
     modify fun state => { state with pendingMVars := state.pendingMVars ++ pendingMVarsSaved }
 
-/-- Synthesize only the scoped operand's pending goals before its continuation runs.
-The caller's queue is restored at that boundary; later continuation failures are not
-reclassified as operand failures or used to discard later pending goals. -/
+
+
+
 def withSynthesizeApplicableScoped {α : Type}
     (read : StateCpsT σ TermElabM (Except MessageData α)) :
     StateCpsT σ TermElabM (Except MessageData α) :=
@@ -261,9 +261,9 @@ def withSynthesizeApplicableScoped {α : Type}
       unless ← completed.get do restorePending
       throw error
 
-/-- Extend only this application's unassigned native holes into the operand continuation.
-Every original declaration and selected instance remains an exact prefix. Callback locals
-are fully typed before they become legal dependencies of these producer-owned goals. -/
+
+
+
 opaque extendSourceApplicationScope (owned : Array MVarId) : TermElabM Unit := do
   let current ← getLCtx
   let currentDeclarations := current.foldl (fun result declaration => result.push declaration) #[]
@@ -300,15 +300,16 @@ opaque extendSourceApplicationScope (owned : Array MVarId) : TermElabM Unit := d
     slot.modifyDecl fun declaration =>
       { declaration with lctx := current, localInstances := currentInstances }
 
-/-- Elaborate one application in the complete scopes supplied by its original operands.
-Only holes and goals allocated by this producer may acquire those later native locals.
-A failed reader unwinds its continuation and restores elaboration state before returning
-the mismatch. Exceptions propagate unchanged. The result uses every original argument. -/
+
+
+
+
 private opaque nativeSourceApplicationApplicable (function : Expr) (references : Array Syntax)
     (expected : Option Expr)
     (readArgument : Nat → Expr → StateCpsT σ TermElabM (Except MessageData Expr))
     (allArguments : Bool := false)
-    (sourceInstance : Option (Expr → StateCpsT σ TermElabM (LOption Expr)) := none) :
+    (sourceInstance : Option (Expr → StateCpsT σ TermElabM (LOption Expr)) := none)
+    (knownArgumentTypes : Array (Option Expr) := #[]) :
     StateCpsT σ TermElabM (Except MessageData (Expr × Array Expr)) :=
   fun δ initial finish => do
     let saved ← Term.saveState
@@ -316,6 +317,24 @@ private opaque nativeSourceApplicationApplicable (function : Expr) (references :
       let previous ← getMCtx
       let holes ← references.mapM fun _ => mkFreshExprMVar none
       let prepared ← elabAppArgs function #[] (holes.map Arg.expr) expected allArguments false
+      if knownArgumentTypes.any (·.isSome) then
+        let explicitHoles := holes.map (·.mvarId!)
+        let protectedHoles ← explicitHoles.filterM fun slot =>
+          return !(← slot.isAssignedOrDelayedAssigned)
+        for hole in holes, known in knownArgumentTypes do
+          let some known := known | continue
+          let known ← instantiateMVars known
+          if known.hasExprMVar || known.hasLevelMVar then continue
+          let type ← instantiateMVars (← inferType hole)
+          unless type.hasExprMVar || type.hasLevelMVar do continue
+          if (type.findMVar? explicitHoles.contains).isSome then continue
+          let checked ← liftM (m := MetaM) <| withoutModifyingState do
+            unless ← isDefEq type known do return none
+            for slot in protectedHoles do
+              if ← slot.isAssignedOrDelayedAssigned then return none
+            return some (← Meta.saveState)
+          if let some checked := checked then
+            liftM (m := MetaM) checked.restore
       let owned := (← getMCtx).decls.foldl (fun result identity _ =>
         if previous.decls.contains identity then result else result.push identity) #[]
       for hole in holes do
@@ -359,8 +378,8 @@ private opaque nativeSourceApplicationApplicable (function : Expr) (references :
           complete rest actual state
         if let (.none, some prepare) := (native, sourceInstance) then
           (prepare type).runK state fun instanceValue state => do
-            -- This callback may retain a dictionary in its actual source scope. Extend
-            -- only this producer's original holes before that exact value is assigned.
+
+
             extendSourceApplicationScope owned
             advance (← checkSlot instanceValue) state
         else
@@ -395,18 +414,20 @@ private opaque nativeSourceApplicationApplicable (function : Expr) (references :
       saved.restore (restoreInfo := true)
       throw error
 
-/-- Ordinary syntax uses the shared native application producer with Lean's implicit
-argument convention. Complete published interfaces use the same producer with every
-computational native position exposed, preserving the same original argument holes. -/
+
+
+
 opaque elabSourceApplicationApplicableScoped (function : Expr) (references : Array Syntax)
     (expected : Option Expr)
     (readArgument : Nat → Expr → StateCpsT σ TermElabM (Except MessageData Expr))
     (allArguments : Bool := false)
-    (sourceInstance : Option (Expr → StateCpsT σ TermElabM (LOption Expr)) := none) :
+    (sourceInstance : Option (Expr → StateCpsT σ TermElabM (LOption Expr)) := none)
+    (knownArgumentTypes : Array (Option Expr) := #[]) :
     StateCpsT σ TermElabM (Except MessageData (Expr × Array Expr)) :=
-  nativeSourceApplicationApplicable function references expected readArgument allArguments sourceInstance
+  nativeSourceApplicationApplicable function references expected readArgument allArguments
+    sourceInstance knownArgumentTypes
 
-/-- Ordinary readers use the same original holes without a scoped runtime state. -/
+
 opaque elabSourceApplicationApplicable (function : Expr) (references : Array Syntax)
     (expected : Option Expr)
     (readArgument : Nat → Expr → TermElabM (Except MessageData Expr)) :
@@ -414,7 +435,7 @@ opaque elabSourceApplicationApplicable (function : Expr) (references : Array Syn
   (elabSourceApplicationApplicableScoped function references expected
     (fun index type => liftM (readArgument index type))).run' ()
 
-/-- Required applications keep operand continuations through the full native check. -/
+
 opaque elabSourceApplicationScoped (function : Expr) (references : Array Syntax)
     (expected : Option Expr) (readArgument : Nat → Expr → StateCpsT σ TermElabM Expr)
     (sourceInstance : Option (Expr → StateCpsT σ TermElabM (LOption Expr)) := none) :
@@ -426,8 +447,8 @@ opaque elabSourceApplicationScoped (function : Expr) (references : Array Syntax)
   | .ok value => pure value
   | .error message => liftM (m := TermElabM) <| throwError message
 
-/-- Apply already read operands at the declaration's complete dependent types.
-Each original operand and its complete selection remain in scope through the native check. -/
+
+
 def elabRetainedSourceApplication (function : Expr) (arguments : Array Expr)
     (expected : Option Expr := none) : SourceReadM Expr := do
   let references := Array.replicate arguments.size (← liftM (m := TermElabM) getRef)
@@ -439,9 +460,9 @@ def elabRetainedSourceApplication (function : Expr) (arguments : Array Expr)
     SourceReadM.select { selected with value } (some expected)
   return result
 
-/-- Ordinary native application requires every explicit applicability check to succeed.
-Only the application's own argument-reader result or native type comparison can
-return a mismatch. Exceptions from readers, inference and chosen instance slots propagate. -/
+
+
+
 opaque elabSourceApplication (function : Expr) (references : Array Syntax)
     (expected : Option Expr) (readArgument : Nat → Expr → TermElabM Expr) :
     TermElabM (Expr × Array Expr) := do
@@ -451,10 +472,10 @@ opaque elabSourceApplication (function : Expr) (references : Array Syntax)
   | .ok value => pure value
   | .error message => throwError message
 
-/-- A formal premise of a published application can use only a proof already in the
-original native context. This boundary never asks a provider for a proof and never runs
-an unregistered proof search. A missing premise is missing implementation of that call,
-not malformed computational data. -/
+
+
+
+
 private def sourceContextProof (domain : Expr) : TermElabM Expr := do
   let domain ← instantiateMVars domain
   if domain.hasMVar || domain.hasLevelMVar then
@@ -467,10 +488,10 @@ private def sourceContextProof (domain : Expr) : TermElabM Expr := do
       return value
   throwStratum .noImplementation m!"the published application requires its original formal premise {domain}"
 
-/-- Apply the explicit data parameters of a complete named family. Native implicit
-slots are solved by the ordinary source elaborator; explicit proof slots have no external
-data position and use only an original source hypothesis. The same argument-hole producer
-retains every actual expression rather than returning metavariable assignments as sources. -/
+
+
+
+
 opaque applySourceDataArgumentsScoped (function : Expr) (count : Nat) (expected : Option Expr)
     (readArgument : Nat → Expr → StateCpsT σ TermElabM Expr) :
     StateCpsT σ TermElabM Expr := do
@@ -495,11 +516,11 @@ opaque applySourceDataArgumentsScoped (function : Expr) (count : Nat) (expected 
       throwStratum .malformed "the named source input has extra data parameters"
   return value
 
-/-- Apply complete computational positions of an already selected source function.
-This is the same native application producer as ordinary syntax. The caller supplies
-one reader per wire position; proof positions are supplied by the original source scope
-and have no wire slot. Every retained operand is substituted at its exact original hole.
-Native implicit positions are explicit in this complete-interface entrance. -/
+
+
+
+
+
 opaque applySourceArgumentsScoped (function : Expr) (references : Array Syntax)
     (readArgument : Nat → Expr → StateCpsT σ TermElabM Expr) :
     StateCpsT σ TermElabM Expr := do
@@ -526,13 +547,13 @@ opaque applySourceArgumentsScoped (function : Expr) (references : Array Syntax)
     term ← applyAt term reference (fun domain => readArgument index domain)
   insertPremises term
 
-/-- Ordinary callers use the same scoped producer without adding a runtime state. -/
+
 opaque applySourceDataArguments (function : Expr) (count : Nat) (expected : Option Expr)
     (readArgument : Nat → Expr → TermElabM Expr) : TermElabM Expr :=
   (applySourceDataArgumentsScoped function count expected
     (fun index type => liftM (readArgument index type))).run' ()
 
-/-- Complete ordinary applications retain the shared positional producer. -/
+
 opaque applySourceArguments (function : Expr) (references : Array Syntax)
     (readArgument : Nat → Expr → TermElabM Expr) : TermElabM Expr :=
   (applySourceArgumentsScoped function references

@@ -38,7 +38,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let expression ← session.readTerm term
     let expected ← session.readTerm expected
     let .lam `n _ (.lam `i _ (.bvar 0) _) _ ← selectedValue expression
-      | throwError "dependent source binders changed their lexical occurrences"
+      | liftM (m := TermElabM) <| throwError "dependent source binders changed their lexical occurrences"
     checkOriginal #[expression, expected] fun native => do
       unless ← isDefEq native[0]! native[1]! do
         throwError "a source lambda changed its dependent native type"
@@ -49,9 +49,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let scope ← get
     let bindings ← authoredBindings
     let .lam `x _ body _ ← selectedValue expression
-      | throwError "a constant source function discarded its binder"
+      | liftM (m := TermElabM) <| throwError "a constant source function discarded its binder"
     unless ← originatesAt scope.context scope.selections body bindings[2]!.expression false do
-      throwError "a source lambda rebound its captured preceding value"
+      liftM (m := TermElabM) <| throwError "a source lambda rebound its captured preceding value"
   let term ← session.read (← sourceTerm "i ↦ i") (some type.source) type.selections
   let bound ← session.defineTerm `identity term
   let applied ← bound.read (← sourceTerm "identity(i)")
@@ -62,7 +62,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless (← visitNativeData (fun term =>
           originatesAt scope.context scope.selections term binding.expression false)
           expression false) > 0 do
-        throwError "a source function application replaced its actual retained bindings"
+        liftM (m := TermElabM) <| throwError "a source function application replaced its actual retained bindings"
   for text in #["i ↦ n", "i ↦ missing"] do
     let failure : Option Exception ← try
       discard <| session.read (← sourceTerm text) (some type.source) type.selections
@@ -95,7 +95,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless (← visitNativeData (fun term =>
           originatesAt scope.context scope.selections term binding.expression false)
           expression false) > 0 do
-        throwError "a source lambda application replaced its original callable or argument"
+        liftM (m := TermElabM) <| throwError "a source lambda application replaced its original callable or argument"
 
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
@@ -108,11 +108,11 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let scope ← get
     let bindings ← authoredBindings
     let .lam `A domain inner .default ← selectedValue expression
-      | throwError "a source lambda changed its declared instance binder"
+      | liftM (m := TermElabM) <| throwError "a source lambda changed its declared instance binder"
     let .lam `witness _ body .instImplicit := inner
-      | throwError "a source lambda changed its declared instance binder"
+      | liftM (m := TermElabM) <| throwError "a source lambda changed its declared instance binder"
     unless body.hasLooseBVars do
-      throwError "a source lambda lost its original callable or bound instance"
+      liftM (m := TermElabM) <| throwError "a source lambda lost its original callable or bound instance"
     let count ← SourceReadM.withBinder `A domain none .default
       (fun _ count => pure count) fun parameter => do
         let .lam `witness type body .instImplicit := inner.instantiate1 parameter
@@ -123,7 +123,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
               originatesAt scope.context scope.selections term bindings[0]!.expression false)
               (body.instantiate1 instanceValue) false
     unless count > 0 do
-      throwError "a source lambda lost its original callable or bound instance"
+      liftM (m := TermElabM) <| throwError "a source lambda lost its original callable or bound instance"
 
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
@@ -185,7 +185,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           unless (← visitNativeData (fun term =>
               originatesAt scope.context scope.selections term binding.expression false)
               expression false) > 0 do
-            throwError "a later function question replaced its actual argument or composed map"
+            liftM (m := TermElabM) <| throwError "a later function question replaced its actual argument or composed map"
 
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
@@ -204,4 +204,4 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let scope ← get
     let bindings ← authoredBindings
     unless ← originatesAt scope.context scope.selections expression bindings[2]!.expression false do
-      throwError "a local domain annotation replaced the original source occurrence"
+      liftM (m := TermElabM) <| throwError "a local domain annotation replaced the original source occurrence"

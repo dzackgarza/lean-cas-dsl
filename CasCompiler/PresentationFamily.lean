@@ -25,9 +25,9 @@ private def originalPoint (argument : InputArgumentRef) (iso : BindingId) : Meta
       | .context _ => return false
     | _ => return false
 
-/-- Read exactly the existing selected carrier action, then trace its unchanged point argument
-to the original abstract Iso. Reuse: sourceFunction and ApplicationLayout.inputProjectionThrough.
-This does not identify a callable by a field suffix or by equality of actual input values. -/
+
+
+
 private def carrierPath (context : OpenContext) (isoId : BindingId) (iso : Expr)
     (category : NativeSourceCategory) (inverse : Bool) : MetaM (Array Name) := do
   let selected ← if inverse then mkAppM ``CategoryTheory.Iso.symm #[iso] else pure iso
@@ -50,9 +50,9 @@ private def carrierPath (context : OpenContext) (isoId : BindingId) (iso : Expr)
     throwUnsupportedSource "the presentation carrier does not apply its unchanged original point"
   return route.path
 
-/-- Retain the already registered native Iso family under the release declaration checks.
-The registered endpoint declarations and category are checked before deriving its two carrier
-paths. Only supplied structural carrier actions participate. -/
+
+
+
 opaque PresentationFamily.forEntry (row : PresentationComparisonEntry) :
     MetaM PresentationFamily := withLCtx {} #[] do
   let state ← semanticState
@@ -92,9 +92,9 @@ def PresentationFamily.instantiate (family : PresentationFamily) : MetaM (Expr �
   let levels ← family.universeParams.mapM fun _ => mkFreshLevelMVar
   return (family.family.instantiateLevelParams family.universeParams levels, levels)
 
-/-- The original, un-oriented native endpoints at these complete declaration parameters.
-The supplied registry already requires these named families; the native terms retain every
-parameter, and source references identify their exact rows without choosing runtime values. -/
+
+
+
 def PresentationFamily.endpoints (family : PresentationFamily) (applied : Expr) :
     MetaM (SourceSelection Expr × SourceSelection Expr) := do
   unless applied.getAppFn.constName? == some family.entry.declaration do
@@ -106,10 +106,10 @@ def PresentationFamily.endpoints (family : PresentationFamily) (applied : Expr) 
   let target := result.getAppArgs[3]!.headBeta
   unless source.isAppOf family.source.declaration && target.isAppOf family.target.declaration do
     throwError "the selected presentation lost its declared native endpoint families"
-  return (sourceReference (.named (.registered (.inl family.source) family.category)) source,
-    sourceReference (.named (.registered (.inl family.target) family.category)) target)
+  return (← sourceReferenceAt (.named (.registered (.inl family.source) family.category)) source source,
+    ← sourceReferenceAt (.named (.registered (.inl family.target) family.category)) target target)
 
-/-- Retain the original named Iso family and complete selected presentation row. -/
+
 def PresentationFamily.selected (family : PresentationFamily) (applied : Expr) :
     MetaM (SourceSelection Expr) := do
   discard <| family.endpoints applied
@@ -124,8 +124,8 @@ def PresentationFamily.selected (family : PresentationFamily) (applied : Expr) :
       family := .presentation family, universes := levels
       parameters := applied.getAppArgs } }
 
-/-- Check the supplied native endpoints and retain their exact original occurrences.
-The original-source view is used only for this mathematical compatibility check. -/
+
+
 def PresentationFamily.withEndpoints (family : PresentationFamily) (applied source target : Expr)
     (context : Option OpenContext := none) : MetaM (SourceSelection Expr) := do
   let selected ← family.selected applied
@@ -141,14 +141,14 @@ def PresentationFamily.withEndpoints (family : PresentationFamily) (applied sour
   | none => verify #[applied, source, target]
   return { selected with presentationEndpoints := some (source, target) }
 
-/-- The one declared direction selected by an exact native carrier-function path. -/
+
 def PresentationFamily.direction? (family : PresentationFamily) (path : Array Name) : Option Bool :=
   if path == family.forwardPath then some false
   else if path == family.inversePath then some true
   else none
 
-/-- The ordinary native carrier function of this actual selected Iso, retaining its complete
-category dictionary. The caller supplies the exact original Iso occurrence. -/
+
+
 def PresentationFamily.function (family : PresentationFamily) (iso : Expr) (inverse : Bool) :
     MetaM Expr := do
   let result ← whnfR (← inferType iso)

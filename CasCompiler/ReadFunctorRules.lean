@@ -42,33 +42,44 @@ def readFunctorAction (context : ReadContext) :
           let inputType ← mkAppM ``CategoryTheory.Bundled.α #[domain]
           if ← isDefEq (← inferType receiver.value) inputType then pure receiver.value
           else do
-            -- Retain the same complete receiver at the checked action's native input.
-            -- Its original value and category remain on this exact selected binding.
+
+
             let original := (← SourceReadM.selection? receiver.value).getD {
               value := receiver.value, category := receiver.category }
             SourceReadM.select { original with value := receiver.value } (some inputType)
-        | .morphism => pure receiver.value
+        | .morphism =>
+          match receiver.category with
+          | none => pure receiver.value
+          | some category => do
+            let (domain, _) ← CasCatalogue.functorCategoryBundles selected.functor
+            if ← isDefEq category.bundle domain then pure receiver.value
+            else do
+              let original := (← SourceReadM.selection? receiver.value).getD {
+                value := receiver.value, category := receiver.category }
+              selectMorphism { original with value := receiver.value }
+                (fun selection expected => SourceReadM.select selection expected)
+                (category := some category.bundle) (declaredCategory := some domain)
       let image ← match role with
         | .object => functorObject selected.functor receiverValue selected.targetBundle
         | .morphism => do
           let function ← mkAppM ``CategoryTheory.Functor.map #[selected.functor]
-          -- AppBuilder protects pre-existing metavariables. Native source application must
-          -- solve the selected declaration's levels at the actual arrow in this context.
-          let image ← elabAppArgs function #[] #[Arg.expr receiver.value] none false false
-          -- The inferred implicit endpoints are convertible, not necessarily the exact
-          -- selected occurrences. Retain the original arrow's complete stated Hom type
-          -- (including selected Arrow projections) at the very same native action slots.
-          let stated ← liftM (m := MetaM) <| instantiateMVars (← inferType receiver.value)
+
+
+          let image ← elabAppArgs function #[] #[Arg.expr receiverValue] none false false
+
+
+
+          let stated ← liftM (m := MetaM) <| instantiateMVars (← inferType receiverValue)
           let type ← if stated.isAppOfArity ``Quiver.Hom 4 then pure stated else whnfR stated
           unless image.getAppFn.isConstOf ``CategoryTheory.Functor.map do
             liftM (m := TermElabM) <| throwError "the selected functor map lost its native arrow interface"
           let arguments := image.getAppArgs
           unless arguments.size >= 3 do
             liftM (m := TermElabM) <| throwError "the selected functor map lost its endpoint slots"
-          -- A native implementation of Hom (e.g. a formal TypeCat.Hom or
-          -- CommRingCat.Hom parameter) need not have a Quiver.Hom head.
-          -- In that case the checked application already supplies the native
-          -- endpoints. Do not invent a new category or select a new arrow.
+
+
+
+
           let arguments := if type.isAppOfArity ``Quiver.Hom 4 then
               (arguments.set! (arguments.size - 3) type.getAppArgs[2]!).set!
                 (arguments.size - 2) type.getAppArgs[3]!
@@ -76,7 +87,7 @@ def readFunctorAction (context : ReadContext) :
               (arguments.set! (arguments.size - 3) type.getAppArgs[0]!).set!
                 (arguments.size - 2) type.getAppArgs[1]!
             else arguments
-          let retained := mkAppN image.getAppFn (arguments.set! (arguments.size - 1) receiver.value)
+          let retained := mkAppN image.getAppFn (arguments.set! (arguments.size - 1) receiverValue)
           let retained ← liftM (m := MetaM) <| instantiateMVars retained
           check retained
           unless ← isDefEq retained image do
@@ -99,8 +110,8 @@ def readFunctorAction (context : ReadContext) :
               if action.hasMVar || action.hasLevelMVar || actual.hasMVar || actual.hasLevelMVar then
                 liftM (m := TermElabM) <| CasCatalogue.throwUnsupportedSource
                   "carrier-prefix comparison requires its complete native view parameters"
-              -- Compare both complete actions in their original native scope. The
-              -- actual view keeps its opaque selected binder and original parameters.
+
+
               let scope ← get
               withoutModifyingState <|
                 scope.context.withOriginalSources #[action, actual] fun original =>
@@ -119,14 +130,14 @@ def readFunctorAction (context : ReadContext) :
           family.selected levels parameters receiverValue
         | .morphism => do
           let family ← (← CategoricalPointFamily.forOwner (.action edge)).asReference
-          let inferred ← liftM (m := MetaM) <| instantiateMVars (← inferType receiver.value)
+          let inferred ← liftM (m := MetaM) <| instantiateMVars (← inferType receiverValue)
           let endpoints ← if inferred.isAppOfArity ``Quiver.Hom 4 then
               pure (inferred.getAppArgs[2]!, inferred.getAppArgs[3]!)
             else do
-              let some endpoints ← mapEnds receiver.value
+              let some endpoints ← mapEnds receiverValue
                 | liftM (m := TermElabM) <| throwError "the source map action lost its original endpoints"
               pure endpoints
-          let parameters := parameters ++ #[endpoints.1, endpoints.2, receiver.value]
+          let parameters := parameters ++ #[endpoints.1, endpoints.2, receiverValue]
           let (arrow, bundle) ← family.arrowAt levels parameters
           let (domain, _) ← categoricalPointEndpoints arrow
           let identity ← categoricalPointIdentity bundle domain
@@ -184,7 +195,7 @@ def rule (context : ReadContext) : SourceReadM NativeSourceJudgement := do
       #[some carrier, some categoryInstance]
     let composition ← mkAppOptM ``CategoryTheory.CategoryStruct.comp
       #[some carrier, some categoryStructure]
-    -- CategoryStruct.comp takes the earlier arrow first; source writes the later one first.
+
     let value ← elabAppArgs composition #[] #[Arg.expr right.value, Arg.expr left.value]
       expected false false
     pure ⟨value, some category⟩

@@ -21,17 +21,17 @@ namespace CasCompiler
 
 open Lean Meta Elab Term CasCatalogue
 
-/-- The function of the actual set map, through its two native record fields.
-Reuse: Mathlib.CategoryTheory.Types.Basic, TypeCat.Hom.hom' and Fun.toFun.
-The public hom abbreviation selects the same field through ConcreteCategory;
-the direct projection retains that map without an extra dictionary application. -/
+
+
+
+
 def sourceSetFunction (value : Expr) : MetaM Expr := do
   let function ← mkAppM ``TypeCat.Hom.hom' #[value]
   mkAppM ``TypeCat.Fun.toFun #[function]
 
-/-- Expose the native constructor fields of undetermined structure parameters.
-Reuse: the selected receiver rule and Lean's checked structure constructors. The complete
-source type must determine these fields; this operation does not synthesize instances. -/
+
+
+
 def expandSourceStructures (parameters : Array Expr) : MetaM Bool := do
   for parameter in parameters do
     let parameter ← instantiateMVars parameter
@@ -48,16 +48,16 @@ def expandSourceStructures (parameters : Array Expr) : MetaM Bool := do
     unless ← isDefEq parameter (mkAppN constructor fields) do return false
   return true
 
-/-- Recognize a complete native declaration in a mathematical template. Typed source
-selections use registeredSourceDomain below, at their exact retained binding. -/
+
+
 def registeredDomain (value : Expr) : MetaM (Expr × Array ObjectEntry) := do
   let state ← semanticState
   let domain ← sourceDomain value
   return (domain, state.objects.filter fun entry =>
     domain.getAppFn.constName? == some entry.declaration)
 
-/-- Read the selected object only through its explicit source record and original application.
-Unselected native templates retain the original whole-declaration check. -/
+
+
 partial def registeredSourceDomain (value : Expr) : SourceReadM (Expr × Array ObjectEntry) := do
   let some selected ← SourceReadM.selection? value | return ← registeredDomain value
   match selected.reference with
@@ -72,9 +72,9 @@ partial def registeredSourceDomain (value : Expr) : SourceReadM (Expr × Array O
       return ← registeredSourceDomain endpoint.value
     return (value, #[])
 
-/-- Follow a let only when its own source selects an earlier input or native field.
-Independently computed lets retain their different fvar identities, even when their
-definitions are convertible. This is the same alias rule as runtime dependency admission. -/
+
+
+
 private partial def sourceArgumentReference (inputs : Array Expr) (source : Expr)
     (path : Array Name := #[]) : MetaM (Option (Nat × Array Name)) := do
   let some (index, selected) ← sourceInputProjection? source inputs path | return none
@@ -111,11 +111,11 @@ private def alignSourceArgumentsCore? (declaration : Name) (parameters : Array E
     unless ← isDefEq parameter supplied do return none
   return some retained
 
-/-- Specialize one already selected native target declaration by its complete argument
-positions before carrier conversion. Admission and refinement binders need not be in the
-target's order. Direct formal parameters retain the original supplied expressions; a repeated
-computational formal requires one exact source input/path, not convertible values. Failed
-matches leave the caller's metavariables unchanged. -/
+
+
+
+
+
 opaque alignSourceArguments? (declaration : Name) (parameters : Array Expr)
     (declared original : Expr) : MetaM (Option (Array (Option Expr))) := do
   let accepts ← withoutModifyingState do
@@ -123,9 +123,9 @@ opaque alignSourceArguments? (declaration : Name) (parameters : Array Expr)
   unless accepts do return none
   alignSourceArgumentsCore? declaration parameters declared original
 
-/-- The complete named or unary-constructed native category family.
-Reuse: Resolve's categoryFamily/unaryCategoryFamily and the source constructor interface.
-The caller supplies universe variables; no source object is introduced here. -/
+
+
+
 partial def nativeCategoryFamily (state : SemanticState) (source : CategoryExpr)
     (instantiateUniverse : Name → MetaM Level) : MetaM Expr := do
   match state.categories.filter (·.expression.syntacticEq source) with
@@ -147,8 +147,8 @@ partial def nativeCategoryFamily (state : SemanticState) (source : CategoryExpr)
       mkLambdaFVars parameters result
   | _ => throwSemanticAmbiguity "comparison requires one complete source category family"
 
-/-- Match the independently declared literal selectors at their complete authored values.
-Reuse: Foundation.Objects and Algebra.NamedRings object notation selectors. -/
+
+
 def sourceLiteralDomains (domain : Expr) : TermElabM (Array ObjectEntry) := do
   let defaults ← (← semanticState).objects.filterM fun entry => do
     unless entry.notations.contains "literal.integral.domain" ||
@@ -162,10 +162,10 @@ def sourceLiteralDomains (domain : Expr) : TermElabM (Array ObjectEntry) := do
     throwSemanticAmbiguity "the source has several declared literal-domain selectors"
   return defaults
 
-/-- Compare registered source identities before native carrier conversion.
-Where both endpoints name registered objects, their exact row and actual declaration
-parameters must agree. Native carrier equality cannot supply a cross-domain comparison.
-Reuse: ObjectEntry, sourceObjectReference? and the original native definition bindings. -/
+
+
+
+
 opaque registeredDomainsApplicable (left right : Expr) : MetaM (Except MessageData Unit) := do
   let (left, leftOwners) ← registeredDomain left
   let (right, rightOwners) ← registeredDomain right
@@ -183,8 +183,8 @@ opaque registeredDomainsApplicable (left right : Expr) : MetaM (Except MessageDa
         ({left} : {← inferType left}, {right} : {← inferType right})"
   return .ok ()
 
-/-- Source domain agreement retains exact selected rows before mathematical parameter checking.
-Original-source substitution checks those parameters only; it cannot choose a selected row. -/
+
+
 opaque registeredSourceDomainsApplicable (left right : Expr) :
     SourceReadM (Except MessageData Unit) := do
   let (left, leftOwners) ← registeredSourceDomain left
@@ -209,21 +209,21 @@ opaque registeredSourceDomainsApplicable (left right : Expr) :
     return .error m!"the source domains have different complete declaration parameters"
   return .ok ()
 
-/-- Require complete typed source domains at the current source scope. -/
+
 opaque checkRegisteredSourceDomains (left right : Expr) : SourceReadM Unit := do
   match ← registeredSourceDomainsApplicable left right with
   | .ok () => pure ()
   | .error message => liftM (m := TermElabM) <| throwError message
 
-/-- Require the original registered domains to agree. Only the explicit comparison result
-above is a candidate mismatch; errors while recovering either original domain propagate. -/
+
+
 opaque checkRegisteredDomains (left right : Expr) : MetaM Unit := do
   match ← registeredDomainsApplicable left right with
   | .ok () => pure ()
   | .error message => throwError message
 
-/-- Canonical native indices at the complete finite arity supplied by the source type.
-Reuse: Lean.Meta.LitValues.litToCtor's Fin construction and native Boolean proof. -/
+
+
 def sourceFiniteIndices (arity : Expr) (count : Nat) : MetaM (Array Expr) := do
   unless ← isDefEq arity (mkNatLit count) do
     throwError "the source tuple pattern has a different declared component arity"
@@ -235,10 +235,10 @@ def sourceFiniteIndices (arity : Expr) (count : Nat) : MetaM (Array Expr) := do
       (mkApp2 (mkConst ``Nat.decLt) literal (mkNatLit count)) eagerReflBoolTrue
     mkAppOptM ``Fin.mk #[some (mkNatLit count), some literal, some proof]
 
-/-- Apply the coordinates declared by the exact source object of a bound value.
-Reuse: ObjectComponents and Registry.Semantic.applyObjectParameters, which checks the
-complete dependent parameters before application. An unregistered native type returns none;
-a registered object never obtains coordinates from a coincident native representation. -/
+
+
+
+
 opaque sourceComponentValues (value : Expr) (count : Nat) : SourceReadM (Option (Array Expr)) := do
   let domain ← inferType value
   let (source, entries) ← registeredSourceDomain domain
@@ -267,7 +267,7 @@ opaque sourceComponentValues (value : Expr) (count : Nat) : SourceReadM (Option 
       projection component))
   return some values
 
-/-- Exact registered source selection and its applied native category and value. -/
+
 structure SourceObject where
   private mk ::
   entry : ObjectEntry
@@ -281,23 +281,23 @@ opaque selectCategory (state : SemanticState) (name : String) : TermElabM NamedC
   | #[] => throwError "unregistered source category: {name}"
   | _ => throwSemanticAmbiguity m!"source category {name} has several registrations"
 
--- ObjectEntry permits distinct explicit names for refinements of the same base.
--- validateObject checks the base reference before it enters SemanticState. A shared
--- base name still requires a selected category; a distinct name selects its own row.
+
+
+
 private def unqualifiedObjectName (state : SemanticState) (entry : ObjectEntry) : Bool :=
   entry.refines.all fun refinement => state.objects.any fun base =>
     base.id == refinement.base && base.name != entry.name
 
-/-- The source uses a name that no registration and no binding declares: invalid source, tagged
-with the name. -/
+
+
 private def throwUnknownSourceName {α : Type} (name : String) : TermElabM α :=
   throwStratum .invalid
     (MessageData.tagged (unknownSourceNameTag name) m!"unregistered source object: {name}")
 
--- A directly qualified row retains its existing meaning. When no such row exists,
--- an explicit classifier qualification first names an object of that classifier's
--- own host; the checked property action is applied by ReadDispatch to that result.
--- This is a source-name lookup, not a trial after a failed mathematical interpretation.
+
+
+
+
 private def sourceNameCategory (state : SemanticState) (name : String)
     (qualification : Option String) : TermElabM (Option NamedCategoryEntry) := do
   let some required ← qualification.mapM (selectCategory state) | return none
@@ -313,9 +313,9 @@ private def sourceNameCategory (state : SemanticState) (name : String)
     | throwError "the explicit classifier requires one complete registered host category"
   return some host
 
-/-- Select a named source row in an explicit category or independently declared parameter type.
-Reuse: native category declaration telescopes, Lean isDefEq and withoutModifyingState.
-Each candidate check has isolated metavariables; lexical bindings bypass this selection. -/
+
+
+
 opaque selectObjectApplicable (name : String) (category : Option String)
     (expected : Option Expr := none) :
     TermElabM (Except MessageData (ObjectEntry × NamedCategoryEntry)) := do
@@ -329,8 +329,8 @@ opaque selectObjectApplicable (name : String) (category : Option String)
       entry.name == name && match qualified with
         | some category => entry.category == category.id
         | none => parameterType.isSome || unqualifiedObjectName state entry
-    -- Absence of an independently registered source name is an error. Only the native
-    -- parameter-type comparison below can make a known name inapplicable to this reader.
+
+
     if entries.isEmpty then throwUnknownSourceName name
     let entries ← entries.filterM fun entry => do
       let #[categoryEntry] := state.categories.filter (·.id == entry.category)
@@ -353,7 +353,7 @@ opaque selectObjectApplicable (name : String) (category : Option String)
       | throwError "the source object requires one registered category"
     return .ok (entry, categoryEntry)
 
-/-- Required lookup retains the source error when no compatible native object is available. -/
+
 opaque selectObject (name : String) (category : Option String) (expected : Option Expr := none) :
     TermElabM (ObjectEntry × NamedCategoryEntry) := do
   match ← selectObjectApplicable name category expected with
@@ -361,10 +361,10 @@ opaque selectObject (name : String) (category : Option String) (expected : Optio
   | .error message => throwError message
 
 
-/-- Select the exact named source kind without a priority between kinds. When a registered
-morphism and a registered object share the name, every one of them is a candidate; the reader
-keeps those that accept the actual arguments (`span({u₁, u₂})`), and the name is ambiguous
-only if several do. -/
+
+
+
+
 opaque selectNamedApplicable (name : String) (category : Option String) (expected : Option Expr) :
     TermElabM (Except MessageData (Array SourceNamedEntry)) := do
   let state ← semanticState
@@ -399,15 +399,15 @@ opaque selectNamedApplicable (name : String) (category : Option String) (expecte
     | throwSemanticAmbiguity m!"source name {name} requires a category qualification"
   return .ok #[.registered (.inr entry) (← category entry.category)]
 
-/-- Required named selection preserves all registered kinds and genuine ambiguity. -/
+
 opaque selectNamed (name : String) (category : Option String) (expected : Option Expr) :
     TermElabM (Array SourceNamedEntry) := do
   match ← selectNamedApplicable name category expected with
   | .ok selected => pure selected
   | .error message => throwError message
 
-/-- Form the actual registered value and check its declared object or morphism role.
-Reuse: the source's declaration/category pair, native application and the identity functor. -/
+
+
 opaque registeredExpressionsApplicableScoped (entry : ObjectEntry ⊕ MorphismEntry)
     (categoryEntry : NamedCategoryEntry)
     (select : SourceSelection Expr → Option Expr → StateCpsT σ TermElabM Expr)
@@ -457,7 +457,7 @@ opaque registeredExpressionsApplicableScoped (entry : ObjectEntry ⊕ MorphismEn
       select selected (some (← mkAppM ``CategoryTheory.Bundled.α #[category]))
   return .ok (category, value)
 
-/-- Named source syntax uses the same producer with its current typed source scope. -/
+
 opaque registeredExpressionsApplicable (entry : ObjectEntry ⊕ MorphismEntry)
     (categoryEntry : NamedCategoryEntry)
     (application : Expr → Option Expr → SourceReadM (Except MessageData Expr)) :
@@ -465,7 +465,7 @@ opaque registeredExpressionsApplicable (entry : ObjectEntry ⊕ MorphismEntry)
   registeredExpressionsApplicableScoped entry categoryEntry
     (fun selected expected => SourceReadM.select selected expected) application
 
-/-- Form a required registered source value, retaining ordinary failure diagnostics. -/
+
 opaque registeredExpressions (entry : ObjectEntry ⊕ MorphismEntry)
     (categoryEntry : NamedCategoryEntry)
     (application : Expr → Option Expr → SourceReadM Expr) : SourceReadM (Expr × Expr) := do
@@ -475,9 +475,9 @@ opaque registeredExpressions (entry : ObjectEntry ⊕ MorphismEntry)
   | .ok value => pure value
   | .error message => liftM (m := TermElabM) <| throwError message
 
-/-- Retain the registered category of a set or set map formed by public function syntax.
-Reuse: the actual Sets declaration, Bundled projections and Functor.map. The supplied
-native value constrains the complete category bundle, including its universe. -/
+
+
+
 opaque sourceSetJudgement (role : SourceCategoryRole) (value : Expr) :
     SourceReadM NativeSourceJudgement := do
   let #[entry] := (← semanticState).categories.filter (·.id == CategoryId.sets)
@@ -493,15 +493,25 @@ opaque sourceSetJudgement (role : SourceCategoryRole) (value : Expr) :
     unless ← isDefEq (← inferType value) carrier do
       liftM (m := TermElabM) <| throwError "the source function domain is outside its registered category of sets"
   | .morphism =>
-    let function ← mkAppM ``CategoryTheory.Functor.map #[← categoryIdentity bundle]
-    discard <| elabAppArgs function #[] #[Arg.expr value] none false false
+    let nativeValue ← liftM (m := MetaM) <| instantiateMVars value
+    let selectedType ← if nativeValue.hasMVar || nativeValue.hasLevelMVar then pure false else do
+      let type ← inferType nativeValue
+      pure (← SourceReadM.selection? type).isSome
+    if selectedType then
+      let scope ← get
+      scope.context.withOriginalSources #[nativeValue] fun original => do
+        discard <| mkAppM ``CategoryTheory.Functor.map
+          #[← categoryIdentity bundle, original[0]!]
+    else
+      let function ← mkAppM ``CategoryTheory.Functor.map #[← categoryIdentity bundle]
+      discard <| elabAppArgs function #[] #[Arg.expr value] none false false
   discard <| SourceReadM.select (← sourceReferenceAt (.category entry) nativeBundle nativeBundle)
   let category : NativeSourceCategory := ⟨role, entry.expression, nativeBundle, none, none⟩
   let selected := (← SourceReadM.selection? value).getD { value }
   let value ← SourceReadM.select { selected with value, category := some category }
   return ⟨value, some category⟩
 
-/-- A direct registered view before closing its complete native expressions. -/
+
 structure NativeSourceView where
   private mk ::
   reference : FunctorId ⊕ ClassifierId
@@ -511,25 +521,25 @@ structure NativeSourceView where
   targetBundle : Expr
   application : Expr
 
-/-- Expose the native functor field of this actual declared value. The source reference is
-already on its declaration application, before a field projection can hide that head. -/
+
+
 def sourceFunctorValue (value : Expr) : MetaM Expr := do
   if (← whnf (← inferType value)).isAppOf ``CategoryTheory.Cat.Hom then
     mkAppM ``CategoryTheory.Cat.Hom.toFunctor #[value]
   else pure value
 
-/-- Instantiate an explicitly selected functor family with its exact source reference.
-Reuse: registeredFunctorInstance's native telescope and sourceFunctorValue; the existing
-adapter returns only the projected functor and has no reference hook at formation. -/
+
+
+
 def sourceFunctorInstance (entry : FunctorEntry) : MetaM Expr := do
   discard <| checkedDeclaration entry.declaration
   let constant ← mkConstWithFreshMVarLevels entry.declaration
   let (arguments, _, _) ← forallMetaTelescopeReducing (← inferType constant)
   sourceFunctorValue (mkAppN constant arguments)
 
-/-- Expose the forgetful field of this actual selected classifier application.
-Reuse: classifierForgetInstance's native projections; its argument already retains the
-complete registered declaration and parameters before any projection is formed. -/
+
+
+
 def sourceClassifierForgetValue (value : Expr) : MetaM Expr := do
   let type ← whnf (← inferType value)
   let classifier ← if type.isAppOf ``LeanCategories.PropertyClassifier then
@@ -541,9 +551,9 @@ def sourceClassifierForgetValue (value : Expr) : MetaM Expr := do
   mkAppM ``CategoryTheory.Cat.Hom.toFunctor
     #[← mkAppM ``LeanCategories.Classifier.forget #[classifier]]
 
-/-- Prepare the actual declared edge and a continuation that retains those same original
-applications after the complete native path has solved their parameters. This continuation
-does not repeat declaration selection or recover an application from a projected value. -/
+
+
+
 private def sourceEdgeFormation [Monad m] [MonadLiftT MetaM m]
     (state : SemanticState) (select : SourceSelection Expr → Option Expr → m Expr)
     (edge : EdgeRef) (next : Expr → m Expr → m α) : m α :=
@@ -601,7 +611,7 @@ private def sourceEdgeFormation [Monad m] [MonadLiftT MetaM m]
         select selected none
       next native retain
 
-/-- The pure native edge keeps the same declared mathematical family for rigid checks. -/
+
 def sourceEdgeFunctor (state : SemanticState) (edge : EdgeRef) : MetaM Expr :=
   sourceEdgeFormation (m := MetaM) state
     (fun selected _ => pure selected.value) edge (fun native _ => pure native)
@@ -609,7 +619,7 @@ inductive SourceActionEntry where
   | registered (entry : FunctorEntry ⊕ ClassifierEntry)
   | construction (entry : ConstructionEntry)
 
-/-- Select an actual direct source action by its exact published identity. -/
+
 opaque selectView (id : String) : TermElabM SourceActionEntry := do
   let state ← semanticState
   match state.functors.filter (·.id.raw == id), state.classifiers.filter (·.id.raw == id),
@@ -620,10 +630,10 @@ opaque selectView (id : String) : TermElabM SourceActionEntry := do
   | #[], #[], #[] => throwError "unregistered source view: {id}"
   | _, _, _ => throwSemanticAmbiguity m!"source view {id} has several declared actions"
 
-/-- Apply the actual native functor's object projection to its actual object.
-`Functor.toPrefunctor` is a record conversion with an additional dependent map field.
-The original object action does not request that conversion or its category arguments:
-Mathlib's `Functor.toPrefunctor.obj` is definitionally `Functor.obj`. -/
+
+
+
+
 opaque functorObject (functor object target : Expr) (source : Option Expr := none) : MetaM Expr := do
   let (declaredDomain, declaredTarget) ← functorCategoryBundles functor
   let domain := source.getD declaredDomain
@@ -633,8 +643,8 @@ opaque functorObject (functor object target : Expr) (source : Option Expr := non
   unless ← withTransparency .all <| isDefEq (← inferType object) inputType do
     throwError "the source object does not inhabit the selected functor's native domain"
   let value ← mkAppM ``CategoryTheory.Functor.obj #[functor, object]
-  -- At a known source bundle, retain its actual carrier and dictionary at the
-  -- native object's projection slots; inferred types are only conversion checks.
+
+
   let value ← if source.isSome then do
     let arguments := value.getAppArgs
     unless arguments.size == 6 do
@@ -672,14 +682,14 @@ partial def checkEdgeDeclarations (state : SemanticState) : EdgeRef → MetaM Un
     checkEdgeDeclarations state inner
 
 
-/-- Form this exact declared edge path with an explicit source-selection continuation.
-Every original declaration is prepared once, the complete native category constraints are
-checked, and only then are its full selected rows bound before native projections. -/
+
+
+
 def nativeEdgePathFunctorWith [Monad m] [MonadLiftT MetaM m]
     (state : SemanticState) (references : Array EdgeRef) (category : Expr)
     (select : SourceSelection Expr → Option Expr → m Expr) : m NativeRouteFunctor := do
-  -- Pending scoped effects stay in this continuation, outside native MetaM results.
-  -- Every path constraint is still solved before any original selection is bound.
+
+
   let rec prepare : List EdgeRef → Expr → Array (m Expr) → Array Expr → m NativeRouteFunctor
     | [], current, pending, boundaries => do
       let (current, boundaries) ← liftM (m := MetaM) do
@@ -717,17 +727,17 @@ def nativeEdgePathFunctorWith [Monad m] [MonadLiftT MetaM m]
         prepare remaining target (pending.push retain) (boundaries.push target)
   prepare references.toList category #[] #[category]
 
-/-- Pure native families use the same complete path formation without introducing binders. -/
+
 def nativeEdgePathFunctor (state : SemanticState) (references : Array EdgeRef) (category : Expr) :
     MetaM NativeRouteFunctor :=
   nativeEdgePathFunctorWith state references category (fun selected _ => pure selected.value)
-/-- A selected structural route uses the same complete native edge formation. -/
+
 def nativeRouteFunctor (state : SemanticState) (route : Route) (category : Expr) :
     MetaM NativeRouteFunctor :=
   nativeEdgePathFunctor state route.refs category
 
-/-- Retain the route, actual edge parameters and comparison of an object refinement.
-Reuse: ObjectRefinement and applyObjectParameters at the original object arguments. -/
+
+
 opaque objectCarrierSelection (entry : ObjectEntry) (category value : Expr) :
     SourceReadM (Option NativeSourceCarrierSelection) := do
   let some refinement := entry.refines | return none
@@ -768,9 +778,9 @@ opaque objectCarrierSelection (entry : ObjectEntry) (category value : Expr) :
   return some ⟨refinement.route, targetCategory.expression, #[refinement.identification],
     actions, #[comparison]⟩
 
-/-- Select a registered source family, then let native application elaborate its arguments.
-Reuse: semanticState and the independently owned declaration telescopes; Lean.elabAppArgs
-accepts retained expressions and synthesizes native implicits and selected instances. -/
+
+
+
 opaque SourceSession.namedObject (session : SourceSession) (reference : Syntax) (name : String)
     (category : Option String) (arguments : Array SourceTerm) : TermElabM SourceObject :=
   withRef reference do
@@ -802,7 +812,7 @@ private partial def sourceActionSelection (state : SemanticState) :
 def sourceActionDeclaration (state : SemanticState) (edge : EdgeRef) : MetaM Name :=
   return (← sourceActionSelection state edge).1
 
-/-- Complete original rows of the explicitly selected edge, in its native nesting order. -/
+
 def sourceActionReferences (state : SemanticState) (edge : EdgeRef) :
     MetaM (Array SelectedSourceReference) :=
   return (← sourceActionSelection state edge).2
@@ -870,7 +880,7 @@ def SourceActionFamily.instantiate (family : SourceActionFamily) :
   let levels ← family.universeParams.mapM fun _ => mkFreshLevelMVar
   return (family.family.instantiateLevelParams family.universeParams levels, levels)
 
-/-- Retain the explicit selected edge and the original receiver of its native object action. -/
+
 def SourceActionFamily.selected (family : SourceActionFamily) (levels : List Level)
     (parameters : Array Expr) (receiver : Expr) : MetaM (SourceSelection Expr) := do
   unless levels.length == family.universeParams.length &&
@@ -899,11 +909,11 @@ def SourceActionFamily.realized (family : SourceActionFamily) (levels : List Lev
   let (source, target) ← functorCategoryBundles functor
   functorObject functor receiver target (some source)
 
-/-- Apply the selected declaration and retain its complete native functor boundary.
-An existing receiver category stays fixed. Otherwise the explicitly selected action supplies
-its source context, which native object application must check. Explicit functor use admits
-each registered role. Reuse: SourceSession.namedFunctor, classifierForgetInstance and
-functorCategoryBundles; source: #66, comment 6664276482 §4. -/
+
+
+
+
+
 opaque viewExpressionsScoped (entry : FunctorEntry ⊕ ClassifierEntry)
     (source : Option (CategoryExpr × Expr))
     (select : SourceSelection Expr → Option Expr → StateCpsT σ TermElabM Expr)
@@ -921,9 +931,9 @@ opaque viewExpressionsScoped (entry : FunctorEntry ⊕ ClassifierEntry)
           m!"the selected source action has a different complete symbolic source category")
   discard <| checkedDeclaration declaration
   let original ← application (← mkConstWithFreshMVarLevels declaration)
-  -- The actual receiver fixes the declared family's parameters before its complete
-  -- selected application is captured. In particular, a nullary polymorphic view
-  -- obtains its universe from this full category check, without a default.
+
+
+
   let nativeFunctor ← match entry with
     | .inl _ => sourceFunctorValue original
     | .inr _ => sourceClassifierForgetValue original
@@ -934,8 +944,8 @@ opaque viewExpressionsScoped (entry : FunctorEntry ⊕ ClassifierEntry)
         throwError (MessageData.tagged `CasCompiler.SourceReader.actionNativeSource
           m!"the selected source action has a different complete native source category; \
             declared={domain}; selected={selected}")
-  -- A computation address belongs to this declaration application, before its native
-  -- object/map action is formed. It does not scope over declarations in the receiver.
+
+
   let selected ← sourceReferenceAt (match entry with
     | .inl entry => .functor entry
     | .inr entry => .classifier entry) original original
@@ -946,7 +956,7 @@ opaque viewExpressionsScoped (entry : FunctorEntry ⊕ ClassifierEntry)
   let (_, targetBundle) ← functorCategoryBundles functor
   return ⟨reference, declaration, target, functor, targetBundle, original⟩
 
-/-- Ordinary source actions retain the same complete selected native view. -/
+
 opaque viewExpressions (entry : FunctorEntry ⊕ ClassifierEntry)
     (source : Option (CategoryExpr × Expr))
     (application : Expr → SourceReadM Expr) : SourceReadM NativeSourceView := do
@@ -955,8 +965,8 @@ opaque viewExpressions (entry : FunctorEntry ⊕ ClassifierEntry)
     (checkSource := fun domain selected => do
       if ← isDefEq domain selected then return true
       let scope ← get
-      -- The whole declared category is checked in the recorded source interpretation.
-      -- The actual action and all of its authored parameter bindings stay unchanged.
+
+
       withoutModifyingState <| scope.context.withOriginalSources #[domain, selected]
         fun original => isDefEq original[0]! original[1]!)
 

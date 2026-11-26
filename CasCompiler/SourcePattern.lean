@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.Surface
+public import CasCompiler.SourceTuple
 public import CasCompiler.Syntax
 
 public section
@@ -26,17 +27,37 @@ private partial def patternNames (pattern : SourcePattern) : Array Ident :=
   | .name name => #[name]
   | .tuple _ components => components.flatMap patternNames
 
--- Native pair projections apply only after exact registered-component lookup.
--- Reuse: Lean's Prod/Sigma/PSigma projections and the declared ObjectComponents maps.
+
+
 private def componentValues (source : Syntax) (value : Expr) (count : Nat) :
     SourceReadM (Array Expr) := SourceReadM.withRef source do
-  if let some values ← sourceComponentValues value count then return values
-  let type ← whnf (← inferType value)
+  let phase : String → SourceReadM Unit := fun event => do
+    try
+      let scope ← get
+      let heartbeats ← liftM (m := BaseIO) IO.getNumHeartbeats
+      liftM (m := CoreM) <| CasTools.Diagnostics.emit event (Json.mkObj [
+        ("heartbeats", toJson heartbeats),
+        ("contextBindings", toJson scope.context.bindings.size),
+        ("formals", toJson scope.formals.size)])
+    catch _ => pure ()
+  phase "source.pattern.components.started"
+  let components ← sourceComponentValues value count
+  phase "source.pattern.components.finished"
+  if let some values := components then return values
+  phase "source.pattern.view.started"
+  let originalType ← inferType value
+  let type ← nativeTypeView originalType
+  phase "source.pattern.view.finished"
+  phase "source.pattern.select.started"
+  let value ← if type.equal originalType then pure value else do
+    let selected := (← SourceReadM.selection? value).getD { value }
+    SourceReadM.select { selected with value } (some type)
+  phase "source.pattern.select.finished"
   if let .forallE _ index _ _ := type then
     let index ← whnf index
     if index.isAppOfArity ``Fin 1 then
-      -- Native finite functions retain their actual argument, index type and order.
-      -- Reference: Mathlib.Data.Fin.VecNotation's native Fin-indexed vector semantics.
+
+
       return (← sourceFiniteIndices index.getAppArgs[0]! count).map (mkApp value)
   let (first, second) ←
     if type.isAppOfArity ``Prod 2 then pure (``Prod.fst, ``Prod.snd)
@@ -49,9 +70,9 @@ private def componentValues (source : Syntax) (value : Expr) (count : Nat) :
     liftM (m := TermElabM) <| throwError "a native pair pattern must have its declared pair of components"
   return #[← mkAppM first #[value], ← mkAppM second #[value]]
 
--- Each pattern name is a native let at its actual projection. Close those lets in
--- order, including unused components, before closing the enclosing function binder.
--- Reuse: Lean.Meta.withLetDecl/mkLetFVars and metavariable-aware native abstraction.
+
+
+
 private partial def bindPattern (pattern : SourcePattern) (value : Expr)
     (body : SourceReadM Expr) : SourceReadM Expr := do
   match pattern with
@@ -62,9 +83,9 @@ private partial def bindPattern (pattern : SourcePattern) (value : Expr)
     (components.zip values).foldr
       (fun (pattern, value) body => bindPattern pattern value body) body
 
-/-- Form a native lambda at its independently specified domain, with recursive source patterns.
-Source: casPatternLambda and ObjectComponents. Native local declarations preserve lexical
-shadowing, selected instance binders and captures; no source expression is replayed. -/
+
+
+
 opaque sourcePatternLambda (source : TSyntax `cas_term) (domain : Expr) (info : BinderInfo)
     (body : Expr → SourceReadM Expr) : SourceReadM Expr := do
   let pattern ← sourcePattern source

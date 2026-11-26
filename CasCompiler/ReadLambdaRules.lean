@@ -21,20 +21,31 @@ def lambda (context : ReadContext) :
   fun (pattern body : TSyntax `cas_term) => do
     let some expected := expected
       | liftM (m := TermElabM) <| throwError "a source lambda requires its independently declared function type"
-    let type ← whnf expected
+    let phase : String → SourceReadM Unit := fun event => do
+      try
+        let scope ← get
+        let heartbeats ← liftM (m := BaseIO) IO.getNumHeartbeats
+        liftM (m := CoreM) <| CasTools.Diagnostics.emit event (Json.mkObj [
+          ("heartbeats", toJson heartbeats),
+          ("contextBindings", toJson scope.context.bindings.size),
+          ("formals", toJson scope.formals.size)])
+      catch _ => pure ()
+    phase "source.lambda.view.started"
+    let type ← nativeTypeView expected
+    phase "source.lambda.view.finished"
     if type.isAppOf ``TypeCat.Hom then
-      -- Mathlib's set-map constructor wraps this exact native function. It supplies
-      -- no structured-map laws; the complete declared Hom type fixes both endpoints.
       let constructor ← mkConstWithFreshMVarLevels ``TypeCat.ofHom
-      let hole ← mkFreshExprMVar none
-      discard <| elabAppArgs constructor #[] #[Arg.expr hole] (some expected) false false
-      let function ← readExpression categoryOf source (some (← inferType hole))
-      let value ← elabAppArgs constructor #[] #[Arg.expr function.value]
-        (some expected) false false
+      let (value, _) ← elabSourceApplicationScoped constructor #[source.raw] (some type)
+        (sourceInstance := some SourceReadM.tryInstance) fun _ functionType => do
+          phase "source.lambda.function.started"
+          let function ← readExpression categoryOf source (some functionType)
+          phase "source.lambda.function.finished"
+          return function.value
+      phase "source.lambda.map.finished"
       return ← sourceSetJudgement .morphism value
     let .forallE _ domain codomain binderInfo := type
       | do
-        -- `x ↦ e` in `R[x]`: the element `e` with `x` the ring's registered generator.
+
         let `(cas_term| $name:ident) := pattern
           | liftM (m := TermElabM) <| CasCatalogue.throwUnsupportedSource
               "source lambda formation is not implemented for this declared map type"
@@ -45,7 +56,11 @@ def lambda (context : ReadContext) :
           return (← readExpression categoryOf body (some expected)).value
         return ⟨value, none⟩
     let value ← sourcePatternLambda pattern domain binderInfo fun parameter => do
-      return (← readExpression categoryOf body (some (codomain.instantiate1 parameter))).value
+      phase "source.lambda.body.started"
+      let result ← readExpression categoryOf body (some (codomain.instantiate1 parameter))
+      phase "source.lambda.body.finished"
+      return result.value
+    phase "source.lambda.pattern.finished"
     return ⟨value, none⟩
 
 end SourceReader
