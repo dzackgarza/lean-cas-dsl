@@ -45,9 +45,9 @@ def read_log(path: Path) -> str:
     return path.read_text()
 
 
-def current_acceptance_result() -> dict:
-    current = json.loads((ROOT / ".tmp/accept-current.json").read_text())
-    return json.loads((ROOT / current["result"]).read_text())
+def current_acceptance_result(root: Path = ROOT) -> dict:
+    current = json.loads((root / ".tmp/accept-current.json").read_text())
+    return json.loads((root / current["result"]).read_text())
 
 
 def process_children(pid: int) -> set[int]:
@@ -965,55 +965,7 @@ class FeedbackTests(unittest.TestCase):
 
 
 
-    def test_unread_source_form_keeps_its_failure_stratum(self) -> None:
-        directory = ROOT / "timing/logs/feedback-tests"
-        directory.mkdir(parents=True, exist_ok=True)
-        control = Path(tempfile.mkdtemp(prefix="source-stratum-", dir=directory))
-        log = control / "public-loop.log"
-        with log.open("w") as output:
-            result = subprocess.run(
-                ["just", "loop", "+CasCatalogue.TestSuite:leanArts", "polynomials"],
-                cwd=ROOT, stdout=output, stderr=subprocess.STDOUT, check=False)
-        self.assertNotEqual(result.returncode, 0, log.read_text())
-        rows = json.loads((ROOT / ".tmp/accept-run.json").read_text())
-        selected = [row for row in rows
-                    if row["file"] == "tests/acceptance/polynomials.cas"
-                    and row["id"] == "polynomials.degree_over_rationals"]
-        self.assertEqual(len(selected), 1)
-        outcome = selected[0]
-        self.assertEqual(outcome["kind"], "gap")
-        self.assertEqual(outcome["stratum"], "unsupportedSource")
-        self.assertTrue(outcome["fails"])
-        self.assertIn("polynomials.cas:24:", log.read_text())
-        self.assertTrue(all("stratum" in row for row in rows))
-        recorded = current_acceptance_result()
-        self.assertTrue(recorded["complete"], recorded)
-        self.assertTrue(recorded["timing_complete"], recorded)
-        self.assertNotEqual(recorded["status"], 0)
-
-
-
-        base = control / "old-report.json"
-        head = control / "current-report.json"
-        legacy = {key: value for key, value in outcome.items()
-                  if key not in {"stratum", "fails"}}
-        base.write_text(json.dumps([legacy]))
-        head.write_text(json.dumps([outcome]))
-        comparison = subprocess.run(
-            [sys.executable, "scripts/check_acceptance_regression.py", str(base), str(head)],
-            cwd=ROOT, capture_output=True, text=True, check=False)
-        (control / "comparison.log").write_text(comparison.stdout + comparison.stderr)
-        self.assertEqual(comparison.returncode, 1, comparison.stdout + comparison.stderr)
-        self.assertIn("unsupportedSource", comparison.stdout)
-        explicit = {**legacy, "stratum": None, "fails": True}
-        head.write_text(json.dumps([explicit]))
-        comparison = subprocess.run(
-            [sys.executable, "scripts/check_acceptance_regression.py", str(base), str(head)],
-            cwd=ROOT, capture_output=True, text=True, check=False)
-        (control / "explicit-failure.log").write_text(comparison.stdout + comparison.stderr)
-        self.assertEqual(comparison.returncode, 1, comparison.stdout + comparison.stderr)
-
-    def test_changed_extension_file_fails_before_execution(self) -> None:
+    def _check_changed_extension_file(self, stem: str, authority: str) -> None:
         directory = ROOT / "timing/logs/feedback-tests"
         directory.mkdir(parents=True, exist_ok=True)
         extension = Path("tests/acceptance/proposals/"
@@ -1022,88 +974,92 @@ class FeedbackTests(unittest.TestCase):
         original_checkpoint = (ROOT / checkpoint).read_bytes()
 
 
-        for stem, authority in [("rx01-selected-orders", "source-checkpoint"),
-                                ("rx02-complete-core-action", "added-blob")]:
-            with self.subTest(stem=stem):
-                control = Path(tempfile.mkdtemp(prefix="changed-extension-", dir=directory))
-                checkout = control / "checkout"
-                selected = extension / f"{stem}.cas"
-                evidence = None
-                try:
-                    subprocess.run(
-                        ["git", "clone", "--shared", "--no-checkout", "--quiet",
-                         str(ROOT), str(checkout)], check=True)
-                    cloned_head = subprocess.check_output(
-                        ["git", "-C", str(checkout), "rev-parse", "HEAD"], text=True).strip()
-                    original = (ROOT / selected).read_bytes()
-                    files = ["justfile", "scripts/feedback.sh", "scripts/container.sh",
-                             "scripts/feedback_records.py", "scripts/application_log.py",
-                             "scripts/acceptance_inputs.py",
-                             "scripts/check_acceptance_permanent.py",
-                             str(checkpoint), str(selected)]
-                    for name in files:
-                        target = checkout / name
-                        target.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(ROOT / name, target)
-                    positive = control / "unchanged-input.json"
-                    unchanged = subprocess.run(
-                        [sys.executable, "scripts/acceptance_inputs.py", str(positive),
-                         "--extension", stem], cwd=checkout, capture_output=True,
-                        text=True, check=False)
-                    (control / "unchanged-input.log").write_text(unchanged.stdout + unchanged.stderr)
-                    self.assertEqual(unchanged.returncode, 0, unchanged.stdout + unchanged.stderr)
-                    observed = json.loads(positive.read_text())["files"][0]
-                    self.assertFalse(observed["admitted"])
-                    self.assertTrue(observed["computing"])
-                    self.assertEqual(observed["authority"]["kind"], authority)
-                    self.assertEqual(observed["sha256"], hashlib.sha256(original).hexdigest())
-                    (checkout / selected).write_bytes(original + b"\n-- changed-source guard control\n")
-                    log = control / "public-loop.log"
-                    with log.open("w") as output:
-                        result = subprocess.run(
-                            ["just", "loop", "--extension", stem], cwd=checkout,
-                            stdout=output, stderr=subprocess.STDOUT, check=False)
-                    self.assertNotEqual(result.returncode, 0, log.read_text())
-                    self.assertIn("extension source changed", log.read_text())
-                    record = json.loads(
-                        (checkout / "timing/runs.jsonl").read_text().splitlines()[-1])
-                    self.assertEqual(record["context_status"], "pending")
-                    self.assertEqual(record["acceptance"], ["--extension", stem])
-                    self.assertIsNone(record["phases"]["build"]["status"])
-                    self.assertIsNone(record["phases"]["execution"]["status"])
-                    self.assertFalse((checkout / ".tmp/accept-run.json").exists())
-                    self.assertEqual((ROOT / selected).read_bytes(), original)
-                finally:
-                    if (checkout / ".git").is_dir():
-                        evidence = retain_checkout(
-                            checkout, SOURCE_REVISION, [str(checkpoint), str(selected)])
-                self.assertIsNotNone(evidence)
-                self.assertFalse((checkout / ".git").exists())
-                retained = json.loads((evidence / "manifest.json").read_text())
-                self.assertEqual(retained["state"], "retained")
-                self.assertEqual(retained["git_state"]["head"], cloned_head)
-                self.assertIsNone(retained["git_state"]["index_sha256"])
-                self.assertEqual((evidence / "authority" / selected).read_bytes(), original)
-                self.assertEqual((checkout / selected).read_bytes(),
-                                 original + b"\n-- changed-source guard control\n")
-                retained_path = str((checkout / selected).relative_to(ROOT))
-                ignored = subprocess.run(
-                    ["git", "check-ignore", "--", retained_path], cwd=ROOT,
-                    capture_output=True, text=True, check=False)
-                self.assertEqual(ignored.returncode, 0, ignored.stdout + ignored.stderr)
-                self.assertEqual(ignored.stdout.splitlines(), [retained_path])
-                indexed = subprocess.check_output(
-                    ["git", "ls-files", "--stage", "--", retained_path], cwd=ROOT, text=True)
-                self.assertFalse(indexed, "retained raw evidence entered the Git index")
-                with tempfile.TemporaryDirectory(prefix="feedback-checkout-restore-") as temporary:
-                    restored = Path(temporary) / "checkout"
-                    restore_checkout(evidence, restored)
-                    self.assertEqual((restored / selected).read_bytes(), (checkout / selected).read_bytes())
-                    self.assertEqual((restored / "timing/runs.jsonl").read_bytes(),
-                                     (checkout / "timing/runs.jsonl").read_bytes())
-                    self.assertEqual(subprocess.check_output(
-                        ["git", "-C", str(restored), "rev-parse", "HEAD"], text=True).strip(), cloned_head)
+        with self.subTest(stem=stem):
+            control = Path(tempfile.mkdtemp(prefix="changed-extension-", dir=directory))
+            checkout = control / "checkout"
+            selected = extension / f"{stem}.cas"
+            evidence = None
+            try:
+                subprocess.run(
+                    ["git", "clone", "--shared", "--no-checkout", "--quiet",
+                     str(ROOT), str(checkout)], check=True)
+                cloned_head = subprocess.check_output(
+                    ["git", "-C", str(checkout), "rev-parse", "HEAD"], text=True).strip()
+                original = (ROOT / selected).read_bytes()
+                files = ["justfile", "scripts/feedback.sh", "scripts/container.sh",
+                         "scripts/feedback_records.py", "scripts/application_log.py",
+                         "scripts/acceptance_inputs.py",
+                         "scripts/check_acceptance_permanent.py",
+                         str(checkpoint), str(selected)]
+                for name in files:
+                    target = checkout / name
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(ROOT / name, target)
+                positive = control / "unchanged-input.json"
+                unchanged = subprocess.run(
+                    [sys.executable, "scripts/acceptance_inputs.py", str(positive),
+                     "--extension", stem], cwd=checkout, capture_output=True,
+                    text=True, check=False)
+                (control / "unchanged-input.log").write_text(unchanged.stdout + unchanged.stderr)
+                self.assertEqual(unchanged.returncode, 0, unchanged.stdout + unchanged.stderr)
+                observed = json.loads(positive.read_text())["files"][0]
+                self.assertFalse(observed["admitted"])
+                self.assertTrue(observed["computing"])
+                self.assertEqual(observed["authority"]["kind"], authority)
+                self.assertEqual(observed["sha256"], hashlib.sha256(original).hexdigest())
+                (checkout / selected).write_bytes(original + b"\n-- changed-source guard control\n")
+                log = control / "public-loop.log"
+                with log.open("w") as output:
+                    result = subprocess.run(
+                        ["just", "loop", "--extension", stem], cwd=checkout,
+                        stdout=output, stderr=subprocess.STDOUT, check=False)
+                self.assertNotEqual(result.returncode, 0, log.read_text())
+                self.assertIn("extension source changed", log.read_text())
+                record = json.loads(
+                    (checkout / "timing/runs.jsonl").read_text().splitlines()[-1])
+                self.assertEqual(record["context_status"], "pending")
+                self.assertEqual(record["acceptance"], ["--extension", stem])
+                self.assertIsNone(record["phases"]["build"]["status"])
+                self.assertIsNone(record["phases"]["execution"]["status"])
+                self.assertFalse((checkout / ".tmp/accept-run.json").exists())
+                self.assertEqual((ROOT / selected).read_bytes(), original)
+            finally:
+                if (checkout / ".git").is_dir():
+                    evidence = retain_checkout(
+                        checkout, SOURCE_REVISION, [str(checkpoint), str(selected)])
+            self.assertIsNotNone(evidence)
+            self.assertFalse((checkout / ".git").exists())
+            retained = json.loads((evidence / "manifest.json").read_text())
+            self.assertEqual(retained["state"], "retained")
+            self.assertEqual(retained["git_state"]["head"], cloned_head)
+            self.assertIsNone(retained["git_state"]["index_sha256"])
+            self.assertEqual((evidence / "authority" / selected).read_bytes(), original)
+            self.assertEqual((checkout / selected).read_bytes(),
+                             original + b"\n-- changed-source guard control\n")
+            retained_path = str((checkout / selected).relative_to(ROOT))
+            ignored = subprocess.run(
+                ["git", "check-ignore", "--", retained_path], cwd=ROOT,
+                capture_output=True, text=True, check=False)
+            self.assertEqual(ignored.returncode, 0, ignored.stdout + ignored.stderr)
+            self.assertEqual(ignored.stdout.splitlines(), [retained_path])
+            indexed = subprocess.check_output(
+                ["git", "ls-files", "--stage", "--", retained_path], cwd=ROOT, text=True)
+            self.assertFalse(indexed, "retained raw evidence entered the Git index")
+            with tempfile.TemporaryDirectory(prefix="feedback-checkout-restore-") as temporary:
+                restored = Path(temporary) / "checkout"
+                restore_checkout(evidence, restored)
+                self.assertEqual((restored / selected).read_bytes(), (checkout / selected).read_bytes())
+                self.assertEqual((restored / "timing/runs.jsonl").read_bytes(),
+                                 (checkout / "timing/runs.jsonl").read_bytes())
+                self.assertEqual(subprocess.check_output(
+                    ["git", "-C", str(restored), "rev-parse", "HEAD"], text=True).strip(), cloned_head)
         self.assertEqual((ROOT / checkpoint).read_bytes(), original_checkpoint)
+
+    def test_changed_extension_file_fails_before_execution(self) -> None:
+        self._check_changed_extension_file("rx09-constant-one-rejection", "source-checkpoint")
+
+    def test_changed_added_extension_file_fails_before_execution(self) -> None:
+        self._check_changed_extension_file("rx02-complete-core-action", "added-blob")
 
     def test_verified_checkout_retirement_failure_remains_restorable(self) -> None:
         directory = ROOT / "timing/logs/feedback-tests"
@@ -1158,7 +1114,7 @@ class FeedbackTests(unittest.TestCase):
         control = Path(tempfile.mkdtemp(prefix="extension-observation-", dir=directory))
         source = Path("tests/acceptance/proposals/"
                       "independent-extension-reconstruction-20261024/completion/"
-                      "rx01-selected-orders.cas")
+                      "rx09-constant-one-rejection.cas")
         original = (ROOT / source).read_bytes()
         baseline = ROOT / "CasAcceptance/Permanent/admitted.json"
         admitted_before = baseline.read_bytes()
@@ -1188,6 +1144,124 @@ class FeedbackTests(unittest.TestCase):
         self.assertIn(" computing\n", (run / "worker0.lean").read_text())
         self.assertEqual((ROOT / source).read_bytes(), original)
         self.assertEqual(baseline.read_bytes(), admitted_before)
+
+class AcceptanceRunTests(unittest.TestCase):
+    def test_unread_form_fails_and_peer_dispatches(self) -> None:
+        directory = ROOT / "timing/logs/feedback-tests"
+        directory.mkdir(parents=True, exist_ok=True)
+        control = Path(tempfile.mkdtemp(prefix="acceptance-kernel-", dir=directory))
+        checkout = control / "checkout"
+        subprocess.run(["git", "clone", "--shared", "--no-checkout", "--quiet",
+                        str(ROOT), str(checkout)], check=True)
+        revision = subprocess.check_output(
+            ["git", "-C", str(checkout), "rev-parse", "HEAD"], text=True).strip()
+        self.addCleanup(retain_checkout, checkout, revision,
+                        ["tests/acceptance/sets.cas", "scripts/accept_files.sh"])
+        for name in [".gitignore", "justfile", "lean-toolchain", "scripts/feedback.sh",
+                     "scripts/accept_files.sh", "scripts/container.sh", "scripts/feedback_records.py",
+                     "scripts/application_log.py", "scripts/acceptance_inputs.py",
+                     "scripts/check_acceptance_permanent.py", "scripts/check_acceptance_regression.py",
+                     "scripts/probes/kernel_session_peer.py", "scripts/probes/kernel_session_peer.json",
+                     "CasAcceptance/Permanent/admitted.json"]:
+            target = checkout / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(ROOT / name, target)
+        manifest = json.loads((ROOT / "lake-manifest.json").read_text())
+        root_package = manifest["name"]
+        manifest["packagesDir"] = str((ROOT / manifest.get("packagesDir", ".lake/packages")).resolve())
+        for package in manifest["packages"]:
+            package["inherited"] = True
+            if package["type"] == "path":
+                package["dir"] = str((ROOT / package["dir"]).resolve())
+        manifest["packages"].append({
+            "type": "path", "name": root_package, "dir": str(ROOT), "inherited": False,
+            "configFile": "lakefile.lean", "manifestFile": "lake-manifest.json"})
+        manifest["name"] = "acceptance_run_control"
+        (checkout / "lake-manifest.json").write_text(json.dumps(manifest) + "\n")
+        configuration = (ROOT / "lakefile.lean").read_text()
+        marker = "script «feedback-context» do\n"
+        self.assertEqual(configuration.count(marker), 1)
+        (checkout / "lakefile.lean").write_text(
+            "import Lake\nopen Lake DSL\npackage acceptance_run_control\n"
+            f"require «cas-dsl» from {json.dumps(str(ROOT))}\n\n" +
+            marker + configuration.split(marker, 1)[1])
+        original = (ROOT / "tests/acceptance/sets.cas").read_bytes()
+        assertions = [block for block in original.decode().split("\n\n")
+                      if block.startswith("test sets.implemented.card_fin ")]
+        self.assertEqual(len(assertions), 1)
+        definition = "let q := map 1 to ℚ"
+        contents = assertions[0] + "\n\n" + definition + "\n"
+        stem = f"feedback-unread-{control.name}"
+        selected = Path("tests/acceptance") / f"{stem}.cas"
+        (checkout / selected).parent.mkdir(parents=True, exist_ok=True)
+        (checkout / selected).write_text(contents)
+        line = contents.splitlines().index(definition) + 1
+        admission = (ROOT / "CasAcceptance/Permanent/admitted.json").read_bytes()
+        probe = Path("scripts/probes/kernel_session_peer.json")
+        probe_bytes = (checkout / probe).read_bytes()
+        log = control / "public-loop.log"
+        with log.open("w") as output:
+            result = subprocess.run(
+                ["just", "loop", "+CasCatalogue.TestSuite:leanArts", "--manifest", str(probe), stem],
+                cwd=checkout, stdout=output, stderr=subprocess.STDOUT, check=False)
+        self.assertNotEqual(result.returncode, 0, log.read_text())
+        rows = json.loads((checkout / ".tmp/accept-run.json").read_text())
+        self.assertEqual(len(rows), 2, rows)
+        self.assertTrue(all(row["file"] == str(selected) and "stratum" in row for row in rows))
+        self.assertEqual(rows[0]["id"], "sets.implemented.card_fin")
+        self.assertEqual(rows[0]["kind"], "holds", rows[0])
+        self.assertIsNone(rows[0]["stratum"])
+        self.assertFalse(rows[0]["fails"])
+        self.assertTrue(rows[0]["attempted"])
+        self.assertTrue(rows[0]["published"])
+        registration = {"operation": "meth.cardinality", "input": "obj.sets.fin",
+                        "backend": "kernel-session-peer"}
+        self.assertIn(registration, json.loads(probe_bytes)["registrations"])
+        self.assertEqual(rows[0]["dispatches"], [registration])
+        outcome = rows[1]
+        self.assertTrue(outcome["id"].startswith("(statement) "))
+        self.assertEqual(outcome["id"].removeprefix("(statement) ").strip(), definition)
+        self.assertEqual(outcome["kind"], "gap")
+        self.assertEqual(outcome["stratum"], "unsupportedSource")
+        self.assertTrue(outcome["fails"])
+        self.assertFalse(outcome["attempted"])
+        self.assertFalse(outcome["published"])
+        self.assertEqual(outcome["dispatches"], [])
+        self.assertIn(f"{selected}:{line}:", log.read_text())
+        recorded = current_acceptance_result(checkout)
+        self.assertTrue(recorded["complete"], recorded)
+        self.assertTrue(recorded["timing_complete"], recorded)
+        self.assertNotEqual(recorded["status"], 0)
+        self.assertEqual(recorded["inputs"][str(selected)], hashlib.sha256(contents.encode()).hexdigest())
+        self.assertEqual(recorded["manifest_sha256"], hashlib.sha256(probe_bytes).hexdigest())
+        roots = [package for package in recorded["resolution"]["packages"]
+                 if Path(package["path"]).resolve() == ROOT]
+        self.assertEqual(len(roots), 1)
+        self.assertEqual((checkout / selected).read_text(), contents)
+        self.assertEqual((ROOT / "tests/acceptance/sets.cas").read_bytes(), original)
+        self.assertEqual((ROOT / "CasAcceptance/Permanent/admitted.json").read_bytes(), admission)
+        self.assertEqual((checkout / "CasAcceptance/Permanent/admitted.json").read_bytes(), admission)
+
+        base = control / "old-report.json"
+        head = control / "current-report.json"
+        legacy = {key: value for key, value in outcome.items()
+                  if key not in {"stratum", "fails"}}
+        base.write_text(json.dumps([legacy]))
+        head.write_text(json.dumps([outcome]))
+        comparison = subprocess.run(
+            [sys.executable, "scripts/check_acceptance_regression.py", str(base), str(head)],
+            cwd=ROOT, capture_output=True, text=True, check=False)
+        (control / "comparison.log").write_text(comparison.stdout + comparison.stderr)
+        self.assertEqual(comparison.returncode, 1, comparison.stdout + comparison.stderr)
+        self.assertIn("unsupportedSource", comparison.stdout)
+        explicit = {**legacy, "stratum": None, "fails": True}
+        head.write_text(json.dumps([explicit]))
+        comparison = subprocess.run(
+            [sys.executable, "scripts/check_acceptance_regression.py", str(base), str(head)],
+            cwd=ROOT, capture_output=True, text=True, check=False)
+        (control / "explicit-failure.log").write_text(comparison.stdout + comparison.stderr)
+        self.assertEqual(comparison.returncode, 1, comparison.stdout + comparison.stderr)
+
 
 class SuiteTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -1251,6 +1325,7 @@ class AcceptanceFeedbackTests(unittest.TestCase):
                 control = Path(tempfile.mkdtemp(prefix=f"interrupted-{phase}-", dir=directory))
                 log = control / "interrupted.log"
                 stopped = False
+                stopped_native = {}
                 observed = None
                 with log.open("w") as output:
                     process = subprocess.Popen(
@@ -1287,9 +1362,15 @@ class AcceptanceFeedbackTests(unittest.TestCase):
                                         if native_pid in owned:
                                             continue
                                         try:
-                                            if os.getpgid(native_pid) != group:
-                                                continue
-                                            os.kill(native_pid, signal.SIGSTOP)
+                                            native_fd = os.pidfd_open(native_pid)
+                                            try:
+                                                if os.getpgid(native_pid) != group:
+                                                    continue
+                                                signal.pidfd_send_signal(native_fd, signal.SIGSTOP)
+                                                stopped_native[native_pid] = native_fd
+                                            finally:
+                                                if native_pid not in stopped_native:
+                                                    os.close(native_fd)
                                             owned.append(native_pid)
                                             native.extend(process_children(native_pid) - set(owned))
                                         except (FileNotFoundError, ProcessLookupError):
@@ -1301,8 +1382,9 @@ class AcceptanceFeedbackTests(unittest.TestCase):
                                     os.kill(process.pid, signal.SIGTERM)
                                     for native_pid in reversed(owned):
                                         try:
-                                            os.kill(native_pid, signal.SIGTERM)
-                                            os.kill(native_pid, signal.SIGCONT)
+                                            native_fd = stopped_native[native_pid]
+                                            signal.pidfd_send_signal(native_fd, signal.SIGTERM)
+                                            signal.pidfd_send_signal(native_fd, signal.SIGCONT)
                                         except ProcessLookupError:
                                             continue
                                     os.kill(process.pid, signal.SIGCONT)
@@ -1316,6 +1398,16 @@ class AcceptanceFeedbackTests(unittest.TestCase):
                         self.assertIsNotNone(observed, f"no actual {phase} process was reached; see {log}")
                         status = process.wait(timeout=60)
                     finally:
+                        try:
+                            for native_fd in stopped_native.values():
+                                try:
+                                    signal.pidfd_send_signal(native_fd, signal.SIGTERM)
+                                    signal.pidfd_send_signal(native_fd, signal.SIGCONT)
+                                except ProcessLookupError:
+                                    continue
+                        finally:
+                            for native_fd in stopped_native.values():
+                                os.close(native_fd)
                         if stopped:
                             try:
                                 os.kill(process.pid, signal.SIGCONT)

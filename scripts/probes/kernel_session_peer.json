@@ -1,0 +1,28 @@
+{
+  "backends": [
+    {
+      "name": "kernel-session-peer",
+      "command": "python3",
+      "args": [
+        "kernel_session_peer.py"
+      ]
+    }
+  ],
+  "registrations": [
+    {
+      "operation": "op.rings.add",
+      "input": "op.rings.add#input",
+      "backend": "kernel-session-peer"
+    },
+    {
+      "operation": "op.rings.mul",
+      "input": "op.rings.mul#input",
+      "backend": "kernel-session-peer"
+    },
+    {
+      "operation": "meth.cardinality",
+      "input": "obj.sets.fin",
+      "backend": "kernel-session-peer"
+    }
+  ]
+}
