@@ -1,6 +1,7 @@
 module
 
 public import CasCompiler.LimitFamily
+import all CasCompiler.SelectionData
 
 public section
 
@@ -8,8 +9,8 @@ namespace CasCompiler
 
 open Lean Meta CasCatalogue
 
-/-- One compiler-prepared construction component keeps the exact retained owner,
-complete actual cone and original typed index beside its unchanged native arrow. -/
+
+
 structure NativeConstructionLeg where
   private mk ::
   owner : Expr
@@ -18,44 +19,55 @@ structure NativeConstructionLeg where
   index : Expr
   value : Expr
 
-/-- Form only the source-native component; ownership remains with the original
-runtime callback. No returned endpoint or diagram object is evaluated here. -/
+
+
 opaque NativeConstructionLeg.prepare (owner : Expr) (selection : NativeLimitSelection)
     (cone index : Expr) : MetaM NativeConstructionLeg := do
   let value ← selection.legAt cone index
   return ⟨owner, selection, cone, index, value⟩
 
-/-- Open the original full owner telescope. This supports both a raw presentation
-and a created source cone; each caller supplies its already retained owner family.
-All implicit, computational and proof positions stay in their original order. -/
-opaque withConstructionParameters (ownerFamily : Expr) (construction : Name)
+
+
+
+opaque NativeConstructionLeg.selected (leg : NativeConstructionLeg) :
+    MetaM (SourceSelection Expr) := do
+  let construction ← NativeLimitSelection.ofSource leg.selection.source leg.owner
+  check leg.value
+  return {
+    value := leg.value
+    leg := some ⟨construction, leg.index, leg.value⟩
+    category := some {
+      role := .morphism
+      expression := leg.selection.source.category
+      bundle := leg.selection.source.bundle } }
+
+
+
+
+opaque withConstructionParameters (ownerFamily : SelectedLimitOwner Expr) (construction : Name)
     (count : Nat) (action : Array Expr → NativeLimitSelection → MetaM α) : MetaM α := do
-  check ownerFamily
-  if ownerFamily.hasMVar || ownerFamily.hasLevelMVar then
+  check ownerFamily.selection.receiver
+  if ownerFamily.selection.receiver.hasMVar || ownerFamily.selection.receiver.hasLevelMVar then
     throwError "a construction endpoint has an unresolved original owner telescope"
-  lambdaTelescope ownerFamily fun parameters owner => do
+  forallTelescope (← inferType ownerFamily.selection.receiver) fun parameters _ => do
     unless parameters.size == count do
       throwError "a construction endpoint changed its complete original parameter positions"
-    let some selected ← NativeLimitSelection.ofExpr? owner
-      | throwError "a construction endpoint lost its original formal owner"
+    let selected ← ownerFamily.specialize parameters
     unless selected.source.construction == construction && !construction.isAnonymous do
       throwError "a construction endpoint changed its original construction selection"
     action parameters selected
 
-/-- Validate a supplied original parameter position against the diagram-side endpoint
-of this exact native leg. The check takes place under the full rigid original owner
-telescope. The original typed index is retained by exact positional back-substitution.
-Native conversion checks a Hom interface; it never produces an endpoint value,
-chooses a runtime operand, or evaluates a diagram object for later storage. -/
-opaque checkConstructionLegEndpointAt (ownerFamily : Expr)
+
+
+
+
+
+opaque checkConstructionLegEndpointAt (ownerFamily : SelectedLimitOwner Expr)
     (selected : NativeLimitSelection) (parameters : Array Expr)
     (indexFamily index : Expr) (target : Bool) (position : Nat)
     (path : Array Name := #[])
     (alternatives : Array (Nat × Array Name) := #[]) : MetaM Unit := do
-  let original := ownerFamily.betaRev parameters.reverse (preserveMData := true)
-  check original
-  let some rebound ← NativeLimitSelection.ofExpr? original
-    | throwError "a construction endpoint lost its retained owner application"
+  let rebound ← ownerFamily.specialize parameters
   unless rebound.source.construction == selected.source.construction &&
       rebound.source.row == selected.source.row &&
       rebound.source.declaration == selected.source.declaration &&
@@ -75,9 +87,9 @@ opaque checkConstructionLegEndpointAt (ownerFamily : Expr)
     throwError "a construction endpoint changed its original typed index position"
   withConstructionParameters ownerFamily selected.source.construction parameters.size
     fun formals formal => do
-      -- Every listed route belongs to the same independently supplied actual
-      -- binding. Validate all routes before trying native conversion, so an
-      -- invalid original position cannot be hidden by another matching route.
+
+
+
       let mut candidates := #[]
       for (originalPosition, originalPath) in #[(position, path)] ++ alternatives do
         let some parameter := formals[originalPosition]?
@@ -108,8 +120,8 @@ opaque checkConstructionLegEndpointAt (ownerFamily : Expr)
       let some candidate := matched
         | throwError "the construction endpoint differs from every supplied original declaration position"
       let expected := mkAppN type.getAppFn (type.getAppArgs.set! slot candidate)
-      -- A checked identity at the required Hom type checks native conversion in
-      -- the kernel. The term is transient interface validation, not a computation.
+
+
       let checked ← mkAppOptM ``id #[some expected, some arrow]
       let locals := (← getLCtx).foldl (fun values declaration =>
         values.push (mkFVar declaration.fvarId)) (#[] : Array Expr)

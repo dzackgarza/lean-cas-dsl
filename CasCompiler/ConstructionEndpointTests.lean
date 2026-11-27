@@ -8,10 +8,11 @@ meta import LeanCategories.Catalogue.Semantics.Limits.Registration
 
 open Lean Meta Elab Command CasCompiler CasCatalogue
 
--- Both declared parameter positions specialize to the same native object. Only
--- the original rigid position, not that specialized equality, validates the leg.
--- The existing native diagram and index are used for limits and colimits.
+
+
+
 run_cmd liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   for identifier in #["lim.sets.product", "colim.sets.coproduct"] do
     let family ← LimitFamily.forId ⟨identifier⟩
     for levels in #[family.universeParams.map (fun _ => Level.zero),
@@ -25,13 +26,27 @@ run_cmd liftTermElabM do
           | throwError "the binary presentation lost its first original input"
         let parameters := actual.set! 1 first
         let construction ← mkFreshUserName `originalEndpointControl
-        let original ← family.prepareOwner levels construction
-        let whole ← family.markSelected original levels parameters
-        let .mdata _ body := whole
+        let original ← family.prepareOwner identities levels construction
+        let whole ← family.selectedAtOwner original levels parameters
+        let some application := whole.application
           | throwError "the original whole cone lost its source selection"
-        let (_, _, owner, selected) ← family.application body
-        let ownerFamily ← family.ownerFamily owner
-        unless ownerFamily.equal original do
+        let some ownerFamily := application.ownerSelection
+          | throwError "the original whole cone lost its complete selected owner"
+        let some selected := whole.limit
+          | throwError "the original whole cone lost its native construction selection"
+        unless application.family.exactlyMatches (.limit family) &&
+            application.universes == levels &&
+            application.parameters.size == parameters.size &&
+            (application.parameters.zip parameters).all (fun (left, right) => left.equal right) do
+          throwError "the original whole cone changed its complete native parameter positions"
+        let expectedOwner : SourceSelection Expr := {
+          value := original.selection.receiver, limit := some original.selection,
+          formalBindings := original.formalBindings }
+        let retainedOwner : SourceSelection Expr := {
+          value := ownerFamily.selection.receiver, limit := some ownerFamily.selection,
+          formalBindings := ownerFamily.formalBindings }
+        unless retainedOwner.exactlyMatches Expr.equal expectedOwner &&
+            (← family.ownerFamily ownerFamily).equal original.selection.receiver do
           throwError "the endpoint checker replaced the original formal owner family"
         let left ← instantiateMVars
           (← mkAppM ``CategoryTheory.Discrete.mk
@@ -44,8 +59,8 @@ run_cmd liftTermElabM do
             (usedOnly := false) (usedLetOnly := false)
         checkConstructionLegEndpointAt ownerFamily selected parameters indexFamily left
           (!family.entry.colimit) 0
-        -- Runtime may authenticate the same actual binding at both original
-        -- parameter slots. The explicit alias table admits the matching slot.
+
+
         checkConstructionLegEndpointAt ownerFamily selected parameters indexFamily left
           (!family.entry.colimit) 1 #[] #[(0, #[])]
         let invalidAlias ← try
@@ -69,7 +84,7 @@ run_cmd liftTermElabM do
           catch _ => pure true
         unless wrongIndex do
           throwError "the endpoint checker replaced the original typed native index"
-        let changed ← family.prepareOwner levels (← mkFreshUserName `anotherEndpointControl)
+        let changed ← family.prepareOwner identities levels (← mkFreshUserName `anotherEndpointControl)
         let wrongOwner ← try
             checkConstructionLegEndpointAt changed selected parameters indexFamily left
               (!family.entry.colimit) 0

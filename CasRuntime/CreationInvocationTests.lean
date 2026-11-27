@@ -66,43 +66,44 @@ private def requireProjection (transaction : CellTransaction) (value parent : Va
   let some _ ← IO.ofExcept <| (graph.projectionBasis value parent path).mapError IO.userError
     | throwError "a creation field lost its original complete-result parent"
 
-/-- Invoke a supplied native map on a formal point at its exact original domain.
-The point is a source assumption; no native mathematical element is reconstructed from bytes. -/
+
+
 private def applyNative (kernel : Kernel) (transaction : CellTransaction)
-    (context : OpenContext) (source : Expr) (cone universal : ValueBinding) (label : String) :
-    MetaM ValueBinding := do
+    (context : OpenContext) (bound : Std.HashMap BindingId ValueBinding)
+    (selections : SourceSelectionScope Expr) (source : Expr) (cone universal : ValueBinding) (label : String) : MetaM ValueBinding := do
   let function ← if (← whnf (← inferType source)).isForall then pure source else do
     let some function ← coerceToFunction? source
       | throwError "the returned native map has no original callable interface"
     pure function
-  let callable ← kernel.run transaction context {} function
-  let selected ← markValue kernel.marks callable function
-  let .forallE _ domain _ _ ← whnf (← inferType function)
-    | throwError "the returned map lost its exact native point domain"
-  withLocalDeclD `originalCreationPoint domain fun point => do
-    let pointId : BindingId := ⟨"creation-point:" ++ label, 0⟩
-    let current ← ContextTelescope.capture
-      (context.bindings.push ⟨pointId, .parameter, point⟩)
-    let role ← SourceLayout.ofTerm (← current.close point)
-    let marks ← IO.ofExcept <|
-      (captureSourceMarks (← kernel.marks.get) role.source).mapError IO.userError
-    let program ← kernel.ledger.owners.identities.fresh .program
-    let value ← transaction.stage
-      { program, occurrence := ← kernel.ledger.allocate, role,
-        parameters := Array.replicate current.bindings.size none, sourceMarks := marks }
-      (.portable (toJson (0 : Nat)).compress.toUTF8)
-    let pointSource ← markValue kernel.marks value point
-    let result ← kernel.run transaction current {} (mkApp selected pointSource)
-    let graph ← transaction.view
-    let some node := graph.find result.value
-      | throwError "the actual native application produced no stored result"
-    let .ownedToken _ _ captures := node.payload.data
-      | throwError "the native continuation did not return its actual owned data"
-    unless captures.any (fun actual => retains actual value) &&
-        captures.any (fun actual => retains actual cone) &&
-        captures.any (fun actual => retains actual universal) do
-      throwError "the native continuation changed its original point or c/t captures"
-    return result
+  let callable ← kernel.run transaction context bound function (selections := selections)
+  withBindingContext (← transaction.view) context bound callable fun context bound =>
+    withBoundValue kernel.ledger.owners.identities context bound function callable fun context bound selected => do
+      let .forallE _ domain _ _ ← whnf (← inferType function)
+        | throwError "the returned map lost its exact native point domain"
+      withLocalDeclD `originalCreationPoint domain fun point => do
+        let pointId : BindingId := ⟨"creation-point:" ++ label, 0⟩
+        let current ← ContextTelescope.capture
+          (context.bindings.push ⟨pointId, .parameter, point⟩)
+        let role ← SourceLayout.ofTerm (← current.close point)
+          (selections := ← selections.close current)
+        let environment ← RuntimeEnvironment.captureBound kernel.ledger.owners.worker
+          current bound (← transaction.view) (selections := selections)
+        let program ← kernel.ledger.owners.identities.fresh .program
+        let value ← transaction.stage (← environment.origin program (← kernel.ledger.allocate) role)
+          (.portable (toJson (0 : Nat)).compress.toUTF8)
+        withBoundValue kernel.ledger.owners.identities current bound point value fun current bound pointSource => do
+          let result ← kernel.run transaction current bound (mkApp selected pointSource)
+            (selections := selections)
+          let graph ← transaction.view
+          let some node := graph.find result.value
+            | throwError "the actual native application produced no stored result"
+          let .ownedToken _ _ captures := node.payload.data
+            | throwError "the native continuation did not return its actual owned data"
+          unless captures.any (fun actual => retains actual value) &&
+              captures.any (fun actual => retains actual cone) &&
+              captures.any (fun actual => retains actual universal) do
+            throwError "the native continuation changed its original point or c/t captures"
+          return result
 
 private def withOriginalPeer (action : Kernel → TermElabM Unit) : TermElabM Unit := do
   let contract ← IO.FS.realPath (← packageDir contractPackage)
@@ -119,7 +120,7 @@ private def withOriginalPeer (action : Kernel → TermElabM Unit) : TermElabM Un
     ("command", toJson (contract / ".venv/bin/python").toString),
     ("args", .arr #[toJson (root / "scripts/probes/creation_invocation_peer.py").toString,
       toJson configuration.compress])]
-  -- The original set-limit implementation supplies c. This test defines no pullback algorithm.
+
   let raw := Json.mkObj [("name", "original-set-limits"), ("command", "python3"),
     ("args", .arr #[toJson (leaves / "backends/sage_set_limits.py").toString])]
   let manifest := Json.mkObj [
@@ -140,10 +141,10 @@ private def withOriginalPeer (action : Kernel → TermElabM Unit) : TermElabM Un
     action kernel
   finally kernel.close
 
-/- The original finite-pullback source is used unchanged. The target raw cone comes from the
-existing set-limit provider. The peer supplies complete native interfaces, then handles the
-actual retained native projections and applications; it supplies no new mathematical definition
-or answer table. A source cone is never synthesized from compact createdCone data. -/
+
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let originalEnvironment ← getEnv
   try
@@ -152,9 +153,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let original ← source.read (← originalTerm "pullback(f', g')")
       original.source.withOpen fun bindings expression => do
         let context ← ContextTelescope.capture bindings
+        let selections ← original.selections.inContext context
         let transaction ← CellTransaction.begin kernel.ledger
         try
-          let owner ← kernel.run transaction context {} expression
+          let owner ← kernel.run transaction context {} expression (selections := selections)
           unless (← kernel.dispatches.get).isEmpty do
             throwError "forming the original created object dispatched a target computation"
           let graph ← transaction.view
@@ -164,126 +166,161 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             | throwError "the created source was not retained as its complete native owner"
           let some (.creationOwner prepared) := (← kernel.codes.get)[program]?
             | throwError "the created source lost its exact source-input telescope"
-          let actualOwner ← markValue kernel.marks owner
-            (← prepared.owner.inContext context)
-          let completionSource ← prepared.completionSource context actualOwner
-          checkWithKernel completionSource
-          let mut originals : Array (ValueBinding × ValueBinding) := #[]
-          let mut results : Array ValueBinding := #[]
-          let mut continuations : Array ValueBinding := #[]
-          for mode in #["inline", "owned"] do
-            let complete ← kernel.run transaction context {} completionSource
-            let (cone, universal) ← originalInputs transaction complete
-            originals := originals.push (cone, universal)
-            results := results.push complete
-            let graph ← transaction.view
-            let some completeNode := graph.find complete.value
-              | throwError "the complete native creation result disappeared"
-            if mode == "inline" then
-              let .container data := completeNode.payload.data
-                | throwError "the inline creation did not retain its complete native record"
-              unless data.originalPacket.isSome && data.fields.map (·.size) == some 2 do
-                throwError "the inline creation lost a native data field or original packet"
-            else
-              let .ownedToken _ _ _ := completeNode.payload.data
-                | throwError "the owned creation did not retain its actual native export"
-            let selected ← markValue kernel.marks complete completionSource
-            let liftableSource ← mkAppM ``CategoryTheory.LiftsToLimit.toLiftableCone #[selected]
-            let coneSource ← mkAppM ``CategoryTheory.LiftableCone.liftedCone #[liftableSource]
-            let sourceCone ← kernel.run transaction context {} coneSource
-            let sourceConeAgain ← kernel.run transaction context {} coneSource
-            unless sourceCone.value == sourceConeAgain.value do
-              throwError "repeating a native source-cone projection recomputed its actual value"
-            requireProjection transaction sourceCone complete
-              #[``CategoryTheory.LiftsToLimit.toLiftableCone, ``CategoryTheory.LiftableCone.liftedCone]
-            requireProjection transaction sourceConeAgain complete
-              #[``CategoryTheory.LiftsToLimit.toLiftableCone, ``CategoryTheory.LiftableCone.liftedCone]
-            let comparisonSource ← mkAppM ``CategoryTheory.LiftableCone.validLift #[liftableSource]
-            let comparison ← kernel.run transaction context {} comparisonSource
-            requireProjection transaction comparison complete
-              #[``CategoryTheory.LiftsToLimit.toLiftableCone, ``CategoryTheory.LiftableCone.validLift]
-            let actualComparison ← markValue kernel.marks comparison comparisonSource
-            for direction in #[``CategoryTheory.Iso.hom, ``CategoryTheory.Iso.inv] do
-              let arrow ← mkAppM direction #[actualComparison]
-              let nativeMap ← mkAppM ``CategoryTheory.Limits.ConeMorphism.hom #[arrow]
-              continuations := continuations.push
-                (← applyNative kernel transaction context nativeMap cone universal
-                  (mode ++ ":" ++ direction.toString))
-            let universalSource ← mkAppM ``CategoryTheory.LiftsToLimit.makesLimit #[selected]
-            let sourceUniversal ← kernel.run transaction context {} universalSource
-            requireProjection transaction sourceUniversal complete
-              #[``CategoryTheory.LiftsToLimit.makesLimit]
-            let actualUniversal ← markValue kernel.marks sourceUniversal universalSource
-            let actualCone ← markValue kernel.marks sourceCone coneSource
-            let mediatorSource ← mkAppM ``CategoryTheory.Limits.IsLimit.lift
-              #[actualUniversal, actualCone]
-            continuations := continuations.push
-              (← applyNative kernel transaction context mediatorSource cone universal
-                (mode ++ ":makesLimit"))
-          let #[(firstCone, firstUniversal), (secondCone, _)] := originals
-            | throwError "the original creation controls lost one complete c/t invocation"
-          unless firstCone.value != secondCone.value do
-            throwError "equal source requests merged two actual target cone occurrences"
-          let selected ← prepared.selection context
-          let some targetOwner := selected.source.ownerFamily
-            | throwError "the source creation lost its original target owner family"
-          let parameters ← (prepared.inputs.target.arguments.mapM (fun argument =>
-            argument.source.source.inContext context) : MetaM (Array Expr))
-          let rawSource ← prepared.target.markSelected targetOwner prepared.targetUniverses parameters
-          let firstSource ← markValue kernel.marks firstCone rawSource
-          let secondSource ← markValue kernel.marks secondCone rawSource
-          let universalFamily ← LimitUniversalFamily.forId prepared.target.entry.id
-          let universalSource ← universalFamily.markSelected targetOwner prepared.targetUniverses
-            parameters (some firstSource)
-          let wrongUniversal ← markValue kernel.marks firstUniversal universalSource
-          -- Establish the identical explicit-marker boundary with its original c/t before
-          -- changing only c to another occurrence of the same raw native source.
-          let matching ← prepared.markArguments context actualOwner firstSource wrongUniversal
-          let beforeMatching := (← kernel.dispatches.get).size
-          let repeated ← kernel.run transaction context {} matching
-          let (repeatedCone, repeatedUniversal) ← originalInputs transaction repeated
-          unless retains repeatedCone firstCone && retains repeatedUniversal firstUniversal &&
-              (← kernel.dispatches.get).size == beforeMatching + 1 do
-            throwError "the explicit matching c/t boundary changed or recomputed an original input"
-          results := results.push repeated
-          let mismatch ← prepared.markArguments context actualOwner secondSource wrongUniversal
-          let before := (← kernel.dispatches.get).size
-          let rejected ← try
-              discard <| kernel.run transaction context {} mismatch
-              pure false
-            catch _ => pure true
-          unless rejected && (← kernel.dispatches.get).size == before do
-            throwError "creation accepted t from another equal-source c or dispatched before rejection"
-          let malformed : Option Exception ← try
-              discard <| kernel.run transaction context {} completionSource
-              pure none
-            catch error => pure (some error)
-          let some malformed := malformed
-            | throwError "the whole creation admitted a result missing makesLimit"
-          unless ((← malformed.toMessageData.toString).splitOn "data-field arity").length > 1 do
-            throw malformed
-          let dispatches ← kernel.dispatches.get
-          unless (dispatches.filter (·.operation == "lift.finite_sets.pullbacks")).size == 4 do
-            throwError "a native field replayed or skipped the original complete creation request"
-          if dispatches.any (fun entry =>
-              entry.operation.startsWith "lift.finite_sets.pullbacks#") then
-            throwError "a creation field acquired an undeclared independent operation"
-          let observed ← IO.FS.readFile
-            ((← IO.currentDir) / ".tmp/creation-invocation-observations.jsonl")
-          for required in #["creation:inline", "creation:owned", "Iso.hom", "Iso.inv", "IsLimit.lift"] do
-            unless (observed.splitOn required).length > 1 do
-              throwError "the original creation continuation did not actually reach {required}"
-          let graph ← transaction.view
-          let .ok owners := graph.requiredOwners continuations
-            | throwError "the created native continuations lost their actual owners"
-          unless !owners.isEmpty do
-            throwError "owned creation data became portable"
-          for owner in owners do kernel.ledger.owners.close owner
-          for result in results do
-            if ← graph.isAvailable kernel.ledger.owners result then
-              throwError "a complete created result survived its actual native export owner"
-          unless ← graph.isAvailable kernel.ledger.owners firstCone do
-            throwError "closing the creation owner invalidated its independently portable target cone"
+          withBindingContext graph context {} owner fun context bound => do
+            let ownerSource ← prepared.owner.inContext context
+            withBoundValue kernel.ledger.owners.identities context bound ownerSource owner fun context bound actualOwner => do
+              let selections ← SourceSelectionScope.merge selections
+                (← prepared.selections.inContext context)
+              prepared.completionSource kernel.ledger.owners.identities context selections actualOwner
+                  fun context selections completionSource => do
+                checkWithKernel completionSource
+                let mut originals : Array (ValueBinding × ValueBinding) := #[]
+                let mut results : Array ValueBinding := #[]
+                let mut continuations : Array ValueBinding := #[]
+                for mode in #["inline", "owned"] do
+                  let complete ← kernel.run transaction context bound completionSource (selections := selections)
+                  let (cone, universal) ← originalInputs transaction complete
+                  originals := originals.push (cone, universal)
+                  results := results.push complete
+                  let graph ← transaction.view
+                  let some completeNode := graph.find complete.value
+                    | throwError "the complete native creation result disappeared"
+                  if mode == "inline" then
+                    let .container data := completeNode.payload.data
+                      | throwError "the inline creation did not retain its complete native record"
+                    unless data.originalPacket.isSome && data.fields.map (·.size) == some 2 do
+                      throwError "the inline creation lost a native data field or original packet"
+                  else
+                    let .ownedToken _ _ _ := completeNode.payload.data
+                      | throwError "the owned creation did not retain its actual native export"
+                  let generated ← withBindingContext graph context bound complete fun context bound =>
+                    withBoundValue kernel.ledger.owners.identities context bound completionSource complete
+                        fun context bound selected => do
+                      let liftableSource ← mkAppM ``CategoryTheory.LiftsToLimit.toLiftableCone #[selected]
+                      let coneSource ← mkAppM ``CategoryTheory.LiftableCone.liftedCone #[liftableSource]
+                      let sourceCone ← kernel.run transaction context bound coneSource (selections := selections)
+                      let sourceConeAgain ← kernel.run transaction context bound coneSource (selections := selections)
+                      unless sourceCone.value == sourceConeAgain.value do
+                        throwError "repeating a native source-cone projection recomputed its actual value"
+                      requireProjection transaction sourceCone complete
+                        #[``CategoryTheory.LiftsToLimit.toLiftableCone, ``CategoryTheory.LiftableCone.liftedCone]
+                      requireProjection transaction sourceConeAgain complete
+                        #[``CategoryTheory.LiftsToLimit.toLiftableCone, ``CategoryTheory.LiftableCone.liftedCone]
+                      let comparisonSource ← mkAppM ``CategoryTheory.LiftableCone.validLift #[liftableSource]
+                      let comparison ← kernel.run transaction context bound comparisonSource (selections := selections)
+                      requireProjection transaction comparison complete
+                        #[``CategoryTheory.LiftsToLimit.toLiftableCone, ``CategoryTheory.LiftableCone.validLift]
+                      let comparisonResults ← withBindingContext (← transaction.view) context bound comparison fun context bound =>
+                        withBoundValue kernel.ledger.owners.identities context bound comparisonSource comparison
+                            fun context bound actualComparison => do
+                          #[``CategoryTheory.Iso.hom, ``CategoryTheory.Iso.inv].mapM fun direction => do
+                            let arrow ← mkAppM direction #[actualComparison]
+                            let nativeMap ← mkAppM ``CategoryTheory.Limits.ConeMorphism.hom #[arrow]
+                            applyNative kernel transaction context bound selections nativeMap cone universal
+                              (mode ++ ":" ++ direction.toString)
+                      let universalSource ← mkAppM ``CategoryTheory.LiftsToLimit.makesLimit #[selected]
+                      let sourceUniversal ← kernel.run transaction context bound universalSource (selections := selections)
+                      requireProjection transaction sourceUniversal complete
+                        #[``CategoryTheory.LiftsToLimit.makesLimit]
+                      let mediator ← withBindingContext (← transaction.view) context bound sourceUniversal fun context bound =>
+                        withBindingContext (← transaction.view) context bound sourceCone fun context bound =>
+                          withBoundValue kernel.ledger.owners.identities context bound universalSource sourceUniversal
+                              fun context bound actualUniversal =>
+                            withBoundValue kernel.ledger.owners.identities context bound coneSource sourceCone
+                                fun context bound actualCone => do
+                              let mediatorSource ← mkAppM ``CategoryTheory.Limits.IsLimit.lift
+                                #[actualUniversal, actualCone]
+                              applyNative kernel transaction context bound selections mediatorSource cone universal
+                                (mode ++ ":makesLimit")
+                      return comparisonResults.push mediator
+                  continuations := continuations ++ generated
+                let #[(firstCone, firstUniversal), (secondCone, _)] := originals
+                  | throwError "the original creation controls lost one complete c/t invocation"
+                unless firstCone.value != secondCone.value do
+                  throwError "equal source requests merged two actual target cone occurrences"
+                let targetOwner ← prepared.targetOwner.mapM (·.inContext context)
+                let parameters ← (prepared.inputs.target.arguments.mapM (fun argument =>
+                  argument.source.source.inContext context) : MetaM (Array Expr))
+                let rawSelection ← prepared.target.selectedAtOwner targetOwner
+                  prepared.targetUniverses parameters
+                let repeated ← SourceSelectionScope.withBinding kernel.ledger.owners.identities
+                    selections context rawSelection fun context selections firstRawSource =>
+                  SourceSelectionScope.withBinding kernel.ledger.owners.identities
+                      selections context rawSelection fun context selections secondRawSource =>
+                    withBindingContext (← transaction.view) context bound firstCone fun context bound =>
+                      withBindingContext (← transaction.view) context bound secondCone fun context bound =>
+                        withBindingContext (← transaction.view) context bound firstUniversal fun context bound =>
+                          withBoundValue kernel.ledger.owners.identities context bound firstRawSource firstCone
+                              fun context bound firstSource =>
+                            withBoundValue kernel.ledger.owners.identities context bound secondRawSource secondCone
+                                fun context bound secondSource => do
+                              let universalFamily ← LimitUniversalFamily.forId prepared.target.entry.id
+                              let universalSelection ← universalFamily.selectedAtOwner targetOwner
+                                prepared.targetUniverses parameters
+                                (fun _ _ => throwError "the original explicit cone cannot be replaced")
+                                (some firstSource)
+                              let universalType ← mkAppM ``CategoryTheory.Limits.IsLimit #[firstSource]
+                              SourceSelectionScope.withBinding kernel.ledger.owners.identities
+                                  selections context universalSelection
+                                  (fun context selections universalSource =>
+                                    withBoundValue kernel.ledger.owners.identities context bound universalSource
+                                        firstUniversal fun context bound wrongUniversal => do
+
+
+                                      let matching ← prepared.selectedArguments context actualOwner firstSource wrongUniversal
+                                      let beforeMatching := (← kernel.dispatches.get).size
+                                      SourceSelectionScope.withBinding kernel.ledger.owners.identities
+                                          selections context matching fun context selections matchingSource => do
+                                        let repeated ← kernel.run transaction context bound matchingSource
+                                          (selections := selections)
+                                        let (repeatedCone, repeatedUniversal) ← originalInputs transaction repeated
+                                        unless retains repeatedCone firstCone && retains repeatedUniversal firstUniversal &&
+                                            (← kernel.dispatches.get).size == beforeMatching + 1 do
+                                          throwError "the explicit matching c/t boundary changed or recomputed an original input"
+                                        let before := (← kernel.dispatches.get).size
+                                        let rejected ← try
+                                            let mismatch ← prepared.selectedArguments context actualOwner secondSource wrongUniversal
+                                            SourceSelectionScope.withBinding kernel.ledger.owners.identities
+                                                selections context mismatch fun context selections mismatchSource => do
+                                              discard <| kernel.run transaction context bound mismatchSource
+                                                (selections := selections)
+                                              pure false
+                                          catch _ => pure true
+                                        unless rejected && (← kernel.dispatches.get).size == before do
+                                          throwError "creation accepted t from another equal-source c or dispatched before rejection"
+                                        return repeated)
+                                  (declaredType := some universalType)
+                results := results.push repeated
+                let malformed : Option Exception ← try
+                    discard <| kernel.run transaction context bound completionSource (selections := selections)
+                    pure none
+                  catch error => pure (some error)
+                let some malformed := malformed
+                  | throwError "the whole creation admitted a result missing makesLimit"
+                unless ((← malformed.toMessageData.toString).splitOn "data-field arity").length > 1 do
+                  throw malformed
+                let dispatches ← kernel.dispatches.get
+                unless (dispatches.filter (·.operation == "lift.finite_sets.pullbacks")).size == 4 do
+                  throwError "a native field replayed or skipped the original complete creation request"
+                if dispatches.any (fun entry =>
+                    entry.operation.startsWith "lift.finite_sets.pullbacks#") then
+                  throwError "a creation field acquired an undeclared independent operation"
+                let observed ← IO.FS.readFile
+                  ((← IO.currentDir) / ".tmp/creation-invocation-observations.jsonl")
+                for required in #["creation:inline", "creation:owned", "Iso.hom", "Iso.inv", "IsLimit.lift"] do
+                  unless (observed.splitOn required).length > 1 do
+                    throwError "the original creation continuation did not actually reach {required}"
+                let graph ← transaction.view
+                let .ok owners := graph.requiredOwners continuations
+                  | throwError "the created native continuations lost their actual owners"
+                unless !owners.isEmpty do
+                  throwError "owned creation data became portable"
+                for owner in owners do kernel.ledger.owners.close owner
+                for result in results do
+                  if ← graph.isAvailable kernel.ledger.owners result then
+                    throwError "a complete created result survived its actual native export owner"
+                unless ← graph.isAvailable kernel.ledger.owners firstCone do
+                  throwError "closing the creation owner invalidated its independently portable target cone"
         finally discard <| transaction.abort
   finally setEnv originalEnvironment
 

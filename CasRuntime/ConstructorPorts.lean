@@ -10,9 +10,9 @@ namespace CasRuntime
 
 open Lean Meta CasCompiler
 
-/-- The original constructor's actual data ports, admitted in native dependency order.
-Proof slots stay present and empty. The current port has no runtime association until its
-complete packet has passed that port's own native interface and dependency checks. -/
+
+
+
 structure ConstructorPortPrefix (scope : RoleScope) where
   private mk ::
   plan : ConstructorPorts
@@ -30,10 +30,10 @@ private def ConstructorPortPrefix.skipProofs (nativePrefix : ConstructorPortPref
     nextIndex := nextIndex + 1
   return { nativePrefix with nextIndex }
 
-/-- Open the already accepted formal constructor scope over the exact request inputs.
-No native object/arrow is reconstructed from the answer packet. -/
+
+
 opaque ConstructorPortPrefix.prepare (request : PreparedRequest) (graph : ValueGraph)
-    (plan : ConstructorPorts) (marks : Array ValueBinding := #[]) :
+    (plan : ConstructorPorts) :
     MetaM (ConstructorPortPrefix request.roles.scope) := do
   unless plan.originalContext.exactlyMatches request.environment.context do
     throwError "the constructor ports changed their original prepared request context"
@@ -44,15 +44,10 @@ opaque ConstructorPortPrefix.prepare (request : PreparedRequest) (graph : ValueG
     if let some value := value then
       parameters := parameters.push (← IO.ofExcept <|
         (RuntimeParameter.ofValue graph entry.id value).mapError IO.userError)
-  let mut sourceMarks := request.environment.sourceMarks
-  for term in #[plan.interface.presentation, plan.interface.diagram] ++
-      plan.interface.standardization.toArray ++ plan.interface.dataConstructor.toArray do
-    let retained ← IO.ofExcept <| (captureSourceMarks marks term).mapError IO.userError
-    sourceMarks ← IO.ofExcept <| (mergeSourceMarks sourceMarks retained).mapError IO.userError
   let environment ← plan.context.withOpen fun bindings => do
     let context ← ContextTelescope.capture bindings
     RuntimeEnvironment.capture request.program.worker context parameters
-      sourceMarks (some graph)
+      (some graph) (selections := ← request.environment.selections.inContext context)
   return (⟨plan, environment, parameters, Array.replicate plan.ports.size none, 0⟩ :
     ConstructorPortPrefix request.roles.scope).skipProofs
 
@@ -60,18 +55,18 @@ def ConstructorPortPrefix.current? (nativePrefix : ConstructorPortPrefix scope) 
     Option ConstructorPort :=
   nativePrefix.plan.ports[nativePrefix.nextIndex]?
 
-/-- The current native port is an original constructor binder, with only earlier actual
-ports supplying its dependent type. It is not a fabricated projection from a reply shape. -/
+
+
 opaque ConstructorPortPrefix.origin (nativePrefix : ConstructorPortPrefix scope)
     (request : PreparedRequest) (graph : ValueGraph) : MetaM ValueOrigin := do
   request.requirePreparation scope
   let some port := nativePrefix.current?
     | throwError "the complete constructor has no remaining computational data port"
-  let environment ← nativePrefix.environment.withSourceMarks #[] (some graph)
+  let environment ← nativePrefix.environment.withGraph (some graph)
   environment.origin request.program request.occurrence port.argument.source
 
-/-- Admit the actual stored port before assigning its original formal BindingId. All later
-ports read this exact node/view through the ordinary complete runtime context machinery. -/
+
+
 opaque ConstructorPortPrefix.bind (nativePrefix : ConstructorPortPrefix scope)
     (graph : ValueGraph) (value : ValueBinding) : MetaM (ConstructorPortPrefix scope) := do
   let some port := nativePrefix.current?
@@ -85,15 +80,15 @@ opaque ConstructorPortPrefix.bind (nativePrefix : ConstructorPortPrefix scope)
   let environment ← nativePrefix.plan.context.withOpen fun bindings => do
     let context ← ContextTelescope.capture bindings
     RuntimeEnvironment.capture nativePrefix.environment.worker context parameters
-      nativePrefix.environment.sourceMarks (some graph)
+      (some graph) (selections := ← nativePrefix.environment.selections.inContext context)
   return ({ nativePrefix with
     environment := environment
     parameters := parameters
     values := nativePrefix.values.set! nativePrefix.nextIndex (some candidate.root),
     nextIndex := nativePrefix.nextIndex + 1 }).skipProofs
 
-/-- Finish only the complete original native telescope. Proof entries remain explicit empty
-positions; callers project to the public non-Prop port order only after this check. -/
+
+
 opaque ConstructorPortPrefix.finish (nativePrefix : ConstructorPortPrefix scope) :
     Except String (Array (Option ValueBinding)) := do
   let nativePrefix := nativePrefix.skipProofs
@@ -104,20 +99,20 @@ opaque ConstructorPortPrefix.finish (nativePrefix : ConstructorPortPrefix scope)
       throw "the constructor reply changed its original computational/proof port table"
   return nativePrefix.values
 
-/-- A map port uses this port's exact original Hom binder and the already admitted
-constructor prefix. Its endpoints are actual earlier ports or original request suppliers. -/
+
+
 opaque ConstructorPortPrefix.mapCodec (nativePrefix : ConstructorPortPrefix scope)
-    (graph : ValueGraph) (source target : ValueBinding) (marks : Array ValueBinding := #[])
+    (graph : ValueGraph) (source target : ValueBinding)
     (operands : Array (ValueBinding × ValueBinding × ValueBinding) := #[])
     (checkSymbolic : Option PreparedSymbolicCheck := none) : MetaM PreparedMapResult := do
   let some port := nativePrefix.current?
     | throwError "the complete constructor has no remaining native map port"
   PreparedMapResult.forSource nativePrefix.environment port.argument.source graph source target
-    marks none none none operands checkSymbolic
+    none none none operands checkSymbolic
 
-/-- Select only the original supplier named by the accepted constructor's native projection
-route. This returns its retained parent and remaining native path; it performs no field
-evaluation, association or endpoint equality search. Port admission remains with the prefix. -/
+
+
+
 opaque _root_.CasCompiler.ConstructorPorts.projectionSupplier? (plan : ConstructorPorts)
     (environment : RuntimeEnvironment) (values : Array (Option ValueBinding))
     (path : Array Name) : MetaM (Option (ValueBinding × Array Name)) := do
@@ -135,16 +130,15 @@ opaque _root_.CasCompiler.ConstructorPorts.projectionSupplier? (plan : Construct
     | throwError "a constructor projection has no actual original supplier"
   return some (value, selected.path)
 
-/-- Reopen only the exact complete table already materialized at this request's original
-native port positions. Proof slots remain empty, and each computational view is admitted
-again through the same dependency-ordered prefix without allocating graph nodes. -/
+
+
+
 opaque ConstructorPortPrefix.ofValues (request : PreparedRequest) (graph : ValueGraph)
-    (plan : ConstructorPorts) (values : Array (Option ValueBinding))
-    (marks : Array ValueBinding := #[]) :
+    (plan : ConstructorPorts) (values : Array (Option ValueBinding)) :
     MetaM (ConstructorPortPrefix request.roles.scope) := do
   unless values.size == plan.ports.size do
     throwError "constructor transport requires its complete native/proof port table"
-  let mut nativePrefix ← ConstructorPortPrefix.prepare request graph plan marks
+  let mut nativePrefix ← ConstructorPortPrefix.prepare request graph plan
   for port in plan.ports, value in values do
     match port.argument.wireIndex, value with
     | none, none => pure ()
@@ -161,9 +155,9 @@ opaque ConstructorPortPrefix.ofValues (request : PreparedRequest) (graph : Value
   discard <| IO.ofExcept <| nativePrefix.finish.mapError IO.userError
   return nativePrefix
 
-/-- Present the accepted constructor's exact selected port as its native result field.
-Both producing and consuming interfaces are checked; the immutable origin remains in its
-complete original telescope, and no returned data is converted into a mathematical term. -/
+
+
+
 opaque ConstructorPortPrefix.transportProjection (nativePrefix : ConstructorPortPrefix scope)
     (request : PreparedRequest) (path : Array Name) (draft : CellDraft) :
     MetaM (CellDraft × ValueBinding) := do
@@ -181,7 +175,7 @@ opaque ConstructorPortPrefix.transportProjection (nativePrefix : ConstructorPort
       original.root.associationIds == selected.associationIds do
     throwError "constructor transport changed its original selected port baseline"
   let (draft, value) ← draft.bindTelescopeTransport transport nativePrefix.environment.values
-    nativePrefix.environment.sourceMarks original.root
+    original.root
   let candidate ← request.environment.checkResult draft.view transport.target value
   return (draft, candidate.root)
 end CasRuntime

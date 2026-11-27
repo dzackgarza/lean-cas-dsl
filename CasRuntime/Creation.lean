@@ -12,8 +12,8 @@ namespace CasRuntime
 
 open Lean Meta CasCompiler CasCatalogue CasCatalogue.Backend
 
-/-- One complete fixed creation request retains the actual target cone, its universal
-data and the original source owner, followed by every declared computational capture. -/
+
+
 structure PreparedCreationInvocation where
   private mk ::
   preparation : RoleScope
@@ -24,10 +24,10 @@ structure PreparedCreationInvocation where
   views : Array InputDescriptorView
   private inputs : InputRoleMap
 
-/-- Preserve a fixed native source capture without evaluating its definition. Direct
-retained inputs keep their original binding. Compound source data keep the complete
-original native application table, so later source admission sees those same positions.
-The existing term closure supplies only its ordinary delayed native interface. -/
+
+
+
+
 private partial def retainCreationCapture (kernel : Kernel) (request : PreparedRequest)
     (transaction : CellTransaction) (context : OpenContext) (source : ClosedTerm) :
     MetaM ValueBinding := do
@@ -35,17 +35,16 @@ private partial def retainCreationCapture (kernel : Kernel) (request : PreparedR
   if ← isProof expression then
     throwError "a creation capture cannot replace an original formal proof with runtime data"
   let graph ← transaction.view
-  let marks ← IO.ofExcept <|
-    (captureSourceMarks (← kernel.marks.get) source).mapError IO.userError
-  let environment ← request.environment.withSourceMarks marks (some graph)
+  let environment ← request.environment.withGraph (some graph)
   if let some retained ← environment.endpointValue? context graph expression then
-    environment.checkDeclaredInput context graph (← kernel.marks.get) expression retained
+    environment.checkDeclaredInput context graph expression retained
     return retained
   let native := expression.consumeMData
   let mut arguments : Array (Option ValueBinding) := #[]
   let application ← if native.getAppNumArgs == 0 then pure none else do
     let originals ← native.getAppArgs.mapM fun argument => context.close argument
     let head ← SourceLayout.ofTerm (← context.close native.getAppFn)
+      (selections := request.environment.selections)
     let (_, layout) ← ApplicationLayout.ofSource head context originals
     unless layout.arguments.size == originals.size do
       throwError "a passive creation capture lost its complete native application telescope"
@@ -59,8 +58,9 @@ private partial def retainCreationCapture (kernel : Kernel) (request : PreparedR
       (ApplicationOrigin.ofArguments layout environment.values arguments none).mapError IO.userError
     pure (some origin)
   let graph ← transaction.view
-  let environment ← environment.withSourceMarks #[] (some graph)
-  let mut captures ← markedContextReferences (some graph) context environment.sourceMarks expression
+  let environment ← environment.withGraph (some graph)
+  let mut captures ← boundContextReferences (some graph) context environment.bound expression
+    (← environment.selections.inContext context)
   let positions ← computationalDependencies (context.bindings.map (·.expression)) expression
   for position in positions do
     let some binding := context.bindings[position]?
@@ -69,18 +69,18 @@ private partial def retainCreationCapture (kernel : Kernel) (request : PreparedR
     if let some value := value then captures := captures.push value
   captures := captures ++ arguments.filterMap id
   discard <| IO.ofExcept <| (graph.requiredOwners captures).mapError IO.userError
-  let role ← SourceLayout.ofTerm source
+  let role ← SourceLayout.ofTerm source (selections := request.environment.selections)
   let program ← kernel.ledger.owners.identities.fresh .program
   let occurrence ← kernel.ledger.owners.identities.fresh .occurrence
   let origin ← environment.origin request.program occurrence role
   let origin := { origin with application }
-  kernel.codes.modify (·.insert program (.term source))
+  kernel.codes.modify (·.insert program (.term source environment.selections))
   let value ← transaction.stage origin (.closure program captures)
-  environment.checkDeclaredInput context (← transaction.view) (← kernel.marks.get) expression value
+  environment.checkDeclaredInput context (← transaction.view) expression value
   return value
 
-/-- The supplied universal record must retain this actual cone at its original native
-predecessor slot. The check is independent of the record's portable/owned/callable payload. -/
+
+
 private def requireCreationUniversal (family : PreparedCreationFamily) (graph : ValueGraph)
     (cone universal : ValueBinding) : MetaM Unit := do
   let some node := graph.find universal.value
@@ -103,48 +103,48 @@ private def requireCreationUniversal (family : PreparedCreationFamily) (graph : 
     throwError "the creation universal data belongs to another actual cone occurrence"
   discard <| IO.ofExcept <| (graph.requiredOwners #[cone, universal, preceding]).mapError IO.userError
 
-/-- The explicit target cone must come from the selected original raw construction.
-Every original target parameter position is checked against its own retained supplier. -/
+
+
 private def requireCreationTarget (kernel : Kernel) (request : PreparedRequest)
     (transaction : CellTransaction) (context : OpenContext) (family : PreparedCreationFamily)
     (cone universal : ValueBinding) : MetaM Unit := do
   let graph ← transaction.view
-  let (original, _, selected, _) ←
-    kernel.retainedRawConstructionCone transaction graph context cone
-  let .primitive (.limit target _) universes := original.action
-    | throwError "the creation target lost its original raw-cone request"
-  unless target.entry.id == family.target.entry.id &&
-      universes == family.targetUniverses &&
-      selected.source.row == family.target.entry.id.raw &&
-      selected.source.construction == family.construction do
-    throwError "the creation request changed its original target construction"
-  family.target.requireInterface selected.source
-  let supplied := original.origin.application.map (·.arguments) |>.getD #[]
-  let native := original.application.map (·.arguments) |>.getD #[]
-  let expected := family.inputs.target.arguments
-  unless supplied.size == expected.size && native.size == expected.size do
-    throwError "the creation target changed its complete original parameter table"
-  for argument in expected, position in [:expected.size] do
-    let some actual := supplied[position]?
-      | throwError "the creation target lost an original declaration position"
-    let some source := native[position]?
-      | throwError "the creation target lost its original native argument schema"
-    unless argument.sourceIndex == position && source.sourceIndex == position &&
-        argument.wireIndex.isSome == actual.isSome &&
-        source.wireIndex.isSome == actual.isSome do
-      throwError "the creation target changed an original proof or computational position"
-    if let some actual := actual then
-      request.environment.checkDeclaredInput context graph (← kernel.marks.get)
-        (← argument.source.source.inContext context) actual
-    else
-      unless ← isDefEq (← inferType (← argument.source.source.inContext context))
-          (← inferType (← source.source.source.inContext context)) do
-        throwError "the creation target changed an original formal hypothesis"
-  requireCreationUniversal family graph cone universal
+  kernel.retainedRawConstructionCone transaction graph context request.environment.bound cone
+      fun context _ (original, _, selected, _) => do
+    let .primitive (.limit target _) universes := original.action
+      | throwError "the creation target lost its original raw-cone request"
+    unless target.entry.id == family.target.entry.id &&
+        universes == family.targetUniverses &&
+        selected.source.row == family.target.entry.id.raw &&
+        selected.source.construction == family.construction do
+      throwError "the creation request changed its original target construction"
+    family.target.requireInterface selected.source
+    let supplied := original.origin.application.map (·.arguments) |>.getD #[]
+    let native := original.application.map (·.arguments) |>.getD #[]
+    let expected := family.inputs.target.arguments
+    unless supplied.size == expected.size && native.size == expected.size do
+      throwError "the creation target changed its complete original parameter table"
+    for argument in expected, position in [:expected.size] do
+      let some actual := supplied[position]?
+        | throwError "the creation target lost an original declaration position"
+      let some source := native[position]?
+        | throwError "the creation target lost its original native argument schema"
+      unless argument.sourceIndex == position && source.sourceIndex == position &&
+          argument.wireIndex.isSome == actual.isSome &&
+          source.wireIndex.isSome == actual.isSome do
+        throwError "the creation target changed an original proof or computational position"
+      if let some actual := actual then
+        request.environment.checkDeclaredInput context graph
+          (← argument.source.source.inContext context) actual
+      else
+        unless ← isDefEq (← inferType (← argument.source.source.inContext context))
+            (← inferType (← source.source.source.inContext context)) do
+          throwError "the creation target changed an original formal hypothesis"
+    requireCreationUniversal family graph cone universal
 
-/-- Prepare the root creation operation with unchanged c/t and the exact retained owner.
-Only the source diagram's original declared ports are evaluated here. Fixed native captures
-are retained as source data, including implicit categories, dictionaries and mapped diagrams. -/
+
+
+
 opaque PreparedCreationInvocation.prepare (kernel : Kernel) (evaluateSource : SourceEvaluation)
     (request : PreparedRequest) (transaction : CellTransaction) :
     MetaM PreparedCreationInvocation := do
@@ -157,17 +157,21 @@ opaque PreparedCreationInvocation.prepare (kernel : Kernel) (evaluateSource : So
   withSourceScope request fun context bound => do
     let graph ← transaction.view
     let ownerSource ← family.owner.inContext context
-    let sourceMarks ← IO.ofExcept <|
-      (captureSourceMarks (← kernel.marks.get) family.owner).mapError IO.userError
-    let environment ← request.environment.withSourceMarks sourceMarks (some graph)
+    let environment ← request.environment.withGraph (some graph)
     let some owner ← environment.endpointValue? context graph ownerSource
       | throwError "the creation invocation lost its explicit original source-owner binding"
-    environment.checkDeclaredInput context graph (← kernel.marks.get) ownerSource owner
+    environment.checkDeclaredInput context graph ownerSource owner
     let some node := graph.find owner.value
       | throwError "the creation owner is outside the current value graph"
-    let some selected ← NativeLimitSelection.ofExpr?
-        (← node.origin.role.source.inContext context)
-      | throwError "the creation owner lost its immutable original native selection"
+    let some original ← owner.role.selected? context
+      | throwError "the creation owner lost its complete original selected record"
+    let some selected := original.limit
+      | throwError "the creation owner lost its original native construction"
+    let some (originalFamily, originalTarget) := original.creationOwner
+      | throwError "the creation owner lost its complete original accepted families"
+    unless (SelectedApplicationFamily.creation originalFamily originalTarget).exactlyMatches
+        (.creation family.family family.target) do
+      throwError "the creation owner changed its complete original accepted families"
     let some creation := selected.source.creation
       | throwError "the original source owner has no accepted creation interface"
     unless selected.source.construction == family.construction &&
@@ -178,12 +182,13 @@ opaque PreparedCreationInvocation.prepare (kernel : Kernel) (evaluateSource : So
     let mut diagramValues := #[]
     for argument in family.inputs.diagramPorts, index in [:family.inputs.diagramPorts.size] do
       let source ← argument.source.source.inContext context
-      let value ← evaluateSource transaction request.program context bound source
+      let value ← evaluateSource transaction request.program context bound
+        (← request.environment.selections.inContext context) source
       let graph ← transaction.view
       let actual ← IO.ofExcept <|
-        (RuntimeArgument.ofValue graph index value (← kernel.marks.get)).mapError IO.userError
+        (RuntimeArgument.ofValue graph index value).mapError IO.userError
       let value ← request.environment.checkArgument argument.source.source actual
-      request.environment.checkDeclaredInput context graph (← kernel.marks.get) source value
+      request.environment.checkDeclaredInput context graph source value
       diagramValues := diagramValues.push value
     let mut captures := #[]
     for source in family.captureSources do
@@ -211,7 +216,7 @@ opaque PreparedCreationInvocation.prepare (kernel : Kernel) (evaluateSource : So
     return ⟨request.roles.scope, family, parameters, #[family.input],
       request.scope ++ roots ++ views.flatMap (·.dependencies), views, inputs⟩
 
-/-- Reuse the original sealed inputs and recheck all actual capture owners in the current graph. -/
+
 opaque PreparedCreationInvocation.requireInputs (invocation : PreparedCreationInvocation)
     (request : PreparedRequest) (graph : ValueGraph) : MetaM Unit := do
   request.requirePreparation invocation.preparation
@@ -219,7 +224,7 @@ opaque PreparedCreationInvocation.requireInputs (invocation : PreparedCreationIn
   discard <| IO.ofExcept <| (invocation.inputs.arguments graph).mapError IO.userError
   discard <| IO.ofExcept <| (graph.requiredOwners invocation.dependencies).mapError IO.userError
 
-/-- Encode the whole fixed parameter vector in one scope, preserving every original root path. -/
+
 def PreparedCreationInvocation.encode (invocation : PreparedCreationInvocation)
     (graph : ValueGraph) (receiver : ConnectionGeneration) :
     Except String (EncodedInputs × Array Json) := do

@@ -9,10 +9,10 @@ namespace CasCompiler
 
 open Lean Meta CasCatalogue
 
-/-- Original declaration argument positions for the selected creation's source descriptor.
-Every native/proof slot is retained by ApplicationLayout; only the actual diagram's explicit
-nonproof arguments are diagram ports. These schemas do not demand evaluation of evidence or
-of the accepted standardization. -/
+
+
+
+
 structure CreationInputPlan where
   private mk ::
   evidence : ApplicationLayout
@@ -22,22 +22,25 @@ structure CreationInputPlan where
   diagramTag : String
   diagramPorts : Array ArgumentLayout
 
-/-- The fixed creation request in its original complete source scope. Its two data arguments
-are the actual target Cone and IsLimit record. The source-selected transport and creation stay
-inside requestFamily; no intermediate computed c′ or t′ is represented as a runtime value. -/
+
+
+
 structure PreparedCreationFamily where
   private mk ::
   family : CreationFamily
   target : LimitFamily
   context : ContextTelescope
   owner : ClosedTerm
+  selectionData : NativeLimitSelection ClosedTerm
+  selections : SourceSelectionScope ClosedTerm
+  targetOwner : SelectedLimitOwner ClosedTerm
   interface : LimitCreationInterface ClosedTerm
   universes : List Level
   targetUniverses : List Level
   construction : Name
   inputs : CreationInputPlan
   arguments : Array ClosedTerm
-  sourceOwner : ClosedTerm
+  sourceOwner : SelectedLimitOwner ClosedTerm
   sourceArguments : Array ClosedTerm
   sourcePositions : Array Nat
 
@@ -50,16 +53,17 @@ def PreparedCreationFamily.input (prepared : PreparedCreationFamily) : String :=
 def PreparedCreationFamily.requestFamily (prepared : PreparedCreationFamily) : ClosedTerm :=
   prepared.interface.requestFamily
 
-/-- All original computational capture slots, including implicit data parameters. Proof slots
-remain in the three complete application layouts. Repeated occurrences are never deduplicated. -/
+
+
 def PreparedCreationFamily.captureSources (prepared : PreparedCreationFamily) : Array ClosedTerm :=
   (prepared.inputs.evidence.arguments ++ prepared.inputs.standardization.arguments ++
     prepared.inputs.target.arguments).filterMap fun argument =>
       if argument.wireIndex.isSome then some argument.source.source else none
 
-/-- Prepare the complete original native constant application. Nullary record families use
-the ordinary retained-whole-family path; no synthetic publication marker is introduced. -/
-private def creationInputApplication (context : OpenContext) (application : Expr) :
+
+
+private def creationInputApplication (context : OpenContext)
+    (selections : SourceSelectionScope ClosedTerm) (application : Expr) :
     MetaM (List Level × ApplicationLayout) := do
   let .const declaration levels := application.consumeMData.getAppFn
     | throwError "the creation source input lost its original declaration application"
@@ -68,22 +72,22 @@ private def creationInputApplication (context : OpenContext) (application : Expr
     throwError "the creation source input changed its original universe arguments"
   let head := mkConst declaration levels
   let original ← context.close head
-  let source ← SourceLayout.ofTerm original
+  let source ← SourceLayout.ofTerm original (selections := selections)
   let arguments ← application.getAppArgs.mapM context.close
   let (_, prepared) ← ApplicationLayout.ofSource source context arguments
   return (levels, prepared)
 
-/-- Close an already retained selected construction. Every selected mathematical field is
-checked at its original source position; native result data never chooses this selection. -/
-opaque PreparedCreationFamily.ofSelection (context : OpenContext) (owner : Expr) :
-    MetaM (Option PreparedCreationFamily) := do
-  let some selected ← NativeLimitSelection.ofExpr? owner | return none
+
+
+opaque PreparedCreationFamily.ofSelection (context : OpenContext) (owner : Expr)
+    (selected : NativeLimitSelection) (family : CreationFamily) (target : LimitFamily)
+    (selections : SourceSelectionScope Expr) : MetaM (Option PreparedCreationFamily) := do
   let some creation := selected.source.creation | return none
-  let family ← CreationFamily.forId creation.lift
+  unless creation.lift == family.entry.id && selected.source.row == target.entry.id.raw do
+    throwError "the selected creation changed its complete original accepted families"
   unless creation.declaration == family.entry.evidence && creation.edge == family.entry.edge &&
       !selected.source.colimit && !selected.source.construction.isAnonymous do
     throwError "the selected creation changed its original lift or construction"
-  let target ← LimitFamily.forId ⟨selected.source.row⟩
   target.requireInterface selected.source
   unless creation.diagram.equal selected.source.diagram do
     throwError "the selected creation changed its exact source diagram"
@@ -105,14 +109,15 @@ opaque PreparedCreationFamily.ofSelection (context : OpenContext) (owner : Expr)
   unless (creation.terms.zip expected.terms).all
       (fun (actual, original) => actual.equal original) do
     throwError "the selected creation changed one of its original native interface fields"
-  let presentation ← creation.presentation
+  let presentation ← NativeLimitCreationInterface.presentation creation
   unless presentation.equal selected.source.presentation do
     throwError "the selected creation changed its original source presentation"
-  let (_, evidence) ← creationInputApplication context creation.evidence
-  let (_, diagram) ← creationInputApplication context creation.diagram
-  let (_, standardization) ← creationInputApplication context creation.standardization
+  let closedSelections ← selections.close context
+  let (_, evidence) ← creationInputApplication context closedSelections creation.evidence
+  let (_, diagram) ← creationInputApplication context closedSelections creation.diagram
+  let (_, standardization) ← creationInputApplication context closedSelections creation.standardization
   let (targetUniverses, targetApplication) ←
-    creationInputApplication context selected.source.interface.presentation
+    creationInputApplication context closedSelections selected.source.interface.presentation
   let (diagramTag, ports) ← LimitFamily.diagramPorts creation.diagram
   let diagramPorts := diagram.arguments.filter fun argument =>
     argument.binderInfo.isExplicit && argument.wireIndex.isSome
@@ -122,6 +127,10 @@ opaque PreparedCreationFamily.ofSelection (context : OpenContext) (owner : Expr)
     diagramTag, diagramPorts⟩
   let some sourceOwner := selected.source.creationFamily
     | throwError "the selected creation lost its original source-input owner family"
+  let sourceOwner ← SelectedLimitOwner.ofBinding context selections sourceOwner
+  let some targetOwner := selected.source.ownerFamily
+    | throwError "the selected creation lost its complete target owner template"
+  let targetOwner ← SelectedLimitOwner.ofBinding context selections targetOwner
   let sourcePositions := selected.source.creationInputs
   let mut sourceArguments : Array ClosedTerm := #[]
   let mut previous : Option Nat := none
@@ -135,11 +144,10 @@ opaque PreparedCreationFamily.ofSelection (context : OpenContext) (owner : Expr)
       throwError "the creation source owner changed an original native argument position"
     sourceArguments := sourceArguments.push argument.source.source
     previous := some index
-  lambdaTelescope sourceOwner fun parameters original => do
+  forallTelescope (← inferType sourceOwner.selection.receiver) fun parameters _ => do
     unless parameters.size == sourcePositions.size do
       throwError "the creation source owner lost its full native/proof input telescope"
-    let some formal ← NativeLimitSelection.ofExpr? original
-      | throwError "the creation source owner lost its original formal construction"
+    let formal ← sourceOwner.specialize parameters
     unless formal.source.construction == selected.source.construction &&
         formal.source.row == selected.source.row &&
         formal.source.diagram.consumeMData.getAppFn.equal creation.diagram.consumeMData.getAppFn do
@@ -149,43 +157,62 @@ opaque PreparedCreationFamily.ofSelection (context : OpenContext) (owner : Expr)
         | throwError "the creation source owner lost a formal original argument"
       unless original.equal parameter do
         throwError "the creation source owner changed its declared positional input relation"
-  return some ⟨family, target, context.telescope, ← context.close owner,
-    ← creation.mapM context.close, universes, targetUniverses, selected.source.construction, inputs,
-    #[← context.close creation.targetCone, ← context.close creation.targetUniversal],
-    ← context.close sourceOwner, sourceArguments, sourcePositions⟩
+  return some {
+    family, target, context := context.telescope, owner := ← context.close owner
+    selectionData := ← selected.mapM context.close, selections := closedSelections
+    targetOwner := ← targetOwner.mapM context.close
+    interface := ← creation.mapM context.close, universes, targetUniverses
+    construction := selected.source.construction, inputs
+    arguments := #[← context.close creation.targetCone, ← context.close creation.targetUniversal]
+    sourceOwner := ← sourceOwner.mapM context.close, sourceArguments, sourcePositions }
 
-/-- Rebind the original source inputs once before descriptor production. The complete retained
-source owner determines both D and the mapped target's arguments from these same positions.
-Neither a declaration lookup nor native expression equality discovers an input occurrence. -/
-opaque PreparedCreationFamily.rebindSource (prepared : PreparedCreationFamily)
-    (context : OpenContext) (arguments : Array Expr) : MetaM PreparedCreationFamily := do
-  unless arguments.size == prepared.sourceArguments.size do
-    throwError "the creation source binding changed its complete original argument count"
-  let family ← prepared.sourceOwner.inContext context
-  let owner := family.betaRev arguments.reverse (preserveMData := true)
-  check owner
-  let some original ← NativeLimitSelection.ofExpr? (← prepared.owner.inContext context)
-    | throwError "the creation source binding lost its original selected owner"
-  let some selected ← NativeLimitSelection.ofExpr? owner
-    | throwError "the creation source binding lost its original formal owner application"
-  unless selected.source.construction == prepared.construction &&
-      selected.source.row == original.source.row &&
-      (← isDefEq selected.source.presentation original.source.presentation) do
-    throwError "the creation source binding changed its original selected presentation"
-  let source := { selected.source with
-    creationFamily := some family, creationInputs := prepared.sourcePositions }
-  let owner ← retainLimitConstruction {
-    value := selected.receiver
+
+
+
+opaque PreparedCreationFamily.rebindSource [Monad m] [MonadLiftT MetaM m] [MonadControlT MetaM m]
+    (prepared : PreparedCreationFamily) (identities : CasRuntime.IdentitySupply)
+    (context : OpenContext) (selections : SourceSelectionScope Expr) (arguments : Array Expr)
+    (action : OpenContext → SourceSelectionScope Expr → PreparedCreationFamily → m α) : m α := do
+  let (selected, selections) ← liftM (m := MetaM) do
+    unless arguments.size == prepared.sourceArguments.size do
+      throwError "the creation source binding changed its complete original argument count"
+    let family ← prepared.sourceOwner.mapM (·.inContext context)
+    let selected ← family.specialize arguments
+    let original ← prepared.selectionData.mapM (·.inContext context)
+    unless selected.source.construction == prepared.construction &&
+        selected.source.row == original.source.row do
+      throwError "the creation source binding changed its original selected presentation"
+    context.withOriginalSources #[selected.source.presentation, original.source.presentation] fun source => do
+      unless ← isDefEq source[0]! source[1]! do
+        throwError "the creation source binding changed its complete native presentation"
+    let source := { selected.source with
+      creationFamily := original.source.creationFamily
+      ownerFamily := original.source.ownerFamily
+      creationInputs := prepared.sourcePositions }
+    let selected ← NativeLimitSelection.ofSource source selected.receiver
+    let selections ← SourceSelectionScope.merge selections (← prepared.selections.inContext context)
+    pure (selected, selections)
+  let source : SourceSelection Expr := {
+    value := selected.receiver, reference := some (.limit prepared.target.entry)
+    originalApplication := some selected.source.interface.presentation, limit := some selected
+    creationOwner := some (prepared.family, prepared.target)
     category := some {
-      role := .object, expression := source.category, bundle := source.bundle,
-      limit := some source } }
-  let some rebound ← PreparedCreationFamily.ofSelection context owner.value
-    | throwError "the rebound source lost its complete selected creation"
-  return rebound
+      role := .object
+      expression := selected.source.category
+      bundle := selected.source.bundle
+      limit := some selected.source } }
+  SourceSelectionScope.withBinding identities selections context source
+    fun context selections owner => do
+      let rebound ← liftM (m := MetaM) do
+        let some rebound ← PreparedCreationFamily.ofSelection context owner selected
+            prepared.family prepared.target selections
+          | throwError "the rebound source lost its complete selected creation"
+        pure rebound
+      action context selections rebound
 
-/-- Retain the actual original data inputs supplied at this source boundary. This checks only
-their complete dependent native interfaces. Runtime admission separately checks their exact
-selected occurrences against the original source input map; native conversion is not identity. -/
+
+
+
 opaque PreparedCreationFamily.withArguments (prepared : PreparedCreationFamily)
     (context : OpenContext) (cone universal : Expr) : MetaM PreparedCreationFamily := do
   let original ← prepared.interface.targetCone.inContext context
@@ -202,85 +229,49 @@ opaque PreparedCreationFamily.withArguments (prepared : PreparedCreationFamily)
     throwError "the fixed creation arguments have unresolved native parameters"
   return { prepared with arguments := #[← context.close cone, ← context.close universal] }
 
-/-- Reopen the already captured contextual request. ClosedTerm transports the original complete
-BindingId telescope; callers must not use the empty-context global-family preparation path. -/
+
+
 opaque PreparedCreationFamily.familyIn (prepared : PreparedCreationFamily)
     (context : OpenContext) : MetaM Expr :=
   prepared.requestFamily.inContext context
 
-/-- Reopen the exact retained original owner, without rediscovering an apex or target by type. -/
+
 opaque PreparedCreationFamily.selection (prepared : PreparedCreationFamily)
     (context : OpenContext) : MetaM NativeLimitSelection := do
-  let some selected ← NativeLimitSelection.ofExpr? (← prepared.owner.inContext context)
-    | throwError "the prepared creation lost its original typed selection"
+  let selected ← prepared.selectionData.mapM (·.inContext context)
   unless selected.source.construction == prepared.construction &&
       selected.source.row == prepared.target.entry.id.raw do
     throwError "the prepared creation changed its original construction or target"
   return selected
 
-/-- Mark the fixed request with its original owner and explicit native data inputs.
-Temporary source let-binders remain expressions until the caller closes the complete plan. -/
-opaque PreparedCreationFamily.markArguments (prepared : PreparedCreationFamily)
-    (context : OpenContext) (owner cone universal : Expr) : MetaM Expr := do
-  let some selected ← NativeLimitSelection.ofExpr? owner
-    | throwError "the fixed creation marker lost its original typed owner"
-  unless selected.source.construction == prepared.construction &&
-      selected.source.row == prepared.target.entry.id.raw &&
-      (← isDefEq owner (← prepared.owner.inContext context)) do
-    throwError "the fixed creation marker changed its original selected owner"
-  let result := mkAppN (← prepared.familyIn context) #[cone, universal]
+
+opaque PreparedCreationFamily.selectedArguments (prepared : PreparedCreationFamily)
+    (context : OpenContext) (owner cone universal : Expr) : MetaM (SourceSelection Expr) := do
+  let selected ← prepared.selection context
+  context.withOriginalSources #[owner, ← prepared.owner.inContext context] fun values => do
+    unless ← isDefEq values[0]! values[1]! do
+      throwError "the fixed creation changed its original selected owner"
+  let checked ← prepared.withArguments context cone universal
+  let result := mkAppN (← checked.familyIn context) #[cone, universal]
   check result
   if result.hasMVar || result.hasLevelMVar then
-    throwError "the fixed creation marker has unresolved native inputs"
-  let body ← mkAppM ``Function.const #[← inferType owner, result, owner]
-  let body ← mkAppM ``Function.const #[← inferType universal, body, universal]
-  let body ← mkAppM ``Function.const #[← inferType cone, body, cone]
-  return .mdata (KVMap.empty
-    |>.setName `CasCompiler.source.kind ``CreationFamily
-    |>.setString `CasCompiler.source.id prepared.family.entry.id.raw
-    |>.setName `CasCompiler.source.declaration prepared.family.entry.evidence
-    |>.setBool `CasCompiler.source.creation.fixed true
-    |>.setName `CasCompiler.source.creation.construction prepared.construction
-    |>.setString `CasCompiler.source.creation.target prepared.target.entry.id.raw) body
+    throwError "the fixed creation has unresolved native inputs"
+  return {
+    value := result
+    application := some {
+      family := .creation prepared.family prepared.target
+      universes := prepared.universes
+      parameters := #[]
+      arguments := #[cone, universal]
+      owner := some owner }
+    limit := some selected, creationOwner := some (prepared.family, prepared.target) }
 
-/-- Mark the complete fixed native request, retaining its original typed construction owner.
-The marker names only the accepted lift; the full target comparison stays in that owner. -/
-opaque PreparedCreationFamily.mark (prepared : PreparedCreationFamily)
-    (context : OpenContext) : MetaM Expr := do
+
+opaque PreparedCreationFamily.selected (prepared : PreparedCreationFamily)
+    (context : OpenContext) : MetaM (SourceSelection Expr) := do
   let owner ← prepared.owner.inContext context
   let #[cone, universal] ← prepared.arguments.mapM (·.inContext context)
     | throwError "the fixed creation request lost an original data input"
-  prepared.markArguments context owner cone universal
-
-/-- Decode only the marker emitted for the same original selected construction. All native
-fields are rechecked before exposing the contextual family and its original c/t arguments. -/
-opaque PreparedCreationFamily.fromMark (context : OpenContext) (data : MData) (body : Expr) :
-    MetaM PreparedCreationFamily := do
-  unless data.getName `CasCompiler.source.kind == ``CreationFamily &&
-      data.getBool `CasCompiler.source.creation.fixed &&
-      body.isAppOfArity ``Function.const 4 do
-    throwError "the source is not its original fixed creation request"
-  let cone := body.getAppArgs[3]!
-  let body := body.getAppArgs[2]!
-  unless body.isAppOfArity ``Function.const 4 do
-    throwError "the fixed creation request lost its actual universal input"
-  let universal := body.getAppArgs[3]!
-  let body := body.getAppArgs[2]!
-  unless body.isAppOfArity ``Function.const 4 do
-    throwError "the fixed creation request lost its original typed owner"
-  let owner := body.getAppArgs[3]!
-  let result := body.getAppArgs[2]!
-  let some prepared ← PreparedCreationFamily.ofSelection context owner
-    | throwError "the fixed creation request lost its original typed owner"
-  unless data.getString `CasCompiler.source.id == prepared.family.entry.id.raw &&
-      data.getName `CasCompiler.source.declaration == prepared.family.entry.evidence &&
-      data.getName `CasCompiler.source.creation.construction == prepared.construction &&
-      data.getString `CasCompiler.source.creation.target == prepared.target.entry.id.raw do
-    throwError "the fixed creation marker changed its original selected owner"
-  let prepared ← prepared.withArguments context cone universal
-  let expected := mkAppN (← prepared.familyIn context) #[cone, universal]
-  unless result.equal expected do
-    throwError "the fixed creation marker changed its complete native result"
-  return prepared
+  prepared.selectedArguments context owner cone universal
 
 end CasCompiler

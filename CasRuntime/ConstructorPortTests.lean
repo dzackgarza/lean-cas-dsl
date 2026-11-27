@@ -26,8 +26,8 @@ private def constructorPortSource (text : String) : TermElabM (TSyntax `cas_term
     | throwError "the original public construction did not parse"
   return ⟨parsed⟩
 
--- Actual accepted product and pullback constructors preserve native/proof slot order.
--- Equal endpoint packets at distinct original bindings never identify those endpoints.
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
   try
@@ -173,8 +173,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             for port in plan.ports, value in values do
               if port.argument.wireIndex.isNone && value.isSome then
                 throwError "a formal constructor proof acquired a computational payload"
-            -- The complete original table rejects a different equal-data apex before
-            -- any native result association is created.
+
+
             let wrongValues := values.set! apexIndex (some otherApex)
             let wrongTableRejected ← try
                 discard <| ConstructorPortPrefix.ofValues request (← transaction.view)
@@ -191,8 +191,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             unless missingRejected do
               throwError "constructor transport accepted an incomplete native telescope"
 
-            -- Consume the port through the original outer Cone interface, rather than
-            -- admitting the port only inside the extra formal constructor scope.
+
+
             let admitted ← ConstructorPortPrefix.ofValues request (← transaction.view) plan values
             let before ← transaction.view
             let some originalNode := before.find apex.value
@@ -235,13 +235,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
               (← request.originFor componentField.layout (some draft.view))
               (.closure program (values.filterMap id))
             let transPrefix ← RecordPrefix.prepare owners.identities program request.occurrence
-              transformation draft.view request.environment.sourceMarks
+              transformation draft.view request.environment.bound
             let (draft, transPrefix, _) ← draft.bindField transPrefix component
             let payload ← IO.ofExcept <| transPrefix.finish.mapError IO.userError
             let (draft, transformationValue) ← draft.stage
               (← request.originFor transformationField.layout (some draft.view)) payload
             let conePrefix ← RecordPrefix.prepare owners.identities program request.occurrence
-              coneLayout draft.view request.environment.sourceMarks
+              coneLayout draft.view request.environment.bound
             let (draft, conePrefix, nativeApex) ← draft.bindField conePrefix nativeApex
             let (draft, conePrefix, _) ← draft.bindField conePrefix transformationValue
             let payload ← IO.ofExcept <| conePrefix.finish.mapError IO.userError
@@ -264,24 +264,25 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             let (draft, access) ← projection.associateResult owners.identities projection.source
               draft nativeApex #[] (complete := true)
             discard <| projection.admitResult draft.view access
-            let marks ← IO.mkRef (#[] : Array ValueBinding)
-            let selectedCone ← markValue marks whole.root
-              (← request.source.source.inContext context)
-            let actualSource ← context.close (← mkProjection selectedCone `pt)
-            let actual ← IO.ofExcept <|
-              (RuntimeArgument.ofValue draft.view 0 access (← marks.get)).mapError IO.userError
-            let consumed ← request.environment.checkArgument actualSource actual
-            unless consumed.value == apex.value &&
-                access.associationIds.toList.isPrefixOf consumed.associationIds.toList do
-              throwError "the later native consumer lost the exact projected apex occurrence"
-            let wrongConsumerRejected ← try
-                let wrong ← IO.ofExcept <|
-                  (RuntimeArgument.ofValue draft.view 0 otherApex (← marks.get)).mapError IO.userError
-                discard <| request.environment.checkArgument actualSource wrong
-                pure false
-              catch _ => pure true
-            unless wrongConsumerRejected do
-              throwError "a later cone consumer accepted another equal-data apex"
+            withBindingContext draft.view context request.environment.bound whole.root fun context bound => do
+              let originalCone ← request.source.source.inContext context
+              withBoundValue owners.identities context bound originalCone whole.root fun context bound selectedCone => do
+                let environment ← RuntimeEnvironment.captureBound owners.worker context bound draft.view
+                let actualSource ← context.close (← mkProjection selectedCone `pt)
+                let actual ← IO.ofExcept <|
+                  (RuntimeArgument.ofValue draft.view 0 access).mapError IO.userError
+                let consumed ← environment.checkArgument actualSource actual
+                unless consumed.value == apex.value &&
+                    access.associationIds.toList.isPrefixOf consumed.associationIds.toList do
+                  throwError "the later native consumer lost the exact projected apex occurrence"
+                let wrongConsumerRejected ← try
+                    let wrong ← IO.ofExcept <|
+                      (RuntimeArgument.ofValue draft.view 0 otherApex).mapError IO.userError
+                    discard <| environment.checkArgument actualSource wrong
+                    pure false
+                  catch _ => pure true
+                unless wrongConsumerRejected do
+                  throwError "a later cone consumer accepted another equal-data apex"
             if proofExpected then
               owners.close supplier.generation
               unless ← draft.view.isAvailable owners nativeApex do

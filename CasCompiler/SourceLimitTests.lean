@@ -2,15 +2,18 @@ module
 
 import CasCompiler.Read
 import CasCompiler.Resolve
+import CasCompiler.SourceTestSupport
 import LeanCategories.Catalogue.Semantics.Foundation.Objects
 import LeanCategories.Catalogue.Semantics.Limits.Registration
 public meta import Lean.Elab.Command
 meta import CasCompiler.Read
 meta import CasCompiler.Resolve
+meta import CasCompiler.SourceTestSupport
 meta import LeanCategories.Catalogue.Semantics.Foundation.Objects
 meta import LeanCategories.Catalogue.Semantics.Limits.Registration
 
 open Lean Meta Elab Term CasCompiler CasCatalogue
+open CasCompiler.SourceTest
 
 private def nativeTerm (text : String) : TermElabM Term := do
   let .ok parsed := Parser.runParserCategory (← getEnv) `term text
@@ -35,42 +38,60 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       | throwError "the source limit lost its selected category"
     unless category.expression.syntacticEq (.atom CategoryId.sets) do
       throwError "the source limit changed its complete selected category"
-    object.source.withOpen fun bindings value => do
+    checkSelected object fun value => do
+      let scope ← get
+      let bindings := scope.context.bindings
       let presentation ← mkAppM declaration #[bindings[0]!.expression, bindings[1]!.expression]
       let cone ← mkAppM (if colimit then ``CategoryTheory.Limits.ColimitCocone.cocone
         else ``CategoryTheory.Limits.LimitCone.cone) #[presentation]
       let expected ← mkAppM (if colimit then ``CategoryTheory.Limits.Cocone.pt
         else ``CategoryTheory.Limits.Cone.pt) #[cone]
-      unless value.containsConst (· == declaration) &&
-          value.containsFVar bindings[0]!.expression.fvarId! &&
-          value.containsFVar bindings[1]!.expression.fvarId! && (← isDefEq value expected) do
-        throwError "the source limit replaced its declared presentation or original objects"
-      checkWithKernel (← mkExpectedTypeHint (← mkEqRefl value) (← mkEq value expected))
+      let some retained ← SourceReadM.selection? value
+        | throwError "the source limit lost its exact selected native binder"
+      let some original := retained.originalApplication
+        | throwError "the source limit lost its original positional application"
+      unless original.getAppFn.isConstOf declaration do
+        throwError "the source limit replaced its declared presentation"
+      for input in #[bindings[0]!.expression, bindings[1]!.expression] do
+        unless ← original.getAppArgs.anyM fun actual =>
+            originatesAt scope.context scope.selections actual input false do
+          throwError "the source limit replaced an original input object"
+      checkOriginal #[value, expected] fun native => do
+        unless ← isDefEq native[0]! native[1]! do
+          throwError "the source limit changed its declared apex"
+        checkWithKernel (← mkExpectedTypeHint (← mkEqRefl native[0]!)
+          (← mkEq native[0]! native[1]!))
 
     let selected ← session.defineTerm `K object
     let selected ← selected.defineTerm `KAgain object
-    for (name, index) in #[("K", 2), ("KAgain", 3)] do
+    for name in #[`K, `KAgain] do
       let leg ← selected.read (← sourceTerm s!"{name}.leg(0)")
-      leg.source.withOpen fun bindings value => do
+      checkSelected leg fun value => do
+        let scope ← get
+        let some authored := selected.context.entries.find? (·.userName == name)
+          | throwError "the selected defining leg lost its original authored receiver"
+        let some receiver := scope.context.bindings.find? (·.id == authored.id)
+          | throwError "the selected defining leg lost its original native receiver"
         let type ← inferType value
         let type ← if type.isAppOfArity ``Quiver.Hom 4 then pure type else whnfR type
         unless type.isAppOfArity ``Quiver.Hom 4 do
           throwError "the selected defining leg lost its native endpoints"
-        let apex ← declaredEndpoint type.getAppArgs[if colimit then 3 else 2]!
-        unless apex == bindings[index]!.expression do
+        let apex := type.getAppArgs[if colimit then 3 else 2]!
+        let apex := (selectedEndpoint? scope.context scope.selections apex).getD apex
+        unless ← originatesAt scope.context scope.selections apex receiver.expression false do
           throwError "the defining leg replaced its selected construction occurrence"
 
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let empty ← SourceSession.empty identities
   let rings ← empty.namedCategory Syntax.missing "Rings" [.param `u] #[]
-  let ringType ← empty.elaborate Syntax.missing fun context => do
-    mkAppM ``CategoryTheory.Bundled.α #[← rings.value.source.inContext context]
+  let ringType ← empty.elaborateScoped Syntax.missing do
+    mkAppM ``CategoryTheory.Bundled.α #[← empty.readTerm rings.value]
   let session ← empty.assumeTerm `R ringType
   let ring ← session.term (← nativeTerm "R")
   let modules ← session.namedCategory Syntax.missing "Modules" [.param `u, .param `v] #[ring]
-  let moduleType ← session.elaborate Syntax.missing fun context => do
-    mkAppM ``CategoryTheory.Bundled.α #[← modules.value.source.inContext context]
+  let moduleType ← session.elaborateScoped Syntax.missing do
+    mkAppM ``CategoryTheory.Bundled.α #[← session.readTerm modules.value]
   let session ← session.assumeTerm `M moduleType
   let session ← session.assumeTerm `N moduleType
   let left ← session.term (← nativeTerm "M")
@@ -83,20 +104,39 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   for level in #[`u, `v] do
     unless product.source.universeParams.contains level do
       throwError "the source module product specialized an independent universe"
-  product.source.withOpen fun bindings value => do
+  checkSelected product fun value => do
+    let scope ← get
+    let bindings ← #[`R, `A, `B].mapM fun name => do
+      let some entry := session.context.entries.find? (·.userName == name)
+        | throwError "the source module product lost an original authored input"
+      let some binding := scope.context.bindings.find? (·.id == entry.id)
+        | throwError "the source module product lost an original input binding"
+      return binding
     let presentation ← mkAppM ``CasCatalogue.Limits.Registration.modulesProduct
-      #[bindings[0]!.expression, bindings[3]!.expression, bindings[4]!.expression]
+      #[bindings[0]!.expression, bindings[1]!.expression, bindings[2]!.expression]
     let cone ← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[presentation]
     let expected ← mkAppM ``CategoryTheory.Limits.Cone.pt #[cone]
-    unless value.containsFVar bindings[3]!.expression.fvarId! &&
-        value.containsFVar bindings[4]!.expression.fvarId! && (← isDefEq value expected) do
-      throwError "the source module product changed its selected modules or scalar action"
-    checkWithKernel (← mkExpectedTypeHint (← mkEqRefl value) (← mkEq value expected))
+    let some retained ← SourceReadM.selection? value
+      | throwError "the module product lost its original typed selection"
+    let some application := retained.originalApplication
+      | throwError "the module product lost its complete positional application"
+    for input in bindings do
+      unless ← application.getAppArgs.anyM fun actual =>
+          originatesAt scope.context scope.selections actual input.expression false do
+        throwError "the source module product changed its selected modules or scalar action"
+    checkOriginal #[value, expected] fun native => do
+      checkWithKernel (← mkExpectedTypeHint (← mkEqRefl native[0]!)
+        (← mkEq native[0]! native[1]!))
   let session ← session.defineTerm `P product
   let session ← session.assume `A (← nativeTerm "Type")
   let retained ← session.read (← sourceTerm "P")
-  retained.source.withOpen fun bindings value => do
-    unless value == bindings[5]!.expression do
+  checkSelected retained fun value => do
+    let scope ← get
+    let some original := session.context.entries.find? (·.userName == `P)
+      | throwError "the product lost its authored original binding"
+    let some binding := scope.context.bindings.find? (·.id == original.id)
+      | throwError "the product lost its native original binding"
+    unless value.equal binding.expression do
       throwError "the product was reconstructed after an original name was shadowed"
 
 run_cmd Lean.Elab.Command.liftTermElabM do
@@ -118,10 +158,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     pure true
   unless rejected do throwError "the source product merged independently selected scalar rings"
 
-/- A native cone declaration can accept all supplied maps and still require declaration
-data that those maps do not determine. The helper control below preserves that distinction
-without adding a downstream registry row. The public named pullback remains an independent
-consumer control of the actual registered presentation. -/
+
+
+
+
 open CategoryTheory CategoryTheory.Limits
 
 def nativeTrialUnresolvedPullback {_extra : Type}
@@ -142,20 +182,22 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       limit.declaration == ``CasCatalogue.Limits.Registration.setsPullback &&
       !limit.colimit && limit.category.syntacticEq (.atom CategoryId.sets) do
     throwError "the named pullback changed its complete selected presentation"
-  original.source.withOpen fun bindings apex => do
-    let context ← ContextTelescope.capture bindings
-    let cone ← limit.cone.inContext context
+  checkSelected original fun apex => do
+    let scope ← get
+    let cone ← limit.cone.inContext scope.context
     unless cone.containsConst (· == ``CasCatalogue.Limits.Registration.setsPullback) &&
-        cone.containsFVar bindings[0]!.expression.fvarId! do
+        (← visitNativeData (fun term => originatesAt scope.context scope.selections term
+          scope.context.bindings[0]!.expression false) cone false) > 0 do
       throwError "the named pullback replaced its original source objects or declaration"
     let expected ← mkAppM ``CategoryTheory.Limits.Cone.pt #[cone]
-    unless ← isDefEq apex expected do
-      throwError "the named pullback lost its selected cone's apex"
-    checkWithKernel (← mkExpectedTypeHint (← mkEqRefl apex) (← mkEq apex expected))
+    checkOriginal #[apex, expected] fun native => do
+      unless ← isDefEq native[0]! native[1]! do
+        throwError "the named pullback lost its selected cone's apex"
+      checkWithKernel (← mkExpectedTypeHint (← mkEqRefl native[0]!)
+        (← mkEq native[0]! native[1]!))
   let identity ← session.read (← sourceTerm "id(X)")
-  session.context.withOpen fun bindings => do
-    let context ← ContextTelescope.capture bindings
-    let originalMap ← identity.source.inContext context
+  discard <| session.elaborateScoped Syntax.missing do
+    let originalMap ← session.readTerm identity
     let declaration ← mkConstWithFreshMVarLevels ``nativeTrialUnresolvedPullback
     let arguments := #[originalMap, originalMap]
     let result ← elabSourceApplicationApplicable declaration
@@ -169,6 +211,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     unless actual == arguments && presentation.hasMVar &&
         presentation.getAppFn.isConstOf ``nativeTrialUnresolvedPullback do
       throwError "the native limit helper changed or silently completed the original application"
+    return originalMap
 
 private def limitOwnerTerms (limit : NativeSourceLimitSelection) : Array Expr :=
   #[limit.cone, limit.bundle, limit.presentation, limit.diagram,
@@ -189,8 +232,8 @@ private def ownerNativeTerms (category : NativeSourceCategory) : Array Expr :=
     category.carrier.toArray.flatMap (fun carrier => carrier.actions ++ carrier.comparisons) ++
     category.limit.toArray.flatMap limitOwnerTerms
 
-/-- Freeze the completed reader judgement before encoding, as SourceSession's ordinary
-instantiate-and-close boundary does. Exact comparisons below do not solve metavariables. -/
+
+
 private def freezeLimitOwner (judgement : NativeSourceJudgement) : MetaM NativeSourceJudgement := do
   let resolve := fun value => do
     let value ← instantiateMVars value
@@ -198,24 +241,13 @@ private def freezeLimitOwner (judgement : NativeSourceJudgement) : MetaM NativeS
       throwError "the original owner control has unresolved native parameters"
     return value
   let value ← resolve judgement.value
-  let category ← judgement.category.mapM fun selected => do
-    let bundle ← resolve selected.bundle
-    let carrier ← selected.carrier.mapM fun carrier => do
-      let actions ← carrier.actions.mapM resolve
-      let comparisons ← carrier.comparisons.mapM resolve
-      return { carrier with actions, comparisons }
-    let limit ← selected.limit.mapM fun limit => do
-      let cone ← resolve limit.cone
-      let bundle ← resolve limit.bundle
-      let presentation ← resolve limit.presentation
-      let diagram ← resolve limit.diagram
-      let interface ← limit.interface.mapM resolve
-      let ownerFamily ← limit.ownerFamily.mapM resolve
-      return { limit with cone, bundle, presentation, diagram, interface, ownerFamily }
-    return { selected with bundle, carrier, limit }
+  let category ← judgement.category.mapM fun selected => selected.mapM resolve
   return ⟨value, category⟩
 
 private def checkLimitOwner (expected actual : NativeSourceCategory) : MetaM Unit := do
+  unless ({ value := actual.bundle, category := some actual } : SourceSelection Expr).exactlyMatches
+      Expr.equal { value := expected.bundle, category := some expected } do
+    throwError "the typed owner changed a complete original category or construction field"
   unless actual.role == expected.role &&
       actual.expression.syntacticEq expected.expression && actual.bundle.equal expected.bundle do
     throwError "the typed owner envelope changed the complete selected category"
@@ -241,15 +273,13 @@ private def checkLimitOwner (expected actual : NativeSourceCategory) : MetaM Uni
       throwError "construction retention changed an original carrier selection"
   | _, _ => throwError "construction retention added or discarded a carrier selection"
 
-/- A construction passed as a native object or carrier parameter retains its actual cone,
-category, row and original source bindings. Native closure transport uses the same fields;
-it must not reconstruct a construction from its definitionally equal apex. -/
+
+
+
 private def checkLimitEnvelope (session : SourceSession) (text : String) : TermElabM Unit := do
   let source ← sourceTerm text
-  let #[retained] ← session.elaborateJudgements source fun context => do
-    -- These parameters are authored native types/rings. Their source categories are
-    -- supplied by the same public construction reader as the original positive cases.
-    let original ← withSynthesize <| readExpression (fun _ => pure none) source none
+  let #[retained] ← session.elaborateJudgementsScoped source do
+    let original ← readExpression (fun _ => pure none) source none
     let original ← freezeLimitOwner original
     let some category := original.category
       | throwError "the original construction has no selected category"
@@ -259,18 +289,16 @@ private def checkLimitEnvelope (session : SourceSession) (text : String) : TermE
       throwError "the independent binary limit row lost its declared computational interface"
     let some ownerFamily := limit.ownerFamily
       | throwError "the original construction lost its full formal owner family"
-    lambdaTelescope ownerFamily fun formals owner => do
-      let some formal ← NativeLimitSelection.ofExpr? owner
-        | throwError "the original owner family lost its formal source selection"
+    let scope ← get
+    let owner ← SelectedLimitOwner.ofBinding scope.context scope.selections ownerFamily
+    forallTelescope (← inferType owner.selection.receiver) fun formals _ => do
+      let formal ← owner.specialize formals
       let parameters := formal.source.interface.presentation.getAppArgs
       unless formal.source.construction == limit.construction &&
           formal.source.ownerFamily.isNone && formals.size == parameters.size &&
           (formals.zip parameters).all (fun (formal, actual) => formal.equal actual) do
         throwError "the owner family replaced or merged complete formal M argument positions"
-    let applied := ownerFamily.betaRev
-      limit.interface.presentation.getAppArgs.reverse (preserveMData := true)
-    let some applied ← NativeLimitSelection.ofExpr? applied
-      | throwError "the original owner family lost its actual source application"
+    let applied ← owner.specialize limit.interface.presentation.getAppArgs
     unless applied.source.construction == limit.construction &&
         applied.source.interface.presentation.equal limit.interface.presentation &&
         applied.source.interface.dataConstructor == limit.interface.dataConstructor do
@@ -279,42 +307,53 @@ private def checkLimitEnvelope (session : SourceSession) (text : String) : TermE
     let some (decoded, object) ← sourceObjectOrigin? encoded
       | throwError "the selected construction lost its object annotation"
     checkLimitOwner category decoded
-    unless object.equal original.value do
-      throwError "the owner envelope replaced the original construction occurrence"
-    withLetDecl `sameSpelling (← inferType encoded) encoded fun boundOwner => do
+    let scope ← get
+    unless object.equal encoded &&
+        (← originatesAt scope.context scope.selections object original.value) do
+      throwError "the owner binding replaced the original construction occurrence"
+    discard <| SourceReadM.withLet `sameSpelling (← inferType encoded) encoded fun boundOwner => do
       let some (decoded, object) ← sourceObjectOrigin? boundOwner
-        | throwError "a native alias lost the selected construction's owner"
+        | throwError "an explicitly bound native alias lost the selected construction's owner"
       checkLimitOwner category decoded
-      unless object.equal original.value do
+      let scope ← get
+      unless object.equal boundOwner &&
+          (← originatesAt scope.context scope.selections object original.value) do
         throwError "a native alias reconstructed the selected source object"
+      return boundOwner
     let carrier ← freezeLimitOwner (← sourceCarrier original)
     let encodedType ← annotateSourceType category original.value carrier.value
     let some decoded ← sourceTypeOrigin? encodedType
       | throwError "the construction's carrier lost its original selected owner"
     checkLimitOwner category decoded.category
     unless decoded.object.equal original.value && decoded.type.equal carrier.value do
-      throwError "the typed carrier envelope changed its original object or carrier"
-    let closed ← context.close encodedType
-    let originalObject ← context.close original.value
-    let originalTerms : Array ClosedTerm ← (ownerNativeTerms category).mapM fun value => do
-      return ← context.close value
-    closed.withOpen fun bindings expression => do
+      throwError "the typed carrier changed its original object or carrier"
+    let scope ← get
+    let closed ← scope.context.close encodedType
+    let originalObject ← scope.context.close original.value
+    let originalCategory ← category.mapM scope.context.close
+    let selections ← scope.selections.close scope.context
+    liftM (m := TermElabM) <| closed.withOpen fun bindings expression => do
       let reopened ← ContextTelescope.capture bindings
-      let some decoded ← sourceTypeOrigin? expression
-        | throwError "native context reopening discarded the original selected construction"
-      let some reopenedLimit := decoded.category.limit
-        | throwError "native context reopening discarded the selected cone"
-      unless decoded.object.equal (← originalObject.inContext reopened) &&
-          limitOwnerSyntax limit reopenedLimit &&
-          (ownerNativeTerms decoded.category).size == originalTerms.size do
-        throwError "native context transport substituted another construction occurrence"
-      for actual in ownerNativeTerms decoded.category, original in originalTerms do
-        unless actual.equal (← original.inContext reopened) do
-          throwError "native context transport lost a complete construction or interface field"
+      let selections ← selections.inContext reopened
+      let assertions : SourceReadM Unit := do
+        let some decoded ← sourceTypeOrigin? expression
+          | throwError "native context reopening discarded the original selected construction"
+        let some reopenedLimit := decoded.category.limit
+          | throwError "native context reopening discarded the selected cone"
+        checkLimitOwner (← originalCategory.mapM (fun term => term.inContext reopened))
+          decoded.category
+        unless decoded.object.equal (← originalObject.inContext reopened) &&
+            limitOwnerSyntax limit reopenedLimit do
+          throwError "native context transport substituted another construction occurrence"
+      assertions.runK { identities := scope.identities, context := reopened, selections }
+        fun _ _ => pure ()
     return #[original]
-    | throwError "the construction envelope control changed its statement arity"
-  unless retained.source.context.exactlyMatches session.context do
-    throwError "construction retention shortened its original source scope"
+    | throwError "the construction owner control changed its statement arity"
+  session.withTerm retained fun _ _ _ => pure ()
+  let originalEntries ← authoredEntries session.context session.selections
+  let actualEntries ← authoredEntries retained.source.context retained.selections
+  unless actualEntries.map (·.id) == originalEntries.map (·.id) do
+    throwError "construction retention changed its original authored source scope"
 
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
@@ -328,30 +367,49 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let rings ← empty.assume `R (← nativeTerm "RingCat.{0}")
   withCurrHeartbeats <| checkLimitEnvelope rings "RegularModule(R) × RegularModule(R)"
 
-private def requireMalformedOwner (expression : Expr) (typeEnvelope : Bool)
-    (expectedPrefix : String) : TermElabM Unit := do
-  -- Metadata corruption does not make the native mathematical expression ill-typed.
-  -- The negative must therefore reach the owner decoder's own integrity boundary.
-  checkWithKernel expression
+private def requireMalformedOwner (expression : Expr) (category : NativeSourceCategory)
+    (typeOwner : Bool) : SourceReadM Unit := do
+  let scope ← get
+  let some binding := scope.context.bindings.find? (·.expression.equal expression)
+    | throwError "the malformed owner control lost its exact binding"
+  let some original ← SourceReadM.selection? expression
+    | throwError "the malformed owner control lost its original complete typed record"
+  let (owner, body, changed) ← if typeOwner then do
+      let some origin := original.typeOrigin
+        | throwError "the malformed type owner control lost its complete original fields"
+      pure (origin.object, origin.type, { original with
+        typeOrigin := some { origin with category } })
+    else pure (expression, expression, { original with category := some category })
+  checkWithKernel body
   let failure : Option Exception ← try
-    if typeEnvelope then discard <| sourceTypeOrigin? expression
-    else discard <| sourceObjectOrigin? expression
+    if typeOwner then discard <| annotateSourceType category owner body
+    else discard <| annotateSourceObject category owner
     pure none
   catch error => pure (some error)
   let some failure := failure
-    | throwError "a partial typed owner envelope was accepted"
-  unless (← failure.toMessageData.toString).startsWith expectedPrefix do throw failure
+    | throwError "an inconsistent complete typed owner was accepted at a fresh binder"
+  unless (← failure.toMessageData.toString).startsWith
+      "a source owner changed its original selected construction" do throw failure
+  let failure : Option Exception ← try
+    discard <| SourceSelectionScope.merge scope.selections
+      (({} : SourceSelectionScope Expr).insert binding.id changed)
+    pure none
+  catch error => pure (some error)
+  let some failure := failure
+    | throwError "one original source binding accepted a different complete owner record"
+  unless (← failure.toMessageData.toString).startsWith
+      "one source binding has incompatible retained selections" do throw failure
 
--- A real module-product structural view adds nonempty carrier actions to the original
--- selected limit. The actions are checked against the independent route declarations;
--- the original limit and the carrier comparisons remain separate typed fields.
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let empty ← SourceSession.empty identities
   let session ← empty.assume `R (← nativeTerm "RingCat.{0}")
   let source ← sourceTerm "RegularModule(R) × RegularModule(R)"
-  let #[retained] ← session.elaborateJudgements source fun context => do
-    let original ← withSynthesize <| readExpression (fun _ => pure none) source none
+  let #[retained] ← session.elaborateJudgementsScoped source do
+    let original ← readExpression (fun _ => pure none) source none
     let original ← freezeLimitOwner original
     let some category := original.category
       | throwError "the structural-view control lost its original selected category"
@@ -378,8 +436,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         carrier.comparisons.size == ((category.carrier.map (·.comparisons)).getD #[]).size do
       throwError "the structural view changed its independently selected carrier data"
     for actual in carrier.actions, expected in independent.actions do
-      unless ← withoutModifyingState <| isDefEq actual expected do
-        throwError "the structural view changed an original complete native route action"
+      checkOriginal #[actual, expected] fun native => do
+        unless ← withoutModifyingState <| isDefEq native[0]! native[1]! do
+          throwError "the structural view changed an original complete native route action"
     for actual in carrier.comparisons,
         expected in (category.carrier.map (·.comparisons)).getD #[] do
       unless actual.equal expected do
@@ -393,84 +452,72 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     let some (decoded, _) ← sourceObjectOrigin? encodedObject
       | throwError "the combined carrier/construction owner was not decoded"
     checkLimitOwner combined decoded
-    let originalTerms : Array ClosedTerm ← (ownerNativeTerms combined).mapM fun value => do
-      return ← context.close value
-    let originalObject ← context.close original.value
-    let closed ← context.close viewed.value
-    closed.withOpen fun bindings expression => do
+    let scope ← get
+    let originalCategory ← combined.mapM scope.context.close
+    let originalObject ← scope.context.close original.value
+    let closed ← scope.context.close viewed.value
+    let selections ← scope.selections.close scope.context
+    liftM (m := TermElabM) <| closed.withOpen fun bindings expression => do
       let reopened ← ContextTelescope.capture bindings
-      let some decoded ← sourceTypeOrigin? expression
-        | throwError "reopening lost a combined carrier/construction owner"
-      let some reopenedLimit := decoded.category.limit
-        | throwError "reopening lost the structural view's original limit"
-      let some reopenedCarrier := decoded.category.carrier
-        | throwError "reopening lost the structural view's original carrier"
-      unless limitOwnerSyntax limit reopenedLimit && reopenedCarrier.refs == carrier.refs &&
-          reopenedCarrier.identifications == carrier.identifications &&
-          reopenedCarrier.target.syntacticEq carrier.target &&
-          reopenedCarrier.actions.size == carrier.actions.size &&
-          reopenedCarrier.comparisons.size == carrier.comparisons.size &&
-          (ownerNativeTerms decoded.category).size == originalTerms.size &&
-          decoded.object.equal (← originalObject.inContext reopened) do
-        throwError "reopening changed complete carrier/construction source data"
-      for actual in ownerNativeTerms decoded.category, expected in originalTerms do
-        unless actual.equal (← expected.inContext reopened) do
-          throwError "reopening substituted a carrier, comparison or limit-interface field"
+      let selections ← selections.inContext reopened
+      let assertions : SourceReadM Unit := do
+        let some decoded ← sourceTypeOrigin? expression
+          | throwError "reopening lost a combined carrier/construction owner"
+        let some reopenedLimit := decoded.category.limit
+          | throwError "reopening lost the structural view's original limit"
+        let some reopenedCarrier := decoded.category.carrier
+          | throwError "reopening lost the structural view's original carrier"
+        checkLimitOwner (← originalCategory.mapM (fun term => term.inContext reopened))
+          decoded.category
+        unless limitOwnerSyntax limit reopenedLimit && reopenedCarrier.refs == carrier.refs &&
+            reopenedCarrier.identifications == carrier.identifications &&
+            reopenedCarrier.target.syntacticEq carrier.target &&
+            reopenedCarrier.actions.size == carrier.actions.size &&
+            reopenedCarrier.comparisons.size == carrier.comparisons.size &&
+            decoded.object.equal (← originalObject.inContext reopened) do
+          throwError "reopening changed complete carrier/construction source data"
+      assertions.runK { identities := scope.identities, context := reopened, selections }
+        fun _ _ => pure ()
 
-    let .mdata objectData objectBody := encodedObject
-      | throwError "the combined owner lost its metadata envelope"
-    let partialObject := Expr.mdata
-      (objectData.erase `CasCompiler.source.typeOrigin.limit.declaration) objectBody
-    requireMalformedOwner partialObject false
-      "the native source owner lost part of its selected construction"
-    let .mdata typeData typeBody := viewed.value
-      | throwError "the actual structural view lost its typed owner envelope"
-    let wrongRole := Expr.mdata
-      (typeData.setString `CasCompiler.source.typeOrigin.limit.colimit "false") typeBody
-    requireMalformedOwner wrongRole true
-      "the native source construction has a different cone role"
-    let missingInterface := Expr.mdata
-      (typeData.setBool `CasCompiler.source.typeOrigin.limit.dataConstructor false) typeBody
-    requireMalformedOwner missingInterface true
-      "the native source construction has a different typed field count"
+    requireMalformedOwner encodedObject
+      { combined with limit := some { limit with declaration := .anonymous } } false
+    requireMalformedOwner viewed.value
+      { combined with limit := some { limit with colimit := !limit.colimit } } true
+    requireMalformedOwner viewed.value
+      { combined with limit := some { limit with
+        interface := { limit.interface with dataConstructor := none } } } true
     return #[original]
     | throwError "the structural-view control changed its source statement arity"
-  unless retained.source.context.exactlyMatches session.context do
-    throwError "the structural view shortened the original source scope"
+  session.withTerm retained fun _ _ _ => pure ()
+  let originalEntries ← authoredEntries session.context session.selections
+  let actualEntries ← authoredEntries retained.source.context retained.selections
+  unless actualEntries.map (·.id) == originalEntries.map (·.id) do
+    throwError "the structural view changed the original authored source scope"
 
--- An ordinary selected object has the exact pre-limit envelope: the original descriptor,
--- bundle/object/carrier fields, and original body. No new marker or absent field is emitted.
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
-  let original ← withSynthesize <| readExpression (fun _ => pure none) (← sourceTerm "Fin(3)") none
-  let original ← freezeLimitOwner original
-  let some category := original.category
-    | throwError "the legacy owner control lost its actual selected category"
-  unless category.limit.isNone do
-    throwError "the legacy owner control unexpectedly selected a universal presentation"
-  let encoded ← annotateSourceObject category original.value
-  let .mdata data wrapped := encoded
-    | throwError "the legacy owner lost its original metadata envelope"
-  let descriptor : OwnerDescriptor := ⟨category.expression, category.carrier.map fun carrier =>
-    ⟨carrier.refs, carrier.target, carrier.identifications.size,
-      carrier.actions.size, carrier.comparisons.size⟩⟩
-  unless data.getString `CasCompiler.source.objectOrigin == (toJson descriptor).compress &&
-      data.size == 1 + (category.carrier.map (·.identifications.size)).getD 0 do
-    throwError "an owner without a limit changed its legacy metadata format"
-  let fields := #[category.bundle, original.value] ++
-    category.carrier.toArray.flatMap (fun carrier => carrier.actions ++ carrier.comparisons)
-  let mut body := wrapped
-  for expected in fields do
-    unless body.isAppOfArity ``Function.const 4 && body.getAppArgs[3]!.equal expected do
-      throwError "an owner without a limit changed its legacy typed-field order"
-    body := body.getAppArgs[2]!
-  unless body.equal original.value do
-    throwError "an owner without a limit gained a new payload delimiter"
-  let some (decoded, object) ← sourceObjectOrigin? encoded
-    | throwError "the legacy owner no longer decodes"
-  unless decoded.limit.isNone && decoded.role == category.role &&
-      decoded.expression.syntacticEq category.expression &&
-      object.equal original.value &&
-      (ownerNativeTerms decoded).size == (ownerNativeTerms category).size &&
-      ((ownerNativeTerms decoded).zip (ownerNativeTerms category)).all
-        (fun (left, right) => left.equal right) do
-    throwError "legacy decoding changed the complete original owner"
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  let empty ← SourceSession.empty identities
+  discard <| empty.elaborateScoped Syntax.missing do
+    let original ← readExpression (fun _ => pure none) (← sourceTerm "Fin(3)") none
+    let original ← freezeLimitOwner original
+    let some category := original.category
+      | throwError "the ordinary owner control lost its actual selected category"
+    unless category.limit.isNone do
+      throwError "the ordinary owner control unexpectedly selected a universal presentation"
+    let encoded ← annotateSourceObject category original.value
+    let some selected ← SourceReadM.selection? encoded
+      | throwError "the ordinary owner lost its exact original typed binding"
+    unless encoded.isFVar && selected.value.equal original.value && selected.limit.isNone do
+      throwError "an owner without a limit changed its original native body or gained a limit"
+    let some (decoded, object) ← sourceObjectOrigin? encoded
+      | throwError "the ordinary owner no longer retains its complete category"
+    unless ({ value := category.bundle, category := some category } : SourceSelection Expr).exactlyMatches
+        Expr.equal { value := decoded.bundle, category := some decoded } &&
+        object.equal encoded && decoded.limit.isNone &&
+        (ownerNativeTerms decoded).size == (ownerNativeTerms category).size &&
+        ((ownerNativeTerms decoded).zip (ownerNativeTerms category)).all
+          (fun (left, right) => left.equal right) do
+      throwError "ordinary owner retention changed complete original data"
+    return encoded

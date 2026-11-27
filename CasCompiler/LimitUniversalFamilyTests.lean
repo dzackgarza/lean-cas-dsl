@@ -10,9 +10,9 @@ public meta import Lean.Elab.Command
 
 open Lean Meta Elab Command CasCatalogue CasCompiler
 
--- Every source binder, including original proof positions and rigid universe parameters,
--- survives selecting the universal record from the complete native presentation. The
--- existing nullary terminal presentation must remain a record with an empty input frame.
+
+
+
 run_cmd liftTermElabM do
   let identifiers := #["lim.sets.product", "lim.sets.pullback", "colim.sets.coproduct",
     "lim.sets.diagram", "lim.sets.terminal"]
@@ -104,9 +104,10 @@ run_cmd liftTermElabM do
       if (← PublishedPorts.limitUniversal? (← semanticState) (identifier ++ suffix)).isSome then
         throwError "a limit prefix authorized an undeclared universal address"
 
--- Source formation retains the original construction and every actual parameter position.
--- The default cone is a published whole request; explicit completed-cone marks survive exactly.
+
+
 run_cmd liftTermElabM do
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   for identifier in #["lim.sets.product", "colim.sets.coproduct", "lim.sets.pullback"] do
     let family ← LimitUniversalFamily.forId ⟨identifier⟩
     let levels := family.universeParams.map Level.param
@@ -114,48 +115,87 @@ run_cmd liftTermElabM do
       family.universeParams levels
     forallTelescopeReducing (← inferType declaration) fun parameters _ => do
       let construction ← mkFreshUserName `originalUniversalConstruction
-      let ownerFamily ← family.presentation.prepareOwner levels construction
-      let source ← family.markSelected ownerFamily levels parameters
-      checkWithKernel (← mkLambdaFVars parameters source
-        (usedOnly := false) (usedLetOnly := false))
-      let .mdata metadata body := source
-        | throwError "the universal source lost its exact owner marker"
-      let restored ← LimitUniversalFamily.fromMark metadata
-      let (actualLevels, actual, owner, selected, cone) ← restored.application body
-      unless actualLevels == levels && actual == parameters &&
-          selected.source.construction == construction do
-        throwError "the universal source changed its original selected parameter table"
-      let .mdata coneData coneBody := cone
-        | throwError "the universal source lost its published whole-cone request"
-      let raw ← LimitFamily.fromMark coneData
-      let (_, rawArguments, rawOwner, rawSelected) ← raw.application coneBody
-      unless rawArguments == parameters && rawOwner == owner &&
-          rawSelected.source.construction == construction do
-        throwError "the default universal cone changed its original raw source occurrence"
-      for key in #[41, 42] do
-        let actualCone := Expr.mdata (KVMap.empty.setNat `CasCompiler.lower.value key) cone
-        let marked ← family.markAtOwner owner levels parameters (some actualCone)
-        let .mdata _ body := marked
-          | throwError "the explicit completed cone lost its universal envelope"
-        let (_, _, _, original, retained) ← family.application body
-        unless retained == actualCone && original.source.construction == construction do
-          throwError "the universal envelope replaced an actual completed-cone occurrence"
-      let wrongCone ← try
-          discard <| family.markAtOwner owner levels parameters (some (mkNatLit 1))
-          pure false
-        catch _ => pure true
-      unless wrongCone do throwError "the universal source admitted another native cone interface"
-      let wrongProjection ← try
-          discard <| LimitUniversalFamily.fromMark
-            (metadata.setName `CasCompiler.source.limit.universal family.presentation.coneProjection)
-          pure false
-        catch _ => pure true
-      unless wrongProjection do throwError "the universal source admitted another native projection"
+      let owner ← family.presentation.prepareOwner identities levels construction
+      let bindings ← parameters.mapM fun expression => do
+        let allocated ← liftM (m := BaseIO) <| identities.fresh .sourceBinding
+        return ({ id := ⟨allocated.worker, allocated.serial⟩,
+          role := .parameter, expression } : LocalBinding)
+      let context ← ContextTelescope.capture bindings
+      let initial : SourceReadScope := { identities, context, selections := {} }
+      let read : SourceReadM (SourceSelection Expr) :=
+        family.selectedAtOwner owner levels parameters
+          (fun selected expected => SourceReadM.select selected expected)
+      read.runK initial fun source scope => do
+        checkWithKernel (← mkLambdaFVars parameters source.value
+          (usedOnly := false) (usedLetOnly := false))
+        let some application := source.application
+          | throwError "the universal source lost its complete selected application"
+        let .limitUniversal restored := application.family
+          | throwError "the universal source lost its exact complete native family"
+        let some selected := source.limit
+          | throwError "the universal source lost its original construction"
+        let some originalOwner := application.ownerSelection
+          | throwError "the universal source lost its complete typed owner template"
+        unless (SelectedApplicationFamily.limitUniversal restored).exactlyMatches
+              (.limitUniversal family) &&
+            application.universes == levels && application.parameters == parameters &&
+            selected.source.construction == construction do
+          throwError "the universal source changed its original selected parameter table"
+        let #[cone] := application.arguments
+          | throwError "the universal source lost its single original cone argument"
+        let some rawSource := scope.selections.findAt? scope.context cone
+          | throwError "the universal source lost its published whole-cone request"
+        let some rawApplication := rawSource.application
+          | throwError "the default universal cone lost its complete native parameter table"
+        let .limit raw := rawApplication.family
+          | throwError "the default universal cone changed its original raw family"
+        let some rawOwner := rawApplication.ownerSelection
+          | throwError "the default universal cone lost its typed owner"
+        let some rawSelected := rawSource.limit
+          | throwError "the default universal cone lost its original construction"
+        let sameOwner := SourceSelection.exactlyMatches Expr.equal
+          ({ value := originalOwner.selection.receiver, limit := some originalOwner.selection,
+            formalBindings := originalOwner.formalBindings } : SourceSelection Expr)
+          ({ value := rawOwner.selection.receiver, limit := some rawOwner.selection,
+            formalBindings := rawOwner.formalBindings } : SourceSelection Expr)
+        unless (SelectedApplicationFamily.limit raw).exactlyMatches (.limit family.presentation) &&
+            rawApplication.parameters == parameters && rawApplication.owner == application.owner &&
+            sameOwner && rawSelected.source.construction == construction do
+          throwError "the default universal cone changed its original raw source occurrence"
+        for _ in #[41, 42] do
+          SourceSelectionScope.withBinding identities scope.selections scope.context rawSource
+              fun _ _ actualCone => do
+            let explicit ← family.selectedAtOwner originalOwner levels parameters
+              (fun _ _ => throwError "the explicitly supplied cone cannot be replaced")
+              (some actualCone)
+            let some explicitApplication := explicit.application
+              | throwError "the explicit completed cone lost its universal application"
+            let some original := explicit.limit
+              | throwError "the explicit completed cone lost its original construction"
+            unless explicitApplication.arguments == #[actualCone] &&
+                original.source.construction == construction do
+              throwError "the universal source replaced an actual completed-cone occurrence"
+        let wrongCone ← try
+            discard <| family.selectedAtOwner originalOwner levels parameters
+              (fun _ _ => throwError "the explicitly supplied cone cannot be replaced")
+              (some (mkNatLit 1))
+            pure false
+          catch _ => pure true
+        unless wrongCone do throwError "the universal source admitted another native cone interface"
+        let presentation := mkAppN declaration parameters
+        let wrongValue ← mkAppM family.presentation.coneProjection #[presentation]
+        let expected ← inferType source.value
+        let wrongProjection ← try
+            SourceSelectionScope.withBinding identities scope.selections scope.context
+              { source with value := wrongValue } (fun _ _ _ => pure ())
+              (declaredType := some expected)
+            pure false
+          catch _ => pure true
+        unless wrongProjection do throwError "the universal source admitted another native projection"
 
 
--- The root creation port publishes the complete fixed-context template, including
--- target diagram and accepted comparison. Its two actual data inputs remain the
--- original target cone and universal record, not standardized runtime substitutes.
+
+
 run_cmd liftTermElabM do
   let family ← CreationFamily.forId ⟨"lift.finite_sets.pullbacks"⟩
   let template ← family.standardizedTemplate

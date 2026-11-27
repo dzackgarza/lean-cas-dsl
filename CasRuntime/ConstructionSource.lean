@@ -15,8 +15,8 @@ private def sameConstructionOccurrence (original actual : ValueBinding) : Bool :
   original.value == actual.value &&
     original.associationIds.toList.isPrefixOf actual.associationIds.toList
 
-/-- Only an actual recorded native projection can extend an original argument position.
-No source expression, packet or native endpoint selects another value. -/
+
+
 private partial def constructionParameterPath? (graph : ValueGraph)
     (original actual : ValueBinding) : MetaM (Option (Array Name)) := do
   if original.value == actual.value && original.associationIds == actual.associationIds then
@@ -26,8 +26,8 @@ private partial def constructionParameterPath? (graph : ValueGraph)
   let some earlier ← constructionParameterPath? graph original parent | return none
   return some (earlier ++ path)
 
-/-- Follow this cone's actual native access back to its producing completion. A creation
-owns its lifted source Cone at the declared LiftsToLimit path; its target Cone is distinct. -/
+
+
 private partial def constructionCompletion (transaction : CellTransaction) (graph : ValueGraph)
     (cone current : ValueBinding) (path : Array Name := #[]) :
     MetaM CompletionAssociation := do
@@ -54,19 +54,21 @@ private partial def constructionCompletion (transaction : CellTransaction) (grap
     | throwError "the construction leg lost its original producing completion"
   constructionCompletion transaction graph cone parent (previous ++ path)
 
-/-- A read-only view of the actual completion's original source argument table. The marked
-view used by descriptor admission is separate from this exact original proof view. -/
+
+
 private structure RetainedConstructionSource where
   request : PreparedRequest
   owner : Expr
-  ownerFamily : Expr
+  ownerFamily : SelectedLimitOwner Expr
   parameters : Array Expr
   values : Array (Option ValueBinding)
   selection : NativeLimitSelection
 
 private def retainedConstructionSource (kernel : Kernel) (transaction : CellTransaction)
-    (graph : ValueGraph) (context : OpenContext) (cone : ValueBinding) :
-    MetaM RetainedConstructionSource := do
+    (graph : ValueGraph) (context : OpenContext) (bound : Std.HashMap BindingId ValueBinding)
+    (cone : ValueBinding)
+    (action : OpenContext → Std.HashMap BindingId ValueBinding → RetainedConstructionSource →
+      MetaM α) : MetaM α := do
   unless ← graph.isAvailable kernel.ledger.owners cone do transactionFailure .staleOwner
   let completion ← constructionCompletion transaction graph cone cone
   unless ← graph.isAvailable kernel.ledger.owners completion.response.root do
@@ -84,72 +86,78 @@ private def retainedConstructionSource (kernel : Kernel) (transaction : CellTran
     unless request.action matches .primitive (.creation _) _ do
       throwError "the raw construction leg requires its complete native data ports"
   | _ => throwError "the construction leg lost its complete returned native cone"
-  match request.action with
-  | .primitive (.limit family owner) _ =>
-    let owner ← owner.inContext context
-    let ownerFamily ← family.ownerFamily owner
-    let source := request.application.map (·.arguments.map (·.source.source)) |>.getD #[]
-    let values := request.origin.application.map (·.arguments) |>.getD #[]
-    unless source.size == family.parameterCount && values.size == source.size do
-      throwError "the construction leg lost its complete original parameter table"
-    let parameters ← source.mapM (·.inContext context)
-    let selection ← family.ownerAt owner parameters
-    return { request, owner, ownerFamily, parameters, values, selection }
-  | .primitive (.creation prepared) _ =>
-    let owner ← prepared.owner.inContext context
-    let ownerFamily ← prepared.sourceOwner.inContext context
-    let parameters ← prepared.sourceArguments.mapM (·.inContext context)
-    let selection ← prepared.selection context
-    let mut captured := request.environment.sourceMarks
-    let marks ← kernel.marks.get
-    for source in prepared.sourceArguments do
-      let selected ← IO.ofExcept <| (captureSourceMarks marks source).mapError IO.userError
-      captured ← IO.ofExcept <| (mergeSourceMarks captured selected).mapError IO.userError
-    let environment ← request.environment.withSourceMarks captured (some graph)
-    let mut values : Array (Option ValueBinding) := #[]
-    for parameter in parameters do
-      let selected ← if ← isProof parameter then pure none
-        else environment.endpointValue? context graph parameter
-      if let some value := selected then
-        environment.checkDeclaredInput context graph marks parameter value
-      values := values.push selected
-    return { request, owner, ownerFamily, parameters, values, selection }
-  | _ => throwError "the construction leg has no original raw or created source preparation"
+  request.environment.withContext context bound fun context bound => do
+    match request.action with
+    | .primitive (.limit family owner) _ =>
+      let ownerFamily ← owner.mapM (·.inContext context)
+      let owner ← family.ownerFamily ownerFamily
+      let source := request.application.map (·.arguments.map (·.source.source)) |>.getD #[]
+      let values := request.origin.application.map (·.arguments) |>.getD #[]
+      unless source.size == family.parameterCount && values.size == source.size do
+        throwError "the construction leg lost its complete original parameter table"
+      let parameters ← source.mapM (·.inContext context)
+      let selection ← family.ownerAt ownerFamily parameters
+      return ← action context bound { request, owner, ownerFamily, parameters, values, selection }
+    | .primitive (.creation prepared) _ =>
+      let owner ← prepared.owner.inContext context
+      let ownerFamily ← prepared.sourceOwner.mapM (·.inContext context)
+      let parameters ← prepared.sourceArguments.mapM (·.inContext context)
+      let selection ← prepared.selection context
+      let environment ← request.environment.withGraph (some graph)
+      let mut values : Array (Option ValueBinding) := #[]
+      for parameter in parameters do
+        let selected ← if ← isProof parameter then pure none
+          else environment.endpointValue? context graph parameter
+        if let some value := selected then
+          environment.checkDeclaredInput context graph parameter value
+        values := values.push selected
+      return ← action context bound { request, owner, ownerFamily, parameters, values, selection }
+    | _ => throwError "the construction leg has no original raw or created source preparation"
 
-/-- The exact whole raw-construction input shared by creation preparation and descriptor
-admission. The original request retains every native argument position; this read does not
-promote a created source Cone, another equal record, or an apex to a raw target completion. -/
+
+
+
 opaque Kernel.retainedRawConstructionCone (kernel : Kernel) (transaction : CellTransaction)
-    (graph : ValueGraph) (context : OpenContext) (cone : ValueBinding) :
-    MetaM (PreparedRequest × Expr × NativeLimitSelection × Expr) := do
-  let original ← retainedConstructionSource kernel transaction graph context cone
-  unless original.request.action matches .primitive (.limit ..) _ do
-    throwError "the creation target is not its original complete raw construction"
-  let coneSource ← markValue kernel.marks cone (← cone.role.source.inContext context)
-  return (original.request, original.owner, original.selection, coneSource)
+    (graph : ValueGraph) (context : OpenContext) (bound : Std.HashMap BindingId ValueBinding)
+    (cone : ValueBinding)
+    (action : OpenContext → Std.HashMap BindingId ValueBinding →
+      (PreparedRequest × Expr × NativeLimitSelection × Expr) → MetaM α) : MetaM α := do
+  retainedConstructionSource kernel transaction graph context bound cone fun context bound original => do
+    unless original.request.action matches .primitive (.limit ..) _ do
+      throwError "the creation target is not its original complete raw construction"
+    withBindingContext graph context bound cone fun context bound => do
+      withBoundValue kernel.ledger.owners.identities context bound
+          (← cone.role.source.inContext context) cone fun context bound coneSource =>
+        action context bound (original.request, original.owner, original.selection, coneSource)
 
-/-- Resolve only an explicit complete-cone reference to its original producing completion,
-selected owner and already admitted source. The common compiler entrance owns diagram/index
-reading and native leg formation. No equal packet, apex, endpoint or expression selects a
-completion, and this adapter emits no mathematical application. -/
+
+
+
+
 opaque Kernel.retainedConstructionCone (kernel : Kernel) (transaction : CellTransaction)
-    (graph : ValueGraph) (context : OpenContext)
-    (retained : Json → MetaM (Option ValueBinding)) (packet : Json) :
-    MetaM (Option (Expr × NativeLimitSelection × Expr)) := do
-  let some cone ← retained packet | return none
-  let original ← retainedConstructionSource kernel transaction graph context cone
-  let selected ← match original.request.action with
-    | .primitive (.limit family _) _ => do
-      let (parameters, _) ← original.request.markedArguments kernel.marks context family.parameterCount
-      family.ownerAt original.owner parameters
-    | .primitive (.creation _) _ => pure original.selection
+    (graph : ValueGraph) (context : OpenContext) (bound : Std.HashMap BindingId ValueBinding)
+    (retained : Json → MetaM (Option ValueBinding)) (packet : Json)
+    (action : OpenContext → Std.HashMap BindingId ValueBinding →
+      Option (Expr × NativeLimitSelection × Expr) → MetaM α) : MetaM α := do
+  let some cone ← retained packet | return ← action context bound none
+  retainedConstructionSource kernel transaction graph context bound cone fun context bound original => do
+    let finish (context : OpenContext) (bound : Std.HashMap BindingId ValueBinding)
+        (selected : NativeLimitSelection) : MetaM α :=
+      withBindingContext graph context bound cone fun context bound => do
+        withBoundValue kernel.ledger.owners.identities context bound
+            (← cone.role.source.inContext context) cone fun context bound coneSource =>
+          action context bound (some (original.owner, selected, coneSource))
+    match original.request.action with
+    | .primitive (.limit family _) _ =>
+      original.request.withArguments kernel.ledger.owners.identities context bound family.parameterCount
+        fun context bound parameters _ => do
+          finish context bound (← family.ownerAt original.ownerFamily parameters)
+    | .primitive (.creation _) _ => finish context bound original.selection
     | _ => throwError "the construction leg changed its original source preparation"
-  let coneSource ← markValue kernel.marks cone (← cone.role.source.inContext context)
-  return some (original.owner, selected, coneSource)
 
-/-- Abstract an index occurrence only when its explicit retained reference selects an
-original parameter and the original source syntax verifies that exact positional substitution.
-Unrelated locals and marks stay unchanged; no matcher or function body is evaluated. -/
+
+
+
 private partial def abstractConstructionIndex (environment : RuntimeEnvironment)
     (context : OpenContext) (graph : ValueGraph) (original : RetainedConstructionSource)
     (formals : Array Expr) (expression : Expr) : MetaM Expr := do
@@ -166,8 +174,8 @@ private partial def abstractConstructionIndex (environment : RuntimeEnvironment)
       let some formal := formals[position]?
         | throwError "the construction index lost an original formal position"
       return formal
-    -- Repeated identical source slots supply no unique positional substitution. Keep the
-    -- actual original index occurrence in scope; the native checker must validate it there.
+
+
     unless positions.isEmpty do return expression
   let recur := abstractConstructionIndex environment context graph original formals
   match expression with
@@ -180,9 +188,9 @@ private partial def abstractConstructionIndex (environment : RuntimeEnvironment)
   | .proj owner index body => return .proj owner index (← recur body)
   | expression => return expression
 
-/-- Validate an explicitly supplied original endpoint against this exact construction leg.
-Every matching declaration position comes from the original actual binding table. The native
-checker only validates those positions in the rigid owner telescope; it chooses no value. -/
+
+
+
 opaque Kernel.checkConstructionEndpoint (kernel : Kernel) (transaction : CellTransaction)
     (graph : ValueGraph) (context : OpenContext) (environment : RuntimeEnvironment)
     (leg : NativeConstructionLeg) (target : Bool) (candidate : Expr) : MetaM Bool := do
@@ -190,42 +198,47 @@ opaque Kernel.checkConstructionEndpoint (kernel : Kernel) (transaction : CellTra
   let some supplied ← environment.endpointValue? context graph candidate | return false
   let some cone ← environment.endpointValue? context graph leg.cone
     | throwError "the construction endpoint lost its exact retained native cone"
-  let original ← retainedConstructionSource kernel transaction graph context cone
-  unless leg.owner.equal original.owner &&
-      leg.selection.source.construction == original.selection.source.construction &&
-      leg.selection.source.row == original.selection.source.row &&
-      leg.selection.source.declaration == original.selection.source.declaration &&
-      leg.selection.source.colimit == original.selection.source.colimit do
-    throwError "the construction endpoint changed its original complete source owner"
-  let mut positions : Array (Nat × Array Name) := #[]
-  for value in original.values, index in [:original.values.size] do
-    let some value := value | continue
-    if let some path ← constructionParameterPath? graph value supplied then
-      positions := positions.push (index, path)
-  let some (position, path) := positions[0]? | return false
-  let indexFamily ← withConstructionParameters original.ownerFamily
-      original.selection.source.construction original.parameters.size fun formals _ => do
-    let index ← abstractConstructionIndex environment context graph original formals leg.index
-    mkLambdaFVars formals index (usedOnly := false) (usedLetOnly := false)
-  checkConstructionLegEndpointAt original.ownerFamily original.selection original.parameters
-    indexFamily leg.index target position path (positions.extract 1 positions.size)
-  return true
+  retainedConstructionSource kernel transaction graph context environment.bound cone
+      fun context _ original => do
+    unless leg.owner.equal original.owner &&
+        leg.selection.source.construction == original.selection.source.construction &&
+        leg.selection.source.row == original.selection.source.row &&
+        leg.selection.source.declaration == original.selection.source.declaration &&
+        leg.selection.source.colimit == original.selection.source.colimit do
+      throwError "the construction endpoint changed its original complete source owner"
+    let mut positions : Array (Nat × Array Name) := #[]
+    for value in original.values, index in [:original.values.size] do
+      let some value := value | continue
+      if let some path ← constructionParameterPath? graph value supplied then
+        positions := positions.push (index, path)
+    let some (position, path) := positions[0]? | return false
+    let indexFamily ← withConstructionParameters original.ownerFamily
+        original.selection.source.construction original.parameters.size fun formals _ => do
+      let index ← abstractConstructionIndex environment context graph original formals leg.index
+      mkLambdaFVars formals index (usedOnly := false) (usedLetOnly := false)
+    checkConstructionLegEndpointAt original.ownerFamily original.selection original.parameters
+      indexFamily leg.index target position path (positions.extract 1 positions.size)
+    return true
 
-/-- Read the creation selection only from an explicit retained value's immutable original
-source role. The actual binding is marked separately; payloads and equal native types do not
-supply or replace a construction owner. -/
+
+
+
 opaque Kernel.retainedCreationOwner (kernel : Kernel) (graph : ValueGraph)
-    (context : OpenContext) (retained : Json → MetaM (Option ValueBinding)) (packet : Json) :
-    MetaM (Option (NativeLimitSelection × Expr)) := do
-  let some value ← retained packet | return none
+    (context : OpenContext) (bound : Std.HashMap BindingId ValueBinding)
+    (retained : Json → MetaM (Option ValueBinding)) (packet : Json)
+    (action : OpenContext → Std.HashMap BindingId ValueBinding →
+      Option (NativeLimitSelection × Expr) → MetaM α) : MetaM α := do
+  let some value ← retained packet | return ← action context bound none
   unless ← graph.isAvailable kernel.ledger.owners value do
     transactionFailure .staleOwner
   let some node := graph.find value.value
     | throwError "the creation request lost its original visible owner"
-  let source ← node.origin.role.source.inContext context
-  let some selected ← NativeLimitSelection.ofExpr? source | return none
-  unless selected.source.creation.isSome do return none
-  let owner ← markValue kernel.marks value source
-  return some (selected, owner)
+  withBindingContext graph context bound value fun context bound => do
+    let source ← value.selectedSource context
+    let some original ← value.role.selected? context | return ← action context bound none
+    let some selected := original.limit | return ← action context bound none
+    unless selected.source.creation.isSome do return ← action context bound none
+    withBoundValue kernel.ledger.owners.identities context bound source value fun context bound owner =>
+      action context bound (some (selected, owner))
 
 end CasRuntime

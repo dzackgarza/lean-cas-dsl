@@ -9,9 +9,9 @@ namespace CasRuntime
 
 open Lean Meta CasCompiler CasCatalogue CasCatalogue.Backend
 
-/-- Retain the actual completed cone at the original preceding field of its presentation.
-The delayed universal family carries only provider code and original values; it does not
-evaluate the mathematical IsLimit/IsColimit declaration. -/
+
+
+
 opaque Kernel.stageUniversal (kernel : Kernel) (request : PreparedRequest)
     (transaction : CellTransaction) (program : RuntimeId .program)
     (captures : Array ValueBinding) : MetaM ValueBinding := do
@@ -26,17 +26,17 @@ opaque Kernel.stageUniversal (kernel : Kernel) (request : PreparedRequest)
   let original := completion.request
   let .primitive (.limit presentation originalOwner) originalUniverses := original.action
     | throwError "the universal family requires an original raw-cone completion"
-  unless presentation.entry.id == family.presentation.entry.id &&
+  unless (SelectedApplicationFamily.limit presentation).exactlyMatches (.limit family.presentation) &&
       originalUniverses == universes do
     throwError "the universal family changed its original presentation or universes"
   let selectedConstruction ← withSourceScope request fun context _ => do
     let parameters := request.application.map (·.arguments.map (·.source.source)) |>.getD #[]
-    let selected ← family.presentation.ownerAt (← owner.inContext context)
+    let selected ← family.presentation.ownerAt (← owner.mapM (·.inContext context))
       (← parameters.mapM (·.inContext context))
     pure selected.source.construction
   let originalConstruction ← withSourceScope original fun context _ => do
     let parameters := original.application.map (·.arguments.map (·.source.source)) |>.getD #[]
-    let selected ← presentation.ownerAt (← originalOwner.inContext context)
+    let selected ← presentation.ownerAt (← originalOwner.mapM (·.inContext context))
       (← parameters.mapM (·.inContext context))
     pure selected.source.construction
   unless selectedConstruction == originalConstruction do
@@ -71,21 +71,21 @@ opaque Kernel.stageUniversal (kernel : Kernel) (request : PreparedRequest)
     throwError "the original presentation changed its cone/universal field order"
   let draft ← transaction.draft
   let nativePrefixState ← RecordPrefix.prepare kernel.ledger.owners.identities request.program
-    request.occurrence parent draft.view request.environment.sourceMarks
+    request.occurrence parent draft.view request.environment.bound
   let (draft, nativePrefixState, _) ← liftM (m := IO) <| draft.bindField nativePrefixState cone
   let nativePrefix ← nativePrefixState.currentField
   let origin ← nativePrefix.attachOrigin
     (← request.originFor request.source (some draft.view)) draft.view
   let (draft, value) ← liftM (m := IO) <| draft.stage origin (.closure program captures)
-  -- This is an isolated staged producer. Ordinary kernel completion authenticates
-  -- the same prefix before association and admits the complete returned interface.
+
+
   match ← transaction.installDraft draft with
   | .ok () => return value
   | .error failure => transactionFailure failure
 
-/-- Supply exact earlier fields from the immutable original universal producer. The
-source action names native slots; neither source equality nor a later consuming association
-can choose their values. -/
+
+
+
 opaque Kernel.universalPredecessors (kernel : Kernel) (family : PreparedRequest)
     (transaction : CellTransaction) (inputs : Array RecordActionInput) :
     MetaM (Array (Nat × ValueBinding)) := do
