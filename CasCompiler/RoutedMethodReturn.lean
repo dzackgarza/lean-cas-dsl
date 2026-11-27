@@ -1,5 +1,7 @@
 module
 
+public import CasCompiler.SelectionData
+
 public import CasCompiler.SourceCarrier
 public import CasCompiler.FamilyConversion
 public import CasCompiler.LiftFamily
@@ -12,20 +14,9 @@ namespace CasCompiler
 
 open Lean Meta CasCatalogue
 
-/-- Actual return data for a whole inherited method. The declarations and their
-complete native applications are fixed before any receiver is supplied. -/
-structure RoutedMethodReturn where
-  route : Route
-  rows : Array LiftEntry
-  actions : Array Expr
-  agreement : Option Expr
-  evidences : Array Expr
-  category : CategoryExpr
-  categoryFamily : Expr
-  resultFamily : Expr
 
-/-- All independent lifts at the exact positions of the return route.
-Missing rows have a distinct result from a malformed registered lift. -/
+
+
 def methodReturnRows? (state : SemanticState) (route : Route) :
     Option (Array (Array LiftEntry)) := Id.run do
   let mut alternatives : Array (Array LiftEntry) := #[#[]]
@@ -41,9 +32,9 @@ def methodReturnRows (state : SemanticState) (route : Route) :
     | throwUnsupportedSource "source method lifting requires its actual selected return data"
   return rows
 
-/-- Compare complete rigid transport families, not their values at a receiver.
-The comparison uses the existing whole-family equality judgment. In particular,
-an isomorphism of functors by itself is not accepted as an equality. -/
+
+
+
 def methodReturnRouteAgreement? (state : SemanticState) (forward returning : Route)
     (actual : Expr) : MetaM (Option Expr) := do
   unless forward.source.syntacticEq returning.source &&
@@ -57,8 +48,8 @@ def methodReturnRouteAgreement? (state : SemanticState) (forward returning : Rou
         (usedOnly := false) (usedLetOnly := false)
   let some proof ← sourceFamilyConversion functions[0]! functions[1]! #[]
     | return none
-  -- Specialize an already checked equality, retaining all actual category
-  -- parameters. No comparison of computed receiver images occurs here.
+
+
   let levels : CollectLevelParams.State := {}
   let universes := (levels.collect family).params.toList
   let fresh ← universes.mapM fun _ => mkFreshLevelMVar
@@ -74,8 +65,8 @@ def methodReturnRouteAgreement? (state : SemanticState) (forward returning : Rou
     proof ← mkAppM ``congrFun #[proof, ← instantiateMVars argument]
   return some (← instantiateMVars proof)
 
-/-- Keep a comparison as inert checked native evidence in the returned source.
-This does not replace the independently selected forward or return actions. -/
+
+
 def retainMethodReturnAgreement (agreement : Option Expr) (result : Expr) : MetaM Expr := do
   let some proof := agreement | return result
   check proof
@@ -83,8 +74,8 @@ def retainMethodReturnAgreement (agreement : Option Expr) (result : Expr) : Meta
     fun binding => mkLetFVars #[binding] result
       (usedLetOnly := false) (generalizeNondepLet := false)
 
-/-- Read the actual selected MonoLift at the whole native mapArrow action.
-The complete source and target dictionaries participate in this check. -/
+
+
 def methodReturnEvidence (state : SemanticState) (row : LiftEntry)
     (edge : EdgeRef) (action : Expr) : MetaM Expr := do
   let #[registered] := state.lifts.filter (·.id == row.id)
@@ -115,8 +106,8 @@ def methodReturnEvidence (state : SemanticState) (row : LiftEntry)
   discard <| LiftFamily.atEvidence row .computation evidence
   return evidence
 
-/-- Recover the complete selected base of the original arrow category; the
-returned category is the registered subobjects constructor at that same base. -/
+
+
 def methodReturnCategory (state : SemanticState) (source : CategoryExpr)
     (selected : Expr) : MetaM (CategoryExpr × Expr) := do
   let .construct id #[.category base] := source
@@ -142,65 +133,74 @@ def methodReturnCategory (state : SemanticState) (source : CategoryExpr)
   return (.construct subobjects.id #[.category base],
     ← applyConstructorInterface subobjects.semantics #[bundle] #[bundle])
 
-/-- Use the published callable fields and the upstream monicity law. This
-forms a native subobject record; it neither computes nor decodes a lift. -/
-private def methodReturnSubobject (row : LiftEntry) (evidence receiver value : Expr) :
-    MetaM Expr := do
-  let object ← mkProjection receiver `left
-  let arrow ← mkProjection value `obj
-  let domain ← mkProjection arrow `left
-  let inclusion ← mkProjection arrow `hom
-  let monicity ← mkProjection value `property
-  let evidenceType ← whnfR (← inferType evidence)
-  unless evidenceType.isAppOfArity ``MonoLift 5 do
-    throwError "the method return lost its actual selected MonoLift"
-  let computation ← LiftFamily.atEvidence row .computation evidence
-  -- Each actual source application owns a fresh field-selection identity.
-  let selection ← mkFreshUserName `methodReturn
-  let computation ← selectRecordActions selection computation
-  let function ← mkAppM ``MonoLiftComputation.hom #[computation]
-  let hom := selectedField selection ``MonoLiftComputation.hom
-    (mkAppN function #[object, domain, inclusion, monicity])
-  check hom
-  let arguments := evidenceType.getAppArgs.map some ++
-    #[some evidence, some object, some domain, some inclusion, some monicity]
-  let mono ← mkAppOptM ``MonoLift.computation_hom_mono arguments
-  let mono ← mkExpectedTypeHint mono (← mkAppM ``CategoryTheory.Mono #[hom])
-  check mono
-  let arrow ← mkAppM ``CategoryTheory.Arrow.mk #[hom]
-  let (source, _) ← functorCategoryBundles evidenceType.getAppArgs[4]!
-  let bundle ← applyConstructorInterface ``Constructors.subobjects #[source] #[source]
-  let expected ← mkAppM ``CategoryTheory.Bundled.α #[bundle]
-  let constructor ← mkConstWithFreshMVarLevels
-    ``CategoryTheory.ObjectProperty.FullSubcategory.mk
-  let (fields, _, resultType) ← forallMetaTelescopeReducing (← inferType constructor)
-  unless fields.size >= 2 && (← isDefEq resultType expected) do
-    throwError "the returning subobject changed its complete native constructor"
-  unless ← isDefEq fields[fields.size - 2]! arrow do
-    throwError "the returning subobject changed its actual defining arrow"
-  unless ← isDefEq fields.back! mono do
-    throwError "the returning subobject changed its actual defining-map monicity"
-  let result ← instantiateMVars (mkAppN constructor fields)
-  if result.hasMVar then
-    throwError "the returning subobject has undetermined selected data"
-  check result
-  return result
 
-/-- Return in reverse route order using the original receiver at each position.
-The forward native actions, lift evidence and base subobject remain unchanged. -/
-def applyMethodReturns (rows : Array LiftEntry) (evidences actions : Array Expr)
-    (receiver value : Expr) : MetaM Expr := do
-  unless rows.size == evidences.size && rows.size == actions.size do
-    throwError "the method return lost an original route position"
+private def methodReturnSubobject [Monad m] [MonadLiftT MetaM m]
+    (row : LiftEntry) (evidence receiver value : Expr)
+    (select : SourceSelection Expr → Option Expr → m Expr) : m Expr := do
+  let (object, domain, inclusion, monicity, evidenceType, computation, selection) ←
+      liftM (m := MetaM) do
+    let object ← mkProjection receiver `left
+    let arrow ← mkProjection value `obj
+    let domain ← mkProjection arrow `left
+    let inclusion ← mkProjection arrow `hom
+    let monicity ← mkProjection value `property
+    let evidenceType ← whnfR (← inferType evidence)
+    unless evidenceType.isAppOfArity ``MonoLift 5 do
+      throwError "the method return lost its actual selected MonoLift"
+    return (object, domain, inclusion, monicity, evidenceType,
+      ← LiftFamily.atEvidence row .computation evidence,
+      ← mkFreshUserName `methodReturn)
+  let computation ← selectRecordActions selection computation select
+  let homSource ← liftM (m := MetaM) do
+    let function ← mkAppM ``MonoLiftComputation.hom #[computation]
+    selectedFieldAt selection ``MonoLiftComputation.hom computation
+      (mkAppN function #[object, domain, inclusion, monicity])
+  let hom ← select homSource none
+  let (proof, expected) ← liftM (m := MetaM) do
+    let arguments := evidenceType.getAppArgs.map some ++
+      #[some evidence, some object, some domain, some inclusion, some monicity]
+    return (← mkAppOptM ``MonoLift.computation_hom_mono arguments,
+      ← mkAppM ``CategoryTheory.Mono #[hom])
+  let mono ← select { value := proof } (some expected)
+  liftM (m := MetaM) do
+    check hom
+    check mono
+    let arrow ← mkAppM ``CategoryTheory.Arrow.mk #[hom]
+    let (source, _) ← functorCategoryBundles evidenceType.getAppArgs[4]!
+    let bundle ← applyConstructorInterface ``Constructors.subobjects #[source] #[source]
+    let expected ← mkAppM ``CategoryTheory.Bundled.α #[bundle]
+    let constructor ← mkConstWithFreshMVarLevels
+      ``CategoryTheory.ObjectProperty.FullSubcategory.mk
+    let (fields, _, resultType) ← forallMetaTelescopeReducing (← inferType constructor)
+    unless fields.size >= 2 && (← isDefEq resultType expected) do
+      throwError "the returning subobject changed its complete native constructor"
+    unless ← isDefEq fields[fields.size - 2]! arrow do
+      throwError "the returning subobject changed its actual defining arrow"
+    unless ← isDefEq fields.back! mono do
+      throwError "the returning subobject changed its actual defining-map monicity"
+    let result ← instantiateMVars (mkAppN constructor fields)
+    if result.hasMVar then
+      throwError "the returning subobject has undetermined selected data"
+    check result
+    return result
+
+
+
+def applyMethodReturns [Monad m] [MonadLiftT MetaM m]
+    (rows : Array LiftEntry) (evidences actions : Array Expr) (receiver value : Expr)
+    (select : SourceSelection Expr → Option Expr → m Expr)
+    (mapAction : Nat → EdgeRef → Expr → Expr → m Expr) : m Expr := do
+  liftM (m := MetaM) do
+    unless rows.size == evidences.size && rows.size == actions.size do
+      throwError "the method return lost an original route position"
   let mut receivers := #[]
   let mut current := receiver
-  for action in actions do
+  for row in rows, action in actions, index in [:rows.size] do
     receivers := receivers.push current
-    let (_, target) ← functorCategoryBundles action
-    current ← functorObject action current target
+    current ← mapAction index row.edge action current
   let mut result := value
   for (row, evidence, original) in (rows.zip (evidences.zip receivers)).reverse do
-    result ← methodReturnSubobject row evidence original result
+    result ← methodReturnSubobject row evidence original result select
   return result
 
 end CasCompiler

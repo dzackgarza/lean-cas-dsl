@@ -22,9 +22,9 @@ private def mustReject (action : MetaM Unit) (detail : String) : MetaM Unit := d
       pure true
   unless rejected do throwError "the returning-method negative control was admitted"
 
-/- The original formed-module kernel supplies independent mathematical return
-data at arbitrary complete R/W parameters. Check its own published formedKernel,
-not a reconstructed expected value from the new reader. -/
+
+
+
 run_cmd liftTermElabM do
   let state ← semanticState
   let #[method] := state.methods.filter (·.id.raw == "meth.kernel")
@@ -34,8 +34,8 @@ run_cmd liftTermElabM do
     | throwError "the original kernel route requires unavailable uniform data"
   let candidates := routes.filter (fun route =>
       !route.refs.isEmpty && route.target.syntacticEq method.owner)
-  -- The original registry supplies two distinct first-hit carrier routes.
-  -- Find the independently supplied restriction row, not the first route.
+
+
   unless candidates.size == 2 do
     throwError "the original kernel lost a full first-hit source route"
   let #[route] := candidates.filter (fun route => (methodReturnRows? state route).isSome)
@@ -77,27 +77,45 @@ run_cmd liftTermElabM do
     let bundle := mkAppN family.categoryFamily parameters
     let sourceType ← mkAppM ``CategoryTheory.Bundled.α #[bundle]
     withLocalDeclD `originalArrow sourceType fun receiver => do
-      let forward := family.mark (mkAppN family.family (parameters.push receiver))
-      let (result, target) ← family.resultAt levels parameters receiver forward
-      let otherForward := compared.mark (mkAppN
-        (compared.family.instantiateLevelParams compared.universeParams levels)
-        (parameters.push receiver))
-      let (otherResult, otherTarget) ← compared.resultAt levels parameters receiver otherForward
-      unless ← withTransparency .all <| isDefEq otherTarget target <&&> isDefEq otherResult result do
-        throwError "the compared return changed the complete original result"
-      unless ← isDefEq (← inferType result) (← mkAppM ``CategoryTheory.Bundled.α #[target]) do
-        throwError "the inherited kernel changed its full result type"
-      let arrow ← mkProjection result `obj
-      let actual ← mkProjection arrow `left
-      let originalMap ← mkProjection receiver `hom
-      let expected ← mkAppM ``CasCatalogue.Modules.Bilinear.Valued.Kernels.formedKernel
-        #[originalMap]
-      unless ← withTransparency .all <| isDefEq actual expected do
-        throwError "the inherited kernel changed the independently published formedKernel"
-      checkWithKernel (← mkExpectedTypeHint (← mkEqRefl actual) (← mkEq actual expected))
-      unless result.containsFVar receiver.fvarId! do
-        throwError "the inherited kernel replaced its original receiver"
-  -- Calling the route-only API still cannot supply a missing return witness.
+      let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+      let bindings ← (parameters.push receiver).mapM fun expression => do
+        let allocated ← liftM (m := BaseIO) <| identities.fresh .sourceBinding
+        return ({ id := ⟨allocated.worker, allocated.serial⟩,
+          role := .parameter, expression } : LocalBinding)
+      let context ← ContextTelescope.capture bindings
+      let initial : SourceReadScope := { identities, context, selections := {} }
+      let read : SourceReadM (Expr × Expr × Expr × Expr) := do
+        let (result, target) ← family.applyAt levels parameters receiver
+          (fun selected expected => SourceReadM.select selected expected)
+        let (otherResult, otherTarget) ← compared.applyAt levels parameters receiver
+          (fun selected expected => SourceReadM.select selected expected)
+        return (result, target, otherResult, otherTarget)
+      read.runK initial fun (result, target, otherResult, otherTarget) scope => do
+        scope.context.withOriginalSources #[result, target, otherResult, otherTarget, receiver]
+            fun originals => do
+          let letIds := (← getLCtx).foldl (fun ids declaration =>
+            if declaration.isLet then ids.push declaration.fvarId else ids) #[]
+          let originals ← originals.mapM (fun term => zetaDeltaFVars term letIds)
+          let result := originals[0]!
+          let target := originals[1]!
+          let otherResult := originals[2]!
+          let otherTarget := originals[3]!
+          let receiver := originals[4]!
+          unless ← withTransparency .all <| isDefEq otherTarget target <&&> isDefEq otherResult result do
+            throwError "the compared return changed the complete original result"
+          unless ← isDefEq (← inferType result) (← mkAppM ``CategoryTheory.Bundled.α #[target]) do
+            throwError "the inherited kernel changed its full result type"
+          let arrow ← mkProjection result `obj
+          let actual ← mkProjection arrow `left
+          let originalMap ← mkProjection receiver `hom
+          let expected ← mkAppM ``CasCatalogue.Modules.Bilinear.Valued.Kernels.formedKernel
+            #[originalMap]
+          unless ← withTransparency .all <| isDefEq actual expected do
+            throwError "the inherited kernel changed the independently published formedKernel"
+          checkWithKernel (← mkExpectedTypeHint (← mkEqRefl actual) (← mkEq actual expected))
+          unless result.containsFVar receiver.fvarId! do
+            throwError "the inherited kernel replaced its original receiver"
+
   mustReject (discard <| RoutedMethodFamily.forRoute route method)
     "source method lifting requires its actual selected return data"
   mustReject (discard <| RoutedMethodFamily.forRouteWithReturns route method #[])
