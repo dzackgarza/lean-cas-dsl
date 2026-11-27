@@ -8,11 +8,11 @@ meta import LeanCategories.Catalogue.Semantics.Algebra.FiniteGroups
 
 open Lean Meta CasCompiler CasRuntime CasCatalogue CasCatalogue.Backend
 
--- The registered group kernel returns an inclusion into the input arrow's source.
--- Equal endpoint terms have distinct retained nodes. The complete three-field reply
--- names its retained ambient by a scoped reference; changing that reference is malformed.
--- This is the retained-ambient control from RoutedResultSchemaProbes on work/kernel-v1-20261023.
--- Opaque payloads exercise field assembly; they assert no computed group-theoretic answer.
+
+
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
   try
@@ -65,7 +65,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           | throwError "the group-kernel receiver is outside its actual graph"
         let occurrence ← liftM (m := BaseIO) ledger.allocate
         let request ← PreparedRequest.forApplication owners.identities program occurrence context
-          callable #[← context.close receiver] #[argument] #[]
+          callable #[← context.close receiver] #[argument] #[] (some graph)
         let selected : DispatchIdentity := {
           manifestDigest := "fixed-input-result", profileDigest := "fixed-input-result"
           registration := {
@@ -107,7 +107,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             throwError "fixed field assembly changed a provider-supplied kernel field"
         let changedOccurrence ← liftM (m := BaseIO) ledger.allocate
         let changedRequest ← PreparedRequest.forApplication owners.identities program
-          changedOccurrence context callable #[← context.close receiver] #[argument] #[]
+          changedOccurrence context callable #[← context.close receiver] #[argument] #[] (some graph)
         let .ok changedReservation ← liftM (m := BaseIO) <|
           transaction.reserve changedOccurrence selected connection #[input]
           | throwError "the changed-input control could not reserve its reply"
@@ -133,8 +133,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         unless CasCatalogue.Exception.stratum? failure == some .malformed do throw failure
         unless (← failure.toMessageData.toString).endsWith
             "the reply changed a fixed source input" do throw failure
-        -- Returning a complete existing record must check its fixed descendant as well.
-        -- Preserve all original fields and replace only the equal-valued ambient occurrence.
+
+
         let .ok () ← liftM (m := BaseIO) <| transaction.installDraft draft
           | throwError "the valid fixed result could not enter the active graph"
         let installed ← liftM (m := IO) transaction.view
@@ -142,22 +142,27 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         let arrowFields ← ((← RecordLayout.ofSource arrow.role).fields.filterMap
           (·.field.wireIndex)).mapM fun index =>
             IO.ofExcept <| (installed.project arrow index).mapError IO.userError
+        let environment ← request.environment.withGraph (some installed)
+        let arrowOrigin ← environment.origin program wholeProduced arrow.role
         let wholeArrow ← liftM (m := IO) <| transaction.stage
-          { program, occurrence := wholeProduced, role := arrow.role, parameters := #[] }
+          arrowOrigin
           (.product (arrowFields.set! 1 right))
         let resultFields ← ((← RecordLayout.ofSource request.source).fields.filterMap
           (·.field.wireIndex)).mapM fun index =>
             IO.ofExcept <| (installed.project response.root index).mapError IO.userError
+        let assembled ← liftM (m := IO) transaction.view
+        let environment ← request.environment.withGraph (some assembled)
+        let resultOrigin ← environment.origin program wholeProduced request.source
         let wholeCandidate ← liftM (m := IO) <| transaction.stage
-          { program, occurrence := wholeProduced, role := request.source, parameters := #[] }
+          resultOrigin
           (.product (resultFields.set! 0 wholeArrow))
         let wholeOccurrence ← liftM (m := BaseIO) ledger.allocate
+        let wholeGraph ← liftM (m := IO) transaction.view
         let wholeRequest ← PreparedRequest.forApplication owners.identities program wholeOccurrence
-          context callable #[← context.close receiver] #[argument] #[]
+          context callable #[← context.close receiver] #[argument] #[] (some wholeGraph)
         let .ok wholeReservation ← liftM (m := BaseIO) <| transaction.reserve wholeOccurrence
           selected connection (wholeRequest.scope.push wholeCandidate)
           | throwError "the whole-record fixed-input control could not reserve its reply"
-        let wholeGraph ← liftM (m := IO) transaction.view
         let wholeScope ← liftM (m := IO) <| RequestScope.issue ledger wholeReservation
           wholeGraph #[wholeCandidate] #[] #[]
         let wholeFrame := Json.mkObj [
