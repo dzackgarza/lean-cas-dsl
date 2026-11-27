@@ -12,11 +12,16 @@ namespace CasCompiler
 
 open Lean Meta Elab Term
 
-/-- Complete a source rule's judgement using the ordinary qualification, carrier,
-registered-domain and native expected-type checks. Already read numeric inclusion sources
-use these same checks without replaying their syntax or suppressing a failed reading. -/
+
+
+
 def checkReadJudgementApplicable (context : ReadContext) (judgement : NativeSourceJudgement) :
-    TermElabM (Except MessageData NativeSourceJudgement) := withRef context.source do
+    SourceReadM (Except MessageData NativeSourceJudgement) := SourceReadM.withRef context.source do
+  let judgement ← match ← retainSourceProjection? judgement.value with
+    | none => pure judgement
+    | some projected => pure { judgement with
+        value := projected.value
+        category := judgement.category <|> projected.category }
   let expected := context.expected
   let qualification := context.qualification
   let judgement ← if let some name := qualification then
@@ -25,79 +30,99 @@ def checkReadJudgementApplicable (context : ReadContext) (judgement : NativeSour
     | .ok value => pure value
     | .error message => return .error message
   else pure judgement
+  let retain := fun (judgement : NativeSourceJudgement) => do
+    let some category := judgement.category | return .ok judgement
+    let selected := (← SourceReadM.selection? judgement.value).getD { value := judgement.value }
+    let value ← SourceReadM.select {
+      selected with value := judgement.value, category := some category }
+    return .ok { judgement with value }
   if let some expected := expected then
-    -- A native type parameter consumes the actual selected object's carrier.
-    -- Reuse the same checked source action as public function domains.
-    let judgement ← if (← instantiateMVars expected).isSort then
+
+
+    let judgement ← if (← liftM (m := MetaM) <| instantiateMVars expected).isSort then
       if judgement.category.any (·.role == .object) then sourceCarrier judgement
       else match ← sourceExtent? judgement with
         | some extent => sourceCarrier extent
         | none => pure judgement
     else pure judgement
-    -- A native function parameter consumes the actual selected morphism's carrier map.
-    -- Its source category was checked above; sourceFunction retains the complete selected
-    -- action and map before the ordinary native type and registered-domain checks below.
-    let judgement ← if (← whnfR (← instantiateMVars expected)).isForall &&
+
+
+
+    let judgement ← if (← whnfR (← liftM (m := MetaM) <| instantiateMVars expected)).isForall &&
         judgement.category.any (·.role == .morphism) then
       pure (⟨← sourceFunction judgement, none⟩ : NativeSourceJudgement)
     else pure judgement
-    unless ← withoutModifyingState (isDefEq (← inferType judgement.value) expected) do
-      -- An element of a related named set is read through the registered maps between them.
+    let actual ← inferType judgement.value
+    let nativeFits ← withoutModifyingState (isDefEq actual expected)
+    let scope ← get
+    let sourceFits ← if nativeFits then pure true else
+      scope.context.withOriginalSources #[actual, expected] fun original =>
+        withoutModifyingState (isDefEq original[0]! original[1]!)
+    unless sourceFits do
+
       if judgement.category.isNone then
-        if let some value ← sourceCoercion? judgement.value (← instantiateMVars expected) then
+        if let some value ← sourceCoercion? judgement.value
+            (← liftM (m := MetaM) <| instantiateMVars expected) then
           return .ok ⟨value, none⟩
-    match ← registeredDomainsApplicable (← inferType judgement.value) expected with
+    match ← registeredSourceDomainsApplicable (← inferType judgement.value) expected with
     | .error message => return .error message
     | .ok () => pure ()
-    unless ← isDefEq (← inferType judgement.value) expected do
+    unless sourceFits do
       return .error (MessageData.tagged `CasCompiler.SourceReader.declaredParameterType
         m!"the source expression does not have its independently declared parameter type; \
         source={context.source}; expected={expected}; actual={← inferType judgement.value}; \
         value={judgement.value}; category={(judgement.category.map (fun selected => (toJson selected.expression).compress)).getD "none"}")
-    return .ok judgement
-  return .ok judgement
+    if nativeFits then
+      discard <| isDefEq actual expected
+      return ← retain judgement
+    let selected := (← SourceReadM.selection? judgement.value).getD {
+      value := judgement.value, category := judgement.category }
+    let value ← SourceReadM.select {
+      selected with value := judgement.value, category := judgement.category } (some expected)
+    return .ok { judgement with value }
+  retain judgement
 
-/-- Native elaborator-style dispatch. Unmatched syntax tries the next rule; a matched rule's
-semantic error is retained. No rule registry contains mathematical declarations. -/
+
+
 def readWithCompletingRules (rules : Array ReadCompletingRule) (context : ReadContext) :
-    TermElabM (Except MessageData NativeSourceJudgement) := withRef context.source do
+    SourceReadM (Except MessageData NativeSourceJudgement) := SourceReadM.withRef context.source do
   go rules.toList
 
 where
-  go : List ReadCompletingRule → TermElabM (Except MessageData NativeSourceJudgement)
-    | [] => CasCatalogue.throwUnsupportedSource
+  go : List ReadCompletingRule → SourceReadM (Except MessageData NativeSourceJudgement)
+    | [] => liftM (m := TermElabM) <| CasCatalogue.throwUnsupportedSource
         m!"source translation is not implemented for expression {context.source}"
     | rule :: rest => do
-      -- Native candidate rollback does not turn a matched syntax rule back into an
-      -- unmatched one. Once a rule invokes completion, every exception is its actual
-      -- failure, including an internal identifier equal to the private mismatch marker.
+
+
+
       let matched ← liftM (m := IO) <| IO.mkRef false
       try rule context fun judgement => do
-        matched.set true
+        liftM (m := IO) <| matched.set true
         checkReadJudgementApplicable context judgement
       catch exception =>
         match exception with
         | .internal id _ =>
-          if id == readRuleMismatch && !(← matched.get) then go rest else throw exception
+          if id == readRuleMismatch && !(← liftM (m := IO) matched.get) then go rest else throw exception
         | _ => throw exception
 
-/-- Ordinary applicable rules produce one judgement and complete it exactly once. -/
+
 def readWithApplicableRules (rules : Array ReadApplicableRule) (context : ReadContext) :
-    TermElabM (Except MessageData NativeSourceJudgement) :=
+    SourceReadM (Except MessageData NativeSourceJudgement) :=
   readWithCompletingRules (rules.map ReadApplicableRule.completing) context
 
-/-- Ordinary rules have no expected-type absence before producing their judgement. -/
+
 def readWithRulesApplicable (rules : Array ReadRule) (context : ReadContext) :
-    TermElabM (Except MessageData NativeSourceJudgement) :=
+    SourceReadM (Except MessageData NativeSourceJudgement) :=
   readWithApplicableRules (rules.map ReadRule.applicable) context
 
-/-- Ordinary source reading requires its own native expected-type check to succeed.
-The applicability variant returns only that check's explicit mismatch, never an exception
-from a matched rule, nested operand, selected carrier, or native type operation. -/
+
+
+
 def readWithRules (rules : Array ReadRule) (context : ReadContext) :
-    TermElabM NativeSourceJudgement := withRef context.source do
+    SourceReadM NativeSourceJudgement := SourceReadM.withRef context.source do
   match ← readWithRulesApplicable rules context with
   | .ok value => pure value
-  | .error message => throwError message
+  | .error message => liftM (m := TermElabM) <| throwError message
 
 end CasCompiler
