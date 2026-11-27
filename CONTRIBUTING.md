@@ -96,7 +96,7 @@ without that filter, including each completed statement's outcome and timing.
 `timing/runs.jsonl` records the command, selected targets and inputs, source revision and change
 hash, actual dependency revisions, toolchain and host, input hashes, phase statuses, build,
 execution and acceptance times, and total elapsed time. Each invocation has its own directory
-under `.tmp/logs/`. `timing/README.md` holds measured costs and their remedies.
+under `timing/logs/`. `timing/README.md` holds measured costs and their remedies.
 
 `.tmp/accept-run.json` contains only the current selected observation. Earlier runs remain in
 their own logs; their rows are not merged into current success. Missing, partial, duplicate or
