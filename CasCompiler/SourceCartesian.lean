@@ -1,5 +1,7 @@
 module
 
+public import CasCompiler.SelectionData
+
 public import CasCompiler.Surface
 public import LeanCategories.Catalogue.FamilyFibration
 
@@ -9,20 +11,10 @@ namespace CasCompiler
 
 open Lean Meta CasCatalogue
 
-/-- The original selected reindexing, its actual base map and receiver, and their one
-native cartesian arrow. Neither endpoint is reconstructed by a separate object action. -/
-structure NativeSourceCartesian where
-  entry : FunctorEntry
-  application : Expr
-  realization : Expr
-  baseMap : Expr
-  receiver : Expr
-  totalBundle : Expr
-  arrow : Expr
 
-/-- Open only the selected declaration's source aliases until its accepted canonical
-reindexing interface is visible. Delta and beta substitution retain the original argument
-positions. No recursor, matcher or mathematical operation is evaluated. -/
+
+
+
 private partial def reindexApplication (expression : Expr)
     (seen : Std.HashSet Name := {}) : MetaM Expr := do
   let expression := expression.consumeMData.headBeta
@@ -59,10 +51,11 @@ private def cartesianValue (realization receiver baseMap : Expr) : MetaM Expr :=
   mkAppOptM ``CategoryTheory.Pseudofunctor.CoGrothendieck.cartesianLift
     #[none, none, some transport, none, none, some receiver, some baseMap]
 
-/-- Consume an accepted reindex declaration and its actual receiver through the canonical
-family fibration. The registered declaration selects the family; its exact source spine
-supplies the base map. Conversion checks validate those fixed choices and select nothing. -/
-def sourceCartesian (entry : FunctorEntry) (application receiver : Expr) : MetaM Expr := do
+
+
+
+def sourceCartesian (entry : FunctorEntry) (application receiver : Expr) :
+    MetaM (SourceSelection Expr) := do
   let state ← semanticState
   let #[original] := state.functors.filter (·.id == entry.id)
     | throwError "the cartesian source requires its unique registered reindexing"
@@ -88,57 +81,11 @@ def sourceCartesian (entry : FunctorEntry) (application receiver : Expr) : MetaM
     throwError "the cartesian source changed its complete registered family realization"
   let arrow ← cartesianValue realization receiver baseMap
   let totalBundle ← mkAppM ``CategoryFamilyRealization.totalCat #[realization]
-  let arrow ← selectMorphism arrow (some totalBundle)
-  let mut retained := arrow
-  for input in #[realization, baseMap, receiver, totalBundle, application.consumeMData] do
-    retained ← mkAppM ``Function.const #[← inferType input, retained, input]
-  return .mdata (KVMap.empty
-    |>.setName `CasCompiler.source.kind ``NativeSourceCartesian
-    |>.setString `CasCompiler.source.id entry.id.raw
-    |>.setName `CasCompiler.source.declaration entry.declaration
-    |>.setName `CasCompiler.source.application entry.declaration
-    |>.setBool `CasCompiler.source.cartesian true) retained
-
-/-- Recover only the complete original typed cartesian envelope. Scoped aliases retain
-that envelope; equal endpoint types or other declaration occurrences cannot replace it. -/
-partial def sourceCartesian? (value : Expr) : MetaM (Option NativeSourceCartesian) := do
-  let expression ← instantiateMVars value
-  match expression with
-  | .mdata data body =>
-    if !data.getBool `CasCompiler.source.cartesian then return ← sourceCartesian? body
-    let #[entry] := (← semanticState).functors.filter
-      (·.id.raw == data.getString `CasCompiler.source.id)
-      | throwError "the retained cartesian source lost its original reindexing"
-    unless data.getName `CasCompiler.source.kind == ``NativeSourceCartesian &&
-        data.getName `CasCompiler.source.declaration == entry.declaration &&
-        data.getName `CasCompiler.source.application == entry.declaration do
-      throwError "the retained cartesian source changed its declaration witness"
-    let mut current := body
-    let mut fields := #[]
-    for _ in [:5] do
-      unless current.isAppOfArity ``Function.const 4 do
-        throwError "the retained cartesian source lost an original native input"
-      fields := fields.push current.getAppArgs[3]!
-      current := current.getAppArgs[2]!
-    let #[application, totalBundle, receiver, baseMap, realization] := fields
-      | throwError "the retained cartesian source changed its complete native layout"
-    unless application.consumeMData.getAppFn.isConstOf entry.declaration do
-      throwError "the retained cartesian source changed its actual declaration application"
-    let (originalRealization, originalBase) ← reindexInputs application
-    unless realization == originalRealization && baseMap == originalBase do
-      throwError "the retained cartesian source replaced an original source input"
-    let expected ← sourceCartesian entry application receiver
-    unless ← isDefEq current expected <&&>
-        isDefEq totalBundle (← mkAppM ``CategoryFamilyRealization.totalCat #[realization]) do
-      throwError "the retained cartesian source changed its native arrow or total category"
-    return some ⟨entry, application, realization, baseMap, receiver, totalBundle, current⟩
-  | .fvar id =>
-    match (← id.getDecl).value? with
-    | some original => sourceCartesian? original
-    | none => pure none
-  | .letE _ _ original body _ => sourceCartesian? (body.instantiate1 original)
-  | _ =>
-    if expression.isAppOfArity ``id 2 then sourceCartesian? expression.getAppArgs[1]!
-    else pure none
+  return {
+    value := arrow
+    category := some ⟨.morphism, .familyTotal family, totalBundle, none, none⟩
+    observation := some (.functor entry)
+    originalApplication := some application
+    cartesian := some ⟨entry, application, realization, baseMap, receiver, totalBundle, arrow⟩ }
 
 end CasCompiler
