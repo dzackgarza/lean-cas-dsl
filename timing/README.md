@@ -851,3 +851,58 @@ The unchanged native preparation/build and worker interruption controls remain
 required. No tests, original acceptance inputs, protocol-peer command or
 admission records change. The T359 completion condition remains three complete
 normal checks with median at most 300 s followed by the full feedback suite.
+
+### Native import paging after shared worker preparation
+
+The three unchanged normal checks at
+495f12754b0ace3af7b28c897ee405696f2633db all pass their original five cases:
+
+| Run | Outer seconds | Unittest seconds | Result |
+| --- | ---: | ---: | --- |
+| 1 | 418.16677846200764 | 410.387 | 5/5 pass |
+| 2 | 451.8845957107842 | 443.610 | 5/5 pass |
+| 3 | 467.0192006970756 | 462.106 | 5/5 pass |
+
+The median is 451.8845957107842 s. This does not close T359 or establish
+a stable timing gain. The exact commands and results are retained in
+timing/logs/t359-gates-495f127/. The fresh complete third-run partition is
+gate-3-phase-partition.json in that directory; its disjoint intervals reconcile
+exactly to the outer duration. The following table rounds them to milliseconds.
+
+| Operation or interval | Cost per call | Actual multiplier | Aggregate seconds | Priority and remedy | Remaining measured cost |
+| --- | --- | ---: | ---: | --- | --- |
+| Empty-selection and missing-input public probes | 88.882 / 39.727 s | Two complete cases | 128.609 | First, minutes, area E: isolate native import loading at the unchanged consumer boundary. These are whole cases, not isolated import timers. | Pending |
+| Acceptance worker entry to session preparation | 57.617 / 50.068 s | Two workers | 107.685 | The same import-loading investigation; preserve the generated source and native setup. | Pending |
+| Parent, child and preflight preparation | Aggregate / 5 | Five windows | 69.819 | Preserve current source and dependency capture. | Unchanged |
+| Original file execution | Aggregate / 2 | Two files | 56.783 | Preserve statements, dispatch, admission and outcomes. | Unchanged |
+| Explicit native builds | Aggregate / 4 | Four commands | 50.247 | Preserve current native dependency jobs. | Unchanged |
+| Remaining wrapper, finalization and unassigned intervals | Not isolated | Disjoint residual | 53.876 | No causal assignment from the residual alone. | Unchanged |
+| **Complete check** | | | **467.019** | | |
+
+Read-only process resource samples during the third normal run are retained in
+gate-3-resource-samples.jsonl. In the observed 56.749 s before the peer worker's
+first application log, the last sample has 16.85 s cumulative process CPU,
+1,597,874,176 read bytes and 16,240 major faults. The first sample is after process
+birth, so this is not an exact whole-process prefix. Summed thread scheduling
+delays are not a complete wall-clock attribution.
+
+A separate import-only component diagnostic uses the exact original module
+header and a byte-identical copy of the native worker setup, with Lean's
+existing --profile option. It executes no acceptance statement and is not a
+replacement timing gate. Native import takes 73.2 s of the 78.46979770809412 s
+child duration, with 20,145 major faults. Its output and resource record are in
+timing/logs/t359-import-495f127/. All compared setups have SHA256
+41b267c76841e52f242ab483de4a7f44012b4915ac7ee8af877895dcb9383a64:
+3,941 import entries, no private artifacts, unchanged options and plugins.
+Their public interfaces total 992,271,760 bytes, server parts 59,329,936 bytes,
+IR signatures 693,616 bytes and IR bodies 250,420,752 bytes.
+
+The pinned Lean compacted-region loader maps files without a read-ahead advice
+call. A second component diagnostic advises the exact native importArts paths
+with POSIX_FADV_WILLNEED before the same child command. The 15,764 advice calls
+take 1.1351758120581508 s; the inclusive diagnostic takes 19.607110326178372 s,
+with a 16.3 s native import timer and 3,225 child major faults. Evidence is in
+timing/logs/t359-import-prefetch-495f127/. This single comparison does not control
+cache state or host contention and establishes no stable speedup. It motivates
+an in-boundary read-ahead remedy whose completion still requires the original
+three complete normal five-case checks and the full feedback regression suite.
