@@ -546,12 +546,44 @@ class FeedbackTests(unittest.TestCase):
         module = "CasCatalogue.FeedbackMissingConsumer"
         source = module.replace(".", "/") + ".lean"
         self.assertFalse((ROOT / source).exists(), "the missing-source control must be absent")
-        subprocess.run(
+        acceptance_source = "tests/acceptance/ellipses.cas"
+        original = (ROOT / acceptance_source).read_bytes()
+        current = ROOT / ".tmp/accept-current.json"
+        prior_current = current.read_bytes() if current.exists() else None
+        priming = subprocess.run(
             ["just", "loop", "+CasCatalogue.TestSuite:leanArts", "ellipses"],
-            cwd=ROOT, check=True,
+            cwd=ROOT, check=False,
         )
+        recorded = current_acceptance_result()
+        self.assertNotEqual(current.read_bytes(), prior_current,
+                            "the priming run did not publish a current result")
+        self.assertTrue(recorded["complete"])
+        self.assertTrue(recorded["timing_complete"])
+        self.assertTrue(recorded["terminal_metadata_complete"])
+        self.assertEqual(recorded["metadata_errors"], [])
+        self.assertEqual(recorded["files"], ["ellipses"])
+        self.assertEqual(
+            recorded["inputs"],
+            {acceptance_source: hashlib.sha256(original).hexdigest()},
+        )
+        self.assertEqual((ROOT / acceptance_source).read_bytes(), original)
+
         report = ROOT / ".tmp/accept-run.json"
         previous = report.read_bytes()
+        self.assertEqual(
+            previous, (ROOT / recorded["run"] / "report.json").read_bytes())
+        rows = json.loads(previous)
+        self.assertTrue(all(row["file"] == acceptance_source for row in rows))
+        self.assertTrue(all(type(row["fails"]) is bool for row in rows))
+        identities = [(row["file"], row["id"]) for row in rows]
+        self.assertEqual(len(identities), len(set(identities)))
+        expected_status = int(any(row["fails"] for row in rows))
+        self.assertEqual(len(recorded["workers"]), 1)
+        worker_status = recorded["workers"][0]["status"]
+        self.assertIs(type(worker_status), int)
+        self.assertEqual(worker_status, expected_status)
+        self.assertEqual(recorded["status"], expected_status)
+        self.assertEqual(priming.returncode, expected_status)
         self.assertIn("ellipses.naturals", {row["id"] for row in json.loads(previous)})
         result = subprocess.run(["just", "loop", module, "ellipses"], cwd=ROOT, check=False)
         self.assertNotEqual(result.returncode, 0)
@@ -1609,16 +1641,53 @@ class AcceptanceFeedbackTests(unittest.TestCase):
                         time.sleep(0.1)
                 else:
                     self.fail(f"the actual workers did not finish before cleanup; see {log}")
-                self.assertTrue(
-                    all(worker["status"] == 0 for worker in workers),
-                    f"the unmodified real consumers must finish before report corruption: {workers}",
-                )
-                expected = set(json.loads(
-                    (run / "ellipses.inventory.json").read_text())["assertions"])
+                original_inputs = json.loads((run / "inputs.json").read_text())
+                for worker, stem in enumerate(("ellipses", "numbers")):
+                    source = f"tests/acceptance/{stem}.cas"
+                    report_rows = (
+                        rows if stem == "ellipses"
+                        else json.loads((run / f"{stem}.json").read_text())
+                    )
+                    inventory = json.loads(
+                        (run / f"{stem}.inventory.json").read_text())
+                    expected = set(inventory["assertions"])
+                    named_rows = [
+                        row for row in report_rows
+                        if not row["id"].startswith("(statement)")
+                    ]
+                    self.assertTrue(
+                        named_rows,
+                        f"the real {stem} report must contain named assertions",
+                    )
+                    self.assertTrue(
+                        all(row["file"] == source for row in report_rows),
+                        f"the original {stem} report contains a foreign source",
+                    )
+                    identities = [(row["file"], row["id"]) for row in report_rows]
+                    self.assertEqual(
+                        len(identities), len(set(identities)),
+                        f"the original {stem} report contains duplicate identities",
+                    )
+                    self.assertEqual({row["id"] for row in named_rows}, expected)
+                    self.assertEqual(
+                        len(named_rows), len(expected),
+                        f"the original {stem} report must be complete",
+                    )
+                    self.assertEqual(
+                        inventory["source_sha256"], original_inputs[source])
+                    self.assertEqual(
+                        hashlib.sha256((ROOT / source).read_bytes()).hexdigest(),
+                        original_inputs[source],
+                    )
+                    self.assertTrue(
+                        all(type(row["fails"]) is bool for row in report_rows))
+                    self.assertIs(type(workers[worker]["status"]), int)
+                    self.assertEqual(
+                        workers[worker]["status"],
+                        int(any(row["fails"] for row in report_rows)),
+                        f"the real {stem} worker status disagrees with its complete report",
+                    )
                 named = [row for row in rows if not row["id"].startswith("(statement)")]
-                self.assertEqual({row["id"] for row in named}, expected)
-                self.assertEqual(len(named), len(expected), "the original report must be complete")
-                self.assertTrue(named, "the real selected report must contain named assertions")
                 (run / "ellipses.complete.json").write_bytes(original)
                 removed_id = named[0]["id"]
                 partial = [row for row in rows if row["id"] != removed_id]
