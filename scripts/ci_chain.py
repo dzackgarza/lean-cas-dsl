@@ -4,15 +4,17 @@
 By default Lake refreshes the resolved manifest separately. Leaves are a non-Lean package,
 so their checkout is prepared here even though Lake does not require them.
 
-    ci_chain.py [checkout] [--record-resolved]
+    ci_chain.py [checkout] [--record-resolved | --manifest-revisions]
 
 The optional record updates only existing own-organisation manifest revisions to
 the actual resolved main checkouts. It creates no accepted input or seal record.
+Manifest mode retrieves the exact recorded commits as regular-file review inputs.
 """
 
 import argparse
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 CHAIN = ("lean_categories", "cas_leaf_contracts", "cas_leaves", "nbdsl-worker")
@@ -41,8 +43,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("checkout", nargs="?", type=Path,
                         default=Path(__file__).resolve().parent.parent)
-    parser.add_argument("--record-resolved", action="store_true",
-                        help="record actual main SHAs for existing own-organisation manifest entries")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--record-resolved", action="store_true",
+                      help="record actual main SHAs for existing own-organisation manifest entries")
+    mode.add_argument("--manifest-revisions", action="store_true",
+                      help="retrieve exact manifest revisions as regular-file review inputs")
     args = parser.parse_args()
     root = args.checkout
     manifest_path = root / "lake-manifest.json"
@@ -52,15 +57,22 @@ def main() -> None:
     entries = {}
     for entry in manifest["packages"]:
         name = entry["name"]
-        # Lake prints identifiers containing punctuation with Lean's quotation marks.
         if name.startswith("«") and name.endswith("»"):
             name = name[1:-1]
         if name in CHAIN:
             entries[name] = entry
-    if "cas_leaves" not in entries:
+    if "cas_leaves" not in entries and not args.manifest_revisions:
         entries["cas_leaves"] = {"url": "https://github.com/dzackgarza/lean-cas-dsl-leaves"}
     for name, entry in entries.items():
-        sync_repository(packages / name, entry["url"])
+        if args.manifest_revisions:
+            subprocess.run([
+                sys.executable,
+                str(Path(__file__).resolve().parent.parent / "custodian" / "retrieve_candidate.py"),
+                "--repository", entry["url"], "--reference", entry["rev"],
+                "--expected", entry["rev"], "--destination", str(packages / name),
+            ], check=True)
+        else:
+            sync_repository(packages / name, entry["url"])
     if args.record_resolved:
         for entry in manifest["packages"]:
             name = entry["name"]
