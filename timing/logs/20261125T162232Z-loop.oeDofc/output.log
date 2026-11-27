@@ -1,0 +1,2 @@
+feedback: select at least one test module; an empty selection cannot run
+loop: execution status 2; status 2 in 5.869 s; log timing/logs/20261125T162232Z-loop.oeDofc/output.log

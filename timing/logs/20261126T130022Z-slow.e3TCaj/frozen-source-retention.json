@@ -1,0 +1,93 @@
+{
+  "utc": "2026-11-26T12:59:47.960211+00:00",
+  "snapshot": ".tmp/validation-typed-integrated-59-sources.json",
+  "snapshot_sha256": "26d9e3fc66cc97ce47f0c8e18887fd6177117efb270d3c15309763b8412e8efc",
+  "archive": ".tmp/validation-typed-integrated-59-source-bytes.tar.gz",
+  "archive_sha256": "d6ace942d272cb8429d4490cdf34ec32d51dff4103946bd890fab2182a930a89",
+  "archive_bytes": 2467650,
+  "input_count": 755,
+  "head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "changed_from58": {
+    "CasCompiler/Context.lean": {
+      "prior": "2a0c8b84c8f093354fd7aff9952d883233c16e67332a8e9c40061031aa3d7fec",
+      "current": "a37b7ef9cf796c3417de2cad4f9e5c0cf426e306ae3c275ff5bf880e9416fb58"
+    },
+    "CasCompiler/ContextTests.lean": {
+      "prior": "7d426e19564cb0b4c150a2a70950e1787995731737594f309cd94a25a6cebd20",
+      "current": "e72408545c4030ed79e3facc777372fed9d7a2134a7dd40e07e32f0a3cf90881"
+    },
+    "CasCompiler/NativeDeclarationTests.lean": {
+      "prior": "f2873b61fadd703daa235ad51bf9891b38a6d70a6d7eaebc40a5387f80eaecc3",
+      "current": "f25e8d2fb0263700fffb9313fe0390673e2a896058f25b9c3fc3dd95c5a64e18"
+    },
+    "CasCompiler/NativeDeclarations.lean": {
+      "prior": "94f183f5be4fb771f18042d044a3502d73dd654c81886ac77c3539a0ed05cd9e",
+      "current": "798231610c60c3704001204563d0a7a0a651d1b11217dd29d555ce1e44b083e4"
+    }
+  },
+  "reviewed_patches": {
+    ".tmp/captured-context-declarations-20261126/captured-context-declarations.git.patch": "40af477350911124c8dc3f23a81c8d43b78584593526a769b55764aa8a4fd041",
+    ".tmp/native-root-constants-20261126/native-root-constants.git.patch": "110fcea0488c3e6027d3660cd9ac08d4967749dd91fc423f260efb30d18885ca"
+  },
+  "command": "source scripts/container.sh\nincontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json just slow 'Validate complete native dependency capture and the original structured source controls' CasCompiler.NativeDeclarationTests CasCompiler.ContextTests CasCompiler.SourceInstanceTests CasCompiler.SourceGeneratorTests CasCompiler.SourceOperationTests CasCompiler.SourceRingTests CasCompiler.SourceViewTests CasCompiler.SourceSubsetTests CasCompiler.SourceTupleTests CasCatalogue.EvidencePresentationProbes CasCatalogue.StructuredParameterProbes",
+  "canonical_runs_before": [
+    "timing/logs/20261125T134509Z-slow.49Q4Rz",
+    "timing/logs/20261125T161218Z-slow.asJFmr",
+    "timing/logs/20261125T162226Z-slow.ELM1xY",
+    "timing/logs/20261125T162241Z-slow.82LEQr",
+    "timing/logs/20261125T165339Z-slow.SVsFEO",
+    "timing/logs/20261125T165939Z-slow.2kUD88",
+    "timing/logs/20261125T170351Z-slow.qfUZcI",
+    "timing/logs/20261125T170948Z-slow.8no2OZ",
+    "timing/logs/20261125T171646Z-slow.kItz3z",
+    "timing/logs/20261125T172706Z-slow.p8WsP0",
+    "timing/logs/20261125T173018Z-slow.0t4mNE",
+    "timing/logs/20261125T173603Z-slow.mex1R2",
+    "timing/logs/20261125T174757Z-slow.t0pDvV",
+    "timing/logs/20261125T175538Z-slow.idrYZc",
+    "timing/logs/20261125T180858Z-slow.33EZBG",
+    "timing/logs/20261125T181144Z-slow.MWPVn8",
+    "timing/logs/20261125T182223Z-slow.ub030F",
+    "timing/logs/20261125T205706Z-slow.CR595C",
+    "timing/logs/20261125T211235Z-slow.u1604v",
+    "timing/logs/20261125T211917Z-slow.ayTPJv",
+    "timing/logs/20261125T215727Z-slow.grXjub",
+    "timing/logs/20261125T222339Z-slow.YYIcOW",
+    "timing/logs/20261125T231033Z-slow.2zV7aJ",
+    "timing/logs/20261126T012635Z-slow.MeZUVt",
+    "timing/logs/20261126T013531Z-slow.Gxjn8J",
+    "timing/logs/20261126T014905Z-slow.JuTfpZ",
+    "timing/logs/20261126T015534Z-slow.j44cca",
+    "timing/logs/20261126T035711Z-slow.zLFpuD",
+    "timing/logs/20261126T043409Z-slow.j50I28",
+    "timing/logs/20261126T044448Z-slow.sIqVla",
+    "timing/logs/20261126T045011Z-slow.uCaRWy",
+    "timing/logs/20261126T045525Z-slow.Ozx2jJ",
+    "timing/logs/20261126T050241Z-slow.kNQOov",
+    "timing/logs/20261126T052658Z-slow.bHtMN2",
+    "timing/logs/20261126T053329Z-slow.B5NH5b",
+    "timing/logs/20261126T054401Z-slow.2vfATh",
+    "timing/logs/20261126T055034Z-slow.0DjN9R",
+    "timing/logs/20261126T055956Z-slow.ye1okS",
+    "timing/logs/20261126T060957Z-slow.XamUPM",
+    "timing/logs/20261126T063545Z-slow.gTfmGL",
+    "timing/logs/20261126T065345Z-slow.Ipv6gw",
+    "timing/logs/20261126T071215Z-slow.JSntbJ",
+    "timing/logs/20261126T072316Z-slow.3VEaOO",
+    "timing/logs/20261126T073405Z-slow.scGPzs",
+    "timing/logs/20261126T083150Z-slow.sUAHUD",
+    "timing/logs/20261126T085007Z-slow.7qsr55",
+    "timing/logs/20261126T091048Z-slow.iyrJzo",
+    "timing/logs/20261126T092059Z-slow.QthWjX",
+    "timing/logs/20261126T102610Z-slow.563yHO",
+    "timing/logs/20261126T105918Z-slow.8UZUlp",
+    "timing/logs/20261126T122749Z-slow.7CwdsH"
+  ],
+  "initial_native_inventory": ".tmp/validation-typed-integrated-59-initial-native-inventory.json",
+  "free_bytes": 557735936,
+  "memory": [
+    "MemAvailable:    1167520 kB",
+    "SwapFree:        7335540 kB"
+  ],
+  "successor_authorized": false
+}

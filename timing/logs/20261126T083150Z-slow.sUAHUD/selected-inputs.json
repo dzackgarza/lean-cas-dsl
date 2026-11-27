@@ -1,0 +1,93 @@
+{
+  "manifest": null,
+  "files": [
+    {
+      "stem": "sets",
+      "source": "tests/acceptance/sets.cas",
+      "kind": "admitted",
+      "key": "sets",
+      "sha256": "19e1734e16c3f6195cd039b701245306a66d20bf43048757514328d1b47fab01",
+      "authority": {
+        "kind": "admitted-assertions",
+        "file": "/repos/v1-integration-20261106/lean-cas-dsl/CasAcceptance/Permanent/admitted.json"
+      },
+      "admitted": true,
+      "computing": false,
+      "assertions": {
+        "sets.card.z4_cubed": "44596ba16f0783f501472ceb7b47a2176c88e8ed882d39de38c1fdfe459c77c7",
+        "sets.card.z7": "133bc63d00d31361de2e94e2d0ab7ec0e6f7a118865eb852e0ff1080704f3560",
+        "sets.card.z5_empty_power": "2db4096e2a1c6a2c04658f1138084d59ef82c2acecdbf85736afef62621daac6",
+        "sets.card.integers": "2fbad067d3643174e88706509bb49ba70dc6cc3082063d0fc89e27b36ff42ea7",
+        "sets.card.naturals": "782bbeec26a8d8a75a8c277b66c174c7b79f4d162564f056f1102d9bfdec288a",
+        "sets.card.fin2_times_z3": "497e04336197e3bb975c151d7067065434fe77e84dbe975f2dbf7e7dbc665547",
+        "sets.finite.integers": "9e5f140cd431d8f242febb4c260e868ecb2ab7bebd9c0c1a8393b995abac35f9",
+        "sets.finite.fin2_times_z3": "732edffbc0ee46104bf1b4db58e73f1d3cd1c62f1ab7c876e5f96456a5f5b0f9",
+        "sets.implemented.card_fin": "7e6a2a8c5a2f9ddc648a298cdb7ce90ac52bd0569ce7531327cf34bf2db7dd2d",
+        "sets.card.square": "6f15b4e5153968dd01397bf1198e4fec38438ec7be3a5544704784e3a4fa16bd",
+        "sets.card.fin2_sqcup_fin3": "60be5a4d9d33c9b38fef037b4b3619d32aac486c27f28b0fb89e068e71d8e4fd",
+        "sets.finite.fin2_sqcup_fin3": "eb3865f68dda2d0cb55c4420a0752b681d15b9225a9afdd6bdb022eca1c9abdd",
+        "sets.eq.rev_rev": "32e75a20e73845ec0fa03653f4cee428e0558d4ea992ac485641fd2496b43773",
+        "sets.limit.pullback.card": "bc42fb58c043106340932a27e25214044d971e04f1e65764a023c73237b16681",
+        "finite_sets.card.three": "1f8177098149f099c9eefcb3cd331876a39d46f47520cc3f9111d6f4a606da64",
+        "finite_sets.limit.pullback.card": "416946aba41c989a663c7f8508a263d39e3361565dc16d720fe12ed8dcd0d8f8",
+        "sets.apply.rev": "a9bb7d1ac375adce52a6ab1ad6835fdfd374649939d6b2490a231c743ab3030f",
+        "sets.apply.rev_rev": "bb2bcc5be11c577fc75fd9acb5ab3fc264e59b0ac5c4058931bc4ccb02470e77"
+      }
+    },
+    {
+      "stem": "functions",
+      "source": "tests/acceptance/functions.cas",
+      "kind": "admitted",
+      "key": "functions",
+      "sha256": "70a89a40e70798e3dc9b0ab18bb1eef6cd6c4d695f4c5aeda1e9d460e5e0067e",
+      "authority": {
+        "kind": "admitted-assertions",
+        "file": "/repos/v1-integration-20261106/lean-cas-dsl/CasAcceptance/Permanent/admitted.json"
+      },
+      "admitted": true,
+      "computing": false,
+      "assertions": {
+        "functions.extensional": "56b11e4d32e041f1843a3bc529b0bdfb6a994100ad2ac5b0d338333dc3b2d8bf",
+        "functions.at_zero": "3d5c655bc2c3e048ab564e52f0da8a8fcdf65bf35cb3ec6bcc8028b3098e9d87",
+        "functions.at_three": "3b15f982de732a0aa3b730b562affd8e644c4588fcfd33dbc505858f7a3eecc2",
+        "functions.even": "a15b77bdb2b7ede161b479596ba21346d0e8df273148754353e935c4e162df15"
+      }
+    },
+    {
+      "stem": "finite_sets",
+      "source": "tests/acceptance/finite_sets.cas",
+      "kind": "admitted",
+      "key": "finite_sets",
+      "sha256": "63512549dbaa47f3b0f54c512123e5e88559746d8074ea4f164cbb3bfa14bf33",
+      "authority": {
+        "kind": "admitted-assertions",
+        "file": "/repos/v1-integration-20261106/lean-cas-dsl/CasAcceptance/Permanent/admitted.json"
+      },
+      "admitted": true,
+      "computing": false,
+      "assertions": {
+        "finite_sets.union": "fbb563270f2897ea489e78c813f3c61141f31ef7452963c4034b1e6ff93673e3",
+        "finite_sets.intersection": "3afc892e6d3e2dc83ba4e90f69f1465a062af3be3e4cae2018334d73a03e259a",
+        "finite_sets.difference": "cf0915471561e6438f8cf5a4d9d2a0748404968600fb2300e2805d083bb579d3",
+        "finite_sets.symmetric_difference": "ee0dbfc0cd25ff8db0dd49bd064dda4b2123fba2684212cd0e2504fd0d122cd2",
+        "finite_sets.card": "673beb6aa8a93ab96dd9a966447f658668f669c052d08cd6780db7fa11dfcc4a",
+        "finite_sets.card_product": "ed72c250a83fc936a04943cc6f6d30899507a4d747ea7faf717b5663c2339f5a",
+        "finite_sets.card_power_set": "cc90be4599273349888df26c0e7b77e99e843c607b789dd078e71ff30b0e42e4",
+        "finite_sets.member": "5b6686b652e196470e5324d7ec666268e9dc34052b52a5de8844f79341af7f56",
+        "finite_sets.not_member": "b2a54eef75915a105049eebb42ec9f1fc4a0dd4628ac4aec34f8f81179f6de26",
+        "finite_sets.subset_union": "12d34fcac5212e0919aaacee823a5b002067a16a0236581834aa334b7964d011",
+        "finite_sets.intersection_subset": "a8978563847a38994a65b6b6721771f285abc22f6e7f2f3b805543f7209cbb82",
+        "comprehension.typed": "eb650f25b052ff59f6fdbf941cca22b308ad3c0162c7f79bdfb8749c67fd653a",
+        "comprehension.elements": "b05152f537851318a75235740a1ffa350ea060e5f7e5376cae09a31d1979d78b",
+        "comprehension.card": "88dfef7eb8637216734812c63470b4177e85d28ed5f98eec614d944623abe938",
+        "comprehension.image_typed": "8f1cfe4710586a10fcbfbad95e4c9919a223dc2f5a0d64289bd70b5ad717e15b",
+        "comprehension.even_member": "4f151e34aeb198999bef6f8d7d260d3fe7ce0957a007253f5002841497aef033",
+        "comprehension.odd_not_member": "90bcf2f26511ce69a8063b8380cc924e131277e44df16ef67aaada8a5e9bccd5",
+        "comprehension.even_card": "8cf8c030e9408e3b760cc110fbed0f3dedef158db03468dcc059be6d9682867a",
+        "comprehension.image_apply": "3e7ce00f4b64617c769ed375fe974ac59008b8f7cb19f6151400c6792b7a6893",
+        "comprehension.image_method": "860142443f39c74be9f46bd6efbe732abbe82c2ce204aaced116e673f0aaa4ef"
+      }
+    }
+  ],
+  "complete": true
+}

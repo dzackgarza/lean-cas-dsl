@@ -1,0 +1,33 @@
+{
+  "utc": "2026-11-26T11:09:08.330513+00:00",
+  "native": [
+    {
+      "pid": 605021,
+      "name": "lake",
+      "cwd": "/repos/v1-integration-20261106/lean-cas-dsl",
+      "argv": "/opt/elan/toolchains/leanprover--lean4---v4.33.0/bin/lake --log-level=error build +CasCompiler.SourceInstanceTests:deps +CasCompiler.SourceGeneratorTests:deps +CasCompiler.SourceOperationTests:deps +CasCompiler.SourceRingTests:deps +CasCompiler.SourceViewTests:deps +CasCompiler.SourceSubsetTests:deps +CasCompiler.SourceTupleTests:deps +CasCatalogue.EvidencePresentationProbes:deps"
+    }
+  ],
+  "result_exists": false,
+  "output_bytes": 2009,
+  "last_lines": [
+    "\u2714 [3876/3902] Built CasCompiler.ReadAnnotationRules (25s)",
+    "\u2714 [3877/3902] Built CasCompiler.ReadProductNotation (26s)",
+    "\u2714 [3878/3902] Built CasCompiler.ReadApplicationRules (23s)",
+    "\u2714 [3879/3902] Built CasCompiler.ReadLiftRules (23s)",
+    "\u2714 [3880/3902] Built CasCompiler.ReadCellRules (25s)",
+    "\u2714 [3881/3902] Built CasCompiler.ReadNamed (26s)",
+    "\u2714 [3882/3902] Built CasCompiler.ReadMember (26s)",
+    "\u2714 [3883/3902] Built CasCompiler.ReadFunctorRules (26s)",
+    "\u2714 [3884/3902] Built CasCompiler.ReadAtomNotation (27s)",
+    "\u2714 [3885/3902] Built CasCompiler.ReadMemberNotation (26s)",
+    "\u2714 [3886/3902] Built CasCompiler.ReadMemberRules (26s)",
+    "\u2714 [3887/3902] Built CasCompiler.ReadNameRules (28s)",
+    "\u2714 [3888/3902] Built CasCompiler.ReadSubsetNotation (29s)",
+    "\u2714 [3889/3902] Built CasCompiler.ReadPowerRules (29s)",
+    "\u2714 [3890/3902] Built CasCompiler.ReadRingNotation (31s)",
+    "\u2714 [3891/3902] Built CasCompiler.ReadExpression (16s)",
+    "\u2714 [3892/3902] Built CasCompiler.ReadSession (19s)",
+    "\u2714 [3893/3902] Built CasCompiler.Read (24s)"
+  ]
+}

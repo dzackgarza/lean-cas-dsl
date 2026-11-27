@@ -1,0 +1,1125 @@
+[build] native lake --log-level=error build +CasTools.SourceSnapshotTests:deps 
+Build completed successfully (3904 jobs).
+[execution] native lake --log-level=error lean CasTools/SourceSnapshotTests.lean -- -DstderrAsMessages=false 
+/repos/v1-integration-20261106/lean-cas-dsl/CasTools/SourceSnapshotTests.lean:29:0: error: the whole native proposition is not a graph document; source failures: [{"stage": "binding",
+  "sourceLine": 11,
+  "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+  "kind": "invalid",
+  "id": "underlyingF",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause": null},
+ {"stage": "binding",
+  "sourceLine": 12,
+  "source": "let expectedF((a, b)) := (a + b, 0) in sourceModule → targetModule",
+  "kind": "invalid",
+  "id": "expectedF",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 14,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.formed_arrow_action \"[M16a] underlyingMap_apply, with the actual source and target forms\":\n  assert underlyingF = expectedF",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.formed_arrow_action",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 17,
+  "source": "let vectorSet := Vec(Q, 2) in Sets",
+  "kind": "invalid",
+  "id": "vectorSet",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 18,
+  "source": "let pairOfVectors := vectorSet × vectorSet",
+  "kind": "invalid",
+  "id": "pairOfVectors",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 19,
+  "source": "let sourcePairing((v, w)) := X.pairing(v, w) in pairOfVectors → (ℚ in Sets)",
+  "kind": "invalid",
+  "id": "sourcePairing",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 20,
+  "source": "let imagePairing((v, w)) := Y.pairing(f(v), f(w)) in pairOfVectors → (ℚ in Sets)",
+  "kind": "invalid",
+  "id": "imagePairing",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 22,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.whole_formed_equation \"[M16a] formedMap preserves the complete pairing on every pair of vectors\":\n  assert imagePairing = sourcePairing",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.whole_formed_equation",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 27,
+  "source": "let i0(t) := (2*t, -2*t) in scalarModule → sourceModule",
+  "kind": "invalid",
+  "id": "i0",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 28,
+  "source":
+  "let first := lift(X) along «lift.bilin_module.restrict»(ℚ, ℚ) with i0 using proof(CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneLifts.kernelInclusion_mono)",
+  "kind": "invalid",
+  "id": "first",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 29,
+  "source": "let X1 := first.obj()",
+  "kind": "invalid",
+  "id": "X1",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 30,
+  "source": "let i1 := first.hom()",
+  "kind": "invalid",
+  "id": "i1",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 31,
+  "source": "let alpha1 := first.forward()",
+  "kind": "invalid",
+  "id": "alpha1",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 32,
+  "source": "let beta1 := first.backward()",
+  "kind": "invalid",
+  "id": "beta1",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 33,
+  "source": "let firstCarrier := view X1 along «fun.bilin_module.forget»(ℚ, ℚ)",
+  "kind": "invalid",
+  "id": "firstCarrier",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 34,
+  "source": "let firstUnderlyingInclusion := map i1 along «fun.bilin_module.forget»(ℚ, ℚ)",
+  "kind": "invalid",
+  "id": "firstUnderlyingInclusion",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 36,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.first_inverse_on_carrier \"[M16a] first_inverse_forward_backward; the whole actual range carrier\":\n  assert beta1 ∘ alpha1 = id(firstCarrier)",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.first_inverse_on_carrier",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 39,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.first_inverse_on_scalar \"[M16a] first_inverse_backward_forward; retain the selected scalar coordinate\":\n  assert alpha1 ∘ beta1 = id(scalarModule)",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.first_inverse_on_scalar",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 42,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.first_defining_map \"[M16a] first_factorization; actual returned defining inclusion\":\n  assert firstUnderlyingInclusion = i0 ∘ alpha1",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.first_defining_map",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 45,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.first_backward_action \"[M16a] first_defining_map and beta_value, for every scalar\":\n  assert firstUnderlyingInclusion ∘ beta1 = i0",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.first_backward_action",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 48,
+  "source": "let unscaledRaw := (4, -4) in vectorSet",
+  "kind": "invalid",
+  "id": "unscaledRaw",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 49,
+  "source":
+  "let unscaled := unscaledRaw in firstCarrier using (proof((CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneLifts.firstPoint 4).property))",
+  "kind": "invalid",
+  "id": "unscaled",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 51,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.first_nonidentity_coordinate \"[M16a] alpha_four; the original vector (4,-4) has selected coordinate 2\":\n  assert alpha1(unscaled) = 2 in scalarModule",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.first_nonidentity_coordinate",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 54,
+  "source": "let scalarPairs := (ℚ in Sets) × (ℚ in Sets)",
+  "kind": "invalid",
+  "id": "scalarPairs",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 55,
+  "source": "let firstPaired((s, t)) := X1.pairing(beta1(s), beta1(t)) in scalarPairs → (ℚ in Sets)",
+  "kind": "invalid",
+  "id": "firstPaired",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 56,
+  "source": "let zeroPairing((s, t)) := 0 in scalarPairs → (ℚ in Sets)",
+  "kind": "invalid",
+  "id": "zeroPairing",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 58,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.first_full_pairing \"[M16a] first_pairing on every rational s,t\":\n  assert firstPaired = zeroPairing",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.first_full_pairing",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 61,
+  "source": "let cone := degenerate_plane_cone()",
+  "kind": "invalid",
+  "id": "cone",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 62,
+  "source": "let mediatorRow := [3/2, -1] in RectangularMatrices(1, 2, Q)",
+  "kind": "invalid",
+  "id": "mediatorRow",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 63,
+  "source": "let g0 := row_linear_map(2, Q, mediatorRow)",
+  "kind": "invalid",
+  "id": "g0",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 64,
+  "source":
+  "let h1 := factor(g0) through first with cone using proof(CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneFactorization.cone_base_factorization)",
+  "kind": "invalid",
+  "id": "h1",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 65,
+  "source": "let underlyingH1 := map h1 along «fun.bilin_module.forget»(ℚ, ℚ)",
+  "kind": "invalid",
+  "id": "underlyingH1",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 67,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.first_whole_factorization \"[M16c] formedMediator_factorization; actual returned first defining map\":\n  assert i1 ∘ h1 = cone",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.first_whole_factorization",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 70,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.first_factor_comparison \"[M16c] formedMediator_comparison; actual returned first factor\":\n  assert alpha1 ∘ underlyingH1 = g0",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.first_factor_comparison",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 73,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.first_factor_sample_one \"[M16c] first_observation; evaluate the entire factor at (2,1)\":\n  assert i1(h1((2, 1))) = (4, -4) in vectorSet",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.first_factor_sample_one",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 76,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.first_factor_sample_two \"[M16c] second_observation; evaluate the entire factor at (1,3)\":\n  assert i1(h1((1, 3))) = (-3, 3) in vectorSet",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.first_factor_sample_two",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 85,
+  "source": "let Xplus := DegeneratePlaneWithDot()",
+  "kind": "invalid",
+  "id": "Xplus",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 86,
+  "source": "let wholePairedCone := degenerate_plane_paired_cone()",
+  "kind": "invalid",
+  "id": "wholePairedCone",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 87,
+  "source":
+  "let second := lift(Xplus) along «lift.bilin_module.change_value_restriction»(ℚ, ℚ × ℚ, ℚ, ((a, b) ↦ a)) with i1 using proof(CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneLifts.firstInclusion_mono)",
+  "kind": "invalid",
+  "id": "second",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 88,
+  "source": "let combined := composite_lift(second)",
+  "kind": "invalid",
+  "id": "combined",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 89,
+  "source": "let X2 := combined.obj()",
+  "kind": "invalid",
+  "id": "X2",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 90,
+  "source": "let i2 := combined.hom()",
+  "kind": "invalid",
+  "id": "i2",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 91,
+  "source": "let alpha2 := combined.forward()",
+  "kind": "invalid",
+  "id": "alpha2",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 92,
+  "source": "let beta2 := combined.backward()",
+  "kind": "invalid",
+  "id": "beta2",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 93,
+  "source": "let changedX2 := view X2 along «fun.bilin_module.change_value»(ℚ, ℚ × ℚ, ℚ, ((a, b) ↦ a))",
+  "kind": "invalid",
+  "id": "changedX2",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 94,
+  "source": "let finalCarrier := view changedX2 along «fun.bilin_module.forget»(ℚ, ℚ)",
+  "kind": "invalid",
+  "id": "finalCarrier",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 95,
+  "source": "let changedI2 := map i2 along «fun.bilin_module.change_value»(ℚ, ℚ × ℚ, ℚ, ((a, b) ↦ a))",
+  "kind": "invalid",
+  "id": "changedI2",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 96,
+  "source": "let finalUnderlyingInclusion := map changedI2 along «fun.bilin_module.forget»(ℚ, ℚ)",
+  "kind": "invalid",
+  "id": "finalUnderlyingInclusion",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 97,
+  "source": "let secondForward := second.forward()",
+  "kind": "invalid",
+  "id": "secondForward",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 98,
+  "source": "let secondBackward := second.backward()",
+  "kind": "invalid",
+  "id": "secondBackward",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 99,
+  "source": "let secondForwardModule := map secondForward along «fun.bilin_module.forget»(ℚ, ℚ)",
+  "kind": "invalid",
+  "id": "secondForwardModule",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 100,
+  "source": "let secondBackwardModule := map secondBackward along «fun.bilin_module.forget»(ℚ, ℚ)",
+  "kind": "invalid",
+  "id": "secondBackwardModule",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 102,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.actual_second_inclusion \"[M16a] final_inclusion_is_second; the returned second-stage map is retained\":\n  assert i2 = second.hom()",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.actual_second_inclusion",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 105,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.composed_forward \"[M16a,M16b] the actual second comparison followed by the actual first comparison\":\n  assert alpha2 = alpha1 ∘ secondForwardModule",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.composed_forward",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 108,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.composed_backward \"[M16a,M16b] both actual comparison directions, in the declared functor order\":\n  assert beta2 = secondBackwardModule ∘ beta1",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.composed_backward",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 111,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.final_inverse_on_carrier \"[M16a] final_inverse_forward_backward on the complete final carrier\":\n  assert beta2 ∘ alpha2 = id(finalCarrier)",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.final_inverse_on_carrier",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 114,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.final_inverse_on_scalar \"[M16a] final_inverse_backward_forward on the selected scalar module\":\n  assert alpha2 ∘ beta2 = id(scalarModule)",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.final_inverse_on_scalar",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 117,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.final_defining_map \"[M16a] final_factorization uses the composed functor action on i2\":\n  assert finalUnderlyingInclusion = i0 ∘ alpha2",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.final_defining_map",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 120,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.final_backward_action \"[M16a] final_defining_map for every rational coordinate\":\n  assert finalUnderlyingInclusion ∘ beta2 = i0",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.final_backward_action",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 125,
+  "source": "let actualFinalPairing := X2.pairing()",
+  "kind": "invalid",
+  "id": "actualFinalPairing",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 126,
+  "source": "let valuePairs := (ℚ in Sets) × (ℚ in Sets)",
+  "kind": "invalid",
+  "id": "valuePairs",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 127,
+  "source": "let finalPaired((s, t)) := actualFinalPairing((beta2(s), beta2(t))) in scalarPairs → valuePairs",
+  "kind": "invalid",
+  "id": "finalPaired",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 128,
+  "source": "let expectedFinalPairing((s, t)) := (0, 8*s*t) in scalarPairs → valuePairs",
+  "kind": "invalid",
+  "id": "expectedFinalPairing",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 130,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.final_full_pairing \"[M16a] final_pairing on every rational s,t; both ordered components\":\n  assert finalPaired = expectedFinalPairing",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.final_full_pairing",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 133,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.final_pairing_sample \"[M16a] final_pairing_one; the additional selected form survives\":\n  assert actualFinalPairing((beta2(1), beta2(1))) = (0, 8) in valuePairs",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.final_pairing_sample",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 136,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.final_nonzero_inclusion \"[M16a] final_defining_map_three_halves; reuse the final returned inclusion\":\n  assert finalUnderlyingInclusion(beta2(3/2)) = (3, -3) in vectorSet",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.final_nonzero_inclusion",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 142,
+  "source":
+  "let h2 := factor(g0) through combined with wholePairedCone using proof(CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneFactorization.cone_base_factorization)",
+  "kind": "invalid",
+  "id": "h2",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 143,
+  "source": "let changedH2 := map h2 along «fun.bilin_module.change_value»(ℚ, ℚ × ℚ, ℚ, ((a, b) ↦ a))",
+  "kind": "invalid",
+  "id": "changedH2",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "binding",
+  "sourceLine": 144,
+  "source": "let underlyingH2 := map changedH2 along «fun.bilin_module.forget»(ℚ, ℚ)",
+  "kind": "invalid",
+  "id": "underlyingH2",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 146,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.final_whole_factorization \"[M16c] finalMediator_factorization from the original full paired-cone domain\":\n  assert i2 ∘ h2 = wholePairedCone",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.final_whole_factorization",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 149,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.final_factor_comparison \"[M16c] finalMediator_comparison through the actual composed comparison\":\n  assert alpha2 ∘ underlyingH2 = g0",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.final_factor_comparison",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 152,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.final_factor_sample_one \"[M16c] first_observation using the actual final factor and inclusion\":\n  assert finalUnderlyingInclusion(underlyingH2((2, 1))) = (4, -4) in vectorSet",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.final_factor_sample_one",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}},
+ {"stage": "interpretation",
+  "sourceLine": 155,
+  "source":
+  "test reconstructed_extensions_20261024.complete.lift.final_factor_sample_two \"[M16c] second_observation using the actual final factor and inclusion\":\n  assert finalUnderlyingInclusion(underlyingH2((1, 3))) = (-3, 3) in vectorSet",
+  "kind": "invalid",
+  "id": "reconstructed_extensions_20261024.complete.lift.final_factor_sample_two",
+  "file":
+  "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas",
+  "detail":
+  "Application type mismatch: The argument\n  selectedSource✝⁷¹\nhas type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory ℚ ℚ)\nbut is expected to have type\n  ↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹ selectedSource✝³)\nin the application\n  @CategoryTheory.Functor.map\n    (↑(CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (CategoryTheory.Cat.str\n      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory selectedSource✝¹¹\n        selectedSource✝³))\n    (↑(LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    (CategoryTheory.Cat.str (LeanCategories.Modules.Mathlib.ModulesOf (RingCat.of selectedSource✝¹¹)))\n    selectedSource.toFunctor selectedSource✝⁷¹",
+  "cause":
+  {"sourceLine": 11,
+   "source": "let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)",
+   "id": "underlyingF",
+   "file":
+   "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx-lift-prescribed-stages.cas"}}]
+loop: execution status 1; status 1 in 128.240 s; log timing/logs/20261126T210232Z-loop.Yh4X2z/output.log

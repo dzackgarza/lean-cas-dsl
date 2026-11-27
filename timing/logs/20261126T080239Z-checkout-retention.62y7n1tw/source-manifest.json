@@ -1,0 +1,599 @@
+{
+  "added_fault_control": "FeedbackTests.test_verified_checkout_retirement_failure_remains_restorable",
+  "ast_parse": "passed",
+  "changes": {
+    "CONTRIBUTING.md": {
+      "base_sha256": "e11154bb2487d415d751cc1be5520a7d6b409edfe80d07389603ce7e144fbb73",
+      "candidate_sha256": "84c6b0e3c3ee878c1f109bf65b94a7cac6d7924190b27ee59a96096ca7128f6a"
+    },
+    "scripts/feedback_checkout.py": {
+      "base_sha256": null,
+      "candidate_sha256": "a4f1eae777e0aad4a1faeebc0c6bbc44305c6979bbfefcdd85deea10501b6228"
+    },
+    "tests/feedback/test_feedback.py": {
+      "base_sha256": "a5cd50293f8c47fba00b076832a55619e89f31d34a53155ac9f4ef5c35ffb290",
+      "candidate_sha256": "dfdc0b62d5b60769434a6d10241f8ae5b6d2aae858f3a3d08ea7324169739cd4"
+    },
+    "timing/README.md": {
+      "base_sha256": "1ab3ee16ffab9d7ec18c1a97bf61b6d3db93a328b00f5c6ac2c8e077ed1df038",
+      "candidate_sha256": "a6d2eee217329be050d5e2aa32d1b5373b315a9f3d75b2e929919cff061e4830"
+    }
+  },
+  "existing_owned_controls": {
+    "changed-extension-q938blq2": {
+      "authority": {
+        "blob": "f96e00278ee80a054b9f1fb5affca85e244e7c71",
+        "kind": "added-blob",
+        "revision": "9a640af2d2c5910dc0aed1e60eaaf0c9e4c4b1df"
+      },
+      "files": {
+        "checkout/.git/HEAD": {
+          "bytes": 47,
+          "mode": 438,
+          "mtime_ns": 1795628685892819010,
+          "sha256": "70e7fde705d23e936f9d0fd91a26e02c1ffe8ba26ab380769fa8c4ae49dd3b51"
+        },
+        "checkout/.git/config": {
+          "bytes": 316,
+          "mode": 438,
+          "mtime_ns": 1795628685895819000,
+          "sha256": "0767c1a7571475c0c3a200388d20b875663256feba8a2bb9923349cd2f6eaf26"
+        },
+        "checkout/.git/description": {
+          "bytes": 73,
+          "mode": 438,
+          "mtime_ns": 1795628685848819161,
+          "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+        },
+        "checkout/.git/hooks/applypatch-msg.sample": {
+          "bytes": 478,
+          "mode": 511,
+          "mtime_ns": 1795628685849819158,
+          "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+        },
+        "checkout/.git/hooks/commit-msg.sample": {
+          "bytes": 896,
+          "mode": 511,
+          "mtime_ns": 1795628685853819144,
+          "sha256": "1f74d5e9292979b573ebd59741d46cb93ff391acdd083d340b94370753d92437"
+        },
+        "checkout/.git/hooks/fsmonitor-watchman.sample": {
+          "bytes": 4726,
+          "mode": 511,
+          "mtime_ns": 1795628685853819144,
+          "sha256": "e0549964e93897b519bd8e333c037e51fff0f88ba13e086a331592bf801fa1d0"
+        },
+        "checkout/.git/hooks/post-update.sample": {
+          "bytes": 189,
+          "mode": 511,
+          "mtime_ns": 1795628685852819147,
+          "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+        },
+        "checkout/.git/hooks/pre-applypatch.sample": {
+          "bytes": 424,
+          "mode": 511,
+          "mtime_ns": 1795628685853819144,
+          "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+        },
+        "checkout/.git/hooks/pre-commit.sample": {
+          "bytes": 1649,
+          "mode": 511,
+          "mtime_ns": 1795628685853819144,
+          "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+        },
+        "checkout/.git/hooks/pre-merge-commit.sample": {
+          "bytes": 416,
+          "mode": 511,
+          "mtime_ns": 1795628685852819147,
+          "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+        },
+        "checkout/.git/hooks/pre-push.sample": {
+          "bytes": 1374,
+          "mode": 511,
+          "mtime_ns": 1795628685849819158,
+          "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+        },
+        "checkout/.git/hooks/pre-rebase.sample": {
+          "bytes": 4898,
+          "mode": 511,
+          "mtime_ns": 1795628685852819147,
+          "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+        },
+        "checkout/.git/hooks/pre-receive.sample": {
+          "bytes": 544,
+          "mode": 511,
+          "mtime_ns": 1795628685849819158,
+          "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+        },
+        "checkout/.git/hooks/prepare-commit-msg.sample": {
+          "bytes": 1492,
+          "mode": 511,
+          "mtime_ns": 1795628685850819154,
+          "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+        },
+        "checkout/.git/hooks/push-to-checkout.sample": {
+          "bytes": 2783,
+          "mode": 511,
+          "mtime_ns": 1795628685849819158,
+          "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+        },
+        "checkout/.git/hooks/sendemail-validate.sample": {
+          "bytes": 2308,
+          "mode": 511,
+          "mtime_ns": 1795628685852819147,
+          "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+        },
+        "checkout/.git/hooks/update.sample": {
+          "bytes": 3650,
+          "mode": 511,
+          "mtime_ns": 1795628685849819158,
+          "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+        },
+        "checkout/.git/info/exclude": {
+          "bytes": 240,
+          "mode": 438,
+          "mtime_ns": 1795628685848819161,
+          "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+        },
+        "checkout/.git/logs/HEAD": {
+          "bytes": 187,
+          "mode": 438,
+          "mtime_ns": 1795628685893819007,
+          "sha256": "20d751fca90e74b85f156d08324b35cfd308420f188725930350e4caba96eb43"
+        },
+        "checkout/.git/logs/refs/heads/integration/kernel-v1-20261106": {
+          "bytes": 187,
+          "mode": 438,
+          "mtime_ns": 1795628685894819003,
+          "sha256": "20d751fca90e74b85f156d08324b35cfd308420f188725930350e4caba96eb43"
+        },
+        "checkout/.git/logs/refs/remotes/origin/HEAD": {
+          "bytes": 187,
+          "mode": 438,
+          "mtime_ns": 1795628685891819014,
+          "sha256": "20d751fca90e74b85f156d08324b35cfd308420f188725930350e4caba96eb43"
+        },
+        "checkout/.git/objects/info/alternates": {
+          "bytes": 83,
+          "mode": 438,
+          "mtime_ns": 1795628685883819041,
+          "sha256": "531143161f5ba5a82a2bfd909cb992496e701a652d249dd6e346aaf386c55dca"
+        },
+        "checkout/.git/packed-refs": {
+          "bytes": 2121,
+          "mode": 438,
+          "mtime_ns": 1795628685889819020,
+          "sha256": "b9e06b2be14f344012a276aac904ba3553c7290af2cd308510a545caea96cb0d"
+        },
+        "checkout/.git/refs/heads/integration/kernel-v1-20261106": {
+          "bytes": 41,
+          "mode": 438,
+          "mtime_ns": 1795628685893819007,
+          "sha256": "27e5f8248e887bea7c9efa64ac3c47b7a013e4ad03f5a50c6f3808f31d59b39a"
+        },
+        "checkout/.git/refs/remotes/origin/HEAD": {
+          "bytes": 56,
+          "mode": 438,
+          "mtime_ns": 1795628685890819017,
+          "sha256": "0b9908b4b90c4a7be2e45b9a25dade14117b992c338d35e305b098d98e64ddb8"
+        },
+        "checkout/justfile": {
+          "bytes": 12453,
+          "mode": 436,
+          "mtime_ns": 1795549650482912316,
+          "sha256": "a55981f725fad1f2dc2eb5c4469f9f84103bdde1b594df019f68d72b1a838b50"
+        },
+        "checkout/scripts/__pycache__/check_acceptance_permanent.cpython-314.pyc": {
+          "bytes": 9322,
+          "mode": 436,
+          "mtime_ns": 1795628687219814464,
+          "sha256": "7a6e11d7a90bf6605c81ba47f668c3263ea9bdd7f41c89c3c0cabcccace176fc"
+        },
+        "checkout/scripts/acceptance_inputs.py": {
+          "bytes": 6180,
+          "mode": 436,
+          "mtime_ns": 1795624941783859194,
+          "sha256": "84cd3c7c7f344f2a9eecff70c0b97e4eaf54ee29d7c22b480042f3c12c642471"
+        },
+        "checkout/scripts/check_acceptance_permanent.py": {
+          "bytes": 5299,
+          "mode": 436,
+          "mtime_ns": 1795343966730707211,
+          "sha256": "cf9a1efe611dcda995db49ac37008f2dc39b6a615b79554471fcc70e2167c3cd"
+        },
+        "checkout/scripts/container.sh": {
+          "bytes": 835,
+          "mode": 436,
+          "mtime_ns": 1795175603676752636,
+          "sha256": "92fb219924a0e207028596ac5c3c87d7eb056716a0c3cd0d4a58960df56fbab5"
+        },
+        "checkout/scripts/feedback.sh": {
+          "bytes": 11763,
+          "mode": 509,
+          "mtime_ns": 1795624941788859172,
+          "sha256": "24c11479b5832e69b63acbfacbbf80314eb4c88daf138f9b119bccba94c2d818"
+        },
+        "checkout/scripts/feedback_records.py": {
+          "bytes": 36927,
+          "mode": 436,
+          "mtime_ns": 1795624941822859021,
+          "sha256": "6c493e52d414e00f257224ca94ac5030b640ae1baad34889a646ae01eb6b323f"
+        },
+        "checkout/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx02-complete-core-action.cas": {
+          "bytes": 2868,
+          "mode": 420,
+          "mtime_ns": 1795628687529813403,
+          "sha256": "cc5e2532f378d9c13fadb00e745d7ab58454e4eff33b415f4447e6892d79748f"
+        },
+        "checkout/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/source-checkpoint.json": {
+          "bytes": 7730,
+          "mode": 420,
+          "mtime_ns": 1793992675314642219,
+          "sha256": "044767f544d48c5366e00f169f58c2d35138c71cfd295f309e8889d798aaec5c"
+        },
+        "checkout/timing/logs/20261125T174448Z-loop.gKBF57/computation-summary.json": {
+          "bytes": 198,
+          "mode": 384,
+          "mtime_ns": 1795628698748774962,
+          "sha256": "b4e9db29acf9eb5116f1dac0212cd4905f712c945a5e5cfcd76975bfeaa5f78b"
+        },
+        "checkout/timing/logs/20261125T174448Z-loop.gKBF57/computations.jsonl": {
+          "bytes": 0,
+          "mode": 438,
+          "mtime_ns": 1795628698746774969,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "checkout/timing/logs/20261125T174448Z-loop.gKBF57/context.json": {
+          "bytes": 756,
+          "mode": 384,
+          "mtime_ns": 1795628694586789225,
+          "sha256": "5b7b7e66b615c43062d150c58f898537bb6cfe2e4892be53a0e764e4581012ff"
+        },
+        "checkout/timing/logs/20261125T174448Z-loop.gKBF57/events.jsonl": {
+          "bytes": 1107,
+          "mode": 438,
+          "mtime_ns": 1795628698753774945,
+          "sha256": "5912793a569ff2b0d22d0a1276a54984abbd49c8edbd5c25379b0ab91ca929e1"
+        },
+        "checkout/timing/logs/20261125T174448Z-loop.gKBF57/output.log": {
+          "bytes": 400,
+          "mode": 438,
+          "mtime_ns": 1795628698749774959,
+          "sha256": "80f51e640a66f10fe6373e672c2456dcbbbcc47a713c7b74441ff3d9dd9aef9f"
+        },
+        "checkout/timing/logs/20261125T174448Z-loop.gKBF57/result.json": {
+          "bytes": 1380,
+          "mode": 384,
+          "mtime_ns": 1795628698749774959,
+          "sha256": "81e89bee21179c65e7ce91facd1b51ddc7c094094e1bedc4586961201e74b4a7"
+        },
+        "checkout/timing/logs/20261125T174448Z-loop.gKBF57/selected-inputs.json": {
+          "bytes": 329,
+          "mode": 438,
+          "mtime_ns": 1795628693260793768,
+          "sha256": "8af3f9f3f65c33ba1bda2be0fe8d63757efc88bf690448405d96fa4ef42f85bb"
+        },
+        "checkout/timing/runs.jsonl": {
+          "bytes": 1380,
+          "mode": 438,
+          "mtime_ns": 1795628698751774952,
+          "sha256": "81e89bee21179c65e7ce91facd1b51ddc7c094094e1bedc4586961201e74b4a7"
+        },
+        "public-loop.log": {
+          "bytes": 456,
+          "mode": 438,
+          "mtime_ns": 1795628699031773992,
+          "sha256": "d725a62eae3995ccc5812fcec5329274bc5e4bd49d58ade725e029ee68734236"
+        },
+        "unchanged-input.json": {
+          "bytes": 1694,
+          "mode": 438,
+          "mtime_ns": 1795628687253814348,
+          "sha256": "7f4584959b2fb49b9441384f03b580081309d26e66240aa7389cea585221e335"
+        },
+        "unchanged-input.log": {
+          "bytes": 0,
+          "mode": 438,
+          "mtime_ns": 1795628687529813403,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "index_present": false,
+      "observed_head": "4ee669bca825477b64da004e51d391baf1ad1651",
+      "source": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx02-complete-core-action.cas",
+      "source_sha256": "89ea7a08af111782af8e8465629698040c0ee0780caecf3ab400d5f0651aee8e"
+    },
+    "changed-extension-z2w3k_lg": {
+      "authority": {
+        "checkpoint_sha256": "044767f544d48c5366e00f169f58c2d35138c71cfd295f309e8889d798aaec5c",
+        "file": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/source-checkpoint.json",
+        "kind": "source-checkpoint",
+        "revision": "9a640af2d2c5910dc0aed1e60eaaf0c9e4c4b1df"
+      },
+      "files": {
+        "checkout/.git/HEAD": {
+          "bytes": 47,
+          "mode": 438,
+          "mtime_ns": 1795628671899866927,
+          "sha256": "70e7fde705d23e936f9d0fd91a26e02c1ffe8ba26ab380769fa8c4ae49dd3b51"
+        },
+        "checkout/.git/config": {
+          "bytes": 316,
+          "mode": 438,
+          "mtime_ns": 1795628671901866920,
+          "sha256": "0767c1a7571475c0c3a200388d20b875663256feba8a2bb9923349cd2f6eaf26"
+        },
+        "checkout/.git/description": {
+          "bytes": 73,
+          "mode": 438,
+          "mtime_ns": 1795628671798867272,
+          "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+        },
+        "checkout/.git/hooks/applypatch-msg.sample": {
+          "bytes": 478,
+          "mode": 511,
+          "mtime_ns": 1795628671803867255,
+          "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+        },
+        "checkout/.git/hooks/commit-msg.sample": {
+          "bytes": 896,
+          "mode": 511,
+          "mtime_ns": 1795628671811867228,
+          "sha256": "1f74d5e9292979b573ebd59741d46cb93ff391acdd083d340b94370753d92437"
+        },
+        "checkout/.git/hooks/fsmonitor-watchman.sample": {
+          "bytes": 4726,
+          "mode": 511,
+          "mtime_ns": 1795628671812867224,
+          "sha256": "e0549964e93897b519bd8e333c037e51fff0f88ba13e086a331592bf801fa1d0"
+        },
+        "checkout/.git/hooks/post-update.sample": {
+          "bytes": 189,
+          "mode": 511,
+          "mtime_ns": 1795628671810867231,
+          "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+        },
+        "checkout/.git/hooks/pre-applypatch.sample": {
+          "bytes": 424,
+          "mode": 511,
+          "mtime_ns": 1795628671811867228,
+          "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+        },
+        "checkout/.git/hooks/pre-commit.sample": {
+          "bytes": 1649,
+          "mode": 511,
+          "mtime_ns": 1795628671813867221,
+          "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+        },
+        "checkout/.git/hooks/pre-merge-commit.sample": {
+          "bytes": 416,
+          "mode": 511,
+          "mtime_ns": 1795628671810867231,
+          "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+        },
+        "checkout/.git/hooks/pre-push.sample": {
+          "bytes": 1374,
+          "mode": 511,
+          "mtime_ns": 1795628671802867258,
+          "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+        },
+        "checkout/.git/hooks/pre-rebase.sample": {
+          "bytes": 4898,
+          "mode": 511,
+          "mtime_ns": 1795628671808867238,
+          "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+        },
+        "checkout/.git/hooks/pre-receive.sample": {
+          "bytes": 544,
+          "mode": 511,
+          "mtime_ns": 1795628671801867262,
+          "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+        },
+        "checkout/.git/hooks/prepare-commit-msg.sample": {
+          "bytes": 1492,
+          "mode": 511,
+          "mtime_ns": 1795628671807867242,
+          "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+        },
+        "checkout/.git/hooks/push-to-checkout.sample": {
+          "bytes": 2783,
+          "mode": 511,
+          "mtime_ns": 1795628671801867262,
+          "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+        },
+        "checkout/.git/hooks/sendemail-validate.sample": {
+          "bytes": 2308,
+          "mode": 511,
+          "mtime_ns": 1795628671809867235,
+          "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+        },
+        "checkout/.git/hooks/update.sample": {
+          "bytes": 3650,
+          "mode": 511,
+          "mtime_ns": 1795628671803867255,
+          "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+        },
+        "checkout/.git/info/exclude": {
+          "bytes": 240,
+          "mode": 438,
+          "mtime_ns": 1795628671800867266,
+          "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+        },
+        "checkout/.git/logs/HEAD": {
+          "bytes": 187,
+          "mode": 438,
+          "mtime_ns": 1795628671900866923,
+          "sha256": "62d4ef2bbd100e1c2a03872d67a38954387b9d1388b14b2477921bb72a0abb61"
+        },
+        "checkout/.git/logs/refs/heads/integration/kernel-v1-20261106": {
+          "bytes": 187,
+          "mode": 438,
+          "mtime_ns": 1795628671900866923,
+          "sha256": "62d4ef2bbd100e1c2a03872d67a38954387b9d1388b14b2477921bb72a0abb61"
+        },
+        "checkout/.git/logs/refs/remotes/origin/HEAD": {
+          "bytes": 187,
+          "mode": 438,
+          "mtime_ns": 1795628671898866930,
+          "sha256": "62d4ef2bbd100e1c2a03872d67a38954387b9d1388b14b2477921bb72a0abb61"
+        },
+        "checkout/.git/objects/info/alternates": {
+          "bytes": 83,
+          "mode": 438,
+          "mtime_ns": 1795628671878866998,
+          "sha256": "531143161f5ba5a82a2bfd909cb992496e701a652d249dd6e346aaf386c55dca"
+        },
+        "checkout/.git/packed-refs": {
+          "bytes": 2121,
+          "mode": 438,
+          "mtime_ns": 1795628671894866944,
+          "sha256": "b9e06b2be14f344012a276aac904ba3553c7290af2cd308510a545caea96cb0d"
+        },
+        "checkout/.git/refs/heads/integration/kernel-v1-20261106": {
+          "bytes": 41,
+          "mode": 438,
+          "mtime_ns": 1795628671900866923,
+          "sha256": "27e5f8248e887bea7c9efa64ac3c47b7a013e4ad03f5a50c6f3808f31d59b39a"
+        },
+        "checkout/.git/refs/remotes/origin/HEAD": {
+          "bytes": 56,
+          "mode": 438,
+          "mtime_ns": 1795628671895866940,
+          "sha256": "0b9908b4b90c4a7be2e45b9a25dade14117b992c338d35e305b098d98e64ddb8"
+        },
+        "checkout/justfile": {
+          "bytes": 12453,
+          "mode": 436,
+          "mtime_ns": 1795549650482912316,
+          "sha256": "a55981f725fad1f2dc2eb5c4469f9f84103bdde1b594df019f68d72b1a838b50"
+        },
+        "checkout/scripts/__pycache__/check_acceptance_permanent.cpython-314.pyc": {
+          "bytes": 9322,
+          "mode": 436,
+          "mtime_ns": 1795628673040863020,
+          "sha256": "35341b748d220e4ac067395aeac7e1a2fccad52518b6de4ec978ed1ca9e7b231"
+        },
+        "checkout/scripts/acceptance_inputs.py": {
+          "bytes": 6180,
+          "mode": 436,
+          "mtime_ns": 1795624941783859194,
+          "sha256": "84cd3c7c7f344f2a9eecff70c0b97e4eaf54ee29d7c22b480042f3c12c642471"
+        },
+        "checkout/scripts/check_acceptance_permanent.py": {
+          "bytes": 5299,
+          "mode": 436,
+          "mtime_ns": 1795343966730707211,
+          "sha256": "cf9a1efe611dcda995db49ac37008f2dc39b6a615b79554471fcc70e2167c3cd"
+        },
+        "checkout/scripts/container.sh": {
+          "bytes": 835,
+          "mode": 436,
+          "mtime_ns": 1795175603676752636,
+          "sha256": "92fb219924a0e207028596ac5c3c87d7eb056716a0c3cd0d4a58960df56fbab5"
+        },
+        "checkout/scripts/feedback.sh": {
+          "bytes": 11763,
+          "mode": 509,
+          "mtime_ns": 1795624941788859172,
+          "sha256": "24c11479b5832e69b63acbfacbbf80314eb4c88daf138f9b119bccba94c2d818"
+        },
+        "checkout/scripts/feedback_records.py": {
+          "bytes": 36927,
+          "mode": 436,
+          "mtime_ns": 1795624941822859021,
+          "sha256": "6c493e52d414e00f257224ca94ac5030b640ae1baad34889a646ae01eb6b323f"
+        },
+        "checkout/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx01-selected-orders.cas": {
+          "bytes": 973,
+          "mode": 420,
+          "mtime_ns": 1795628673382861849,
+          "sha256": "0a54160a139a8252f761e2bf0c7ebf2a62fed873b5b57a0d69a07bb9a47cdde2"
+        },
+        "checkout/tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/source-checkpoint.json": {
+          "bytes": 7730,
+          "mode": 420,
+          "mtime_ns": 1793992675314642219,
+          "sha256": "044767f544d48c5366e00f169f58c2d35138c71cfd295f309e8889d798aaec5c"
+        },
+        "checkout/timing/logs/20261125T174434Z-loop.4nfwXC/computation-summary.json": {
+          "bytes": 198,
+          "mode": 384,
+          "mtime_ns": 1795628685530820251,
+          "sha256": "c0f85c6df2fcb41f96c361d04a8daae08895c7ac03d991e74bbff892b31a55b5"
+        },
+        "checkout/timing/logs/20261125T174434Z-loop.4nfwXC/computations.jsonl": {
+          "bytes": 0,
+          "mode": 438,
+          "mtime_ns": 1795628685527820261,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "checkout/timing/logs/20261125T174434Z-loop.4nfwXC/context.json": {
+          "bytes": 746,
+          "mode": 384,
+          "mtime_ns": 1795628680464837601,
+          "sha256": "424011a14bd2b513f1d364866f5466db69ef617a66c1e8aaf5914c3abfd19409"
+        },
+        "checkout/timing/logs/20261125T174434Z-loop.4nfwXC/events.jsonl": {
+          "bytes": 1107,
+          "mode": 438,
+          "mtime_ns": 1795628685545820199,
+          "sha256": "5b606535c2978647ee22841930bda6d1106ae4b76cb485de7b998c1b7b74d166"
+        },
+        "checkout/timing/logs/20261125T174434Z-loop.4nfwXC/output.log": {
+          "bytes": 395,
+          "mode": 438,
+          "mtime_ns": 1795628685537820226,
+          "sha256": "21cb2813bf3a35fed954f99dbcb75580dfd2a491f7c3c5a835508763dfe0c816"
+        },
+        "checkout/timing/logs/20261125T174434Z-loop.4nfwXC/result.json": {
+          "bytes": 1370,
+          "mode": 384,
+          "mtime_ns": 1795628685538820223,
+          "sha256": "45416e55f55fe743907ed4f9bb050cb1a55d7c13562f99a12a0e36c6437393ce"
+        },
+        "checkout/timing/logs/20261125T174434Z-loop.4nfwXC/selected-inputs.json": {
+          "bytes": 314,
+          "mode": 438,
+          "mtime_ns": 1795628678880843024,
+          "sha256": "908e54c8eabf0b70567d779f9201c4e78215b3dbe1b407c634b57e02d2db4a11"
+        },
+        "checkout/timing/runs.jsonl": {
+          "bytes": 1370,
+          "mode": 438,
+          "mtime_ns": 1795628685541820213,
+          "sha256": "45416e55f55fe743907ed4f9bb050cb1a55d7c13562f99a12a0e36c6437393ce"
+        },
+        "public-loop.log": {
+          "bytes": 451,
+          "mode": 438,
+          "mtime_ns": 1795628685836819202,
+          "sha256": "7a8f82263ae1ff156ac59e46326c91e31f8174466b9d09da26c068887ad4ce8f"
+        },
+        "unchanged-input.json": {
+          "bytes": 1414,
+          "mode": 438,
+          "mtime_ns": 1795628673071862914,
+          "sha256": "216a7af0bc6aa47b60b07ef8083e8cfc6090bfbe20a9f48c63e7d53d23368c86"
+        },
+        "unchanged-input.log": {
+          "bytes": 0,
+          "mode": 438,
+          "mtime_ns": 1795628673381861852,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "index_present": false,
+      "observed_head": "4ee669bca825477b64da004e51d391baf1ad1651",
+      "source": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx01-selected-orders.cas",
+      "source_sha256": "ad6bad0cf74c7c034cc7b9feee9ce1a7a6ad897a157147238417180eee0bc9ea"
+    }
+  },
+  "live_edits": false,
+  "migration_run": false,
+  "native_or_feedback_tests_run": false,
+  "original_assertions_preserved": 14,
+  "patch_sha256": "737c4ecd53cf84453ae4ff0d241f5e941d573c8d1a20dcd7e02a34f19810fb8e",
+  "repository_head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "schema": 1,
+  "shared_writer": "scripts/feedback_records.py:atomic_json"
+}

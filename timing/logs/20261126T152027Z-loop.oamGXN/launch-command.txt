@@ -1,0 +1,2 @@
+source scripts/container.sh
+incontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json just loop "CasCompiler.ContextTests"

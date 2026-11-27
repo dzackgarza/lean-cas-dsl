@@ -1,0 +1,33 @@
+{
+  "observed_utc": "2026-11-25T21:27:34.318527+00:00",
+  "natural_wrapper_exit_code": 1,
+  "actual_status": 1,
+  "seconds": 367.536287244,
+  "phases": {
+    "build": {
+      "seconds": 88.18192394,
+      "status": 0
+    },
+    "execution": {
+      "seconds": 234.649413567,
+      "status": 1
+    },
+    "acceptance": {
+      "seconds": 0.0,
+      "status": null
+    }
+  },
+  "attempted_sources": [
+    "CasCompiler/ContextTests.lean",
+    "CasTools/JsonGraphTests.lean",
+    "CasRuntime/ValueTests.lean",
+    "CasRuntime/NativeFieldPrefixTests.lean",
+    "CasRuntime/BindingIdentityTests.lean"
+  ],
+  "canonical_ledger_matching_rows": 1,
+  "source_files_checked": 754,
+  "source_differences_since_freeze": [],
+  "result_sha256": "9a6f6be21a157ad9ba39425c2f130cff4d92f97a9c9a8869459e79939c95b559",
+  "output_sha256": "156498b76b10ed5da0df4e9b81d61a454be0b3ca56e67e7123f77e5509b987ac",
+  "frozen_source_archive_sha256": "aedec9f3d96049ef92e49c02b8a12a03c52002e51ad35f66b64e5f124cebaf6e"
+}

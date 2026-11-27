@@ -1,0 +1,10 @@
+{
+  "started_utc": "2026-11-25T22:49:41.141598+00:00",
+  "status": "prepared",
+  "ordinary_artifact_writes": 0,
+  "snapshot_sha256": "26b2b5bb1d466dcdd3ad2a69acecf3cc56fa76a30cce03d89f1f310c4bbfa5c0",
+  "ordinary_artifacts": 4031,
+  "copied_artifacts": 3979,
+  "excluded_artifacts": 52,
+  "finished_utc": "2026-11-25T22:49:59.278473+00:00"
+}

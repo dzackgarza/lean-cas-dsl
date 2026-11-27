@@ -1,0 +1,2 @@
+[build] native lake --log-level=error build +CasTools.SourceSnapshotTests:deps 
+slow: execution status 143; status 143 in 32.011 s; log timing/logs/20261126T232549Z-slow.fUN44e/output.log

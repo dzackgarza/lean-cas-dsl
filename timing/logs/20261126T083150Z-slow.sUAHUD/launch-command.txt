@@ -1,0 +1,2 @@
+source scripts/container.sh
+incontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json just slow 'Validate typed-carrier public observations and the repaired complete proof closure' CasCompiler.ProofTests CasRuntime.BindingIdentityTests CasRuntime.NamedApplicationTests CasRuntime.FixedInputResultTests CasRuntime.SessionOccurrenceTests CasCompiler.SourceIdentityTests CasCompiler.SourceLimitTests CasCompiler.SourceNamedLimitTests CasRuntime.SessionLimitObservationTests -- sets functions finite_sets

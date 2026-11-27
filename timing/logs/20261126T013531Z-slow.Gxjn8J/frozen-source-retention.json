@@ -1,0 +1,17 @@
+{
+  "observed_utc": "2026-11-26T01:26:23.759923+00:00",
+  "snapshot": "timing/logs/20261126T013531Z-slow.Gxjn8J/frozen-source-snapshot.json",
+  "snapshot_sha256": "294af642c7f18caafc4ce7180e9ad8afe0a7bf20ea45c2fd71af678a7c96bdc0",
+  "source_files": 754,
+  "archive": "timing/logs/20261126T013531Z-slow.Gxjn8J/frozen-source-bytes.tar.gz",
+  "archive_sha256": "b6b31454491e05f5d6b9a2431c91f853a1c296e20ab18af8ae50ed67bdf42ebc",
+  "changed_vs_frozen16": {
+    "CasCompiler/Elaborate.lean": "d1a4a3653937dde7bec99eef120dc19bf1baf31bf6f7092ee41b4326e0eb1f27",
+    "CasCompiler/ReadApplication.lean": "cb6f1589e6a507dc7d1ee5eea6b2e9951d15dac22d477f840404940dedbc063f",
+    "CasCompiler/ReadFunctorRules.lean": "be7aa2e85171841c2bb4f69707f4fb3204057b7a822325431d7f273e29180591",
+    "CasCompiler/SelectionScope.lean": "f8eb5f79a6482cb223e8c04fa9ae85b1aedec61cea442925f97bae03265d593c",
+    "CasCompiler/SourceSubset.lean": "6a83d7473d054802b0bf31cd8ccec875a2b110a11962179cf03bf54fbfeb4e5e",
+    "CasCompiler/SourceTypeOrigin.lean": "06f7839ba0524918710ded8ca042516ef096f7d5dc7094e088b4a57693cb7947",
+    "tests/feedback/test_feedback.py": "a5cd50293f8c47fba00b076832a55619e89f31d34a53155ac9f4ef5c35ffb290"
+  }
+}

@@ -1,0 +1,11 @@
+[build] native lake --log-level=error build +CasTools.SourceSnapshotTests:deps +CasCompiler.SourceLambdaTests:deps 
+✔ [3916/3918] Built CasCompiler.Resolve (22s)
+✔ [3917/3918] Built CasTools.QuestionExport (33s)
+Build completed successfully (3918 jobs).
+[execution] native lake --log-level=error lean CasTools/SourceSnapshotTests.lean -- -DstderrAsMessages=false 
+/repos/v1-integration-20261106/lean-cas-dsl/CasTools/SourceSnapshotTests.lean:14:73: error: (deterministic) timeout at `isDefEq`, maximum number of heartbeats (200000) has been reached
+
+Note: Use `set_option maxHeartbeats <num>` to set the limit.
+
+Hint: Additional diagnostic information may be available using the `set_option diagnostics true` command.
+slow: execution status 1; status 1 in 236.596 s; log timing/logs/20261126T223649Z-slow.WGLPWQ/output.log

@@ -1,0 +1,16 @@
+{
+  "created_utc": "2026-11-26T07:33:52.933155+00:00",
+  "snapshot": ".tmp/validation-typed-integrated-38-sources.json",
+  "snapshot_sha256": "4057bf4ac24950ad8a21b0f65e1e16c6b225e367acbe667f55f9028885c19db3",
+  "archive": ".tmp/validation-typed-integrated-38-source-bytes.tar.gz",
+  "archive_sha256": "8191fed2b0bc4c149d541fececc2da785ffa0d438af212dcbb95f2523b033c1e",
+  "archive_bytes": 2457144,
+  "files": 754,
+  "changes_from37": [
+    "CasCompiler/Lower.lean",
+    "CasCompiler/SourceReference.lean",
+    "CasCompiler/SourceRing.lean"
+  ],
+  "validation_command": "source scripts/container.sh\nincontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json just slow 'Validate original typed generator and retained structured source arguments' CasCompiler.SourceInstanceTests CasCompiler.SourceRingTests CasCompiler.SourceIdentityTests CasCompiler.SourceViewTests CasCompiler.SourceSubsetTests CasCompiler.SourceTupleTests CasCompiler.SourceOperationTests CasCompiler.SourceMemberCompetitionTests",
+  "automatic_successor_authorized": false
+}

@@ -1,0 +1,14 @@
+{
+  "created_utc": "2026-11-26T04:54:29.558167+00:00",
+  "snapshot": ".tmp/validation-typed-integrated-24-sources.json",
+  "snapshot_sha256": "b264e2077f2936b3f7a17670b75c4d1310902b3b6ce864a4711ab2ce60ed79c9",
+  "archive": ".tmp/validation-typed-integrated-24-source-bytes.tar.gz",
+  "archive_sha256": "969c8d5d749f2e46633e2f495b41c1a5b71e6ec9fe48ba49950de89865ec541a",
+  "archive_bytes": 2450743,
+  "files": 754,
+  "changes_from23": [
+    "CasCompiler/ReadOperation.lean"
+  ],
+  "validation_command": "source scripts/container.sh\nincontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json just slow 'Validate complete transported operands and original subset and ambiguity controls' CasCompiler.SourceSubsetTests CasCompiler.SourceTupleTests CasCompiler.SourceOperationTests CasCompiler.SourceInstanceTests CasCompiler.SourceMemberCompetitionTests",
+  "automatic_successor_authorized": false
+}

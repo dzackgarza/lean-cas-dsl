@@ -1,0 +1,14 @@
+[build] native lake --log-level=error build +CasRuntime.LiteralTests:deps +CasRuntime.NativeFieldPrefixTests:deps +CasRuntime.FixedInputRouteTests:deps 
+✔ [1585/1589] Built CasRuntime.ExecutionContext (27s)
+✔ [1587/1589] Built CasRuntime.ResultCodec (10s)
+✔ [1588/1589] Built CasRuntime.NativeMapEndpoints (8.4s)
+Build completed successfully (1589 jobs).
+[execution] native lake --log-level=error lean CasRuntime/LiteralTests.lean -- -DstderrAsMessages=false 
+[execution] native lake --log-level=error lean CasRuntime/NativeFieldPrefixTests.lean -- -DstderrAsMessages=false 
+[execution] native lake --log-level=error lean CasRuntime/FixedInputRouteTests.lean -- -DstderrAsMessages=false 
+/repos/v1-integration-20261106/lean-cas-dsl/CasRuntime/FixedInputRouteTests.lean:12:0: error: (deterministic) timeout at `isDefEq`, maximum number of heartbeats (200000) has been reached
+
+Note: Use `set_option maxHeartbeats <num>` to set the limit.
+
+Hint: Additional diagnostic information may be available using the `set_option diagnostics true` command.
+slow: execution status 1; status 1 in 272.307 s; log timing/logs/20261125T162226Z-slow.ELM1xY/output.log

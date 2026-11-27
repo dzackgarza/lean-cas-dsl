@@ -1,0 +1,3 @@
+extension source changed: tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx01-selected-orders.cas; expected sha256 ad6bad0cf74c7c034cc7b9feee9ce1a7a6ad897a157147238417180eee0bc9ea, received 0a54160a139a8252f761e2bf0c7ebf2a62fed873b5b57a0d69a07bb9a47cdde2
+loop: execution status 1; status 1 in 8.424 s; log timing/logs/20261126T075645Z-loop.uy4WZK/output.log
+error: recipe `loop` failed on line 41 with exit code 1

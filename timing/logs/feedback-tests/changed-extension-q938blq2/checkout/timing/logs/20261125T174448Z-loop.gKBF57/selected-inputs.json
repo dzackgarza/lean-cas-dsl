@@ -1,0 +1,12 @@
+{
+  "manifest": null,
+  "files": [
+    {
+      "stem": "rx02-complete-core-action",
+      "source": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx02-complete-core-action.cas",
+      "kind": "extension",
+      "key": "extension--rx02-complete-core-action"
+    }
+  ],
+  "complete": false
+}

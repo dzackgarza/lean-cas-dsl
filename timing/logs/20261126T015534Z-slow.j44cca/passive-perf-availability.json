@@ -1,0 +1,42 @@
+{
+  "recorded_utc": "2026-11-26T03:09:11.626229+00:00",
+  "run": "timing/logs/20261126T015534Z-slow.j44cca",
+  "native_session_id": 98621,
+  "snapshot_sha256": "3ed492a90bb023cb5da1b757b472f09d48ade9df740749b104210965a21689e5",
+  "target": {
+    "host_pid": 2293881,
+    "container_pid": 708406,
+    "source": "CasRuntime/SessionOccurrenceTests.lean"
+  },
+  "requested_sampling": {
+    "frequency_hz": 19,
+    "maximum_seconds": 10
+  },
+  "sampling_occurred": false,
+  "perf_record_executed": false,
+  "sampling_seconds": 0,
+  "status": "restricted_not_attempted",
+  "container_check": {
+    "observed_utc": "2026-11-26T03:06:59.540735+00:00",
+    "perf_executable": null,
+    "uid": 0,
+    "perf_event_paranoid": 4,
+    "effective_capabilities": "00000000a80425fb",
+    "has_cap_perfmon": false,
+    "has_cap_sys_admin": false
+  },
+  "host_check": {
+    "observed_utc": "2026-11-26T03:07:36.966461+00:00",
+    "perf_executable": "/usr/bin/perf",
+    "version": "perf version 6.8.12",
+    "uid": 1000,
+    "perf_event_paranoid": 4,
+    "effective_capabilities": "0000000000000000",
+    "binary_metadata_observed_utc": "2026-11-26T03:08:37.714000+00:00",
+    "binary_mode": "0755",
+    "binary_owner_uid": 0,
+    "setuid": false,
+    "security_capability_xattr_errno": 61
+  },
+  "note": "Only availability, permission metadata and existing target identity were read. No perf record, ptrace/gdb attach, signal, privilege escalation, limit change, cancellation, restart or duplicate native validation occurred. The existing18B timing remains an unsampled original run."
+}

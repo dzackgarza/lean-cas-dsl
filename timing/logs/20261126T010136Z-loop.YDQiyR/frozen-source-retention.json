@@ -1,0 +1,13 @@
+{
+  "observed_utc": "2026-11-26T01:01:24.539556+00:00",
+  "snapshot": "timing/logs/20261126T010136Z-loop.YDQiyR/frozen-source-snapshot.json",
+  "snapshot_sha256": "5213e16304ddc133e4ab28ce0fae1c6df01b93d8ea26a4bc9eb131b4d8662056",
+  "source_files": 754,
+  "archive": "timing/logs/20261126T010136Z-loop.YDQiyR/frozen-source-bytes.tar.gz",
+  "archive_sha256": "96e3f3e80d59c2cfa1904c0123aee644309f8ef9a182fff74b999dce5563537d",
+  "changed_vs_frozen15": {
+    "CasCompiler/SourceTypeOrigin.lean": "99530a4a72e1ca58cd0fe5218109eacf18d558eabcf2d3c862cdf58a15768eb3",
+    "CasRuntime/Execute.lean": "92f7496ab54566d96ae2037114b6cca14af33cfe18e94b1452b4736f3d530ecb",
+    "tests/feedback/test_feedback.py": "1177b9ec79a166c031b81b6d60c288329cdce4133d9429d25d0d1ab9a3ccb648"
+  }
+}

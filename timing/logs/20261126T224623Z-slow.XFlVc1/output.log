@@ -1,0 +1,39 @@
+[build] native lake --log-level=error build +CasCompiler.SourceLambdaTests:deps 
+Build completed successfully (1640 jobs).
+[execution] native lake --log-level=error lean CasCompiler/SourceLambdaTests.lean -- -DstderrAsMessages=false 
+/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/SourceLambdaTests.lean:65:8: error: Type mismatch
+  Lean.throwError (toMessageData "a source function application replaced its actual retained bindings")
+has type
+  ?m.371 ?m.372
+of sort `Type` but is expected to have type
+  SourceReadM Unit
+of sort `Type 1`
+/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/SourceLambdaTests.lean:98:8: error: Type mismatch
+  Lean.throwError (toMessageData "a source lambda application replaced its original callable or argument")
+has type
+  ?m.108 ?m.109
+of sort `Type` but is expected to have type
+  SourceReadM Unit
+of sort `Type 1`
+/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/SourceLambdaTests.lean:111:8: error: Type mismatch
+  Lean.throwError (toMessageData "a source lambda changed its declared instance binder")
+has type
+  ?m.227 ?m.228
+of sort `Type` but is expected to have type
+  SourceReadM Unit
+of sort `Type 1`
+/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/SourceLambdaTests.lean:188:12: error: Type mismatch
+  Lean.throwError (toMessageData "a later function question replaced its actual argument or composed map")
+has type
+  ?m.258 ?m.259
+of sort `Type` but is expected to have type
+  SourceReadM Unit
+of sort `Type 1`
+/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/SourceLambdaTests.lean:207:6: error: Type mismatch
+  Lean.throwError (toMessageData "a local domain annotation replaced the original source occurrence")
+has type
+  ?m.108 ?m.109
+of sort `Type` but is expected to have type
+  SourceReadM Unit
+of sort `Type 1`
+slow: execution status 1; status 1 in 71.601 s; log timing/logs/20261126T224623Z-slow.XFlVc1/output.log

@@ -1,0 +1,29 @@
+{
+  "observed_utc": "2026-11-25T21:18:42.521708+00:00",
+  "run": "timing/logs/20261125T211235Z-slow.u1604v",
+  "natural_wrapper_exit_code": 1,
+  "actual_status": 1,
+  "seconds": 131.347371901,
+  "phases": {
+    "build": {
+      "seconds": 102.99038274,
+      "status": 1
+    },
+    "execution": {
+      "seconds": 0.0,
+      "status": null
+    },
+    "acceptance": {
+      "seconds": 0.0,
+      "status": null
+    }
+  },
+  "attempted_sources": [],
+  "canonical_ledger_matching_rows": 1,
+  "source_files_checked": 754,
+  "source_differences_since_freeze": [],
+  "result_sha256": "82fbae2f7993eb356c0357ebbfc866e97a03f8bd4e2c9fafbff00bdb25a9ae32",
+  "output_sha256": "9e7749a9f657c598bcd48d812ff5215800728ae34cfc006acae81281256097ac",
+  "frozen_source_archive_sha256": "4574ffc1d55f37b10cc453e98b45a88515786dad4404c04d36f339f0bd1f5e3e",
+  "frozen_source_manifest_sha256": "3b4900a01b85650c54562192c7463003edd8e2b95f33e265a8bb1e7f6c0c455a"
+}

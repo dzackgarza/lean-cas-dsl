@@ -1,0 +1,17 @@
+{
+  "created_utc": "2026-11-26T06:35:26.572968+00:00",
+  "snapshot": ".tmp/validation-typed-integrated-33-sources.json",
+  "snapshot_sha256": "4f393d65a592c0bf8ace55e19427b0259dd84641512d88e2b0ac9db88e99ab02",
+  "archive": ".tmp/validation-typed-integrated-33-source-bytes.tar.gz",
+  "archive_sha256": "36e9864fc515380bb8a0acaead2e34447ea873ec8c007d2cf6c2967149a5f5db",
+  "archive_bytes": 2456384,
+  "files": 754,
+  "changes_from32": [
+    "CasCompiler/Context.lean",
+    "CasCompiler/ContextTests.lean",
+    "CasCompiler/Elaborate.lean",
+    "CasCompiler/SelectionScope.lean"
+  ],
+  "validation_command": "source scripts/container.sh\nincontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json just slow 'Validate scoped native closure reuse with original typed-source controls' CasCompiler.ContextTests CasCompiler.SourceInstanceTests CasCompiler.SourceViewTests CasCompiler.SourceSubsetTests CasCompiler.SourceTupleTests CasCompiler.SourceOperationTests CasCompiler.SourceMemberCompetitionTests",
+  "automatic_successor_authorized": false
+}

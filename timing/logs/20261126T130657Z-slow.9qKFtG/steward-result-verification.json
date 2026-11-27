@@ -1,0 +1,81 @@
+{
+  "utc": "2026-11-26T13:09:05.825137+00:00",
+  "result": {
+    "seconds": 109.553872857,
+    "status": 1,
+    "execution_status": 1,
+    "attempted_sources": [],
+    "finished_utc": "2026-11-26T13:08:48.302295+00:00",
+    "preparation_seconds": 63.048907057,
+    "phases": {
+      "build": {
+        "seconds": 40.094318376,
+        "status": 1
+      },
+      "execution": {
+        "seconds": 0.0,
+        "status": null
+      },
+      "acceptance": {
+        "seconds": 0.0,
+        "status": null
+      }
+    },
+    "targets": [
+      "CasCompiler.NativeDeclarationTests",
+      "CasCompiler.ContextTests",
+      "CasCompiler.SourceInstanceTests",
+      "CasCompiler.SourceGeneratorTests",
+      "CasCompiler.SourceOperationTests",
+      "CasCompiler.SourceRingTests",
+      "CasCompiler.SourceViewTests",
+      "CasCompiler.SourceSubsetTests",
+      "CasCompiler.SourceTupleTests",
+      "CasCatalogue.EvidencePresentationProbes",
+      "CasCatalogue.StructuredParameterProbes"
+    ],
+    "acceptance": [],
+    "context_status": "complete"
+  },
+  "per_source_outcomes": {
+    "CasCompiler.NativeDeclarationTests": "unattempted: dependency build failed",
+    "CasCompiler.ContextTests": "unattempted: dependency build failed",
+    "CasCompiler.SourceInstanceTests": "unattempted: dependency build failed",
+    "CasCompiler.SourceGeneratorTests": "unattempted: dependency build failed",
+    "CasCompiler.SourceOperationTests": "unattempted: dependency build failed",
+    "CasCompiler.SourceRingTests": "unattempted: dependency build failed",
+    "CasCompiler.SourceViewTests": "unattempted: dependency build failed",
+    "CasCompiler.SourceSubsetTests": "unattempted: dependency build failed",
+    "CasCompiler.SourceTupleTests": "unattempted: dependency build failed",
+    "CasCatalogue.EvidencePresentationProbes": "unattempted: dependency build failed",
+    "CasCatalogue.StructuredParameterProbes": "unattempted: dependency build failed"
+  },
+  "result_sha256": "aab97ad804f84dd2d182e85c1fae3d1cba75fc276998c0b4973e7438d6261f69",
+  "output_sha256": "8a5724e9d93476cf49a788cca1bcaa3e031e6970d53959ad36bf98bff340f950",
+  "snapshot_sha256": "95dac342e93280c95e5acde8bc47c4ccbda27e725db700c0301ca49b45c3e50c",
+  "frozen_input_count": 755,
+  "source_mismatches": {},
+  "frozen_head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "current_head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "active_native": [],
+  "identical_ledger_rows": [
+    663
+  ],
+  "context_status": "complete",
+  "environment_equal59": true,
+  "dependencies_equal59": true,
+  "errors": [
+    "error: CasCompiler/NativeDeclarations.lean:98:8: failed to synthesize instance of type class",
+    "error: Lean exited with code 1",
+    "error: build failed"
+  ],
+  "native_declarations_error_context": [
+    "error: CasCompiler/NativeDeclarations.lean:98:8: failed to synthesize instance of type class",
+    "  MonadStateOf (Std.HashSet Name \u00d7 Array Name) (StateRefT' IO.RealWorld (NameHashSet \u00d7 Array Name) MetaM)",
+    "",
+    "Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.",
+    "error: Lean exited with code 1"
+  ],
+  "successor_launched": false,
+  "release": true
+}

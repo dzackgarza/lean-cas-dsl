@@ -1,0 +1,40 @@
+{
+  "observed_utc": "2026-11-26T04:52:38.876819+00:00",
+  "source_snapshot": ".tmp/validation-typed-integrated-23-sources.json",
+  "source_snapshot_sha256": "5b7d158071573f5ba9c28fb0fb16323bc14ad86286d5cdcc4b9963dc98a84e08",
+  "source_count": 754,
+  "changed_sources": [],
+  "native_processes": [],
+  "result_sha256": "0345e6f3c71fe4492f77466e01ca32db1a517541449a1ef7ac1a5f6c7a6101ec",
+  "ledger_matching_rows": [
+    641
+  ],
+  "result": {
+    "run": "20261126T045011Z-slow.uCaRWy",
+    "status": 1,
+    "seconds": 132.477733037,
+    "execution_status": 1,
+    "over_limit": false,
+    "within_loop_bound": true,
+    "attempted_sources": [
+      "CasCompiler/SourceSubsetTests.lean"
+    ],
+    "phases": {
+      "build": {
+        "seconds": 44.828852374,
+        "status": 0
+      },
+      "execution": {
+        "seconds": 58.010423937,
+        "status": 1
+      },
+      "acceptance": {
+        "seconds": 0.0,
+        "status": null
+      }
+    },
+    "finished_utc": "2026-11-26T04:52:24.904785+00:00"
+  },
+  "release": true,
+  "automatic_successor_authorized": false
+}

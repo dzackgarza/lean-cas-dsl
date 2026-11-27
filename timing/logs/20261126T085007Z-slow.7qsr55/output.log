@@ -1,0 +1,9 @@
+[build] native lake --log-level=error build +CasCompiler.ProofTests:deps +CasCompiler.SourceInstanceTests:deps +CasCompiler.SourceGeneratorTests:deps +CasCompiler.SourceOperationTests:deps +CasCompiler.SourceRingTests:deps +CasCompiler.SourceViewTests:deps +CasCompiler.SourceSubsetTests:deps +CasCompiler.SourceTupleTests:deps 
+Build completed successfully (3899 jobs).
+[execution] native lake --log-level=error lean CasCompiler/ProofTests.lean -- -DstderrAsMessages=false 
+/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/ProofTests.lean:23:0: error: formal proof checking changed the obligation, source scope or original file
+/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/ProofTests.lean:73:0: error: the standalone let-rec proof lost its actual checked helper
+/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/ProofTests.lean:94:0: error: source proof closure lost the original rigid universe or native helper
+/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/ProofTests.lean:125:0: error: native proof completion changed an original source declaration
+/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/ProofTests.lean:149:0: error: native proof completion changed an original source declaration
+slow: execution status 1; status 1 in 118.699 s; log timing/logs/20261126T085007Z-slow.7qsr55/output.log

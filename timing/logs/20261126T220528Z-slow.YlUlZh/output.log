@@ -1,0 +1,36 @@
+[build] native lake --log-level=error build +CasTools.SourceSnapshotTests:deps +CasCompiler.SourceLambdaTests:deps 
+✔ [3878/3906] Built CasCompiler.SourceTuple (37s)
+✔ [3879/3906] Built CasCompiler.ReadTupleRules (16s)
+✔ [3880/3906] Built CasCompiler.SourcePattern (16s)
+✔ [3881/3906] Built CasCompiler.ReadApplication (22s)
+✔ [3882/3906] Built CasCompiler.ReadOperation (22s)
+✔ [3883/3906] Built CasCompiler.ReadLambdaRules (22s)
+✔ [3884/3906] Built CasCompiler.ReadOperationRules (22s)
+✔ [3885/3906] Built CasCompiler.ReadApplicationRules (23s)
+✔ [3886/3906] Built CasCompiler.ReadLiftRules (23s)
+✔ [3887/3906] Built CasCompiler.ReadCellRules (25s)
+✔ [3888/3906] Built CasCompiler.ReadAnnotationRules (26s)
+✔ [3889/3906] Built CasCompiler.ReadProductNotation (27s)
+✔ [3890/3906] Built CasCompiler.ReadMember (28s)
+✔ [3891/3906] Built CasCompiler.ReadFunctorRules (30s)
+✔ [3892/3906] Built CasCompiler.ReadNamed (30s)
+✔ [3893/3906] Built CasCompiler.ReadAtomNotation (18s)
+✔ [3894/3906] Built CasCompiler.ReadMemberNotation (21s)
+✔ [3895/3906] Built CasCompiler.ReadMemberRules (22s)
+✔ [3896/3906] Built CasCompiler.ReadNameRules (21s)
+✔ [3897/3906] Built CasCompiler.ReadPowerRules (22s)
+✔ [3898/3906] Built CasCompiler.ReadSubsetNotation (23s)
+✔ [3899/3906] Built CasCompiler.ReadRingNotation (23s)
+✔ [3900/3906] Built CasCompiler.ReadExpression (9.0s)
+✔ [3901/3906] Built CasCompiler.ReadSession (13s)
+✔ [3902/3906] Built CasCompiler.Read (8.3s)
+✔ [3904/3906] Built CasTools.QuestionObservation (10s)
+✔ [3905/3906] Built CasTools.QuestionExport (25s)
+Build completed successfully (3906 jobs).
+[execution] native lake --log-level=error lean CasTools/SourceSnapshotTests.lean -- -DstderrAsMessages=false 
+/repos/v1-integration-20261106/lean-cas-dsl/CasTools/SourceSnapshotTests.lean:14:22: error: (deterministic) timeout at `whnf`, maximum number of heartbeats (200000) has been reached
+
+Note: Use `set_option maxHeartbeats <num>` to set the limit.
+
+Hint: Additional diagnostic information may be available using the `set_option diagnostics true` command.
+slow: execution status 1; status 1 in 338.997 s; log timing/logs/20261126T220528Z-slow.YlUlZh/output.log

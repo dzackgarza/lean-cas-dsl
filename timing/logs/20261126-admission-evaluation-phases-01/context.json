@@ -1,0 +1,20 @@
+{
+  "started_utc": "2026-11-26T10:42:11.962752+00:00",
+  "cwd": "/repos/v1-integration-20261106/lean-cas-dsl",
+  "command": [
+    "just",
+    "probe",
+    ".tmp/source-instance-heartbeats-20261126/B0InstanceHeartbeatProbe.lean"
+  ],
+  "diagnostic_only": true,
+  "wrapper_pid": 731273,
+  "environment": {
+    "CAS_LEAVES": "/repos/lean-cas-dsl-leaves/leaves.json",
+    "PATH": "/sage/.venv/bin:/opt/elan/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    "LEAN_PATH": null,
+    "LEAN_SYSROOT": null,
+    "CAS_APPLICATION_LOG_DIR": null
+  },
+  "lean_toolchain": "leanprover/lean4:v4.33.0",
+  "probe_sha256": "2dde7297dff441ce2eee75e32c5650baee4ac7cb5ae7f30f88522a38e34f2975"
+}

@@ -1,0 +1,16 @@
+[build] native lake --log-level=error build +CasCompiler.ContextTests:deps +CasTools.JsonGraphTests:deps +CasRuntime.ValueTests:deps +CasRuntime.NativeFieldPrefixTests:deps +CasRuntime.BindingIdentityTests:deps +CasRuntime.FixedInputRouteTests:deps +CasRuntime.LiteralTests:deps +CasCompiler.SourceCarrierTests:deps 
+✔ [3990/3991] Built CasCompiler.Resolve (40s)
+Build completed successfully (3991 jobs).
+[execution] native lake --log-level=error lean CasCompiler/ContextTests.lean -- -DstderrAsMessages=false 
+[execution] native lake --log-level=error lean CasTools/JsonGraphTests.lean -- -DstderrAsMessages=false 
+[execution] native lake --log-level=error lean CasRuntime/ValueTests.lean -- -DstderrAsMessages=false 
+[execution] native lake --log-level=error lean CasRuntime/NativeFieldPrefixTests.lean -- -DstderrAsMessages=false 
+[execution] native lake --log-level=error lean CasRuntime/BindingIdentityTests.lean -- -DstderrAsMessages=false 
+/repos/v1-integration-20261106/lean-cas-dsl/CasRuntime/BindingIdentityTests.lean:47:0: error: (deterministic) timeout at `isDefEq`, maximum number of heartbeats (200000) has been reached
+
+Note: Use `set_option maxHeartbeats <num>` to set the limit.
+
+Hint: Additional diagnostic information may be available using the `set_option diagnostics true` command.
+/repos/v1-integration-20261106/lean-cas-dsl/CasRuntime/BindingIdentityTests.lean:381:19: error: Invalid public `meta` definition `observePublicOccurrences`, `SourceTest.authoredEntries` is not accessible here; consider adding `public meta import CasCompiler.SourceTestSupport`
+/repos/v1-integration-20261106/lean-cas-dsl/CasRuntime/BindingIdentityTests.lean:500:0: error(lean.dependsOnNoncomputable): failed to compile definition, consider marking it as 'noncomputable' because it depends on 'observePublicOccurrences', which is 'noncomputable'
+slow: execution status 1; status 1 in 367.536 s; log timing/logs/20261125T211917Z-slow.ayTPJv/output.log

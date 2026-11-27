@@ -1,0 +1,8 @@
+{
+  "recorded_utc": "2026-11-26T09:28:41.853804+00:00",
+  "authority": "parent explicit revocation during46",
+  "successor47_authorized": false,
+  "successor47_started": false,
+  "reason": "Pinned Lean review established wrapper-only expose does not publish the partial implementation helper; owner-level Value correction required after46 release",
+  "current46_process_action": "continue unchanged to natural completion; no restart, kill or source mutation"
+}

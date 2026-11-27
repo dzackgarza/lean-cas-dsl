@@ -1,0 +1,29 @@
+{
+  "manifest": null,
+  "files": [
+    {
+      "stem": "rx02-complete-core-action",
+      "source": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx02-complete-core-action.cas",
+      "kind": "extension",
+      "key": "extension--rx02-complete-core-action",
+      "sha256": "89ea7a08af111782af8e8465629698040c0ee0780caecf3ab400d5f0651aee8e",
+      "authority": {
+        "kind": "added-blob",
+        "revision": "9a640af2d2c5910dc0aed1e60eaaf0c9e4c4b1df",
+        "blob": "f96e00278ee80a054b9f1fb5affca85e244e7c71"
+      },
+      "admitted": false,
+      "computing": true,
+      "assertions": {
+        "reconstructed_extensions_20261024.addition.rx02.actual_forward": "12f323b90ab2018385a94b0407294d064df9322e23636f7d98d86cde46d729bf",
+        "reconstructed_extensions_20261024.addition.rx02.actual_backward": "3c5432bf9e23b6053513956cdd459193f9207cf1566d304c3746be551c67765c",
+        "reconstructed_extensions_20261024.addition.rx02.nonidentity_input": "b2d309d50867b3d712b6cedb85048c3ff499b8528fb004bd544e629f85173d14",
+        "reconstructed_extensions_20261024.addition.rx02.core_map_composition": "670fb0b7ac8820365cd856a7cfacb261bf0e28747ad5f9d1cd0d713657de87fe",
+        "reconstructed_extensions_20261024.addition.rx02.core_identity_action": "8b200eee6ba6f9be931046fea9a7714c6813e1b1191e7c44597ea83a87fc2fe5",
+        "reconstructed_extensions_20261024.addition.rx02.full_inverse_action": "e1da8d30a44a3e079b9b22a20fe0021f2c72c8f1c5dc9a9b0e03d0a3ccd153e9",
+        "reconstructed_extensions_20261024.addition.rx02.whole_direct_image": "3ce4aedd7585d84429bbc81cf31fb295519d4a05b6cf3678101b762cd4b3ca61"
+      }
+    }
+  ],
+  "complete": true
+}

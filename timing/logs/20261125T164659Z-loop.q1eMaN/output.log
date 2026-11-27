@@ -1,0 +1,20 @@
+[build] native lake --log-level=error build +CasRuntime.FixedInputRouteTests:deps 
+✔ [1560/1566] Built CasRuntime.Environment (44s)
+✔ [1564/1566] Built CasRuntime.PreparedRequest (14s)
+Build completed successfully (1566 jobs).
+[execution] native lake --log-level=error lean CasRuntime/FixedInputRouteTests.lean -- -DstderrAsMessages=false 
+FIXED_ROUTE_STAGE start used=42 maximum=200000000
+FIXED_ROUTE_STAGE original-first.prepare used=9084 maximum=200000000
+FIXED_ROUTE_STAGE callable-identity.prepare used=180453 maximum=200000000
+FIXED_ROUTE_STAGE callable-identity.route used=713907 maximum=200000000
+FIXED_ROUTE_STAGE callable-identity.complete used=919200 maximum=200000000
+FIXED_ROUTE_STAGE proof-second.prepare used=1231617 maximum=200000000
+FIXED_ROUTE_STAGE record-original.prepare used=1691196 maximum=200000000
+FIXED_ROUTE_STAGE record-original.complete used=2079000 maximum=200000000
+FIXED_ROUTE_STAGE record-identity.prepare used=2088615 maximum=200000000
+FIXED_ROUTE_STAGE record-identity.route used=3083793 maximum=200000000
+FIXED_ROUTE_STAGE record-identity.project used=3497767 maximum=200000000
+FIXED_ROUTE_STAGE record-identity.projection-prepared used=4803035 maximum=200000000
+FIXED_ROUTE_STAGE record-identity.later used=6216598 maximum=200000000
+/repos/v1-integration-20261106/lean-cas-dsl/CasRuntime/FixedInputRouteTests.lean:12:0: error: a fixed context input is outside its original source telescope
+loop: execution status 1; status 1 in 149.832 s; log timing/logs/20261125T164659Z-loop.q1eMaN/output.log

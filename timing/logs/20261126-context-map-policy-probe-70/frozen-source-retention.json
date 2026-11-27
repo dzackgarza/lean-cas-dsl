@@ -1,0 +1,19 @@
+{
+  "utc": "2026-11-26T15:13:42.595122+00:00",
+  "diagnostic_only": true,
+  "head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "frozen_input_count": 757,
+  "snapshot_sha256": "87ec1ffaa69dbaa6e6bd8a21f4992e1d0da4ab47587b9a924cfdb54fcfde5530",
+  "archive_sha256": "ffb4f18006739b69527441385f0e3c4ad13eedaa2500a06f6f6ecbc799258730",
+  "changed_since69": {
+    ".tmp/context-map-policy-probe-20261126/ContextMapPolicyProbe.lean": {
+      "before": "76c728516d89dcf1ef2a054c6e7dd7cad414d9e737b371db3a050ec35d1a16d5",
+      "after": "72d38e93d66352441d4549c9b6fba9b4796587e8ac52b7aae701561f3e7b0cce"
+    }
+  },
+  "native_inventory": [],
+  "command": "source scripts/container.sh\nincontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json python3 timing/logs/20261126-context-map-policy-probe-70/runner.py\n",
+  "probe_sha256": "72d38e93d66352441d4549c9b6fba9b4796587e8ac52b7aae701561f3e7b0cce",
+  "normal_ledger_entry": false,
+  "expected_defect_assertion": "consecutive public transport: transport reused a context map after its unfolding policy changed"
+}

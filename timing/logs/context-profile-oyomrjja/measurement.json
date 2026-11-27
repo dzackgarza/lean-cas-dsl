@@ -1,0 +1,13 @@
+{
+  "started_utc": "2026-11-26T21:44:26.491257+00:00",
+  "command": [
+    "lake",
+    "--log-level=error",
+    "run",
+    "feedback-context"
+  ],
+  "seconds": 18.979214371182024,
+  "status": 0,
+  "revision": "60424a12968a2e2c965ea6c7716581d943b728ee",
+  "scope": "Existing Lake workspace-resolution subprocess; measured while a separate dependency build was active"
+}

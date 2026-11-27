@@ -1,0 +1,2 @@
+source scripts/container.sh
+incontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json just slow "Validate guarded context transport and complete original structured source controls" CasCompiler.NativeDeclarationTests CasCompiler.ContextTests CasCompiler.SourceInstanceTests CasCompiler.SourceGeneratorTests CasCompiler.SourceOperationTests CasCompiler.SourceRingTests CasCompiler.SourceViewTests CasCompiler.SourceSubsetTests CasCompiler.SourceTupleTests CasCatalogue.EvidencePresentationProbes CasCatalogue.StructuredParameterProbes

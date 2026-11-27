@@ -1,0 +1,14 @@
+{
+  "created_utc": "2026-11-26T04:33:53.810755+00:00",
+  "snapshot": ".tmp/validation-typed-integrated-21-sources.json",
+  "snapshot_sha256": "4852074765878514e2078f798643fb2ea9875092184336558dd41117f9c54af0",
+  "archive": ".tmp/validation-typed-integrated-21-source-bytes.tar.gz",
+  "archive_sha256": "6c125bb499dc0362340a32eab26a45687930c901bdc39a2a8115a02d1ab17b9f",
+  "archive_bytes": 2450532,
+  "files": 754,
+  "changes_from20": [
+    "CasCompiler/ReadOperation.lean"
+  ],
+  "validation_command": "source scripts/container.sh\nincontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json just slow 'Validate retained operand domains and original subset and ambiguity controls' CasCompiler.SourceSubsetTests CasCompiler.SourceTupleTests CasCompiler.SourceOperationTests CasCompiler.SourceInstanceTests CasCompiler.SourceMemberCompetitionTests",
+  "automatic_successor_authorized": false
+}

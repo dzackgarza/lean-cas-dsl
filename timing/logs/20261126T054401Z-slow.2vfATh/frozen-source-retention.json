@@ -1,0 +1,14 @@
+{
+  "created_utc": "2026-11-26T05:43:49.502277+00:00",
+  "snapshot": ".tmp/validation-typed-integrated-29-sources.json",
+  "snapshot_sha256": "5cf089032949d5bf76458c8fe40d1616ca9135e844e979f17b97f1907680c5ce",
+  "archive": ".tmp/validation-typed-integrated-29-source-bytes.tar.gz",
+  "archive_sha256": "418f771d89763fec9cbed41d887da7a331bdb43a553a99c5d46a655254b3d1f3",
+  "archive_bytes": 2453286,
+  "files": 754,
+  "changes_from28": [
+    "CasCompiler/SourceInstanceTests.lean"
+  ],
+  "validation_command": "source scripts/container.sh\nincontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json just slow 'Validate corrected source instance controls and original typed operation regressions' CasCompiler.SourceInstanceTests CasCompiler.ContextTests CasCompiler.SourceSubsetTests CasCompiler.SourceTupleTests CasCompiler.SourceOperationTests CasCompiler.SourceMemberCompetitionTests",
+  "automatic_successor_authorized": false
+}

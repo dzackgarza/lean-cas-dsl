@@ -1,0 +1,265 @@
+*** Begin Patch
+*** Add File: /home/dzack/.local/share/docker/volumes/sage-repos/_data/v1-integration-20261106/lean-cas-dsl/CasTools/JsonGraph.lean
++module
++
++public import Lean
++
++@[expose] public section
++
++namespace CasTools.JsonGraph
++
++open Lean
++
++/-- Exact JSON constructors; child indices refer only to earlier nodes. Numeric payloads
++retain their original mantissa and exponent, without a floating-point conversion. -/
++private inductive Node where
++  | null
++  | bool (value : Bool)
++  | num (mantissa : Int) (exponent : Nat)
++  | str (value : String)
++  | arr (children : Array Nat)
++  | obj (fields : Array (String × Nat))
++  deriving BEq, Hashable
++
++private def Node.toJson : Node → Json
++  | .null => .arr #[.str "null"]
++  | .bool value => .arr #[.str "bool", Lean.toJson value]
++  | .num mantissa exponent => .arr #[.str "num", Lean.toJson mantissa, Lean.toJson exponent]
++  | .str value => .arr #[.str "str", .str value]
++  | .arr children => .arr #[.str "arr", Lean.toJson children]
++  | .obj fields => .arr #[.str "obj", Lean.toJson fields]
++
++private structure Builder where
++  indices : Std.HashMap Node Nat := {}
++  nodes : Array Node := #[]
++
++private partial def Builder.add (document : Json) : StateM Builder Nat := do
++  let node ← match document with
++    | .null => pure Node.null
++    | .bool value => pure (.bool value)
++    | .num value => pure (.num value.mantissa value.exponent)
++    | .str value => pure (.str value)
++    | .arr children => do
++      let indices ← children.mapM Builder.add
++      pure (.arr indices)
++    | .obj fields => do
++      let fields ← fields.toList.toArray.mapM fun (key, value) => do
++        return (key, ← Builder.add value)
++      pure (.obj fields)
++  if let some index := (← get).indices[node]? then return index
++  let index := (← get).nodes.size
++  modify fun state => { state with
++    indices := state.indices.insert node index
++    nodes := state.nodes.push node }
++  return index
++
++/-- Share only exactly equal serialized constructors. No source identity, native type,
++selection, or provenance is inferred by this transport codec. Every event owns its table. -/
++opaque encode (document : Json) : Json :=
++  let (root, builder) := (Builder.add document).run {}
++  Json.mkObj [("root", toJson root), ("nodes", .arr (builder.nodes.map Node.toJson))]
++
++/-- Restore the complete immutable JSON tree with shared child values. Forward/cyclic
++references, duplicate object keys, malformed constructors and missing roots are rejected. -/
++def decode (document : Json) : Except String Json := do
++  let fields ← document.getObj?
++  unless fields.toList.length == 2 do
++    throw "a JSON graph requires exactly its root and node table"
++  let nodes ← document.getObjValAs? (Array Json) "nodes"
++  let root ← document.getObjValAs? Nat "root"
++  let mut values : Array Json := #[]
++  for node in nodes do
++    let available := values
++    let child (index : Nat) : Except String Json :=
++      match available[index]? with
++      | some value => .ok value
++      | none => .error "a JSON graph has a forward, cyclic or missing child reference"
++    let fields ← node.getArr?
++    let value ← match fields with
++      | #[.str "null"] => pure Json.null
++      | #[.str "bool", .bool value] => pure (.bool value)
++      | #[.str "num", mantissa, exponent] => do
++        let mantissa ← fromJson? mantissa
++        let exponent ← fromJson? exponent
++        pure (.num ⟨mantissa, exponent⟩)
++      | #[.str "str", .str value] => pure (.str value)
++      | #[.str "arr", indices] => do
++        let indices ← (fromJson? indices : Except String (Array Nat))
++        return .arr (← indices.mapM child)
++      | #[.str "obj", entries] => do
++        let entries ← (fromJson? entries : Except String (Array (String × Nat)))
++        let mut keys : Std.HashSet String := {}
++        let mut fields := #[]
++        for (key, index) in entries do
++          if keys.contains key then
++            throw "a JSON graph has a duplicate object field"
++          keys := keys.insert key
++          fields := fields.push (key, ← child index)
++        pure (Json.mkObj fields.toList)
++      | _ => throw "a JSON graph has an invalid constructor"
++    values := values.push value
++  match values[root]? with
++  | some value => pure value
++  | none => throw "a JSON graph root is outside its node table"
++
++end CasTools.JsonGraph
+*** Add File: /home/dzack/.local/share/docker/volumes/sage-repos/_data/v1-integration-20261106/lean-cas-dsl/CasTools/JsonGraphTests.lean
++module
++
++import CasTools.Diagnostics
++public meta import Lean.Elab.Command
++meta import CasTools.Diagnostics
++
++open Lean CasTools
++
++-- Repeated complete data retains every constructor, including null positions,
++-- arbitrary object keys, Unicode, and non-normalized exact JSON numbers.
++run_cmd do
++  let native := Json.mkObj [
++    ("context", .arr #[Json.mkObj [
++      ("id", Json.mkObj [("session", "source-α"), ("serial", toJson (7 : Nat))]),
++      ("originalSource", .null), ("instances", .arr #[]),
++      ("metadata", Json.mkObj [("$ref", toJson (19 : Nat)), ("nodes", "authored")])]]),
++    ("selection", .arr #[.null, .bool true, .bool false, .num ⟨10, 1⟩,
++      .num ⟨-123, 4⟩, .str "α\nquoted \"source\"", .arr #[], Json.mkObj []])]
++  let source := Json.mkObj [
++    ("source", native), ("producer", native), ("parameters", .arr #[native, .null, native])]
++  let encoded := JsonGraph.encode source
++  let .ok wire := Json.parse encoded.compress
++    | throwError "the exact diagnostic graph did not survive JSON transport"
++  let .ok decoded := JsonGraph.decode wire
++    | throwError "the exact diagnostic graph did not decode"
++  unless decoded == source do
++    throwError "diagnostic graph transport changed original structured data"
++
++-- A table is stored once even when many observations retain it. Equal packets with
++-- distinct original occurrence identities remain distinct complete records.
++run_cmd do
++  let rows := (Array.range 29).map fun index => Json.mkObj [
++    ("binding", Json.mkObj [("session", "one-source"), ("serial", toJson index)]),
++    ("selection", Json.mkObj [("value", toJson index), ("route", toJson #["first", "second"]),
++      ("parameters", .arr #[.null, .num ⟨10, 1⟩])])]
++  let table := Json.arr rows
++  let once := JsonGraph.encode table
++  let repeated := JsonGraph.encode (.arr (Array.replicate 64 table))
++  let .ok onceNodes := once.getObjValAs? (Array Json) "nodes"
++    | throwError "a diagnostic table lost its exact node graph"
++  let .ok repeatedNodes := repeated.getObjValAs? (Array Json) "nodes"
++    | throwError "a repeated diagnostic table lost its exact node graph"
++  unless repeatedNodes.size == onceNodes.size + 1 do
++    throwError "diagnostic transport expanded repeated complete tables"
++  let first := Json.mkObj [("value", toJson (4 : Nat)), ("packet", "same"),
++    ("source", table), ("occurrence", toJson (11 : Nat))]
++  let second := first.setObjVal! "occurrence" (toJson (12 : Nat))
++  let original := Json.arr #[first, second, first]
++  let .ok decoded := JsonGraph.decode (JsonGraph.encode original)
++    | throwError "diagnostic occurrence data did not decode"
++  unless decoded == original do
++    throwError "diagnostic graph sharing identified distinct original occurrences"
++
++-- No partial, forward, cyclic, duplicate-field, or unknown constructor is repaired.
++run_cmd do
++  let malformed := #[
++    Json.mkObj [("root", toJson (0 : Nat)), ("nodes", .arr #[.arr #["null"]]),
++      ("extra", .bool true)],
++    Json.mkObj [("root", toJson (0 : Nat)), ("nodes", .arr #[])],
++    Json.mkObj [("root", toJson (1 : Nat)), ("nodes", .arr #[.arr #["null"]])],
++    Json.mkObj [("root", toJson (0 : Nat)), ("nodes", .arr #[.arr #["arr", toJson #[0]]])],
++    Json.mkObj [("root", toJson (0 : Nat)), ("nodes", .arr #[.arr #["arr", toJson #[1]],
++      .arr #["null"]])],
++    Json.mkObj [("root", toJson (1 : Nat)), ("nodes", .arr #[.arr #["null"],
++      .arr #["obj", toJson #[("same", 0), ("same", 0)]]])],
++    Json.mkObj [("root", toJson (0 : Nat)), ("nodes", .arr #[.arr #["num", toJson (1 : Int),
++      toJson (-1 : Int)]] )],
++    Json.mkObj [("root", toJson (0 : Nat)), ("nodes", .arr #[.arr #["unknown"]])]]
++  for document in malformed do
++    if (JsonGraph.decode document).isOk then
++      throwError "diagnostic transport accepted an invalid exact graph"
++
++-- The production stream reader supports old events and preserves every current
++-- envelope field while expanding only the diagnostic data transport.
++run_cmd do
++  let old := Json.mkObj [("schema", toJson (1 : Nat)), ("sequence", toJson (8 : Nat)),
++    ("session", "old-session"), ("parents", toJson #[2, 5]), ("event", "old"),
++    ("monotonicMilliseconds", toJson (13 : Nat)), ("data", .arr #[.null, "original"])]
++  unless ApplicationLog.decodeEvent old == .ok old do
++    throwError "the diagnostic reader changed an original schema-1 event"
++  if (ApplicationLog.decodeEvent (old.setObjVal! "schema" (toJson (3 : Nat)))).isOk then
++    throwError "the diagnostic reader accepted an unsupported stream schema"
++  let data := Json.mkObj [("source", .arr #[.null, .num ⟨10, 1⟩, "original"]),
++    ("selection", Json.mkObj [("$ref", toJson (9 : Nat))])]
++  let log ← ApplicationLog.new "exact-log-transport" (Json.mkObj [])
++  let first ← log.write #[0] "first" data
++  let second ← log.write #[first] "second" data
++  let events ← ApplicationLog.readEvents log.path
++  unless events.size == 3 && first == 1 && second == 2 do
++    throwError "the production diagnostic stream lost an original event"
++  for event in events, sequence in [:events.size] do
++    unless (event.getObjValAs? Nat "sequence").toOption == some sequence &&
++        (event.getObjValAs? String "session").toOption == some log.session &&
++        (event.getObjValAs? Nat "schema").toOption == some 2 &&
++        (event.getObjValAs? Nat "monotonicMilliseconds").isOk do
++      throwError "the diagnostic decoder changed an original envelope"
++  for sequence in #[1, 2] do
++    unless (events[sequence]!.getObjVal? "data").toOption == some data do
++      throwError "the production diagnostic stream changed its complete original data"
++  unless (events[2]!.getObjValAs? (Array Nat) "parents").toOption == some #[1] do
++    throwError "the diagnostic stream changed an original causal parent"
+*** Update File: /home/dzack/.local/share/docker/volumes/sage-repos/_data/v1-integration-20261106/lean-cas-dsl/CasTools/Diagnostics.lean
+@@
+ public import Std.Sync.Mutex
++public import CasTools.JsonGraph
+@@
+-      ("schema", toJson (1 : Nat)), ("session", toJson log.session),
++      ("schema", toJson (2 : Nat)), ("session", toJson log.session),
+@@
+-      ("event", toJson event), ("data", data)]
++      ("event", toJson event), ("data", JsonGraph.encode data)]
+@@
+-namespace Diagnostics
++/-- Decode only the event-local diagnostic transport. Public request observations and
++their complete native fields retain their original expanded JSON schema. Old streams remain
++readable; an unknown version or malformed graph is an error, never a partial event. -/
++def ApplicationLog.decodeEvent (event : Json) : Except String Json := do
++  match ← event.getObjValAs? Nat "schema" with
++  | 1 => pure event
++  | 2 =>
++    let data ← JsonGraph.decode (← event.getObjVal? "data")
++    pure (event.setObjVal! "data" data)
++  | _ => throw "an application log has an unsupported stream schema"
++
++/-- Read a durable diagnostic stream one complete line at a time, restoring shared
++immutable JSON values. Independent provider traffic uses its own protocol reader. -/
++def ApplicationLog.readEvents (path : System.FilePath) : IO (Array Json) :=
++  IO.FS.withFile path .read fun input => do
++    let mut events := #[]
++    repeat
++      let line ← input.getLine
++      if line.isEmpty then break
++      if line.trimAscii.toString.isEmpty then continue
++      let event ← IO.ofExcept <| (Json.parse line).mapError IO.userError
++      let event ← IO.ofExcept <| (ApplicationLog.decodeEvent event).mapError IO.userError
++      events := events.push event
++    return events
++
++namespace Diagnostics
+*** Update File: /home/dzack/.local/share/docker/volumes/sage-repos/_data/v1-integration-20261106/lean-cas-dsl/CasRuntime/ApplicationLogTests.lean
+@@
+-      let mut events : Array Json := #[]
+-      for line in (← IO.FS.readFile initial.kernel.log.path).splitOn "\n" do
+-        if line.isEmpty then continue
+-        events := events.push (← IO.ofExcept <| (Json.parse line).mapError IO.userError)
++      let events ← CasTools.ApplicationLog.readEvents initial.kernel.log.path
+*** Update File: /home/dzack/.local/share/docker/volumes/sage-repos/_data/v1-integration-20261106/lean-cas-dsl/CasRuntime/SessionTests.lean
+@@
+-      let events ← readEvents initial.kernel.log.path
++      let events ← CasTools.ApplicationLog.readEvents initial.kernel.log.path
+*** Update File: /home/dzack/.local/share/docker/volumes/sage-repos/_data/v1-integration-20261106/lean-cas-dsl/CasCompilerTests.lean
+@@
+ import CasTools.NativeExpressionTests
++import CasTools.JsonGraphTests
+*** Update File: /home/dzack/.local/share/docker/volumes/sage-repos/_data/v1-integration-20261106/lean-cas-dsl/CasGates/Production.lean
+@@
+ import all CasTools.NativeExpressionTests
++import all CasTools.JsonGraphTests
+*** End Patch

@@ -1,0 +1,25 @@
+{
+  "started_utc": "2026-11-25T20:47:05.818431+00:00",
+  "command": [
+    "just",
+    "stop"
+  ],
+  "cwd": "/repos/v1-integration-20261106/lean-cas-dsl",
+  "verified_original_processes": [
+    {
+      "inner_pid": 678644,
+      "name": "lake",
+      "start_ticks": "241936040"
+    },
+    {
+      "inner_pid": 680451,
+      "name": "lean",
+      "start_ticks": "241999066"
+    }
+  ],
+  "reason": "diagnosed original dependency compilation failures prevent fresh selected consumer execution; corrected candidate passed focused controls and requires incompatible Value representation rebuild",
+  "interpretation": "requested cleanup of a failed frozen batch; not natural completion and not acceptance",
+  "stop_command_exit_code": 0,
+  "seconds": 2.906,
+  "finished_utc": "2026-11-25T20:47:08.725131+00:00"
+}

@@ -1,0 +1,133 @@
+[New LWP 3013463]
+[New LWP 2902890]
+[New LWP 2902889]
+[New LWP 2902888]
+[New LWP 2902887]
+[New LWP 2902886]
+[New LWP 2900321]
+[New LWP 2900320]
+[New LWP 2900254]
+
+warning: "target:/proc/2900182/exe": could not open as an executable file: Input/output error.
+
+warning: `target:/proc/2900182/exe': can't open to read symbols: Input/output error.
+
+warning: Could not load vsyscall page because no executable was specified
+
+warning: Target and debugger are in different PID namespaces; thread lists and other data are likely unreliable.  Connect to gdbserver inside the container.
+0x00007f566e8b572e in ?? ()
+
+Thread 10 (LWP 2900254 "lean"):
+#0  0x00007f566e8b572e in ?? ()
+#1  0x00007f566e8aa388 in ?? ()
+#2  0x00007f566e7169c8 in ?? ()
+#3  0x0000000000000008 in ?? ()
+#4  0x00007f56784142b8 in ?? ()
+#5  0x00007f566e8aa3cd in ?? ()
+#6  0x0000000000000119 in ?? ()
+#7  0x00007f567805ca5d in ?? ()
+#8  0x000000000024eec0 in ?? ()
+#9  0x00007f566e92b79d in ?? ()
+#10 0x0000000000000119 in ?? ()
+#11 0x0000000000000000 in ?? ()
+
+Thread 9 (LWP 2900320 "lean"):
+#0  0x00007f566e8b572e in ?? ()
+#1  0x00007f566e8aa388 in ?? ()
+#2  0x00007f5627fff9c8 in ?? ()
+#3  0x00000000ffffffff in ?? ()
+#4  0x000060215f1a7f98 in ?? ()
+#5  0x00007f566e8aa9ac in ?? ()
+#6  0x00000000000000ca in ?? ()
+#7  0x00007f566e8b24b6 in ?? ()
+#8  0x0000000000000000 in ?? ()
+
+Thread 8 (LWP 2900321 "lean"):
+#0  0x00007f566e8b572e in ?? ()
+#1  0x00007f566e8aa388 in ?? ()
+#2  0x00007f55dffff9c8 in ?? ()
+#3  0x00000000ffffffff in ?? ()
+#4  0x000060215f1a7f68 in ?? ()
+#5  0x00007f566e8aa9ac in ?? ()
+#6  0x00000000000000ca in ?? ()
+#7  0x00007f5677fbc0c6 in ?? ()
+#8  0x0000000000000000 in ?? ()
+
+Thread 7 (LWP 2902886 "lean"):
+#0  0x00007f5677f4db21 in ?? ()
+#1  0x00004e4a8f83ba58 in ?? ()
+#2  0x00007f5597f6cfc0 in ?? ()
+#3  0x00007f5597ffd1f0 in ?? ()
+#4  0x00007f555012d0b0 in ?? ()
+#5  0x00007f5597ffd278 in ?? ()
+#6  0x00004e4a8f83ba88 in ?? ()
+#7  0x00007f5597f6d010 in ?? ()
+#8  0x00007f5677f4c839 in ?? ()
+#9  0x0000000000000000 in ?? ()
+
+Thread 6 (LWP 2902887 "lean"):
+#0  0x00007f566e8b572e in ?? ()
+#1  0x00007f566e8aa388 in ?? ()
+#2  0x00007f554ffff9c8 in ?? ()
+#3  0x00000000ffffffff in ?? ()
+#4  0x000060215f1a7f68 in ?? ()
+#5  0x00007f566e8aa9ac in ?? ()
+#6  0x00000000000000ca in ?? ()
+#7  0x00007f566e8b24b6 in ?? ()
+#8  0x00007f5597fff6c0 in ?? ()
+#9  0x00007f566e8ace98 in ?? ()
+#10 0x0000000100000000 in ?? ()
+#11 0x000060215f1a7f8c in ?? ()
+
+Thread 5 (LWP 2902888 "lean"):
+#0  0x00007f566e8b572e in ?? ()
+#1  0x00007f566e8aa388 in ?? ()
+#2  0x00007f5507fff9c8 in ?? ()
+#3  0x00000000ffffffff in ?? ()
+#4  0x000060215f1a7f68 in ?? ()
+#5  0x00007f566e8aa9ac in ?? ()
+#6  0x00000000000000ca in ?? ()
+#7  0x00007f5677f9baa9 in ?? ()
+#8  0x00007f5597fff6c0 in ?? ()
+#9  0x00007f566e8ace98 in ?? ()
+#10 0x0000000100000000 in ?? ()
+#11 0x000060215f1a7f8c in ?? ()
+
+Thread 4 (LWP 2902889 "lean"):
+#0  0x00007f566e8b572e in ?? ()
+#1  0x00007f566e8aa388 in ?? ()
+#2  0x00007f54bffff9c8 in ?? ()
+#3  0x00000000ffffffff in ?? ()
+#4  0x000060215f1a7f68 in ?? ()
+#5  0x00007f566e8aa9ac in ?? ()
+#6  0x00000000000000ca in ?? ()
+#7  0x00007f5677fbc0c6 in ?? ()
+#8  0x0000000000000000 in ?? ()
+
+Thread 3 (LWP 2902890 "lean"):
+#0  0x00007f566e8b572e in ?? ()
+#1  0x00007f566e8aa388 in ?? ()
+#2  0x00007f5477fff9c8 in ?? ()
+#3  0x00000000ffffffff in ?? ()
+#4  0x000060215f1a7f68 in ?? ()
+#5  0x00007f566e8aa9ac in ?? ()
+#6  0x00000000000000ca in ?? ()
+#7  0x00007f566e8b24b6 in ?? ()
+#8  0x0000000000000000 in ?? ()
+
+Thread 2 (LWP 3013463 "lean"):
+#0  0x00007f566e8b572e in ?? ()
+#1  0x00007f566e8aa388 in ?? ()
+#2  0x00007f542ffff9c8 in ?? ()
+#3  0x0000000000000000 in ?? ()
+
+Thread 1 (LWP 2900182 "lean"):
+#0  0x00007f566e8b572e in ?? ()
+#1  0x00007f566e8aa388 in ?? ()
+#2  0x00007f566e717b08 in ?? ()
+#3  0x00000000ffffffff in ?? ()
+#4  0x00007f5627fff6c0 in ?? ()
+#5  0x00007f566e8aa9ac in ?? ()
+#6  0x00000000000000ca in ?? ()
+#7  0x0000000000000000 in ?? ()
+[Inferior 1 (process 2900182) detached]

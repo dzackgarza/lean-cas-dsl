@@ -1,0 +1,6 @@
+{
+  "session_id": 86380,
+  "declared_persistent": true,
+  "foreground": true,
+  "conditional82": "only if build and all9 fresh controls pass with unchanged inputs, HEAD, environment/dependencies and nativeempty"
+}

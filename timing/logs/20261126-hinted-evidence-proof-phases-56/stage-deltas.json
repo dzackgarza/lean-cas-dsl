@@ -1,0 +1,2616 @@
+{
+  "counts": {
+    "INSTANCE_": 28,
+    "B0_FINITE_PHASE": 65,
+    "B0_PROOF_PHASE": 253,
+    "B0_ADMISSION_EVIDENCE": 10
+  },
+  "completed_pairs": [
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.domain.selected",
+      "before": 74116456,
+      "after": 74117357,
+      "raw_ticks": 901,
+      "before_line": "B0_FINITE_PHASE admission.domain.selected.before raw=74116456",
+      "after_line": "B0_FINITE_PHASE admission.domain.selected.after count=1 raw=74117357"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.telescope",
+      "before": 74117670,
+      "after": 74117818,
+      "raw_ticks": 148,
+      "before_line": "B0_FINITE_PHASE admission.telescope.before entry=obj.sets.finite_subsets raw=74117670",
+      "after_line": "B0_FINITE_PHASE admission.telescope.after entry=obj.sets.finite_subsets raw=74117818"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.target.domain",
+      "before": 74118111,
+      "after": 74119027,
+      "raw_ticks": 916,
+      "before_line": "B0_FINITE_PHASE admission.target.domain.before entry=obj.sets.finite_subsets raw=74118111",
+      "after_line": "B0_FINITE_PHASE admission.target.domain.after entry=obj.sets.finite_subsets raw=74119027"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.target.align",
+      "before": 74121130,
+      "after": 74126800,
+      "raw_ticks": 5670,
+      "before_line": "B0_FINITE_PHASE admission.target.align.before entry=obj.sets.finite_subsets raw=74121130",
+      "after_line": "B0_FINITE_PHASE admission.target.align.after entry=obj.sets.finite_subsets raw=74126800"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.datum.type",
+      "before": 74127073,
+      "after": 74127204,
+      "raw_ticks": 131,
+      "before_line": "B0_FINITE_PHASE admission.datum.type.before entry=obj.sets.finite_subsets raw=74127073",
+      "after_line": "B0_FINITE_PHASE admission.datum.type.after entry=obj.sets.finite_subsets raw=74127204"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.domain.selected",
+      "before": 74156176,
+      "after": 74157242,
+      "raw_ticks": 1066,
+      "before_line": "B0_FINITE_PHASE admission.domain.selected.before raw=74156176",
+      "after_line": "B0_FINITE_PHASE admission.domain.selected.after count=0 raw=74157242"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.domain.candidate",
+      "before": 74157517,
+      "after": 74158077,
+      "raw_ticks": 560,
+      "before_line": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.units raw=74157517",
+      "after_line": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.units applicable=false raw=74158077"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.domain.candidate",
+      "before": 74158250,
+      "after": 74158707,
+      "raw_ticks": 457,
+      "before_line": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.finite_subsets raw=74158250",
+      "after_line": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.finite_subsets applicable=false raw=74158707"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.domain.candidate",
+      "before": 74158756,
+      "after": 74159026,
+      "raw_ticks": 270,
+      "before_line": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.positive_naturals raw=74158756",
+      "after_line": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.positive_naturals applicable=false raw=74159026"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.domain.candidate",
+      "before": 74159082,
+      "after": 74159351,
+      "raw_ticks": 269,
+      "before_line": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.primes raw=74159082",
+      "after_line": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.primes applicable=false raw=74159351"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.domain.candidate",
+      "before": 74159472,
+      "after": 74159954,
+      "raw_ticks": 482,
+      "before_line": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.nonzero_polynomials raw=74159472",
+      "after_line": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.nonzero_polynomials applicable=false raw=74159954"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.domain.candidate",
+      "before": 74160349,
+      "after": 74160822,
+      "raw_ticks": 473,
+      "before_line": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.monics raw=74160349",
+      "after_line": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.monics applicable=false raw=74160822"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.domain.candidate",
+      "before": 74160919,
+      "after": 74161359,
+      "raw_ticks": 440,
+      "before_line": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.maps raw=74160919",
+      "after_line": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.maps applicable=false raw=74161359"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.domain.candidate",
+      "before": 74161492,
+      "after": 74161933,
+      "raw_ticks": 441,
+      "before_line": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.continuous_maps raw=74161492",
+      "after_line": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.continuous_maps applicable=false raw=74161933"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.domain.candidate",
+      "before": 74162027,
+      "after": 74162432,
+      "raw_ticks": 405,
+      "before_line": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.smooth_maps raw=74162027",
+      "after_line": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.smooth_maps applicable=false raw=74162432"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.domain.candidate",
+      "before": 74162570,
+      "after": 74163022,
+      "raw_ticks": 452,
+      "before_line": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.summable_families raw=74162570",
+      "after_line": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.summable_families applicable=false raw=74163022"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.domain.candidate",
+      "before": 74163150,
+      "after": 74163606,
+      "raw_ticks": 456,
+      "before_line": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.convergent_maps raw=74163150",
+      "after_line": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.convergent_maps applicable=false raw=74163606"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.domain.candidate",
+      "before": 74163711,
+      "after": 74164163,
+      "raw_ticks": 452,
+      "before_line": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.convergent_maps_at_infinity raw=74163711",
+      "after_line": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.convergent_maps_at_infinity applicable=false raw=74164163"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.domain.candidate",
+      "before": 74164382,
+      "after": 74164721,
+      "raw_ticks": 339,
+      "before_line": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.bilinear_maps raw=74164382",
+      "after_line": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.bilinear_maps applicable=false raw=74164721"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.domain.candidate",
+      "before": 74164932,
+      "after": 74165268,
+      "raw_ticks": 336,
+      "before_line": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.group_morphisms raw=74164932",
+      "after_line": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.group_morphisms applicable=false raw=74165268"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.domain.candidate",
+      "before": 74165433,
+      "after": 74165770,
+      "raw_ticks": 337,
+      "before_line": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.module_morphisms raw=74165433",
+      "after_line": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.module_morphisms applicable=false raw=74165770"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "scope.open",
+      "before": 91520357,
+      "after": 91991378,
+      "raw_ticks": 471021,
+      "before_line": "B0_PROOF_PHASE scope.open.before raw=91520357",
+      "after_line": "B0_PROOF_PHASE scope.open.after raw=91991378"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "prepare",
+      "before": 91991407,
+      "after": 91993131,
+      "raw_ticks": 1724,
+      "before_line": "B0_PROOF_PHASE prepare.before raw=91991407",
+      "after_line": "B0_PROOF_PHASE prepare.after raw=91993131"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "proof.type",
+      "before": 91993149,
+      "after": 91993203,
+      "raw_ticks": 54,
+      "before_line": "B0_PROOF_PHASE proof.type.before raw=91993149",
+      "after_line": "B0_PROOF_PHASE proof.type.after raw=91993203"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "proof.kernel",
+      "before": 91993221,
+      "after": 91993741,
+      "raw_ticks": 520,
+      "before_line": "B0_PROOF_PHASE proof.kernel.before raw=91993221",
+      "after_line": "B0_PROOF_PHASE proof.kernel.after raw=91993741"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "closure.abstract",
+      "before": 91994950,
+      "after": 91995119,
+      "raw_ticks": 169,
+      "before_line": "B0_PROOF_PHASE closure.abstract.before raw=91994950",
+      "after_line": "B0_PROOF_PHASE closure.abstract.after raw=91995119"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "closure.kernel",
+      "before": 91995137,
+      "after": 91995657,
+      "raw_ticks": 520,
+      "before_line": "B0_PROOF_PHASE closure.kernel.before raw=91995137",
+      "after_line": "B0_PROOF_PHASE closure.kernel.after raw=91995657"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "reapply",
+      "before": 91995732,
+      "after": 91995827,
+      "raw_ticks": 95,
+      "before_line": "B0_PROOF_PHASE reapply.before raw=91995732",
+      "after_line": "B0_PROOF_PHASE reapply.after raw=91995827"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "headBeta",
+      "before": 91995857,
+      "after": 91995957,
+      "raw_ticks": 100,
+      "before_line": "B0_PROOF_PHASE headBeta.before raw=91995857",
+      "after_line": "B0_PROOF_PHASE headBeta.after raw=91995957"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.kernel",
+      "before": 91995987,
+      "after": 91996519,
+      "raw_ticks": 532,
+      "before_line": "B0_PROOF_PHASE result.kernel.before raw=91995987",
+      "after_line": "B0_PROOF_PHASE result.kernel.after raw=91996519"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.native",
+      "before": 91996549,
+      "after": 91996818,
+      "raw_ticks": 269,
+      "before_line": "B0_PROOF_PHASE result.native.before raw=91996549",
+      "after_line": "B0_PROOF_PHASE result.native.after raw=91996818"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.commit",
+      "before": 91996848,
+      "after": 91997032,
+      "raw_ticks": 184,
+      "before_line": "B0_PROOF_PHASE result.commit.before raw=91996848",
+      "after_line": "B0_PROOF_PHASE result.commit.after raw=91997032"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "scope.open",
+      "before": 92482435,
+      "after": 92953392,
+      "raw_ticks": 470957,
+      "before_line": "B0_PROOF_PHASE scope.open.before raw=92482435",
+      "after_line": "B0_PROOF_PHASE scope.open.after raw=92953392"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "prepare",
+      "before": 92953405,
+      "after": 92962530,
+      "raw_ticks": 9125,
+      "before_line": "B0_PROOF_PHASE prepare.before raw=92953405",
+      "after_line": "B0_PROOF_PHASE prepare.after raw=92962530"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "proof.type",
+      "before": 92962532,
+      "after": 92962571,
+      "raw_ticks": 39,
+      "before_line": "B0_PROOF_PHASE proof.type.before raw=92962532",
+      "after_line": "B0_PROOF_PHASE proof.type.after raw=92962571"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "proof.kernel",
+      "before": 92962573,
+      "after": 92967928,
+      "raw_ticks": 5355,
+      "before_line": "B0_PROOF_PHASE proof.kernel.before raw=92962573",
+      "after_line": "B0_PROOF_PHASE proof.kernel.after raw=92967928"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "closure.abstract",
+      "before": 92968987,
+      "after": 92970978,
+      "raw_ticks": 1991,
+      "before_line": "B0_PROOF_PHASE closure.abstract.before raw=92968987",
+      "after_line": "B0_PROOF_PHASE closure.abstract.after raw=92970978"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "closure.kernel",
+      "before": 92970980,
+      "after": 92977219,
+      "raw_ticks": 6239,
+      "before_line": "B0_PROOF_PHASE closure.kernel.before raw=92970980",
+      "after_line": "B0_PROOF_PHASE closure.kernel.after raw=92977219"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "reapply",
+      "before": 92977221,
+      "after": 92977225,
+      "raw_ticks": 4,
+      "before_line": "B0_PROOF_PHASE reapply.before raw=92977221",
+      "after_line": "B0_PROOF_PHASE reapply.after raw=92977225"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "headBeta",
+      "before": 92977226,
+      "after": 92977227,
+      "raw_ticks": 1,
+      "before_line": "B0_PROOF_PHASE headBeta.before raw=92977226",
+      "after_line": "B0_PROOF_PHASE headBeta.after raw=92977227"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.kernel",
+      "before": 92977228,
+      "after": 92983466,
+      "raw_ticks": 6238,
+      "before_line": "B0_PROOF_PHASE result.kernel.before raw=92977228",
+      "after_line": "B0_PROOF_PHASE result.kernel.after raw=92983466"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.native",
+      "before": 92983467,
+      "after": 92989586,
+      "raw_ticks": 6119,
+      "before_line": "B0_PROOF_PHASE result.native.before raw=92983467",
+      "after_line": "B0_PROOF_PHASE result.native.after raw=92989586"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.select",
+      "before": 92989587,
+      "after": 93526012,
+      "raw_ticks": 536425,
+      "before_line": "B0_PROOF_PHASE result.select.before raw=92989587",
+      "after_line": "B0_PROOF_PHASE result.select.after raw=93526012"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "scope.open",
+      "before": 94399433,
+      "after": 94893345,
+      "raw_ticks": 493912,
+      "before_line": "B0_PROOF_PHASE scope.open.before raw=94399433",
+      "after_line": "B0_PROOF_PHASE scope.open.after raw=94893345"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "prepare",
+      "before": 94893358,
+      "after": 94894715,
+      "raw_ticks": 1357,
+      "before_line": "B0_PROOF_PHASE prepare.before raw=94893358",
+      "after_line": "B0_PROOF_PHASE prepare.after raw=94894715"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "proof.type",
+      "before": 94894717,
+      "after": 94894757,
+      "raw_ticks": 40,
+      "before_line": "B0_PROOF_PHASE proof.type.before raw=94894717",
+      "after_line": "B0_PROOF_PHASE proof.type.after raw=94894757"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "proof.kernel",
+      "before": 94894759,
+      "after": 94895441,
+      "raw_ticks": 682,
+      "before_line": "B0_PROOF_PHASE proof.kernel.before raw=94894759",
+      "after_line": "B0_PROOF_PHASE proof.kernel.after raw=94895441"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "closure.abstract",
+      "before": 94896507,
+      "after": 94898220,
+      "raw_ticks": 1713,
+      "before_line": "B0_PROOF_PHASE closure.abstract.before raw=94896507",
+      "after_line": "B0_PROOF_PHASE closure.abstract.after raw=94898220"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "closure.kernel",
+      "before": 94898222,
+      "after": 94900047,
+      "raw_ticks": 1825,
+      "before_line": "B0_PROOF_PHASE closure.kernel.before raw=94898222",
+      "after_line": "B0_PROOF_PHASE closure.kernel.after raw=94900047"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "reapply",
+      "before": 94900049,
+      "after": 94900053,
+      "raw_ticks": 4,
+      "before_line": "B0_PROOF_PHASE reapply.before raw=94900049",
+      "after_line": "B0_PROOF_PHASE reapply.after raw=94900053"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "headBeta",
+      "before": 94900054,
+      "after": 94900055,
+      "raw_ticks": 1,
+      "before_line": "B0_PROOF_PHASE headBeta.before raw=94900054",
+      "after_line": "B0_PROOF_PHASE headBeta.after raw=94900055"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.kernel",
+      "before": 94900056,
+      "after": 94901880,
+      "raw_ticks": 1824,
+      "before_line": "B0_PROOF_PHASE result.kernel.before raw=94900056",
+      "after_line": "B0_PROOF_PHASE result.kernel.after raw=94901880"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.native",
+      "before": 94901881,
+      "after": 94906207,
+      "raw_ticks": 4326,
+      "before_line": "B0_PROOF_PHASE result.native.before raw=94901881",
+      "after_line": "B0_PROOF_PHASE result.native.after raw=94906207"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.select",
+      "before": 94906208,
+      "after": 95452471,
+      "raw_ticks": 546263,
+      "before_line": "B0_PROOF_PHASE result.select.before raw=94906208",
+      "after_line": "B0_PROOF_PHASE result.select.after raw=95452471"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "scope.open",
+      "before": 95970676,
+      "after": 96475624,
+      "raw_ticks": 504948,
+      "before_line": "B0_PROOF_PHASE scope.open.before raw=95970676",
+      "after_line": "B0_PROOF_PHASE scope.open.after raw=96475624"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "prepare",
+      "before": 96475637,
+      "after": 96475873,
+      "raw_ticks": 236,
+      "before_line": "B0_PROOF_PHASE prepare.before raw=96475637",
+      "after_line": "B0_PROOF_PHASE prepare.after raw=96475873"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "proof.type",
+      "before": 96475875,
+      "after": 96475912,
+      "raw_ticks": 37,
+      "before_line": "B0_PROOF_PHASE proof.type.before raw=96475875",
+      "after_line": "B0_PROOF_PHASE proof.type.after raw=96475912"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "proof.kernel",
+      "before": 96475914,
+      "after": 96475992,
+      "raw_ticks": 78,
+      "before_line": "B0_PROOF_PHASE proof.kernel.before raw=96475914",
+      "after_line": "B0_PROOF_PHASE proof.kernel.after raw=96475992"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "closure.abstract",
+      "before": 96477065,
+      "after": 96477629,
+      "raw_ticks": 564,
+      "before_line": "B0_PROOF_PHASE closure.abstract.before raw=96477065",
+      "after_line": "B0_PROOF_PHASE closure.abstract.after raw=96477629"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "closure.kernel",
+      "before": 96477631,
+      "after": 96477930,
+      "raw_ticks": 299,
+      "before_line": "B0_PROOF_PHASE closure.kernel.before raw=96477631",
+      "after_line": "B0_PROOF_PHASE closure.kernel.after raw=96477930"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "reapply",
+      "before": 96477932,
+      "after": 96477936,
+      "raw_ticks": 4,
+      "before_line": "B0_PROOF_PHASE reapply.before raw=96477932",
+      "after_line": "B0_PROOF_PHASE reapply.after raw=96477936"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "headBeta",
+      "before": 96477937,
+      "after": 96477938,
+      "raw_ticks": 1,
+      "before_line": "B0_PROOF_PHASE headBeta.before raw=96477937",
+      "after_line": "B0_PROOF_PHASE headBeta.after raw=96477938"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.kernel",
+      "before": 96477939,
+      "after": 96478232,
+      "raw_ticks": 293,
+      "before_line": "B0_PROOF_PHASE result.kernel.before raw=96477939",
+      "after_line": "B0_PROOF_PHASE result.kernel.after raw=96478232"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.native",
+      "before": 96478233,
+      "after": 96483101,
+      "raw_ticks": 4868,
+      "before_line": "B0_PROOF_PHASE result.native.before raw=96478233",
+      "after_line": "B0_PROOF_PHASE result.native.after raw=96483101"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.select",
+      "before": 96483102,
+      "after": 97032273,
+      "raw_ticks": 549171,
+      "before_line": "B0_PROOF_PHASE result.select.before raw=96483102",
+      "after_line": "B0_PROOF_PHASE result.select.after raw=97032273"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "scope.open",
+      "before": 97546503,
+      "after": 98054272,
+      "raw_ticks": 507769,
+      "before_line": "B0_PROOF_PHASE scope.open.before raw=97546503",
+      "after_line": "B0_PROOF_PHASE scope.open.after raw=98054272"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "prepare",
+      "before": 98054285,
+      "after": 98057179,
+      "raw_ticks": 2894,
+      "before_line": "B0_PROOF_PHASE prepare.before raw=98054285",
+      "after_line": "B0_PROOF_PHASE prepare.after raw=98057179"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "proof.type",
+      "before": 98057181,
+      "after": 98057218,
+      "raw_ticks": 37,
+      "before_line": "B0_PROOF_PHASE proof.type.before raw=98057181",
+      "after_line": "B0_PROOF_PHASE proof.type.after raw=98057218"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "proof.kernel",
+      "before": 98057220,
+      "after": 98058714,
+      "raw_ticks": 1494,
+      "before_line": "B0_PROOF_PHASE proof.kernel.before raw=98057220",
+      "after_line": "B0_PROOF_PHASE proof.kernel.after raw=98058714"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "closure.abstract",
+      "before": 98059794,
+      "after": 98061374,
+      "raw_ticks": 1580,
+      "before_line": "B0_PROOF_PHASE closure.abstract.before raw=98059794",
+      "after_line": "B0_PROOF_PHASE closure.abstract.after raw=98061374"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "closure.kernel",
+      "before": 98061376,
+      "after": 98064021,
+      "raw_ticks": 2645,
+      "before_line": "B0_PROOF_PHASE closure.kernel.before raw=98061376",
+      "after_line": "B0_PROOF_PHASE closure.kernel.after raw=98064021"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "reapply",
+      "before": 98064023,
+      "after": 98064027,
+      "raw_ticks": 4,
+      "before_line": "B0_PROOF_PHASE reapply.before raw=98064023",
+      "after_line": "B0_PROOF_PHASE reapply.after raw=98064027"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "headBeta",
+      "before": 98064028,
+      "after": 98064029,
+      "raw_ticks": 1,
+      "before_line": "B0_PROOF_PHASE headBeta.before raw=98064028",
+      "after_line": "B0_PROOF_PHASE headBeta.after raw=98064029"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.kernel",
+      "before": 98064030,
+      "after": 98066672,
+      "raw_ticks": 2642,
+      "before_line": "B0_PROOF_PHASE result.kernel.before raw=98064030",
+      "after_line": "B0_PROOF_PHASE result.kernel.after raw=98066672"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.native",
+      "before": 98066673,
+      "after": 98070723,
+      "raw_ticks": 4050,
+      "before_line": "B0_PROOF_PHASE result.native.before raw=98066673",
+      "after_line": "B0_PROOF_PHASE result.native.after raw=98070723"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.select",
+      "before": 98070724,
+      "after": 98630524,
+      "raw_ticks": 559800,
+      "before_line": "B0_PROOF_PHASE result.select.before raw=98070724",
+      "after_line": "B0_PROOF_PHASE result.select.after raw=98630524"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "scope.open",
+      "before": 124123823,
+      "after": 124775578,
+      "raw_ticks": 651755,
+      "before_line": "B0_PROOF_PHASE scope.open.before raw=124123823",
+      "after_line": "B0_PROOF_PHASE scope.open.after raw=124775578"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "prepare",
+      "before": 124775584,
+      "after": 124777223,
+      "raw_ticks": 1639,
+      "before_line": "B0_PROOF_PHASE prepare.before raw=124775584",
+      "after_line": "B0_PROOF_PHASE prepare.after raw=124777223"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "proof.type",
+      "before": 124777225,
+      "after": 124777267,
+      "raw_ticks": 42,
+      "before_line": "B0_PROOF_PHASE proof.type.before raw=124777225",
+      "after_line": "B0_PROOF_PHASE proof.type.after raw=124777267"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "proof.kernel",
+      "before": 124777269,
+      "after": 124777773,
+      "raw_ticks": 504,
+      "before_line": "B0_PROOF_PHASE proof.kernel.before raw=124777269",
+      "after_line": "B0_PROOF_PHASE proof.kernel.after raw=124777773"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "closure.abstract",
+      "before": 124778953,
+      "after": 124779122,
+      "raw_ticks": 169,
+      "before_line": "B0_PROOF_PHASE closure.abstract.before raw=124778953",
+      "after_line": "B0_PROOF_PHASE closure.abstract.after raw=124779122"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "closure.kernel",
+      "before": 124779124,
+      "after": 124779628,
+      "raw_ticks": 504,
+      "before_line": "B0_PROOF_PHASE closure.kernel.before raw=124779124",
+      "after_line": "B0_PROOF_PHASE closure.kernel.after raw=124779628"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "reapply",
+      "before": 124779630,
+      "after": 124779634,
+      "raw_ticks": 4,
+      "before_line": "B0_PROOF_PHASE reapply.before raw=124779630",
+      "after_line": "B0_PROOF_PHASE reapply.after raw=124779634"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "headBeta",
+      "before": 124779635,
+      "after": 124779636,
+      "raw_ticks": 1,
+      "before_line": "B0_PROOF_PHASE headBeta.before raw=124779635",
+      "after_line": "B0_PROOF_PHASE headBeta.after raw=124779636"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.kernel",
+      "before": 124779637,
+      "after": 124780140,
+      "raw_ticks": 503,
+      "before_line": "B0_PROOF_PHASE result.kernel.before raw=124779637",
+      "after_line": "B0_PROOF_PHASE result.kernel.after raw=124780140"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.native",
+      "before": 124780141,
+      "after": 124780318,
+      "raw_ticks": 177,
+      "before_line": "B0_PROOF_PHASE result.native.before raw=124780141",
+      "after_line": "B0_PROOF_PHASE result.native.after raw=124780318"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.commit",
+      "before": 124780319,
+      "after": 124780476,
+      "raw_ticks": 157,
+      "before_line": "B0_PROOF_PHASE result.commit.before raw=124780319",
+      "after_line": "B0_PROOF_PHASE result.commit.after raw=124780476"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "scope.open",
+      "before": 125446898,
+      "after": 126098836,
+      "raw_ticks": 651938,
+      "before_line": "B0_PROOF_PHASE scope.open.before raw=125446898",
+      "after_line": "B0_PROOF_PHASE scope.open.after raw=126098836"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "prepare",
+      "before": 126098849,
+      "after": 126107994,
+      "raw_ticks": 9145,
+      "before_line": "B0_PROOF_PHASE prepare.before raw=126098849",
+      "after_line": "B0_PROOF_PHASE prepare.after raw=126107994"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "proof.type",
+      "before": 126107996,
+      "after": 126108034,
+      "raw_ticks": 38,
+      "before_line": "B0_PROOF_PHASE proof.type.before raw=126107996",
+      "after_line": "B0_PROOF_PHASE proof.type.after raw=126108034"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "proof.kernel",
+      "before": 126108036,
+      "after": 126113391,
+      "raw_ticks": 5355,
+      "before_line": "B0_PROOF_PHASE proof.kernel.before raw=126108036",
+      "after_line": "B0_PROOF_PHASE proof.kernel.after raw=126113391"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "closure.abstract",
+      "before": 126114571,
+      "after": 126117282,
+      "raw_ticks": 2711,
+      "before_line": "B0_PROOF_PHASE closure.abstract.before raw=126114571",
+      "after_line": "B0_PROOF_PHASE closure.abstract.after raw=126117282"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "closure.kernel",
+      "before": 126117284,
+      "after": 126123524,
+      "raw_ticks": 6240,
+      "before_line": "B0_PROOF_PHASE closure.kernel.before raw=126117284",
+      "after_line": "B0_PROOF_PHASE closure.kernel.after raw=126123524"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "reapply",
+      "before": 126123526,
+      "after": 126123530,
+      "raw_ticks": 4,
+      "before_line": "B0_PROOF_PHASE reapply.before raw=126123526",
+      "after_line": "B0_PROOF_PHASE reapply.after raw=126123530"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "headBeta",
+      "before": 126123531,
+      "after": 126123532,
+      "raw_ticks": 1,
+      "before_line": "B0_PROOF_PHASE headBeta.before raw=126123531",
+      "after_line": "B0_PROOF_PHASE headBeta.after raw=126123532"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.kernel",
+      "before": 126123533,
+      "after": 126129767,
+      "raw_ticks": 6234,
+      "before_line": "B0_PROOF_PHASE result.kernel.before raw=126123533",
+      "after_line": "B0_PROOF_PHASE result.kernel.after raw=126129767"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.native",
+      "before": 126129768,
+      "after": 126134126,
+      "raw_ticks": 4358,
+      "before_line": "B0_PROOF_PHASE result.native.before raw=126129768",
+      "after_line": "B0_PROOF_PHASE result.native.after raw=126134126"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.select",
+      "before": 126134127,
+      "after": 126860061,
+      "raw_ticks": 725934,
+      "before_line": "B0_PROOF_PHASE result.select.before raw=126134127",
+      "after_line": "B0_PROOF_PHASE result.select.after raw=126860061"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "scope.open",
+      "before": 127913738,
+      "after": 128588213,
+      "raw_ticks": 674475,
+      "before_line": "B0_PROOF_PHASE scope.open.before raw=127913738",
+      "after_line": "B0_PROOF_PHASE scope.open.after raw=128588213"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "prepare",
+      "before": 128588226,
+      "after": 128589586,
+      "raw_ticks": 1360,
+      "before_line": "B0_PROOF_PHASE prepare.before raw=128588226",
+      "after_line": "B0_PROOF_PHASE prepare.after raw=128589586"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "proof.type",
+      "before": 128589588,
+      "after": 128589633,
+      "raw_ticks": 45,
+      "before_line": "B0_PROOF_PHASE proof.type.before raw=128589588",
+      "after_line": "B0_PROOF_PHASE proof.type.after raw=128589633"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "proof.kernel",
+      "before": 128589635,
+      "after": 128590317,
+      "raw_ticks": 682,
+      "before_line": "B0_PROOF_PHASE proof.kernel.before raw=128589635",
+      "after_line": "B0_PROOF_PHASE proof.kernel.after raw=128590317"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "closure.abstract",
+      "before": 128591504,
+      "after": 128593841,
+      "raw_ticks": 2337,
+      "before_line": "B0_PROOF_PHASE closure.abstract.before raw=128591504",
+      "after_line": "B0_PROOF_PHASE closure.abstract.after raw=128593841"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "closure.kernel",
+      "before": 128593843,
+      "after": 128595659,
+      "raw_ticks": 1816,
+      "before_line": "B0_PROOF_PHASE closure.kernel.before raw=128593843",
+      "after_line": "B0_PROOF_PHASE closure.kernel.after raw=128595659"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "reapply",
+      "before": 128595661,
+      "after": 128595665,
+      "raw_ticks": 4,
+      "before_line": "B0_PROOF_PHASE reapply.before raw=128595661",
+      "after_line": "B0_PROOF_PHASE reapply.after raw=128595665"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "headBeta",
+      "before": 128595666,
+      "after": 128595667,
+      "raw_ticks": 1,
+      "before_line": "B0_PROOF_PHASE headBeta.before raw=128595666",
+      "after_line": "B0_PROOF_PHASE headBeta.after raw=128595667"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.kernel",
+      "before": 128595668,
+      "after": 128597488,
+      "raw_ticks": 1820,
+      "before_line": "B0_PROOF_PHASE result.kernel.before raw=128595668",
+      "after_line": "B0_PROOF_PHASE result.kernel.after raw=128597488"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.native",
+      "before": 128597489,
+      "after": 128600564,
+      "raw_ticks": 3075,
+      "before_line": "B0_PROOF_PHASE result.native.before raw=128597489",
+      "after_line": "B0_PROOF_PHASE result.native.after raw=128600564"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.select",
+      "before": 128600565,
+      "after": 129338235,
+      "raw_ticks": 737670,
+      "before_line": "B0_PROOF_PHASE result.select.before raw=128600565",
+      "after_line": "B0_PROOF_PHASE result.select.after raw=129338235"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "scope.open",
+      "before": 130036562,
+      "after": 130721819,
+      "raw_ticks": 685257,
+      "before_line": "B0_PROOF_PHASE scope.open.before raw=130036562",
+      "after_line": "B0_PROOF_PHASE scope.open.after raw=130721819"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "prepare",
+      "before": 130721832,
+      "after": 130722068,
+      "raw_ticks": 236,
+      "before_line": "B0_PROOF_PHASE prepare.before raw=130721832",
+      "after_line": "B0_PROOF_PHASE prepare.after raw=130722068"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "proof.type",
+      "before": 130722070,
+      "after": 130722107,
+      "raw_ticks": 37,
+      "before_line": "B0_PROOF_PHASE proof.type.before raw=130722070",
+      "after_line": "B0_PROOF_PHASE proof.type.after raw=130722107"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "proof.kernel",
+      "before": 130722109,
+      "after": 130722187,
+      "raw_ticks": 78,
+      "before_line": "B0_PROOF_PHASE proof.kernel.before raw=130722109",
+      "after_line": "B0_PROOF_PHASE proof.kernel.after raw=130722187"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "closure.abstract",
+      "before": 130723381,
+      "after": 130724089,
+      "raw_ticks": 708,
+      "before_line": "B0_PROOF_PHASE closure.abstract.before raw=130723381",
+      "after_line": "B0_PROOF_PHASE closure.abstract.after raw=130724089"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "closure.kernel",
+      "before": 130724091,
+      "after": 130724395,
+      "raw_ticks": 304,
+      "before_line": "B0_PROOF_PHASE closure.kernel.before raw=130724091",
+      "after_line": "B0_PROOF_PHASE closure.kernel.after raw=130724395"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "reapply",
+      "before": 130724397,
+      "after": 130724401,
+      "raw_ticks": 4,
+      "before_line": "B0_PROOF_PHASE reapply.before raw=130724397",
+      "after_line": "B0_PROOF_PHASE reapply.after raw=130724401"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "headBeta",
+      "before": 130724402,
+      "after": 130724403,
+      "raw_ticks": 1,
+      "before_line": "B0_PROOF_PHASE headBeta.before raw=130724402",
+      "after_line": "B0_PROOF_PHASE headBeta.after raw=130724403"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.kernel",
+      "before": 130724404,
+      "after": 130724697,
+      "raw_ticks": 293,
+      "before_line": "B0_PROOF_PHASE result.kernel.before raw=130724404",
+      "after_line": "B0_PROOF_PHASE result.kernel.after raw=130724697"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.native",
+      "before": 130724698,
+      "after": 130728298,
+      "raw_ticks": 3600,
+      "before_line": "B0_PROOF_PHASE result.native.before raw=130724698",
+      "after_line": "B0_PROOF_PHASE result.native.after raw=130728298"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.select",
+      "before": 130728299,
+      "after": 131469139,
+      "raw_ticks": 740840,
+      "before_line": "B0_PROOF_PHASE result.select.before raw=130728299",
+      "after_line": "B0_PROOF_PHASE result.select.after raw=131469139"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "scope.open",
+      "before": 132163671,
+      "after": 132851606,
+      "raw_ticks": 687935,
+      "before_line": "B0_PROOF_PHASE scope.open.before raw=132163671",
+      "after_line": "B0_PROOF_PHASE scope.open.after raw=132851606"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "prepare",
+      "before": 132851619,
+      "after": 132854593,
+      "raw_ticks": 2974,
+      "before_line": "B0_PROOF_PHASE prepare.before raw=132851619",
+      "after_line": "B0_PROOF_PHASE prepare.after raw=132854593"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "proof.type",
+      "before": 132854595,
+      "after": 132854632,
+      "raw_ticks": 37,
+      "before_line": "B0_PROOF_PHASE proof.type.before raw=132854595",
+      "after_line": "B0_PROOF_PHASE proof.type.after raw=132854632"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "proof.kernel",
+      "before": 132854634,
+      "after": 132856206,
+      "raw_ticks": 1572,
+      "before_line": "B0_PROOF_PHASE proof.kernel.before raw=132854634",
+      "after_line": "B0_PROOF_PHASE proof.kernel.after raw=132856206"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "closure.abstract",
+      "before": 132857407,
+      "after": 132859621,
+      "raw_ticks": 2214,
+      "before_line": "B0_PROOF_PHASE closure.abstract.before raw=132857407",
+      "after_line": "B0_PROOF_PHASE closure.abstract.after raw=132859621"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "closure.kernel",
+      "before": 132859623,
+      "after": 132862283,
+      "raw_ticks": 2660,
+      "before_line": "B0_PROOF_PHASE closure.kernel.before raw=132859623",
+      "after_line": "B0_PROOF_PHASE closure.kernel.after raw=132862283"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "reapply",
+      "before": 132862285,
+      "after": 132862289,
+      "raw_ticks": 4,
+      "before_line": "B0_PROOF_PHASE reapply.before raw=132862285",
+      "after_line": "B0_PROOF_PHASE reapply.after raw=132862289"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "headBeta",
+      "before": 132862290,
+      "after": 132862291,
+      "raw_ticks": 1,
+      "before_line": "B0_PROOF_PHASE headBeta.before raw=132862290",
+      "after_line": "B0_PROOF_PHASE headBeta.after raw=132862291"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.kernel",
+      "before": 132862292,
+      "after": 132864954,
+      "raw_ticks": 2662,
+      "before_line": "B0_PROOF_PHASE result.kernel.before raw=132862292",
+      "after_line": "B0_PROOF_PHASE result.kernel.after raw=132864954"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.native",
+      "before": 132864955,
+      "after": 132868237,
+      "raw_ticks": 3282,
+      "before_line": "B0_PROOF_PHASE result.native.before raw=132864955",
+      "after_line": "B0_PROOF_PHASE result.native.after raw=132868237"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.select",
+      "before": 132868238,
+      "after": 133619243,
+      "raw_ticks": 751005,
+      "before_line": "B0_PROOF_PHASE result.select.before raw=132868238",
+      "after_line": "B0_PROOF_PHASE result.select.after raw=133619243"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.domain.selected",
+      "before": 134875440,
+      "after": 134876506,
+      "raw_ticks": 1066,
+      "before_line": "B0_FINITE_PHASE admission.domain.selected.before raw=134875440",
+      "after_line": "B0_FINITE_PHASE admission.domain.selected.after count=1 raw=134876506"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.datum.read",
+      "before": 74127221,
+      "after": 171495598,
+      "raw_ticks": 97368377,
+      "before_line": "B0_FINITE_PHASE admission.datum.read.before entry=obj.sets.finite_subsets raw=74127221",
+      "after_line": "B0_FINITE_PHASE admission.datum.read.after entry=obj.sets.finite_subsets raw=171495598"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.instances",
+      "before": 171661760,
+      "after": 171661876,
+      "raw_ticks": 116,
+      "before_line": "B0_FINITE_PHASE admission.instances.before entry=obj.sets.finite_subsets raw=171661760",
+      "after_line": "B0_FINITE_PHASE admission.instances.after entry=obj.sets.finite_subsets raw=171661876"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "scope.open",
+      "before": 171663441,
+      "after": 172578429,
+      "raw_ticks": 914988,
+      "before_line": "B0_PROOF_PHASE scope.open.before raw=171663441",
+      "after_line": "B0_PROOF_PHASE scope.open.after raw=172578429"
+    },
+    {
+      "kind": "B0_ADMISSION_EVIDENCE",
+      "stage": "zeta",
+      "before": 172578500,
+      "after": 172600835,
+      "raw_ticks": 22335,
+      "before_line": "B0_ADMISSION_EVIDENCE zeta.before entry=obj.sets.finite_subsets evidence=CasCatalogue.Foundation.FiniteSubsets.finiteSubsetEvidence head=Set.Finite arity=2 raw=172578500",
+      "after_line": "B0_ADMISSION_EVIDENCE zeta.after entry=obj.sets.finite_subsets evidence=CasCatalogue.Foundation.FiniteSubsets.finiteSubsetEvidence head=Set.Finite arity=2 raw=172600835"
+    },
+    {
+      "kind": "B0_ADMISSION_EVIDENCE",
+      "stage": "presentation",
+      "before": 172600854,
+      "after": 186369195,
+      "raw_ticks": 13768341,
+      "before_line": "B0_ADMISSION_EVIDENCE presentation.before entry=obj.sets.finite_subsets evidence=CasCatalogue.Foundation.FiniteSubsets.finiteSubsetEvidence head=Set.Finite arity=2 raw=172600854",
+      "after_line": "B0_ADMISSION_EVIDENCE presentation.after entry=obj.sets.finite_subsets evidence=CasCatalogue.Foundation.FiniteSubsets.finiteSubsetEvidence head=Set.Finite arity=2 raw=186369195"
+    },
+    {
+      "kind": "B0_ADMISSION_EVIDENCE",
+      "stage": "goal",
+      "before": 186369214,
+      "after": 186369242,
+      "raw_ticks": 28,
+      "before_line": "B0_ADMISSION_EVIDENCE goal.before entry=obj.sets.finite_subsets evidence=CasCatalogue.Foundation.FiniteSubsets.finiteSubsetEvidence head=Set.Finite arity=2 raw=186369214",
+      "after_line": "B0_ADMISSION_EVIDENCE goal.after entry=obj.sets.finite_subsets evidence=CasCatalogue.Foundation.FiniteSubsets.finiteSubsetEvidence head=Set.Finite arity=2 raw=186369242"
+    },
+    {
+      "kind": "B0_ADMISSION_EVIDENCE",
+      "stage": "procedure",
+      "before": 186369259,
+      "after": 186501435,
+      "raw_ticks": 132176,
+      "before_line": "B0_ADMISSION_EVIDENCE procedure.before entry=obj.sets.finite_subsets evidence=CasCatalogue.Foundation.FiniteSubsets.finiteSubsetEvidence head=Set.Finite arity=2 raw=186369259",
+      "after_line": "B0_ADMISSION_EVIDENCE procedure.after entry=obj.sets.finite_subsets evidence=CasCatalogue.Foundation.FiniteSubsets.finiteSubsetEvidence head=Set.Finite arity=2 raw=186501435"
+    },
+    {
+      "kind": "B0_ADMISSION_EVIDENCE",
+      "stage": "result",
+      "before": 186501452,
+      "after": 186501475,
+      "raw_ticks": 23,
+      "before_line": "B0_ADMISSION_EVIDENCE result.before entry=obj.sets.finite_subsets evidence=CasCatalogue.Foundation.FiniteSubsets.finiteSubsetEvidence head=Set.Finite arity=2 raw=186501452",
+      "after_line": "B0_ADMISSION_EVIDENCE result.after entry=obj.sets.finite_subsets evidence=CasCatalogue.Foundation.FiniteSubsets.finiteSubsetEvidence head=Finset.finite_toSet arity=2 raw=186501475"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "prepare",
+      "before": 172578452,
+      "after": 186501521,
+      "raw_ticks": 13923069,
+      "before_line": "B0_PROOF_PHASE prepare.before raw=172578452",
+      "after_line": "B0_PROOF_PHASE prepare.after raw=186501521"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "proof.type",
+      "before": 186501523,
+      "after": 186501560,
+      "raw_ticks": 37,
+      "before_line": "B0_PROOF_PHASE proof.type.before raw=186501523",
+      "after_line": "B0_PROOF_PHASE proof.type.after raw=186501560"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "proof.kernel",
+      "before": 186501562,
+      "after": 186517643,
+      "raw_ticks": 16081,
+      "before_line": "B0_PROOF_PHASE proof.kernel.before raw=186501562",
+      "after_line": "B0_PROOF_PHASE proof.kernel.after raw=186517643"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "closure.abstract",
+      "before": 186518991,
+      "after": 186581635,
+      "raw_ticks": 62644,
+      "before_line": "B0_PROOF_PHASE closure.abstract.before raw=186518991",
+      "after_line": "B0_PROOF_PHASE closure.abstract.after raw=186581635"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "closure.kernel",
+      "before": 186581637,
+      "after": 186650441,
+      "raw_ticks": 68804,
+      "before_line": "B0_PROOF_PHASE closure.kernel.before raw=186581637",
+      "after_line": "B0_PROOF_PHASE closure.kernel.after raw=186650441"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "reapply",
+      "before": 186650443,
+      "after": 186650447,
+      "raw_ticks": 4,
+      "before_line": "B0_PROOF_PHASE reapply.before raw=186650443",
+      "after_line": "B0_PROOF_PHASE reapply.after raw=186650447"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "headBeta",
+      "before": 186650448,
+      "after": 186650449,
+      "raw_ticks": 1,
+      "before_line": "B0_PROOF_PHASE headBeta.before raw=186650448",
+      "after_line": "B0_PROOF_PHASE headBeta.after raw=186650449"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.kernel",
+      "before": 186650450,
+      "after": 186719240,
+      "raw_ticks": 68790,
+      "before_line": "B0_PROOF_PHASE result.kernel.before raw=186650450",
+      "after_line": "B0_PROOF_PHASE result.kernel.after raw=186719240"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.native",
+      "before": 186719241,
+      "after": 186729933,
+      "raw_ticks": 10692,
+      "before_line": "B0_PROOF_PHASE result.native.before raw=186719241",
+      "after_line": "B0_PROOF_PHASE result.native.after raw=186729933"
+    },
+    {
+      "kind": "B0_PROOF_PHASE",
+      "stage": "result.select",
+      "before": 186729934,
+      "after": 188094917,
+      "raw_ticks": 1364983,
+      "before_line": "B0_PROOF_PHASE result.select.before raw=186729934",
+      "after_line": "B0_PROOF_PHASE result.select.after raw=188094917"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.evidence",
+      "before": 171662016,
+      "after": 188094939,
+      "raw_ticks": 16432923,
+      "before_line": "B0_FINITE_PHASE admission.evidence.before entry=obj.sets.finite_subsets index=2 raw=171662016",
+      "after_line": "B0_FINITE_PHASE admission.evidence.after entry=obj.sets.finite_subsets index=2 raw=188094939"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.point.family",
+      "before": 188099090,
+      "after": 188101767,
+      "raw_ticks": 2677,
+      "before_line": "B0_FINITE_PHASE admission.point.family.before entry=obj.sets.finite_subsets raw=188099090",
+      "after_line": "B0_FINITE_PHASE admission.point.family.after entry=obj.sets.finite_subsets raw=188101767"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.complete.target",
+      "before": 188101784,
+      "after": 189371595,
+      "raw_ticks": 1269811,
+      "before_line": "B0_FINITE_PHASE admission.complete.target.before entry=obj.sets.finite_subsets raw=188101784",
+      "after_line": "B0_FINITE_PHASE admission.complete.target.after entry=obj.sets.finite_subsets raw=189371595"
+    },
+    {
+      "kind": "B0_FINITE_PHASE",
+      "stage": "admission.final.select",
+      "before": 189371715,
+      "after": 190724008,
+      "raw_ticks": 1352293,
+      "before_line": "B0_FINITE_PHASE admission.final.select.before entry=obj.sets.finite_subsets raw=189371715",
+      "after_line": "B0_FINITE_PHASE admission.final.select.after entry=obj.sets.finite_subsets raw=190724008"
+    }
+  ],
+  "completed_named_branches": [
+    {
+      "stage": "admission.target.unify",
+      "before": 74126817,
+      "terminal": 74127056,
+      "raw_ticks": 239,
+      "terminal_marker": "B0_FINITE_PHASE admission.target.parameters.fixed entry=obj.sets.finite_subsets raw=74127056"
+    }
+  ],
+  "proofs": [
+    {
+      "index": 0,
+      "start": 91520357,
+      "stages": [
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "scope.open",
+          "before": 91520357,
+          "after": 91991378,
+          "raw_ticks": 471021,
+          "before_line": "B0_PROOF_PHASE scope.open.before raw=91520357",
+          "after_line": "B0_PROOF_PHASE scope.open.after raw=91991378"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "prepare",
+          "before": 91991407,
+          "after": 91993131,
+          "raw_ticks": 1724,
+          "before_line": "B0_PROOF_PHASE prepare.before raw=91991407",
+          "after_line": "B0_PROOF_PHASE prepare.after raw=91993131"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "proof.type",
+          "before": 91993149,
+          "after": 91993203,
+          "raw_ticks": 54,
+          "before_line": "B0_PROOF_PHASE proof.type.before raw=91993149",
+          "after_line": "B0_PROOF_PHASE proof.type.after raw=91993203"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "proof.kernel",
+          "before": 91993221,
+          "after": 91993741,
+          "raw_ticks": 520,
+          "before_line": "B0_PROOF_PHASE proof.kernel.before raw=91993221",
+          "after_line": "B0_PROOF_PHASE proof.kernel.after raw=91993741"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "closure.abstract",
+          "before": 91994950,
+          "after": 91995119,
+          "raw_ticks": 169,
+          "before_line": "B0_PROOF_PHASE closure.abstract.before raw=91994950",
+          "after_line": "B0_PROOF_PHASE closure.abstract.after raw=91995119"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "closure.kernel",
+          "before": 91995137,
+          "after": 91995657,
+          "raw_ticks": 520,
+          "before_line": "B0_PROOF_PHASE closure.kernel.before raw=91995137",
+          "after_line": "B0_PROOF_PHASE closure.kernel.after raw=91995657"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "reapply",
+          "before": 91995732,
+          "after": 91995827,
+          "raw_ticks": 95,
+          "before_line": "B0_PROOF_PHASE reapply.before raw=91995732",
+          "after_line": "B0_PROOF_PHASE reapply.after raw=91995827"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "headBeta",
+          "before": 91995857,
+          "after": 91995957,
+          "raw_ticks": 100,
+          "before_line": "B0_PROOF_PHASE headBeta.before raw=91995857",
+          "after_line": "B0_PROOF_PHASE headBeta.after raw=91995957"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.kernel",
+          "before": 91995987,
+          "after": 91996519,
+          "raw_ticks": 532,
+          "before_line": "B0_PROOF_PHASE result.kernel.before raw=91995987",
+          "after_line": "B0_PROOF_PHASE result.kernel.after raw=91996519"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.native",
+          "before": 91996549,
+          "after": 91996818,
+          "raw_ticks": 269,
+          "before_line": "B0_PROOF_PHASE result.native.before raw=91996549",
+          "after_line": "B0_PROOF_PHASE result.native.after raw=91996818"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.commit",
+          "before": 91996848,
+          "after": 91997032,
+          "raw_ticks": 184,
+          "before_line": "B0_PROOF_PHASE result.commit.before raw=91996848",
+          "after_line": "B0_PROOF_PHASE result.commit.after raw=91997032"
+        }
+      ],
+      "end": 91997032,
+      "raw_ticks": 476675,
+      "completed": true
+    },
+    {
+      "index": 1,
+      "start": 92482435,
+      "stages": [
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "scope.open",
+          "before": 92482435,
+          "after": 92953392,
+          "raw_ticks": 470957,
+          "before_line": "B0_PROOF_PHASE scope.open.before raw=92482435",
+          "after_line": "B0_PROOF_PHASE scope.open.after raw=92953392"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "prepare",
+          "before": 92953405,
+          "after": 92962530,
+          "raw_ticks": 9125,
+          "before_line": "B0_PROOF_PHASE prepare.before raw=92953405",
+          "after_line": "B0_PROOF_PHASE prepare.after raw=92962530"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "proof.type",
+          "before": 92962532,
+          "after": 92962571,
+          "raw_ticks": 39,
+          "before_line": "B0_PROOF_PHASE proof.type.before raw=92962532",
+          "after_line": "B0_PROOF_PHASE proof.type.after raw=92962571"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "proof.kernel",
+          "before": 92962573,
+          "after": 92967928,
+          "raw_ticks": 5355,
+          "before_line": "B0_PROOF_PHASE proof.kernel.before raw=92962573",
+          "after_line": "B0_PROOF_PHASE proof.kernel.after raw=92967928"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "closure.abstract",
+          "before": 92968987,
+          "after": 92970978,
+          "raw_ticks": 1991,
+          "before_line": "B0_PROOF_PHASE closure.abstract.before raw=92968987",
+          "after_line": "B0_PROOF_PHASE closure.abstract.after raw=92970978"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "closure.kernel",
+          "before": 92970980,
+          "after": 92977219,
+          "raw_ticks": 6239,
+          "before_line": "B0_PROOF_PHASE closure.kernel.before raw=92970980",
+          "after_line": "B0_PROOF_PHASE closure.kernel.after raw=92977219"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "reapply",
+          "before": 92977221,
+          "after": 92977225,
+          "raw_ticks": 4,
+          "before_line": "B0_PROOF_PHASE reapply.before raw=92977221",
+          "after_line": "B0_PROOF_PHASE reapply.after raw=92977225"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "headBeta",
+          "before": 92977226,
+          "after": 92977227,
+          "raw_ticks": 1,
+          "before_line": "B0_PROOF_PHASE headBeta.before raw=92977226",
+          "after_line": "B0_PROOF_PHASE headBeta.after raw=92977227"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.kernel",
+          "before": 92977228,
+          "after": 92983466,
+          "raw_ticks": 6238,
+          "before_line": "B0_PROOF_PHASE result.kernel.before raw=92977228",
+          "after_line": "B0_PROOF_PHASE result.kernel.after raw=92983466"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.native",
+          "before": 92983467,
+          "after": 92989586,
+          "raw_ticks": 6119,
+          "before_line": "B0_PROOF_PHASE result.native.before raw=92983467",
+          "after_line": "B0_PROOF_PHASE result.native.after raw=92989586"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.select",
+          "before": 92989587,
+          "after": 93526012,
+          "raw_ticks": 536425,
+          "before_line": "B0_PROOF_PHASE result.select.before raw=92989587",
+          "after_line": "B0_PROOF_PHASE result.select.after raw=93526012"
+        }
+      ],
+      "end": 93526012,
+      "raw_ticks": 1043577,
+      "completed": true
+    },
+    {
+      "index": 2,
+      "start": 94399433,
+      "stages": [
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "scope.open",
+          "before": 94399433,
+          "after": 94893345,
+          "raw_ticks": 493912,
+          "before_line": "B0_PROOF_PHASE scope.open.before raw=94399433",
+          "after_line": "B0_PROOF_PHASE scope.open.after raw=94893345"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "prepare",
+          "before": 94893358,
+          "after": 94894715,
+          "raw_ticks": 1357,
+          "before_line": "B0_PROOF_PHASE prepare.before raw=94893358",
+          "after_line": "B0_PROOF_PHASE prepare.after raw=94894715"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "proof.type",
+          "before": 94894717,
+          "after": 94894757,
+          "raw_ticks": 40,
+          "before_line": "B0_PROOF_PHASE proof.type.before raw=94894717",
+          "after_line": "B0_PROOF_PHASE proof.type.after raw=94894757"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "proof.kernel",
+          "before": 94894759,
+          "after": 94895441,
+          "raw_ticks": 682,
+          "before_line": "B0_PROOF_PHASE proof.kernel.before raw=94894759",
+          "after_line": "B0_PROOF_PHASE proof.kernel.after raw=94895441"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "closure.abstract",
+          "before": 94896507,
+          "after": 94898220,
+          "raw_ticks": 1713,
+          "before_line": "B0_PROOF_PHASE closure.abstract.before raw=94896507",
+          "after_line": "B0_PROOF_PHASE closure.abstract.after raw=94898220"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "closure.kernel",
+          "before": 94898222,
+          "after": 94900047,
+          "raw_ticks": 1825,
+          "before_line": "B0_PROOF_PHASE closure.kernel.before raw=94898222",
+          "after_line": "B0_PROOF_PHASE closure.kernel.after raw=94900047"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "reapply",
+          "before": 94900049,
+          "after": 94900053,
+          "raw_ticks": 4,
+          "before_line": "B0_PROOF_PHASE reapply.before raw=94900049",
+          "after_line": "B0_PROOF_PHASE reapply.after raw=94900053"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "headBeta",
+          "before": 94900054,
+          "after": 94900055,
+          "raw_ticks": 1,
+          "before_line": "B0_PROOF_PHASE headBeta.before raw=94900054",
+          "after_line": "B0_PROOF_PHASE headBeta.after raw=94900055"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.kernel",
+          "before": 94900056,
+          "after": 94901880,
+          "raw_ticks": 1824,
+          "before_line": "B0_PROOF_PHASE result.kernel.before raw=94900056",
+          "after_line": "B0_PROOF_PHASE result.kernel.after raw=94901880"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.native",
+          "before": 94901881,
+          "after": 94906207,
+          "raw_ticks": 4326,
+          "before_line": "B0_PROOF_PHASE result.native.before raw=94901881",
+          "after_line": "B0_PROOF_PHASE result.native.after raw=94906207"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.select",
+          "before": 94906208,
+          "after": 95452471,
+          "raw_ticks": 546263,
+          "before_line": "B0_PROOF_PHASE result.select.before raw=94906208",
+          "after_line": "B0_PROOF_PHASE result.select.after raw=95452471"
+        }
+      ],
+      "end": 95452471,
+      "raw_ticks": 1053038,
+      "completed": true
+    },
+    {
+      "index": 3,
+      "start": 95970676,
+      "stages": [
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "scope.open",
+          "before": 95970676,
+          "after": 96475624,
+          "raw_ticks": 504948,
+          "before_line": "B0_PROOF_PHASE scope.open.before raw=95970676",
+          "after_line": "B0_PROOF_PHASE scope.open.after raw=96475624"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "prepare",
+          "before": 96475637,
+          "after": 96475873,
+          "raw_ticks": 236,
+          "before_line": "B0_PROOF_PHASE prepare.before raw=96475637",
+          "after_line": "B0_PROOF_PHASE prepare.after raw=96475873"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "proof.type",
+          "before": 96475875,
+          "after": 96475912,
+          "raw_ticks": 37,
+          "before_line": "B0_PROOF_PHASE proof.type.before raw=96475875",
+          "after_line": "B0_PROOF_PHASE proof.type.after raw=96475912"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "proof.kernel",
+          "before": 96475914,
+          "after": 96475992,
+          "raw_ticks": 78,
+          "before_line": "B0_PROOF_PHASE proof.kernel.before raw=96475914",
+          "after_line": "B0_PROOF_PHASE proof.kernel.after raw=96475992"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "closure.abstract",
+          "before": 96477065,
+          "after": 96477629,
+          "raw_ticks": 564,
+          "before_line": "B0_PROOF_PHASE closure.abstract.before raw=96477065",
+          "after_line": "B0_PROOF_PHASE closure.abstract.after raw=96477629"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "closure.kernel",
+          "before": 96477631,
+          "after": 96477930,
+          "raw_ticks": 299,
+          "before_line": "B0_PROOF_PHASE closure.kernel.before raw=96477631",
+          "after_line": "B0_PROOF_PHASE closure.kernel.after raw=96477930"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "reapply",
+          "before": 96477932,
+          "after": 96477936,
+          "raw_ticks": 4,
+          "before_line": "B0_PROOF_PHASE reapply.before raw=96477932",
+          "after_line": "B0_PROOF_PHASE reapply.after raw=96477936"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "headBeta",
+          "before": 96477937,
+          "after": 96477938,
+          "raw_ticks": 1,
+          "before_line": "B0_PROOF_PHASE headBeta.before raw=96477937",
+          "after_line": "B0_PROOF_PHASE headBeta.after raw=96477938"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.kernel",
+          "before": 96477939,
+          "after": 96478232,
+          "raw_ticks": 293,
+          "before_line": "B0_PROOF_PHASE result.kernel.before raw=96477939",
+          "after_line": "B0_PROOF_PHASE result.kernel.after raw=96478232"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.native",
+          "before": 96478233,
+          "after": 96483101,
+          "raw_ticks": 4868,
+          "before_line": "B0_PROOF_PHASE result.native.before raw=96478233",
+          "after_line": "B0_PROOF_PHASE result.native.after raw=96483101"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.select",
+          "before": 96483102,
+          "after": 97032273,
+          "raw_ticks": 549171,
+          "before_line": "B0_PROOF_PHASE result.select.before raw=96483102",
+          "after_line": "B0_PROOF_PHASE result.select.after raw=97032273"
+        }
+      ],
+      "end": 97032273,
+      "raw_ticks": 1061597,
+      "completed": true
+    },
+    {
+      "index": 4,
+      "start": 97546503,
+      "stages": [
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "scope.open",
+          "before": 97546503,
+          "after": 98054272,
+          "raw_ticks": 507769,
+          "before_line": "B0_PROOF_PHASE scope.open.before raw=97546503",
+          "after_line": "B0_PROOF_PHASE scope.open.after raw=98054272"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "prepare",
+          "before": 98054285,
+          "after": 98057179,
+          "raw_ticks": 2894,
+          "before_line": "B0_PROOF_PHASE prepare.before raw=98054285",
+          "after_line": "B0_PROOF_PHASE prepare.after raw=98057179"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "proof.type",
+          "before": 98057181,
+          "after": 98057218,
+          "raw_ticks": 37,
+          "before_line": "B0_PROOF_PHASE proof.type.before raw=98057181",
+          "after_line": "B0_PROOF_PHASE proof.type.after raw=98057218"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "proof.kernel",
+          "before": 98057220,
+          "after": 98058714,
+          "raw_ticks": 1494,
+          "before_line": "B0_PROOF_PHASE proof.kernel.before raw=98057220",
+          "after_line": "B0_PROOF_PHASE proof.kernel.after raw=98058714"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "closure.abstract",
+          "before": 98059794,
+          "after": 98061374,
+          "raw_ticks": 1580,
+          "before_line": "B0_PROOF_PHASE closure.abstract.before raw=98059794",
+          "after_line": "B0_PROOF_PHASE closure.abstract.after raw=98061374"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "closure.kernel",
+          "before": 98061376,
+          "after": 98064021,
+          "raw_ticks": 2645,
+          "before_line": "B0_PROOF_PHASE closure.kernel.before raw=98061376",
+          "after_line": "B0_PROOF_PHASE closure.kernel.after raw=98064021"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "reapply",
+          "before": 98064023,
+          "after": 98064027,
+          "raw_ticks": 4,
+          "before_line": "B0_PROOF_PHASE reapply.before raw=98064023",
+          "after_line": "B0_PROOF_PHASE reapply.after raw=98064027"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "headBeta",
+          "before": 98064028,
+          "after": 98064029,
+          "raw_ticks": 1,
+          "before_line": "B0_PROOF_PHASE headBeta.before raw=98064028",
+          "after_line": "B0_PROOF_PHASE headBeta.after raw=98064029"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.kernel",
+          "before": 98064030,
+          "after": 98066672,
+          "raw_ticks": 2642,
+          "before_line": "B0_PROOF_PHASE result.kernel.before raw=98064030",
+          "after_line": "B0_PROOF_PHASE result.kernel.after raw=98066672"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.native",
+          "before": 98066673,
+          "after": 98070723,
+          "raw_ticks": 4050,
+          "before_line": "B0_PROOF_PHASE result.native.before raw=98066673",
+          "after_line": "B0_PROOF_PHASE result.native.after raw=98070723"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.select",
+          "before": 98070724,
+          "after": 98630524,
+          "raw_ticks": 559800,
+          "before_line": "B0_PROOF_PHASE result.select.before raw=98070724",
+          "after_line": "B0_PROOF_PHASE result.select.after raw=98630524"
+        }
+      ],
+      "end": 98630524,
+      "raw_ticks": 1084021,
+      "completed": true
+    },
+    {
+      "index": 5,
+      "start": 124123823,
+      "stages": [
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "scope.open",
+          "before": 124123823,
+          "after": 124775578,
+          "raw_ticks": 651755,
+          "before_line": "B0_PROOF_PHASE scope.open.before raw=124123823",
+          "after_line": "B0_PROOF_PHASE scope.open.after raw=124775578"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "prepare",
+          "before": 124775584,
+          "after": 124777223,
+          "raw_ticks": 1639,
+          "before_line": "B0_PROOF_PHASE prepare.before raw=124775584",
+          "after_line": "B0_PROOF_PHASE prepare.after raw=124777223"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "proof.type",
+          "before": 124777225,
+          "after": 124777267,
+          "raw_ticks": 42,
+          "before_line": "B0_PROOF_PHASE proof.type.before raw=124777225",
+          "after_line": "B0_PROOF_PHASE proof.type.after raw=124777267"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "proof.kernel",
+          "before": 124777269,
+          "after": 124777773,
+          "raw_ticks": 504,
+          "before_line": "B0_PROOF_PHASE proof.kernel.before raw=124777269",
+          "after_line": "B0_PROOF_PHASE proof.kernel.after raw=124777773"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "closure.abstract",
+          "before": 124778953,
+          "after": 124779122,
+          "raw_ticks": 169,
+          "before_line": "B0_PROOF_PHASE closure.abstract.before raw=124778953",
+          "after_line": "B0_PROOF_PHASE closure.abstract.after raw=124779122"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "closure.kernel",
+          "before": 124779124,
+          "after": 124779628,
+          "raw_ticks": 504,
+          "before_line": "B0_PROOF_PHASE closure.kernel.before raw=124779124",
+          "after_line": "B0_PROOF_PHASE closure.kernel.after raw=124779628"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "reapply",
+          "before": 124779630,
+          "after": 124779634,
+          "raw_ticks": 4,
+          "before_line": "B0_PROOF_PHASE reapply.before raw=124779630",
+          "after_line": "B0_PROOF_PHASE reapply.after raw=124779634"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "headBeta",
+          "before": 124779635,
+          "after": 124779636,
+          "raw_ticks": 1,
+          "before_line": "B0_PROOF_PHASE headBeta.before raw=124779635",
+          "after_line": "B0_PROOF_PHASE headBeta.after raw=124779636"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.kernel",
+          "before": 124779637,
+          "after": 124780140,
+          "raw_ticks": 503,
+          "before_line": "B0_PROOF_PHASE result.kernel.before raw=124779637",
+          "after_line": "B0_PROOF_PHASE result.kernel.after raw=124780140"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.native",
+          "before": 124780141,
+          "after": 124780318,
+          "raw_ticks": 177,
+          "before_line": "B0_PROOF_PHASE result.native.before raw=124780141",
+          "after_line": "B0_PROOF_PHASE result.native.after raw=124780318"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.commit",
+          "before": 124780319,
+          "after": 124780476,
+          "raw_ticks": 157,
+          "before_line": "B0_PROOF_PHASE result.commit.before raw=124780319",
+          "after_line": "B0_PROOF_PHASE result.commit.after raw=124780476"
+        }
+      ],
+      "end": 124780476,
+      "raw_ticks": 656653,
+      "completed": true
+    },
+    {
+      "index": 6,
+      "start": 125446898,
+      "stages": [
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "scope.open",
+          "before": 125446898,
+          "after": 126098836,
+          "raw_ticks": 651938,
+          "before_line": "B0_PROOF_PHASE scope.open.before raw=125446898",
+          "after_line": "B0_PROOF_PHASE scope.open.after raw=126098836"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "prepare",
+          "before": 126098849,
+          "after": 126107994,
+          "raw_ticks": 9145,
+          "before_line": "B0_PROOF_PHASE prepare.before raw=126098849",
+          "after_line": "B0_PROOF_PHASE prepare.after raw=126107994"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "proof.type",
+          "before": 126107996,
+          "after": 126108034,
+          "raw_ticks": 38,
+          "before_line": "B0_PROOF_PHASE proof.type.before raw=126107996",
+          "after_line": "B0_PROOF_PHASE proof.type.after raw=126108034"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "proof.kernel",
+          "before": 126108036,
+          "after": 126113391,
+          "raw_ticks": 5355,
+          "before_line": "B0_PROOF_PHASE proof.kernel.before raw=126108036",
+          "after_line": "B0_PROOF_PHASE proof.kernel.after raw=126113391"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "closure.abstract",
+          "before": 126114571,
+          "after": 126117282,
+          "raw_ticks": 2711,
+          "before_line": "B0_PROOF_PHASE closure.abstract.before raw=126114571",
+          "after_line": "B0_PROOF_PHASE closure.abstract.after raw=126117282"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "closure.kernel",
+          "before": 126117284,
+          "after": 126123524,
+          "raw_ticks": 6240,
+          "before_line": "B0_PROOF_PHASE closure.kernel.before raw=126117284",
+          "after_line": "B0_PROOF_PHASE closure.kernel.after raw=126123524"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "reapply",
+          "before": 126123526,
+          "after": 126123530,
+          "raw_ticks": 4,
+          "before_line": "B0_PROOF_PHASE reapply.before raw=126123526",
+          "after_line": "B0_PROOF_PHASE reapply.after raw=126123530"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "headBeta",
+          "before": 126123531,
+          "after": 126123532,
+          "raw_ticks": 1,
+          "before_line": "B0_PROOF_PHASE headBeta.before raw=126123531",
+          "after_line": "B0_PROOF_PHASE headBeta.after raw=126123532"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.kernel",
+          "before": 126123533,
+          "after": 126129767,
+          "raw_ticks": 6234,
+          "before_line": "B0_PROOF_PHASE result.kernel.before raw=126123533",
+          "after_line": "B0_PROOF_PHASE result.kernel.after raw=126129767"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.native",
+          "before": 126129768,
+          "after": 126134126,
+          "raw_ticks": 4358,
+          "before_line": "B0_PROOF_PHASE result.native.before raw=126129768",
+          "after_line": "B0_PROOF_PHASE result.native.after raw=126134126"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.select",
+          "before": 126134127,
+          "after": 126860061,
+          "raw_ticks": 725934,
+          "before_line": "B0_PROOF_PHASE result.select.before raw=126134127",
+          "after_line": "B0_PROOF_PHASE result.select.after raw=126860061"
+        }
+      ],
+      "end": 126860061,
+      "raw_ticks": 1413163,
+      "completed": true
+    },
+    {
+      "index": 7,
+      "start": 127913738,
+      "stages": [
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "scope.open",
+          "before": 127913738,
+          "after": 128588213,
+          "raw_ticks": 674475,
+          "before_line": "B0_PROOF_PHASE scope.open.before raw=127913738",
+          "after_line": "B0_PROOF_PHASE scope.open.after raw=128588213"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "prepare",
+          "before": 128588226,
+          "after": 128589586,
+          "raw_ticks": 1360,
+          "before_line": "B0_PROOF_PHASE prepare.before raw=128588226",
+          "after_line": "B0_PROOF_PHASE prepare.after raw=128589586"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "proof.type",
+          "before": 128589588,
+          "after": 128589633,
+          "raw_ticks": 45,
+          "before_line": "B0_PROOF_PHASE proof.type.before raw=128589588",
+          "after_line": "B0_PROOF_PHASE proof.type.after raw=128589633"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "proof.kernel",
+          "before": 128589635,
+          "after": 128590317,
+          "raw_ticks": 682,
+          "before_line": "B0_PROOF_PHASE proof.kernel.before raw=128589635",
+          "after_line": "B0_PROOF_PHASE proof.kernel.after raw=128590317"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "closure.abstract",
+          "before": 128591504,
+          "after": 128593841,
+          "raw_ticks": 2337,
+          "before_line": "B0_PROOF_PHASE closure.abstract.before raw=128591504",
+          "after_line": "B0_PROOF_PHASE closure.abstract.after raw=128593841"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "closure.kernel",
+          "before": 128593843,
+          "after": 128595659,
+          "raw_ticks": 1816,
+          "before_line": "B0_PROOF_PHASE closure.kernel.before raw=128593843",
+          "after_line": "B0_PROOF_PHASE closure.kernel.after raw=128595659"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "reapply",
+          "before": 128595661,
+          "after": 128595665,
+          "raw_ticks": 4,
+          "before_line": "B0_PROOF_PHASE reapply.before raw=128595661",
+          "after_line": "B0_PROOF_PHASE reapply.after raw=128595665"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "headBeta",
+          "before": 128595666,
+          "after": 128595667,
+          "raw_ticks": 1,
+          "before_line": "B0_PROOF_PHASE headBeta.before raw=128595666",
+          "after_line": "B0_PROOF_PHASE headBeta.after raw=128595667"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.kernel",
+          "before": 128595668,
+          "after": 128597488,
+          "raw_ticks": 1820,
+          "before_line": "B0_PROOF_PHASE result.kernel.before raw=128595668",
+          "after_line": "B0_PROOF_PHASE result.kernel.after raw=128597488"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.native",
+          "before": 128597489,
+          "after": 128600564,
+          "raw_ticks": 3075,
+          "before_line": "B0_PROOF_PHASE result.native.before raw=128597489",
+          "after_line": "B0_PROOF_PHASE result.native.after raw=128600564"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.select",
+          "before": 128600565,
+          "after": 129338235,
+          "raw_ticks": 737670,
+          "before_line": "B0_PROOF_PHASE result.select.before raw=128600565",
+          "after_line": "B0_PROOF_PHASE result.select.after raw=129338235"
+        }
+      ],
+      "end": 129338235,
+      "raw_ticks": 1424497,
+      "completed": true
+    },
+    {
+      "index": 8,
+      "start": 130036562,
+      "stages": [
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "scope.open",
+          "before": 130036562,
+          "after": 130721819,
+          "raw_ticks": 685257,
+          "before_line": "B0_PROOF_PHASE scope.open.before raw=130036562",
+          "after_line": "B0_PROOF_PHASE scope.open.after raw=130721819"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "prepare",
+          "before": 130721832,
+          "after": 130722068,
+          "raw_ticks": 236,
+          "before_line": "B0_PROOF_PHASE prepare.before raw=130721832",
+          "after_line": "B0_PROOF_PHASE prepare.after raw=130722068"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "proof.type",
+          "before": 130722070,
+          "after": 130722107,
+          "raw_ticks": 37,
+          "before_line": "B0_PROOF_PHASE proof.type.before raw=130722070",
+          "after_line": "B0_PROOF_PHASE proof.type.after raw=130722107"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "proof.kernel",
+          "before": 130722109,
+          "after": 130722187,
+          "raw_ticks": 78,
+          "before_line": "B0_PROOF_PHASE proof.kernel.before raw=130722109",
+          "after_line": "B0_PROOF_PHASE proof.kernel.after raw=130722187"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "closure.abstract",
+          "before": 130723381,
+          "after": 130724089,
+          "raw_ticks": 708,
+          "before_line": "B0_PROOF_PHASE closure.abstract.before raw=130723381",
+          "after_line": "B0_PROOF_PHASE closure.abstract.after raw=130724089"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "closure.kernel",
+          "before": 130724091,
+          "after": 130724395,
+          "raw_ticks": 304,
+          "before_line": "B0_PROOF_PHASE closure.kernel.before raw=130724091",
+          "after_line": "B0_PROOF_PHASE closure.kernel.after raw=130724395"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "reapply",
+          "before": 130724397,
+          "after": 130724401,
+          "raw_ticks": 4,
+          "before_line": "B0_PROOF_PHASE reapply.before raw=130724397",
+          "after_line": "B0_PROOF_PHASE reapply.after raw=130724401"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "headBeta",
+          "before": 130724402,
+          "after": 130724403,
+          "raw_ticks": 1,
+          "before_line": "B0_PROOF_PHASE headBeta.before raw=130724402",
+          "after_line": "B0_PROOF_PHASE headBeta.after raw=130724403"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.kernel",
+          "before": 130724404,
+          "after": 130724697,
+          "raw_ticks": 293,
+          "before_line": "B0_PROOF_PHASE result.kernel.before raw=130724404",
+          "after_line": "B0_PROOF_PHASE result.kernel.after raw=130724697"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.native",
+          "before": 130724698,
+          "after": 130728298,
+          "raw_ticks": 3600,
+          "before_line": "B0_PROOF_PHASE result.native.before raw=130724698",
+          "after_line": "B0_PROOF_PHASE result.native.after raw=130728298"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.select",
+          "before": 130728299,
+          "after": 131469139,
+          "raw_ticks": 740840,
+          "before_line": "B0_PROOF_PHASE result.select.before raw=130728299",
+          "after_line": "B0_PROOF_PHASE result.select.after raw=131469139"
+        }
+      ],
+      "end": 131469139,
+      "raw_ticks": 1432577,
+      "completed": true
+    },
+    {
+      "index": 9,
+      "start": 132163671,
+      "stages": [
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "scope.open",
+          "before": 132163671,
+          "after": 132851606,
+          "raw_ticks": 687935,
+          "before_line": "B0_PROOF_PHASE scope.open.before raw=132163671",
+          "after_line": "B0_PROOF_PHASE scope.open.after raw=132851606"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "prepare",
+          "before": 132851619,
+          "after": 132854593,
+          "raw_ticks": 2974,
+          "before_line": "B0_PROOF_PHASE prepare.before raw=132851619",
+          "after_line": "B0_PROOF_PHASE prepare.after raw=132854593"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "proof.type",
+          "before": 132854595,
+          "after": 132854632,
+          "raw_ticks": 37,
+          "before_line": "B0_PROOF_PHASE proof.type.before raw=132854595",
+          "after_line": "B0_PROOF_PHASE proof.type.after raw=132854632"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "proof.kernel",
+          "before": 132854634,
+          "after": 132856206,
+          "raw_ticks": 1572,
+          "before_line": "B0_PROOF_PHASE proof.kernel.before raw=132854634",
+          "after_line": "B0_PROOF_PHASE proof.kernel.after raw=132856206"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "closure.abstract",
+          "before": 132857407,
+          "after": 132859621,
+          "raw_ticks": 2214,
+          "before_line": "B0_PROOF_PHASE closure.abstract.before raw=132857407",
+          "after_line": "B0_PROOF_PHASE closure.abstract.after raw=132859621"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "closure.kernel",
+          "before": 132859623,
+          "after": 132862283,
+          "raw_ticks": 2660,
+          "before_line": "B0_PROOF_PHASE closure.kernel.before raw=132859623",
+          "after_line": "B0_PROOF_PHASE closure.kernel.after raw=132862283"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "reapply",
+          "before": 132862285,
+          "after": 132862289,
+          "raw_ticks": 4,
+          "before_line": "B0_PROOF_PHASE reapply.before raw=132862285",
+          "after_line": "B0_PROOF_PHASE reapply.after raw=132862289"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "headBeta",
+          "before": 132862290,
+          "after": 132862291,
+          "raw_ticks": 1,
+          "before_line": "B0_PROOF_PHASE headBeta.before raw=132862290",
+          "after_line": "B0_PROOF_PHASE headBeta.after raw=132862291"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.kernel",
+          "before": 132862292,
+          "after": 132864954,
+          "raw_ticks": 2662,
+          "before_line": "B0_PROOF_PHASE result.kernel.before raw=132862292",
+          "after_line": "B0_PROOF_PHASE result.kernel.after raw=132864954"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.native",
+          "before": 132864955,
+          "after": 132868237,
+          "raw_ticks": 3282,
+          "before_line": "B0_PROOF_PHASE result.native.before raw=132864955",
+          "after_line": "B0_PROOF_PHASE result.native.after raw=132868237"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.select",
+          "before": 132868238,
+          "after": 133619243,
+          "raw_ticks": 751005,
+          "before_line": "B0_PROOF_PHASE result.select.before raw=132868238",
+          "after_line": "B0_PROOF_PHASE result.select.after raw=133619243"
+        }
+      ],
+      "end": 133619243,
+      "raw_ticks": 1455572,
+      "completed": true
+    },
+    {
+      "index": 10,
+      "start": 171663441,
+      "stages": [
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "scope.open",
+          "before": 171663441,
+          "after": 172578429,
+          "raw_ticks": 914988,
+          "before_line": "B0_PROOF_PHASE scope.open.before raw=171663441",
+          "after_line": "B0_PROOF_PHASE scope.open.after raw=172578429"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "prepare",
+          "before": 172578452,
+          "after": 186501521,
+          "raw_ticks": 13923069,
+          "before_line": "B0_PROOF_PHASE prepare.before raw=172578452",
+          "after_line": "B0_PROOF_PHASE prepare.after raw=186501521"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "proof.type",
+          "before": 186501523,
+          "after": 186501560,
+          "raw_ticks": 37,
+          "before_line": "B0_PROOF_PHASE proof.type.before raw=186501523",
+          "after_line": "B0_PROOF_PHASE proof.type.after raw=186501560"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "proof.kernel",
+          "before": 186501562,
+          "after": 186517643,
+          "raw_ticks": 16081,
+          "before_line": "B0_PROOF_PHASE proof.kernel.before raw=186501562",
+          "after_line": "B0_PROOF_PHASE proof.kernel.after raw=186517643"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "closure.abstract",
+          "before": 186518991,
+          "after": 186581635,
+          "raw_ticks": 62644,
+          "before_line": "B0_PROOF_PHASE closure.abstract.before raw=186518991",
+          "after_line": "B0_PROOF_PHASE closure.abstract.after raw=186581635"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "closure.kernel",
+          "before": 186581637,
+          "after": 186650441,
+          "raw_ticks": 68804,
+          "before_line": "B0_PROOF_PHASE closure.kernel.before raw=186581637",
+          "after_line": "B0_PROOF_PHASE closure.kernel.after raw=186650441"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "reapply",
+          "before": 186650443,
+          "after": 186650447,
+          "raw_ticks": 4,
+          "before_line": "B0_PROOF_PHASE reapply.before raw=186650443",
+          "after_line": "B0_PROOF_PHASE reapply.after raw=186650447"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "headBeta",
+          "before": 186650448,
+          "after": 186650449,
+          "raw_ticks": 1,
+          "before_line": "B0_PROOF_PHASE headBeta.before raw=186650448",
+          "after_line": "B0_PROOF_PHASE headBeta.after raw=186650449"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.kernel",
+          "before": 186650450,
+          "after": 186719240,
+          "raw_ticks": 68790,
+          "before_line": "B0_PROOF_PHASE result.kernel.before raw=186650450",
+          "after_line": "B0_PROOF_PHASE result.kernel.after raw=186719240"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.native",
+          "before": 186719241,
+          "after": 186729933,
+          "raw_ticks": 10692,
+          "before_line": "B0_PROOF_PHASE result.native.before raw=186719241",
+          "after_line": "B0_PROOF_PHASE result.native.after raw=186729933"
+        },
+        {
+          "kind": "B0_PROOF_PHASE",
+          "stage": "result.select",
+          "before": 186729934,
+          "after": 188094917,
+          "raw_ticks": 1364983,
+          "before_line": "B0_PROOF_PHASE result.select.before raw=186729934",
+          "after_line": "B0_PROOF_PHASE result.select.after raw=188094917"
+        }
+      ],
+      "end": 188094917,
+      "raw_ticks": 16431476,
+      "completed": true
+    }
+  ],
+  "unmatched_before": [],
+  "after_without_before": [
+    "B0_PROOF_PHASE scope.return.after raw=91995702",
+    "B0_PROOF_PHASE scope.return.after raw=92977220",
+    "B0_PROOF_PHASE scope.return.after raw=94900048",
+    "B0_PROOF_PHASE scope.return.after raw=96477931",
+    "B0_PROOF_PHASE scope.return.after raw=98064022",
+    "B0_PROOF_PHASE scope.return.after raw=124779629",
+    "B0_PROOF_PHASE scope.return.after raw=126123525",
+    "B0_PROOF_PHASE scope.return.after raw=128595660",
+    "B0_PROOF_PHASE scope.return.after raw=130724396",
+    "B0_PROOF_PHASE scope.return.after raw=132862284",
+    "B0_PROOF_PHASE scope.return.after raw=186650442"
+  ],
+  "last_marker_by_kind": {
+    "INSTANCE_": "INSTANCE_BLOCK_DONE block=2 rawTicks=5819",
+    "B0_FINITE_PHASE": "B0_FINITE_PHASE admission.final.select.after entry=obj.sets.finite_subsets raw=190724008",
+    "B0_PROOF_PHASE": "B0_PROOF_PHASE result.select.after raw=188094917",
+    "B0_ADMISSION_EVIDENCE": "B0_ADMISSION_EVIDENCE result.after entry=obj.sets.finite_subsets evidence=CasCatalogue.Foundation.FiniteSubsets.finiteSubsetEvidence head=Finset.finite_toSet arity=2 raw=186501475"
+  },
+  "last_block1_definition_start": "INSTANCE_DEFINE_START block=1 text=\"let F := {x - 1} in \ud835\udcab_fin(\u2124[x])\" cumulative=41461125"
+}

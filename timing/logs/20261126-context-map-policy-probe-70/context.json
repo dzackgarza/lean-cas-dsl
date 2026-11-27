@@ -1,0 +1,20 @@
+{
+  "started_utc": "2026-11-26T15:13:46.209731+00:00",
+  "cwd": "/repos/v1-integration-20261106/lean-cas-dsl",
+  "command": [
+    "just",
+    "probe",
+    ".tmp/context-map-policy-probe-20261126/ContextMapPolicyProbe.lean"
+  ],
+  "diagnostic_only": true,
+  "wrapper_pid": 744367,
+  "environment": {
+    "CAS_LEAVES": "/repos/lean-cas-dsl-leaves/leaves.json",
+    "PATH": "/sage/.venv/bin:/opt/elan/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    "LEAN_PATH": null,
+    "LEAN_SYSROOT": null,
+    "CAS_APPLICATION_LOG_DIR": null
+  },
+  "lean_toolchain": "leanprover/lean4:v4.33.0",
+  "probe_sha256": "72d38e93d66352441d4549c9b6fba9b4796587e8ac52b7aae701561f3e7b0cce"
+}

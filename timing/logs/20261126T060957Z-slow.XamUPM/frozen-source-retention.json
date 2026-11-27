@@ -1,0 +1,14 @@
+{
+  "created_utc": "2026-11-26T06:09:45.133477+00:00",
+  "snapshot": ".tmp/validation-typed-integrated-32-sources.json",
+  "snapshot_sha256": "8e917ef54b6d1034df4389cf497946b9cfd5498c47882dc22cd49ff659f8ec50",
+  "archive": ".tmp/validation-typed-integrated-32-source-bytes.tar.gz",
+  "archive_sha256": "60e7bce9b4149de3554a947dc28b2d1dafb755121961c7c4b9f697630d78f246",
+  "archive_bytes": 2453670,
+  "files": 754,
+  "changes_from31": [
+    "CasCompiler/ReadFunctorRules.lean"
+  ],
+  "validation_command": "source scripts/container.sh\nincontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json just slow 'Validate qualified native action reader and complete original source controls' CasCompiler.SourceInstanceTests CasCompiler.SourceViewTests CasCompiler.ContextTests CasCompiler.SourceSubsetTests CasCompiler.SourceTupleTests CasCompiler.SourceOperationTests CasCompiler.SourceMemberCompetitionTests",
+  "automatic_successor_authorized": false
+}

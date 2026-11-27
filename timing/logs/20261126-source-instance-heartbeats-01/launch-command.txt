@@ -1,0 +1,2 @@
+source scripts/container.sh
+incontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json python3 timing/logs/20261126-source-instance-heartbeats-01/runner.py

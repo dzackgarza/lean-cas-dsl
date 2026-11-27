@@ -1,0 +1,42 @@
+{
+  "verified_utc": "2026-11-26T17:28:52.697014+00:00",
+  "result": {
+    "command": [
+      "just",
+      "probe",
+      ".tmp/source-tuple-domain-20261126/MatrixDomainProbe.lean"
+    ],
+    "diagnostic_only": true,
+    "started_utc": "2026-11-26T17:25:49.205004+00:00",
+    "finished_utc": "2026-11-26T17:27:12.516144+00:00",
+    "seconds": 83.32729708496481,
+    "status": 1,
+    "probe_sha256": "cf0b8980f298a4c6a66a0ba91dd48fa79f703bbe655990282dbf118c32efd231",
+    "output_sha256": "80ad89378f9840fa6cb04fd7bf9fd455b321336da3768392f6285c90f5ae730b",
+    "acceptance_status": null
+  },
+  "result_sha256": "d42adb63a9efb6a66b169b0a8260076c9a7a034f0818dcc57b689a4864f04cb3",
+  "output_sha256": "80ad89378f9840fa6cb04fd7bf9fd455b321336da3768392f6285c90f5ae730b",
+  "snapshot_sha256": "ff02ec6e0659e6863cf7543f6fbba33dbed50c6ed3448ac3ab8e5504e299644d",
+  "frozen_input_count": 760,
+  "source_mismatches": [],
+  "frozen_head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "current_head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "active_native": [],
+  "final_environment_comparison": {
+    "environment": true,
+    "dependencies": true,
+    "inputs": true,
+    "resolution": true
+  },
+  "matrix_marker_count": 13,
+  "errors": [
+    "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/source-tuple-domain-20261126/MatrixDomainProbe.lean:140:0: error: the original RX08 declaration did not read: let row := [1, 0] in RectangularMatrices(1, 2, Q); the source finite tuple requires its declared indexed domain"
+  ],
+  "diagnostic_only": true,
+  "acceptance_status": null,
+  "successor_launched": false,
+  "source_freeze_released": true,
+  "release": true,
+  "retention_retry_note": "First verifier expected12 markers but actual13; corrected evidence write received transient Core2 ENOSPC; no source/process mutation. Subsequent read-only integrity check and this retained final check succeeded."
+}

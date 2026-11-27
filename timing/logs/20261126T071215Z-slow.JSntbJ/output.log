@@ -1,0 +1,7 @@
+[build] native lake --log-level=error build +CasCompiler.SourceInstanceTests:deps +CasCompiler.SourceViewTests:deps +CasCompiler.SourceSubsetTests:deps +CasCompiler.SourceTupleTests:deps +CasCompiler.SourceOperationTests:deps +CasCompiler.SourceMemberCompetitionTests:deps 
+✔ [3814/3897] Built CasCompiler.SourceTypeOrigin (44s)
+✔ [3891/3897] Built CasCompiler.Read (12s)
+Build completed successfully (3897 jobs).
+[execution] native lake --log-level=error lean CasCompiler/SourceInstanceTests.lean -- -DstderrAsMessages=false 
+/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/SourceInstanceTests.lean:3:1: error: the ring of x has no registered generator
+slow: execution status 1; status 1 in 197.131 s; log timing/logs/20261126T071215Z-slow.JSntbJ/output.log

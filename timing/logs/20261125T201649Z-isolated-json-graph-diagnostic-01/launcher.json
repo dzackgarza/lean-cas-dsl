@@ -1,0 +1,6 @@
+{
+  "pid": 524947,
+  "started_utc": "2026-11-25T20:16:49.960974+00:00",
+  "log": "/home/dzack/.local/share/docker/volumes/sage-repos/_data/v1-integration-20261106/lean-cas-dsl/.tmp/diagnostic-json-graph-20261125-01/output.log",
+  "result": "/home/dzack/.local/share/docker/volumes/sage-repos/_data/v1-integration-20261106/lean-cas-dsl/.tmp/diagnostic-json-graph-20261125-01/result.json"
+}

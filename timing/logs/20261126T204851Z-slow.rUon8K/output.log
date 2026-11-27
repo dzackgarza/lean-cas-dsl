@@ -1,0 +1,23 @@
+[build] native lake --log-level=error build +CasTools.NativeExpressionTests:deps +CasTools.SourceSnapshotTests:deps +CasRuntime.SessionLogTests:deps 
+✖ [3950/3991] Building CasTools.NativeExpression (13s)
+trace: .> LEAN_PATH=/opt/mathlib/.lake/packages/Cli/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/checkdecls/.lake/build/lib/lean:/opt/mathlib/.lake/packages/batteries/.lake/build/lib/lean:/opt/mathlib/.lake/packages/Qq/.lake/build/lib/lean:/opt/mathlib/.lake/packages/aesop/.lake/build/lib/lean:/opt/mathlib/.lake/packages/proofwidgets/.lake/build/lib/lean:/opt/mathlib/.lake/packages/importGraph/.lake/build/lib/lean:/opt/mathlib/.lake/packages/LeanSearchClient/.lake/build/lib/lean:/opt/mathlib/.lake/packages/plausible/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/BrauerGroup/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/nbdsl-worker/worker/.lake/build/lib/lean:/opt/mathlib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cslib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/PolyFun/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/lean_categories/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cas_leaf_contracts/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean /opt/elan/toolchains/leanprover--lean4---v4.33.0/bin/lean /repos/v1-integration-20261106/lean-cas-dsl/CasTools/NativeExpression.lean -o /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean/CasTools/NativeExpression.olean -i /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean/CasTools/NativeExpression.ilean -c /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/ir/CasTools/NativeExpression.c --setup /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/ir/CasTools/NativeExpression.setup.json --json
+error: CasTools/NativeExpression.lean:128:24: invalid {...} notation, constructor for `Builder` is marked as private
+error: CasTools/NativeExpression.lean:137:61: overloaded, errors 
+  failed to synthesize instance of type class
+    EmptyCollection Builder
+  
+  Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
+  
+  invalid {...} notation, constructor for `Builder` is marked as private
+error: CasTools/NativeExpression.lean:194:52: overloaded, errors 
+  failed to synthesize instance of type class
+    EmptyCollection Builder
+  
+  Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
+  
+  invalid {...} notation, constructor for `Builder` is marked as private
+error: Lean exited with code 1
+error: build failed
+Some required targets logged failures:
+- CasTools.NativeExpression
+slow: execution status 1; status 1 in 41.873 s; log timing/logs/20261126T204851Z-slow.rUon8K/output.log

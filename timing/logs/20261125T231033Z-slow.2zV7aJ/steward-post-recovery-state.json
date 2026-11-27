@@ -1,0 +1,28 @@
+{
+  "observed_utc": "2026-11-26T00:53:46.779544+00:00",
+  "snapshot_sha256": "d2f50187268702d669d80684087c938c420fae0dbbe458308e33e854d9ba6c56",
+  "actual_result_sha256": "4f7b9c887805a22603be2df20299d60908cf46c226c9a0cf7e1fd29d27c08028",
+  "identical_canonical_ledger_rows": [
+    627
+  ],
+  "observed_source_changes_vs_frozen15": {
+    "CasCompiler/SourceTypeOrigin.lean": {
+      "frozen_sha256": "631d6bcbe1c463575ee122701f5a2beb5b338f90cc56a68866d16ad089e12d4d",
+      "current_sha256": "99530a4a72e1ca58cd0fe5218109eacf18d558eabcf2d3c862cdf58a15768eb3",
+      "current_mtime_utc": "2026-11-26T00:36:01.028046+00:00"
+    },
+    "CasRuntime/Execute.lean": {
+      "frozen_sha256": "f69fa395dc3fad37c6a71567cfcc5de1d9f38b45119cbdf1a72f07b24d310f40",
+      "current_sha256": "92f7496ab54566d96ae2037114b6cca14af33cfe18e94b1452b4736f3d530ecb",
+      "current_mtime_utc": "2026-11-25T23:42:43.864820+00:00"
+    },
+    "tests/feedback/test_feedback.py": {
+      "frozen_sha256": "acb9a878a866239cdac2f68079a4a8a040387d7a5ec19cd5777cfb6a89051a26",
+      "current_sha256": "1177b9ec79a166c031b81b6d60c288329cdce4133d9429d25d0d1ab9a3ccb648",
+      "current_mtime_utc": "2026-11-26T00:36:21.861956+00:00"
+    }
+  },
+  "diff": "timing/logs/20261125T231033Z-slow.2zV7aJ/current-vs-frozen15-at-recovery.patch",
+  "frozen15B_started_by_steward": false,
+  "native_inventory_observation": "read-only inventory00:51:21.487Z found no lake/lean/feedback wrapper in integration; no new run launched"
+}

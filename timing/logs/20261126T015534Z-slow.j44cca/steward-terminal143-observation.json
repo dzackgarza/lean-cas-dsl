@@ -1,0 +1,46 @@
+{
+  "observed_utc": "2026-11-26T03:42:30.494432+00:00",
+  "result_exists": true,
+  "native": [],
+  "result": {
+    "run": "20261126T015534Z-slow.j44cca",
+    "status": 143,
+    "seconds": 6156.60542856,
+    "execution_status": 143,
+    "over_limit": false,
+    "within_loop_bound": false,
+    "attempted_sources": [
+      "CasRuntime/FixedInputResultTests.lean",
+      "CasRuntime/SessionOccurrenceTests.lean"
+    ],
+    "phases": {
+      "build": {
+        "seconds": 328.885341211,
+        "status": 0
+      },
+      "execution": {
+        "seconds": 5807.626851636,
+        "status": 143
+      },
+      "acceptance": {
+        "seconds": 0.0,
+        "status": null
+      }
+    },
+    "finished_utc": "2026-11-26T03:38:12.587874+00:00"
+  },
+  "result_sha256": "0aa99c6d89b225fe1886d06adaa71dc2808943c89df2a31932bafaae3b4665f5",
+  "identical_ledger_rows": [
+    636
+  ],
+  "changed_sources": [
+    "specs/001-categorical-research-language/tasks.md"
+  ],
+  "last_stream": {
+    "path": "timing/logs/20261126T015534Z-slow.j44cca/application/bf85c624-b47c-4607-9b92-c91e6a352ab3.jsonl",
+    "bytes": 1440437,
+    "event": "diagnostic",
+    "sequence": 45,
+    "monotonicMilliseconds": 2451992772
+  }
+}

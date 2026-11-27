@@ -1,0 +1,158 @@
+{
+  "started_utc": "2026-11-25T22:55:37.259699+00:00",
+  "runner_pid": 691161,
+  "modules": [
+    {
+      "module": "CasRuntime.ExecutionContext",
+      "command": [
+        "lean",
+        "--root=/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/src",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/src/CasRuntime/ExecutionContext.lean",
+        "-o",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/artifacts/CasRuntime/ExecutionContext.olean",
+        "-i",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/artifacts/CasRuntime/ExecutionContext.ilean",
+        "-c",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/artifacts/CasRuntime/ExecutionContext.c"
+      ],
+      "started_utc": "2026-11-25T22:55:46.355883+00:00",
+      "log": "logs/CasRuntime.ExecutionContext.log",
+      "pid": 691163,
+      "exit_code": 0,
+      "seconds": 32.902,
+      "finished_utc": "2026-11-25T22:56:19.262512+00:00",
+      "produced_artifacts": {
+        "artifacts/CasRuntime/ExecutionContext.c": "6ca6c7b97d30acd3c4c4b8a6a272a45185580b330911cc8606ccb6b2a8815a9d",
+        "artifacts/CasRuntime/ExecutionContext.ilean": "f238a38b3ffb520fddebd4764cf1449cba95ca4299bc8aff47d651ccffb38848",
+        "artifacts/CasRuntime/ExecutionContext.ir": "f57d564d2490c3647918e2881dfb0767849f455a45d26cd7a80f0849bb70a0bf",
+        "artifacts/CasRuntime/ExecutionContext.ir.sig": "396ca05eac9941197f6f985f511bc99df340bc8eec96db4f21e7fadb4f090808",
+        "artifacts/CasRuntime/ExecutionContext.olean": "ae6d8e192c52893443a4861503f2e7a518059f97d0895e9cbbbc62df4755797e",
+        "artifacts/CasRuntime/ExecutionContext.olean.private": "a8dcf010157bd2f40c021b002b518e92e5818934afe72d0feb1536baca9b8275",
+        "artifacts/CasRuntime/ExecutionContext.olean.server": "dfbddae67cc8c977573abd35d273560c2525d7ec6e3a94baf7ea4fe35b215fb3"
+      }
+    },
+    {
+      "module": "CasRuntime.Demand",
+      "command": [
+        "lean",
+        "--root=/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/src",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/src/CasRuntime/Demand.lean",
+        "-o",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/artifacts/CasRuntime/Demand.olean",
+        "-i",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/artifacts/CasRuntime/Demand.ilean",
+        "-c",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/artifacts/CasRuntime/Demand.c"
+      ],
+      "started_utc": "2026-11-25T22:56:19.318971+00:00",
+      "log": "logs/CasRuntime.Demand.log",
+      "pid": 691183,
+      "exit_code": 0,
+      "seconds": 18.811,
+      "finished_utc": "2026-11-25T22:56:38.135436+00:00",
+      "produced_artifacts": {
+        "artifacts/CasRuntime/Demand.c": "dfe12c84545cab7f0097e3bf4b2c160d1594c24dbb24337f643b4ed9dbe7c004",
+        "artifacts/CasRuntime/Demand.ilean": "83a38f830fe15168f0bd87e61d0169bc7a9e62f63b6f1310bca55ce8bd5d0ca0",
+        "artifacts/CasRuntime/Demand.ir": "2ceed53afec18c4782d497e7c427130121aea30931861f2b9c3eb4227e03fe37",
+        "artifacts/CasRuntime/Demand.ir.sig": "c0623bee49e9ffc5ea73b13c50c93a2b4503cf3456656899b95919bfcf9bb7be",
+        "artifacts/CasRuntime/Demand.olean": "19e286d3ea9148f3b32d38be2aab11b9fb95ade4f052c870156bdad0d9cc3b0d",
+        "artifacts/CasRuntime/Demand.olean.private": "bcda04174f79d4db184f2c2ebfa49500767d9a8fc06ae73af289dee62b92daa0",
+        "artifacts/CasRuntime/Demand.olean.server": "bd25c5c6dd2bb3f903e66dc8903bc2aed312827af93003e7218d2afc86a24a6e"
+      }
+    },
+    {
+      "module": "CasCompiler.Lower",
+      "command": [
+        "lean",
+        "--root=/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/src",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/src/CasCompiler/Lower.lean",
+        "-o",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/artifacts/CasCompiler/Lower.olean",
+        "-i",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/artifacts/CasCompiler/Lower.ilean",
+        "-c",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/artifacts/CasCompiler/Lower.c"
+      ],
+      "started_utc": "2026-11-25T22:56:38.168658+00:00",
+      "log": "logs/CasCompiler.Lower.log",
+      "pid": 691193,
+      "exit_code": 0,
+      "seconds": 43.946,
+      "finished_utc": "2026-11-25T22:57:22.120046+00:00",
+      "produced_artifacts": {
+        "artifacts/CasCompiler/Lower.c": "37894153180d016bb8d7a4da0bf4842b8cb2ba650fd4a5189c746f475ad54599",
+        "artifacts/CasCompiler/Lower.ilean": "2225aef685ecc4bff5cde7449f78d002b9129c7985259c18351e15d70221a9ef",
+        "artifacts/CasCompiler/Lower.ir": "1b44cbac72141c3694fcea0d69178fab57965633c661b850ec0e11a56c0e6fb1",
+        "artifacts/CasCompiler/Lower.ir.sig": "5b372a1d53cda4bd5b5fd8a180ca6becc259bec439d733c826f144954b6cc2ad",
+        "artifacts/CasCompiler/Lower.olean": "e33b5e408fb06a3c44ff33faca5c58050e63f40fcd438579aa365f46c9eb1bb9",
+        "artifacts/CasCompiler/Lower.olean.private": "3cffa209556a66929acdb1f175e7bcad40745c156c8ab697fc3850f63cf5f906",
+        "artifacts/CasCompiler/Lower.olean.server": "feed3eb2e644e27ec996564a7745e11015afb3ea12dbf6493194996eef797107"
+      }
+    },
+    {
+      "module": "CasRuntime.Kernel",
+      "command": [
+        "lean",
+        "--root=/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/src",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/src/CasRuntime/Kernel.lean",
+        "-o",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/artifacts/CasRuntime/Kernel.olean",
+        "-i",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/artifacts/CasRuntime/Kernel.ilean",
+        "-c",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/artifacts/CasRuntime/Kernel.c"
+      ],
+      "started_utc": "2026-11-25T22:57:22.200116+00:00",
+      "log": "logs/CasRuntime.Kernel.log",
+      "pid": 691204,
+      "exit_code": 0,
+      "seconds": 8.825,
+      "finished_utc": "2026-11-25T22:57:31.031426+00:00",
+      "produced_artifacts": {
+        "artifacts/CasRuntime/Kernel.c": "9348376ced6bda925dd61f313eba4a66981fd28ebbab8948c96586d66c1f7336",
+        "artifacts/CasRuntime/Kernel.ilean": "eed0c15427f5ab9a384a50bb25748891f33f99d5850a51de9dceb4e3a105a352",
+        "artifacts/CasRuntime/Kernel.ir": "af9f7ac36eca41b9b905c642ae5d705db19c946c0f07477339e496f7caaf6451",
+        "artifacts/CasRuntime/Kernel.ir.sig": "ed7ef431b93c11232f3e55eda669a0f540d0e03f81f10b09b543eba50e2c740b",
+        "artifacts/CasRuntime/Kernel.olean": "813599d56c94d32bd81f859750d38ef5fde30f62e9a753324a45024a971061db",
+        "artifacts/CasRuntime/Kernel.olean.private": "8cbfdfc5bc7a2ed538d53d8eb1fe2e54665e1940038e28280b9e4368b6ddf543",
+        "artifacts/CasRuntime/Kernel.olean.server": "844964dde03a546be474570922e8c8929c2cc1a11fdd54dec0f42940e94abfec"
+      }
+    },
+    {
+      "module": "BindingIdentityHeartbeatProbe",
+      "command": [
+        "lean",
+        "--root=/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/src",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/src/BindingIdentityHeartbeatProbe.lean",
+        "-o",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/artifacts/BindingIdentityHeartbeatProbe.olean",
+        "-i",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/artifacts/BindingIdentityHeartbeatProbe.ilean",
+        "-c",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/artifacts/BindingIdentityHeartbeatProbe.c"
+      ],
+      "started_utc": "2026-11-25T22:57:31.042112+00:00",
+      "log": "logs/BindingIdentityHeartbeatProbe.log",
+      "pid": 691214,
+      "exit_code": 1,
+      "seconds": 86.056,
+      "finished_utc": "2026-11-25T22:58:57.119932+00:00",
+      "produced_artifacts": {}
+    }
+  ],
+  "status": "failed",
+  "lake_environment": {
+    "LEAN_PATH": "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/artifacts:/opt/mathlib/.lake/packages/Cli/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/checkdecls/.lake/build/lib/lean:/opt/mathlib/.lake/packages/batteries/.lake/build/lib/lean:/opt/mathlib/.lake/packages/Qq/.lake/build/lib/lean:/opt/mathlib/.lake/packages/aesop/.lake/build/lib/lean:/opt/mathlib/.lake/packages/proofwidgets/.lake/build/lib/lean:/opt/mathlib/.lake/packages/importGraph/.lake/build/lib/lean:/opt/mathlib/.lake/packages/LeanSearchClient/.lake/build/lib/lean:/opt/mathlib/.lake/packages/plausible/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/BrauerGroup/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/nbdsl-worker/worker/.lake/build/lib/lean:/opt/mathlib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cslib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/PolyFun/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/lean_categories/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cas_leaf_contracts/.lake/build/lib/lean:/opt/elan/toolchains/leanprover--lean4---v4.33.0/lib/lean",
+    "LEAN_SRC_PATH": "/opt/mathlib/.lake/packages/Cli:/opt/mathlib/.lake/packages/Cli:/opt/mathlib/.lake/packages/batteries:/opt/mathlib/.lake/packages/batteries:/opt/mathlib/.lake/packages/Qq:/opt/mathlib/.lake/packages/Qq:/opt/mathlib/.lake/packages/aesop:/opt/mathlib/.lake/packages/aesop:/opt/mathlib/.lake/packages/proofwidgets:/opt/mathlib/.lake/packages/proofwidgets:/opt/mathlib/.lake/packages/proofwidgets:/opt/mathlib/.lake/packages/importGraph:/opt/mathlib/.lake/packages/importGraph:/opt/mathlib/.lake/packages/LeanSearchClient:/opt/mathlib/.lake/packages/LeanSearchClient:/opt/mathlib/.lake/packages/plausible:/opt/mathlib/.lake/packages/plausible:/.local/share/lean/v4.33.0/packages/BrauerGroup:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/nbdsl-worker/worker:/opt/mathlib:/opt/mathlib:/opt/mathlib:/opt/mathlib:/opt/mathlib:/opt/mathlib:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cslib:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cslib:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/PolyFun:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/PolyFun:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/lean_categories:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cas_leaf_contracts:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cas_leaf_contracts:/repos/v1-integration-20261106/lean-cas-dsl:/repos/v1-integration-20261106/lean-cas-dsl:/repos/v1-integration-20261106/lean-cas-dsl:/repos/v1-integration-20261106/lean-cas-dsl:/repos/v1-integration-20261106/lean-cas-dsl:/repos/v1-integration-20261106/lean-cas-dsl:/repos/v1-integration-20261106/lean-cas-dsl:/repos/v1-integration-20261106/lean-cas-dsl:/repos/v1-integration-20261106/lean-cas-dsl:/repos/v1-integration-20261106/lean-cas-dsl:/opt/elan/toolchains/leanprover--lean4---v4.33.0/src/lean/lake",
+    "LEAN_SYSROOT": "/opt/elan/toolchains/leanprover--lean4---v4.33.0",
+    "PATH": "/opt/mathlib/.lake/packages/Cli/.lake/build/bin:/.local/share/lean/v4.33.0/packages/checkdecls/.lake/build/bin:/opt/mathlib/.lake/packages/batteries/.lake/build/bin:/opt/mathlib/.lake/packages/Qq/.lake/build/bin:/opt/mathlib/.lake/packages/aesop/.lake/build/bin:/opt/mathlib/.lake/packages/proofwidgets/.lake/build/bin:/opt/mathlib/.lake/packages/importGraph/.lake/build/bin:/opt/mathlib/.lake/packages/LeanSearchClient/.lake/build/bin:/opt/mathlib/.lake/packages/plausible/.lake/build/bin:/.local/share/lean/v4.33.0/packages/BrauerGroup/.lake/build/bin:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/nbdsl-worker/worker/.lake/build/bin:/opt/mathlib/.lake/build/bin:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cslib/.lake/build/bin:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/PolyFun/.lake/build/bin:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/lean_categories/.lake/build/bin:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cas_leaf_contracts/.lake/build/bin:/repos/v1-integration-20261106/lean-cas-dsl/.lake/build/bin:/opt/elan/toolchains/leanprover--lean4---v4.33.0/bin:/opt/elan/bin:/sage/.venv/bin:/opt/elan/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    "CAS_APPLICATION_LOG_DIR": "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/application",
+    "CAS_FEEDBACK_RUN": "isolated-binding-application-phases-20261125-01",
+    "CAS_FEEDBACK_CONTEXT": "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/snapshot.json"
+  },
+  "source_inputs_changes": [],
+  "unchanged_namespace_artifacts_changes": [],
+  "staged_sources_changes": [],
+  "overlay_artifacts_changes": [],
+  "finished_utc": "2026-11-25T22:59:11.098478+00:00"
+}

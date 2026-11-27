@@ -1,0 +1,6 @@
+/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-binding-application-phases-20261125-01/src/CasRuntime/Demand.lean:329:11: warning: Variable name `node` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _node
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`

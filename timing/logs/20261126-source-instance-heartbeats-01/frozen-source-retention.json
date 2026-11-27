@@ -1,0 +1,16 @@
+{
+  "created_utc": "2026-11-26T07:05:09.322337+00:00",
+  "snapshot": ".tmp/validation-typed-integrated-35-sources.json",
+  "snapshot_sha256": "787273e86ae058e69ed2ca0429abb1fd241a48397568a5cb2dd0015dadffab8c",
+  "archive": ".tmp/validation-typed-integrated-35-source-bytes.tar.gz",
+  "archive_sha256": "d0bfb5ed22057ada406b9852bc19aa9a8d4976f5bb76eb6b2c116dfd817cd65c",
+  "archive_bytes": 2460113,
+  "files": 755,
+  "live_changes_from34": [],
+  "added_diagnostic_input": ".tmp/source-instance-heartbeats-20261126/B0InstanceHeartbeatProbe.lean",
+  "probe_sha256": "2dde7297dff441ce2eee75e32c5650baee4ac7cb5ae7f30f88522a38e34f2975",
+  "diagnostic_diff_sha256": "a74622467f2dc78a9300993a23b4690caf434c136827e054e1344ac7ceb1f731",
+  "diagnostic_only": true,
+  "validation_command": "source scripts/container.sh\nincontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json just probe .tmp/source-instance-heartbeats-20261126/B0InstanceHeartbeatProbe.lean",
+  "automatic_successor_authorized": false
+}

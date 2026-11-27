@@ -1,0 +1,33 @@
+Acceptance run: timing/logs/accept-20261126T193127Z-MPqBTV
+✔ [3965/3967] Built CasTools.QuestionObservation (30s)
+✔ [3966/3967] Built CasRuntime.Inspect (31s)
+✔ [3967/3967] Built CasCatalogue.TestSuite (17s)
+Build completed successfully (3967 jobs).
+warning: cas_leaf_contracts: repository '/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cas_leaf_contracts' has local changes
+Terminated
+tests/acceptance/numbers.cas: current selected execution has no complete valid report: no report at timing/logs/accept-20261126T193127Z-MPqBTV/numbers.json: the suite did not run to completion
+Current statement timing is incomplete; see timing/logs/accept-20261126T193127Z-MPqBTV/computation-summary.json
+statement now holds: tests/acceptance/numbers.cas: (statement) let z := 2 + 2 · i in ℂ
+
+
+MISSING at the head: tests/acceptance/numbers.cas: numbers.complex.abs
+MISSING at the head: tests/acceptance/numbers.cas: numbers.complex.bar
+MISSING at the head: tests/acceptance/numbers.cas: numbers.complex.im
+MISSING at the head: tests/acceptance/numbers.cas: numbers.complex.norm
+MISSING at the head: tests/acceptance/numbers.cas: numbers.complex.re
+MISSING at the head: tests/acceptance/numbers.cas: numbers.containments
+MISSING at the head: tests/acceptance/numbers.cas: numbers.containments.transitive
+MISSING at the head: tests/acceptance/numbers.cas: numbers.gcd
+MISSING at the head: tests/acceptance/numbers.cas: numbers.integers.sum
+MISSING at the head: tests/acceptance/numbers.cas: numbers.membership.negative
+MISSING at the head: tests/acceptance/numbers.cas: numbers.membership.zmod
+MISSING at the head: tests/acceptance/numbers.cas: numbers.rationals.sum
+MISSING at the head: tests/acceptance/numbers.cas: numbers.zmod5.difference
+MISSING at the head: tests/acceptance/numbers.cas: numbers.zmod5.negation
+MISSING at the head: tests/acceptance/numbers.cas: numbers.zmod5.product
+MISSING at the head: tests/acceptance/numbers.cas: numbers.zmod5.sum
+MISSING at the head: tests/acceptance/numbers.cas: numbers.zmod7.distributive
+MISSING at the head: tests/acceptance/numbers.cas: numbers.zmod7.value
+NEW and FAILS at the head: tests/acceptance/numbers.cas: (statement) current report: internal
+1 assertions at the head; failing: (statement) current report
+Current selected outcomes: {'internal': 1}; complete=False; status=143; total=326.609s; report=timing/logs/accept-20261126T193127Z-MPqBTV/report.json

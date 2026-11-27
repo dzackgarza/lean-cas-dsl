@@ -1,0 +1,16 @@
+{
+  "created_utc": "2026-11-26T05:59:45.204485+00:00",
+  "snapshot": ".tmp/validation-typed-integrated-31-sources.json",
+  "snapshot_sha256": "de0262f95f05bb37d9daf7dca576dbf8ef36b8e7543f0b9254366616362c9854",
+  "archive": ".tmp/validation-typed-integrated-31-source-bytes.tar.gz",
+  "archive_sha256": "aa9658006d0f48525af6e0873997de112fd70bc11be869c4cd9149382483308d",
+  "archive_bytes": 2453671,
+  "files": 754,
+  "changes_from30": [
+    "CasCompiler/ReadFunctorRules.lean",
+    "CasCompiler/Surface.lean",
+    "CasRuntime/NamedApplicationTests.lean"
+  ],
+  "validation_command": "source scripts/container.sh\nincontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json just slow 'Validate complete selected functor categories and original typed-source controls' CasCompiler.SourceInstanceTests CasCompiler.SourceViewTests CasCompiler.ContextTests CasCompiler.SourceSubsetTests CasCompiler.SourceTupleTests CasCompiler.SourceOperationTests CasCompiler.SourceMemberCompetitionTests",
+  "automatic_successor_authorized": false
+}

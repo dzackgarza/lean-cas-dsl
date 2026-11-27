@@ -1,0 +1,66 @@
+{
+  "observed_utc": "2026-11-26T03:48:53.311939+00:00",
+  "docker_endpoint": "unix:///run/user/1000/docker.sock",
+  "read_only_requests": [
+    {
+      "kind": "events",
+      "path": "/events?since=1795664160&until=1795664370&filters=%7B%22container%22%3A+%5B%22sage-research%22%5D%7D",
+      "socket_timeout_seconds": 5,
+      "http_status": 200,
+      "events": [
+        {
+          "time": 1795664184,
+          "timeNano": 1795664184395210985,
+          "Type": "container",
+          "Action": "exec_die",
+          "actor_id": "fac72d640c383dba166744610660eda48ea5e8f33ab77f615233a913d9847073",
+          "attributes": {
+            "name": "sage-research",
+            "exitCode": "0",
+            "execID": "c1efa704cac8f9a29c6538921313d91c30b8be186225fe990f308fcbf0dff027",
+            "image": "ghcr.io/dzackgarza/sage:develop"
+          }
+        },
+        {
+          "time": 1795664293,
+          "timeNano": 1795664293179801499,
+          "Type": "container",
+          "Action": "exec_die",
+          "actor_id": "fac72d640c383dba166744610660eda48ea5e8f33ab77f615233a913d9847073",
+          "attributes": {
+            "name": "sage-research",
+            "exitCode": "143",
+            "execID": "5674da488b50b6e0bb34ef9ed30ba1f153d6344e3df18c7a9ab9625b522b7531",
+            "image": "ghcr.io/dzackgarza/sage:develop"
+          }
+        }
+      ],
+      "finished_utc": "2026-11-26T03:48:53.325489+00:00"
+    },
+    {
+      "kind": "container",
+      "path": "/containers/sage-research/json",
+      "socket_timeout_seconds": 5,
+      "http_status": 200,
+      "result": {
+        "Id": "fac72d640c383dba166744610660eda48ea5e8f33ab77f615233a913d9847073",
+        "Name": "/sage-research",
+        "Image": "sha256:7224e8c8aec6f4c3733482a311c9343aac7f6059f60145ca827770c3e886369c",
+        "State": {
+          "Status": "running",
+          "Running": true,
+          "Paused": false,
+          "Restarting": false,
+          "OOMKilled": false,
+          "Dead": false,
+          "Pid": 4008532,
+          "ExitCode": 0,
+          "Error": "",
+          "StartedAt": "2026-11-13T17:07:29.88896174Z",
+          "FinishedAt": "0001-01-01T00:00:00Z"
+        }
+      },
+      "finished_utc": "2026-11-26T03:48:53.332105+00:00"
+    }
+  ]
+}

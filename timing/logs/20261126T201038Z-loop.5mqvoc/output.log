@@ -1,0 +1,6 @@
+[build] native lake --log-level=error build +CasRuntime.SessionLogTests:deps 
+✔ [3965/3969] Built CasRuntime.Session (32s)
+✔ [3966/3969] Built CasRuntime.Inspect (13s)
+✔ [3967/3969] Built CasCatalogue.TestSuite (20s)
+loop: execution status 143; status 143 in 716.247 s; log timing/logs/20261126T201038Z-loop.5mqvoc/output.log
+OVER THE LIMIT: the 300-second development loop needs repair. The run was allowed to finish.

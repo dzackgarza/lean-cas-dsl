@@ -1,0 +1,15 @@
+{
+  "phase": "build",
+  "pid": 755631,
+  "command": [
+    "lake",
+    "--log-level=error",
+    "build",
+    "LeanCategories.Catalogue",
+    "CasCatalogue.TestSuite",
+    ""
+  ],
+  "owned": [
+    755631
+  ]
+}

@@ -1,0 +1,9 @@
+[build] native lake --log-level=error build +CasRuntime.BindingIdentityTests:deps 
+Build completed successfully (3962 jobs).
+[execution] native lake --log-level=error lean CasRuntime/BindingIdentityTests.lean -- -DstderrAsMessages=false 
+/repos/v1-integration-20261106/lean-cas-dsl/CasRuntime/BindingIdentityTests.lean:3:6: error: (deterministic) timeout at `isDefEq`, maximum number of heartbeats (200000) has been reached
+
+Note: Use `set_option maxHeartbeats <num>` to set the limit.
+
+Hint: Additional diagnostic information may be available using the `set_option diagnostics true` command.
+loop: execution status 1; status 1 in 196.741 s; log timing/logs/20261126T010136Z-loop.YDQiyR/output.log

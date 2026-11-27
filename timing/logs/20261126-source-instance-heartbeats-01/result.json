@@ -1,0 +1,15 @@
+{
+  "command": [
+    "just",
+    "probe",
+    ".tmp/source-instance-heartbeats-20261126/B0InstanceHeartbeatProbe.lean"
+  ],
+  "diagnostic_only": true,
+  "started_utc": "2026-11-26T07:05:21.205430+00:00",
+  "finished_utc": "2026-11-26T07:08:27.930635+00:00",
+  "seconds": 186.7354280250147,
+  "status": 1,
+  "probe_sha256": "2dde7297dff441ce2eee75e32c5650baee4ac7cb5ae7f30f88522a38e34f2975",
+  "output_sha256": "7315753065ddb4ec6661590fe0e7c315cf490a673a5766ecde4ba825a00ab63a",
+  "acceptance_status": null
+}

@@ -1,0 +1,6 @@
+{
+  "observed_utc": "2026-11-25T20:48:09.478657+00:00",
+  "result_exists": false,
+  "original_processes": "    PID    PPID     ELAPSED     TIME STAT %CPU COMMAND\n2739983 4008505    02:25:52 00:00:00 Ssl   0.0 just slow The typed integration workload previously required 442.070 seconds; run the original runtime and public-session regression gates without changing interpreter limits CasRuntime.FixedInputResultTests CasRuntime.ExecuteTests CasRuntime.BindingIdentityTests CasRuntime.SessionOccurrenceTests CasRuntime.SessionLimitObservationTests CasRuntime.SelectedEndpointTests CasRuntime.SessionDependentReferenceTests CasRuntime.SessionTests CasRuntime.ApplicationLogTests CasRuntime.SessionLogTests CasCompiler.SourceIdentityTests\n2740171 2740131    02:25:52 00:00:00 S     0.0 bash scripts/feedback.sh slow The typed integration workload previously required 442.070 seconds; run the original runtime and public-session regression gates without changing interpreter limits CasRuntime.FixedInputResultTests CasRuntime.ExecuteTests CasRuntime.BindingIdentityTests CasRuntime.SessionOccurrenceTests CasRuntime.SessionLimitObservationTests CasRuntime.SelectedEndpointTests CasRuntime.SessionDependentReferenceTests CasRuntime.SessionTests CasRuntime.ApplicationLogTests CasRuntime.SessionLogTests CasCompiler.SourceIdentityTests\n",
+  "output_bytes": 10842
+}

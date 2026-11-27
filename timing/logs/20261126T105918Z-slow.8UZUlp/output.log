@@ -1,0 +1,40 @@
+[build] native lake --log-level=error build +CasCompiler.SourceInstanceTests:deps +CasCompiler.SourceGeneratorTests:deps +CasCompiler.SourceOperationTests:deps +CasCompiler.SourceRingTests:deps +CasCompiler.SourceViewTests:deps +CasCompiler.SourceSubsetTests:deps +CasCompiler.SourceTupleTests:deps +CasCatalogue.EvidencePresentationProbes:deps 
+✔ [3864/3902] Built CasCatalogue.Evaluation (52s)
+✔ [3865/3902] Built CasCompiler.SourceOperation (61s)
+✔ [3866/3902] Built CasCompiler.SourceAdmission (21s)
+✔ [3867/3902] Built CasCompiler.ReadAdmission (16s)
+✔ [3868/3902] Built CasCompiler.ReadDispatch (18s)
+✔ [3869/3902] Built CasCompiler.ReadBinderNotation (19s)
+✔ [3870/3902] Built CasCompiler.SourceDivision (21s)
+✔ [3871/3902] Built CasCompiler.ReadOperation (24s)
+✔ [3872/3902] Built CasCompiler.ReadSubsetRules (21s)
+✔ [3873/3902] Built CasCompiler.ReadNumeralRules (20s)
+✔ [3874/3902] Built CasCompiler.ReadApplication (28s)
+✔ [3875/3902] Built CasCompiler.ReadOperationRules (22s)
+✔ [3876/3902] Built CasCompiler.ReadAnnotationRules (25s)
+✔ [3877/3902] Built CasCompiler.ReadProductNotation (26s)
+✔ [3878/3902] Built CasCompiler.ReadApplicationRules (23s)
+✔ [3879/3902] Built CasCompiler.ReadLiftRules (23s)
+✔ [3880/3902] Built CasCompiler.ReadCellRules (25s)
+✔ [3881/3902] Built CasCompiler.ReadNamed (26s)
+✔ [3882/3902] Built CasCompiler.ReadMember (26s)
+✔ [3883/3902] Built CasCompiler.ReadFunctorRules (26s)
+✔ [3884/3902] Built CasCompiler.ReadAtomNotation (27s)
+✔ [3885/3902] Built CasCompiler.ReadMemberNotation (26s)
+✔ [3886/3902] Built CasCompiler.ReadMemberRules (26s)
+✔ [3887/3902] Built CasCompiler.ReadNameRules (28s)
+✔ [3888/3902] Built CasCompiler.ReadSubsetNotation (29s)
+✔ [3889/3902] Built CasCompiler.ReadPowerRules (29s)
+✔ [3890/3902] Built CasCompiler.ReadRingNotation (31s)
+✔ [3891/3902] Built CasCompiler.ReadExpression (16s)
+✔ [3892/3902] Built CasCompiler.ReadSession (19s)
+✔ [3893/3902] Built CasCompiler.Read (24s)
+✔ [3901/3902] Built CasCatalogue.Language (474s)
+Build completed successfully (3902 jobs).
+[execution] native lake --log-level=error lean CasCompiler/SourceInstanceTests.lean -- -DstderrAsMessages=false 
+/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/SourceInstanceTests.lean:1:0: error: (deterministic) timeout at `isDefEq`, maximum number of heartbeats (200000) has been reached
+
+Note: Use `set_option maxHeartbeats <num>` to set the limit.
+
+Hint: Additional diagnostic information may be available using the `set_option diagnostics true` command.
+slow: execution status 1; status 1 in 819.294 s; log timing/logs/20261126T105918Z-slow.8UZUlp/output.log

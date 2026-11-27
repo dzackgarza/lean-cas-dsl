@@ -1,0 +1,26 @@
+[build] native lake --log-level=error build +CasRuntime.FixedInputRouteTests:deps 
+✔ [1560/1566] Built CasRuntime.Environment (62s)
+✔ [1564/1566] Built CasRuntime.PreparedRequest (21s)
+Build completed successfully (1566 jobs).
+[execution] native lake --log-level=error lean CasRuntime/FixedInputRouteTests.lean -- -DstderrAsMessages=false 
+FIXED_ROUTE_STAGE start used=42 maximum=200000000
+FIXED_ROUTE_STAGE original-first.prepare used=9084 maximum=200000000
+FIXED_ROUTE_STAGE callable-identity.prepare used=181095 maximum=200000000
+FIXED_ROUTE_STAGE callable-identity.route used=720209 maximum=200000000
+FIXED_ROUTE_STAGE callable-identity.complete used=926585 maximum=200000000
+FIXED_ROUTE_STAGE proof-second.prepare used=1240410 maximum=200000000
+FIXED_ROUTE_STAGE record-original.prepare used=1701323 maximum=200000000
+FIXED_ROUTE_STAGE record-original.complete used=2091204 maximum=200000000
+FIXED_ROUTE_STAGE record-identity.prepare used=2100818 maximum=200000000
+FIXED_ROUTE_STAGE record-identity.route used=3104213 maximum=200000000
+FIXED_ROUTE_STAGE record-identity.project used=3519805 maximum=200000000
+FIXED_ROUTE_STAGE record-identity.projection-prepared used=4826939 maximum=200000000
+FIXED_ROUTE_STAGE record-identity.later used=6240502 maximum=200000000
+FIXED_ROUTE_STAGE record-identity.complete used=11296595 maximum=200000000
+FIXED_ROUTE_STAGE original-direct.prepare used=11297614 maximum=200000000
+FIXED_ROUTE_STAGE original-wrapped.prepare used=11583792 maximum=200000000
+FIXED_ROUTE_STAGE original-proof-final.prepare used=12590266 maximum=200000000
+FIXED_ROUTE_STAGE original-record.project used=13286530 maximum=200000000
+FIXED_ROUTE_STAGE original-record.later used=13578714 maximum=200000000
+FIXED_ROUTE_STAGE original-invariants used=14212507 maximum=200000000
+slow: execution status 0; status 0 in 194.629 s; log timing/logs/20261125T165939Z-slow.2kUD88/output.log

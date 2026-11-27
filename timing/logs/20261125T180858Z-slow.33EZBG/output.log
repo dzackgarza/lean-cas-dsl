@@ -1,0 +1,177 @@
+[build] native lake --log-level=error build +CasRuntime.NativePointInvocationTests:deps +CasRuntime.CategoricalPointInvocationTests:deps +CasRuntime.PresentationTests:deps +CasRuntime.ObjectApplicationTests:deps +CasRuntime.RoutedMethodTests:deps 
+✖ [3965/3966] Building CasCompiler.Resolve (44s)
+trace: .> LEAN_PATH=/opt/mathlib/.lake/packages/Cli/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/checkdecls/.lake/build/lib/lean:/opt/mathlib/.lake/packages/batteries/.lake/build/lib/lean:/opt/mathlib/.lake/packages/Qq/.lake/build/lib/lean:/opt/mathlib/.lake/packages/aesop/.lake/build/lib/lean:/opt/mathlib/.lake/packages/proofwidgets/.lake/build/lib/lean:/opt/mathlib/.lake/packages/importGraph/.lake/build/lib/lean:/opt/mathlib/.lake/packages/LeanSearchClient/.lake/build/lib/lean:/opt/mathlib/.lake/packages/plausible/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/BrauerGroup/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/nbdsl-worker/worker/.lake/build/lib/lean:/opt/mathlib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cslib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/PolyFun/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/lean_categories/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cas_leaf_contracts/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean /opt/elan/toolchains/leanprover--lean4---v4.33.0/bin/lean /repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/Resolve.lean -o /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean/CasCompiler/Resolve.olean -i /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean/CasCompiler/Resolve.ilean -c /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/ir/CasCompiler/Resolve.c --setup /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/ir/CasCompiler/Resolve.setup.json --json
+error: CasCompiler/Resolve.lean:100:15: Invalid field notation: Type of
+  selected
+is not known; cannot resolve field `functor`
+
+Hint: Consider replacing the field projection with a call to one of the following:
+  • `Monotone.functor`
+  • `ComputationRef.functor`
+  • `ConstructorArg.functor`
+  • `ConstructorArgKind.functor`
+  • `EdgeRef.functor`
+  • `EvaluatedFunctor.functor`
+  • `MethodEntry.functor`
+  • `ObjectFunctorPresentation.functor`
+  • `Operation.functor`
+  • `RegistryManifestConstructorArg.functor`
+  • `RegistryManifestMethod.functor`
+  • `SelectedRealization.functor`
+  • `SemanticEntry.functor`
+  • `TypedFunctorEntry.functor`
+  • `LimitCreationInterface.functor`
+  • `NativeRouteFunctor.functor`
+  • `NativeSourceView.functor`
+  • `RoutedMethodFamily.functor`
+  • `SelectedSourceReference.functor`
+  • `SourceRoute.functor`
+  • `CategoryTheory.Discrete.functor`
+  • `CategoryTheory.Equivalence.functor`
+  • `CategoryTheory.ShrinkHoms.functor`
+  • `Functor.AddConst.functor`
+  • `Functor.Comp.functor`
+  • `Functor.Const.functor`
+  • `Backend.FunctorParameter.functor`
+  • `CategoryTheory.CostructuredArrow.costructuredArrowToOverEquivalence.functor`
+  • `CategoryTheory.CostructuredArrow.ofCostructuredArrowProjEquivalence.functor`
+  • `CategoryTheory.CostructuredArrow.ofDiagEquivalence.functor`
+  • `CategoryTheory.CostructuredArrow.preEquivalence.functor`
+  • `CategoryTheory.Limits.Pi.functor`
+  • `CategoryTheory.Limits.Sigma.functor`
+  • `CategoryTheory.Limits.coprod.functor`
+  • `CategoryTheory.Limits.prod.functor`
+  • `CategoryTheory.StructuredArrow.ofDiagEquivalence.functor`
+  • `CategoryTheory.StructuredArrow.ofStructuredArrowProjEquivalence.functor`
+error: CasCompiler/Resolve.lean:100:33: Invalid field notation: Type of
+  selected
+is not known; cannot resolve field `target`
+
+Hint: Consider replacing the field projection with a call to one of the following:
+  • `Aesop.IndexMatchLocation.target`
+  • `Aesop.IndexingMode.target`
+  • `Aesop.PatSubstSource.target`
+  • `CellEntry.target`
+  • `CheckedComputationDerivation.target`
+  • `ComputationDerivationEntry.target`
+  • `ConstructionEntry.target`
+  • `FunctorEntry.target`
+  • `PresentationComparisonEntry.target`
+  • `RegistryManifestCell.target`
+  • `RegistryManifestFunctor.target`
+  • `RegistryManifestPort.target`
+  • `Route.target`
+  • `StructuralEdge.target`
+  • `StructuralPortEntry.target`
+  • `CategoricalPointRequest.target`
+  • `InputProjection.target`
+  • `NativePointRequest.target`
+  • `NativeRouteFunctor.target`
+  • `NativeSourceCarrierSelection.target`
+  • `NativeSourceCell.target`
+  • `NativeSourcePointOrigin.target`
+  • `NativeSourceView.target`
+  • `PresentationFamily.target`
+  • `SelectedApplicationFamily.target`
+  • `SelectedEndpointSide.target`
+  • `SourceCarrierSelection.target`
+  • `SourceRoute.target`
+  • `System.Platform.target`
+  • `Backend.AdmittedPoint.target`
+  • `Backend.ConstrainedPoint.target`
+  • `Backend.CoreIso.target`
+  • `Backend.PointInvocation.target`
+  • `Backend.PresentationInvocation.target`
+  • `Backend.TypedMap.target`
+  • `RouteGrammar.Occurrence.target`
+  • `FunIndParamKind.target`
+  • `SubExpr.GoalLocation.target`
+  • `Grind.EMatchDiagInfo.target`
+  • `Rewrites.RewriteResultConfig.target`
+  • `Mathlib.Tactic.Translate.Config.target`
+  • `Std.Sat.AIG.ArbitraryShiftTarget.target`
+  • `Tactic.Do.ProofMode.MGoal.target`
+error: CasCompiler/Resolve.lean:98:21: Type mismatch
+  nativeEdgePathFunctorWith routes.state route.refs category fun selected expected => ?m.24
+has type
+  ?m.19 NativeRouteFunctor
+of sort `Type` but is expected to have type
+  SourceReadM (?m.118 __r✝² route __r✝¹ category __r✝)
+of sort `Type 1`
+error: CasCompiler/Resolve.lean:159:6: Type mismatch
+  Lean.throwError (toMessageData "source functor composition has different complete native middle categories")
+has type
+  ?m.24 ?m.25
+of sort `Type` but is expected to have type
+  SourceReadM Unit
+of sort `Type 1`
+error: CasCompiler/Resolve.lean:186:6: Type mismatch
+  Lean.throwError (toMessageData "the constructor functor has different complete native category endpoints")
+has type
+  ?m.78 ?m.79
+of sort `Type` but is expected to have type
+  SourceReadM Unit
+of sort `Type 1`
+error: CasCompiler/Resolve.lean:321:8: Type mismatch
+  Lean.throwError (toMessageData "the source restriction has a different complete operation family type")
+has type
+  ?m.80 ?m.81
+of sort `Type` but is expected to have type
+  SourceReadM Unit
+of sort `Type 1`
+error: CasCompiler/Resolve.lean:379:15: Cannot lift nested action `← inferType sources[0]!` over a binder.
+This error usually happens when you are trying to lift a method nested in a `fun`, `let`, or `match`-alternative, and it can often be fixed by adding a missing `do`.
+error: CasCompiler/Resolve.lean:375:6: Type mismatch
+  Lean.throwError (toMessageData "operation comparison requires the same complete native category family")
+has type
+  ?m.32 ?m.33
+of sort `Type` but is expected to have type
+  SourceReadM Unit
+of sort `Type 1`
+error: CasCompiler/Resolve.lean:539:8: Type mismatch
+  Lean.throwError (toMessageData "the composite isomorphism does not witness its complete directed transformation")
+has type
+  ?m.134 ?m.135
+of sort `Type` but is expected to have type
+  SourceReadM Unit
+of sort `Type 1`
+error: CasCompiler/Resolve.lean:578:8: Type mismatch
+  Lean.throwError (toMessageData "horizontal isomorphism does not witness its complete directed transformation")
+has type
+  ?m.115 ?m.116
+of sort `Type` but is expected to have type
+  SourceReadM Unit
+of sort `Type 1`
+error: CasCompiler/Resolve.lean:601:6: Type mismatch
+  Lean.throwError (toMessageData "the inverse isomorphism has different complete native endpoints")
+has type
+  ?m.29 ?m.30
+of sort `Type` but is expected to have type
+  SourceReadM Unit
+of sort `Type 1`
+error: CasCompiler/Resolve.lean:647:8: Type mismatch
+  Lean.throwError (toMessageData "the whiskered isomorphism does not witness its complete directed transformation")
+has type
+  ?m.196 ?m.197
+of sort `Type` but is expected to have type
+  SourceReadM Unit
+of sort `Type 1`
+error: CasCompiler/Resolve.lean:758:10: Type mismatch
+  Lean.throwError (toMessageData "constructor composition has different complete native middle categories")
+has type
+  ?m.256 ?m.257
+of sort `Type` but is expected to have type
+  SourceReadM Unit
+of sort `Type 1`
+error: CasCompiler/Resolve.lean:799:6: Type mismatch
+  Lean.throwError (toMessageData "the source cell object has a different complete native category")
+has type
+  ?m.19 ?m.20
+of sort `Type` but is expected to have type
+  SourceReadM Unit
+of sort `Type 1`
+error: Lean exited with code 1
+Some required targets logged failures:
+- CasCompiler.Resolve
+error: build failed
+slow: execution status 1; status 1 in 98.937 s; log timing/logs/20261125T180858Z-slow.33EZBG/output.log

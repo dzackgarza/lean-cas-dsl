@@ -1,0 +1,49 @@
+{
+  "utc": "2026-11-26T16:04:49.280058+00:00",
+  "result": {
+    "command": [
+      "just",
+      "probe",
+      ".tmp/source-instance-scalar-origin-20261126/ScalarOriginProbe.lean"
+    ],
+    "diagnostic_only": true,
+    "started_utc": "2026-11-26T15:58:23.382189+00:00",
+    "finished_utc": "2026-11-26T16:04:00.794158+00:00",
+    "seconds": 337.51013494702056,
+    "status": 1,
+    "probe_sha256": "0e235860527ec1643973438795b8343344e2836c9d7485936281d90509ad6f03",
+    "output_sha256": "a925db458b258121ed32338ad062d9b3ca4649915e4f1cb8f453e0fb4d80c92f",
+    "acceptance_status": null
+  },
+  "result_sha256": "95e1941c2e66d81931dd15dfc30a06c06cba4b28adf8836dd49d882046ff76de",
+  "output_sha256": "a925db458b258121ed32338ad062d9b3ca4649915e4f1cb8f453e0fb4d80c92f",
+  "snapshot_sha256": "fc701fc8e25ffacd0cad19e611c9e355ee3543b2ea975fb6130c19cac5c8e7ab",
+  "frozen_input_count": 758,
+  "source_mismatches": {},
+  "frozen_head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "current_head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "active_native": [],
+  "environment_equal72": true,
+  "dependencies_equal72": true,
+  "final_environment_comparison": {
+    "environment": true,
+    "dependencies": true,
+    "inputs": true,
+    "resolution": true
+  },
+  "scalar_markers": [
+    "SCALAR_OWNER reference=some `CasCatalogue.Algebra.Polynomials.polynomials originalApplication=true",
+    "SCALAR_LEXICAL head=const:CasCatalogue.Algebra.Polynomials.polynomials arity=1",
+    "SCALAR_LEXICAL_ARG head=fvar:_uniq.217737 objectOrigin=true",
+    "SCALAR_ORIGIN declaration=CasCatalogue.Algebra.Polynomials.polynomials applications=1",
+    "SCALAR_APP head=let arity=0 selected=false"
+  ],
+  "errors": [
+    "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/source-instance-scalar-origin-20261126/ScalarOriginProbe.lean:22:0: error: native inference erased the polynomial's original scalar binding",
+    "error: recipe `probe` failed on line 77 with exit code 1"
+  ],
+  "normal_ledger_entry": false,
+  "acceptance": null,
+  "successor_launched": false,
+  "release": true
+}

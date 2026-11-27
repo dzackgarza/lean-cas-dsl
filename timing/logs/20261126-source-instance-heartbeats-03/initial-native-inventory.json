@@ -1,0 +1,11 @@
+{
+  "checked_utc": "2026-11-26T09:40:57.528607+00:00",
+  "native_processes": [],
+  "resources": {
+    "disk_free_bytes": 664698880,
+    "memory": {
+      "MemAvailable": "2753808 kB",
+      "SwapFree": "7878376 kB"
+    }
+  }
+}

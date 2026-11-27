@@ -1,0 +1,10 @@
+[build] native lake --log-level=error build +CasCompiler.SourceCarrierTests:deps +CasCompiler.SourceViewTests:deps 
+✔ [3905/3906] Built CasTools.QuestionExport (25s)
+Build completed successfully (3906 jobs).
+[execution] native lake --log-level=error lean CasCompiler/SourceCarrierTests.lean -- -DstderrAsMessages=false 
+/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/SourceCarrierTests.lean:11:0: error: failed to synthesize
+  CommRing selectedSource✝⁷
+
+Hint: Additional diagnostic information may be available using the `set_option diagnostics true` command.
+/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/SourceCarrierTests.lean:278:0: error: an explicit view discarded its selected carrier continuation
+loop: execution status 1; status 1 in 107.828 s; log timing/logs/20261126T010602Z-loop.BdGeMG/output.log

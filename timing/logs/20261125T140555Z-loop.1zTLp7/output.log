@@ -1,0 +1,7 @@
+[build] native lake --log-level=error build +CasRuntime.NativeFieldPrefixTests:deps +CasRuntime.FixedInputRouteTests:deps 
+✔ [1572/1587] Built CasRuntime.Environment (37s)
+Build completed successfully (1587 jobs).
+[execution] native lake --log-level=error lean CasRuntime/NativeFieldPrefixTests.lean -- -DstderrAsMessages=false 
+/repos/v1-integration-20261106/lean-cas-dsl/CasRuntime/NativeFieldPrefixTests.lean:21:0: error: native field prefix whole record: the source lost a retained runtime binding
+/repos/v1-integration-20261106/lean-cas-dsl/CasRuntime/NativeFieldPrefixTests.lean:233:0: error: the source lost a retained runtime binding
+loop: execution status 1; status 1 in 98.123 s; log timing/logs/20261125T140555Z-loop.1zTLp7/output.log

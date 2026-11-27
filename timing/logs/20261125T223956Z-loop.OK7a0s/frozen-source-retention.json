@@ -1,0 +1,12 @@
+{
+  "observed_utc": "2026-11-25T22:39:46.501325+00:00",
+  "snapshot": "timing/logs/20261125T223956Z-loop.OK7a0s/frozen-source-snapshot.json",
+  "snapshot_sha256": "b00934e976e18a5fbf83830b727518292ed19aa9e715b6073e668506a5dae5c1",
+  "source_files": 754,
+  "archive": "timing/logs/20261125T223956Z-loop.OK7a0s/frozen-source-bytes.tar.gz",
+  "archive_sha256": "7aebfee851f0b3eb5b7f27314acc70e8541ad6f80c590b6412612575d4e5c148",
+  "changed_vs_frozen13": {
+    "CasRuntime/BindingIdentityTests.lean": "c196138343afeeca6b25690defb8098d332978a95cb10a542dfe92885ceca0bd",
+    "CasRuntime/SessionLimitObservationTests.lean": "cec8d3390d5ed4e4d27041c77d2854a3bc0f6ae85842a9530992a6f19da84d4c"
+  }
+}

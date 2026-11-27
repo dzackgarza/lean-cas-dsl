@@ -1,0 +1,108 @@
+{
+  "observed_utc": "2026-11-25T20:51:12.809275+00:00",
+  "interpretation": "original build interrupted with status143 after actual dependency compilation failures; no fresh consumer execution or acceptance occurred",
+  "actual_status": 143,
+  "actual_execution_status_field": 143,
+  "phases": {
+    "build": {
+      "seconds": 8657.255905987,
+      "status": 143
+    },
+    "execution": {
+      "seconds": 0.0,
+      "status": null
+    },
+    "acceptance": {
+      "seconds": 0.0,
+      "status": null
+    }
+  },
+  "attempted_sources": [],
+  "original_source_files": 396,
+  "current_source_differences": [
+    {
+      "path": "CasRuntime/BindingIdentityTests.lean",
+      "original_sha256": "21e8f8aad8206b7918b0bcea05594901dff58ff0dc80e8071074b97c058a4122",
+      "current_sha256": "356c60eaf0930ab70706b45fec5694d92c391e521ecc8c1a49c36fa8d3a274c5"
+    }
+  ],
+  "run_files": {
+    "timing/logs/20261125T182223Z-slow.ub030F/application/1977934f-3538-42a9-b64a-b9e7117ec28a.jsonl": {
+      "bytes": 11974856,
+      "sha256": "ec61380e3bf18dcc95cf67e4469567e394d4232257a2ea4813510c4973261590"
+    },
+    "timing/logs/20261125T182223Z-slow.ub030F/application/5738cce0-1b90-4b88-950b-3678f2b579a5.jsonl": {
+      "bytes": 803913,
+      "sha256": "267f381d771ece538ecca70bfe7f7ba245dae87ced9269a8024a62321dd34a35"
+    },
+    "timing/logs/20261125T182223Z-slow.ub030F/application/b45d9f9b-52e3-4393-9e1e-d294acccd66c.jsonl": {
+      "bytes": 1176168556,
+      "sha256": "7eddfd977d223edf3c9d132e386ff95656b00ee823046e0f2cfc269db025ffd1"
+    },
+    "timing/logs/20261125T182223Z-slow.ub030F/application/b86688ac-905b-4d62-a61e-f4973b0b2e32.jsonl": {
+      "bytes": 2018,
+      "sha256": "3e4d4cdb839cac4aa67387247237867a50f03217126826feccf10007da058b3d"
+    },
+    "timing/logs/20261125T182223Z-slow.ub030F/application/be24465e-d303-4441-93e7-63ed5516de2c.jsonl": {
+      "bytes": 2846,
+      "sha256": "a9095b19ca7085c33ce4f969beb9f3eb33c728c8ae9e35636b8bc76f0e5fa69c"
+    },
+    "timing/logs/20261125T182223Z-slow.ub030F/application/original-acceptance/07b06b98-d773-46c1-8131-eb395f31b148/leaves.json": {
+      "bytes": 321,
+      "sha256": "77268002c7444782e7785803b45aec27f41d71eb9e44c32f1f787d85bf587489"
+    },
+    "timing/logs/20261125T182223Z-slow.ub030F/computation-summary.json": {
+      "bytes": 1202,
+      "sha256": "b23e4d945d5f966bf4073e788495c56f30bb062406d61c8d070834a96e1aa7e9"
+    },
+    "timing/logs/20261125T182223Z-slow.ub030F/computations.jsonl": {
+      "bytes": 1468132,
+      "sha256": "9a2707501f496e63caeac8fd7430d833bc07da949ee1db62030346c8f6cb3dea"
+    },
+    "timing/logs/20261125T182223Z-slow.ub030F/context.json": {
+      "bytes": 27240,
+      "sha256": "99760458a48cfbdd99329a767fbfc067518d34f3db20cf03579a8d32cc8a65a8"
+    },
+    "timing/logs/20261125T182223Z-slow.ub030F/events.jsonl": {
+      "bytes": 12048,
+      "sha256": "12fe1f8ae5685f41c560d301dc6995935839344de187915f7859752b94e6b6df"
+    },
+    "timing/logs/20261125T182223Z-slow.ub030F/output.log": {
+      "bytes": 10952,
+      "sha256": "50b29a0d7ba06a44ff8cd43c744fefe9f6aaf050a05bffeec78eece4fa254e75"
+    },
+    "timing/logs/20261125T182223Z-slow.ub030F/result.json": {
+      "bytes": 28886,
+      "sha256": "b55fa6ced93c9f628f4ec6977967a167fd6eb2dc1668168ed6adda5949917bd4"
+    },
+    "timing/logs/20261125T182223Z-slow.ub030F/steps/2419358850516378.json": {
+      "bytes": 3402,
+      "sha256": "e87ce81cf7f45e0c516150f7f2cc877fd75ac4ec9fdfcaccafed025e6740c52c"
+    }
+  },
+  "retired_native_artifacts_not_acceptance": {
+    ".lake/build/ir/CasRuntime/ApplicationLogTests.setup.json": {
+      "bytes": 1600754,
+      "mtime_ns": 1795631604989946272,
+      "sha256": "e65188d61244715f0516e260e1b9247a87fda3e093f642a9d9e165d15e0f1cbe"
+    },
+    ".lake/build/lib/lean/CasRuntime/ApplicationLogTests.olean": {
+      "present": false
+    },
+    ".lake/build/lib/lean/CasRuntime/ApplicationLogTests.ir": {
+      "present": false
+    },
+    ".lake/build/ir/CasRuntime/BindingIdentityTests.setup.json": {
+      "bytes": 1598690,
+      "mtime_ns": 1795631571027049798,
+      "sha256": "a158f36ef8891c22ca077aa835dfc3cf5e4310da157ab4981f140ee9b89473e3"
+    },
+    ".lake/build/lib/lean/CasRuntime/BindingIdentityTests.olean": {
+      "present": false
+    },
+    ".lake/build/lib/lean/CasRuntime/BindingIdentityTests.ir": {
+      "present": false
+    }
+  },
+  "canonical_ledger_matching_rows": 1
+}

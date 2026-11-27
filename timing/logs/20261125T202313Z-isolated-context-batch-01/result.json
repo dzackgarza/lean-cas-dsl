@@ -1,0 +1,76 @@
+{
+  "started_utc": "2026-11-25T20:23:38.058049+00:00",
+  "runner_pid": 681953,
+  "modules": [
+    {
+      "module": "CasCompiler.Context",
+      "command": [
+        "lean",
+        "--root=/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-context-batch-20261125-01/src",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-context-batch-20261125-01/src/CasCompiler/Context.lean",
+        "-o",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-context-batch-20261125-01/artifacts/CasCompiler/Context.olean",
+        "-i",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-context-batch-20261125-01/artifacts/CasCompiler/Context.ilean",
+        "-c",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-context-batch-20261125-01/artifacts/CasCompiler/Context.c"
+      ],
+      "started_utc": "2026-11-25T20:23:38.086622+00:00",
+      "log": "logs/Context.log",
+      "pid": 681955,
+      "exit_code": 0,
+      "seconds": 34.541,
+      "finished_utc": "2026-11-25T20:24:12.635908+00:00"
+    },
+    {
+      "module": "CasCompiler.SelectionScope",
+      "command": [
+        "lean",
+        "--root=/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-context-batch-20261125-01/src",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-context-batch-20261125-01/src/CasCompiler/SelectionScope.lean",
+        "-o",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-context-batch-20261125-01/artifacts/CasCompiler/SelectionScope.olean",
+        "-i",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-context-batch-20261125-01/artifacts/CasCompiler/SelectionScope.ilean",
+        "-c",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-context-batch-20261125-01/artifacts/CasCompiler/SelectionScope.c"
+      ],
+      "started_utc": "2026-11-25T20:24:12.641587+00:00",
+      "log": "logs/SelectionScope.log",
+      "pid": 681972,
+      "exit_code": 0,
+      "seconds": 88.208,
+      "finished_utc": "2026-11-25T20:25:40.907957+00:00"
+    },
+    {
+      "module": "CasCompiler.ContextTests",
+      "command": [
+        "lean",
+        "--root=/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-context-batch-20261125-01/src",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-context-batch-20261125-01/src/CasCompiler/ContextTests.lean",
+        "-o",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-context-batch-20261125-01/artifacts/CasCompiler/ContextTests.olean",
+        "-i",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-context-batch-20261125-01/artifacts/CasCompiler/ContextTests.ilean",
+        "-c",
+        "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-context-batch-20261125-01/artifacts/CasCompiler/ContextTests.c"
+      ],
+      "started_utc": "2026-11-25T20:25:40.967054+00:00",
+      "log": "logs/ContextTests.log",
+      "pid": 682018,
+      "exit_code": 0,
+      "seconds": 16.114,
+      "finished_utc": "2026-11-25T20:25:57.141997+00:00"
+    }
+  ],
+  "status": "passed",
+  "lake_environment": {
+    "LEAN_PATH": "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-context-batch-20261125-01/artifacts:/opt/mathlib/.lake/packages/Cli/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/checkdecls/.lake/build/lib/lean:/opt/mathlib/.lake/packages/batteries/.lake/build/lib/lean:/opt/mathlib/.lake/packages/Qq/.lake/build/lib/lean:/opt/mathlib/.lake/packages/aesop/.lake/build/lib/lean:/opt/mathlib/.lake/packages/proofwidgets/.lake/build/lib/lean:/opt/mathlib/.lake/packages/importGraph/.lake/build/lib/lean:/opt/mathlib/.lake/packages/LeanSearchClient/.lake/build/lib/lean:/opt/mathlib/.lake/packages/plausible/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/BrauerGroup/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/nbdsl-worker/worker/.lake/build/lib/lean:/opt/mathlib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cslib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/PolyFun/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/lean_categories/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cas_leaf_contracts/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean:/opt/elan/toolchains/leanprover--lean4---v4.33.0/lib/lean",
+    "LEAN_SRC_PATH": "/opt/mathlib/.lake/packages/Cli:/opt/mathlib/.lake/packages/Cli:/opt/mathlib/.lake/packages/batteries:/opt/mathlib/.lake/packages/batteries:/opt/mathlib/.lake/packages/Qq:/opt/mathlib/.lake/packages/Qq:/opt/mathlib/.lake/packages/aesop:/opt/mathlib/.lake/packages/aesop:/opt/mathlib/.lake/packages/proofwidgets:/opt/mathlib/.lake/packages/proofwidgets:/opt/mathlib/.lake/packages/proofwidgets:/opt/mathlib/.lake/packages/importGraph:/opt/mathlib/.lake/packages/importGraph:/opt/mathlib/.lake/packages/LeanSearchClient:/opt/mathlib/.lake/packages/LeanSearchClient:/opt/mathlib/.lake/packages/plausible:/opt/mathlib/.lake/packages/plausible:/.local/share/lean/v4.33.0/packages/BrauerGroup:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/nbdsl-worker/worker:/opt/mathlib:/opt/mathlib:/opt/mathlib:/opt/mathlib:/opt/mathlib:/opt/mathlib:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cslib:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cslib:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/PolyFun:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/PolyFun:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/lean_categories:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cas_leaf_contracts:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cas_leaf_contracts:/repos/v1-integration-20261106/lean-cas-dsl:/repos/v1-integration-20261106/lean-cas-dsl:/repos/v1-integration-20261106/lean-cas-dsl:/repos/v1-integration-20261106/lean-cas-dsl:/repos/v1-integration-20261106/lean-cas-dsl:/repos/v1-integration-20261106/lean-cas-dsl:/repos/v1-integration-20261106/lean-cas-dsl:/repos/v1-integration-20261106/lean-cas-dsl:/repos/v1-integration-20261106/lean-cas-dsl:/repos/v1-integration-20261106/lean-cas-dsl:/opt/elan/toolchains/leanprover--lean4---v4.33.0/src/lean/lake",
+    "LEAN_SYSROOT": "/opt/elan/toolchains/leanprover--lean4---v4.33.0",
+    "PATH": "/opt/mathlib/.lake/packages/Cli/.lake/build/bin:/.local/share/lean/v4.33.0/packages/checkdecls/.lake/build/bin:/opt/mathlib/.lake/packages/batteries/.lake/build/bin:/opt/mathlib/.lake/packages/Qq/.lake/build/bin:/opt/mathlib/.lake/packages/aesop/.lake/build/bin:/opt/mathlib/.lake/packages/proofwidgets/.lake/build/bin:/opt/mathlib/.lake/packages/importGraph/.lake/build/bin:/opt/mathlib/.lake/packages/LeanSearchClient/.lake/build/bin:/opt/mathlib/.lake/packages/plausible/.lake/build/bin:/.local/share/lean/v4.33.0/packages/BrauerGroup/.lake/build/bin:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/nbdsl-worker/worker/.lake/build/bin:/opt/mathlib/.lake/build/bin:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cslib/.lake/build/bin:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/PolyFun/.lake/build/bin:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/lean_categories/.lake/build/bin:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cas_leaf_contracts/.lake/build/bin:/repos/v1-integration-20261106/lean-cas-dsl/.lake/build/bin:/opt/elan/toolchains/leanprover--lean4---v4.33.0/bin:/opt/elan/bin:/sage/.venv/bin:/opt/elan/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    "CAS_APPLICATION_LOG_DIR": "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/validation-context-batch-20261125-01/application"
+  },
+  "live_namespace_artifact_changes": [],
+  "finished_utc": "2026-11-25T20:26:06.891183+00:00"
+}

@@ -1,0 +1,48 @@
+{
+  "utc": "2026-11-26T15:11:50.386766+00:00",
+  "result": {
+    "command": [
+      "just",
+      "probe",
+      ".tmp/context-map-policy-probe-20261126/ContextMapPolicyProbe.lean"
+    ],
+    "diagnostic_only": true,
+    "started_utc": "2026-11-26T15:09:19.332967+00:00",
+    "finished_utc": "2026-11-26T15:10:42.237551+00:00",
+    "seconds": 82.92616692418233,
+    "status": 1,
+    "probe_sha256": "76c728516d89dcf1ef2a054c6e7dd7cad414d9e737b371db3a050ec35d1a16d5",
+    "output_sha256": "26fb175d885916f00fa47244a0985cf252574cac794910a7b23e4b24992dd5e6",
+    "acceptance_status": null
+  },
+  "result_sha256": "ce4304f9ba88296d65217bf18cdd61a4c8a84edba1a401b6cc465adcb652110c",
+  "output_sha256": "26fb175d885916f00fa47244a0985cf252574cac794910a7b23e4b24992dd5e6",
+  "snapshot_sha256": "24c584ca5c6a36514c6a86a4a417c3e16855d1df6b443402c38569777f1532b5",
+  "frozen_input_count": 757,
+  "source_mismatches": {},
+  "frozen_head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "current_head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "active_native": [],
+  "environment_equal66": true,
+  "dependencies_equal66": true,
+  "final_environment_comparison": {
+    "environment": true,
+    "dependencies": true,
+    "inputs": true,
+    "resolution": true
+  },
+  "classification": "probe compilation failure",
+  "expected_defect_assertion_observed": false,
+  "defect_confirmed": false,
+  "errors": [
+    "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/context-map-policy-probe-20261126/ContextMapPolicyProbe.lean:22:24: error: Application type mismatch: The argument",
+    "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/context-map-policy-probe-20261126/ContextMapPolicyProbe.lean:28:8: error(lean.synthInstanceFailed): failed to synthesize instance of type class",
+    "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/context-map-policy-probe-20261126/ContextMapPolicyProbe.lean:28:43: error(lean.synthInstanceFailed): failed to synthesize instance of type class",
+    "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/context-map-policy-probe-20261126/ContextMapPolicyProbe.lean:31:24: error: Application type mismatch: The argument",
+    "error: recipe `probe` failed on line 77 with exit code 1"
+  ],
+  "normal_ledger_entry": false,
+  "acceptance": null,
+  "successor_launched": false,
+  "release": true
+}

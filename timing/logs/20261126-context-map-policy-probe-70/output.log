@@ -1,0 +1,3 @@
+warning: cas_leaf_contracts: repository '/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cas_leaf_contracts' has local changes
+/repos/v1-integration-20261106/lean-cas-dsl/.tmp/context-map-policy-probe-20261126/ContextMapPolicyProbe.lean:11:0: error: consecutive public transport: transport reused a context map after its unfolding policy changed
+error: recipe `probe` failed on line 77 with exit code 1

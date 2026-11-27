@@ -1,0 +1,12 @@
+{
+  "manifest": null,
+  "files": [
+    {
+      "stem": "rx01-selected-orders",
+      "source": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion/rx01-selected-orders.cas",
+      "kind": "extension",
+      "key": "extension--rx01-selected-orders"
+    }
+  ],
+  "complete": false
+}

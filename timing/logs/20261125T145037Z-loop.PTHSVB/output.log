@@ -1,0 +1,29 @@
+[build] native lake --log-level=error build +CasRuntime.NativeFieldPrefixTests:deps +CasRuntime.FixedInputRouteTests:deps +CasRuntime.LiteralTests:deps 
+✔ [1566/1588] Built CasRuntime.Value (41s)
+✔ [1567/1588] Built CasRuntime.Occurrence (9.0s)
+✔ [1568/1588] Built CasRuntime.Literal (10s)
+✔ [1569/1588] Built CasRuntime.Scope (8.5s)
+✔ [1570/1588] Built CasRuntime.Reply (7.5s)
+✔ [1571/1588] Built CasRuntime.Environment (31s)
+✔ [1572/1588] Built CasRuntime.CallableView (8.3s)
+✔ [1573/1588] Built CasRuntime.RoleMap (8.0s)
+✔ [1574/1588] Built CasRuntime.DeclaredInput (10s)
+✔ [1575/1588] Built CasRuntime.Observation (12s)
+✔ [1576/1588] Built CasRuntime.PreparedRequest (12s)
+✔ [1577/1588] Built CasRuntime.Closure (6.8s)
+✔ [1578/1588] Built CasRuntime.FixedInput (8.7s)
+✔ [1580/1588] Built CasRuntime.KernelState (6.5s)
+✔ [1581/1588] Built CasRuntime.InputResult (6.8s)
+✔ [1582/1588] Built CasRuntime.Transaction (12s)
+✔ [1583/1588] Built CasRuntime.Association (8.6s)
+✔ [1584/1588] Built CasRuntime.ExecutionContext (7.8s)
+✔ [1586/1588] Built CasRuntime.ResultCodec (7.3s)
+✔ [1587/1588] Built CasRuntime.NativeMapEndpoints (7.7s)
+Build completed successfully (1588 jobs).
+[execution] native lake --log-level=error lean CasRuntime/NativeFieldPrefixTests.lean -- -DstderrAsMessages=false 
+/repos/v1-integration-20261106/lean-cas-dsl/CasRuntime/NativeFieldPrefixTests.lean:21:0: error: a native field consumer accepted a different actual parent dependency
+/repos/v1-integration-20261106/lean-cas-dsl/CasRuntime/NativeFieldPrefixTests.lean:307:22: error(lean.synthInstanceFailed): failed to synthesize instance of type class
+  Inhabited FieldLayout
+
+Hint: Adding the command `deriving instance Inhabited for CasCompiler.FieldLayout` may allow Lean to derive the missing instance.
+loop: execution status 1; status 1 in 240.357 s; log timing/logs/20261125T145037Z-loop.PTHSVB/output.log

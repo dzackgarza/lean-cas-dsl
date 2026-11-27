@@ -1,0 +1,3869 @@
+{
+  "note": "Both fresh controls passed. Expected rejection controls may leave before markers unmatched; these markers alone do not constitute a test failure.",
+  "pairs": [
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.fields",
+      "ticks": 291,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 10604320,
+        "fields": "bindings=0",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=10604320 bindings=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 10604611,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=10604611 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.instances",
+      "ticks": 40,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 10604641,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=10604641 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 10604681,
+        "fields": "entries=0 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=10604681 entries=0 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 249,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 10604711,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=10604711 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 10604960,
+        "fields": "entries=0 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=10604960 entries=0 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.originals",
+      "ticks": 17,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 10604990,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=10604990 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 10605007,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=10605007 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.classes",
+      "ticks": 168,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.classes.before",
+        "ticks": 10605685,
+        "fields": "entries=0 bindings=0",
+        "line": "CONTEXT_PHASE openContext.classes.before ticks=10605685 entries=0 bindings=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.classes.after",
+        "ticks": 10605853,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE openContext.classes.after ticks=10605853 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.dependencies",
+      "ticks": 65,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.dependencies.before",
+        "ticks": 10605881,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE openContext.dependencies.before ticks=10605881 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.dependencies.after",
+        "ticks": 10605946,
+        "fields": "entries=0 constants=0",
+        "line": "CONTEXT_PHASE openContext.dependencies.after ticks=10605946 entries=0 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.originals",
+      "ticks": 29,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.originals.before",
+        "ticks": 10606000,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE openContext.originals.before ticks=10606000 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.originals.after",
+        "ticks": 10606029,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE openContext.originals.after ticks=10606029 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.fields",
+      "ticks": 425,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 10608700,
+        "fields": "bindings=1",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=10608700 bindings=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 10609125,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=10609125 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.instances",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 10609127,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=10609127 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 10609133,
+        "fields": "entries=1 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=10609133 entries=1 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 87,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 10609135,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=10609135 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 10609222,
+        "fields": "entries=1 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=10609222 entries=1 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.originals",
+      "ticks": 32,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 10609224,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=10609224 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 10609256,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=10609256 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.classes",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.classes.before",
+        "ticks": 10609976,
+        "fields": "entries=1 bindings=1",
+        "line": "CONTEXT_PHASE openContext.classes.before ticks=10609976 entries=1 bindings=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.classes.after",
+        "ticks": 10609982,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.classes.after ticks=10609982 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.dependencies",
+      "ticks": 107,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.dependencies.before",
+        "ticks": 10609984,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.dependencies.before ticks=10609984 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.dependencies.after",
+        "ticks": 10610091,
+        "fields": "entries=1 constants=0",
+        "line": "CONTEXT_PHASE openContext.dependencies.after ticks=10610091 entries=1 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.originals",
+      "ticks": 42,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.originals.before",
+        "ticks": 10610093,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.originals.before ticks=10610093 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.originals.after",
+        "ticks": 10610135,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.originals.after ticks=10610135 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.classes",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.classes.before",
+        "ticks": 10614973,
+        "fields": "entries=1 bindings=1",
+        "line": "CONTEXT_PHASE openContext.classes.before ticks=10614973 entries=1 bindings=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.classes.after",
+        "ticks": 10614979,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.classes.after ticks=10614979 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.dependencies",
+      "ticks": 44,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.dependencies.before",
+        "ticks": 10614981,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.dependencies.before ticks=10614981 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.dependencies.after",
+        "ticks": 10615025,
+        "fields": "entries=1 constants=0",
+        "line": "CONTEXT_PHASE openContext.dependencies.after ticks=10615025 entries=1 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.originals",
+      "ticks": 12,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.originals.before",
+        "ticks": 10615027,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.originals.before ticks=10615027 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.originals.after",
+        "ticks": 10615039,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.originals.after ticks=10615039 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.fields",
+      "ticks": 117,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 10615873,
+        "fields": "bindings=1",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=10615873 bindings=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 10615990,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=10615990 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.instances",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 10615992,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=10615992 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 10615998,
+        "fields": "entries=1 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=10615998 entries=1 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 44,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 10616000,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=10616000 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 10616044,
+        "fields": "entries=1 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=10616044 entries=1 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.originals",
+      "ticks": 12,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 10616046,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=10616046 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 10616058,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=10616058 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.classes",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.classes.before",
+        "ticks": 10643001,
+        "fields": "entries=1 bindings=1",
+        "line": "CONTEXT_PHASE openContext.classes.before ticks=10643001 entries=1 bindings=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.classes.after",
+        "ticks": 10643007,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.classes.after ticks=10643007 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.dependencies",
+      "ticks": 44,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.dependencies.before",
+        "ticks": 10643009,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.dependencies.before ticks=10643009 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.dependencies.after",
+        "ticks": 10643053,
+        "fields": "entries=1 constants=0",
+        "line": "CONTEXT_PHASE openContext.dependencies.after ticks=10643053 entries=1 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.originals",
+      "ticks": 12,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.originals.before",
+        "ticks": 10643055,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.originals.before ticks=10643055 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.originals.after",
+        "ticks": 10643067,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.originals.after ticks=10643067 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.fields",
+      "ticks": 117,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 10643141,
+        "fields": "bindings=1",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=10643141 bindings=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 10643258,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=10643258 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.instances",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 10643260,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=10643260 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 10643266,
+        "fields": "entries=1 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=10643266 entries=1 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 44,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 10643268,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=10643268 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 10643312,
+        "fields": "entries=1 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=10643312 entries=1 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.originals",
+      "ticks": 12,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 10643314,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=10643314 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 10643326,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=10643326 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.classes",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.classes.before",
+        "ticks": 10644359,
+        "fields": "entries=1 bindings=1",
+        "line": "CONTEXT_PHASE openContext.classes.before ticks=10644359 entries=1 bindings=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.classes.after",
+        "ticks": 10644365,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.classes.after ticks=10644365 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.dependencies",
+      "ticks": 44,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.dependencies.before",
+        "ticks": 10644367,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.dependencies.before ticks=10644367 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.dependencies.after",
+        "ticks": 10644411,
+        "fields": "entries=1 constants=0",
+        "line": "CONTEXT_PHASE openContext.dependencies.after ticks=10644411 entries=1 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.originals",
+      "ticks": 12,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.originals.before",
+        "ticks": 10644413,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.originals.before ticks=10644413 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.originals.after",
+        "ticks": 10644425,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.originals.after ticks=10644425 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.fields",
+      "ticks": 117,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 10644462,
+        "fields": "bindings=1",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=10644462 bindings=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 10644579,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=10644579 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.instances",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 10644581,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=10644581 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 10644587,
+        "fields": "entries=1 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=10644587 entries=1 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 44,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 10644589,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=10644589 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 10644633,
+        "fields": "entries=1 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=10644633 entries=1 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.originals",
+      "ticks": 12,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 10644635,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=10644635 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 10644647,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=10644647 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.classes",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.classes.before",
+        "ticks": 10646442,
+        "fields": "entries=1 bindings=1",
+        "line": "CONTEXT_PHASE openContext.classes.before ticks=10646442 entries=1 bindings=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.classes.after",
+        "ticks": 10646448,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.classes.after ticks=10646448 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.dependencies",
+      "ticks": 44,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.dependencies.before",
+        "ticks": 10646450,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.dependencies.before ticks=10646450 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.dependencies.after",
+        "ticks": 10646494,
+        "fields": "entries=1 constants=0",
+        "line": "CONTEXT_PHASE openContext.dependencies.after ticks=10646494 entries=1 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.originals",
+      "ticks": 12,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.originals.before",
+        "ticks": 10646496,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.originals.before ticks=10646496 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.originals.after",
+        "ticks": 10646508,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.originals.after ticks=10646508 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.fields",
+      "ticks": 117,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 10646545,
+        "fields": "bindings=1",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=10646545 bindings=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 10646662,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=10646662 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.instances",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 10646664,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=10646664 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 10646670,
+        "fields": "entries=1 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=10646670 entries=1 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 44,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 10646672,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=10646672 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 10646716,
+        "fields": "entries=1 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=10646716 entries=1 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.originals",
+      "ticks": 12,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 10646718,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=10646718 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 10646730,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=10646730 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.fields",
+      "ticks": 117,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 10647684,
+        "fields": "bindings=1",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=10647684 bindings=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 10647801,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=10647801 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.instances",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 10647803,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=10647803 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 10647809,
+        "fields": "entries=1 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=10647809 entries=1 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 44,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 10647811,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=10647811 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 10647855,
+        "fields": "entries=1 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=10647855 entries=1 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.originals",
+      "ticks": 12,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 10647857,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=10647857 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 10647869,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=10647869 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.classes",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.classes.before",
+        "ticks": 10649043,
+        "fields": "entries=1 bindings=1",
+        "line": "CONTEXT_PHASE openContext.classes.before ticks=10649043 entries=1 bindings=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.classes.after",
+        "ticks": 10649049,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.classes.after ticks=10649049 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.dependencies",
+      "ticks": 44,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.dependencies.before",
+        "ticks": 10649051,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.dependencies.before ticks=10649051 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.dependencies.after",
+        "ticks": 10649095,
+        "fields": "entries=1 constants=0",
+        "line": "CONTEXT_PHASE openContext.dependencies.after ticks=10649095 entries=1 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.originals",
+      "ticks": 12,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.originals.before",
+        "ticks": 10649097,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.originals.before ticks=10649097 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.originals.after",
+        "ticks": 10649109,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.originals.after ticks=10649109 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.fields",
+      "ticks": 117,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 10649146,
+        "fields": "bindings=1",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=10649146 bindings=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 10649263,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=10649263 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.instances",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 10649265,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=10649265 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 10649271,
+        "fields": "entries=1 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=10649271 entries=1 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 44,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 10649273,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=10649273 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 10649317,
+        "fields": "entries=1 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=10649317 entries=1 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.originals",
+      "ticks": 12,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 10649319,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=10649319 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 10649331,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=10649331 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.fields",
+      "ticks": 226,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 10651131,
+        "fields": "bindings=2",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=10651131 bindings=2"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 10651357,
+        "fields": "entries=2",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=10651357 entries=2"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.instances",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 10651359,
+        "fields": "entries=2",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=10651359 entries=2"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 10651365,
+        "fields": "entries=2 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=10651365 entries=2 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 479,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 10651367,
+        "fields": "entries=2",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=10651367 entries=2"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 10651846,
+        "fields": "entries=2 constants=1",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=10651846 entries=2 constants=1"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.originals",
+      "ticks": 18,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 10651848,
+        "fields": "entries=2",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=10651848 entries=2"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 10651866,
+        "fields": "entries=2",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=10651866 entries=2"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.fields",
+      "ticks": 117,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 11020052,
+        "fields": "bindings=0",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=11020052 bindings=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 11020169,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=11020169 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.instances",
+      "ticks": 16,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 11020183,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=11020183 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 11020199,
+        "fields": "entries=0 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=11020199 entries=0 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 107,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 11020213,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=11020213 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 11020320,
+        "fields": "entries=0 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=11020320 entries=0 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.originals",
+      "ticks": 9,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 11020334,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=11020334 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 11020343,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=11020343 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.classes",
+      "ticks": 36,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.classes.before",
+        "ticks": 11020819,
+        "fields": "entries=0 bindings=0",
+        "line": "CONTEXT_PHASE openContext.classes.before ticks=11020819 entries=0 bindings=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.classes.after",
+        "ticks": 11020855,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE openContext.classes.after ticks=11020855 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.dependencies",
+      "ticks": 25,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.dependencies.before",
+        "ticks": 11020863,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE openContext.dependencies.before ticks=11020863 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.dependencies.after",
+        "ticks": 11020888,
+        "fields": "entries=0 constants=0",
+        "line": "CONTEXT_PHASE openContext.dependencies.after ticks=11020888 entries=0 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.originals",
+      "ticks": 9,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.originals.before",
+        "ticks": 11020902,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE openContext.originals.before ticks=11020902 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.originals.after",
+        "ticks": 11020911,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE openContext.originals.after ticks=11020911 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.classes",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.classes.before",
+        "ticks": 11024595,
+        "fields": "entries=0 bindings=0",
+        "line": "CONTEXT_PHASE openContext.classes.before ticks=11024595 entries=0 bindings=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.classes.after",
+        "ticks": 11024601,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE openContext.classes.after ticks=11024601 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.dependencies",
+      "ticks": 13,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.dependencies.before",
+        "ticks": 11024603,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE openContext.dependencies.before ticks=11024603 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.dependencies.after",
+        "ticks": 11024616,
+        "fields": "entries=0 constants=0",
+        "line": "CONTEXT_PHASE openContext.dependencies.after ticks=11024616 entries=0 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.originals",
+      "ticks": 3,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.originals.before",
+        "ticks": 11024618,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE openContext.originals.before ticks=11024618 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.originals.after",
+        "ticks": 11024621,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE openContext.originals.after ticks=11024621 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.fields",
+      "ticks": 11,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 11025066,
+        "fields": "bindings=0",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=11025066 bindings=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 11025077,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=11025077 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.instances",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 11025079,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=11025079 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 11025085,
+        "fields": "entries=0 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=11025085 entries=0 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 13,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 11025087,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=11025087 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 11025100,
+        "fields": "entries=0 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=11025100 entries=0 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.originals",
+      "ticks": 3,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 11025102,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=11025102 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 11025105,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=11025105 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.classes",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.classes.before",
+        "ticks": 11030617,
+        "fields": "entries=0 bindings=0",
+        "line": "CONTEXT_PHASE openContext.classes.before ticks=11030617 entries=0 bindings=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.classes.after",
+        "ticks": 11030623,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE openContext.classes.after ticks=11030623 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.dependencies",
+      "ticks": 13,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.dependencies.before",
+        "ticks": 11030625,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE openContext.dependencies.before ticks=11030625 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.dependencies.after",
+        "ticks": 11030638,
+        "fields": "entries=0 constants=0",
+        "line": "CONTEXT_PHASE openContext.dependencies.after ticks=11030638 entries=0 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.originals",
+      "ticks": 3,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.originals.before",
+        "ticks": 11030640,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE openContext.originals.before ticks=11030640 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.originals.after",
+        "ticks": 11030643,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE openContext.originals.after ticks=11030643 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.fields",
+      "ticks": 11,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 11030669,
+        "fields": "bindings=0",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=11030669 bindings=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 11030680,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=11030680 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.instances",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 11030682,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=11030682 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 11030688,
+        "fields": "entries=0 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=11030688 entries=0 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 13,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 11030690,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=11030690 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 11030703,
+        "fields": "entries=0 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=11030703 entries=0 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.originals",
+      "ticks": 3,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 11030705,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=11030705 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 11030708,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=11030708 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.classes",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.classes.before",
+        "ticks": 11031582,
+        "fields": "entries=0 bindings=0",
+        "line": "CONTEXT_PHASE openContext.classes.before ticks=11031582 entries=0 bindings=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.classes.after",
+        "ticks": 11031588,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE openContext.classes.after ticks=11031588 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.dependencies",
+      "ticks": 13,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.dependencies.before",
+        "ticks": 11031590,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE openContext.dependencies.before ticks=11031590 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.dependencies.after",
+        "ticks": 11031603,
+        "fields": "entries=0 constants=0",
+        "line": "CONTEXT_PHASE openContext.dependencies.after ticks=11031603 entries=0 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.originals",
+      "ticks": 3,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.originals.before",
+        "ticks": 11031605,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE openContext.originals.before ticks=11031605 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.originals.after",
+        "ticks": 11031608,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE openContext.originals.after ticks=11031608 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.fields",
+      "ticks": 11,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 11031626,
+        "fields": "bindings=0",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=11031626 bindings=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 11031637,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=11031637 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.instances",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 11031639,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=11031639 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 11031645,
+        "fields": "entries=0 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=11031645 entries=0 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 13,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 11031647,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=11031647 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 11031660,
+        "fields": "entries=0 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=11031660 entries=0 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.originals",
+      "ticks": 3,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 11031662,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=11031662 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 11031665,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=11031665 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.classes",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.classes.before",
+        "ticks": 11032500,
+        "fields": "entries=0 bindings=0",
+        "line": "CONTEXT_PHASE openContext.classes.before ticks=11032500 entries=0 bindings=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.classes.after",
+        "ticks": 11032506,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE openContext.classes.after ticks=11032506 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.dependencies",
+      "ticks": 13,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.dependencies.before",
+        "ticks": 11032508,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE openContext.dependencies.before ticks=11032508 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.dependencies.after",
+        "ticks": 11032521,
+        "fields": "entries=0 constants=0",
+        "line": "CONTEXT_PHASE openContext.dependencies.after ticks=11032521 entries=0 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "openContext.originals",
+      "ticks": 3,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.originals.before",
+        "ticks": 11032523,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE openContext.originals.before ticks=11032523 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "openContext.originals.after",
+        "ticks": 11032526,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE openContext.originals.after ticks=11032526 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.fields",
+      "ticks": 11,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 11032544,
+        "fields": "bindings=0",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=11032544 bindings=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 11032555,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=11032555 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.instances",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 11032557,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=11032557 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 11032563,
+        "fields": "entries=0 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=11032563 entries=0 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 13,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 11032565,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=11032565 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 11032578,
+        "fields": "entries=0 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=11032578 entries=0 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.originals",
+      "ticks": 3,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 11032580,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=11032580 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 11032583,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=11032583 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.fields",
+      "ticks": 11,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 11033428,
+        "fields": "bindings=0",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=11033428 bindings=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 11033439,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=11033439 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.instances",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 11033441,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=11033441 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 11033447,
+        "fields": "entries=0 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=11033447 entries=0 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 13,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 11033449,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=11033449 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 11033462,
+        "fields": "entries=0 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=11033462 entries=0 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.originals",
+      "ticks": 3,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 11033464,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=11033464 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 11033467,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=11033467 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.fields",
+      "ticks": 121,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 11543764,
+        "fields": "bindings=0",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=11543764 bindings=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 11543885,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=11543885 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.instances",
+      "ticks": 16,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 11543899,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=11543899 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 11543915,
+        "fields": "entries=0 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=11543915 entries=0 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 103,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 11543929,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=11543929 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 11544032,
+        "fields": "entries=0 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=11544032 entries=0 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/NativeDeclarationTests.lean",
+      "stage": "capture.originals",
+      "ticks": 9,
+      "before": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 11544046,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=11544046 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/NativeDeclarationTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 11544055,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=11544055 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.fields",
+      "ticks": 1253,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 6035907,
+        "fields": "bindings=4",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=6035907 bindings=4"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 6037160,
+        "fields": "entries=4",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=6037160 entries=4"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.instances",
+      "ticks": 170,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 6037190,
+        "fields": "entries=4",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=6037190 entries=4"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 6037360,
+        "fields": "entries=4 instances=1",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=6037360 entries=4 instances=1"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 486,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 6037390,
+        "fields": "entries=4",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=6037390 entries=4"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 6037876,
+        "fields": "entries=4 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=6037876 entries=4 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.originals",
+      "ticks": 64,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 6037906,
+        "fields": "entries=4",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=6037906 entries=4"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 6037970,
+        "fields": "entries=4",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=6037970 entries=4"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.fields",
+      "ticks": 529,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 6040519,
+        "fields": "bindings=5",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=6040519 bindings=5"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 6041048,
+        "fields": "entries=5",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=6041048 entries=5"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.instances",
+      "ticks": 46,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 6041050,
+        "fields": "entries=5",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=6041050 entries=5"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 6041096,
+        "fields": "entries=5 instances=1",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=6041096 entries=5 instances=1"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 111,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 6041098,
+        "fields": "entries=5",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=6041098 entries=5"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 6041209,
+        "fields": "entries=5 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=6041209 entries=5 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.originals",
+      "ticks": 36,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 6041211,
+        "fields": "entries=5",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=6041211 entries=5"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 6041247,
+        "fields": "entries=5",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=6041247 entries=5"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.fields",
+      "ticks": 427,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 6042257,
+        "fields": "bindings=4",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=6042257 bindings=4"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 6042684,
+        "fields": "entries=4",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=6042684 entries=4"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.instances",
+      "ticks": 46,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 6042686,
+        "fields": "entries=4",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=6042686 entries=4"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 6042732,
+        "fields": "entries=4 instances=1",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=6042732 entries=4 instances=1"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 97,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 6042734,
+        "fields": "entries=4",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=6042734 entries=4"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 6042831,
+        "fields": "entries=4 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=6042831 entries=4 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.originals",
+      "ticks": 30,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 6042833,
+        "fields": "entries=4",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=6042833 entries=4"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 6042863,
+        "fields": "entries=4",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=6042863 entries=4"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.fields",
+      "ticks": 634,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 6044136,
+        "fields": "bindings=6",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=6044136 bindings=6"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 6044770,
+        "fields": "entries=6",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=6044770 entries=6"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.instances",
+      "ticks": 46,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 6044772,
+        "fields": "entries=6",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=6044772 entries=6"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 6044818,
+        "fields": "entries=6 instances=1",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=6044818 entries=6 instances=1"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 133,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 6044820,
+        "fields": "entries=6",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=6044820 entries=6"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 6044953,
+        "fields": "entries=6 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=6044953 entries=6 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.originals",
+      "ticks": 42,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 6044955,
+        "fields": "entries=6",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=6044955 entries=6"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 6044997,
+        "fields": "entries=6",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=6044997 entries=6"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.fields",
+      "ticks": 121,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 6209631,
+        "fields": "bindings=0",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=6209631 bindings=0"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 6209752,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=6209752 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.instances",
+      "ticks": 16,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 6209766,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=6209766 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 6209782,
+        "fields": "entries=0 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=6209782 entries=0 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 107,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 6209796,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=6209796 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 6209903,
+        "fields": "entries=0 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=6209903 entries=0 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.originals",
+      "ticks": 9,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 6209917,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=6209917 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 6209926,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=6209926 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.fields",
+      "ticks": 605,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 7025043,
+        "fields": "bindings=3",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=7025043 bindings=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 7025648,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=7025648 entries=3"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.instances",
+      "ticks": 80,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 7025662,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=7025662 entries=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 7025742,
+        "fields": "entries=3 instances=1",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=7025742 entries=3 instances=1"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 207,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 7025756,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=7025756 entries=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 7025963,
+        "fields": "entries=3 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=7025963 entries=3 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.originals",
+      "ticks": 34,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 7025977,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=7025977 entries=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 7026011,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=7026011 entries=3"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.fields",
+      "ticks": 323,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 7026614,
+        "fields": "bindings=3",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=7026614 bindings=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 7026937,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=7026937 entries=3"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.instances",
+      "ticks": 86,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 7026939,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=7026939 entries=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 7027025,
+        "fields": "entries=3 instances=2",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=7027025 entries=3 instances=2"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 77,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 7027027,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=7027027 entries=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 7027104,
+        "fields": "entries=3 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=7027104 entries=3 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.originals",
+      "ticks": 24,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 7027106,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=7027106 entries=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 7027130,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=7027130 entries=3"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "openContext.classes",
+      "ticks": 144,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "openContext.classes.before",
+        "ticks": 7029375,
+        "fields": "entries=3 bindings=3",
+        "line": "CONTEXT_PHASE openContext.classes.before ticks=7029375 entries=3 bindings=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "openContext.classes.after",
+        "ticks": 7029519,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE openContext.classes.after ticks=7029519 entries=3"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "openContext.dependencies",
+      "ticks": 153,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "openContext.dependencies.before",
+        "ticks": 7029537,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE openContext.dependencies.before ticks=7029537 entries=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "openContext.dependencies.after",
+        "ticks": 7029690,
+        "fields": "entries=3 constants=0",
+        "line": "CONTEXT_PHASE openContext.dependencies.after ticks=7029690 entries=3 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "openContext.originals",
+      "ticks": 61,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "openContext.originals.before",
+        "ticks": 7029724,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE openContext.originals.before ticks=7029724 entries=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "openContext.originals.after",
+        "ticks": 7029785,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE openContext.originals.after ticks=7029785 entries=3"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "openContext.classes",
+      "ticks": 38,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "openContext.classes.before",
+        "ticks": 7031575,
+        "fields": "entries=3 bindings=3",
+        "line": "CONTEXT_PHASE openContext.classes.before ticks=7031575 entries=3 bindings=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "openContext.classes.after",
+        "ticks": 7031613,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE openContext.classes.after ticks=7031613 entries=3"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "openContext.dependencies",
+      "ticks": 77,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "openContext.dependencies.before",
+        "ticks": 7031615,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE openContext.dependencies.before ticks=7031615 entries=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "openContext.dependencies.after",
+        "ticks": 7031692,
+        "fields": "entries=3 constants=0",
+        "line": "CONTEXT_PHASE openContext.dependencies.after ticks=7031692 entries=3 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "openContext.originals",
+      "ticks": 24,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "openContext.originals.before",
+        "ticks": 7031694,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE openContext.originals.before ticks=7031694 entries=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "openContext.originals.after",
+        "ticks": 7031718,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE openContext.originals.after ticks=7031718 entries=3"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.fields",
+      "ticks": 121,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 8036918,
+        "fields": "bindings=0",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=8036918 bindings=0"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 8037039,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=8037039 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.instances",
+      "ticks": 16,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 8037053,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=8037053 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 8037069,
+        "fields": "entries=0 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=8037069 entries=0 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 107,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 8037083,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=8037083 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 8037190,
+        "fields": "entries=0 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=8037190 entries=0 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.originals",
+      "ticks": 9,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 8037204,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=8037204 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 8037213,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=8037213 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.fields",
+      "ticks": 279,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 8037521,
+        "fields": "bindings=1",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=8037521 bindings=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 8037800,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=8037800 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.instances",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 8037802,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=8037802 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 8037808,
+        "fields": "entries=1 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=8037808 entries=1 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 121,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 8037810,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=8037810 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 8037931,
+        "fields": "entries=1 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=8037931 entries=1 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.originals",
+      "ticks": 439,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 8037933,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=8037933 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 8038372,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=8038372 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.fields",
+      "ticks": 222,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 8038433,
+        "fields": "bindings=2",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=8038433 bindings=2"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 8038655,
+        "fields": "entries=2",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=8038655 entries=2"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.instances",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 8038657,
+        "fields": "entries=2",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=8038657 entries=2"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 8038663,
+        "fields": "entries=2 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=8038663 entries=2 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 105,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 8038665,
+        "fields": "entries=2",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=8038665 entries=2"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 8038770,
+        "fields": "entries=2 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=8038770 entries=2 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.originals",
+      "ticks": 423,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 8038772,
+        "fields": "entries=2",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=8038772 entries=2"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 8039195,
+        "fields": "entries=2",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=8039195 entries=2"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.fields",
+      "ticks": 327,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 8040216,
+        "fields": "bindings=3",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=8040216 bindings=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 8040543,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=8040543 entries=3"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.instances",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 8040545,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=8040545 entries=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 8040551,
+        "fields": "entries=3 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=8040551 entries=3 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 163,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 8040553,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=8040553 entries=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 8040716,
+        "fields": "entries=3 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=8040716 entries=3 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.originals",
+      "ticks": 1025,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 8040718,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=8040718 entries=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 8041743,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=8041743 entries=3"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.fields",
+      "ticks": 327,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 8044092,
+        "fields": "bindings=3",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=8044092 bindings=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 8044419,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=8044419 entries=3"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.instances",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 8044421,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=8044421 entries=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 8044427,
+        "fields": "entries=3 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=8044427 entries=3 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 163,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 8044429,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=8044429 entries=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 8044592,
+        "fields": "entries=3 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=8044592 entries=3 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.originals",
+      "ticks": 921,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 8044594,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=8044594 entries=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 8045515,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=8045515 entries=3"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.fields",
+      "ticks": 327,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 8047316,
+        "fields": "bindings=3",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=8047316 bindings=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 8047643,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=8047643 entries=3"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.instances",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 8047645,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=8047645 entries=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 8047651,
+        "fields": "entries=3 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=8047651 entries=3 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 172,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 8047653,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=8047653 entries=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 8047825,
+        "fields": "entries=3 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=8047825 entries=3 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.originals",
+      "ticks": 952,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 8047827,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=8047827 entries=3"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 8048779,
+        "fields": "entries=3",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=8048779 entries=3"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.fields",
+      "ticks": 411,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 8523240,
+        "fields": "bindings=1",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=8523240 bindings=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 8523651,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=8523651 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.instances",
+      "ticks": 16,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 8523665,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=8523665 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 8523681,
+        "fields": "entries=1 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=8523681 entries=1 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 174,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 8523695,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=8523695 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 8523869,
+        "fields": "entries=1 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=8523869 entries=1 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.originals",
+      "ticks": 22,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 8523883,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=8523883 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 8523905,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=8523905 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.fields",
+      "ticks": 121,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 8951733,
+        "fields": "bindings=0",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=8951733 bindings=0"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 8951854,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=8951854 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.instances",
+      "ticks": 16,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 8951868,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=8951868 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 8951884,
+        "fields": "entries=0 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=8951884 entries=0 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 107,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 8951898,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=8951898 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 8952005,
+        "fields": "entries=0 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=8952005 entries=0 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.originals",
+      "ticks": 9,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 8952019,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=8952019 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 8952028,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=8952028 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.fields",
+      "ticks": 411,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 9469863,
+        "fields": "bindings=1",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=9469863 bindings=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 9470274,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=9470274 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.instances",
+      "ticks": 16,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 9470288,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=9470288 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 9470304,
+        "fields": "entries=1 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=9470304 entries=1 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 174,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 9470318,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=9470318 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 9470492,
+        "fields": "entries=1 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=9470492 entries=1 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.originals",
+      "ticks": 22,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 9470506,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=9470506 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 9470528,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=9470528 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.fields",
+      "ticks": 121,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 10017848,
+        "fields": "bindings=0",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=10017848 bindings=0"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 10017969,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=10017969 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.instances",
+      "ticks": 16,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 10017983,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=10017983 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 10017999,
+        "fields": "entries=0 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=10017999 entries=0 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 103,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 10018013,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=10018013 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 10018116,
+        "fields": "entries=0 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=10018116 entries=0 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.originals",
+      "ticks": 9,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 10018130,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=10018130 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 10018139,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=10018139 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.fields",
+      "ticks": 411,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 10399504,
+        "fields": "bindings=1",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=10399504 bindings=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 10399915,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=10399915 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.instances",
+      "ticks": 16,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 10399929,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=10399929 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 10399945,
+        "fields": "entries=1 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=10399945 entries=1 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 174,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 10399959,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=10399959 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 10400133,
+        "fields": "entries=1 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=10400133 entries=1 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.originals",
+      "ticks": 22,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 10400147,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=10400147 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 10400169,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=10400169 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.fields",
+      "ticks": 121,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 10685106,
+        "fields": "bindings=0",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=10685106 bindings=0"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 10685227,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=10685227 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.instances",
+      "ticks": 16,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 10685241,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=10685241 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 10685257,
+        "fields": "entries=0 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=10685257 entries=0 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 103,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 10685271,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=10685271 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 10685374,
+        "fields": "entries=0 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=10685374 entries=0 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.originals",
+      "ticks": 9,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 10685388,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=10685388 entries=0"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 10685397,
+        "fields": "entries=0",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=10685397 entries=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.fields",
+      "ticks": 409,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 11610429,
+        "fields": "bindings=1",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=11610429 bindings=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 11610838,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=11610838 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.instances",
+      "ticks": 16,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 11610852,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=11610852 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 11610868,
+        "fields": "entries=1 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=11610868 entries=1 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 298,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 11610882,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=11610882 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 11611180,
+        "fields": "entries=1 constants=1",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=11611180 entries=1 constants=1"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.originals",
+      "ticks": 584,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 11611194,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=11611194 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 11611778,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=11611778 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "openContext.classes",
+      "ticks": 111,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "openContext.classes.before",
+        "ticks": 11612482,
+        "fields": "entries=1 bindings=1",
+        "line": "CONTEXT_PHASE openContext.classes.before ticks=11612482 entries=1 bindings=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "openContext.classes.after",
+        "ticks": 11612593,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.classes.after ticks=11612593 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "openContext.dependencies",
+      "ticks": 220,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "openContext.dependencies.before",
+        "ticks": 11612611,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.dependencies.before ticks=11612611 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "openContext.dependencies.after",
+        "ticks": 11612831,
+        "fields": "entries=1 constants=1",
+        "line": "CONTEXT_PHASE openContext.dependencies.after ticks=11612831 entries=1 constants=1"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "openContext.originals",
+      "ticks": 400,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "openContext.originals.before",
+        "ticks": 11612865,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.originals.before ticks=11612865 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "openContext.originals.after",
+        "ticks": 11613265,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.originals.after ticks=11613265 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "openContext.classes",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "openContext.classes.before",
+        "ticks": 11613588,
+        "fields": "entries=1 bindings=1",
+        "line": "CONTEXT_PHASE openContext.classes.before ticks=11613588 entries=1 bindings=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "openContext.classes.after",
+        "ticks": 11613594,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.classes.after ticks=11613594 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "openContext.dependencies",
+      "ticks": 144,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "openContext.dependencies.before",
+        "ticks": 11613596,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.dependencies.before ticks=11613596 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "openContext.dependencies.after",
+        "ticks": 11613740,
+        "fields": "entries=1 constants=1",
+        "line": "CONTEXT_PHASE openContext.dependencies.after ticks=11613740 entries=1 constants=1"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.fields",
+      "ticks": 411,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 12426948,
+        "fields": "bindings=1",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=12426948 bindings=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 12427359,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=12427359 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.instances",
+      "ticks": 16,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 12427373,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=12427373 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 12427389,
+        "fields": "entries=1 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=12427389 entries=1 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.dependencies",
+      "ticks": 166,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.before",
+        "ticks": 12427403,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.dependencies.before ticks=12427403 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.dependencies.after",
+        "ticks": 12427569,
+        "fields": "entries=1 constants=0",
+        "line": "CONTEXT_PHASE capture.dependencies.after ticks=12427569 entries=1 constants=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.originals",
+      "ticks": 22,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.before",
+        "ticks": 12427583,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.before ticks=12427583 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.originals.after",
+        "ticks": 12427605,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.originals.after ticks=12427605 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.fields",
+      "ticks": 117,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.before",
+        "ticks": 12431452,
+        "fields": "bindings=1",
+        "line": "CONTEXT_PHASE capture.fields.before ticks=12431452 bindings=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.fields.after",
+        "ticks": 12431569,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.fields.after ticks=12431569 entries=1"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "capture.instances",
+      "ticks": 6,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.before",
+        "ticks": 12431571,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE capture.instances.before ticks=12431571 entries=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "capture.instances.after",
+        "ticks": 12431577,
+        "fields": "entries=1 instances=0",
+        "line": "CONTEXT_PHASE capture.instances.after ticks=12431577 entries=1 instances=0"
+      }
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "stage": "openContext.classes",
+      "ticks": 111,
+      "before": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "openContext.classes.before",
+        "ticks": 12431917,
+        "fields": "entries=1 bindings=1",
+        "line": "CONTEXT_PHASE openContext.classes.before ticks=12431917 entries=1 bindings=1"
+      },
+      "after": {
+        "source": "CasCompiler/ContextTests.lean",
+        "phase": "openContext.classes.after",
+        "ticks": 12432028,
+        "fields": "entries=1",
+        "line": "CONTEXT_PHASE openContext.classes.after ticks=12432028 entries=1"
+      }
+    }
+  ],
+  "aggregates": {
+    "CasCompiler/NativeDeclarationTests.lean::capture.fields": {
+      "count": 16,
+      "total_ticks": 1937,
+      "max_ticks": 425
+    },
+    "CasCompiler/NativeDeclarationTests.lean::capture.instances": {
+      "count": 16,
+      "total_ticks": 150,
+      "max_ticks": 40
+    },
+    "CasCompiler/NativeDeclarationTests.lean::capture.dependencies": {
+      "count": 16,
+      "total_ticks": 1354,
+      "max_ticks": 479
+    },
+    "CasCompiler/NativeDeclarationTests.lean::capture.originals": {
+      "count": 16,
+      "total_ticks": 172,
+      "max_ticks": 32
+    },
+    "CasCompiler/NativeDeclarationTests.lean::openContext.classes": {
+      "count": 12,
+      "total_ticks": 264,
+      "max_ticks": 168
+    },
+    "CasCompiler/NativeDeclarationTests.lean::openContext.dependencies": {
+      "count": 12,
+      "total_ticks": 469,
+      "max_ticks": 107
+    },
+    "CasCompiler/NativeDeclarationTests.lean::openContext.originals": {
+      "count": 12,
+      "total_ticks": 152,
+      "max_ticks": 42
+    },
+    "CasCompiler/ContextTests.lean::capture.fields": {
+      "count": 22,
+      "total_ticks": 8028,
+      "max_ticks": 1253
+    },
+    "CasCompiler/ContextTests.lean::capture.instances": {
+      "count": 22,
+      "total_ticks": 670,
+      "max_ticks": 170
+    },
+    "CasCompiler/ContextTests.lean::capture.dependencies": {
+      "count": 21,
+      "total_ticks": 3348,
+      "max_ticks": 486
+    },
+    "CasCompiler/ContextTests.lean::capture.originals": {
+      "count": 21,
+      "total_ticks": 4707,
+      "max_ticks": 1025
+    },
+    "CasCompiler/ContextTests.lean::openContext.classes": {
+      "count": 5,
+      "total_ticks": 410,
+      "max_ticks": 144
+    },
+    "CasCompiler/ContextTests.lean::openContext.dependencies": {
+      "count": 4,
+      "total_ticks": 594,
+      "max_ticks": 220
+    },
+    "CasCompiler/ContextTests.lean::openContext.originals": {
+      "count": 3,
+      "total_ticks": 485,
+      "max_ticks": 400
+    }
+  },
+  "unmatched_before": [
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "phase": "capture.fields.before",
+      "ticks": 6358756,
+      "fields": "bindings=0",
+      "line": "CONTEXT_PHASE capture.fields.before ticks=6358756 bindings=0"
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "phase": "capture.dependencies.before",
+      "ticks": 12431579,
+      "fields": "entries=1",
+      "line": "CONTEXT_PHASE capture.dependencies.before ticks=12431579 entries=1"
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "phase": "openContext.dependencies.before",
+      "ticks": 12432046,
+      "fields": "entries=1",
+      "line": "CONTEXT_PHASE openContext.dependencies.before ticks=12432046 entries=1"
+    },
+    {
+      "source": "CasCompiler/ContextTests.lean",
+      "phase": "openContext.originals.before",
+      "ticks": 11613742,
+      "fields": "entries=1",
+      "line": "CONTEXT_PHASE openContext.originals.before ticks=11613742 entries=1"
+    }
+  ]
+}

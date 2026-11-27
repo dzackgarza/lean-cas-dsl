@@ -1,0 +1,22 @@
+{
+  "command": [
+    "just",
+    "test-feedback",
+    "FeedbackTests.test_changed_extension_file_fails_before_execution",
+    "FeedbackTests.test_verified_checkout_retirement_failure_remains_restorable"
+  ],
+  "head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "started_at": "2026-11-26T07:56:38.855447+00:00",
+  "sources": {
+    "scripts/feedback_checkout.py": "a4f1eae777e0aad4a1faeebc0c6bbc44305c6979bbfefcdd85deea10501b6228",
+    "tests/feedback/test_feedback.py": "dfdc0b62d5b60769434a6d10241f8ae5b6d2aae858f3a3d08ea7324169739cd4",
+    "scripts/feedback_records.py": "f87e1a3f6aaa8d77ad3351a3b0d17ac871589ba15b576dfd31ccd0fc8b6ccb3a",
+    "scripts/application_log.py": "b63cbf23d844683a80651deb909f6f35ddc50bf032ccd0545888bfe89467f8f6",
+    "scripts/acceptance_inputs.py": "84cd3c7c7f344f2a9eecff70c0b97e4eaf54ee29d7c22b480042f3c12c642471",
+    "scripts/check_acceptance_permanent.py": "cf9a1efe611dcda995db49ac37008f2dc39b6a615b79554471fcc70e2167c3cd",
+    "scripts/feedback.sh": "24c11479b5832e69b63acbfacbbf80314eb4c88daf138f9b119bccba94c2d818",
+    "scripts/container.sh": "92fb219924a0e207028596ac5c3c87d7eb056716a0c3cd0d4a58960df56fbab5",
+    "justfile": "a55981f725fad1f2dc2eb5c4469f9f84103bdde1b594df019f68d72b1a838b50"
+  },
+  "scope": "Focused Python feedback guards and owned-checkout evidence lifecycle; no Lean workload selected"
+}

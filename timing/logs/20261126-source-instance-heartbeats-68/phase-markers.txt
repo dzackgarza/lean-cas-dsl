@@ -1,0 +1,28 @@
+INSTANCE_BLOCK_START block=1 rawTicks=0
+INSTANCE_PREFIX_START block=1 index=0 cumulative=26641
+INSTANCE_PREFIX_DONE block=1 index=0 rawTicks=340548 cumulative=367189
+INSTANCE_PREFIX_START block=1 index=1 cumulative=367331
+INSTANCE_PREFIX_DONE block=1 index=1 rawTicks=483400 cumulative=850731
+INSTANCE_PREFIX_START block=1 index=2 cumulative=850739
+INSTANCE_PREFIX_DONE block=1 index=2 rawTicks=1013100 cumulative=1863839
+INSTANCE_PREFIX_START block=1 index=3 cumulative=1863847
+INSTANCE_PREFIX_DONE block=1 index=3 rawTicks=1016766 cumulative=2880613
+INSTANCE_PREFIX_START block=1 index=4 cumulative=2880621
+INSTANCE_PREFIX_DONE block=1 index=4 rawTicks=4510757 cumulative=7391378
+INSTANCE_SELECTED_START block=1 phase=sourceModule index=4 cumulative=7391380
+INSTANCE_SELECTED_DONE block=1 phase=sourceModule index=4 rawTicks=311409 cumulative=7702789
+INSTANCE_DEFINE_START block=1 text="let Rfirst := ℚ" cumulative=7702840
+INSTANCE_DEFINE_DONE block=1 text="let Rfirst := ℚ" rawTicks=3526596 cumulative=11229436
+INSTANCE_DEFINE_START block=1 text="let Rsecond := ℚ" cumulative=11229456
+INSTANCE_DEFINE_DONE block=1 text="let Rsecond := ℚ" rawTicks=3682011 cumulative=14911467
+INSTANCE_DEFINE_START block=1 text="let firstView := view formedSource along «fun.bilin_module.forget»(Rfirst, Rsecond)" cumulative=14911602
+INSTANCE_DEFINE_DONE block=1 text="let firstView := view formedSource along «fun.bilin_module.forget»(Rfirst, Rsecond)" rawTicks=9326814 cumulative=24238416
+INSTANCE_SELECTED_START block=1 phase=equal_scalar_view text="let firstView := view formedSource along «fun.bilin_module.forget»(Rfirst, Rsecond)" cumulative=24238418
+INSTANCE_SELECTED_DONE block=1 phase=equal_scalar_view text="let firstView := view formedSource along «fun.bilin_module.forget»(Rfirst, Rsecond)" rawTicks=876050 cumulative=25114468
+INSTANCE_DEFINE_START block=1 text="let secondView := view formedSource along «fun.bilin_module.forget»(Rsecond, Rfirst)" cumulative=25114526
+INSTANCE_DEFINE_DONE block=1 text="let secondView := view formedSource along «fun.bilin_module.forget»(Rsecond, Rfirst)" rawTicks=14112478 cumulative=39227004
+INSTANCE_SELECTED_START block=1 phase=equal_scalar_view text="let secondView := view formedSource along «fun.bilin_module.forget»(Rsecond, Rfirst)" cumulative=39227006
+INSTANCE_SELECTED_DONE block=1 phase=equal_scalar_view text="let secondView := view formedSource along «fun.bilin_module.forget»(Rsecond, Rfirst)" rawTicks=1244196 cumulative=40471202
+INSTANCE_DEFINE_START block=1 text="let F := {x - 1} in 𝒫_fin(ℤ[x])" cumulative=40471219
+INSTANCE_BLOCK_START block=2 rawTicks=0
+INSTANCE_BLOCK_DONE block=2 rawTicks=5925

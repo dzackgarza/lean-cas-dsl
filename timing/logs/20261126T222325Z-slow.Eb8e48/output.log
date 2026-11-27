@@ -1,0 +1,21 @@
+[build] native lake --log-level=error build +CasTools.JsonGraphTests:deps +CasTools.NativeExpressionTests:deps +CasCompiler.ContextTests:deps 
+✔ [5/22] Built CasCompiler.NativeDeclarations:c.o (3.4s)
+✔ [6/22] Built CasCompiler.NativeDeclarations:dynlib (386ms)
+✔ [7/22] Built CasTools.JsonGraph:c.o (4.0s)
+✔ [8/22] Built CasTools.JsonGraph:dynlib (155ms)
+✔ [9/22] Built CasTools.NativeExpression:c.o (10s)
+✔ [10/22] Built CasTools.NativeExpression:dynlib (144ms)
+✔ [11/22] Built CasTools.Diagnostics (12s)
+✔ [12/22] Built CasTools.Diagnostics:c.o (1.3s)
+✔ [13/22] Built CasTools.Diagnostics:dynlib (169ms)
+✔ [14/22] Built CasCompiler.Context (10s)
+✔ [15/22] Built CasCompiler.Context:c.o (9.8s)
+✔ [16/22] Built CasCompiler.Context:dynlib (158ms)
+✔ [17/22] Built CasCompiler.ContextSnapshot (4.1s)
+✔ [18/22] Built CasCompiler.ContextSnapshot:c.o (884ms)
+✔ [19/22] Built CasNative:shared (178ms)
+Build completed successfully (22 jobs).
+[execution] native lake --log-level=error lean CasTools/JsonGraphTests.lean -- -DstderrAsMessages=false 
+[execution] native lake --log-level=error lean CasTools/NativeExpressionTests.lean -- -DstderrAsMessages=false 
+[execution] native lake --log-level=error lean CasCompiler/ContextTests.lean -- -DstderrAsMessages=false 
+slow: execution status 0; status 0 in 126.646 s; log timing/logs/20261126T222325Z-slow.Eb8e48/output.log

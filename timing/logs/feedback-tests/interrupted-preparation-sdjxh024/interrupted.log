@@ -1,0 +1,46 @@
+Acceptance run: timing/logs/accept-20261126T200105Z-Y0mEH3
+Traceback (most recent call last):
+  File "/repos/v1-integration-20261106/lean-cas-dsl/scripts/feedback_records.py", line 807, in <module>
+    capture_context(arguments)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "/repos/v1-integration-20261106/lean-cas-dsl/scripts/feedback_records.py", line 122, in capture_context
+    resolution = json.loads(subprocess.check_output(
+                            ~~~~~~~~~~~~~~~~~~~~~~~^
+        ["lake", "--log-level=error", "run", "feedback-context"], text=True))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/uv-python/cpython-3.14.10-linux-x86_64-gnu/lib/python3.14/subprocess.py", line 473, in check_output
+    return run(*popenargs, stdout=PIPE, timeout=timeout, check=True,
+           ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+               **kwargs).stdout
+               ^^^^^^^^^
+  File "/opt/uv-python/cpython-3.14.10-linux-x86_64-gnu/lib/python3.14/subprocess.py", line 578, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['lake', '--log-level=error', 'run', 'feedback-context']' died with <Signals.SIGTERM: 15>.
+tests/acceptance/numbers.cas: current selected execution has no complete valid report: no report at timing/logs/accept-20261126T200105Z-Y0mEH3/numbers.json: the suite did not run to completion
+Current statement timing is incomplete; see timing/logs/accept-20261126T200105Z-Y0mEH3/computation-summary.json
+statement now holds: tests/acceptance/numbers.cas: (statement) let z := 2 + 2 · i in ℂ
+
+
+MISSING at the head: tests/acceptance/numbers.cas: numbers.complex.abs
+MISSING at the head: tests/acceptance/numbers.cas: numbers.complex.bar
+MISSING at the head: tests/acceptance/numbers.cas: numbers.complex.im
+MISSING at the head: tests/acceptance/numbers.cas: numbers.complex.norm
+MISSING at the head: tests/acceptance/numbers.cas: numbers.complex.re
+MISSING at the head: tests/acceptance/numbers.cas: numbers.containments
+MISSING at the head: tests/acceptance/numbers.cas: numbers.containments.transitive
+MISSING at the head: tests/acceptance/numbers.cas: numbers.gcd
+MISSING at the head: tests/acceptance/numbers.cas: numbers.integers.sum
+MISSING at the head: tests/acceptance/numbers.cas: numbers.membership.negative
+MISSING at the head: tests/acceptance/numbers.cas: numbers.membership.zmod
+MISSING at the head: tests/acceptance/numbers.cas: numbers.rationals.sum
+MISSING at the head: tests/acceptance/numbers.cas: numbers.zmod5.difference
+MISSING at the head: tests/acceptance/numbers.cas: numbers.zmod5.negation
+MISSING at the head: tests/acceptance/numbers.cas: numbers.zmod5.product
+MISSING at the head: tests/acceptance/numbers.cas: numbers.zmod5.sum
+MISSING at the head: tests/acceptance/numbers.cas: numbers.zmod7.distributive
+MISSING at the head: tests/acceptance/numbers.cas: numbers.zmod7.value
+NEW and FAILS at the head: tests/acceptance/numbers.cas: (statement) current report: internal
+1 assertions at the head; failing: (statement) current report
+Current acceptance metadata is incomplete: timing/logs/accept-20261126T200105Z-Y0mEH3/worker0.status.json: [Errno 2] No such file or directory: 'timing/logs/accept-20261126T200105Z-Y0mEH3/worker0.status.json'
+Current selected outcomes: {'internal': 1}; complete=False; status=143; total=14.332s; report=timing/logs/accept-20261126T200105Z-Y0mEH3/report.json

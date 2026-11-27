@@ -1,0 +1,3 @@
+Acceptance run: timing/logs/accept-20261125T195744Z-eBsWYK
+Build completed successfully (3966 jobs).
+warning: cas_leaf_contracts: repository '/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cas_leaf_contracts' has local changes

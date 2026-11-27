@@ -1,0 +1,22 @@
+{
+  "utc": "2026-11-26T11:14:46.936867+00:00",
+  "snapshot": ".tmp/validation-typed-integrated-55-sources.json",
+  "snapshot_sha256": "a2092a7fcb2279806f54391948da41c0f0eed50401acf7add1285f72865ff48c",
+  "archive": ".tmp/validation-typed-integrated-55-source-bytes.tar.gz",
+  "archive_sha256": "a1bd4abd38002c7c309f52fca89124eb4a37bf7c132924a62dfd92346ccf834c",
+  "archive_bytes": 2468579,
+  "input_count": 756,
+  "production_input_count": 755,
+  "production_unchanged_from53": true,
+  "head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "probe": ".tmp/source-instance-heartbeats-20261126/B0InstanceHeartbeatProbe.lean",
+  "probe_sha256": "2dde7297dff441ce2eee75e32c5650baee4ac7cb5ae7f30f88522a38e34f2975",
+  "command": "source scripts/container.sh\nincontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json python3 timing/logs/20261126-source-instance-heartbeats-55/runner.py",
+  "diagnostic_only": true,
+  "normal_ledger_entry": false,
+  "free_bytes": 748941312,
+  "memory": [
+    "MemAvailable:    2060464 kB",
+    "SwapFree:        7353060 kB"
+  ]
+}

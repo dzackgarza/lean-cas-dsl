@@ -1,0 +1,16 @@
+{
+  "utc": "2026-11-26T12:46:26.158218+00:00",
+  "active": [],
+  "result_exists": false,
+  "output_bytes": 6224,
+  "last_lines": [
+    "Build completed successfully (3904 jobs).",
+    "[execution] native lake --log-level=error lean CasCompiler/ContextTests.lean -- -DstderrAsMessages=false ",
+    "[execution] native lake --log-level=error lean CasCompiler/SourceInstanceTests.lean -- -DstderrAsMessages=false ",
+    "/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/SourceInstanceTests.lean:1:0: error: (deterministic) timeout at `isDefEq`, maximum number of heartbeats (200000) has been reached",
+    "",
+    "Note: Use `set_option maxHeartbeats <num>` to set the limit.",
+    "",
+    "Hint: Additional diagnostic information may be available using the `set_option diagnostics true` command."
+  ]
+}

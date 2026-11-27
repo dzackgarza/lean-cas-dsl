@@ -1,0 +1,23 @@
+{
+  "utc": "2026-11-26T16:24:53.010908+00:00",
+  "diagnostic_only": true,
+  "head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "frozen_input_count": 759,
+  "snapshot_sha256": "419edcd32528eb4f9414eae076f5a0780a6c7f096df72b33c39638cff5e96e59",
+  "archive_sha256": "6dcf27ebce857228a9319f20989c7057655febd5d8eb0ce0b1ce27084a5801c4",
+  "changed_since77": {
+    "CasCompiler/SourceTestSupport.lean": {
+      "before": "a4114d4d629444b707d1d7df83fba22cd6a76d6d6c294c9a4d159d1f6bbbc5a7",
+      "after": "3ca684d5120c129207916ce8c8e1506cae6f9755915c8bdf42a3613b2880b938"
+    }
+  },
+  "original_probe_unchanged": true,
+  "native_inventory": [],
+  "command": "source scripts/container.sh\nincontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json python3 timing/logs/20261126-source-instance-finite-origin-78/runner.py\n",
+  "probe_sha256": "45e4ca2e4d9064bb46e0eeb2ec0b2c67e911ead4b6704eafb7777ce859c30baa",
+  "diagnostic_patches": {
+    "visitNativeData-diagnostic-78.git.patch": "a2e6b58c04049dbc781214257fb9d002a1521f1f91b87312668d4fd177048233",
+    "visitNativeData-diagnostic-78.reverse.git.patch": "fb00499cfe9ce78c2d4207fb5547af0559b2c756efd24ab0cbfa5b81880ab242"
+  },
+  "normal_ledger_entry": false
+}

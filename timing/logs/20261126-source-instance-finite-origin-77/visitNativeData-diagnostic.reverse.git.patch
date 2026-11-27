@@ -1,0 +1,53 @@
+--- a/CasCompiler/SourceTestSupport.lean
++++ b/CasCompiler/SourceTestSupport.lean
+@@ -98,10 +98,8 @@
+ /-- Visit actual native data through explicit typed value aliases. The assertion callback
+ can inspect an ordinary native constructor without unfolding any registered declaration. -/
+ partial def visitNativeData (assertion : Expr → SourceReadM Bool) (source : Expr)
+-    (throughAuthoredLets : Bool := true) (diagnosticPath : String := "root") :
++    (throughAuthoredLets : Bool := true) :
+     SourceReadM Nat := do
+-  if source.isAppOfArity `List.toFinset 3 then
+-    liftM (m := IO) <| IO.println s!"FINITE_PATH {diagnosticPath}"
+   if ← assertion source then return 1
+   let followSelection ← if !throughAuthoredLets && source.getAppFn.isFVar then do
+     let scope ← get
+@@ -113,36 +111,25 @@
+     if let some selected ← SourceReadM.selection? source then
+       if selected.value.equal source then return 0
+       return ← visitNativeData assertion selected.value throughAuthoredLets
+-        (diagnosticPath ++ "/selected")
+   match source with
+   | .fvar localId =>
+     if !throughAuthoredLets then pure 0
+     else match (← localId.getDecl).value? with
+       | some value => visitNativeData assertion value throughAuthoredLets
+-          (diagnosticPath ++ "/authored-let")
+       | none => pure 0
+   | .app function argument =>
+-    let head := match source.getAppFn with
+-      | .const name _ => toString name
+-      | .fvar id => toString id.name
+-      | _ => "other"
+     let first ← visitNativeData assertion function throughAuthoredLets
+-      (diagnosticPath ++ "/function:" ++ head)
+     let second ← visitNativeData assertion argument throughAuthoredLets
+-      (diagnosticPath ++ s!"/argument:{head}:{source.getAppNumArgs - 1}")
+     return first + second
+-  | .letE name _ value body _ =>
++  | .letE _ _ value body _ =>
+     visitNativeData assertion (body.instantiate1 value) throughAuthoredLets
+-      (diagnosticPath ++ s!"/lexical-let:{name}")
+   | .proj _ _ parent | .mdata _ parent =>
+-    visitNativeData assertion parent throughAuthoredLets (diagnosticPath ++ "/parent")
++    visitNativeData assertion parent throughAuthoredLets
+   | .lam name type body binderInfo | .forallE name type body binderInfo => do
+     let inType ← visitNativeData assertion type throughAuthoredLets
+-      (diagnosticPath ++ s!"/binder-type:{name}")
+     let inBody ← SourceReadM.withBinder name type none binderInfo
+       (fun _ count => pure count) fun parameter =>
+         visitNativeData assertion (body.instantiate1 parameter) throughAuthoredLets
+-          (diagnosticPath ++ s!"/binder-body:{name}")
+     return inType + inBody
+   | _ => pure 0
+ 

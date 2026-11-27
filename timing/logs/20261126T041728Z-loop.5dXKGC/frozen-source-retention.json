@@ -1,0 +1,14 @@
+{
+  "created_utc": "2026-11-26T04:17:09.943554+00:00",
+  "snapshot": ".tmp/validation-typed-integrated-20-sources.json",
+  "snapshot_sha256": "42f199838af9d0f8f6981b7b38d252d7d3fc72d4a761c4b8a11ba1b9ce35e571",
+  "archive": ".tmp/validation-typed-integrated-20-source-bytes.tar.gz",
+  "archive_sha256": "d4754a8067b06c0b749b533cf5e88b5eb53a025f5f599c71a436c5fdc3793f6d",
+  "archive_bytes": 2450357,
+  "files": 754,
+  "changes_from19": [
+    "CasRuntime/ValueTests.lean"
+  ],
+  "validation_command": "source scripts/container.sh\nincontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json just loop 'CasRuntime.ValueTests CasCompiler.SourceSubsetTests CasCompiler.SourceTupleTests CasCompiler.SourceOperationTests CasCompiler.SourceInstanceTests'",
+  "automatic_successor_authorized": false
+}

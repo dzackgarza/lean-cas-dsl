@@ -1,0 +1,77 @@
+[build] native lake --log-level=error build +CasCompiler.SourceInstanceTests:deps +CasRuntime.ConstrainedPointTests:deps +CasCompiler.SourceGeneratorTests:deps +CasCompiler.SourceOperationTests:deps +CasCompiler.SourceRingTests:deps +CasCompiler.SourceViewTests:deps +CasCompiler.SourceSubsetTests:deps +CasCompiler.SourceTupleTests:deps +CasCatalogue.EvidencePresentationProbes:deps +CasCatalogue.StructuredParameterProbes:deps 
+✔ [3929/3987] Built CasCompiler.ConstructorPorts (65s)
+✔ [3930/3987] Built CasCompiler.MapInterface (65s)
+✔ [3931/3987] Built CasCompiler.CreationSource (65s)
+✔ [3932/3987] Built CasCompiler.StructuralMap (65s)
+✔ [3933/3987] Built CasCompiler.FieldType (66s)
+✔ [3934/3987] Built CasCompiler.SourceTestSupport (79s)
+✔ [3935/3987] Built CasRuntime.ManifestAdmission (67s)
+✔ [3943/3987] Built CasCompiler.ConstructorTransport (32s)
+✔ [3944/3987] Built CasRuntime.Realization (39s)
+✔ [3945/3987] Built CasRuntime.Value (70s)
+✔ [3946/3987] Built CasRuntime.Occurrence (45s)
+✔ [3947/3987] Built CasRuntime.CategoricalPointPacket (45s)
+✔ [3948/3987] Built CasRuntime.Literal (46s)
+✔ [3949/3987] Built CasRuntime.InputRoute (46s)
+✔ [3950/3987] Built CasRuntime.Scope (8.4s)
+✔ [3951/3987] Built CasRuntime.Reply (8.1s)
+✔ [3952/3987] Built CasRuntime.Environment (71s)
+✔ [3953/3987] Built CasRuntime.CallableView (11s)
+✔ [3954/3987] Built CasRuntime.FixedValue (13s)
+✔ [3955/3987] Built CasRuntime.RoleMap (16s)
+✔ [3956/3987] Built CasRuntime.DeclaredInput (20s)
+✔ [3957/3987] Built CasRuntime.Observation (25s)
+✔ [3958/3987] Built CasRuntime.PreparedRequest (25s)
+✔ [3959/3987] Built CasRuntime.FixedInput (40s)
+✔ [3960/3987] Built CasRuntime.Closure (42s)
+✔ [3961/3987] Built CasRuntime.KernelState (12s)
+✔ [3962/3987] Built CasRuntime.InputResult (15s)
+✔ [3963/3987] Built CasRuntime.Encode (20s)
+✔ [3964/3987] Built CasRuntime.Presentation (11s)
+✔ [3965/3987] Built CasRuntime.Transaction (21s)
+✔ [3966/3987] Built CasRuntime.Transport (13s)
+✔ [3967/3987] Built CasRuntime.Association (14s)
+✔ [3968/3987] Built CasRuntime.ExecutionContext (7.3s)
+✔ [3969/3987] Built CasRuntime.Execute (12s)
+✔ [3970/3987] Built CasRuntime.ResultCodec (7.0s)
+✔ [3971/3987] Built CasRuntime.ConstructorPorts (8.1s)
+✔ [3972/3987] Built CasRuntime.NativeMapEndpoints (8.6s)
+✔ [3973/3987] Built CasRuntime.ConstructionSource (12s)
+✔ [3974/3987] Built CasRuntime.Materialize (25s)
+✔ [3975/3987] Built CasRuntime.Creation (17s)
+✔ [3976/3987] Built CasRuntime.Point (31s)
+✔ [3977/3987] Built CasRuntime.Limit (15s)
+✔ [3978/3987] Built CasRuntime.LimitUniversal (14s)
+✔ [3979/3987] Built CasRuntime.RoutedMethod (88s)
+✔ [3980/3987] Built CasRuntime.Property (12s)
+✔ [3981/3987] Built CasRuntime.ChildCall (18s)
+✔ [3982/3987] Built CasRuntime.Invocation (17s)
+✔ [3983/3987] Built CasCompiler.Lower (75s)
+✔ [3984/3987] Built CasRuntime.Demand (30s)
+✔ [3985/3987] Built CasRuntime.Kernel (11s)
+✔ [3986/3987] Built CasRuntime.Session (28s)
+Build completed successfully (3987 jobs).
+[execution] native lake --log-level=error lean CasCompiler/SourceInstanceTests.lean -- -DstderrAsMessages=false 
+[execution] native lake --log-level=error lean CasRuntime/ConstrainedPointTests.lean -- -DstderrAsMessages=false 
+/repos/v1-integration-20261106/lean-cas-dsl/CasRuntime/ConstrainedPointTests.lean:81:12: error: Type mismatch
+  Lean.throwError (toMessageData "the constrained input lost its original source binding")
+has type
+  ?m.148 ?m.149
+of sort `Type` but is expected to have type
+  SourceReadM Unit
+of sort `Type 1`
+/repos/v1-integration-20261106/lean-cas-dsl/CasRuntime/ConstrainedPointTests.lean:220:10: error: Type mismatch
+  Lean.throwError (toMessageData "the original formed inclusion is outside the source context")
+has type
+  ?m.756 ?m.757
+of sort `Type` but is expected to have type
+  SourceReadM Unit
+of sort `Type 1`
+/repos/v1-integration-20261106/lean-cas-dsl/CasRuntime/ConstrainedPointTests.lean:271:8: error: Type mismatch
+  Lean.throwError (toMessageData "the constrained literal lost its native record constructor")
+has type
+  ?m.37 ?m.38
+of sort `Type` but is expected to have type
+  SourceReadM Unit
+of sort `Type 1`
+slow: execution status 1; status 1 in 1076.299 s; log timing/logs/20261126T163927Z-slow.V5DqjF/output.log

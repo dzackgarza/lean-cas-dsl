@@ -1,0 +1,15 @@
+[build] native lake --log-level=error build +CasCompiler.SourceSubsetTests:deps +CasCompiler.SourceTupleTests:deps +CasCompiler.SourceOperationTests:deps +CasCompiler.SourceInstanceTests:deps +CasCompiler.SourceMemberCompetitionTests:deps 
+✔ [3884/3896] Built CasCompiler.ReadOperation (42s)
+✔ [3891/3896] Built CasCompiler.Read (11s)
+Build completed successfully (3896 jobs).
+[execution] native lake --log-level=error lean CasCompiler/SourceSubsetTests.lean -- -DstderrAsMessages=false 
+/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/SourceSubsetTests.lean:6:0: error: Application type mismatch: The argument
+  selectedSource✝³.hom'.toFun (id (selectedSource✝¹, selectedSource))
+has type
+  Foundation.PowerSets.boolCarrier
+    ((CategoryTheory.Functor.id ↑Foundation.PowerSets.BooleanAlgebras).obj selectedSource✝¹¹)
+but is expected to have type
+  Foundation.PowerSets.powerSet selectedSource✝⁷²
+in the application
+  selectedSource✝¹³.hom.hom'.toFun (selectedSource✝³.hom'.toFun (id (selectedSource✝¹, selectedSource)))
+slow: execution status 1; status 1 in 165.072 s; log timing/logs/20261126T045525Z-slow.Ozx2jJ/output.log

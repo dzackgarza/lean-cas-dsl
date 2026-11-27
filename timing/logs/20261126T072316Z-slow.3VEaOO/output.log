@@ -1,0 +1,7 @@
+[build] native lake --log-level=error build +CasCompiler.SourceInstanceTests:deps +CasCompiler.SourceRingTests:deps +CasCompiler.SourceViewTests:deps +CasCompiler.SourceSubsetTests:deps +CasCompiler.SourceTupleTests:deps +CasCompiler.SourceOperationTests:deps +CasCompiler.SourceMemberCompetitionTests:deps 
+✔ [3860/3898] Built CasCompiler.SourceRing (28s)
+✔ [3891/3898] Built CasCompiler.Read (8.9s)
+Build completed successfully (3898 jobs).
+[execution] native lake --log-level=error lean CasCompiler/SourceInstanceTests.lean -- -DstderrAsMessages=false 
+/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/SourceInstanceTests.lean:3:21: error: the retained source application changed its selected original declaration
+slow: execution status 1; status 1 in 201.950 s; log timing/logs/20261126T072316Z-slow.3VEaOO/output.log

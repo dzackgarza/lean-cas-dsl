@@ -1,0 +1,8 @@
+[build] native lake --log-level=error build +CasRuntime.FixedInputRouteTests:deps +CasRuntime.LiteralTests:deps +CasCompiler.SourceCarrierTests:deps 
+Build completed successfully (3943 jobs).
+[execution] native lake --log-level=error lean CasRuntime/FixedInputRouteTests.lean -- -DstderrAsMessages=false 
+[execution] native lake --log-level=error lean CasRuntime/LiteralTests.lean -- -DstderrAsMessages=false 
+[execution] native lake --log-level=error lean CasCompiler/SourceCarrierTests.lean -- -DstderrAsMessages=false 
+/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/SourceCarrierTests.lean:7:36: error: context publication requires a resolved expression in its local scope
+/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/SourceCarrierTests.lean:1:0: error: context publication requires a resolved expression in its local scope
+loop: execution status 1; status 1 in 209.508 s; log timing/logs/20261125T223956Z-loop.OK7a0s/output.log

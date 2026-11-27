@@ -1,0 +1,32 @@
+[
+  {
+    "instruction": "0x7f5677f4db21",
+    "mapping": "7f5671da5000-7f5678061000",
+    "permissions": "r-xp",
+    "mapping_file_offset": "03388000",
+    "file_offset": "0x9530b21",
+    "path": "/opt/elan/toolchains/leanprover--lean4---v4.33.0/lib/lean/libleanshared.so",
+    "elf_virtual_address": "0x9531b21",
+    "symbol": null
+  },
+  {
+    "instruction": "0x7f5677f4c839",
+    "mapping": "7f5671da5000-7f5678061000",
+    "permissions": "r-xp",
+    "mapping_file_offset": "03388000",
+    "file_offset": "0x952f839",
+    "path": "/opt/elan/toolchains/leanprover--lean4---v4.33.0/lib/lean/libleanshared.so",
+    "elf_virtual_address": "0x9530839",
+    "symbol": null
+  },
+  {
+    "instruction": "0x7f566e8b572e",
+    "mapping": "7f566e843000-7f566e9a6000",
+    "permissions": "r-xp",
+    "mapping_file_offset": "00028000",
+    "file_offset": "0x9a72e",
+    "path": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+    "elf_virtual_address": "0x9a72e",
+    "symbol": null
+  }
+]

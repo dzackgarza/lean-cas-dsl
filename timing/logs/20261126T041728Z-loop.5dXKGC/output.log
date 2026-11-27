@@ -1,0 +1,6 @@
+[build] native lake --log-level=error build +CasRuntime.ValueTests:deps +CasCompiler.SourceSubsetTests:deps +CasCompiler.SourceTupleTests:deps +CasCompiler.SourceOperationTests:deps +CasCompiler.SourceInstanceTests:deps 
+Build completed successfully (3904 jobs).
+[execution] native lake --log-level=error lean CasRuntime/ValueTests.lean -- -DstderrAsMessages=false 
+[execution] native lake --log-level=error lean CasCompiler/SourceSubsetTests.lean -- -DstderrAsMessages=false 
+/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/SourceSubsetTests.lean:6:0: error: the retained operand has a different declared domain
+loop: execution status 1; status 1 in 210.869 s; log timing/logs/20261126T041728Z-loop.5dXKGC/output.log

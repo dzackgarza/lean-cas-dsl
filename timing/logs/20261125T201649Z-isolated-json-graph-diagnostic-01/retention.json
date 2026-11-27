@@ -1,0 +1,17 @@
+{
+  "retained_utc": "2026-11-25T20:25:39.928201+00:00",
+  "source_directory": "/home/dzack/.local/share/docker/volumes/sage-repos/_data/v1-integration-20261106/lean-cas-dsl/.tmp/diagnostic-json-graph-20261125-01",
+  "kind": "exact isolated native validation evidence; not a standard feedback row or milestone acceptance",
+  "result_status": "passed",
+  "files_sha256": {
+    "launch.sh": "f2dabcd21e3fd5b18251aeb091edf12038ac9f6bd118eff098e90b34e049b36f",
+    "launcher.json": "f27a88d7c1451f2545d73651832fd4ef001ae943b9baea39bf5604c3b0c890af",
+    "logs/JsonGraphMismatch.log": "7b3bdbcc1222de53bec4090b6f8fa2cfd5cdb7077ea4e7a89011a550fcbef293",
+    "output.log": "d07850d354d7d4e9794066e4d4873e8855621d8568fe25ebf2b854fae01754c1",
+    "result.json": "4414a8b7e863c0aee6fafd68f0c12ca64781f2507f2801596be9311653798f26",
+    "runner.py": "69c1c7dfbe827fe352a38215e895e3e728a3a46e4fa494c22980fdb6fb1c14b5",
+    "snapshot.json": "634c2194d36f4aff47dbb97cd2aecc7bbe71c406248c3ee449c790d6812bb7e6",
+    "src/CasTools/JsonGraphMismatch.lean": "78490fdc347c255280e692139b7fdfefc100b7e2fa6cea4172b8196c5b07ec3d",
+    "status.json": "4414a8b7e863c0aee6fafd68f0c12ca64781f2507f2801596be9311653798f26"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "observed_utc": "2026-11-25T20:49:29.060757+00:00",
+  "wrapper_descendants": [
+    {
+      "pid": 2740171,
+      "read_error": "[Errno 2] No such file or directory: '/proc/2740171/status'"
+    }
+  ],
+  "result_exists": true,
+  "application_files": 5,
+  "application_bytes": 1188952189
+}

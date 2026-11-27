@@ -1,0 +1,41 @@
+{
+  "observed_utc": "2026-11-26T06:08:41.469613+00:00",
+  "source_snapshot": ".tmp/validation-typed-integrated-31-sources.json",
+  "source_snapshot_sha256": "de0262f95f05bb37d9daf7dca576dbf8ef36b8e7543f0b9254366616362c9854",
+  "source_count": 754,
+  "changed_sources": [],
+  "preflight_head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "final_head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "head_changed": false,
+  "native_processes": [],
+  "result_sha256": "f77da0e318046c0a5841bea787108f00c413ff998009fd97cbb35aee8e0cd994",
+  "ledger_matching_rows": [
+    648
+  ],
+  "result": {
+    "run": "20261126T055956Z-slow.ye1okS",
+    "status": 1,
+    "seconds": 508.371213861,
+    "execution_status": 1,
+    "over_limit": false,
+    "within_loop_bound": false,
+    "attempted_sources": [],
+    "phases": {
+      "build": {
+        "seconds": 450.966283277,
+        "status": 1
+      },
+      "execution": {
+        "seconds": 0.0,
+        "status": null
+      },
+      "acceptance": {
+        "seconds": 0.0,
+        "status": null
+      }
+    },
+    "finished_utc": "2026-11-26T06:08:26.808335+00:00"
+  },
+  "release": true,
+  "automatic_successor_authorized": false
+}

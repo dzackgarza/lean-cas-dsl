@@ -1,0 +1,7 @@
+{
+  "pid": 482732,
+  "started_utc": "2026-11-25T20:14:33.228676+00:00",
+  "script": "/home/dzack/.local/share/docker/volumes/sage-repos/_data/v1-integration-20261106/lean-cas-dsl/.tmp/validation-json-graph-20261125-02/launch.sh",
+  "log": "/home/dzack/.local/share/docker/volumes/sage-repos/_data/v1-integration-20261106/lean-cas-dsl/.tmp/validation-json-graph-20261125-02/output.log",
+  "result": "/home/dzack/.local/share/docker/volumes/sage-repos/_data/v1-integration-20261106/lean-cas-dsl/.tmp/validation-json-graph-20261125-02/result.json"
+}

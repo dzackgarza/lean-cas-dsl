@@ -1,0 +1,2 @@
+source scripts/container.sh
+incontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json just slow 'Validate preserved original proofs and typed-source regressions after the generic proof-retention repair' CasCompiler.ProofTests CasCompiler.SourceInstanceTests CasCompiler.SourceGeneratorTests CasCompiler.SourceOperationTests CasCompiler.SourceRingTests CasCompiler.SourceViewTests CasCompiler.SourceSubsetTests CasCompiler.SourceTupleTests

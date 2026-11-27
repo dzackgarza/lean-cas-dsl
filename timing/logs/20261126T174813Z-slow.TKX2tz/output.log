@@ -1,0 +1,37 @@
+[build] native lake --log-level=error build +CasCompiler.SourceTupleTests:deps +CasRuntime.ConstrainedPointTests:deps +CasCompiler.SourceInstanceTests:deps +CasCompiler.SourceGeneratorTests:deps +CasCompiler.SourceOperationTests:deps +CasCompiler.SourceRingTests:deps +CasCompiler.SourceViewTests:deps +CasCompiler.SourceSubsetTests:deps +CasCatalogue.EvidencePresentationProbes:deps +CasCatalogue.StructuredParameterProbes:deps 
+✖ [3956/3987] Building CasCompiler.SourceTuple (67s)
+trace: .> LEAN_PATH=/opt/mathlib/.lake/packages/Cli/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/checkdecls/.lake/build/lib/lean:/opt/mathlib/.lake/packages/batteries/.lake/build/lib/lean:/opt/mathlib/.lake/packages/Qq/.lake/build/lib/lean:/opt/mathlib/.lake/packages/aesop/.lake/build/lib/lean:/opt/mathlib/.lake/packages/proofwidgets/.lake/build/lib/lean:/opt/mathlib/.lake/packages/importGraph/.lake/build/lib/lean:/opt/mathlib/.lake/packages/LeanSearchClient/.lake/build/lib/lean:/opt/mathlib/.lake/packages/plausible/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/BrauerGroup/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/nbdsl-worker/worker/.lake/build/lib/lean:/opt/mathlib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cslib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/PolyFun/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/lean_categories/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cas_leaf_contracts/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean /opt/elan/toolchains/leanprover--lean4---v4.33.0/bin/lean /repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/SourceTuple.lean -o /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean/CasCompiler/SourceTuple.olean -i /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean/CasCompiler/SourceTuple.ilean -c /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/ir/CasCompiler/SourceTuple.c --setup /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/ir/CasCompiler/SourceTuple.setup.json --json
+error: CasCompiler/SourceTuple.lean:24:38: Invalid field notation: Type of
+  constructor
+is not known; cannot resolve field `induct`
+
+Hint: Consider replacing the field projection with a call to one of the following:
+  • `ConstantKind.induct`
+  • `ConstructorVal.induct`
+  • `Array.anyM.loop.induct`
+  • `Array.foldlM.loop.induct`
+  • `Array.foldrM.fold.induct`
+  • `Array.forIn'.loop.induct`
+  • `Array.mapFinIdxM.map.induct`
+  • `Std.DTreeMap.Internal.Impl.erase.induct`
+  • `Std.DTreeMap.Internal.Impl.insert.induct`
+  • `Std.DTreeMap.Internal.Impl.maxView.induct`
+  • `Std.DTreeMap.Internal.Impl.minEntry?.induct`
+  • `Std.DTreeMap.Internal.Impl.minView.induct`
+  • `Std.DTreeMap.Internal.Impl.updateCell.induct`
+  • `Int.Internal.Linear.Expr.toPoly'.go.induct`
+  • `Grind.Linarith.Expr.toPoly'.go.induct`
+  • `Grind.Linarith.Poly.denote'.go.induct`
+  • `Nat.Internal.Linear.Expr.toPoly.go.induct`
+error: CasCompiler/SourceTuple.lean:23:24: Type mismatch
+  getConstInfoCtor projection.info.ctorName
+has type
+  ?m.49 ConstructorVal
+of sort `Type` but is expected to have type
+  SourceReadM (?m.139 __do_lift✝¹ __r✝⁵ __r✝⁴ value __r✝³ __r✝² __do_lift✝ __r✝¹ __do_jp✝ projection parent __r✝)
+of sort `Type 1`
+error: Lean exited with code 1
+Some required targets logged failures:
+- CasCompiler.SourceTuple
+error: build failed
+slow: execution status 1; status 1 in 168.678 s; log timing/logs/20261126T174813Z-slow.TKX2tz/output.log

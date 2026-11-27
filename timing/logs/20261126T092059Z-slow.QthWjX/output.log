@@ -1,0 +1,12 @@
+[build] native lake --log-level=error build +CasCompiler.ProofTests:deps +CasCompiler.SourceInstanceTests:deps +CasCompiler.SourceGeneratorTests:deps +CasCompiler.SourceOperationTests:deps +CasCompiler.SourceRingTests:deps +CasCompiler.SourceViewTests:deps +CasCompiler.SourceSubsetTests:deps +CasCompiler.SourceTupleTests:deps 
+✔ [3854/3899] Built CasCompiler.SourceProof (27s)
+✔ [3892/3899] Built CasCompiler.Read (8.5s)
+Build completed successfully (3899 jobs).
+[execution] native lake --log-level=error lean CasCompiler/ProofTests.lean -- -DstderrAsMessages=false 
+[execution] native lake --log-level=error lean CasCompiler/SourceInstanceTests.lean -- -DstderrAsMessages=false 
+/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/SourceInstanceTests.lean:3:1: error: (deterministic) timeout at `transform`, maximum number of heartbeats (200000) has been reached
+
+Note: Use `set_option maxHeartbeats <num>` to set the limit.
+
+Hint: Additional diagnostic information may be available using the `set_option diagnostics true` command.
+slow: execution status 1; status 1 in 527.330 s; log timing/logs/20261126T092059Z-slow.QthWjX/output.log

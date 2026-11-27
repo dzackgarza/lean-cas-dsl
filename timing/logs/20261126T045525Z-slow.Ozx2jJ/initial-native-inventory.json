@@ -1,0 +1,10 @@
+{
+  "observed_utc": "2026-11-26T04:54:29.558167+00:00",
+  "checkout": "/home/dzack/.local/share/docker/volumes/sage-repos/_data/v1-integration-20261106/lean-cas-dsl",
+  "native_processes": [],
+  "disk_free_bytes": 333873152,
+  "memory": [
+    "MemAvailable:    3334924 kB",
+    "SwapFree:        7422572 kB"
+  ]
+}

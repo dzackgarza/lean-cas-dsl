@@ -1,0 +1,173 @@
+{
+  "markers": [
+    {
+      "marker": "INSTANCE_BLOCK_START block=1 rawTicks=0",
+      "rawTicks": 0,
+      "block": 1
+    },
+    {
+      "marker": "INSTANCE_PREFIX_START block=1 index=0 cumulative=26641",
+      "cumulative": 26641,
+      "block": 1,
+      "index": 0
+    },
+    {
+      "marker": "INSTANCE_PREFIX_DONE block=1 index=0 rawTicks=340548 cumulative=367189",
+      "rawTicks": 340548,
+      "cumulative": 367189,
+      "block": 1,
+      "index": 0
+    },
+    {
+      "marker": "INSTANCE_PREFIX_START block=1 index=1 cumulative=367331",
+      "cumulative": 367331,
+      "block": 1,
+      "index": 1
+    },
+    {
+      "marker": "INSTANCE_PREFIX_DONE block=1 index=1 rawTicks=483400 cumulative=850731",
+      "rawTicks": 483400,
+      "cumulative": 850731,
+      "block": 1,
+      "index": 1
+    },
+    {
+      "marker": "INSTANCE_PREFIX_START block=1 index=2 cumulative=850739",
+      "cumulative": 850739,
+      "block": 1,
+      "index": 2
+    },
+    {
+      "marker": "INSTANCE_PREFIX_DONE block=1 index=2 rawTicks=1013100 cumulative=1863839",
+      "rawTicks": 1013100,
+      "cumulative": 1863839,
+      "block": 1,
+      "index": 2
+    },
+    {
+      "marker": "INSTANCE_PREFIX_START block=1 index=3 cumulative=1863847",
+      "cumulative": 1863847,
+      "block": 1,
+      "index": 3
+    },
+    {
+      "marker": "INSTANCE_PREFIX_DONE block=1 index=3 rawTicks=1016766 cumulative=2880613",
+      "rawTicks": 1016766,
+      "cumulative": 2880613,
+      "block": 1,
+      "index": 3
+    },
+    {
+      "marker": "INSTANCE_PREFIX_START block=1 index=4 cumulative=2880621",
+      "cumulative": 2880621,
+      "block": 1,
+      "index": 4
+    },
+    {
+      "marker": "INSTANCE_PREFIX_DONE block=1 index=4 rawTicks=4510757 cumulative=7391378",
+      "rawTicks": 4510757,
+      "cumulative": 7391378,
+      "block": 1,
+      "index": 4
+    },
+    {
+      "marker": "INSTANCE_SELECTED_START block=1 phase=sourceModule index=4 cumulative=7391380",
+      "cumulative": 7391380,
+      "block": 1,
+      "index": 4
+    },
+    {
+      "marker": "INSTANCE_SELECTED_DONE block=1 phase=sourceModule index=4 rawTicks=311409 cumulative=7702789",
+      "rawTicks": 311409,
+      "cumulative": 7702789,
+      "block": 1,
+      "index": 4
+    },
+    {
+      "marker": "INSTANCE_DEFINE_START block=1 text=\"let Rfirst := \u211a\" cumulative=7702840",
+      "cumulative": 7702840,
+      "block": 1
+    },
+    {
+      "marker": "INSTANCE_DEFINE_DONE block=1 text=\"let Rfirst := \u211a\" rawTicks=3526596 cumulative=11229436",
+      "rawTicks": 3526596,
+      "cumulative": 11229436,
+      "block": 1
+    },
+    {
+      "marker": "INSTANCE_DEFINE_START block=1 text=\"let Rsecond := \u211a\" cumulative=11229456",
+      "cumulative": 11229456,
+      "block": 1
+    },
+    {
+      "marker": "INSTANCE_DEFINE_DONE block=1 text=\"let Rsecond := \u211a\" rawTicks=3682011 cumulative=14911467",
+      "rawTicks": 3682011,
+      "cumulative": 14911467,
+      "block": 1
+    },
+    {
+      "marker": "INSTANCE_DEFINE_START block=1 text=\"let firstView := view formedSource along \u00abfun.bilin_module.forget\u00bb(Rfirst, Rsecond)\" cumulative=14911602",
+      "cumulative": 14911602,
+      "block": 1
+    },
+    {
+      "marker": "INSTANCE_DEFINE_DONE block=1 text=\"let firstView := view formedSource along \u00abfun.bilin_module.forget\u00bb(Rfirst, Rsecond)\" rawTicks=9326814 cumulative=24238416",
+      "rawTicks": 9326814,
+      "cumulative": 24238416,
+      "block": 1
+    },
+    {
+      "marker": "INSTANCE_SELECTED_START block=1 phase=equal_scalar_view text=\"let firstView := view formedSource along \u00abfun.bilin_module.forget\u00bb(Rfirst, Rsecond)\" cumulative=24238418",
+      "cumulative": 24238418,
+      "block": 1
+    },
+    {
+      "marker": "INSTANCE_SELECTED_DONE block=1 phase=equal_scalar_view text=\"let firstView := view formedSource along \u00abfun.bilin_module.forget\u00bb(Rfirst, Rsecond)\" rawTicks=876050 cumulative=25114468",
+      "rawTicks": 876050,
+      "cumulative": 25114468,
+      "block": 1
+    },
+    {
+      "marker": "INSTANCE_DEFINE_START block=1 text=\"let secondView := view formedSource along \u00abfun.bilin_module.forget\u00bb(Rsecond, Rfirst)\" cumulative=25114526",
+      "cumulative": 25114526,
+      "block": 1
+    },
+    {
+      "marker": "INSTANCE_DEFINE_DONE block=1 text=\"let secondView := view formedSource along \u00abfun.bilin_module.forget\u00bb(Rsecond, Rfirst)\" rawTicks=14112478 cumulative=39227004",
+      "rawTicks": 14112478,
+      "cumulative": 39227004,
+      "block": 1
+    },
+    {
+      "marker": "INSTANCE_SELECTED_START block=1 phase=equal_scalar_view text=\"let secondView := view formedSource along \u00abfun.bilin_module.forget\u00bb(Rsecond, Rfirst)\" cumulative=39227006",
+      "cumulative": 39227006,
+      "block": 1
+    },
+    {
+      "marker": "INSTANCE_SELECTED_DONE block=1 phase=equal_scalar_view text=\"let secondView := view formedSource along \u00abfun.bilin_module.forget\u00bb(Rsecond, Rfirst)\" rawTicks=1244196 cumulative=40471202",
+      "rawTicks": 1244196,
+      "cumulative": 40471202,
+      "block": 1
+    },
+    {
+      "marker": "INSTANCE_DEFINE_START block=1 text=\"let F := {x - 1} in \ud835\udcab_fin(\u2124[x])\" cumulative=40471219",
+      "cumulative": 40471219,
+      "block": 1
+    },
+    {
+      "marker": "INSTANCE_BLOCK_START block=2 rawTicks=0",
+      "rawTicks": 0,
+      "block": 2
+    },
+    {
+      "marker": "INSTANCE_BLOCK_DONE block=2 rawTicks=5925",
+      "rawTicks": 5925,
+      "block": 2
+    }
+  ],
+  "last_uncompleted_definition": "INSTANCE_DEFINE_START block=1 text=\"let F := {x - 1} in \ud835\udcab_fin(\u2124[x])\" cumulative=40471219",
+  "original_run_cmd_boundaries_preserved": true,
+  "heartbeat_limit": 200000,
+  "block1_completed": false,
+  "block2_completed": true
+}

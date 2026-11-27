@@ -1,0 +1,12 @@
+[build] native lake --log-level=error build +CasCompiler.SourceLambdaTests:deps 
+Build completed successfully (1640 jobs).
+[execution] native lake --log-level=error lean CasCompiler/SourceLambdaTests.lean -- -DstderrAsMessages=false 
+/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/SourceLambdaTests.lean:4:8: error: Application type mismatch: The argument
+  selectedSource x
+has type
+  selectedSource✝⁷
+but is expected to have type
+  TypeCat.Hom ?X ?Y
+in the application
+  TypeCat.Hom.hom' (selectedSource x)
+slow: execution status 1; status 1 in 40.011 s; log timing/logs/20261126T233920Z-slow.2RESue/output.log

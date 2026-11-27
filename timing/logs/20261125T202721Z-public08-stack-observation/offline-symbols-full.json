@@ -1,0 +1,79 @@
+[
+  {
+    "instruction": "0x7f5677f4db21",
+    "mapping": "7f5671da5000-7f5678061000",
+    "permissions": "r-xp",
+    "mapping_file_offset": "03388000",
+    "file_offset": "0x9530b21",
+    "path": "/opt/elan/toolchains/leanprover--lean4---v4.33.0/lib/lean/libleanshared.so",
+    "elf_virtual_address": "0x9531b21",
+    "symbol": null,
+    "elf_symbol_tables": [
+      {
+        "kind": "dynamic",
+        "entries": 224509
+      },
+      {
+        "kind": "full",
+        "entries": 524924
+      }
+    ],
+    "full_symbol_matches": [
+      {
+        "symbol": "_ZNSt3__112__hash_tableINS_17__hash_value_typeIN4lean4nameENS2_2ir11interpreter18symbol_cache_entryEEENS_22__unordered_map_hasherIS3_NS_4pairIKS3_S6_EENS2_12name_hash_fnENS2_10name_eq_fnEEENS_21__unordered_map_equalIS3_SB_SD_SC_EE16mi_stl_allocatorISB_EE4findIS3_EENS_15__hash_iteratorIPNS_11__hash_nodeIS7_PvEEEERKT_",
+        "symbol_start": "0x9531aa0",
+        "symbol_size": 302,
+        "offset_in_symbol": 129,
+        "table": "full",
+        "demangled": "std::__1::__hash_iterator<std::__1::__hash_node<std::__1::__hash_value_type<lean::name, lean::ir::interpreter::symbol_cache_entry>, void*>*> std::__1::__hash_table<std::__1::__hash_value_type<lean::name, lean::ir::interpreter::symbol_cache_entry>, std::__1::__unordered_map_hasher<lean::name, std::__1::pair<lean::name const, lean::ir::interpreter::symbol_cache_entry>, lean::name_hash_fn, lean::name_eq_fn>, std::__1::__unordered_map_equal<lean::name, std::__1::pair<lean::name const, lean::ir::interpreter::symbol_cache_entry>, lean::name_eq_fn, lean::name_hash_fn>, mi_stl_allocator<std::__1::pair<lean::name const, lean::ir::interpreter::symbol_cache_entry> > >::find<lean::name>(lean::name const&)"
+      }
+    ]
+  },
+  {
+    "instruction": "0x7f5677f4c839",
+    "mapping": "7f5671da5000-7f5678061000",
+    "permissions": "r-xp",
+    "mapping_file_offset": "03388000",
+    "file_offset": "0x952f839",
+    "path": "/opt/elan/toolchains/leanprover--lean4---v4.33.0/lib/lean/libleanshared.so",
+    "elf_virtual_address": "0x9530839",
+    "symbol": null,
+    "elf_symbol_tables": [
+      {
+        "kind": "dynamic",
+        "entries": 224509
+      },
+      {
+        "kind": "full",
+        "entries": 524924
+      }
+    ],
+    "full_symbol_matches": [
+      {
+        "symbol": "_ZN4lean2ir11interpreter13lookup_symbolERKNS_4nameE",
+        "symbol_start": "0x9530810",
+        "symbol_size": 2056,
+        "offset_in_symbol": 41,
+        "table": "full",
+        "demangled": "lean::ir::interpreter::lookup_symbol(lean::name const&)"
+      }
+    ]
+  },
+  {
+    "instruction": "0x7f566e8b572e",
+    "mapping": "7f566e843000-7f566e9a6000",
+    "permissions": "r-xp",
+    "mapping_file_offset": "00028000",
+    "file_offset": "0x9a72e",
+    "path": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+    "elf_virtual_address": "0x9a72e",
+    "symbol": null,
+    "elf_symbol_tables": [
+      {
+        "kind": "dynamic",
+        "entries": 3162
+      }
+    ],
+    "full_symbol_matches": []
+  }
+]

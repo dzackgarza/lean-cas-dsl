@@ -1,0 +1,4203 @@
+{
+  "proofs": [
+    {
+      "index": 1,
+      "context": {
+        "kind": "operation.agreement",
+        "operation": "+",
+        "same": false
+      },
+      "started_raw": 92033730,
+      "last_raw": 93034851,
+      "last_phase": "result.select.after",
+      "completed_stage_ticks": {
+        "scope.open": 472417,
+        "prepare": 1689,
+        "proof.type": 54,
+        "proof.kernel": 519,
+        "closure.abstract": 404,
+        "closure.kernel": 1496,
+        "reapply": 95,
+        "headBeta": 100,
+        "result.kernel": 1506,
+        "result.native": 1591,
+        "result.select": 519756
+      },
+      "pending_before": {},
+      "markers": [
+        "B0_PROOF_PHASE scope.open.before raw=92033730",
+        "B0_PROOF_PHASE scope.open.after raw=92506147",
+        "B0_PROOF_PHASE prepare.before raw=92506176",
+        "B0_PROOF_PHASE prepare.after raw=92507865",
+        "B0_PROOF_PHASE proof.type.before raw=92507883",
+        "B0_PROOF_PHASE proof.type.after raw=92507937",
+        "B0_PROOF_PHASE proof.kernel.before raw=92507955",
+        "B0_PROOF_PHASE proof.kernel.after raw=92508474",
+        "B0_PROOF_PHASE closure.abstract.before raw=92509690",
+        "B0_PROOF_PHASE closure.abstract.after raw=92510094",
+        "B0_PROOF_PHASE closure.kernel.before raw=92510112",
+        "B0_PROOF_PHASE closure.kernel.after raw=92511608",
+        "B0_PROOF_PHASE scope.return.after raw=92511653",
+        "B0_PROOF_PHASE reapply.before raw=92511683",
+        "B0_PROOF_PHASE reapply.after raw=92511778",
+        "B0_PROOF_PHASE headBeta.before raw=92511808",
+        "B0_PROOF_PHASE headBeta.after raw=92511908",
+        "B0_PROOF_PHASE result.kernel.before raw=92511938",
+        "B0_PROOF_PHASE result.kernel.after raw=92513444",
+        "B0_PROOF_PHASE result.native.before raw=92513474",
+        "B0_PROOF_PHASE result.native.after raw=92515065",
+        "B0_PROOF_PHASE result.select.before raw=92515095",
+        "B0_PROOF_PHASE result.select.after raw=93034851"
+      ],
+      "observed_raw_ticks": 1001121,
+      "complete": true
+    },
+    {
+      "index": 2,
+      "context": {
+        "kind": "operation.agreement",
+        "operation": "+",
+        "same": false
+      },
+      "started_raw": 94049375,
+      "last_raw": 95115585,
+      "last_phase": "result.select.after",
+      "completed_stage_ticks": {
+        "scope.open": 482183,
+        "prepare": 8126,
+        "proof.type": 37,
+        "proof.kernel": 5313,
+        "closure.abstract": 2228,
+        "closure.kernel": 6169,
+        "reapply": 4,
+        "headBeta": 1,
+        "result.kernel": 6168,
+        "result.native": 6182,
+        "result.select": 548694
+      },
+      "pending_before": {},
+      "markers": [
+        "B0_PROOF_PHASE scope.open.before raw=94049375",
+        "B0_PROOF_PHASE scope.open.after raw=94531558",
+        "B0_PROOF_PHASE prepare.before raw=94531571",
+        "B0_PROOF_PHASE prepare.after raw=94539697",
+        "B0_PROOF_PHASE proof.type.before raw=94539699",
+        "B0_PROOF_PHASE proof.type.after raw=94539736",
+        "B0_PROOF_PHASE proof.kernel.before raw=94539738",
+        "B0_PROOF_PHASE proof.kernel.after raw=94545051",
+        "B0_PROOF_PHASE closure.abstract.before raw=94546131",
+        "B0_PROOF_PHASE closure.abstract.after raw=94548359",
+        "B0_PROOF_PHASE closure.kernel.before raw=94548361",
+        "B0_PROOF_PHASE closure.kernel.after raw=94554530",
+        "B0_PROOF_PHASE scope.return.after raw=94554531",
+        "B0_PROOF_PHASE reapply.before raw=94554532",
+        "B0_PROOF_PHASE reapply.after raw=94554536",
+        "B0_PROOF_PHASE headBeta.before raw=94554537",
+        "B0_PROOF_PHASE headBeta.after raw=94554538",
+        "B0_PROOF_PHASE result.kernel.before raw=94554539",
+        "B0_PROOF_PHASE result.kernel.after raw=94560707",
+        "B0_PROOF_PHASE result.native.before raw=94560708",
+        "B0_PROOF_PHASE result.native.after raw=94566890",
+        "B0_PROOF_PHASE result.select.before raw=94566891",
+        "B0_PROOF_PHASE result.select.after raw=95115585"
+      ],
+      "observed_raw_ticks": 1066210,
+      "complete": true
+    },
+    {
+      "index": 3,
+      "context": {
+        "kind": "operation.agreement",
+        "operation": "+",
+        "same": false
+      },
+      "started_raw": 96549508,
+      "last_raw": 97632291,
+      "last_phase": "result.select.after",
+      "completed_stage_ticks": {
+        "scope.open": 507690,
+        "prepare": 1368,
+        "proof.type": 40,
+        "proof.kernel": 672,
+        "closure.abstract": 2183,
+        "closure.kernel": 1922,
+        "reapply": 4,
+        "headBeta": 1,
+        "result.kernel": 1927,
+        "result.native": 4384,
+        "result.select": 561473
+      },
+      "pending_before": {},
+      "markers": [
+        "B0_PROOF_PHASE scope.open.before raw=96549508",
+        "B0_PROOF_PHASE scope.open.after raw=97057198",
+        "B0_PROOF_PHASE prepare.before raw=97057211",
+        "B0_PROOF_PHASE prepare.after raw=97058579",
+        "B0_PROOF_PHASE proof.type.before raw=97058581",
+        "B0_PROOF_PHASE proof.type.after raw=97058621",
+        "B0_PROOF_PHASE proof.kernel.before raw=97058623",
+        "B0_PROOF_PHASE proof.kernel.after raw=97059295",
+        "B0_PROOF_PHASE closure.abstract.before raw=97060389",
+        "B0_PROOF_PHASE closure.abstract.after raw=97062572",
+        "B0_PROOF_PHASE closure.kernel.before raw=97062574",
+        "B0_PROOF_PHASE closure.kernel.after raw=97064496",
+        "B0_PROOF_PHASE scope.return.after raw=97064497",
+        "B0_PROOF_PHASE reapply.before raw=97064498",
+        "B0_PROOF_PHASE reapply.after raw=97064502",
+        "B0_PROOF_PHASE headBeta.before raw=97064503",
+        "B0_PROOF_PHASE headBeta.after raw=97064504",
+        "B0_PROOF_PHASE result.kernel.before raw=97064505",
+        "B0_PROOF_PHASE result.kernel.after raw=97066432",
+        "B0_PROOF_PHASE result.native.before raw=97066433",
+        "B0_PROOF_PHASE result.native.after raw=97070817",
+        "B0_PROOF_PHASE result.select.before raw=97070818",
+        "B0_PROOF_PHASE result.select.after raw=97632291"
+      ],
+      "observed_raw_ticks": 1082783,
+      "complete": true
+    },
+    {
+      "index": 4,
+      "context": {
+        "kind": "operation.agreement",
+        "operation": "+",
+        "same": false
+      },
+      "started_raw": 98726953,
+      "last_raw": 99826610,
+      "last_phase": "result.select.after",
+      "completed_stage_ticks": {
+        "scope.open": 520214,
+        "prepare": 283,
+        "proof.type": 42,
+        "proof.kernel": 90,
+        "closure.abstract": 858,
+        "closure.kernel": 1170,
+        "reapply": 4,
+        "headBeta": 1,
+        "result.kernel": 1175,
+        "result.native": 5010,
+        "result.select": 569677
+      },
+      "pending_before": {},
+      "markers": [
+        "B0_PROOF_PHASE scope.open.before raw=98726953",
+        "B0_PROOF_PHASE scope.open.after raw=99247167",
+        "B0_PROOF_PHASE prepare.before raw=99247180",
+        "B0_PROOF_PHASE prepare.after raw=99247463",
+        "B0_PROOF_PHASE proof.type.before raw=99247465",
+        "B0_PROOF_PHASE proof.type.after raw=99247507",
+        "B0_PROOF_PHASE proof.kernel.before raw=99247509",
+        "B0_PROOF_PHASE proof.kernel.after raw=99247599",
+        "B0_PROOF_PHASE closure.abstract.before raw=99248707",
+        "B0_PROOF_PHASE closure.abstract.after raw=99249565",
+        "B0_PROOF_PHASE closure.kernel.before raw=99249567",
+        "B0_PROOF_PHASE closure.kernel.after raw=99250737",
+        "B0_PROOF_PHASE scope.return.after raw=99250738",
+        "B0_PROOF_PHASE reapply.before raw=99250739",
+        "B0_PROOF_PHASE reapply.after raw=99250743",
+        "B0_PROOF_PHASE headBeta.before raw=99250744",
+        "B0_PROOF_PHASE headBeta.after raw=99250745",
+        "B0_PROOF_PHASE result.kernel.before raw=99250746",
+        "B0_PROOF_PHASE result.kernel.after raw=99251921",
+        "B0_PROOF_PHASE result.native.before raw=99251922",
+        "B0_PROOF_PHASE result.native.after raw=99256932",
+        "B0_PROOF_PHASE result.select.before raw=99256933",
+        "B0_PROOF_PHASE result.select.after raw=99826610"
+      ],
+      "observed_raw_ticks": 1099657,
+      "complete": true
+    },
+    {
+      "index": 5,
+      "context": {
+        "kind": "operation.agreement",
+        "operation": "+",
+        "same": false
+      },
+      "started_raw": 100931314,
+      "last_raw": 102059116,
+      "last_phase": "result.select.after",
+      "completed_stage_ticks": {
+        "scope.open": 528243,
+        "prepare": 2907,
+        "proof.type": 37,
+        "proof.kernel": 1491,
+        "closure.abstract": 2061,
+        "closure.kernel": 2699,
+        "reapply": 4,
+        "headBeta": 1,
+        "result.kernel": 2705,
+        "result.native": 4167,
+        "result.select": 582340
+      },
+      "pending_before": {},
+      "markers": [
+        "B0_PROOF_PHASE scope.open.before raw=100931314",
+        "B0_PROOF_PHASE scope.open.after raw=101459557",
+        "B0_PROOF_PHASE prepare.before raw=101459570",
+        "B0_PROOF_PHASE prepare.after raw=101462477",
+        "B0_PROOF_PHASE proof.type.before raw=101462479",
+        "B0_PROOF_PHASE proof.type.after raw=101462516",
+        "B0_PROOF_PHASE proof.kernel.before raw=101462518",
+        "B0_PROOF_PHASE proof.kernel.after raw=101464009",
+        "B0_PROOF_PHASE closure.abstract.before raw=101465131",
+        "B0_PROOF_PHASE closure.abstract.after raw=101467192",
+        "B0_PROOF_PHASE closure.kernel.before raw=101467194",
+        "B0_PROOF_PHASE closure.kernel.after raw=101469893",
+        "B0_PROOF_PHASE scope.return.after raw=101469894",
+        "B0_PROOF_PHASE reapply.before raw=101469895",
+        "B0_PROOF_PHASE reapply.after raw=101469899",
+        "B0_PROOF_PHASE headBeta.before raw=101469900",
+        "B0_PROOF_PHASE headBeta.after raw=101469901",
+        "B0_PROOF_PHASE result.kernel.before raw=101469902",
+        "B0_PROOF_PHASE result.kernel.after raw=101472607",
+        "B0_PROOF_PHASE result.native.before raw=101472608",
+        "B0_PROOF_PHASE result.native.after raw=101476775",
+        "B0_PROOF_PHASE result.select.before raw=101476776",
+        "B0_PROOF_PHASE result.select.after raw=102059116"
+      ],
+      "observed_raw_ticks": 1127802,
+      "complete": true
+    },
+    {
+      "index": 6,
+      "context": {
+        "kind": "operation.agreement",
+        "operation": "+",
+        "same": true
+      },
+      "started_raw": 103560263,
+      "last_raw": 104708263,
+      "last_phase": "result.select.after",
+      "completed_stage_ticks": {
+        "scope.open": 540867,
+        "prepare": 744,
+        "proof.type": 41,
+        "proof.kernel": 533,
+        "closure.abstract": 2099,
+        "closure.kernel": 1643,
+        "reapply": 4,
+        "headBeta": 1,
+        "result.kernel": 1633,
+        "result.native": 3328,
+        "result.select": 595946
+      },
+      "pending_before": {},
+      "markers": [
+        "B0_PROOF_PHASE scope.open.before raw=103560263",
+        "B0_PROOF_PHASE scope.open.after raw=104101130",
+        "B0_PROOF_PHASE prepare.before raw=104101143",
+        "B0_PROOF_PHASE prepare.after raw=104101887",
+        "B0_PROOF_PHASE proof.type.before raw=104101889",
+        "B0_PROOF_PHASE proof.type.after raw=104101930",
+        "B0_PROOF_PHASE proof.kernel.before raw=104101932",
+        "B0_PROOF_PHASE proof.kernel.after raw=104102465",
+        "B0_PROOF_PHASE closure.abstract.before raw=104103601",
+        "B0_PROOF_PHASE closure.abstract.after raw=104105700",
+        "B0_PROOF_PHASE closure.kernel.before raw=104105702",
+        "B0_PROOF_PHASE closure.kernel.after raw=104107345",
+        "B0_PROOF_PHASE scope.return.after raw=104107346",
+        "B0_PROOF_PHASE reapply.before raw=104107347",
+        "B0_PROOF_PHASE reapply.after raw=104107351",
+        "B0_PROOF_PHASE headBeta.before raw=104107352",
+        "B0_PROOF_PHASE headBeta.after raw=104107353",
+        "B0_PROOF_PHASE result.kernel.before raw=104107354",
+        "B0_PROOF_PHASE result.kernel.after raw=104108987",
+        "B0_PROOF_PHASE result.native.before raw=104108988",
+        "B0_PROOF_PHASE result.native.after raw=104112316",
+        "B0_PROOF_PHASE result.select.before raw=104112317",
+        "B0_PROOF_PHASE result.select.after raw=104708263"
+      ],
+      "observed_raw_ticks": 1148000,
+      "complete": true
+    },
+    {
+      "index": 7,
+      "context": {
+        "kind": "operation.agreement",
+        "operation": "-",
+        "same": false
+      },
+      "started_raw": 131609727,
+      "last_raw": 133049296,
+      "last_phase": "result.select.after",
+      "completed_stage_ticks": {
+        "scope.open": 685066,
+        "prepare": 1575,
+        "proof.type": 37,
+        "proof.kernel": 503,
+        "closure.abstract": 508,
+        "closure.kernel": 1475,
+        "reapply": 4,
+        "headBeta": 1,
+        "result.kernel": 1473,
+        "result.native": 1139,
+        "result.select": 746520
+      },
+      "pending_before": {},
+      "markers": [
+        "B0_PROOF_PHASE scope.open.before raw=131609727",
+        "B0_PROOF_PHASE scope.open.after raw=132294793",
+        "B0_PROOF_PHASE prepare.before raw=132294806",
+        "B0_PROOF_PHASE prepare.after raw=132296381",
+        "B0_PROOF_PHASE proof.type.before raw=132296383",
+        "B0_PROOF_PHASE proof.type.after raw=132296420",
+        "B0_PROOF_PHASE proof.kernel.before raw=132296422",
+        "B0_PROOF_PHASE proof.kernel.after raw=132296925",
+        "B0_PROOF_PHASE closure.abstract.before raw=132298168",
+        "B0_PROOF_PHASE closure.abstract.after raw=132298676",
+        "B0_PROOF_PHASE closure.kernel.before raw=132298678",
+        "B0_PROOF_PHASE closure.kernel.after raw=132300153",
+        "B0_PROOF_PHASE scope.return.after raw=132300154",
+        "B0_PROOF_PHASE reapply.before raw=132300155",
+        "B0_PROOF_PHASE reapply.after raw=132300159",
+        "B0_PROOF_PHASE headBeta.before raw=132300160",
+        "B0_PROOF_PHASE headBeta.after raw=132300161",
+        "B0_PROOF_PHASE result.kernel.before raw=132300162",
+        "B0_PROOF_PHASE result.kernel.after raw=132301635",
+        "B0_PROOF_PHASE result.native.before raw=132301636",
+        "B0_PROOF_PHASE result.native.after raw=132302775",
+        "B0_PROOF_PHASE result.select.before raw=132302776",
+        "B0_PROOF_PHASE result.select.after raw=133049296"
+      ],
+      "observed_raw_ticks": 1439569,
+      "complete": true
+    },
+    {
+      "index": 8,
+      "context": {
+        "kind": "operation.agreement",
+        "operation": "-",
+        "same": false
+      },
+      "started_raw": 134503831,
+      "last_raw": 136007028,
+      "last_phase": "result.select.after",
+      "completed_stage_ticks": {
+        "scope.open": 694911,
+        "prepare": 8117,
+        "proof.type": 37,
+        "proof.kernel": 5313,
+        "closure.abstract": 3404,
+        "closure.kernel": 6168,
+        "reapply": 4,
+        "headBeta": 1,
+        "result.kernel": 6164,
+        "result.native": 4367,
+        "result.select": 773429
+      },
+      "pending_before": {},
+      "markers": [
+        "B0_PROOF_PHASE scope.open.before raw=134503831",
+        "B0_PROOF_PHASE scope.open.after raw=135198742",
+        "B0_PROOF_PHASE prepare.before raw=135198755",
+        "B0_PROOF_PHASE prepare.after raw=135206872",
+        "B0_PROOF_PHASE proof.type.before raw=135206874",
+        "B0_PROOF_PHASE proof.type.after raw=135206911",
+        "B0_PROOF_PHASE proof.kernel.before raw=135206913",
+        "B0_PROOF_PHASE proof.kernel.after raw=135212226",
+        "B0_PROOF_PHASE closure.abstract.before raw=135213483",
+        "B0_PROOF_PHASE closure.abstract.after raw=135216887",
+        "B0_PROOF_PHASE closure.kernel.before raw=135216889",
+        "B0_PROOF_PHASE closure.kernel.after raw=135223057",
+        "B0_PROOF_PHASE scope.return.after raw=135223058",
+        "B0_PROOF_PHASE reapply.before raw=135223059",
+        "B0_PROOF_PHASE reapply.after raw=135223063",
+        "B0_PROOF_PHASE headBeta.before raw=135223064",
+        "B0_PROOF_PHASE headBeta.after raw=135223065",
+        "B0_PROOF_PHASE result.kernel.before raw=135223066",
+        "B0_PROOF_PHASE result.kernel.after raw=135229230",
+        "B0_PROOF_PHASE result.native.before raw=135229231",
+        "B0_PROOF_PHASE result.native.after raw=135233598",
+        "B0_PROOF_PHASE result.select.before raw=135233599",
+        "B0_PROOF_PHASE result.select.after raw=136007028"
+      ],
+      "observed_raw_ticks": 1503197,
+      "complete": true
+    },
+    {
+      "index": 9,
+      "context": {
+        "kind": "operation.agreement",
+        "operation": "-",
+        "same": false
+      },
+      "started_raw": 137879590,
+      "last_raw": 139401558,
+      "last_phase": "result.select.after",
+      "completed_stage_ticks": {
+        "scope.open": 720361,
+        "prepare": 1359,
+        "proof.type": 40,
+        "proof.kernel": 672,
+        "closure.abstract": 3335,
+        "closure.kernel": 1936,
+        "reapply": 4,
+        "headBeta": 1,
+        "result.kernel": 1919,
+        "result.native": 3083,
+        "result.select": 787962
+      },
+      "pending_before": {},
+      "markers": [
+        "B0_PROOF_PHASE scope.open.before raw=137879590",
+        "B0_PROOF_PHASE scope.open.after raw=138599951",
+        "B0_PROOF_PHASE prepare.before raw=138599964",
+        "B0_PROOF_PHASE prepare.after raw=138601323",
+        "B0_PROOF_PHASE proof.type.before raw=138601325",
+        "B0_PROOF_PHASE proof.type.after raw=138601365",
+        "B0_PROOF_PHASE proof.kernel.before raw=138601367",
+        "B0_PROOF_PHASE proof.kernel.after raw=138602039",
+        "B0_PROOF_PHASE closure.abstract.before raw=138603310",
+        "B0_PROOF_PHASE closure.abstract.after raw=138606645",
+        "B0_PROOF_PHASE closure.kernel.before raw=138606647",
+        "B0_PROOF_PHASE closure.kernel.after raw=138608583",
+        "B0_PROOF_PHASE scope.return.after raw=138608584",
+        "B0_PROOF_PHASE reapply.before raw=138608585",
+        "B0_PROOF_PHASE reapply.after raw=138608589",
+        "B0_PROOF_PHASE headBeta.before raw=138608590",
+        "B0_PROOF_PHASE headBeta.after raw=138608591",
+        "B0_PROOF_PHASE result.kernel.before raw=138608592",
+        "B0_PROOF_PHASE result.kernel.after raw=138610511",
+        "B0_PROOF_PHASE result.native.before raw=138610512",
+        "B0_PROOF_PHASE result.native.after raw=138613595",
+        "B0_PROOF_PHASE result.select.before raw=138613596",
+        "B0_PROOF_PHASE result.select.after raw=139401558"
+      ],
+      "observed_raw_ticks": 1521968,
+      "complete": true
+    },
+    {
+      "index": 10,
+      "context": {
+        "kind": "operation.agreement",
+        "operation": "-",
+        "same": false
+      },
+      "started_raw": 140935481,
+      "last_raw": 142473594,
+      "last_phase": "result.select.after",
+      "completed_stage_ticks": {
+        "scope.open": 732691,
+        "prepare": 284,
+        "proof.type": 38,
+        "proof.kernel": 90,
+        "closure.abstract": 1194,
+        "closure.kernel": 1170,
+        "reapply": 4,
+        "headBeta": 1,
+        "result.kernel": 1169,
+        "result.native": 3620,
+        "result.select": 796542
+      },
+      "pending_before": {},
+      "markers": [
+        "B0_PROOF_PHASE scope.open.before raw=140935481",
+        "B0_PROOF_PHASE scope.open.after raw=141668172",
+        "B0_PROOF_PHASE prepare.before raw=141668185",
+        "B0_PROOF_PHASE prepare.after raw=141668469",
+        "B0_PROOF_PHASE proof.type.before raw=141668471",
+        "B0_PROOF_PHASE proof.type.after raw=141668509",
+        "B0_PROOF_PHASE proof.kernel.before raw=141668511",
+        "B0_PROOF_PHASE proof.kernel.after raw=141668601",
+        "B0_PROOF_PHASE closure.abstract.before raw=141669886",
+        "B0_PROOF_PHASE closure.abstract.after raw=141671080",
+        "B0_PROOF_PHASE closure.kernel.before raw=141671082",
+        "B0_PROOF_PHASE closure.kernel.after raw=141672252",
+        "B0_PROOF_PHASE scope.return.after raw=141672253",
+        "B0_PROOF_PHASE reapply.before raw=141672254",
+        "B0_PROOF_PHASE reapply.after raw=141672258",
+        "B0_PROOF_PHASE headBeta.before raw=141672259",
+        "B0_PROOF_PHASE headBeta.after raw=141672260",
+        "B0_PROOF_PHASE result.kernel.before raw=141672261",
+        "B0_PROOF_PHASE result.kernel.after raw=141673430",
+        "B0_PROOF_PHASE result.native.before raw=141673431",
+        "B0_PROOF_PHASE result.native.after raw=141677051",
+        "B0_PROOF_PHASE result.select.before raw=141677052",
+        "B0_PROOF_PHASE result.select.after raw=142473594"
+      ],
+      "observed_raw_ticks": 1538113,
+      "complete": true
+    },
+    {
+      "index": 11,
+      "context": {
+        "kind": "operation.agreement",
+        "operation": "-",
+        "same": false
+      },
+      "started_raw": 144017932,
+      "last_raw": 145585566,
+      "last_phase": "result.select.after",
+      "completed_stage_ticks": {
+        "scope.open": 740883,
+        "prepare": 2970,
+        "proof.type": 37,
+        "proof.kernel": 1575,
+        "closure.abstract": 3145,
+        "closure.kernel": 2730,
+        "reapply": 4,
+        "headBeta": 1,
+        "result.kernel": 2723,
+        "result.native": 3283,
+        "result.select": 808959
+      },
+      "pending_before": {},
+      "markers": [
+        "B0_PROOF_PHASE scope.open.before raw=144017932",
+        "B0_PROOF_PHASE scope.open.after raw=144758815",
+        "B0_PROOF_PHASE prepare.before raw=144758828",
+        "B0_PROOF_PHASE prepare.after raw=144761798",
+        "B0_PROOF_PHASE proof.type.before raw=144761800",
+        "B0_PROOF_PHASE proof.type.after raw=144761837",
+        "B0_PROOF_PHASE proof.kernel.before raw=144761839",
+        "B0_PROOF_PHASE proof.kernel.after raw=144763414",
+        "B0_PROOF_PHASE closure.abstract.before raw=144764713",
+        "B0_PROOF_PHASE closure.abstract.after raw=144767858",
+        "B0_PROOF_PHASE closure.kernel.before raw=144767860",
+        "B0_PROOF_PHASE closure.kernel.after raw=144770590",
+        "B0_PROOF_PHASE scope.return.after raw=144770591",
+        "B0_PROOF_PHASE reapply.before raw=144770592",
+        "B0_PROOF_PHASE reapply.after raw=144770596",
+        "B0_PROOF_PHASE headBeta.before raw=144770597",
+        "B0_PROOF_PHASE headBeta.after raw=144770598",
+        "B0_PROOF_PHASE result.kernel.before raw=144770599",
+        "B0_PROOF_PHASE result.kernel.after raw=144773322",
+        "B0_PROOF_PHASE result.native.before raw=144773323",
+        "B0_PROOF_PHASE result.native.after raw=144776606",
+        "B0_PROOF_PHASE result.select.before raw=144776607",
+        "B0_PROOF_PHASE result.select.after raw=145585566"
+      ],
+      "observed_raw_ticks": 1567634,
+      "complete": true
+    },
+    {
+      "index": 12,
+      "context": {
+        "kind": "operation.agreement",
+        "operation": "-",
+        "same": true
+      },
+      "started_raw": 147526004,
+      "last_raw": 149113185,
+      "last_phase": "result.select.after",
+      "completed_stage_ticks": {
+        "scope.open": 752803,
+        "prepare": 749,
+        "proof.type": 41,
+        "proof.kernel": 533,
+        "closure.abstract": 3035,
+        "closure.kernel": 1626,
+        "reapply": 4,
+        "headBeta": 1,
+        "result.kernel": 1623,
+        "result.native": 2939,
+        "result.select": 822489
+      },
+      "pending_before": {},
+      "markers": [
+        "B0_PROOF_PHASE scope.open.before raw=147526004",
+        "B0_PROOF_PHASE scope.open.after raw=148278807",
+        "B0_PROOF_PHASE prepare.before raw=148278820",
+        "B0_PROOF_PHASE prepare.after raw=148279569",
+        "B0_PROOF_PHASE proof.type.before raw=148279571",
+        "B0_PROOF_PHASE proof.type.after raw=148279612",
+        "B0_PROOF_PHASE proof.kernel.before raw=148279614",
+        "B0_PROOF_PHASE proof.kernel.after raw=148280147",
+        "B0_PROOF_PHASE closure.abstract.before raw=148281460",
+        "B0_PROOF_PHASE closure.abstract.after raw=148284495",
+        "B0_PROOF_PHASE closure.kernel.before raw=148284497",
+        "B0_PROOF_PHASE closure.kernel.after raw=148286123",
+        "B0_PROOF_PHASE scope.return.after raw=148286124",
+        "B0_PROOF_PHASE reapply.before raw=148286125",
+        "B0_PROOF_PHASE reapply.after raw=148286129",
+        "B0_PROOF_PHASE headBeta.before raw=148286130",
+        "B0_PROOF_PHASE headBeta.after raw=148286131",
+        "B0_PROOF_PHASE result.kernel.before raw=148286132",
+        "B0_PROOF_PHASE result.kernel.after raw=148287755",
+        "B0_PROOF_PHASE result.native.before raw=148287756",
+        "B0_PROOF_PHASE result.native.after raw=148290695",
+        "B0_PROOF_PHASE result.select.before raw=148290696",
+        "B0_PROOF_PHASE result.select.after raw=149113185"
+      ],
+      "observed_raw_ticks": 1587181,
+      "complete": true
+    },
+    {
+      "index": 13,
+      "context": {
+        "kind": "admission.evidence",
+        "marker": "B0_FINITE_PHASE admission.evidence.before entry=obj.sets.finite_subsets index=2 raw=189801434"
+      },
+      "started_raw": 189802971,
+      "last_raw": 190783972,
+      "last_phase": "prepare.before",
+      "completed_stage_ticks": {
+        "scope.open": 980978
+      },
+      "pending_before": {
+        "prepare": 190783972
+      },
+      "markers": [
+        "B0_PROOF_PHASE scope.open.before raw=189802971",
+        "B0_PROOF_PHASE scope.open.after raw=190783949",
+        "B0_PROOF_PHASE prepare.before raw=190783972"
+      ],
+      "observed_raw_ticks": 981001,
+      "complete": false
+    }
+  ],
+  "same_flags": [
+    {
+      "operation": "+",
+      "same": false,
+      "raw": 91046914
+    },
+    {
+      "operation": "+",
+      "same": false,
+      "raw": 93035084
+    },
+    {
+      "operation": "+",
+      "same": false,
+      "raw": 95490375
+    },
+    {
+      "operation": "+",
+      "same": false,
+      "raw": 97642530
+    },
+    {
+      "operation": "+",
+      "same": false,
+      "raw": 99826617
+    },
+    {
+      "operation": "+",
+      "same": true,
+      "raw": 102432222
+    },
+    {
+      "operation": "-",
+      "same": false,
+      "raw": 130182929
+    },
+    {
+      "operation": "-",
+      "same": false,
+      "raw": 133049303
+    },
+    {
+      "operation": "-",
+      "same": false,
+      "raw": 136379779
+    },
+    {
+      "operation": "-",
+      "same": false,
+      "raw": 139411401
+    },
+    {
+      "operation": "-",
+      "same": false,
+      "raw": 142473601
+    },
+    {
+      "operation": "-",
+      "same": true,
+      "raw": 145958263
+    }
+  ],
+  "adjacent_deltas": [
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.start raw=74116588",
+      "since_previous_raw_marker": null
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.selected.before raw=74116677",
+      "since_previous_raw_marker": 89
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.selected.after count=1 raw=74117578",
+      "since_previous_raw_marker": 901
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.selected.return entry=obj.sets.finite_subsets admitted=true raw=74117610",
+      "since_previous_raw_marker": 32
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.start entry=obj.sets.finite_subsets raw=74117808",
+      "since_previous_raw_marker": 198
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.telescope.before entry=obj.sets.finite_subsets raw=74117891",
+      "since_previous_raw_marker": 83
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.telescope.after entry=obj.sets.finite_subsets raw=74118039",
+      "since_previous_raw_marker": 148
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.target.domain.before entry=obj.sets.finite_subsets raw=74118332",
+      "since_previous_raw_marker": 293
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.target.domain.after entry=obj.sets.finite_subsets raw=74119248",
+      "since_previous_raw_marker": 916
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.target.align.before entry=obj.sets.finite_subsets raw=74121351",
+      "since_previous_raw_marker": 2103
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.target.align.after entry=obj.sets.finite_subsets raw=74127021",
+      "since_previous_raw_marker": 5670
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.target.unify.before entry=obj.sets.finite_subsets raw=74127038",
+      "since_previous_raw_marker": 17
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.target.parameters.fixed entry=obj.sets.finite_subsets raw=74127277",
+      "since_previous_raw_marker": 239
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.datum.type.before entry=obj.sets.finite_subsets raw=74127294",
+      "since_previous_raw_marker": 17
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.datum.type.after entry=obj.sets.finite_subsets raw=74127425",
+      "since_previous_raw_marker": 131
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.datum.read.before entry=obj.sets.finite_subsets raw=74127442",
+      "since_previous_raw_marker": 17
+    },
+    {
+      "marker": "B0_FINITE_PHASE rule.literal.start raw=74156307",
+      "since_previous_raw_marker": 28865
+    },
+    {
+      "marker": "B0_FINITE_PHASE rule.admission.detect.before raw=74156443",
+      "since_previous_raw_marker": 136
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.start raw=74156503",
+      "since_previous_raw_marker": 60
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.selected.before raw=74156507",
+      "since_previous_raw_marker": 4
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.selected.after count=0 raw=74157573",
+      "since_previous_raw_marker": 1066
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.units raw=74157848",
+      "since_previous_raw_marker": 275
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.units applicable=false raw=74158408",
+      "since_previous_raw_marker": 560
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.finite_subsets raw=74158581",
+      "since_previous_raw_marker": 173
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.finite_subsets applicable=false raw=74159038",
+      "since_previous_raw_marker": 457
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.positive_naturals raw=74159087",
+      "since_previous_raw_marker": 49
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.positive_naturals applicable=false raw=74159357",
+      "since_previous_raw_marker": 270
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.primes raw=74159413",
+      "since_previous_raw_marker": 56
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.primes applicable=false raw=74159682",
+      "since_previous_raw_marker": 269
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.nonzero_polynomials raw=74159803",
+      "since_previous_raw_marker": 121
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.nonzero_polynomials applicable=false raw=74160285",
+      "since_previous_raw_marker": 482
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.monics raw=74160680",
+      "since_previous_raw_marker": 395
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.monics applicable=false raw=74161153",
+      "since_previous_raw_marker": 473
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.maps raw=74161250",
+      "since_previous_raw_marker": 97
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.maps applicable=false raw=74161690",
+      "since_previous_raw_marker": 440
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.continuous_maps raw=74161823",
+      "since_previous_raw_marker": 133
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.continuous_maps applicable=false raw=74162264",
+      "since_previous_raw_marker": 441
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.smooth_maps raw=74162358",
+      "since_previous_raw_marker": 94
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.smooth_maps applicable=false raw=74162763",
+      "since_previous_raw_marker": 405
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.summable_families raw=74162901",
+      "since_previous_raw_marker": 138
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.summable_families applicable=false raw=74163353",
+      "since_previous_raw_marker": 452
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.convergent_maps raw=74163481",
+      "since_previous_raw_marker": 128
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.convergent_maps applicable=false raw=74163937",
+      "since_previous_raw_marker": 456
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.convergent_maps_at_infinity raw=74164042",
+      "since_previous_raw_marker": 105
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.convergent_maps_at_infinity applicable=false raw=74164494",
+      "since_previous_raw_marker": 452
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.bilinear_maps raw=74164713",
+      "since_previous_raw_marker": 219
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.bilinear_maps applicable=false raw=74165052",
+      "since_previous_raw_marker": 339
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.group_morphisms raw=74165263",
+      "since_previous_raw_marker": 211
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.group_morphisms applicable=false raw=74165599",
+      "since_previous_raw_marker": 336
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.before entry=obj.sets.module_morphisms raw=74165764",
+      "since_previous_raw_marker": 165
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.candidate.after entry=obj.sets.module_morphisms applicable=false raw=74166101",
+      "since_previous_raw_marker": 337
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.complete count=0 raw=74166168",
+      "since_previous_raw_marker": 67
+    },
+    {
+      "marker": "B0_FINITE_PHASE rule.admission.detect.after raw=74166198",
+      "since_previous_raw_marker": 30
+    },
+    {
+      "marker": "B0_FINITE_PHASE rule.power.before raw=74166216",
+      "since_previous_raw_marker": 18
+    },
+    {
+      "marker": "B0_FINITE_PHASE power.lookup.start raw=74166245",
+      "since_previous_raw_marker": 29
+    },
+    {
+      "marker": "B0_FINITE_PHASE power.domain.before raw=74166369",
+      "since_previous_raw_marker": 124
+    },
+    {
+      "marker": "B0_FINITE_PHASE power.domain.after raw=74167475",
+      "since_previous_raw_marker": 1106
+    },
+    {
+      "marker": "B0_FINITE_PHASE power.candidate.before row=pow.sets raw=74169087",
+      "since_previous_raw_marker": 1612
+    },
+    {
+      "marker": "B0_FINITE_PHASE power.candidate.after row=pow.sets applicable=true raw=74169886",
+      "since_previous_raw_marker": 799
+    },
+    {
+      "marker": "B0_FINITE_PHASE power.chosen.application.before row=pow.sets raw=74169957",
+      "since_previous_raw_marker": 71
+    },
+    {
+      "marker": "B0_FINITE_PHASE power.chosen.application.after row=pow.sets raw=74170126",
+      "since_previous_raw_marker": 169
+    },
+    {
+      "marker": "B0_FINITE_PHASE power.base.before row=pow.sets raw=74170624",
+      "since_previous_raw_marker": 498
+    },
+    {
+      "marker": "B0_FINITE_PHASE power.base.after row=pow.sets raw=74170670",
+      "since_previous_raw_marker": 46
+    },
+    {
+      "marker": "B0_FINITE_PHASE power.lookup.complete count=1 raw=74170734",
+      "since_previous_raw_marker": 64
+    },
+    {
+      "marker": "B0_FINITE_PHASE rule.power.after raw=74170764",
+      "since_previous_raw_marker": 30
+    },
+    {
+      "marker": "B0_FINITE_PHASE rule.base.before raw=74170782",
+      "since_previous_raw_marker": 18
+    },
+    {
+      "marker": "B0_FINITE_PHASE rule.base.after raw=74171721",
+      "since_previous_raw_marker": 939
+    },
+    {
+      "marker": "B0_FINITE_PHASE rule.element.read.before raw=74171833",
+      "since_previous_raw_marker": 112
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE rule.subtraction.before raw=74171941",
+      "since_previous_raw_marker": 108
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE rule.addition.before raw=74172197",
+      "since_previous_raw_marker": 256
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.operation.start name=+ arity=2 raw=74172282",
+      "since_previous_raw_marker": 85
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.identifier.before name=+ index=0 raw=74172743",
+      "since_previous_raw_marker": 461
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.identifier.after name=+ index=0 raw=74176856",
+      "since_previous_raw_marker": 4113
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.domain.before name=+ raw=74177033",
+      "since_previous_raw_marker": 177
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.domain.after name=+ raw=74177182",
+      "since_previous_raw_marker": 149
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.sourceOperation.before name=+ raw=74177218",
+      "since_previous_raw_marker": 36
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.start name=+ arity=2 raw=74177274",
+      "since_previous_raw_marker": 56
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.domains.before name=+ raw=74177403",
+      "since_previous_raw_marker": 129
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.probe.before entry=obj.rings.polynomials raw=74178712",
+      "since_previous_raw_marker": 1309
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.comparison.before entry=obj.rings.polynomials raw=74179097",
+      "since_previous_raw_marker": 385
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.comparison.after entry=obj.rings.polynomials raw=74179208",
+      "since_previous_raw_marker": 111
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.unify.before raw=74185949",
+      "since_previous_raw_marker": 6741
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.unify.after determined=true raw=74186227",
+      "since_previous_raw_marker": 278
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.select.before raw=74186481",
+      "since_previous_raw_marker": 254
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.select.after raw=74685020",
+      "since_previous_raw_marker": 498539
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.carrier.before raw=76183680",
+      "since_previous_raw_marker": 1498660
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.carrier.after entry=obj.rings.polynomials raw=77264381",
+      "since_previous_raw_marker": 1080701
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.probe.after entry=obj.rings.polynomials accepts=true raw=77264447",
+      "since_previous_raw_marker": 66
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.replay.before entry=obj.rings.polynomials raw=77264483",
+      "since_previous_raw_marker": 36
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.comparison.before entry=obj.rings.polynomials raw=77264656",
+      "since_previous_raw_marker": 173
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.comparison.after entry=obj.rings.polynomials raw=77264732",
+      "since_previous_raw_marker": 76
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.unify.before raw=77271311",
+      "since_previous_raw_marker": 6579
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.unify.after determined=true raw=77271524",
+      "since_previous_raw_marker": 213
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.select.before raw=77271583",
+      "since_previous_raw_marker": 59
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.select.after raw=77769771",
+      "since_previous_raw_marker": 498188
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.carrier.before raw=79267922",
+      "since_previous_raw_marker": 1498151
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.carrier.after entry=obj.rings.polynomials raw=80348734",
+      "since_previous_raw_marker": 1080812
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.replay.after entry=obj.rings.polynomials raw=80348753",
+      "since_previous_raw_marker": 19
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.probe.before entry=obj.algebras.polynomials raw=80348904",
+      "since_previous_raw_marker": 151
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.comparison.before entry=obj.algebras.polynomials raw=80349627",
+      "since_previous_raw_marker": 723
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.comparison.after entry=obj.algebras.polynomials raw=80349708",
+      "since_previous_raw_marker": 81
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.unify.before raw=80356437",
+      "since_previous_raw_marker": 6729
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.unify.after determined=true raw=80356650",
+      "since_previous_raw_marker": 213
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.select.before raw=80356709",
+      "since_previous_raw_marker": 59
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.select.after raw=80861785",
+      "since_previous_raw_marker": 505076
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.carrier.before raw=82382550",
+      "since_previous_raw_marker": 1520765
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.carrier.after entry=obj.algebras.polynomials raw=83560434",
+      "since_previous_raw_marker": 1177884
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.probe.after entry=obj.algebras.polynomials accepts=true raw=83560442",
+      "since_previous_raw_marker": 8
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.replay.before entry=obj.algebras.polynomials raw=83560444",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.comparison.before entry=obj.algebras.polynomials raw=83560904",
+      "since_previous_raw_marker": 460
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.comparison.after entry=obj.algebras.polynomials raw=83560980",
+      "since_previous_raw_marker": 76
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.unify.before raw=83567709",
+      "since_previous_raw_marker": 6729
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.unify.after determined=true raw=83567922",
+      "since_previous_raw_marker": 213
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.select.before raw=83567981",
+      "since_previous_raw_marker": 59
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.select.after raw=84072877",
+      "since_previous_raw_marker": 504896
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.carrier.before raw=85592983",
+      "since_previous_raw_marker": 1520106
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.carrier.after entry=obj.algebras.polynomials raw=86771657",
+      "since_previous_raw_marker": 1178674
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.replay.after entry=obj.algebras.polynomials raw=86771662",
+      "since_previous_raw_marker": 5
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.domains.after name=+ count=2 raw=86772701",
+      "since_previous_raw_marker": 1039
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.root.before name=+ raw=86772733",
+      "since_previous_raw_marker": 32
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.root.after name=+ raw=90531988",
+      "since_previous_raw_marker": 3759255
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.family.before name=+ row=op.rings.add raw=90533584",
+      "since_previous_raw_marker": 1596
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.family.after name=+ row=op.rings.add raw=90613786",
+      "since_previous_raw_marker": 80202
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.family.agreement.before name=+ row=op.rings.add raw=90614288",
+      "since_previous_raw_marker": 502
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.family.agreement.after name=+ row=op.rings.add raw=90618324",
+      "since_previous_raw_marker": 4036
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.transportRoles.before name=+ raw=90618366",
+      "since_previous_raw_marker": 42
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.transportRoles.after name=+ raw=90958854",
+      "since_previous_raw_marker": 340488
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.category.unify.before name=+ raw=90965177",
+      "since_previous_raw_marker": 6323
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.category.unify.after name=+ raw=90965335",
+      "since_previous_raw_marker": 158
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.arguments.before name=+ raw=90965412",
+      "since_previous_raw_marker": 77
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.arguments.after name=+ raw=90965570",
+      "since_previous_raw_marker": 158
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.object.unify.before name=+ raw=90965600",
+      "since_previous_raw_marker": 30
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.object.unify.after name=+ raw=90965688",
+      "since_previous_raw_marker": 88
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.evidence.specialize.before name=+ raw=90995906",
+      "since_previous_raw_marker": 30218
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.evidence.specialize.after name=+ raw=91008291",
+      "since_previous_raw_marker": 12385
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.agreements.before name=+ raw=91008357",
+      "since_previous_raw_marker": 66
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.agreements.after name=+ raw=91008393",
+      "since_previous_raw_marker": 36
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.native.before name=+ raw=91008517",
+      "since_previous_raw_marker": 124
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.native.after name=+ raw=91046722",
+      "since_previous_raw_marker": 38205
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.category.before name=+ raw=91046747",
+      "since_previous_raw_marker": 25
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.original.before same=false raw=91046914",
+      "since_previous_raw_marker": 167
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.original.after agrees=true raw=91521019",
+      "since_previous_raw_marker": 474105
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.select.before raw=91521114",
+      "since_previous_raw_marker": 95
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.select.after raw=92032437",
+      "since_previous_raw_marker": 511323
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.prove.before raw=92032456",
+      "since_previous_raw_marker": 19
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.before raw=92033730",
+      "since_previous_raw_marker": 1274
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.after raw=92506147",
+      "since_previous_raw_marker": 472417
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.before raw=92506176",
+      "since_previous_raw_marker": 29
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.proof.family.before raw=92506261",
+      "since_previous_raw_marker": 85
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.proof.family.after raw=92507829",
+      "since_previous_raw_marker": 1568
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.after raw=92507865",
+      "since_previous_raw_marker": 36
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.type.before raw=92507883",
+      "since_previous_raw_marker": 18
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.type.after raw=92507937",
+      "since_previous_raw_marker": 54
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.kernel.before raw=92507955",
+      "since_previous_raw_marker": 18
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.kernel.after raw=92508474",
+      "since_previous_raw_marker": 519
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.abstract.before raw=92509690",
+      "since_previous_raw_marker": 1216
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.abstract.after raw=92510094",
+      "since_previous_raw_marker": 404
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.kernel.before raw=92510112",
+      "since_previous_raw_marker": 18
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.kernel.after raw=92511608",
+      "since_previous_raw_marker": 1496
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.return.after raw=92511653",
+      "since_previous_raw_marker": 45
+    },
+    {
+      "marker": "B0_PROOF_PHASE reapply.before raw=92511683",
+      "since_previous_raw_marker": 30
+    },
+    {
+      "marker": "B0_PROOF_PHASE reapply.after raw=92511778",
+      "since_previous_raw_marker": 95
+    },
+    {
+      "marker": "B0_PROOF_PHASE headBeta.before raw=92511808",
+      "since_previous_raw_marker": 30
+    },
+    {
+      "marker": "B0_PROOF_PHASE headBeta.after raw=92511908",
+      "since_previous_raw_marker": 100
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.kernel.before raw=92511938",
+      "since_previous_raw_marker": 30
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.kernel.after raw=92513444",
+      "since_previous_raw_marker": 1506
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.native.before raw=92513474",
+      "since_previous_raw_marker": 30
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.native.after raw=92515065",
+      "since_previous_raw_marker": 1591
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.select.before raw=92515095",
+      "since_previous_raw_marker": 30
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.select.after raw=93034851",
+      "since_previous_raw_marker": 519756
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.prove.after raw=93034895",
+      "since_previous_raw_marker": 44
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.category.after name=+ raw=93034935",
+      "since_previous_raw_marker": 40
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.object.before name=+ raw=93034961",
+      "since_previous_raw_marker": 26
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.original.before same=false raw=93035084",
+      "since_previous_raw_marker": 123
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.original.after agrees=true raw=93525311",
+      "since_previous_raw_marker": 490227
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.select.before raw=93526186",
+      "since_previous_raw_marker": 875
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.select.after raw=94048298",
+      "since_previous_raw_marker": 522112
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.prove.before raw=94048300",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.before raw=94049375",
+      "since_previous_raw_marker": 1075
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.after raw=94531558",
+      "since_previous_raw_marker": 482183
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.before raw=94531571",
+      "since_previous_raw_marker": 13
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.proof.family.before raw=94531591",
+      "since_previous_raw_marker": 20
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.proof.family.after raw=94539694",
+      "since_previous_raw_marker": 8103
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.after raw=94539697",
+      "since_previous_raw_marker": 3
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.type.before raw=94539699",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.type.after raw=94539736",
+      "since_previous_raw_marker": 37
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.kernel.before raw=94539738",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.kernel.after raw=94545051",
+      "since_previous_raw_marker": 5313
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.abstract.before raw=94546131",
+      "since_previous_raw_marker": 1080
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.abstract.after raw=94548359",
+      "since_previous_raw_marker": 2228
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.kernel.before raw=94548361",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.kernel.after raw=94554530",
+      "since_previous_raw_marker": 6169
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.return.after raw=94554531",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE reapply.before raw=94554532",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE reapply.after raw=94554536",
+      "since_previous_raw_marker": 4
+    },
+    {
+      "marker": "B0_PROOF_PHASE headBeta.before raw=94554537",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE headBeta.after raw=94554538",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.kernel.before raw=94554539",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.kernel.after raw=94560707",
+      "since_previous_raw_marker": 6168
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.native.before raw=94560708",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.native.after raw=94566890",
+      "since_previous_raw_marker": 6182
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.select.before raw=94566891",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.select.after raw=95115585",
+      "since_previous_raw_marker": 548694
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.prove.after raw=95115586",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.object.after name=+ raw=95115609",
+      "since_previous_raw_marker": 23
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.original.before same=false raw=95490375",
+      "since_previous_raw_marker": 374766
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.original.after agrees=true raw=95999440",
+      "since_previous_raw_marker": 509065
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.select.before raw=95999443",
+      "since_previous_raw_marker": 3
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.select.after raw=96548417",
+      "since_previous_raw_marker": 548974
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.prove.before raw=96548419",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.before raw=96549508",
+      "since_previous_raw_marker": 1089
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.after raw=97057198",
+      "since_previous_raw_marker": 507690
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.before raw=97057211",
+      "since_previous_raw_marker": 13
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.proof.family.before raw=97057231",
+      "since_previous_raw_marker": 20
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.proof.family.after raw=97058576",
+      "since_previous_raw_marker": 1345
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.after raw=97058579",
+      "since_previous_raw_marker": 3
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.type.before raw=97058581",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.type.after raw=97058621",
+      "since_previous_raw_marker": 40
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.kernel.before raw=97058623",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.kernel.after raw=97059295",
+      "since_previous_raw_marker": 672
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.abstract.before raw=97060389",
+      "since_previous_raw_marker": 1094
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.abstract.after raw=97062572",
+      "since_previous_raw_marker": 2183
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.kernel.before raw=97062574",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.kernel.after raw=97064496",
+      "since_previous_raw_marker": 1922
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.return.after raw=97064497",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE reapply.before raw=97064498",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE reapply.after raw=97064502",
+      "since_previous_raw_marker": 4
+    },
+    {
+      "marker": "B0_PROOF_PHASE headBeta.before raw=97064503",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE headBeta.after raw=97064504",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.kernel.before raw=97064505",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.kernel.after raw=97066432",
+      "since_previous_raw_marker": 1927
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.native.before raw=97066433",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.native.after raw=97070817",
+      "since_previous_raw_marker": 4384
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.select.before raw=97070818",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.select.after raw=97632291",
+      "since_previous_raw_marker": 561473
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.prove.after raw=97632292",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.agreements.before name=+ raw=97632422",
+      "since_previous_raw_marker": 130
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.agreements.after name=+ raw=97632426",
+      "since_previous_raw_marker": 4
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.native.before name=+ raw=97632432",
+      "since_previous_raw_marker": 6
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.native.after name=+ raw=97642524",
+      "since_previous_raw_marker": 10092
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.category.before name=+ raw=97642526",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.original.before same=false raw=97642530",
+      "since_previous_raw_marker": 4
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.original.after agrees=true raw=98163088",
+      "since_previous_raw_marker": 520558
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.select.before raw=98163091",
+      "since_previous_raw_marker": 3
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.select.after raw=98725845",
+      "since_previous_raw_marker": 562754
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.prove.before raw=98725847",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.before raw=98726953",
+      "since_previous_raw_marker": 1106
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.after raw=99247167",
+      "since_previous_raw_marker": 520214
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.before raw=99247180",
+      "since_previous_raw_marker": 13
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.proof.family.before raw=99247200",
+      "since_previous_raw_marker": 20
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.proof.family.after raw=99247460",
+      "since_previous_raw_marker": 260
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.after raw=99247463",
+      "since_previous_raw_marker": 3
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.type.before raw=99247465",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.type.after raw=99247507",
+      "since_previous_raw_marker": 42
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.kernel.before raw=99247509",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.kernel.after raw=99247599",
+      "since_previous_raw_marker": 90
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.abstract.before raw=99248707",
+      "since_previous_raw_marker": 1108
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.abstract.after raw=99249565",
+      "since_previous_raw_marker": 858
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.kernel.before raw=99249567",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.kernel.after raw=99250737",
+      "since_previous_raw_marker": 1170
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.return.after raw=99250738",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE reapply.before raw=99250739",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE reapply.after raw=99250743",
+      "since_previous_raw_marker": 4
+    },
+    {
+      "marker": "B0_PROOF_PHASE headBeta.before raw=99250744",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE headBeta.after raw=99250745",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.kernel.before raw=99250746",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.kernel.after raw=99251921",
+      "since_previous_raw_marker": 1175
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.native.before raw=99251922",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.native.after raw=99256932",
+      "since_previous_raw_marker": 5010
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.select.before raw=99256933",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.select.after raw=99826610",
+      "since_previous_raw_marker": 569677
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.prove.after raw=99826611",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.category.after name=+ raw=99826613",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.object.before name=+ raw=99826615",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.original.before same=false raw=99826617",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.original.after agrees=true raw=100357717",
+      "since_previous_raw_marker": 531100
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.select.before raw=100358616",
+      "since_previous_raw_marker": 899
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.select.after raw=100930190",
+      "since_previous_raw_marker": 571574
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.prove.before raw=100930192",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.before raw=100931314",
+      "since_previous_raw_marker": 1122
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.after raw=101459557",
+      "since_previous_raw_marker": 528243
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.before raw=101459570",
+      "since_previous_raw_marker": 13
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.proof.family.before raw=101459590",
+      "since_previous_raw_marker": 20
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.proof.family.after raw=101462474",
+      "since_previous_raw_marker": 2884
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.after raw=101462477",
+      "since_previous_raw_marker": 3
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.type.before raw=101462479",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.type.after raw=101462516",
+      "since_previous_raw_marker": 37
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.kernel.before raw=101462518",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.kernel.after raw=101464009",
+      "since_previous_raw_marker": 1491
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.abstract.before raw=101465131",
+      "since_previous_raw_marker": 1122
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.abstract.after raw=101467192",
+      "since_previous_raw_marker": 2061
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.kernel.before raw=101467194",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.kernel.after raw=101469893",
+      "since_previous_raw_marker": 2699
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.return.after raw=101469894",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE reapply.before raw=101469895",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE reapply.after raw=101469899",
+      "since_previous_raw_marker": 4
+    },
+    {
+      "marker": "B0_PROOF_PHASE headBeta.before raw=101469900",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE headBeta.after raw=101469901",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.kernel.before raw=101469902",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.kernel.after raw=101472607",
+      "since_previous_raw_marker": 2705
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.native.before raw=101472608",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.native.after raw=101476775",
+      "since_previous_raw_marker": 4167
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.select.before raw=101476776",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.select.after raw=102059116",
+      "since_previous_raw_marker": 582340
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.prove.after raw=102059117",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.object.after name=+ raw=102059119",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.original.before same=true raw=102432222",
+      "since_previous_raw_marker": 373103
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.original.after agrees=true raw=102973982",
+      "since_previous_raw_marker": 541760
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.select.before raw=102973985",
+      "since_previous_raw_marker": 3
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.select.after raw=103559128",
+      "since_previous_raw_marker": 585143
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.prove.before raw=103559130",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.before raw=103560263",
+      "since_previous_raw_marker": 1133
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.after raw=104101130",
+      "since_previous_raw_marker": 540867
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.before raw=104101143",
+      "since_previous_raw_marker": 13
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.proof.family.before raw=104101163",
+      "since_previous_raw_marker": 20
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.proof.family.after raw=104101884",
+      "since_previous_raw_marker": 721
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.after raw=104101887",
+      "since_previous_raw_marker": 3
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.type.before raw=104101889",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.type.after raw=104101930",
+      "since_previous_raw_marker": 41
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.kernel.before raw=104101932",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.kernel.after raw=104102465",
+      "since_previous_raw_marker": 533
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.abstract.before raw=104103601",
+      "since_previous_raw_marker": 1136
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.abstract.after raw=104105700",
+      "since_previous_raw_marker": 2099
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.kernel.before raw=104105702",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.kernel.after raw=104107345",
+      "since_previous_raw_marker": 1643
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.return.after raw=104107346",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE reapply.before raw=104107347",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE reapply.after raw=104107351",
+      "since_previous_raw_marker": 4
+    },
+    {
+      "marker": "B0_PROOF_PHASE headBeta.before raw=104107352",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE headBeta.after raw=104107353",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.kernel.before raw=104107354",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.kernel.after raw=104108987",
+      "since_previous_raw_marker": 1633
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.native.before raw=104108988",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.native.after raw=104112316",
+      "since_previous_raw_marker": 3328
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.select.before raw=104112317",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.select.after raw=104708263",
+      "since_previous_raw_marker": 595946
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.prove.after raw=104708264",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.evidence.retain.before name=+ count=14 raw=104708338",
+      "since_previous_raw_marker": 74
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.evidence.retain.after name=+ raw=104709942",
+      "since_previous_raw_marker": 1604
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.select.before name=+ raw=104709963",
+      "since_previous_raw_marker": 21
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.select.after name=+ raw=105431618",
+      "since_previous_raw_marker": 721655
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.sourceOperation.after name=+ raw=105431651",
+      "since_previous_raw_marker": 33
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.function.before name=+ raw=105431671",
+      "since_previous_raw_marker": 20
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.function.after name=+ raw=105433104",
+      "since_previous_raw_marker": 1433
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.argument.native.before name=+ raw=105433155",
+      "since_previous_raw_marker": 51
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.argument.native.after name=+ raw=105434140",
+      "since_previous_raw_marker": 985
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.tuple.before name=+ raw=105434204",
+      "since_previous_raw_marker": 64
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.operand.start name=+ index=0 raw=105466747",
+      "since_previous_raw_marker": 32543
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operand.retained.nativeFits.before raw=105466943",
+      "since_previous_raw_marker": 196
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operand.retained.nativeFits.after fits=false raw=105467234",
+      "since_previous_raw_marker": 291
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operand.retained.sourceFits.before raw=105467272",
+      "since_previous_raw_marker": 38
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operand.retained.sourceFits.after fits=true raw=106132633",
+      "since_previous_raw_marker": 665361
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operand.retained.domain.before raw=106132718",
+      "since_previous_raw_marker": 85
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operand.retained.domain.after raw=106799252",
+      "since_previous_raw_marker": 666534
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operand.retained.select.before raw=106799950",
+      "since_previous_raw_marker": 698
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operand.retained.select.after raw=107516209",
+      "since_previous_raw_marker": 716259
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.operand.slotCheck.before name=+ index=0 raw=108278066",
+      "since_previous_raw_marker": 761857
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.operand.slotCheck.false name=+ index=0 raw=108279883",
+      "since_previous_raw_marker": 1817
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.operand.slotSelect.before name=+ index=0 raw=108279951",
+      "since_previous_raw_marker": 68
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.operand.slotSelect.after name=+ index=0 raw=109003682",
+      "since_previous_raw_marker": 723731
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.operand.start name=+ index=1 raw=109027072",
+      "since_previous_raw_marker": 23390
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.operand.fresh.before name=+ index=1 raw=109027097",
+      "since_previous_raw_marker": 25
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE rule.negation.before raw=109027270",
+      "since_previous_raw_marker": 173
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.operation.start name=- arity=1 raw=109027300",
+      "since_previous_raw_marker": 30
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.domain.before name=- raw=109027322",
+      "since_previous_raw_marker": 22
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.domain.after name=- raw=109027327",
+      "since_previous_raw_marker": 5
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.sourceOperation.before name=- raw=109027329",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.start name=- arity=1 raw=109027334",
+      "since_previous_raw_marker": 5
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.domains.before name=- raw=109027338",
+      "since_previous_raw_marker": 4
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.probe.before entry=obj.rings.polynomials raw=109028795",
+      "since_previous_raw_marker": 1457
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.comparison.before entry=obj.rings.polynomials raw=109028963",
+      "since_previous_raw_marker": 168
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.comparison.after entry=obj.rings.polynomials raw=109029040",
+      "since_previous_raw_marker": 77
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.unify.before raw=109037183",
+      "since_previous_raw_marker": 8143
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.unify.after determined=true raw=109037396",
+      "since_previous_raw_marker": 213
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.select.before raw=109037455",
+      "since_previous_raw_marker": 59
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.select.after raw=109763132",
+      "since_previous_raw_marker": 725677
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.carrier.before raw=111930003",
+      "since_previous_raw_marker": 2166871
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.carrier.after entry=obj.rings.polynomials raw=113451840",
+      "since_previous_raw_marker": 1521837
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.probe.after entry=obj.rings.polynomials accepts=true raw=113451848",
+      "since_previous_raw_marker": 8
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.replay.before entry=obj.rings.polynomials raw=113451850",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.comparison.before entry=obj.rings.polynomials raw=113452016",
+      "since_previous_raw_marker": 166
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.comparison.after entry=obj.rings.polynomials raw=113452092",
+      "since_previous_raw_marker": 76
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.unify.before raw=113460208",
+      "since_previous_raw_marker": 8116
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.unify.after determined=true raw=113460421",
+      "since_previous_raw_marker": 213
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.select.before raw=113460480",
+      "since_previous_raw_marker": 59
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.select.after raw=114185317",
+      "since_previous_raw_marker": 724837
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.carrier.before raw=116351096",
+      "since_previous_raw_marker": 2165779
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.carrier.after entry=obj.rings.polynomials raw=117872309",
+      "since_previous_raw_marker": 1521213
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.replay.after entry=obj.rings.polynomials raw=117872314",
+      "since_previous_raw_marker": 5
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.probe.before entry=obj.algebras.polynomials raw=117872427",
+      "since_previous_raw_marker": 113
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.comparison.before entry=obj.algebras.polynomials raw=117873140",
+      "since_previous_raw_marker": 713
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.comparison.after entry=obj.algebras.polynomials raw=117873217",
+      "since_previous_raw_marker": 77
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.unify.before raw=117881474",
+      "since_previous_raw_marker": 8257
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.unify.after determined=true raw=117881686",
+      "since_previous_raw_marker": 212
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.select.before raw=117881745",
+      "since_previous_raw_marker": 59
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.select.after raw=118614648",
+      "since_previous_raw_marker": 732903
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.carrier.before raw=120806055",
+      "since_previous_raw_marker": 2191407
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.carrier.after entry=obj.algebras.polynomials raw=122427271",
+      "since_previous_raw_marker": 1621216
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.probe.after entry=obj.algebras.polynomials accepts=true raw=122427279",
+      "since_previous_raw_marker": 8
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.replay.before entry=obj.algebras.polynomials raw=122427281",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.comparison.before entry=obj.algebras.polynomials raw=122427741",
+      "since_previous_raw_marker": 460
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.comparison.after entry=obj.algebras.polynomials raw=122427817",
+      "since_previous_raw_marker": 76
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.unify.before raw=122436077",
+      "since_previous_raw_marker": 8260
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.unify.after determined=true raw=122436289",
+      "since_previous_raw_marker": 212
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.select.before raw=122436348",
+      "since_previous_raw_marker": 59
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.select.after raw=123167784",
+      "since_previous_raw_marker": 731436
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.carrier.before raw=125356663",
+      "since_previous_raw_marker": 2188879
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.carrier.after entry=obj.algebras.polynomials raw=126976320",
+      "since_previous_raw_marker": 1619657
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.refinement.replay.after entry=obj.algebras.polynomials raw=126976325",
+      "since_previous_raw_marker": 5
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.domains.after name=- count=2 raw=126977340",
+      "since_previous_raw_marker": 1015
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.root.before name=- raw=126977342",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.root.after name=- raw=129697263",
+      "since_previous_raw_marker": 2719921
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.family.before name=- row=op.rings.neg raw=129698662",
+      "since_previous_raw_marker": 1399
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.family.after name=- row=op.rings.neg raw=129778228",
+      "since_previous_raw_marker": 79566
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.family.agreement.before name=- row=op.rings.neg raw=129778391",
+      "since_previous_raw_marker": 163
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.family.agreement.after name=- row=op.rings.neg raw=129782278",
+      "since_previous_raw_marker": 3887
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.transportRoles.before name=- raw=129782285",
+      "since_previous_raw_marker": 7
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.transportRoles.after name=- raw=130097107",
+      "since_previous_raw_marker": 314822
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.category.unify.before name=- raw=130104431",
+      "since_previous_raw_marker": 7324
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.category.unify.after name=- raw=130104574",
+      "since_previous_raw_marker": 143
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.arguments.before name=- raw=130104611",
+      "since_previous_raw_marker": 37
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.arguments.after name=- raw=130104751",
+      "since_previous_raw_marker": 140
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.object.unify.before name=- raw=130104753",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.object.unify.after name=- raw=130104821",
+      "since_previous_raw_marker": 68
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.evidence.specialize.before name=- raw=130136700",
+      "since_previous_raw_marker": 31879
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.evidence.specialize.after name=- raw=130145793",
+      "since_previous_raw_marker": 9093
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.agreements.before name=- raw=130145802",
+      "since_previous_raw_marker": 9
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.agreements.after name=- raw=130145806",
+      "since_previous_raw_marker": 4
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.native.before name=- raw=130145811",
+      "since_previous_raw_marker": 5
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.native.after name=- raw=130182923",
+      "since_previous_raw_marker": 37112
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.category.before name=- raw=130182925",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.original.before same=false raw=130182929",
+      "since_previous_raw_marker": 4
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.original.after agrees=true raw=130869874",
+      "since_previous_raw_marker": 686945
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.select.before raw=130869877",
+      "since_previous_raw_marker": 3
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.select.after raw=131608488",
+      "since_previous_raw_marker": 738611
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.prove.before raw=131608490",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.before raw=131609727",
+      "since_previous_raw_marker": 1237
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.after raw=132294793",
+      "since_previous_raw_marker": 685066
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.before raw=132294806",
+      "since_previous_raw_marker": 13
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.proof.family.before raw=132294826",
+      "since_previous_raw_marker": 20
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.proof.family.after raw=132296378",
+      "since_previous_raw_marker": 1552
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.after raw=132296381",
+      "since_previous_raw_marker": 3
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.type.before raw=132296383",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.type.after raw=132296420",
+      "since_previous_raw_marker": 37
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.kernel.before raw=132296422",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.kernel.after raw=132296925",
+      "since_previous_raw_marker": 503
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.abstract.before raw=132298168",
+      "since_previous_raw_marker": 1243
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.abstract.after raw=132298676",
+      "since_previous_raw_marker": 508
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.kernel.before raw=132298678",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.kernel.after raw=132300153",
+      "since_previous_raw_marker": 1475
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.return.after raw=132300154",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE reapply.before raw=132300155",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE reapply.after raw=132300159",
+      "since_previous_raw_marker": 4
+    },
+    {
+      "marker": "B0_PROOF_PHASE headBeta.before raw=132300160",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE headBeta.after raw=132300161",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.kernel.before raw=132300162",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.kernel.after raw=132301635",
+      "since_previous_raw_marker": 1473
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.native.before raw=132301636",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.native.after raw=132302775",
+      "since_previous_raw_marker": 1139
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.select.before raw=132302776",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.select.after raw=133049296",
+      "since_previous_raw_marker": 746520
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.prove.after raw=133049297",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.category.after name=- raw=133049299",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.object.before name=- raw=133049301",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.original.before same=false raw=133049303",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.original.after agrees=true raw=133752243",
+      "since_previous_raw_marker": 702940
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.select.before raw=133753262",
+      "since_previous_raw_marker": 1019
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.select.after raw=134502586",
+      "since_previous_raw_marker": 749324
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.prove.before raw=134502588",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.before raw=134503831",
+      "since_previous_raw_marker": 1243
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.after raw=135198742",
+      "since_previous_raw_marker": 694911
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.before raw=135198755",
+      "since_previous_raw_marker": 13
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.proof.family.before raw=135198775",
+      "since_previous_raw_marker": 20
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.proof.family.after raw=135206869",
+      "since_previous_raw_marker": 8094
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.after raw=135206872",
+      "since_previous_raw_marker": 3
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.type.before raw=135206874",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.type.after raw=135206911",
+      "since_previous_raw_marker": 37
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.kernel.before raw=135206913",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.kernel.after raw=135212226",
+      "since_previous_raw_marker": 5313
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.abstract.before raw=135213483",
+      "since_previous_raw_marker": 1257
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.abstract.after raw=135216887",
+      "since_previous_raw_marker": 3404
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.kernel.before raw=135216889",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.kernel.after raw=135223057",
+      "since_previous_raw_marker": 6168
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.return.after raw=135223058",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE reapply.before raw=135223059",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE reapply.after raw=135223063",
+      "since_previous_raw_marker": 4
+    },
+    {
+      "marker": "B0_PROOF_PHASE headBeta.before raw=135223064",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE headBeta.after raw=135223065",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.kernel.before raw=135223066",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.kernel.after raw=135229230",
+      "since_previous_raw_marker": 6164
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.native.before raw=135229231",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.native.after raw=135233598",
+      "since_previous_raw_marker": 4367
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.select.before raw=135233599",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.select.after raw=136007028",
+      "since_previous_raw_marker": 773429
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.prove.after raw=136007029",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.object.after name=- raw=136007031",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.original.before same=false raw=136379779",
+      "since_previous_raw_marker": 372748
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.original.after agrees=true raw=137102338",
+      "since_previous_raw_marker": 722559
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.select.before raw=137102341",
+      "since_previous_raw_marker": 3
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.select.after raw=137878328",
+      "since_previous_raw_marker": 775987
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.prove.before raw=137878330",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.before raw=137879590",
+      "since_previous_raw_marker": 1260
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.after raw=138599951",
+      "since_previous_raw_marker": 720361
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.before raw=138599964",
+      "since_previous_raw_marker": 13
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.proof.family.before raw=138599984",
+      "since_previous_raw_marker": 20
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.proof.family.after raw=138601320",
+      "since_previous_raw_marker": 1336
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.after raw=138601323",
+      "since_previous_raw_marker": 3
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.type.before raw=138601325",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.type.after raw=138601365",
+      "since_previous_raw_marker": 40
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.kernel.before raw=138601367",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.kernel.after raw=138602039",
+      "since_previous_raw_marker": 672
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.abstract.before raw=138603310",
+      "since_previous_raw_marker": 1271
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.abstract.after raw=138606645",
+      "since_previous_raw_marker": 3335
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.kernel.before raw=138606647",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.kernel.after raw=138608583",
+      "since_previous_raw_marker": 1936
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.return.after raw=138608584",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE reapply.before raw=138608585",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE reapply.after raw=138608589",
+      "since_previous_raw_marker": 4
+    },
+    {
+      "marker": "B0_PROOF_PHASE headBeta.before raw=138608590",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE headBeta.after raw=138608591",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.kernel.before raw=138608592",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.kernel.after raw=138610511",
+      "since_previous_raw_marker": 1919
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.native.before raw=138610512",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.native.after raw=138613595",
+      "since_previous_raw_marker": 3083
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.select.before raw=138613596",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.select.after raw=139401558",
+      "since_previous_raw_marker": 787962
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.prove.after raw=139401559",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.agreements.before name=- raw=139401576",
+      "since_previous_raw_marker": 17
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.agreements.after name=- raw=139401580",
+      "since_previous_raw_marker": 4
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.native.before name=- raw=139401586",
+      "since_previous_raw_marker": 6
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.native.after name=- raw=139411395",
+      "since_previous_raw_marker": 9809
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.category.before name=- raw=139411397",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.original.before same=false raw=139411401",
+      "since_previous_raw_marker": 4
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.original.after agrees=true raw=140144554",
+      "since_previous_raw_marker": 733153
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.select.before raw=140144557",
+      "since_previous_raw_marker": 3
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.select.after raw=140934205",
+      "since_previous_raw_marker": 789648
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.prove.before raw=140934207",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.before raw=140935481",
+      "since_previous_raw_marker": 1274
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.after raw=141668172",
+      "since_previous_raw_marker": 732691
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.before raw=141668185",
+      "since_previous_raw_marker": 13
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.proof.family.before raw=141668205",
+      "since_previous_raw_marker": 20
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.proof.family.after raw=141668466",
+      "since_previous_raw_marker": 261
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.after raw=141668469",
+      "since_previous_raw_marker": 3
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.type.before raw=141668471",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.type.after raw=141668509",
+      "since_previous_raw_marker": 38
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.kernel.before raw=141668511",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.kernel.after raw=141668601",
+      "since_previous_raw_marker": 90
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.abstract.before raw=141669886",
+      "since_previous_raw_marker": 1285
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.abstract.after raw=141671080",
+      "since_previous_raw_marker": 1194
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.kernel.before raw=141671082",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.kernel.after raw=141672252",
+      "since_previous_raw_marker": 1170
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.return.after raw=141672253",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE reapply.before raw=141672254",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE reapply.after raw=141672258",
+      "since_previous_raw_marker": 4
+    },
+    {
+      "marker": "B0_PROOF_PHASE headBeta.before raw=141672259",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE headBeta.after raw=141672260",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.kernel.before raw=141672261",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.kernel.after raw=141673430",
+      "since_previous_raw_marker": 1169
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.native.before raw=141673431",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.native.after raw=141677051",
+      "since_previous_raw_marker": 3620
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.select.before raw=141677052",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.select.after raw=142473594",
+      "since_previous_raw_marker": 796542
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.prove.after raw=142473595",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.category.after name=- raw=142473597",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.object.before name=- raw=142473599",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.original.before same=false raw=142473601",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.original.after agrees=true raw=143217108",
+      "since_previous_raw_marker": 743507
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.select.before raw=143218151",
+      "since_previous_raw_marker": 1043
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.select.after raw=144016640",
+      "since_previous_raw_marker": 798489
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.prove.before raw=144016642",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.before raw=144017932",
+      "since_previous_raw_marker": 1290
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.after raw=144758815",
+      "since_previous_raw_marker": 740883
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.before raw=144758828",
+      "since_previous_raw_marker": 13
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.proof.family.before raw=144758848",
+      "since_previous_raw_marker": 20
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.proof.family.after raw=144761795",
+      "since_previous_raw_marker": 2947
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.after raw=144761798",
+      "since_previous_raw_marker": 3
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.type.before raw=144761800",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.type.after raw=144761837",
+      "since_previous_raw_marker": 37
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.kernel.before raw=144761839",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.kernel.after raw=144763414",
+      "since_previous_raw_marker": 1575
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.abstract.before raw=144764713",
+      "since_previous_raw_marker": 1299
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.abstract.after raw=144767858",
+      "since_previous_raw_marker": 3145
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.kernel.before raw=144767860",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.kernel.after raw=144770590",
+      "since_previous_raw_marker": 2730
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.return.after raw=144770591",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE reapply.before raw=144770592",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE reapply.after raw=144770596",
+      "since_previous_raw_marker": 4
+    },
+    {
+      "marker": "B0_PROOF_PHASE headBeta.before raw=144770597",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE headBeta.after raw=144770598",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.kernel.before raw=144770599",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.kernel.after raw=144773322",
+      "since_previous_raw_marker": 2723
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.native.before raw=144773323",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.native.after raw=144776606",
+      "since_previous_raw_marker": 3283
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.select.before raw=144776607",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.select.after raw=145585566",
+      "since_previous_raw_marker": 808959
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.prove.after raw=145585567",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.route.object.after name=- raw=145585569",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.original.before same=true raw=145958263",
+      "since_previous_raw_marker": 372694
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.original.after agrees=true raw=146712805",
+      "since_previous_raw_marker": 754542
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.select.before raw=146712808",
+      "since_previous_raw_marker": 3
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.select.after raw=147524698",
+      "since_previous_raw_marker": 811890
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.prove.before raw=147524700",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.before raw=147526004",
+      "since_previous_raw_marker": 1304
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.after raw=148278807",
+      "since_previous_raw_marker": 752803
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.before raw=148278820",
+      "since_previous_raw_marker": 13
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.proof.family.before raw=148278840",
+      "since_previous_raw_marker": 20
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.proof.family.after raw=148279566",
+      "since_previous_raw_marker": 726
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.after raw=148279569",
+      "since_previous_raw_marker": 3
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.type.before raw=148279571",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.type.after raw=148279612",
+      "since_previous_raw_marker": 41
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.kernel.before raw=148279614",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE proof.kernel.after raw=148280147",
+      "since_previous_raw_marker": 533
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.abstract.before raw=148281460",
+      "since_previous_raw_marker": 1313
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.abstract.after raw=148284495",
+      "since_previous_raw_marker": 3035
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.kernel.before raw=148284497",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_PROOF_PHASE closure.kernel.after raw=148286123",
+      "since_previous_raw_marker": 1626
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.return.after raw=148286124",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE reapply.before raw=148286125",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE reapply.after raw=148286129",
+      "since_previous_raw_marker": 4
+    },
+    {
+      "marker": "B0_PROOF_PHASE headBeta.before raw=148286130",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE headBeta.after raw=148286131",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.kernel.before raw=148286132",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.kernel.after raw=148287755",
+      "since_previous_raw_marker": 1623
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.native.before raw=148287756",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.native.after raw=148290695",
+      "since_previous_raw_marker": 2939
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.select.before raw=148290696",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_PROOF_PHASE result.select.after raw=149113185",
+      "since_previous_raw_marker": 822489
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.agreement.prove.after raw=149113186",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.evidence.retain.before name=- count=13 raw=149113216",
+      "since_previous_raw_marker": 30
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.evidence.retain.after name=- raw=149114645",
+      "since_previous_raw_marker": 1429
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.select.before name=- raw=149114651",
+      "since_previous_raw_marker": 6
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE operation.select.after name=- raw=150059600",
+      "since_previous_raw_marker": 944949
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.sourceOperation.after name=- raw=150059603",
+      "since_previous_raw_marker": 3
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.function.before name=- raw=150059605",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.function.after name=- raw=150060861",
+      "since_previous_raw_marker": 1256
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.argument.native.before name=- raw=150060886",
+      "since_previous_raw_marker": 25
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.argument.native.after name=- raw=150061839",
+      "since_previous_raw_marker": 953
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.operand.start name=- index=0 raw=150061869",
+      "since_previous_raw_marker": 30
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.operand.fresh.before name=- index=0 raw=150061894",
+      "since_previous_raw_marker": 25
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.start raw=150062152",
+      "since_previous_raw_marker": 258
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.selected.before raw=150062156",
+      "since_previous_raw_marker": 4
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.selected.after count=1 raw=150063222",
+      "since_previous_raw_marker": 1066
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.domain.selected.return entry=obj.sets.polynomials admitted=false raw=150063224",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.start number=1 raw=150063384",
+      "since_previous_raw_marker": 160
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.domain.before raw=150063547",
+      "since_previous_raw_marker": 163
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.domain.after bases=1 raw=150064665",
+      "since_previous_raw_marker": 1118
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.owners.before raw=150064707",
+      "since_previous_raw_marker": 42
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.owners.after owners=0 raw=150064764",
+      "since_previous_raw_marker": 57
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.candidate.before row=num.sets.fin raw=150068907",
+      "since_previous_raw_marker": 4143
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.start row=num.sets.fin number=1 raw=150069060",
+      "since_previous_raw_marker": 153
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.context.done row=num.sets.fin raw=150069187",
+      "since_previous_raw_marker": 127
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.candidate.after row=num.sets.fin applicable=false raw=150069805",
+      "since_previous_raw_marker": 618
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.candidate.before row=num.rings raw=150069906",
+      "since_previous_raw_marker": 101
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.start row=num.rings number=1 raw=150069914",
+      "since_previous_raw_marker": 8
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.start entry=obj.rings.polynomials raw=150069943",
+      "since_previous_raw_marker": 29
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.comparison.before raw=150070123",
+      "since_previous_raw_marker": 180
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.comparison.after raw=150070217",
+      "since_previous_raw_marker": 94
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.target.before raw=150070318",
+      "since_previous_raw_marker": 101
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.target.after raw=150070686",
+      "since_previous_raw_marker": 368
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.parameters.before raw=150070704",
+      "since_previous_raw_marker": 18
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.parameters.after raw=150070794",
+      "since_previous_raw_marker": 90
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.select.before raw=150071451",
+      "since_previous_raw_marker": 657
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.select.after entry=obj.rings.polynomials raw=151018881",
+      "since_previous_raw_marker": 947430
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.context.done row=num.rings raw=151018917",
+      "since_previous_raw_marker": 36
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.target.unify.before row=num.rings raw=151019237",
+      "since_previous_raw_marker": 320
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.target.unify.after row=num.rings raw=151019740",
+      "since_previous_raw_marker": 503
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.parameters.before raw=151019849",
+      "since_previous_raw_marker": 109
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.parameters.after raw=151019904",
+      "since_previous_raw_marker": 55
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.object.select.before raw=151020138",
+      "since_previous_raw_marker": 234
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.object.select.after raw=151968627",
+      "since_previous_raw_marker": 948489
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.application.before raw=151968660",
+      "since_previous_raw_marker": 33
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.application.start count=2 raw=151968708",
+      "since_previous_raw_marker": 48
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.application.slot.check.before raw=151968875",
+      "since_previous_raw_marker": 167
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.application.slot.check.after raw=151968949",
+      "since_previous_raw_marker": 74
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.application.slot.check.before raw=151969065",
+      "since_previous_raw_marker": 116
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.application.slot.check.after raw=151969322",
+      "since_previous_raw_marker": 257
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.application.after raw=151969357",
+      "since_previous_raw_marker": 35
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.comparison.select.before raw=151970613",
+      "since_previous_raw_marker": 1256
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.comparison.select.after raw=152921329",
+      "since_previous_raw_marker": 950716
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.composition.before raw=152923389",
+      "since_previous_raw_marker": 2060
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.point.done raw=152925030",
+      "since_previous_raw_marker": 1641
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.carrier.before raw=152925706",
+      "since_previous_raw_marker": 676
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.carrier.after raw=152927294",
+      "since_previous_raw_marker": 1588
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.evaluate.before raw=152927313",
+      "since_previous_raw_marker": 19
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.evaluate.after raw=152927529",
+      "since_previous_raw_marker": 216
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.select.before row=num.rings raw=152927680",
+      "since_previous_raw_marker": 151
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.select.after row=num.rings raw=153885400",
+      "since_previous_raw_marker": 957720
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.candidate.after row=num.rings applicable=true raw=153885422",
+      "since_previous_raw_marker": 22
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.admitted count=1 raw=153885468",
+      "since_previous_raw_marker": 46
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.winner.before row=num.rings raw=153885510",
+      "since_previous_raw_marker": 42
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.start row=num.rings number=1 raw=153885553",
+      "since_previous_raw_marker": 43
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.start entry=obj.rings.polynomials raw=153885554",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.comparison.before raw=153885715",
+      "since_previous_raw_marker": 161
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.comparison.after raw=153885792",
+      "since_previous_raw_marker": 77
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.target.before raw=153885827",
+      "since_previous_raw_marker": 35
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.target.after raw=153886164",
+      "since_previous_raw_marker": 337
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.parameters.before raw=153886166",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.parameters.after raw=153886190",
+      "since_previous_raw_marker": 24
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.select.before raw=153886793",
+      "since_previous_raw_marker": 603
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.select.after entry=obj.rings.polynomials raw=154832814",
+      "since_previous_raw_marker": 946021
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.context.done row=num.rings raw=154832819",
+      "since_previous_raw_marker": 5
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.target.unify.before row=num.rings raw=154833135",
+      "since_previous_raw_marker": 316
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.target.unify.after row=num.rings raw=154833569",
+      "since_previous_raw_marker": 434
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.parameters.before raw=154833589",
+      "since_previous_raw_marker": 20
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.parameters.after raw=154833627",
+      "since_previous_raw_marker": 38
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.object.select.before raw=154833703",
+      "since_previous_raw_marker": 76
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.object.select.after raw=155781680",
+      "since_previous_raw_marker": 947977
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.application.before raw=155781682",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.application.start count=2 raw=155781685",
+      "since_previous_raw_marker": 3
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.application.slot.check.before raw=155781728",
+      "since_previous_raw_marker": 43
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.application.slot.check.after raw=155781776",
+      "since_previous_raw_marker": 48
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.application.slot.check.before raw=155781838",
+      "since_previous_raw_marker": 62
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.application.slot.check.after raw=155782093",
+      "since_previous_raw_marker": 255
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.application.after raw=155782100",
+      "since_previous_raw_marker": 7
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.comparison.select.before raw=155783285",
+      "since_previous_raw_marker": 1185
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.comparison.select.after raw=156733443",
+      "since_previous_raw_marker": 950158
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.composition.before raw=156735381",
+      "since_previous_raw_marker": 1938
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.point.done raw=156736862",
+      "since_previous_raw_marker": 1481
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.carrier.before raw=156737403",
+      "since_previous_raw_marker": 541
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.carrier.after raw=156738977",
+      "since_previous_raw_marker": 1574
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.evaluate.before raw=156738979",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.evaluate.after raw=156739172",
+      "since_previous_raw_marker": 193
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.select.before row=num.rings raw=156739262",
+      "since_previous_raw_marker": 90
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.select.after row=num.rings raw=157696575",
+      "since_previous_raw_marker": 957313
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.winner.after row=num.rings raw=157696589",
+      "since_previous_raw_marker": 14
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.finish.select.before raw=157697805",
+      "since_previous_raw_marker": 1216
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.finish.select.after raw=158656567",
+      "since_previous_raw_marker": 958762
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.start number=1 raw=158656654",
+      "since_previous_raw_marker": 87
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.domain.before raw=158656658",
+      "since_previous_raw_marker": 4
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.domain.after bases=1 raw=158657724",
+      "since_previous_raw_marker": 1066
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.owners.before raw=158657726",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.owners.after owners=0 raw=158657728",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.candidate.before row=num.sets.fin raw=158660950",
+      "since_previous_raw_marker": 3222
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.start row=num.sets.fin number=1 raw=158660958",
+      "since_previous_raw_marker": 8
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.context.done row=num.sets.fin raw=158660959",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.candidate.after row=num.sets.fin applicable=false raw=158661222",
+      "since_previous_raw_marker": 263
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.candidate.before row=num.rings raw=158661230",
+      "since_previous_raw_marker": 8
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.start row=num.rings number=1 raw=158661238",
+      "since_previous_raw_marker": 8
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.start entry=obj.rings.polynomials raw=158661239",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.comparison.before raw=158661402",
+      "since_previous_raw_marker": 163
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.comparison.after raw=158661480",
+      "since_previous_raw_marker": 78
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.target.before raw=158661515",
+      "since_previous_raw_marker": 35
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.target.after raw=158661852",
+      "since_previous_raw_marker": 337
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.parameters.before raw=158661854",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.parameters.after raw=158661878",
+      "since_previous_raw_marker": 24
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.select.before raw=158662481",
+      "since_previous_raw_marker": 603
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.select.after entry=obj.rings.polynomials raw=159609598",
+      "since_previous_raw_marker": 947117
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.context.done row=num.rings raw=159609603",
+      "since_previous_raw_marker": 5
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.target.unify.before row=num.rings raw=159609925",
+      "since_previous_raw_marker": 322
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.target.unify.after row=num.rings raw=159610359",
+      "since_previous_raw_marker": 434
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.parameters.before raw=159610379",
+      "since_previous_raw_marker": 20
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.parameters.after raw=159610417",
+      "since_previous_raw_marker": 38
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.object.select.before raw=159610493",
+      "since_previous_raw_marker": 76
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.object.select.after raw=160558890",
+      "since_previous_raw_marker": 948397
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.application.before raw=160558892",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.application.start count=2 raw=160558895",
+      "since_previous_raw_marker": 3
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.application.slot.check.before raw=160558938",
+      "since_previous_raw_marker": 43
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.application.slot.check.after raw=160558986",
+      "since_previous_raw_marker": 48
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.application.slot.check.before raw=160559047",
+      "since_previous_raw_marker": 61
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.application.slot.check.after raw=160559309",
+      "since_previous_raw_marker": 262
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.application.after raw=160559316",
+      "since_previous_raw_marker": 7
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.comparison.select.before raw=160560496",
+      "since_previous_raw_marker": 1180
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.comparison.select.after raw=161510975",
+      "since_previous_raw_marker": 950479
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.composition.before raw=161512922",
+      "since_previous_raw_marker": 1947
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.point.done raw=161514414",
+      "since_previous_raw_marker": 1492
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.carrier.before raw=161514965",
+      "since_previous_raw_marker": 551
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.carrier.after raw=161516547",
+      "since_previous_raw_marker": 1582
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.evaluate.before raw=161516549",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.evaluate.after raw=161516742",
+      "since_previous_raw_marker": 193
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.select.before row=num.rings raw=161516832",
+      "since_previous_raw_marker": 90
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.select.after row=num.rings raw=162474239",
+      "since_previous_raw_marker": 957407
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.candidate.after row=num.rings applicable=true raw=162474244",
+      "since_previous_raw_marker": 5
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.admitted count=1 raw=162474251",
+      "since_previous_raw_marker": 7
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.winner.before row=num.rings raw=162474253",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.start row=num.rings number=1 raw=162474255",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.start entry=obj.rings.polynomials raw=162474256",
+      "since_previous_raw_marker": 1
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.comparison.before raw=162474418",
+      "since_previous_raw_marker": 162
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.comparison.after raw=162474495",
+      "since_previous_raw_marker": 77
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.target.before raw=162474530",
+      "since_previous_raw_marker": 35
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.target.after raw=162474868",
+      "since_previous_raw_marker": 338
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.parameters.before raw=162474870",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.parameters.after raw=162474894",
+      "since_previous_raw_marker": 24
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.select.before raw=162475497",
+      "since_previous_raw_marker": 603
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.refinement.select.after entry=obj.rings.polynomials raw=163420194",
+      "since_previous_raw_marker": 944697
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.context.done row=num.rings raw=163420199",
+      "since_previous_raw_marker": 5
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.target.unify.before row=num.rings raw=163420523",
+      "since_previous_raw_marker": 324
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.target.unify.after row=num.rings raw=163420957",
+      "since_previous_raw_marker": 434
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.parameters.before raw=163420977",
+      "since_previous_raw_marker": 20
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.parameters.after raw=163421015",
+      "since_previous_raw_marker": 38
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.object.select.before raw=163421091",
+      "since_previous_raw_marker": 76
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.object.select.after raw=164367747",
+      "since_previous_raw_marker": 946656
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.application.before raw=164367749",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.application.start count=2 raw=164367752",
+      "since_previous_raw_marker": 3
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.application.slot.check.before raw=164367795",
+      "since_previous_raw_marker": 43
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.application.slot.check.after raw=164367843",
+      "since_previous_raw_marker": 48
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.application.slot.check.before raw=164367902",
+      "since_previous_raw_marker": 59
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.application.slot.check.after raw=164368157",
+      "since_previous_raw_marker": 255
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.application.after raw=164368164",
+      "since_previous_raw_marker": 7
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.comparison.select.before raw=164369342",
+      "since_previous_raw_marker": 1178
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.comparison.select.after raw=165318119",
+      "since_previous_raw_marker": 948777
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.composition.before raw=165320070",
+      "since_previous_raw_marker": 1951
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.point.done raw=165321552",
+      "since_previous_raw_marker": 1482
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.carrier.before raw=165322093",
+      "since_previous_raw_marker": 541
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.carrier.after raw=165323657",
+      "since_previous_raw_marker": 1564
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.evaluate.before raw=165323659",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.evaluate.after raw=165323853",
+      "since_previous_raw_marker": 194
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.select.before row=num.rings raw=165323943",
+      "since_previous_raw_marker": 90
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.candidate.select.after row=num.rings raw=166279939",
+      "since_previous_raw_marker": 955996
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.winner.after row=num.rings raw=166279941",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.finish.select.before raw=166281092",
+      "since_previous_raw_marker": 1151
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE numeral.read.finish.select.after raw=167238422",
+      "since_previous_raw_marker": 957330
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.operand.fresh.after name=- index=0 raw=168131860",
+      "since_previous_raw_marker": 893438
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.operand.slotCheck.before name=- index=0 raw=169138767",
+      "since_previous_raw_marker": 1006907
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.operand.slotCheck.false name=- index=0 raw=169140535",
+      "since_previous_raw_marker": 1768
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.operand.slotSelect.before name=- index=0 raw=169140538",
+      "since_previous_raw_marker": 3
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.operand.slotSelect.after name=- index=0 raw=170107316",
+      "since_previous_raw_marker": 966778
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.application.before name=- raw=170107348",
+      "since_previous_raw_marker": 32
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.application.after name=- raw=170108213",
+      "since_previous_raw_marker": 865
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.output.before name=- raw=170108233",
+      "since_previous_raw_marker": 20
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.output.after name=- raw=171131019",
+      "since_previous_raw_marker": 1022786
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE rule.negation.after raw=171131066",
+      "since_previous_raw_marker": 47
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.operand.fresh.after name=+ index=1 raw=172960368",
+      "since_previous_raw_marker": 1829302
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.operand.slotCheck.before name=+ index=1 raw=173988550",
+      "since_previous_raw_marker": 1028182
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.operand.slotCheck.false name=+ index=1 raw=173990317",
+      "since_previous_raw_marker": 1767
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.operand.slotSelect.before name=+ index=1 raw=173990320",
+      "since_previous_raw_marker": 3
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.operand.slotSelect.after name=+ index=1 raw=174979613",
+      "since_previous_raw_marker": 989293
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.tuple.after name=+ raw=175035359",
+      "since_previous_raw_marker": 55746
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.application.before name=+ raw=175035379",
+      "since_previous_raw_marker": 20
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.application.after name=+ raw=175036228",
+      "since_previous_raw_marker": 849
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.output.before name=+ raw=175036230",
+      "since_previous_raw_marker": 2
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE reader.output.after name=+ raw=176099010",
+      "since_previous_raw_marker": 1062780
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE rule.addition.after raw=176099026",
+      "since_previous_raw_marker": 16
+    },
+    {
+      "marker": "B0_ELEMENT_PHASE rule.subtraction.after raw=178988167",
+      "since_previous_raw_marker": 2889141
+    },
+    {
+      "marker": "B0_FINITE_PHASE rule.element.read.after raw=179928308",
+      "since_previous_raw_marker": 940141
+    },
+    {
+      "marker": "B0_FINITE_PHASE rule.literal.form.before raw=179928354",
+      "since_previous_raw_marker": 46
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.literal.start elements=1 raw=179928383",
+      "since_previous_raw_marker": 29
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.list.before raw=179928472",
+      "since_previous_raw_marker": 89
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.list.after raw=179928525",
+      "since_previous_raw_marker": 53
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.equality.type.before raw=179928541",
+      "since_previous_raw_marker": 16
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.equality.type.after raw=179928790",
+      "since_previous_raw_marker": 249
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.equality.instance.before raw=179928806",
+      "since_previous_raw_marker": 16
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.equality.instance.after raw=182067449",
+      "since_previous_raw_marker": 2138643
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.toFinset.before raw=182067466",
+      "since_previous_raw_marker": 17
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.toFinset.after raw=182068158",
+      "since_previous_raw_marker": 692
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.denotation.before raw=182068175",
+      "since_previous_raw_marker": 17
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.atBase.start declaration=CasCatalogue.Foundation.FiniteSubsetLiterals.literal raw=182068231",
+      "since_previous_raw_marker": 56
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.atBase.apply.before declaration=CasCatalogue.Foundation.FiniteSubsetLiterals.literal raw=182068321",
+      "since_previous_raw_marker": 90
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.atBase.apply.after declaration=CasCatalogue.Foundation.FiniteSubsetLiterals.literal raw=186386922",
+      "since_previous_raw_marker": 4318601
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.denotation.after raw=186386954",
+      "since_previous_raw_marker": 32
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.global.before raw=186386971",
+      "since_previous_raw_marker": 17
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.global.start raw=186387012",
+      "since_previous_raw_marker": 41
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.global.function.before raw=186387055",
+      "since_previous_raw_marker": 43
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.global.function.after raw=186388647",
+      "since_previous_raw_marker": 1592
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.global.apply.before raw=186388663",
+      "since_previous_raw_marker": 16
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.global.apply.after raw=187488015",
+      "since_previous_raw_marker": 1099352
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.global.point.before raw=187488032",
+      "since_previous_raw_marker": 17
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.global.point.after raw=187488184",
+      "since_previous_raw_marker": 152
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.global.select.before raw=187488201",
+      "since_previous_raw_marker": 17
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.global.select.after raw=188551127",
+      "since_previous_raw_marker": 1062926
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.global.after raw=188551156",
+      "since_previous_raw_marker": 29
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.reference.before raw=188552431",
+      "since_previous_raw_marker": 1275
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.reference.after raw=188552459",
+      "since_previous_raw_marker": 28
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.final.select.before raw=188552476",
+      "since_previous_raw_marker": 17
+    },
+    {
+      "marker": "B0_FINITE_PHASE subset.final.select.after raw=189616939",
+      "since_previous_raw_marker": 1064463
+    },
+    {
+      "marker": "B0_FINITE_PHASE rule.literal.form.after raw=189616969",
+      "since_previous_raw_marker": 30
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.datum.read.after entry=obj.sets.finite_subsets raw=189619276",
+      "since_previous_raw_marker": 2307
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.instances.before entry=obj.sets.finite_subsets raw=189801178",
+      "since_previous_raw_marker": 181902
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.instances.after entry=obj.sets.finite_subsets raw=189801294",
+      "since_previous_raw_marker": 116
+    },
+    {
+      "marker": "B0_FINITE_PHASE admission.evidence.before entry=obj.sets.finite_subsets index=2 raw=189801434",
+      "since_previous_raw_marker": 140
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.before raw=189802971",
+      "since_previous_raw_marker": 1537
+    },
+    {
+      "marker": "B0_PROOF_PHASE scope.open.after raw=190783949",
+      "since_previous_raw_marker": 980978
+    },
+    {
+      "marker": "B0_PROOF_PHASE prepare.before raw=190783972",
+      "since_previous_raw_marker": 23
+    }
+  ]
+}

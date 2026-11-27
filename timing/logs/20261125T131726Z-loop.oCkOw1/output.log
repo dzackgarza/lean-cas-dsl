@@ -1,0 +1,557 @@
+[build] native lake --log-level=error build +CasTools.Diagnostics:deps +CasRuntime.PreparedRequest:deps +CasRuntime.Kernel:deps +CasCompiler.Read:deps +CasCompiler.SourceTestSupport:deps 
+✔ [2103/2164] Built CasTools.Diagnostics (15s)
+✖ [2104/2164] Building CasCompiler.ReadSubsetRules (31s)
+trace: .> LEAN_PATH=/opt/mathlib/.lake/packages/Cli/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/checkdecls/.lake/build/lib/lean:/opt/mathlib/.lake/packages/batteries/.lake/build/lib/lean:/opt/mathlib/.lake/packages/Qq/.lake/build/lib/lean:/opt/mathlib/.lake/packages/aesop/.lake/build/lib/lean:/opt/mathlib/.lake/packages/proofwidgets/.lake/build/lib/lean:/opt/mathlib/.lake/packages/importGraph/.lake/build/lib/lean:/opt/mathlib/.lake/packages/LeanSearchClient/.lake/build/lib/lean:/opt/mathlib/.lake/packages/plausible/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/BrauerGroup/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/nbdsl-worker/worker/.lake/build/lib/lean:/opt/mathlib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cslib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/PolyFun/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/lean_categories/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cas_leaf_contracts/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean /opt/elan/toolchains/leanprover--lean4---v4.33.0/bin/lean /repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/ReadSubsetRules.lean -o /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean/CasCompiler/ReadSubsetRules.olean -i /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean/CasCompiler/ReadSubsetRules.ilean -c /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/ir/CasCompiler/ReadSubsetRules.c --setup /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/ir/CasCompiler/ReadSubsetRules.setup.json --json
+error: CasCompiler/ReadSubsetRules.lean:58:46: Type mismatch
+  instantiateMVars __do_lift✝
+has type
+  ?m.349 Expr
+of sort `Type` but is expected to have type
+  SourceReadM Expr
+of sort `Type 1`
+error: Lean exited with code 1
+✔ [2105/2164] Built CasCompiler.ReadDispatch (33s)
+✔ [2106/2164] Built CasCompiler.SourceConstruction (36s)
+✔ [2107/2164] Built CasCompiler.SourceDivision (36s)
+✔ [2108/2164] Built CasCompiler.ReadOperation (37s)
+✔ [2109/2164] Built CasRuntime.Realization (26s)
+✖ [2110/2164] Building CasCompiler.ReadNumeralRules (11s)
+trace: .> LEAN_PATH=/opt/mathlib/.lake/packages/Cli/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/checkdecls/.lake/build/lib/lean:/opt/mathlib/.lake/packages/batteries/.lake/build/lib/lean:/opt/mathlib/.lake/packages/Qq/.lake/build/lib/lean:/opt/mathlib/.lake/packages/aesop/.lake/build/lib/lean:/opt/mathlib/.lake/packages/proofwidgets/.lake/build/lib/lean:/opt/mathlib/.lake/packages/importGraph/.lake/build/lib/lean:/opt/mathlib/.lake/packages/LeanSearchClient/.lake/build/lib/lean:/opt/mathlib/.lake/packages/plausible/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/BrauerGroup/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/nbdsl-worker/worker/.lake/build/lib/lean:/opt/mathlib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cslib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/PolyFun/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/lean_categories/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cas_leaf_contracts/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean /opt/elan/toolchains/leanprover--lean4---v4.33.0/bin/lean /repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/ReadNumeralRules.lean -o /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean/CasCompiler/ReadNumeralRules.olean -i /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean/CasCompiler/ReadNumeralRules.ilean -c /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/ir/CasCompiler/ReadNumeralRules.c --setup /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/ir/CasCompiler/ReadNumeralRules.setup.json --json
+error: CasCompiler/ReadNumeralRules.lean:26:48: Type mismatch
+  instantiateMVars expected
+has type
+  ?m.4 Expr
+of sort `Type` but is expected to have type
+  SourceReadM Expr
+of sort `Type 1`
+error: Lean exited with code 1
+✖ [2111/2164] Building CasCompiler.ReadApplication (14s)
+trace: .> LEAN_PATH=/opt/mathlib/.lake/packages/Cli/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/checkdecls/.lake/build/lib/lean:/opt/mathlib/.lake/packages/batteries/.lake/build/lib/lean:/opt/mathlib/.lake/packages/Qq/.lake/build/lib/lean:/opt/mathlib/.lake/packages/aesop/.lake/build/lib/lean:/opt/mathlib/.lake/packages/proofwidgets/.lake/build/lib/lean:/opt/mathlib/.lake/packages/importGraph/.lake/build/lib/lean:/opt/mathlib/.lake/packages/LeanSearchClient/.lake/build/lib/lean:/opt/mathlib/.lake/packages/plausible/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/BrauerGroup/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/nbdsl-worker/worker/.lake/build/lib/lean:/opt/mathlib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cslib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/PolyFun/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/lean_categories/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cas_leaf_contracts/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean /opt/elan/toolchains/leanprover--lean4---v4.33.0/bin/lean /repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/ReadApplication.lean -o /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean/CasCompiler/ReadApplication.olean -i /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean/CasCompiler/ReadApplication.ilean -c /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/ir/CasCompiler/ReadApplication.c --setup /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/ir/CasCompiler/ReadApplication.setup.json --json
+error: CasCompiler/ReadApplication.lean:23:19: Type mismatch
+  instantiateMVars __do_lift✝
+has type
+  ?m.4 Expr
+of sort `Type` but is expected to have type
+  SourceReadM Expr
+of sort `Type 1`
+error: CasCompiler/ReadApplication.lean:43:8: Invalid field notation: Type of
+  __do_lift✝
+is not known; cannot resolve field `findFromUserName?`
+
+Hint: Consider replacing the field projection `.findFromUserName?` with a call to the function `LocalContext.findFromUserName?`.
+error: CasCompiler/ReadApplication.lean:43:11: Type mismatch
+  getLCtx
+has type
+  ?m.51 LocalContext
+of sort `Type` but is expected to have type
+  SourceReadM (?m.86 __r✝ __discr✝² __discr✝¹ __discr✝ name)
+of sort `Type 1`
+error: CasCompiler/ReadApplication.lean:88:28: Type mismatch
+  instantiateMVars __do_lift✝
+has type
+  ?m.273 Expr
+of sort `Type` but is expected to have type
+  SourceReadM Expr
+of sort `Type 1`
+error: CasCompiler/ReadApplication.lean:296:18: Type mismatch
+  instantiateMVars __do_lift✝
+has type
+  ?m.339 Expr
+of sort `Type` but is expected to have type
+  SourceReadM Expr
+of sort `Type 1`
+error: Lean exited with code 1
+✔ [2119/2164] Built CasCompiler.ReadOperationRules (11s)
+✖ [2120/2164] Building CasCompiler.ReadProductNotation (12s)
+trace: .> LEAN_PATH=/opt/mathlib/.lake/packages/Cli/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/checkdecls/.lake/build/lib/lean:/opt/mathlib/.lake/packages/batteries/.lake/build/lib/lean:/opt/mathlib/.lake/packages/Qq/.lake/build/lib/lean:/opt/mathlib/.lake/packages/aesop/.lake/build/lib/lean:/opt/mathlib/.lake/packages/proofwidgets/.lake/build/lib/lean:/opt/mathlib/.lake/packages/importGraph/.lake/build/lib/lean:/opt/mathlib/.lake/packages/LeanSearchClient/.lake/build/lib/lean:/opt/mathlib/.lake/packages/plausible/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/BrauerGroup/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/nbdsl-worker/worker/.lake/build/lib/lean:/opt/mathlib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cslib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/PolyFun/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/lean_categories/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cas_leaf_contracts/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean /opt/elan/toolchains/leanprover--lean4---v4.33.0/bin/lean /repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/ReadProductNotation.lean -o /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean/CasCompiler/ReadProductNotation.olean -i /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean/CasCompiler/ReadProductNotation.ilean -c /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/ir/CasCompiler/ReadProductNotation.c --setup /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/ir/CasCompiler/ReadProductNotation.setup.json --json
+error: CasCompiler/ReadProductNotation.lean:20:20: Application type mismatch: The argument
+  MonadQuotation.getContext
+has type
+  ?m.72 Name
+of sort `Type` but is expected to have type
+  SourceReadM (?m.138 factor power __do_jp✝ info✝ scp✝)
+of sort `Type 1` in the application
+  bind MonadQuotation.getContext
+error: Lean exited with code 1
+✖ [2121/2164] Building CasCompiler.ReadAnnotationRules (12s)
+trace: .> LEAN_PATH=/opt/mathlib/.lake/packages/Cli/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/checkdecls/.lake/build/lib/lean:/opt/mathlib/.lake/packages/batteries/.lake/build/lib/lean:/opt/mathlib/.lake/packages/Qq/.lake/build/lib/lean:/opt/mathlib/.lake/packages/aesop/.lake/build/lib/lean:/opt/mathlib/.lake/packages/proofwidgets/.lake/build/lib/lean:/opt/mathlib/.lake/packages/importGraph/.lake/build/lib/lean:/opt/mathlib/.lake/packages/LeanSearchClient/.lake/build/lib/lean:/opt/mathlib/.lake/packages/plausible/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/BrauerGroup/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/nbdsl-worker/worker/.lake/build/lib/lean:/opt/mathlib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cslib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/PolyFun/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/lean_categories/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cas_leaf_contracts/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean /opt/elan/toolchains/leanprover--lean4---v4.33.0/bin/lean /repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/ReadAnnotationRules.lean -o /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean/CasCompiler/ReadAnnotationRules.olean -i /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean/CasCompiler/ReadAnnotationRules.ilean -c /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/ir/CasCompiler/ReadAnnotationRules.c --setup /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/ir/CasCompiler/ReadAnnotationRules.setup.json --json
+error: CasCompiler/ReadAnnotationRules.lean:28:45: Invalid field notation: Type of
+  __do_lift✝
+is not known; cannot resolve field `findFromUserName?`
+
+Hint: Consider replacing the field projection `.findFromUserName?` with a call to the function `LocalContext.findFromUserName?`.
+error: CasCompiler/ReadAnnotationRules.lean:28:48: Type mismatch
+  getLCtx
+has type
+  ?m.21 LocalContext
+of sort `Type` but is expected to have type
+  SourceReadM (?m.214 body domain✝ __do_lift✝¹ __r✝³ domain __r✝² __r✝¹ __do_lift✝ __r✝ __do_jp✝ entry)
+of sort `Type 1`
+error: CasCompiler/ReadAnnotationRules.lean:115:8: Invalid field notation: Type of
+  __do_lift✝
+is not known; cannot resolve field `findFromUserName?`
+
+Hint: Consider replacing the field projection `.findFromUserName?` with a call to the function `LocalContext.findFromUserName?`.
+error: CasCompiler/ReadAnnotationRules.lean:115:11: Type mismatch
+  getLCtx
+has type
+  ?m.776 LocalContext
+of sort `Type` but is expected to have type
+  SourceReadM
+    (?m.891 __r✝⁵ __r✝⁴ __r✝³ __r✝² __r✝¹ __discr✝⁶ __discr✝⁵ __discr✝⁴ __discr✝³ __discr✝² __discr✝¹ __discr✝ category
+      body __r✝)
+of sort `Type 1`
+error: Lean exited with code 1
+✔ [2122/2164] Built CasRuntime.Environment (46s)
+✔ [2123/2164] Built CasRuntime.RoleMap (10s)
+✔ [2124/2164] Built CasRuntime.DeclaredInput (12s)
+✔ [2125/2164] Built CasRuntime.Observation (14s)
+✔ [2127/2164] Built CasRuntime.PreparedRequest (13s)
+✔ [2128/2164] Built CasRuntime.Closure (7.0s)
+✔ [2129/2164] Built CasCompiler.PublishedSource (96s)
+✔ [2139/2164] Built CasRuntime.FixedInput (9.3s)
+✔ [2140/2164] Built CasRuntime.KernelState (6.9s)
+✔ [2141/2164] Built CasRuntime.InputResult (7.3s)
+✔ [2142/2164] Built CasRuntime.Encode (11s)
+✔ [2143/2164] Built CasRuntime.Presentation (9.5s)
+✔ [2144/2164] Built CasRuntime.Transaction (16s)
+✔ [2145/2164] Built CasRuntime.Association (12s)
+✔ [2146/2164] Built CasRuntime.Transport (12s)
+✔ [2147/2164] Built CasRuntime.ExecutionContext (11s)
+✔ [2148/2164] Built CasRuntime.Execute (15s)
+✔ [2149/2164] Built CasRuntime.ResultCodec (9.0s)
+✔ [2150/2164] Built CasRuntime.NativeMapEndpoints (9.4s)
+✔ [2151/2164] Built CasRuntime.ConstructorPorts (9.8s)
+✔ [2152/2164] Built CasRuntime.ConstructionSource (10s)
+✔ [2153/2164] Built CasRuntime.Materialize (20s)
+✔ [2154/2164] Built CasRuntime.Creation (11s)
+✖ [2155/2164] Building CasRuntime.Point (15s)
+trace: .> LEAN_PATH=/opt/mathlib/.lake/packages/Cli/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/checkdecls/.lake/build/lib/lean:/opt/mathlib/.lake/packages/batteries/.lake/build/lib/lean:/opt/mathlib/.lake/packages/Qq/.lake/build/lib/lean:/opt/mathlib/.lake/packages/aesop/.lake/build/lib/lean:/opt/mathlib/.lake/packages/proofwidgets/.lake/build/lib/lean:/opt/mathlib/.lake/packages/importGraph/.lake/build/lib/lean:/opt/mathlib/.lake/packages/LeanSearchClient/.lake/build/lib/lean:/opt/mathlib/.lake/packages/plausible/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/BrauerGroup/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/nbdsl-worker/worker/.lake/build/lib/lean:/opt/mathlib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cslib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/PolyFun/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/lean_categories/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cas_leaf_contracts/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean /opt/elan/toolchains/leanprover--lean4---v4.33.0/bin/lean /repos/v1-integration-20261106/lean-cas-dsl/CasRuntime/Point.lean -o /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean/CasRuntime/Point.olean -i /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean/CasRuntime/Point.ilean -c /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/ir/CasRuntime/Point.c --setup /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/ir/CasRuntime/Point.setup.json --json
+error: CasRuntime/Point.lean:236:12: Invalid field notation: Type of
+  selectMorphism
+    { value := arrowSource, formalBindings := arrowSelection.formalBindings,
+      carrierRoutes := arrowSelection.carrierRoutes, preferredRoute := arrowSelection.preferredRoute,
+      operationRefinements := arrowSelection.operationRefinements, alternatives := arrowSelection.alternatives,
+      reference := arrowSelection.reference, observation := arrowSelection.observation,
+      originalApplication := arrowSelection.originalApplication, application := arrowSelection.application,
+      creationOwner := arrowSelection.creationOwner, admission := arrowSelection.admission,
+      presentationEndpoints := arrowSelection.presentationEndpoints, routedInputs := arrowSelection.routedInputs,
+      legOrdinal := arrowSelection.legOrdinal, recordSelection := arrowSelection.recordSelection,
+      recordOwner := arrowSelection.recordOwner, category := arrowSelection.category,
+      typeOrigin := arrowSelection.typeOrigin, elementOwner := arrowSelection.elementOwner,
+      pointOrigin := arrowSelection.pointOrigin, pointRequest := arrowSelection.pointRequest,
+      isoOrigin := arrowSelection.isoOrigin, field := arrowSelection.field, endpoint := arrowSelection.endpoint,
+      limit := arrowSelection.limit, leg := arrowSelection.leg, cellFamily := arrowSelection.cellFamily,
+      cell := arrowSelection.cell, cartesian := arrowSelection.cartesian, powerObject := arrowSelection.powerObject }
+    ?m.568 (some bundle)
+is not known; cannot resolve field `runK`
+
+Hint: Consider replacing the field projection with a call to one of the following:
+  • `Break.runK`
+  • `Continue.runK`
+  • `EarlyReturn.runK`
+  • `ExceptCpsT.runK`
+  • `ExceptT.runK`
+  • `StateCpsT.runK`
+error: CasRuntime/Point.lean:236:73: Application type mismatch: The argument
+  select
+has type
+  SourceSelection Expr → StateCpsT (OpenContext × SourceSelectionScope Expr) MetaM Expr
+but is expected to have type
+  SourceSelection Expr → Option Expr → ?m.563 Expr
+in the application
+  @selectMorphism ?m.563 ?m.564 ?m.565
+    { value := arrowSource, formalBindings := arrowSelection.formalBindings,
+      carrierRoutes := arrowSelection.carrierRoutes, preferredRoute := arrowSelection.preferredRoute,
+      operationRefinements := arrowSelection.operationRefinements, alternatives := arrowSelection.alternatives,
+      reference := arrowSelection.reference, observation := arrowSelection.observation,
+      originalApplication := arrowSelection.originalApplication, application := arrowSelection.application,
+      creationOwner := arrowSelection.creationOwner, admission := arrowSelection.admission,
+      presentationEndpoints := arrowSelection.presentationEndpoints, routedInputs := arrowSelection.routedInputs,
+      legOrdinal := arrowSelection.legOrdinal, recordSelection := arrowSelection.recordSelection,
+      recordOwner := arrowSelection.recordOwner, category := arrowSelection.category,
+      typeOrigin := arrowSelection.typeOrigin, elementOwner := arrowSelection.elementOwner,
+      pointOrigin := arrowSelection.pointOrigin, pointRequest := arrowSelection.pointRequest,
+      isoOrigin := arrowSelection.isoOrigin, field := arrowSelection.field, endpoint := arrowSelection.endpoint,
+      limit := arrowSelection.limit, leg := arrowSelection.leg, cellFamily := arrowSelection.cellFamily,
+      cell := arrowSelection.cell, cartesian := arrowSelection.cartesian, powerObject := arrowSelection.powerObject }
+    select
+warning: CasRuntime/Point.lean:287:8: Variable name `argumentSource` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _argumentSource
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+error: CasRuntime/Point.lean:529:13: Type mismatch
+  value.selectedSource context
+has type
+  MetaM Expr
+but is expected to have type
+  IO ?m.368
+error: CasRuntime/Point.lean:529:49: Application type mismatch: The argument
+  action
+has type
+  OpenContext → Std.HashMap BindingId ValueBinding → Expr → MetaM Unit
+but is expected to have type
+  OpenContext → Std.HashMap BindingId ValueBinding → Expr → IO ?α
+in the application
+  @withBoundValue IO ?α ?m.372 ?m.373 ?m.374 kernel.ledger.owners.identities context bound __do_lift✝ value action
+error: CasRuntime/Point.lean:528:8: failed to synthesize instance of type class
+  MonadLiftT MetaM IO
+
+Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
+error: CasRuntime/Point.lean:527:6: failed to synthesize instance of type class
+  MonadLiftT MetaM IO
+
+Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
+error: CasRuntime/Point.lean:536:10: Type mismatch
+  action
+has type
+  OpenContext → Std.HashMap BindingId ValueBinding → PublishedSource.NativeSymbolicEndpoint → MetaM Unit
+but is expected to have type
+  MetaM Unit
+error: CasRuntime/Point.lean:534:6: Missing cases:
+(PreparedSymbolicEndpoint.inline _)
+error: CasRuntime/Point.lean:536:17: Function expected at
+  context
+but this term has type
+  OpenContext
+
+Note: Expected a function because this term is being applied to the argument
+  bound
+error: CasRuntime/Point.lean:537:8: Unknown constant `Lean.Meta.MetaM.inline`
+
+Note: Inferred this name from the expected resulting type of `.inline`:
+  MetaM Unit
+error: CasRuntime/Point.lean:537:8: Unknown constant `ReaderT.inline`
+
+Note: Inferred this name from the expected resulting type of `.inline`:
+  MetaM Unit
+error: CasRuntime/Point.lean:537:8: Unknown constant `StateRefT'.inline`
+
+Note: Inferred this name from the expected resulting type of `.inline`:
+  MetaM Unit
+error: CasRuntime/Point.lean:537:8: Unknown constant `ReaderT.inline`
+
+Note: Inferred this name from the expected resulting type of `.inline`:
+  MetaM Unit
+error: CasRuntime/Point.lean:537:8: Unknown constant `Lean.Core.CoreM.inline`
+
+Note: Inferred this name from the expected resulting type of `.inline`:
+  MetaM Unit
+error: CasRuntime/Point.lean:537:8: Unknown constant `ReaderT.inline`
+
+Note: Inferred this name from the expected resulting type of `.inline`:
+  MetaM Unit
+error: CasRuntime/Point.lean:537:8: Unknown constant `StateRefT'.inline`
+
+Note: Inferred this name from the expected resulting type of `.inline`:
+  MetaM Unit
+error: CasRuntime/Point.lean:537:8: Unknown constant `ReaderT.inline`
+
+Note: Inferred this name from the expected resulting type of `.inline`:
+  MetaM Unit
+error: CasRuntime/Point.lean:537:8: Unknown constant `EIO.inline`
+
+Note: Inferred this name from the expected resulting type of `.inline`:
+  MetaM Unit
+error: CasRuntime/Point.lean:537:8: Unknown constant `EST.inline`
+
+Note: Inferred this name from the expected resulting type of `.inline`:
+  MetaM Unit
+error: CasRuntime/Point.lean:537:8: Unknown constant `EST.Out.inline`
+
+Note: Inferred this name from the expected resulting type of `.inline`:
+  MetaM Unit
+error: CasRuntime/Point.lean:537:25: unexpected token '=>'; expected command
+warning: CasRuntime/Point.lean:804:8: Variable name `argumentSource` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _argumentSource
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+error: Lean exited with code 1
+✔ [2158/2164] Built CasRuntime.RoutedMethod (61s)
+✔ [2159/2164] Built CasRuntime.Property (9.1s)
+✖ [2160/2164] Building CasRuntime.ChildCall (10s)
+trace: .> LEAN_PATH=/opt/mathlib/.lake/packages/Cli/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/checkdecls/.lake/build/lib/lean:/opt/mathlib/.lake/packages/batteries/.lake/build/lib/lean:/opt/mathlib/.lake/packages/Qq/.lake/build/lib/lean:/opt/mathlib/.lake/packages/aesop/.lake/build/lib/lean:/opt/mathlib/.lake/packages/proofwidgets/.lake/build/lib/lean:/opt/mathlib/.lake/packages/importGraph/.lake/build/lib/lean:/opt/mathlib/.lake/packages/LeanSearchClient/.lake/build/lib/lean:/opt/mathlib/.lake/packages/plausible/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/BrauerGroup/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/nbdsl-worker/worker/.lake/build/lib/lean:/opt/mathlib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cslib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/PolyFun/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/lean_categories/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cas_leaf_contracts/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean /opt/elan/toolchains/leanprover--lean4---v4.33.0/bin/lean /repos/v1-integration-20261106/lean-cas-dsl/CasRuntime/ChildCall.lean -o /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean/CasRuntime/ChildCall.olean -i /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean/CasRuntime/ChildCall.ilean -c /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/ir/CasRuntime/ChildCall.c --setup /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/ir/CasRuntime/ChildCall.setup.json --json
+error: CasRuntime/ChildCall.lean:29:48: Invalid projection: Type of
+  x✝
+is not known; cannot resolve projection `2`
+error: Lean exited with code 1
+✖ [2163/2164] Building CasCompiler.Lower (23s)
+trace: .> LEAN_PATH=/opt/mathlib/.lake/packages/Cli/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/checkdecls/.lake/build/lib/lean:/opt/mathlib/.lake/packages/batteries/.lake/build/lib/lean:/opt/mathlib/.lake/packages/Qq/.lake/build/lib/lean:/opt/mathlib/.lake/packages/aesop/.lake/build/lib/lean:/opt/mathlib/.lake/packages/proofwidgets/.lake/build/lib/lean:/opt/mathlib/.lake/packages/importGraph/.lake/build/lib/lean:/opt/mathlib/.lake/packages/LeanSearchClient/.lake/build/lib/lean:/opt/mathlib/.lake/packages/plausible/.lake/build/lib/lean:/.local/share/lean/v4.33.0/packages/BrauerGroup/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/nbdsl-worker/worker/.lake/build/lib/lean:/opt/mathlib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cslib/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/PolyFun/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/lean_categories/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/packages/cas_leaf_contracts/.lake/build/lib/lean:/repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean /opt/elan/toolchains/leanprover--lean4---v4.33.0/bin/lean /repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/Lower.lean -o /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean/CasCompiler/Lower.olean -i /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean/CasCompiler/Lower.ilean -c /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/ir/CasCompiler/Lower.c --setup /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/ir/CasCompiler/Lower.setup.json --json
+error: CasCompiler/Lower.lean:416:25: Application type mismatch: The argument
+  fun source => ClosureCode.term source
+has type
+  ClosedTerm → ClosureCode
+but is expected to have type
+  ClosedTerm → SourceSelectionScope ClosedTerm → ClosureCode
+in the application
+  @closureWith expression fun source => ClosureCode.term source
+error: CasCompiler/Lower.lean:647:5: unexpected token 'alias'; expected '(', ':=', 'rec', '|', identifier or term
+error: CasCompiler/Lower.lean:472:15: Unknown identifier `structuralMap`
+error: CasCompiler/Lower.lean:492:10: Unknown identifier `apply`
+error: CasCompiler/Lower.lean:496:17: Unknown identifier `apply`
+error: CasCompiler/Lower.lean:537:29: Unknown identifier `projectionSourcePath`
+error: CasCompiler/Lower.lean:540:27: Unknown identifier `projectionSourcePath`
+error: CasCompiler/Lower.lean:600:26: Unknown identifier `nativeInputRecord?`
+error: CasCompiler/Lower.lean:619:6: Unknown identifier `field`
+error: CasCompiler/Lower.lean:624:6: Unknown identifier `descriptor`
+error: CasCompiler/Lower.lean:624:6: Unknown identifier `descriptor`
+error: CasCompiler/Lower.lean:625:11: Unknown identifier `application`
+error: CasCompiler/Lower.lean:538:23: Unknown identifier `projectPath`
+error: CasCompiler/Lower.lean:539:17: Unknown identifier `apply`
+error: CasCompiler/Lower.lean:543:22: Unknown identifier `projectPath`
+error: CasCompiler/Lower.lean:544:19: Unknown identifier `apply`
+error: CasCompiler/Lower.lean:548:22: Unknown identifier `field`
+error: CasCompiler/Lower.lean:549:19: Unknown identifier `apply`
+error: CasCompiler/Lower.lean:550:20: Unknown identifier `project`
+error: CasCompiler/Lower.lean:551:17: Unknown identifier `apply`
+error: CasCompiler/Lower.lean:647:11: unexpected token '←'; expected '⟨' or identifier
+error: CasCompiler/Lower.lean:648:10: unexpected token '!='; expected '⟨' or identifier
+error: CasCompiler/Lower.lean:649:50: unexpected token 'then'; expected '⟨' or identifier
+error: CasCompiler/Lower.lean:655:34: unexpected token 'do'; expected '⟨' or identifier
+error: CasCompiler/Lower.lean:752:13: Unknown identifier `argumentSource`
+error: CasCompiler/Lower.lean:761:17: Unknown identifier `selectedEndpointFields?`
+error: CasCompiler/Lower.lean:765:17: Unknown identifier `stageRecord`
+error: CasCompiler/Lower.lean:807:10: Unknown identifier `actualArguments`
+error: CasCompiler/Lower.lean:825:10: Unknown identifier `actualArguments`
+error: CasCompiler/Lower.lean:855:2: Unknown identifier `actualArguments`
+error: CasCompiler/Lower.lean:876:4: Unknown identifier `presentationFamily`
+error: CasCompiler/Lower.lean:877:28: Unknown identifier `routedMethodFamily`
+error: CasCompiler/Lower.lean:878:24: Unknown identifier `propertyObservation`
+error: CasCompiler/Lower.lean:879:21: Unknown identifier `categoricalPointFamily`
+error: CasCompiler/Lower.lean:880:21: Unknown identifier `wholeLimitFamily`
+error: CasCompiler/Lower.lean:881:30: Unknown identifier `universalLimitFamily`
+error: CasCompiler/Lower.lean:882:31: Unknown identifier `creationFamily`
+error: CasCompiler/Lower.lean:923:15: Unknown identifier `stageRecord`
+error: CasCompiler/Lower.lean:951:2: Unknown identifier `actualArguments`
+error: CasCompiler/Lower.lean:990:48: Unknown identifier `fieldClosures`
+error: CasCompiler/Lower.lean:990:2: Unknown identifier `stageRecord`
+error: CasCompiler/Lower.lean:1012:27: Unknown identifier `projectPath`
+error: CasCompiler/Lower.lean:1132:15: Unknown identifier `project`
+error: CasCompiler/Lower.lean:1188:13: Unknown identifier `project`
+error: CasCompiler/Lower.lean:1190:23: Unknown identifier `projectionSourcePath`
+error: CasCompiler/Lower.lean:1191:112: Invalid field notation: Type of
+  path
+is not known; cannot resolve field `size`
+
+Hint: Consider replacing the field projection with a call to one of the following:
+  • `Array.size`
+  • `ByteArray.size`
+  • `ByteSlice.size`
+  • `FloatArray.size`
+  • `ISize.size`
+  • `Int16.size`
+  • `Int32.size`
+  • `Int64.size`
+  • `Int8.size`
+  • `Nat.size`
+  • `UInt16.size`
+  • `UInt32.size`
+  • `UInt64.size`
+  • `UInt8.size`
+  • `USize.size`
+  • `Vector.size`
+  • `Aesop.ForwardRuleMatches.size`
+  • `Aesop.UnorderedArraySet.size`
+  • `CompactedRegion.size`
+  • `KVMap.size`
+  • `LocalContext.size`
+  • `PersistentArray.size`
+  • `RArray.size`
+  • `RBMap.size`
+  • `RBNode.size`
+  • `Std.DHashMap.size`
+  • `Std.DTreeMap.size`
+  • `Std.HashMap.size`
+  • `Std.HashSet.size`
+  • `Std.Iter.size`
+  • `Std.IterM.size`
+  • `Std.Rcc.size`
+  • `Std.Rci.size`
+  • `Std.Rco.size`
+  • `Std.Ric.size`
+  • `Std.Rii.size`
+  • `Std.Rio.size`
+  • `Std.Roc.size`
+  • `Std.Roi.size`
+  • `Std.Roo.size`
+  • `Std.Slice.size`
+  • `Std.TreeMap.size`
+  • `Std.TreeSet.size`
+  • `Elab.HoverableInfoPrio.size`
+  • `IR.CtorInfo.size`
+  • `DiscrTree.size`
+  • `Parser.SyntaxStack.size`
+  • `Std.DHashMap.Raw.size`
+  • `Std.DTreeMap.Raw.size`
+  • `Std.HashMap.Raw.size`
+  • `Std.HashSet.Raw.size`
+  • `Std.Iter.Partial.size`
+  • `Std.IterM.Partial.size`
+  • `Std.Legacy.Range.size`
+  • `Std.Rxc.HasSize.size`
+  • `Std.Rxi.HasSize.size`
+  • `Std.Rxo.HasSize.size`
+  • `Std.Slice.SliceSize.size`
+  • `Std.TreeMap.Raw.size`
+  • `Std.TreeSet.Raw.size`
+  • `Compiler.LCNF.Code.size`
+  • `Compiler.LCNF.CtorInfo.size`
+  • `Compiler.LCNF.Decl.size`
+  • `Compiler.LCNF.DeclValue.size`
+  • `Grind.CommRing.Mon.size`
+  • `Grind.CommRing.Poly.size`
+  • `DiscrTree.Trie.size`
+  • `Grind.ENode.size`
+  • `LazyDiscrTree.MatchResult.size`
+  • `Match.MatchEqns.size`
+  • `Simp.UsedSimps.size`
+  • `SynthInstance.Answer.size`
+  • `SynthInstance.ConsumerNode.size`
+  • `Std.DTreeMap.Internal.Impl.size`
+  • `Std.DTreeMap.Internal.Impl.containsThenInsert.size`
+  • `Std.DTreeMap.Internal.Impl.containsThenInsert!.size`
+  • `Elab.Tactic.Omega.Problem.FourierMotzkinData.size`
+error: CasCompiler/Lower.lean:1192:5: Invalid field notation: Type of
+  path
+is not known; cannot resolve field `isEmpty`
+
+Hint: Consider replacing the field projection with a call to one of the following:
+  • `Array.isEmpty`
+  • `ByteArray.isEmpty`
+  • `Equiv.isEmpty`
+  • `Fin.isEmpty`
+  • `FloatArray.isEmpty`
+  • `Function.isEmpty`
+  • `List.isEmpty`
+  • `MLList.isEmpty`
+  • `String.isEmpty`
+  • `Subarray.isEmpty`
+  • `Substring.isEmpty`
+  • `Aesop.RulePatternIndex.isEmpty`
+  • `Aesop.UnorderedArraySet.isEmpty`
+  • `Function.Surjective.isEmpty`
+  • `AssocList.isEmpty`
+  • `KVMap.isEmpty`
+  • `LocalContext.isEmpty`
+  • `PersistentArray.isEmpty`
+  • `PersistentHashMap.isEmpty`
+  • `PersistentHashSet.isEmpty`
+  • `RBMap.isEmpty`
+  • `RBTree.isEmpty`
+  • `VersoModuleDocs.isEmpty`
+  • `Std.DHashMap.isEmpty`
+  • `Std.DTreeMap.isEmpty`
+  • `Std.Format.isEmpty`
+  • `Std.HashMap.isEmpty`
+  • `Std.HashSet.isEmpty`
+  • `Std.Iter.isEmpty`
+  • `Std.IterM.isEmpty`
+  • `Std.Queue.isEmpty`
+  • `Std.Rcc.isEmpty`
+  • `Std.Rci.isEmpty`
+  • `Std.Rco.isEmpty`
+  • `Std.Ric.isEmpty`
+  • `Std.Rii.isEmpty`
+  • `Std.Rio.isEmpty`
+  • `Std.Roc.isEmpty`
+  • `Std.Roi.isEmpty`
+  • `Std.Roo.isEmpty`
+  • `Std.TreeMap.isEmpty`
+  • `Std.TreeSet.isEmpty`
+  • `String.Internal.isEmpty`
+  • `String.Slice.isEmpty`
+  • `Substring.Raw.isEmpty`
+  • `DiagSummary.isEmpty`
+  • `FVarSubst.isEmpty`
+  • `MVarRenaming.isEmpty`
+  • `Parser.SyntaxStack.isEmpty`
+  • `PersistentHashMap.Node.isEmpty`
+  • `Std.DHashMap.Raw.isEmpty`
+  • `Std.DTreeMap.Raw.isEmpty`
+  • `Std.HashMap.Raw.isEmpty`
+  • `Std.HashSet.Raw.isEmpty`
+  • `Std.Iter.Total.isEmpty`
+  • `Std.IterM.Total.isEmpty`
+  • `Std.TreeMap.Raw.isEmpty`
+  • `Std.TreeSet.Raw.isEmpty`
+  • `Substring.Raw.Internal.isEmpty`
+  • `FunInd.SeenCalls.isEmpty`
+  • `Grind.ParentSet.isEmpty`
+  • `Match.Overlaps.isEmpty`
+  • `Mathlib.Tactic.Translate.ArgReorder.isEmpty`
+  • `Std.DTreeMap.Internal.Impl.isEmpty`
+  • `Elab.Tactic.Omega.Problem.isEmpty`
+  • `Try.Collector.OrdSet.isEmpty`
+  • `Elab.Tactic.Omega.Problem.FourierMotzkinData.isEmpty`
+error: CasCompiler/Lower.lean:1196:13: Unknown identifier `project`
+error: CasCompiler/Lower.lean:1200:2: Unknown identifier `projectPath`
+error: CasCompiler/Lower.lean:1262:2: Unknown identifier `argumentSource`
+error: CasCompiler/Lower.lean:1307:27: Application type mismatch: The argument
+  frame.context.close
+has type
+  Expr → MetaM ClosedTerm
+but is expected to have type
+  Expr → LowerM ClosedTerm
+in the application
+  Array.mapM frame.context.close
+error: CasCompiler/Lower.lean:1544:4: Unknown identifier `stageRecord`
+error: CasCompiler/Lower.lean:1595:75: unexpected token '/--'; expected 'lemma'
+error: CasCompiler/Lower.lean:1692:92: unexpected token '/--'; expected 'lemma'
+error: CasCompiler/Lower.lean:1790:27: Application type mismatch: The argument
+  frame.context.close
+has type
+  Expr → MetaM ClosedTerm
+but is expected to have type
+  Expr → LowerM ClosedTerm
+in the application
+  SelectedLimitOwner.mapM frame.context.close
+error: CasCompiler/Lower.lean:1842:29: Application type mismatch: The argument
+  frame.context.close
+has type
+  Expr → MetaM ClosedTerm
+but is expected to have type
+  Expr → LowerM ClosedTerm
+in the application
+  SelectedLimitOwner.mapM frame.context.close
+error: CasCompiler/Lower.lean:1898:10: Type mismatch
+  closureWith owner fun x x_1 => ClosureCode.creationOwner prepared
+has type
+  LowerM ValueBinding
+but is expected to have type
+  MetaM ?α
+error: CasCompiler/Lower.lean:1899:25: `context` is not a field of structure `Context`
+error: CasCompiler/Lower.lean:1899:34: `selections` is not a field of structure `Context`
+error: CasCompiler/Lower.lean:1899:46: `retainedView` is not a field of structure `Context`
+error: CasCompiler/Lower.lean:1946:83: unexpected identifier; expected '}'
+warning: CasCompiler/Lower.lean:1971:6: Variable name `frame` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _frame
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: CasCompiler/Lower.lean:1974:18: Variable name `levels` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _levels
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+error: CasCompiler/Lower.lean:2023:0: Missing name after `end`: Expected the current scope name `CasCompiler`
+
+Hint: To end the current scope `CasCompiler`, specify its name:
+  end ̲C̲a̲s̲C̲o̲m̲p̲i̲l̲e̲r̲
+error: Lean exited with code 1
+Some required targets logged failures:
+- CasCompiler.ReadSubsetRules
+- CasCompiler.ReadNumeralRules
+- CasCompiler.ReadApplication
+- CasCompiler.ReadProductNotation
+- CasCompiler.ReadAnnotationRules
+- CasRuntime.Point
+- CasRuntime.ChildCall
+- CasCompiler.Lower
+error: build failed
+loop: execution status 1; status 1 in 287.795 s; log timing/logs/20261125T131726Z-loop.oCkOw1/output.log

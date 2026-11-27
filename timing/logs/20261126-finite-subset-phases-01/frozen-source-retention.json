@@ -1,0 +1,52 @@
+{
+  "created_utc": "2026-11-26T08:01:50.941425+00:00",
+  "diagnostic_only": true,
+  "snapshot": ".tmp/validation-typed-integrated-40-sources.json",
+  "snapshot_sha256": "4ee1154c4dde5f37ce92637f388fce9c720c542ec4d353389c0c79d7ebc0021a",
+  "archive": ".tmp/validation-typed-integrated-40-source-bytes.tar.gz",
+  "archive_sha256": "cbb6a1561467c2cb430d35414b991798285f97eec81cb671d9d2e1e4a425c049",
+  "archive_bytes": 2468823,
+  "files": 756,
+  "head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "changed_vs39": {
+    "CONTRIBUTING.md": {
+      "prior": "e11154bb2487d415d751cc1be5520a7d6b409edfe80d07389603ce7e144fbb73",
+      "current": "84c6b0e3c3ee878c1f109bf65b94a7cac6d7924190b27ee59a96096ca7128f6a"
+    },
+    "CasCompiler/ReadSubsetRules.lean": {
+      "prior": "d9c53cc0d7c0604f8c868e740ec6a40029e8aade4b60443978bd47d1fafc4174",
+      "current": "acd9cafc3d588aff699b6cd5fee57e76d1a886f9d47299feeaa247ef1cdaf6e2"
+    },
+    "CasCompiler/SourceAdmission.lean": {
+      "prior": "188e7c317b62913369c67fe8a49079647a7a448bf006170d4c11d02d6e09f1f4",
+      "current": "8b24f8061961076abcd494cac06e0fd662aab258fb1013de5edd5fa041abaa84"
+    },
+    "CasCompiler/SourceGeneratorTests.lean": {
+      "prior": "22c3de1c71453e7348440341eb327f54843b14e6e10fa4e703b798f00956b444",
+      "current": "cc8d203c6aa4ac6fc165331e0bb6dd13c525f67f08f60e57828cf0a77cd32bda"
+    },
+    "CasCompiler/SourceSubset.lean": {
+      "prior": "f78b41dcd12ffdfadc637ab2bd162341b1d5533a590e446f87783fe508c72a6a",
+      "current": "d7b76f5e3313f354c34ded31591961f8b2acd737557f93c4a625ecba9f3d1bb6"
+    },
+    "scripts/feedback_checkout.py": {
+      "prior": null,
+      "current": "a4f1eae777e0aad4a1faeebc0c6bbc44305c6979bbfefcdd85deea10501b6228"
+    },
+    "tests/feedback/test_feedback.py": {
+      "prior": "a5cd50293f8c47fba00b076832a55619e89f31d34a53155ac9f4ef5c35ffb290",
+      "current": "dfdc0b62d5b60769434a6d10241f8ae5b6d2aae858f3a3d08ea7324169739cd4"
+    }
+  },
+  "expected_candidate_hashes": {
+    "CasCompiler/ReadSubsetRules.lean": "acd9cafc3d588aff699b6cd5fee57e76d1a886f9d47299feeaa247ef1cdaf6e2",
+    "CasCompiler/SourceSubset.lean": "d7b76f5e3313f354c34ded31591961f8b2acd737557f93c4a625ecba9f3d1bb6",
+    "CasCompiler/SourceAdmission.lean": "8b24f8061961076abcd494cac06e0fd662aab258fb1013de5edd5fa041abaa84",
+    "CasCompiler/SourceGeneratorTests.lean": "cc8d203c6aa4ac6fc165331e0bb6dd13c525f67f08f60e57828cf0a77cd32bda",
+    ".tmp/source-instance-heartbeats-20261126/B0InstanceHeartbeatProbe.lean": "2dde7297dff441ce2eee75e32c5650baee4ac7cb5ae7f30f88522a38e34f2975"
+  },
+  "runner_sha256": "99e75a3868b3e418291180e83999014629f1b878730b431162a41e65cd54f802",
+  "command": "source scripts/container.sh\nincontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json python3 timing/logs/20261126-finite-subset-phases-01/runner.py\n",
+  "required_import_rebuild": "lake lean via just probe; no separate build",
+  "automatic_successor_authorized": false
+}

@@ -1,0 +1,5 @@
+[build] native lake --log-level=error build +CasRuntime.FixedInputRouteTests:deps 
+Build completed successfully (1565 jobs).
+[execution] native lake --log-level=error lean CasRuntime/FixedInputRouteTests.lean -- -DstderrAsMessages=false 
+/repos/v1-integration-20261106/lean-cas-dsl/CasRuntime/FixedInputRouteTests.lean:12:0: error: identity-wrapped partial callable preparation: the retained value has no prepared callable interface
+loop: execution status 1; status 1 in 156.940 s; log timing/logs/20261125T153756Z-loop.O59DQL/output.log

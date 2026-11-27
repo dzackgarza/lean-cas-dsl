@@ -1,0 +1,74 @@
+{
+  "utc": "2026-11-26T12:47:04.822014+00:00",
+  "result": {
+    "seconds": 1123.42529804,
+    "status": 1,
+    "execution_status": 1,
+    "attempted_sources": [
+      "CasCompiler/ContextTests.lean",
+      "CasCompiler/SourceInstanceTests.lean"
+    ],
+    "finished_utc": "2026-11-26T12:46:34.405446+00:00",
+    "preparation_seconds": 40.499090233,
+    "phases": {
+      "build": {
+        "seconds": 757.810273081,
+        "status": 0
+      },
+      "execution": {
+        "seconds": 307.544155241,
+        "status": 1
+      },
+      "acceptance": {
+        "seconds": 0.0,
+        "status": null
+      }
+    },
+    "targets": [
+      "CasCompiler.ContextTests",
+      "CasCompiler.SourceInstanceTests",
+      "CasCompiler.SourceGeneratorTests",
+      "CasCompiler.SourceOperationTests",
+      "CasCompiler.SourceRingTests",
+      "CasCompiler.SourceViewTests",
+      "CasCompiler.SourceSubsetTests",
+      "CasCompiler.SourceTupleTests",
+      "CasCatalogue.EvidencePresentationProbes",
+      "CasCatalogue.StructuredParameterProbes"
+    ],
+    "acceptance": [],
+    "context_status": "complete"
+  },
+  "per_source_outcomes": {
+    "CasCompiler.ContextTests": "passed",
+    "CasCompiler.SourceInstanceTests": "failed: deterministic isDefEq timeout200000",
+    "CasCompiler.SourceGeneratorTests": "unattempted",
+    "CasCompiler.SourceOperationTests": "unattempted",
+    "CasCompiler.SourceRingTests": "unattempted",
+    "CasCompiler.SourceViewTests": "unattempted",
+    "CasCompiler.SourceSubsetTests": "unattempted",
+    "CasCompiler.SourceTupleTests": "unattempted",
+    "CasCatalogue.EvidencePresentationProbes": "unattempted",
+    "CasCatalogue.StructuredParameterProbes": "unattempted"
+  },
+  "result_sha256": "1a167388dd60a158bbb79dab9dff5dd30101d35278c508527e8fec8d15fb4629",
+  "output_sha256": "07c1500492d0738cddbd9f1ab64cfde2f67b344837cb5b0a9095273765521468",
+  "snapshot_sha256": "da6ed4837374111dc2c4cc209c810a2ccc27ba3ee27e3bccdc6ec2ff21c430b4",
+  "frozen_input_count": 755,
+  "source_mismatches": {},
+  "frozen_head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "current_head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "active_native": [],
+  "identical_ledger_rows": [
+    661
+  ],
+  "context_status": "complete",
+  "environment_equal53": true,
+  "dependencies_equal53": true,
+  "errors": [
+    "/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/SourceInstanceTests.lean:1:0: error: (deterministic) timeout at `isDefEq`, maximum number of heartbeats (200000) has been reached"
+  ],
+  "successor_launched": false,
+  "observation_transport": "One -32603 poll error; same-ID canonical read and original session poll recovered, no claim recovery or native replacement.",
+  "release": true
+}

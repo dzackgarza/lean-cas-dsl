@@ -1,0 +1,22 @@
+{
+  "retained_utc": "2026-11-25T20:25:39.887563+00:00",
+  "source_directory": "/home/dzack/.local/share/docker/volumes/sage-repos/_data/v1-integration-20261106/lean-cas-dsl/.tmp/validation-json-graph-20261125-02",
+  "kind": "exact isolated native validation evidence; not a standard feedback row or milestone acceptance",
+  "result_status": "failed",
+  "files_sha256": {
+    "candidate.patch": "686086dc1b9aa67e6530b13bbbc47da1d32d4314832737f4ce9188baf2d0ea3a",
+    "launch.sh": "b2af8945d451d9d175c746921929d03b2989be3f3855c1c8bf8a5ed01191478f",
+    "launcher.json": "2aab4b133f0d8a4ab6c113dec2b49e6653b318b066539a587b64f2d422933fca",
+    "logs/Diagnostics.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "logs/JsonGraph.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "logs/JsonGraphTests.log": "ac707ba395e4a49ce271c894fc0862e84e1c6a1a8cc90fb573ad99bd534087fd",
+    "output.log": "a6078286834f7926e68583763b6bd0a67e124bdd5e23759fd97639cfe1396941",
+    "result.json": "d05ae1a72a8c70795195285e30db3c858613a1c4c5b3829166b1b4fb36a4d838",
+    "runner.py": "0579cbbdfbf32d542fd77841b7c12270f4bbfd5976ffb79940f24ea605c83de0",
+    "snapshot.json": "d931f363a5a88eec36a3d1a4c1bc9c92f91fac8ccc36c5eb4028ab906bf7b630",
+    "src/CasTools/Diagnostics.lean": "5c519ba99e96a80a7d7183c2bf1bd1d2949e81d7d7d24abf6ec53a8dc40202fa",
+    "src/CasTools/JsonGraph.lean": "7b3578386259014f65925a807d1e4b6a3f8f9c535156ac1d4930c665defe83f8",
+    "src/CasTools/JsonGraphTests.lean": "937c617248fabd92dec5bc73ea0f06584ae5b62a1d3feef3fd6879f89c2bc520",
+    "status.json": "d05ae1a72a8c70795195285e30db3c858613a1c4c5b3829166b1b4fb36a4d838"
+  }
+}

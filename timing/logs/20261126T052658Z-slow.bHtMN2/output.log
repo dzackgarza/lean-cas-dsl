@@ -1,0 +1,12 @@
+[build] native lake --log-level=error build +CasCompiler.RouteGrammarTests:deps +CasCompiler.SourceSubsetTests:deps +CasCompiler.SourceTupleTests:deps +CasCompiler.SourceOperationTests:deps +CasCompiler.SourceInstanceTests:deps +CasCompiler.SourceMemberCompetitionTests:deps 
+✔ [2493/2603] Built CasCompiler.RouteGrammar (6.9s)
+✔ [3892/3897] Built CasCompiler.Read (11s)
+Build completed successfully (3897 jobs).
+[execution] native lake --log-level=error lean CasCompiler/RouteGrammarTests.lean -- -DstderrAsMessages=false 
+[execution] native lake --log-level=error lean CasCompiler/SourceSubsetTests.lean -- -DstderrAsMessages=false 
+/repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/SourceSubsetTests.lean:6:30: error: (deterministic) timeout at `isDefEq`, maximum number of heartbeats (200000) has been reached
+
+Note: Use `set_option maxHeartbeats <num>` to set the limit.
+
+Hint: Additional diagnostic information may be available using the `set_option diagnostics true` command.
+slow: execution status 1; status 1 in 224.182 s; log timing/logs/20261126T052658Z-slow.bHtMN2/output.log

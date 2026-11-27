@@ -1,0 +1,71 @@
+{
+  "completed": [
+    {
+      "marker": "INSTANCE_PREFIX_DONE block=1 index=0 rawTicks=334837 cumulative=361347",
+      "raw_ticks": 334837,
+      "cumulative": 361347
+    },
+    {
+      "marker": "INSTANCE_PREFIX_DONE block=1 index=1 rawTicks=482442 cumulative=843931",
+      "raw_ticks": 482442,
+      "cumulative": 843931
+    },
+    {
+      "marker": "INSTANCE_PREFIX_DONE block=1 index=2 rawTicks=1035968 cumulative=1879907",
+      "raw_ticks": 1035968,
+      "cumulative": 1879907
+    },
+    {
+      "marker": "INSTANCE_PREFIX_DONE block=1 index=3 rawTicks=1066213 cumulative=2946128",
+      "raw_ticks": 1066213,
+      "cumulative": 2946128
+    },
+    {
+      "marker": "INSTANCE_PREFIX_DONE block=1 index=4 rawTicks=4434100 cumulative=7380236",
+      "raw_ticks": 4434100,
+      "cumulative": 7380236
+    },
+    {
+      "marker": "INSTANCE_SELECTED_DONE block=1 phase=sourceModule index=4 rawTicks=308214 cumulative=7688452",
+      "raw_ticks": 308214,
+      "cumulative": 7688452
+    },
+    {
+      "marker": "INSTANCE_DEFINE_DONE block=1 text=\"let Rfirst := \u211a\" rawTicks=3722748 cumulative=11411251",
+      "raw_ticks": 3722748,
+      "cumulative": 11411251
+    },
+    {
+      "marker": "INSTANCE_DEFINE_DONE block=1 text=\"let Rsecond := \u211a\" rawTicks=3916779 cumulative=15328050",
+      "raw_ticks": 3916779,
+      "cumulative": 15328050
+    },
+    {
+      "marker": "INSTANCE_DEFINE_DONE block=1 text=\"let firstView := view formedSource along \u00abfun.bilin_module.forget\u00bb(Rfirst, Rsecond)\" rawTicks=9517466 cumulative=24845651",
+      "raw_ticks": 9517466,
+      "cumulative": 24845651
+    },
+    {
+      "marker": "INSTANCE_SELECTED_DONE block=1 phase=equal_scalar_view text=\"let firstView := view formedSource along \u00abfun.bilin_module.forget\u00bb(Rfirst, Rsecond)\" rawTicks=869261 cumulative=25714914",
+      "raw_ticks": 869261,
+      "cumulative": 25714914
+    },
+    {
+      "marker": "INSTANCE_DEFINE_DONE block=1 text=\"let secondView := view formedSource along \u00abfun.bilin_module.forget\u00bb(Rsecond, Rfirst)\" rawTicks=14497213 cumulative=40212185",
+      "raw_ticks": 14497213,
+      "cumulative": 40212185
+    },
+    {
+      "marker": "INSTANCE_SELECTED_DONE block=1 phase=equal_scalar_view text=\"let secondView := view formedSource along \u00abfun.bilin_module.forget\u00bb(Rsecond, Rfirst)\" rawTicks=1249245 cumulative=41461432",
+      "raw_ticks": 1249245,
+      "cumulative": 41461432
+    },
+    {
+      "marker": "INSTANCE_BLOCK_DONE block=2 rawTicks=5816",
+      "raw_ticks": 5816,
+      "cumulative": null
+    }
+  ],
+  "last_block1_stage": "INSTANCE_DEFINE_START block=1 text=\"let F := {x - 1} in \ud835\udcab_fin(\u2124[x])\" cumulative=41461449",
+  "F_completed": false
+}

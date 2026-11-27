@@ -1,0 +1,15 @@
+{
+  "command": [
+    "just",
+    "probe",
+    ".tmp/source-instance-scalar-origin-20261126/FiniteOriginProbe.lean"
+  ],
+  "diagnostic_only": true,
+  "started_utc": "2026-11-26T16:20:42.731490+00:00",
+  "finished_utc": "2026-11-26T16:22:06.416282+00:00",
+  "seconds": 83.701185033191,
+  "status": 1,
+  "probe_sha256": "45e4ca2e4d9064bb46e0eeb2ec0b2c67e911ead4b6704eafb7777ce859c30baa",
+  "output_sha256": "f604b77665675ad731f2ba1a797ad64959e9c56f6e8f09a08c701375a115602d",
+  "acceptance_status": null
+}

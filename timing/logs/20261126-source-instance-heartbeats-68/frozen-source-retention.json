@@ -1,0 +1,15 @@
+{
+  "utc": "2026-11-26T14:57:49.798569+00:00",
+  "diagnostic_only": true,
+  "head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "frozen_input_count": 756,
+  "snapshot_sha256": "6433f735a62c2754fb539f6a1a64fe08a99db8d0ad5d8a462fc5ecbdf6ad85bc",
+  "archive_sha256": "bc2e52e0738dbd9c684652fecf2ccb94140f82c8c4048f22614f22fff2cf5c26",
+  "same_inputs_as66": true,
+  "source_mismatches": {},
+  "native_inventory": [],
+  "command": "source scripts/container.sh\nincontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json python3 timing/logs/20261126-source-instance-heartbeats-68/runner.py\n",
+  "probe_sha256": "2dde7297dff441ce2eee75e32c5650baee4ac7cb5ae7f30f88522a38e34f2975",
+  "normal_ledger_entry": false,
+  "disk_free_bytes": 622309376
+}

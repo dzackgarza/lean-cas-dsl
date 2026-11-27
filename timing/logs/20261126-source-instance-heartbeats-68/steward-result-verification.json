@@ -1,0 +1,43 @@
+{
+  "utc": "2026-11-26T15:04:24.309356+00:00",
+  "result": {
+    "command": [
+      "just",
+      "probe",
+      ".tmp/source-instance-heartbeats-20261126/B0InstanceHeartbeatProbe.lean"
+    ],
+    "diagnostic_only": true,
+    "started_utc": "2026-11-26T14:58:12.505126+00:00",
+    "finished_utc": "2026-11-26T15:03:22.436646+00:00",
+    "seconds": 309.9500760389492,
+    "status": 1,
+    "probe_sha256": "2dde7297dff441ce2eee75e32c5650baee4ac7cb5ae7f30f88522a38e34f2975",
+    "output_sha256": "9097e2b312578ad9f8d7fe4a65e88f0f8913229b309de11ea9bdee58636fad54",
+    "acceptance_status": null
+  },
+  "result_sha256": "7048e98c59c3a43fda4eab8f1a62b9d9159e9196d066a45527d65fe5159dfc45",
+  "output_sha256": "9097e2b312578ad9f8d7fe4a65e88f0f8913229b309de11ea9bdee58636fad54",
+  "snapshot_sha256": "6433f735a62c2754fb539f6a1a64fe08a99db8d0ad5d8a462fc5ecbdf6ad85bc",
+  "frozen_input_count": 756,
+  "source_mismatches": {},
+  "frozen_head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "current_head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "active_native": [],
+  "environment_equal66": true,
+  "dependencies_equal66": true,
+  "final_environment_comparison": {
+    "environment": true,
+    "dependencies": true,
+    "inputs": true,
+    "resolution": true
+  },
+  "marker_count": 28,
+  "errors": [
+    "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/source-instance-heartbeats-20261126/B0InstanceHeartbeatProbe.lean:3:21: error: (deterministic) timeout at `whnf`, maximum number of heartbeats (200000) has been reached",
+    "error: recipe `probe` failed on line 77 with exit code 1"
+  ],
+  "normal_ledger_entry": false,
+  "acceptance": null,
+  "successor_launched": false,
+  "release": true
+}

@@ -1,0 +1,27 @@
+{
+  "observed_utc": "2026-11-25T21:10:16.072509+00:00",
+  "natural_wrapper_exit_code": 1,
+  "actual_status": 1,
+  "actual_execution_status_field": 1,
+  "seconds": 653.453877302,
+  "phases": {
+    "build": {
+      "seconds": 624.200841285,
+      "status": 1
+    },
+    "execution": {
+      "seconds": 0.0,
+      "status": null
+    },
+    "acceptance": {
+      "seconds": 0.0,
+      "status": null
+    }
+  },
+  "attempted_sources": [],
+  "canonical_ledger_matching_rows": 1,
+  "source_differences_since_freeze": [],
+  "result_sha256": "18d192b44f4249ee9e1357b9a220d276074ec8da7e6c87dae5220713aa35beea",
+  "output_sha256": "49455c15d1f268d89d0f3101e931fb4dfc1caf7186de4dc36be0b50491f7a354",
+  "frozen_source_archive_sha256": "bd62cb41a15574521f37de4848ba82296fea0f656272a36b4c58a809e62b6bf5"
+}

@@ -1,0 +1,22 @@
+{
+  "kind": "one read-only debugger stack capture attempt; no escalation or retry",
+  "target_pid": 2900182,
+  "command": [
+    "gdb",
+    "-batch",
+    "-nx",
+    "-ex",
+    "set debuginfod enabled off",
+    "-ex",
+    "set auto-load python-scripts off",
+    "-ex",
+    "set pagination off",
+    "-ex",
+    "thread apply all bt 12",
+    "-ex",
+    "detach",
+    "-p",
+    "2900182"
+  ],
+  "started_utc": "2026-11-25T20:27:21.323141+00:00"
+}

@@ -1,0 +1,46 @@
+{
+  "utc": "2026-11-26T16:30:42.312881+00:00",
+  "result": {
+    "command": [
+      "just",
+      "probe",
+      ".tmp/source-instance-scalar-origin-20261126/FiniteOriginProbe.lean"
+    ],
+    "diagnostic_only": true,
+    "started_utc": "2026-11-26T16:24:55.833490+00:00",
+    "finished_utc": "2026-11-26T16:29:17.324626+00:00",
+    "seconds": 261.5015398017131,
+    "status": 1,
+    "probe_sha256": "45e4ca2e4d9064bb46e0eeb2ec0b2c67e911ead4b6704eafb7777ce859c30baa",
+    "output_sha256": "4572683771d4a05e1d97e1dea69552998299862223dfffc49ac6b34fa825e226",
+    "acceptance_status": null
+  },
+  "result_sha256": "b15f2a3625b709e2c3e1bc90fb4d757bb7c3aa411561b0c85f8313be6b9724bc",
+  "output_sha256": "4572683771d4a05e1d97e1dea69552998299862223dfffc49ac6b34fa825e226",
+  "snapshot_sha256": "419edcd32528eb4f9414eae076f5a0780a6c7f096df72b33c39638cff5e96e59",
+  "frozen_input_count": 759,
+  "source_mismatches": {},
+  "frozen_head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "current_head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "active_native": [],
+  "environment_equal75": true,
+  "dependencies_equal75": true,
+  "final_environment_comparison": {
+    "environment": true,
+    "dependencies": true,
+    "inputs": true,
+    "resolution": true
+  },
+  "finite_marker_count": 7,
+  "finite_literal_visits": 2,
+  "finite_literal_ok_count": 1,
+  "failed_visit_type_path": "id argument0 then Set.Finite argument1",
+  "errors": [
+    "/repos/v1-integration-20261106/lean-cas-dsl/.tmp/source-instance-scalar-origin-20261126/FiniteOriginProbe.lean:22:0: error: the finite-subset dictionary erased its original base binding",
+    "error: recipe `probe` failed on line 77 with exit code 1"
+  ],
+  "normal_ledger_entry": false,
+  "acceptance": null,
+  "successor_launched": false,
+  "release": true
+}

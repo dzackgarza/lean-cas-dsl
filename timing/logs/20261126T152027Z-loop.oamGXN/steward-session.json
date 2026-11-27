@@ -1,0 +1,7 @@
+{
+  "session_id": 87019,
+  "declared_persistent": true,
+  "foreground": true,
+  "conditional72": "only if build, fresh control and wrapper all pass; same inputs, HEAD, environment/dependencies and nativeempty",
+  "conditional73": "only if subsequent72 all11 fresh originals and build pass; same integrity and nativeempty"
+}

@@ -1,0 +1,103 @@
+*** Begin Patch
+*** Update File: /home/dzack/.local/share/docker/volumes/sage-repos/_data/v1-integration-20261106/lean-cas-dsl/CasCompiler/Context.lean
+@@
+-/-- Transport into an existing scope by stable identity, preserving the ordered telescope.
+-Lean checks the substituted types and definitions; names and expression matches do not bind locals. -/
+-opaque ClosedTerm.inContext (term : ClosedTerm) (target : OpenContext) : MetaM Expr := do
+-  term.ensureDeclarations
+-  let mut available : Std.HashMap BindingId (Nat × LocalBinding) := {}
+-  for binding in target.bindings, index in [:target.bindings.size] do
+-    available := available.insert binding.id (index, binding)
++/-- Check one complete captured telescope against the fixed target before transporting any
++of its terms. This is the same identity, order and native-declaration check for single terms
++and for a consecutive group of selected fields. The checked locals never escape the batch. -/
++private def ContextTelescope.localsInContext (source : ContextTelescope) (target : OpenContext)
++    (available : Std.HashMap BindingId (Nat × LocalBinding)) : MetaM (Array Expr) := do
+   let mut locals : Array Expr := #[]
+   let mut previous : Option Nat := none
+-  for entry in term.context.entries do
++  for entry in source.entries do
+@@
+-            ("source", .arr (term.context.entries.map (identity ·.id))),
++            ("source", .arr (source.entries.map (identity ·.id))),
+@@
+     previous := some index
+     entry.checkBinding binding locals
+     locals := locals.push binding.expression
+-  let expression ← resolve (term.expression.instantiateRev locals)
+-  check expression
+-  unless ← isDefEq (← inferType expression) (term.type.instantiateRev locals) do
+-    throwError "context transport changed the captured result type"
+-  return expression
++  return locals
++
++/-- Transport every supplied term in order into one fixed native scope. Consecutive terms
++with exactly the same complete telescope reuse its checked identity map. The comparison
++includes all declarations, original sources, selected instances and native declaration data;
++each term still ensures its own declarations and passes the original native result checks.
++No checked map is retained beyond this call, and no term or source selection is replaced. -/
++opaque ClosedTerm.inContextMany (terms : Array ClosedTerm) (target : OpenContext) :
++    MetaM (Array Expr) := do
++  let mut available : Std.HashMap BindingId (Nat × LocalBinding) := {}
++  for binding in target.bindings, index in [:target.bindings.size] do
++    available := available.insert binding.id (index, binding)
++  let mut previous : Option (ContextTelescope × Array Expr) := none
++  let mut expressions := #[]
++  for term in terms do
++    term.ensureDeclarations
++    let locals ← match previous with
++      | some (source, locals) =>
++        if term.context.exactlyMatches source then pure locals
++        else term.context.localsInContext target available
++      | none => term.context.localsInContext target available
++    previous := some (term.context, locals)
++    let expression ← resolve (term.expression.instantiateRev locals)
++    check expression
++    unless ← isDefEq (← inferType expression) (term.type.instantiateRev locals) do
++      throwError "context transport changed the captured result type"
++    expressions := expressions.push expression
++  return expressions
++
++/-- Transport into an existing scope by stable identity, preserving the ordered telescope.
++Lean checks the substituted types and definitions; names and expression matches do not bind locals. -/
++opaque ClosedTerm.inContext (term : ClosedTerm) (target : OpenContext) : MetaM Expr := do
++  let expressions ← ClosedTerm.inContextMany #[term] target
++  return expressions[0]!
+*** Update File: /home/dzack/.local/share/docker/volumes/sage-repos/_data/v1-integration-20261106/lean-cas-dsl/CasCompiler/SelectionScope.lean
+@@
+ def SourceSelectionScope.inContext (scope : SourceSelectionScope ClosedTerm) (context : OpenContext) :
+-    MetaM (SourceSelectionScope Expr) :=
+-  SourceSelectionScope.mapM (fun term => term.inContext context) scope
++    MetaM (SourceSelectionScope Expr) := do
++  let gather : StateM (Array ClosedTerm) (SourceSelectionScope Nat) :=
++    SourceSelectionScope.mapM (fun term => do
++      let index := (← get).size
++      modify (·.push term)
++      return index) scope
++  let (indexed, terms) := gather.run #[]
++  let expressions ← ClosedTerm.inContextMany terms context
++  SourceSelectionScope.mapM (fun index => do
++    let some expression := expressions[index]?
++      | throwError "a transported source selection lost an original term position"
++    return expression) indexed
+*** Update File: /home/dzack/.local/share/docker/volumes/sage-repos/_data/v1-integration-20261106/lean-cas-dsl/CasCompiler/ContextTests.lean
+@@
+     let expression ← saved.inContext imported
+     check expression
++    let repeated ← ClosedTerm.inContextMany #[saved, saved] imported
++    unless repeated.size == 2 && repeated.all (·.equal expression) do
++      throwError "batched context transport changed a retained original term"
++    let changedBindings := imported.bindings.set! 1
++      { imported.bindings[1]! with originalSource := some (mkNatLit 8) }
++    let changedContext ← ContextTelescope.capture changedBindings
++    let changed ← changedContext.close expression
++    let changedSourceRejected ← try
++        discard <| ClosedTerm.inContextMany #[saved, changed] imported
++        pure false
++      catch failure =>
++        pure ((← failure.toMessageData.toString) ==
++          "the target context changed an original source correspondence")
++    unless changedSourceRejected do
++      throwError "batched context transport reused a different complete original source"
+     unless imported.bindings[0]!.id != imported.bindings[1]!.id &&
+*** End Patch

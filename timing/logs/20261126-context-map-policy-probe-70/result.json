@@ -1,0 +1,15 @@
+{
+  "command": [
+    "just",
+    "probe",
+    ".tmp/context-map-policy-probe-20261126/ContextMapPolicyProbe.lean"
+  ],
+  "diagnostic_only": true,
+  "started_utc": "2026-11-26T15:13:46.209731+00:00",
+  "finished_utc": "2026-11-26T15:14:39.964995+00:00",
+  "seconds": 53.76574729103595,
+  "status": 1,
+  "probe_sha256": "72d38e93d66352441d4549c9b6fba9b4796587e8ac52b7aae701561f3e7b0cce",
+  "output_sha256": "df50ddc7d385d3e50ba950b1af9e9ff9769fd54249805676452ad5fb072699e7",
+  "acceptance_status": null
+}

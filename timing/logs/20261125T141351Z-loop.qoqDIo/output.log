@@ -1,0 +1,7 @@
+[build] native lake --log-level=error build +CasRuntime.NativeFieldPrefixTests:deps +CasRuntime.FixedInputRouteTests:deps 
+✔ [1572/1587] Built CasRuntime.Environment (50s)
+Build completed successfully (1587 jobs).
+[execution] native lake --log-level=error lean CasRuntime/NativeFieldPrefixTests.lean -- -DstderrAsMessages=false 
+/repos/v1-integration-20261106/lean-cas-dsl/CasRuntime/NativeFieldPrefixTests.lean:21:0: error: whole native record admission supplied missing original field provenance
+/repos/v1-integration-20261106/lean-cas-dsl/CasRuntime/NativeFieldPrefixTests.lean:233:0: error: standalone dependent record preparation: the source lost a retained runtime binding
+loop: execution status 1; status 1 in 136.648 s; log timing/logs/20261125T141351Z-loop.qoqDIo/output.log

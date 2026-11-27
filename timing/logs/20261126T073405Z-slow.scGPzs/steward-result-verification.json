@@ -1,0 +1,46 @@
+{
+  "observed_utc": "2026-11-26T07:43:59.528908+00:00",
+  "source_snapshot": ".tmp/validation-typed-integrated-38-sources.json",
+  "source_snapshot_sha256": "4057bf4ac24950ad8a21b0f65e1e16c6b225e367acbe667f55f9028885c19db3",
+  "source_count": 754,
+  "changed_sources": [],
+  "preflight_head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "final_head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "head_changed": false,
+  "environment_unchanged_from37": true,
+  "dependencies_unchanged_from37": true,
+  "context_status": "complete",
+  "native_processes": [],
+  "result_sha256": "ae57744f27e27d51a858fc9e241f1bd3e68876da0f2d8c2d8c05cc697569181c",
+  "ledger_matching_rows": [
+    654
+  ],
+  "result": {
+    "run": "20261126T073405Z-slow.scGPzs",
+    "status": 1,
+    "seconds": 575.291329574,
+    "execution_status": 1,
+    "over_limit": false,
+    "within_loop_bound": false,
+    "attempted_sources": [
+      "CasCompiler/SourceInstanceTests.lean"
+    ],
+    "phases": {
+      "build": {
+        "seconds": 429.427232741,
+        "status": 0
+      },
+      "execution": {
+        "seconds": 119.270312089,
+        "status": 1
+      },
+      "acceptance": {
+        "seconds": 0.0,
+        "status": null
+      }
+    },
+    "finished_utc": "2026-11-26T07:43:41.619297+00:00"
+  },
+  "release": true,
+  "automatic_successor_authorized": false
+}

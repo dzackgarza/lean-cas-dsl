@@ -1,0 +1,43 @@
+{
+  "observed_utc": "2026-11-26T06:13:57.319788+00:00",
+  "source_snapshot": ".tmp/validation-typed-integrated-32-sources.json",
+  "source_snapshot_sha256": "8e917ef54b6d1034df4389cf497946b9cfd5498c47882dc22cd49ff659f8ec50",
+  "source_count": 754,
+  "changed_sources": [],
+  "preflight_head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "final_head": "7159dc7da603b0b22efae787598a691f72aac29f",
+  "head_changed": false,
+  "native_processes": [],
+  "result_sha256": "1e5330d5fc18e01b17524337c78c05d810d22fc59fb9523b9fd20ddf8a53827d",
+  "ledger_matching_rows": [
+    649
+  ],
+  "result": {
+    "run": "20261126T060957Z-slow.XamUPM",
+    "status": 1,
+    "seconds": 224.105776475,
+    "execution_status": 1,
+    "over_limit": false,
+    "within_loop_bound": true,
+    "attempted_sources": [
+      "CasCompiler/SourceInstanceTests.lean"
+    ],
+    "phases": {
+      "build": {
+        "seconds": 55.200251518,
+        "status": 0
+      },
+      "execution": {
+        "seconds": 129.480115121,
+        "status": 1
+      },
+      "acceptance": {
+        "seconds": 0.0,
+        "status": null
+      }
+    },
+    "finished_utc": "2026-11-26T06:13:42.926074+00:00"
+  },
+  "release": true,
+  "automatic_successor_authorized": false
+}

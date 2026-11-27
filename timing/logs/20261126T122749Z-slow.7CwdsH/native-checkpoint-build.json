@@ -1,0 +1,29 @@
+{
+  "utc": "2026-11-26T12:38:31.378822+00:00",
+  "active": [
+    {
+      "pid": 1914863,
+      "name": "lake",
+      "cwd": "/repos/v1-integration-20261106/lean-cas-dsl",
+      "argv": "/opt/elan/toolchains/leanprover--lean4---v4.33.0/bin/lake --log-level=error build +CasCompiler.ContextTests:deps +CasCompiler.SourceInstanceTests:deps +CasCompiler.SourceGeneratorTests:deps +CasCompiler.SourceOperationTests:deps +CasCompiler.SourceRingTests:deps +CasCompiler.SourceViewTests:deps +CasCompiler.SourceSubsetTests:deps +CasCompiler.SourceTupleTests:deps +CasCatalogue.EvidencePresentationProbes:deps +CasCatalogue.StructuredParameterProbes:deps"
+    },
+    {
+      "pid": 2040944,
+      "name": "lean",
+      "cwd": "/repos/v1-integration-20261106/lean-cas-dsl",
+      "argv": "/opt/elan/toolchains/leanprover--lean4---v4.33.0/bin/lean /repos/v1-integration-20261106/lean-cas-dsl/CasCompiler/PublishedSource.lean -o /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean/CasCompiler/PublishedSource.olean -i /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/lib/lean/CasCompiler/PublishedSource.ilean -c /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/ir/CasCompiler/PublishedSource.c --setup /repos/v1-integration-20261106/lean-cas-dsl/.lake/build/ir/CasCompiler/PublishedSource.setup.json --json"
+    }
+  ],
+  "result_exists": false,
+  "output_bytes": 5068,
+  "last_lines": [
+    "\u2714 [3880/3904] Built CasCompiler.ReadLiftRules (24s)",
+    "\u2714 [3881/3904] Built CasCompiler.ReadCellRules (24s)",
+    "\u2714 [3882/3904] Built CasCompiler.ReadFunctorRules (29s)",
+    "\u2714 [3883/3904] Built CasCompiler.ReadMember (30s)",
+    "\u2714 [3884/3904] Built CasCompiler.PublishedPorts (24s)",
+    "\u2714 [3885/3904] Built CasCompiler.ReadMemberNotation (12s)",
+    "\u2714 [3886/3904] Built CasCompiler.ReadMemberRules (12s)",
+    "\u2714 [3887/3904] Built CasCompiler.CategoricalPointSource (12s)"
+  ]
+}

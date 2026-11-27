@@ -1,0 +1,16 @@
+{
+  "created_utc": "2026-11-26T05:26:46.200479+00:00",
+  "snapshot": ".tmp/validation-typed-integrated-27-sources.json",
+  "snapshot_sha256": "314aefa53b94b019bd044f205c7ae72d2897cbfe1bddb348a901b3d1b7e0ef7b",
+  "archive": ".tmp/validation-typed-integrated-27-source-bytes.tar.gz",
+  "archive_sha256": "89ca5af7e1d7c254ef7b37b82421b7259df7e04e840f55860d6654c33f2a0fbe",
+  "archive_bytes": 2452345,
+  "files": 754,
+  "live_changes_from26": [
+    "CasCompiler/RouteGrammar.lean",
+    "CasCompiler/RouteGrammarTests.lean"
+  ],
+  "prior_diagnostic_probe_not_selected": ".tmp/B0SubsetHeartbeatProbe.lean",
+  "validation_command": "source scripts/container.sh\nincontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json just slow 'Validate exact terminal route languages and original typed subset operations' CasCompiler.RouteGrammarTests CasCompiler.SourceSubsetTests CasCompiler.SourceTupleTests CasCompiler.SourceOperationTests CasCompiler.SourceInstanceTests CasCompiler.SourceMemberCompetitionTests",
+  "automatic_successor_authorized": false
+}

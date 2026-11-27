@@ -1,0 +1,20 @@
+{
+  "utc": "2026-11-26T11:30:26.834810+00:00",
+  "active": [
+    {
+      "pid": 1003855,
+      "name": "lake",
+      "cwd": "/repos/v1-integration-20261106/lean-cas-dsl",
+      "argv": "/opt/elan/toolchains/leanprover--lean4---v4.33.0/bin/lake lean .tmp/source-instance-heartbeats-20261126/B0InstanceHeartbeatProbe.lean"
+    },
+    {
+      "pid": 1027863,
+      "name": "lean",
+      "cwd": "/repos/v1-integration-20261106/lean-cas-dsl",
+      "argv": "/opt/elan/toolchains/leanprover--lean4---v4.33.0/bin/lean /repos/v1-integration-20261106/lean-cas-dsl/.tmp/source-instance-heartbeats-20261126/B0InstanceHeartbeatProbe.lean --setup /tmp/tmp.XXxpce8q"
+    }
+  ],
+  "result_exists": false,
+  "output_bytes": 104711,
+  "markers": []
+}

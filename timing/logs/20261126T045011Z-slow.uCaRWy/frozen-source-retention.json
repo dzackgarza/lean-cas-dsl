@@ -1,0 +1,14 @@
+{
+  "created_utc": "2026-11-26T04:49:58.869152+00:00",
+  "snapshot": ".tmp/validation-typed-integrated-23-sources.json",
+  "snapshot_sha256": "5b7d158071573f5ba9c28fb0fb16323bc14ad86286d5cdcc4b9963dc98a84e08",
+  "archive": ".tmp/validation-typed-integrated-23-source-bytes.tar.gz",
+  "archive_sha256": "176893483c91bcf846c4db743fc083fdd9762aec5e95c5eb2d21d01cb6ecbd14",
+  "archive_bytes": 2450647,
+  "files": 754,
+  "changes_from22": [
+    "CasCompiler/SourceTypeOrigin.lean"
+  ],
+  "validation_command": "source scripts/container.sh\nincontainer env CAS_LEAVES=/repos/lean-cas-dsl-leaves/leaves.json just slow 'Diagnose exact dependent argument types at the original native producer' CasCompiler.SourceSubsetTests",
+  "automatic_successor_authorized": false
+}

@@ -1,0 +1,38 @@
+{
+  "observed_utc": "2026-11-25T22:43:46.437375+00:00",
+  "result_sha256": "4578cb0d0a362748bcaee17078ae69164b8c1137d6b5fb5581dfab22a18ae8fd",
+  "source_files_verified": 754,
+  "changed_sources": [],
+  "identical_canonical_ledger_rows": [
+    626
+  ],
+  "native_processes": [],
+  "result": {
+    "run": "20261125T223956Z-loop.OK7a0s",
+    "status": 1,
+    "seconds": 209.508103726,
+    "execution_status": 1,
+    "over_limit": false,
+    "within_loop_bound": true,
+    "attempted_sources": [
+      "CasRuntime/FixedInputRouteTests.lean",
+      "CasRuntime/LiteralTests.lean",
+      "CasCompiler/SourceCarrierTests.lean"
+    ],
+    "phases": {
+      "build": {
+        "seconds": 18.750058255,
+        "status": 0
+      },
+      "execution": {
+        "seconds": 137.109677965,
+        "status": 1
+      },
+      "acceptance": {
+        "seconds": 0.0,
+        "status": null
+      }
+    },
+    "finished_utc": "2026-11-25T22:43:27.077048+00:00"
+  }
+}
