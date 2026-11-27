@@ -45,6 +45,47 @@ private def verify : Except String Unit := do
     throw "an initial target did not absorb the empty route"
   let noTargets ← compile rules #[0] #[]
   unless noTargets.grammar.shortest.isNone do throw "an empty target set acquired a route"
+  unless noTargets.rules == rules && noTargets.initial == #[0] && noTargets.targets == #[] do
+    throw "the empty route language lost its original source system"
+  unless noTargets.grammar.finiteWords == some #[] &&
+      noTargets.grammar.distinctWordCount == 0 && !noTargets.grammar.contains #[] do
+    throw "an empty target set acquired an empty or finite route"
+  match noTargets.reconstruct #[] with
+  | .error message =>
+    unless message == "source route does not reach a binding" do
+      throw "empty-target reconstruction changed its rejection"
+  | .ok _ => throw "empty-target reconstruction admitted the empty trace"
+  let targets := #[#[1], #[0], #[0, 2]]
+  let initialBinding ← compile rules #[0] targets
+  unless initialBinding.rules == rules && initialBinding.initial == #[0] &&
+      initialBinding.targets == targets do
+    throw "the initial binding lost original rules or ordered targets"
+  unless initialBinding.grammar.finiteWords == some #[#[]] do
+    throw "other target words changed the initial first-hit language"
+  let occurrences ← initialBinding.reconstruct #[]
+  unless occurrences.isEmpty do throw "an empty first-hit trace acquired a rule occurrence"
+  for trace in #[#[0], #[1], #[999]] do
+    unless !initialBinding.grammar.contains trace do
+      throw "an initial binding admitted a nonempty route"
+    match initialBinding.reconstruct trace with
+    | .error message =>
+      unless message == "route continues beyond its first binding" do
+        throw "initial-target reconstruction changed first-hit rejection order"
+    | .ok _ => throw "initial-target reconstruction continued past its first binding"
+  let invalidInputs : Array (Array PrefixRule × Word × Array Word) := #[
+    (#[], #[], #[]),
+    (rules, #[], #[#[0]]),
+    (rules, #[0], #[#[0], #[]]),
+    (#[{ lhs := #[], rhs := #[0] }], #[0], #[]),
+    (#[{ lhs := #[], rhs := #[0] }], #[0], #[#[0]]),
+    (#[{ lhs := #[0], rhs := #[] }], #[0], #[]),
+    (#[{ lhs := #[0], rhs := #[] }], #[0], #[#[0]])]
+  for (invalidRules, invalidInitial, invalidTargets) in invalidInputs do
+    match compile invalidRules invalidInitial invalidTargets with
+    | .error message =>
+      unless message == "source category words and ground-rule endpoints must be nonempty" do
+        throw "a trivial route language changed invalid-input rejection"
+    | .ok _ => throw "a trivial route language bypassed source-system validation"
 
 run_cmd do
   if let .error message := verify then throwError "{message}"

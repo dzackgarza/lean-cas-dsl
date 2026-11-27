@@ -7,10 +7,10 @@ import Std.Data.HashSet.Basic
 
 namespace CasCompiler.RouteGrammar
 
-/-- Ground prefix words use exact symbol ordinals supplied by the source adapter.
-Algorithm: structural_routes_reference.py at cd3cf75; lean-cas-dsl#66 comment 6693871042.
-Reuse: the standard PDA-to-CFG productive-summary construction, AFP Pushdown Systems.
-No source stack depth or trace length is bounded by this representation. -/
+
+
+
+
 abbrev Word := Array Nat
 
 structure PrefixRule where
@@ -216,7 +216,7 @@ private partial def shortestTrace (grammar : TraceGrammar) : Option Word := Id.r
           changed := true
   return best[grammar.start]?
 
-/-- A diagnostic least trace. It confers no mathematical preference among source readings. -/
+
 opaque TraceGrammar.shortest (grammar : TraceGrammar) : Option Word := shortestTrace grammar
 
 private partial def reachable (graph : Std.HashMap Summary (Array Summary))
@@ -277,9 +277,9 @@ private partial def finiteWords (grammar : TraceGrammar) : Option (Array Word) :
           changed := true
   return some (languages.getD grammar.start #[])
 
-/-- The complete finite raw trace set; none denotes a productive growing cycle.
-Reuse: finite_words in the published reference and #66 comment 6693871042 §3.
-Silent recursion alone does not establish an infinite trace language. -/
+
+
+
 opaque TraceGrammar.finiteWords (grammar : TraceGrammar) : Option (Array Word) :=
   CasCompiler.RouteGrammar.finiteWords grammar
 
@@ -307,11 +307,11 @@ private partial def intersects (grammar : TraceGrammar) (states : Nat)
 private def singletonStep (word : Word) (position letter : Nat) : Nat :=
   if position < word.size && word[position]? == some letter then position + 1 else word.size + 1
 
-/-- Exact membership via grammar intersection with the singleton-word automaton. -/
+
 opaque TraceGrammar.contains (grammar : TraceGrammar) (word : Word) : Bool :=
   intersects grammar (word.size + 2) (· == word.size) (singletonStep word)
 
-/-- Saturated raw trace-word count, not a count of mathematical meanings or grammar parses. -/
+
 opaque TraceGrammar.distinctWordCount (grammar : TraceGrammar) : Nat :=
   match grammar.shortest with
   | none => 0
@@ -332,7 +332,7 @@ structure RouteLanguage where
   targets : Array Word
   grammar : TraceGrammar
 
-/-- Recover each formal source-rule occurrence and its exact constructor suffix. -/
+
 def RouteLanguage.reconstruct (language : RouteLanguage) (trace : Word) :
     Except String (Array Occurrence) := do
   let mut current := language.initial
@@ -349,13 +349,20 @@ def RouteLanguage.reconstruct (language : RouteLanguage) (trace : Word) :
   unless language.targets.contains current do throw "source route does not reach a binding"
   return occurrences
 
-/-- Exact finite grammar of all finite first-hit routes for a finite ground-prefix system.
-The ordinal of each input rule remains its distinct trace identity. -/
+
+
 opaque compile (rules : Array PrefixRule) (initial : Word) (targets : Array Word) :
     Except String RouteLanguage := do
   if initial.isEmpty || targets.any (·.isEmpty) ||
       rules.any (fun rule => rule.lhs.isEmpty || rule.rhs.isEmpty) then
     throw "source category words and ground-rule endpoints must be nonempty"
+  let start : Summary := ⟨3, .start, 2⟩
+  if targets.isEmpty then
+    return ⟨rules, initial, targets, ⟨start, {}⟩⟩
+  if targets.contains initial then
+
+    let productions := ({} : Std.HashMap Summary (Array Production)).insert start #[⟨none, #[]⟩]
+    return ⟨rules, initial, targets, ⟨start, productions⟩⟩
   let (start, productions) := productiveGrammar (machine rules initial targets).transitions
   return ⟨rules, initial, targets, ⟨start, productions⟩⟩
 
