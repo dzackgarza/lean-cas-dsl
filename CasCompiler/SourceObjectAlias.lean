@@ -9,22 +9,32 @@ namespace CasCompiler
 
 open Lean Meta CasCatalogue
 
-/-- Name an authored native object alias only after comparing its entire family under rigid
-universes. The unchanged original arguments are applied after that check. A retained object
-reference is never selected or replaced by native carrier equality. -/
-def sourceNamedObjectAlias (category : CategoryId) (value : Expr) : MetaM Expr := do
-  if (← sourceObjectReference? value).isSome then return value
-  -- A whole-value mark or selection already denotes an actual source occurrence.
-  -- Naming an unbound declaration cannot rewrite that occurrence's representation.
-  if let .mdata _ _ := value then return value
+
+
+
+def sourceNamedObjectAlias (category : CategoryId) (source : SourceSelection Expr) :
+    MetaM (SourceSelection Expr) := do
+
+
+  if source.value.isFVar || !source.formalBindings.isEmpty ||
+      source.reference.isSome || source.observation.isSome || source.originalApplication.isSome ||
+      source.application.isSome || source.admission.isSome || source.category.isSome ||
+      source.typeOrigin.isSome || source.elementOwner.isSome || source.pointOrigin.isSome ||
+      source.pointRequest.isSome || source.isoOrigin.isSome || source.field.isSome ||
+      source.endpoint.isSome || source.limit.isSome || source.leg.isSome || source.cell.isSome ||
+      source.cartesian.isSome || source.presentationEndpoints.isSome || source.routedInputs.isSome ||
+      source.legOrdinal.isSome || !source.carrierRoutes.isEmpty || source.preferredRoute.isSome ||
+      source.creationOwner.isSome then return source
   let state ← semanticState
-  let body := value
-  let .const declaration levels := body.getAppFn | return value
+  let #[categoryEntry] := state.categories.filter (·.id == category)
+    | throwSemanticAmbiguity "the native object alias requires one complete registered category"
+  let body := source.value
+  let .const declaration levels := body.getAppFn | return source
   let original ← checkedDeclaration declaration
   let direct := state.objects.filter fun row =>
     row.category == category && row.declaration == declaration
   if let #[row] := direct then
-    return sourceReference ``ObjectEntry row.id.raw row.declaration value
+    return { source with reference := some (.named (.registered (.inl row) categoryEntry)) }
   unless direct.isEmpty do
     throwSemanticAmbiguity "the native object declaration has several registered source names"
   let names ← original.levelParams.mapM fun _ => mkFreshUserName `objectAliasUniverse
@@ -43,14 +53,16 @@ def sourceNamedObjectAlias (category : CategoryId) (value : Expr) : MetaM Expr :
       return some aliasTerm
     if let some aliasTerm := candidate then aliases := aliases.push (row, aliasTerm)
   match aliases with
-  | #[] => return value
+  | #[] => return source
   | #[(row, aliasTerm)] =>
     unless names.length == levels.length do
       throwError "the native object alias lost its complete universe parameters"
     let named := mkAppN (aliasTerm.instantiateLevelParams names levels) body.getAppArgs
-    unless ← isDefEq named value do
+    unless ← isDefEq named source.value do
       throwError "the registered object alias changed its original native arguments"
-    return sourceReference ``ObjectEntry row.id.raw row.declaration named
+    return { source with
+      value := named
+      reference := some (.named (.registered (.inl row) categoryEntry)) }
   | _ => throwSemanticAmbiguity "the native object family has several authored registered aliases"
 
 end CasCompiler

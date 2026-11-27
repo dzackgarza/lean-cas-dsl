@@ -15,21 +15,19 @@ namespace ReadNameRules
 open SourceReader
 
 def ruleCompleting (context : ReadContext) (complete : ReadCompletion) :
-    TermElabM (Except MessageData NativeSourceJudgement) := do
+    SourceReadM (Except MessageData NativeSourceJudgement) := do
   let readExpression := @ReadContext.readExpression context
   let categoryOf := context.categoryOf
   let source := context.source
   let expected := context.expected
   let qualification := context.qualification
   let expectedCategory := context.expectedCategory
-  let registered := fun name arguments => do
-    match ← registeredApplicable context name arguments with
-    | .ok value => complete value
-    | .error message => pure (.error message)
+  let registered := registeredCompleting context complete
   let member := memberCompleting context complete
-  -- `m(X)` for a registered method or property `m` is `X.m()`. The rule applies when the name
-  -- names no object, map, construction or limit shape, so no kind takes priority.
-  let registeredOrMember := fun (name : TSyntax `ident) (arguments : Array (TSyntax `cas_term)) => do
+
+
+  let registeredOrMember : TSyntax `ident → Array (TSyntax `cas_term) →
+      SourceReadM (Except MessageData NativeSourceJudgement) := fun name arguments => do
     let state ← CasCatalogue.semanticState
     let spelling := name.getId.toString (escape := false)
     let memberName := state.methods.any (·.name == spelling) ||
@@ -43,33 +41,33 @@ def ruleCompleting (context : ReadContext) (complete : ReadCompletion) :
     | _, _ => registered name arguments
   match source with
   | `(cas_term| $name:ident) =>
-    if let some declaration := (← getLCtx).findFromUserName? name.getId then
+    if let some declaration := (← liftM (m := MetaM) getLCtx).findFromUserName? name.getId then
       complete ⟨mkFVar declaration.fvarId, ← categoryOf declaration.fvarId⟩
     else if let some generator ← (sourceDifferentialOf? name.getId).filterM fun generator =>
-        return ((← getLCtx).findFromUserName? generator).isSome then
-      -- `dv` for a bound variable `v` is its differential `d(v)` (public language contract).
+        return ((← liftM (m := MetaM) getLCtx).findFromUserName? generator).isSome then
+
       return .ok (← readExpression categoryOf
-        (← `(cas_term| $(mkIdentFrom name `d):ident($(mkIdentFrom name generator):ident)))
+        (← liftM (m := TermElabM) `(cas_term| $(mkIdentFrom name `d):ident($(mkIdentFrom name generator):ident)))
         expected qualification
         expectedCategory)
     else if name.getId == `false then complete ⟨mkConst ``False, none⟩
     else if name.getId == `true then complete ⟨mkConst ``True, none⟩
     else registered name #[]
   | `(cas_term| $name:ident($arguments:cas_term,*)) =>
-    if ((← getLCtx).findFromUserName? name.getId).isSome then
+    if ((← liftM (m := MetaM) getLCtx).findFromUserName? name.getId).isSome then
       registered name arguments.getElems
     else if let .str receiver field := name.getId then do
       if !receiver.isAnonymous &&
-          ((← getLCtx).findFromUserName? receiver).isSome then
-        member (← `(cas_term| $(mkIdentFrom name receiver):ident)) field arguments.getElems
+          ((← liftM (m := MetaM) getLCtx).findFromUserName? receiver).isSome then
+        member (← liftM (m := TermElabM) `(cas_term| $(mkIdentFrom name receiver):ident)) field arguments.getElems
       else
-        -- `ℤ.is_finite()` lexes as one identifier. When the whole dotted name is not
-        -- registered, the receiver is a term of the language read before the member.
+
+
         let state ← CasCatalogue.semanticState
         let spelling := name.getId.toString (escape := false)
         let named := state.objects.any (·.name == spelling) ||
           state.morphisms.any (·.name == spelling)
-        let parsed := Parser.runParserCategory (← getEnv) `cas_term
+        let parsed := Parser.runParserCategory (← liftM (m := MetaM) getEnv) `cas_term
           (receiver.toString (escape := false))
         match named || receiver.isAnonymous, parsed with
         | false, .ok source => member ⟨source⟩ field arguments.getElems
@@ -78,13 +76,13 @@ def ruleCompleting (context : ReadContext) (complete : ReadCompletion) :
   | _ => throwReadRuleMismatch
 
 def ruleApplicable (context : ReadContext) :
-    TermElabM (Except MessageData NativeSourceJudgement) :=
-  ruleCompleting context (fun value => pure (.ok value))
+    SourceReadM (Except MessageData NativeSourceJudgement) :=
+  ruleCompleting context (checkReadJudgementApplicable { context with qualification := none })
 
-def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
+def rule (context : ReadContext) : SourceReadM NativeSourceJudgement := do
   match ← ruleApplicable context with
   | .ok value => pure value
-  | .error message => throwError message
+  | .error message => liftM (m := TermElabM) <| throwError message
 
 end ReadNameRules
 
