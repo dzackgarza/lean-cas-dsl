@@ -7,14 +7,32 @@ edits:
     command: speckit.tasks
     integration: '{{ inputs.integration }}'
     input:
-      args: '{{ inputs.spec }}
-
-        Apply the task contribution rules in CONTRIBUTING.md, including SPEC007 through SPEC010.'
+      args: |-
+        {{ inputs.spec }}
+        Apply SPEC001 through SPEC011 in CONTRIBUTING.md where applicable.
 - insert_after: tasks
   step:
     id: analyze
     command: speckit.analyze
     integration: '{{ inputs.integration }}'
     input:
-      args: Apply the repository review instructions in AGENTS.md and SPEC007 through SPEC010 in CONTRIBUTING.md. Trace the
-        checks against source and report findings by task ID.
+      args: 'Apply the review instructions in AGENTS.md and SPEC001 through SPEC011 in CONTRIBUTING.md. Report findings
+        by task ID with source evidence. End with exactly one verdict on its own final line. Use TASK REVIEW: BLOCKED
+        for any constitutional conflict or finding that prevents execution or truthful acceptance. Otherwise use TASK
+        REVIEW: READY.'
+    capture: true
+    capture_max_bytes: 65536
+- insert_before: implement
+  step:
+    id: check-task-review
+    type: shell
+    env:
+      TASK_REVIEW_REPORT: '{{ steps.analyze.output.stdout }}'
+      TASK_REVIEW_TRUNCATED: '{{ steps.analyze.output.stdout_truncated | to_json }}'
+    run: |-
+      test "$TASK_REVIEW_TRUNCATED" = false &&
+      printf '%s\n' "$TASK_REVIEW_REPORT" | awk '
+        /^TASK REVIEW:/ { verdicts++ }
+        NF { last = $0 }
+        END { exit !(verdicts == 1 && last == "TASK REVIEW: READY") }
+      '

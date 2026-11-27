@@ -72,7 +72,8 @@ other mechanisms, is never a task check either.
 the serializer behind a 504 s statement) under the name of T112, and then repairs lifting, lambda
 and heartbeat defects of later tasks => the task is done when its named check passes. A defect
 outside the check is a row for its owning task in the checklist of #92, and a review finding
-outside the check goes to its owning task; neither is repaired in this task. Slowness that takes
+outside the check goes to its owning task; neither is repaired in this task. On an overrun, verify the command against SPEC004 and SPEC006
+before pricing its cost. Slowness that takes
 the loop over its bound is the contingency task of its cost area (LOOP006). Slowness that keeps the
 loop within the bound is a row for the final performance work in the timing triage table of
 `timing/README.md`.
@@ -110,6 +111,14 @@ dispatch logging. Could the check pass with the required behavior missing? A non
 can omit the dispatch event entirely. Use an input known to reach dispatch and check the
 event's registration and parent statement. Preserve the pullback obligation at its owner.
 For a proposed test, distinguish verified prerequisites from the behavior the task will add.
+
+**SPEC011 — attribute time to the work measured.** For a work-rate or delivery estimate,
+identify the interval, the work active during it, and the outcomes delivered. Distinguish
+public command duration, task effort and elapsed session time. A session that closes
+prerequisites and then T127 measures their combined elapsed time. Commit times locate
+checkpoints. When the record cannot separate the work, report the combined interval and
+leave individual effort unknown. State the assumptions about effort and concurrency used
+to forecast the remaining delivery outcomes.
 
 ## Feedback loops
 
