@@ -10,6 +10,27 @@ namespace CasRuntime.InputResultTests
 
 open Lean Meta CasCompiler CasCatalogue CasCatalogue.Backend
 
+
+private def withRetainedValues (kernel : Kernel) (transaction : CellTransaction)
+    (context : OpenContext) (bound : Std.HashMap BindingId ValueBinding)
+    (values : Array ValueBinding)
+    (action : OpenContext → Std.HashMap BindingId ValueBinding →
+      SourceSelectionScope Expr → Array Expr → MetaM α) :
+    MetaM α := do
+  let graph ← transaction.view
+  let rec visit (remaining : List ValueBinding) (context : OpenContext)
+      (bound : Std.HashMap BindingId ValueBinding) (selections : SourceSelectionScope Expr)
+      (sources : Array Expr) : MetaM α := do
+    match remaining with
+    | [] => action context bound selections sources
+    | value :: rest =>
+      withBindingContext graph context bound value fun context bound => do
+        let selections ← SourceSelectionScope.merge selections (← value.role.selections.inContext context)
+        let source ← value.selectedSource context
+        withBoundValue kernel.ledger.owners.identities context bound source value fun context bound source =>
+          visit rest context bound selections (sources.push source)
+  visit values.toList context bound {} #[]
+
 private def prepare (kernel : Kernel) (transaction : CellTransaction)
     (program : RuntimeId .program) (context : OpenContext) (callable : ValueBinding)
     (arguments : Array Expr) (values : Array ValueBinding)
@@ -24,14 +45,15 @@ private def prepare (kernel : Kernel) (transaction : CellTransaction)
     actual := actual.push argument
   PreparedRequest.forApplication kernel.ledger.owners.identities program
     (← kernel.ledger.allocate) context callable (← arguments.mapM context.close) actual parameters
+    (some graph)
 
 private def demand (kernel : Kernel) (transaction : CellTransaction)
     (request : PreparedRequest) : MetaM (PreparedResponse request) :=
   Execute.run kernel.executor
     (PFunctor.FreeM.lift (P := OperationalSignature) request) transaction
 
--- A successful shortcut must complete the actual occurrence, survive ordinary publication,
--- and reuse the same retained result through the production executor in a later cell.
+
+
 private def checkCompletion (kernel : Kernel) (transaction : CellTransaction)
     (request : PreparedRequest) (first : ValueBinding)
     (expectedOwners : Array ConnectionGeneration := #[]) : MetaM SessionSnapshot := do
@@ -87,9 +109,9 @@ private def checkCompletion (kernel : Kernel) (transaction : CellTransaction)
   finally discard <| next.abort
   return published
 
--- Native source terms specify only selections and record assembly. The target payloads are
--- unpublished native exports, so evaluating an ordinary retained lambda cannot satisfy these
--- controls. Equal portable data have distinct nodes and distinct record positions.
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
   try
@@ -157,8 +179,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       if ← owners.isLive unrelated.generation then
         throwError "the input-result control did not close its unrelated owner"
 
-      -- A previously produced native field can retain its exact lazy parent directly,
-      -- before any projection index is published. Reuse that occurrence without a resolver.
+
+
       do
         let directCell ← CellTransaction.begin kernel.ledger
         try
@@ -192,7 +214,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             throwError "direct-origin resolution changed its exact parent, path or baseline"
           let .ok none := before.projectionBasis otherValue lazyPair #[``Prod.fst]
             | throwError "a direct origin borrowed an equal-valued field from another parent"
-          -- Leave fixed discovery enabled here; the preflight above supplied no resolver.
+
           let (draft, result) ← directRequest.associateResult owners.identities
             directRequest.source (← directCell.draft) directValue
           discard <| directRequest.admitResult draft.view result
@@ -249,8 +271,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "the fixed second field selected the equal first-field occurrence"
       discard <| checkCompletion kernel fieldCell field fieldResult.root
 
-      -- The actual input record itself is unavailable because its second field is owned
-      -- by the closed process. Selecting only its portable first field must still succeed.
+
+
       let firstCell ← CellTransaction.begin kernel.ledger
       let firstRequest ← prepare kernel firstCell program context first #[pairTerm] #[requiredInput]
       if ← (← firstCell.view).isAvailable owners requiredInput then
@@ -278,8 +300,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           throwError "the duplicated result substituted the dead sibling's equal native value"
       discard <| checkCompletion kernel duplicateCell duplicateRequest duplicateResult.root
 
-      -- Returning a selected callable preserves its lazy interface and its own live owner;
-      -- neither the enclosing native export nor the selected callable may be invoked.
+
+
       let functionCell ← CellTransaction.begin kernel.ledger
       let functionRequest ← prepare kernel functionCell program context selectFunction
         #[functionPairTerm] #[functionInput]
@@ -309,8 +331,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "input-result reconstruction changed the declared field order"
       let published ← checkCompletion kernel reverseCell reversed reverseResult.root
 
-      -- The selected result's own owner remains required; the shortcut must not turn a
-      -- genuine unavailable selected field into an owner-free native-typed replacement.
+
+
       let failed ← CellTransaction.begin kernel.ledger
       let selected ← prepare kernel failed program context second #[pairTerm] #[requiredInput]
       let failure : Option Exception ← try
@@ -344,8 +366,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
           (← SessionSnapshot.current).id == published.id do
         throwError "a failed whole-record owner check published an input-result alias"
 
-      -- The first result field is input-fixed and the second is not. Keep this request on
-      -- the production execution path: a partial prefix cannot become a completed record.
+
+
       let incompleteCell ← CellTransaction.begin kernel.ledger
       let incompleteRequest ← prepare kernel incompleteCell program context incompleteCallable
         #[pairTerm] #[lazyPair]
@@ -376,9 +398,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       kernel.close
   finally setEnv original
 
--- The earlier application owns its original argument and context tables. A later source
--- scope adds a shadowing binder and a different equal-valued actual argument; it cannot
--- replace the earlier selected actual when the residual callable is finally applied.
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
   try
@@ -435,22 +457,54 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             throwError "partial input-result execution selected a later equal-valued actual"
           let some later := request.origin.application
             | throwError "the final input-result demand lost its actual argument table"
-          unless earlier.parameters.size == 1 && later.parameters.size == 2 &&
-              earlier.layout.result.source.context.entries.size == 1 &&
-              later.layout.result.source.context.entries.size == 2 &&
+          let earlierContext := earlier.layout.result.source.context.entries
+          let laterContext := later.layout.result.source.context.entries
+          let earlierAuthored := earlierContext.filter (·.role == .parameter)
+          let laterAuthored := laterContext.filter (·.role == .parameter)
+          let earlierInputs := earlierContext.filter (·.role == .result)
+          let laterInputs := laterContext.filter (·.role == .result)
+          unless earlier.parameters.size == earlierContext.size &&
+              later.parameters.size == laterContext.size &&
+              earlierAuthored.map (·.id) == #[oldBinding.id] &&
+              laterAuthored.map (·.id) == #[oldBinding.id, newBinding.id] &&
+              earlierInputs.size == 1 && laterInputs.size == 2 &&
+              earlierContext.size == earlierAuthored.size + earlierInputs.size &&
+              laterContext.size == laterAuthored.size + laterInputs.size &&
+              (earlierInputs ++ laterInputs).all
+                (fun entry => entry.value.isNone && entry.originalSource.isSome) &&
               (earlier.arguments[0]?.bind id).map (·.value) == some left.value &&
               (later.arguments[0]?.bind id).map (·.value) == some right.value do
             throwError "input-result execution merged original and later source argument planes"
+          for original in earlierContext do
+            let some firstIndex := earlierContext.findIdx? (·.id == original.id)
+              | throwError "the earlier input-result plane lost an original context position"
+            let some nextIndex := laterContext.findIdx? (·.id == original.id)
+              | throwError "the later input-result plane dropped an original binding identity"
+            let some first := earlier.parameters[firstIndex]?.bind id
+              | throwError "the earlier input-result plane lost an actual source value"
+            let some next := later.parameters[nextIndex]?.bind id
+              | throwError "the later input-result plane lost an imported actual source value"
+            unless retainsReference first next && first.value == left.value do
+              throwError "the later source plane replaced an original equal-valued occurrence"
+          let added := laterContext.filter fun entry =>
+            !(earlierContext.any (·.id == entry.id))
+          for original in added do
+            let some index := laterContext.findIdx? (·.id == original.id)
+              | throwError "the later input-result plane lost its own original binding"
+            let some actual := later.parameters[index]?.bind id
+              | throwError "the later input-result plane omitted its original actual value"
+            unless retainsReference right actual do
+              throwError "the later source plane reused the earlier equal-valued occurrence"
           discard <| checkCompletion kernel consumer request response.root
     finally
       owners.close owner.generation
       kernel.close
   finally setEnv original
 
--- The independent registered group-kernel declaration fixes the inclusion's ambient to
--- the input arrow's source. Its other fields still require a provider. These opaque native
--- interfaces supply no computed group-theoretic answer; only the existing source selection
--- and the absence of a whole-result realization are under test.
+
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
   try
@@ -496,7 +550,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let lazyInput ← producer.stage
         { program, occurrence := produced, role := receiverRole, parameters := #[] }
         (.ownedExport owner "unpublished lazy group arrow" #[])
-      -- Obtain the actual delayed published family through the production lowerer.
+
       let callable ← kernel.run producer context {} callableSource
       let application ← prepare kernel producer program context callable #[receiver] #[input]
       let resultRecord ← RecordLayout.ofSource application.source
@@ -524,14 +578,13 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "the fixed ambient lost its original input or current output access"
       let published ← checkCompletion kernel projectedCell projection selected.root
 
-      -- A lazy input would require its unpublished owner's projection interface if forced.
-      -- The whole kernel result is not input-fixed: coverage discovery must leave that input
-      -- untouched and reach the ordinary missing-realization failure for the target family.
+
+
+
       let incomplete ← CellTransaction.begin kernel.ledger
-      let retainedCallable ← markValue kernel.marks callable callableSource
-      let retainedInput ← markValue kernel.marks lazyInput receiver
       let failure : Option Exception ← try
-        discard <| kernel.run incomplete context {} (mkApp retainedCallable retainedInput)
+        withRetainedValues kernel incomplete context {} #[callable, lazyInput] fun context bound selections sources =>
+          discard <| kernel.run incomplete context bound (mkApp sources[0]! sources[1]!) (selections := selections)
         pure none
       catch error => pure (some error)
       let some failure := failure
@@ -548,10 +601,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       kernel.close
   finally setEnv original
 
--- Native id preserves its complete input; Prod.fst selects a declared native field. A descriptor
--- carries the whole Prod value but no stored field identities. These controls use only those
--- native structural rules: the ordinary result below is produced by Kernel.run on Prod.mk,
--- not supplied by a mathematical backend or recovered from the descriptor's packet.
+
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
   try
@@ -607,8 +660,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         throwError "whole descriptor identity fabricated a stored native record"
       discard <| checkCompletion kernel wholeCell whole wholeResult.root
 
-      -- The identity's retained application supplies a real fixed-source path to the same
-      -- descriptor. Its absent field table must prevent that path from becoming coverage.
+
+
       let fieldCell ← CellTransaction.begin kernel.ledger
       let fieldGraph ← fieldCell.view
       let field ← PreparedRequest.forProjection owners.identities program
@@ -646,10 +699,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     finally kernel.close
   finally setEnv original
 
--- One lazy runtime record has one first field, even when two result positions select it.
--- The stored source is only a native Prod constructor. Both projections run through the
--- production native evaluator and its ordinary fixed-input resolver; no provider or fixture
--- executor supplies a field value. The two output roles may differ, but their node must not.
+
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
   try
@@ -683,11 +736,11 @@ run_cmd Lean.Elab.Command.liftTermElabM do
 
       let consumer ← CellTransaction.begin kernel.ledger
       try
-        let function ← markValue kernel.marks duplicate duplicateTerm
-        let argument ← markValue kernel.marks input pairTerm
-        -- Kernel.run installs the production fixed-input resolver. This is one
-        -- application to the same retained record, not two callable applications.
-        let result ← kernel.run consumer context {} (mkApp function argument)
+
+
+        let result ← withRetainedValues kernel consumer context {} #[duplicate, input]
+            fun context bound selections sources =>
+          kernel.run consumer context bound (mkApp sources[0]! sources[1]!) (selections := selections)
         let graph ← consumer.view
         let .ok first := graph.project result 0
           | throwError "the lazy duplicate result lost its first field"
@@ -706,8 +759,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     finally kernel.close
   finally setEnv original
 
--- A deeper selection may occur before its shared prefix. Retain the intermediate field,
--- while equal source terms at another parent or native path remain distinct selections.
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
   try
@@ -744,10 +797,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
 
       let consumer ← CellTransaction.begin kernel.ledger
       try
-        let function ← markValue kernel.marks selected selectTerm
-        let left ← markValue kernel.marks input inputTerm
-        let right ← markValue kernel.marks other inputTerm
-        let result ← kernel.run consumer context {} (mkAppN function #[left, right])
+        let result ← withRetainedValues kernel consumer context {} #[selected, input, other]
+            fun context bound selections sources =>
+          kernel.run consumer context bound (mkAppN sources[0]! #[sources[1]!, sources[2]!]) (selections := selections)
         let graph ← consumer.view
         let project := fun parent index => IO.ofExcept <|
           (graph.project parent index).mapError IO.userError
@@ -778,8 +830,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     finally kernel.close
   finally setEnv original
 
--- A lazy native prefix may expose a symbolic descriptor. Discovering its unavailable field
--- preserves the ordinary projection failure, without replaying the prefix or inventing data.
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
   try
@@ -800,42 +852,43 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let descriptor ← producer.stage
         { program := code, occurrence := produced, role := pairRole, parameters := #[] }
         descriptorPayload
-      let retained ← markValue kernel.marks descriptor pairTerm
-      let inputTerm ← mkAppM ``Prod.mk #[retained, mkNatLit 13]
-      let inputSource ← context.close inputTerm
-      kernel.codes.modify (·.insert code (.term inputSource))
-      let input ← producer.stage
-        { program := code, occurrence := produced,
-          role := ← SourceLayout.ofTerm inputSource, parameters := #[] }
-        (.closure code #[descriptor])
-      let selected ← kernel.run producer context {} selectTerm
-      let graph ← producer.view
-      for parent in #[descriptor, input] do
-        let .error _ := graph.project parent 0
-          | throwError "the lazy descriptor control already has stored native fields"
-      let .ok _ ← producer.commit
-        | throwError "the lazy descriptor control could not publish its original values"
+      withRetainedValues kernel producer context {} #[descriptor] fun context bound selections sources => do
+        let retained := sources[0]!
+        let inputTerm ← mkAppM ``Prod.mk #[retained, mkNatLit 13]
+        let inputSource ← context.close inputTerm
+        kernel.codes.modify (·.insert code (.term inputSource))
+        let environment ← RuntimeEnvironment.captureBound owners.worker context bound (← producer.view)
+          (selections := selections)
+        let input ← producer.stage
+          (← environment.origin code produced (← SourceLayout.ofTerm inputSource))
+          (.closure code #[descriptor])
+        let selected ← kernel.run producer context bound selectTerm (selections := selections)
+        let graph ← producer.view
+        for parent in #[descriptor, input] do
+          let .error _ := graph.project parent 0
+            | throwError "the lazy descriptor control already has stored native fields"
+        let .ok _ ← producer.commit
+          | throwError "the lazy descriptor control could not publish its original values"
 
-      let consumer ← CellTransaction.begin kernel.ledger
-      try
-        let function ← markValue kernel.marks selected selectTerm
-        let argument ← markValue kernel.marks input inputTerm
-        let failure : Option Exception ← try
-          discard <| kernel.run consumer context {} (mkApp function argument)
-          pure none
-        catch error => pure (some error)
-        let some failure := failure
-          | throwError "a lazy descriptor prefix fabricated its absent native field"
-        unless CasCatalogue.Exception.stratum? failure == some .noImplementation do
-          throw failure
-        unless (← kernel.dispatches.get).isEmpty do
-          throwError "the native lazy descriptor control dispatched a provider"
-      finally discard <| consumer.abort
+        let consumer ← CellTransaction.begin kernel.ledger
+        try
+          let failure : Option Exception ← try
+            withRetainedValues kernel consumer context bound #[selected, input] fun context bound selections sources =>
+              discard <| kernel.run consumer context bound (mkApp sources[0]! sources[1]!) (selections := selections)
+            pure none
+          catch error => pure (some error)
+          let some failure := failure
+            | throwError "a lazy descriptor prefix fabricated its absent native field"
+          unless CasCatalogue.Exception.stratum? failure == some .noImplementation do
+            throw failure
+          unless (← kernel.dispatches.get).isEmpty do
+            throwError "the native lazy descriptor control dispatched a provider"
+        finally discard <| consumer.abort
     finally kernel.close
   finally setEnv original
 
--- Fresh projection requests reuse the published field of one exact lazy parent. Equal
--- fields at another path or parent are independent, and an older snapshot sees no new data.
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
   try
@@ -862,9 +915,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         | throwError "the published lazy projection control could not publish its parents"
       let project (transaction : CellTransaction) (parent : ValueBinding) (index : Nat) :
           MetaM ValueBinding := do
-        let source ← markValue kernel.marks parent pairTerm
-        kernel.run transaction context {} (.proj ``Prod index source)
-      -- These cells begin at the same snapshot. Only the first one's graph is published.
+        withRetainedValues kernel transaction context {} #[parent] fun context bound selections sources =>
+          kernel.run transaction context bound (.proj ``Prod index sources[0]!) (selections := selections)
+
       let stale ← CellTransaction.begin kernel.ledger
       let firstCell ← CellTransaction.begin kernel.ledger
       try
@@ -918,8 +971,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     finally kernel.close
   finally setEnv original
 
--- An actual lazy inner record is first accessed through its enriched projection view.
--- Later plan preparation reaches that same record through the exact original input baseline.
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
   try
@@ -940,213 +993,230 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         { program := innerCode, occurrence := ← kernel.ledger.allocate,
           role := pairRole, parameters := #[] }
         (.closure innerCode #[])
-      let markedInner ← markValue kernel.marks inner pairTerm
-      let outerTerm ← mkAppM ``Prod.mk #[markedInner, mkNatLit 13]
-      let outerSource ← context.close outerTerm
-      let outerCode ← owners.identities.fresh .program
-      kernel.codes.modify (·.insert outerCode (.term outerSource))
-      let outer ← producer.stage
-        { program := outerCode, occurrence := ← kernel.ledger.allocate,
-          role := ← SourceLayout.ofTerm outerSource, parameters := #[] }
-        (.closure outerCode #[inner])
-      let selected ← kernel.run producer context {} selectTerm
-      let graph ← producer.view
-      for parent in #[outer, inner] do
-        let .error _ := graph.project parent 0
-          | throwError "the lazy intermediate control already has stored field identities"
-      let .ok _ ← producer.commit
-        | throwError "the lazy intermediate control could not publish its original records"
-
-      -- A real first projection supplies the intermediate parent; its final field is an
-      -- already produced direct reply. Association must publish the full original path.
-      do
-        let pendingCell ← CellTransaction.begin kernel.ledger
-        try
-          let initialSnapshot ← SessionSnapshot.current
-          let markedOuter ← markValue kernel.marks outer outerTerm
-          let prefixAccess ← kernel.run pendingCell context {} (mkProj ``Prod 0 markedOuter)
-          let beforeFinal ← pendingCell.view
-          let .ok (some originalPrefix) := beforeFinal.projected? outer #[``Prod.fst]
-            | throwError "the pending-final control lost its ordinary first projection"
-          unless prefixAccess.value == inner.value && originalPrefix.value == inner.value &&
-              originalPrefix.associationIds == inner.associationIds do
-            throwError "the pending-final control replaced its original intermediate parent"
-          let program ← owners.identities.fresh .program
-          let finalProjection ← PreparedRequest.forProjection owners.identities program
-            (← kernel.ledger.allocate) context beforeFinal prefixAccess 0 #[]
-          let finalValue ← pendingCell.stage finalProjection.origin (.portable "7".toUTF8)
-          let before ← pendingCell.view
-          let inputPath := #[``Prod.fst, ``Prod.fst]
-          let .ok (some (frontier, remaining)) := before.projectionFrontier outer inputPath
-            | throwError "the pending-final control lost its actual native frontier"
-          unless frontier.value == originalPrefix.value &&
-              frontier.associationIds == originalPrefix.associationIds &&
-              remaining == #[``Prod.fst] do
-            throwError "the pending-final control did not retain exactly one unavailable field"
-          let .ok (some directBaseline) := before.projectionBasis finalValue outer inputPath
-            | throwError "the direct final reply lost its original composed parent and path"
-          unless directBaseline.value == finalValue.value &&
-              directBaseline.associationIds == finalValue.associationIds do
-            throwError "the direct final reply changed its original baseline"
-          let .ok none := before.projected? prefixAccess #[``Prod.fst]
-            | throwError "the pending-final field was already indexed"
-          let .ok none := before.projectedAccess? outer inputPath
-            | throwError "the pending-final control already has a full-path source access"
-          let request ← prepare kernel pendingCell program context selected #[outerTerm] #[outer]
-          let outputRecord ← RecordLayout.ofSource request.source
-          let some outputField := outputRecord.fields.find? (·.field.wireIndex == some 0)
-            | throwError "the source-fixed result lost its first native field"
-          let fixed ← request.resolveFixedResults pendingCell outputField.layout finalValue
-          let #[selection] := fixed
-            | throwError "the pending-final result lost its single fixed source selection"
-          unless selection.path == #[``Prod.fst] &&
-              selection.input.parent.value == outer.value &&
-              selection.input.parent.associationIds == outer.associationIds &&
-              selection.input.path == inputPath &&
-              selection.value.value == finalValue.value &&
-              selection.value.associationIds == finalValue.associationIds do
-            throwError "pending-final resolution changed its original input or result position"
-          let (draft, result) ← request.associateResult owners.identities outputField.layout
-            (← pendingCell.draft) finalValue fixed (complete := true)
-          discard <| request.environment.checkResult draft.view outputField.layout result
-          let .ok (some sourceAccess) := draft.view.projectedAccess? outer inputPath
-            | throwError "pending-final association omitted its complete original source access"
-          let .ok (some (selectedSource, selectedParent, selectedPath)) :=
-              draft.view.projectionSelection sourceAccess
-            | throwError "the composed source access lost its immutable native selection"
-          unless selectedParent.value == outer.value &&
-              selectedParent.associationIds == outer.associationIds &&
-              selectedPath == inputPath do
-            throwError "the composed source access changed its original parent or native path"
-          let mut nativeSource := selectedParent.role
-          for projection in inputPath do
-            let some field := nativeSource.fields.find? (·.projection == projection)
-              | throwError "the composed source access lost its original field layout"
-            nativeSource ← field.toLayout
-          unless (← selectedSource.source.inContext context) ==
-              (← nativeSource.source.inContext context) do
-            throwError "the composed source access acquired an output-derived source role"
-          let .ok actual := RuntimeArgument.ofValue draft.view 0 sourceAccess (← kernel.marks.get)
-            | throwError "the pending-final source access is outside its isolated graph"
-          discard <| request.environment.checkArgument
-            (← context.close (mkProj ``Prod 0 (mkProj ``Prod 0 markedOuter))) actual
-          for (parent, path, expected) in #[
-              (outer, #[``Prod.fst], originalPrefix),
-              (prefixAccess, #[``Prod.fst], finalValue),
-              (outer, inputPath, finalValue)] do
-            let .ok (some baseline) := draft.view.projected? parent path
-              | throwError "pending-final association lost an original projection baseline"
-            unless baseline.value == expected.value &&
-                baseline.associationIds == expected.associationIds do
-              throwError "pending-final association enriched or replaced an original baseline"
-          unless result.value == finalValue.value && sourceAccess.value == finalValue.value &&
-              finalValue.associationIds.toList.isPrefixOf result.associationIds.toList do
-            throwError "pending-final association replaced its actual returned field"
-          let some innerNode := draft.view.find inner.value
-            | throwError "pending-final association lost its actual intermediate node"
-          unless innerNode.payload.data.storedFields?.isNone &&
-              (← pendingCell.view).sameRevision before &&
-              (← SessionSnapshot.current).id == initialSnapshot.id &&
-              (← kernel.dispatches.get).isEmpty do
-            throwError "pending-final association forced, installed or published its isolated work"
-        finally discard <| pendingCell.abort
-
-      let consumer ← CellTransaction.begin kernel.ledger
-      try
-        let markedOuter ← markValue kernel.marks outer outerTerm
-        let innerProjection := mkProj ``Prod 0 markedOuter
-        let accessedInner ← kernel.run consumer context {} innerProjection
-        unless accessedInner.value == inner.value &&
-            accessedInner.associationIds != inner.associationIds &&
-            accessedInner.projectionAccesses.any (fun (parent, path) =>
-              parent.value == outer.value && parent.associationIds == outer.associationIds &&
-                path == #[``Prod.fst]) do
-          throwError "the lazy intermediate control did not retain its enriched parent view"
-        let markedAccess ← markValue kernel.marks accessedInner innerProjection
-        let first ← kernel.run consumer context {} (mkProj ``Prod 0 markedAccess)
-        unless first.projectionAccesses.any (fun (parent, path) =>
-            parent.value == accessedInner.value &&
-              parent.associationIds == accessedInner.associationIds &&
-              path == #[``Prod.fst]) do
-          throwError "the lazy intermediate field lost its actual first access parent"
-
-        let request ← prepare kernel consumer (← owners.identities.fresh .program) context
-          selected #[outerTerm] #[outer]
-        let some plan ← request.inputResultPlan (← consumer.view)
-          | throwError "the retained lazy intermediate did not supply complete result coverage"
-        -- No resolver is supplied: both selections must already be visible graph relations.
-        let resolved ← plan.resolve (liftM (m := IO) consumer.view)
-        let some planned := resolved.selections.find? (·.path == #[``Prod.fst])
-          | throwError "the lazy intermediate plan lost its deeper selected field"
-        unless planned.value.value == first.value && planned.input.parent.value == outer.value &&
-            planned.input.parent.associationIds == outer.associationIds &&
-            planned.input.path == #[``Prod.fst, ``Prod.fst] do
-          throwError "plan preparation changed the retained lazy intermediate field or source path"
-        let beforeAssembly ← consumer.view
-        let .ok none := beforeAssembly.projectedAccess? outer #[``Prod.fst, ``Prod.fst]
-          | throwError "the composed input already has a full-path access before assembly"
-        let function ← markValue kernel.marks selected selectTerm
-        let result ← kernel.run consumer context {} (mkApp function markedOuter)
-        let graph ← consumer.view
-        let .ok deep := graph.project result 0
-          | throwError "the lazy intermediate result lost its deeper field"
-        let .ok retained := graph.project result 1
-          | throwError "the lazy intermediate result lost its original inner record"
-        unless deep.value == first.value && retained.value == inner.value do
-          throwError "the input result recreated an already retained lazy intermediate selection"
-        for (value, path) in #[
-            (deep, #[``Prod.fst, ``Prod.fst]), (retained, #[``Prod.fst])] do
-          unless value.projectionAccesses.any (fun (parent, selectedPath) =>
-              parent.value == outer.value && parent.associationIds == outer.associationIds &&
-                selectedPath == path) do
-            throwError "the lazy intermediate result lost its complete original access path"
-        -- The first full-path view must belong to the selected input source, independently
-        -- of the output record. The baseline and the raw lazy parents remain unchanged.
-        for selection in resolved.selections do
-          let input := selection.input
-          let .ok (some sourceAccess) := graph.projectedAccess? input.parent input.path
-            | throwError "input-result assembly omitted its original native source access"
-          let .ok (some (selectedSource, selectedParent, selectedPath)) :=
-              graph.projectionSelection sourceAccess
-            | throwError "the input access lost its immutable native selection"
-          unless selectedParent.value == input.parent.value &&
-              selectedParent.associationIds == input.parent.associationIds &&
-              selectedPath == input.path do
-            throwError "the input access changed its original parent or complete path"
-          let mut nativeSource := selectedParent.role
-          let mut specified ← markValue kernel.marks input.parent
-            (← input.source.inContext context)
-          for projection in input.path do
-            let some field := nativeSource.fields.find? (·.projection == projection)
-              | throwError "the original input lost its native field layout"
-            specified ← projectTerm specified field
-            nativeSource ← field.toLayout
-          unless (← selectedSource.source.inContext context) ==
-              (← nativeSource.source.inContext context) do
-            throwError "the first input access borrowed its output record's source role"
-          discard <| request.environment.checkOperand graph nativeSource sourceAccess
-          let .ok actual := RuntimeArgument.ofValue graph 0 sourceAccess (← kernel.marks.get)
-            | throwError "the original input access is outside its admitted graph"
-          discard <| request.environment.checkArgument (← context.close specified) actual
-          let .ok (some (beforeBaseline, #[])) :=
-              beforeAssembly.projectionFrontier input.parent input.path
-            | throwError "the no-resolver input lost its previously available native path"
-          let .ok (some baseline) := graph.projected? input.parent input.path
-            | throwError "source-access publication lost its original cached baseline"
-          let some afterBaseline ← input.storedValue? graph
-            | throwError "source-access publication changed its original stored frontier"
-          for actual in #[beforeBaseline, baseline, afterBaseline] do
-            unless actual.value == selection.value.value &&
-                actual.associationIds == selection.value.associationIds do
-              throwError "source-access publication enriched or replaced an original input baseline"
+      withRetainedValues kernel producer context {} #[inner] fun context bound selections sources => do
+        let retainedInner := sources[0]!
+        let outerTerm ← mkAppM ``Prod.mk #[retainedInner, mkNatLit 13]
+        let outerSource ← context.close outerTerm
+        let outerCode ← owners.identities.fresh .program
+        kernel.codes.modify (·.insert outerCode (.term outerSource))
+        let environment ← RuntimeEnvironment.captureBound owners.worker context bound (← producer.view)
+          (selections := selections)
+        let outer ← producer.stage
+          (← environment.origin outerCode (← kernel.ledger.allocate)
+            (← SourceLayout.ofTerm outerSource))
+          (.closure outerCode #[inner])
+        let selected ← kernel.run producer context bound selectTerm (selections := selections)
+        let graph ← producer.view
         for parent in #[outer, inner] do
-          let some node := graph.find parent.value
-            | throwError "source-access publication lost an original lazy parent"
-          unless node.payload.data.storedFields?.isNone do
-            throwError "source-access publication evaluated an original lazy parent"
-        unless (← kernel.dispatches.get).isEmpty do
-          throwError "the native lazy intermediate control dispatched a provider"
-      finally discard <| consumer.abort
+          let .error _ := graph.project parent 0
+            | throwError "the lazy intermediate control already has stored field identities"
+        let .ok _ ← producer.commit
+          | throwError "the lazy intermediate control could not publish its original records"
+
+
+
+        do
+          let pendingCell ← CellTransaction.begin kernel.ledger
+          try
+            let initialSnapshot ← SessionSnapshot.current
+            withRetainedValues kernel pendingCell context bound #[outer] fun context bound selections sources => do
+              let retainedOuter := sources[0]!
+              let prefixAccess ← kernel.run pendingCell context bound (mkProj ``Prod 0 retainedOuter) (selections := selections)
+              let beforeFinal ← pendingCell.view
+              let .ok (some originalPrefix) := beforeFinal.projected? outer #[``Prod.fst]
+                | throwError "the pending-final control lost its ordinary first projection"
+              unless prefixAccess.value == inner.value && originalPrefix.value == inner.value &&
+                  originalPrefix.associationIds == inner.associationIds do
+                throwError "the pending-final control replaced its original intermediate parent"
+              let program ← owners.identities.fresh .program
+              let finalProjection ← PreparedRequest.forProjection owners.identities program
+                (← kernel.ledger.allocate) context beforeFinal prefixAccess 0 #[]
+              let finalValue ← pendingCell.stage finalProjection.origin (.portable "7".toUTF8)
+              let before ← pendingCell.view
+              let inputPath := #[``Prod.fst, ``Prod.fst]
+              let .ok (some (frontier, remaining)) := before.projectionFrontier outer inputPath
+                | throwError "the pending-final control lost its actual native frontier"
+              unless frontier.value == originalPrefix.value &&
+                  frontier.associationIds == originalPrefix.associationIds &&
+                  remaining == #[``Prod.fst] do
+                throwError "the pending-final control did not retain exactly one unavailable field"
+              let .ok (some directBaseline) := before.projectionBasis finalValue outer inputPath
+                | throwError "the direct final reply lost its original composed parent and path"
+              unless directBaseline.value == finalValue.value &&
+                  directBaseline.associationIds == finalValue.associationIds do
+                throwError "the direct final reply changed its original baseline"
+              let .ok none := before.projected? prefixAccess #[``Prod.fst]
+                | throwError "the pending-final field was already indexed"
+              let .ok none := before.projectedAccess? outer inputPath
+                | throwError "the pending-final control already has a full-path source access"
+              let parameters ← context.bindings.filterMapM fun binding => do
+                let some value := bound[binding.id]? | return none
+                return some (← IO.ofExcept <|
+                  (RuntimeParameter.ofValue before binding.id value).mapError IO.userError)
+              let request ← prepare kernel pendingCell program context selected #[outerTerm] #[outer] parameters
+              let outputRecord ← RecordLayout.ofSource request.source
+              let some outputField := outputRecord.fields.find? (·.field.wireIndex == some 0)
+                | throwError "the source-fixed result lost its first native field"
+              let fixed ← request.resolveFixedResults pendingCell outputField.layout finalValue
+              let #[selection] := fixed
+                | throwError "the pending-final result lost its single fixed source selection"
+              unless selection.path == #[``Prod.fst] &&
+                  selection.input.parent.value == outer.value &&
+                  selection.input.parent.associationIds == outer.associationIds &&
+                  selection.input.path == inputPath &&
+                  selection.value.value == finalValue.value &&
+                  selection.value.associationIds == finalValue.associationIds do
+                throwError "pending-final resolution changed its original input or result position"
+              let (draft, result) ← request.associateResult owners.identities outputField.layout
+                (← pendingCell.draft) finalValue fixed (complete := true)
+              discard <| request.environment.checkResult draft.view outputField.layout result
+              let .ok (some sourceAccess) := draft.view.projectedAccess? outer inputPath
+                | throwError "pending-final association omitted its complete original source access"
+              let .ok (some (selectedSource, selectedParent, selectedPath)) :=
+                  draft.view.projectionSelection sourceAccess
+                | throwError "the composed source access lost its immutable native selection"
+              unless selectedParent.value == outer.value &&
+                  selectedParent.associationIds == outer.associationIds &&
+                  selectedPath == inputPath do
+                throwError "the composed source access changed its original parent or native path"
+              let mut nativeSource := selectedParent.role
+              for projection in inputPath do
+                let some field := nativeSource.fields.find? (·.projection == projection)
+                  | throwError "the composed source access lost its original field layout"
+                nativeSource ← field.toLayout
+              unless (← selectedSource.source.inContext context) ==
+                  (← nativeSource.source.inContext context) do
+                throwError "the composed source access acquired an output-derived source role"
+              let .ok actual := RuntimeArgument.ofValue draft.view 0 sourceAccess
+                | throwError "the pending-final source access is outside its isolated graph"
+              discard <| request.environment.checkArgument
+                (← context.close (mkProj ``Prod 0 (mkProj ``Prod 0 retainedOuter))) actual
+              for (parent, path, expected) in #[
+                  (outer, #[``Prod.fst], originalPrefix),
+                  (prefixAccess, #[``Prod.fst], finalValue),
+                  (outer, inputPath, finalValue)] do
+                let .ok (some baseline) := draft.view.projected? parent path
+                  | throwError "pending-final association lost an original projection baseline"
+                unless baseline.value == expected.value &&
+                    baseline.associationIds == expected.associationIds do
+                  throwError "pending-final association enriched or replaced an original baseline"
+              unless result.value == finalValue.value && sourceAccess.value == finalValue.value &&
+                  finalValue.associationIds.toList.isPrefixOf result.associationIds.toList do
+                throwError "pending-final association replaced its actual returned field"
+              let some innerNode := draft.view.find inner.value
+                | throwError "pending-final association lost its actual intermediate node"
+              unless innerNode.payload.data.storedFields?.isNone &&
+                  (← pendingCell.view).sameRevision before &&
+                  (← SessionSnapshot.current).id == initialSnapshot.id &&
+                  (← kernel.dispatches.get).isEmpty do
+                throwError "pending-final association forced, installed or published its isolated work"
+          finally discard <| pendingCell.abort
+
+        let consumer ← CellTransaction.begin kernel.ledger
+        try
+          let accessedInner ← withRetainedValues kernel consumer context bound #[outer]
+              fun context bound selections sources =>
+            kernel.run consumer context bound (mkProj ``Prod 0 sources[0]!) (selections := selections)
+          unless accessedInner.value == inner.value &&
+              accessedInner.associationIds != inner.associationIds &&
+              accessedInner.projectionAccesses.any (fun (parent, path) =>
+                parent.value == outer.value && parent.associationIds == outer.associationIds &&
+                  path == #[``Prod.fst]) do
+            throwError "the lazy intermediate control did not retain its enriched parent view"
+          let first ← withRetainedValues kernel consumer context bound #[accessedInner]
+              fun context bound selections sources =>
+            kernel.run consumer context bound (mkProj ``Prod 0 sources[0]!) (selections := selections)
+          unless first.projectionAccesses.any (fun (parent, path) =>
+              parent.value == accessedInner.value &&
+                parent.associationIds == accessedInner.associationIds &&
+                path == #[``Prod.fst]) do
+            throwError "the lazy intermediate field lost its actual first access parent"
+
+          let parameters ← context.bindings.filterMapM fun binding => do
+            let some value := bound[binding.id]? | return none
+            return some (← IO.ofExcept <|
+              (RuntimeParameter.ofValue (← consumer.view) binding.id value).mapError IO.userError)
+          let request ← prepare kernel consumer (← owners.identities.fresh .program) context
+            selected #[outerTerm] #[outer] parameters
+          let some plan ← request.inputResultPlan (← consumer.view)
+            | throwError "the retained lazy intermediate did not supply complete result coverage"
+
+          let resolved ← plan.resolve (liftM (m := IO) consumer.view)
+          let some planned := resolved.selections.find? (·.path == #[``Prod.fst])
+            | throwError "the lazy intermediate plan lost its deeper selected field"
+          unless planned.value.value == first.value && planned.input.parent.value == outer.value &&
+              planned.input.parent.associationIds == outer.associationIds &&
+              planned.input.path == #[``Prod.fst, ``Prod.fst] do
+            throwError "plan preparation changed the retained lazy intermediate field or source path"
+          let beforeAssembly ← consumer.view
+          let .ok none := beforeAssembly.projectedAccess? outer #[``Prod.fst, ``Prod.fst]
+            | throwError "the composed input already has a full-path access before assembly"
+          let result ← withRetainedValues kernel consumer context bound #[selected, outer]
+              fun context bound selections sources =>
+            kernel.run consumer context bound (mkApp sources[0]! sources[1]!) (selections := selections)
+          let graph ← consumer.view
+          let .ok deep := graph.project result 0
+            | throwError "the lazy intermediate result lost its deeper field"
+          let .ok retained := graph.project result 1
+            | throwError "the lazy intermediate result lost its original inner record"
+          unless deep.value == first.value && retained.value == inner.value do
+            throwError "the input result recreated an already retained lazy intermediate selection"
+          for (value, path) in #[
+              (deep, #[``Prod.fst, ``Prod.fst]), (retained, #[``Prod.fst])] do
+            unless value.projectionAccesses.any (fun (parent, selectedPath) =>
+                parent.value == outer.value && parent.associationIds == outer.associationIds &&
+                  selectedPath == path) do
+              throwError "the lazy intermediate result lost its complete original access path"
+
+
+          for selection in resolved.selections do
+            let input := selection.input
+            let .ok (some sourceAccess) := graph.projectedAccess? input.parent input.path
+              | throwError "input-result assembly omitted its original native source access"
+            let .ok (some (selectedSource, selectedParent, selectedPath)) :=
+                graph.projectionSelection sourceAccess
+              | throwError "the input access lost its immutable native selection"
+            unless selectedParent.value == input.parent.value &&
+                selectedParent.associationIds == input.parent.associationIds &&
+                selectedPath == input.path do
+              throwError "the input access changed its original parent or complete path"
+            withRetainedValues kernel consumer context bound #[input.parent] fun context bound selections sources => do
+              request.environment.withContext context bound fun context bound => do
+                let environment ← RuntimeEnvironment.captureBound owners.worker context bound graph
+                  (selections := selections)
+                let mut nativeSource := selectedParent.role
+                let mut specified := sources[0]!
+                for projection in input.path do
+                  let some field := nativeSource.fields.find? (·.projection == projection)
+                    | throwError "the original input lost its native field layout"
+                  specified ← projectTerm specified field
+                  nativeSource ← field.toLayout
+                unless (← selectedSource.source.inContext context) ==
+                    (← nativeSource.source.inContext context) do
+                  throwError "the first input access borrowed its output record's source role"
+                discard <| environment.checkOperand graph nativeSource sourceAccess
+                let .ok actual := RuntimeArgument.ofValue graph 0 sourceAccess
+                  | throwError "the original input access is outside its admitted graph"
+                discard <| environment.checkArgument (← context.close specified) actual
+            let .ok (some (beforeBaseline, #[])) :=
+                beforeAssembly.projectionFrontier input.parent input.path
+              | throwError "the no-resolver input lost its previously available native path"
+            let .ok (some baseline) := graph.projected? input.parent input.path
+              | throwError "source-access publication lost its original cached baseline"
+            let some afterBaseline ← input.storedValue? graph
+              | throwError "source-access publication changed its original stored frontier"
+            for actual in #[beforeBaseline, baseline, afterBaseline] do
+              unless actual.value == selection.value.value &&
+                  actual.associationIds == selection.value.associationIds do
+                throwError "source-access publication enriched or replaced an original input baseline"
+          for parent in #[outer, inner] do
+            let some node := graph.find parent.value
+              | throwError "source-access publication lost an original lazy parent"
+            unless node.payload.data.storedFields?.isNone do
+              throwError "source-access publication evaluated an original lazy parent"
+          unless (← kernel.dispatches.get).isEmpty do
+            throwError "the native lazy intermediate control dispatched a provider"
+        finally discard <| consumer.abort
     finally kernel.close
   finally setEnv original
 
