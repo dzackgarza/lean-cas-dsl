@@ -6,8 +6,8 @@ meta import CasCompiler.RecordAction
 
 open Lean Meta CasCompiler
 
--- Reuse RecordTests' native layouts to distinguish declared sparse dependencies
--- from an arbitrary prefix, without adding a mathematical catalogue entry.
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let context ← ContextTelescope.capture #[]
   let pair ← mkAppM ``Prod.mk #[mkNatLit 8, mkNatLit 8]
@@ -25,16 +25,18 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let layout ← SourceLayout.ofTerm (← context.close source)
   let some dependent := layout.fields[1]?
     | throwError "the original dependent pair lost its second source field"
-  let marked : Expr := .mdata (KVMap.empty.setNat `CasCompiler.lower.value 17) source
-  let #[input] ← layout.actionInputs context marked #[dependent]
-    | throwError "the dependent field did not retain exactly its declared earlier slot"
-  unless input.sourceIndex == 0 && input.projection == ``Sigma.fst do
-    throwError "the dependent field changed its original source slot"
-  let term ← input.source.inContext context
-  let some projection ← SourceProjection.ofExpr? term
-    | throwError "the prepared input lost its original native projection"
-  unless projection.parent == marked && projection.declaration == ``Sigma.fst do
-    throwError "a prepared dependency replaced its selected original record parent"
+  let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
+  SourceSelectionScope.withBinding identities {} context { value := source }
+      fun context _ retained => do
+    let #[input] ← layout.actionInputs context retained #[dependent]
+      | throwError "the dependent field did not retain exactly its declared earlier slot"
+    unless input.sourceIndex == 0 && input.projection == ``Sigma.fst do
+      throwError "the dependent field changed its original source slot"
+    let term ← input.source.inContext context
+    let some projection ← SourceProjection.ofExpr? term
+      | throwError "the prepared input lost its original native projection"
+    unless projection.parent == retained && projection.declaration == ``Sigma.fst do
+      throwError "a prepared dependency replaced its selected original record parent"
 
   let proofFamily ← withLocalDeclD `h (mkConst ``True) fun h =>
     mkLambdaFVars #[h] (mkConst ``Nat) (usedOnly := false)

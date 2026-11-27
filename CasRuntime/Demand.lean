@@ -13,21 +13,22 @@ namespace CasRuntime
 
 open Lean Meta CasCompiler CasCatalogue CasCatalogue.Backend
 
-/-- Input addresses of this exact invocation: the complete-request form, and the exact form and
-category of each argument that is a registered named object. -/
-def inputForms (family : String) (context : OpenContext)
-    (arguments : Array ClosedTerm) : MetaM (Array String) := do
-  let state ← semanticState
-  -- Named morphisms publish their own raw complete-declaration request address.
-  let own := if state.morphisms.any (·.id.raw == family) then family else s!"{family}#input"
+
+
+def inputForms (action : RecordAction) (context : OpenContext)
+    (selections : SourceSelectionScope Expr) (arguments : Array ClosedTerm) : MetaM (Array String) := do
+
+  let own := match action.owner with
+    | .computation (.morphism _) => action.familyAddress
+    | _ => s!"{action.familyAddress}#input"
   let mut forms := #[own]
   for argument in arguments do
-    if let some (id, _) ← sourceObjectReference? (← argument.inContext context) then
-      if let some entry := state.objects.find? (·.id == id) then
-        forms := forms ++ #[entry.id.raw, entry.category.raw]
+    if let some (entry, _) ← sourceObjectSelection? context selections
+        (← argument.inContext context) then
+      forms := forms ++ #[entry.id.raw, entry.category.raw]
   return forms
 
-/-- Retain a published family, or one more selected field of it, as a delayed demand. -/
+
 def Kernel.delay (kernel : Kernel) (evaluateSource : SourceEvaluation) (request : PreparedRequest)
     (transaction : CellTransaction) (family : PreparedRequest) (path : Array FieldLayout)
     (captures : Array ValueBinding) : MetaM (PreparedResponse request) := do
@@ -37,76 +38,86 @@ def Kernel.delay (kernel : Kernel) (evaluateSource : SourceEvaluation) (request 
       if path.isEmpty && request.occurrence == family.occurrence then
         kernel.stageUniversal request transaction program captures
       else
-        transaction.stage (← request.originFor request.source) (.closure program captures)
+        transaction.stage request.origin (.closure program captures)
     else
-      transaction.stage (← request.originFor request.source) (.closure program captures)
+
+
+      transaction.stage request.origin (.closure program captures)
   kernelCompletion request transaction value
     (some (kernel.resolveFixedInput evaluateSource transaction request.program))
 
-/-- Evaluate a checked source term for a claimed demand and complete that demand. -/
+
 private def evaluateRequest (kernel : Kernel) (evaluateSource : SourceEvaluation) (request : PreparedRequest)
     (transaction : CellTransaction)
-    (build : OpenContext → MetaM Expr) : MetaM (PreparedResponse request) := do
-  let value ← withSourceScope request fun context bound => do
-    evaluateSource transaction request.program context bound
-      (← build context)
+    (build : OpenContext → Std.HashMap BindingId ValueBinding → MetaM ValueBinding) : MetaM (PreparedResponse request) := do
+  let value ← withSourceScope request build
   kernelCompletion request transaction value
     (some (kernel.resolveFixedInput evaluateSource transaction request.program))
 
-/-- Prepare record invocation inputs from the exact retained family result. Only the
-source compiler determines their native slots and applications. The original completion
-is selected by occurrence and preparation identity, never by expression or type. -/
+
+private structure ScopedRecordAction where
+  action : RecordAction
+  environment : RuntimeEnvironment
+
+
+
+
 private def Kernel.prepareRecordAction (kernel : Kernel) (request : PreparedRequest)
     (transaction : CellTransaction) (family : PreparedRequest) (boundary : ProgramBoundary)
     (universes : List Level) (path : Array FieldLayout) (arguments : Array ClosedTerm) :
-    MetaM RecordAction := do
+    MetaM ScopedRecordAction := do
   withSourceScope request fun context bound => do
-    let _ := bound
-    let mut parent ← family.source.source.inContext context
-    if !path.isEmpty then
-      let some completion ← transaction.completionFor? family.occurrence
-        | throwError "the delayed record lost its original completed family"
-      family.requirePreparation completion.request.roles.scope
-      parent ← markValue kernel.marks completion.response.root parent
-    let formal := family.application.map (·.arguments.map (·.source.source)) |>.getD #[]
-    let supplied := family.origin.application.map (·.arguments) |>.getD #[]
-    unless formal.size == supplied.size do
-      throwError "the record family lost its original complete parameter references"
-    let mut parameters := #[]
-    for parameter in formal, index in [:formal.size] do
-      let source ← parameter.inContext context
-      parameters := parameters.push (← match supplied[index]?.bind id with
-        | some value => markValue kernel.marks value source
-        | none => pure source)
-    let values := match request.action with
-      | .apply _ _ values => values
-      | _ => #[]
-    let mut actual := #[]
-    for argument in arguments, index in [:arguments.size] do
-      let source ← argument.inContext context
-      actual := actual.push (← match values[index]?.bind id with
-        | some value => markValue kernel.marks value source
-        | none => pure source)
-    RecordAction.prepare boundary universes context family.source parent path parameters actual
-      family.selection
+    let count := family.application.map (·.arguments.size) |>.getD 0
+    family.withArguments kernel.ledger.owners.identities context bound count
+        fun context bound parameters _ => do
+      request.withArguments kernel.ledger.owners.identities context bound arguments.size
+          fun context bound actual _ => do
+        let finish := fun context bound parent => do
+          let action ← RecordAction.prepare boundary universes context family.source parent path
+            parameters actual family.selection
+          let selections ← SourceSelectionScope.merge
+            (← family.environment.selections.inContext context)
+            (← family.source.selections.inContext context)
+          let selections ← selections.merge (← request.source.selections.inContext context)
+          let environment ← RuntimeEnvironment.captureBound request.environment.worker
+            context bound (← transaction.view) (some request.environment) selections
+          return (⟨action, environment⟩ : ScopedRecordAction)
+        let parent ← family.source.source.inContext context
+        if path.isEmpty then return ← finish context bound parent
+        let some completion ← transaction.completionFor? family.occurrence
+          | throwError "the delayed record lost its original completed family"
+        family.requirePreparation completion.request.roles.scope
+        withBoundValue kernel.ledger.owners.identities context bound parent
+          completion.response.root finish
 
-/-- Materialize only the source-prepared invocation slots, after realization selection.
-The same path handles ordinary records and released record packets. -/
+
+
 private def Kernel.recordInputs (kernel : Kernel) (evaluateSource : SourceEvaluation)
-    (request family : PreparedRequest) (transaction : CellTransaction) (action : RecordAction) :
+    (request family : PreparedRequest) (transaction : CellTransaction) (prepared : ScopedRecordAction) :
     MetaM (Array (Nat × ValueBinding)) := do
+  let action := prepared.action
   let predecessors ← if action.predecessors.isEmpty then pure #[]
     else kernel.universalPredecessors family transaction action.predecessors
-  let inputs ← withSourceScope request fun context bound => do
+  let inputs ← prepared.environment.context.withOpen fun bindings => do
+    let context ← ContextTelescope.capture bindings
     action.inputs.mapM fun input => do
       let source ← input.source.inContext context
-      return (input.sourceIndex,
-        ← evaluateSource transaction request.program context bound source)
+      let evaluate := fun context selections source =>
+        prepared.environment.evaluateSource evaluateSource transaction request.program
+          context prepared.environment.bound source selections
+      let selections ← prepared.environment.selections.inContext context
+      let value ← match input.selectedField with
+        | none => evaluate context selections source
+        | some field => do
+          let field ← field.mapM (fun term => term.inContext context)
+          selections.withBinding kernel.ledger.owners.identities context
+            { value := source, field := some field } evaluate
+      return (input.sourceIndex, value)
   return predecessors ++ inputs
 
-/-- Dispatch a delayed family demand whose action has reached its actual arguments.
-The selected registration receives the family parameters and the action arguments.
-A selected derivation is the checked plan at those same parameters, fields and arguments. -/
+
+
+
 partial def Kernel.reach (kernel : Kernel) (evaluateSource : SourceEvaluation) (request : PreparedRequest)
     (transaction : CellTransaction) (family : PreparedRequest) (path : Array FieldLayout)
     (parameters : Array ValueBinding) (arguments : Array ClosedTerm) :
@@ -158,32 +169,31 @@ partial def Kernel.reach (kernel : Kernel) (evaluateSource : SourceEvaluation) (
     | .registration registration =>
       return ← kernel.invokePoint evaluateSource request transaction registration invocation
     | .derivation checked =>
-      return ← evaluateRequest kernel evaluateSource request transaction fun context => do
-        let (actual, _) ← family.markedArguments kernel.marks context selected.parameterCount
-        let plan ← checked.instantiate universes
-        let replacement := plan.betaRev
-          (actual.extract 0 selected.declarationParameterCount).reverse (preserveMData := true)
-        let mut arrow ← selected.realizedArrow universes actual replacement
-        if selected.invocation then
-          let formal := family.application.map (·.arguments.map (·.source.source)) |>.getD #[]
-          let some originalDomain := formal[selected.parameterCount]?
-            | throwError "the categorical derivation lost its original domain position"
-          let some originalPoint := formal[selected.parameterCount + 1]?
-            | throwError "the categorical derivation lost its original point position"
-          let domain ← markValue kernel.marks invocation.domain
-            (← originalDomain.inContext context)
-          let point ← markValue kernel.marks invocation.argument
-            (← originalPoint.inContext context)
-          return ← selected.resultAt universes actual arrow domain point
-        for field in path do arrow ← projectTerm arrow field
-        let values := match request.action with | .apply _ _ values => values | _ => #[]
-        let mut applied := #[]
-        for argument in arguments, index in [:arguments.size] do
-          let source ← argument.inContext context
-          applied := applied.push (← match values[index]?.bind id with
-            | some value => markValue kernel.marks value source
-            | none => pure source)
-        return arrow.betaRev applied.reverse (preserveMData := true)
+      return ← evaluateRequest kernel evaluateSource request transaction fun context bound => do
+        let count := selected.parameterCount + (if selected.invocation then 2 else 0)
+        family.withArguments kernel.ledger.owners.identities context bound count
+            fun context bound supplied _ => do
+          let actual := supplied.extract 0 selected.parameterCount
+          let selections ← SourceSelectionScope.merge
+            (← request.environment.selections.inContext context)
+            (← family.environment.selections.inContext context)
+          checked.instantiate universes kernel.ledger.owners.identities context selections
+              fun context selections plan => do
+            let replacement := plan.betaRev
+              (actual.extract 0 selected.declarationParameterCount).reverse
+            let mut arrow ← selected.realizedArrow universes actual replacement
+            if selected.invocation then
+              let some domain := supplied[selected.parameterCount]?
+                | throwError "the categorical derivation lost its original domain position"
+              let some point := supplied[selected.parameterCount + 1]?
+                | throwError "the categorical derivation lost its original point position"
+              return ← request.environment.evaluateSource evaluateSource transaction request.program
+                context bound (← selected.resultAt universes actual arrow domain point) selections
+            for field in path do arrow ← projectTerm arrow field
+            request.withArguments kernel.ledger.owners.identities context bound arguments.size
+                fun context bound applied _ =>
+              request.environment.evaluateSource evaluateSource transaction request.program
+                context bound (arrow.betaRev applied.reverse) selections
   if let .objectAction selected := boundary then
     unless path.isEmpty && request.occurrence == family.occurrence do
       throwError "an object action changed its original complete request boundary"
@@ -200,12 +210,19 @@ partial def Kernel.reach (kernel : Kernel) (evaluateSource : SourceEvaluation) (
     | .registration registration =>
       return ← kernel.invokeObjectAction evaluateSource request transaction registration invocation
     | .derivation checked =>
-      return ← evaluateRequest kernel evaluateSource request transaction fun context => do
-        let (actual, _) ← family.markedArguments kernel.marks context (selected.parameterCount + 1)
-        let plan ← checked.instantiate universes
-        let parameters := actual.extract 0 selected.parameterCount
-        let replacement := plan.betaRev parameters.reverse (preserveMData := true)
-        selected.realized universes parameters actual[selected.parameterCount]! replacement
+      return ← evaluateRequest kernel evaluateSource request transaction fun context bound => do
+        family.withArguments kernel.ledger.owners.identities context bound (selected.parameterCount + 1)
+            fun context bound actual _ => do
+          let selections ← SourceSelectionScope.merge
+            (← request.environment.selections.inContext context)
+            (← family.environment.selections.inContext context)
+          checked.instantiate universes kernel.ledger.owners.identities context selections
+              fun context selections plan => do
+            let parameters := actual.extract 0 selected.parameterCount
+            let replacement := plan.betaRev parameters.reverse
+            request.environment.evaluateSource evaluateSource transaction request.program context bound
+              (← selected.realized universes parameters actual[selected.parameterCount]! replacement)
+              selections
   if let .property _ := boundary then
     unless path.isEmpty && parameters.isEmpty && request.occurrence == family.occurrence do
       throwError "a property observation lost its complete original primitive request"
@@ -231,7 +248,7 @@ partial def Kernel.reach (kernel : Kernel) (evaluateSource : SourceEvaluation) (
   let role := "/".intercalate (selectedPath.map Name.toString).toList
   if let .presentation selected := boundary then
     let invocation ← PreparedPresentationInvocation.prepare request family path (← transaction.view)
-      (← kernel.codes.get) (← kernel.marks.get)
+      (← kernel.codes.get)
     let registration ← selectLift kernel.profile kernel.manifest (.presentation selected.entry.id)
       invocation.operation invocation.forms
     return ← kernel.invokePresentation evaluateSource request transaction registration invocation
@@ -243,13 +260,15 @@ partial def Kernel.reach (kernel : Kernel) (evaluateSource : SourceEvaluation) (
     let registration ← selectLift kernel.profile kernel.manifest (.application entry.id)
       invocation.operation invocation.forms
     return ← kernel.invokePoint evaluateSource request transaction registration invocation
-  let action ← kernel.prepareRecordAction request transaction family boundary universes path arguments
+  let prepared ← kernel.prepareRecordAction request transaction family boundary universes path arguments
+  let action := prepared.action
   let point ← PreparedPointInvocation.prepare? kernel evaluateSource request family path transaction
   let address := point.map (·.operation) |>.getD action.address
   let forms ← match point with
     | some point => pure point.forms
     | none => withSourceScope request fun context _ => do
-      return (← inputForms action.familyAddress context arguments)
+      return (← inputForms action context
+        (← request.environment.selections.inContext context) arguments)
   let realization : Realization ← match action.owner with
     | .computation reference => kernel.profile.select kernel.manifest reference address forms
     | .lift id =>
@@ -261,43 +280,31 @@ partial def Kernel.reach (kernel : Kernel) (evaluateSource : SourceEvaluation) (
     match point with
     | some point => kernel.invokePoint evaluateSource request transaction registration point
     | none => do
-      let inputs ← kernel.recordInputs evaluateSource request family transaction action
+      let inputs ← kernel.recordInputs evaluateSource request family transaction prepared
       let parameters := match boundary with
         | .limitUniversal _ _ =>
           (family.origin.application.map (·.arguments.filterMap id)).getD #[]
         | _ => parameters
       kernel.invokeRegistration evaluateSource request transaction registration role parameters inputs
   | .derivation checked =>
-    evaluateRequest kernel evaluateSource request transaction fun context => do
-      let plan ← checked.instantiate universes
-      let formal : Array ClosedTerm := match family.application with
-        | none => #[]
-        | some application => application.arguments.map (·.source.source)
-      let supplied := family.origin.application.map (·.arguments) |>.getD #[]
-      unless formal.size == supplied.size do
-        throwError "the source derivation lost its original complete parameter references"
-      let mut parameters := #[]
-      for parameter in formal, index in [:formal.size] do
-        let source ← parameter.inContext context
-        parameters := parameters.push (← match supplied[index]?.bind id with
-          | some value => markValue kernel.marks value source
-          | none => pure source)
-      let mut term := plan.betaRev parameters.reverse (preserveMData := true)
-      for field in path do term ← projectTerm term field
-      let values := match request.action with
-        | .apply _ _ values => values
-        | _ => #[]
-      let mut actual := #[]
-      for argument in arguments, index in [:arguments.size] do
-        let source ← argument.inContext context
-        actual := actual.push (← match values[index]?.bind id with
-          | some value => markValue kernel.marks value source
-          | none => pure source)
-      return term.betaRev actual.reverse (preserveMData := true)
+    evaluateRequest kernel evaluateSource request transaction fun context bound => do
+      checked.instantiate universes kernel.ledger.owners.identities context
+          (← request.environment.selections.inContext context) fun context selections plan => do
+        let count := family.application.map (·.arguments.size) |>.getD 0
+        family.withArguments kernel.ledger.owners.identities context bound count
+            fun context bound parameters _ => do
+          let selections ← SourceSelectionScope.merge selections
+            (← family.environment.selections.inContext context)
+          let mut term := plan.betaRev parameters.reverse
+          for field in path do term ← projectTerm term field
+          request.withArguments kernel.ledger.owners.identities context bound arguments.size
+              fun context bound actual _ =>
+            request.environment.evaluateSource evaluateSource transaction request.program
+              context bound (term.betaRev actual.reverse) selections
 
-/-- A concrete field demand completes this exact formal construction once. The original
-producer's owner envelope supplies its whole native request; the actual operand remains
-the receiver-scoped key. An equal descriptor or source expression cannot select a cone. -/
+
+
+
 private def Kernel.limitProjection? (kernel : Kernel) (evaluateSource : SourceEvaluation)
     (request : PreparedRequest) (transaction : CellTransaction) (operand : ValueBinding)
     (field : FieldLayout) (creation : Option PreparedCreationFamily := none) :
@@ -306,28 +313,55 @@ private def Kernel.limitProjection? (kernel : Kernel) (evaluateSource : SourceEv
   let some node := graph.find operand.value
     | throwError "the construction receiver is outside its original graph"
   withSourceScope request fun context bound => do
-    let original ← node.origin.role.source.inContext context
-    let some selected ← NativeLimitSelection.ofExpr? original | return none
-    let family ← LimitFamily.forId ⟨selected.source.row⟩
-    let cached ← match ← transaction.selectedAt selected.source.construction
-        family.coneProjection operand with
-      | .ok value => pure value
-      | .error failure => transactionFailure failure
-    let cone ← match cached with
-      | some value => pure value
-      | none => do
-        let whole ← match creation with
-          | some prepared => do
-            unless prepared.construction == selected.source.construction &&
-                prepared.target.entry.id.raw == selected.source.row do
-              throwError "the created object changed its original source preparation"
-            let owner ← markValue kernel.marks operand original
-            prepared.coneSource context owner
-          | none => do
-            let some whole ← LimitFamily.wholeFrom original
-              | throwError "the original construction lost its whole native request"
-            pure whole
-        let value ← evaluateSource transaction request.program context bound whole
+    withBindingContext graph context bound operand fun context bound => do
+      let some originalSelection ← operand.role.selected? context | return none
+      let some selected := originalSelection.limit | return none
+      let family : LimitFamily ← match originalSelection.application.map
+          (fun (application : SelectedSourceApplication Expr) => application.family) with
+        | some (.limit family) => pure family
+        | some (.limitUniversal family) => pure family.presentation
+        | some (.creation _ target) => pure target
+        | _ =>
+          match originalSelection.creationOwner with
+          | some (_, target) => pure target
+          | none =>
+            let some family := originalSelection.limitFamily
+              | throwError "the construction lost its complete original selected limit family"
+            pure family
+      if let some retained := originalSelection.limitFamily then
+        unless (SelectedApplicationFamily.limit family).exactlyMatches (.limit retained) do
+          throwError "the construction changed its complete original selected limit family"
+      if let some (.limit entry) := originalSelection.reference.orElse
+          (fun _ => originalSelection.observation) then
+        unless (SelectedSourceReference.limit family.entry).exactlyMatches (.limit entry) do
+          throwError "the construction changed its complete original selected limit row"
+      unless family.entry.id.raw == selected.source.row do
+        throwError "the construction changed its original selected presentation"
+      let selections ← SourceSelectionScope.merge
+        (← request.environment.selections.inContext context)
+        (← operand.role.selections.inContext context)
+      let original ← operand.selectedSource context
+      let cached ← match ← transaction.selectedAt selected.source.construction
+          family.coneProjection operand with
+        | .ok value => pure value
+        | .error failure => transactionFailure failure
+      let finish := fun (context : OpenContext) (bound : Std.HashMap BindingId ValueBinding)
+          (selections : SourceSelectionScope Expr) (cone : ValueBinding) => do
+        withBindingContext (← transaction.view) context bound cone fun context bound => do
+          withBoundValue kernel.ledger.owners.identities context bound
+              (← cone.selectedSource context) cone fun context bound coneSource => do
+            let apexSource ← mkAppM family.apexProjection #[coneSource]
+            let apex ← request.environment.evaluateSource evaluateSource transaction request.program
+              context bound apexSource selections
+            withBoundValue kernel.ledger.owners.identities context bound apexSource apex
+                fun context bound actual => do
+              return some (← request.environment.evaluateSource evaluateSource transaction request.program
+                context bound (← projectTerm actual field) selections)
+      if let some value := cached then return ← finish context bound selections value
+      let complete := fun (context : OpenContext) (bound : Std.HashMap BindingId ValueBinding)
+          (selections : SourceSelectionScope Expr) (whole : Expr) => do
+        let value ← request.environment.evaluateSource evaluateSource transaction request.program
+          context bound whole selections
         let graph ← transaction.view
         let some completed := graph.find value.value
           | throwError "the completed construction has no actual result node"
@@ -339,22 +373,32 @@ private def Kernel.limitProjection? (kernel : Kernel) (evaluateSource : SourceEv
           unless creation.isSome do
             throwError "the raw construction requires its whole original native data ports"
         | _ => throwError "the completed construction lost its whole original native cone"
-        match ← transaction.bindSelectedAt selected.source.construction family.coneProjection
-            operand value with
-        | .ok () => pure value
+        match ← transaction.bindSelectedAt selected.source.construction family.coneProjection operand value with
+        | .ok () => finish context bound selections value
         | .error failure => transactionFailure failure
-    let coneSource ← markValue kernel.marks cone (← cone.role.source.inContext context)
-    let apexSource ← mkAppM family.apexProjection #[coneSource]
-    let apex ← evaluateSource transaction request.program context bound apexSource
-    let actual ← markValue kernel.marks apex apexSource
-    return some (← evaluateSource transaction request.program context bound
-      (← projectTerm actual field))
+      match creation with
+      | some prepared =>
+        unless prepared.construction == selected.source.construction &&
+            prepared.target.entry.id.raw == selected.source.row do
+          throwError "the created object changed its original source preparation"
+        withBoundValue kernel.ledger.owners.identities context bound original operand
+            fun context bound owner =>
+          prepared.coneSource kernel.ledger.owners.identities context selections owner
+            fun context selections whole => complete context bound selections whole
+      | none =>
+        withBoundValue kernel.ledger.owners.identities context bound original operand
+            fun context bound owner =>
+          limitConeSource kernel.ledger.owners.identities context selections owner originalSelection
+            fun context selections whole => do
+              let some whole := whole
+                | throwError "the original construction lost its whole native request"
+              complete context bound selections whole
 
-/-- The kernel-owned concrete executor of prepared demands (T013).
-A published family whose value is a callable or a record is retained as a delayed demand.
-A field of retained code extends that demand or lowers the source field. An application
-dispatches the delayed family on its selected realization, evaluates retained source code at
-the actual arguments, or invokes the native export on its original connection. -/
+
+
+
+
+
 partial def Kernel.execute (kernel : Kernel) (evaluateSource : SourceEvaluation) (request : PreparedRequest)
     (transaction : CellTransaction) : MetaM (PreparedResponse request) := do
   let graph ← transaction.view
@@ -384,9 +428,12 @@ partial def Kernel.execute (kernel : Kernel) (evaluateSource : SourceEvaluation)
           kernel.delay evaluateSource request transaction family (path.push field) captures
         else
           kernel.reach evaluateSource request transaction family (path.push field) captures #[]
-      | some (.term source) | some (.formalLeg source _) =>
-        evaluateRequest kernel evaluateSource request transaction fun context => do
-          projectTerm (← source.inContext context) field
+      | some (.term source retainedSelections) | some (.formalLeg source _ retainedSelections) =>
+        evaluateRequest kernel evaluateSource request transaction fun context bound => do
+          withBindingContext graph context bound operand fun context bound => do
+            let selections ← retainedSelections.inContext context
+            request.environment.evaluateSource evaluateSource transaction request.program context bound
+              (← projectTerm (← source.inContext context) field) selections
       | some (.creationOwner source) => do
         let some value ← kernel.limitProjection? evaluateSource request transaction
             operand field (some source)
@@ -409,7 +456,7 @@ partial def Kernel.execute (kernel : Kernel) (evaluateSource : SourceEvaluation)
       throwStratum .noImplementation
         m!"the retained descriptor supplies no native data for {field.projection}"
     | _ => throwError "internal: a stored field reached the executor"
-  | .apply callable arguments values =>
+  | .apply callable arguments _ =>
     let code ← IO.ofExcept <| (graph.callable callable).mapError IO.userError
     let some node := graph.find code.value
       | throwError "internal: the applied value is outside the active graph"
@@ -427,15 +474,14 @@ partial def Kernel.execute (kernel : Kernel) (evaluateSource : SourceEvaluation)
       | some (.constructionLeg original registration diagram packet ports path retained) =>
         kernel.constructionLeg request transaction original registration diagram packet ports
           path retained captures
-      | some (.term source) | some (.formalLeg source _) =>
-        evaluateRequest kernel evaluateSource request transaction fun context => do
-          let mut actual := #[]
-          for argument in arguments, index in [:arguments.size] do
-            let term ← argument.inContext context
-            actual := actual.push (← match values[index]?.bind id with
-              | some value => markValue kernel.marks value term
-              | none => pure term)
-          return (mkAppN (← source.inContext context) actual).headBeta
+      | some (.term source retainedSelections) | some (.formalLeg source _ retainedSelections) =>
+        evaluateRequest kernel evaluateSource request transaction fun context bound => do
+          withBindingContext graph context bound callable fun context bound => do
+            request.withArguments kernel.ledger.owners.identities context bound arguments.size
+                fun context bound actual _ => do
+              request.environment.evaluateSource evaluateSource transaction request.program context bound
+                (mkAppN (← source.inContext context) actual).headBeta
+                (← retainedSelections.inContext context)
       | none => throwError "internal: a retained closure has no code"
     | .ownedToken .. => kernel.invokeExport evaluateSource request transaction callable "apply"
     | .container container =>
