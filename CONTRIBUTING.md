@@ -62,7 +62,11 @@ deliver: a small test module, a fixture module with a protocol peer, or a statem
 route needs nothing from a later task. When the check needs a later mechanism, move the task after
 the task that delivers it, or choose another statement. A check names test modules and statements;
 a whole acceptance file is the check of its milestone. A test module that fails at the tip for
-another reason, or whose run takes the loop over its bound, is not a module of a check.
+another reason, or whose run takes the loop over its bound, is not a module of a check. A check
+names the exact cases that it runs: a scripts-only task whose check is `just test-feedback` as a
+whole, which runs 17 controls of kernel loops => the task's own named cases on fixture modules
+that import only Lean core. A test aggregate, or an existing module that also holds cases of
+other mechanisms, is never a task check either.
 
 **SPEC005 — a task stops when its check passes.** A worker who does M0 work (the optimization of
 the serializer behind a 504 s statement) under the name of T112, and then repairs lifting, lambda
