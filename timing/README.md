@@ -427,3 +427,131 @@ revision are retained with `codec-result.json` and `codec.log.gz` in the passing
 directory. The original phase run interrupted by TERM (127.120 s) and the failed
 JSON-result equality elaboration control (118.977 s) remain in the timing streams and
 raw run directories. Required-field extraction was preserved in the corrected comparisons.
+
+
+## T359: generated-consumer startup in the T300 check (2026-11-27)
+
+T359 is the active cost contingency for the unchanged five-case T300 check at
+`cc292ef8c4596d1f288deb8294e0c2ff1cdc9ddc`. Its public command selects
+`AcceptanceRunTests.test_unread_form_fails_and_peer_dispatches`,
+`FeedbackTests.test_extension_is_an_unchanged_kernel_observation`,
+`FeedbackTests.test_changed_extension_file_fails_before_execution`,
+`SuiteTests.test_empty_selection_is_a_current_failure` and
+`SuiteTests.test_missing_input_is_infrastructure_failure` through
+`just test-feedback`. Confirmation runs add only unittest's `--durations 0`
+reporting option. All five selectors, original inputs and assertions remain.
+
+The baseline bundle is `timing/logs/t300-gate-baseline-cc292ef/`.
+Its `cost-evidence.json` retains the gate records and the original native run
+summaries, IDs, clocks and log hashes. The bundle retains the incomplete third
+measurement as well as the three complete passing checks; incomplete work is
+excluded from the passing-run statistics. Raw evidence stays on disk under the
+ignored `timing/logs/` path, with the copied console logs compressed and hashed.
+
+### Confirmed trigger
+
+| Measurement | Complete five-case command | Unittest portion | Result |
+| --- | ---: | ---: | --- |
+| Gate 1 | 774.010554485023 s | 750.661 s | All five cases pass |
+| Gate 2 | 504.69886631006375 s | 488.647 s | All five cases pass |
+| Gate 3 | Unknown: incomplete measurement | Unknown | Retained; excluded from passing statistics |
+| Gate 4 | 1378.6847329642624 s | 1348.504 s | All five cases pass |
+
+For the three complete passing checks, the median is
+774.010554485023 s. The spread is the slowest divided by the median,
+approximately 1.781222135764739. The procedure's trigger threshold is therefore
+300 s times that spread, approximately 534.366640729422 s. The median exceeds
+this threshold, so the contingency is required. The source is unchanged across
+these baseline runs; their variation is not a measured improvement.
+
+### Non-overlapping baseline accounting
+
+The following partitions the complete command, not just its unittest portion.
+The two acceptance workers each have one file. Their recorded startup prefix is
+`shared_worker_setup_seconds`: the first session's actual preparation start,
+minus the original worker-step start, on the monotonic clock. Prefixes are
+counted once per process step and session preparation once per session. File
+windows are the original `file.begin` to terminal event. Parent acceptance
+phases contain their children, so child totals are not added to parent totals.
+
+| Exclusive interval | Gate 1 (s) | Gate 2 (s) | Gate 4 (s) |
+| --- | ---: | ---: | ---: |
+| Two worker startup prefixes | 246.000000 | 123.807000 | 252.972000 |
+| Four parent/child preparations | 120.998181 | 85.810318 | 102.085602 |
+| Four parent/child build-command windows | 102.336909 | 54.782581 | 54.971366 |
+| Two original file windows | 47.350000 | 41.398000 | 46.959000 |
+| Two session preparations | 1.178000 | 1.040000 | 1.224000 |
+| Changed-extension preflight's reported run | 14.698263 | 13.119070 | 16.879220 |
+| Empty-selection whole test case | Not separately recorded | 36.094000 | 327.020000 |
+| Missing-input whole test case | Not separately recorded | 28.364000 | 400.252000 |
+| Remaining unassigned time | 241.449201 | 120.283897 | 176.321545 |
+| **Complete command** | **774.010554** | **504.698866** | **1378.684733** |
+
+The unrounded intervals reconcile exactly with each command total. Displayed
+values are rounded to six decimals. Gate 1's unassigned pool includes its two
+unmeasured SuiteTests case windows; neither is replaced by zero. The pools also
+retain fixture creation/retention, runner finalization, time between recorded
+boundaries and the outer command. Their mechanism remains unassigned. A
+build-command duration does not establish how much native code was recompiled;
+the `3979 jobs` success summaries do not distinguish rebuilt jobs from cache hits.
+
+The SuiteTests columns are whole test-case windows, inclusive of their public
+`just probe` command and harness. They are not isolated import timings. These
+controls reject an empty selection or a missing input and execute no DSL
+statement. The two acceptance worker prefixes also include command entry and
+Lake setup before session preparation. Their file and session costs are
+separately measured above.
+
+For comparison at the same case boundary, gate 2 reports fixture 251.640 s,
+extension 141.999 s and changed-extension 30.505 s; gate 4 reports 273.884 s,
+299.965 s and 46.831 s respectively. These inclusive case times are another
+view of the table and must not be added to its intervals.
+
+### Ordered cost triage and the first remedy
+
+The largest affected operation is startup of the four freshly generated Lean
+consumers. The baseline generators omit the `module` header. In pinned Lake,
+`prepareLeanCommand` calls `setupExternalModule`, which calls
+`fetchTransImportArts` with `!header.isModule`. The non-module path promotes
+transitive imports to `importAll` and selects `info.allArts`, including private
+artifacts. The module path follows the actual public and meta import graph.
+This identifies the redundant loading mechanism without bypassing Lake's
+setup or dependency checks. The baseline bundle's
+`pinned-lake-source-evidence.json` has SHA256
+`e60058f8cd39112d1cffc5918c2b8cb33a6e5cdf561436043e4dc25242bc2c61`;
+its pinned `Lake/Build/Module.lean` has SHA256
+`cd7b3e4802980fb9a9c1ed116650b2a95231917e4e024ca5b46b4f3821effa5c`.
+
+The baseline bundle's `process-tool-observations.json` retains the live
+`t300-gate4-probe-sample` and `t300-gate4-pressure` observations. At
+03:54:20 UTC the verified empty-probe Lean process, PID 285599, had
+`/proc/285599/io` `read_bytes=8484274176` (`rchar=4663959`) and
+RSS 2,897,324 KiB; the associated Lake process had used 19.18 CPU seconds. These
+are point-in-time process counters, not an isolated import duration. The
+`process-observations.jsonl` stream also retains the third measurement's startup
+samples and the fourth measurement's final process observation.
+
+The table uses gate 4 for cost per call and actual multipliers. The startup row
+combines the two measured worker prefixes with the two whole SuiteTests windows;
+its aggregate is explicitly inclusive of those tests' harness. It is not a
+claim that all 980.244 s was spent importing. The rows partition the gate using
+the same boundaries as the preceding table.
+
+| Operation or unresolved interval | Cost per call in gate 4 | Actual multiplier | Aggregate | Priority and remedy | Remaining measured cost after the change |
+| --- | --- | --- | ---: | --- | --- |
+| Legacy generated-consumer startup paths | Worker prefixes 115.815 / 137.157 s; SuiteTests whole cases 327.020 / 400.252 s | Four fresh generated consumers | 980.244 s | First, T359: add the module header in the two existing generators so Lake follows the required import graph. | Pending three complete unchanged checks |
+| Unassigned intervals outside the measured windows | Not isolated | Actual residual of this complete gate | 176.321545 s | Keep explicit; attribute from the next complete measurement before selecting another remedy. | Pending |
+| Feedback and acceptance preparation | 29.246803 / 30.966544 / 15.444601 / 26.427654 s | Two parent and two child preparations | 102.085602 s | Minutes: retain the actual context/provenance work and reassess after the first remedy. | Pending |
+| Explicit build commands | 9.898861 / 19.169869 / 9.594350 / 16.308286 s | Four commands | 54.971366 s | Seconds: preserve the selected dependency targets and actual Lake build. | Pending |
+| Original file execution windows | 43.161 / 3.798 s | Two unchanged files | 46.959 s | Seconds: preserve the actual cardinality, unread-form and extension observations. | Pending |
+| Changed-extension rejection, reported preflight run | 16.879220 s | One original changed-input control | 16.879220 s | Seconds: preserve the rejection before build/execution; its surrounding harness remains in the residual. | Pending |
+| Session preparation | 0.567 / 0.657 s | Two sessions | 1.224 s | Seconds in aggregate: no separate remedy is selected. | Pending |
+
+The T359 change is exactly the `module` header prefix in the acceptance worker
+generator in `scripts/accept_files.sh` and in `SuiteTests.run_suite` in
+`tests/feedback/test_feedback.py`. Fresh `lake lean`, generated setup, native
+CasNative loading, direct imports, Lean options, source inputs and every
+assertion remain. No post-change timing or semantic result is established by
+this baseline section. T359 remains open until three complete unchanged checks
+have median at most 300 s; then work returns to T300. No gain or completion is
+claimed before those checks.

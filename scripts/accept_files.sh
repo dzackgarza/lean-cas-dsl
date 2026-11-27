@@ -390,7 +390,7 @@ atomic_json(plan, selection)
 inputs = {}
 for worker in range(workers):
     (run / f"worker{worker}.lean").write_text(
-        "import LeanCategories.Catalogue\nimport CasCatalogue.TestSuite\n\n")
+        "module\n\nimport LeanCategories.Catalogue\nimport CasCatalogue.TestSuite\n\n")
 for index, item in enumerate(selected):
     item = checked_input(item)
     selected[index] = item

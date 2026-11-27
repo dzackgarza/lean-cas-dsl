@@ -1273,7 +1273,7 @@ class SuiteTests(unittest.TestCase):
         report = self.directory / "report.json"
         source = self.directory / "consumer.lean"
         source.write_text(
-            "import LeanCategories.Catalogue\nimport CasCatalogue.TestSuite\n\n"
+            "module\n\nimport LeanCategories.Catalogue\nimport CasCatalogue.TestSuite\n\n"
             f'#cas_tests "{selection.relative_to(ROOT)}" '
             f'reporting "{report.relative_to(ROOT)}"\n'
         )
