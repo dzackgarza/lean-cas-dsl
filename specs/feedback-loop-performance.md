@@ -6,16 +6,26 @@ work, which comes after all functionality (constitution C21). The rules "Timing
 history" and "Timing triage" of constitution C24 are the authority; this document makes them
 operational.
 
-## The bound and its margin
+## The bound, the expected time of a check, and the margin
 
 - The bound of the focused loop is 300 s: the rebuild of the edited owner and its dependents, and
-  the run of the unchanged public consumer (`AGENTS.md`, `CONTRIBUTING.md` "Feedback loops").
-- A loop is over the bound only when the median of its last three runs on the same inputs is more
-  than 360 s (the bound plus 20 %). One slow run is noise until two more confirm it.
-- A contingency task ends when the median of three runs is at most 300 s. The gap between the
-  trigger (360 s) and the target (300 s) is deliberate: a loop at 301 s or 310 s needs no work.
-- A difference between two measurements of less than 10 % or less than 5 s is noise. Do not act
-  on it, and do not report it as a gain.
+  the run of the unchanged public consumer (`AGENTS.md`, `CONTRIBUTING.md` "Feedback loops"; the
+  owner's rule that a tier-1 loop over five minutes is a defect).
+- Every task check has an expected time: the sum of the medians, in `timing/runs.jsonl`, of the
+  passing runs of each test module and acceptance file that the check runs. A target with no
+  passing record is measured once before the check is written. A check whose expected time is
+  over 300 s is a defective check: it is cut down before the task starts, never optimized into
+  the bound inside the task.
+- Run time varies with host load. For a target with at least three passing records, its spread is
+  the ratio of its slowest passing run to its median; with fewer records, the spread is 1.3 (the
+  median spread of the ten targets with three or more passing runs on 2026-11-27, whose slowest
+  runs were 1.28 times their median at the median and up to 2.0 times).
+- A loop is over the bound only when the median of its last three runs is more than 300 s times
+  its spread. One slow run is noise until two more confirm it.
+- A contingency task ends when the median of three runs is at most 300 s. A loop between 300 s and
+  300 s times its spread needs no work.
+- A change between two medians that is smaller than the spread is noise: do not act on it, and do
+  not report it as a gain.
 
 ## Step 1: measure the whole loop first
 
@@ -70,8 +80,7 @@ every larger statement.
 
 Stop and start again from Step 1 with a fresh, complete measurement when any of these holds:
 
-- two consecutive remedies each removed less than 10 % of the excess over the target, or less than
-  30 s;
+- two consecutive remedies each changed the median by less than the spread (the change was noise);
 - the recent work changed costs in the seconds or milliseconds class while the loop is still
   minutes over the target;
 - the largest row of the new table is not the row that the last remedy addressed.
@@ -93,8 +102,9 @@ the same row does not converge.
 
 | Defective | Replacement |
 | --- | --- |
+| Write a check that runs a whole suite or many modules, then optimize to fit it. | Sum the medians of what the check runs before writing it; over 300 s, cut the check. |
 | Optimize the first slow thing that a trace shows. | Measure the whole loop by phase, sort by aggregate cost, fix the top row. |
-| Spend hours to bring a 310 s loop to 300 s. | 310 s is under the 360 s trigger: no work. |
-| Report a 2 % gain as progress. | Below 10 % or 5 s is noise. |
+| Spend hours to bring a 310 s loop to 300 s. | 310 s is under 300 s times the spread: no work. |
+| Report a 2 % gain as progress. | A change smaller than the spread is noise. |
 | Keep tuning one phase while each step gains seconds. | After two small gains, re-measure the whole loop and rebuild the table. |
 | Optimize inside a functional task, or leave an over-bound loop as a recorded row. | Do the cost area's contingency task first, measured first, then return to the task. |
