@@ -4,8 +4,9 @@ The existing feedback commands keep their logs and timing evidence in the reposi
 Each invocation of `just loop`, `just slow` and `just milestone` creates
 `timing/logs/<UTC>-<command>.<unique>/`. Selected acceptance runs create
 `timing/logs/accept-<UTC>-<unique>/` and retain their parent feedback run ID.
-These paths are not ignored. Commit the records and the corresponding run directories with
-the source change that produced them, including failed and interrupted executions.
+Raw logs and checkout evidence remain on disk under the ignored `timing/logs/` directory.
+Commit the timing rows and cost conclusions, including failed and interrupted executions.
+Each finalized log is identified by its path and SHA256 in its timing row.
 
 ## Feedback checkout evidence
 
@@ -27,7 +28,7 @@ The authority input copies retain their original Git object IDs and SHA256 hashe
 
 The finalizer runs in the existing control's `finally` block. An error before
 verified archival leaves the original `.git` in place and records the failure;
-there is no ignore rule or clean-tree exception. Only after verification and
+the existing `timing/logs/` ignore rule applies to these local artifacts. Only after verification and
 durable archive writes is that archived metadata retired. The source and output
 files then belong to the parent repository as ordinary evidence, not a gitlink.
 If metadata retirement itself fails, the record remains `retirement-failed`;
@@ -41,8 +42,9 @@ checkpoint and extension input already used by its unchanged-input observation.
 the tested files and literal Git metadata into a new directory. Restoration needs
 the original external stores to reproduce their recorded state; the retained
 authority blobs and source/diagnostic archives remain directly readable independently.
-Commit the ordinary files and complete evidence directory with the producing
-source change. Keep the clean committed-tree requirement unchanged.
+Retain the ordinary files and complete evidence directory under `timing/logs/`;
+commit the timing rows that identify their finalized logs by path and hash.
+Keep the clean committed-tree requirement unchanged.
 
 ## Recorded units
 
@@ -1009,3 +1011,38 @@ The focused command ran the peer-dispatch and changed-extension controls in the 
 | Changed extension | `changed-extension-fl0tw0cs` | `72b1286e263d9d6c0a9ebed68a971e697849e11ef2ea118bc0b5f2a38b0002f7` |
 
 At clean kernel revision `322724d`, the KM0 extension observation passed in 104.72 s including startup. Run `20261127T085652Z-slow.c4O67m` produced all five statement rows for the unchanged RX09 input. The file returned status 1, consistent with the failed statements in its report. The control checked their reporting, source identity and admission status. KM16 owns the mathematical outcomes.
+
+## Current T300 timing closure and KM0 regressions, 2026-11-27
+
+The current focused command is
+`just test-feedback AcceptanceRunTests.test_unread_form_fails_and_peer_dispatches FeedbackTests.test_changed_extension_file_fails_before_execution`.
+It passed three comparable normal runs in 262.57 s, 220.73482937179506 s and
+161.5567361372523 s, measured around the complete public command including startup.
+The first measurement is the preceding recorded check; the final two ran at `5b332c4`.
+Their median is 220.73482937179506 s and the latest passing run is
+161.5567361372523 s. Both meet the 300 s closure bound. This closes the active
+process-startup contingency for this focused command; it does not change any of
+the historical five-case measurements or establish a causal speedup.
+
+The three peer fixtures have identical input SHA256
+`d8ab9de93c523c674a42ec640c8fbe53bdcdb9cfa6724f57a929e183d46485e9`,
+Lean version, image digest, and copied runner and peer files. The complete series,
+fixture paths and public-log hashes are retained in
+`timing/logs/t300-focused-5b332c4/series-summary.json`, SHA256
+`58886d97e8d524656dd6c8b7946125fe7a1559f6a02b347216288246f31f4be5`.
+
+The separately prescribed KM0 command ran the unchanged-extension, empty-selection
+and missing-input controls with `--durations 0`. All three passed; the complete
+public command took 101.07277150824666 s (99.290 s inside unittest).
+
+| KM0 regression | Case duration | Result |
+| --- | ---: | --- |
+| Complete unchanged RX09 observation | 54.842 s | Pass |
+| Empty selection is a current failure | 23.855 s | Pass |
+| Missing input is an infrastructure failure | 20.591 s | Pass |
+
+The unchanged RX09 long run is `20261127T090657Z-slow.fH6rCy`. Its file status is
+1, as required by the failed kernel observations; the control verifies that the
+complete report, source identity, admission status, timing and exit status agree.
+The regression transcript is `timing/logs/km0-regressions-5b332c4/gate-1-output.log`,
+SHA256 `4f9f48f8e84d1fb1ac8763fde28d4a9be0b9cdad3b4c385b541224a5db627673`.
