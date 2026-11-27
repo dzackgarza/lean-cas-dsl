@@ -1,6 +1,7 @@
 """Dependency preparation follows main and preserves local work."""
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,6 +11,80 @@ SCRIPT = Path(__file__).with_name("ci_chain.py")
 
 
 class ChainTests(unittest.TestCase):
+    def test_review_chain_preserves_manifest_snapshots(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+
+            def git(repository: Path, *arguments: str) -> str:
+                return subprocess.check_output(
+                    ["git", "-c", "core.hooksPath=/dev/null", "-C", str(repository),
+                     *arguments], text=True).strip()
+
+            def initialize(repository: Path) -> None:
+                repository.mkdir()
+                git(repository, "init", "-q", "-b", "main")
+                git(repository, "config", "user.name", "Chain test")
+                git(repository, "config", "user.email", "chain@example.invalid")
+                git(repository, "config", "commit.gpgsign", "false")
+
+            remote = root / "remote"
+            initialize(remote)
+            revisions = []
+            for value in ("base dependency\n", "head dependency\n", "advanced main\n"):
+                (remote / "value").write_text(value)
+                git(remote, "add", "value")
+                git(remote, "commit", "-qm", value.strip())
+                revisions.append(git(remote, "rev-parse", "HEAD"))
+
+            names = ("lean_categories", "cas_leaf_contracts", "cas_leaves")
+            snapshot = (
+                "import json, sys; from pathlib import Path; "
+                "sys.path.insert(0, sys.argv[1]); "
+                "import verify; from review import review; "
+                "print(json.dumps(review.snapshot(verify, "
+                "Path(sys.argv[2]), Path(sys.argv[3]))))"
+            )
+            for side, revision, value in zip(
+                    ("base", "head"), revisions[:2],
+                    ("base dependency\n", "head dependency\n"), strict=True):
+                checkout = root / side
+                initialize(checkout)
+                manifest = checkout / "lake-manifest.json"
+                manifest.write_text(json.dumps({"packages": [
+                    {"name": name, "url": remote.as_uri(), "rev": revision}
+                    for name in names]}))
+                original = manifest.read_bytes()
+                git(checkout, "add", "lake-manifest.json")
+                git(checkout, "commit", "-qm", "locked review input")
+                source_revision = git(checkout, "rev-parse", "HEAD")
+                command = [sys.executable, str(SCRIPT), str(checkout), "--manifest-revisions"]
+                prepared = subprocess.run(command, capture_output=True, text=True)
+                self.assertEqual(prepared.returncode, 0, prepared.stderr)
+                self.assertEqual(manifest.read_bytes(), original)
+                captured = root / (side + "-snapshot")
+                result = subprocess.run(
+                    [sys.executable, "-c", snapshot,
+                     str(SCRIPT.parent.parent / "custodian"), str(checkout), str(captured)],
+                    capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(json.loads(result.stdout), {
+                    "repository": source_revision,
+                    "packages": {name: revision for name in names}})
+                self.assertEqual((captured / "lake-manifest.json").read_bytes(), original)
+                for name in names:
+                    package = checkout / ".lake" / "packages" / name
+                    frozen = captured / ".lake" / "packages" / name
+                    self.assertEqual(git(package, "rev-parse", "HEAD"), revision)
+                    self.assertEqual((frozen / "value").read_text(), value)
+                self.assertEqual(git(checkout, "status", "--porcelain",
+                                     "--untracked-files=no"), "")
+                conflicting = subprocess.run(command + ["--record-resolved"],
+                                             capture_output=True, text=True)
+                self.assertEqual(conflicting.returncode, 2, conflicting.stderr)
+                self.assertIn("not allowed with argument", conflicting.stderr)
+                self.assertEqual(manifest.read_bytes(), original)
+            self.assertEqual(git(remote, "rev-parse", "HEAD"), revisions[2])
+
     def test_latest_main_and_dirty_checkout(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

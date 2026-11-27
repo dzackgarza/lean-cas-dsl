@@ -1,21 +1,23 @@
-# Trusted-base independent review. Candidate source is data. The reviewer environment
-# is deployed only from accepted/controller; construction main is not an accepted release.
 name: Custodian review
 on:
   pull_request_target:
-    branches: [main, "accepted/controller"]
-    types: [opened, synchronize, reopened, edited]
-    # A descriptive edit outside the boundary is not reviewed (CONTRIBUTING, "Documentation and
-    # construction work"); the owner's texts and custodian/ are.
+    branches:
+      - main
+      - accepted/controller
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - edited
     paths:
-      - "**"
-      - "!**/*.md"
-      - "specs/owner/**"
-      - "custodian/**"
+      - '**'
+      - '!**/*.md'
+      - specs/owner/**
+      - custodian/**
 permissions:
-  issues: read # resolve the governing issue discussions
-  contents: write # the rejection log branch only
-  pull-requests: write # the verdict comment
+  issues: read
+  contents: write
+  pull-requests: write
 concurrency:
   group: custodian-review-${{ github.event.pull_request.number }}
   cancel-in-progress: false
@@ -39,8 +41,8 @@ jobs:
           python3 base/custodian/retrieve_candidate.py --repository "https://github.com/$SOURCE_REPOSITORY" --reference "refs/pull/$CANDIDATE_NUMBER/head" --expected "$CANDIDATE_SHA" --destination head
       - name: Check out each side's chain at its manifest revisions, and the rejection log
         run: |
-          python3 base/scripts/ci_chain.py base
-          python3 base/scripts/ci_chain.py head
+          python3 base/scripts/ci_chain.py base --manifest-revisions
+          python3 base/scripts/ci_chain.py head --manifest-revisions
           if git clone --quiet --branch custodian/rejections \
               "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" rejections; then :
           else
@@ -58,8 +60,6 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            // The description as it is now: a re-run replays the original event, whose payload
-            // carries the description at that moment, not the author's later correction.
             const { data: pr } = await github.rest.pulls.get({
               owner: context.repo.owner, repo: context.repo.repo,
               pull_number: context.payload.pull_request.number});
