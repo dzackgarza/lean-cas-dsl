@@ -1,17 +1,19 @@
 module
 
 import CasCompiler.Read
+import CasCompiler.SourceTestSupport
 import CasCompiler.Parse
 import LeanCategories.Catalogue
 public meta import Lean.Elab.Command
 meta import CasCompiler.Read
+meta import CasCompiler.SourceTestSupport
 meta import CasCompiler.Parse
 meta import LeanCategories.Catalogue
 
-open Lean Meta Elab Term CasCompiler CasCatalogue
+open Lean Meta Elab Term CasCompiler CasCatalogue CasCompiler.SourceTest
 
-/- Power-object forms read through the registered power object of `Sets`: the subset-literal
-denotation, membership, transpose, image and extent; typing questions settle at reading. -/
+
+
 
 private def statements (session : SourceSession) (text : String) :
     TermElabM (Array SourceStatement × SourceSession) := do
@@ -25,11 +27,6 @@ private def statements (session : SourceSession) (text : String) :
     if let .definition next _ := statement then session := next
     formed := formed.push statement
   return (formed, session)
-
-private def denotes (term : SourceTerm) (declarations : Array Name) : MetaM Bool :=
-  term.source.withOpen fun _ expression => do
-    let expression ← instantiateMVars expression
-    return declarations.all fun declaration => expression.containsConst (· == declaration)
 
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
@@ -60,8 +57,11 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         let #[value] := values
           | throwError "an individual subset typing judgement did not retain exactly one term"
         pure value
-    unless ← denotes term declarations do
-      throwError "subset statement {index} lost its registered power-object declaration"
+    checkSelected term fun value => do
+      checkOriginal #[value] fun native => do
+        let expression ← instantiateMVars native[0]!
+        unless declarations.all (fun declaration => expression.containsConst (· == declaration)) do
+          throwError "subset statement {index} lost its registered power-object declaration"
   for index in [2, 3, 4, 5, 10] do
     unless formed[index]? matches some (SourceStatement.question _) do
       throwError "subset statement {index} is not a proposition"

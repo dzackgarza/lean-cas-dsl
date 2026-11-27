@@ -13,15 +13,16 @@ open Lean Meta Elab Term
 namespace SourceReader
 
 def membership (context : ReadContext) :
-    TSyntax `cas_term → TSyntax `cas_term → TermElabM NativeSourceJudgement :=
+    TSyntax `cas_term → TSyntax `cas_term → SourceReadM NativeSourceJudgement :=
   let readExpression := @ReadContext.readExpression context
   let categoryOf := context.categoryOf
   fun (element container : TSyntax `cas_term) => do
     let container ← readExpression categoryOf container none
-    let some power ← sourcePowerObject? (← instantiateMVars (← inferType container.value))
+    let type ← liftM (m := MetaM) <| instantiateMVars (← inferType container.value)
+    let some power ← sourcePowerObject? type
       | do
-        -- Membership in an object is the element's reading in that object, settled when the
-        -- statement is read (`-3 ∈ ℤ`, `p ∈ ℤ[x]`).
+
+
         let domain ← sourceCarrier container
         discard <| getLevel domain.value
         return ← readExpression categoryOf element (some domain.value)
@@ -30,16 +31,17 @@ def membership (context : ReadContext) :
       NativeSourceJudgement)
 
 def boundIn (context : ReadContext) :
-    Ident → TSyntax `cas_term → (Expr → Expr → TermElabM NativeSourceJudgement) → TermElabM NativeSourceJudgement :=
+    Ident → TSyntax `cas_term → (Expr → Expr → SourceReadM NativeSourceJudgement) → SourceReadM NativeSourceJudgement :=
   let readExpression := @ReadContext.readExpression context
   let categoryOf := context.categoryOf
   fun (bound : Ident) (domain : TSyntax `cas_term)
-      (body : Expr → Expr → TermElabM NativeSourceJudgement) => do
+      (body : Expr → Expr → SourceReadM NativeSourceJudgement) => do
     let domain ← sourceCarrier (← readExpression categoryOf domain none)
-    withLocalDeclD bound.getId domain.value fun parameter => body domain.value parameter
+    SourceReadM.withBinder bound.getId domain.value none .default
+      (fun _ judgement => pure judgement) fun parameter => body domain.value parameter
 
 def asObject :
-    NativeSourceJudgement → TermElabM NativeSourceJudgement :=
+    NativeSourceJudgement → SourceReadM NativeSourceJudgement :=
   fun (judgement : NativeSourceJudgement) => do
     return (← sourceExtent? judgement).getD judgement
 
