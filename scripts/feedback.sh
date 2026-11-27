@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 invocation=(scripts/feedback.sh "$@")
-now() { python3 -c 'import time; print(time.monotonic_ns())'; }
+now() { python3 -S -c 'import time; print(time.monotonic_ns())'; }
 started=$(now)
 cd "$(dirname "$0")/.."
 limit=300
@@ -108,14 +108,14 @@ finish() {
   trap '' INT TERM
   set +e
   if [[ "$context_pending" == true ]]; then
-    python3 scripts/feedback_records.py begin "$context" "$command" "$reason" "$log" \
+    python3 -S scripts/feedback_records.py begin "$context" "$command" "$reason" "$log" \
       "${#targets[@]}" "${#stems[@]}" "${#sources[@]}" \
       "${targets[@]}" "${stems[@]}" "${sources[@]}" "${invocation[@]}"
     local refresh_status=$?
     [[ "$status" -ne 0 ]] || status=$refresh_status
   fi
   if [[ "$preparation_finished" != true ]]; then preparation_ns=$(( $(now) - started )); fi
-  python3 scripts/feedback_records.py finish "$records" "$context" "$status" "$limit" \
+  python3 -S scripts/feedback_records.py finish "$records" "$context" "$status" "$limit" \
     "$(( $(now) - started ))" "$preparation_ns" "$build_ns" "$execution_ns" "$acceptance_ns" \
     "$build_status" "$execution_status" "$acceptance_status" "$attempted" \
     "$interruption_signal" "${attempted_sources[@]}"
@@ -124,7 +124,7 @@ finish() {
   wait "$log_writer" || drain_status=$?
   exec {original_stdout}>&- {original_stderr}>&-
   if [[ -f "$run_dir/result.json" ]]; then
-    python3 scripts/feedback_records.py finalize "$records" "$context" "$drain_status"
+    python3 -S scripts/feedback_records.py finalize "$records" "$context" "$drain_status"
     status=$?
   fi
   exit "$status"
@@ -132,7 +132,7 @@ finish() {
 trap finish EXIT
 trap 'interrupt INT 130' INT
 trap 'interrupt TERM 143' TERM
-python3 scripts/feedback_records.py begin "$context" "$command" "$reason" "$log" \
+python3 -S scripts/feedback_records.py begin "$context" "$command" "$reason" "$log" \
   "${#targets[@]}" "${#stems[@]}" "${#sources[@]}" \
   "${targets[@]}" "${stems[@]}" "${sources[@]}" "${invocation[@]}"
 
@@ -199,13 +199,13 @@ if [[ "$command" != milestone ]]; then
   done
 fi
 
-python3 scripts/feedback_records.py begin "$context" "$command" "$reason" "$log" \
+python3 -S scripts/feedback_records.py begin "$context" "$command" "$reason" "$log" \
   "${#targets[@]}" "${#stems[@]}" "${#sources[@]}" \
   "${targets[@]}" "${stems[@]}" "${sources[@]}" "${invocation[@]}"
 source scripts/container.sh
 export root
 export -f native incontainer
-run_active native python3 scripts/feedback_records.py identity "$context"
+run_active native python3 -S scripts/feedback_records.py identity "$context"
 active=$(running)
 [[ -z "$active" ]] || die "a run is in progress in this checkout (just stop stops it): $active"
 if [[ ${#stems[@]} -gt 0 && -f .tmp/accept-run.json ]]; then
@@ -215,13 +215,13 @@ if [[ ${#stems[@]} -gt 0 && -f .tmp/accept-current.json ]]; then
   mv .tmp/accept-current.json "$run_dir/prior-accept-current.json"
 fi
 if [[ ${#stems[@]} -gt 0 ]]; then
-  python3 scripts/acceptance_inputs.py "$run_dir/selected-inputs.json" "${stems[@]}"
+  python3 -S scripts/acceptance_inputs.py "$run_dir/selected-inputs.json" "${stems[@]}"
 fi
 
 if [[ "$command" == milestone ]]; then
   run_active native lake env lean --deps-json CasCompilerTests.lean CasRuntimeTests.lean CasDslTests.lean \
     > "$run_dir/imports.json"
-  python3 - "$run_dir/imports.json" > "$run_dir/sources" <<'PY'
+  python3 -S - "$run_dir/imports.json" > "$run_dir/sources" <<'PY'
 import json, sys
 from pathlib import Path
 roots = ("CasCompilerTests", "CasRuntimeTests", "CasDslTests")
@@ -247,7 +247,7 @@ PY
   mapfile -t sources < "$run_dir/sources"
 fi
 
-run_active native python3 scripts/feedback_records.py context "$context" "$command" "$reason" "$log" \
+run_active native python3 -S scripts/feedback_records.py context "$context" "$command" "$reason" "$log" \
   "${#targets[@]}" "${#stems[@]}" "${#sources[@]}" \
   "${targets[@]}" "${stems[@]}" "${sources[@]}" "${invocation[@]}"
 context_pending=false
@@ -262,7 +262,7 @@ for file in "${sources[@]}"; do
 done
 
 if [[ "$command" == loop ]]; then
-  python3 - "$records" "$context" "$limit" <<'PY'
+  python3 -S - "$records" "$context" "$limit" <<'PY'
 import json, sys
 from pathlib import Path
 records, context, limit = sys.argv[1:]
@@ -285,12 +285,12 @@ step() {
   printf '\n'
   attempted=true
   before=$(now)
-  python3 scripts/feedback_records.py step-start "$context" "$phase" "$source" "$before" \
+  python3 -S scripts/feedback_records.py step-start "$context" "$phase" "$source" "$before" \
     "$(( preparation_ns + build_ns ))" "$@" || return $?
   result=0
   CAS_FEEDBACK_STEP="$phase:$before" CAS_FEEDBACK_SOURCE="$source" run_active "$@" || result=$?
   elapsed=$(( $(now) - before ))
-  python3 scripts/feedback_records.py step-finish "$context" "$before" "$elapsed" "$result" \
+  python3 -S scripts/feedback_records.py step-finish "$context" "$before" "$elapsed" "$result" \
     || return $?
   case "$phase" in
     build) build_ns=$(( build_ns + elapsed )); build_status=$result ;;

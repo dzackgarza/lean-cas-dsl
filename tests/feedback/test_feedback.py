@@ -347,7 +347,7 @@ class FeedbackTests(unittest.TestCase):
 
     def collect_trace(self, context_file: Path, shared_setup: float, directory: Path) -> tuple[int, dict]:
         result = subprocess.run(
-            [sys.executable, "-c",
+            [sys.executable, "-S", "-c",
              "import json, sys\n"
              "from pathlib import Path\n"
              "sys.path.insert(0, sys.argv[1])\n"
@@ -997,7 +997,7 @@ class FeedbackTests(unittest.TestCase):
                     shutil.copy2(ROOT / name, target)
                 positive = control / "unchanged-input.json"
                 unchanged = subprocess.run(
-                    [sys.executable, "scripts/acceptance_inputs.py", str(positive),
+                    [sys.executable, "-S", "scripts/acceptance_inputs.py", str(positive),
                      "--extension", stem], cwd=checkout, capture_output=True,
                     text=True, check=False)
                 (control / "unchanged-input.log").write_text(unchanged.stdout + unchanged.stderr)
@@ -1249,7 +1249,7 @@ class AcceptanceRunTests(unittest.TestCase):
         base.write_text(json.dumps([legacy]))
         head.write_text(json.dumps([outcome]))
         comparison = subprocess.run(
-            [sys.executable, "scripts/check_acceptance_regression.py", str(base), str(head)],
+            [sys.executable, "-S", "scripts/check_acceptance_regression.py", str(base), str(head)],
             cwd=ROOT, capture_output=True, text=True, check=False)
         (control / "comparison.log").write_text(comparison.stdout + comparison.stderr)
         self.assertEqual(comparison.returncode, 1, comparison.stdout + comparison.stderr)
@@ -1257,7 +1257,7 @@ class AcceptanceRunTests(unittest.TestCase):
         explicit = {**legacy, "stratum": None, "fails": True}
         head.write_text(json.dumps([explicit]))
         comparison = subprocess.run(
-            [sys.executable, "scripts/check_acceptance_regression.py", str(base), str(head)],
+            [sys.executable, "-S", "scripts/check_acceptance_regression.py", str(base), str(head)],
             cwd=ROOT, capture_output=True, text=True, check=False)
         (control / "explicit-failure.log").write_text(comparison.stdout + comparison.stderr)
         self.assertEqual(comparison.returncode, 1, comparison.stdout + comparison.stderr)

@@ -677,3 +677,99 @@ source fingerprints, toolchain capture and publication operations separately,
 using monotonic clocks. These timings do not enter the original context,
 environment or workload fingerprint. Failed captures retain their existing
 failure records; the sidecar does not manufacture a successful capture.
+
+
+### Traced attribution after the generated module headers
+
+The five original cases passed at `f1e9bb0528d4dad793b5560260b8f8bf5f3a736e`
+under an explicit process trace. The diagnostic wrapper measured
+1050.1462601721287 s, and unittest measured 1021.837 s. Tracing overhead is
+included: this is diagnostic evidence, not a normal performance-median sample.
+The original result, output, syscall census, context profiles and native
+records are retained in `timing/logs/t359-profile-f1e9bb0/`.
+
+The census reconstructs successful executable images, resumed syscalls and
+re-exec boundaries. It counts actual Python executables, not Python names in
+a wrapper's argv. All 96 Python launches have complete argv and observed
+startup bounds. The 22 stdin launches were matched to the existing image
+attestation, prior-workload guard, selection readers, worker status and
+finalization code. The 95 harness launches are covered by the reviewed
+launcher change; the one protocol-peer launch is excluded.
+
+The table below partitions one wall-clock trace envelope, from the first
+selected executable entry to the last observed exit. Its intervals are
+pairwise disjoint and sum exactly to 1033.911727 s. This envelope differs from
+the outer monotonic command measurement; their timestamps are not aligned or
+their durations added. Nested Lake calls are removed from their Python
+parents. The test-driver lifetime is not counted again around its children.
+
+| Operation or unresolved interval | Cost per call | Actual multiplier | Aggregate seconds | Priority and remedy | Remaining measured cost |
+| --- | --- | --- | ---: | --- | --- |
+| Automatic initialization of harness Python interpreters | Aggregate / 95; each interval is an observed lower bound | 95 fresh interpreter launches | 249.410591 | First, minutes, cost area E: disable automatic site initialization only at the audited stdlib harness launchers. | Pending normal unchanged checks |
+| Generated consumer after its Lean executable entry | 110.390705 / 53.683371 / 37.677226 / 39.923322 s | Two acceptance workers and two SuiteTests consumers | 241.674624 | Minutes: preserve fresh execution, imports and peer. These are enclosing upper windows, not isolated Lean startup. | Pending |
+| Unassigned intervals within the observed executable envelope | Not isolated | Exact residual of this envelope | 175.558166 | Keep unresolved; not one operation or one cost area. | Pending |
+| Explicit Lake build commands | Aggregate / 4 | Four original commands | 119.553314 | Minutes: retain actual selected dependency builds. This is command time, not isolated compilation. | Pending |
+| Lake generated-consumer setup before Lean entry, including Elan | Aggregate / 4 | Four original commands | 117.397924 | Minutes: retain actual setup, options, plugins and native library preparation. | Pending |
+| Remaining helper activity after startup, excluding nested native commands | Aggregate over actual helper intervals | Existing helper process intervals; enclosing test-driver body excluded | 68.272145 | Minutes: contains original bookkeeping, fingerprinting and report work; no skip or cache is introduced. | Pending |
+| Lake workspace resolution | Aggregate / 4 | Four feedback-context commands | 58.829389 | Seconds: retain fresh dependency selection and provenance. | Pending |
+| Lean and Lake version commands | Aggregate over actual version invocations | Four Lake and nine Lean commands | 3.215574 | Seconds: unchanged. | Pending |
+| **Observed executable envelope** | | | **1033.911727** | **Exact interval reconciliation.** | |
+
+Each generated-consumer invocation contains exactly one Lean exec with the
+matching target path. The pinned Lake source `Lake/CLI/Actions.lean`
+prepares the command, spawns the child and waits for it; `Lake/CLI/Main.lean`
+awaits that evaluation before exiting. Thus the observed owning Lake exit
+bounds its consumer. The four missing Lean exit events remain missing:
+241.674624 s is an upper inclusive window, not an invented Lean lifetime.
+Even this entire upper window is smaller than the observed 249.410591 s
+harness-initialization lower bound. The protocol peer's 3.788222 s startup
+bound is nested in the consumer window and is not counted separately.
+
+The successful-context sidecars independently measure the original operations
+on their monotonic clock: four Lake resolutions total 59.478413057 s;
+66 dependency Git captures total 27.870710974 s; four source fingerprints
+total 4.152640155 s. Identity totals 1.742573527 s, toolchain/environment
+0.926275340 s, and all configuration/input/workload/publication spans together
+0.159783211 s. These values explain the measured preparation work but are not
+added to the trace partition. Interpreter initialization occurs before these
+sidecars begin.
+
+The remedy adds exactly 40 `-S` argv entries in the existing harness
+launchers: 13 in `feedback.sh`, 21 in `accept_files.sh`, one image-attestation
+launcher in `container.sh`, the `test-feedback` recipe, and four helper
+subprocesses in `test_feedback.py`. The interpreter executable, helper
+programs, source inputs, assertions, peer command, manifests, Lean commands,
+process ownership, traps and finalization order are unchanged. The commit
+hook's comment rule also removes 73 full-line comments from `justfile`,
+preserving every recipe shebang and string.
+
+The audited helpers import only the standard library and their existing local
+helpers. Native Python 3.14.10's normal startup loaded Sage/IPython and 885
+modules; the component observation with `-S` loaded 49. The isolated component
+times, 1.708761710 s and 0.057580895 s, are diagnostic observations and are not
+multiplied into a claimed whole-loop gain. Numeric limits, decimal context,
+encoding and virtual-environment prefixes agree. The only differing
+environment name was `MPMATH_NOSAGE`, which none of these helpers consumes;
+the peer retains its original site initialization. Python's documented
+`-S` option disables automatic `site` processing; it does not enable
+optimization or remove assertions:
+https://docs.python.org/3.14/using/cmdline.html#cmdoption-S
+
+Both independent reviews restored the exact semantic baseline by removing the
+40 flags. The complete test AST and all ten embedded Python ASTs match their
+originals after that reversal. The deployed files match the reviewed hashes;
+`bash -n`, `just --list`, Python parsing and `git diff --check` pass.
+The trace parser, exact argv mapping, reviewed patch and interval partition
+are retained with the diagnostic bundle.
+
+Trace SHA256:
+`d39136c3df7c3c801c45fa8b8604a178f4aa0341e3e2a8b0cd3edc4fb936f173`.
+Compressed trace SHA256:
+`b6d4960d7bef081e8f6a82ef7d3db98927343a2e9a587be21efbb07737d261ca`.
+Compressed unittest output SHA256:
+`521379ae1ca0d8d21d8fcb84bd5784d38a789a02e0c539521d02fbfb4fbe7123`.
+
+This checkpoint establishes the attribution and applies the scoped remedy.
+The T359 instance remains active until three complete normal five-case checks
+have median at most 300 s; the whole feedback regression suite must also pass.
+The generic T359 checkbox remains unchecked under the contingency rule.

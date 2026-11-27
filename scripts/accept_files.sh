@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 if [[ "${1:-}" == "--baseline" ]]; then
   source scripts/container.sh
   [[ $# -eq 1 ]] || exit 2
-  python3 - <<'PY'
+  python3 -S - <<'PY'
 import hashlib, json, shutil
 from pathlib import Path
 report = Path(".tmp/accept-run.json")
@@ -28,7 +28,7 @@ PY
   exit 0
 fi
 
-started=$(python3 -c 'import time; print(time.monotonic_ns())')
+started=$(python3 -S -c 'import time; print(time.monotonic_ns())')
 mkdir -p .tmp timing/logs
 run=$(mktemp -d "timing/logs/accept-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX")
 
@@ -88,9 +88,9 @@ finish() {
   trap - EXIT
   trap '' INT TERM
   set +e
-  finished=$(python3 -c 'import time; print(time.monotonic_ns())')
+  finished=$(python3 -S -c 'import time; print(time.monotonic_ns())')
   if [[ ! -f "$context" ]]; then
-    python3 scripts/feedback_records.py begin "$context" accept "" "$log" \
+    python3 -S scripts/feedback_records.py begin "$context" accept "" "$log" \
       0 "${#stems[@]}" 0 "${stems[@]}" "${invocation[@]}"
   fi
   if [[ "$active_phase" == preparation ]]; then
@@ -99,7 +99,7 @@ finish() {
   elif [[ "$active_phase" == build ]]; then
     build_finished=$finished
   fi
-  python3 - "$run" "$started" "$build_started" "$build_finished" "$build_status" \
+  python3 -S - "$run" "$started" "$build_started" "$build_finished" "$build_status" \
     "$workers" "$workers_status" "$revision" "$manifest" "$outer_status" "$unfinished_phase" \
     "$interruption_signal" "$finished" "${stems[@]}" <<'PY'
 import collections, datetime, hashlib, json, subprocess, sys, time
@@ -230,7 +230,7 @@ if baseline.is_file():
         scoped.write_text(json.dumps([row for row in json.loads(baseline.read_text())
                                      if row["file"] in selected]))
         comparison = subprocess.run(
-            [sys.executable, "scripts/check_acceptance_regression.py", str(scoped), str(current)],
+            [sys.executable, "-S", "scripts/check_acceptance_regression.py", str(scoped), str(current)],
             check=False)
         status = status or comparison.returncode
         if comparison.returncode:
@@ -242,7 +242,7 @@ if baseline.is_file():
                 file_baseline = run / f"baseline--{key}.json"
                 file_baseline.write_text(json.dumps([row for row in baseline_rows if row["file"] == source]))
                 file_comparison = subprocess.run(
-                    [sys.executable, "scripts/check_acceptance_regression.py", str(file_baseline),
+                    [sys.executable, "-S", "scripts/check_acceptance_regression.py", str(file_baseline),
                      str(run / f"{key}.json")], stdout=subprocess.DEVNULL, check=False)
                 if file_comparison.returncode:
                     file_statuses[source] = "fail"
@@ -300,7 +300,7 @@ PY
   local log_status=0
   wait "$log_pid" || log_status=$?
   [[ "$status" -ne 0 ]] || status=$log_status
-  python3 - "$run" "$log" "$log_status" "$status" <<'PY'
+  python3 -S - "$run" "$log" "$log_status" "$status" <<'PY'
 import sys
 from pathlib import Path
 sys.path.insert(0, "scripts")
@@ -353,7 +353,7 @@ PY
 trap finish EXIT
 trap 'interrupt INT 130' INT
 trap 'interrupt TERM 143' TERM
-python3 scripts/feedback_records.py begin "$context" accept "" "$log" \
+python3 -S scripts/feedback_records.py begin "$context" accept "" "$log" \
   0 "${#stems[@]}" 0 "${stems[@]}" "${invocation[@]}"
 
 [[ ! -f .tmp/accept-run.json ]] || cp .tmp/accept-run.json "$run/previous.json"
@@ -364,8 +364,8 @@ source scripts/container.sh
 export root
 export -f incontainer native
 prepare_status=0
-run_active native python3 scripts/feedback_records.py identity "$context" || prepare_status=$?
-python3 - "$run" "${selection_args[@]}" <<'PY' || prepare_status=$?
+run_active native python3 -S scripts/feedback_records.py identity "$context" || prepare_status=$?
+python3 -S - "$run" "${selection_args[@]}" <<'PY' || prepare_status=$?
 import hashlib, json, sys
 from pathlib import Path
 sys.path.insert(0, "scripts")
@@ -415,7 +415,7 @@ PY
 
 selected_args=("${selection_args[@]}")
 if [[ -f "$run/selection.json" ]]; then
-  mapfile -t prepared < <(python3 - "$run/selection.json" <<'PY'
+  mapfile -t prepared < <(python3 -S - "$run/selection.json" <<'PY'
 import json, sys
 from pathlib import Path
 selection = json.loads(Path(sys.argv[1]).read_text())
@@ -428,7 +428,7 @@ PY
   manifest=${prepared[0]}
   workers=${prepared[1]}
   stems=("${prepared[@]:2}")
-  mapfile -t selected_args < <(python3 - "$run/selection.json" <<'PY'
+  mapfile -t selected_args < <(python3 -S - "$run/selection.json" <<'PY'
 import json, sys
 from pathlib import Path
 print("\n".join(json.loads(Path(sys.argv[1]).read_text())["arguments"]))
@@ -437,12 +437,12 @@ PY
 fi
 
 if [[ $prepare_status -eq 0 ]]; then
-  run_active native python3 scripts/feedback_records.py context "$context" accept "" "$log" \
+  run_active native python3 -S scripts/feedback_records.py context "$context" accept "" "$log" \
     0 "${#selected_args[@]}" 0 "${selected_args[@]}" "${invocation[@]}" \
     || prepare_status=$?
 fi
 
-build_started=$(python3 -c 'import time; print(time.monotonic_ns())')
+build_started=$(python3 -S -c 'import time; print(time.monotonic_ns())')
 build_finished=$build_started
 active_phase=
 build_status=$prepare_status
@@ -459,14 +459,14 @@ if [[ $prepare_status -eq 0 ]]; then
     export -f run_build
     run_active run_build || build_status=$?
   fi
-  build_finished=$(python3 -c 'import time; print(time.monotonic_ns())')
+  build_finished=$(python3 -S -c 'import time; print(time.monotonic_ns())')
   active_phase=
 fi
 
 run_worker() {
   local worker=$1 start status
-  start=$(python3 -c 'import time; print(time.monotonic_ns())')
-  python3 scripts/feedback_records.py step-start "$context" "acceptance-worker$worker" "" "$start" \
+  start=$(python3 -S -c 'import time; print(time.monotonic_ns())')
+  python3 -S scripts/feedback_records.py step-start "$context" "acceptance-worker$worker" "" "$start" \
     "$(( build_finished - started ))" lake --log-level=error lean "$run/worker$worker.lean" \
     -- -DstderrAsMessages=false || return $?
   set +e
@@ -476,9 +476,9 @@ run_worker() {
     lake --log-level=error lean "$run/worker$worker.lean" -- -DstderrAsMessages=false 2>&1 |
     tee "$run/worker$worker.log"
   status=$?
-  python3 scripts/feedback_records.py step-finish "$context" "$start" \
-    "$(( $(python3 -c 'import time; print(time.monotonic_ns())') - start ))" "$status" || status=$?
-  python3 - "$run/worker$worker.status.json" "$start" "$status" <<'PY'
+  python3 -S scripts/feedback_records.py step-finish "$context" "$start" \
+    "$(( $(python3 -S -c 'import time; print(time.monotonic_ns())') - start ))" "$status" || status=$?
+  python3 -S - "$run/worker$worker.status.json" "$start" "$status" <<'PY'
 import sys, time
 from pathlib import Path
 sys.path.insert(0, "scripts")

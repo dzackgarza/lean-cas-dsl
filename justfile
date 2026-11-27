@@ -1,68 +1,38 @@
-# lean-cas-dsl — categorically organized CAS in Lean, an nbdsl DSL plugin.
-#
-# One Lake package (library CasDsl + prelude CasDsl.Notebook) over the
-# nbdsl-worker core. A computational backend package is not a Lake dependency:
-# `CAS_LEAVES` finds `leaves.json` entries registering individual (formal operation,
-# input form, backend) computational ports and their programs, written against
-# `lean-cas-dsl-leaf-contracts`. A port registration is NOT the whole category-
-# aligned computational leaf: independently formalized categories have complete
-# constructors, common operations and immediate functor actions that may be
-# realized through many ports. See specs/architecture.md and issue #91.
-# Lake owns compilation; language-level QC delegates to the global gates.
-#
-# Feedback: `just loop` is the loop of each change. `just slow` and `just milestone` are long runs
-# and need a stated reason (scripts/feedback.sh, CONTRIBUTING "Feedback loops"). The loop recipes
-# run from the host or from inside the research container; the other recipes call `lake` and run
-# inside the container.
-#
-# Not adopted: lean-axiom-audit — it requires a target-private
-# _lean-axiom-audit budget recipe, and this package has no audited axiom
-# budget yet (same posture as lean-jupyter-kernel; revisit alongside its
-# proof-status work).
 
 set dotenv-load := true
 
-# Show available recipes
 default:
     @just --list
 
-# Refresh own-organisation checkouts to latest main and resolve changed Lake requires.
 track-main:
     @python3 scripts/ci_chain.py
     @python3 scripts/resolve_lake_if_needed.py
 
-# Fetch cached artifacts for the named Mathlib modules and their imports.
 cache +modules:
     @lake exe cache get {{modules}}
 
-# Rebuild dependencies, freshly execute named modules, then run selected complete consumers.
 [positional-arguments]
 loop targets *acceptance:
     @scripts/feedback.sh loop "$@"
 
-# Run the same workload explicitly for longer; use -- before optional acceptance arguments.
 [positional-arguments]
 slow reason +targets:
     @scripts/feedback.sh slow "$@"
 
-# The long run: every test module, the notebook targets and every acceptance file, on a clean tree.
 milestone reason:
     @scripts/feedback.sh milestone {{quote(reason)}}
 
-# Stop every lake and lean process that works in this checkout.
 stop:
     @scripts/feedback.sh stop
 
-# Check feedback mechanics with actual process/report controls in the research container.
 [private]
 [positional-arguments]
 test-feedback *tests:
     #!/usr/bin/env bash
     set -euo pipefail
     source scripts/container.sh
-    incontainer python3 tests/feedback/test_feedback.py "$@" -v
+    incontainer python3 -S tests/feedback/test_feedback.py "$@" -v
 
-# Profile a source only when explicitly requested; rebuild its imports first.
 profile target:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -72,11 +42,9 @@ profile target:
     echo "Profile log: $log"
     lake lean "$source" -- --profile 2>&1 | tee "$log"
 
-# Elaborate a source probe after rebuilding its changed imports.
 probe source:
     @lake lean {{quote(source)}}
 
-# Measure an unchanged admitted assertion through the requested production stage.
 bench-question assertion="matrices.kernel" source="benchmarks/question_identity.lean": track-main
     #!/usr/bin/env bash
     set -euo pipefail
@@ -112,7 +80,6 @@ bench-question assertion="matrices.kernel" source="benchmarks/question_identity.
     fi
     exit "$result"
 
-# Fast semantic-reading diagnostic; the full question benchmark still checks identity.
 bench-reading assertion="matrices.kernel":
     @just bench-question {{quote(assertion)}} benchmarks/semantic_reading.lean
 
@@ -130,26 +97,21 @@ _integration-intent:
       exit 2
     fi
 
-# Compile the connected public implementation at the committed dependency selection.
 build-production:
     @lake build +CasRuntime.Session:olean
 
-# Provision the selected contract's pinned SDK environment once, outside elaboration.
 setup-sdk contracts=".lake/packages/cas_leaf_contracts":
     #!/usr/bin/env bash
     set -euo pipefail
     contracts=${CAS_LEAF_CONTRACT_PATH:-{{quote(contracts)}}}
     uv sync --frozen --project "$contracts"
 
-# Audit all compiler, runtime and contract declarations against the shared rules.
 audit-production:
     @lake env lake build +CasGates.Production:olean +CasGates.KernelPurityProbes:olean
 
-# Exercise native protocol-v2 SDK traffic against an explicit contract source.
 protocol-v2 contracts:
     @uv run --project "{{contracts}}" python scripts/test_protocol_v2.py "{{contracts}}"
 
-# Build and statically check a clean integration candidate (CI or B0_INTEGRATION=1).
 build: _integration-intent
     @python3 -m unittest discover -s scripts -p 'test_*.py'
     @python3 scripts/check_no_leaves.py --self-test
@@ -163,20 +125,11 @@ build: _integration-intent
     @just audit-production
     @lake env lake build CasCatalogue CasGates CasAcceptance CasTools CasDsl CasDslTests cas-registry-export cas-axiom-audit cas-harness
 
-# Run the acceptance suite over a leaves manifest (default: the installed leaves', through
-# `CAS_LEAVES` or `.lake/packages/cas_leaves`); writes every result to .tmp/harness.json. Gaps are
-# the report, not failures.
 harness *manifest="": track-main
     @lake build cas-harness
     @mkdir -p .tmp
     @CAS_SAGE_PYTHON="${CAS_SAGE_PYTHON:-$PWD/.venv/bin/python}" CAS_GAP_PYTHON="${CAS_GAP_PYTHON:-$PWD/.venv/bin/python}" lake exe cas-harness --report .tmp/harness.json {{ if manifest == "" { "" } else { "--manifest " + manifest } }}
 
-# Run the suite here and compare it with the base run `base` (a report of `cas-harness`),
-# assertion by assertion (`scripts/check_acceptance_regression.py`): an assertion of the base that is
-# missing here, one that the base did not fail and fails here, and a new one that fails here,
-# each fail the comparison. The harness exits nonzero whenever an assertion fails, so its exit
-# does not decide; its report does, and a run that did not complete writes none (the stale
-# report is removed first).
 acceptance base: track-main
     @lake build cas-harness
     @mkdir -p .tmp
@@ -185,8 +138,6 @@ acceptance base: track-main
     @python3 scripts/check_acceptance_regression.py {{ base }} .tmp/harness.json
     @python3 scripts/check_question_permanence.py --base CasAcceptance/Permanent/questions.json .tmp/harness.json
 
-# One-time dev setup: Mathlib cache, venv, kernel adapter, casdsl kernelspec. The leaves' engines
-# (Sage, GAP, …) are the leaves' own (`lean-cas-dsl-leaves`), installed with them.
 setup:
     @lake exe cache get
     @uv venv .venv
@@ -195,15 +146,6 @@ setup:
     @.venv/bin/python -m nbdsl_kernel.install --project "$PWD" \
         --prelude-module CasDsl.Notebook --session-mode language --name casdsl --display-name "CasDsl (Lean 4)"
 
-# Moves the lake dependency on nbdsl-worker to the latest kernel repo commit
-# and reinstalls the Python kernel adapter to match, so a stale
-# .lake/packages/nbdsl-worker or venv never serves old kernel code to the
-# notebook re-exec (explicit sync-kernel setup, never a local push gate). Restarting
-# the open casdsl notebooks makes JupyterLab pick up the fresh install; a
-# notebook that fails to restart fails the recipe. The JupyterLab federated
-# extension converges too, copied from the same Lake checkout rev into
-# ~/.local/share/jupyter/labextensions (a browser reload picks it up).
-# Sync the installed casdsl kernel + lab extension to the latest nbdsl-worker
 sync-kernel:
     @lake update nbdsl-worker
     @lake build nbdsl_worker
@@ -221,9 +163,6 @@ sync-kernel:
     @cp .lake/packages/nbdsl-worker/jupyterlab_nbdsl/install.json \
         ~/.local/share/jupyter/labextensions/jupyterlab_nbdsl/install.json
 
-# Lean compilation runs in CI only (.github/workflows/gates.yml): the commit
-# and push tiers are static scans.
-# Build everything, then run the audits and the Lean laws.
 test: build
     @lake exe cas-axiom-audit
     @lake exe cas-registry-export > /dev/null
@@ -231,27 +170,16 @@ test: build
     @just -f ~/ai-review-ci/justfiles/lean.just -d . lean-semgrep
     @python3 -m py_compile CasAcceptance/Strata/probe_registration.py
 
-# Drives the installed casdsl kernelspec (`just setup` first) through the demo notebook.
 [private]
 _test-full:
     @.venv/bin/python scripts/reexec_notebooks.py
 
-# Run the full QC gate: the preflight, then the demo notebook through the live kernel.
 test-ci: test _test-full
 
-# Local commit checks validate staged syntax only. The permanent assertions
-# remain append-only and are audited by the CI-only Gates workflow.
 [private]
 test-commit:
     @just -f ~/ai-review-ci/justfiles/lean.just -d . test-commit
 
-# Re-execute the committed notebook against the live casdsl kernel:
-# outputs stay genuine kernel output (a23ee30 standard). The demo is a
-# runnable trail — a live error cell fails this gate, since the document
-# model would block every cell below it. The re-executed notebook — execution
-# timestamps included, they are the provenance of the genuine outputs —
-# are committed here; the push in flight proceeds, and the commit rides
-# the next one.
 [private]
 _notebook-reexec:
     #!/usr/bin/env bash
@@ -262,7 +190,6 @@ _notebook-reexec:
         git commit -m "chore: notebook session metadata"
     fi
 
-# Local push inspects outgoing committed syntax, without CI-only audits.
 [private]
 test-push:
     @just -f ~/ai-review-ci/justfiles/lean.just -d . test-push

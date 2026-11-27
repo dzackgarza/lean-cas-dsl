@@ -71,7 +71,7 @@ else
   exit 2
 fi
 
-CAS_FEEDBACK_IMAGE_DIGEST=$(incontainer python3 - "$cas_feedback_image_refresh" <<'PY'
+CAS_FEEDBACK_IMAGE_DIGEST=$(incontainer python3 -S - "$cas_feedback_image_refresh" <<'PY'
 import json
 import os
 import re
