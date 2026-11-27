@@ -1,7 +1,7 @@
-/-
-Copyright (c) 2026 Dzack Garza. All rights reserved.
-Released under Apache 2.0 license as described in the file LICENSE.
--/
+
+
+
+
 module
 
 public import CasCatalogue.TestSuite
@@ -9,23 +9,23 @@ public import Lean.Elab.Frontend
 
 @[expose] public section
 
-/-!
-# The harness: the suite over a leaves manifest (`specs/architecture.md`, "Acceptance")
 
-`cas-harness [--suite DIR] [--report FILE] [--manifest FILE] [--inventory FILE]`
-imports, into a fresh environment,
-the catalogue and the language, and runs every file of the suite (`tests/acceptance` by default)
-with `#cas_tests`, through the registrations of the manifest `FILE` (by default the installed
-leaves', `CasRuntime.installedManifest`). The leaves see neither the suite nor the harness:
-a leaf is a manifest and the programs it names, imported by nothing (`specs/leaf-registration.md`).
-It prints each file's report, writes every result as JSON to the report file, and exits nonzero if
-a test fails (`Outcome.fails`). Gaps are its output: the implementations the suite derives.
 
-`--computation-only` computes the same questions through the kernel executor,
-without Lean proof discharge. Each result includes the actual runner dispatches made during
-that assertion, so required registered execution can be checked separately from its outcome.
-Dispatch records do not establish mathematical correctness.
--/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 open Lean Elab
 
@@ -38,7 +38,7 @@ structure Options where
   inventory : String := "CasAcceptance/Permanent/admitted.json"
   computationOnly : Bool := false
 
-/-- The suite command the harness elaborates. -/
+
 def command (o : Options) : String :=
   let manifest := match o.manifest with
     | some file => s!" manifest \"{file}\""
@@ -49,8 +49,8 @@ def command (o : Options) : String :=
   let computing := if o.computationOnly then " computing" else ""
   s!"#cas_tests \"{o.suite}\"{manifest}{reporting} inventory \"{o.inventory}\"{computing}\n"
 
-/-- Early runner failures still produce one result for each required assertion. This
-report carries no interpretation and cannot establish mathematical acceptance. -/
+
+
 def infrastructureReport (o : Options) (reason : String) : IO Unit := do
   let .ok inventory := Json.parse (← IO.FS.readFile o.inventory)
     | throw <| IO.userError "cannot read fixed assertion inventory"
@@ -58,6 +58,7 @@ def infrastructureReport (o : Options) (reason : String) : IO Unit := do
     | throw <| IO.userError "missing fixed assertion inventory"
   let results := assertions.toList.toArray.map fun (identity, _) => Json.mkObj [
     ("file", toJson o.suite), ("id", toJson identity), ("kind", toJson "internal"),
+    ("stratum", Json.null),
     ("detail", toJson reason), ("fails", toJson true),
     ("question", toJson ""), ("proposition", toJson "")]
   if let some report := o.report then IO.FS.writeFile report (Json.arr results).pretty
@@ -78,7 +79,7 @@ def main (args : List String) : IO UInt32 := do
           [--inventory FILE] [--computation-only]"
         return 2
     | [] => pure ()
-  -- Start this invocation with no report from a previous run.
+
   if let some report := o.report then IO.FS.writeFile report ""
   try
     initSearchPath (← findSysroot)
