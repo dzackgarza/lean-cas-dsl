@@ -313,3 +313,66 @@ and freshness. "Factor" is how often the cost was paid.
 | Acceptance file `polynomials` | Over 6 min alone (2026-11-20); `numbers`, `finite_sets` and `polynomials` together took 15.5 min | Each loop naming it | — | 2 | The earlier handoff noted about 127 s for admission evidence `p ≠ 0` in `polynomials.factors`. The current full-batch statement record is 52.130 s; it does not isolate admission evidence or import cost. | 52.130 s for the statement within the full batch |
 | `CasRuntime.SessionComputationTests` | 173–199 s (2026-11-20) | Each loop on a statement outcome | About 3 min per loop | 4 | Measure the complete consumer under fresh execution; profile if it exceeds the loop bound. | Historical 199 s |
 | Reader test modules (`CasCompiler.Source…Tests`) | 14–58 s each (2026-11-20) | One selected module per loop | Under 1 min | — | Re-measure when the selected module or its dependencies change. | Historical 14–58 s |
+
+## T354: complete cardinality observations within the focused loop
+
+The consumer is the first original item of `tests/acceptance/sets.cas`,
+`sets.card.z4_cubed` (`assert |(ℤ/4)^3| = 64`). The focused
+`CasRuntime.SessionCostTests` parses that file, retains the item's original source
+context and position, and executes it once through `KernelSession.run` with an
+explicit empty manifest. It requires an attempted `noImplementation` outcome at
+`meth.cardinality`, zero leaf dispatches, and unchanged source bytes.
+
+The historical statement records at `5f708f9f` and `a3168b87` took 505.564 and
+504.462 seconds. The inherited complete snapshot serializers at `51dbfefe` and
+guarded graph reuse at `06c0c83` already address that expansion. The current
+before-check measurement, `20261127T015147Z-loop.SSPHyT`, completed in 83.703 seconds:
+13.437 seconds of preparation, 14.919 seconds of build, and 54.386 seconds of fresh
+execution. Its original statement took 22.317 seconds. No additional production
+optimization was applied for T354.
+
+### Cost triage
+
+The multipliers below belong to this one-statement consumer. Nested observation and
+request costs are included in the statement time; they must not be added to it again.
+
+| Operation | Cost per call in the before-check run | Actual multiplier | Aggregate | Priority and remedy | Remaining measured cost in the three complete checks |
+| --- | --- | --- | --- | --- | --- |
+| Repeated complete observation transport | Native assembly 0.390 / 0.253 s; readable assembly 0.096 / 0.097 s; graph sharing 0.688 / 1.192 s | Two prepared requests | 2.716 s, nested | The historical superlinear row comes first. Existing retained-owner snapshot memoization and completed-object graph traversal preserve sharing before transport; every field remains. | Native 0.537–0.684 s; readable 0.154–0.212 s; sharing 1.709–2.055 s, each total over both requests |
+| Full request preparation | 1.352 / 2.235 s | Two requests | 3.587 s, nested | Includes the observation row; no further work is needed for the focused bound. | 3.183–3.868 s over both requests |
+| Original statement execution | 22.317 s | One statement | 22.317 s | The registered missing implementation is the required kernel outcome. Remaining runtime cost belongs to later performance work. | 21.697–23.668 s |
+| Build of the actual imports | 14.919 s | One build | 14.919 s | Preserve the focused dependency target. | 8.936–14.544 s |
+| Feedback preparation | 13.437 s | One preparation | 13.437 s | Preserve actual environment and dependency capture. | 10.088–30.474 s |
+| Fresh Lean execution outside the statement | 32.069 s | One process | 32.069 s | Includes imports, fixture setup and log checks; no isolated startup improvement is claimed. | 25.166–61.255 s, now including the full descriptor assertions |
+
+The two actual prepared descriptors contain 1,417 and 1,439 canonical graph nodes.
+Expanding their child references as trees would visit 2,560,189 and 5,499,810 nodes.
+Those logical values remain present. The serializer and codec reuse immutable
+subgraphs instead of repeatedly traversing expanded copies.
+
+### Complete check
+
+At committed revision `14b0cff`, the complete test compares every actual prepared and
+executed observation with its raw schema-2 wire graph: decoding and canonical
+re-encoding must reproduce the entire graph. It also checks the exact inventories
+of all four descriptor fields, both native fields, all twelve request fields and all
+eight readable fields. Requests are matched by their original program and occurrence;
+their complete native and readable descriptors must agree before execution and at
+execution. Selection and source-snapshot fields remain present in each roundtrip.
+
+| Run | Whole loop | Build | Fresh execution | Status |
+| --- | --- | --- | --- | --- |
+| `20261127T015501Z-loop.6QA7X4` | 130.730 s | 14.544 s | 84.923 s | Pass |
+| `20261127T015712Z-loop.omSWkT` | 84.645 s | 14.121 s | 59.073 s | Pass |
+| `20261127T015838Z-loop.5w1xdP` | 66.822 s | 8.936 s | 46.972 s | Pass |
+
+All three runs used the same committed consumer bytes, reported clean source, and
+executed the complete check. Their median is **84.645 seconds**, below 300 seconds.
+The observed slowest-to-median spread is 1.544; differences within that spread are
+not reported as performance gains.
+
+The earlier interrupted setup (`20261127T014209Z-loop.PBlehd`, status 143) and initial
+test type-inference failure (`20261127T014542Z-loop.fuGoWT`, status 1) remain recorded.
+Neither executed the statement, and neither is a passing performance observation.
+The corrected before-check run and all three complete checks are retained in
+`runs.jsonl` and `modules.jsonl`; their raw logs remain at their recorded disk paths.
