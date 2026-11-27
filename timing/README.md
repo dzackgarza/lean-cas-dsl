@@ -192,9 +192,10 @@ historical rows, and collecting timings does not regenerate an acceptance baseli
 interrupted-worker and damaged-report controls. The module/statement timing control runs
 `just loop CasCompiler.ContextTests ellipses` through the original public commands, checks
 the complete admitted file, and verifies the persisted records and logs. The warm
-`CasRuntime.SessionTests` control checks every direct session entrance and all six top-level and two nested computations
-of its original public application-log fixture, including the nested definition, original
-causal links, setup costs and separate enclosing publication. That same control removes a
+`CasRuntime.FeedbackLogTests` control checks every direct session entrance and all six top-level and two nested computations
+of `tests/runtime/feedback_log.cas`, including the nested definition, original causal
+links, setup costs and separate enclosing publication. The original `SessionTests` and
+`application_log.cas` retain their mathematical assertions in the aggregate. The warm control removes a
 complete interior child pair only from a copy of its actual trace and requires incomplete
 timing while preserving later terminal results and the original log. The acceptance timing
 control also reuses its actual trace and worker-start record to reject missing or impossible
@@ -1037,7 +1038,7 @@ The focused command ran the peer-dispatch and changed-extension controls in the 
 | Peer dispatch and unread form | `acceptance-kernel-4n425l65` | `a7e3c2ff8d491ed4c374c83394c921830784a75ceb9b8029b093cca595fec2cb` |
 | Changed extension | `changed-extension-fl0tw0cs` | `72b1286e263d9d6c0a9ebed68a971e697849e11ef2ea118bc0b5f2a38b0002f7` |
 
-At clean kernel revision `322724d`, the KM0 extension observation passed in 104.72 s including startup. Run `20261127T085652Z-slow.c4O67m` produced all five statement rows for the unchanged RX09 input. The file returned status 1, consistent with the failed statements in its report. The control checked their reporting, source identity and admission status. KM16 owns the mathematical outcomes.
+At clean kernel revision `322724d`, the then-current KM0 extension control passed in 104.72 s including startup. Run `20261127T085652Z-slow.c4O67m` timed all five source definitions but its compact report contained four rows: the successful `indices` definition was omitted. The file returned status 1, consistent with the failed statements in that projection. The control checked the projection, source identity and admission status; it did not establish complete source-occurrence coverage. Revised T362 owns that missing report mechanism. KM16 owns the mathematical outcomes.
 
 ## Current T300 timing closure and KM0 regressions, 2026-11-27
 
@@ -1069,8 +1070,10 @@ public command took 101.07277150824666 s (99.290 s inside unittest).
 | Missing input is an infrastructure failure | 20.591 s | Pass |
 
 The unchanged RX09 long run is `20261127T090657Z-slow.fH6rCy`. Its file status is
-1, as required by the failed kernel observations; the control verifies that the
-complete report, source identity, admission status, timing and exit status agree.
+1, as required by the failed kernel observations; the then-current control checked
+the compact projection, source identity, admission status, timing and exit status.
+Its five timed definitions likewise produced four compact rows, omitting `indices`;
+the revised source-occurrence check of T362 remains necessary.
 The regression transcript is `timing/logs/km0-regressions-5b332c4/gate-1-output.log`,
 SHA256 `4f9f48f8e84d1fb1ac8763fde28d4a9be0b9cdad3b4c385b541224a5db627673`.
 
@@ -1132,3 +1135,34 @@ including the original `CasRuntime/SessionTests.lean` and
 `timing/logs/t114-warm-prerequisite-06f4584/result.json`; the transcript SHA256 is
 `1a6f1ee9e92c3565abee6abde326c61bf897493322cc6931d4c9538a320dde47`.
 This verifies the fixture prerequisites, not the complete Python warm control.
+
+## Complete warm milestone regression, 2026-11-27
+
+`just test-feedback FeedbackTests.test_warm_consumer_executes_again --durations 0`
+passed in 1675.8415732746944 s (1670.149 s inside unittest). The command began at
+`14eb92e`; `eeb171f` changed governing documents during the run and changed no
+exercised code. Both native executions passed, followed by every one of the 97
+preserved Python assertions, including missing-child corruption, schema-1 exact
+equivalence, unknown-schema rejection and forward-reference rejection.
+
+| Complete native run | Public run duration | Result |
+| --- | ---: | --- |
+| `20261127T102242Z-slow.JfPwvq` | 986.005974172 s | Pass |
+| `20261127T103934Z-slow.jBRyZV` | 493.575966857 s | Pass |
+
+Each run created a fresh native session, retained the seed, executed all six file
+roots and two children, used the seed afterward, recorded the exact parse rejection
+and closed the session. The outer control verified the changed manifest timestamp,
+source hashes, timing, publication, provenance and immutable original history.
+The complete result is `timing/logs/t114-warm-control-20261127/gate-1-result.json`.
+Its transcript is `gate-1-output.log` in the same directory, SHA256
+`d3f8d5c12da2d85c14d5061764f20bb4b348ac1978d17be6aebbf0d718df9c7b`.
+This is the separate long warm regression required by revised KM0, not a bounded
+T300 timing sample or completion of T362.
+
+The redundant expanded `timing/logs/t359-profile-f1e9bb0/process-trace.log` was
+retired after byte-for-byte comparison with its already recorded gzip and a check
+that neither file had an open handle. All 144903921 trace bytes remain in
+`process-trace.log.gz`; `expanded-copy-retirement.json` records both hashes and
+the exact restoration command. This recovered 144908288 allocated bytes without
+discarding an observation.
