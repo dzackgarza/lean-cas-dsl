@@ -43,7 +43,7 @@ profile target:
     lake lean "$source" -- --profile 2>&1 | tee "$log"
 
 probe source:
-    @lake lean {{quote(source)}}
+    @lake run feedback-lean {{quote(source)}}
 
 bench-question assertion="matrices.kernel" source="benchmarks/question_identity.lean": track-main
     #!/usr/bin/env bash

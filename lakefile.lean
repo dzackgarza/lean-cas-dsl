@@ -151,6 +151,19 @@ script «feedback-context» do
   return 0
 
 
+script «feedback-lean» args do
+  let source :: moreArgs := args
+    | throw <| IO.userError "usage: lake run feedback-lean SOURCE [LEAN-ARG ...]"
+  let workspace ← getWorkspace
+  let command ← workspace.runBuild <|
+    Lake.prepareLeanCommand (System.FilePath.mk source) moreArgs.toArray
+  let helper := workspace.root.dir / "scripts" / "feedback_records.py"
+  let child ← IO.Process.spawn { command with
+    cmd := "python3"
+    args := #["-S", helper.toString, "execute-lean", command.cmd] ++ command.args }
+  return ← child.wait
+
+
 target «feedback-worker-commands» _pkg : System.FilePath := do
   let some context ← IO.getEnv "CAS_FEEDBACK_CONTEXT"
     | error "feedback worker preparation requires its current context"

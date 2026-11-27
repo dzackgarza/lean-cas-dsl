@@ -906,3 +906,28 @@ timing/logs/t359-import-prefetch-495f127/. This single comparison does not contr
 cache state or host contention and establishes no stable speedup. It motivates
 an in-boundary read-ahead remedy whose completion still requires the original
 three complete normal five-case checks and the full feedback regression suite.
+
+The remedy reuses the existing feedback helper for both launch sites. The
+acceptance path retains its current context and exact-source checks. The public
+probe uses a Lake script that follows Workspace.evalLeanFile: one current
+workspace, one runBuild/prepareLeanCommand job, and one spawn/wait. Only the
+spawned executable and argument prefix change to the stdlib Python exec
+prelude; all native environment entries, working directory, standard streams
+and process-group settings remain attached to the prepared command.
+
+The common prelude reads that command's exact setup, advises every importArts
+path, restores the existing signal defaults and execs the original executable
+with the original native arguments and environment. Advice is included in the
+existing measured consumer interval. It neither alters artifacts nor
+substitutes prior observations; failures are not converted into success.
+The tests, generated sources, extension bytes, protocol peer and assertions
+remain unchanged.
+
+Native source and advisory-operation references:
+
+- https://github.com/leanprover/lean4/blob/d8b18978322de05a8f3dba51ef03cf5461676c17/src/library/module.cpp
+- https://github.com/leanprover/lean4/blob/d8b18978322de05a8f3dba51ef03cf5461676c17/src/lake/Lake/CLI/Actions.lean
+- https://www.man7.org/linux/man-pages/man2/posix_fadvise.2.html
+
+The original normal five-case gate, repeated three times, remains the check of
+this remedy. The component measurements do not replace it.

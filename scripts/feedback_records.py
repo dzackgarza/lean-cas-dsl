@@ -321,6 +321,20 @@ def step_start(argv: list[str]) -> None:
     append_record(run / "events.jsonl", record)
 
 
+def execute_lean(command: list[str], environment: dict[str, str]) -> None:
+    setup = read_json(Path(command[command.index("--setup") + 1]))
+    for parts in setup["importArts"].values():
+        for group in parts:
+            for path in group:
+                with open(path, "rb") as artifact:
+                    os.posix_fadvise(artifact.fileno(), 0, 0, os.POSIX_FADV_WILLNEED)
+    for name in ("SIGPIPE", "SIGXFZ", "SIGXFSZ"):
+        signum = getattr(signal, name, None)
+        if signum is not None:
+            signal.signal(signum, signal.SIG_DFL)
+    os.execvpe(command[0], command, environment)
+
+
 def execute_prepared(argv: list[str]) -> None:
     context_file, worker = argv[1:3]
     run = Path(context_file).parent
@@ -337,11 +351,7 @@ def execute_prepared(argv: list[str]) -> None:
             environment.pop(key, None)
         else:
             environment[key] = value
-    for name in ("SIGPIPE", "SIGXFZ", "SIGXFSZ"):
-        signum = getattr(signal, name, None)
-        if signum is not None:
-            signal.signal(signum, signal.SIG_DFL)
-    os.execvpe(command["cmd"], [command["cmd"], *command["args"]], environment)
+    execute_lean([command["cmd"], *command["args"]], environment)
 
 
 def step_finish(argv: list[str]) -> None:
@@ -1015,6 +1025,8 @@ if __name__ == "__main__":
         step_start(arguments)
     elif command == "execute-prepared":
         execute_prepared(arguments)
+    elif command == "execute-lean":
+        execute_lean(arguments[1:], os.environ.copy())
     elif command == "step-finish":
         step_finish(arguments)
     elif command == "finish":
