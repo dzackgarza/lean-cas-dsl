@@ -811,17 +811,23 @@ normal timing sample or a completed five-case check. Its first three unittest
 cases passed and both acceptance workers completed before interruption.
 Original evidence is retained in timing/logs/t359-startup-4738022/.
 
-Clone/thread ancestry identifies the actual native Lean process-group exits,
+Clone/thread ancestry identifies the actual native Lean thread-group exit entries,
 including the exit_group calls made by worker threads rather than the exec
 thread. The two completed standalone worker Lake preparations take
 62.407449 s and 58.006163 s, totaling 120.413612 s before Lean starts.
-Their post-child Lake cleanup totals 3.880500 s. The native Lean child windows
-are separately 198.686423 s and 122.559144 s; they include import loading and
-actual execution and are not all assigned to startup. Completed native Lake
-windows outside those Lean children total 503.886827 s: 240.860235 s in
+The subsequent Lake windows, from the child's exit_group entry to Lake's exit,
+total 3.880500 s; these also include process termination and reaping.
+The native Lean windows, from exec to exit_group entry, are separately
+198.686423 s and 122.559144 s; they include import loading and actual execution
+and are not all assigned to startup. Completed native Lake envelopes outside
+those Lean windows total 503.886827 s: 240.860235 s in
 explicit builds, 138.732480 s in resolved-context calls, 120.413612 s in worker
-preparation, and 3.880500 s in worker cleanup. These diagnostic wall-clock
+preparation, and 3.880500 s after the child exit entries. These diagnostic wall-clock
 intervals are not added to the normal check's monotonic phase measurements.
+The exact normal partition and the thread-aware diagnostic partition are in
+normal-gate3-phase-partition.json and interrupted-process-partition.json in the
+diagnostic directory. completed-worker-native-windows.json retains the separate
+native monotonic file/session observations.
 
 The remedy adds a standard Lake target to the existing acceptance build. It
 calls the pinned Lake.prepareLeanCommand in that build's existing FetchM and
