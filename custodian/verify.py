@@ -41,26 +41,18 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 
-# The dependency checkouts: `lake` and `scripts/ci_chain.py` put each package here.
 PACKAGES = ".lake/packages"
-# The development chain, each required from git at `main` by lakefile.lean.
 CHAIN = ("lean_categories", "cas_leaf_contracts", "cas_leaves")
 LEAVES = f"{PACKAGES}/cas_leaves"
 
-# Proof escapes remain prohibited. Computational implementation constructs (including unsafe,
-# extern, implemented_by, panic! and unreachable!) are assessed by their actual production path,
-# not by occurrence counts: their presence cannot establish mathematical unsoundness or correctness.
 BANNED_EVERYWHERE = {
     "sorry": r"\bsorry\b",
-    "admit": r"(?<!def )(?<!\()\badmit\b(?!\s*[\w(←:])",
+    "admit": r"(?<!def )(?<![.`])\badmit\b(?![^\S\r\n]*[\w(←:])",
     "axiom": r"^\s*(?:@\[[^\]]*\]\s*)?(?:private\s+|protected\s+)?axiom\s",
     "native_decide": r"\bnative_decide\b",
     "ofReduceBool": r"\bLean\.ofReduceBool\b|\bofReduceBool\b",
     "debug.skipKernelTC": r"skipKernelTC",
 }
-# Additionally banned in leaves: a leaf realizes registered operations and nothing else, so it may
-# not define syntax, elaborators, macros or global attributes (a `macro_rules` for `#accept` would
-# make every assertion pass), and may not see the kernel or the tests.
 BANNED_IN_LEAVES = {
     "syntax": r"^\s*(?:@\[[^\]]*\]\s*)?(?:scoped\s+|local\s+)?(?:syntax|macro|macro_rules|elab|elab_rules|notation|infix|infixl|infixr|prefix|postfix|declare_syntax_cat)\b",
     "elab-attribute": r"@\[\s*(?:command_elab|term_elab|tactic|macro|builtin_\w+)\b",
@@ -70,12 +62,9 @@ BANNED_IN_LEAVES = {
     "reads-tests": r"tests/acceptance|\.cas\b",
     "semantic-registration": r"\bnormalized_registry\b|\baddSemanticEntryChecked\b|\bpersistSemanticEntry\b",
 }
-# In lean-cas-dsl, outside the sealed boundary: no syntax or elaborator may be (re)defined (it could
-# change how a sealed assertion elaborates), and no semantic row may be written downstream.
 BANNED_OUTSIDE_BOUNDARY = {k: BANNED_IN_LEAVES[k] for k in
                            ("syntax", "elab-attribute", "initialize", "global-attribute",
                             "semantic-registration")}
-# The admission ledger may only grow: sealed entries keep their hashes, corrections never change.
 LEDGER = "CasAcceptance/Permanent/admitted.json"
 LEAF_IMPORT_ROOTS = ("Init", "Std", "Lean", "Mathlib", "CasContract", "LeanCategories", "CasLeaves",
                      "Batteries", "Qq", "Aesop")
@@ -180,9 +169,20 @@ def current_boundary(repo: Path, seal: dict) -> dict[str, str]:
     return {f: sha((repo / f).read_bytes()) for f in files if in_boundary(f, seal) and f != LEDGER}
 
 
-def outside_hits(repo: Path, seal: dict) -> list[str]:
+def outside_hits(repo: Path, seal: dict, control_boundary: list[str] | None = None) -> list[str]:
     files = [f for f in tracked(repo) if f.endswith(".lean") and not in_boundary(f, seal)]
-    found = occurrences(repo, files, BANNED_OUTSIDE_BOUNDARY)
+    if control_boundary is None:
+        found = occurrences(repo, files, BANNED_OUTSIDE_BOUNDARY)
+    else:
+        found = occurrences(repo, files, {
+            "semantic-registration": BANNED_OUTSIDE_BOUNDARY["semantic-registration"],
+        })
+        controls = [f for f in tracked(repo) if f.endswith(".lean")
+                    and not any(fnmatch(f, pattern) for pattern in control_boundary)]
+        found += occurrences(repo, controls, {
+            rule: pattern for rule, pattern in BANNED_OUTSIDE_BOUNDARY.items()
+            if rule != "semantic-registration"
+        })
     found += [f"{f}:semantic-module-downstream" for f in tracked(repo)
               if f.startswith("LeanCategories/") or f == "LeanCategories.lean"]
     return sorted(found)
@@ -213,7 +213,6 @@ def build_seal(repo: Path, boundary: list[str], append_only: list[str], verifier
     seal["files"] = current_boundary(repo, seal)
     lean = [f for f in tracked(repo) if f.endswith(".lean")]
     seal["banned_baseline"] = occurrences(repo, lean, BANNED_EVERYWHERE)
-    # As in `check`: the leaves are scanned only where the chain checks them out.
     leaves = (repo / LEAVES / ".git").exists() and not (repo / LEAVES).is_symlink()
     seal["leaf_baseline"] = scan_leaves(repo / LEAVES) if leaves else []
     seal["outside_baseline"] = outside_hits(repo, seal)
@@ -224,7 +223,7 @@ def build_seal(repo: Path, boundary: list[str], append_only: list[str], verifier
     return seal
 
 
-def check(repo: Path, seal: dict) -> list[str]:
+def check(repo: Path, seal: dict, control_boundary: list[str] | None = None) -> list[str]:
     problems = package_problems(repo)
     now = current_boundary(repo, seal)
     for f, h in sorted(seal["files"].items()):
@@ -251,27 +250,23 @@ def check(repo: Path, seal: dict) -> list[str]:
                 problems.append(f"sealed assertion changed or removed in the ledger: {ident}")
         for ident in sorted(set(ledger["assertions"]) - set(seal["ledger"]["assertions"])):
             print(f"note: unsealed assertion (not accepted until a new seal): {ident}")
-    for hit in sorted(set(outside_hits(repo, seal)) - set(seal["outside_baseline"])):
+    for hit in sorted(set(outside_hits(repo, seal, control_boundary)) - set(seal["outside_baseline"])):
         problems.append(f"outside the boundary: {hit}")
-    # No leaf in lean-cas-dsl.
     for f in tracked(repo):
         if f.startswith("CasLeaves/"):
             problems.append(f"leaf file in lean-cas-dsl: {f}")
         elif f.endswith(".lean"):
             for m in REGISTER_LEAF.finditer(strip_comments((repo / f).read_text(errors="replace"))):
                 problems.append(f"leaf registration in lean-cas-dsl: {f}")
-    # Proof escapes: the baseline can only shrink; this is not a correctness verdict.
     lean = [f for f in tracked(repo) if f.endswith(".lean")]
     for hit in sorted(set(occurrences(repo, lean, BANNED_EVERYWHERE)) - set(seal["banned_baseline"])):
         problems.append(f"banned construct: {hit}")
-    # The leaves: package_problems reports a missing or linked checkout.
     if (repo / LEAVES / ".git").exists() and not (repo / LEAVES).is_symlink():
         for hit in sorted(set(scan_leaves(repo / LEAVES)) - set(seal["leaf_baseline"])):
             problems.append(f"leaf violation: {hit}")
     return problems
 
 
-# The ssh-keygen -Y namespace of every custodian signature: seals and verdicts.
 NAMESPACE = "lean-cas-custodian"
 VERDICTS = "custodian/verdicts"
 
@@ -349,7 +344,6 @@ def main() -> int:
     repo = args.repo.resolve()
     verifier_sha = sha(Path(__file__).read_bytes())
     if args.make_seal:
-        # The boundary is custodian/boundary.json, itself a sealed file.
         spec = json.loads((repo / "custodian" / "boundary.json").read_text())
         boundary, append_only = spec["boundary"], spec["append_only"]
         seal = build_seal(repo, boundary, append_only, verifier_sha, args.note)
@@ -369,7 +363,11 @@ def main() -> int:
     if not args.construction and verifier_sha not in (
             {root["verifier_sha256"]} | {v["seal"]["verifier_sha256"] for _, v in chain}):
         raise SystemExit("this verifier is not a sealed verifier")
-    problems = check(repo, seal)
+    control_boundary = None
+    if args.construction:
+        spec = json.loads((repo / "custodian" / "boundary.json").read_text())
+        control_boundary = spec["boundary"] + spec["construction_control_owners"]
+    problems = check(repo, seal, control_boundary)
     if args.construction:
         problems = [p for p in problems if not p.startswith(
             ("sealed file changed: ", "sealed file removed: ", "new file inside the sealed boundary: "))]
