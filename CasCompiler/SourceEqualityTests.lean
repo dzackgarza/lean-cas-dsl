@@ -2,15 +2,18 @@ module
 
 import CasCompiler.Read
 import CasCompiler.Parse
+import CasCompiler.SourceTestSupport
 import LeanCategories.Catalogue
 import LeanCategories.Catalogue.Semantics.Modules.Bilinear.Valued.DegeneratePlaneLifts
 public meta import Lean.Elab.Command
 meta import CasCompiler.Read
 meta import CasCompiler.Parse
+meta import CasCompiler.SourceTestSupport
 meta import LeanCategories.Catalogue
 meta import LeanCategories.Catalogue.Semantics.Modules.Bilinear.Valued.DegeneratePlaneLifts
 
 open Lean Meta Elab Term CasCompiler
+open CasCompiler.SourceTest
 
 private def nativeTerm (text : String) : TermElabM Term := do
   let .ok parsed := Parser.runParserCategory (← getEnv) `term text
@@ -22,9 +25,9 @@ private def sourceTerm (text : String) : TermElabM (TSyntax `cas_term) := do
     | throwError "the source equality control did not parse"
   return ⟨parsed⟩
 
--- Read the original first whole-arrow assertion at its original preceding context.
--- Native comparison uses Mathlib's actual module forgetful functor, with every source
--- map and object retained. The control checks formation, not the assertion's truth.
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let path := "tests/acceptance/proposals/independent-extension-reconstruction-20261024/" ++
     "completion/rx-lift-prescribed-stages.cas"
@@ -39,11 +42,15 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let expected ← session.term (← nativeTerm
         "(CategoryTheory.forget (ModuleCat ℚ)).map underlyingF = expectedF")
       let question ← file.withContext (session.readQuestion body)
-      question.source.withOpen fun bindings expression => do
-        let expected ← expected.source.inContext (← ContextTelescope.capture bindings)
-        unless ← isDefEq expression expected do
-          throwError "the original arrow equation changed its complete native map comparison"
-        checkWithKernel (← mkExpectedTypeHint (← mkEqRefl expression) (← mkEq expression expected))
+      discard <| session.elaborateScoped Syntax.missing do
+        let expression ← session.readTerm question
+        let expected ← session.readTerm expected
+        checkOriginal #[expression, expected] fun native => do
+          unless ← isDefEq native[0]! native[1]! do
+            throwError "the original arrow equation changed its complete native map comparison"
+          checkWithKernel (← mkExpectedTypeHint (← mkEqRefl native[0]!)
+            (← mkEq native[0]! native[1]!))
+        return expression
       original := true
       break
     let `(cas_item| $statement:cas_stmt) := item | continue
@@ -57,23 +64,35 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       ("underlyingF = underlyingF", "underlyingF = underlyingF")] do
     let expected ← session.term (← nativeTerm native)
     let question ← session.readQuestion (← sourceTerm source)
-    question.source.withOpen fun bindings expression => do
-      let expected ← expected.source.inContext (← ContextTelescope.capture bindings)
-      unless ← isDefEq expression expected do
-        throwError "a whole-arrow comparison changed its principal typed source terms"
+    discard <| session.elaborateScoped Syntax.missing do
+      let expression ← session.readTerm question
+      let expected ← session.readTerm expected
       if source == "underlyingF = underlyingF" then
+        let scope ← get
         let some entry := session.context.entries.find? (·.userName == `underlyingF)
           | throwError "the original structured arrow entry is absent"
-        let some binding := bindings.find? (·.id == entry.id)
+        let some binding := scope.context.bindings.find? (·.id == entry.id)
           | throwError "the original structured arrow binding is absent"
-        unless expression.getAppArgs[1]! == binding.expression &&
-            expression.getAppArgs[2]! == binding.expression do
+        let equality ← selectedValue expression
+        unless equality.isAppOfArity ``Eq 3 &&
+            (← originatesAt scope.context scope.selections
+              equality.getAppArgs[1]! binding.expression false) &&
+            (← originatesAt scope.context scope.selections
+              equality.getAppArgs[2]! binding.expression false) do
           throwError "a structured-map equality displaced its original native arrows"
+      checkOriginal #[expression, expected] fun native => do
+        unless ← isDefEq native[0]! native[1]! do
+          throwError "a whole-arrow comparison changed its principal typed source terms"
+      return expression
   let composed ← session.read (← sourceTerm "expectedF ∘ id(sourceModule)")
   let expected ← session.term (← nativeTerm
     "CategoryTheory.CategoryStruct.comp ((CategoryTheory.forget (ModuleCat ℚ)).map (CategoryTheory.CategoryStruct.id sourceModule)) expectedF")
-  composed.source.withOpen fun bindings expression => do
-    let expected ← expected.source.inContext (← ContextTelescope.capture bindings)
-    unless ← isDefEq expression expected do
-      throwError "source composition changed its selected carrier action or arrow order"
-    checkWithKernel (← mkExpectedTypeHint (← mkEqRefl expression) (← mkEq expression expected))
+  discard <| session.elaborateScoped Syntax.missing do
+    let expression ← session.readTerm composed
+    let expected ← session.readTerm expected
+    checkOriginal #[expression, expected] fun native => do
+      unless ← isDefEq native[0]! native[1]! do
+        throwError "source composition changed its selected carrier action or arrow order"
+      checkWithKernel (← mkExpectedTypeHint (← mkEqRefl native[0]!)
+        (← mkEq native[0]! native[1]!))
+    return expression

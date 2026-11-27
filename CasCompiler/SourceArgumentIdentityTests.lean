@@ -1,16 +1,18 @@
 module
 
 import CasCompiler.Surface
+import CasCompiler.Context
 public meta import Lean.Elab.Command
 meta import CasCompiler.Surface
+meta import CasCompiler.Context
 
 namespace CasCompiler.SourceArgumentIdentityTests
 
 open Lean Meta
 
--- Native target positions determine formal slots, including reordered parameters. Equal
--- definitions do not make their independently supplied input occurrences interchangeable.
--- These controls perform source matching only; no provider or mathematical value is run.
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let typeSort := mkSort (.succ .zero)
   let product := mkConst ``Prod [.zero, .zero]
@@ -47,20 +49,29 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless retained == #[some aliasType] do
         throwError "the alias control replaced its original supplied expression"
 
-    -- A retained-value marker is an admission boundary even when its body is the same
-    -- native input. The matcher cannot turn two such marks into an alias by erasing them.
-    let markedFirst := Expr.mdata
-      (KVMap.empty.setNat `CasCompiler.lower.value 1) first
-    let markedSecond := Expr.mdata
-      (KVMap.empty.setNat `CasCompiler.lower.value 2) first
-    let formal ← mkFreshExprMVar typeSort
-    let rejected ← alignSourceArguments? ``Prod #[formal]
-      (mkApp2 product formal formal) (mkApp2 product markedFirst markedSecond)
-    unless rejected.isNone && (← instantiateMVars formal).isMVar do
-      throwError "repeated formal erased conflicting retained-value boundaries"
 
--- A projected alias keeps the exact original parent and native field path. Equal sibling
--- fields do not establish that path; only the actual supplied projection does.
+
+    let context ← ContextTelescope.capture #[{
+      id := ⟨"source-arguments", 0⟩, role := .definition, expression := first }]
+    context.withLocalBinding ⟨"source-arguments", 1⟩ .result `firstRuntime typeSort
+        (fun context firstRuntime => do
+      context.withLocalBinding ⟨"source-arguments", 2⟩ .result `secondRuntime typeSort
+          (fun context secondRuntime => do
+        context.withOriginalSources #[firstRuntime.expression, secondRuntime.expression]
+            fun originals => do
+          unless ← isDefEq originals[0]! originals[1]! do
+            throwError "the runtime source control lost its equal original definitions"
+        let formal ← mkFreshExprMVar typeSort
+        let rejected ← alignSourceArguments? ``Prod #[formal]
+          (mkApp2 product formal formal)
+          (mkApp2 product firstRuntime.expression secondRuntime.expression)
+        unless rejected.isNone && (← instantiateMVars formal).isMVar do
+          throwError "repeated formal erased distinct retained runtime binders"
+      ) (originalSource := some first)
+    ) (originalSource := some first)
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let natural := mkConst ``Nat
   let pair := mkApp2 (mkConst ``Prod [.zero, .zero]) natural natural
@@ -85,8 +96,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       unless rejected.isNone && (← instantiateMVars formal).isMVar do
         throwError "repeated formal accepted another native input field"
 
--- The complete native constructor telescope includes dependent arguments and proof-only
--- positions. Actual data is retained, while repeated proofs use native proof irrelevance.
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let natural := mkConst ``Nat
   let family ← withLocalDeclD `n natural fun n =>
