@@ -18,15 +18,31 @@ meta import LeanCategories.Catalogue.Semantics.Algebra.Polynomials
 
 open Lean Meta Elab Command CasCatalogue CasCompiler
 
--- Ordinary list components, their inverse, and their Arrow-induced component retain
--- arbitrary generalized domains. The Arrow case must not require a named category row
--- or a fabricated carrier functor to Sets. Every assertion is on the actual native term.
+
+private def withPointSelection {α : Type} (inputs : Array Expr)
+    (selection : SourceSelection Expr)
+    (action : OpenContext → SourceSelectionScope Expr → Expr → TermElabM α) :
+    TermElabM α := do
+  let identities ← CasRuntime.IdentitySupply.new
+  let bindings ← inputs.mapM fun expression => do
+    let allocated ← identities.fresh .sourceBinding
+    return ({ id := ⟨allocated.worker, allocated.serial⟩,
+      role := .parameter, expression } : LocalBinding)
+  let context ← ContextTelescope.capture bindings
+  ({} : SourceSelectionScope Expr).withBinding identities context selection action
+
+
+
+
 run_cmd liftTermElabM do
   let state ← semanticState
   let #[unit] := state.cells.filter (·.id == NaturalTransformationId.listUnit)
     | throwError "the independently accepted list unit is absent"
   let #[reverse] := state.cells.filter (·.id == NaturalTransformationId.listReverse)
     | throwError "the independently accepted list reversal is absent"
+  let #[cartesian] := state.functors.filter (·.id == FunctorId.modulesReindex)
+    | throwError "the independent incompatible owner fixture is absent"
+  let otherOwner ← CategoricalPointFamily.forOwner (.cartesian cartesian)
   for owner in #[CategoricalPointOwner.component unit #[] false,
       .component reverse #[] false, .component reverse #[] true,
       .component reverse #[ConstructorId.arrow] false,
@@ -45,72 +61,88 @@ run_cmd liftTermElabM do
         let domain := inputs[family.parameterCount]!
         let point := inputs[family.parameterCount + 1]!
         let (arrow, bundle) ← family.arrowAt levels parameters
-        let some original ← sourceCellComponent? arrow
+        let arrowSource ← family.arrowSelection levels parameters
+        let some original := arrowSource.cell
           | throwError "the component family lost its original native cell envelope"
         unless original.receiver == parameters.back! do
           throwError "the component family replaced its actual selected receiver"
         let (source, target) ← categoricalPointEndpoints arrow
-        let some wholeNative ← categoricalPointSource? arrow
-          | throwError "the native component did not enter the common point source"
-        unless ← isDefEq wholeNative arrow do
-          throwError "native component preparation replaced the original arrow"
+        withPointSelection inputs arrowSource fun context selections supplied => do
+          let some wholeNative ← categoricalPointSource? context selections supplied
+            | throwError "the native component did not enter the common point source"
+          unless ← isDefEq wholeNative.value arrow do
+            throwError "native component preparation replaced the original arrow"
+          let identities ← CasRuntime.IdentitySupply.new
+          let allocated ← identities.fresh .sourceBinding
+          context.withLocalBinding ⟨allocated.worker, allocated.serial⟩ .result
+              `retainedComponent (← inferType arrow) fun context retained => do
+            if (← categoricalPointSource? context selections retained.expression).isSome then
+              throwError "an already retained component was reconstructed as a new primitive family"
+        let request ← family.withRequest levels parameters arrow domain source target point
+        let some (.categorical selectedFamily retained) := request.pointRequest
+          | throwError "the component lost its complete generalized request"
+        unless (SelectedApplicationFamily.point family).exactlyMatches (.point selectedFamily) &&
+            retained.domain == domain && retained.point == point && retained.arrow == arrow do
+          throwError "the component replaced an original generalized-map input"
+        let result ← family.selected levels parameters domain request
         let composite := (mkAppN
           (family.family.instantiateLevelParams family.universeParams levels) inputs).headBeta
-        let some originalComposite ← categoricalPointSource? composite
-          | throwError "the native generalized component did not enter the common source"
-        unless ← isDefEq originalComposite composite do
-          throwError "native component preparation changed the original preceding map"
-        let retained := Expr.mdata (KVMap.empty.setNat `CasCompiler.lower.value 0) arrow
-        if (← categoricalPointSource? retained).isSome then
-          throwError "an already retained component was reconstructed as a new primitive family"
-        let request ← family.withRequest levels parameters arrow domain source target point
-        let some retained ← family.request? request
-          | throwError "the component lost its complete generalized request"
-        unless retained.domain == domain && retained.point == point && retained.arrow == arrow do
-          throwError "the component replaced an original generalized-map input"
-        let result ← family.mark levels parameters domain request
-        checkWithKernel result
-        let (resultDomain, resultTarget) ← categoricalPointEndpoints result
+        withPointSelection inputs result fun context selections supplied => do
+          let some originalComposite ← categoricalPointSource? context selections supplied
+            | throwError "the native generalized component did not enter the common source"
+          unless ← isDefEq originalComposite.value composite do
+            throwError "native component preparation changed the original preceding map"
+          let some binding := context.bindings.find? (·.expression == supplied)
+            | throwError "the component lost its exact original source binder"
+          let reference ← family.asReference
+          let some originalApplication := result.application
+            | throwError "the component lost its original application"
+          for changed in #[otherOwner, reference] do
+            let changedSelection := { result with
+              application := some { originalApplication with family := .point changed } }
+            let rejected ← try
+                discard <| selections.merge
+                  (({} : SourceSelectionScope Expr).insert binding.id changedSelection)
+                pure false
+              catch _ => pure true
+            unless rejected do
+              throwError "a source component changed its fixed owner or generalized request mode"
+        checkWithKernel result.value
+        let (resultDomain, resultTarget) ← categoricalPointEndpoints result.value
         unless ← isDefEq resultDomain domain <&&> isDefEq resultTarget target do
           throwError "the component changed the original generalized domain or target"
-        let .mdata data body := result
-          | throwError "the component lost its original application marker"
-        let restored ← CategoricalPointFamily.fromMark data
-        for changed in #[
-            data.setName `CasCompiler.source.point.owner ``CategoricalPointOwner.cartesian,
-            data.setBool `CasCompiler.source.point.reference true] do
-          let rejected ← try
-              discard <| CategoricalPointFamily.fromMark changed
-              pure false
-            catch _ => pure true
-          unless rejected do
-            throwError "a source component changed its fixed owner or generalized request mode"
-        let (actualLevels, actual) ← restored.application body
-        unless actualLevels == levels && actual.extract 0 family.parameterCount == parameters &&
+        let some (restored, actualLevels, parametersAgain) ←
+            CategoricalPointFamily.ofSelection? result
+          | throwError "the component lost its original application"
+        let some application := result.application
+          | throwError "the component lost its original application"
+        let actual := parametersAgain ++ application.arguments
+        unless (SelectedApplicationFamily.point restored).exactlyMatches (.point family) &&
+            actualLevels == levels && actual.extract 0 family.parameterCount == parameters &&
             actual[family.parameterCount]? == some domain &&
-            actual[family.parameterCount + 1]? == some request do
+            actual[family.parameterCount + 1]? == some request.value do
           throwError "the component did not retain the exact actual source positions"
         let identity ← categoricalPointIdentity bundle source
-        let whole ← family.mark levels parameters source identity (whole := true)
-        checkWithKernel whole
-        unless ← isDefEq whole arrow do
+        let whole ← family.selected levels parameters source { value := identity } (whole := true)
+        checkWithKernel whole.value
+        unless ← isDefEq whole.value arrow do
           throwError "the whole component request replaced its actual native arrow"
-        let .mdata wholeData wholeBody := whole
-          | throwError "the whole component request lost its original native source marker"
-        let wholeFamily ← CategoricalPointFamily.fromMark wholeData
+        let some (wholeFamily, _, originalParameters) ← CategoricalPointFamily.ofSelection? whole
+          | throwError "the whole component request lost its original native source"
         unless wholeFamily.whole do throwError "the whole component became a generalized composite"
         checkWithKernel wholeFamily.family
-        let (_, actualWhole) ← wholeFamily.application wholeBody
-        unless actualWhole == parameters ++ #[source, identity] do
+        let some wholeApplication := whole.application
+          | throwError "the whole component request lost its original native application"
+        unless originalParameters ++ wholeApplication.arguments == parameters ++ #[source, identity] do
           throwError "the whole component request replaced an original native input"
         let rejected ← try
-            discard <| family.mark levels parameters domain point (whole := true)
+            discard <| family.selected levels parameters domain { value := point } (whole := true)
             pure false
           catch _ => pure true
         unless rejected do throwError "an arbitrary original point was accepted as the whole arrow"
 
--- The canonical family transport retains the actual selected base map even under
--- rigid independent source-ring, target-ring and module parameters.
+
+
 run_cmd liftTermElabM do
   let #[entry] := (← semanticState).functors.filter (·.id == FunctorId.modulesReindex)
     | throwError "the independently accepted module reindexing is absent"
@@ -124,7 +156,8 @@ run_cmd liftTermElabM do
     forallTelescopeReducing type fun inputs _ => do
       let parameters := inputs.extract 0 family.parameterCount
       let (arrow, _) ← family.arrowAt levels parameters
-      let some original ← sourceCartesian? arrow
+      let arrowSource ← family.arrowSelection levels parameters
+      let some original := arrowSource.cartesian
         | throwError "the cartesian family lost its original native envelope"
       unless original.entry.id == entry.id && original.receiver == parameters.back! do
         throwError "the cartesian family replaced its reindexing or receiver"
@@ -133,20 +166,21 @@ run_cmd liftTermElabM do
         | throwError "the original module reindexing changed its actual base-map interface"
       unless original.baseMap == parameters[baseIndex]! do
         throwError "the cartesian family recovered a different base map from its endpoints"
-      let some wholeNative ← categoricalPointSource? arrow
-        | throwError "the native cartesian arrow did not enter the common point source"
-      checkWithKernel wholeNative
-      unless ← isDefEq wholeNative arrow do
-        throwError "the cartesian whole request replaced the original native lift"
-      let result ← family.mark levels parameters inputs[family.parameterCount]!
-        inputs[family.parameterCount + 1]!
-      checkWithKernel result
-      unless result.containsFVar parameters[baseIndex]!.fvarId! do
+      withPointSelection inputs arrowSource fun context selections supplied => do
+        let some wholeNative ← categoricalPointSource? context selections supplied
+          | throwError "the native cartesian arrow did not enter the common point source"
+        checkWithKernel wholeNative.value
+        unless ← isDefEq wholeNative.value arrow do
+          throwError "the cartesian whole request replaced the original native lift"
+      let result ← family.selected levels parameters inputs[family.parameterCount]!
+        { value := inputs[family.parameterCount + 1]! }
+      checkWithKernel result.value
+      unless result.value.containsFVar parameters[baseIndex]!.fvarId! do
         throwError "the generalized cartesian request discarded its actual base-map input"
 
--- A derived action keeps both actual original endpoints and its source arrow as
--- separate inputs. The classifier and constructor cases use the unchanged native
--- action mechanism; no finite published-path inventory bounds their formation.
+
+
+
 run_cmd liftTermElabM do
   for edge in #[EdgeRef.functor FunctorId.setsList,
       .classifierForget ClassifierId.setsFinite,
@@ -160,13 +194,14 @@ run_cmd liftTermElabM do
           fun inputs _ => do
         let parameters := inputs.extract 0 objectFamily.parameterCount
         let receiver := inputs[objectFamily.parameterCount]!
-        let marked ← objectFamily.mark levels parameters receiver
-        checkWithKernel marked
-        let .mdata data body := marked
+        let selected ← objectFamily.selected levels parameters receiver
+        checkWithKernel selected.value
+        let some (restored, actualLevels, originalParameters, originalReceiver) ←
+            SourceActionFamily.ofSelection? selected
           | throwError "the object action lost its complete native source witness"
-        let restored ← SourceActionFamily.fromMark data
-        let (_, original) ← restored.application body
-        unless original == inputs do
+        unless (SelectedApplicationFamily.objectAction restored).exactlyMatches
+            (.objectAction objectFamily) && actualLevels == levels &&
+            originalParameters.push originalReceiver == inputs do
           throwError "the canonical object action changed an original parameter or receiver"
     let family ← CategoricalPointFamily.forOwner (.action edge)
     checkWithKernel family.family
@@ -181,17 +216,21 @@ run_cmd liftTermElabM do
         let parameters := inputs.extract 0 family.parameterCount
         let domain := inputs[family.parameterCount]!
         let point := inputs[family.parameterCount + 1]!
-        let result ← family.mark levels parameters domain point
-        checkWithKernel result
-        let .mdata data body := result
+        let result ← family.selected levels parameters domain { value := point }
+        checkWithKernel result.value
+        let some (original, actualLevels, actualParameters) ←
+            CategoricalPointFamily.ofSelection? result
           | throwError "a derived map lost its complete original owner"
-        let original ← CategoricalPointFamily.fromMark data
-        let (_, actual) ← original.application body
-        unless actual.extract family.declarationParameterCount family.parameterCount ==
+        let some application := result.application
+          | throwError "a derived map lost its complete original input table"
+        let actual := actualParameters ++ application.arguments
+        unless (SelectedApplicationFamily.point original).exactlyMatches (.point family) &&
+            actualLevels == levels &&
+            actual.extract family.declarationParameterCount family.parameterCount ==
             parameters.extract family.declarationParameterCount family.parameterCount do
           throwError "a derived map replaced an original input by an equal endpoint"
 
--- Public field admission checks the original native field, never an arbitrary suffix.
+
 run_cmd liftTermElabM do
   let state ← semanticState
   unless (← PublishedPorts.family? state "fun.sets.list#map") == some (.functor FunctorId.setsList) do
@@ -208,8 +247,8 @@ run_cmd liftTermElabM do
       pure true
   unless failed do throwError "a noninvertible native component acquired an inverse"
 
--- Binders use their independently accepted complete operation family. The actual
--- bound/range parameters and supplied admitted map remain native source inputs.
+
+
 run_cmd liftTermElabM do
   for id in #["bind.sets.finite_sum", "bind.sets.finite_product"] do
     let #[entry] := (← semanticState).binders.filter (·.id.raw == id)
@@ -223,20 +262,26 @@ run_cmd liftTermElabM do
           (family.familyType.instantiateLevelParams family.universeParams levels) fun inputs _ => do
         let parameters := inputs.extract 0 family.parameterCount
         let (arrow, _) ← family.arrowAt levels parameters
-        let some whole ← categoricalPointSource? arrow
-          | throwError "the original binder did not enter the common native source"
-        checkWithKernel whole
-        unless ← isDefEq whole arrow do
-          throwError "the native binder was replaced by another arrow"
-        let result ← family.mark levels parameters inputs[family.parameterCount]!
-          inputs[family.parameterCount + 1]!
-        let .mdata data body := result | throwError "the binder lost its original point marker"
-        let restored ← CategoricalPointFamily.fromMark data
-        let (_, actual) ← restored.application body
-        unless actual == inputs do throwError "the binder changed a complete original parameter"
+        let arrowSource ← family.arrowSelection levels parameters
+        withPointSelection inputs arrowSource fun context selections supplied => do
+          let some whole ← categoricalPointSource? context selections supplied
+            | throwError "the original binder did not enter the common native source"
+          checkWithKernel whole.value
+          unless ← isDefEq whole.value arrow do
+            throwError "the native binder was replaced by another arrow"
+        let result ← family.selected levels parameters inputs[family.parameterCount]!
+          { value := inputs[family.parameterCount + 1]! }
+        let some (restored, actualLevels, actualParameters) ←
+            CategoricalPointFamily.ofSelection? result
+          | throwError "the binder lost its original point selection"
+        let some application := result.application
+          | throwError "the binder lost its original application inputs"
+        unless (SelectedApplicationFamily.point restored).exactlyMatches (.point family) &&
+            actualLevels == levels && actualParameters ++ application.arguments == inputs do
+          throwError "the binder changed a complete original parameter"
 
--- Whole named morphisms and object applications use the same native categorical family;
--- their existing scalar carrier path remains a separately checked consumer of that family.
+
+
 run_cmd liftTermElabM do
   let state ← semanticState
   let mut owners : Array PointFamilyOwner := #[]
@@ -264,12 +309,15 @@ run_cmd liftTermElabM do
         let (arrow, bundle) ← family.arrowAt levels parameters
         let (source, _) ← categoricalPointEndpoints arrow
         let identity ← categoricalPointIdentity bundle source
-        let whole ← family.mark levels parameters source identity (whole := true)
-        checkWithKernel whole
-        unless ← isDefEq whole arrow do
+        let whole ← family.selected levels parameters source { value := identity } (whole := true)
+        checkWithKernel whole.value
+        unless ← isDefEq whole.value arrow do
           throwError "the whole named request changed the original native map"
-        let .mdata data body := whole | throwError "the whole named map lost its source marker"
-        let restored ← CategoricalPointFamily.fromMark data
-        let (_, original) ← restored.application body
-        unless original == parameters ++ #[source, identity] do
+        let some (restored, actualLevels, originalParameters) ←
+            CategoricalPointFamily.ofSelection? whole
+          | throwError "the whole named map lost its source selection"
+        let some application := whole.application
+          | throwError "the whole named map lost its original native inputs"
+        unless restored.whole && actualLevels == levels &&
+            originalParameters ++ application.arguments == parameters ++ #[source, identity] do
           throwError "the whole named map replaced its original complete input slots"

@@ -13,7 +13,7 @@ namespace ReadOperationRules
 
 open SourceReader
 
-def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
+def rule (context : ReadContext) : SourceReadM NativeSourceJudgement := do
   let readExpression := @ReadContext.readExpression context
   let categoryOf := context.categoryOf
   let source := context.source
@@ -27,9 +27,9 @@ def rule (context : ReadContext) : TermElabM NativeSourceJudgement := do
   | `(cas_term| $left:cas_term + $right:cas_term) =>
     elementOperation "+" #[left, right] #[] #[] none
   | `(cas_term| $left:cas_term - $right:cas_term) => do
-    -- `x - y` is `x + -y` in the selected structure (public language contract).
-    -- The expansion is read once through the same registered addition and negation.
-    return ← readExpression categoryOf (← `(cas_term| $left:cas_term + (-$right:cas_term)))
+
+
+    return ← readExpression categoryOf (← liftM (m := TermElabM) `(cas_term| $left:cas_term + (-$right:cas_term)))
       expected qualification expectedCategory
   | `(cas_term| $left:cas_term ∪ $right:cas_term) =>
     elementOperation "∪" #[left, right] #[] #[] none

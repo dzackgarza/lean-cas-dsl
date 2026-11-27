@@ -50,30 +50,39 @@ private def rejected (action : MetaM Unit) : MetaM Unit := do
   catch _ => pure true
   unless failed do throwError "an incompatible selected application was accepted"
 
--- This is the existing named-point preparation boundary, with the original formal inputs.
-private def prepare (kernel : Kernel) (transaction : CellTransaction) (context : OpenContext)
-    (callable point : ValueBinding) (pointSource : Expr) (parameters : Array RuntimeParameter) :
-    MetaM (PreparedRequest × PreparedPointInvocation × PreparedRequest) := do
-  let graph ← transaction.view
-  let .ok code := graph.callable callable | throwError "the original callable is not visible"
-  let some node := graph.find code.value | throwError "the original callable lost its code"
-  let .closure program _ := node.payload.data | throwError "the original callable is not native code"
-  let some (.family family path) := (← kernel.codes.get)[program]?
-    | throwError "the object application lost its retained family"
-  let .ok argument := RuntimeArgument.ofValue graph 0 point (← kernel.marks.get)
-    | throwError "the original point is not visible"
-  let request ← PreparedRequest.forApplication kernel.ledger.owners.identities program
-    (← kernel.ledger.allocate) context callable #[← context.close pointSource] #[argument]
-    parameters (some graph)
-  let evaluate : SourceEvaluation := fun cell _ current bound source =>
-    kernel.run cell current bound source
-  let some invocation ← PreparedPointInvocation.prepare? kernel evaluate request family path transaction
-    | throwError "the original object application did not prepare its published packet"
-  return (request, invocation, family)
 
--- These are formal operands of the original matrix/polynomial application forms, not
--- computed answers. The actual reader, lowering, family preparation and wire codec run;
--- no provider is allowed to supply a result for either application.
+private def prepare (kernel : Kernel) (transaction : CellTransaction) (context : OpenContext)
+    (callable point : ValueBinding) (pointSource : Expr) (parameters : Array RuntimeParameter)
+    (selections : SourceSelectionScope Expr := {}) :
+    MetaM (PreparedRequest × PreparedPointInvocation × PreparedRequest) := do
+  let bound := parameters.foldl (fun bound parameter => bound.insert parameter.source parameter.value)
+    ({} : Std.HashMap BindingId ValueBinding)
+  withBoundValue kernel.ledger.owners.identities context bound pointSource point fun context bound pointSource => do
+    let graph ← transaction.view
+    let .ok code := graph.callable callable | throwError "the original callable is not visible"
+    let some node := graph.find code.value | throwError "the original callable lost its code"
+    let .closure program _ := node.payload.data | throwError "the original callable is not native code"
+    let some (.family family path) := (← kernel.codes.get)[program]?
+      | throwError "the object application lost its retained family"
+    let .ok argument := RuntimeArgument.ofValue graph 0 point
+      | throwError "the original point is not visible"
+    let mut parameters := #[]
+    for binding in context.bindings do
+      if let some value := bound[binding.id]? then
+        parameters := parameters.push (← IO.ofExcept <|
+          (RuntimeParameter.ofValue graph binding.id value).mapError IO.userError)
+    let request ← PreparedRequest.forApplication kernel.ledger.owners.identities program
+      (← kernel.ledger.allocate) context callable #[← context.close pointSource] #[argument]
+      parameters (some graph) (selections := selections)
+    let evaluate : SourceEvaluation := fun cell _ current bound selections source =>
+      kernel.run cell current bound source (selections := selections)
+    let some invocation ← PreparedPointInvocation.prepare? kernel evaluate request family path transaction
+      | throwError "the original object application did not prepare its published packet"
+    return (request, invocation, family)
+
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
   try
@@ -89,19 +98,26 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         let session ← assumeSource (← assumeSource empty first) second
         let term ← session.read (← sourceTerm text)
         term.source.withOpen fun bindings expression => do
-          unless bindings.size == 2 && bindings[0]!.id != bindings[1]!.id do
+          let originalInputs := session.context.entries.filter (·.role == .parameter)
+          unless originalInputs.size == 2 && originalInputs[0]!.id != originalInputs[1]!.id do
             throwError "the original operands lost their distinct source bindings"
+          let operands ← originalInputs.mapM fun entry => do
+            let some binding := bindings.find? (·.id == entry.id)
+              | throwError "the reader lost an original operand's actual binding"
+            pure binding
           let context ← ContextTelescope.capture bindings
-          -- The polynomial reader explicitly retains its selected result type with
-          -- mkExpectedTypeHint. Inspect the actual application beneath this checked
-          -- identity wrapper, as ordinary lowering does, rather than interpreting
-          -- the wrapper's operand as the original point.
-          let original := expression.consumeMData
+          let selections ← term.selections.inContext context
+
+
+          let original := ((selections.findAt? context expression).map (·.value)
+            |>.getD expression).consumeMData
           let original := if original.isAppOfArity ``id 2 then
               original.getAppArgs[1]!.consumeMData else original
           let .app callableSource pointSource := original
             | throwError "the original reading is not its final native point application"
-          let some pointOrigin ← sourcePointOrigin? pointSource
+          let some selectedPoint := selections.findAt? context pointSource
+            | throwError "the exact original application argument lost its selected source binder"
+          let some pointOrigin := selectedPoint.pointOrigin
             | throwError "the exact original application argument lost its point provenance"
           let program ← owners.identities.fresh .program
           let transaction ← CellTransaction.begin kernel.ledger
@@ -109,10 +125,14 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             let mut values : Array ValueBinding := #[]
             let mut parameters : Array RuntimeParameter := #[]
             let mut bound : Std.HashMap BindingId ValueBinding := {}
-            for binding in bindings do
+            for binding in operands do
+              let role ← SourceLayout.ofTerm (← context.close binding.expression)
+              let role := { role with
+                selections := term.selections
+                selectionBinding := if selections.contains binding.id then some binding.id else none }
               let value ← transaction.stage
                 { program, occurrence := ← kernel.ledger.allocate,
-                  role := ← SourceLayout.ofTerm (← context.close binding.expression),
+                  role,
                   parameters := Array.replicate bindings.size none }
                 (.ownedExport connection s!"formal operand {binding.id.serial}" #[])
               let .ok parameter := RuntimeParameter.ofValue (← transaction.view) binding.id value
@@ -120,10 +140,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
               values := values.push value
               parameters := parameters.push parameter
               bound := bound.insert binding.id value
-            let callable ← kernel.run transaction context bound callableSource
-            let point ← kernel.run transaction context bound pointSource
+            let callable ← kernel.run transaction context bound callableSource (selections := selections)
+            let point ← kernel.run transaction context bound pointSource (selections := selections)
             let (request, invocation, family) ←
-              prepare kernel transaction context callable point pointSource parameters
+              prepare kernel transaction context callable point pointSource parameters selections
             let .primitive (.application selected) _ := family.action
               | throwError "the object application was replaced by another computation boundary"
             let .application entry := selected.owner
@@ -131,14 +151,18 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             unless entry.id.raw == owner && invocation.operation == entry.applicationAddress &&
                 invocation.preparation == request.roles.scope && exactInput invocation.argument point do
               throwError "the application packet changed its original owner, request or operand"
-            let arrow ← family.source.source.inContext context
-            let (expectedSource, expectedTarget) ← selected.endpoints arrow
-            unless expectedSource.isAppOfArity ``Prod 2 do
-              throwError "the application lost its whole native product source"
-            for actual in #[invocation.domain, invocation.source, invocation.target],
-                expected in #[pointOrigin.domain, expectedSource, expectedTarget] do
-              unless ← isDefEq (← actual.role.source.inContext context) expected do
-                throwError "the application changed its complete native domain or endpoint"
+            family.environment.withContext context bound fun context bound => do
+              let arrow ← family.source.source.inContext context
+              let (expectedSource, expectedTarget) ← selected.endpoints arrow
+              unless expectedSource.isAppOfArity ``Prod 2 do
+                throwError "the application lost its whole native product source"
+              for actual in #[invocation.domain, invocation.source, invocation.target],
+                  expected in #[pointOrigin.domain, expectedSource, expectedTarget] do
+                withBindingContext (← transaction.view) context bound actual fun context _ => do
+                  context.withOriginalSources #[← actual.selectedSource context, expected]
+                      fun native => do
+                    unless ← isDefEq native[0]! native[1]! do
+                      throwError "the application changed its complete native domain or endpoint"
             let some originalArguments := family.origin.application
               | throwError "the application lost its original declared parameter table"
             let some application := family.application
@@ -191,8 +215,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
               | throwError "the application could not retain its actual scope inputs"
             let scope ← RequestScope.issue kernel.ledger reservation graph encoded.slots encoded.inputs #[]
             try
-              let evaluate : SourceEvaluation := fun cell _ current bound source =>
-                kernel.run cell current bound source
+              let evaluate : SourceEvaluation := fun cell _ current bound selections source =>
+                kernel.run cell current bound source (selections := selections)
               let changed := { decoded with operation := otherOwner ++ "#application" }
               failAt .malformed do
                 discard <| kernel.child evaluate request transaction reservation scope
@@ -209,23 +233,29 @@ run_cmd Lean.Elab.Command.liftTermElabM do
                 target := reference 5
                 argument := reference 6 }
               let observed ← IO.mkRef false
-              let evaluateChild : SourceEvaluation := fun cell _ current bound source => do
+              let evaluateChild : SourceEvaluation := fun cell _ current bound selections source => do
                 let .app _ point := source.consumeMData
-                  | throwError "the scoped application changed its original native point action"
-                let some actual ← selected.request? point
-                  | throwError "the scoped application lost its complete original input packet"
+                  | return ← kernel.run cell current bound source (selections := selections)
+                let some original := selections.findAt? current point.getAppFn
+                  | return ← kernel.run cell current bound source (selections := selections)
+                let original ← original.specialize point.getAppArgs
+                let some (.named family actual) := original.pointRequest
+                  | return ← kernel.run cell current bound source (selections := selections)
+                unless (SelectedApplicationFamily.application family).exactlyMatches
+                    (.application selected) do
+                  throwError "the scoped application changed its original selected point family"
                 for source in #[actual.domain, actual.source, actual.target, actual.point],
                     expected in #[invocation.domain, invocation.source, invocation.target, invocation.argument] do
-                  let .mdata mark _ := source
+                  let .fvar localId := source.consumeMData
                     | throwError "the scoped application replaced an original input"
-                  let some index := markedKey? mark
-                    | throwError "the scoped application lost an original input's native mark"
-                  let some value := (← kernel.marks.get)[index]?
+                  let some binding := current.bindings.find? (·.expression.fvarId! == localId)
+                    | throwError "the scoped application lost an original input's typed binder"
+                  let some value := bound[binding.id]?
                     | throwError "the scoped application lost its retained input authority"
                   unless exactInput value expected do
                     throwError "the scoped application replaced an input by an equal value"
                 observed.set true
-                kernel.run cell current bound source
+                kernel.run cell current bound source (selections := selections)
               failAt .noImplementation do
                 discard <| kernel.child evaluateChild request transaction reservation scope
                   (Json.mkObj [("op", toJson entry.applicationAddress), ("args", child.encode)])
@@ -240,52 +270,61 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       owners.close connection.generation
   finally setEnv original
 
--- A pair of already supplied generalized points keeps its nonterminal domain. A
--- second point with a genuinely different domain is rejected before application.
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) IdentitySupply.new
   let empty ← SourceSession.empty identities
   let session ← assumeSource empty "let input ∈ Fin(2)"
-  let (entry, _) ← selectObject "Fin" (some "Sets")
-  let selectedDomain ← mkAppM entry.declaration #[mkNatLit 2]
-  let selectedDomain := sourceReference ``ObjectEntry entry.id.raw entry.declaration selectedDomain
-  let otherDomain ← mkAppM entry.declaration #[mkNatLit 3]
-  let otherDomain := sourceReference ``ObjectEntry entry.id.raw entry.declaration otherDomain
-  discard <| session.elaborate Syntax.missing fun context => do
-    let #[binding] := context.bindings | throwError "the original point input was not retained"
+  let (entry, category) ← selectObject "Fin" (some "Sets")
+  let some originalEntry := session.context.entries.find? (·.userName == `input)
+    | throwError "the original point input was not retained"
+  discard <| session.elaborateScoped Syntax.missing do
+    let scope ← get
+    let some binding := scope.context.bindings.find? (·.id == originalEntry.id)
+      | liftM (m := TermElabM) <| throwError "the original point input was not retained"
     let input := binding.expression
+    let selectedDomain ← mkAppM entry.declaration #[mkNatLit 2]
+    let selectedDomain ← SourceReadM.select (← sourceReferenceAt
+      (.named (.registered (.inl entry) category)) selectedDomain selectedDomain)
+    let otherDomain ← mkAppM entry.declaration #[mkNatLit 3]
+    let otherDomain ← SourceReadM.select (← sourceReferenceAt
+      (.named (.registered (.inl entry) category)) otherDomain otherDomain)
     let domain ← inferType input
-    let pointMap ← withLocalDeclD `argument domain fun argument => do
+    let pointMap ← liftM (m := MetaM) <| withLocalDeclD `argument domain fun argument => do
       let function ← mkLambdaFVars #[argument] argument (usedOnly := false) (usedLetOnly := false)
       mkAppM ``TypeCat.ofHom #[function]
-    let point ← retainSourcePoint pointMap input
-    let some original ← sourcePointOrigin? point
-      | throwError "the supplied point lost its original native domain"
-    checkRegisteredDomains original.domain selectedDomain
-    unless ← isDefEq original.domain selectedDomain do
-      throwError "the supplied point does not have its selected Fin(2) domain"
-    let pair ← sourcePairPoint point point
-    let some retained ← sourcePointOrigin? pair
-      | throwError "pairing erased the supplied generalized point"
+    let point ← retainSourcePoint pointMap { value := input }
+    let some original := point.pointOrigin
+      | liftM (m := TermElabM) <| throwError "the supplied point lost its original native domain"
+    let scope ← get
+    scope.context.withOriginalSources #[original.domain, selectedDomain] fun native => do
+      checkRegisteredDomains native[0]! native[1]!
+      unless ← isDefEq native[0]! native[1]! do
+        throwError "the supplied point does not have its selected Fin(2) domain"
+    let pair ← sourcePairPoint (fun source => SourceReadM.select source) point point
+    let some retained := pair.pointOrigin
+      | liftM (m := TermElabM) <| throwError "pairing erased the supplied generalized point"
     unless retained.domain == original.domain do
-      throwError "pairing replaced the original nonterminal point domain"
+      liftM (m := TermElabM) <| throwError "pairing replaced the original nonterminal point domain"
     let applied := mkApp (← sourceSetFunction retained.point) input
     unless ← isDefEq applied (← mkAppM ``Prod.mk #[input, input]) do
-      throwError "pairing changed the original point maps"
-    let otherMap ← withLocalDeclD `other otherDomain fun other => do
+      liftM (m := TermElabM) <| throwError "pairing changed the original point maps"
+    let otherMap ← liftM (m := MetaM) <| withLocalDeclD `other otherDomain fun other => do
       let function ← mkLambdaFVars #[other] input (usedOnly := false) (usedLetOnly := false)
       mkAppM ``TypeCat.ofHom #[function]
-    let otherPoint ← retainSourcePoint otherMap input
+    let otherPoint ← retainSourcePoint otherMap { value := input }
     let failed ← try
-      discard <| sourcePairPoint point otherPoint
+      discard <| sourcePairPoint (fun source => SourceReadM.select source) point otherPoint
       pure false
     catch _ => pure true
-    unless failed do throwError "different supplied point domains were silently identified"
-    return pair
+    unless failed do
+      liftM (m := TermElabM) <| throwError "different supplied point domains were silently identified"
+    SourceReadM.select pair
 
--- These are availability declarations for existing mathematical rows. No backend is
--- started. Two actual eligible registrations must remain ambiguous until the frozen
--- profile selects exactly one; another object's application address cannot substitute.
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let state ← semanticState
   let #[matrix] := state.objects.filter (·.id.raw == "obj.sets.matrices")

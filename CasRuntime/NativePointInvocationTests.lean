@@ -31,29 +31,38 @@ private def failAt (stratum : Stratum) (action : MetaM Unit) : MetaM Unit := do
   unless CasCatalogue.Exception.stratum? failure == some stratum do throw failure
 
 private def prepare (kernel : Kernel) (transaction : CellTransaction) (context : OpenContext)
-    (callable point : ValueBinding) (pointSource : Expr) :
+    (callable point : ValueBinding) (pointSource : Expr)
+    (bound : Std.HashMap BindingId ValueBinding := {})
+    (selections : SourceSelectionScope Expr := {}) :
     MetaM (PreparedRequest × PreparedPointInvocation) := do
-  let graph ← transaction.view
-  let .ok code := graph.callable callable
-    | throwError "the named point callable is outside its actual graph"
-  let some node := graph.find code.value
-    | throwError "the named point callable lost its original code"
-  let .closure program _ := node.payload.data
-    | throwError "the named point callable is not its retained native source"
-  let some (.family family path) := (← kernel.codes.get)[program]?
-    | throwError "the named point callable was replaced by a source computation"
-  let .ok argument := RuntimeArgument.ofValue graph 0 point (← kernel.marks.get)
-    | throwError "the named point operand is outside its actual graph"
-  let request ← PreparedRequest.forApplication kernel.ledger.owners.identities program
-    (← kernel.ledger.allocate) context callable #[← context.close pointSource] #[argument] #[]
-  let evaluate : SourceEvaluation := fun cell _ current bound source =>
-    kernel.run cell current bound source
-  let some invocation ← PreparedPointInvocation.prepare? kernel evaluate request family path transaction
-    | throwError "the original named point action did not prepare its published packet"
-  return (request, invocation)
+  withBoundValue kernel.ledger.owners.identities context bound pointSource point fun context bound pointSource => do
+    let graph ← transaction.view
+    let .ok code := graph.callable callable
+      | throwError "the named point callable is outside its actual graph"
+    let some node := graph.find code.value
+      | throwError "the named point callable lost its original code"
+    let .closure program _ := node.payload.data
+      | throwError "the named point callable is not its retained native source"
+    let some (.family family path) := (← kernel.codes.get)[program]?
+      | throwError "the named point callable was replaced by a source computation"
+    let .ok argument := RuntimeArgument.ofValue graph 0 point
+      | throwError "the named point operand is outside its actual graph"
+    let mut parameters := #[]
+    for binding in context.bindings do
+      if let some value := bound[binding.id]? then
+        parameters := parameters.push (← IO.ofExcept <|
+          (RuntimeParameter.ofValue graph binding.id value).mapError IO.userError)
+    let request ← PreparedRequest.forApplication kernel.ledger.owners.identities program
+      (← kernel.ledger.allocate) context callable #[← context.close pointSource] #[argument]
+      parameters (some graph) (selections := selections)
+    let evaluate : SourceEvaluation := fun cell _ current bound selections source =>
+      kernel.run cell current bound source (selections := selections)
+    let some invocation ← PreparedPointInvocation.prepare? kernel evaluate request family path transaction
+      | throwError "the original named point action did not prepare its published packet"
+    return (request, invocation)
 
--- The native source supplies the original numeral map and all endpoint families. The complete
--- packet and scoped child use the production kernel, without a provider or substitute answer.
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
   try
@@ -66,157 +75,177 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       for declaration in #[
           ``CasCatalogue.Algebra.PolynomialPresentations.firstConstants,
           ``CasCatalogue.Algebra.PolynomialPresentations.secondConstants] do
-        let some entry := (← semanticState).morphisms.find? (·.declaration == declaration)
-          | throwError "an original F9 constants map is not registered"
+        let #[entry] := (← semanticState).morphisms.filter (·.declaration == declaration)
+          | throwError "an original F9 constants map is not uniquely registered"
         let family ← PointFamily.forEntry entry
-        let arrowSource := sourceReference ``MorphismEntry entry.id.raw declaration (mkConst declaration)
-        let callableSource ← family.function arrowSource
-        let (source, _) ← family.endpoints (mkConst declaration)
-        let pointSource ← sourceNumeral (fun _ => pure none) 2 source
-        let some pointOrigin ← sourcePointOrigin? pointSource
-          | throwError "the source numeral lost its independently supplied point map"
-        let producer ← CellTransaction.begin kernel.ledger
-        let callable ← kernel.run producer context {} callableSource
-        let point ← kernel.run producer context {} pointSource
-        let .ok _ ← producer.commit
-          | throwError "the original named point inputs could not publish"
-        let transaction ← CellTransaction.begin kernel.ledger
-        try
-          let (request, invocation) ← prepare kernel transaction context callable point pointSource
-          unless invocation.operation == entry.id.raw && invocation.parameters.isEmpty &&
-              invocation.argument.value == point.value &&
-              invocation.argument.associationIds == point.associationIds do
-            throwError "the named point action changed its released identity or original argument"
-          do
-            unless invocation.preparation == request.roles.scope do
-              throwError "the named point lost its original complete request preparation"
-            let rejectPreparation (action : MetaM Unit) : MetaM Unit := do
-              let failure : Option Exception ← try
-                action
-                pure none
-              catch error => pure (some error)
-              let some failure := failure
-                | throwError "a named point accepted a different request preparation"
-              unless failure.toMessageData.hasTag (· == requestPreparationMismatchTag) do throw failure
-            let otherPoint ← kernel.run transaction context {} pointSource
-            unless otherPoint.value != point.value do
-              throwError "the named-point scope control merged separate equal operands"
-            let graph ← transaction.view
-            let rebuild := fun (occurrence : RuntimeId .occurrence) (value : ValueBinding) => do
-              let .ok argument := RuntimeArgument.ofValue graph 0 value (← kernel.marks.get)
-                | throwError "the named-point scope control lost its original operand"
-              PreparedRequest.forApplication owners.identities request.program occurrence context
-                callable #[← context.close pointSource] #[argument] #[]
-            let otherRequest ← rebuild (← kernel.ledger.allocate) otherPoint
-            let rebuilt ← rebuild request.occurrence point
-            unless otherRequest.occurrence != request.occurrence &&
-                rebuilt.occurrence == request.occurrence && rebuilt.roles.scope != request.roles.scope do
-              throwError "the named-point scope control lost its independent preparations"
-            let .ok code := graph.callable callable
-              | throwError "the named-point scope control lost its actual callable"
-            let some node := graph.find code.value
-              | throwError "the named-point scope control lost its retained code"
-            let .closure program _ := node.payload.data
-              | throwError "the named-point scope control has no family closure"
-            let some (.family originalFamily fieldPath) := (← kernel.codes.get)[program]?
-              | throwError "the named-point scope control lost its original family"
-            let .primitive boundary levels := originalFamily.action
-              | throwError "the named-point scope control changed its native family"
-            unless originalFamily.application.isNone && originalFamily.scope.isEmpty do
-              throwError "the named-point scope control unexpectedly has declaration parameters"
-            let otherFamily ← PreparedRequest.forBoundary owners.identities originalFamily.program
-              originalFamily.occurrence boundary levels context #[] #[] #[] #[]
-            unless otherFamily.occurrence == originalFamily.occurrence &&
-                otherFamily.roles.scope != originalFamily.roles.scope do
-              throwError "the named-point scope control reused its original family preparation"
-            let beforeRejection ← transaction.view
-            let evaluate : SourceEvaluation := fun cell _ current bound expression =>
-              kernel.run cell current bound expression
-            rejectPreparation do
-              discard <| PreparedPointInvocation.prepare? kernel evaluate request otherFamily
-                fieldPath transaction
-            let registration : Registration := {
-              operation := entry.id.raw, input := entry.id.raw, backend := "scope-control" }
-            for wrong in #[otherRequest, rebuilt] do
-              rejectPreparation do
-                discard <| kernel.invokePoint evaluate wrong transaction registration invocation
-              unless (← kernel.ledger.pendingFor wrong.occurrence transaction.id).isNone do
-                throwError "a rejected named-point preparation reserved a dispatch"
-            unless (← transaction.view).sameRevision beforeRejection &&
-                (← kernel.dispatches.get).isEmpty do
-              throwError "a rejected named-point preparation published or dispatched"
-          let graph ← transaction.view
-          let actualDomain ← invocation.domain.role.source.inContext context
-          unless ← isDefEq actualDomain pointOrigin.domain do
-            throwError "the point packet guessed a domain instead of retaining its native source"
-          let .ok (encoded, packet) := invocation.encode graph connection.generation
-            | throwError "the complete original named point could not encode"
-          let .ok decoded := PointInvocation.decode packet
-            | throwError "the named point did not use the public seven-field envelope"
-          unless decoded.operation == entry.id.raw && decoded.parameters.isEmpty &&
-              (decoded.arrow.getObjValAs? String "ctor").toOption == some entry.id.raw &&
-              (decoded.source.getObjValAs? String "ctor").toOption == some "obj.sets.integers_mod" do
-            throwError "the point packet changed its released arrow or authored source alias"
-          for root in invocation.roots do
-            let some retained := encoded.inputs.find? (·.path == root.path)
-              | throwError "the point packet lost an original root authority"
-            unless retained.binding.value == root.binding.value &&
-                retained.binding.associationIds == root.binding.associationIds do
-              throwError "the point packet replaced an input by a descriptor value node"
-          let identity : DispatchIdentity := {
-            manifestDigest := "native-point-scope-control"
-            profileDigest := "no-providers"
-            registration := {
-              operation := entry.id.raw
-              input := entry.id.raw
-              backend := "scope-control" } }
-          let .ok reservation ← transaction.reserve request.occurrence identity connection
-              invocation.dependencies
-            | throwError "the original named point scope could not reserve its actual inputs"
-          let scope ← RequestScope.issue kernel.ledger reservation graph encoded.slots encoded.inputs #[]
+        let readInputs : SourceReadM (Expr × Expr × NativeSourcePointOrigin) := do
+          let rawArrow := mkConst declaration
+          let arrowSource ← SourceReadM.select (← family.selected rawArrow.constLevels! #[] rawArrow)
+          let callableSource ← family.function arrowSource
+          let (source, _) ← family.endpoints rawArrow
+          let pointSource ← sourceNumeral (fun _ => pure none) 2 source
+          let some selected ← SourceReadM.selection? pointSource
+            | liftM (m := TermElabM) <| throwError "the source numeral lost its exact selected binder"
+          let some pointOrigin := selected.pointOrigin
+            | liftM (m := TermElabM) <| throwError "the source numeral lost its independently supplied point map"
+          return (callableSource, pointSource, pointOrigin)
+        readInputs.runK { identities := owners.identities, context, selections := {} }
+            fun (callableSource, pointSource, pointOrigin) sourceScope => do
+          let context := sourceScope.context
+          let selections := sourceScope.selections
+          let producer ← CellTransaction.begin kernel.ledger
+          let callable ← kernel.run producer context {} callableSource (selections := selections)
+          let point ← kernel.run producer context {} pointSource (selections := selections)
+          let .ok _ ← producer.commit
+            | throwError "the original named point inputs could not publish"
+          let transaction ← CellTransaction.begin kernel.ledger
           try
-            let arrowReference := ScopedReference.input #[.field "args", .index 2]
-            let #[retainedArrow] ← scope.resolveMany reservation graph scope.wireId #[arrowReference]
-              | throwError "the named descriptor lost its original arrow scope authority"
-            unless retainedArrow.value == invocation.arrow.value &&
-                retainedArrow.associationIds == invocation.arrow.associationIds do
-              throwError "an arrow-root reference resolved a new descriptor node"
-            let reference := fun index =>
-              (ScopedReference.input #[.field "args", .index index]).encode
-            let child : PointInvocation := {
-              operation := entry.id.raw, parameters := #[], arrow := reference 2,
-              domain := reference 3, source := reference 4,
-              target := reference 5, argument := reference 6 }
-            let observed ← IO.mkRef false
-            let evaluate : SourceEvaluation := fun cell _ current bound source => do
-              let some selected := source.find? fun expression =>
-                  match expression with
-                  | .mdata data _ =>
-                    data.getString `CasCompiler.source.pointRequest == entry.id.raw
-                  | _ => false
-                | throwError "the named child discarded its explicitly supplied complete inputs"
-              let some actual ← family.request? selected
-                | throwError "the named child lost its typed input provenance"
-              for term in #[actual.domain, actual.source, actual.target, actual.point],
-                  expected in #[invocation.domain, invocation.source, invocation.target, point] do
-                let .mdata mark _ := term
-                  | throwError "the named child replaced a supplied original input"
-                let some index := markedKey? mark
-                  | throwError "the named child has no actual source input mark"
-                let some value := (← kernel.marks.get)[index]?
-                  | throwError "the named child input is outside its retained table"
-                unless value.value == expected.value &&
-                    value.associationIds == expected.associationIds do
-                  throwError "the named child substituted another equal source input"
-              observed.set true
-              kernel.run cell current bound source
-            failAt .noImplementation do
-              discard <| kernel.child evaluate request transaction reservation scope
-                (Json.mkObj [("op", toJson entry.id.raw), ("args", child.encode)])
-            unless ← observed.get do
-              throwError "the named child bypassed common typed source lowering"
-          finally scope.retire
-        finally discard <| transaction.abort
+            let (request, invocation) ← prepare kernel transaction context callable point pointSource (selections := selections)
+            unless invocation.operation == entry.id.raw && invocation.parameters.isEmpty &&
+                invocation.argument.value == point.value &&
+                invocation.argument.associationIds == point.associationIds do
+              throwError "the named point action changed its released identity or original argument"
+            do
+              unless invocation.preparation == request.roles.scope do
+                throwError "the named point lost its original complete request preparation"
+              let rejectPreparation (action : MetaM Unit) : MetaM Unit := do
+                let failure : Option Exception ← try
+                  action
+                  pure none
+                catch error => pure (some error)
+                let some failure := failure
+                  | throwError "a named point accepted a different request preparation"
+                unless failure.toMessageData.hasTag (· == requestPreparationMismatchTag) do throw failure
+              let otherPoint ← kernel.run transaction context {} pointSource (selections := selections)
+              unless otherPoint.value != point.value do
+                throwError "the named-point scope control merged separate equal operands"
+              let graph ← transaction.view
+              let rebuild := fun (occurrence : RuntimeId .occurrence) (value : ValueBinding) =>
+                withBoundValue owners.identities context {} pointSource value fun context bound source => do
+                  let .ok argument := RuntimeArgument.ofValue graph 0 value
+                    | throwError "the named-point scope control lost its original operand"
+                  let mut parameters := #[]
+                  for binding in context.bindings do
+                    if let some value := bound[binding.id]? then
+                      parameters := parameters.push (← IO.ofExcept <|
+                        (RuntimeParameter.ofValue graph binding.id value).mapError IO.userError)
+                  PreparedRequest.forApplication owners.identities request.program occurrence context
+                    callable #[← context.close source] #[argument] parameters (some graph)
+                    (selections := selections)
+              let otherRequest ← rebuild (← kernel.ledger.allocate) otherPoint
+              let rebuilt ← rebuild request.occurrence point
+              unless otherRequest.occurrence != request.occurrence &&
+                  rebuilt.occurrence == request.occurrence && rebuilt.roles.scope != request.roles.scope do
+                throwError "the named-point scope control lost its independent preparations"
+              let .ok code := graph.callable callable
+                | throwError "the named-point scope control lost its actual callable"
+              let some node := graph.find code.value
+                | throwError "the named-point scope control lost its retained code"
+              let .closure program _ := node.payload.data
+                | throwError "the named-point scope control has no family closure"
+              let some (.family originalFamily fieldPath) := (← kernel.codes.get)[program]?
+                | throwError "the named-point scope control lost its original family"
+              let .primitive boundary levels := originalFamily.action
+                | throwError "the named-point scope control changed its native family"
+              unless originalFamily.application.isNone && originalFamily.scope.isEmpty do
+                throwError "the named-point scope control unexpectedly has declaration parameters"
+              let otherFamily ← PreparedRequest.forBoundary owners.identities originalFamily.program
+                originalFamily.occurrence boundary levels context #[] #[] #[] #[] (selections := selections)
+              unless otherFamily.occurrence == originalFamily.occurrence &&
+                  otherFamily.roles.scope != originalFamily.roles.scope do
+                throwError "the named-point scope control reused its original family preparation"
+              let beforeRejection ← transaction.view
+              let evaluate : SourceEvaluation := fun cell _ current bound selections expression =>
+                kernel.run cell current bound expression (selections := selections)
+              rejectPreparation do
+                discard <| PreparedPointInvocation.prepare? kernel evaluate request otherFamily
+                  fieldPath transaction
+              let registration : Registration := {
+                operation := entry.id.raw, input := entry.id.raw, backend := "scope-control" }
+              for wrong in #[otherRequest, rebuilt] do
+                rejectPreparation do
+                  discard <| kernel.invokePoint evaluate wrong transaction registration invocation
+                unless (← kernel.ledger.pendingFor wrong.occurrence transaction.id).isNone do
+                  throwError "a rejected named-point preparation reserved a dispatch"
+              unless (← transaction.view).sameRevision beforeRejection &&
+                  (← kernel.dispatches.get).isEmpty do
+                throwError "a rejected named-point preparation published or dispatched"
+            let graph ← transaction.view
+            withBindingContext graph context {} invocation.domain fun context _ => do
+              context.withOriginalSources #[← invocation.domain.selectedSource context, pointOrigin.domain]
+                  fun native => do
+                unless ← isDefEq native[0]! native[1]! do
+                  throwError "the point packet guessed a domain instead of retaining its native source"
+            let .ok (encoded, packet) := invocation.encode graph connection.generation
+              | throwError "the complete original named point could not encode"
+            let .ok decoded := PointInvocation.decode packet
+              | throwError "the named point did not use the public seven-field envelope"
+            unless decoded.operation == entry.id.raw && decoded.parameters.isEmpty &&
+                (decoded.arrow.getObjValAs? String "ctor").toOption == some entry.id.raw &&
+                (decoded.source.getObjValAs? String "ctor").toOption == some "obj.sets.integers_mod" do
+              throwError "the point packet changed its released arrow or authored source alias"
+            for root in invocation.roots do
+              let some retained := encoded.inputs.find? (·.path == root.path)
+                | throwError "the point packet lost an original root authority"
+              unless retained.binding.value == root.binding.value &&
+                  retained.binding.associationIds == root.binding.associationIds do
+                throwError "the point packet replaced an input by a descriptor value node"
+            let identity : DispatchIdentity := {
+              manifestDigest := "native-point-scope-control"
+              profileDigest := "no-providers"
+              registration := {
+                operation := entry.id.raw
+                input := entry.id.raw
+                backend := "scope-control" } }
+            let .ok reservation ← transaction.reserve request.occurrence identity connection
+                invocation.dependencies
+              | throwError "the original named point scope could not reserve its actual inputs"
+            let scope ← RequestScope.issue kernel.ledger reservation graph encoded.slots encoded.inputs #[]
+            try
+              let arrowReference := ScopedReference.input #[.field "args", .index 2]
+              let #[retainedArrow] ← scope.resolveMany reservation graph scope.wireId #[arrowReference]
+                | throwError "the named descriptor lost its original arrow scope authority"
+              unless retainedArrow.value == invocation.arrow.value &&
+                  retainedArrow.associationIds == invocation.arrow.associationIds do
+                throwError "an arrow-root reference resolved a new descriptor node"
+              let reference := fun index =>
+                (ScopedReference.input #[.field "args", .index index]).encode
+              let child : PointInvocation := {
+                operation := entry.id.raw, parameters := #[], arrow := reference 2,
+                domain := reference 3, source := reference 4,
+                target := reference 5, argument := reference 6 }
+              let observed ← IO.mkRef false
+              let evaluate : SourceEvaluation := fun cell _ current bound selections source => do
+                let .app _ argument := source.consumeMData
+                  | return ← kernel.run cell current bound source (selections := selections)
+                let some selected := selections.findAt? current argument.getAppFn
+                  | return ← kernel.run cell current bound source (selections := selections)
+                let selected ← selected.specialize argument.getAppArgs
+                let some (.named original actual) := selected.pointRequest
+                  | return ← kernel.run cell current bound source (selections := selections)
+                unless (SelectedApplicationFamily.application family).exactlyMatches
+                    (.application original) do
+                  throwError "the named child changed its original selected point family"
+                for term in #[actual.domain, actual.source, actual.target, actual.point],
+                    expected in #[invocation.domain, invocation.source, invocation.target, point] do
+                  let .fvar localId := term.consumeMData
+                    | throwError "the named child replaced a supplied original input"
+                  let some binding := current.bindings.find? (·.expression.fvarId! == localId)
+                    | throwError "the named child has no actual typed input binder"
+                  let some value := bound[binding.id]?
+                    | throwError "the named child input is outside its retained table"
+                  unless value.value == expected.value &&
+                      value.associationIds == expected.associationIds do
+                    throwError "the named child substituted another equal source input"
+                observed.set true
+                kernel.run cell current bound source (selections := selections)
+              failAt .noImplementation do
+                discard <| kernel.child evaluate request transaction reservation scope
+                  (Json.mkObj [("op", toJson entry.id.raw), ("args", child.encode)])
+              unless ← observed.get do
+                throwError "the named child bypassed common typed source lowering"
+            finally scope.retire
+          finally discard <| transaction.abort
       unless (← kernel.dispatches.get).isEmpty do
         throwError "the named point controls dispatched a mathematical provider"
     finally
@@ -224,13 +253,17 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       owners.close connection.generation
   finally setEnv original
 
--- A complete named-arrow descriptor uses every original declared parameter slot, including
--- repeated aliases. Distinct released families with the same endpoints remain distinct.
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
   try
     let context ← ContextTelescope.capture #[]
-    let groupSource ← mkAppM ``CasCatalogue.Algebra.FiniteGroups.symmetric #[mkNatLit 3]
+    let #[groupEntry] := (← semanticState).objects.filter
+      (·.declaration == ``CasCatalogue.Algebra.FiniteGroups.symmetric)
+      | throwError "the original symmetric-group source has no unique declared row"
+    let #[groupCategory] := (← semanticState).categories.filter (·.id == groupEntry.category)
+      | throwError "the original symmetric group lost its complete registered category"
     let owners ← OwnerRegistry.new
     let kernel ← Kernel.load owners none none 1000
     discard <| SessionSnapshot.initialize owners
@@ -238,64 +271,94 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     try
       let transaction ← CellTransaction.begin kernel.ledger
       try
-        let group ← kernel.run transaction context {} groupSource
-        let selected ← markValue kernel.marks group groupSource
-        let identitySource ← mkAppM ``CasCatalogue.Algebra.FiniteGroups.identity #[selected]
-        let trivialSource ← mkAppM ``CasCatalogue.Algebra.FiniteGroups.trivial #[selected, selected]
-        unless ← isDefEq (← inferType identitySource) (← inferType trivialSource) do
-          throwError "the family-identity control did not retain equal declared endpoints"
-        let identity ← kernel.run transaction context {} identitySource
-        let trivial ← kernel.run transaction context {} trivialSource
-        let graph ← transaction.view
-        let codes ← kernel.codes.get
-        let some first ← InputDescriptorView.namedMorphism? graph codes identity
-          | throwError "the original identity arrow has no checked named descriptor"
-        let some second ← InputDescriptorView.namedMorphism? graph codes trivial
-          | throwError "the original trivial arrow has no checked named descriptor"
-        let some firstFamily := first.family
-          | throwError "the identity arrow lost its original family"
-        let some secondFamily := second.family
-          | throwError "the trivial arrow lost its original family"
-        unless firstFamily.reference != secondFamily.reference &&
-            first.binding.value == identity.value && second.binding.value == trivial.value &&
-            second.parameters.size == 2 do
-          throwError "equal endpoints merged distinct named-arrow sources"
-        let some (.morphism firstId) := firstFamily.reference
-          | throwError "the identity arrow lost its released morphism address"
-        failAt .malformed do
-          discard <| InputDescriptorView.requireMorphism graph codes trivial firstId
-        for value in second.parameters do
-          unless value.value == group.value && value.associationIds == group.associationIds do
-            throwError "the named arrow reconstructed an equal parameter instead of its original input"
-        let views ← InputDescriptorView.collect graph codes #[trivial]
-        let root : InputPosition := { path := #[.field "arrow"], binding := trivial }
-        let .ok encoded := graph.encodeInputs connection.generation #[root] views
-          | throwError "the parameterized named arrow could not encode"
-        for index in [:2] do
-          let path := #[.field "arrow", .field "args", .index index]
-          let some retained := encoded.inputs.find? (·.path == path)
-            | throwError "the named arrow lost a complete parameter root"
-          unless retained.binding.value == group.value &&
-              retained.binding.associationIds == group.associationIds do
-            throwError "a named arrow parameter root changed its original binding"
-        unless (← kernel.dispatches.get).isEmpty do
-          throwError "the named arrow codec control invoked a mathematical provider"
+        let readGroup : SourceReadM Expr := do
+          return (← registeredExpressions (.inl groupEntry) groupCategory
+            (fun function _ => pure (mkAppN function #[mkNatLit 3]))).2
+        readGroup.runK { identities := owners.identities, context, selections := {} } fun groupSource sourceScope => do
+          let context := sourceScope.context
+          let selections := sourceScope.selections
+          let group ← kernel.run transaction context {} groupSource (selections := selections)
+          controlAt MetaM fun run =>
+            withBoundValue owners.identities context {} groupSource group fun context bound selected => run do
+              let readArrows : SourceReadM (Array Expr) := do
+                let mut sources := #[]
+                for (declaration, arguments) in #[
+                    (``CasCatalogue.Algebra.FiniteGroups.identity, #[selected]),
+                    (``CasCatalogue.Algebra.FiniteGroups.trivial, #[selected, selected])] do
+                  let #[entry] := (← semanticState).morphisms.filter (·.declaration == declaration)
+                    | liftM (m := TermElabM) <|
+                        throwError "the original named-arrow source has no unique declared row"
+                  let family ← PointFamily.forEntry entry
+                  let arrow ← mkAppM declaration arguments
+                  sources := sources.push (← SourceReadM.select
+                    (← family.selected arrow.getAppFn.constLevels! arrow.getAppArgs arrow))
+                return sources
+              readArrows.runK { identities := owners.identities, context, selections } fun sources sourceScope => do
+                let context := sourceScope.context
+                let selections := sourceScope.selections
+                let #[identitySource, trivialSource] := sources
+                  | throwError "the original named-arrow controls lost their complete source table"
+                unless ← isDefEq (← inferType identitySource) (← inferType trivialSource) do
+                  throwError "the family-identity control did not retain equal declared endpoints"
+                let identity ← kernel.run transaction context bound identitySource
+                  (selections := selections)
+                let trivial ← kernel.run transaction context bound trivialSource
+                  (selections := selections)
+                let graph ← transaction.view
+                let codes ← kernel.codes.get
+                let some first ← InputDescriptorView.namedMorphism? graph codes identity
+                  | throwError "the original identity arrow has no checked named descriptor"
+                let some second ← InputDescriptorView.namedMorphism? graph codes trivial
+                  | throwError "the original trivial arrow has no checked named descriptor"
+                let some firstFamily := first.family
+                  | throwError "the identity arrow lost its original family"
+                let some secondFamily := second.family
+                  | throwError "the trivial arrow lost its original family"
+                unless firstFamily.reference != secondFamily.reference &&
+                    first.binding.value == identity.value && second.binding.value == trivial.value &&
+                    second.parameters.size == 2 do
+                  throwError "equal endpoints merged distinct named-arrow sources"
+                let some (.morphism firstId) := firstFamily.reference
+                  | throwError "the identity arrow lost its released morphism address"
+                failAt .malformed do
+                  discard <| InputDescriptorView.requireMorphism graph codes trivial firstId
+                for value in second.parameters do
+                  unless value.value == group.value && value.associationIds == group.associationIds do
+                    throwError "the named arrow reconstructed an equal parameter instead of its original input"
+                let views ← InputDescriptorView.collect graph codes #[trivial]
+                let root : InputPosition := { path := #[.field "arrow"], binding := trivial }
+                let .ok encoded := graph.encodeInputs connection.generation #[root] views
+                  | throwError "the parameterized named arrow could not encode"
+                for index in [:2] do
+                  let path := #[.field "arrow", .field "args", .index index]
+                  let some retained := encoded.inputs.find? (·.path == path)
+                    | throwError "the named arrow lost a complete parameter root"
+                  unless retained.binding.value == group.value &&
+                      retained.binding.associationIds == group.associationIds do
+                    throwError "a named arrow parameter root changed its original binding"
+                unless (← kernel.dispatches.get).isEmpty do
+                  throwError "the named arrow codec control invoked a mathematical provider"
       finally discard <| transaction.abort
     finally
       kernel.close
       owners.close connection.generation
   finally setEnv original
 
--- A named arrow's parameter is an actual chosen endpoint, even when another object has the
--- same declared family and scalar data. Reuse the original numeral map and original arrow;
--- changing only the supplied endpoint must fail before any provider can observe the request.
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let original ← getEnv
   try
     let context ← ContextTelescope.capture #[]
-    let some entry := (← semanticState).morphisms.find? (·.declaration ==
+    let #[entry] := (← semanticState).morphisms.filter (·.declaration ==
         ``CasCatalogue.Algebra.FiniteGroups.identity)
-      | throwError "the existing group identity family is not registered"
+      | throwError "the existing group identity family is not uniquely registered"
+    let #[groupEntry] := (← semanticState).objects.filter
+      (·.declaration == ``CasCatalogue.Algebra.FiniteGroups.cyclic)
+      | throwError "the original cyclic-group source has no unique declared row"
+    let #[groupCategory] := (← semanticState).categories.filter (·.id == groupEntry.category)
+      | throwError "the original cyclic group lost its complete registered category"
     let family ← PointFamily.forEntry entry
     let owners ← OwnerRegistry.new
     let kernel ← Kernel.load owners none none 1000
@@ -304,44 +367,78 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let transaction ← CellTransaction.begin kernel.ledger
       try
         let parameter ← kernel.run transaction context {} (mkNatLit 2)
-        let selectedParameter ← markValue kernel.marks parameter (mkNatLit 2)
-        let groupSource ← mkAppM ``CasCatalogue.Algebra.FiniteGroups.cyclic #[selectedParameter]
-        let first ← kernel.run transaction context {} groupSource
-        let other ← kernel.run transaction context {} groupSource
-        unless first.value != other.value do
-          throwError "the endpoint control did not retain two distinct supplied objects"
-        let firstSource ← markValue kernel.marks first groupSource
-        let otherSource ← markValue kernel.marks other groupSource
-        let arrowSource ← mkAppM entry.declaration #[firstSource]
-        let callable ← kernel.run transaction context {} (← family.function arrowSource)
-        let carrier ← mkAppM ``CasCatalogue.Foundation.Objects.integersMod #[selectedParameter]
-        let pointSource ← sourceNumeral (fun _ => pure none) 0 carrier
-        let some origin ← sourcePointOrigin? pointSource
-          | throwError "the endpoint control lost its original numeral point map"
-        let point ← kernel.run transaction context {} pointSource
-        let exact ← family.withRequest arrowSource origin.domain firstSource firstSource pointSource
-        let (_, invocation) ← prepare kernel transaction context callable point exact
-        unless invocation.source.value == first.value && invocation.target.value == first.value &&
-            invocation.source.associationIds == first.associationIds &&
-            invocation.target.associationIds == first.associationIds do
-          throwError "the named point packet changed its original chosen endpoint"
-        let changed ← family.withRequest arrowSource origin.domain otherSource firstSource pointSource
-        let failure : Option Exception ← try
-          discard <| prepare kernel transaction context callable point changed
-          pure none
-        catch error => pure (some error)
-        let some failure := failure
-          | throwError "the named point action accepted a different equal endpoint node"
-        unless failure.toMessageData.hasTag
-            (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do
-          throw failure
-        unless (← kernel.dispatches.get).isEmpty do
-          throwError "the original endpoint control dispatched a mathematical provider"
+        controlAt MetaM fun run =>
+          withBoundValue owners.identities context {} (mkNatLit 2) parameter fun context bound selectedParameter => run do
+            let readGroups : SourceReadM (Expr × Expr) := do
+              let (_, first) ← registeredExpressions (.inl groupEntry) groupCategory
+                (fun function _ => pure (mkAppN function #[selectedParameter]))
+              let (_, other) ← registeredExpressions (.inl groupEntry) groupCategory
+                (fun function _ => pure (mkAppN function #[selectedParameter]))
+              return (first, other)
+            readGroups.runK { identities := owners.identities, context, selections := {} } fun (firstSource, otherSource) sourceScope => do
+              let context := sourceScope.context
+              let selections := sourceScope.selections
+              let first ← kernel.run transaction context bound firstSource (selections := selections)
+              let other ← kernel.run transaction context bound otherSource (selections := selections)
+              unless first.value != other.value do
+                throwError "the endpoint control did not retain two distinct supplied objects"
+              controlAt MetaM fun run =>
+                withBoundValue owners.identities context bound firstSource first fun context bound firstSource => run do
+                  controlAt MetaM fun run =>
+                    withBoundValue owners.identities context bound otherSource other fun context bound otherSource => run do
+                      let nativeArrow ← mkAppM entry.declaration #[firstSource]
+                      let selectedArrow ← family.selected nativeArrow.getAppFn.constLevels!
+                        nativeArrow.getAppArgs nativeArrow
+                      selections.withBinding owners.identities context selectedArrow fun context selections arrowSource => do
+                        let arrow ← kernel.run transaction context bound arrowSource
+                          (selections := selections)
+                        controlAt MetaM fun run =>
+                          withBoundValue owners.identities context bound arrowSource arrow fun context bound arrowSource => run do
+                            let callable ← kernel.run transaction context bound
+                              (← family.function arrowSource) (selections := selections)
+                            let carrier ← mkAppM ``CasCatalogue.Foundation.Objects.integersMod #[selectedParameter]
+                            let readPoint : SourceReadM (Expr × SourceSelection Expr) := do
+                              let pointSource ← sourceNumeral (fun _ => pure none) 0 carrier
+                              let some selection ← SourceReadM.selection? pointSource
+                                | liftM (m := TermElabM) <| throwError "the endpoint control lost its original point binder"
+                              return (pointSource, { selection with value := pointSource })
+                            readPoint.runK { identities := owners.identities, context, selections }
+                                fun (pointSource, pointSelection) sourceScope => do
+                              let context := sourceScope.context
+                              let selections := sourceScope.selections
+                              let some origin := pointSelection.pointOrigin
+                                | throwError "the endpoint control lost its original numeral point map"
+                              let point ← kernel.run transaction context bound pointSource
+                                (selections := selections)
+                              let exact ← family.withRequest arrowSource origin.domain firstSource firstSource
+                                pointSelection (context := some context)
+                              selections.withBinding owners.identities context exact fun context selections exact => do
+                                let (_, invocation) ← prepare kernel transaction context callable point exact bound
+                                  (selections := selections)
+                                unless invocation.source.value == first.value && invocation.target.value == first.value &&
+                                    invocation.source.associationIds == first.associationIds &&
+                                    invocation.target.associationIds == first.associationIds do
+                                  throwError "the named point packet changed its original chosen endpoint"
+                                let changed ← family.withRequest arrowSource origin.domain otherSource firstSource
+                                  pointSelection (context := some context)
+                                selections.withBinding owners.identities context changed fun context selections changed => do
+                                  let failure : Option Exception ← try
+                                    discard <| prepare kernel transaction context callable point changed bound
+                                      (selections := selections)
+                                    pure none
+                                  catch error => pure (some error)
+                                  let some failure := failure
+                                    | throwError "the named point action accepted a different equal endpoint node"
+                                  unless failure.toMessageData.hasTag
+                                      (· == `CasRuntime.RuntimeEnvironment.sourceReferenceMismatch) do
+                                    throw failure
+                                  unless (← kernel.dispatches.get).isEmpty do
+                                    throwError "the original endpoint control dispatched a mathematical provider"
       finally discard <| transaction.abort
     finally kernel.close
   finally setEnv original
 
--- Framing remains the public parser's exact seven fields; it supplies no point interpretation.
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let packet : PointInvocation := {
     operation := "mor.groups.identity"
@@ -359,8 +456,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
         (Json.mkObj [("ctor", "apply"), ("args", .arr fields)])).isOk then
       throwError "the point decoder accepted an incomplete or unidentified request"
 
--- The public zero source lowers to its exact published operation demand. The
--- opaque original inputs carry no fields or answer; the observer returns no result.
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let nativeTerm : String → TermElabM Term := fun text => do
     let .ok source := Parser.runParserCategory (← getEnv) `term text
@@ -388,24 +485,39 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let point ← session.read (← sourceTerm "0 in M")
       point.source.withOpen fun bindings expression => do
         let context ← ContextTelescope.capture bindings
+        let selections ← point.selections.inContext context
         let program ← owners.identities.fresh .program
         let transaction ← CellTransaction.begin kernel.ledger
         try
-          let ringSource := bindings[0]!
-          let moduleSource := bindings[2]!
+          let some ringEntry := session.context.entries.find? (·.userName == `R)
+            | throwError "the nullary input lost its original ring declaration"
+          let some moduleEntry := session.context.entries.find? (·.userName == `M)
+            | throwError "the nullary input lost its original module declaration"
+          let some ringSource := bindings.find? (·.id == ringEntry.id)
+            | throwError "the nullary input lost its original ring binding"
+          let some moduleSource := bindings.find? (·.id == moduleEntry.id)
+            | throwError "the nullary input lost its original module binding"
+          let ringRole ← SourceLayout.ofTerm (← context.close ringSource.expression)
+          let ringRole := { ringRole with
+            selections := point.selections
+            selectionBinding := if selections.contains ringSource.id then some ringSource.id else none }
+          let moduleRole ← SourceLayout.ofTerm (← context.close moduleSource.expression)
+          let moduleRole := { moduleRole with
+            selections := point.selections
+            selectionBinding := if selections.contains moduleSource.id then some moduleSource.id else none }
           let ring ← transaction.stage
             { program, occurrence := ← kernel.ledger.allocate,
-              role := ← SourceLayout.ofTerm (← context.close ringSource.expression),
+              role := ringRole,
               parameters := Array.replicate bindings.size none }
             (.ownedExport connection "original nullary scalar" #[])
           let .ok parameter := RuntimeParameter.ofValue
               (← transaction.view) ringSource.id ring
             | throwError "the nullary runtime scalar is outside its original graph"
           let environment ← RuntimeEnvironment.capture owners.identities.worker
-            context #[parameter]
+            context #[parameter] (selections := selections)
           let moduleValue ← transaction.stage
             (← environment.origin program (← kernel.ledger.allocate)
-              (← SourceLayout.ofTerm (← context.close moduleSource.expression)))
+              moduleRole)
             (.ownedExport connection "original nullary module" #[ring])
           let observed ← IO.mkRef false
           let observe : PFunctor.Handler.Stateful MetaM CellTransaction
@@ -422,8 +534,8 @@ run_cmd Lean.Elab.Command.liftTermElabM do
             unless actualModule.value == moduleValue.value &&
                 moduleValue.associationIds.toList.isPrefixOf actualModule.associationIds.toList do
               throwError "the nullary operation changed its original module reference"
-            -- The empty source route applies its declared identity functor to M. Accept
-            -- only that one consuming application over the complete original references.
+
+
             let some identityCall := actualModule.applications.back?
               | throwError "the nullary module lost its declared identity application"
             unless actualModule.associationIds ==
@@ -473,9 +585,9 @@ run_cmd Lean.Elab.Command.liftTermElabM do
               |>.insert ringSource.id ring |>.insert moduleSource.id moduleValue
           let failure : Option Exception ← try
               discard <| lowerTerm {
-                ledger := kernel.ledger, transaction, codes := kernel.codes, marks := kernel.marks
+                ledger := kernel.ledger, transaction, codes := kernel.codes
                 run := fun computation => Execute.run observe computation transaction }
-                program context bound expression
+                program context bound expression (selections := selections)
               pure none
             catch error => pure (some error)
           let some failure := failure

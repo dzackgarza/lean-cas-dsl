@@ -1,17 +1,20 @@
 module
 
 import CasCompiler.Read
+import CasCompiler.SourceTestSupport
 import CasCompiler.Parse
 import LeanCategories.Catalogue
 public meta import Lean.Elab.Command
 meta import CasCompiler.Read
+meta import CasCompiler.SourceTestSupport
 meta import CasCompiler.Parse
 meta import LeanCategories.Catalogue
 
 open Lean Meta Elab Term CasCompiler
+open CasCompiler.SourceTest
 
-/- `let f(x, y) := e in D` is `let f := (x, y) ↦ e in D`: the public definition of a map with
-several parameters (tests/acceptance, statement form `casLetArgs`). -/
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
   let file ← SourceFile.parse "source-let-args.cas"
@@ -26,7 +29,10 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     session := next
     values := values.push value
   let #[direct, written] := values | throwError "two definitions were expected"
-  written.source.withOpen fun bindings expression => do
-    let expected ← direct.source.inContext (← ContextTelescope.capture bindings)
-    unless ← isDefEq expression expected do
-      throwError "`let f(x, y) := e` is not `let f := (x, y) ↦ e`: {expression}"
+  discard <| session.elaborateScoped Syntax.missing do
+    let expression ← session.readTerm written
+    let expected ← session.readTerm direct
+    checkOriginal #[expression, expected] fun native => do
+      unless ← isDefEq native[0]! native[1]! do
+        throwError "`let f(x, y) := e` is not `let f := (x, y) ↦ e`: {expression}"
+    return expression

@@ -56,18 +56,24 @@ private def withPeer (family : CategoricalPointFamily) (configuration : List (St
   finally kernel.close
 
 private def stageOriginal (kernel : Kernel) (transaction : CellTransaction)
-    (context : OpenContext) (source : Expr) (payload : ValuePayload) :
-    MetaM ValueBinding := do
-  transaction.stage {
-    program := ← kernel.ledger.owners.identities.fresh .program
-    occurrence := ← kernel.ledger.allocate
-    role := ← SourceLayout.ofTerm (← context.close source)
-    parameters := Array.replicate context.bindings.size none
-    sourceMarks := (← kernel.marks.get).mapIdx fun index value => (index, value) } payload
+    (context : OpenContext) (bound : Std.HashMap BindingId ValueBinding)
+    (source : Expr) (payload : ValuePayload)
+    (selections : SourceSelectionScope Expr := {}) : MetaM ValueBinding := do
+  let program ← kernel.ledger.owners.identities.fresh .program
+  let environment ← RuntimeEnvironment.captureBound program.worker context bound
+    (← transaction.view) (selections := selections)
+  let selectionBinding := match source with
+    | .fvar localId =>
+      (context.bindings.find? fun binding =>
+        binding.expression.fvarId! == localId && selections.contains binding.id).map (·.id)
+    | _ => none
+  let role ← SourceLayout.ofTerm (← context.close source)
+    (← selections.close context) selectionBinding
+  transaction.stage (← environment.origin program (← kernel.ledger.allocate) role) payload
 
--- The original List(Fin 0) object carries the independently supplied inventory [[]].
--- The peer returns that complete graph once and requires the actual unchanged
--- typedMap on later application. It never computes the list operation.
+
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let originalEnvironment ← getEnv
   try
@@ -78,76 +84,107 @@ run_cmd Lean.Elab.Command.liftTermElabM do
       let context ← ContextTelescope.capture #[]
       let transaction ← CellTransaction.begin kernel.ledger
       try
-        let receiverSource ← sourceNamedObjectAlias CategoryId.sets
-          (mkApp (mkConst ``Fin) (mkNatLit 0))
-        let receiverPacket := Json.mkObj [("ctor", "finiteData"),
-          ("args", .arr #[Json.mkObj [("ctor", "obj.sets.fin"), ("args", .arr #[toJson (0 : Nat)])],
-            .arr #[]])]
-        let receiver ← stageOriginal kernel transaction context receiverSource
-          (.portable receiverPacket.compress.toUTF8)
-        let selectedReceiver ← markValue kernel.marks receiver receiverSource
-        let levels := family.universeParams.map (fun _ => Level.zero)
-        let parameters := #[selectedReceiver]
-        let (arrowSource, bundle) ← family.arrowAt levels parameters
-        let (source, target) ← categoricalPointEndpoints arrowSource
-        unless ← isDefEq source target do
-          throwError "the original list reversal changed its native endpoints"
-        let endpointPacket := Json.mkObj [("ctor", "finiteData"),
-          ("args", .arr #[Json.mkObj [("ctor", "fun.sets.list"), ("args", .arr #[]),
-            ("receiver", receiverPacket)], .arr #[.arr #[]]])]
-        let endpoint ← stageOriginal kernel transaction context source
-          (.portable endpointPacket.compress.toUTF8)
-        let selectedEndpoint ← markValue kernel.marks endpoint source
-        let reference ← family.asReference
-        let referenceSource ← reference.mark levels parameters source
-          (← categoricalPointIdentity bundle source)
-        let arrow ← kernel.run transaction context {} referenceSource
-        unless (← kernel.dispatches.get).isEmpty do
-          throwError "forming the native component invoked a provider"
-        let selectedArrow ← markValue kernel.marks arrow referenceSource
-        let identitySource ← categoricalPointIdentity bundle selectedEndpoint
-        let identityPayload ← IO.ofExcept <| (ValuePayload.descriptor
-          (Json.mkObj [("ctor", "identity"), ("args", .arr #[.null, .null])]) #[
-            { path := #[.field "args", .index 0], binding := endpoint, fieldIndex := none },
-            { path := #[.field "args", .index 1], binding := endpoint, fieldIndex := none }]).mapError IO.userError
-        let identity ← stageOriginal kernel transaction context identitySource identityPayload
-        let selectedIdentity ← markValue kernel.marks identity identitySource
-        let whole ← family.asWhole
-        let originalPoint ← whole.withRequest levels parameters selectedArrow selectedEndpoint
-          selectedEndpoint selectedEndpoint selectedIdentity
-        let requested ← whole.mark levels parameters selectedEndpoint originalPoint
-        let result ← kernel.run transaction context {} requested
-        let graph ← transaction.view
-        let some resultNode := graph.find result.value
-          | throwError "the complete returned component lost its original result node"
-        let .container complete := resultNode.payload.data
-          | throwError "the complete typedMap result was reduced to its callable body"
-        unless complete.originalPacket.isSome do
-          throwError "the result lost its immutable original reply packet"
-        let .ok owners := graph.requiredOwners #[result]
-          | throwError "the complete returned component lost its owner closure"
-        unless owners.isEmpty do
-          throwError "the wholly inline component acquired a supplier owner"
-        let selectedResult ← markValue kernel.marks result requested
-        let value ← mkAppOptM ``List.nil #[some receiverSource]
-        let pointSource ← retainGlobalSourcePoint value
-        let point ← kernel.run transaction context {} pointSource
-        let retainedPoint ← markValue kernel.marks point pointSource
-        let function ← family.function levels parameters selectedResult
-        let output ← kernel.run transaction context {} (mkApp function retainedPoint)
-        unless output.value == point.value &&
-            point.associationIds.toList.isPrefixOf output.associationIds.toList do
-          throwError "the actual returned callable did not retain its original supplied point"
-        let dispatches ← kernel.dispatches.get
-        unless dispatches.size == 2 && dispatches.all (·.operation == family.operation) &&
-            dispatches[0]! == dispatches[1]! do
-          throwError "the returned component changed its original selected registration"
+        let receiverSelection ← sourceNamedObjectAlias CategoryId.sets
+          { value := mkApp (mkConst ``Fin) (mkNatLit 0) }
+        SourceSelectionScope.withBinding kernel.ledger.owners.identities {} context receiverSelection
+          fun context selections receiverSource => do
+            let receiverPacket := Json.mkObj [("ctor", "finiteData"),
+              ("args", .arr #[Json.mkObj [("ctor", "obj.sets.fin"), ("args", .arr #[toJson (0 : Nat)])],
+                .arr #[]])]
+            let receiver ← stageOriginal kernel transaction context {} receiverSource
+              (.portable receiverPacket.compress.toUTF8) selections
+            withBoundValue kernel.ledger.owners.identities context {} receiverSource receiver
+              fun context bound selectedReceiver => do
+                let levels := family.universeParams.map (fun _ => Level.zero)
+                let parameters := #[selectedReceiver]
+                let (arrowSource, bundle) ← family.arrowAt levels parameters
+                let (source, target) ← categoricalPointEndpoints arrowSource
+                unless ← isDefEq source target do
+                  throwError "the original list reversal changed its native endpoints"
+                let endpointPacket := Json.mkObj [("ctor", "finiteData"),
+                  ("args", .arr #[Json.mkObj [("ctor", "fun.sets.list"), ("args", .arr #[]),
+                    ("receiver", receiverPacket)], .arr #[.arr #[]]])]
+                let endpoint ← stageOriginal kernel transaction context bound source
+                  (.portable endpointPacket.compress.toUTF8) selections
+                withBoundValue kernel.ledger.owners.identities context bound source endpoint
+                  fun context bound selectedEndpoint => do
+                    let reference ← family.arrowSelection levels parameters
+                    selections.withBinding kernel.ledger.owners.identities context reference
+                      fun context selections referenceSource => do
+                        let arrow ← kernel.run transaction context bound referenceSource
+                          (selections := selections)
+                        unless (← kernel.dispatches.get).isEmpty do
+                          throwError "forming the native component invoked a provider"
+                        withBoundValue kernel.ledger.owners.identities context bound referenceSource arrow
+                          fun context bound selectedArrow => do
+                            let identitySource ← categoricalPointIdentity bundle selectedEndpoint
+                            let identityPayload ← IO.ofExcept <| (ValuePayload.descriptor
+                              (Json.mkObj [("ctor", "identity"), ("args", .arr #[.null, .null])]) #[
+                                { path := #[.field "args", .index 0], binding := endpoint, fieldIndex := none },
+                                { path := #[.field "args", .index 1], binding := endpoint, fieldIndex := none }]).mapError IO.userError
+                            let identity ← stageOriginal kernel transaction context bound identitySource
+                              identityPayload selections
+                            withBoundValue kernel.ledger.owners.identities context bound identitySource identity
+                              fun context bound selectedIdentity => do
+                                let whole ← family.asWhole
+                                let callable := whole.family.instantiateLevelParams whole.universeParams levels
+                                withApplicationInputs kernel.ledger.owners.identities context bound callable
+                                  (parameters ++ #[selectedEndpoint, selectedIdentity])
+                                  #[some receiver, some endpoint, some identity]
+                                  fun context bound inputs => do
+                                    let parameters := inputs.extract 0 whole.parameterCount
+                                    let domain := inputs[whole.parameterCount]!
+                                    let point := inputs[whole.parameterCount + 1]!
+                                    let originalPoint ← whole.withRequest levels parameters selectedArrow domain
+                                      selectedEndpoint selectedEndpoint point (some context)
+                                    let request ← whole.selected levels parameters domain originalPoint
+                                      (context := some context)
+                                    selections.withBinding kernel.ledger.owners.identities context request
+                                      fun context selections requested => do
+                                        let result ← kernel.run transaction context bound requested
+                                          (selections := selections)
+                                        let graph ← transaction.view
+                                        let some resultNode := graph.find result.value
+                                          | throwError "the complete returned component lost its original result node"
+                                        let .container complete := resultNode.payload.data
+                                          | throwError "the complete typedMap result was reduced to its callable body"
+                                        unless complete.originalPacket.isSome do
+                                          throwError "the result lost its immutable original reply packet"
+                                        let .ok owners := graph.requiredOwners #[result]
+                                          | throwError "the complete returned component lost its owner closure"
+                                        unless owners.isEmpty do
+                                          throwError "the wholly inline component acquired a supplier owner"
+                                        withBoundValue kernel.ledger.owners.identities context bound requested result
+                                          fun context bound selectedResult => do
+                                            let value ← mkAppOptM ``List.nil #[some receiverSource]
+                                            let build : SourceReadM Expr := do
+                                              let point ← retainGlobalSourcePoint
+                                                (fun selected => SourceReadM.select selected) { value }
+                                              SourceReadM.select point
+                                            build.runK ⟨kernel.ledger.owners.identities, context, selections⟩
+                                              fun pointSource scope => do
+                                                let context := scope.context
+                                                let selections := scope.selections
+                                                let point ← kernel.run transaction context bound pointSource
+                                                  (selections := selections)
+                                                withBoundValue kernel.ledger.owners.identities context bound pointSource point
+                                                  fun context bound retainedPoint => do
+                                                    let function ← family.function levels parameters selectedResult
+                                                    let output ← kernel.run transaction context bound (mkApp function retainedPoint)
+                                                      (selections := selections)
+                                                    unless output.value == point.value &&
+                                                        point.associationIds.toList.isPrefixOf output.associationIds.toList do
+                                                      throwError "the actual returned callable did not retain its original supplied point"
+                                                    let dispatches ← kernel.dispatches.get
+                                                    unless dispatches.size == 2 && dispatches.all (·.operation == family.operation) &&
+                                                        dispatches[0]! == dispatches[1]! do
+                                                      throwError "the returned component changed its original selected registration"
       finally discard <| transaction.abort
   finally setEnv originalEnvironment
 
 
--- Complete record results exercise the same seven-field invocation at every native
--- owner. Cartesian base projection must return the captured original base map.
+
+
 run_cmd Lean.Elab.Command.liftTermElabM do
   let originalEnvironment ← getEnv
   try
@@ -205,7 +242,7 @@ run_cmd Lean.Elab.Command.liftTermElabM do
                   parameterValues := parameterValues.push none
                   continue
                 let environment ← RuntimeEnvironment.capture kernel.ledger.owners.identities.worker
-                  context runtimeParameters #[] (some (← transaction.view))
+                  context runtimeParameters (some (← transaction.view))
                 let source ← SourceLayout.ofTerm (← context.close binding.expression)
                 let value ← transaction.stage
                   (← environment.origin program (← kernel.ledger.allocate) source)
@@ -219,54 +256,62 @@ run_cmd Lean.Elab.Command.liftTermElabM do
               let (nativeArrow, bundle) ← family.arrowAt levels parameters
               let (source, _) ← categoricalPointEndpoints nativeArrow
               let identity ← categoricalPointIdentity bundle source
-              let reference ← family.asReference
-              let delayed ← kernel.run transaction context bound
-                (← reference.mark levels parameters source identity)
-              unless (← kernel.dispatches.get).isEmpty do
-                throwError "forming a complete native arrow invoked a provider"
-              let graph ← transaction.view
-              let some delayedNode := graph.find delayed.value
-                | throwError "the native arrow formation lost its retained result"
-              unless ← isDefEq (← inferType (← delayedNode.origin.role.source.inContext context))
-                  (← inferType nativeArrow) do
-                throwError "native formation changed its complete original Hom interface"
-              if !available then return
-              let requested ← family.mark levels parameters source identity (whole := true)
-              let result ← kernel.run transaction context bound requested
-              let graph ← transaction.view
-              let some resultNode := graph.find result.value
-                | throwError "the complete categorical request has no actual result"
-              let .container packet := resultNode.payload.data
-                | throwError "the native whole Hom result lost its complete typedMap wrapper"
-              unless packet.originalPacket.isSome do
-                throwError "the native map lost its complete original reply packet"
-              let .ok required := graph.requiredOwners #[result]
-                | throwError "the complete record lost its actual owner closure"
-              let .ok inputOwners := graph.requiredOwners (parameterValues.filterMap id)
-                | throwError "the original categorical inputs lost their owners"
-              unless inputOwners.all required.contains && required.size > inputOwners.size do
-                throwError "the original inputs or returned native export lost their actual owners"
-              let dispatches ← kernel.dispatches.get
-              unless dispatches.size == 1 && dispatches[0]!.operation == family.operation do
-                throwError "the native categorical request dispatched another owner or operation"
-              if isCartesian then
-                let #[baseIndex] ← family.explicitParameters
-                  | throwError "the original cartesian declaration changed its base-map port"
-                let some originalBase := parameterValues[baseIndex]?.bind id
-                  | throwError "the original cartesian base map lost its binding"
-                let retained ← markValue kernel.marks result requested
-                let base ← mkAppM ``CategoryTheory.Pseudofunctor.CoGrothendieck.Hom.base #[retained]
-                let actualBase ← kernel.run transaction context bound base
-                unless actualBase.value == originalBase.value &&
-                    originalBase.associationIds.toList.isPrefixOf actualBase.associationIds.toList do
-                  throwError "the actual cartesian result replaced its original base map"
-                let observed ← IO.FS.readFile ((← IO.currentDir) /
-                  ".tmp/categorical-point-native-observations.jsonl")
-                let events ← (observed.splitOn "\n").filter (· != "") |>.toArray.mapM fun line => do
-                  IO.ofExcept <| (Json.parse line).mapError IO.userError
-                unless events.any (fun event =>
-                    ((event.getObjValAs? String "prepared_role").toOption.getD "").startsWith "project:") do
-                  throwError "the cartesian native continuation did not inspect its actual returned export"
+              let referenceFamily ← family.asReference
+              let reference ← referenceFamily.selected levels parameters source { value := identity }
+              SourceSelectionScope.withBinding kernel.ledger.owners.identities {} context reference
+                fun context selections delayedSource => do
+                  let delayed ← kernel.run transaction context bound delayedSource
+                    (selections := selections)
+                  unless (← kernel.dispatches.get).isEmpty do
+                    throwError "forming a complete native arrow invoked a provider"
+                  let graph ← transaction.view
+                  let some delayedNode := graph.find delayed.value
+                    | throwError "the native arrow formation lost its retained result"
+                  unless ← isDefEq (← inferType (← delayedNode.origin.role.source.inContext context))
+                      (← inferType nativeArrow) do
+                    throwError "native formation changed its complete original Hom interface"
+                  if !available then return
+                  let request ← family.selected levels parameters source { value := identity }
+                    (whole := true)
+                  selections.withBinding kernel.ledger.owners.identities context request
+                    fun context selections requested => do
+                      let result ← kernel.run transaction context bound requested
+                        (selections := selections)
+                      let graph ← transaction.view
+                      let some resultNode := graph.find result.value
+                        | throwError "the complete categorical request has no actual result"
+                      let .container packet := resultNode.payload.data
+                        | throwError "the native whole Hom result lost its complete typedMap wrapper"
+                      unless packet.originalPacket.isSome do
+                        throwError "the native map lost its complete original reply packet"
+                      let .ok required := graph.requiredOwners #[result]
+                        | throwError "the complete record lost its actual owner closure"
+                      let .ok inputOwners := graph.requiredOwners (parameterValues.filterMap id)
+                        | throwError "the original categorical inputs lost their owners"
+                      unless inputOwners.all required.contains && required.size > inputOwners.size do
+                        throwError "the original inputs or returned native export lost their actual owners"
+                      let dispatches ← kernel.dispatches.get
+                      unless dispatches.size == 1 && dispatches[0]!.operation == family.operation do
+                        throwError "the native categorical request dispatched another owner or operation"
+                      if isCartesian then
+                        let #[baseIndex] ← family.explicitParameters
+                          | throwError "the original cartesian declaration changed its base-map port"
+                        let some originalBase := parameterValues[baseIndex]?.bind id
+                          | throwError "the original cartesian base map lost its binding"
+                        withBoundValue kernel.ledger.owners.identities context bound requested result
+                          fun context bound retained => do
+                            let base ← mkAppM ``CategoryTheory.Pseudofunctor.CoGrothendieck.Hom.base #[retained]
+                            let actualBase ← kernel.run transaction context bound base (selections := selections)
+                            unless actualBase.value == originalBase.value &&
+                                originalBase.associationIds.toList.isPrefixOf actualBase.associationIds.toList do
+                              throwError "the actual cartesian result replaced its original base map"
+                            let observed ← IO.FS.readFile ((← IO.currentDir) /
+                              ".tmp/categorical-point-native-observations.jsonl")
+                            let events ← (observed.splitOn "\n").filter (· != "") |>.toArray.mapM fun line => do
+                              IO.ofExcept <| (Json.parse line).mapError IO.userError
+                            unless events.any (fun event =>
+                                ((event.getObjValAs? String "prepared_role").toOption.getD "").startsWith "project:") do
+                              throwError "the cartesian native continuation did not inspect its actual returned export"
             finally discard <| transaction.abort
         finally kernel.ledger.owners.close sourceOwner.generation
   finally setEnv originalEnvironment

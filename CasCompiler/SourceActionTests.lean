@@ -2,13 +2,15 @@ module
 
 import CasCompiler.Read
 import CasCompiler.Resolve
+import CasCompiler.SourceTestSupport
 import LeanCategories.Catalogue
 public meta import Lean.Elab.Command
 meta import CasCompiler.Read
 meta import CasCompiler.Resolve
+meta import CasCompiler.SourceTestSupport
 meta import LeanCategories.Catalogue
 
-open Lean Meta Elab Term CasCompiler CasCatalogue
+open Lean Meta Elab Term CasCompiler CasCatalogue CasCompiler.SourceTest
 
 private def nativeTerm (text : String) : TermElabM Term := do
   let .ok parsed := Parser.runParserCategory (← getEnv) `term text
@@ -44,18 +46,21 @@ run_cmd Lean.Elab.Command.liftTermElabM do
   let session ← session.assumeTerm `customMapCall mapCoercion .instImplicit
   for source in #["r • v", "r * v", "r v"] do
     let term ← session.read (← sourceTerm source)
-    term.source.withOpen fun bindings expression => do
-      let context ← ContextTelescope.capture bindings
-      let expected ← expected.source.inContext context
-      unless ← isDefEq expression expected do
-        throwError "a source action changed its actual ring, module or declared action"
-      unless expression.containsFVar bindings[4]!.expression.fvarId! &&
-          expression.containsFVar bindings[5]!.expression.fvarId! &&
-          !expression.containsFVar bindings[6]!.expression.fvarId! &&
-          !expression.containsFVar bindings[7]!.expression.fvarId! do
-        throwError "a source action lost its operands or used an unrelated local instance"
-      checkWithKernel
-        (← mkExpectedTypeHint (← mkEqRefl expression) (← mkEq expression expected))
+    checkSelected term fun expression => do
+      let scope ← get
+      let bindings ← authoredBindings
+      let expected ← expected.source.inContext scope.context
+      checkOriginal #[expression, expected, bindings[4]!.expression, bindings[5]!.expression,
+          bindings[6]!.expression, bindings[7]!.expression] fun native => do
+        unless ← isDefEq native[0]! native[1]! do
+          throwError "a source action changed its actual ring, module or declared action"
+        unless native[0]!.containsFVar native[2]!.fvarId! &&
+            native[0]!.containsFVar native[3]!.fvarId! &&
+            !native[0]!.containsFVar native[4]!.fvarId! &&
+            !native[0]!.containsFVar native[5]!.fvarId! do
+          throwError "a source action lost its operands or used an unrelated local instance"
+        checkWithKernel
+          (← mkExpectedTypeHint (← mkEqRefl native[0]!) (← mkEq native[0]! native[1]!))
 
 run_cmd Lean.Elab.Command.liftTermElabM do
   let identities ← liftM (m := IO) CasRuntime.IdentitySupply.new
@@ -72,28 +77,33 @@ run_cmd Lean.Elab.Command.liftTermElabM do
     "TypeCat.Fun.toFun (TypeCat.Hom.hom (CasCatalogue.Modules.Operations.scalarAction S M)) (TypeCat.Fun.toFun (TypeCat.Hom.hom (CasCatalogue.Algebra.NamedRings.ringNumeral S 2)) default, v)")
   for source in #["2 • v", "2 * v", "2 v"] do
     let term ← session.read (← sourceTerm source)
-    term.source.withOpen fun bindings expression => do
-      let context ← ContextTelescope.capture bindings
-      let expected ← expected.source.inContext context
-      unless expression.containsConst (· == ``CasCatalogue.Modules.Operations.scalarAction) &&
-          (← isDefEq expression expected) do
-        throwError "source action {source} changed its generic scalar or module role"
-      checkWithKernel
-        (← mkExpectedTypeHint (← mkEqRefl expression) (← mkEq expression expected))
+    checkSelected term fun expression => do
+      let scope ← get
+      let expected ← expected.source.inContext scope.context
+      checkOriginal #[expression, expected] fun native => do
+        unless native[0]!.containsConst (· == ``CasCatalogue.Modules.Operations.scalarAction) &&
+            (← isDefEq native[0]! native[1]!) do
+          throwError "source action {source} changed its generic scalar or module role"
+        checkWithKernel
+          (← mkExpectedTypeHint (← mkEqRefl native[0]!) (← mkEq native[0]! native[1]!))
 
-  -- The same original regular-module value admits two explicitly named operations:
-  -- its inherited monoid product and its selected scalar action. Juxtaposition must
-  -- retain both readings as an ambiguity; declaration order cannot choose one.
+
+
+
   for (source, operation) in #[
       ("v · v", "op.monoids.mul"), ("v • v", "op.modules.scalar_action")] do
     let term ← session.read (← sourceTerm source)
-    term.source.withOpen fun _ expression => do
-      unless (expression.find? fun expression => match expression with
-          | .mdata data _ => data.getName `CasCompiler.source.kind == ``OperationEntry &&
-              data.getString `CasCompiler.source.id == operation
-          | _ => false).isSome do
-        throwError "the explicit operation control changed its original selected family"
-      check expression
+    let #[entry] := (← semanticState).operations.filter (·.id.raw == operation)
+      | throwError "the explicit operation control lost its independent original row"
+    checkSelected term fun expression => do
+      let count ← visitNativeData (fun actual => do
+        let some selected ← SourceReadM.selection? actual | return false
+        return selected.reference.any (·.exactlyMatches (.operation entry))) expression
+      unless count > 0 do
+        liftM (m := TermElabM) <|
+          throwError "the explicit operation control changed its original selected family"
+      checkOriginal #[expression] fun native => check native[0]!
+
   let failure : Option Exception ← withoutModifyingState do
     try
       discard <| session.read (← sourceTerm "v v")
