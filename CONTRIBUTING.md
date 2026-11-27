@@ -46,7 +46,7 @@ row. A question that none of them settles is a gap of the specification: it goes
 
 **SPEC003 — a task names its check.** A task written as a list of obligations ("retain each
 mandatory datum's source boundary …") with requirement traces and no observable test => one
-mechanism, its files, one check (`just loop "<test module>" [acceptance files]` within 300 s,
+mechanism, its files, one check (`just loop "<test module>"` within 300 s,
 with a protocol peer or an empty manifest), the reason that the check fails at the tip, its inputs
 and its trace. An obligation with no check goes into the task whose check covers it.
 
@@ -60,15 +60,18 @@ and lifting tasks, so that every run fails on a defect that another task owns =>
 only the mechanism that the task changes and mechanisms that work at the tip or that earlier tasks
 deliver: a small test module, a fixture module with a protocol peer, or a statement whose whole
 route needs nothing from a later task. When the check needs a later mechanism, move the task after
-the task that delivers it, or choose another statement.
+the task that delivers it, or choose another statement. A check names test modules and statements;
+a whole acceptance file is the check of its milestone. A test module that fails at the tip for
+another reason, or whose run takes the loop over its bound, is not a module of a check.
 
-**SPEC005 — a task stops when its check passes.** A task whose record shows a 154 s phase, and
-whose worker then optimizes the serializer and repairs lifting, lambda and heartbeat defects of
-later tasks => the task is done when its named check passes. A slow phase or a defect outside the
-check is a row for its owning task (a slow phase in the timing triage table of `timing/README.md`,
-a defect in the checklist of #92) and is not repaired in this task. Slowness that stops a required
-check from finishing is its own task, placed before that check. A review finding outside the check
-goes to its owning task.
+**SPEC005 — a task stops when its check passes.** A worker who does M0 work (the optimization of
+the serializer behind a 504 s statement) under the name of T112, and then repairs lifting, lambda
+and heartbeat defects of later tasks => the task is done when its named check passes. A defect
+outside the check is a row for its owning task in the checklist of #92, and a review finding
+outside the check goes to its owning task; neither is repaired in this task. Slowness that takes
+the loop over its bound is the contingency task of its cost area (LOOP006). Slowness that keeps the
+loop within the bound is a row for the final performance work in the timing triage table of
+`timing/README.md`.
 
 ## Feedback loops
 
@@ -136,10 +139,10 @@ definitions and assertions; current costs come from the timing records.
 one milestone after a batch, with the reason recorded; each commit message of the batch names the
 short loop that checked it and says that the aggregates were not rerun.
 
-**LOOP003 — a slow test is a defect with a row, not a habit.** An over-limit
-`CasRuntime.SessionLiftTests` in every iteration => a row in `timing/README.md` with its
-measured cost and remedy; until the remedy, use the milestone or an explicit `just slow` run.
-Keep the complete original consumer when measuring its cost.
+**LOOP003 — a slow test module is not the loop of a change.** An over-limit
+`CasRuntime.SessionLiftTests` in every iteration => a new test module with the cases of the changed
+mechanism as the loop of the change (LOOP001). A loop of the active task that stays over its bound
+is LOOP006. Keep the complete original consumer when measuring its cost.
 
 **LOOP004 — one run at a time, and no run left behind.** A second build started while one runs,
 or a stopped caller whose build continues in the container => `just stop`, then one `just loop`.
@@ -148,6 +151,14 @@ or a stopped caller whose build continues in the container => `just stop`, then 
 imports, or a cached test target standing in for fresh execution => `just loop` on the actual
 module, which rebuilds its dependencies and executes its source. A skipped consumer or failed
 parent build cannot leave an earlier acceptance report as the current result.
+
+**LOOP006 — a loop over the bound is M0 work of its cost area.** An optimization inside the name
+of a functional task, or a loop over the bound left as a recorded row => the contingency task of the
+cost area of the largest row of the triage table (task list, "Loop contingency tasks (M0)"; plan,
+"M0 loop"), measured first and done first by the procedure of
+[`specs/feedback-loop-performance.md`](specs/feedback-loop-performance.md), with the trigger,
+first step and done condition that it states; then the worker returns to the active task, with its
+public consumer, inputs and expectations unchanged.
 
 After a focused change, rebuild its affected public consumer and exercise the same mathematical
 input and continuation. Protocol peers check framing, dispatch, retained values and lifecycle;

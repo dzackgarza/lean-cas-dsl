@@ -768,7 +768,7 @@ All three are mandatory and none discharges another. C21 changes their implement
 | FR-033–FR-036 | US1/US2/US7 complete public execution, inspection and lifetime | SC-001–SC-004, SC-009, SC-011–SC-012 |
 | FR-037–FR-038 | US8 actual discovery, selected data, one-emission display/provenance | SC-010 |
 | FR-039–FR-040 | Same complete delivery, preserved input/provenance and final original budgets | SC-012; #24 F and existing #19/#84 scope |
-| FR-041 | US9 actual changed-owner build and unchanged public consumer; physical dependency locality | SC-013; #84/T114, continued during #92/#93 |
+| FR-041 | US9 actual changed-owner build and unchanged public consumer; physical dependency locality | SC-013; #84/T114, continued during #92/#93 by T354 and the loop contingency tasks T355–T361 |
 | FR-042 | US10 category implementations in structural order, each with its computed attainment | SC-015, SC-017 (#93 for M2; #22 for M4) |
 | FR-043 | US9 timing records, test-run logs, application logs; construction that computes nothing undemanded | SC-016; T112, T127 |
 | FR-044–FR-052 | US11: full B0 questions, two reports, K3 and K14 admission, public-only realizations | SC-018, SC-019, SC-009; #19, #22 |
