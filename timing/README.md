@@ -998,3 +998,14 @@ shadowing constraints are retained in builtin-artifact-api-audit.json.
 No source import or private artifact is removed on the basis of mapping size.
 
 The [task list](../specs/001-categorical-research-language/tasks.md#phase-0--fast-edit-to-result-feedback) defines the current T300 timing input and the KM0 milestone controls.
+
+## T300 focused runner check and KM0 extension observation, 2026-11-27
+
+The focused command ran the peer-dispatch and changed-extension controls in the Sage container. Both passed. The public command took 262.57 s including startup (256.463 s inside unittest). The fixture checkouts retain the inputs and probe logs.
+
+| Control | Fixture evidence directory under `timing/logs/feedback-tests/` | SHA256 of `public-loop.log` |
+| --- | --- | --- |
+| Peer dispatch and unread form | `acceptance-kernel-4n425l65` | `a7e3c2ff8d491ed4c374c83394c921830784a75ceb9b8029b093cca595fec2cb` |
+| Changed extension | `changed-extension-fl0tw0cs` | `72b1286e263d9d6c0a9ebed68a971e697849e11ef2ea118bc0b5f2a38b0002f7` |
+
+At clean kernel revision `322724d`, the KM0 extension observation passed in 104.72 s including startup. Run `20261127T085652Z-slow.c4O67m` produced all five statement rows for the unchanged RX09 input. The file returned status 1, consistent with the failed statements in its report. The control checked their reporting, source identity and admission status. KM16 owns the mathematical outcomes.
