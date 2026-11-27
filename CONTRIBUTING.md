@@ -144,6 +144,25 @@ latest-main dependencies at delivery. Those explicit delivery checks are unchang
 The separate Custodian seal workflow retains its latest-main source-provenance
 record and leaf scan; it does not certify the candidate's build tuple or acceptance.
 
+The native aggregate CI jobs also prepare the independent non-Lean leaf input from
+`dzackgarza/lean-cas-dsl-leaves` at `main`, preserving the default `ci_chain.py`
+source selection. Their checkout logs record the exact resolved commit. For a local
+aggregate requiring this input, prepare it explicitly from the repository root,
+outside the ordinary loop, and retain the printed commit and manifest hash:
+
+```sh
+python3 - <<'PY'
+from pathlib import Path
+from subprocess import run
+from scripts.ci_chain import sync_repository
+leaves = Path(".lake/packages/cas_leaves")
+leaves.parent.mkdir(parents=True, exist_ok=True)
+sync_repository(leaves, "https://github.com/dzackgarza/lean-cas-dsl-leaves")
+run(["git", "-C", str(leaves), "rev-parse", "HEAD"], check=True)
+run(["sha256sum", str(leaves / "leaves.json")], check=True)
+PY
+```
+
 `scripts/feedback.sh` runs from the host or inside the research container. For a named local
 module, the focused command builds its `+Module:deps` and then uses `lake lean` to execute the
 actual source afresh. An explicit `+Module:facet` selects an artifact build and requires a

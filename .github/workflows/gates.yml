@@ -31,6 +31,13 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Prepare the committed dependency revisions
         run: python3 scripts/ci_chain.py --manifest-revisions
+      - name: Prepare the installed non-Lean leaf input
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: dzackgarza/lean-cas-dsl-leaves
+          ref: main
+          path: .lake/packages/cas_leaves
+          persist-credentials: 'false'
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
       - uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596
         with:
@@ -53,6 +60,13 @@ jobs:
           fetch-depth: 0
       - name: Prepare the committed dependency revisions
         run: python3 scripts/ci_chain.py --manifest-revisions
+      - name: Prepare the installed non-Lean leaf input
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: dzackgarza/lean-cas-dsl-leaves
+          ref: main
+          path: .lake/packages/cas_leaves
+          persist-credentials: 'false'
       - name: Clone QC infrastructure
         run: git clone --depth 1 https://github.com/dzackgarza/ai-review-ci.git "$HOME/ai-review-ci"
       - name: Install ripgrep
