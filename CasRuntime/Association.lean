@@ -158,6 +158,10 @@ private partial def associateCheckedResult (request : PreparedRequest) (supply :
       if let some index := prepared.field.wireIndex then
         let actual ← IO.ofExcept <|
           (draft.view.project candidate.root index).mapError IO.userError
+        let parameters := prepared.layout.source.context.entries.map fun entry =>
+          request.environment.bound[entry.id]?
+        let actual ← IO.ofExcept <|
+          (draft.view.rebind actual prepared.layout (some parameters)).mapError IO.userError
         let candidate ← IO.ofExcept <|
           (CandidateResponse.ofValue prepared.layout draft.view actual).mapError IO.userError
         let (nextDraft, binding) ← associateCheckedResult request supply prepared.layout draft
